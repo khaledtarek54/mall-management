@@ -1,0 +1,47 @@
+{
+  "cookies": [
+    {
+      "name": "XSRF-TOKEN",
+      "value": "eyJpdiI6IlUyeWFEN0F4U05LRmgyV3RjQlZXd1E9PSIsInZhbHVlIjoiUVU2WTBpWnd5YWpOVnFrenVOWlpXbEZkNjF4dFExaktkTVo2T1lJS0U1by92dURhcXEzdy9JSlEzR202U2habzV1Tm9CeitPU01peE81Y2ZwUFBKckV6ekFDaU5TQnF5MVBqSEh5TlUycmpMOGxFYTVRcG1lb2E2OG9NL2lWYmUiLCJtYWMiOiI5OTY4YzYyZTI0M2FmN2EyM2JiNmJjNjQzNDY4Y2NjYmIxMDU5MjEzZDk0YzAwZWE1YWE1ZDZiYzhmZDA3MjNjIiwidGFnIjoiIn0%3D",
+      "domain": "mall-management.test",
+      "path": "/",
+      "expires": 1778775802.95133,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "mall-management-session",
+      "value": "eyJpdiI6IjVYM1dGS0tkUGlxeVV4cWR4MVdUblE9PSIsInZhbHVlIjoiZTlYVnBWcEQ0MVNRUkRWWUF6WjQ4VENrRW5kMGlRUEZWTFYvTjFueFNkZ0ZMUmhLVnRjTnpIOThZaDRSTUV0TWhKSUkrRmN3K2tLYWtLVGJmbFJSdFNXeUMrOGNWMFQ5bklSTmhyMTFsWmRScmsrWGxnVmwwcFA3VitGQWlOaUEiLCJtYWMiOiIzMjhlYWZjMzE0YmZiMGMzY2QyODQwYjVlODBhYWUyNjIzNTRjZWM4OGYwNzE3MzRlMjIwZWYxMjA4ZjZhNmQ4IiwidGFnIjoiIn0%3D",
+      "domain": "mall-management.test",
+      "path": "/",
+      "expires": 1778775802.951367,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "http://mall-management.test",
+      "localStorage": [
+        {
+          "name": "theme",
+          "value": "system"
+        },
+        {
+          "name": "isOpenDesktop",
+          "value": "true"
+        },
+        {
+          "name": "isOpen",
+          "value": "true"
+        },
+        {
+          "name": "collapsedGroups",
+          "value": "[]"
+        }
+      ]
+    }
+  ]
+}

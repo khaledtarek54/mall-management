@@ -1,0 +1,280 @@
+@php $isRtl = app()->getLocale() === 'ar'; @endphp
+<!DOCTYPE html>
+<html lang="{{ app()->getLocale() }}" dir="{{ $isRtl ? 'rtl' : 'ltr' }}">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ __('admin.statement.title') }} {{ $tenant->name }}</title>
+    <style>
+        @page { margin: 32px 36px; }
+        * { box-sizing: border-box; }
+        body {
+            color: #1A1A1A;
+            font-size: 10pt;
+            line-height: 1.5;
+            margin: 0;
+        }
+        .header {
+            border-bottom: 2px solid #C9A961;
+            padding-bottom: 14px;
+            margin-bottom: 20px;
+        }
+        .header table { width: 100%; border-collapse: collapse; }
+        .brand-name {
+            font-size: 20pt;
+            font-weight: bold;
+            color: #1A1A1A;
+            letter-spacing: {{ $isRtl ? '0' : '0.5px' }};
+        }
+        .brand-sub { color: #8C8478; font-size: 9pt; }
+        .doc-title {
+            font-size: 16pt;
+            color: #C9A961;
+            text-align: {{ $isRtl ? 'left' : 'right' }};
+            letter-spacing: {{ $isRtl ? '0' : '3px' }};
+            text-transform: {{ $isRtl ? 'none' : 'uppercase' }};
+        }
+        .doc-meta { text-align: {{ $isRtl ? 'left' : 'right' }}; font-size: 9pt; color: #6B6660; margin-top: 4px; }
+        .doc-meta strong { color: #1A1A1A; }
+
+        .label {
+            font-size: 8pt;
+            color: #8C8478;
+            letter-spacing: {{ $isRtl ? '0' : '1.5px' }};
+            text-transform: {{ $isRtl ? 'none' : 'uppercase' }};
+            margin-bottom: 4px;
+        }
+        .party-name { font-weight: bold; font-size: 11pt; margin-bottom: 2px; }
+        .party-line { color: #4A4A4A; font-size: 9.5pt; }
+
+        .summary {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            background: #F5F1EA;
+            border-left: {{ $isRtl ? '0 none' : '3px solid #C9A961' }};
+            border-right: {{ $isRtl ? '3px solid #C9A961' : '0 none' }};
+        }
+        .summary td {
+            padding: 10px 14px;
+            width: 25%;
+            border-left: {{ $isRtl ? '1px solid rgba(201,169,97,0.2)' : '0 none' }};
+            border-right: {{ $isRtl ? '0 none' : '1px solid rgba(201,169,97,0.2)' }};
+        }
+        .summary td:last-child { border-left: 0 none; border-right: 0 none; }
+        .summary .stat-label {
+            font-size: 8pt;
+            color: #8C8478;
+            letter-spacing: {{ $isRtl ? '0' : '1px' }};
+            text-transform: {{ $isRtl ? 'none' : 'uppercase' }};
+        }
+        .summary .stat-value { font-size: 14pt; font-weight: bold; color: #1A1A1A; margin-top: 4px; }
+        .summary .stat-value.warn { color: #B85C38; }
+
+        .section-title {
+            font-size: 11pt;
+            font-weight: bold;
+            color: #1A1A1A;
+            margin: 18px 0 8px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid #C9A961;
+            letter-spacing: {{ $isRtl ? '0' : '1px' }};
+            text-transform: {{ $isRtl ? 'none' : 'uppercase' }};
+        }
+
+        table.data { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+        table.data thead th {
+            background: #1A1A1A;
+            color: #F5F1EA;
+            text-align: {{ $isRtl ? 'right' : 'left' }};
+            padding: 8px 10px;
+            font-size: 8.5pt;
+            text-transform: {{ $isRtl ? 'none' : 'uppercase' }};
+            letter-spacing: {{ $isRtl ? '0' : '1px' }};
+            font-weight: normal;
+        }
+        table.data thead th.num { text-align: {{ $isRtl ? 'left' : 'right' }}; }
+        table.data tbody td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #E5E0D5;
+            vertical-align: top;
+            font-size: 9.5pt;
+        }
+        table.data tbody td.num { text-align: {{ $isRtl ? 'left' : 'right' }}; }
+        table.data tbody td.muted { color: #8C8478; }
+        table.data tfoot td {
+            padding: 8px 10px;
+            font-weight: bold;
+            border-top: 2px solid #1A1A1A;
+            background: #FAFAF8;
+        }
+        table.data tfoot td.num { text-align: {{ $isRtl ? 'left' : 'right' }}; }
+
+        .status-pill {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 8px;
+            font-size: 7.5pt;
+            text-transform: {{ $isRtl ? 'none' : 'uppercase' }};
+            letter-spacing: {{ $isRtl ? '0' : '0.5px' }};
+        }
+        .status-paid { background: #E5F2E8; color: #2D6B3F; }
+        .status-issued { background: #E8EFF7; color: #1F4F8C; }
+        .status-partially_paid { background: #FBF1DC; color: #9A6F1B; }
+        .status-overdue { background: #F7E0DC; color: #9A2B1B; }
+
+        .empty { color: #8C8478; font-size: 9.5pt; text-align: center; padding: 14px; font-style: italic; }
+
+        .footer {
+            border-top: 1px solid #E5E0D5;
+            padding-top: 8px;
+            margin-top: 18px;
+            font-size: 8pt;
+            color: #8C8478;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <table>
+            <tr>
+                <td style="width:60%;">
+                    <div class="brand-name">{{ $asset?->name ?? 'Mall Management' }}</div>
+                    <div class="brand-sub">
+                        @if($asset?->address){{ $asset->address }}@endif
+                        @if($asset?->city), {{ $asset->city }}@endif
+                    </div>
+                </td>
+                <td style="width:40%;">
+                    <div class="doc-title">{{ __('admin.statement.title') }}</div>
+                    <div class="doc-meta">
+                        <div>{{ __('admin.statement.as_of') }}: <strong>{{ $asOf->format('d/m/Y') }}</strong></div>
+                        <div>{{ __('admin.statement.period_label') }}: {{ $since->format('d/m/Y') }} – {{ $asOf->format('d/m/Y') }}</div>
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+        <tr>
+            <td style="width:50%;vertical-align:top;">
+                <div class="label">{{ __('admin.statement.tenant') }}</div>
+                <div class="party-name">{{ $tenant->name }}</div>
+                @if($tenant->legal_name && $tenant->legal_name !== $tenant->name)
+                    <div class="party-line">{{ $tenant->legal_name }}</div>
+                @endif
+                @if($tenant->tax_id)<div class="party-line">{{ __('admin.pdf.tax_id') }}: {{ $tenant->tax_id }}</div>@endif
+                @if($tenant->email)<div class="party-line">{{ $tenant->email }}</div>@endif
+                @if($tenant->phone)<div class="party-line">{{ $tenant->phone }}</div>@endif
+            </td>
+            <td style="width:50%;vertical-align:top;">
+                <div class="label">{{ __('admin.statement.leases') }}</div>
+                @forelse($tenant->leases->where('status', 'active') as $lease)
+                    <div class="party-line">
+                        <strong>{{ $lease->reference }}</strong> ·
+                        {{ __('admin.pdf.unit') }} {{ $lease->unit?->code ?? '—' }} ·
+                        {{ $lease->commencement_date->format('d/m/Y') }} – {{ $lease->expiry_date->format('d/m/Y') }}
+                    </div>
+                @empty
+                    <div class="party-line muted">—</div>
+                @endforelse
+            </td>
+        </tr>
+    </table>
+
+    <table class="summary">
+        <tr>
+            <td>
+                <div class="stat-label">{{ __('admin.statement.outstanding') }}</div>
+                <div class="stat-value {{ $summary['outstanding'] > 0 ? 'warn' : '' }}">EGP {{ number_format($summary['outstanding'], 2) }}</div>
+            </td>
+            <td>
+                <div class="stat-label">{{ __('admin.statement.overdue') }}</div>
+                <div class="stat-value {{ $summary['overdue'] > 0 ? 'warn' : '' }}">EGP {{ number_format($summary['overdue'], 2) }}</div>
+            </td>
+            <td>
+                <div class="stat-label">{{ __('admin.statement.total_billed') }}</div>
+                <div class="stat-value">EGP {{ number_format($summary['total_billed'], 2) }}</div>
+            </td>
+            <td>
+                <div class="stat-label">{{ __('admin.statement.total_paid') }}</div>
+                <div class="stat-value">EGP {{ number_format($summary['total_paid'], 2) }}</div>
+            </td>
+        </tr>
+    </table>
+
+    <div class="section-title">{{ __('admin.statement.open_invoices') }} ({{ $summary['open_count'] }})</div>
+    @if($openInvoices->isEmpty())
+        <div class="empty">{{ __('admin.statement.no_open_invoices') }}</div>
+    @else
+        <table class="data">
+            <thead>
+                <tr>
+                    <th style="width:20%;">{{ __('admin.tables.invoice.number') }}</th>
+                    <th style="width:18%;">{{ __('admin.tables.invoice.period') }}</th>
+                    <th style="width:14%;">{{ __('admin.tables.invoice.due_date') }}</th>
+                    <th class="num" style="width:14%;">{{ __('admin.tables.invoice.total') }}</th>
+                    <th class="num" style="width:12%;">{{ __('admin.tables.invoice.paid') }}</th>
+                    <th class="num" style="width:14%;">{{ __('admin.tables.invoice.balance') }}</th>
+                    <th style="width:8%;">{{ __('admin.tables.common.status') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($openInvoices as $inv)
+                    <tr>
+                        <td style="font-family:monospace;font-size:8.5pt;">{{ $inv->number }}</td>
+                        <td>{{ $inv->period_start?->locale(app()->getLocale())->isoFormat('MMM YYYY') }}</td>
+                        <td>{{ $inv->due_date->format('d/m/Y') }}</td>
+                        <td class="num">{{ number_format((float) $inv->total, 2) }}</td>
+                        <td class="num">{{ number_format((float) $inv->paid_amount, 2) }}</td>
+                        <td class="num" style="font-weight:bold;color:{{ $inv->balance > 0 ? '#B85C38' : '#2D6B3F' }};">{{ number_format((float) $inv->balance, 2) }}</td>
+                        <td><span class="status-pill status-{{ $inv->status }}">{{ __("admin.statuses.invoice.{$inv->status}") }}</span></td>
+                    </tr>
+                @endforeach
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="5" class="num">{{ __('admin.statement.total_outstanding') }}</td>
+                    <td class="num" style="color:#B85C38;">EGP {{ number_format((float) $openInvoices->sum('balance'), 2) }}</td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+    @endif
+
+    <div class="section-title">{{ __('admin.statement.recent_payments') }} ({{ $payments->count() }})</div>
+    @if($payments->isEmpty())
+        <div class="empty">{{ __('admin.statement.no_recent_payments') }}</div>
+    @else
+        <table class="data">
+            <thead>
+                <tr>
+                    <th style="width:18%;">{{ __('admin.tables.payment.reference') }}</th>
+                    <th style="width:18%;">{{ __('admin.tables.payment.date') }}</th>
+                    <th style="width:18%;">{{ __('admin.tables.payment.method') }}</th>
+                    <th class="num" style="width:18%;">{{ __('admin.tables.payment.amount') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($payments as $p)
+                    <tr>
+                        <td style="font-family:monospace;font-size:8.5pt;">{{ $p->reference }}</td>
+                        <td>{{ $p->payment_date->format('d/m/Y') }}</td>
+                        <td>{{ __("admin.enums.method.{$p->method}") }}</td>
+                        <td class="num" style="color:#2D6B3F;font-weight:bold;">{{ number_format((float) $p->amount, 2) }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="3" class="num">{{ __('admin.statement.total_received') }}</td>
+                    <td class="num" style="color:#2D6B3F;">EGP {{ number_format((float) $payments->sum('amount'), 2) }}</td>
+                </tr>
+            </tfoot>
+        </table>
+    @endif
+
+    <div class="footer">{{ __('admin.statement.footer', ['slug' => str()->slug($asset?->name ?? 'mall')]) }}</div>
+</body>
+</html>

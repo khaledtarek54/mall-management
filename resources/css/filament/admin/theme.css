@@ -1,0 +1,175 @@
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
+
+@source '../../../../app/Filament/Admin/**/*';
+@source '../../../../resources/views/filament/admin/**/*';
+
+/* ============================================
+   Jawad Brand Theme — Mall Management
+   Premium minimalist — charcoal + cream + gold
+   ============================================ */
+
+:root {
+    --jawad-charcoal: #1A1A1A;
+    --jawad-cream: #F5F1EA;
+    --jawad-gold: #C9A961;
+    --jawad-terracotta: #B85C38;
+    --jawad-warm-gray: #8C8478;
+}
+
+.fi-body {
+    background-color: var(--jawad-cream);
+}
+
+.fi-sidebar {
+    background-color: white;
+    border-right: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.fi-topbar {
+    background-color: white;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    backdrop-filter: blur(8px);
+}
+
+.fi-sidebar-nav-item .fi-sidebar-item-button {
+    border-radius: 0.5rem;
+    transition: all 0.15s ease;
+}
+
+.fi-sidebar-nav-item .fi-sidebar-item-button.fi-active {
+    background-color: rgba(201, 169, 97, 0.12);
+    color: var(--jawad-charcoal);
+    font-weight: 600;
+}
+
+.fi-wi-stats-overview-stat {
+    border-radius: 0.75rem;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.fi-wi-stats-overview-stat:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.fi-wi-stats-overview-stat-value {
+    font-feature-settings: "tnum";
+    letter-spacing: -0.02em;
+    font-size: 1.75rem;
+}
+
+.fi-wi-stats-overview-stat-description {
+    font-size: 0.78rem;
+    color: rgba(140, 132, 120, 0.95);
+}
+
+.fi-wi-chart {
+    border-radius: 0.75rem;
+}
+
+/* Force exact canvas heights for paired half-width charts so cards match */
+.fi-wi-chart canvas[style*="max-height: 260px"] {
+    height: 260px !important;
+}
+
+.fi-wi-chart .fi-wi-chart-canvas-ctn-no-aspect-ratio:has(canvas[style*="max-height: 260px"]) {
+    height: 260px;
+}
+
+.fi-section-header-heading {
+    letter-spacing: -0.01em;
+}
+
+.dark .fi-wi-stats-overview-stat {
+    border-color: rgba(255, 255, 255, 0.06);
+    background-color: rgba(35, 35, 35, 0.6);
+}
+
+.dark .fi-wi-stats-overview-stat:hover {
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+}
+
+.fi-ta-table {
+    border-radius: 0.75rem;
+    overflow: hidden;
+}
+
+.fi-ta-header-cell {
+    background-color: #FAFAF8;
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    color: #6B6660;
+}
+
+.dark .fi-ta-header-cell {
+    background-color: #232323;
+    color: rgba(255, 255, 255, 0.6);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.fi-btn-color-primary {
+    background-color: var(--jawad-charcoal);
+    color: white;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+}
+
+.fi-btn-color-primary:hover {
+    background-color: #2a2a2a;
+}
+
+.fi-input,
+.fi-select-input {
+    border-radius: 0.5rem;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.fi-input:focus,
+.fi-select-input:focus {
+    border-color: var(--jawad-gold);
+    box-shadow: 0 0 0 3px rgba(201, 169, 97, 0.15);
+}
+
+.fi-simple-layout {
+    background: linear-gradient(135deg, var(--jawad-cream) 0%, #EAE0CC 100%);
+}
+
+.fi-simple-main {
+    border-radius: 1rem;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08);
+}
+
+body {
+    font-feature-settings: "ss01", "cv01", "tnum";
+}
+
+.fi-header-heading {
+    letter-spacing: -0.02em;
+    font-weight: 600;
+}
+
+.fi-badge {
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    border-radius: 0.375rem;
+}
+
+[dir="rtl"] body {
+    font-family: 'Cairo', 'Inter', sans-serif;
+}
+
+.dark .fi-body {
+    background-color: var(--jawad-charcoal);
+}
+
+.dark .fi-sidebar,
+.dark .fi-topbar {
+    background-color: #232323;
+    border-color: rgba(255, 255, 255, 0.06);
+}

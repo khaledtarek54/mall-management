@@ -1,0 +1,236 @@
+<?php
+
+namespace App\Filament\Admin\Resources\Invoices\Tables;
+
+use App\Filament\Admin\Resources\Invoices\InvoiceResource;
+use App\Filament\Exports\InvoiceExporter;
+use App\Models\Invoice;
+use App\Models\Unit;
+use App\Services\InvoicePdfService;
+use App\Services\MonthlyBillingService;
+use Filament\Actions\Action;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
+use Filament\Actions\ExportAction;
+use Filament\Actions\ExportBulkAction;
+use Filament\Actions\ForceDeleteBulkAction;
+use Filament\Actions\RestoreBulkAction;
+use Filament\Forms\Components\DatePicker;
+use Filament\Notifications\Notification;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+
+class InvoicesTable
+{
+    public static function configure(Table $table): Table
+    {
+        return $table
+            ->modifyQueryUsing(fn ($query) => $query->with(['tenant', 'lease.unit']))
+            ->columns([
+                TextColumn::make('number')
+                    ->label(__('admin.tables.invoice.number'))
+                    ->searchable()
+                    ->copyable()
+                    ->fontFamily('mono')
+                    ->size('xs'),
+                TextColumn::make('tenant.name')
+                    ->label(__('admin.tables.invoice.tenant'))
+                    ->searchable()
+                    ->weight('bold'),
+                TextColumn::make('lease.unit.code')
+                    ->label(__('admin.tables.invoice.unit'))
+                    ->badge()
+                    ->color('gray'),
+                TextColumn::make('period_start')
+                    ->label(__('admin.tables.invoice.period'))
+                    ->formatStateUsing(fn ($record) => $record->period_start?->locale(app()->getLocale())->isoFormat('MMM YYYY') ?? '—'),
+                TextColumn::make('total')
+                    ->label(__('admin.tables.invoice.total'))
+                    ->money('EGP')
+                    ->sortable()
+                    ->alignRight(),
+                TextColumn::make('paid_amount')
+                    ->label(__('admin.tables.invoice.paid'))
+                    ->money('EGP')
+                    ->sortable()
+                    ->color('success')
+                    ->alignRight(),
+                TextColumn::make('balance')
+                    ->label(__('admin.tables.invoice.balance'))
+                    ->money('EGP')
+                    ->sortable()
+                    ->color(fn ($state) => $state > 0 ? 'danger' : 'success')
+                    ->weight('bold')
+                    ->alignRight(),
+                TextColumn::make('due_date')
+                    ->label(__('admin.tables.invoice.due_date'))
+                    ->date('d/m/Y')
+                    ->sortable()
+                    ->color(function ($record) {
+                        if (in_array($record->status, ['paid', 'cancelled'])) {
+                            return null;
+                        }
+                        return $record->due_date?->isPast() ? 'danger' : null;
+                    }),
+                TextColumn::make('status')
+                    ->label(__('admin.tables.common.status'))
+                    ->badge()
+                    ->formatStateUsing(fn (string $state) => __("admin.statuses.invoice.{$state}"))
+                    ->color(fn (string $state): string => match ($state) {
+                        'paid' => 'success',
+                        'partially_paid' => 'warning',
+                        'overdue' => 'danger',
+                        'issued' => 'info',
+                        'disputed' => 'warning',
+                        default => 'gray',
+                    }),
+            ])
+            ->filters([
+                SelectFilter::make('status')
+                    ->label(__('admin.filters.status'))
+                    ->options(fn () => collect(__('admin.statuses.invoice'))->only(['draft', 'issued', 'partially_paid', 'paid', 'overdue'])->all()),
+                SelectFilter::make('tenant_id')
+                    ->label(__('admin.filters.tenant'))
+                    ->relationship('tenant', 'name')
+                    ->searchable()
+                    ->preload(),
+                SelectFilter::make('unit_id')
+                    ->label(__('admin.filters.unit'))
+                    ->options(fn () => Unit::orderBy('code')->pluck('code', 'id'))
+                    ->searchable()
+                    ->query(fn (Builder $query, array $data): Builder => $query
+                        ->when($data['value'] ?? null, fn (Builder $q, $unitId) => $q->whereHas('lease', fn (Builder $l) => $l->where('unit_id', $unitId)))),
+                Filter::make('period')
+                    ->label(__('admin.filters.period'))
+                    ->schema([
+                        DatePicker::make('period_from')
+                            ->label(__('admin.filters.period_from'))
+                            ->native(false),
+                        DatePicker::make('period_until')
+                            ->label(__('admin.filters.period_until'))
+                            ->native(false),
+                    ])
+                    ->columns(2)
+                    ->query(fn (Builder $query, array $data): Builder => $query
+                        ->when($data['period_from'] ?? null, fn (Builder $q, $date) => $q->whereDate('period_start', '>=', $date))
+                        ->when($data['period_until'] ?? null, fn (Builder $q, $date) => $q->whereDate('period_start', '<=', $date)))
+                    ->indicateUsing(function (array $data): array {
+                        $indicators = [];
+                        if ($data['period_from'] ?? null) {
+                            $indicators[] = __('admin.filters.period_from') . ': ' . \Carbon\Carbon::parse($data['period_from'])->format('d/m/Y');
+                        }
+                        if ($data['period_until'] ?? null) {
+                            $indicators[] = __('admin.filters.period_until') . ': ' . \Carbon\Carbon::parse($data['period_until'])->format('d/m/Y');
+                        }
+                        return $indicators;
+                    }),
+                Filter::make('due_date_range')
+                    ->label(__('admin.tables.invoice.due_date'))
+                    ->schema([
+                        DatePicker::make('due_from')
+                            ->label(__('admin.filters.due_from'))
+                            ->native(false),
+                        DatePicker::make('due_until')
+                            ->label(__('admin.filters.due_until'))
+                            ->native(false),
+                    ])
+                    ->columns(2)
+                    ->query(fn (Builder $query, array $data): Builder => $query
+                        ->when($data['due_from'] ?? null, fn (Builder $q, $date) => $q->whereDate('due_date', '>=', $date))
+                        ->when($data['due_until'] ?? null, fn (Builder $q, $date) => $q->whereDate('due_date', '<=', $date)))
+                    ->indicateUsing(function (array $data): array {
+                        $indicators = [];
+                        if ($data['due_from'] ?? null) {
+                            $indicators[] = __('admin.filters.due_from') . ': ' . \Carbon\Carbon::parse($data['due_from'])->format('d/m/Y');
+                        }
+                        if ($data['due_until'] ?? null) {
+                            $indicators[] = __('admin.filters.due_until') . ': ' . \Carbon\Carbon::parse($data['due_until'])->format('d/m/Y');
+                        }
+                        return $indicators;
+                    }),
+                Filter::make('overdue_only')
+                    ->label(__('admin.filters.overdue_only'))
+                    ->query(fn ($query) => $query->where('balance', '>', 0)->where('due_date', '<', now())),
+                TrashedFilter::make(),
+            ])
+            ->filtersFormColumns(2)
+            ->headerActions([
+                ExportAction::make()
+                    ->exporter(InvoiceExporter::class)
+                    ->label(__('admin.actions.export'))
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('gray'),
+                Action::make('runMonthlyBilling')
+                    ->label(__('admin.actions.run_monthly_billing'))
+                    ->icon('heroicon-o-play')
+                    ->color('primary')
+                    ->visible(fn () => InvoiceResource::canCreate())
+                    ->requiresConfirmation()
+                    ->modalHeading(__('admin.actions.run_monthly_billing_modal_heading'))
+                    ->modalDescription(fn () => __('admin.actions.run_monthly_billing_modal_description', ['period' => now()->locale(app()->getLocale())->isoFormat('MMMM YYYY')]))
+                    ->action(function () {
+                        $stats = app(MonthlyBillingService::class)->runForPeriod();
+
+                        Notification::make()
+                            ->title(__('admin.actions.monthly_billing_complete'))
+                            ->body(__('admin.actions.monthly_billing_summary', [
+                                'period' => $stats['period'],
+                                'created' => $stats['created'],
+                                'skipped' => $stats['skipped'],
+                                'failed' => $stats['failed'],
+                                'considered' => $stats['leases_considered'],
+                            ]))
+                            ->color($stats['failed'] > 0 ? 'warning' : 'success')
+                            ->success()
+                            ->send();
+                    }),
+            ])
+            ->recordActions([
+                EditAction::make()
+                    ->visible(fn ($record) => InvoiceResource::canEdit($record)),
+                Action::make('downloadPdf')
+                    ->label(__('admin.actions.pdf'))
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('gray')
+                    ->action(function (Invoice $record) {
+                        $svc = app(InvoicePdfService::class);
+                        $pdf = $svc->build($record);
+                        return response()->streamDownload(
+                            fn () => print($pdf),
+                            $svc->filename($record),
+                            ['Content-Type' => 'application/pdf'],
+                        );
+                    }),
+                Action::make('sendWhatsApp')
+                    ->label(__('admin.actions.send_whatsapp'))
+                    ->icon('heroicon-o-chat-bubble-left-right')
+                    ->color('success')
+                    ->visible(fn ($record) => config('integrations.whatsapp.enabled') && in_array($record->status, ['issued', 'partially_paid', 'overdue']) && InvoiceResource::canEdit($record))
+                    ->requiresConfirmation()
+                    ->action(fn ($record) => Notification::make()
+                        ->title(__('admin.actions.send_whatsapp'))
+                        ->body($record->tenant->name)
+                        ->success()
+                        ->send()),
+            ])
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    ExportBulkAction::make()
+                        ->exporter(InvoiceExporter::class)
+                        ->label(__('admin.actions.export')),
+                    DeleteBulkAction::make()
+                        ->visible(fn () => InvoiceResource::canDeleteAny()),
+                    ForceDeleteBulkAction::make()
+                        ->visible(fn () => InvoiceResource::canForceDeleteAny()),
+                    RestoreBulkAction::make()
+                        ->visible(fn () => InvoiceResource::canRestoreAny()),
+                ]),
+            ])
+            ->defaultSort('issue_date', 'desc');
+    }
+}
