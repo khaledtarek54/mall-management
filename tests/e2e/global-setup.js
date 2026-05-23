@@ -1,5 +1,5 @@
 import { chromium } from '@playwright/test';
-import { loginAdmin, loginPortal } from './helpers.js';
+import { loginAdmin, loginOwner, loginPortal } from './helpers.js';
 import fs from 'fs';
 
 export default async function globalSetup() {
@@ -18,6 +18,12 @@ export default async function globalSetup() {
     await loginPortal(portalPage);
     await portalCtx.storageState({ path: 'storage/playwright-state/portal.json' });
     await portalCtx.close();
+
+    const ownerCtx = await browser.newContext({ baseURL: 'http://mall-management.test' });
+    const ownerPage = await ownerCtx.newPage();
+    await loginOwner(ownerPage);
+    await ownerCtx.storageState({ path: 'storage/playwright-state/owner.json' });
+    await ownerCtx.close();
   } finally {
     await browser.close();
   }

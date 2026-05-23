@@ -28,9 +28,10 @@ class HayaWalkSeeder extends Seeder
 
         // 0. Admin + role-demo users (all share password 'password')
         $users = [
-            ['email' => 'admin@mall.test',   'name' => 'Mall Admin',       'role' => 'super_admin'],
+            ['email' => 'admin@mall.test',   'name' => 'Mall Admin',         'role' => 'super_admin'],
             ['email' => 'manager@mall.test', 'name' => 'Operations Manager', 'role' => 'manager'],
-            ['email' => 'viewer@mall.test',  'name' => 'Property Auditor', 'role' => 'viewer'],
+            ['email' => 'viewer@mall.test',  'name' => 'Property Auditor',   'role' => 'viewer'],
+            ['email' => 'owner@jawad.test',  'name' => 'Jawad Owner',        'role' => 'owner'],
         ];
         foreach ($users as $u) {
             $user = User::updateOrCreate(
@@ -84,6 +85,17 @@ class HayaWalkSeeder extends Seeder
                 'launched' => '2025',
             ],
         ]);
+
+        // Attach the owner user to Haya Walk at 100% ownership
+        $ownerUser = User::where('email', 'owner@jawad.test')->first();
+        if ($ownerUser) {
+            $hayaWalk->owners()->syncWithoutDetaching([
+                $ownerUser->id => [
+                    'ownership_percentage' => 100,
+                    'started_at' => '2020-01-01',
+                ],
+            ]);
+        }
 
         // 2. Define unit layout — 50 units across 3 zones (A, B, C)
         $units = $this->unitLayout();

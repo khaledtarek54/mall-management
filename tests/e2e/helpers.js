@@ -29,6 +29,12 @@ export async function loginPortal(page, email = 'tenant1@haya.test', password = 
   await waitForLoggedIn(page, '/portal');
 }
 
+export async function loginOwner(page, email = 'owner@jawad.test', password = 'password') {
+  await page.goto('/owner/login');
+  await fillLogin(page, email, password);
+  await waitForLoggedIn(page, '/owner');
+}
+
 export async function setLocale(page, locale) {
   // Visit a non-Filament route first so middleware writes locale to session
   await page.goto(`/locale/${locale}`).catch(() => {});

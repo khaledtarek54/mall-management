@@ -7,6 +7,7 @@ return [
         'billing' => 'الفوترة',
         'reports' => 'التقارير',
         'settings' => 'الإعدادات',
+        'portfolio' => 'المحفظة العقارية',
     ],
 
     'navigation' => [
@@ -47,6 +48,16 @@ return [
             'vs_last_month' => ':delta مقارنة بالشهر السابق',
             'outstanding_ar' => 'المستحقات القائمة',
             'outstanding_ar_desc' => ':overdue جنيه متأخر · :count فاتورة',
+        ],
+        'portfolio' => [
+            'assets' => 'العقارات',
+            'assets_desc' => ':sqm م² قابلة للتأجير',
+            'occupancy' => 'نسبة إشغال المحفظة',
+            'occupancy_desc' => ':occupied من :total وحدة مشغولة',
+            'mrr' => 'الإيراد الشهري المتكرر',
+            'mrr_desc' => 'الإيجار الأساسي + رسوم الخدمة من العقود النشطة',
+            'outstanding' => 'المستحقات القائمة',
+            'outstanding_desc' => 'إجمالي عبر كل عقارات المحفظة',
         ],
         'ar_aging' => [
             'heading' => 'تقادم المستحقات',
@@ -174,6 +185,8 @@ return [
             'units' => 'الوحدات',
             'occupancy' => 'الإشغال',
             'monthly_revenue' => 'الإيراد الشهري',
+            'leasable_sqm' => 'المساحة المؤجَّرة',
+            'total_sqm' => 'المساحة الإجمالية',
         ],
         'unit' => [
             'code' => 'الوحدة',
@@ -403,6 +416,7 @@ return [
         'contact_person' => 'الشخص المسؤول',
         'contact_person_phone' => 'هاتف الشخص المسؤول',
         'address' => 'العنوان',
+        'currency' => 'العملة',
         'unit_label' => 'الوحدة',
         'commencement_date' => 'تاريخ بدء العقد',
         'expiry_date' => 'تاريخ انتهاء العقد',
@@ -479,6 +493,7 @@ return [
         'documents' => 'المستندات والمرفقات',
         'documents_description' => 'العقود وصور المسح والملفات الأخرى التي تريد حفظها مع السجل.',
         'property_details' => 'تفاصيل العقار',
+        'property_performance' => 'أداء العقار',
         'area' => 'المساحة',
         'status' => 'الحالة',
         'unit_details' => 'تفاصيل الوحدة',

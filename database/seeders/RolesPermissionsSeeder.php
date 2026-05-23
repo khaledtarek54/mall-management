@@ -12,6 +12,7 @@ class RolesPermissionsSeeder extends Seeder
         'super_admin' => 'Full access — create, edit, delete, view everything.',
         'manager' => 'Day-to-day operations — create + edit, no delete.',
         'viewer' => 'Read-only access for stakeholders + auditors.',
+        'owner' => 'Property owner — read-only access to their portfolio via /owner panel.',
     ];
 
     public function run(): void

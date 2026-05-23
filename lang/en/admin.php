@@ -7,6 +7,7 @@ return [
         'billing' => 'Billing',
         'reports' => 'Reports',
         'settings' => 'Settings',
+        'portfolio' => 'Portfolio',
     ],
 
     'navigation' => [
@@ -47,6 +48,16 @@ return [
             'vs_last_month' => ':delta vs last month',
             'outstanding_ar' => 'Outstanding AR',
             'outstanding_ar_desc' => 'EGP :overdue overdue · :count invoices',
+        ],
+        'portfolio' => [
+            'assets' => 'Properties',
+            'assets_desc' => ':sqm m² leasable',
+            'occupancy' => 'Portfolio Occupancy',
+            'occupancy_desc' => ':occupied of :total units occupied',
+            'mrr' => 'Monthly Recurring Revenue',
+            'mrr_desc' => 'Base rent + service charge across active leases',
+            'outstanding' => 'Outstanding AR',
+            'outstanding_desc' => 'Across all properties in portfolio',
         ],
         'ar_aging' => [
             'heading' => 'AR Aging',
@@ -174,6 +185,8 @@ return [
             'units' => 'Units',
             'occupancy' => 'Occupancy',
             'monthly_revenue' => 'Monthly Revenue',
+            'leasable_sqm' => 'Leasable Area',
+            'total_sqm' => 'Total Area',
         ],
         'unit' => [
             'code' => 'Unit',
@@ -403,6 +416,7 @@ return [
         'contact_person' => 'Contact person',
         'contact_person_phone' => 'Contact person phone',
         'address' => 'Address',
+        'currency' => 'Currency',
         'unit_label' => 'Unit',
         'commencement_date' => 'Commencement Date',
         'expiry_date' => 'Expiry Date',
@@ -479,6 +493,7 @@ return [
         'documents' => 'Documents & Attachments',
         'documents_description' => 'Contracts, signed PDFs, scans — anything you want to keep alongside this record.',
         'property_details' => 'Property Details',
+        'property_performance' => 'Property Performance',
         'area' => 'Area',
         'status' => 'Status',
         'unit_details' => 'Unit Details',
