@@ -19,6 +19,7 @@ return [
         'payments' => 'Payments',
         'maintenance' => 'Maintenance',
         'tenant_sales' => 'Tenant Sales',
+        'cam' => 'CAM Reconciliation',
         'users' => 'Users',
     ],
 
@@ -32,6 +33,7 @@ return [
         'user' => ['singular' => 'User', 'plural' => 'Users'],
         'maintenance_request' => ['singular' => 'Maintenance Request', 'plural' => 'Maintenance Requests'],
         'tenant_sales' => ['singular' => 'Sales Declaration', 'plural' => 'Tenant Sales Declarations'],
+        'cam_pool' => ['singular' => 'CAM Pool', 'plural' => 'CAM Reconciliation'],
     ],
 
     'widgets' => [
@@ -234,6 +236,19 @@ return [
             'declared_at' => 'Declared',
             'locked_at' => 'Locked',
         ],
+        'cam' => [
+            'tenant' => 'Tenant',
+            'unit' => 'Unit',
+            'share' => 'Share',
+            'allocated' => 'Allocated',
+            'estimated_paid' => 'Estimated Paid',
+            'true_up' => 'True-Up',
+            'allocations' => 'Allocations',
+            'actual' => 'Actual Expense',
+            'estimated' => 'Estimated Collected',
+            'variance' => 'Variance',
+            'reconciled_at' => 'Reconciled',
+        ],
     ],
 
     'filters' => [
@@ -351,12 +366,22 @@ return [
         'lock_declaration_confirm' => 'Locking finalizes the declaration and generates a percentage-rent charge on the lease for the next billing run.',
         'dispute_declaration' => 'Dispute',
         'submit_sales' => 'Submit Sales',
+        'generate_allocations' => 'Generate Allocations',
+        'generate_allocations_confirm' => 'Distributes the pool\'s actual expense pro-rata across every active lease in the asset (by unit sqm). Existing allocations are updated, not duplicated.',
+        'mark_reconciled' => 'Mark Reconciled',
+        'bill_allocation' => 'Bill',
+        'bill_allocation_confirm' => 'Creates a one-off CAM Reconciliation charge on the lease for the true-up amount. The next monthly invoice will include it.',
     ],
 
     'notifications' => [
         'declaration_locked' => 'Declaration locked',
         'declaration_locked_body' => 'Percentage rent of EGP :amount queued for next billing run.',
         'declaration_disputed' => 'Declaration marked as disputed',
+        'allocations_generated' => 'Allocations generated',
+        'allocations_generated_body' => ':count allocations created or updated based on pro-rata share by leased sqm.',
+        'pool_reconciled' => 'CAM pool marked reconciled',
+        'allocation_billed' => 'Allocation billed',
+        'allocation_billed_body' => 'CAM true-up of EGP :amount added to the lease.',
     ],
 
     'fields' => [
@@ -432,13 +457,14 @@ return [
         'resolution_notes' => 'Resolution Notes',
         'new_status' => 'New Status',
         'attachments' => 'Attachments',
-        'period' => 'Period',
-        'period_end' => 'Period End',
         'declared_sales' => 'Declared Sales',
         'declared_sales_help' => 'Enter total trading sales for the month, exclusive of VAT.',
         'calculated_percentage_rent' => 'Calculated Percentage Rent',
         'calculated_percentage_rent_help' => 'Auto-computed from the lease percentage-rent terms.',
         'audit_notes' => 'Audit Notes',
+        'period_year' => 'Year',
+        'total_actual_expense' => 'Total Actual Expense',
+        'total_estimated_collected' => 'Total Estimated Collected',
     ],
 
     'sections' => [
@@ -476,6 +502,9 @@ return [
         'tenant_sales_audit' => 'Audit',
         'tenant_sales_submit' => 'Submit Monthly Sales',
         'tenant_sales_submit_description' => 'Declare your trading sales for last month. Once locked by the property team, any percentage rent will be billed automatically.',
+        'cam_pool' => 'CAM Expense Pool',
+        'cam_pool_description' => 'Annual common-area expense pool. Generate per-lease allocations pro-rata by leased sqm, then bill each allocation as a year-end true-up charge.',
+        'cam_notes' => 'Notes',
     ],
 
     'statuses' => [
@@ -532,6 +561,18 @@ return [
             'submitted' => 'Submitted',
             'locked' => 'Locked',
             'disputed' => 'Disputed',
+        ],
+        'cam_pool' => [
+            'draft' => 'Draft',
+            'reconciling' => 'Reconciling',
+            'reconciled' => 'Reconciled',
+            'closed' => 'Closed',
+        ],
+        'cam_allocation' => [
+            'pending' => 'Pending',
+            'billed' => 'Billed',
+            'disputed' => 'Disputed',
+            'closed' => 'Closed',
         ],
     ],
 

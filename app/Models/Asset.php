@@ -48,6 +48,11 @@ class Asset extends Model
         return $this->hasMany(Unit::class);
     }
 
+    public function camPools(): HasMany
+    {
+        return $this->hasMany(CamExpensePool::class);
+    }
+
     public function leases(): HasManyThrough
     {
         return $this->hasManyThrough(Lease::class, Unit::class);

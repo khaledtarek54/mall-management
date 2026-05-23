@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Asset;
+use App\Models\CamExpensePool;
 use App\Models\Charge;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
@@ -201,6 +202,7 @@ class HayaWalkSeeder extends Seeder
         $this->seedArAgingSpread();
         $this->seedMaintenanceRequests();
         $this->seedTenantSalesDeclarations();
+        $this->seedCamReconciliation($hayaWalk);
 
         $this->command->info("✅ Created Haya Walk with {$occupiedCount} occupied, {$vacantCount} vacant units");
         $this->command->info("✅ Generated leases, charges, invoices, and payment history");
@@ -456,6 +458,55 @@ class HayaWalkSeeder extends Seeder
         }
 
         $this->command->info("   Seeded {$created} tenant sales declarations ({$locked} locked → percentage rent charges generated)");
+    }
+
+    /**
+     * Seed two CAM expense pools for the asset:
+     *  - Last year (reconciled, all allocations already billed) — demonstrates a completed annual cycle
+     *  - This year (draft, no allocations yet) — gives the admin a live "Generate Allocations" click target
+     */
+    private function seedCamReconciliation(Asset $asset): void
+    {
+        $service = app(\App\Services\CamReconciliationService::class);
+        $superAdmin = User::where('email', 'admin@mall.test')->first();
+
+        // Last year — reconciled + all billed
+        $lastYear = now()->subYear()->year;
+        $lastYearActual = 825000;       // EGP 825k actual annual CAM
+        $lastYearEstimated = 760000;    // EGP 760k collected from monthly estimates → 65k under-collected
+        $closedPool = CamExpensePool::create([
+            'asset_id' => $asset->id,
+            'period_year' => $lastYear,
+            'total_actual_expense' => $lastYearActual,
+            'total_estimated_collected' => $lastYearEstimated,
+            'status' => 'reconciling',
+            'notes' => 'Includes security, cleaning, common-area HVAC, lobby lighting, landscaping.',
+        ]);
+
+        $service->generateAllocations($closedPool);
+
+        // Bill every allocation so it lands as a Charge on each lease
+        foreach ($closedPool->allocations as $allocation) {
+            $service->bill($allocation);
+        }
+
+        $closedPool->update([
+            'status' => 'reconciled',
+            'reconciled_at' => now()->subMonths(2),
+            'reconciled_by_user_id' => $superAdmin?->id,
+        ]);
+
+        // Current year — draft, ready for demo
+        CamExpensePool::create([
+            'asset_id' => $asset->id,
+            'period_year' => now()->year,
+            'total_actual_expense' => 612000,   // YTD partial — security + cleaning + HVAC + landscaping accrued so far
+            'total_estimated_collected' => 580000,
+            'status' => 'draft',
+            'notes' => 'YTD accrued expenses. Annual reconciliation runs at year end.',
+        ]);
+
+        $this->command->info("   Seeded 2 CAM pools ({$lastYear} reconciled + {$closedPool->allocations()->count()} allocations billed, ".now()->year." draft awaiting generation)");
     }
 
     /**

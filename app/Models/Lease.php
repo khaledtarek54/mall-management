@@ -109,6 +109,11 @@ class Lease extends Model implements HasMedia
         return $this->hasMany(TenantSalesDeclaration::class);
     }
 
+    public function camAllocations(): HasMany
+    {
+        return $this->hasMany(CamAllocation::class);
+    }
+
     // ============ Derived ============
 
     public function totalMonthlyAmount(): float

@@ -19,6 +19,7 @@ return [
         'payments' => 'المدفوعات',
         'maintenance' => 'الصيانة',
         'tenant_sales' => 'مبيعات المستأجرين',
+        'cam' => 'تسوية المصروفات المشتركة',
         'users' => 'المستخدمون',
     ],
 
@@ -32,6 +33,7 @@ return [
         'user' => ['singular' => 'مستخدم', 'plural' => 'المستخدمون'],
         'maintenance_request' => ['singular' => 'طلب صيانة', 'plural' => 'طلبات الصيانة'],
         'tenant_sales' => ['singular' => 'إقرار مبيعات', 'plural' => 'إقرارات مبيعات المستأجرين'],
+        'cam_pool' => ['singular' => 'مجمع مصروفات', 'plural' => 'تسوية المصروفات المشتركة'],
     ],
 
     'widgets' => [
@@ -234,6 +236,19 @@ return [
             'declared_at' => 'تاريخ الإقرار',
             'locked_at' => 'تاريخ التثبيت',
         ],
+        'cam' => [
+            'tenant' => 'المستأجر',
+            'unit' => 'الوحدة',
+            'share' => 'النسبة',
+            'allocated' => 'المخصَّص',
+            'estimated_paid' => 'المدفوع التقديري',
+            'true_up' => 'فرق التسوية',
+            'allocations' => 'التوزيعات',
+            'actual' => 'المصروفات الفعلية',
+            'estimated' => 'المُحصَّل التقديري',
+            'variance' => 'الفرق',
+            'reconciled_at' => 'تاريخ التسوية',
+        ],
     ],
 
     'filters' => [
@@ -351,12 +366,22 @@ return [
         'lock_declaration_confirm' => 'تثبيت الإقرار يُنهي المراجعة ويُنشئ رسم نسبة الإيجار على العقد للدورة الفوترية القادمة.',
         'dispute_declaration' => 'اعتراض',
         'submit_sales' => 'تقديم المبيعات',
+        'generate_allocations' => 'توليد التوزيعات',
+        'generate_allocations_confirm' => 'يُوزَّع إجمالي المصروفات الفعلية على كل عقد نشط بحسب نسبة المساحة المؤجَّرة. التوزيعات الموجودة تُحدَّث ولا تُكرَّر.',
+        'mark_reconciled' => 'إغلاق التسوية',
+        'bill_allocation' => 'تحميل الرسم',
+        'bill_allocation_confirm' => 'يُنشئ رسم تسوية لمرة واحدة على العقد بمبلغ فرق التسوية. سيظهر في فاتورة الشهر القادم.',
     ],
 
     'notifications' => [
         'declaration_locked' => 'تم تثبيت الإقرار',
         'declaration_locked_body' => 'تم إضافة نسبة الإيجار :amount جنيه إلى دورة الفوترة القادمة.',
         'declaration_disputed' => 'تم تسجيل اعتراض على الإقرار',
+        'allocations_generated' => 'تم توليد التوزيعات',
+        'allocations_generated_body' => 'تم إنشاء أو تحديث :count توزيع حسب نسبة المساحة المؤجَّرة.',
+        'pool_reconciled' => 'تمت تسوية مجمع المصروفات',
+        'allocation_billed' => 'تم تحميل الرسم',
+        'allocation_billed_body' => 'تمت إضافة فرق تسوية المصروفات المشتركة بمبلغ :amount جنيه على العقد.',
     ],
 
     'fields' => [
@@ -432,13 +457,14 @@ return [
         'resolution_notes' => 'ملاحظات الحل',
         'new_status' => 'الحالة الجديدة',
         'attachments' => 'المرفقات',
-        'period' => 'الفترة',
-        'period_end' => 'نهاية الفترة',
         'declared_sales' => 'المبيعات المُقَرّة',
         'declared_sales_help' => 'أدخل إجمالي المبيعات للشهر بدون ضريبة القيمة المضافة.',
         'calculated_percentage_rent' => 'نسبة الإيجار المحسوبة',
         'calculated_percentage_rent_help' => 'تُحسب تلقائيًا من شروط نسبة الإيجار في العقد.',
         'audit_notes' => 'ملاحظات المراجعة',
+        'period_year' => 'السنة',
+        'total_actual_expense' => 'إجمالي المصروفات الفعلية',
+        'total_estimated_collected' => 'إجمالي المُحصَّل التقديري',
     ],
 
     'sections' => [
@@ -476,6 +502,9 @@ return [
         'tenant_sales_audit' => 'المراجعة',
         'tenant_sales_submit' => 'تقديم مبيعات الشهر',
         'tenant_sales_submit_description' => 'أقرّ بإجمالي مبيعاتك للشهر الماضي. عند تثبيت الإدارة للإقرار، تُحتسب نسبة الإيجار تلقائيًا.',
+        'cam_pool' => 'مجمع المصروفات المشتركة',
+        'cam_pool_description' => 'مجمع سنوي للمصروفات المشتركة. تُولَّد توزيعات لكل عقد حسب نسبة المساحة، ثم يُحمَّل كل توزيع كرسم تسوية نهاية العام.',
+        'cam_notes' => 'ملاحظات',
     ],
 
     'statuses' => [
@@ -532,6 +561,18 @@ return [
             'submitted' => 'مُقدَّم',
             'locked' => 'مُثبَّت',
             'disputed' => 'معترض عليه',
+        ],
+        'cam_pool' => [
+            'draft' => 'مسودة',
+            'reconciling' => 'قيد التسوية',
+            'reconciled' => 'تمت التسوية',
+            'closed' => 'مُغلق',
+        ],
+        'cam_allocation' => [
+            'pending' => 'قيد الانتظار',
+            'billed' => 'تم التحميل',
+            'disputed' => 'معترض عليه',
+            'closed' => 'مُغلق',
         ],
     ],
 
