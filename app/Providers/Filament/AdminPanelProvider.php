@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Filament\Admin\Widgets\ActionRequired;
 use App\Filament\Admin\Widgets\ArAging;
+use App\Filament\Admin\Widgets\EnergyConsumptionTrend;
 use App\Filament\Admin\Widgets\ExpiringLeases;
 use App\Filament\Admin\Widgets\MallStats;
 use App\Filament\Admin\Widgets\MonthlyRevenueTrend;
@@ -79,6 +80,7 @@ class AdminPanelProvider extends PanelProvider
                 OpenMaintenanceRequests::class,
                 TopTenants::class,
                 RecentPayments::class,
+                EnergyConsumptionTrend::class,
             ])
             ->navigationGroups([
                 NavigationGroup::make('Operations')->label(fn () => __('admin.groups.operations')),

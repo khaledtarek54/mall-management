@@ -10,12 +10,14 @@ use App\Models\InvoiceItem;
 use App\Models\Lease;
 use App\Models\MaintenanceRequest;
 use App\Models\MaintenanceRequestComment;
+use App\Models\MeterReading;
 use App\Models\Operator;
 use App\Models\Payment;
 use App\Models\Tenant;
 use App\Models\TenantSalesDeclaration;
 use App\Models\Unit;
 use App\Models\User;
+use App\Models\UtilityMeter;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
@@ -216,6 +218,7 @@ class HayaWalkSeeder extends Seeder
         $this->seedTenantSalesDeclarations();
         $this->seedCamReconciliation($hayaWalk);
         $this->seedEtaSubmissions();
+        $this->seedUtilityMeters($hayaWalk);
 
         $this->command->info("✅ Created Haya Walk with {$occupiedCount} occupied, {$vacantCount} vacant units");
         $this->command->info("✅ Generated leases, charges, invoices, and payment history");
@@ -564,6 +567,98 @@ class HayaWalkSeeder extends Seeder
         }
 
         $this->command->info("   Seeded ETA submissions ({$submitted} valid + {$rejected} rejected; rest unsubmitted)");
+    }
+
+    /**
+     * Seed utility meters + 12 months of monthly readings so the
+     * Energy Consumption chart on the dashboard has real-looking data and
+     * the Energy resource shows a populated meter list.
+     *
+     * Mix:
+     *  - 3 common-area meters per type (electric/water/gas) for the asset
+     *  - 1 electric + 1 water meter per occupied unit (gas only on F&B units)
+     */
+    private function seedUtilityMeters(Asset $asset): void
+    {
+        $meterSeq = 1;
+        $created = 0;
+        $readings = 0;
+
+        $createMeter = function (?Unit $unit, string $type, string $provider) use ($asset, &$meterSeq, &$created, &$readings): UtilityMeter {
+            $uom = match ($type) {
+                'electric' => 'kWh',
+                'water' => 'm³',
+                'gas' => 'm³',
+                default => 'unit',
+            };
+
+            $meter = UtilityMeter::create([
+                'asset_id' => $asset->id,
+                'unit_id' => $unit?->id,
+                'meter_number' => sprintf('M-%s-%04d', strtoupper(substr($type, 0, 1)), $meterSeq++),
+                'type' => $type,
+                'provider' => $provider,
+                'status' => 'active',
+                'unit_of_measurement' => $uom,
+            ]);
+            $created++;
+
+            // 12 months of monthly readings, ending current month.
+            // Consumption magnitudes calibrated to look realistic for a mall context.
+            $baseMonthly = match ($type) {
+                'electric' => $unit ? (200 + ($meter->id * 13) % 800) : 12000,   // unit ~200-1000 kWh, common ~12,000 kWh
+                'water' => $unit ? (5 + ($meter->id * 3) % 25) : 350,            // unit ~5-30 m³, common ~350 m³
+                'gas' => $unit ? (10 + ($meter->id * 5) % 40) : 200,             // unit ~10-50 m³, common ~200 m³
+                default => 100,
+            };
+            $unitCost = match ($type) {
+                'electric' => 2.20, // EGP/kWh
+                'water' => 6.50,    // EGP/m³
+                'gas' => 4.80,      // EGP/m³
+                default => 1.0,
+            };
+
+            $cumulative = 0;
+            for ($monthsBack = 11; $monthsBack >= 0; $monthsBack--) {
+                // ±15% jitter so the chart looks lived-in
+                $jitter = 1 + (((($meter->id + $monthsBack) * 17) % 30) - 15) / 100;
+                $consumption = round($baseMonthly * $jitter, 2);
+                $cumulative += $consumption;
+
+                MeterReading::create([
+                    'utility_meter_id' => $meter->id,
+                    'reading_date' => Carbon::now()->startOfMonth()->subMonths($monthsBack)->endOfMonth()->startOfDay(),
+                    'reading_value' => $cumulative,
+                    'consumption' => $consumption,
+                    'cost' => round($consumption * $unitCost, 2),
+                ]);
+                $readings++;
+            }
+
+            return $meter;
+        };
+
+        // Common-area meters
+        $createMeter(null, 'electric', 'North Cairo Electricity');
+        $createMeter(null, 'water', 'Cairo Water Co.');
+        $createMeter(null, 'gas', 'EgyptGas');
+
+        // Per-unit meters on occupied units only — keeps the dashboard usable
+        $occupiedUnits = Unit::where('asset_id', $asset->id)
+            ->where('status', 'occupied')
+            ->limit(20) // cap to first 20 occupied to keep seed time reasonable
+            ->get();
+
+        foreach ($occupiedUnits as $unit) {
+            $createMeter($unit, 'electric', 'North Cairo Electricity');
+            $createMeter($unit, 'water', 'Cairo Water Co.');
+            // Gas only for F&B units (common in mall food courts)
+            if ($unit->category === 'food_beverage') {
+                $createMeter($unit, 'gas', 'EgyptGas');
+            }
+        }
+
+        $this->command->info("   Seeded {$created} utility meters with {$readings} monthly readings");
     }
 
     /**

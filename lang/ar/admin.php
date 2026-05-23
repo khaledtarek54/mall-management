@@ -21,6 +21,7 @@ return [
         'maintenance' => 'الصيانة',
         'tenant_sales' => 'مبيعات المستأجرين',
         'cam' => 'تسوية المصروفات المشتركة',
+        'energy' => 'الطاقة والمرافق',
         'users' => 'المستخدمون',
     ],
 
@@ -35,6 +36,7 @@ return [
         'maintenance_request' => ['singular' => 'طلب صيانة', 'plural' => 'طلبات الصيانة'],
         'tenant_sales' => ['singular' => 'إقرار مبيعات', 'plural' => 'إقرارات مبيعات المستأجرين'],
         'cam_pool' => ['singular' => 'مجمع مصروفات', 'plural' => 'تسوية المصروفات المشتركة'],
+        'utility_meter' => ['singular' => 'عداد مرافق', 'plural' => 'الطاقة والمرافق'],
     ],
 
     'widgets' => [
@@ -58,6 +60,10 @@ return [
             'mrr_desc' => 'الإيجار الأساسي + رسوم الخدمة من العقود النشطة',
             'outstanding' => 'المستحقات القائمة',
             'outstanding_desc' => 'إجمالي عبر كل عقارات المحفظة',
+        ],
+        'energy_consumption' => [
+            'heading' => 'استهلاك الطاقة',
+            'description' => 'الاستهلاك الشهري لجميع المرافق المُحتسبة (ك.و.س / م³)',
         ],
         'ar_aging' => [
             'heading' => 'تقادم المستحقات',
@@ -263,6 +269,12 @@ return [
             'variance' => 'الفرق',
             'reconciled_at' => 'تاريخ التسوية',
         ],
+        'meter' => [
+            'number' => 'رقم العداد',
+            'location' => 'الوحدة',
+            'type' => 'النوع',
+            'readings' => 'القراءات',
+        ],
     ],
 
     'filters' => [
@@ -307,6 +319,7 @@ return [
         'assigned_to' => 'المُسنَد إلى',
         'open_only' => 'الطلبات المفتوحة',
         'sla_breached' => 'تجاوزت مهلة الحل',
+        'meter_type' => 'النوع',
     ],
 
     'actions' => [
@@ -483,6 +496,11 @@ return [
         'period_year' => 'السنة',
         'total_actual_expense' => 'إجمالي المصروفات الفعلية',
         'total_estimated_collected' => 'إجمالي المُحصَّل التقديري',
+        'meter_number' => 'رقم العداد',
+        'meter_type' => 'النوع',
+        'meter_provider' => 'جهة التشغيل',
+        'unit_of_measurement' => 'وحدة القياس',
+        'common_area_placeholder' => 'منطقة مشتركة (بدون وحدة)',
     ],
 
     'sections' => [
@@ -524,6 +542,7 @@ return [
         'cam_pool' => 'مجمع المصروفات المشتركة',
         'cam_pool_description' => 'مجمع سنوي للمصروفات المشتركة. تُولَّد توزيعات لكل عقد حسب نسبة المساحة، ثم يُحمَّل كل توزيع كرسم تسوية نهاية العام.',
         'cam_notes' => 'ملاحظات',
+        'utility_meter' => 'بيانات العداد',
     ],
 
     'statuses' => [
@@ -601,6 +620,11 @@ return [
             'disputed' => 'معترض عليه',
             'closed' => 'مُغلق',
         ],
+        'meter' => [
+            'active' => 'نشط',
+            'inactive' => 'غير نشط',
+            'faulty' => 'معطل',
+        ],
     ],
 
     'enums' => [
@@ -657,6 +681,11 @@ return [
             'cleaning' => 'نظافة',
             'safety' => 'سلامة / حريق',
             'other' => 'أخرى',
+        ],
+        'meter_type' => [
+            'electric' => 'كهرباء',
+            'water' => 'مياه',
+            'gas' => 'غاز',
         ],
     ],
 

@@ -61,6 +61,11 @@ class Asset extends Model
             ->withTimestamps();
     }
 
+    public function utilityMeters(): HasMany
+    {
+        return $this->hasMany(UtilityMeter::class);
+    }
+
     public function leases(): HasManyThrough
     {
         return $this->hasManyThrough(Lease::class, Unit::class);

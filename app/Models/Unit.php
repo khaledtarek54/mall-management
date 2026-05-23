@@ -44,6 +44,11 @@ class Unit extends Model
         return $this->hasMany(MaintenanceRequest::class);
     }
 
+    public function utilityMeters(): HasMany
+    {
+        return $this->hasMany(UtilityMeter::class);
+    }
+
     public function activeLease(): HasOne
     {
         return $this->hasOne(Lease::class)

@@ -21,6 +21,7 @@ return [
         'maintenance' => 'Maintenance',
         'tenant_sales' => 'Tenant Sales',
         'cam' => 'CAM Reconciliation',
+        'energy' => 'Energy & Utilities',
         'users' => 'Users',
     ],
 
@@ -35,6 +36,7 @@ return [
         'maintenance_request' => ['singular' => 'Maintenance Request', 'plural' => 'Maintenance Requests'],
         'tenant_sales' => ['singular' => 'Sales Declaration', 'plural' => 'Tenant Sales Declarations'],
         'cam_pool' => ['singular' => 'CAM Pool', 'plural' => 'CAM Reconciliation'],
+        'utility_meter' => ['singular' => 'Utility Meter', 'plural' => 'Energy & Utilities'],
     ],
 
     'widgets' => [
@@ -58,6 +60,10 @@ return [
             'mrr_desc' => 'Base rent + service charge across active leases',
             'outstanding' => 'Outstanding AR',
             'outstanding_desc' => 'Across all properties in portfolio',
+        ],
+        'energy_consumption' => [
+            'heading' => 'Energy Consumption',
+            'description' => 'Monthly consumption across all metered utilities (kWh / m³)',
         ],
         'ar_aging' => [
             'heading' => 'AR Aging',
@@ -263,6 +269,12 @@ return [
             'variance' => 'Variance',
             'reconciled_at' => 'Reconciled',
         ],
+        'meter' => [
+            'number' => 'Meter #',
+            'location' => 'Unit',
+            'type' => 'Type',
+            'readings' => 'Readings',
+        ],
     ],
 
     'filters' => [
@@ -307,6 +319,7 @@ return [
         'assigned_to' => 'Assigned To',
         'open_only' => 'Open Requests',
         'sla_breached' => 'SLA Breached',
+        'meter_type' => 'Type',
     ],
 
     'actions' => [
@@ -485,6 +498,11 @@ return [
         'period_year' => 'Year',
         'total_actual_expense' => 'Total Actual Expense',
         'total_estimated_collected' => 'Total Estimated Collected',
+        'meter_number' => 'Meter Number',
+        'meter_type' => 'Type',
+        'meter_provider' => 'Utility Provider',
+        'unit_of_measurement' => 'Unit of Measurement',
+        'common_area_placeholder' => 'Common area (no unit)',
     ],
 
     'sections' => [
@@ -526,6 +544,7 @@ return [
         'cam_pool' => 'CAM Expense Pool',
         'cam_pool_description' => 'Annual common-area expense pool. Generate per-lease allocations pro-rata by leased sqm, then bill each allocation as a year-end true-up charge.',
         'cam_notes' => 'Notes',
+        'utility_meter' => 'Meter Details',
     ],
 
     'statuses' => [
@@ -603,6 +622,11 @@ return [
             'disputed' => 'Disputed',
             'closed' => 'Closed',
         ],
+        'meter' => [
+            'active' => 'Active',
+            'inactive' => 'Inactive',
+            'faulty' => 'Faulty',
+        ],
     ],
 
     'enums' => [
@@ -659,6 +683,11 @@ return [
             'cleaning' => 'Cleaning',
             'safety' => 'Safety / Fire',
             'other' => 'Other',
+        ],
+        'meter_type' => [
+            'electric' => 'Electricity',
+            'water' => 'Water',
+            'gas' => 'Gas',
         ],
     ],
 
