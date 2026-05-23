@@ -18,6 +18,7 @@ return [
         'invoices' => 'Invoices',
         'payments' => 'Payments',
         'maintenance' => 'Maintenance',
+        'tenant_sales' => 'Tenant Sales',
         'users' => 'Users',
     ],
 
@@ -30,6 +31,7 @@ return [
         'payment' => ['singular' => 'Payment', 'plural' => 'Payments'],
         'user' => ['singular' => 'User', 'plural' => 'Users'],
         'maintenance_request' => ['singular' => 'Maintenance Request', 'plural' => 'Maintenance Requests'],
+        'tenant_sales' => ['singular' => 'Sales Declaration', 'plural' => 'Tenant Sales Declarations'],
     ],
 
     'widgets' => [
@@ -223,6 +225,15 @@ return [
             'submitted' => 'Submitted',
             'target' => 'SLA Target',
         ],
+        'tenant_sales' => [
+            'tenant' => 'Tenant',
+            'unit' => 'Unit',
+            'period' => 'Period',
+            'declared_sales' => 'Declared Sales',
+            'percentage_rent' => 'Percentage Rent',
+            'declared_at' => 'Declared',
+            'locked_at' => 'Locked',
+        ],
     ],
 
     'filters' => [
@@ -336,6 +347,16 @@ return [
         'status_changed_body' => ':ref → :status',
         'assign' => 'Assign',
         'assigned' => 'Assigned',
+        'lock_declaration' => 'Lock',
+        'lock_declaration_confirm' => 'Locking finalizes the declaration and generates a percentage-rent charge on the lease for the next billing run.',
+        'dispute_declaration' => 'Dispute',
+        'submit_sales' => 'Submit Sales',
+    ],
+
+    'notifications' => [
+        'declaration_locked' => 'Declaration locked',
+        'declaration_locked_body' => 'Percentage rent of EGP :amount queued for next billing run.',
+        'declaration_disputed' => 'Declaration marked as disputed',
     ],
 
     'fields' => [
@@ -411,6 +432,13 @@ return [
         'resolution_notes' => 'Resolution Notes',
         'new_status' => 'New Status',
         'attachments' => 'Attachments',
+        'period' => 'Period',
+        'period_end' => 'Period End',
+        'declared_sales' => 'Declared Sales',
+        'declared_sales_help' => 'Enter total trading sales for the month, exclusive of VAT.',
+        'calculated_percentage_rent' => 'Calculated Percentage Rent',
+        'calculated_percentage_rent_help' => 'Auto-computed from the lease percentage-rent terms.',
+        'audit_notes' => 'Audit Notes',
     ],
 
     'sections' => [
@@ -444,6 +472,10 @@ return [
         'resolution' => 'Resolution',
         'attachments' => 'Attachments',
         'attachments_description' => 'Photos or PDFs that show the problem.',
+        'tenant_sales' => 'Sales Declaration',
+        'tenant_sales_audit' => 'Audit',
+        'tenant_sales_submit' => 'Submit Monthly Sales',
+        'tenant_sales_submit_description' => 'Declare your trading sales for last month. Once locked by the property team, any percentage rent will be billed automatically.',
     ],
 
     'statuses' => [
@@ -495,6 +527,11 @@ return [
             'resolved' => 'Resolved',
             'closed' => 'Closed',
             'cancelled' => 'Cancelled',
+        ],
+        'tenant_sales' => [
+            'submitted' => 'Submitted',
+            'locked' => 'Locked',
+            'disputed' => 'Disputed',
         ],
     ],
 
@@ -680,6 +717,11 @@ return [
         'term' => 'Term',
         'notes' => 'Notes',
         'footer' => 'Payment due within :days days of issue · Bank transfer / Card / InstaPay · Queries: billing@:slug.test',
+    ],
+    'operators' => [
+        'label' => 'Operator',
+        'all' => 'All Operators',
+        'switch' => 'Switch operator',
     ],
 
 ];

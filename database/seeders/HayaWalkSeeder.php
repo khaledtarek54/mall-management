@@ -9,8 +9,10 @@ use App\Models\InvoiceItem;
 use App\Models\Lease;
 use App\Models\MaintenanceRequest;
 use App\Models\MaintenanceRequestComment;
+use App\Models\Operator;
 use App\Models\Payment;
 use App\Models\Tenant;
+use App\Models\TenantSalesDeclaration;
 use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -37,8 +39,36 @@ class HayaWalkSeeder extends Seeder
             $user->syncRoles([$u['role']]);
         }
 
+        // 0.5. Operators — Jawad (owns Haya Walk) + a Demo operator for the white-label story
+        $jawad = Operator::updateOrCreate(
+            ['slug' => 'jawad'],
+            [
+                'name' => 'Jawad Developments',
+                'logo_path' => 'images/jawad-logo.png',
+                'favicon_path' => 'jawad-favicon.png',
+                'primary_color' => '#C9A961',
+                'contact_email' => 'info@jawad.test',
+                'metadata' => ['established' => 2003],
+                'is_active' => true,
+            ],
+        );
+
+        Operator::updateOrCreate(
+            ['slug' => 'demo'],
+            [
+                'name' => 'Demo Operator',
+                'logo_path' => null,
+                'favicon_path' => null,
+                'primary_color' => '#1E3A8A',
+                'contact_email' => 'info@demo.test',
+                'metadata' => ['established' => 2026],
+                'is_active' => true,
+            ],
+        );
+
         // 1. The Asset
         $hayaWalk = Asset::create([
+            'operator_id' => $jawad->id,
             'name' => 'Haya Walk',
             'code' => 'HW',
             'type' => 'retail_walk',
@@ -132,6 +162,7 @@ class HayaWalkSeeder extends Seeder
                 'has_percentage_rent' => in_array($unitData['category'], ['retail', 'food_beverage']),
                 'percentage_rent_threshold' => in_array($unitData['category'], ['retail', 'food_beverage']) ? $rent * 5 : null,
                 'percentage_rent_rate' => in_array($unitData['category'], ['retail', 'food_beverage']) ? 6.00 : null,
+                'percentage_rent_calculation_type' => in_array($unitData['category'], ['retail', 'food_beverage']) ? 'artificial' : null,
                 'payment_terms_days' => 7,
             ]);
 
@@ -169,6 +200,7 @@ class HayaWalkSeeder extends Seeder
         $this->seedCurrentMonthPayments();
         $this->seedArAgingSpread();
         $this->seedMaintenanceRequests();
+        $this->seedTenantSalesDeclarations();
 
         $this->command->info("✅ Created Haya Walk with {$occupiedCount} occupied, {$vacantCount} vacant units");
         $this->command->info("✅ Generated leases, charges, invoices, and payment history");
@@ -355,6 +387,75 @@ class HayaWalkSeeder extends Seeder
         }
 
         $this->command->info("   Seeded {$created} maintenance requests");
+    }
+
+    /**
+     * Seed three months of historic sales declarations for active leases with
+     * percentage-rent terms, mixing statuses (locked, submitted, disputed) so the
+     * triage queue + locked-and-billed flow both have demo data on first login.
+     */
+    private function seedTenantSalesDeclarations(): void
+    {
+        $percentageLeases = Lease::where('status', 'active')
+            ->where('has_percentage_rent', true)
+            ->with('tenant')
+            ->get();
+
+        if ($percentageLeases->isEmpty()) {
+            return;
+        }
+
+        $service = app(\App\Services\PercentageRentCalculationService::class);
+        $superAdmin = User::where('email', 'admin@mall.test')->first();
+        $created = 0;
+        $locked = 0;
+
+        foreach ($percentageLeases as $i => $lease) {
+            // 3 historic months ending last month
+            for ($monthsBack = 3; $monthsBack >= 1; $monthsBack--) {
+                $periodStart = Carbon::now()->startOfMonth()->subMonths($monthsBack);
+                $periodEnd = $periodStart->copy()->endOfMonth();
+
+                // Simulate realistic sales: roughly 8-15x the rent (so percentage rent fires ~half the time)
+                $multiplier = 6 + (($i * 7 + $monthsBack * 3) % 10);
+                $sales = (float) $lease->base_rent_monthly * $multiplier;
+                $sales = round($sales / 100, 0) * 100; // round to nearest 100 EGP
+
+                // Vary status: month 3 (oldest) locked, month 2 mixed, month 1 (most recent) submitted
+                $status = match (true) {
+                    $monthsBack === 3 => 'locked',
+                    $monthsBack === 2 && $i % 5 === 0 => 'disputed',
+                    $monthsBack === 2 => 'locked',
+                    default => 'submitted',
+                };
+
+                $declaration = TenantSalesDeclaration::create([
+                    'lease_id' => $lease->id,
+                    'period_start' => $periodStart,
+                    'period_end' => $periodEnd,
+                    'declared_sales' => $sales,
+                    'declared_at' => $periodEnd->copy()->addDays(3),
+                    'declared_by_type' => Tenant::class,
+                    'declared_by_id' => $lease->tenant_id,
+                    'status' => 'submitted', // start as submitted; lock below if status === 'locked'
+                ]);
+
+                $service->recalculate($declaration);
+                $created++;
+
+                if ($status === 'locked' && $superAdmin) {
+                    $service->lock($declaration->refresh(), $superAdmin, 'Reviewed and reconciled.');
+                    $locked++;
+                } elseif ($status === 'disputed') {
+                    $declaration->update([
+                        'status' => 'disputed',
+                        'audit_notes' => 'POS audit shows sales above declared figure — clarification requested.',
+                    ]);
+                }
+            }
+        }
+
+        $this->command->info("   Seeded {$created} tenant sales declarations ({$locked} locked → percentage rent charges generated)");
     }
 
     /**

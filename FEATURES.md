@@ -70,18 +70,21 @@ All accounts persist through `migrate:fresh --seed`.
 
 ## Built ✓
 
-### Data model (8 entities)
-- `Asset` · `Unit` · `Tenant` · `Lease` · `Charge` · `Invoice` · `InvoiceItem` · `Payment`
+### Data model (10 entities)
+- `Asset` · `Unit` · `Tenant` · `Lease` · `Charge` · `Invoice` · `InvoiceItem` · `Payment` · `MaintenanceRequest` · `MaintenanceRequestComment`
 - All business entities with soft deletes, MySQL enum status fields, FK constraints.
 - Tenant model extends `Authenticatable` for portal login + implements `FilamentUser`.
 - Lease has self-referential `previous_lease_id` for renewal chain.
-- Lease and Tenant implement `HasMedia` (Spatie MediaLibrary) for contract / document attachments.
-- LogsActivity trait on Lease, Tenant, Invoice, Payment, Charge.
+- Invoice ↔ Payment is many-to-many via a pivot with `allocated_amount` (allocation tracking, not single-FK).
+- Lease, Tenant, and MaintenanceRequest implement `HasMedia` (Spatie MediaLibrary) for contract / ID / photo attachments.
+- LogsActivity trait on Lease, Tenant, Invoice, Payment, Charge, MaintenanceRequest, MaintenanceRequestComment.
+- MaintenanceRequestComment uses a polymorphic `author` (User or Tenant) + `is_internal` flag to hide admin-only notes from tenants.
 
 ### Seed data ([HayaWalkSeeder](database/seeders/HayaWalkSeeder.php))
 - Haya Walk (Jawad Developments) — 50 units across 3 zones (A/B/C), 33 leased + 17 vacant.
 - Historical invoices generated from each lease's commencement → today, with realistic paid/partial/overdue mix.
 - Matching `Payment` rows for the paid portion.
+- Seeded maintenance requests across statuses (submitted/in_progress/resolved) and priorities so the triage queue, dashboard widget, and SLA-breach flagging all have realistic data on first load.
 - 3 demo users + 3 portal-login tenants (see Logins).
 - First 4 leases expire within the next 90 days (15/35/65/80) — the ExpiringLeases widget always exercises all 3 color tiers.
 
@@ -96,21 +99,23 @@ All accounts persist through `migrate:fresh --seed`.
 - `ExpiringLeases` — table of active leases expiring in next 90 days, color-coded urgency.
 - `TopTenants` — table of highest-rent active leases.
 - `RecentPayments` — latest payments captured.
+- `OpenMaintenanceRequests` — open request count grouped by priority, with SLA-breach flag.
 
 **Top-level pages** ([app/Filament/Admin/Pages/](app/Filament/Admin/Pages/))
 - `OccupancyMap` (Operations) — floor-grouped color-coded unit grid for any property. Asset selector when there's more than one. Each tile links to the unit edit page.
 - `ActivityLog` (Reports) — system-wide audit timeline with subject/event filters.
 
 **Resources** ([app/Filament/Admin/Resources/](app/Filament/Admin/Resources/))
-- Properties (Asset) · Tenant Directory (Unit) · Tenants · Leases — under Operations.
+- Properties (Asset) · Tenant Directory (Unit) · Tenants · Leases · Maintenance Requests — under Operations.
 - Invoices · Payments — under Billing.
 - Users — under Settings (super_admin only). Full CRUD + multi-role assignment.
 
 **Relation managers** (data graph navigation) — under [app/Filament/Admin/RelationManagers/](app/Filament/Admin/RelationManagers/)
 - Lease → Invoices · Activity Log
-- Tenant → Leases · Payments · Activity Log
+- Tenant → Leases · Payments · Maintenance · Activity Log
 - Invoice → Activity Log
 - Payment → Activity Log
+- MaintenanceRequest → Comments (admin can toggle `is_internal` per comment)
 
 **CSV export** (Filament native exporters) — bulk + header actions
 - Tenants · Units · Leases · Invoices · Payments
@@ -128,10 +133,23 @@ All accounts persist through `migrate:fresh --seed`.
 
 ### Tenant portal (Filament)
 - `AccountBalance` dashboard widget (outstanding / overdue / open invoice count).
+- `OpenMaintenance` dashboard widget (open / awaiting-tenant counts + link).
 - Read-only Invoices + Payments resources scoped to `auth('portal')->id()`.
+- Maintenance Requests resource — list own requests, submit a new one (title / category / priority / description / photo uploads), view status timeline + public comment thread, add a comment, cancel while still `submitted`/`acknowledged`. Backed by [PortalMaintenanceCommentsRelationManager](app/Filament/Portal/RelationManagers/PortalMaintenanceCommentsRelationManager.php) — internal admin notes are hidden.
 - Download PDF on each invoice.
 - Statement of Account (header action on /portal/invoices).
 - **Pay Now** — STUB on portal invoice rows + view page (flashes a notification). Gated by `PAYMOB_ENABLED`. Needs Paymob sandbox.
+
+### Maintenance & facilities
+- `MaintenanceRequest` model — statuses (`submitted` → `acknowledged` → `in_progress` → `resolved` → `closed`, plus `awaiting_tenant` and `cancelled`), priorities (`low`/`medium`/`high`/`urgent`), categories (`electrical`/`plumbing`/`hvac`/`structural`/`cleaning`/`safety`/`other`), assignment to a `User`, `target_resolution_at` SLA stamp computed on create, resolution notes, soft deletes.
+- `MaintenanceRequestComment` model — polymorphic author (User or Tenant), `is_internal` flag so admins can keep private notes off the tenant view.
+- SLA targets live in [`config/maintenance.php`](config/maintenance.php) (`urgent` 24h, `high` 72h, `medium` 7d, `low` 14d) + `auto_close_after_days` window — tunable per deployment without a migration.
+- Admin resource (Operations nav) — triage list with status / priority / category / assignee / SLA-breach filters, status-transition actions, comment thread, attachment uploads via Spatie MediaLibrary.
+- Tenant portal resource (see above) — self-service submission + status visibility.
+- Dashboard widgets: `OpenMaintenanceRequests` (admin), `OpenMaintenance` (portal).
+- Audit trail via Spatie ActivityLog on both `MaintenanceRequest` and `MaintenanceRequestComment`; surfaces in the global Activity Log page.
+- Reference numbers: `MR-{AssetCode}-{Year}-{Seq}`.
+- Backed by [MaintenanceRequestService](app/Services/MaintenanceRequestService.php).
 
 ### RBAC (Spatie Permission)
 - 3 roles: `super_admin`, `manager`, `viewer`. Seeded via [RolesPermissionsSeeder](database/seeders/RolesPermissionsSeeder.php).
@@ -139,28 +157,28 @@ All accounts persist through `migrate:fresh --seed`.
 - UserResource (Settings nav) restricted to `super_admin`.
 
 ### Audit trail (Spatie ActivityLog)
-- `LogsActivity` trait on Lease, Invoice, Payment, Tenant, Charge.
+- `LogsActivity` trait on Lease, Invoice, Payment, Tenant, Charge, MaintenanceRequest, MaintenanceRequestComment.
 - Tracks only whitelisted fields, dirty-only, no empty changes.
 - Global Activity Log page (Reports nav).
 - Per-record Activity tab (relation manager) on Lease, Invoice, Tenant, Payment.
 
 ### Document attachments (Spatie MediaLibrary)
-- `Lease` and `Tenant` implement `HasMedia` and expose a `documents` collection.
-- `SpatieMediaLibraryFileUpload` form field on both Lease and Tenant edit forms — drag-drop contract scans, IDs, registration docs.
+- `Lease`, `Tenant`, and `MaintenanceRequest` implement `HasMedia`. Lease/Tenant expose a `documents` collection; MaintenanceRequest exposes `attachments` for photos / short videos.
+- `SpatieMediaLibraryFileUpload` form field on the relevant edit/create forms — drag-drop contract scans, IDs, registration docs, fault photos.
 - Storage handled by Spatie defaults (filesystem of choice).
 
 ### Branding & i18n
 - Real Jawad Developments logo + favicon (sourced from their homepage).
 - Jawad palette CSS theme — charcoal `#1A1A1A` + cream `#F5F1EA` + gold `#C9A961`.
 - **EN ↔ AR language switch** — segmented pill on every page (topbar + login). Full RTL flip via Filament's built-in `dir` attribute.
-- Translation files: [lang/en/admin.php](lang/en/admin.php) + [lang/ar/admin.php](lang/ar/admin.php) — ~290 keys covering nav/groups/resources/widgets/tables/filters/actions/fields/sections/statuses/enums/pdf/statement/activity/users/tenants/occupancy.
+- Translation files: [lang/en/admin.php](lang/en/admin.php) + [lang/ar/admin.php](lang/ar/admin.php) — ~685 lines each, covering nav/groups/resources/widgets/tables/filters/actions/fields/sections/statuses/enums/pdf/statement/activity/users/tenants/occupancy/maintenance (status + priority + category enums, action buttons, portal-side strings).
 - DD/MM/YYYY date format everywhere; locale-aware month names via Carbon's `isoFormat('MMM YYYY')`.
 - EGP currency consistent across every `->money()` call.
 - Arabic PDF rendering uses mPDF's `autoArabic` + `autoLangToFont` so letters connect correctly; `xbriyaz` font for Arabic, `dejavusans` for Latin, with conditional zeroing of `letter-spacing` / `text-transform` per locale.
 
 ### Automated tests
 - **PHPUnit** ([tests/](tests/)) — baseline, runs via `php artisan test`.
-- **Playwright E2E** ([tests/e2e/](tests/e2e/)) — 47 specs across auth, every admin page, CRUD navigation, portal flows, PDF downloads in EN + AR, locale switching, occupancy map. Run via `npx playwright test`. HTML report lands in [storage/playwright-report/](storage/playwright-report/).
+- **Playwright E2E** ([tests/e2e/](tests/e2e/)) — 8 spec files / 24 specs covering auth, every admin page, CRUD navigation, portal flows, PDF downloads in EN + AR, locale switching, and the occupancy map. Run via `npx playwright test`. HTML report lands in [storage/playwright-report/](storage/playwright-report/). Session caching: global setup logs into each panel once and writes `storage/playwright-state/{admin,portal}.json`; tests opt in via `test.use({ storageState: ... })` to skip the login step.
 
 ---
 
@@ -198,112 +216,11 @@ When either is `false` (the default), the action is invisible — no stub click,
 Bigger installs or scope decisions that deserve their own session.
 
 - [ ] **Multi-property tenancy** — if Jawad scales to multiple malls, Filament has a Tenancy concept that scopes everything by Asset. Schema is already keyed on `asset_id` via Unit → Asset, so the migration is mostly a Panel config change. (Occupancy Map already supports an asset switcher when more than one exists.)
-- [ ] **Maintenance / facilities module** — tenant-submitted work orders + admin triage. See spec below.
+- [ ] **Maintenance module v2** — vendor management as a first-class entity (currently assignee is just a `User`), recurring/scheduled maintenance (quarterly HVAC, monthly fire-alarm test) with a `MaintenancePlan` recurrence model, chargebacks that integrate maintenance costs with Charge/Invoice based on lease landlord-vs-tenant responsibility rules, and parts/inventory tracking.
 - [ ] **Mobile app for tenants** — Laravel API + React Native or Flutter. Portal data model is already API-ready.
 - [ ] **Deeper analytics** — beyond the current widget set: per-category occupancy trends, churn analysis, percentage-rent reconciliation, lease renewal funnel.
 - [ ] **Accounting export** — Excel/SAP-friendly export for the accounting team's monthly close (invoices + payments + journal entries). CSV export already exists for raw data.
 - [ ] **Tenant ratings / scorecard** — track on-time payment %, lease-renewal history, contract compliance.
-
----
-
-## Feature request — Tenant-facing maintenance requests
-
-**Status:** Proposed — not started. Belongs to the broader Maintenance / facilities module bullet above; this is the tenant-portal-first slice of that work.
-
-### Why
-
-Tenants today have no in-app way to flag a broken AC, a leaking pipe, or a faulty fire alarm. They WhatsApp or phone the property manager, who scribbles it on paper and forgets. The mall has no audit trail of how long requests took to resolve, which units are the most failure-prone, or which categories drive the most calls. This is the missing piece between "leased the space" and "tenant is happy enough to renew."
-
-### User stories
-
-- **As a tenant** I want to submit a maintenance request from `/portal` with a description, category, priority, and photos, so my issue is logged without me having to chase someone.
-- **As a tenant** I want to see the status of all my requests (open / in progress / resolved) and the history of resolved ones, so I know what's been done.
-- **As a tenant** I want to add follow-up comments to an open request and receive notifications when staff respond or change the status.
-- **As a property manager** I want a single triage queue across the whole mall, filterable by status / priority / category / unit, so I can plan my day.
-- **As a property manager** I want to assign a request to an internal staffer or external vendor, set a target resolution date, log work notes, and mark it resolved with a closing summary.
-- **As a super-admin** I want to see SLA breach counts and average resolution time per category on the dashboard, so I can spot vendors and asset categories that are underperforming.
-
-### Scope — in
-
-**Data model** (one new entity + one supporting table)
-- `MaintenanceRequest` — `id`, `tenant_id` (FK), `unit_id` (FK), `lease_id` (FK, nullable for ex-tenants), `category` (enum: `electrical` / `plumbing` / `hvac` / `structural` / `cleaning` / `safety` / `other`), `priority` (enum: `low` / `medium` / `high` / `urgent`), `status` (enum: `submitted` / `acknowledged` / `in_progress` / `awaiting_tenant` / `resolved` / `closed` / `cancelled`), `title`, `description`, `submitted_at`, `acknowledged_at`, `resolved_at`, `closed_at`, `assigned_to` (FK → users, nullable), `target_resolution_at` (nullable), `resolution_notes` (nullable), soft deletes, timestamps.
-- `MaintenanceRequestComment` — `id`, `maintenance_request_id`, `author_type` + `author_id` (polymorphic — tenant or user), `body`, `is_internal` (bool — hides admin-only notes from the tenant), timestamps.
-- Photos / videos via Spatie MediaLibrary on `MaintenanceRequest` (collection: `attachments`) — re-uses the same pattern as Lease/Tenant documents.
-
-**Status flow**
-```
-submitted → acknowledged → in_progress → resolved → closed
-                  │             │            ↑
-                  │             └─→ awaiting_tenant ┘
-                  └─→ cancelled (tenant can cancel before in_progress)
-```
-- Tenant transitions: `submitted` (create), `cancelled` (only from `submitted` / `acknowledged`), can reply to `awaiting_tenant`.
-- Admin transitions: everything else. `resolved` requires `resolution_notes`. `closed` is auto after N days at `resolved` with no tenant reopen.
-
-**Tenant portal** (`/portal`)
-- New resource: "Maintenance" in sidebar.
-- List page — own requests only (`auth('portal')->id()` scope), default sort newest first, status badges color-coded matching the admin urgency palette.
-- Create page — title, category (radio with icons), priority (defaults to `medium`; `urgent` shows a "this is for genuine emergencies" warning), description (markdown-supported textarea), file upload (multi, max 5, photos + short videos).
-- View page — full thread of public comments, ability to add a comment, ability to cancel if still `submitted`/`acknowledged`. Status timeline at the top.
-- Dashboard widget — "Open maintenance requests" count + link.
-
-**Admin panel** (`/admin`)
-- New resource: "Maintenance Requests" under Operations nav, between Leases and Invoices.
-- List page — filters for status / priority / category / asset / unit / assigned user / SLA-breached. Bulk assign, bulk status change. Default view: status ≠ closed, sorted by priority desc then submitted_at asc.
-- View/Edit page — same comment thread (with `is_internal` toggle), assignment, status changes via action buttons (`Acknowledge`, `Start Work`, `Mark Resolved`, `Close`, `Cancel`, `Request Tenant Input`). Each transition logged via Spatie ActivityLog.
-- Relation managers: Unit → Maintenance, Tenant → Maintenance, Lease → Maintenance.
-- Dashboard widgets — `OpenMaintenanceRequests` (count by priority, like ActionRequired's pattern), `MaintenanceSlaBreaches` (count of open + past target_resolution_at).
-
-**RBAC**
-- `viewer` — read-only.
-- `manager` — full CRUD + assign + status transitions.
-- `super_admin` — same as manager + delete.
-- Existing [RoleGatedActions](app/Filament/Admin/Resources/Concerns/RoleGatedActions.php) trait applies cleanly.
-
-**Audit trail** — `LogsActivity` on `MaintenanceRequest` and `MaintenanceRequestComment`, whitelisted fields (status, priority, assigned_to, target_resolution_at). Surfaces in the existing global Activity Log page.
-
-**Notifications** — in-app Filament notifications on every status change, scoped to the right side:
-- Tenant gets notified on acknowledged / in_progress / awaiting_tenant / resolved / new admin comment (public only).
-- Admin gets notified on new submission (all managers + super_admins) / tenant comment / tenant cancellation.
-- Email + WhatsApp delivery deferred — both gated by the existing `WHATSAPP_ENABLED` flag and the new SMTP work in "Blocked on external credentials." Templates ready, channel disabled.
-
-**SLA defaults** — per priority, set in `config/maintenance.php`:
-- `urgent` — 4h to acknowledge, 24h to resolve
-- `high` — 1 business day to acknowledge, 3 business days to resolve
-- `medium` — 2 business days / 7 business days
-- `low` — 5 business days / 14 business days
-
-Stored as config, not in the database, so it's tunable per deployment without a migration.
-
-**i18n** — keys added to both [lang/en/admin.php](lang/en/admin.php) and [lang/ar/admin.php](lang/ar/admin.php) for the resource label, status enums, priority enums, category enums, action buttons, and the tenant-portal-specific strings. Follows the existing `enums.status.*` / `actions.*` / `resources.*` structure.
-
-**Tests**
-- PHPUnit — model factories + a `MaintenanceRequestStateMachineTest` covering legal transitions.
-- Playwright — `tenant-maintenance.spec.js` (submit → view status), `admin-maintenance.spec.js` (triage → assign → resolve), `maintenance-rtl.spec.js` (Arabic locale renders correctly).
-
-### Scope — out (deliberately, for v1)
-
-- **Vendor management as a first-class entity** — v1 just stores the assignee as a `User`. Recording external vendors as their own model, with contact info / contracts / SLAs / 1099-equivalent reporting, is the v2 expansion.
-- **Recurring / scheduled maintenance** (quarterly HVAC service, monthly fire-alarm test) — needs a `MaintenancePlan` model with cron-like recurrence. Big enough to be its own spec.
-- **Charging maintenance costs back to tenants** — needs to integrate with Charge / Invoice. The lease typically specifies who pays for what (landlord vs tenant), and that ruleset isn't modeled yet. Defer until the v1 workflow has run for a quarter and we know the real shape of chargebacks.
-- **Inventory / parts tracking** — way out of scope.
-- **Mobile push notifications** — covered when the tenant mobile app gets built (see "Mobile app for tenants" above).
-
-### Rollout plan
-
-1. **Phase 1 (1 session)** — migration + model + factory + state machine + PHPUnit. No UI yet. Lets us seed realistic data into HayaWalkSeeder so dashboards have something to show.
-2. **Phase 2 (1 session)** — admin resource (list / view / actions / relation managers) + dashboard widgets + ActivityLog wiring + RBAC.
-3. **Phase 3 (1 session)** — tenant portal resource (list / create / view / cancel) + tenant dashboard widget + media uploads.
-4. **Phase 4 (1 session)** — i18n + Playwright specs + SLA breach widget polish + seed-data tuning so the demo flows.
-
-Each phase is independently shippable. After phase 2 the admin can already manage requests entered by phone/WhatsApp on their behalf; phase 3 is what unlocks the self-service portal story.
-
-### Demo Day fit
-
-A 60-second add to the existing 10-minute flow, slotted between steps 9 (Tenant Portal) and 10 (Arabic toggle):
-> "And when something breaks — leaky AC, broken fire alarm — the tenant logs it here. Property manager sees it in the triage queue, assigns it, marks it done. Full audit trail, no more WhatsApp screenshots."
-
-Click: tenant submits a sample request → switch to admin window → request appears in queue → acknowledge + assign → done.
 
 ---
 

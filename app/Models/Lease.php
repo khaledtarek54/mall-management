@@ -46,6 +46,7 @@ class Lease extends Model implements HasMedia
         'has_percentage_rent',
         'percentage_rent_threshold',
         'percentage_rent_rate',
+        'percentage_rent_calculation_type',
         'billing_day',
         'payment_terms_days',
         'notes',
@@ -101,6 +102,11 @@ class Lease extends Model implements HasMedia
     public function maintenanceRequests(): HasMany
     {
         return $this->hasMany(MaintenanceRequest::class);
+    }
+
+    public function salesDeclarations(): HasMany
+    {
+        return $this->hasMany(TenantSalesDeclaration::class);
     }
 
     // ============ Derived ============

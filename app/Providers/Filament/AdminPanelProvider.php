@@ -11,6 +11,7 @@ use App\Filament\Admin\Widgets\OpenMaintenanceRequests;
 use App\Filament\Admin\Widgets\RecentPayments;
 use App\Filament\Admin\Widgets\TenantMix;
 use App\Filament\Admin\Widgets\TopTenants;
+use App\Support\CurrentOperator;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -37,10 +38,22 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->login()
-            ->brandName('Mall Management')
-            ->brandLogo(asset('images/jawad-logo.png'))
+            ->brandName(fn (): string => CurrentOperator::get()?->name ?? 'Mall Management')
+            ->brandLogo(function (): ?string {
+                $operator = CurrentOperator::get();
+                if ($operator) {
+                    return $operator->logoUrl();
+                }
+                return asset('images/jawad-logo.png');
+            })
             ->brandLogoHeight('2.5rem')
-            ->favicon(asset('jawad-favicon.png'))
+            ->favicon(function (): ?string {
+                $operator = CurrentOperator::get();
+                if ($operator) {
+                    return $operator->faviconUrl();
+                }
+                return asset('jawad-favicon.png');
+            })
             ->colors([
                 'primary' => Color::hex('#C9A961'),
                 'gray' => Color::Stone,

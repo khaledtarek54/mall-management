@@ -18,7 +18,9 @@ class AppServiceProvider extends ServiceProvider
     {
         FilamentView::registerRenderHook(
             PanelsRenderHook::TOPBAR_END,
-            fn (): string => Blade::render('@include("filament.language-switch")'),
+            fn (): string => filament()->getCurrentPanel()?->getId() === 'admin'
+                ? Blade::render('@include("filament.operator-switch") @include("filament.language-switch")')
+                : Blade::render('@include("filament.language-switch")'),
         );
         FilamentView::registerRenderHook(
             PanelsRenderHook::AUTH_LOGIN_FORM_BEFORE,

@@ -1,0 +1,102 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\Charge;
+use App\Models\Lease;
+use App\Models\TenantSalesDeclaration;
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
+
+class PercentageRentCalculationService
+{
+    /**
+     * Calculate the percentage rent owed for a declaration, based on the lease's
+     * percentage-rent configuration. Returns 0 when the lease has no percentage-rent terms.
+     *
+     * - artificial: percentage_rent = max(0, (sales - threshold) * rate%)
+     * - natural_breakpoint: percentage_rent = max(0, sales * rate% - base_rent_monthly)
+     */
+    public function calculate(TenantSalesDeclaration $declaration): float
+    {
+        $lease = $declaration->lease;
+
+        if (! $lease || ! $lease->has_percentage_rent) {
+            return 0.0;
+        }
+
+        $rate = (float) $lease->percentage_rent_rate / 100.0;
+        $sales = (float) $declaration->declared_sales;
+
+        $type = $lease->percentage_rent_calculation_type ?? 'artificial';
+
+        if ($type === 'natural_breakpoint') {
+            $baseRent = (float) $lease->base_rent_monthly;
+            $owed = ($sales * $rate) - $baseRent;
+        } else {
+            $threshold = (float) ($lease->percentage_rent_threshold ?? 0);
+            $owed = ($sales - $threshold) * $rate;
+        }
+
+        return round(max(0.0, $owed), 2);
+    }
+
+    /**
+     * Recalculate and persist `calculated_percentage_rent` on the declaration without locking.
+     */
+    public function recalculate(TenantSalesDeclaration $declaration): TenantSalesDeclaration
+    {
+        $declaration->calculated_percentage_rent = $this->calculate($declaration);
+        $declaration->save();
+
+        return $declaration;
+    }
+
+    /**
+     * Lock a declaration: recalculate, persist, mark as locked, and create a one-off Charge
+     * so the next monthly billing run picks the percentage rent up.
+     *
+     * Idempotent: locking an already-locked declaration is a no-op.
+     */
+    public function lock(TenantSalesDeclaration $declaration, User $lockedBy, ?string $auditNotes = null): TenantSalesDeclaration
+    {
+        if ($declaration->status === 'locked') {
+            return $declaration;
+        }
+
+        return DB::transaction(function () use ($declaration, $lockedBy, $auditNotes) {
+            $owed = $this->calculate($declaration);
+
+            $declaration->update([
+                'calculated_percentage_rent' => $owed,
+                'status' => 'locked',
+                'locked_at' => now(),
+                'locked_by_user_id' => $lockedBy->id,
+                'audit_notes' => $auditNotes,
+            ]);
+
+            if ($owed > 0) {
+                $this->createPercentageRentCharge($declaration, $owed);
+            }
+
+            return $declaration->refresh();
+        });
+    }
+
+    private function createPercentageRentCharge(TenantSalesDeclaration $declaration, float $amount): Charge
+    {
+        return Charge::create([
+            'lease_id' => $declaration->lease_id,
+            'name' => 'Percentage Rent — '.$declaration->periodLabel(),
+            'type' => 'percentage_rent',
+            'amount' => $amount,
+            'currency' => 'EGP',
+            'frequency' => 'one_time',
+            'vat_applicable' => false,
+            'vat_rate' => 0,
+            'start_date' => $declaration->period_start,
+            'end_date' => $declaration->period_end,
+            'is_active' => true,
+        ]);
+    }
+}

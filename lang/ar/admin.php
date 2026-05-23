@@ -18,6 +18,7 @@ return [
         'invoices' => 'الفواتير',
         'payments' => 'المدفوعات',
         'maintenance' => 'الصيانة',
+        'tenant_sales' => 'مبيعات المستأجرين',
         'users' => 'المستخدمون',
     ],
 
@@ -30,6 +31,7 @@ return [
         'payment' => ['singular' => 'دفعة', 'plural' => 'المدفوعات'],
         'user' => ['singular' => 'مستخدم', 'plural' => 'المستخدمون'],
         'maintenance_request' => ['singular' => 'طلب صيانة', 'plural' => 'طلبات الصيانة'],
+        'tenant_sales' => ['singular' => 'إقرار مبيعات', 'plural' => 'إقرارات مبيعات المستأجرين'],
     ],
 
     'widgets' => [
@@ -223,6 +225,15 @@ return [
             'submitted' => 'تاريخ التقديم',
             'target' => 'مهلة الحل',
         ],
+        'tenant_sales' => [
+            'tenant' => 'المستأجر',
+            'unit' => 'الوحدة',
+            'period' => 'الفترة',
+            'declared_sales' => 'المبيعات المُقَرّة',
+            'percentage_rent' => 'نسبة الإيجار',
+            'declared_at' => 'تاريخ الإقرار',
+            'locked_at' => 'تاريخ التثبيت',
+        ],
     ],
 
     'filters' => [
@@ -336,6 +347,16 @@ return [
         'status_changed_body' => ':ref ← :status',
         'assign' => 'إسناد',
         'assigned' => 'تم الإسناد',
+        'lock_declaration' => 'تثبيت',
+        'lock_declaration_confirm' => 'تثبيت الإقرار يُنهي المراجعة ويُنشئ رسم نسبة الإيجار على العقد للدورة الفوترية القادمة.',
+        'dispute_declaration' => 'اعتراض',
+        'submit_sales' => 'تقديم المبيعات',
+    ],
+
+    'notifications' => [
+        'declaration_locked' => 'تم تثبيت الإقرار',
+        'declaration_locked_body' => 'تم إضافة نسبة الإيجار :amount جنيه إلى دورة الفوترة القادمة.',
+        'declaration_disputed' => 'تم تسجيل اعتراض على الإقرار',
     ],
 
     'fields' => [
@@ -411,6 +432,13 @@ return [
         'resolution_notes' => 'ملاحظات الحل',
         'new_status' => 'الحالة الجديدة',
         'attachments' => 'المرفقات',
+        'period' => 'الفترة',
+        'period_end' => 'نهاية الفترة',
+        'declared_sales' => 'المبيعات المُقَرّة',
+        'declared_sales_help' => 'أدخل إجمالي المبيعات للشهر بدون ضريبة القيمة المضافة.',
+        'calculated_percentage_rent' => 'نسبة الإيجار المحسوبة',
+        'calculated_percentage_rent_help' => 'تُحسب تلقائيًا من شروط نسبة الإيجار في العقد.',
+        'audit_notes' => 'ملاحظات المراجعة',
     ],
 
     'sections' => [
@@ -444,6 +472,10 @@ return [
         'resolution' => 'الحل',
         'attachments' => 'المرفقات',
         'attachments_description' => 'صور أو ملفات PDF توضح المشكلة.',
+        'tenant_sales' => 'إقرار المبيعات',
+        'tenant_sales_audit' => 'المراجعة',
+        'tenant_sales_submit' => 'تقديم مبيعات الشهر',
+        'tenant_sales_submit_description' => 'أقرّ بإجمالي مبيعاتك للشهر الماضي. عند تثبيت الإدارة للإقرار، تُحتسب نسبة الإيجار تلقائيًا.',
     ],
 
     'statuses' => [
@@ -495,6 +527,11 @@ return [
             'resolved' => 'تم الحل',
             'closed' => 'مغلق',
             'cancelled' => 'ملغي',
+        ],
+        'tenant_sales' => [
+            'submitted' => 'مُقدَّم',
+            'locked' => 'مُثبَّت',
+            'disputed' => 'معترض عليه',
         ],
     ],
 
@@ -680,6 +717,11 @@ return [
         'term' => 'المدة',
         'notes' => 'ملاحظات',
         'footer' => 'يجب السداد خلال :days أيام من تاريخ الإصدار · تحويل بنكي / بطاقة / إنستاباي · للاستفسارات: billing@:slug.test',
+    ],
+    'operators' => [
+        'label' => 'المشغل',
+        'all' => 'كل المشغلين',
+        'switch' => 'تبديل المشغل',
     ],
 
 ];
