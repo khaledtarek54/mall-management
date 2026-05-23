@@ -42,6 +42,8 @@ class Invoice extends Model
         'eta_submission_id',
         'eta_submitted_at',
         'eta_response',
+        'eta_status',
+        'eta_long_id',
         'notes',
     ];
 

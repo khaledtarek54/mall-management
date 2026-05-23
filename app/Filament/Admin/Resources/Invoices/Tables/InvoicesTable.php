@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Exports\InvoiceExporter;
 use App\Models\Invoice;
 use App\Models\Unit;
+use App\Services\Eta\EtaSubmissionService;
 use App\Services\InvoicePdfService;
 use App\Services\MonthlyBillingService;
 use Filament\Actions\Action;
@@ -87,6 +88,18 @@ class InvoicesTable
                         'overdue' => 'danger',
                         'issued' => 'info',
                         'disputed' => 'warning',
+                        default => 'gray',
+                    }),
+                TextColumn::make('eta_status')
+                    ->label(__('admin.tables.invoice.eta'))
+                    ->badge()
+                    ->placeholder('—')
+                    ->formatStateUsing(fn (?string $state) => $state ? __("admin.statuses.eta.{$state}") : null)
+                    ->color(fn (?string $state): string => match ($state) {
+                        'valid' => 'success',
+                        'submitted' => 'info',
+                        'invalid', 'rejected' => 'danger',
+                        'cancelled' => 'gray',
                         default => 'gray',
                     }),
             ])
@@ -217,6 +230,27 @@ class InvoicesTable
                         ->body($record->tenant->name)
                         ->success()
                         ->send()),
+                Action::make('submitToEta')
+                    ->label(__('admin.actions.submit_to_eta'))
+                    ->icon('heroicon-o-paper-airplane')
+                    ->color('primary')
+                    ->visible(fn (Invoice $record) => config('eta.enabled') && $record->eta_status !== 'valid' && in_array($record->status, ['issued', 'partially_paid', 'paid', 'overdue']))
+                    ->requiresConfirmation()
+                    ->modalDescription(fn () => config('eta.mock')
+                        ? __('admin.actions.submit_to_eta_modal_mock')
+                        : __('admin.actions.submit_to_eta_modal_live'))
+                    ->action(function (Invoice $record): void {
+                        $updated = app(EtaSubmissionService::class)->submit($record);
+                        Notification::make()
+                            ->title(__('admin.notifications.eta_submitted'))
+                            ->body(__('admin.notifications.eta_submitted_body', [
+                                'status' => __("admin.statuses.eta.{$updated->eta_status}"),
+                                'id' => $updated->eta_submission_id ?? '—',
+                            ]))
+                            ->color($updated->eta_status === 'valid' ? 'success' : 'warning')
+                            ->success()
+                            ->send();
+                    }),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

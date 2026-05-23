@@ -221,6 +221,7 @@ return [
             'paid' => 'Paid',
             'balance' => 'Balance',
             'due_date' => 'Due',
+            'eta' => 'ETA',
         ],
         'payment' => [
             'reference' => 'Reference',
@@ -384,6 +385,9 @@ return [
         'mark_reconciled' => 'Mark Reconciled',
         'bill_allocation' => 'Bill',
         'bill_allocation_confirm' => 'Creates a one-off CAM Reconciliation charge on the lease for the true-up amount. The next monthly invoice will include it.',
+        'submit_to_eta' => 'Submit to ETA',
+        'submit_to_eta_modal_mock' => 'ETA is in mock mode. The submission returns a stubbed Valid response — useful for the demo before real test credentials arrive.',
+        'submit_to_eta_modal_live' => 'Submits this invoice to the Egyptian Tax Authority preproduction endpoint and stores the response.',
     ],
 
     'notifications' => [
@@ -395,6 +399,8 @@ return [
         'pool_reconciled' => 'CAM pool marked reconciled',
         'allocation_billed' => 'Allocation billed',
         'allocation_billed_body' => 'CAM true-up of EGP :amount added to the lease.',
+        'eta_submitted' => 'Submitted to ETA',
+        'eta_submitted_body' => 'Status: :status · Submission ID :id',
     ],
 
     'fields' => [
@@ -576,6 +582,14 @@ return [
             'submitted' => 'Submitted',
             'locked' => 'Locked',
             'disputed' => 'Disputed',
+        ],
+        'eta' => [
+            'pending' => 'Pending',
+            'submitted' => 'Submitted',
+            'valid' => 'Valid',
+            'invalid' => 'Invalid',
+            'rejected' => 'Rejected',
+            'cancelled' => 'Cancelled',
         ],
         'cam_pool' => [
             'draft' => 'Draft',

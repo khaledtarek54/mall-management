@@ -215,6 +215,7 @@ class HayaWalkSeeder extends Seeder
         $this->seedMaintenanceRequests();
         $this->seedTenantSalesDeclarations();
         $this->seedCamReconciliation($hayaWalk);
+        $this->seedEtaSubmissions();
 
         $this->command->info("✅ Created Haya Walk with {$occupiedCount} occupied, {$vacantCount} vacant units");
         $this->command->info("✅ Generated leases, charges, invoices, and payment history");
@@ -519,6 +520,50 @@ class HayaWalkSeeder extends Seeder
         ]);
 
         $this->command->info("   Seeded 2 CAM pools ({$lastYear} reconciled + {$closedPool->allocations()->count()} allocations billed, ".now()->year." draft awaiting generation)");
+    }
+
+    /**
+     * Seed ETA submission history on a realistic slice of past invoices so the
+     * Invoices table shows a mix of submitted / valid / unsubmitted rows on
+     * first login. Runs the same mock submission path the admin action triggers.
+     */
+    private function seedEtaSubmissions(): void
+    {
+        $service = app(\App\Services\Eta\EtaSubmissionService::class);
+
+        // Submit a slice: every 3rd issued/paid invoice. Mix of statuses
+        // (the mock returns Valid; we manually flip a few to invalid/rejected
+        // to demonstrate badge variety in the demo).
+        $invoices = Invoice::query()
+            ->whereIn('status', ['issued', 'partially_paid', 'paid', 'overdue'])
+            ->orderBy('issue_date', 'desc')
+            ->get();
+
+        $submitted = 0;
+        $rejected = 0;
+        foreach ($invoices as $i => $invoice) {
+            if ($i % 3 !== 0) {
+                continue; // sparse — leaves ~2/3 unsubmitted for demo click target
+            }
+
+            $service->submit($invoice);
+
+            // Every 7th submission, simulate a rejected status for badge variety
+            if ($i % 21 === 0) {
+                $invoice->fresh()->update([
+                    'eta_status' => 'rejected',
+                    'eta_response' => [
+                        'status' => 'error',
+                        'rejectedDocuments' => [['errors' => [['target' => 'totalAmount', 'message' => 'Mismatch in computed total']]]],
+                    ],
+                ]);
+                $rejected++;
+            } else {
+                $submitted++;
+            }
+        }
+
+        $this->command->info("   Seeded ETA submissions ({$submitted} valid + {$rejected} rejected; rest unsubmitted)");
     }
 
     /**
