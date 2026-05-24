@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" preserveAspectRatio="xMidYMid meet">
+  <!-- Atriom logo for LIGHT backgrounds.
+       Wordmark in ink (#0F1419), teal arch mark, amber skylight dot. -->
+  <g transform="translate(8, 14)">
+    <path d="M 4 50 L 4 24 A 22 22 0 0 1 48 24 L 48 50"
+          fill="none" stroke="#0F766E" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="14" y1="50" x2="14" y2="30" stroke="#0F766E" stroke-width="3" stroke-linecap="round" opacity="0.55"/>
+    <line x1="38" y1="50" x2="38" y2="30" stroke="#0F766E" stroke-width="3" stroke-linecap="round" opacity="0.55"/>
+    <circle cx="26" cy="10" r="3.5" fill="#D97706"/>
+  </g>
+  <text x="76" y="52" fill="#0F1419" font-family="Inter, system-ui, sans-serif" font-weight="700" font-size="38" letter-spacing="-0.02em">atriom</text>
+</svg>
