@@ -95,7 +95,7 @@ class UnitResource extends Resource
     public static function getGlobalSearchResultDetails(Model $record): array
     {
         return [
-            __('admin.tables.asset.singular', [], __('admin.tables.unit.code')) => $record->asset?->name,
+            __('admin.resources.asset.singular') => $record->asset?->name,
             __('admin.tables.unit.category') => __("admin.enums.category.{$record->category}"),
             __('admin.tables.unit.tenant') => $record->activeLease?->tenant?->name,
             __('admin.tables.common.status') => __("admin.statuses.unit.{$record->status}"),

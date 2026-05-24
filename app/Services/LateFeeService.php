@@ -72,7 +72,7 @@ class LateFeeService
         return DB::transaction(function () use ($invoice, $fee) {
             InvoiceItem::create([
                 'invoice_id' => $invoice->id,
-                'description' => __('admin.invoice_item_type.late_fee'),
+                'description' => __('admin.enums.invoice_item_type.late_fee'),
                 'type' => 'late_fee',
                 'amount' => $fee,
                 'vat_rate' => 0,

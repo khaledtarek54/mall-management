@@ -841,6 +841,7 @@ return [
             'super_admin' => 'مدير عام',
             'manager' => 'مدير تشغيلي',
             'viewer' => 'مشاهد',
+            'owner' => 'مالك',
         ],
     ],
 

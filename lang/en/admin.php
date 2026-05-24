@@ -841,6 +841,7 @@ return [
             'super_admin' => 'Super Admin',
             'manager' => 'Manager',
             'viewer' => 'Viewer',
+            'owner' => 'Owner',
         ],
     ],
 
