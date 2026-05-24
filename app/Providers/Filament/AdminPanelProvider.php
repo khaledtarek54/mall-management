@@ -39,13 +39,13 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->login()
-            ->brandName(fn (): string => CurrentOperator::get()?->name ?? 'Mall Management')
+            ->brandName(fn (): string => CurrentOperator::get()?->name ?? 'Atriom')
             ->brandLogo(function (): ?string {
                 $operator = CurrentOperator::get();
                 if ($operator) {
                     return $operator->logoUrl();
                 }
-                return asset('images/jawad-logo.png');
+                return asset('images/atriom-logo.svg');
             })
             ->brandLogoHeight('2.5rem')
             ->favicon(function (): ?string {
@@ -53,13 +53,13 @@ class AdminPanelProvider extends PanelProvider
                 if ($operator) {
                     return $operator->faviconUrl();
                 }
-                return asset('jawad-favicon.png');
+                return asset('atriom-favicon.svg');
             })
             ->colors([
-                'primary' => Color::hex('#C9A961'),
-                'gray' => Color::Stone,
+                'primary' => Color::hex('#0F766E'),
+                'gray' => Color::Slate,
                 'danger' => Color::Red,
-                'info' => Color::Blue,
+                'info' => Color::Sky,
                 'success' => Color::Emerald,
                 'warning' => Color::Amber,
             ])

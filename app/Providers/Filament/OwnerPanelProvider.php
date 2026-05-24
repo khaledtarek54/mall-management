@@ -30,21 +30,21 @@ class OwnerPanelProvider extends PanelProvider
             ->path('owner')
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->login()
-            ->brandName(fn (): string => self::resolveOperator()?->name ?? 'Owner Portal')
+            ->brandName(fn (): string => self::resolveOperator()?->name ?? 'Atriom · Owner Portal')
             ->brandLogo(function (): ?string {
                 $operator = self::resolveOperator();
-                return $operator?->logoUrl() ?? asset('images/jawad-logo.png');
+                return $operator?->logoUrl() ?? asset('images/atriom-logo.svg');
             })
             ->brandLogoHeight('2.5rem')
             ->favicon(function (): ?string {
                 $operator = self::resolveOperator();
-                return $operator?->faviconUrl() ?? asset('jawad-favicon.png');
+                return $operator?->faviconUrl() ?? asset('atriom-favicon.svg');
             })
             ->colors([
-                'primary' => Color::hex('#C9A961'),
-                'gray' => Color::Stone,
+                'primary' => Color::hex('#0F766E'),
+                'gray' => Color::Slate,
                 'danger' => Color::Red,
-                'info' => Color::Blue,
+                'info' => Color::Sky,
                 'success' => Color::Emerald,
                 'warning' => Color::Amber,
             ])

@@ -8,13 +8,13 @@
         @page { margin: 32px 36px; }
         * { box-sizing: border-box; }
         body {
-            color: #1A1A1A;
+            color: #0F1419;
             font-size: 10.5pt;
             line-height: 1.55;
             margin: 0;
         }
         .header {
-            border-bottom: 2px solid #C9A961;
+            border-bottom: 2px solid #0F766E;
             padding-bottom: 16px;
             margin-bottom: 24px;
         }
@@ -22,13 +22,13 @@
         .brand-name {
             font-size: 22pt;
             font-weight: bold;
-            color: #1A1A1A;
+            color: #0F1419;
             letter-spacing: {{ $isRtl ? '0' : '0.5px' }};
         }
         .brand-sub { color: #8C8478; font-size: 9pt; }
         .doc-title {
             font-size: 18pt;
-            color: #C9A961;
+            color: #0F766E;
             text-align: {{ $isRtl ? 'left' : 'right' }};
             letter-spacing: {{ $isRtl ? '0' : '4px' }};
             text-transform: {{ $isRtl ? 'none' : 'uppercase' }};
@@ -39,7 +39,7 @@
             color: #6B6660;
             margin-top: 4px;
         }
-        .doc-meta strong { color: #1A1A1A; }
+        .doc-meta strong { color: #0F1419; }
 
         .parties { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
         .parties td { width: 50%; vertical-align: top; padding: 0; }
@@ -54,9 +54,9 @@
         .party-line { color: #4A4A4A; font-size: 9.5pt; }
 
         .period-box {
-            background: #F5F1EA;
-            border-left: {{ $isRtl ? '0 none' : '3px solid #C9A961' }};
-            border-right: {{ $isRtl ? '3px solid #C9A961' : '0 none' }};
+            background: #F5F0E8;
+            border-left: {{ $isRtl ? '0 none' : '3px solid #0F766E' }};
+            border-right: {{ $isRtl ? '3px solid #0F766E' : '0 none' }};
             padding: 10px 14px;
             margin-bottom: 20px;
             font-size: 9.5pt;
@@ -70,8 +70,8 @@
 
         table.items { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
         table.items thead th {
-            background: #1A1A1A;
-            color: #F5F1EA;
+            background: #0F1419;
+            color: #F5F0E8;
             text-align: {{ $isRtl ? 'right' : 'left' }};
             padding: 10px 12px;
             font-size: 9pt;
@@ -107,8 +107,8 @@
             font-variant-numeric: tabular-nums;
         }
         .totals tr.grand td {
-            background: #1A1A1A;
-            color: #F5F1EA;
+            background: #0F1419;
+            color: #F5F0E8;
             font-weight: bold;
             font-size: 11.5pt;
             padding: 11px 12px;
@@ -116,7 +116,7 @@
         .totals tr.balance td {
             color: #B85C38;
             font-weight: bold;
-            border-top: 1px dashed #C9A961;
+            border-top: 1px dashed #0F766E;
         }
         .totals tr.balance td.value { font-size: 11.5pt; }
 
@@ -155,7 +155,7 @@
         <table>
             <tr>
                 <td style="width:60%;">
-                    <div class="brand-name">{{ $asset?->name ?? 'Mall Management' }}</div>
+                    <div class="brand-name">{{ $asset?->name ?? 'Atriom' }}</div>
                     <div class="brand-sub">
                         @if($asset?->address){{ $asset->address }}@endif
                         @if($asset?->city), {{ $asset->city }}@endif

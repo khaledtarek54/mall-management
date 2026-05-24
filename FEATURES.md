@@ -1,4 +1,4 @@
-# Mall Management — Features & Roadmap
+# Atriom — Features & Roadmap
 
 Status snapshot of the build. See bottom of this file for what's still ahead, and the Demo Day section just below for the live-demo playbook.
 
@@ -230,7 +230,7 @@ All accounts persist through `migrate:fresh --seed`.
 
 ### Branded surfaces
 - **Landing page** (`/`) — branded intro with three CTAs into the panels (Admin / Owner / Portal). Replaces the default Laravel welcome. See [resources/views/welcome.blade.php](resources/views/welcome.blade.php).
-- **Custom error pages** — 404 / 403 / 500 each render with the Jawad palette + gold accent, localizable via [lang/en/errors.php](lang/en/errors.php) + [lang/ar/errors.php](lang/ar/errors.php).
+- **Custom error pages** — 404 / 403 / 500 each render with the Atriom palette (deep teal + amber accent), localizable via [lang/en/errors.php](lang/en/errors.php) + [lang/ar/errors.php](lang/ar/errors.php).
 - **Helper text on financial forms** — Lease form now explains `escalation_rate`, `escalation_type`, `percentage_rent_calculation_type` (natural breakpoint vs artificial), threshold/rate semantics with typical Egyptian-mall rates. CAM form explains actual vs estimated. All min/max validation rules added.
 
 ### Energy & Utilities (intentionally shallow — Q3 work continues here)
@@ -258,9 +258,9 @@ All accounts persist through `migrate:fresh --seed`.
 - Storage handled by Spatie defaults (filesystem of choice).
 
 ### Branding & i18n
-- Real Jawad Developments logo + favicon (sourced from their homepage).
-- Jawad palette CSS theme — charcoal `#1A1A1A` + cream `#F5F1EA` + gold `#C9A961`.
-- Per-operator dynamic brand swap on admin + owner panels (logo, name, favicon read from current operator).
+- **Atriom brand identity** — Custom SVG wordmark + favicon ([public/images/atriom-logo.svg](public/images/atriom-logo.svg), [public/atriom-favicon.svg](public/atriom-favicon.svg)) with a stylized atrium-arch mark in deep teal + amber accent skylight.
+- **Atriom palette** — ink `#0F1419` + cream `#F5F0E8` + deep teal `#0F766E` + amber accent `#D97706`. Defined in [resources/css/filament/admin/theme.css](resources/css/filament/admin/theme.css).
+- **Customer operators bring their own brand** — Jawad Developments (gold `#C9A961` + their real logo), Eltizam Egypt (gold `#F0B010` + their real public mark). Per-operator dynamic brand swap on admin + owner panels (logo, name, favicon read from current operator); platform Atriom branding is the fallback.
 - **EN ↔ AR language switch** — segmented pill on every page (topbar + login). Full RTL flip via Filament's built-in `dir` attribute.
 - Translation files: [lang/en/admin.php](lang/en/admin.php) + [lang/ar/admin.php](lang/ar/admin.php) — ~800+ lines each, covering nav/groups/resources/widgets/tables/filters/actions/fields/sections/statuses/enums (incl. operators, tenant_sales, cam_pool, cam_allocation, eta, meter_type, meter status) / pdf/statement/activity/users/tenants/occupancy/maintenance/energy/portfolio.
 - DD/MM/YYYY date format everywhere; locale-aware month names via Carbon's `isoFormat('MMM YYYY')`.

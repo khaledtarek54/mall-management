@@ -35,13 +35,13 @@ return [
     'issuer' => [
         'tax_registration_number' => env('ETA_ISSUER_TRN', '100000000'),
         'type' => env('ETA_ISSUER_TYPE', 'B'), // B = business
-        'name' => env('ETA_ISSUER_NAME', 'Jawad Developments'),
+        'name' => env('ETA_ISSUER_NAME', 'Atriom Demo Operator'),
         'address' => [
-            'country' => 'EG',
-            'governate' => 'Giza',
-            'region_city' => '6th of October City',
-            'street' => 'Wahat Road',
-            'building_number' => '1',
+            'country' => env('ETA_ISSUER_COUNTRY', 'EG'),
+            'governate' => env('ETA_ISSUER_GOVERNATE', 'Giza'),
+            'region_city' => env('ETA_ISSUER_CITY', '6th of October City'),
+            'street' => env('ETA_ISSUER_STREET', 'Wahat Road'),
+            'building_number' => env('ETA_ISSUER_BUILDING', '1'),
         ],
     ],
 ];

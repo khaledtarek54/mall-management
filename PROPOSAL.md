@@ -1,6 +1,6 @@
-# Mall Management Platform for Jawad Developments
+# Atriom for Jawad Developments
 
-A property operations system built for the Egyptian market — and a long-term technical partnership.
+> **Atriom** — an operations platform built for the Egyptian retail market — proposed as a long-term technical partnership for Jawad Developments and Haya Walk.
 
 ---
 

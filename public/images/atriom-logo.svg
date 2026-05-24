@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" preserveAspectRatio="xMidYMid meet">
+  <!-- Atriom mark: stylized open arch (atrium opening / "A" abstracted) in teal,
+       paired with the wordmark. The arch forms the visual anchor; the wordmark
+       carries the brand. Lowercase wordmark for modern SaaS feel. -->
+  <defs>
+    <style>
+      .mark { fill: none; stroke: #0F766E; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+      .accent { fill: #D97706; }
+      .word { fill: #0F1419; font-family: 'Inter', system-ui, sans-serif; font-weight: 700; letter-spacing: -0.02em; }
+      .dot { fill: #D97706; }
+    </style>
+  </defs>
+
+  <!-- Mark: open arch -->
+  <g transform="translate(8, 14)">
+    <!-- Outer arch shape -->
+    <path class="mark" d="M 4 50 L 4 24 A 22 22 0 0 1 48 24 L 48 50" />
+    <!-- Inner depth lines suggesting atrium volume -->
+    <line class="mark" x1="14" y1="50" x2="14" y2="30" stroke-width="3" opacity="0.55" />
+    <line class="mark" x1="38" y1="50" x2="38" y2="30" stroke-width="3" opacity="0.55" />
+    <!-- Accent skylight dot at the top center -->
+    <circle class="dot" cx="26" cy="10" r="3.5" />
+  </g>
+
+  <!-- Wordmark -->
+  <text class="word" x="76" y="52" font-size="38">atriom</text>
+</svg>

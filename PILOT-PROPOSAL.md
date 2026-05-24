@@ -1,5 +1,6 @@
-# Pilot Proposal — Egyptian Mall Operations Platform
+# Atriom Pilot Proposal
 
+> **Platform:** Atriom — Egyptian Mall Operations
 > **Prepared for:** Eltizam Asset Management Group
 > **Property:** Haya Walk, 6th of October City (Jawad Developments)
 > **Term:** 6 months, extendable
@@ -11,7 +12,7 @@
 
 ## The proposal in one sentence
 
-A six-month pilot deployment of a production-grade Egyptian-mall operations platform at Haya Walk, branded and operated alongside PropEzy as Eltizam's specialized retail-vertical layer, with a defined commercial and a path to multi-property rollout.
+A six-month pilot deployment of **Atriom** — a production-grade Egyptian-mall operations platform — at Haya Walk, branded and operated alongside PropEzy as Eltizam's specialized retail-vertical layer, with a defined commercial and a path to multi-property rollout.
 
 ---
 

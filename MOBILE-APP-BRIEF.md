@@ -1,7 +1,7 @@
-# Mobile App Brief — For the Mobile Developer
+# Atriom Mobile App — Briefing for the Mobile Developer
 
 > This is a business briefing, not a technical one. Build it however you build mobile apps well.
-> Audience: an experienced mobile dev coming into this project cold.
+> Audience: an experienced mobile dev coming into the Atriom project cold.
 
 ---
 

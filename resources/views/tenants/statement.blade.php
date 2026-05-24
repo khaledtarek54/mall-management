@@ -8,13 +8,13 @@
         @page { margin: 32px 36px; }
         * { box-sizing: border-box; }
         body {
-            color: #1A1A1A;
+            color: #0F1419;
             font-size: 10pt;
             line-height: 1.5;
             margin: 0;
         }
         .header {
-            border-bottom: 2px solid #C9A961;
+            border-bottom: 2px solid #0F766E;
             padding-bottom: 14px;
             margin-bottom: 20px;
         }
@@ -22,19 +22,19 @@
         .brand-name {
             font-size: 20pt;
             font-weight: bold;
-            color: #1A1A1A;
+            color: #0F1419;
             letter-spacing: {{ $isRtl ? '0' : '0.5px' }};
         }
         .brand-sub { color: #8C8478; font-size: 9pt; }
         .doc-title {
             font-size: 16pt;
-            color: #C9A961;
+            color: #0F766E;
             text-align: {{ $isRtl ? 'left' : 'right' }};
             letter-spacing: {{ $isRtl ? '0' : '3px' }};
             text-transform: {{ $isRtl ? 'none' : 'uppercase' }};
         }
         .doc-meta { text-align: {{ $isRtl ? 'left' : 'right' }}; font-size: 9pt; color: #6B6660; margin-top: 4px; }
-        .doc-meta strong { color: #1A1A1A; }
+        .doc-meta strong { color: #0F1419; }
 
         .label {
             font-size: 8pt;
@@ -50,9 +50,9 @@
             width: 100%;
             border-collapse: collapse;
             margin-bottom: 20px;
-            background: #F5F1EA;
-            border-left: {{ $isRtl ? '0 none' : '3px solid #C9A961' }};
-            border-right: {{ $isRtl ? '3px solid #C9A961' : '0 none' }};
+            background: #F5F0E8;
+            border-left: {{ $isRtl ? '0 none' : '3px solid #0F766E' }};
+            border-right: {{ $isRtl ? '3px solid #0F766E' : '0 none' }};
         }
         .summary td {
             padding: 10px 14px;
@@ -67,24 +67,24 @@
             letter-spacing: {{ $isRtl ? '0' : '1px' }};
             text-transform: {{ $isRtl ? 'none' : 'uppercase' }};
         }
-        .summary .stat-value { font-size: 14pt; font-weight: bold; color: #1A1A1A; margin-top: 4px; }
+        .summary .stat-value { font-size: 14pt; font-weight: bold; color: #0F1419; margin-top: 4px; }
         .summary .stat-value.warn { color: #B85C38; }
 
         .section-title {
             font-size: 11pt;
             font-weight: bold;
-            color: #1A1A1A;
+            color: #0F1419;
             margin: 18px 0 8px;
             padding-bottom: 4px;
-            border-bottom: 1px solid #C9A961;
+            border-bottom: 1px solid #0F766E;
             letter-spacing: {{ $isRtl ? '0' : '1px' }};
             text-transform: {{ $isRtl ? 'none' : 'uppercase' }};
         }
 
         table.data { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
         table.data thead th {
-            background: #1A1A1A;
-            color: #F5F1EA;
+            background: #0F1419;
+            color: #F5F0E8;
             text-align: {{ $isRtl ? 'right' : 'left' }};
             padding: 8px 10px;
             font-size: 8.5pt;
@@ -104,7 +104,7 @@
         table.data tfoot td {
             padding: 8px 10px;
             font-weight: bold;
-            border-top: 2px solid #1A1A1A;
+            border-top: 2px solid #0F1419;
             background: #FAFAF8;
         }
         table.data tfoot td.num { text-align: {{ $isRtl ? 'left' : 'right' }}; }
@@ -139,7 +139,7 @@
         <table>
             <tr>
                 <td style="width:60%;">
-                    <div class="brand-name">{{ $asset?->name ?? 'Mall Management' }}</div>
+                    <div class="brand-name">{{ $asset?->name ?? 'Atriom' }}</div>
                     <div class="brand-sub">
                         @if($asset?->address){{ $asset->address }}@endif
                         @if($asset?->city), {{ $asset->city }}@endif

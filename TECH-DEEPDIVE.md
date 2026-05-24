@@ -1,5 +1,6 @@
-# Technical Deep-Dive
+# Atriom — Technical Deep-Dive
 
+> **Product:** Atriom — Egyptian Mall Operations platform
 > **Audience:** Eltizam's technical evaluators (EAST-O Holdings engineering, Aldar integration architects, in-house tech leads).
 > **Purpose:** What you'd want to know before signing off on this codebase as a complementary stack alongside PropEzy. Honest about trade-offs, specific about choices, transparent about what's deferred.
 > **Reading time:** 30 minutes. Skim the section headers first; depth-read the sections that match your role.

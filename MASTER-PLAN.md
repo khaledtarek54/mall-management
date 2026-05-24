@@ -1,8 +1,9 @@
-# Master Plan — Eltizam Partnership Pursuit
+# Atriom — Master Plan for the Eltizam Partnership Pursuit
 
+> **Platform:** Atriom (Egyptian Mall Operations)
 > **Audience:** Internal team. Strategy + sprint plan + competitive read for the Eltizam Asset Management Group pursuit.
 > **Status:** Sprint shipped. Meeting not yet booked; outreach + hosted-demo deployment are now the bottleneck.
-> **Revision:** V2.1 — sprint plan section marked shipped; everything else unchanged from V2.
+> **Revision:** V2.2 — platform branded as Atriom (logo, palette, identity); customer operators (Jawad, Eltizam) keep their own brands; sprint section unchanged.
 > **Last updated:** 2026-05-24
 
 ---

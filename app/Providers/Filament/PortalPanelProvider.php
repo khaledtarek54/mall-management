@@ -27,14 +27,14 @@ class PortalPanelProvider extends PanelProvider
             ->id('portal')
             ->path('portal')
             ->login()
-            ->brandName('Tenant Portal')
-            ->brandLogo(asset('images/jawad-logo.png'))
+            ->brandName('Atriom · Tenant Portal')
+            ->brandLogo(asset('images/atriom-logo.svg'))
             ->brandLogoHeight('2.5rem')
-            ->favicon(asset('jawad-favicon.png'))
+            ->favicon(asset('atriom-favicon.svg'))
             ->authGuard('portal')
             ->colors([
-                'primary' => Color::hex('#C9A961'),
-                'gray' => Color::Stone,
+                'primary' => Color::hex('#0F766E'),
+                'gray' => Color::Slate,
             ])
             ->font('Inter')
             ->viteTheme('resources/css/filament/admin/theme.css')

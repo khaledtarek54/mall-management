@@ -4,20 +4,21 @@
 @source '../../../../resources/views/filament/admin/**/*';
 
 /* ============================================
-   Jawad Brand Theme — Mall Management
-   Premium minimalist — charcoal + cream + gold
+   Atriom Brand Theme
+   Modern, professional — deep teal + amber accent + cream/charcoal surfaces
    ============================================ */
 
 :root {
-    --jawad-charcoal: #1A1A1A;
-    --jawad-cream: #F5F1EA;
-    --jawad-gold: #C9A961;
-    --jawad-terracotta: #B85C38;
-    --jawad-warm-gray: #8C8478;
+    --atriom-ink: #0F1419;
+    --atriom-cream: #F5F0E8;
+    --atriom-teal: #0F766E;
+    --atriom-teal-bright: #14B8A6;
+    --atriom-amber: #D97706;
+    --atriom-warm-gray: #94A3B8;
 }
 
 .fi-body {
-    background-color: var(--jawad-cream);
+    background-color: var(--atriom-cream);
 }
 
 .fi-sidebar {
@@ -37,9 +38,13 @@
 }
 
 .fi-sidebar-nav-item .fi-sidebar-item-button.fi-active {
-    background-color: rgba(201, 169, 97, 0.12);
-    color: var(--jawad-charcoal);
+    background-color: rgba(15, 118, 110, 0.10);
+    color: var(--atriom-ink);
     font-weight: 600;
+}
+
+.fi-sidebar-nav-item .fi-sidebar-item-button.fi-active .fi-sidebar-item-icon {
+    color: var(--atriom-teal);
 }
 
 .fi-wi-stats-overview-stat {
@@ -51,7 +56,7 @@
 
 .fi-wi-stats-overview-stat:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 4px 12px rgba(15, 118, 110, 0.08);
 }
 
 .fi-wi-stats-overview-stat-value {
@@ -62,7 +67,7 @@
 
 .fi-wi-stats-overview-stat-description {
     font-size: 0.78rem;
-    color: rgba(140, 132, 120, 0.95);
+    color: rgba(100, 116, 139, 0.95);
 }
 
 .fi-wi-chart {
@@ -84,7 +89,7 @@
 
 .dark .fi-wi-stats-overview-stat {
     border-color: rgba(255, 255, 255, 0.06);
-    background-color: rgba(35, 35, 35, 0.6);
+    background-color: rgba(26, 33, 40, 0.6);
 }
 
 .dark .fi-wi-stats-overview-stat:hover {
@@ -97,29 +102,18 @@
 }
 
 .fi-ta-header-cell {
-    background-color: #FAFAF8;
+    background-color: #F8FAFC;
     text-transform: uppercase;
     font-size: 0.7rem;
     letter-spacing: 0.05em;
     font-weight: 600;
-    color: #6B6660;
+    color: #475569;
 }
 
 .dark .fi-ta-header-cell {
-    background-color: #232323;
+    background-color: #1A2128;
     color: rgba(255, 255, 255, 0.6);
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.fi-btn-color-primary {
-    background-color: var(--jawad-charcoal);
-    color: white;
-    font-weight: 500;
-    letter-spacing: 0.01em;
-}
-
-.fi-btn-color-primary:hover {
-    background-color: #2a2a2a;
 }
 
 .fi-input,
@@ -131,18 +125,22 @@
 
 .fi-input:focus,
 .fi-select-input:focus {
-    border-color: var(--jawad-gold);
-    box-shadow: 0 0 0 3px rgba(201, 169, 97, 0.15);
+    border-color: var(--atriom-teal);
+    box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.15);
 }
 
 .fi-simple-layout {
-    background: linear-gradient(135deg, var(--jawad-cream) 0%, #EAE0CC 100%);
+    background: linear-gradient(135deg, var(--atriom-cream) 0%, #E8DECC 100%);
+    background-image:
+        radial-gradient(at 20% 0%, rgba(15, 118, 110, 0.08) 0%, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(217, 119, 6, 0.06) 0%, transparent 50%),
+        linear-gradient(135deg, var(--atriom-cream) 0%, #E8DECC 100%);
 }
 
 .fi-simple-main {
     border-radius: 1rem;
     border: 1px solid rgba(0, 0, 0, 0.05);
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 20px 50px rgba(15, 118, 110, 0.08);
 }
 
 body {
@@ -165,11 +163,11 @@ body {
 }
 
 .dark .fi-body {
-    background-color: var(--jawad-charcoal);
+    background-color: var(--atriom-ink);
 }
 
 .dark .fi-sidebar,
 .dark .fi-topbar {
-    background-color: #232323;
+    background-color: #1A2128;
     border-color: rgba(255, 255, 255, 0.06);
 }
