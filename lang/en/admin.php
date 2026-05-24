@@ -10,6 +10,11 @@ return [
         'portfolio' => 'Portfolio',
     ],
 
+    'tooltips' => [
+        'credit_notes_ready' => 'Credit notes issued with a remaining balance — ready to apply to invoices.',
+        'vendor_contracts_expiring' => 'Vendor contracts expiring within 30 days.',
+    ],
+
     'email' => [
         'invoice_issued_subject' => 'Invoice :number from Atriom',
         'greeting' => 'Hello :name,',

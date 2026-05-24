@@ -10,6 +10,11 @@ return [
         'portfolio' => 'المحفظة العقارية',
     ],
 
+    'tooltips' => [
+        'credit_notes_ready' => 'إشعارات خصم صادرة برصيد متبقي — جاهزة للتطبيق على الفواتير.',
+        'vendor_contracts_expiring' => 'عقود موردين ستنتهي خلال 30 يومًا.',
+    ],
+
     'email' => [
         'invoice_issued_subject' => 'فاتورة :number من Atriom',
         'greeting' => 'مرحباً :name،',

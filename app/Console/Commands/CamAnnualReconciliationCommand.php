@@ -33,7 +33,7 @@ class CamAnnualReconciliationCommand extends Command
         foreach ($pools as $pool) {
             $count = $service->generateAllocations($pool);
             $totalAllocations += $count;
-            $this->info("Pool #{$pool->id} ({$pool->name}) — {$count} allocations.");
+            $this->info("Pool #{$pool->id} ({$pool->period_year} · {$pool->asset?->name}) — {$count} allocations.");
 
             if ($autoBill) {
                 foreach ($pool->allocations()->where('status', 'pending')->get() as $allocation) {

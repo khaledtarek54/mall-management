@@ -105,4 +105,27 @@ class VendorResource extends Resource
             __('admin.tables.common.status') => __("admin.statuses.vendor.{$record->status}"),
         ];
     }
+
+    public static function getNavigationBadge(): ?string
+    {
+        // Vendor contracts expiring in the next 30 days — landlord needs to renew or terminate.
+        $count = \App\Models\VendorContract::query()
+            ->where('status', 'active')
+            ->whereNotNull('end_date')
+            ->whereDate('end_date', '<=', now()->addDays(30))
+            ->whereDate('end_date', '>=', now())
+            ->count();
+
+        return $count > 0 ? (string) $count : null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'warning';
+    }
+
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        return __('admin.tooltips.vendor_contracts_expiring');
+    }
 }

@@ -5,6 +5,8 @@ namespace Database\Seeders;
 use App\Models\Asset;
 use App\Models\CamExpensePool;
 use App\Models\Charge;
+use App\Models\CreditNote;
+use App\Models\CreditNoteItem;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Lease;
@@ -233,6 +235,7 @@ class HayaWalkSeeder extends Seeder
         $this->seedEtaSubmissions();
         $this->seedUtilityMeters($hayaWalk);
         $this->seedTenantNotes();
+        $this->seedCreditNotes();
 
         $this->command->info("✅ Created Haya Walk with {$occupiedCount} occupied, {$vacantCount} vacant units");
         $this->command->info("✅ Generated leases, charges, invoices, and payment history");
@@ -1155,5 +1158,85 @@ class HayaWalkSeeder extends Seeder
         }
 
         $this->command->info('   Vendors seeded: ' . Vendor::count());
+    }
+
+    /**
+     * Seed a handful of credit notes across different statuses so the
+     * CN list isn't empty on a fresh demo and each workflow stage is
+     * represented (draft / issued with balance / partially applied / void).
+     */
+    private function seedCreditNotes(): void
+    {
+        // Pick three real invoices to attach the credit notes to
+        $invoices = Invoice::query()
+            ->whereIn('status', ['issued', 'partially_paid', 'paid'])
+            ->with('lease.tenant')
+            ->inRandomOrder()
+            ->limit(4)
+            ->get();
+
+        if ($invoices->count() < 3) {
+            return;
+        }
+
+        // 1) Draft — admin still drafting, not yet issued
+        $draft = $this->makeCreditNote($invoices[0], 1200, 'adjustment', 'Goodwill adjustment for prolonged AC outage in February.');
+        $draft->status = 'draft';
+        $draft->save();
+
+        // 2) Issued with balance remaining — ready to apply
+        $issued = $this->makeCreditNote($invoices[1], 2500, 'dispute', 'Service-charge dispute settled in tenant favor for one month.');
+        $issued->status = 'issued';
+        $issued->save();
+
+        // 3) Partially applied — half consumed against an open invoice
+        $partial = $this->makeCreditNote($invoices[2], 4000, 'return', 'Stock return processed for non-trading promotional fixture.');
+        $partial->status = 'issued';
+        $partial->applied_amount = 2000;
+        $partial->balance = 2000;
+        $partial->applied_at = now()->subDays(2);
+        $partial->save();
+
+        // 4) Void — refused / cancelled before application
+        if (isset($invoices[3])) {
+            $void = $this->makeCreditNote($invoices[3], 800, 'other', 'Issued in error; voided same day.');
+            $void->status = 'void';
+            $void->voided_at = now()->subDay();
+            $void->balance = 0;
+            $void->save();
+        }
+
+        $this->command->info('   Credit notes seeded: ' . CreditNote::count());
+    }
+
+    private function makeCreditNote(Invoice $invoice, float $total, string $reason, string $description): CreditNote
+    {
+        $note = CreditNote::create([
+            'tenant_id' => $invoice->tenant_id,
+            'invoice_id' => $invoice->id,
+            'lease_id' => $invoice->lease_id,
+            'status' => 'draft',
+            'issue_date' => now()->subDays(rand(1, 14)),
+            'reason' => $reason,
+            'reason_notes' => $description,
+            'subtotal' => $total,
+            'vat_amount' => 0,
+            'total' => $total,
+            'applied_amount' => 0,
+            'balance' => $total,
+            'currency' => 'EGP',
+            'issued_by_user_id' => 1,
+        ]);
+
+        CreditNoteItem::create([
+            'credit_note_id' => $note->id,
+            'description' => $description,
+            'amount' => $total,
+            'vat_rate' => 0,
+            'vat_amount' => 0,
+            'total' => $total,
+        ]);
+
+        return $note->refresh();
     }
 }

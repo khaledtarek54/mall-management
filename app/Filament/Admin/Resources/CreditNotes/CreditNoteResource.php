@@ -95,4 +95,25 @@ class CreditNoteResource extends Resource
             __('admin.tables.common.status') => __("admin.statuses.credit_note.{$record->status}"),
         ];
     }
+
+    public static function getNavigationBadge(): ?string
+    {
+        // Count credit notes ready to apply — `issued` status with balance remaining.
+        $count = static::getModel()::query()
+            ->where('status', 'issued')
+            ->where('balance', '>', 0)
+            ->count();
+
+        return $count > 0 ? (string) $count : null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'info';
+    }
+
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        return __('admin.tooltips.credit_notes_ready');
+    }
 }
