@@ -66,6 +66,7 @@ class TenantResource extends Resource
             \App\Filament\Admin\RelationManagers\TenantLeasesRelationManager::class,
             \App\Filament\Admin\RelationManagers\TenantPaymentsRelationManager::class,
             \App\Filament\Admin\RelationManagers\TenantMaintenanceRelationManager::class,
+            \App\Filament\Admin\RelationManagers\TenantNotesRelationManager::class,
             \App\Filament\Admin\RelationManagers\ActivitiesRelationManager::class,
         ];
     }

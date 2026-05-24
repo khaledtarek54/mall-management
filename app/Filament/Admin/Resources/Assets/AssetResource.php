@@ -60,6 +60,14 @@ class AssetResource extends Resource
         return AssetsTable::configure($table);
     }
 
+    public static function getRelations(): array
+    {
+        return [
+            \App\Filament\Admin\RelationManagers\AssetUnitsRelationManager::class,
+            \App\Filament\Admin\RelationManagers\ActivitiesRelationManager::class,
+        ];
+    }
+
     public static function getPages(): array
     {
         return [

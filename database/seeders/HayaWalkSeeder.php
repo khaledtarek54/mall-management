@@ -11,6 +11,7 @@ use App\Models\Lease;
 use App\Models\MaintenanceRequest;
 use App\Models\MaintenanceRequestComment;
 use App\Models\MeterReading;
+use App\Models\Note;
 use App\Models\Operator;
 use App\Models\Payment;
 use App\Models\Tenant;
@@ -227,6 +228,7 @@ class HayaWalkSeeder extends Seeder
         $this->seedCamReconciliation($hayaWalk);
         $this->seedEtaSubmissions();
         $this->seedUtilityMeters($hayaWalk);
+        $this->seedTenantNotes();
 
         $this->command->info("✅ Created Haya Walk with {$occupiedCount} occupied, {$vacantCount} vacant units");
         $this->command->info("✅ Generated leases, charges, invoices, and payment history");
@@ -586,6 +588,54 @@ class HayaWalkSeeder extends Seeder
      *  - 3 common-area meters per type (electric/water/gas) for the asset
      *  - 1 electric + 1 water meter per occupied unit (gas only on F&B units)
      */
+    private function seedTenantNotes(): void
+    {
+        $admin = User::where('email', 'admin@mall.test')->first();
+        $manager = User::where('email', 'manager@mall.test')->first();
+
+        if (!$admin || !$manager) {
+            return;
+        }
+
+        // Pick the 3 portal-login tenants + a couple of others for variety
+        $tenants = Tenant::query()
+            ->whereIn('email', ['tenant1@haya.test', 'tenant2@haya.test', 'tenant3@haya.test'])
+            ->orWhereNotNull('email')
+            ->limit(8)
+            ->get();
+
+        $templates = [
+            ['channel' => 'whatsapp', 'subject' => 'Invoice reminder', 'body' => 'Sent reminder for outstanding invoice. Tenant confirmed bank transfer would be done by EOD.', 'days' => 2],
+            ['channel' => 'call', 'subject' => 'Sales declaration follow-up', 'body' => 'Called to nudge on last month\'s sales declaration submission. Tenant promised to submit by Friday.', 'days' => 5],
+            ['channel' => 'meeting', 'subject' => 'Lease renewal discussion', 'body' => 'In-person meeting to discuss renewal terms. Tenant requested 5% lower escalation rate; will revert with counter-proposal.', 'days' => 12],
+            ['channel' => 'site_visit', 'subject' => 'AC complaint follow-up', 'body' => 'On-site inspection after maintenance ticket. Issue resolved, tenant satisfied.', 'days' => 18],
+            ['channel' => 'email', 'subject' => 'CAM reconciliation explanation', 'body' => 'Sent breakdown of CAM allocation methodology. Tenant accountant requested supporting invoices, sent separately.', 'days' => 25],
+            ['channel' => 'call', 'subject' => 'Late payment notice', 'body' => 'Cordial reminder call. Tenant flagged cash-flow issue but committed to payment plan starting next week.', 'days' => 40],
+            ['channel' => 'whatsapp', 'subject' => 'New unit availability', 'body' => 'Tenant asked about availability of a larger unit. Sent A-12 specs (120 sqm).', 'days' => 55],
+        ];
+
+        $created = 0;
+        foreach ($tenants as $i => $tenant) {
+            // 1-3 notes per tenant
+            $count = ($i % 3) + 1;
+            for ($n = 0; $n < $count; $n++) {
+                $tpl = $templates[($i * 7 + $n) % count($templates)];
+                Note::create([
+                    'noteable_type' => Tenant::class,
+                    'noteable_id' => $tenant->id,
+                    'author_id' => ($i + $n) % 2 === 0 ? $admin->id : $manager->id,
+                    'channel' => $tpl['channel'],
+                    'subject' => $tpl['subject'],
+                    'body' => $tpl['body'],
+                    'contacted_at' => Carbon::now()->subDays($tpl['days'])->setTime(10 + ($n * 2), 15 + ($n * 5)),
+                ]);
+                $created++;
+            }
+        }
+
+        $this->command->info("   Seeded {$created} tenant communication notes");
+    }
+
     private function seedUtilityMeters(Asset $asset): void
     {
         $meterSeq = 1;

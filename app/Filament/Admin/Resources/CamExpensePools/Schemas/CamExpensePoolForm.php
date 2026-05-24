@@ -43,14 +43,16 @@ class CamExpensePoolForm
                         ->required()
                         ->numeric()
                         ->minValue(0)
-                        ->step('0.01'),
+                        ->step('0.01')
+                        ->helperText(__('admin.helpers.cam_actual_expense')),
                     TextInput::make('total_estimated_collected')
                         ->label(__('admin.fields.total_estimated_collected'))
                         ->prefix('EGP')
                         ->required()
                         ->numeric()
                         ->minValue(0)
-                        ->step('0.01'),
+                        ->step('0.01')
+                        ->helperText(__('admin.helpers.cam_estimated_collected')),
                 ]),
             Section::make(__('admin.sections.cam_notes'))
                 ->components([

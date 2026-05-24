@@ -201,6 +201,8 @@ return [
             'area' => 'Area',
             'tenant' => 'Tenant',
             'rent' => 'Rent',
+            'floor' => 'Floor',
+            'lease_expiry' => 'Lease Expiry',
         ],
         'tenant' => [
             'name' => 'Name',
@@ -320,6 +322,7 @@ return [
         'open_only' => 'Open Requests',
         'sla_breached' => 'SLA Breached',
         'meter_type' => 'Type',
+        'channel' => 'Channel',
     ],
 
     'actions' => [
@@ -401,6 +404,9 @@ return [
         'submit_to_eta' => 'Submit to ETA',
         'submit_to_eta_modal_mock' => 'ETA is in mock mode. The submission returns a stubbed Valid response — useful for the demo before real test credentials arrive.',
         'submit_to_eta_modal_live' => 'Submits this invoice to the Egyptian Tax Authority preproduction endpoint and stores the response.',
+        'bulk_download_pdfs' => 'Download PDFs (zip)',
+        'bulk_submit_to_eta' => 'Submit selected to ETA',
+        'log_communication' => 'Log Communication',
     ],
 
     'notifications' => [
@@ -414,6 +420,8 @@ return [
         'allocation_billed_body' => 'CAM true-up of EGP :amount added to the lease.',
         'eta_submitted' => 'Submitted to ETA',
         'eta_submitted_body' => 'Status: :status · Submission ID :id',
+        'bulk_eta_complete' => 'Bulk ETA submission complete',
+        'bulk_eta_complete_body' => 'Submitted: :submitted · Skipped (already Valid): :skipped',
     ],
 
     'fields' => [
@@ -503,6 +511,28 @@ return [
         'meter_provider' => 'Utility Provider',
         'unit_of_measurement' => 'Unit of Measurement',
         'common_area_placeholder' => 'Common area (no unit)',
+        'percentage_rent_threshold' => 'Sales Threshold',
+        'percentage_rent_rate' => 'Rate',
+        'percentage_rent_calculation_type' => 'Calculation Method',
+        'note_channel' => 'Channel',
+        'note_subject' => 'Subject',
+        'note_body' => 'Notes',
+        'note_author' => 'Logged By',
+        'contacted_at' => 'When',
+    ],
+
+    'helpers' => [
+        'term_months' => 'Total lease length in months. Typical Egyptian mall leases run 12, 24, or 36 months.',
+        'base_rent_monthly' => 'Fixed monthly rent. VAT-exempt under the Egyptian tax model.',
+        'service_charge_monthly' => 'Monthly service charge for shared services (security, cleaning, common-area HVAC). 14% VAT applies.',
+        'security_deposit' => 'One-time deposit, typically 3× monthly rent. Refundable at lease termination if no damages.',
+        'escalation_rate' => 'Annual rent increase percentage. Applied on the lease anniversary.',
+        'escalation_type' => 'Fixed percent = same % every year. CPI = pegged to inflation index. Step = pre-agreed increases per year.',
+        'percentage_rent_calculation_type' => 'Artificial: percentage rent = (sales − threshold) × rate. Natural breakpoint: percentage rent = sales × rate − base rent (whichever is higher).',
+        'percentage_rent_threshold' => 'Monthly sales level above which percentage rent applies. Tenant declares sales each month; below threshold = no extra rent.',
+        'percentage_rent_rate' => 'Percentage of sales above the threshold owed as additional rent. Typical mall rates: 5%–8% for F&B, 4%–6% for retail.',
+        'cam_actual_expense' => 'Total amount the mall actually spent on common-area maintenance this year (security, cleaning, HVAC, landscaping, lobby lighting).',
+        'cam_estimated_collected' => 'Total estimated CAM already collected from tenants via their monthly service charge. The variance = actual − collected drives the year-end true-up.',
     ],
 
     'sections' => [
@@ -689,6 +719,22 @@ return [
             'water' => 'Water',
             'gas' => 'Gas',
         ],
+        'percentage_rent_calculation_type' => [
+            'artificial' => 'Artificial Breakpoint',
+            'natural_breakpoint' => 'Natural Breakpoint',
+        ],
+        'note_channel' => [
+            'call' => 'Phone Call',
+            'whatsapp' => 'WhatsApp',
+            'email' => 'Email',
+            'meeting' => 'Meeting',
+            'site_visit' => 'Site Visit',
+            'other' => 'Other',
+        ],
+    ],
+
+    'relation_managers' => [
+        'notes' => 'Communications',
     ],
 
     'users' => [

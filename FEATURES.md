@@ -146,6 +146,9 @@ All accounts persist through `migrate:fresh --seed`.
 - **Submit to ETA** (per-invoice + the bulk-action path is wired but not yet exposed in the toolbar) — runs the full ETA submission pipeline (JSON build → sign → POST → response persist). Gated by `ETA_ENABLED` (default on); falls back to mock client when `ETA_MOCK=true` (default). See "ETA e-Invoicing" subsection below.
 - **Lock Sales Declaration** + **Dispute Sales Declaration** — admin review queue actions on the Tenant Sales resource. Lock auto-generates a `percentage_rent` Charge on the lease for next-month billing. See "Mall-specific workflows" below.
 - **Generate Allocations** + **Bill Allocation** + **Mark Reconciled** — CAM Reconciliation lifecycle actions on the CamExpensePool resource + relation manager. See "Mall-specific workflows" below.
+- **Bulk Download PDFs** (zip) — Invoices toolbar action: select rows, get a single zip of all selected invoice PDFs. Available on admin + Owner Portal.
+- **Bulk Submit to ETA** — Invoices toolbar action: pushes all selected invoices through the ETA submission pipeline. Gated by `eta.enabled`. Reports submitted vs skipped (already Valid).
+- **Log Communication** — header action on the Tenant → Communications relation manager. Records phone calls, WhatsApp threads, meetings, site visits, emails with channel + subject + body + contacted_at.
 
 ### Tenant portal (Filament)
 - `AccountBalance` dashboard widget (outstanding / overdue / open invoice count).
@@ -218,6 +221,17 @@ All accounts persist through `migrate:fresh --seed`.
   - Invoices — scoped via lease → unit → asset → owner; with ETA status badge
   - Maintenance Requests — monitoring view across the portfolio
 - Seeded owner login: `owner@jawad.test / password` with 100% ownership of Haya Walk.
+
+### Tenant Communications log
+- `Note` model with polymorphic `noteable` (Tenant today; extensible to Lease/Invoice) + `author` (User) + channel enum (`call` / `whatsapp` / `email` / `meeting` / `site_visit` / `other`) + subject + body + `contacted_at`.
+- Admin **Communications** relation manager on the Tenant edit page — collections-style timeline view, "Log Communication" header action, channel-colored badges.
+- Seeded with 15 demo notes across the portal-login tenants so the timeline isn't empty on first login.
+- LogsActivity wired so note edits surface in the global Activity Log.
+
+### Branded surfaces
+- **Landing page** (`/`) — branded intro with three CTAs into the panels (Admin / Owner / Portal). Replaces the default Laravel welcome. See [resources/views/welcome.blade.php](resources/views/welcome.blade.php).
+- **Custom error pages** — 404 / 403 / 500 each render with the Jawad palette + gold accent, localizable via [lang/en/errors.php](lang/en/errors.php) + [lang/ar/errors.php](lang/ar/errors.php).
+- **Helper text on financial forms** — Lease form now explains `escalation_rate`, `escalation_type`, `percentage_rent_calculation_type` (natural breakpoint vs artificial), threshold/rate semantics with typical Egyptian-mall rates. CAM form explains actual vs estimated. All min/max validation rules added.
 
 ### Energy & Utilities (intentionally shallow — Q3 work continues here)
 - `UtilityMeter` model — `asset_id`, optional `unit_id` (null = common-area), `meter_number` (unique), type enum (`electric` / `water` / `gas`), `provider`, status (`active` / `inactive` / `faulty`), `unit_of_measurement`.

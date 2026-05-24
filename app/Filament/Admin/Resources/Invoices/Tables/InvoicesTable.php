@@ -10,6 +10,7 @@ use App\Services\Eta\EtaSubmissionService;
 use App\Services\InvoicePdfService;
 use App\Services\MonthlyBillingService;
 use Filament\Actions\Action;
+use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -257,6 +258,51 @@ class InvoicesTable
                     ExportBulkAction::make()
                         ->exporter(InvoiceExporter::class)
                         ->label(__('admin.actions.export')),
+                    BulkAction::make('downloadPdfBundle')
+                        ->label(__('admin.actions.bulk_download_pdfs'))
+                        ->icon('heroicon-o-archive-box-arrow-down')
+                        ->color('gray')
+                        ->action(function ($records) {
+                            $svc = app(InvoicePdfService::class);
+                            $tmp = tempnam(sys_get_temp_dir(), 'invoices_').'.zip';
+                            $zip = new \ZipArchive;
+                            $zip->open($tmp, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+                            foreach ($records as $invoice) {
+                                $zip->addFromString($svc->filename($invoice), $svc->build($invoice));
+                            }
+                            $zip->close();
+                            return response()->download($tmp, 'invoices-'.now()->format('Ymd-His').'.zip')->deleteFileAfterSend();
+                        }),
+                    BulkAction::make('bulkSubmitToEta')
+                        ->label(__('admin.actions.bulk_submit_to_eta'))
+                        ->icon('heroicon-o-paper-airplane')
+                        ->color('primary')
+                        ->visible(fn () => config('eta.enabled'))
+                        ->requiresConfirmation()
+                        ->modalDescription(fn () => config('eta.mock')
+                            ? __('admin.actions.submit_to_eta_modal_mock')
+                            : __('admin.actions.submit_to_eta_modal_live'))
+                        ->action(function ($records) {
+                            $svc = app(EtaSubmissionService::class);
+                            $submitted = 0;
+                            $skipped = 0;
+                            foreach ($records as $invoice) {
+                                if ($invoice->eta_status === 'valid') {
+                                    $skipped++;
+                                    continue;
+                                }
+                                $svc->submit($invoice);
+                                $submitted++;
+                            }
+                            Notification::make()
+                                ->success()
+                                ->title(__('admin.notifications.bulk_eta_complete'))
+                                ->body(__('admin.notifications.bulk_eta_complete_body', [
+                                    'submitted' => $submitted,
+                                    'skipped' => $skipped,
+                                ]))
+                                ->send();
+                        }),
                     DeleteBulkAction::make()
                         ->visible(fn () => InvoiceResource::canDeleteAny()),
                     ForceDeleteBulkAction::make()

@@ -42,8 +42,10 @@ test('Invoice edit page exposes PDF download action', async ({ page }) => {
   await firstEditLink.click();
   await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
 
-  // The action button is rendered by Filament. Look by aria/text containing "PDF".
-  await expect(page.locator('button, a').filter({ hasText: /PDF|pdf|تنزيل/i }).first()).toBeVisible({ timeout: 10000 });
+  // The per-invoice PDF download action lives in the row action group; the bulk-PDF
+  // action is in a hidden dropdown until selection. Match only visible buttons.
+  const pdfButton = page.locator('button:visible, a:visible').filter({ hasText: /PDF|pdf|تنزيل/i }).first();
+  await expect(pdfButton).toBeVisible({ timeout: 10000 });
 });
 
 test('Tenant edit page exposes statement download action', async ({ page }) => {

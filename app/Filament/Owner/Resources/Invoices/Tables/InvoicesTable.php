@@ -2,6 +2,10 @@
 
 namespace App\Filament\Owner\Resources\Invoices\Tables;
 
+use App\Services\InvoicePdfService;
+use Filament\Actions\Action;
+use Filament\Actions\BulkAction;
+use Filament\Actions\BulkActionGroup;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -65,6 +69,38 @@ class InvoicesTable
             ->defaultSort('issue_date', 'desc')
             ->recordActions([
                 ViewAction::make(),
+                Action::make('downloadPdf')
+                    ->label(__('admin.actions.pdf'))
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('gray')
+                    ->action(function ($record) {
+                        $svc = app(InvoicePdfService::class);
+                        $pdf = $svc->build($record);
+                        return response()->streamDownload(
+                            fn () => print($pdf),
+                            $svc->filename($record),
+                            ['Content-Type' => 'application/pdf'],
+                        );
+                    }),
+            ])
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    BulkAction::make('downloadPdfBundle')
+                        ->label(__('admin.actions.bulk_download_pdfs'))
+                        ->icon('heroicon-o-archive-box-arrow-down')
+                        ->color('gray')
+                        ->action(function ($records) {
+                            $svc = app(InvoicePdfService::class);
+                            $tmp = tempnam(sys_get_temp_dir(), 'invoices_').'.zip';
+                            $zip = new \ZipArchive;
+                            $zip->open($tmp, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+                            foreach ($records as $invoice) {
+                                $zip->addFromString($svc->filename($invoice), $svc->build($invoice));
+                            }
+                            $zip->close();
+                            return response()->download($tmp, 'invoices-'.now()->format('Ymd-His').'.zip')->deleteFileAfterSend();
+                        }),
+                ]),
             ]);
     }
 }

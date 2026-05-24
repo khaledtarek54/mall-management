@@ -62,6 +62,9 @@ class LeaseForm
                         ->numeric()
                         ->default(36)
                         ->required()
+                        ->minValue(1)
+                        ->maxValue(120)
+                        ->helperText(__('admin.helpers.term_months'))
                         ->suffix(__('admin.fields.months')),
                     DatePicker::make('expiry_date')
                         ->label(__('admin.fields.expiry_date'))
@@ -76,27 +79,37 @@ class LeaseForm
                         ->label(__('admin.fields.base_rent_monthly'))
                         ->prefix('EGP')
                         ->numeric()
-                        ->required(),
+                        ->required()
+                        ->minValue(0)
+                        ->helperText(__('admin.helpers.base_rent_monthly')),
                     TextInput::make('service_charge_monthly')
                         ->label(__('admin.fields.service_charge_monthly'))
                         ->prefix('EGP')
                         ->numeric()
-                        ->default(0),
+                        ->minValue(0)
+                        ->default(0)
+                        ->helperText(__('admin.helpers.service_charge_monthly')),
                     TextInput::make('security_deposit')
                         ->label(__('admin.fields.security_deposit'))
                         ->prefix('EGP')
                         ->numeric()
-                        ->default(0),
+                        ->minValue(0)
+                        ->default(0)
+                        ->helperText(__('admin.helpers.security_deposit')),
                     TextInput::make('escalation_rate')
                         ->label(__('admin.fields.escalation_rate'))
                         ->numeric()
                         ->suffix('%')
-                        ->default(7),
+                        ->minValue(0)
+                        ->maxValue(100)
+                        ->default(7)
+                        ->helperText(__('admin.helpers.escalation_rate')),
                     Select::make('escalation_type')
                         ->label(__('admin.fields.escalation_type'))
                         ->options(fn () => __('admin.enums.escalation_type'))
                         ->default('fixed_percent')
-                        ->native(false),
+                        ->native(false)
+                        ->helperText(__('admin.helpers.escalation_type')),
                     TextInput::make('payment_terms_days')
                         ->label(__('admin.fields.payment_terms_days'))
                         ->numeric()
@@ -116,13 +129,27 @@ class LeaseForm
                     Toggle::make('has_percentage_rent')
                         ->live()
                         ->columnSpanFull(),
+                    Select::make('percentage_rent_calculation_type')
+                        ->label(__('admin.fields.percentage_rent_calculation_type'))
+                        ->options(fn () => __('admin.enums.percentage_rent_calculation_type'))
+                        ->default('artificial')
+                        ->native(false)
+                        ->helperText(__('admin.helpers.percentage_rent_calculation_type'))
+                        ->visible(fn ($get) => (bool) $get('has_percentage_rent')),
                     TextInput::make('percentage_rent_threshold')
+                        ->label(__('admin.fields.percentage_rent_threshold'))
                         ->prefix('EGP')
                         ->numeric()
+                        ->minValue(0)
+                        ->helperText(__('admin.helpers.percentage_rent_threshold'))
                         ->visible(fn ($get) => (bool) $get('has_percentage_rent')),
                     TextInput::make('percentage_rent_rate')
+                        ->label(__('admin.fields.percentage_rent_rate'))
                         ->suffix('%')
                         ->numeric()
+                        ->minValue(0)
+                        ->maxValue(100)
+                        ->helperText(__('admin.helpers.percentage_rent_rate'))
                         ->visible(fn ($get) => (bool) $get('has_percentage_rent')),
                 ]),
 
