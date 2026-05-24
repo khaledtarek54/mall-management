@@ -1,11 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { loginAdmin, expectNoLaravelError } from './helpers.js';
+import { expectNoLaravelError } from './helpers.js';
+
+test.use({ storageState: 'storage/playwright-state/admin.json' });
 
 test.describe('CSV import header actions', () => {
-  test.beforeEach(async ({ page }) => {
-    await loginAdmin(page);
-  });
-
   for (const path of ['/admin/tenants', '/admin/units', '/admin/leases']) {
     test(`import action visible on ${path}`, async ({ page }) => {
       await page.goto(path, { waitUntil: 'networkidle' });
