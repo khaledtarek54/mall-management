@@ -23,7 +23,7 @@ class AssetUnitsRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($q) => $q->with(['activeLease.tenant']))
+            ->modifyQueryUsing(fn ($query) => $query->with(['activeLease.tenant']))
             ->columns([
                 TextColumn::make('code')
                     ->label(__('admin.tables.unit.code'))

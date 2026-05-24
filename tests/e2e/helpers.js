@@ -1,9 +1,13 @@
 import { expect } from '@playwright/test';
 
 async function fillLogin(page, email, password) {
-  await page.locator('input[type="email"]').fill(email);
+  // Wait for the form to fully mount (Filament + Livewire) before interacting.
+  // The brand-logo closure on /owner queries the DB on first paint and can
+  // delay form mount enough to race against the submit click.
+  const emailInput = page.locator('input[type="email"]');
+  await emailInput.waitFor({ state: 'visible', timeout: 15000 });
+  await emailInput.fill(email);
   await page.locator('input[wire\\:model="data.password"]').fill(password);
-  // Click submit and wait for either redirect or form to settle
   await Promise.all([
     page.waitForResponse((res) => res.request().method() === 'POST' && /\/livewire\/update/.test(res.url()), { timeout: 30000 }).catch(() => null),
     page.locator('button[type="submit"]').click(),
@@ -43,12 +47,25 @@ export async function setLocale(page, locale) {
 }
 
 export async function expectNoLaravelError(page) {
+  // The most reliable check is the HTTP status — anything 5xx is a server error,
+  // regardless of which error page template happens to render.
+  const response = await page.evaluate(() => {
+    return window.performance?.getEntriesByType?.('navigation')?.[0]?.responseStatus;
+  });
+  if (response && response >= 500) {
+    throw new Error(`Server returned HTTP ${response} at ${page.url()}`);
+  }
+
   const body = await page.content();
-  // Symfony exception page markers
-  expect(body).not.toMatch(/<title>[^<]*(Whoops|Symfony\\Component\\HttpKernel\\Exception)[^<]*<\/title>/i);
+  // Symfony / Whoops exception page markers
+  expect(body).not.toMatch(/<title>[^<]*(Whoops|Symfony\\Component\\HttpKernel\\Exception|Internal Server Error)[^<]*<\/title>/i);
   expect(body).not.toMatch(/exception_message|sf-dump-public/i);
-  // Generic 500 server error page
+  // Generic 500 / debug page headings
   expect(body).not.toMatch(/<h1>[^<]*Server Error[^<]*<\/h1>/i);
+  // Laravel's Ignition debug stack-trace marker (only present on dev 500s)
+  expect(body).not.toMatch(/(class="[^"]*ignition|data-ignition|Stack Trace)/i);
+  // Filament's own error wrapper (rare but possible)
+  expect(body).not.toMatch(/Call to a member function .* on null/i);
 }
 
 export async function captureConsoleErrors(page) {

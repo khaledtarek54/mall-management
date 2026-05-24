@@ -5,9 +5,24 @@ test.use({ storageState: 'storage/playwright-state/admin.json' });
 
 test.describe('Credit Notes & Vendors admin pages', () => {
   test('credit notes index renders', async ({ page }) => {
-    await page.goto('/admin/credit-notes', { waitUntil: 'networkidle' });
+    const response = await page.goto('/admin/credit-notes', { waitUntil: 'networkidle' });
+    expect(response?.status()).toBeLessThan(500);
     await expectNoLaravelError(page);
     await expect(page.locator('h1').first()).toBeVisible();
+  });
+
+  test('credit notes filter form opens without error', async ({ page }) => {
+    const response = await page.goto('/admin/credit-notes', { waitUntil: 'networkidle' });
+    expect(response?.status()).toBeLessThan(500);
+
+    // Opening the filter panel forces Filament to evaluate getModel() which is
+    // where the modifyQueryUsing closure was crashing with $q vs $query.
+    const filterBtn = page.locator('button:has-text("Filter"), button[aria-label*="filter" i]').first();
+    if (await filterBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await filterBtn.click();
+      await page.waitForTimeout(500);
+      await expectNoLaravelError(page);
+    }
   });
 
   test('credit notes create form renders', async ({ page }) => {

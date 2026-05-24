@@ -54,7 +54,7 @@ class TenantNotesRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($q) => $q->with('author'))
+            ->modifyQueryUsing(fn ($query) => $query->with('author'))
             ->columns([
                 TextColumn::make('contacted_at')
                     ->label(__('admin.fields.contacted_at'))

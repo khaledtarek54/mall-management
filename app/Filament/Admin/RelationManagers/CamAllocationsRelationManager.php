@@ -23,7 +23,7 @@ class CamAllocationsRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($q) => $q->with(['lease.tenant', 'lease.unit']))
+            ->modifyQueryUsing(fn ($query) => $query->with(['lease.tenant', 'lease.unit']))
             ->columns([
                 TextColumn::make('lease.tenant.name')
                     ->label(__('admin.tables.cam.tenant'))

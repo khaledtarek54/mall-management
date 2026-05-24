@@ -16,7 +16,7 @@ class CreditNotesTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($q) => $q->with(['tenant', 'invoice']))
+            ->modifyQueryUsing(fn ($query) => $query->with(['tenant', 'invoice']))
             ->columns([
                 TextColumn::make('number')
                     ->label(__('admin.tables.credit_note.number'))
