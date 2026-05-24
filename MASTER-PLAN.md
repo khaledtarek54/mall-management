@@ -1,9 +1,9 @@
 # Master Plan — Eltizam Partnership Pursuit
 
 > **Audience:** Internal team. Strategy + sprint plan + competitive read for the Eltizam Asset Management Group pursuit.
-> **Status:** Meeting not yet booked; quality of materials matters more than calendar speed.
-> **Revision:** V2 — pivoted from generic "we beat them" framing to "complementary mall-specialist alongside PropEzy" framing after correctly identifying Eltizam's real platform.
-> **Last updated:** 2026-05-23
+> **Status:** Sprint shipped. Meeting not yet booked; outreach + hosted-demo deployment are now the bottleneck.
+> **Revision:** V2.1 — sprint plan section marked shipped; everything else unchanged from V2.
+> **Last updated:** 2026-05-24
 
 ---
 
@@ -129,65 +129,26 @@ Maintenance and multi-property both removed (shipped). What remains:
 
 ---
 
-## 5. The 3-week sprint plan (revised)
+## 5. The 3-week sprint plan — **SHIPPED**
 
-Capacity available because maintenance + multi-property are shipped. Each week ends with Playwright specs added and translation keys in both [`lang/en/admin.php`](lang/en/admin.php) + [`lang/ar/admin.php`](lang/ar/admin.php).
+> All sprint items below shipped over 6 commits. Full feature inventory in [FEATURES.md](FEATURES.md). 68/68 Playwright specs covering the new surface area (~44 added on top of the original 24).
 
-### Week 1 — Mall-specific moats (Tenant Sales + CAM) + Vendor management
+### Week 1 — Mall-specific moats + Vendor management
 
-**Days 1-4: Tenant Sales Declaration** (THE differentiator vs PropEzy)
-- Migration: `TenantSalesDeclaration` (`lease_id`, `period_start`, `period_end`, `declared_sales`, `declared_at`, `declared_by_type` + `declared_by_id` polymorphic, `status` enum [`draft` / `submitted` / `locked` / `disputed`], `locked_at`, `audit_notes`, soft deletes).
-- Migration: `LeasePercentageRent` (`lease_id`, `threshold_amount`, `rate_percent`, `calculation_type` enum [`natural_breakpoint` / `artificial`], `effective_from`, `effective_to`).
-- Tenant portal: monthly sales submission form (numeric + optional PDF receipt upload via existing MediaLibrary pattern).
-- Admin: review queue → review → lock → audit. Status badges. Filter by period + asset.
-- Service: `PercentageRentCalculationService` — given a locked declaration + lease's `LeasePercentageRent` row, generates a percentage-rent Charge auto-linked into next monthly billing run.
-- Dashboard widget: "Tenant Sales — submission status" (admin) + "Submit Sales" (tenant portal).
-- Seed: ~3 months of historic declarations for Haya Walk leases to make the workflow demo-ready.
-
-**Days 5-6: CAM Reconciliation (basic structure)**
-- Migration: `CamExpensePool` (`asset_id`, `period_year`, `total_actual_expense`, `total_estimated_collected`, `status`).
-- Migration: `CamAllocation` (`pool_id`, `lease_id`, `allocated_amount`, `cap_amount`, `exclusions` JSON, `status`).
-- Admin Resource showing the pool + allocations. Show the structure even if annual true-up logic is deferred.
-- Visible-but-shallow: enough to point to in the demo as "Egyptian malls reconcile CAM annually; here's the model — we'll automate the true-up in Q2."
-
-**Day 7: Vendor management**
-- Migrations: `Vendor` (name, category, contact_email, contact_phone, tax_id, vat_id, status, rating, metadata), `VendorContact` (vendor_id, name, role, email, phone, is_primary), `VendorContract` (vendor_id, asset_id, service_type, start_date, end_date, monthly_value, sla_terms, status).
-- `VendorResource` under Operations nav. Use [`RoleGatedActions`](app/Filament/Admin/Resources/Concerns/RoleGatedActions.php).
-- Add `assigned_to_vendor_id` to `maintenance_requests` so triage can route to vendors.
-- Seed 10 realistic Egyptian vendors (HVAC, plumbing, security, cleaning, electrical, fire safety).
+- [x] **Tenant Sales Declaration** — model, polymorphic `declared_by`, `PercentageRentCalculationService` (both formulas), admin review queue with Lock + Dispute, tenant portal submission form, 72 seeded historic declarations across 3 months. Locking auto-creates `percentage_rent` Charge for next billing run.
+- [x] **CAM Reconciliation** — `CamExpensePool` + `CamAllocation`, `CamReconciliationService` (Generate Allocations + Bill), admin resource + relation manager, 1 prior-year reconciled pool with 33 allocations billed + 1 current-year draft.
+- [ ] ~~Vendor management~~ — explicitly skipped. Not a moat vs PropEzy; parity feature, can layer in later when Eltizam asks. See [FEATURES.md § Polish wins still available](FEATURES.md).
 
 ### Week 2 — Owner portal + Paymob activation
 
-**Days 8-10: Owner portal**
-- New Filament panel at `/owner`. New `OwnerPanelProvider`.
-- `Owner` model with M2M to Asset via `asset_owner` pivot.
-- Read-only resources: Property Performance, Financial Summary, Occupancy Trends, Maintenance Activity, **Tenant Sales summary**.
-- Reuse the multi-operator brand swap from the admin panel — owners see their portfolio branded.
-
-**Days 11-13: Paymob activation**
-- Already kicked off externally (sandbox merchant signup in flight).
-- `PaymentInitiationController` + `PaymobWebhookController` with HMAC signature verification.
-- Wire portal Pay Now button (already gated by `PAYMOB_ENABLED` in [config/integrations.php](config/integrations.php)).
-- Flip `PAYMOB_ENABLED=true` after webhook round-trips on sandbox.
-
-**Day 14: i18n + Playwright pass.**
+- [x] **Owner Portal** — new Filament panel at `/owner` with role gating, dynamic brand swap, PortfolioStats widget, read-only Properties/Invoices/Maintenance resources scoped to owned assets, bypasses `CurrentOperatorScope`. Seeded `owner@jawad.test` owning Haya Walk.
+- [ ] **Paymob activation** — blocked on sandbox merchant credentials (still awaiting application response). Architecture in place; flip `PAYMOB_ENABLED=true` once creds wire in.
 
 ### Week 3 — ETA test + Energy stub + sales materials
 
-**Days 15-17: ETA test environment** (HIGHEST strategic value — the direct moat)
-- Already kicked off externally (ETA test cred application in flight).
-- `EtaJsonBuilder` service: serialize Invoice + InvoiceItems to ETA JSON shape.
-- `EtaApiClient` + signing service.
-- `EtaSubmissionJob` (queued): POST to ETA test endpoint, store response in already-migrated `eta_response` column.
-- ETA status badge on invoice list (Submitted / Accepted / Rejected / Pending).
-- If credentials don't land in time: ship a mocked end-to-end demo where the JSON is built and submitted to a stub endpoint, and a fake response populates. Show the architecture even if the live integration isn't there yet.
-
-**Days 18-19: Energy stub** (deliberately light)
-- Migrations: `UtilityMeter` (asset_id, unit_id, meter_number, type [electric/water/gas], provider, status), `MeterReading` (meter_id, reading_value, reading_date, consumption, cost).
-- Filament Resource + "Energy consumption by month" chart widget.
-- Seed realistic meter data for Haya Walk units. Don't build optimization workflows — defer to roadmap.
-
-**Days 20-21: Sales materials.** See § 7.
+- [x] **ETA e-invoicing** — `EtaJsonBuilder`, `EtaApiClient` (mock + real modes), `EtaSubmissionService`, `SubmitInvoiceToEta` job, admin **Submit to ETA** per-invoice action, status badge column on Invoices table. Seeded 65 historical submissions (55 Valid + 10 Rejected). Flip `ETA_MOCK=false` once preprod credentials arrive.
+- [x] **Energy stub** — `UtilityMeter` + `MeterReading`, admin resource with type/status badges, `EnergyConsumptionTrend` dashboard widget (12-month stacked bar across 3 series), 48 meters + 576 readings seeded.
+- [x] **Sales materials** — see [PITCH-DECK.md](PITCH-DECK.md), [PILOT-PROPOSAL.md](PILOT-PROPOSAL.md), [DEMO-ELTIZAM.md](DEMO-ELTIZAM.md). Architecture diagram + roadmap + pricing tiers remain inside this doc (§ 6 / § 7 / § 8).
 
 ---
 

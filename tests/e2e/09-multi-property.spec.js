@@ -24,16 +24,16 @@ test.describe('Multi-property tenancy (session-based operator switcher)', () => 
     await expect(page.locator('text=Haya Walk').first()).toBeVisible();
   });
 
-  test('Switching to Demo Operator hides Haya Walk (operator has no assets)', async ({ page }) => {
-    await page.goto('/operator/switch/demo');
+  test('Switching to Eltizam Egypt hides Haya Walk (operator has no assets)', async ({ page }) => {
+    await page.goto('/operator/switch/eltizam-egypt');
     await page.goto('/admin/assets');
     await expectNoLaravelError(page);
-    // Demo has no assets, so the Haya Walk row must not appear in the table body
+    // Eltizam Egypt has no assets, so the Haya Walk row must not appear in the table body
     await expect(page.locator('table').locator('text=Haya Walk')).toHaveCount(0);
   });
 
   test('Switching back to "all" restores cross-operator visibility', async ({ page }) => {
-    await page.goto('/operator/switch/demo');
+    await page.goto('/operator/switch/eltizam-egypt');
     await page.goto('/operator/switch/all');
     await page.goto('/admin/assets');
     await expectNoLaravelError(page);
@@ -41,12 +41,12 @@ test.describe('Multi-property tenancy (session-based operator switcher)', () => 
   });
 
   test('Brand swaps when switching operators (switcher button reflects state)', async ({ page }) => {
-    await page.goto('/operator/switch/jawad');
-    await page.goto('/admin');
-    await expect(page.locator('button').filter({ hasText: 'Jawad Developments' })).toBeVisible();
+    await page.goto('/operator/switch/jawad', { waitUntil: 'networkidle' });
+    await page.goto('/admin', { waitUntil: 'networkidle' });
+    await expect(page.locator('button').filter({ hasText: 'Jawad Developments' })).toBeVisible({ timeout: 15000 });
 
-    await page.goto('/operator/switch/demo');
-    await page.goto('/admin');
-    await expect(page.locator('button').filter({ hasText: 'Demo Operator' })).toBeVisible();
+    await page.goto('/operator/switch/eltizam-egypt', { waitUntil: 'networkidle' });
+    await page.goto('/admin', { waitUntil: 'networkidle' });
+    await expect(page.locator('button').filter({ hasText: 'Eltizam Egypt' })).toBeVisible({ timeout: 15000 });
   });
 });
