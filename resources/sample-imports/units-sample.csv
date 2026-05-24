@@ -1,0 +1,7 @@
+asset_code,code,floor,category,area_sqm,status
+ATR-001,G-101,Ground,retail,85.5,vacant
+ATR-001,G-102,Ground,food_beverage,120,occupied
+ATR-001,F1-201,Floor 1,retail,65,vacant
+ATR-001,F1-202,Floor 1,service,40,occupied
+ATR-001,F2-301,Floor 2,office,200,vacant
+ATR-001,K-001,Ground,kiosk,12,occupied

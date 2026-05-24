@@ -10,6 +10,13 @@ return [
         'portfolio' => 'المحفظة العقارية',
     ],
 
+    'email' => [
+        'invoice_issued_subject' => 'فاتورة :number من Atriom',
+        'greeting' => 'مرحباً :name،',
+        'invoice_issued_body' => 'تم إصدار فاتورتك رقم :number وتاريخ الاستحقاق :due_date.',
+        'footer' => 'يمكنك عرض ودفع الفاتورة من بوابة المستأجر.',
+    ],
+
     'navigation' => [
         'dashboard' => 'لوحة التحكم',
         'properties' => 'العقارات',
@@ -335,6 +342,9 @@ return [
         'pdf' => 'PDF',
         'download_pdf' => 'تحميل PDF',
         'export' => 'تصدير',
+        'import' => 'استيراد CSV',
+        'import_heading' => 'استيراد من ملف CSV',
+        'import_help' => 'ارفع ملف CSV. السجلات الموجودة يتم تحديثها والجديدة يتم إنشاؤها.',
         'send_whatsapp' => 'واتساب',
         'pay_now' => 'ادفع الآن',
         'renew' => 'تجديد',

@@ -11,7 +11,7 @@ export default defineConfig({
   reporter: [['list'], ['html', { open: 'never', outputFolder: 'storage/playwright-report' }]],
   outputDir: 'storage/playwright-artifacts',
   use: {
-    baseURL: 'http://mall-management.test',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://mall-management.test',
     headless: true,
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',

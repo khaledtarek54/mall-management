@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Mail\InvoiceIssued;
 use App\Models\Charge;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
@@ -9,6 +10,7 @@ use App\Models\Lease;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Throwable;
 
 class MonthlyBillingService
@@ -57,10 +59,13 @@ class MonthlyBillingService
                     }
 
                     try {
-                        DB::transaction(function () use ($lease, $periodStart, $periodEnd) {
-                            $this->generateInvoiceForLease($lease, $periodStart, $periodEnd);
+                        $invoice = DB::transaction(function () use ($lease, $periodStart, $periodEnd) {
+                            return $this->generateInvoiceForLease($lease, $periodStart, $periodEnd);
                         });
                         $stats['created']++;
+                        if ($invoice) {
+                            $this->notifyInvoiceIssued($invoice);
+                        }
                     } catch (Throwable $e) {
                         $stats['failed']++;
                         $stats['failed_lease_ids'][] = $lease->id;
@@ -118,7 +123,26 @@ class MonthlyBillingService
             return ['status' => 'skipped', 'reason' => 'no_applicable_charges', 'invoice' => null];
         }
 
+        $this->notifyInvoiceIssued($invoice);
+
         return ['status' => 'created', 'invoice' => $invoice];
+    }
+
+    private function notifyInvoiceIssued(Invoice $invoice): void
+    {
+        $email = $invoice->tenant?->email;
+        if (! $email) {
+            return;
+        }
+
+        try {
+            Mail::to($email)->queue(new InvoiceIssued($invoice));
+        } catch (Throwable $e) {
+            Log::warning('Invoice issued email failed to queue', [
+                'invoice_id' => $invoice->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     private function generateInvoiceForLease(Lease $lease, CarbonImmutable $periodStart, CarbonImmutable $periodEnd, bool $prorate = false): ?Invoice

@@ -271,23 +271,20 @@ All accounts persist through `migrate:fresh --seed`.
 - Arabic PDF rendering uses mPDF's `autoArabic` + `autoLangToFont` so letters connect correctly; `xbriyaz` font for Arabic, `dejavusans` for Latin, with conditional zeroing of `letter-spacing` / `text-transform` per locale.
 
 ### Automated tests
-- **PHPUnit** ([tests/](tests/)) — baseline, runs via `php artisan test`.
-- **Playwright E2E** ([tests/e2e/](tests/e2e/)) — 14 spec files / 68 specs covering auth, every admin page, CRUD navigation, portal flows, PDF downloads in EN + AR, locale switching, occupancy map, **multi-property tenancy isolation + brand swap, tenant sales admin + portal flow, CAM reconciliation page + seeded pools, ETA invoice index + Valid badges, Owner Portal dashboard + scoped resources + admin-panel gating, Energy meters + nav**. Run via `npx playwright test`. HTML report lands in [storage/playwright-report/](storage/playwright-report/). Session caching: global setup logs into each panel once (admin + portal + owner) and writes `storage/playwright-state/{admin,portal,owner}.json`; tests opt in via `test.use({ storageState: ... })` to skip the login step.
+- **PHPUnit** ([tests/Feature/BillingMathTest.php](tests/Feature/BillingMathTest.php), [tests/Feature/EtaJsonBuilderTest.php](tests/Feature/EtaJsonBuilderTest.php)) — locks the billing math: percentage rent (artificial + natural breakpoint + below-threshold), monthly billing idempotency, late-fee application + grace-period respect + once-per-invoice idempotency, CAM allocation distribution by sqm, CAM billing idempotency, ETA JSON shape + tenant-type mapping + EGS line codes + V009 VAT sub-type. 10 service tests + 41 assertions. SQLite in-memory, runs in <400ms. `php artisan test`.
+- **Playwright E2E** ([tests/e2e/](tests/e2e/)) — 15 spec files covering auth, every admin page, CRUD navigation, portal flows, PDF downloads in EN + AR, locale switching, occupancy map, **multi-property tenancy isolation + brand swap, tenant sales admin + portal flow, CAM reconciliation page + seeded pools, ETA invoice index + Valid badges, Owner Portal dashboard + scoped resources + admin-panel gating, Energy meters + nav, CSV import action visibility**. Run via `npx playwright test`. HTML report lands in [storage/playwright-report/](storage/playwright-report/). Session caching: global setup logs into each panel once (admin + portal + owner) and writes `storage/playwright-state/{admin,portal,owner}.json`; tests opt in via `test.use({ storageState: ... })` to skip the login step.
+- **GitHub Actions CI** ([.github/workflows/ci.yml](.github/workflows/ci.yml)) — runs on every push + PR to `main` / `develop`. Two jobs: (1) **PHPUnit** with sqlite in-memory in ~30s, (2) **Playwright** boots MySQL 8 service, migrates+seeds, builds assets, starts `php artisan serve` on 127.0.0.1:8000, runs the full e2e suite headless. Failed runs upload HTML report as a GH artifact.
+
+### Scheduled jobs & automation
+- **Monthly billing** — `php artisan billing:run-monthly` runs synchronously or queued. Auto-scheduled monthly via `Schedule::job(new RunMonthlyBilling)->monthlyOn(...)` in [routes/console.php](routes/console.php). Day/time configurable in [config/billing.php](config/billing.php).
+- **Late-fee automation** ([app/Services/LateFeeService.php](app/Services/LateFeeService.php) + [app/Jobs/ApplyLateFees.php](app/Jobs/ApplyLateFees.php) + `billing:apply-late-fees`) — scans all `issued|partially_paid|overdue` invoices whose `due_date + grace_days` has passed; appends a `late_fee` InvoiceItem at `max(min, balance * percent)` and flips status to `overdue`. Idempotent (one fee max per invoice). Scheduled daily at 04:00.
+- **CAM annual reconciliation** — `php artisan cam:reconcile [--year=YYYY] [--auto-bill]` walks every CAM pool for the year, runs `CamReconciliationService::generateAllocations()`, optionally bills each allocation. Scheduled yearly on Jan 15 at 03:00 (review-only by default).
+- **Invoice issued email** — `App\Mail\InvoiceIssued` Mailable fires queued every time `MonthlyBillingService` creates an invoice (both single-lease and batch paths). Blade template at [resources/views/emails/invoice-issued.blade.php](resources/views/emails/invoice-issued.blade.php), bilingual EN/AR, RTL-aware.
+
+### CSV import (bootstrapping)
+- **Tenant / Unit / Lease importers** ([app/Filament/Imports/](app/Filament/Imports/)) — Filament `ImportAction` wired into each `List*` page header. Idempotent re-imports via `resolveRecord()`: Tenants match on email, Units on `(asset_code, code)`, Leases resolve tenant by email + unit by `(asset_code, unit_code)` and match on `reference`. Sample templates under [resources/sample-imports/](resources/sample-imports/).
 
 ---
-
-## Polish wins still available
-
-Small-scope, no external dependencies. Each is a single session to deliver.
-
-- [ ] **Asset → Units relation manager** — currently you can navigate down from a Lease/Tenant but not directly from a Property edit page. (Note: the Occupancy Map page covers visual browsing already, but a sortable/filterable table view would still be useful from inside the Asset record.)
-- [ ] **Notes / communications log on Tenant** — admin records phone calls / WhatsApp / meetings against a tenant. Real-world collections-team feature; could double as a polymorphic `Note` model attachable to Lease/Invoice too.
-- [ ] **Bulk PDF download** on Invoices — bulk action that returns a zip of selected invoice PDFs.
-- [ ] **Bulk WhatsApp send** on Invoices — bulk action when WhatsApp is unblocked.
-- [ ] **Credit notes / refunds** — issue a credit note against an invoice (adjusts balance, optionally records refund).
-- [ ] **Late-fee automation** — scheduled job that auto-generates a late-fee charge once an invoice passes due_date by N days.
-- [ ] **Email invoice on issue** — Mailable that attaches the invoice PDF and sends to tenant email on creation.
-- [ ] **CSV import** for bootstrapping (Tenants / Units / Leases) — Filament's `ImportAction` + matching importers; `imports`/`failed_import_rows` tables already migrated.
 
 ## Blocked on external credentials
 
@@ -309,9 +306,9 @@ Small-scope, no external dependencies. Each is a single session to deliver.
 - [ ] **Bulk Submit to ETA** on Invoices — `SubmitInvoiceToEta` queued job already exists; just wire the bulk action.
 - [ ] **Bulk WhatsApp send** on Invoices — bulk action when WhatsApp is unblocked.
 - [ ] **Credit notes / refunds** — issue a credit note against an invoice (adjusts balance, optionally records refund).
-- [ ] **Late-fee automation** — scheduled job that auto-generates a late-fee charge once an invoice passes due_date by N days.
-- [ ] **Email invoice on issue** — Mailable that attaches the invoice PDF and sends to tenant email on creation.
-- [ ] **CSV import** for bootstrapping (Tenants / Units / Leases) — Filament's `ImportAction` + matching importers; `imports`/`failed_import_rows` tables already migrated.
+- [x] ~~Late-fee automation~~ — shipped (see "Scheduled jobs & automation" above).
+- [x] ~~Email invoice on issue~~ — shipped (`App\Mail\InvoiceIssued`, RTL-aware blade view).
+- [x] ~~CSV import for bootstrapping~~ — shipped (`app/Filament/Imports/` + sample templates).
 - [ ] **Statement of Account PDF on Owner Portal** — service already exists for the tenant portal; lift into owner panel for portfolio-level statements.
 - [ ] **Operator switcher color-coded primary accent** — Filament 4's `->colors()` evaluates once at panel boot. To swap the primary accent dynamically would need a CSS-variable-based theme override applied per-request. Brand logo/name/favicon already swap correctly.
 

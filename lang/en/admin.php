@@ -10,6 +10,13 @@ return [
         'portfolio' => 'Portfolio',
     ],
 
+    'email' => [
+        'invoice_issued_subject' => 'Invoice :number from Atriom',
+        'greeting' => 'Hello :name,',
+        'invoice_issued_body' => 'Your invoice :number has been issued and is due on :due_date.',
+        'footer' => 'You can view and pay this invoice from the tenant portal.',
+    ],
+
     'navigation' => [
         'dashboard' => 'Dashboard',
         'properties' => 'Properties',
@@ -335,6 +342,9 @@ return [
         'pdf' => 'PDF',
         'download_pdf' => 'Download PDF',
         'export' => 'Export',
+        'import' => 'Import CSV',
+        'import_heading' => 'Import from CSV',
+        'import_help' => 'Upload a CSV file. Existing records are matched and updated; new ones are created.',
         'send_whatsapp' => 'WhatsApp',
         'pay_now' => 'Pay Now',
         'renew' => 'Renew',

@@ -1,0 +1,5 @@
+name,legal_name,type,tax_id,email,phone,contact_person,address,status
+Cairo Coffee Co.,Cairo Coffee Trading LLC,company,123-456-789,info@cairocoffee.eg,+201001234567,Ahmed Hassan,15 Tahrir Street Cairo,active
+Nile Boutique,Nile Fashion Group,company,987-654-321,sales@nileboutique.com,+201117654321,Mona Saad,Zamalek Cairo,active
+Aladdin Toys,,individual,,owner@aladdintoys.eg,+201234567890,Karim Aladdin,Heliopolis Cairo,active
+Sahara Threads,Sahara Threads Ltd,foreign,FR-555-12345,paris@saharathreads.com,+33142000000,Pierre Dubois,Paris France,active
