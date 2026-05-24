@@ -33,9 +33,10 @@ class PortalPanelProvider extends PanelProvider
             ->favicon(asset('atriom-favicon.svg'))
             ->authGuard('portal')
             ->colors([
-                'primary' => Color::hex('#0F766E'),
-                'gray' => Color::Slate,
+                'primary' => Color::Zinc,
+                'gray' => Color::Zinc,
             ])
+            ->darkMode(true)
             ->font('Inter')
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->discoverResources(in: app_path('Filament/Portal/Resources'), for: 'App\\Filament\\Portal\\Resources')

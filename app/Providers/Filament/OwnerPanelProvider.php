@@ -41,13 +41,14 @@ class OwnerPanelProvider extends PanelProvider
                 return $operator?->faviconUrl() ?? asset('atriom-favicon.svg');
             })
             ->colors([
-                'primary' => Color::hex('#0F766E'),
-                'gray' => Color::Slate,
+                'primary' => Color::Zinc,
+                'gray' => Color::Zinc,
                 'danger' => Color::Red,
                 'info' => Color::Sky,
                 'success' => Color::Emerald,
                 'warning' => Color::Amber,
             ])
+            ->darkMode(true)
             ->font('Inter')
             ->discoverResources(in: app_path('Filament/Owner/Resources'), for: 'App\\Filament\\Owner\\Resources')
             ->discoverPages(in: app_path('Filament/Owner/Pages'), for: 'App\\Filament\\Owner\\Pages')

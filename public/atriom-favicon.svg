@@ -1,8 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <!-- Solid teal rounded square + the arch mark + amber skylight dot.
-       Reads cleanly at 16x16 favicon size. -->
-  <rect width="64" height="64" rx="12" fill="#0F766E"/>
-  <path d="M 16 50 L 16 28 A 16 16 0 0 1 48 28 L 48 50"
-        fill="none" stroke="#F5F0E8" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="32" cy="18" r="3.5" fill="#D97706"/>
+  <!-- Atriom favicon — auto-adapts via prefers-color-scheme.
+       Solid square base swaps from teal (light mode) to ink (dark mode).
+       Arch mark + amber skylight stay constant. -->
+  <style>
+    .base { fill: #0F766E; }
+    .arch { stroke: #F5F0E8; }
+    .dot { fill: #D97706; }
+    @media (prefers-color-scheme: dark) {
+      .base { fill: #0F1419; }
+      .arch { stroke: #14B8A6; }
+      .dot { fill: #F59E0B; }
+    }
+  </style>
+  <rect class="base" width="64" height="64" rx="12"/>
+  <path class="arch" d="M 16 50 L 16 28 A 16 16 0 0 1 48 28 L 48 50"
+        fill="none" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle class="dot" cx="32" cy="18" r="3.5"/>
 </svg>

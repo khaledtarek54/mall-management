@@ -4,59 +4,104 @@
 @source '../../../../resources/views/filament/admin/**/*';
 
 /* ============================================
-   Atriom Brand Theme
-   Modern, professional — deep teal + amber accent + cream/charcoal surfaces
+   Atriom Theme — monochrome base with teal + amber accents
+   Full light + dark mode parity. Filament's .dark class on <html>
+   drives the dark variants.
    ============================================ */
 
 :root {
-    --atriom-ink: #0F1419;
-    --atriom-cream: #F5F0E8;
+    /* Neutrals — drive the bulk of the UI */
+    --atriom-bg: #FFFFFF;
+    --atriom-surface: #FAFAFA;
+    --atriom-surface-2: #F4F4F5;
+    --atriom-border: rgba(0, 0, 0, 0.08);
+    --atriom-border-strong: rgba(0, 0, 0, 0.14);
+    --atriom-ink: #18181B;
+    --atriom-ink-muted: #52525B;
+    --atriom-ink-subtle: #71717A;
+
+    /* Brand accents — used sparingly */
     --atriom-teal: #0F766E;
     --atriom-teal-bright: #14B8A6;
     --atriom-amber: #D97706;
-    --atriom-warm-gray: #94A3B8;
 }
 
+.dark {
+    --atriom-bg: #09090B;
+    --atriom-surface: #18181B;
+    --atriom-surface-2: #27272A;
+    --atriom-border: rgba(255, 255, 255, 0.08);
+    --atriom-border-strong: rgba(255, 255, 255, 0.14);
+    --atriom-ink: #FAFAFA;
+    --atriom-ink-muted: #A1A1AA;
+    --atriom-ink-subtle: #71717A;
+
+    --atriom-teal: #14B8A6;
+    --atriom-teal-bright: #2DD4BF;
+    --atriom-amber: #F59E0B;
+}
+
+/* ---------- Layout chrome ---------- */
+
 .fi-body {
-    background-color: var(--atriom-cream);
+    background-color: var(--atriom-bg);
+}
+
+.fi-sidebar,
+.fi-topbar {
+    background-color: var(--atriom-bg);
+    border-color: var(--atriom-border);
 }
 
 .fi-sidebar {
-    background-color: white;
-    border-right: 1px solid rgba(0, 0, 0, 0.06);
+    border-right: 1px solid var(--atriom-border);
 }
 
 .fi-topbar {
-    background-color: white;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    border-bottom: 1px solid var(--atriom-border);
     backdrop-filter: blur(8px);
 }
 
+/* ---------- Sidebar nav ---------- */
+
 .fi-sidebar-nav-item .fi-sidebar-item-button {
     border-radius: 0.5rem;
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.fi-sidebar-nav-item .fi-sidebar-item-button:hover {
+    background-color: var(--atriom-surface-2);
 }
 
 .fi-sidebar-nav-item .fi-sidebar-item-button.fi-active {
-    background-color: rgba(15, 118, 110, 0.10);
-    color: var(--atriom-ink);
+    background-color: var(--atriom-ink);
+    color: var(--atriom-bg);
     font-weight: 600;
 }
 
-.fi-sidebar-nav-item .fi-sidebar-item-button.fi-active .fi-sidebar-item-icon {
-    color: var(--atriom-teal);
+.fi-sidebar-nav-item .fi-sidebar-item-button.fi-active .fi-sidebar-item-icon,
+.fi-sidebar-nav-item .fi-sidebar-item-button.fi-active .fi-sidebar-item-label {
+    color: var(--atriom-bg);
 }
+
+/* ---------- Widgets ---------- */
 
 .fi-wi-stats-overview-stat {
     border-radius: 0.75rem;
-    border: 1px solid rgba(0, 0, 0, 0.06);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    border: 1px solid var(--atriom-border);
+    background-color: var(--atriom-surface);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
 .fi-wi-stats-overview-stat:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(15, 118, 110, 0.08);
+    border-color: var(--atriom-border-strong);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+.dark .fi-wi-stats-overview-stat:hover {
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
 }
 
 .fi-wi-stats-overview-stat-value {
@@ -67,14 +112,14 @@
 
 .fi-wi-stats-overview-stat-description {
     font-size: 0.78rem;
-    color: rgba(100, 116, 139, 0.95);
+    color: var(--atriom-ink-subtle);
 }
 
 .fi-wi-chart {
     border-radius: 0.75rem;
 }
 
-/* Force exact canvas heights for paired half-width charts so cards match */
+/* Force exact canvas heights for paired half-width charts */
 .fi-wi-chart canvas[style*="max-height: 260px"] {
     height: 260px !important;
 }
@@ -83,18 +128,7 @@
     height: 260px;
 }
 
-.fi-section-header-heading {
-    letter-spacing: -0.01em;
-}
-
-.dark .fi-wi-stats-overview-stat {
-    border-color: rgba(255, 255, 255, 0.06);
-    background-color: rgba(26, 33, 40, 0.6);
-}
-
-.dark .fi-wi-stats-overview-stat:hover {
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
-}
+/* ---------- Tables ---------- */
 
 .fi-ta-table {
     border-radius: 0.75rem;
@@ -102,24 +136,20 @@
 }
 
 .fi-ta-header-cell {
-    background-color: #F8FAFC;
+    background-color: var(--atriom-surface-2);
     text-transform: uppercase;
     font-size: 0.7rem;
     letter-spacing: 0.05em;
     font-weight: 600;
-    color: #475569;
+    color: var(--atriom-ink-muted);
 }
 
-.dark .fi-ta-header-cell {
-    background-color: #1A2128;
-    color: rgba(255, 255, 255, 0.6);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-}
+/* ---------- Forms ---------- */
 
 .fi-input,
 .fi-select-input {
     border-radius: 0.5rem;
-    border: 1px solid rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--atriom-border-strong);
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -129,19 +159,39 @@
     box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.15);
 }
 
+.dark .fi-input:focus,
+.dark .fi-select-input:focus {
+    border-color: var(--atriom-teal-bright);
+    box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.18);
+}
+
+/* ---------- Login / simple layout ---------- */
+
 .fi-simple-layout {
-    background: linear-gradient(135deg, var(--atriom-cream) 0%, #E8DECC 100%);
+    background-color: var(--atriom-bg);
     background-image:
-        radial-gradient(at 20% 0%, rgba(15, 118, 110, 0.08) 0%, transparent 50%),
-        radial-gradient(at 100% 100%, rgba(217, 119, 6, 0.06) 0%, transparent 50%),
-        linear-gradient(135deg, var(--atriom-cream) 0%, #E8DECC 100%);
+        radial-gradient(at 20% 0%, rgba(15, 118, 110, 0.06) 0%, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(217, 119, 6, 0.04) 0%, transparent 50%);
+}
+
+.dark .fi-simple-layout {
+    background-image:
+        radial-gradient(at 20% 0%, rgba(20, 184, 166, 0.08) 0%, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(245, 158, 11, 0.05) 0%, transparent 50%);
 }
 
 .fi-simple-main {
     border-radius: 1rem;
-    border: 1px solid rgba(0, 0, 0, 0.05);
-    box-shadow: 0 20px 50px rgba(15, 118, 110, 0.08);
+    border: 1px solid var(--atriom-border);
+    background-color: var(--atriom-surface);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.06);
 }
+
+.dark .fi-simple-main {
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+}
+
+/* ---------- Typography ---------- */
 
 body {
     font-feature-settings: "ss01", "cv01", "tnum";
@@ -150,6 +200,10 @@ body {
 .fi-header-heading {
     letter-spacing: -0.02em;
     font-weight: 600;
+}
+
+.fi-section-header-heading {
+    letter-spacing: -0.01em;
 }
 
 .fi-badge {
@@ -162,12 +216,12 @@ body {
     font-family: 'Cairo', 'Inter', sans-serif;
 }
 
-.dark .fi-body {
-    background-color: var(--atriom-ink);
-}
+/* ---------- Atriom accent utilities ----------
+   Apply these classes on custom elements when you want the brand pop
+   (e.g. login screen headings, marketing surfaces). Filament itself
+   stays monochrome by default.
+*/
 
-.dark .fi-sidebar,
-.dark .fi-topbar {
-    background-color: #1A2128;
-    border-color: rgba(255, 255, 255, 0.06);
-}
+.atriom-accent-teal { color: var(--atriom-teal); }
+.atriom-accent-amber { color: var(--atriom-amber); }
+.atriom-ring-teal:focus { box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.15); border-color: var(--atriom-teal); }

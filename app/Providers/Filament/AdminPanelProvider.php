@@ -56,13 +56,14 @@ class AdminPanelProvider extends PanelProvider
                 return asset('atriom-favicon.svg');
             })
             ->colors([
-                'primary' => Color::hex('#0F766E'),
-                'gray' => Color::Slate,
+                'primary' => Color::Zinc,
+                'gray' => Color::Zinc,
                 'danger' => Color::Red,
                 'info' => Color::Sky,
                 'success' => Color::Emerald,
                 'warning' => Color::Amber,
             ])
+            ->darkMode(true)
             ->font('Inter')
             ->discoverResources(in: app_path('Filament/Admin/Resources'), for: 'App\\Filament\\Admin\\Resources')
             ->discoverPages(in: app_path('Filament/Admin/Pages'), for: 'App\\Filament\\Admin\\Pages')
