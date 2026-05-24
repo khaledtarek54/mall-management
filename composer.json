@@ -10,6 +10,7 @@
         "filament/filament": "^4.0",
         "filament/spatie-laravel-media-library-plugin": "^4.0",
         "laravel/framework": "^13.7",
+        "laravel/sanctum": "^4.3",
         "laravel/tinker": "^3.0",
         "mpdf/mpdf": "^8.3",
         "spatie/laravel-activitylog": "^5.0",

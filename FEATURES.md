@@ -245,6 +245,14 @@ All accounts persist through `migrate:fresh --seed`.
 - Seeded with 15 demo notes across the portal-login tenants so the timeline isn't empty on first login.
 - LogsActivity wired so note edits surface in the global Activity Log.
 
+### Mobile API (tenant-facing, Sanctum)
+- **Versioned REST API at `/api/v1/*`** backing the tenant mobile app. Lives in the same Laravel codebase but cleanly partitioned: `app/Http/Controllers/Api/V1/`, `app/Http/Requests/Api/V1/`, `app/Http/Resources/Api/V1/`, `app/Actions/Api/`.
+- **Sanctum personal access tokens**, device-bound. Authenticates against the `Tenant` model (not `User`) via the new `tenant-api` guard (driver: `sanctum`, provider: `tenants`).
+- **Action pattern** — business logic in single-action classes under `app/Actions/Api/{Domain}/`. Controllers are thin: Request → Action → Resource. See [docs/api/v1.md](docs/api/v1.md) for the full pipeline.
+- **Login-only first** — no registration endpoint (tenants are created by admins). Login is throttled (5/min/IP), validates email + password + device_name, and revokes any prior token bound to the same `device_name` so phones can re-auth cleanly.
+- **Endpoints shipped**: `POST /auth/login`, `GET /auth/me`, `POST /auth/logout`. Bilingual messages via `Accept-Language`.
+- **13 PHPUnit feature tests** cover valid login, wrong password, unknown email, inactive + blacklisted account blocks, missing-field validation, device-token revocation semantics, multi-device support, `/me` auth requirement, logout revoking exactly the current token.
+
 ### Reports module (finance team essentials)
 - **Reports page** at `/admin/reports` — month picker, four headline KPI cards (Invoices Issued · Payments Captured · Collections Rate · Outstanding AR), AR aging summary with five clickable buckets, revenue-by-type table.
 - **Monthly Close PDF** ([MonthlyCloseReportPdfService](app/Services/Reports/MonthlyCloseReportPdfService.php)) — A4 PDF (EN + AR + RTL) covering KPIs, invoices-by-status, payments-by-method, AR aging table, VAT summary, revenue-by-type breakdown, credit notes summary. Mirrors the same mPDF stack as Invoice PDFs.

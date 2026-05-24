@@ -47,6 +47,11 @@ return [
             'driver' => 'session',
             'provider' => 'tenants',
         ],
+        // Mobile API — Sanctum token guard authenticating against the Tenant model.
+        'tenant-api' => [
+            'driver' => 'sanctum',
+            'provider' => 'tenants',
+        ],
     ],
 
     /*
