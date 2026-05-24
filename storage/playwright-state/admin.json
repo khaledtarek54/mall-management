@@ -2,20 +2,20 @@
   "cookies": [
     {
       "name": "XSRF-TOKEN",
-      "value": "eyJpdiI6ImpEODVlL1Y2SXp3TXBIZFpDb0ZCUGc9PSIsInZhbHVlIjoiVGF5QXJyQ1FDTkNEelM4OXlwb2htU0JPcGgvbUYzOHNrS1ZvREdyNGpwbHg4RmlsQnlXZVZGa2hPdUNuSGhmZ0JBYUQ4b1gxVkZNQ2JrSWh2NGovYlY3dnNXTHhrTVozOEQzSU1WZ2JjT3d4dHNnQ3ZqQk83QWRpZWd5WWN1eEciLCJtYWMiOiJkNTBiYzE2ZDRjM2NiMGM4M2UzOGFlZTM5ODFkYTUxZjMzODYzZjQyZjczMmZlNjA1M2FjZDBiM2UwMTg2ZmZjIiwidGFnIjoiIn0%3D",
+      "value": "eyJpdiI6InVyYXhtMit4MXB6NUNjRytFYVNpV3c9PSIsInZhbHVlIjoidDYweGN3S0t2ZHFTOTFjQ2d0ejNLd0NUYUQzQTVBQitoSFpmVnVuWUdReUQ5MVFla1RpTnhlbHp0TDNwdWZqKytxeDR5ZVFBeXViaTh2eFc4STcybUZXcDhVbmhTWWh1NXZVZ2dCRmlMemhWUlExMUhpMW1yK09sMXhQKzB5K3giLCJtYWMiOiJkYjRhMGU1NzllOWQ4MGIxNWE0Nzk1OTc2YmFlNmQyN2YxZTkzNTBiZmFiMjMyMzc3YWU4Nzk1OTY2MzljZWQyIiwidGFnIjoiIn0%3D",
       "domain": "mall-management.test",
       "path": "/",
-      "expires": 1779616738.01531,
+      "expires": 1779618669.082477,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
     },
     {
       "name": "mall-management-session",
-      "value": "eyJpdiI6InZaR0ZZdXZUWFByZXRtM1ZVN1RGMFE9PSIsInZhbHVlIjoiT2lHY2JDRFo1WXc1MGZNN0xPclRDdDVQRFZiZit5bzc1alVrMitOYWs0Zm54NUpwS3VVSXp4cVNwbUJCdGRubm1tZWdPbTJ5THN1Zkw1eU5wdnBOUlZ3VC9vZHdyK3BvQ2tmTkxYWkNpS0M1bEhodTdqcU52eWRnODFsY2pSYW0iLCJtYWMiOiI3MzBkMTM4MDRmOTMzOTFhMzgyNjA3YzJhMTQ5YTQ1YTE0NDMyNDA2MDcwNGY4Nzc4ZDc4M2M1YTNiNjFmOTg2IiwidGFnIjoiIn0%3D",
+      "value": "eyJpdiI6ImVUT2dQNU02bXZmZE5XS2gvWnZvenc9PSIsInZhbHVlIjoiUTlKK2kyeW5EMmNFQ040S1lud1QydzMyeE5RZ0dlQmF4Mnc2bHp2T3VEOVVZMVFvQ2YyOHE3eGk0eU56RjNYUHc1OFdrM0o5QUxhV0IycWMrbGxHbVBuWjJabTAraGZSbDlDbjYrVVY4dDA5eTNrUk9HZStZRktQSmtVZDNkYjMiLCJtYWMiOiIxZjEzNTg0ZjNjMGJjOWVlYmFhODRiNWNlM2Q1Y2MyN2MzODEwYzI2YWNjNWVkZjQxOTU0NzExYmM5ZGZiOThhIiwidGFnIjoiIn0%3D",
       "domain": "mall-management.test",
       "path": "/",
-      "expires": 1779616738.015351,
+      "expires": 1779618669.082518,
       "httpOnly": true,
       "secure": false,
       "sameSite": "Lax"

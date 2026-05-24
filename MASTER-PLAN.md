@@ -18,7 +18,7 @@
 
 **What's shipped that V1 of this plan treated as a build:**
 - **Maintenance / CAFM module** — model, admin + portal resources, polymorphic comments, SLA config in [`config/maintenance.php`](config/maintenance.php), seeded data, [`MaintenanceRequestService`](app/Services/MaintenanceRequestService.php). See [FEATURES.md § Maintenance](FEATURES.md).
-- **Multi-property tenancy** — session-based operator switcher in the admin topbar, dynamic brand logo / name / favicon swap, `Operator` model + `operator_id` on Asset + [`CurrentOperatorScope`](app/Models/Scopes/CurrentOperatorScope.php) global scope. Seeded with Jawad Developments + Demo Operator. 5 Playwright specs cover tenancy isolation + branding swap. 52/52 specs green.
+- **Multi-property tenancy** — session-based operator switcher in the admin topbar, dynamic brand logo / name / favicon swap, `Operator` model + `operator_id` on Asset + [`CurrentOperatorScope`](app/Models/Scopes/CurrentOperatorScope.php) global scope. Seeded with Jawad Developments + Eltizam Egypt (the latter wired to the real Eltizam Group logo + brand gold). 5 Playwright specs cover tenancy isolation + branding swap. All green.
 
 These two changes free ~10 working days versus the original V1 schedule and unlock the architectural story for the demo (one panel, multiple white-labeled operators, with retail-specific workflows).
 

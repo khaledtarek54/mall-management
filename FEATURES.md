@@ -88,7 +88,7 @@ All accounts persist through `migrate:fresh --seed`.
 
 ### Seed data ([HayaWalkSeeder](database/seeders/HayaWalkSeeder.php))
 - Haya Walk (Jawad Developments) — 50 units across 3 zones (A/B/C), 33 leased + 17 vacant.
-- Two seeded operators — Jawad Developments + Eltizam Egypt (placeholder ready for white-label demo).
+- Two seeded operators — Jawad Developments (gold #C9A961) + **Eltizam Egypt** (real Eltizam Group logo at [public/images/eltizam-logo.png](public/images/eltizam-logo.png) + brand-accurate gold #F0B010 sampled from the logo). White-label demo lands with Eltizam's actual identity.
 - Historical invoices generated from each lease's commencement → today, with realistic paid/partial/overdue mix.
 - Matching `Payment` rows for the paid portion.
 - ~5 maintenance requests across statuses (submitted/in_progress/awaiting_tenant/resolved/closed) and priorities so the triage queue, dashboard widget, and SLA-breach flagging all have realistic data on first load.
@@ -175,7 +175,7 @@ All accounts persist through `migrate:fresh --seed`.
 - **Operator switcher in admin topbar** — dropdown with colored dot indicator, "All Operators" reset, only renders when 2+ operators exist. Registered as a render hook (admin panel only, not portal).
 - **Dynamic brand swap** — [`AdminPanelProvider`](app/Providers/Filament/AdminPanelProvider.php) `brandName` / `brandLogo` / `favicon` all resolve per-request from current operator via closures.
 - Route: `GET /operator/switch/{operator?}` (web + auth middleware) — sets session, redirects back with `/admin` fallback.
-- Seeded with **Jawad Developments** + **Eltizam Egypt** (placeholder for the white-label demo).
+- Seeded with **Jawad Developments** + **Eltizam Egypt** (the latter wired to the real Eltizam Group logo + brand gold `#F0B010` sampled from the public mark — the white-label demo lands on Eltizam's actual identity).
 - Note: Filament 4's `->colors()` is evaluated once at panel boot, so the primary accent color stays static (gold). Brand logo / name / favicon are fully dynamic.
 
 ### Mall-specific workflows (the moat vs PropEzy)

@@ -59,9 +59,9 @@ Click the operator switcher in the topbar (between user menu and language pill).
 
 > "Multi-property tenancy. One codebase, multiple operators, each with their own brand."
 
-Switch to "Jawad Developments" → topbar logo + name swap to Jawad. Switch to "Demo Operator" → swaps to a neutral brand.
+Switch to "Jawad Developments" → topbar logo + name swap to Jawad. Switch to "**Eltizam Egypt**" → swaps to the real Eltizam Group logo (sourced from your public mark) with brand gold `#F0B010`.
 
-> "If we sign as Eltizam Egypt, this swap is to your logo and colors. Same login, same data, your white-label. Your retail clients see Eltizam branding throughout. The data underneath is per-operator-scoped — Demo Operator has no assets, so the Properties list goes empty. Switch back to Jawad and the Haya Walk data returns."
+> "This is your actual logo and brand color, live. Same login, same data, your white-label. Your retail clients see Eltizam branding throughout. The data underneath is per-operator-scoped — Eltizam Egypt has no assets seeded yet, so the Properties list goes empty. Switch back to Jawad and the Haya Walk data returns."
 
 Switch back to "All Operators". Brand returns to default.
 

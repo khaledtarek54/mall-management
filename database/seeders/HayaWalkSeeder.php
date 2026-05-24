@@ -57,18 +57,23 @@ class HayaWalkSeeder extends Seeder
             ],
         );
 
-        // Placeholder for the Eltizam Egypt white-label demo moment. Real logo
-        // file dropped at images/eltizam-logo.png + matching brand hex from
-        // Eltizam's brand guide swaps this in cleanly for the meeting demo.
+        // Eltizam Egypt — white-label demo placeholder using the real Eltizam Group
+        // brand (logo + gold hex extracted directly from their public mark). The
+        // brand-swap moment in the demo lands with Eltizam's actual identity, not
+        // a fabricated placeholder.
         Operator::updateOrCreate(
             ['slug' => 'eltizam-egypt'],
             [
                 'name' => 'Eltizam Egypt',
-                'logo_path' => null, // drop a real logo at public/images/eltizam-logo.png and set this
-                'favicon_path' => null,
-                'primary_color' => '#1B3A6B', // Eltizam-style navy; replace with brand hex when available
+                'logo_path' => 'images/eltizam-logo.png',
+                'favicon_path' => 'images/eltizam-logo.png',
+                'primary_color' => '#F0B010', // Eltizam brand gold — sampled from the logo's signature swirl
                 'contact_email' => 'info@eltizam.eg',
-                'metadata' => ['established' => 2021, 'note' => 'JV with Al Ahly Sabbour, EGP 2bn'],
+                'metadata' => [
+                    'established' => 2021,
+                    'note' => 'JV with Al Ahly Sabbour, EGP 2bn',
+                    'brand_source' => 'Eltizam Group public mark (eltizam-logo.png in public/images)',
+                ],
                 'is_active' => true,
             ],
         );
