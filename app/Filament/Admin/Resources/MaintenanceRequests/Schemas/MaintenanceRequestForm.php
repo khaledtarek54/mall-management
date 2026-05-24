@@ -84,7 +84,7 @@ class MaintenanceRequestForm
                         ->placeholder(__('admin.fields.unassigned')),
                     Select::make('assigned_to_vendor_id')
                         ->label(__('admin.fields.assigned_vendor') ?: 'External Vendor')
-                        ->relationship('assignedVendor', 'name', fn ($q) => $q->where('status', 'active'))
+                        ->relationship('assignedVendor', 'name', fn ($query) => $query->where('status', 'active'))
                         ->searchable()
                         ->preload()
                         ->placeholder('—'),

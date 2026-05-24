@@ -62,6 +62,14 @@ class TranslationCoverageTest extends TestCase
 
             // Spatie ActivityLog default events
             'activity.events' => ['created', 'updated', 'deleted'],
+
+            // Activity subjects — must include every model that uses LogsActivity.
+            // Derived from `useLogName()` calls across app/Models/.
+            'activity.subjects' => [
+                'lease', 'invoice', 'payment', 'tenant', 'charge', 'asset',
+                'maintenance_request', 'tenant_sales', 'cam_pool',
+                'credit_note', 'vendor', 'vendor_contract', 'note',
+            ],
         ];
 
         $missing = [];
