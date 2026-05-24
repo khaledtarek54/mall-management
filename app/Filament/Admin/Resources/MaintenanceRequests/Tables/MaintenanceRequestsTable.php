@@ -81,6 +81,12 @@ class MaintenanceRequestsTable
                     ->label(__('admin.tables.maintenance.assigned_to'))
                     ->placeholder(__('admin.fields.unassigned'))
                     ->toggleable(),
+                TextColumn::make('assignedVendor.name')
+                    ->label(__('admin.fields.assigned_vendor') ?: 'Vendor')
+                    ->badge()
+                    ->color('info')
+                    ->placeholder('—')
+                    ->toggleable(),
                 TextColumn::make('submitted_at')
                     ->label(__('admin.tables.maintenance.submitted'))
                     ->date('d/m/Y')

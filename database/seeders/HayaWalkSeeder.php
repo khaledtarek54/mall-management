@@ -19,6 +19,9 @@ use App\Models\TenantSalesDeclaration;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\UtilityMeter;
+use App\Models\Vendor;
+use App\Models\VendorContact;
+use App\Models\VendorContract;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
@@ -223,6 +226,7 @@ class HayaWalkSeeder extends Seeder
 
         $this->seedCurrentMonthPayments();
         $this->seedArAgingSpread();
+        $this->seedVendors($hayaWalk);
         $this->seedMaintenanceRequests();
         $this->seedTenantSalesDeclarations();
         $this->seedCamReconciliation($hayaWalk);
@@ -1024,5 +1028,132 @@ class HayaWalkSeeder extends Seeder
             ['name' => 'The Grill House', 'contact' => 'Chef Hossam'],
             // 43rd tenant onwards — leaving some vacant
         ];
+    }
+
+    /**
+     * Seed realistic vendors for the maintenance + supplier side of the business.
+     * Each gets a primary contact and (where it makes sense) an active service contract
+     * against Haya Walk.
+     */
+    private function seedVendors(Asset $asset): void
+    {
+        $vendors = [
+            [
+                'name' => 'Cool-Air HVAC Services',
+                'type' => 'contractor',
+                'tax_id' => 'EG-410-882-001',
+                'email' => 'ops@cool-air.eg',
+                'phone' => '+201112223344',
+                'city' => 'Cairo',
+                'contact' => ['name' => 'Ahmed Saleh', 'role' => 'Operations Lead', 'phone' => '+201112223344'],
+                'contract' => ['name' => 'HVAC maintenance — annual', 'value' => 360000, 'start' => '2026-01-01', 'end' => '2026-12-31'],
+            ],
+            [
+                'name' => 'BrightSpark Electrical',
+                'type' => 'contractor',
+                'tax_id' => 'EG-410-882-002',
+                'email' => 'service@brightspark.eg',
+                'phone' => '+201233445566',
+                'city' => 'Giza',
+                'contact' => ['name' => 'Mona Atef', 'role' => 'Service Manager', 'phone' => '+201233445566'],
+                'contract' => ['name' => 'Common-area electrical upkeep', 'value' => 180000, 'start' => '2026-01-01', 'end' => '2026-12-31'],
+            ],
+            [
+                'name' => 'PureWater Plumbing',
+                'type' => 'service_provider',
+                'email' => 'help@purewater.eg',
+                'phone' => '+201556677889',
+                'city' => 'Cairo',
+                'contact' => ['name' => 'Karim El-Gohary', 'role' => 'Owner', 'phone' => '+201556677889'],
+                'contract' => ['name' => 'On-call plumbing — SLA', 'value' => 90000, 'start' => '2026-01-01', 'end' => '2026-12-31'],
+            ],
+            [
+                'name' => 'CleanFleet Janitorial',
+                'type' => 'service_provider',
+                'tax_id' => 'EG-410-882-004',
+                'email' => 'contact@cleanfleet.eg',
+                'phone' => '+201001112233',
+                'city' => 'Cairo',
+                'contact' => ['name' => 'Hala Mustafa', 'role' => 'Account Manager', 'phone' => '+201001112233'],
+                'contract' => ['name' => 'Daily cleaning + waste handling', 'value' => 480000, 'start' => '2026-01-01', 'end' => '2026-12-31'],
+            ],
+            [
+                'name' => 'SecureGuard Security',
+                'type' => 'service_provider',
+                'tax_id' => 'EG-410-882-005',
+                'email' => 'ops@secureguard.eg',
+                'phone' => '+201224455667',
+                'city' => 'Cairo',
+                'contact' => ['name' => 'Mahmoud Sayed', 'role' => 'Site Supervisor', 'phone' => '+201224455667'],
+                'contract' => ['name' => 'Mall security — 24/7', 'value' => 720000, 'start' => '2026-01-01', 'end' => '2026-12-31'],
+            ],
+            [
+                'name' => 'GreenLeaf Landscaping',
+                'type' => 'supplier',
+                'email' => 'info@greenleaf.eg',
+                'phone' => '+201117788990',
+                'city' => 'Cairo',
+                'contact' => ['name' => 'Sara Adel', 'role' => 'Sales', 'phone' => '+201117788990'],
+                'contract' => null,
+            ],
+            [
+                'name' => 'PestStop Egypt',
+                'type' => 'service_provider',
+                'email' => 'support@peststop.eg',
+                'phone' => '+201557788992',
+                'city' => 'Cairo',
+                'contact' => ['name' => 'Tarek Sami', 'role' => 'Operations', 'phone' => '+201557788992'],
+                'contract' => ['name' => 'Quarterly pest control', 'value' => 60000, 'start' => '2026-01-01', 'end' => '2026-12-31'],
+            ],
+            [
+                'name' => 'FireSafe Consultants',
+                'type' => 'consultant',
+                'email' => 'audit@firesafe.eg',
+                'phone' => '+201339988776',
+                'city' => 'Alexandria',
+                'contact' => ['name' => 'Eng. Hisham Fahmy', 'role' => 'Lead Consultant', 'phone' => '+201339988776'],
+                'contract' => ['name' => 'Annual fire-safety audit + drills', 'value' => 120000, 'start' => '2026-01-01', 'end' => '2026-12-31'],
+            ],
+        ];
+
+        foreach ($vendors as $v) {
+            $vendor = Vendor::updateOrCreate(
+                ['email' => $v['email']],
+                [
+                    'name' => $v['name'],
+                    'type' => $v['type'],
+                    'status' => 'active',
+                    'tax_id' => $v['tax_id'] ?? null,
+                    'phone' => $v['phone'],
+                    'city' => $v['city'],
+                ],
+            );
+
+            VendorContact::updateOrCreate(
+                ['vendor_id' => $vendor->id, 'name' => $v['contact']['name']],
+                [
+                    'role' => $v['contact']['role'],
+                    'email' => $v['email'],
+                    'phone' => $v['contact']['phone'],
+                    'is_primary' => true,
+                ],
+            );
+
+            if ($v['contract']) {
+                VendorContract::updateOrCreate(
+                    ['vendor_id' => $vendor->id, 'name' => $v['contract']['name']],
+                    [
+                        'asset_id' => $asset->id,
+                        'status' => 'active',
+                        'start_date' => $v['contract']['start'],
+                        'end_date' => $v['contract']['end'],
+                        'value' => $v['contract']['value'],
+                        'currency' => 'EGP',
+                    ],
+                );
+            }
+        }
+
+        $this->command->info('   Vendors seeded: ' . Vendor::count());
     }
 }

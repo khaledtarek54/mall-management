@@ -1,0 +1,56 @@
+<?php
+
+namespace App\Filament\Admin\Resources\Vendors\RelationManagers;
+
+use Filament\Actions\CreateAction;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\EditAction;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
+use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Schemas\Schema;
+use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
+
+class ContactsRelationManager extends RelationManager
+{
+    protected static string $relationship = 'contacts';
+
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
+    {
+        return __('admin.sections.vendor_contacts');
+    }
+
+    public function form(Schema $schema): Schema
+    {
+        return $schema->columns(2)->components([
+            TextInput::make('name')->label(__('admin.fields.contact_person'))->required()->maxLength(200),
+            TextInput::make('role')->label(__('admin.fields.role') ?: 'Role')->maxLength(100),
+            TextInput::make('email')->label(__('admin.fields.email'))->email()->maxLength(200),
+            TextInput::make('phone')->label(__('admin.fields.phone'))->tel()->maxLength(50),
+            Toggle::make('is_primary')->label(__('admin.fields.primary_contact') ?: 'Primary contact')->columnSpanFull(),
+        ]);
+    }
+
+    public function table(Table $table): Table
+    {
+        return $table
+            ->columns([
+                TextColumn::make('name')->label(__('admin.fields.contact_person'))->weight('bold'),
+                TextColumn::make('role')->placeholder('—')->color('gray'),
+                TextColumn::make('phone')->copyable()->placeholder('—'),
+                TextColumn::make('email')->copyable()->placeholder('—'),
+                IconColumn::make('is_primary')->boolean()->label(__('admin.fields.primary_contact') ?: 'Primary'),
+            ])
+            ->headerActions([
+                CreateAction::make()->label(__('admin.actions.add_contact')),
+            ])
+            ->recordActions([
+                EditAction::make(),
+                DeleteAction::make(),
+            ])
+            ->defaultSort('is_primary', 'desc');
+    }
+}

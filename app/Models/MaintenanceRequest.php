@@ -43,7 +43,7 @@ class MaintenanceRequest extends Model implements HasMedia
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['status', 'priority', 'category', 'assigned_to', 'target_resolution_at', 'resolution_notes'])
+            ->logOnly(['status', 'priority', 'category', 'assigned_to', 'assigned_to_vendor_id', 'target_resolution_at', 'resolution_notes'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('maintenance_request');
@@ -55,6 +55,7 @@ class MaintenanceRequest extends Model implements HasMedia
         'unit_id',
         'lease_id',
         'assigned_to',
+        'assigned_to_vendor_id',
         'status',
         'priority',
         'category',
@@ -94,6 +95,11 @@ class MaintenanceRequest extends Model implements HasMedia
     public function assignee(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_to');
+    }
+
+    public function assignedVendor(): BelongsTo
+    {
+        return $this->belongsTo(Vendor::class, 'assigned_to_vendor_id');
     }
 
     public function comments(): HasMany

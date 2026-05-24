@@ -71,11 +71,14 @@ All accounts persist through `migrate:fresh --seed`.
 
 ## Built ✓
 
-### Data model (16 entities)
+### Data model (22 entities)
 - **Core property graph:** `Operator` · `Asset` · `Unit` · `Tenant` · `Lease` · `Charge` · `Invoice` · `InvoiceItem` · `Payment`
+- **AR adjustments:** `CreditNote` · `CreditNoteItem` (issued against an invoice or as standalone tenant credit; applied via service idempotently)
 - **Maintenance:** `MaintenanceRequest` · `MaintenanceRequestComment`
+- **Vendor management:** `Vendor` · `VendorContact` · `VendorContract` (FK from `maintenance_requests.assigned_to_vendor_id` for external assignment)
 - **Mall-specific (vs PropEzy):** `TenantSalesDeclaration` · `CamExpensePool` · `CamAllocation`
 - **Energy:** `UtilityMeter` · `MeterReading`
+- **Communications:** `Note` (polymorphic noteable)
 - All business entities with soft deletes (where applicable), MySQL enum status fields, FK constraints.
 - Tenant model extends `Authenticatable` for portal login + implements `FilamentUser`.
 - Lease has self-referential `previous_lease_id` for renewal chain.
@@ -222,6 +225,20 @@ All accounts persist through `migrate:fresh --seed`.
   - Maintenance Requests — monitoring view across the portfolio
 - Seeded owner login: `owner@jawad.test / password` with 100% ownership of Haya Walk.
 
+### Credit Notes & Refunds (AR completeness)
+- `CreditNote` + `CreditNoteItem` models with auto-generated `CN-{asset}-{YYYYMM}-{seq}` numbers, soft deletes, LogsActivity.
+- **Lifecycle**: `draft` → `issued` → `applied` (when applied_amount = total) → `void`. Reason enum: return · dispute · adjustment · discount · refund · other.
+- [`CreditNoteService`](app/Services/CreditNoteService.php) covers the three real operations: `issue()`, `applyToInvoice(invoice, ?amount)` (caps at min of note balance + invoice balance + requested amount; updates both sides atomically and flips invoice status to partially_paid/paid; idempotent on void), `void(reason)` (refuses if already applied — caller must issue an offsetting note instead).
+- Filament 4 resource at `/admin/credit-notes` — issue/apply/void as record-level header actions with confirmation modals, full repeater for line items with live VAT recalc, applies the credit's tenant filter when picking an invoice (so you can't apply Tenant A's credit to Tenant B's invoice).
+- 6 PHPUnit tests in [`tests/Feature/CreditNoteServiceTest.php`](tests/Feature/CreditNoteServiceTest.php) locking the math: issue, apply, cap-at-minimum, void-when-applied throws, fully-applied status flip, no-op on voided notes.
+
+### Vendor Management (parity with PropEzy / Yardi)
+- `Vendor` + `VendorContact` + `VendorContract` models. Vendor types: contractor · supplier · service_provider · consultant · other. Status: active · inactive · blacklisted.
+- Filament resource at `/admin/vendors` (Operations nav) — type/status badges + filters, active-contracts count column, deep search across name/legal_name/tax_id/email/phone.
+- Two relation managers on the vendor edit page: **Contacts** (`is_primary` toggle, default-sort primary first) and **Contracts** (asset linkage, value, currency, scope, status enum).
+- Wired into [`MaintenanceRequest`](app/Models/MaintenanceRequest.php) via `assigned_to_vendor_id` FK + `assignedVendor()` relation. The maintenance form now has both internal `assigned_to` (User) and external `assigned_to_vendor_id` (Vendor) so requests can route to staff, vendors, or both. Maintenance table gains an External Vendor column (toggleable).
+- Seeded 8 realistic Egyptian-mall vendors (Cool-Air HVAC, BrightSpark Electrical, PureWater Plumbing, CleanFleet Janitorial, SecureGuard Security, GreenLeaf Landscaping, PestStop, FireSafe Consultants) each with a primary contact + most with an annual service contract against Haya Walk.
+
 ### Tenant Communications log
 - `Note` model with polymorphic `noteable` (Tenant today; extensible to Lease/Invoice) + `author` (User) + channel enum (`call` / `whatsapp` / `email` / `meeting` / `site_visit` / `other`) + subject + body + `contacted_at`.
 - Admin **Communications** relation manager on the Tenant edit page — collections-style timeline view, "Log Communication" header action, channel-colored badges.
@@ -271,8 +288,8 @@ All accounts persist through `migrate:fresh --seed`.
 - Arabic PDF rendering uses mPDF's `autoArabic` + `autoLangToFont` so letters connect correctly; `xbriyaz` font for Arabic, `dejavusans` for Latin, with conditional zeroing of `letter-spacing` / `text-transform` per locale.
 
 ### Automated tests
-- **PHPUnit** ([tests/Feature/BillingMathTest.php](tests/Feature/BillingMathTest.php), [tests/Feature/EtaJsonBuilderTest.php](tests/Feature/EtaJsonBuilderTest.php)) — locks the billing math: percentage rent (artificial + natural breakpoint + below-threshold), monthly billing idempotency, late-fee application + grace-period respect + once-per-invoice idempotency, CAM allocation distribution by sqm, CAM billing idempotency, ETA JSON shape + tenant-type mapping + EGS line codes + V009 VAT sub-type. 10 service tests + 41 assertions. SQLite in-memory, runs in <400ms. `php artisan test`.
-- **Playwright E2E** ([tests/e2e/](tests/e2e/)) — 15 spec files covering auth, every admin page, CRUD navigation, portal flows, PDF downloads in EN + AR, locale switching, occupancy map, **multi-property tenancy isolation + brand swap, tenant sales admin + portal flow, CAM reconciliation page + seeded pools, ETA invoice index + Valid badges, Owner Portal dashboard + scoped resources + admin-panel gating, Energy meters + nav, CSV import action visibility**. Run via `npx playwright test`. HTML report lands in [storage/playwright-report/](storage/playwright-report/). Session caching: global setup logs into each panel once (admin + portal + owner) and writes `storage/playwright-state/{admin,portal,owner}.json`; tests opt in via `test.use({ storageState: ... })` to skip the login step.
+- **PHPUnit** ([tests/Feature/BillingMathTest.php](tests/Feature/BillingMathTest.php), [tests/Feature/EtaJsonBuilderTest.php](tests/Feature/EtaJsonBuilderTest.php), [tests/Feature/CreditNoteServiceTest.php](tests/Feature/CreditNoteServiceTest.php)) — locks the AR + billing math: percentage rent (artificial + natural breakpoint + below-threshold), monthly billing idempotency, late-fee application + grace-period respect + once-per-invoice idempotency, CAM allocation distribution by sqm, CAM billing idempotency, ETA JSON shape + tenant-type mapping + EGS line codes + V009 VAT sub-type, credit-note issue + apply + cap-at-minimum + void-when-applied refusal + status flip. 16 service tests + 59 assertions. SQLite in-memory, runs in <500ms. `php artisan test`.
+- **Playwright E2E** ([tests/e2e/](tests/e2e/)) — 16 spec files covering auth, every admin page, CRUD navigation, portal flows, PDF downloads in EN + AR, locale switching, occupancy map, **multi-property tenancy isolation + brand swap, tenant sales admin + portal flow, CAM reconciliation page + seeded pools, ETA invoice index + Valid badges, Owner Portal dashboard + scoped resources + admin-panel gating, Energy meters + nav, CSV import action visibility, Credit Notes + Vendors admin pages + maintenance/vendor wiring**. Run via `npx playwright test`. HTML report lands in [storage/playwright-report/](storage/playwright-report/). Session caching: global setup logs into each panel once (admin + portal + owner) and writes `storage/playwright-state/{admin,portal,owner}.json`; tests opt in via `test.use({ storageState: ... })` to skip the login step.
 - **GitHub Actions CI** ([.github/workflows/ci.yml](.github/workflows/ci.yml)) — runs on every push + PR to `main` / `develop`. Two jobs: (1) **PHPUnit** with sqlite in-memory in ~30s, (2) **Playwright** boots MySQL 8 service, migrates+seeds, builds assets, starts `php artisan serve` on 127.0.0.1:8000, runs the full e2e suite headless. Failed runs upload HTML report as a GH artifact.
 
 ### Scheduled jobs & automation
@@ -299,13 +316,13 @@ Each needs a sandbox account or sandbox-API key before live integration can star
 
 Small-scope, no external dependencies. Each is a single session to deliver.
 
-- [ ] **Vendor management module** — `Vendor` + `VendorContact` + `VendorContract` first-class entities + FK from `maintenance_requests.assigned_to_vendor_id`. Today maintenance assigns to internal `User` only. Skipped from V2 sprint as low strategic value vs PropEzy; ship it if Eltizam asks.
+- [x] ~~Vendor management module~~ — shipped (see "Vendor Management" section above).
 - [ ] **Asset → Units relation manager** — currently you can navigate down from a Lease/Tenant but not directly from a Property edit page. (Note: the Occupancy Map page covers visual browsing already, but a sortable/filterable table view would still be useful from inside the Asset record.)
 - [ ] **Notes / communications log on Tenant** — admin records phone calls / WhatsApp / meetings against a tenant. Real-world collections-team feature; could double as a polymorphic `Note` model attachable to Lease/Invoice too.
 - [ ] **Bulk PDF download** on Invoices — bulk action that returns a zip of selected invoice PDFs.
 - [ ] **Bulk Submit to ETA** on Invoices — `SubmitInvoiceToEta` queued job already exists; just wire the bulk action.
 - [ ] **Bulk WhatsApp send** on Invoices — bulk action when WhatsApp is unblocked.
-- [ ] **Credit notes / refunds** — issue a credit note against an invoice (adjusts balance, optionally records refund).
+- [x] ~~Credit notes / refunds~~ — shipped (see "Credit Notes & Refunds" section above).
 - [x] ~~Late-fee automation~~ — shipped (see "Scheduled jobs & automation" above).
 - [x] ~~Email invoice on issue~~ — shipped (`App\Mail\InvoiceIssued`, RTL-aware blade view).
 - [x] ~~CSV import for bootstrapping~~ — shipped (`app/Filament/Imports/` + sample templates).

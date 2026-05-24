@@ -82,6 +82,12 @@ class MaintenanceRequestForm
                         ->options(fn () => User::orderBy('name')->pluck('name', 'id'))
                         ->searchable()
                         ->placeholder(__('admin.fields.unassigned')),
+                    Select::make('assigned_to_vendor_id')
+                        ->label(__('admin.fields.assigned_vendor') ?: 'External Vendor')
+                        ->relationship('assignedVendor', 'name', fn ($q) => $q->where('status', 'active'))
+                        ->searchable()
+                        ->preload()
+                        ->placeholder('—'),
                     DateTimePicker::make('target_resolution_at')
                         ->label(__('admin.fields.target_resolution_at'))
                         ->native(false)
