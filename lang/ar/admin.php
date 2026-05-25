@@ -1161,6 +1161,9 @@ return [
             'updated' => 'تعديل',
             'deleted' => 'حذف',
         ],
+        'empty_value' => '(فارغ)',
+        'bool_true' => 'نعم',
+        'bool_false' => 'لا',
     ],
 
     'statement' => [

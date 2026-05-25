@@ -1161,6 +1161,9 @@ return [
             'updated' => 'Updated',
             'deleted' => 'Deleted',
         ],
+        'empty_value' => '(empty)',
+        'bool_true' => 'yes',
+        'bool_false' => 'no',
     ],
 
     'statement' => [

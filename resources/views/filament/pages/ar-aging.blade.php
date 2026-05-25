@@ -64,7 +64,7 @@
                             </td>
                             <td style="padding: 0.75rem; text-align: end;">
                                 <a
-                                    href="{{ route('filament.admin.resources.invoices.edit', $invoice) }}"
+                                    href="{{ \App\Filament\Admin\Resources\Invoices\InvoiceResource::getUrl('edit', ['record' => $invoice]) }}"
                                     style="font-size: 0.75rem; font-weight: 500; color: var(--fi-color-primary-600, #d97706); text-decoration: none;"
                                 >
                                     {{ __('admin.actions.view') }} →

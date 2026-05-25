@@ -27,7 +27,7 @@
 
                 <x-filament::button
                     tag="a"
-                    :href="route('filament.admin.pages.ar-aging')"
+                    :href="\App\Filament\Admin\Pages\ArAging::getUrl()"
                     icon="heroicon-o-arrow-trending-down"
                     color="gray"
                     outlined
@@ -110,7 +110,7 @@
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.75rem;">
             @foreach($report['ar_aging'] as $key => $row)
                 <a
-                    href="{{ route('filament.admin.pages.ar-aging', ['bucket' => $key]) }}"
+                    href="{{ \App\Filament\Admin\Pages\ArAging::getUrl(['bucket' => $key]) }}"
                     style="display: block; padding: 0.875rem 1rem; border: 1px solid var(--fi-color-gray-200, #e5e7eb); border-radius: 0.5rem; text-decoration: none; transition: border-color 0.15s;"
                     onmouseover="this.style.borderColor='var(--fi-color-primary-500, #f59e0b)'"
                     onmouseout="this.style.borderColor='var(--fi-color-gray-200, #e5e7eb)'"

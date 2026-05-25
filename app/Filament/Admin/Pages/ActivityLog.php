@@ -99,24 +99,11 @@ class ActivityLog extends Page implements HasTable
                         'deleted' => 'danger',
                         default => 'gray',
                     }),
-                TextColumn::make('attribute_changes')
+                TextColumn::make('changes')
                     ->label(__('admin.activity.changes'))
-                    ->formatStateUsing(function (Activity $record): string {
-                        $changes = $record->attribute_changes;
-                        if (! $changes || ! isset($changes['attributes'])) {
-                            return '—';
-                        }
-                        $lines = [];
-                        $old = $changes['old'] ?? [];
-                        foreach ($changes['attributes'] as $field => $newValue) {
-                            $oldValue = $old[$field] ?? '∅';
-                            $lines[] = "{$field}: {$oldValue} → {$newValue}";
-                        }
-                        return implode(' · ', $lines);
-                    })
-                    ->wrap()
-                    ->size('xs')
-                    ->color('gray'),
+                    ->state(fn (Activity $record): string => $this->renderChanges($record))
+                    ->html()
+                    ->wrap(),
             ])
             ->filters([
                 SelectFilter::make('log_name')
@@ -128,5 +115,79 @@ class ActivityLog extends Page implements HasTable
             ])
             ->defaultSort('id', 'desc')
             ->paginated([25, 50, 100]);
+    }
+
+    /**
+     * Format an activity row's `attribute_changes` payload as a readable
+     * HTML fragment — one line per field, with the old value struck through
+     * and the new value highlighted. Used by the table column above; kept
+     * as a method so HTML escaping stays in one place.
+     */
+    protected function renderChanges(Activity $record): string
+    {
+        $changes = $record->attribute_changes;
+        if (! $changes || ! isset($changes['attributes'])) {
+            return '<span class="fi-color-gray">—</span>';
+        }
+
+        $lines = [];
+        $old = $changes['old'] ?? [];
+        $emptyMarker = '<em class="opacity-60">' . __('admin.activity.empty_value') . '</em>';
+
+        foreach ($changes['attributes'] as $field => $newValue) {
+            $hadOld = array_key_exists($field, $old) && $old[$field] !== null && $old[$field] !== '';
+            $isCreated = ! $hadOld;
+
+            $fieldLabel = '<strong class="text-gray-900 dark:text-gray-100">'
+                . e($this->humaniseField($field)) . '</strong>';
+
+            $newDisplay = ($newValue === null || $newValue === '')
+                ? $emptyMarker
+                : '<span class="text-success-600 dark:text-success-400">'
+                  . e($this->formatValue($newValue)) . '</span>';
+
+            if ($isCreated) {
+                $lines[] = $fieldLabel . ' ' . $newDisplay;
+            } else {
+                $oldDisplay = '<span class="line-through opacity-60">'
+                    . e($this->formatValue($old[$field])) . '</span>';
+                $lines[] = $fieldLabel . ' ' . $oldDisplay . ' → ' . $newDisplay;
+            }
+        }
+
+        return '<div class="flex flex-col gap-1 text-xs">' . implode('', array_map(
+            fn (string $line) => '<div>' . $line . '</div>',
+            $lines,
+        )) . '</div>';
+    }
+
+    /**
+     * Turn snake_case column names into something readable for non-engineers
+     * (e.g. `paid_amount` → `Paid amount`, `eta_status` → `ETA status`).
+     */
+    protected function humaniseField(string $field): string
+    {
+        // Common acronyms that look wrong in lowercase.
+        $acronyms = ['eta' => 'ETA', 'vat' => 'VAT', 'id' => 'ID'];
+        $words = explode(' ', str_replace('_', ' ', $field));
+        $words[0] = ucfirst($words[0]);
+        return implode(' ', array_map(
+            fn (string $w): string => $acronyms[strtolower($w)] ?? $w,
+            $words,
+        ));
+    }
+
+    /**
+     * Compact numeric / date / boolean / nested representations.
+     */
+    protected function formatValue(mixed $value): string
+    {
+        if (is_bool($value)) {
+            return $value ? __('admin.activity.bool_true') : __('admin.activity.bool_false');
+        }
+        if (is_array($value) || is_object($value)) {
+            return json_encode($value, JSON_UNESCAPED_UNICODE);
+        }
+        return (string) $value;
     }
 }
