@@ -28,3 +28,9 @@ Thumbs.db
 
 # Brand-assets zip (regeneratable via brand-assets/render.mjs)
 /atriom-brand-assets.zip
+
+# Playwright test artifacts (regenerated on every globalSetup login)
+/storage/playwright-state/*.json
+/storage/playwright-report/
+/storage/playwright-artifacts/
+/tests/.playwright-artifacts-*/
