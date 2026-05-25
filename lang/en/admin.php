@@ -619,6 +619,11 @@ return [
         'role_name_helper' => 'Lowercase, numbers, underscores only (e.g. "finance_lead"). System roles cannot be renamed.',
         'role_description' => 'Description',
         'role_custom' => 'Custom role',
+        'staff_role' => 'Title at this property',
+        'staff_role_helper' => 'e.g. Property Manager, Site Engineer, Leasing Lead.',
+        'assigned_at' => 'Assigned',
+        'ended_at' => 'Ended',
+        'user' => 'User',
         'priority' => 'Priority',
         'category' => 'Category',
         'channel' => 'Channel',
@@ -715,6 +720,7 @@ return [
         'role_details' => 'Role',
         'permissions' => 'Permissions',
         'permissions_description' => 'Tick the actions this role is allowed to perform. Each module collapses for easy scanning.',
+        'asset_staff' => 'Assigned Staff',
     ],
 
     'permission_modules' => [

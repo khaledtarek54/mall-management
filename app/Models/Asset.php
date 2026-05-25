@@ -72,6 +72,17 @@ class Asset extends Model
             ->withTimestamps();
     }
 
+    /**
+     * Staff (admin panel users) assigned to this property. Distinct from
+     * `owners()` which is the legal-ownership relationship.
+     */
+    public function staff(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'asset_user')
+            ->withPivot(['role', 'assigned_at', 'ended_at', 'notes'])
+            ->withTimestamps();
+    }
+
     public function utilityMeters(): HasMany
     {
         return $this->hasMany(UtilityMeter::class);

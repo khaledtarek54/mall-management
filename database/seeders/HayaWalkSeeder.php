@@ -238,6 +238,7 @@ class HayaWalkSeeder extends Seeder
         $this->seedUtilityMeters($hayaWalk);
         $this->seedTenantNotes();
         $this->seedCreditNotes();
+        $this->seedStaffAssignments($hayaWalk);
 
         $this->command->info("✅ Created Haya Walk with {$occupiedCount} occupied, {$vacantCount} vacant units");
         $this->command->info("✅ Generated leases, charges, invoices, and payment history");
@@ -1246,5 +1247,34 @@ class HayaWalkSeeder extends Seeder
         ]);
 
         return $note->refresh();
+    }
+
+    /**
+     * Assign the demo staff users (manager, leasing, maintenance) to Haya Walk
+     * so the new asset_user pivot has realistic data on first boot.
+     */
+    private function seedStaffAssignments(Asset $asset): void
+    {
+        $assignments = [
+            ['email' => 'manager@mall.test',     'role' => 'Operations Manager'],
+            ['email' => 'leasing@mall.test',     'role' => 'Leasing Lead'],
+            ['email' => 'maintenance@mall.test', 'role' => 'Facilities Supervisor'],
+        ];
+
+        foreach ($assignments as $a) {
+            $user = User::where('email', $a['email'])->first();
+            if (! $user) {
+                continue;
+            }
+
+            $asset->staff()->syncWithoutDetaching([
+                $user->id => [
+                    'role' => $a['role'],
+                    'assigned_at' => now()->subMonths(6),
+                ],
+            ]);
+        }
+
+        $this->command->info('   Staff assignments seeded: ' . $asset->staff()->count());
     }
 }

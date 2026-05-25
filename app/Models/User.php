@@ -33,10 +33,9 @@ class User extends Authenticatable implements FilamentUser
     {
         return match ($panel->getId()) {
             'owner' => $this->hasRole('owner'),
-            'admin' => $this->hasAnyRole([
-                'super_admin', 'manager', 'viewer',
-                'leasing_manager', 'maintenance_manager',
-            ]),
+            // Anyone with a non-owner role can access /admin. This naturally
+            // covers built-in roles AND any custom roles created via the UI.
+            'admin' => $this->roles()->where('name', '!=', 'owner')->exists(),
             default => true,
         };
     }
@@ -50,6 +49,18 @@ class User extends Authenticatable implements FilamentUser
     {
         return $this->belongsToMany(Asset::class, 'asset_owner')
             ->withPivot(['ownership_percentage', 'started_at', 'ended_at'])
+            ->withTimestamps();
+    }
+
+    /**
+     * Properties the user is assigned to as STAFF (distinct from ownedAssets,
+     * which is the legal-ownership relationship). A user can be assigned to
+     * one or many properties — used to scope what they see.
+     */
+    public function assignedAssets(): BelongsToMany
+    {
+        return $this->belongsToMany(Asset::class, 'asset_user')
+            ->withPivot(['role', 'assigned_at', 'ended_at', 'notes'])
             ->withTimestamps();
     }
 }
