@@ -11,7 +11,6 @@ use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
-use Filament\Support\Colors\Color;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
@@ -32,13 +31,6 @@ class PortalPanelProvider extends PanelProvider
             ->brandLogoHeight('2.5rem')
             ->favicon(asset('atriom-favicon.svg'))
             ->authGuard('portal')
-            ->colors([
-                'primary' => Color::Zinc,
-                'gray' => Color::Zinc,
-            ])
-            ->darkMode(true)
-            ->font('Inter')
-            ->viteTheme('resources/css/filament/admin/theme.css')
             ->discoverResources(in: app_path('Filament/Portal/Resources'), for: 'App\\Filament\\Portal\\Resources')
             ->discoverPages(in: app_path('Filament/Portal/Pages'), for: 'App\\Filament\\Portal\\Pages')
             ->pages([

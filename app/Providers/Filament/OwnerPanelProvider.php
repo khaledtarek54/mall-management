@@ -12,7 +12,6 @@ use Filament\Navigation\NavigationGroup;
 use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
-use Filament\Support\Colors\Color;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
@@ -28,7 +27,6 @@ class OwnerPanelProvider extends PanelProvider
         return $panel
             ->id('owner')
             ->path('owner')
-            ->viteTheme('resources/css/filament/admin/theme.css')
             ->login()
             ->brandName(fn (): string => self::resolveOperator()?->name ?? 'Atriom · Owner Portal')
             ->brandLogo(function (): ?string {
@@ -40,16 +38,6 @@ class OwnerPanelProvider extends PanelProvider
                 $operator = self::resolveOperator();
                 return $operator?->faviconUrl() ?? asset('atriom-favicon.svg');
             })
-            ->colors([
-                'primary' => Color::Zinc,
-                'gray' => Color::Zinc,
-                'danger' => Color::Red,
-                'info' => Color::Sky,
-                'success' => Color::Emerald,
-                'warning' => Color::Amber,
-            ])
-            ->darkMode(true)
-            ->font('Inter')
             ->discoverResources(in: app_path('Filament/Owner/Resources'), for: 'App\\Filament\\Owner\\Resources')
             ->discoverPages(in: app_path('Filament/Owner/Pages'), for: 'App\\Filament\\Owner\\Pages')
             ->pages([

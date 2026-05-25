@@ -21,7 +21,6 @@ use Filament\Navigation\NavigationGroup;
 use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
-use Filament\Support\Colors\Color;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
@@ -37,7 +36,6 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->viteTheme('resources/css/filament/admin/theme.css')
             ->login()
             ->brandName(fn (): string => CurrentOperator::get()?->name ?? 'Atriom')
             ->brandLogo(function (): ?string {
@@ -55,16 +53,6 @@ class AdminPanelProvider extends PanelProvider
                 }
                 return asset('atriom-favicon.svg');
             })
-            ->colors([
-                'primary' => Color::Zinc,
-                'gray' => Color::Zinc,
-                'danger' => Color::Red,
-                'info' => Color::Sky,
-                'success' => Color::Emerald,
-                'warning' => Color::Amber,
-            ])
-            ->darkMode(true)
-            ->font('Inter')
             ->discoverResources(in: app_path('Filament/Admin/Resources'), for: 'App\\Filament\\Admin\\Resources')
             ->discoverPages(in: app_path('Filament/Admin/Pages'), for: 'App\\Filament\\Admin\\Pages')
             ->pages([
