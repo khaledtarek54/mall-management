@@ -60,19 +60,33 @@ Alternative: hide both buttons before the demo by setting `PAYMOB_ENABLED=false`
 | `/admin` | `admin@mall.test`   | `password` | `super_admin` |
 | `/admin` | `manager@mall.test` | `password` | `manager`     |
 | `/admin` | `viewer@mall.test`  | `password` | `viewer`      |
+| `/admin` | `leasing@mall.test` | `password` | `leasing_manager` |
+| `/admin` | `maintenance@mall.test` | `password` | `maintenance_manager` |
 | `/owner` | `owner@jawad.test`  | `password` | `owner` (owns Haya Walk) |
 | `/portal` | `tenant1@haya.test` | `password` | Café Crema (tenant) |
 | `/portal` | `tenant2@haya.test` | `password` | Optix Eyewear (tenant) |
 | `/portal` | `tenant3@haya.test` | `password` | The Burger Joint (tenant) |
 
-All accounts persist through `migrate:fresh --seed`.
+All accounts persist through `migrate:fresh --seed`. Hitting `/admin` bare redirects to `/admin/{first-property}/...`; users with multiple property assignments also see an **All Properties** entry in the top-nav switcher.
 
 ---
 
+## Recent business-logic fixes (correctness audit)
+
+A project-wide audit caught + fixed five real bugs:
+
+- **`Tenant::isDelinquent()`** now flags any open invoice past its `due_date`, not just rows whose `status` column was auto-flipped to `overdue` (the status flip only happens on Payment hooks — manually-cancelled or batch-imported invoices were slipping past the gate).
+- **`Tenant::outstandingBalance()`** nets out unapplied credit-note balances. A tenant with a 1000 EGP open invoice and a 300 EGP issued credit note now correctly shows 700 owed.
+- **`User::canAccessTenant()`** rejects soft-deleted Assets + non-Asset models. Closes a tenancy bypass where a user assigned to a property that later got trashed could keep operating on it via the stored URL.
+- **`LeaseTerminationService`** no longer cancels partially-paid invoices when `cancel_open_invoices=true` (that would orphan the tenant's paid_amount). Only fully-unpaid invoices auto-cancel; partial payments must be voided via explicit credit notes.
+- **`EtaJsonBuilder`** throws a clear error when a business tenant lacks a `tax_id`, instead of silently submitting `000000000` and letting ETA reject the document with an opaque error.
+
+Each fix has dedicated Pest coverage in [tests/Feature/](tests/Feature/).
+
 ## Built ✓
 
-### Data model (22 entities)
-- **Core property graph:** `Operator` · `Asset` · `Unit` · `Tenant` · `Lease` · `Charge` · `Invoice` · `InvoiceItem` · `Payment`
+### Data model (21 entities)
+- **Core property graph:** `Asset` · `Unit` · `Tenant` · `Lease` · `Charge` · `Invoice` · `InvoiceItem` · `Payment`
 - **AR adjustments:** `CreditNote` · `CreditNoteItem` (issued against an invoice or as standalone tenant credit; applied via service idempotently)
 - **Maintenance:** `MaintenanceRequest` · `MaintenanceRequestComment`
 - **Vendor management:** `Vendor` · `VendorContact` · `VendorContract` (FK from `maintenance_requests.assigned_to_vendor_id` for external assignment)
@@ -90,8 +104,8 @@ All accounts persist through `migrate:fresh --seed`.
 - Asset has a `belongsToMany` to User via `asset_owner` pivot (`ownership_percentage`, `started_at`, `ended_at`) — drives the Owner Portal.
 
 ### Seed data ([HayaWalkSeeder](database/seeders/HayaWalkSeeder.php))
-- Haya Walk (Jawad Developments) — 50 units across 3 zones (A/B/C), 33 leased + 17 vacant.
-- Two seeded operators — Jawad Developments (gold #C9A961) + **Eltizam Egypt** (real Eltizam Group logo at [public/images/eltizam-logo.png](public/images/eltizam-logo.png) + brand-accurate gold #F0B010 sampled from the logo). White-label demo lands with Eltizam's actual identity.
+- **Two seeded properties** — Haya Walk (HW) with 50 units across 3 zones (A/B/C), 33 leased + 17 vacant; Plaza Annex (PA) with 8 units (no leases — used to demonstrate property-scoping in the demo).
+- Plus the synthetic **All Properties** pseudo-asset (`code = 'ALL'`) seeded by migration — backs the portfolio-view tenant slot, hidden from the property management list.
 - Historical invoices generated from each lease's commencement → today, with realistic paid/partial/overdue mix.
 - Matching `Payment` rows for the paid portion.
 - ~5 maintenance requests across statuses (submitted/in_progress/awaiting_tenant/resolved/closed) and priorities so the triage queue, dashboard widget, and SLA-breach flagging all have realistic data on first load.
@@ -104,17 +118,22 @@ All accounts persist through `migrate:fresh --seed`.
 
 ### Admin panel (Filament)
 
-**Dashboard widgets** ([app/Filament/Admin/Widgets/](app/Filament/Admin/Widgets/))
-- `ActionRequired` — high-priority counters (overdue invoices, expiring leases) needing attention.
-- `MallStats` — Occupancy · Monthly Revenue · Collected This Month · Outstanding AR (4 stat cards with descriptions and deltas).
-- `ArAging` — 5-bucket bar chart (current / 1-30 / 31-60 / 61-90 / 90+).
-- `TenantMix` — active leases grouped by unit category.
-- `MonthlyRevenueTrend` — full-width grouped bar chart, last 12 months, Billed vs Collected.
-- `ExpiringLeases` — table of active leases expiring in next 90 days, color-coded urgency.
-- `TopTenants` — table of highest-rent active leases.
-- `RecentPayments` — latest payments captured.
-- `OpenMaintenanceRequests` — open request count grouped by priority, with SLA-breach flag.
-- `EnergyConsumptionTrend` — full-width 12-month stacked bar chart, 3 series (electric / water / gas) with type-keyed palette.
+**Dashboard widgets** ([app/Filament/Admin/Widgets/](app/Filament/Admin/Widgets/)) — every widget is property-scoped via [`TenantScope::applyTo()`](app/Support/TenantScope.php). Selecting **All Properties** in the switcher shows aggregates across the user's assigned set. Render order (sort values, with paired half-width widgets noted):
+- **-1.** `SetupGuide` — onboarding checklist for fresh installs: Properties → Units → Tenants → Leases → Invoices. Progress bar + next-step CTA. Collapses to a compact green tick row once all five exist.
+- **0.** `ActionRequired` — every card pre-applies a filter AND sort on the destination table so the rows that need work surface at the top. Cards: urgent maintenance, SLA-breached, overdue invoices, expiring critical (≤30d), expiring soon (31-90d), vacant units, unbilled leases. Module-gated — disabling maintenance hides both maintenance cards.
+- **1.** `MallStats` — Occupancy · Monthly Revenue · Collected This Month · Outstanding AR.
+- **2.** `LeasingPipeline` — funnel: Draft / Pending Approval / Active / Renewed (count + EGP/mo each, deep-linked).
+- **3.** `ArAging` ½ ┐
+- **4.** `TenantMix` ½ ┘ — paired half-width charts on a single row.
+- **5.** `ExpiringLeases` — active leases expiring in next 90 days, color-coded urgency.
+- **6.** `TopTenants` — highest-rent active leases with sales-density column.
+- **7.** `EtaCompliance` — Valid / Submitted / Rejected / Not-yet-submitted invoice counts. Gated by `Modules::enabled('eta')`.
+- **8.** `MonthlyRevenueTrend` — last 12 months, Billed vs Collected.
+- **9.** `RecentPayments` — latest captures.
+- **10.** `OpenMaintenanceRequests` — open request triage. Gated by `Modules::enabled('maintenance')`.
+- **11.** `EnergyConsumptionTrend` — 12-month stacked bar, 3 series (electric / water / gas). Gated by `Modules::enabled('utility_meters')`.
+
+The `DATE_FORMAT()` raw SQL in the trend widgets was made driver-aware (`strftime` on SQLite, `to_char` on PostgreSQL, `DATE_FORMAT` on MySQL) so the widget set works on any backend.
 
 **Top-level pages** ([app/Filament/Admin/Pages/](app/Filament/Admin/Pages/))
 - `OccupancyMap` (Operations) — floor-grouped color-coded unit grid for any property. Asset selector when there's more than one. Each tile links to the unit edit page.
@@ -173,16 +192,21 @@ All accounts persist through `migrate:fresh --seed`.
 - Reference numbers: `MR-{AssetCode}-{Year}-{Seq}`.
 - Backed by [MaintenanceRequestService](app/Services/MaintenanceRequestService.php).
 
-### Multi-property tenancy (session-based operator switcher)
-- `Operator` model with branding fields: `name`, `slug`, `logo_path`, `favicon_path`, `primary_color`, `contact_email`, `metadata`, soft deletes.
-- `operator_id` FK on `assets` (Unit → Asset → Operator chain provides scoping for everything downstream).
-- [`CurrentOperator`](app/Support/CurrentOperator.php) session helper (`id()` / `get()` / `set()` / `clear()` / `isAll()`).
-- [`CurrentOperatorScope`](app/Models/Scopes/CurrentOperatorScope.php) — auto-applied to `Asset` via `#[ScopedBy]`; resolves to `WHERE operator_id = X` when an operator is selected, no-op otherwise.
-- **Operator switcher in admin topbar** — dropdown with colored dot indicator, "All Operators" reset, only renders when 2+ operators exist. Registered as a render hook (admin panel only, not portal).
-- **Dynamic brand swap** — [`AdminPanelProvider`](app/Providers/Filament/AdminPanelProvider.php) `brandName` / `brandLogo` / `favicon` all resolve per-request from current operator via closures.
-- Route: `GET /operator/switch/{operator?}` (web + auth middleware) — sets session, redirects back with `/admin` fallback.
-- Seeded with **Jawad Developments** + **Eltizam Egypt** (the latter wired to the real Eltizam Group logo + brand gold `#F0B010` sampled from the public mark — the white-label demo lands on Eltizam's actual identity).
-- Note: Filament 4's `->colors()` is evaluated once at panel boot, so the primary accent color stays static (gold). Brand logo / name / favicon are fully dynamic.
+### Per-property panel tenancy (Filament 4 built-in)
+- `Asset` IS the Filament tenant. URL pattern is `/admin/{asset-code}/{resource}` (e.g. `/admin/HW/invoices`). Bare `/admin` redirects to the user's first assigned property; deep-linking to `/admin/{slug}/...` resolves via the asset's `code` column.
+- [`User::getTenants()`](app/Models/User.php) — `HasTenants` implementation. super_admin sees every Asset; everyone else sees the rows in their `asset_user` pivot. Soft-deleted Assets are filtered out so a trashed property can't be entered via a saved URL.
+- [`User::canAccessTenant()`](app/Models/User.php) — rejects soft-deleted Assets + non-Asset models. Closes the URL-tampering vector.
+- **"All Properties" pseudo-tenant** — a real Asset row with `code='ALL'` (seeded via migration) prepended to `getTenants()` only when a user has 2+ assigned properties. Selecting it bypasses every per-property `whereHas()` so the user gets a portfolio-wide view. Hidden from the standalone property list.
+- **Property switcher** — Filament's built-in switcher in the top nav, populated from `getTenants()`. Renders the All Properties entry plus every assigned mall.
+- **Scoping infrastructure (DRY)** under [app/Filament/Admin/Resources/Concerns/](app/Filament/Admin/Resources/Concerns/):
+  - `ScopesViaProperty` — for indirect resources (Lease, Invoice, Payment, MaintenanceRequest, TenantSalesDeclaration, Tenant, CreditNote). Declares the relation chain ending in `asset_id` (`'unit'`, `'lease.unit'`, `'invoices.lease.unit'`, etc.) and the trait does the `whereHas`.
+  - `BypassesScopingOnAll` — for direct-FK resources (Unit, UtilityMeter, CamExpensePool). Hands off to Filament's built-in auto-scope normally; skips it when ALL is active.
+  - `BypassesFilamentTenantAutoScope` — shared route-binding bypass for SoftDeletingScope.
+- **Widget scoping** — [`App\Support\TenantScope::applyTo($query, ?$relation)`](app/Support/TenantScope.php) is the single helper widgets call to constrain queries. Returns the query unchanged when no tenant is active or when All Properties is selected.
+- **Form locking** — when inside a specific property context, the `asset_id` selector on Unit / UtilityMeter / CamExpensePool / VendorContract forms pre-fills with the active tenant and disables. Cascade selectors (`unit_id` / `lease_id` / `invoice_id`) filter their options to the current property's records.
+- **AssetResource locks itself too** — listing only shows the active property; "Create" is disabled inside a specific tenant context (creation only allowed from the All Properties view).
+- [Filament tenant-registration page](app/Filament/Admin/Pages/Tenancy/RegisterProperty.php) — kicks in for new users with zero properties. Captures the AssetForm and auto-assigns the creator as manager.
+- Branding is currently platform-wide (Atriom). Per-property logos / favicons can be wired later via MediaLibrary on the Asset model.
 
 ### Mall-specific workflows (the moat vs PropEzy)
 
@@ -218,7 +242,7 @@ All accounts persist through `migrate:fresh --seed`.
 - `asset_owner` M2M pivot (`user_id`, `asset_id`, `ownership_percentage`, `started_at`, `ended_at`) — drives `User::ownedAssets()` and `Asset::owners()`.
 - New `owner` role added to [`RolesPermissionsSeeder`](database/seeders/RolesPermissionsSeeder.php).
 - [`User::canAccessPanel()`](app/Models/User.php) gates: owner panel → `owner` role only, admin panel → `super_admin` / `manager` / `viewer` roles only.
-- **`PortfolioStats` widget** — 4 stat cards: Properties count + leasable area, portfolio occupancy %, MRR, outstanding AR — aggregated across owned assets, bypasses `CurrentOperatorScope`.
+- **`PortfolioStats` widget** — 4 stat cards: Properties count + leasable area, portfolio occupancy %, MRR, outstanding AR — aggregated across the user's owned assets.
 - **Read-only resources:**
   - Properties — list of owned assets with per-asset KPIs (occupancy badge, units count, leasable area); view page shows performance breakdown
   - Invoices — scoped via lease → unit → asset → owner; with ETA status badge
@@ -284,16 +308,21 @@ Five dashboard enhancements shipped together based on the [PropEzy dashboard gap
 - v1 deliberately monitoring-only. Optimization workflows (anomaly detection, peak-demand alerts, IoT integration) are Q3.
 
 ### RBAC (Spatie Permission)
-- 4 roles: `super_admin`, `manager`, `viewer`, `owner`. Seeded via [RolesPermissionsSeeder](database/seeders/RolesPermissionsSeeder.php).
-- [RoleGatedActions](app/Filament/Admin/Resources/Concerns/RoleGatedActions.php) trait applied to admin resources — controls `canCreate`/`canEdit`/`canDelete`.
-- Panel-level gating in `User::canAccessPanel()` — admin panel requires admin-side role; owner panel requires `owner` role.
-- UserResource (Settings nav) restricted to `super_admin`.
+- **6 roles** seeded via [RolesPermissionsSeeder](database/seeders/RolesPermissionsSeeder.php): `super_admin`, `manager`, `leasing_manager`, `maintenance_manager`, `viewer`, `owner`. Permission catalog lives in the same seeder's `PERMISSIONS` constant.
+- **81 granular permissions** grouped by module — assets, units, tenants, leases, invoices, payments, credit_notes, maintenance, tenant_sales, cam, utility_meters, vendors, notes, users, roles, reports, activity_log, settings. Each with `view` / `create` / `edit` / `delete` plus module-specific verbs (`leases.terminate`, `invoices.submit_to_eta`, `tenant_sales.lock`, `cam.bill`, etc).
+- **Custom role manager UI** at `/admin/roles` (super_admin only) — create a role with arbitrary permission combinations, no code change needed.
+- [RoleGatedActions](app/Filament/Admin/Resources/Concerns/RoleGatedActions.php) trait applied to every admin resource — derives the module name from the model and composes `Modules::enabled($module) && $user->can("{$module}.{$action}")` for `canViewAny` / `canCreate` / `canEdit` / `canDelete` / `canRestore` / `canForceDelete`.
+- **Per-user property assignment** — multi-select bound to the `asset_user` pivot lives on the user create/edit form. New users default to every real property selected (the synthetic ALL pseudo-asset is excluded from the options); admins deselect to restrict. Existing users show their current pivot.
+- Panel-level gating in `User::canAccessPanel()` — admin panel requires a non-owner role; owner panel requires `owner` role.
+- UserResource (Settings nav) restricted via `users.view` permission. Resource is `$isScopedToTenant = false` because users are cross-property.
 
 ### Audit trail (Spatie ActivityLog)
-- `LogsActivity` trait on Lease, Invoice, Payment, Tenant, Charge, MaintenanceRequest, MaintenanceRequestComment, TenantSalesDeclaration, CamExpensePool.
-- Tracks only whitelisted fields, dirty-only, no empty changes.
-- Global Activity Log page (Reports nav).
-- Per-record Activity tab (relation manager) on Lease, Invoice, Tenant, Payment.
+- `LogsActivity` trait on Asset, Lease, Invoice, Payment, Tenant, Charge, MaintenanceRequest, MaintenanceRequestComment, TenantSalesDeclaration, CamExpensePool, CreditNote, Vendor, Note. Tracks only whitelisted fields, dirty-only, no empty changes.
+- **Global Activity Log page** (Reports nav) at `/admin/{tenant}/activity-log`.
+- **Per-record Activity tab** (relation manager) embedded in Lease, Invoice, Payment, Tenant, Asset, CreditNote, MaintenanceRequest, Vendor resources — all 8 share the same `ActivitiesRelationManager`.
+- **Field-by-field diff rendering** via [`App\Support\ActivityLogChangeRenderer`](app/Support/ActivityLogChangeRenderer.php) — humanised field names (`paid_amount` → "Paid amount", `eta_status` → "ETA status" with acronym override), `~~old~~ → new` styling, italic dimmed "(empty)" for nulls, yes/no for booleans, JSON for nested. Every value is `e()`-escaped (XSS-safe even though the table holds operator-entered names, addresses, free-text notes). One renderer powers both the standalone page and the resource-embedded tabs.
+- **Date filters** on the standalone page — six preset windows (Today, Yesterday, Last 7 days, Last 30 days, This month, Last month) plus a custom `created_from` / `created_until` range. Either bound works alone; applied dates surface as removable indicator chips.
+- Module-gated by `Modules::enabled('activity_log')` — disabling it hides the nav entry and 403s the route.
 
 ### Document attachments (Spatie MediaLibrary)
 - `Lease`, `Tenant`, and `MaintenanceRequest` implement `HasMedia`. Lease/Tenant expose a `documents` collection; MaintenanceRequest exposes `attachments` for photos / short videos.
@@ -305,8 +334,8 @@ Five dashboard enhancements shipped together based on the [PropEzy dashboard gap
 - **Three logo SVGs** — [`atriom-logo.svg`](public/images/atriom-logo.svg) auto-adapts via `prefers-color-scheme` (ink wordmark + teal mark in light; cream wordmark + bright teal in dark); plus dedicated [`atriom-logo-light.svg`](public/images/atriom-logo-light.svg) and [`atriom-logo-dark.svg`](public/images/atriom-logo-dark.svg) for contexts that need explicit mode selection.
 - **Auto-adapt favicon** — [`atriom-favicon.svg`](public/atriom-favicon.svg) — teal square in light mode, ink square in dark mode.
 - **Atriom palette** — Light mode: bg `#FFFFFF` · surface `#FAFAFA` · ink `#18181B` · muted `#52525B`. Dark mode: bg `#09090B` · surface `#18181B` · ink `#FAFAFA` · muted `#A1A1AA`. Brand accents — teal `#0F766E` (light) / `#14B8A6` (dark), amber `#D97706` (light) / `#F59E0B` (dark). Defined in [resources/css/filament/admin/theme.css](resources/css/filament/admin/theme.css) with full `:root` + `.dark` parity.
-- **Full light + dark mode parity** — Filament's `darkMode(true)` enabled on all three panels (admin, owner, portal). Landing page, all error pages (404/403/500), operator switcher, language switcher all respond to `.dark` class on `<html>` or `prefers-color-scheme`. PDF templates stay light-mode (for printing).
-- **Customer operators bring their own brand** — Jawad Developments (gold `#C9A961` + their real logo), Eltizam Egypt (gold `#F0B010` + their real public mark). Per-operator dynamic brand swap on admin + owner panels (logo, name, favicon read from current operator); platform Atriom branding is the fallback.
+- **Full light + dark mode parity** — Filament's `darkMode(true)` enabled on all three panels (admin, owner, portal). Landing page, all error pages (404/403/500), property switcher, language switcher all respond to `.dark` class on `<html>` or `prefers-color-scheme`. PDF templates stay light-mode (for printing).
+- **Branding is platform-wide today (Atriom)** — per-property logo / favicon / accent-colour overrides are a small polish-backlog item: would need MediaLibrary collections on the Asset model + a CSS-variable-based theme override applied per-request (Filament 4's `->colors()` is evaluated once at panel boot).
 - **EN ↔ AR language switch** — segmented pill on every page (topbar + login). Full RTL flip via Filament's built-in `dir` attribute.
 - Translation files: [lang/en/admin.php](lang/en/admin.php) + [lang/ar/admin.php](lang/ar/admin.php) — ~800+ lines each, covering nav/groups/resources/widgets/tables/filters/actions/fields/sections/statuses/enums (incl. operators, tenant_sales, cam_pool, cam_allocation, eta, meter_type, meter status) / pdf/statement/activity/users/tenants/occupancy/maintenance/energy/portfolio.
 - DD/MM/YYYY date format everywhere; locale-aware month names via Carbon's `isoFormat('MMM YYYY')`.
@@ -314,9 +343,23 @@ Five dashboard enhancements shipped together based on the [PropEzy dashboard gap
 - Arabic PDF rendering uses mPDF's `autoArabic` + `autoLangToFont` so letters connect correctly; `xbriyaz` font for Arabic, `dejavusans` for Latin, with conditional zeroing of `letter-spacing` / `text-transform` per locale.
 
 ### Automated tests
-- **PHPUnit** ([tests/Feature/](tests/Feature/)) — locks every service-layer calculation: percentage rent (artificial + natural breakpoint + below-threshold), monthly billing idempotency, late-fee application + grace-period respect, CAM allocation distribution by sqm, CAM billing idempotency, ETA JSON shape + tenant-type mapping + EGS line codes + V009 VAT sub-type, credit-note issue + apply + cap-at-minimum + void-when-applied refusal + status flip, monthly close aggregation + collections rate + AR aging bucket classification + revenue-by-type. Plus a translation-coverage regression guard. **23 service tests + 78 assertions**. SQLite in-memory, runs in <600ms. `php artisan test`.
-- **Playwright E2E** ([tests/e2e/](tests/e2e/)) — 18 spec files covering auth, every admin/portal/owner URL, CRUD navigation, PDF downloads in EN + AR, locale switching, **system-wide smoke** (every page + every filter panel + every first-record edit), **functional actions** (click every action button), **Reports module** (page + Monthly Close PDF download + AR Aging drilldown), occupancy map, multi-property tenancy isolation + brand swap, tenant sales + CAM + ETA + Energy + CSV import + Credit Notes + Vendors. Run via `npx playwright test`. HTML report lands in [storage/playwright-report/](storage/playwright-report/). Session caching: global setup logs into each panel once (admin + portal + owner) and writes `storage/playwright-state/{admin,portal,owner}.json`; tests opt in via `test.use({ storageState: ... })` to skip the login step.
-- **GitHub Actions CI** ([.github/workflows/ci.yml](.github/workflows/ci.yml)) — runs on every push + PR to `main` / `develop`. Two jobs: (1) **PHPUnit** with sqlite in-memory in ~30s, (2) **Playwright** boots MySQL 8 service, migrates+seeds, builds assets, starts `php artisan serve` on 127.0.0.1:8000, runs the full e2e suite headless. Failed runs upload HTML report as a GH artifact.
+
+**Pest 4 + ParaTest** ([tests/Feature/](tests/Feature/)) — **184 cases, 479 assertions, ~3.5 s parallel** runtime against SQLite in-memory. Helpers (`makeAsset`, `makeUnit`, `makeTenant`, `makeLease`, `makeInvoice`, `makeUser`, `asTenant`, `scopedResourceQuery`) live in [tests/Pest.php](tests/Pest.php). `RefreshDatabase` is auto-applied. Coverage by area:
+
+- **Tenancy** (~35) — `TenantScope` helper semantics, `User::getTenants()` for super_admin vs assigned set, the All-Properties pseudo-tenant, scoping under HW / PA / ALL contexts for every resource (Unit, Lease, Invoice, Payment, CreditNote, MaintenanceRequest, TenantSalesDeclaration, Tenant, UtilityMeter, CamExpensePool), AssetResource list scoping + can-create gate, soft-deleted-asset access rejection.
+- **Models** (~23) — Asset occupancy / vacancy counts, Lease helpers + reference generator, Invoice overdue + balance recalc + unique-number generation, Tenant delinquency (catches issued-past-due, not just status=overdue) + outstanding balance (nets credit notes), MaintenanceRequest state checks.
+- **Services** (~20) — `MonthlyBillingService` idempotency, `LateFeeService` application + grace window + zero-balance skip, `MaintenanceRequestService` state-machine + comments + SLA defaults, `PercentageRentCalculationService` artificial vs natural-breakpoint formulas + locking + charge creation, `LeaseTerminationService` paid-amount preservation, `EtaJsonBuilder` tax-id validation.
+- **Widgets** (~7) — MallStats / ArAging / LeasingPipeline / ActionRequired property scoping; the ActionRequired deep-links assert each card carries the right `filters[…]` + `sort=column:direction` URL params (Filament 4 aliases tableSort/tableFilters to sort/filters).
+- **Activity log** (~16) — diff renderer humanisation, acronym mapping, null handling, XSS escape, boolean / array formatting; date-filter presets (Today / Yesterday / Last 7d / Last 30d / This month / Last month) + custom range; coverage guard that both consumers (standalone page + relation manager) use the shared renderer.
+- **Auth & permissions** (~10) — Panel access gates (admin vs owner), `super_admin` has every seeded permission, each role's permission slice (viewer = view-only, manager = no delete/settings, leasing_manager scoped to leases+tenants, maintenance_manager scoped to maintenance).
+- **User form** (~7) — Create form pre-fills every property, excludes the ALL pseudo-asset, save attaches selected properties, deselecting restricts, edit reflects existing pivot.
+- **Module toggles** (~5) — `Modules::enabled('eta')` flips the EtaCompliance widget visibility; ActionRequired hides maintenance cards when the maintenance module is off.
+
+Run: `vendor/bin/pest --parallel`. Memory rule: every invocation uses `--parallel`.
+
+**Playwright E2E** ([tests/e2e/](tests/e2e/)) — 18 spec files covering auth, every admin/portal/owner URL, CRUD navigation, PDF downloads in EN + AR, locale switching, system-wide smoke, functional actions, Reports module, occupancy map, multi-property tenancy isolation, tenant sales + CAM + ETA + Energy + CSV import + Credit Notes + Vendors. `npx playwright test`. HTML report in [storage/playwright-report/](storage/playwright-report/). Session caching: global setup logs into each panel once + writes `storage/playwright-state/{admin,portal,owner}.json`; tests opt in via `test.use({ storageState: ... })`.
+
+**GitHub Actions CI** ([.github/workflows/ci.yml](.github/workflows/ci.yml)) — runs on every push + PR to `main`/`develop`. Two jobs: (1) Pest with sqlite in-memory under ParaTest, (2) Playwright boots MySQL 8 service, migrates+seeds, builds assets, runs the full e2e suite headless. Failed runs upload the HTML report as a GH artifact.
 
 ### Scheduled jobs & automation
 - **Monthly billing** — `php artisan billing:run-monthly` runs synchronously or queued. Auto-scheduled monthly via `Schedule::job(new RunMonthlyBilling)->monthlyOn(...)` in [routes/console.php](routes/console.php). Day/time configurable in [config/billing.php](config/billing.php).
@@ -342,26 +385,29 @@ Each needs a sandbox account or sandbox-API key before live integration can star
 
 Small-scope, no external dependencies. Each is a single session to deliver.
 
-- [x] ~~Vendor management module~~ — shipped (see "Vendor Management" section above).
-- [ ] **Asset → Units relation manager** — currently you can navigate down from a Lease/Tenant but not directly from a Property edit page. (Note: the Occupancy Map page covers visual browsing already, but a sortable/filterable table view would still be useful from inside the Asset record.)
-- [ ] **Notes / communications log on Tenant** — admin records phone calls / WhatsApp / meetings against a tenant. Real-world collections-team feature; could double as a polymorphic `Note` model attachable to Lease/Invoice too.
-- [ ] **Bulk PDF download** on Invoices — bulk action that returns a zip of selected invoice PDFs.
-- [ ] **Bulk Submit to ETA** on Invoices — `SubmitInvoiceToEta` queued job already exists; just wire the bulk action.
-- [ ] **Bulk WhatsApp send** on Invoices — bulk action when WhatsApp is unblocked.
-- [x] ~~Credit notes / refunds~~ — shipped (see "Credit Notes & Refunds" section above).
-- [x] ~~Late-fee automation~~ — shipped (see "Scheduled jobs & automation" above).
+- [x] ~~Vendor management module~~ — shipped.
+- [x] ~~Notes / communications log on Tenant~~ — shipped (Note model + polymorphic noteable + Communications relation manager).
+- [x] ~~Bulk PDF download on Invoices~~ — shipped (zip of selected invoice PDFs).
+- [x] ~~Bulk Submit to ETA on Invoices~~ — shipped (toolbar action gated on `Modules::enabled('eta')`).
+- [x] ~~Credit notes / refunds~~ — shipped.
+- [x] ~~Late-fee automation~~ — shipped.
 - [x] ~~Email invoice on issue~~ — shipped (`App\Mail\InvoiceIssued`, RTL-aware blade view).
 - [x] ~~CSV import for bootstrapping~~ — shipped (`app/Filament/Imports/` + sample templates).
-- [ ] **Statement of Account PDF on Owner Portal** — service already exists for the tenant portal; lift into owner panel for portfolio-level statements.
-- [ ] **Operator switcher color-coded primary accent** — Filament 4's `->colors()` evaluates once at panel boot. To swap the primary accent dynamically would need a CSS-variable-based theme override applied per-request. Brand logo/name/favicon already swap correctly.
+- [ ] **Asset → Units relation manager** — Occupancy Map covers visual browsing; a sortable/filterable table view from inside the Asset record would still be useful for ops teams.
+- [ ] **Bulk WhatsApp send** on Invoices — wire the bulk action once WhatsApp BSP credentials are in place.
+- [ ] **Statement of Account PDF on Owner Portal** — service already exists for the tenant portal; lift into owner panel.
+- [ ] **Per-property branding** — Filament panel branding is currently platform-wide. Wire MediaLibrary-backed `logoUrl()` / `faviconUrl()` on the Asset model + per-tenant primary-color override via CSS variable injection.
 
 ## Larger items / future considerations
 
 Bigger installs or scope decisions that deserve their own session.
 
-- [x] **Multi-property tenancy** — shipped (see "Multi-property tenancy" above).
+- [x] **Multi-property tenancy** — shipped via Filament's built-in panel tenancy (URL-scoped, top-nav switcher, All Properties portfolio view, full DRY refactor with shared traits + `TenantScope::applyTo()`).
 - [x] **Maintenance / CAFM module** — shipped.
 - [x] **Owner portal** — shipped.
+- [x] **Per-property user assignment** — shipped (user create/edit form has a Property Access multi-select; new users default to every property).
+- [x] **Module feature flags** — shipped (10 modules toggleable from `/admin/settings → Modules`, including ETA).
+- [x] **Activity log polish + filters** — shipped (renderer extracted to `ActivityLogChangeRenderer`, used by both the page and every resource-embedded relation manager; XSS-safe diff rendering; 6 preset date windows + custom range).
 - [ ] **CAM annual auto-true-up service** — v1 is admin-manual click. Auto-true-up at year-end (scheduled job that runs Generate Allocations + Bill across all leases) is Q2 work.
 - [ ] **Maintenance module v2** — vendor management as a first-class entity (currently assignee is just a `User`), recurring/scheduled maintenance (quarterly HVAC, monthly fire-alarm test) with a `MaintenancePlan` recurrence model, chargebacks that integrate maintenance costs with Charge/Invoice based on lease landlord-vs-tenant responsibility rules, and parts/inventory tracking.
 - [ ] **Mobile app for tenants** — Laravel API + React Native or Flutter. Portal data model is already API-ready. See [MOBILE-APP-BRIEF.md](MOBILE-APP-BRIEF.md) for the business briefing — the Egyptian-mall-tenant-specialist angle.

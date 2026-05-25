@@ -16,6 +16,34 @@
         <include>
             <directory>app</directory>
         </include>
+        <exclude>
+            <!--
+                Filament declarative UI scaffolding — Pages, Schemas, Tables,
+                Infolists, RelationManagers, Exporters, Importers. These are
+                config-only classes; behavior is exercised by tests/e2e/*.spec.js.
+                Resource.php files stay in scope because they hold business logic
+                (getEloquentQuery, navigation gating, etc.).
+            -->
+            <directory>app/Filament/*/Resources/*/Pages</directory>
+            <directory>app/Filament/*/Resources/*/Schemas</directory>
+            <directory>app/Filament/*/Resources/*/Tables</directory>
+            <directory>app/Filament/*/Resources/*/RelationManagers</directory>
+            <directory>app/Filament/*/RelationManagers</directory>
+            <directory>app/Filament/Exports</directory>
+            <directory>app/Filament/Imports</directory>
+
+            <!-- Settings data classes — public typed properties only. -->
+            <directory>app/Settings</directory>
+
+            <!-- Service-provider bootstrap (panel registration). -->
+            <directory>app/Providers</directory>
+
+            <!-- Filament admin Pages that are pure UI shells (the Reports / AR
+                 Aging pages just delegate to ReportService, which IS covered). -->
+            <file>app/Filament/Admin/Pages/Settings.php</file>
+            <file>app/Filament/Admin/Pages/OccupancyMap.php</file>
+            <file>app/Filament/Admin/Pages/Tenancy/RegisterProperty.php</file>
+        </exclude>
     </source>
     <php>
         <env name="APP_ENV" value="testing"/>

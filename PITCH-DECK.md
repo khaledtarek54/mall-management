@@ -62,13 +62,13 @@ If they push back on "we can add this to PropEzy" — that's slide 9's job. Don'
 - **3 Filament panels** — Admin (`/admin`), Tenant (`/portal`), Owner (`/owner`) — plus a Sanctum REST API at `/api/v1/*` for the upcoming mobile app
 - **12 admin dashboard widgets, role-tailored** — leasing managers see leasing pipeline + tenant mix; maintenance managers see open MR + energy; finance sees AR aging + ETA compliance
 - **Egyptian-CFO-grade signal** — ETA Compliance tiles (Valid/Submitted/Rejected/Pending, clickable to filtered invoice lists), Leasing Pipeline funnel (Draft → Active with EGP/mo per stage), Sales Density column on Top Tenants
-- **170+ Playwright E2E specs** + **36 PHPUnit service tests** (124 assertions) locking the billing math
+- **184 Pest tests (~3.5 s parallel)** locking tenancy, billing math, RBAC, audit-log rendering, deep-link URL contracts — plus 18 Playwright E2E spec files for browser flows
 - **81 granular RBAC permissions** across 18 modules, **custom role creator UI**, 6 built-in roles
 - **Property-staff assignment** via `asset_user` pivot — admins assign staff to specific properties
 - **Dynamic Settings** — every config value editable from `/admin/settings` with tabs (Modules / Billing / Maintenance / ETA / Integrations)
 - **Module Feature Flags** — turn entire modules on/off live; disabled modules vanish from the sidebar, block direct URL access, hide their widgets
 - **~1,100-line Arabic translation file** + mPDF Arabic shaping + bidi for invoices, statements, monthly close PDF
-- Multi-property tenancy with per-operator dynamic branding (logo + name + favicon swap)
+- Per-property panel tenancy — URL-scoped at `/admin/{property}/...` with a top-nav property switcher and an "All Properties" portfolio view for users with multi-mall access
 - **Reports module** — downloadable Monthly Close PDF (EN + AR), AR Aging drilldown page
 - Full **Credit Notes & Refunds** AR lifecycle (issue · apply · void with idempotent service-layer math)
 - **Vendor management** — vendors + contacts + contracts + routing maintenance to external vendors
@@ -89,7 +89,7 @@ If anyone asks tech stack: Laravel 13.8 + PHP 8.4 + Filament 4 + MySQL + Sanctum
 2. Tenant Sales Declaration → Lock → Percentage rent charge auto-billed
 3. CAM Reconciliation — generate allocations pro-rata, bill the true-up
 4. ETA submission — Valid response with submission ID
-5. Multi-operator switch — Jawad brand → "Eltizam Egypt" brand swap, same login
+5. Property switcher — flip between Haya Walk → Plaza Annex → "All Properties" portfolio view, scoping every list / widget / chart per-property
 6. Owner Portal — portfolio KPIs across owner's assets
 7. Arabic toggle on every screen
 
@@ -108,7 +108,7 @@ If demo wifi dies, you have the backup video.
 | **ETA Compliance dashboard widget** | ✓ Live | 4-tile posture (Valid/Submitted/Rejected/Pending) deep-linking to filtered invoice lists — the headline CFO moment |
 | **Arabic PDF rendering** | ✓ Production | mPDF with autoArabic + autoLangToFont; DomPDF (Filament default) emits broken Arabic |
 | **EG VAT model** | ✓ Production | Rent exempt, service 14% — per-charge `vat_applicable` + `vat_rate`; VAT summary in Monthly Close PDF |
-| **Tenant Sales Declaration + Percentage Rent** | ✓ Live | Both formulas (artificial + natural breakpoint); 6 PHPUnit tests lock the math |
+| **Tenant Sales Declaration + Percentage Rent** | ✓ Live | Both formulas (artificial + natural breakpoint); Pest test suite locks the math |
 | **CAM Reconciliation** | ✓ Live | Pro-rata by sqm; idempotent allocation generator + per-allocation true-up charges |
 | **Credit Notes & Refunds** | ✓ Live | Full AR lifecycle (issue → apply → void) with idempotent service-layer math |
 | **Vendor Management** | ✓ Live | Vendors + contacts + contracts; FK on `maintenance_requests.assigned_to_vendor_id` |
@@ -225,7 +225,7 @@ White-label premium is ~30% — that's the right answer if they push for "no co-
 
 | Quarter | Focus |
 |---|---|
-| **Live today** | Lease lifecycle · monthly billing engine · multi-property tenancy · maintenance + vendor routing · tenant sales + percentage rent · CAM reconciliation · ETA (mock) + dashboard compliance widget · Arabic PDF · multi-operator dynamic branding · Owner portal · Energy data + 12-month consumption chart · **Credit Notes & Refunds** · **Vendor Management** · **Custom Roles + 81 granular permissions + role manager UI** · **Property Staff Assignment** · **Dynamic Settings + Module Feature Flags** · **Reports module (Monthly Close PDF + AR Aging drilldown)** · **Role-tailored dashboards** · **Mobile API auth (Sanctum)** · CSV imports · scheduled jobs · CI on every push |
+| **Live today** | Lease lifecycle · monthly billing engine · **per-property panel tenancy (URL-scoped + All Properties view)** · maintenance + vendor routing · tenant sales + percentage rent · CAM reconciliation · ETA (mock + module-toggleable) + dashboard compliance widget · Arabic PDF · Owner portal · Energy data + 12-month consumption chart · **Credit Notes & Refunds** · **Vendor Management** · **Custom Roles + 81 granular permissions + role manager UI** · **Per-user property assignment (defaults to all)** · **Dynamic Settings + 10 Module Feature Flags** · **Reports module (Monthly Close PDF + AR Aging drilldown)** · **Role-tailored dashboards** · **Activity log with field-by-field diff renderer + 6 preset date filters** · **Mobile API auth (Sanctum)** · CSV imports · scheduled jobs · 184 Pest tests + Playwright E2E on every push |
 | **Q1 2026** | Paymob live (sandbox merchant in flight) · ETA preprod credentials (taxpayer profile in flight) · email-on-issue Mailable (shipped, awaiting SMTP) · Property-staff query scoping enforcement · Recurring Maintenance Schedules · Reports: collections report + tenant statement enhancements |
 | **Q2 2026** | Mobile tenant app — Egyptian-mall-tenant specialist — see [MOBILE-APP-BRIEF.md](MOBILE-APP-BRIEF.md) (login API already shipped) · ETA production cert · CAM auto-true-up wizard · Anchor tenant performance widget + foot-traffic placeholders |
 | **Q3 2026** | IoT integration hooks · energy optimization workflows · accounting close export · predictive maintenance |

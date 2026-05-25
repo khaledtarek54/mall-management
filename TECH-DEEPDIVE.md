@@ -19,7 +19,7 @@
 | RBAC | Spatie Permission | Mature, audited, standard in the Laravel ecosystem |
 | Audit | Spatie ActivityLog | Single-table activity log with morphed subjects; granular dirty-only diffs in JSON; standard for governance + compliance |
 | File uploads | Spatie MediaLibrary | Polymorphic media with conversions; pluggable filesystem driver (local / S3 / DigitalOcean Spaces / etc.) |
-| Tests | PHPUnit + Playwright (chromium) | PHPUnit for unit/integration, Playwright for E2E. Session caching speeds the E2E suite from ~3 min to ~1 min |
+| Tests | Pest 4 + ParaTest + Playwright (chromium) | 184 Pest cases in ~3.5 s parallel (tenancy / models / services / widgets / RBAC / activity log / auth). Playwright for E2E with session caching. |
 
 **What we're not using and why:**
 - No GraphQL — REST + Livewire is sufficient; GraphQL adds complexity without proportional value for this surface area
@@ -68,52 +68,104 @@ Both workflows allow either the Tenant or an Admin to act on behalf. A morphTo c
 
 ## 3. Multi-tenancy / multi-property
 
-**Design decision: session-based scoping with a global Eloquent scope, NOT Filament's URL-tenancy.**
+**Design decision: Filament 4's built-in panel tenancy with `Asset` as the tenant model.** Earlier iterations used a session-based Operator scope; that layer was removed in favor of URL-scoped tenancy, which is more discoverable, bookmarkable, and aligns with how Yardi / MRI / Aldar's PMS expectations are set.
 
-### Why not Filament URL tenancy
+### URL shape
 
-Filament 4's built-in tenancy would change `/admin/leases` to `/admin/{operator-slug}/leases`. That:
-- Breaks every existing Playwright spec at the URL level
-- Forces the login flow to add a "select tenant" step
-- Couples permission gating to URL parameters rather than session
+```
+/admin/{asset-code}/{resource}     →  e.g.  /admin/HW/invoices
+/admin/ALL/{resource}              →  portfolio view (synthetic "All Properties" tenant)
+```
 
-For a single-operator deployment today + ambition to scale to many operators, session-based scoping is the less invasive choice. URLs stay stable. The switcher is a topbar dropdown that writes to session via a single GET route ([routes/web.php](routes/web.php)).
+Bare `/admin` redirects to `/admin/{first-assigned-property}/...`. New users with zero assigned properties land on the tenant-registration page ([RegisterProperty](app/Filament/Admin/Pages/Tenancy/RegisterProperty.php)) which captures the AssetForm and auto-assigns the creator as manager.
 
-### How scoping actually works
+### Tenant resolution
 
 ```php
-// app/Models/Asset.php
-#[ScopedBy([CurrentOperatorScope::class])]
-class Asset extends Model { ... }
+// app/Models/User.php — implements Filament\Models\Contracts\HasTenants
+public function getTenants(Panel $panel): Collection
+{
+    $assets = $this->hasRole('super_admin')
+        ? Asset::query()->where('code', '!=', Asset::ALL_PROPERTIES_CODE)->get()
+        : $this->assignedAssets()->where('assets.code', '!=', Asset::ALL_PROPERTIES_CODE)->get();
 
-// app/Models/Scopes/CurrentOperatorScope.php
-class CurrentOperatorScope implements Scope {
-    public function apply(Builder $builder, Model $model): void {
-        $operatorId = CurrentOperator::id();
-        if ($operatorId === null) return;
-        $builder->where($model->getTable().'.operator_id', $operatorId);
+    if ($assets->count() > 1) {
+        // Prepend the "All Properties" pseudo-tenant for multi-property users.
+        $assets = $assets->prepend(Asset::where('code', Asset::ALL_PROPERTIES_CODE)->first());
+    }
+
+    return $assets;
+}
+
+public function canAccessTenant(Model $tenant): bool
+{
+    if (! $tenant instanceof Asset) return false;
+    if ($tenant->trashed()) return false;        // closes soft-deleted-URL bypass
+    if ($this->hasRole('super_admin')) return true;
+    if ($tenant->isAllProperties()) {
+        return $this->assignedAssets()->count() > 1;
+    }
+    return $this->assignedAssets()->whereKey($tenant->getKey())->exists();
+}
+```
+
+`asset_user` pivot drives the assignment. New users default to every property selected via the user-form Property Access multi-select.
+
+### How scoping is applied per resource
+
+Three traits in [app/Filament/Admin/Resources/Concerns/](app/Filament/Admin/Resources/Concerns/) keep the resource code one-liner:
+
+- **`ScopesViaProperty`** (indirect resources — Lease, Invoice, Payment, MaintenanceRequest, TenantSalesDeclaration, Tenant, CreditNote): resources declare a relationship chain (`'unit'`, `'lease.unit'`, `'invoices.lease.unit'`) and the trait does the `whereHas`. Filament's auto-scope is overridden to a no-op so it doesn't fail looking up a non-existent `asset()` relationship on the model.
+- **`BypassesScopingOnAll`** (direct-FK resources — Unit, UtilityMeter, CamExpensePool): Filament's built-in auto-scope handles the normal case via `$tenantOwnershipRelationshipName = 'asset'`; the trait adds the "All Properties" escape so the portfolio view bypasses scoping.
+- **`BypassesFilamentTenantAutoScope`** (shared base): no-op `scopeEloquentQueryToTenant` + SoftDeletingScope-bypass on route binding, so trashed records still resolve from their URLs.
+
+Each resource then needs only:
+
+```php
+class InvoiceResource extends Resource
+{
+    use RoleGatedActions;
+    use ScopesViaProperty;
+
+    protected static function tenantScopeRelation(): string
+    {
+        return 'lease.unit';
     }
 }
 ```
 
-Every Asset query auto-filters by current operator. Everything downstream (Unit, Lease, Tenant via lease, Invoice via lease, etc.) inherits the filter through Eloquent eager loading and `whereHas` chains.
+### The "All Properties" pseudo-tenant
 
-### The Owner Portal explicitly bypasses scope
+A real DB Asset row with `code='ALL'` is seeded via migration. It exists so Filament's URL resolution + route binding work normally — but every scope check skips it via `Asset::isAllProperties()`. Hidden from the property list, never returned as a real asset by `AssetResource::getEloquentQuery()`.
+
+### Widget + service scoping
+
+All dashboard widgets route their queries through the same one-liner helper:
+
+```php
+$base = \App\Support\TenantScope::applyTo(Invoice::query(), 'lease.unit')
+    ->whereIn('status', ['issued', 'partially_paid', 'overdue']);
+```
+
+`TenantScope::applyTo()` returns the query unchanged when no tenant is set or the All-Properties pseudo-tenant is active. One implementation, used by 7 widgets, 5 services, plus any future caller.
+
+### The Owner Portal explicitly bypasses tenancy
+
+The owner panel doesn't use Filament tenancy — owners see across every property they have an `asset_owner` pivot to:
 
 ```php
 // app/Filament/Owner/Resources/Properties/PropertyResource.php
 public static function getEloquentQuery(): Builder {
     return parent::getEloquentQuery()
-        ->withoutGlobalScopes([CurrentOperatorScope::class])
-        ->whereHas('owners', fn ($q) => $q->where('user_id', Auth::id()));
+        ->where('code', '!=', Asset::ALL_PROPERTIES_CODE)
+        ->whereHas('owners', fn ($q) => $q->where('user_id', Auth::id()))
+        ->withCount('units');
 }
 ```
 
-Owners see across operators (their portfolio); admins see the current operator they've selected.
+### Branding
 
-### Brand swap
-
-`AdminPanelProvider` and `OwnerPanelProvider` both use closures for `brandName` / `brandLogo` / `favicon` that resolve from current-operator-on-each-request. **One known limitation**: Filament 4's `->colors()` is evaluated once at panel boot, so the primary accent color stays static. Per-operator accent color swap would require a CSS-variable-based theme override, which is on the polish backlog.
+Currently platform-wide (Atriom logo + favicon). Per-property branding (logo/favicon/primary-color from the Asset model) is on the polish backlog — would need MediaLibrary on Asset plus a per-request CSS-variable override since Filament 4's `->colors()` is evaluated once at panel boot.
 
 ---
 
@@ -275,13 +327,28 @@ Font choices: `xbriyaz` for Arabic, `dejavusans` for Latin. `letter-spacing` and
 
 ## 8. Testing strategy
 
-### PHPUnit
+### Pest 4 (primary suite)
 
-[tests/](tests/) — baseline. Runs via `php artisan test`. Coverage is honestly thin (the project leans on Playwright for confidence); state-machine and service-logic unit tests are the obvious expansion area.
+[tests/Feature/](tests/Feature/) — **184 cases, 479 assertions, ~3.5 s parallel** runtime against SQLite in-memory. Run with `vendor/bin/pest --parallel`. ParaTest is the parallel runner. Shared helpers (`makeAsset`, `makeUnit`, `makeTenant`, `makeLease`, `makeInvoice`, `makeUser`, `asTenant`, `scopedResourceQuery`) live in [tests/Pest.php](tests/Pest.php); `RefreshDatabase` is auto-applied.
+
+Coverage by area:
+
+| Area | Cases | Locks down |
+|---|---|---|
+| Tenancy scoping | ~35 | `TenantScope` helper, `User::getTenants()`, All-Properties pseudo-tenant, every resource scoped under HW / PA / ALL contexts, AssetResource list scoping + can-create gate, soft-delete bypass |
+| Models | ~23 | Asset occupancy / vacant counts, Lease helpers + reference generator, Invoice overdue + balance recalc + unique-number generator, Tenant delinquency (catches issued-past-due) + outstanding balance (nets credit notes), MaintenanceRequest state checks |
+| Services | ~20 | `MonthlyBillingService` idempotency, `LateFeeService` grace window, `MaintenanceRequestService` state-machine + comments, `PercentageRentCalculationService` both formulas + locking, `LeaseTerminationService` paid-amount preservation, `EtaJsonBuilder` tax-id validation |
+| Widgets | ~7 | MallStats / ArAging / LeasingPipeline / ActionRequired scoping; ActionRequired deep-links assert each card emits Filament 4's `filters[…]` + `sort=col:dir` URL format (with regression guards against the v3 form) |
+| Activity log | ~16 | Diff renderer (humanisation, acronyms, null handling, XSS escape, boolean/array formatting); date-filter presets + custom range; coverage guard that both consumers use the shared renderer |
+| Auth & permissions | ~10 | Panel access gates, super_admin has every seeded permission, each role's permission slice |
+| User form | ~7 | Create form pre-fills every property, excludes ALL pseudo-asset, save attaches selected, deselecting restricts, edit reflects existing pivot |
+| Module toggles | ~5 | `Modules::enabled('eta')` flips EtaCompliance widget; ActionRequired hides maintenance cards when maintenance module is off |
+
+**Memory rule:** every Pest invocation uses `--parallel`. ParaTest is in `require-dev`.
 
 ### Playwright E2E
 
-[tests/e2e/](tests/e2e/) — 14 spec files, 68 specs. Configured in [playwright.config.js](playwright.config.js).
+[tests/e2e/](tests/e2e/) — 18 spec files. Configured in [playwright.config.js](playwright.config.js).
 
 **Spec organization:**
 
@@ -295,7 +362,7 @@ Font choices: `xbriyaz` for Arabic, `dejavusans` for Latin. `letter-spacing` and
 | `06-locale.spec.js` | 5 | Locale switching, RTL, translated headers |
 | `07-pdf-content.spec.js` | 4 | PDF rendering content checks (incl. Arabic shaping) |
 | `08-occupancy-map.spec.js` | 3 | Occupancy map page renders + Arabic |
-| `09-multi-property.spec.js` | 5 | Operator switcher, tenancy isolation, brand swap |
+| `09-multi-property.spec.js` | 5 | Property switcher (Filament tenancy), per-property scoping, All Properties view |
 | `10-tenant-sales.spec.js` | 5 | Sales declaration admin + portal flows |
 | `11-cam.spec.js` | 2 | CAM Reconciliation page + seeded pools |
 | `12-owner-portal.spec.js` | 5 | Owner dashboard, scoped resources, admin-panel gating |
@@ -332,12 +399,12 @@ Comfortably handled by: 1 PHP-FPM server, 1 MySQL instance, 1 queue worker, 1 cr
 | PHP-FPM | 10 properties | 50+ properties | Horizontal scale + load balancer (stateless) |
 | Sessions | DB-backed | 100+ concurrent users | Swap session driver to Redis |
 | Queue | Database driver | High billing-run volume | Swap queue driver to Redis or SQS |
-| Filament admin | Single-operator | 50+ operators per admin | Already session-scoped; per-operator dashboards already render fast |
+| Filament admin | 2 properties seeded | 50+ properties per admin | URL-scoped tenancy with a single indexed `whereHas` per scope — already cheap; switcher gets a search input past ~20 entries |
 | Activity log | 1M rows | 100M rows | Spatie ships archival helpers; partition by month |
 
 ### Multi-property at scale
 
-The `Operator` model + `CurrentOperatorScope` is designed to scale to N operators. Tested with 2 in the seed; the scope is a single indexed WHERE, so 50 operators with 10 assets each (500 assets) is the same cost as 1 operator. The bottleneck would be the operator-switcher dropdown rendering 50 entries — solved with a search input when needed.
+Filament panel tenancy is designed to scale to N properties. The seed ships with 2 (Haya Walk + Plaza Annex) plus the synthetic All-Properties tenant. Per-property scoping is a single indexed `whereHas` chain or direct `asset_id = ?` filter — 50 properties with 1000 leases each is the same cost as 1. The All-Properties view sums across the user's assigned set via the same `TenantScope::applyTo()` helper widgets use. The switcher dropdown handles ~20 entries cleanly; for larger portfolios we'd add a search input on the switcher.
 
 ---
 
@@ -467,9 +534,9 @@ For Eltizam evaluators wanting to spot-check quality:
 | [app/Services/PercentageRentCalculationService.php](app/Services/PercentageRentCalculationService.php) | The mall-specific moat in one file — both calculation formulas + idempotent lock + Charge creation |
 | [app/Services/Eta/EtaJsonBuilder.php](app/Services/Eta/EtaJsonBuilder.php) | The ETA spec implementation — issuer/receiver/lines/tax codes/totals |
 | [app/Services/MonthlyBillingService.php](app/Services/MonthlyBillingService.php) | Idempotent monthly billing run with per-lease transaction isolation |
-| [app/Models/Scopes/CurrentOperatorScope.php](app/Models/Scopes/CurrentOperatorScope.php) | Multi-tenancy in 15 lines |
+| [app/Support/TenantScope.php](app/Support/TenantScope.php) + [app/Filament/Admin/Resources/Concerns/ScopesViaProperty.php](app/Filament/Admin/Resources/Concerns/ScopesViaProperty.php) | Per-property tenancy in two small files — the helper + the trait |
 | [resources/views/invoices/pdf.blade.php](resources/views/invoices/pdf.blade.php) | Arabic-shaped invoice PDF template |
-| [tests/e2e/09-multi-property.spec.js](tests/e2e/09-multi-property.spec.js) | E2E pattern — covers tenancy isolation + brand swap |
+| [tests/e2e/09-multi-property.spec.js](tests/e2e/09-multi-property.spec.js) | E2E pattern — covers per-property tenancy isolation + the All-Properties view |
 
 ---
 

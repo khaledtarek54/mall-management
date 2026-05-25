@@ -6,7 +6,7 @@ Atriom is a specialized operations platform for the Egyptian retail vertical —
 
 | Panel | Path | Audience |
 |---|---|---|
-| Admin Console | `/admin` | Mall operators (super_admin / manager / viewer) |
+| Admin Console | `/admin/{property}` | Mall operators — per-property tenancy with an "All Properties" portfolio view for users assigned to multiple malls |
 | Owner Portal | `/owner` | Property owners — read-only portfolio view |
 | Tenant Portal | `/portal` | Mall tenants (the retailers / F&B / service shops) |
 
@@ -37,25 +37,32 @@ Visit the landing page at `http://localhost:8000/` (or `http://mall-management.t
 | `/admin` | `admin@mall.test` | super_admin |
 | `/admin` | `manager@mall.test` | manager |
 | `/admin` | `viewer@mall.test` | viewer |
+| `/admin` | `leasing@mall.test` | leasing_manager |
+| `/admin` | `maintenance@mall.test` | maintenance_manager |
 | `/owner` | `owner@jawad.test` | owner (owns Haya Walk) |
 | `/portal` | `tenant1@haya.test` | Café Crema (tenant) |
 | `/portal` | `tenant2@haya.test` | Optix Eyewear (tenant) |
 | `/portal` | `tenant3@haya.test` | The Burger Joint (tenant) |
 
+Hitting `/admin` bare redirects to `/admin/{first-property}/...`. Users with more than one assigned property see an **All Properties** option in the top-nav switcher that bypasses scoping for a portfolio-wide view.
+
 ---
 
 ## What's inside
 
-- **Lease lifecycle** — Quick lease wizard, renewals with charge inheritance, terminations
+- **Lease lifecycle** — Quick lease wizard, renewals with charge inheritance, terminations that won't orphan paid amounts
 - **Monthly billing engine** — One-click run, EG VAT rules (rent exempt, service 14%), idempotent per period
 - **Tenant Sales Declarations** — Mall-specific moat: tenants declare sales, admin locks, percentage rent auto-bills
 - **CAM Reconciliation** — Annual common-area-expense pools with pro-rata allocations and per-allocation billing
-- **ETA e-invoicing** — Document JSON builder, signing, status persistence. Mock mode by default; flip `ETA_MOCK=false` when preprod credentials land
-- **Multi-property tenancy** — Session-based operator switcher with per-operator brand swap (logo, name, favicon)
+- **ETA e-invoicing** — Document JSON builder, signing, status persistence. Module-toggleable from `/admin/settings → Modules`; mock mode by default; flip `ETA_MOCK=false` when preprod credentials land
+- **Per-property tenancy (Filament panel)** — URL-scoped to `/admin/{property-code}/...`, property switcher in top nav, "All Properties" portfolio view for users with multi-mall access, per-tenant tables / widgets / forms throughout
+- **RBAC** — 6 roles (super_admin / manager / leasing_manager / maintenance_manager / viewer / owner) × 81 permissions × per-user property assignment via the `asset_user` pivot. New users default to every property selected
+- **Module feature flags** — credit_notes, maintenance, tenant_sales, cam, utility_meters, vendors, notes, reports, activity_log, eta — each toggleable from Settings; disabled modules hide from sidebar + dashboard + block route access
 - **Maintenance** — Tenant submissions, admin triage with SLA tracking, polymorphic comments, photo attachments
 - **Energy & Utilities** — Meter management with monthly readings + 12-month consumption chart
 - **Tenant Communications log** — Polymorphic notes (calls, WhatsApp, meetings, site visits, emails) for collections workflows
-- **Audit trail** — Spatie ActivityLog on every governance-relevant entity
+- **Activity log** — Spatie ActivityLog on every governance-relevant entity, surfaced with field-by-field diffs (humanised labels, strikethrough old → highlight new, XSS-safe). Six preset date windows + custom range filter
+- **Onboarding** — SetupGuide dashboard widget walks new operators through Properties → Units → Tenants → Leases → Invoices; empty states with "Create your first…" CTAs on every list page
 - **Document attachments** — Spatie MediaLibrary for contracts, IDs, maintenance photos
 - **Arabic-native** — Full RTL, mPDF Arabic shaping + bidi for invoice/statement PDFs, locale-aware month names
 
@@ -77,14 +84,15 @@ Visit the landing page at `http://localhost:8000/` (or `http://mall-management.t
 
 ## Stack
 
-- Laravel 13.8 · PHP 8.4 · Filament 4
-- MySQL · Spatie Permission + ActivityLog + MediaLibrary
+- Laravel 13.8 · PHP 8.4 · Filament 4 (with built-in panel tenancy keyed on `Asset.code`)
+- MySQL · Spatie Permission + ActivityLog + MediaLibrary + Settings
 - mPDF (for Arabic-shaped PDF rendering)
-- Playwright (chromium) for E2E — 68 specs covering auth, every panel, CRUD, locale, PDFs, multi-property, tenant sales, CAM, ETA, owner portal, energy
+- **Pest 4 + ParaTest** for the test suite — 184 cases across tenancy, models, services, widgets, RBAC, activity log, auth, and the deep-link query-string format. ~3.5 s parallel runtime.
+- Playwright (chromium) for E2E — 18 spec files covering auth, every panel, CRUD, locale, PDFs, multi-property, tenant sales, CAM, ETA, owner portal, energy
 
 ```bash
-npx playwright test                   # run E2E suite (~2 min)
-php artisan test                       # PHPUnit baseline
+vendor/bin/pest --parallel             # full Pest suite (~3.5s)
+npx playwright test                    # E2E (~2 min)
 php artisan migrate:fresh --seed       # rebuild demo state
 ```
 

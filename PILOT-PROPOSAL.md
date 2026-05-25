@@ -31,8 +31,8 @@ A six-month pilot deployment of **Atriom** — a production-grade Egyptian-mall 
 | **Reports module** — downloadable Monthly Close PDF (EN + AR) + AR Aging drilldown | ✓ Live |
 | Maintenance ticketing — admin triage + tenant portal submission + SLA tracking + **channel attribution** | ✓ Live |
 | **Vendor Management** — vendors + contacts + contracts; routes external maintenance via `assigned_to_vendor_id` | ✓ Live |
-| Multi-property tenancy with per-operator brand swap (logo, name, favicon) | ✓ Live |
-| **Property-staff assignment** — `asset_user` pivot assigns staff to specific properties | ✓ Live |
+| **Per-property panel tenancy** — URL-scoped at `/admin/{property}/...`, top-nav switcher, "All Properties" portfolio view for users with multi-mall access | ✓ Live |
+| **Per-user property assignment** — `asset_user` pivot drives the user-form Property Access multi-select; new users default to every property | ✓ Live |
 | Three Filament panels: Admin, Tenant Portal, Owner Portal | ✓ Live |
 | **Mobile API** at `/api/v1/*` — Sanctum tenant auth (login + me + logout) shipped | ✓ Live (auth) |
 | Arabic-native UI + mPDF Arabic-shaped invoice / statement / monthly-close PDFs | ✓ Live |
@@ -46,7 +46,7 @@ A six-month pilot deployment of **Atriom** — a production-grade Egyptian-mall 
 | Spatie media library — contract / ID / maintenance-photo uploads | ✓ Live |
 | **CSV imports** for bootstrapping (Tenants / Units / Leases) with sample templates | ✓ Live |
 | **Scheduled jobs** — monthly billing, late fees daily, CAM annual reconciliation | ✓ Live |
-| **GitHub Actions CI** — PHPUnit (sqlite) + Playwright (MySQL) on every push | ✓ Live |
+| **GitHub Actions CI** — Pest (sqlite, parallel) + Playwright (MySQL) on every push | ✓ Live |
 | Paymob integration (card / InstaPay / wallet) | ⏸ Architected; live on sandbox credentials |
 | WhatsApp Business API outbound (invoice reminders) | ⏸ Architected; live on Meta/BSP credentials |
 

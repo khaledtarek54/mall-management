@@ -59,6 +59,18 @@
             "@php artisan config:clear --ansi @no_additional_args",
             "@php artisan test"
         ],
+        "coverage": [
+            "Composer\\Config::disableProcessTimeout",
+            "herd coverage -dzend_extension=/Applications/Herd.app/Contents/Resources/xdebug/xdebug-84-arm64.so -dxdebug.mode=coverage vendor/bin/pest --coverage"
+        ],
+        "coverage-html": [
+            "Composer\\Config::disableProcessTimeout",
+            "herd coverage -dzend_extension=/Applications/Herd.app/Contents/Resources/xdebug/xdebug-84-arm64.so -dxdebug.mode=coverage vendor/bin/pest --coverage --coverage-html=coverage"
+        ],
+        "e2e-coverage": [
+            "Composer\\Config::disableProcessTimeout",
+            "scripts/e2e-coverage.sh"
+        ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi",

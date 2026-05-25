@@ -19,7 +19,7 @@
 
 **What's shipped that V1 of this plan treated as a build:**
 - **Maintenance / CAFM module** — model, admin + portal resources, polymorphic comments, SLA config in [`config/maintenance.php`](config/maintenance.php), seeded data, [`MaintenanceRequestService`](app/Services/MaintenanceRequestService.php). See [FEATURES.md § Maintenance](FEATURES.md).
-- **Multi-property tenancy** — session-based operator switcher in the admin topbar, dynamic brand logo / name / favicon swap, `Operator` model + `operator_id` on Asset + [`CurrentOperatorScope`](app/Models/Scopes/CurrentOperatorScope.php) global scope. Seeded with Jawad Developments + Eltizam Egypt (the latter wired to the real Eltizam Group logo + brand gold). 5 Playwright specs cover tenancy isolation + branding swap. All green.
+- **Per-property panel tenancy** — Filament 4's built-in tenancy with `Asset` as the tenant model. URLs scoped at `/admin/{property-code}/...`, top-nav property switcher, synthetic "All Properties" pseudo-tenant for portfolio-wide views, three shared traits (`ScopesViaProperty`, `BypassesScopingOnAll`, `BypassesFilamentTenantAutoScope`) keep the resource code one-liner-thin. Replaced the earlier session-based Operator scope entirely.
 
 These two changes free ~10 working days versus the original V1 schedule and unlock the architectural story for the demo (one panel, multiple white-labeled operators, with retail-specific workflows).
 
@@ -141,26 +141,36 @@ Every gap from the original analysis is now closed or surpassed except the crede
 
 ---
 
-## 5. The 3-week sprint plan — **SHIPPED**
+## 5. The 3-week sprint plan — **SHIPPED + EXTENDED**
 
-> All sprint items below shipped over 6 commits. Full feature inventory in [FEATURES.md](FEATURES.md). 68/68 Playwright specs covering the new surface area (~44 added on top of the original 24).
+> All sprint items below shipped, plus a meaningful platform-engineering layer on top (per-property tenancy, RBAC overhaul, Pest test suite, audit-driven business-logic fixes). Full feature inventory in [FEATURES.md](FEATURES.md). 184 Pest cases + 18 Playwright spec files covering the new surface area.
 
 ### Week 1 — Mall-specific moats + Vendor management
 
 - [x] **Tenant Sales Declaration** — model, polymorphic `declared_by`, `PercentageRentCalculationService` (both formulas), admin review queue with Lock + Dispute, tenant portal submission form, 72 seeded historic declarations across 3 months. Locking auto-creates `percentage_rent` Charge for next billing run.
 - [x] **CAM Reconciliation** — `CamExpensePool` + `CamAllocation`, `CamReconciliationService` (Generate Allocations + Bill), admin resource + relation manager, 1 prior-year reconciled pool with 33 allocations billed + 1 current-year draft.
-- [ ] ~~Vendor management~~ — explicitly skipped. Not a moat vs PropEzy; parity feature, can layer in later when Eltizam asks. See [FEATURES.md § Polish wins still available](FEATURES.md).
+- [x] **Vendor management** — `Vendor`, `VendorContact`, `VendorContract` models; admin resource (Operations nav) with type/status badges, active-contracts count, deep search; two relation managers (Contacts + Contracts); wired into `MaintenanceRequest` via `assigned_to_vendor_id` FK so maintenance can route to staff, vendors, or both; 8 realistic seeded Egyptian vendors.
 
 ### Week 2 — Owner portal + Paymob activation
 
-- [x] **Owner Portal** — new Filament panel at `/owner` with role gating, dynamic brand swap, PortfolioStats widget, read-only Properties/Invoices/Maintenance resources scoped to owned assets, bypasses `CurrentOperatorScope`. Seeded `owner@jawad.test` owning Haya Walk.
+- [x] **Owner Portal** — new Filament panel at `/owner` with role gating, PortfolioStats widget, read-only Properties / Invoices / Maintenance resources scoped to owned assets. Seeded `owner@jawad.test` owning Haya Walk.
 - [ ] **Paymob activation** — blocked on sandbox merchant credentials (still awaiting application response). Architecture in place; flip `PAYMOB_ENABLED=true` once creds wire in.
 
 ### Week 3 — ETA test + Energy stub + sales materials
 
-- [x] **ETA e-invoicing** — `EtaJsonBuilder`, `EtaApiClient` (mock + real modes), `EtaSubmissionService`, `SubmitInvoiceToEta` job, admin **Submit to ETA** per-invoice action, status badge column on Invoices table. Seeded 65 historical submissions (55 Valid + 10 Rejected). Flip `ETA_MOCK=false` once preprod credentials arrive.
-- [x] **Energy stub** — `UtilityMeter` + `MeterReading`, admin resource with type/status badges, `EnergyConsumptionTrend` dashboard widget (12-month stacked bar across 3 series), 48 meters + 576 readings seeded.
+- [x] **ETA e-invoicing** — `EtaJsonBuilder` (with tax-id validation for business tenants), `EtaApiClient` (mock + real modes), `EtaSubmissionService`, `SubmitInvoiceToEta` job, admin Submit to ETA per-invoice + bulk action, status badge column. Seeded 65 historical submissions (55 Valid + 10 Rejected). Now also module-toggleable from `/admin/settings → Modules`. Flip `ETA_MOCK=false` once preprod credentials arrive.
+- [x] **Energy stub** — `UtilityMeter` + `MeterReading`, admin resource with type/status badges, `EnergyConsumptionTrend` dashboard widget (12-month stacked bar across 3 series, driver-aware SQL so the widget works on MySQL / SQLite / Postgres), 48 meters + 576 readings seeded.
 - [x] **Sales materials** — see [PITCH-DECK.md](PITCH-DECK.md), [PILOT-PROPOSAL.md](PILOT-PROPOSAL.md), [DEMO-ELTIZAM.md](DEMO-ELTIZAM.md). Architecture diagram + roadmap + pricing tiers remain inside this doc (§ 6 / § 7 / § 8).
+
+### Post-sprint platform layer (delivered)
+
+- [x] **Per-property panel tenancy** — replaced the legacy session-based Operator switcher with Filament 4's built-in panel tenancy. URLs are now `/admin/{property-code}/...` with a top-nav property switcher. Added an **All Properties** pseudo-tenant for portfolio-wide views. Three traits (`ScopesViaProperty`, `BypassesScopingOnAll`, `BypassesFilamentTenantAutoScope`) handle the 10 scoped resources; widgets use `TenantScope::applyTo()` for consistent filtering. Removed the Operator concept entirely.
+- [x] **RBAC overhaul** — 6 roles (added `leasing_manager`, `maintenance_manager`), 81 granular permissions in `RolesPermissionsSeeder::PERMISSIONS`, custom Role manager UI at `/admin/roles`. Per-user property assignment via the user form's Properties multi-select; new users default to every property selected.
+- [x] **Module feature flags** — 10 modules toggleable from `/admin/settings → Modules` (credit_notes, maintenance, tenant_sales, cam, utility_meters, vendors, notes, reports, activity_log, eta). Disabled modules hide from sidebar + dashboard + block route access.
+- [x] **Pest test suite** — 184 cases, ~3.5 s parallel runtime, replacing the older PHPUnit baseline. Coverage across tenancy, models, services, widgets, RBAC, activity log, auth, deep-link query-string format.
+- [x] **Activity log polish + filters** — diff renderer extracted to `ActivityLogChangeRenderer` and shared by the standalone page + every embedded relation manager. Humanised field labels, XSS-safe diff rendering. Six preset date windows (Today / Yesterday / Last 7d / Last 30d / This month / Last month) plus custom `created_from` / `created_until` range.
+- [x] **Onboarding** — `SetupGuide` dashboard widget walks new operators through Properties → Units → Tenants → Leases → Invoices with deep-link CTAs. Empty states on every list page with "Create your first…" buttons.
+- [x] **Project-wide audit fixes** — five real business-logic bugs caught + fixed: `Tenant::isDelinquent()` catches past-due-date invoices in any status; `Tenant::outstandingBalance()` nets unapplied credit notes; `User::canAccessTenant()` rejects soft-deleted assets; `LeaseTerminationService` no longer orphans paid_amount; `EtaJsonBuilder` validates tax_id for business tenants.
 
 ---
 
@@ -171,7 +181,7 @@ Every gap from the original analysis is now closed or surpassed except the crede
 | **Tenant Sales Declaration** | Polymorphic `declared_by` mirrors the [`MaintenanceRequestComment`](app/Models/MaintenanceRequestComment.php) polymorphic-author pattern. PercentageRentCalculationService follows the [MonthlyBillingService](app/Services/MonthlyBillingService.php) shape. Tenant-portal form via Filament `Resources/MaintenanceRequests/Pages/CreateMaintenanceRequest.php` template. |
 | **CAM Reconciliation** | Two-table parent-child like Invoice → InvoiceItem. Status enum like Invoice status. Defer the auto-true-up service; v1 is admin-managed. |
 | **Vendor + VendorContact + VendorContract** | Same shape as Tenant + (yet-to-exist tenant contacts). Resource pattern from [`LeaseResource`](app/Filament/Admin/Resources/Leases/LeaseResource.php). |
-| **Owner portal** | Clone the Portal panel structure ([app/Filament/Portal/](app/Filament/Portal/)). Read-only resources, `auth('owner')` scoping. Reuse multi-operator brand swap. |
+| **Owner portal** | Clone the Portal panel structure ([app/Filament/Portal/](app/Filament/Portal/)). Read-only resources, `auth('owner')` scoping. Cross-property view (owners see every asset they own). |
 | **UtilityMeter / MeterReading** | Standard parent-child Eloquent. Resource pattern from Charge / Lease. |
 | **PaymobWebhookController** | Use [`LeaseRenewalService`](app/Services/LeaseRenewalService.php) and [`MaintenanceRequestService`](app/Services/MaintenanceRequestService.php) as service-layer templates — thin controller, business logic in service. |
 | **EtaJsonBuilder / EtaApiClient** | Mirror [`InvoicePdfService`](app/Services/InvoicePdfService.php) shape — single-responsibility, DI-injected. |

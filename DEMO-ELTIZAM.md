@@ -16,7 +16,7 @@
    - **Window B** — owner (`owner@jawad.test / password`)
    - **Window C** — tenant portal on phone or second screen (`tenant1@haya.test / password`)
 5. Language toggled to EN on window A
-6. Locale reset: `/locale/en` then `/operator/switch/all` so first impression is clean
+6. Locale reset: `/locale/en` and (on multi-property windows) switch the top-nav property selector to "All Properties" so first impression is clean
 7. **Backup video recorded** (5 min narrated, saved locally) — for wifi-died-on-stage scenarios
 
 ## Logins (leave on screen for them to write down)
@@ -65,17 +65,19 @@ Scroll further — point at the **Leasing Pipeline** strip (Drafts / Pending App
 
 > "Everything you're looking at is also rendered in Arabic, RTL, with the right month names and numerals. I'll flip locales near the end so you don't think this is bolted on."
 
-### 3 · The first Eltizam moment — Multi-property branding (2 min)
+### 3 · The first Eltizam moment — Per-property tenancy (2 min)
 
-Click the operator switcher in the topbar (between user menu and language pill). Currently "All Operators".
+Click the property switcher in the topbar. Currently "All Properties".
 
-> "Multi-property tenancy. One codebase, multiple operators, each with their own brand."
+> "Per-property panel tenancy. One codebase, many malls under one Eltizam roof — each lives at its own URL slug and scopes every list, widget, and form to that property."
 
-Switch to "Jawad Developments" → topbar logo + name swap to Jawad. Switch to "**Eltizam Egypt**" → swaps to the real Eltizam Group logo (sourced from your public mark) with brand gold `#F0B010`.
+Click **Haya Walk (HW)** → URL flips to `/admin/HW/...`. The Properties list now shows only Haya Walk. The dashboard widgets recompute for HW alone — occupancy, AR aging, leasing pipeline, all of it.
 
-> "This is your actual logo and brand color, live. Same login, same data, your white-label. Your retail clients see Eltizam branding throughout. The data underneath is per-operator-scoped — Eltizam Egypt has no assets seeded yet, so the Properties list goes empty. Switch back to Jawad and the Haya Walk data returns."
+Click **Plaza Annex (PA)** → URL flips to `/admin/PA/...`. Same widgets, different numbers (PA has 8 units, no leases yet — so the widgets show the empty-state version cleanly).
 
-Switch back to "All Operators". Brand returns to default.
+Click **All Properties** → URL flips to `/admin/ALL/...`. The synthetic "All Properties" tenant is for portfolio-wide views — every widget and list aggregates across malls the user has access to.
+
+> "Pilot Eltizam at Haya Walk, layer in Tafawuq Egypt's portfolio next, give each property its own URL. Operators with multi-mall access get the All Properties view; ops teams assigned to a single mall only ever see theirs. The Activity Log is per-property, the dashboards are per-property, the action items are per-property. Same login, real scoping."
 
 ### 4 · Maintenance triage (1.5 min)
 
@@ -161,7 +163,7 @@ Open the **issued** one. Header action: **Apply to Invoice**.
 
 Confirm. Show the notification: "EGP 2,000 applied to invoice INV-HW-XXXXX." The credit note's status flips to "applied" or stays "issued" if there's remaining balance. The invoice's balance drops.
 
-> "Six PHPUnit tests lock this math — issue, apply, cap-at-minimum, void-when-applied throws, fully-applied status flip, no-op on voided notes. Service-layer, not UI-layer."
+> "The Pest test suite locks this math — issue, apply, cap-at-minimum, void-when-applied throws, fully-applied status flip, no-op on voided notes. Service-layer, not UI-layer."
 
 ### 8 · Vendor Management (1 min) — Maintenance routing
 
@@ -199,17 +201,17 @@ Open `/admin/roles` (only super_admin can see it).
 
 Switch to **Window B** (already logged in as `owner@jawad.test`).
 
-> "Third panel. This is for property owners — Eltizam's portfolio managers, in the partnership scenario. Read-only, scoped to assets they own across operators."
+> "Third panel. This is for property owners — Eltizam's portfolio managers, in the partnership scenario. Read-only, scoped to assets they own across the portfolio."
 
 Show the dashboard:
 - Portfolio Stats: 1 Property, Occupancy %, MRR, Outstanding AR
 - Sidebar: Properties / Invoices / Maintenance Activity
 
-> "Brand is dynamic. If this owner only owns Jawad assets, they see Jawad branding. If they owned across multiple operators, we'd swap to neutral. The owner views the financials, the maintenance activity, the occupancy — without being able to edit anything."
+> "Branding is currently platform-wide; per-property logo / favicon overrides are a small follow-up if Eltizam wants each mall to keep its own identity inside the owner view. The owner sees the financials, the maintenance activity, the occupancy — without being able to edit anything."
 
 Click Properties → click Haya Walk → show the Property Performance section with per-asset KPIs.
 
-> "Each operator deploying us into the Eltizam portfolio would get their owner portal here. Customizable per-operator branding, same engine."
+> "Each owner deploying us into the Eltizam portfolio gets their own owner portal here. Same engine; per-property scoping; read-only by design."
 
 ### 11 · Tenant portal — the WhatsApp moment (1.5 min)
 
@@ -239,7 +241,7 @@ Scroll to the dashboard → **Energy Consumption** chart.
 
 Back as super_admin. Sidebar → **Settings**.
 
-> "Every config value the operator should be able to touch — late-fee percentage, grace days, SLA hours per priority, ETA toggles, Paymob/WhatsApp flags, issuer info — lives in this DB-backed Settings panel, not in env files."
+> "Every config value the operations team should be able to touch — late-fee percentage, grace days, SLA hours per priority, ETA toggle, module on/off switches (10 of them), Paymob/WhatsApp flags, issuer info — lives in this DB-backed Settings panel, not in env files."
 
 Five tabs: Modules / Billing / Maintenance / ETA / Integrations.
 
@@ -269,7 +271,7 @@ Back to dashboard.
 
 > "What's coming. Paymob payments — sandbox merchant signup in flight. ETA preprod credentials — application in flight. Mobile tenant app — Egyptian-mall-tenant specialist, Q2, briefed at [MOBILE-APP-BRIEF.md](MOBILE-APP-BRIEF.md); login auth already shipped against the new Sanctum API. Property-staff scoping enforcement (the asset_user pivot exists; query-scoping is the next batch). CAM auto-true-up scheduled command exists; the dashboard wizard is polish. Accounting close export."
 
-> "The roadmap order is your call. Pilot starts at Haya Walk because the data's already realistic. Six months, defined commercial, white-label option ready. What you saw today is production code — 22 entities, 36 PHPUnit service tests locking the billing math, 170+ Playwright specs covering every page across all 3 panels, real audit trail on 13 models, real Arabic with mPDF shaping. Hand-over format is yours; we ship clean."
+> "The roadmap order is your call. Pilot starts at Haya Walk because the data's already realistic. Six months, defined commercial, white-label option ready. What you saw today is production code — 21 entities, 184 Pest tests running in ~3.5 s parallel locking the billing math + tenancy + RBAC + audit log, 18 Playwright spec files covering every page across all 3 panels, real audit trail on 13 models, real Arabic with mPDF shaping. Hand-over format is yours; we ship clean."
 
 ### 16 · Partnership ask (1 min)
 
@@ -308,7 +310,7 @@ Let them lead. The platform is the source of truth — open whatever they ask. C
   - `app/Models/` (10 entities)
   - `app/Filament/Admin/Resources/TenantSalesDeclarations/` (the mall moat)
   - `app/Services/Eta/EtaJsonBuilder.php` (ETA spec implementation)
-  - `tests/e2e/` (68 specs)
+  - `tests/Feature/` (184 Pest cases, ~3.5 s parallel) + `tests/e2e/` (18 Playwright spec files)
 - Don't dwell. Code review is for their technical evaluators in the follow-up session.
 
 ---
@@ -319,7 +321,7 @@ Let them lead. The platform is the source of truth — open whatever they ask. C
 |---|---|---|
 | 1. Frame | 1:00 | 1:00 |
 | 2. Dashboard (+ ETA Compliance, Leasing Pipeline) | 2:30 | 3:30 |
-| 3. Multi-property brand swap | 2:00 | 5:30 |
+| 3. Property switcher + per-property scoping | 2:00 | 5:30 |
 | 4. Maintenance triage | 1:30 | 7:00 |
 | 5. Tenant Sales ⭐ | 3:00 | 10:00 |
 | 6. CAM Reconciliation | 2:00 | 12:00 |

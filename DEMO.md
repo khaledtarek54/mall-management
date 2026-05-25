@@ -145,7 +145,7 @@ Maintenance:     5 seeded across statuses + 5 distinct channels
 Permissions:     81 across 18 modules
 Roles:           6 built-in + custom-role UI
 Dashboard:       12 widgets, role-tailored per role
-Tests:           36 PHPUnit (124 assertions) · 170+ Playwright
+Tests:           184 Pest (479 assertions, ~3.5s parallel) · 18 Playwright spec files
 ```
 
 يلا بسم الله 💪
