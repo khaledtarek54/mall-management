@@ -1,70 +1,71 @@
 <x-filament-panels::page>
-    <div class="fi-section rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
-        <div class="flex flex-wrap items-end justify-between gap-4">
-            <div class="min-w-[14rem]">
-                <label for="bucket" class="block text-sm font-medium text-gray-950 dark:text-white">
+
+    {{-- ============ Bucket picker + total ============ --}}
+    <x-filament::section>
+        <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 1rem;">
+            <div style="min-width: 14rem;">
+                <x-filament::input.wrapper>
+                    <x-filament::input.select wire:model.live="bucket" id="bucket">
+                        @foreach($buckets as $key => $label)
+                            <option value="{{ $key }}">{{ $label }}</option>
+                        @endforeach
+                    </x-filament::input.select>
+                </x-filament::input.wrapper>
+                <p style="margin-top: 0.5rem; font-size: 0.75rem; color: var(--fi-color-gray-500, #71717a);">
                     {{ __('admin.reports.bucket') }}
-                </label>
-                <select
-                    wire:model.live="bucket"
-                    id="bucket"
-                    class="mt-2 block w-full rounded-lg border-gray-300 bg-white py-2 ps-3 pe-10 text-sm text-gray-950 shadow-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 dark:border-white/10 dark:bg-white/5 dark:text-white"
-                >
-                    @foreach($buckets as $key => $label)
-                        <option value="{{ $key }}">{{ $label }}</option>
-                    @endforeach
-                </select>
+                </p>
             </div>
-            <div class="text-right">
-                <div class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            <div style="text-align: end;">
+                <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fi-color-gray-500, #71717a);">
                     {{ __('admin.reports.bucket_total') }}
                 </div>
-                <div class="mt-1 text-2xl font-semibold text-red-600 dark:text-red-400">
+                <div style="margin-top: 0.375rem; font-size: 1.5rem; font-weight: 600; line-height: 1; color: rgb(220 38 38);">
                     EGP {{ number_format($totalBalance, 2) }}
                 </div>
-                <div class="text-xs text-gray-500 dark:text-gray-400">
+                <div style="margin-top: 0.25rem; font-size: 0.75rem; color: var(--fi-color-gray-500, #71717a);">
                     {{ $invoices->count() }} {{ __('admin.widgets.ar_aging.invoices') }}
                 </div>
             </div>
         </div>
-    </div>
+    </x-filament::section>
 
-    <div class="fi-section overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
+    {{-- ============ Invoice listing ============ --}}
+    <x-filament::section>
         @if($invoices->isEmpty())
-            <div class="p-8 text-center text-sm text-gray-500 dark:text-gray-400">
+            <div style="padding: 2rem; text-align: center; font-size: 0.875rem; color: var(--fi-color-gray-500, #71717a);">
                 {{ __('admin.reports.no_invoices_in_bucket') }}
             </div>
         @else
-            <table class="w-full text-sm">
-                <thead class="bg-gray-50 text-xs uppercase tracking-wide text-gray-500 dark:bg-white/5 dark:text-gray-400">
-                    <tr>
-                        <th class="px-4 py-3 text-start">{{ __('admin.tables.invoice.number') }}</th>
-                        <th class="px-4 py-3 text-start">{{ __('admin.tables.invoice.tenant') }}</th>
-                        <th class="px-4 py-3 text-start">{{ __('admin.tables.invoice.unit') }}</th>
-                        <th class="px-4 py-3 text-start">{{ __('admin.tables.invoice.due_date') }}</th>
-                        <th class="px-4 py-3 text-end">{{ __('admin.tables.invoice.balance') }}</th>
-                        <th class="px-4 py-3 text-end">{{ __('admin.reports.days_overdue') }}</th>
-                        <th class="px-4 py-3"></th>
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem;">
+                <thead>
+                    <tr style="color: var(--fi-color-gray-500, #71717a); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em;">
+                        <th style="padding: 0.5rem 0.75rem; text-align: start;">{{ __('admin.tables.invoice.number') }}</th>
+                        <th style="padding: 0.5rem 0.75rem; text-align: start;">{{ __('admin.tables.invoice.tenant') }}</th>
+                        <th style="padding: 0.5rem 0.75rem; text-align: start;">{{ __('admin.tables.invoice.unit') }}</th>
+                        <th style="padding: 0.5rem 0.75rem; text-align: start;">{{ __('admin.tables.invoice.due_date') }}</th>
+                        <th style="padding: 0.5rem 0.75rem; text-align: end;">{{ __('admin.tables.invoice.balance') }}</th>
+                        <th style="padding: 0.5rem 0.75rem; text-align: end;">{{ __('admin.reports.days_overdue') }}</th>
+                        <th style="padding: 0.5rem 0.75rem;"></th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100 dark:divide-white/5">
+                <tbody>
                     @foreach($invoices as $invoice)
                         @php $days = (int) ($invoice->due_date?->diffInDays(now(), false) ?? 0); @endphp
-                        <tr>
-                            <td class="px-4 py-3 font-mono text-xs text-gray-950 dark:text-white">{{ $invoice->number }}</td>
-                            <td class="px-4 py-3 font-medium text-gray-950 dark:text-white">{{ $invoice->tenant?->name ?? '—' }}</td>
-                            <td class="px-4 py-3 text-gray-500 dark:text-gray-400">{{ $invoice->lease?->unit?->code ?? '—' }}</td>
-                            <td class="px-4 py-3 text-gray-500 dark:text-gray-400">{{ $invoice->due_date?->format('d/m/Y') }}</td>
-                            <td class="px-4 py-3 text-end font-semibold tabular-nums text-red-600 dark:text-red-400">
+                        <tr style="border-top: 1px solid var(--fi-color-gray-100, #f3f4f6);">
+                            <td style="padding: 0.75rem; font-family: ui-monospace, monospace; font-size: 0.75rem;">{{ $invoice->number }}</td>
+                            <td style="padding: 0.75rem; font-weight: 500;">{{ $invoice->tenant?->name ?? '—' }}</td>
+                            <td style="padding: 0.75rem; color: var(--fi-color-gray-500, #71717a);">{{ $invoice->lease?->unit?->code ?? '—' }}</td>
+                            <td style="padding: 0.75rem; color: var(--fi-color-gray-500, #71717a);">{{ $invoice->due_date?->format('d/m/Y') }}</td>
+                            <td style="padding: 0.75rem; text-align: end; font-variant-numeric: tabular-nums; font-weight: 600; color: rgb(220 38 38);">
                                 EGP {{ number_format((float) $invoice->balance, 2) }}
                             </td>
-                            <td class="px-4 py-3 text-end tabular-nums {{ $days > 60 ? 'text-red-600' : 'text-amber-600' }} dark:{{ $days > 60 ? 'text-red-400' : 'text-amber-400' }}">
+                            <td style="padding: 0.75rem; text-align: end; font-variant-numeric: tabular-nums; color: {{ $days > 60 ? 'rgb(220 38 38)' : 'rgb(217 119 6)' }};">
                                 {{ $days > 0 ? $days : 0 }}
                             </td>
-                            <td class="px-4 py-3 text-end">
+                            <td style="padding: 0.75rem; text-align: end;">
                                 <a
                                     href="{{ route('filament.admin.resources.invoices.edit', $invoice) }}"
-                                    class="text-xs font-medium text-primary-600 hover:underline dark:text-primary-400"
+                                    style="font-size: 0.75rem; font-weight: 500; color: var(--fi-color-primary-600, #d97706); text-decoration: none;"
                                 >
                                     {{ __('admin.actions.view') }} →
                                 </a>
@@ -74,5 +75,6 @@
                 </tbody>
             </table>
         @endif
-    </div>
+    </x-filament::section>
+
 </x-filament-panels::page>

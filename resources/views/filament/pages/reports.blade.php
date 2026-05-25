@@ -1,23 +1,22 @@
 <x-filament-panels::page>
-    {{-- Period picker --}}
-    <div class="fi-section rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
-        <div class="flex flex-wrap items-end justify-between gap-4">
-            <div>
-                <label for="period" class="block text-sm font-medium text-gray-950 dark:text-white">
+
+    {{-- ============ Period picker + actions ============ --}}
+    <x-filament::section>
+        <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 1rem;">
+            <div style="min-width: 14rem;">
+                <x-filament::input.wrapper>
+                    <x-filament::input.select wire:model.live="period" id="period">
+                        @foreach($recentPeriods as $key => $label)
+                            <option value="{{ $key }}">{{ $label }}</option>
+                        @endforeach
+                    </x-filament::input.select>
+                </x-filament::input.wrapper>
+                <p style="margin-top: 0.5rem; font-size: 0.75rem; color: var(--fi-color-gray-500, #71717a);">
                     {{ __('admin.reports.period') }}
-                </label>
-                <select
-                    wire:model.live="period"
-                    id="period"
-                    class="mt-2 block min-w-[14rem] rounded-lg border-gray-300 bg-white py-2 ps-3 pe-10 text-sm text-gray-950 shadow-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 dark:border-white/10 dark:bg-white/5 dark:text-white"
-                >
-                    @foreach($recentPeriods as $key => $label)
-                        <option value="{{ $key }}">{{ $label }}</option>
-                    @endforeach
-                </select>
+                </p>
             </div>
 
-            <div class="flex gap-2">
+            <div style="display: flex; gap: 0.5rem;">
                 <x-filament::button
                     wire:click="downloadMonthlyClose"
                     icon="heroicon-o-arrow-down-tray"
@@ -37,124 +36,121 @@
                 </x-filament::button>
             </div>
         </div>
-    </div>
+    </x-filament::section>
 
-    {{-- KPI cards --}}
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div class="fi-section rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
-            <div class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+    {{-- ============ KPI grid ============ --}}
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
+        <x-filament::section>
+            <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fi-color-gray-500, #71717a);">
                 {{ __('admin.reports.invoices_issued') }}
             </div>
-            <div class="mt-1 text-3xl font-semibold text-gray-950 dark:text-white">
+            <div style="margin-top: 0.5rem; font-size: 1.75rem; font-weight: 600; line-height: 1;">
                 {{ number_format($report['invoices']['count']) }}
             </div>
-            <div class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            <div style="margin-top: 0.25rem; font-size: 0.85rem; color: var(--fi-color-gray-500, #71717a);">
                 EGP {{ number_format($report['invoices']['total'], 2) }}
             </div>
-        </div>
+        </x-filament::section>
 
-        <div class="fi-section rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
-            <div class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+        <x-filament::section>
+            <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fi-color-gray-500, #71717a);">
                 {{ __('admin.reports.payments_captured') }}
             </div>
-            <div class="mt-1 text-3xl font-semibold text-emerald-600 dark:text-emerald-400">
+            <div style="margin-top: 0.5rem; font-size: 1.75rem; font-weight: 600; line-height: 1; color: rgb(16 185 129);">
                 {{ number_format($report['payments']['count']) }}
             </div>
-            <div class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            <div style="margin-top: 0.25rem; font-size: 0.85rem; color: var(--fi-color-gray-500, #71717a);">
                 EGP {{ number_format($report['payments']['total'], 2) }}
             </div>
-        </div>
+        </x-filament::section>
 
-        <div class="fi-section rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
-            <div class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+        <x-filament::section>
+            <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fi-color-gray-500, #71717a);">
                 {{ __('admin.reports.collections_rate') }}
             </div>
-            <div class="mt-1 text-3xl font-semibold {{ $report['collections_rate'] >= 80 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400' }}">
+            <div style="margin-top: 0.5rem; font-size: 1.75rem; font-weight: 600; line-height: 1; color: {{ $report['collections_rate'] >= 80 ? 'rgb(16 185 129)' : 'rgb(217 119 6)' }};">
                 {{ number_format($report['collections_rate'], 1) }}%
             </div>
-            <div class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            <div style="margin-top: 0.25rem; font-size: 0.85rem; color: var(--fi-color-gray-500, #71717a);">
                 {{ __('admin.reports.of_invoiced') }}
             </div>
-        </div>
+        </x-filament::section>
 
-        <div class="fi-section rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
-            <div class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+        <x-filament::section>
+            <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fi-color-gray-500, #71717a);">
                 {{ __('admin.reports.outstanding_ar') }}
             </div>
-            <div class="mt-1 text-3xl font-semibold text-red-600 dark:text-red-400">
+            <div style="margin-top: 0.5rem; font-size: 1.75rem; font-weight: 600; line-height: 1; color: rgb(220 38 38);">
                 EGP {{ number_format($report['outstanding_total'], 0) }}
             </div>
-            <div class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            <div style="margin-top: 0.25rem; font-size: 0.85rem; color: var(--fi-color-gray-500, #71717a);">
                 {{ __('admin.reports.as_of_close') }}
             </div>
-        </div>
+        </x-filament::section>
     </div>
 
-    {{-- AR Aging summary --}}
-    <div class="fi-section rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
-        <h3 class="text-base font-semibold text-gray-950 dark:text-white">
-            {{ __('admin.reports.ar_aging') }}
-        </h3>
-        <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
-            @php
-                $bucketLabels = [
-                    'current' => __('admin.widgets.ar_aging.current'),
-                    'd_1_30' => __('admin.widgets.ar_aging.d_1_30'),
-                    'd_31_60' => __('admin.widgets.ar_aging.d_31_60'),
-                    'd_61_90' => __('admin.widgets.ar_aging.d_61_90'),
-                    'd_90_plus' => __('admin.widgets.ar_aging.d_90_plus'),
-                ];
-                $bucketColors = [
-                    'current' => 'text-emerald-600 dark:text-emerald-400',
-                    'd_1_30' => 'text-amber-600 dark:text-amber-400',
-                    'd_31_60' => 'text-amber-600 dark:text-amber-400',
-                    'd_61_90' => 'text-red-500 dark:text-red-400',
-                    'd_90_plus' => 'text-red-600 dark:text-red-500',
-                ];
-            @endphp
+    {{-- ============ AR Aging buckets (clickable into drilldown) ============ --}}
+    <x-filament::section :heading="__('admin.reports.ar_aging')">
+        @php
+            $bucketLabels = [
+                'current' => __('admin.widgets.ar_aging.current'),
+                'd_1_30' => __('admin.widgets.ar_aging.d_1_30'),
+                'd_31_60' => __('admin.widgets.ar_aging.d_31_60'),
+                'd_61_90' => __('admin.widgets.ar_aging.d_61_90'),
+                'd_90_plus' => __('admin.widgets.ar_aging.d_90_plus'),
+            ];
+            $bucketColors = [
+                'current' => 'rgb(16 185 129)',
+                'd_1_30' => 'rgb(217 119 6)',
+                'd_31_60' => 'rgb(217 119 6)',
+                'd_61_90' => 'rgb(239 68 68)',
+                'd_90_plus' => 'rgb(220 38 38)',
+            ];
+        @endphp
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.75rem;">
             @foreach($report['ar_aging'] as $key => $row)
                 <a
                     href="{{ route('filament.admin.pages.ar-aging', ['bucket' => $key]) }}"
-                    class="block rounded-lg border border-gray-200 p-3 transition hover:border-primary-500 dark:border-white/10 dark:hover:border-primary-500"
+                    style="display: block; padding: 0.875rem 1rem; border: 1px solid var(--fi-color-gray-200, #e5e7eb); border-radius: 0.5rem; text-decoration: none; transition: border-color 0.15s;"
+                    onmouseover="this.style.borderColor='var(--fi-color-primary-500, #f59e0b)'"
+                    onmouseout="this.style.borderColor='var(--fi-color-gray-200, #e5e7eb)'"
                 >
-                    <div class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fi-color-gray-500, #71717a);">
                         {{ $bucketLabels[$key] }}
                     </div>
-                    <div class="mt-1 text-xl font-semibold {{ $bucketColors[$key] }}">
+                    <div style="margin-top: 0.375rem; font-size: 1.25rem; font-weight: 600; line-height: 1; color: {{ $bucketColors[$key] }};">
                         EGP {{ number_format($row['total'], 0) }}
                     </div>
-                    <div class="text-xs text-gray-500 dark:text-gray-400">
+                    <div style="margin-top: 0.25rem; font-size: 0.75rem; color: var(--fi-color-gray-500, #71717a);">
                         {{ $row['count'] }} {{ __('admin.widgets.ar_aging.invoices') }}
                     </div>
                 </a>
             @endforeach
         </div>
-    </div>
+    </x-filament::section>
 
-    {{-- Revenue by type --}}
+    {{-- ============ Revenue by type ============ --}}
     @if(!empty($report['revenue_by_type']))
-    <div class="fi-section rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
-        <h3 class="text-base font-semibold text-gray-950 dark:text-white">
-            {{ __('admin.reports.revenue_by_type') }}
-        </h3>
-        <table class="mt-4 w-full text-sm">
-            <thead class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                <tr>
-                    <th class="py-2 text-start">{{ __('admin.fields.type') }}</th>
-                    <th class="py-2 text-end">{{ __('admin.fields.amount') }}</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100 dark:divide-white/5">
-                @foreach($report['revenue_by_type'] as $type => $amount)
-                    <tr>
-                        <td class="py-2 text-gray-950 dark:text-white">{{ __("admin.enums.invoice_item_type.{$type}") }}</td>
-                        <td class="py-2 text-end font-medium tabular-nums text-gray-950 dark:text-white">
-                            EGP {{ number_format($amount, 2) }}
-                        </td>
+        <x-filament::section :heading="__('admin.reports.revenue_by_type')">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem;">
+                <thead>
+                    <tr style="text-align: start; color: var(--fi-color-gray-500, #71717a); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em;">
+                        <th style="padding: 0.5rem 0; text-align: start;">{{ __('admin.fields.type') }}</th>
+                        <th style="padding: 0.5rem 0; text-align: end;">{{ __('admin.fields.amount') }}</th>
                     </tr>
-                @endforeach
-            </tbody>
-        </table>
-    </div>
+                </thead>
+                <tbody>
+                    @foreach($report['revenue_by_type'] as $type => $amount)
+                        <tr style="border-top: 1px solid var(--fi-color-gray-100, #f3f4f6);">
+                            <td style="padding: 0.625rem 0;">{{ __("admin.enums.invoice_item_type.{$type}") }}</td>
+                            <td style="padding: 0.625rem 0; text-align: end; font-variant-numeric: tabular-nums; font-weight: 500;">
+                                EGP {{ number_format($amount, 2) }}
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </x-filament::section>
     @endif
+
 </x-filament-panels::page>
