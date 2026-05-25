@@ -86,6 +86,10 @@ class ActionRequired extends Widget
         $items = [];
         $maintenanceEnabled = \App\Support\Modules::enabled('maintenance');
 
+        // Each card pre-applies the right filter AND sorts the offending
+        // rows to the top, so clicking lands the operator on the work
+        // they need to do, not on a table they then have to re-sort.
+
         if ($maintenanceEnabled && $urgentMaintenanceCount > 0) {
             $items[] = [
                 'key' => 'urgent_maintenance',
@@ -93,7 +97,11 @@ class ActionRequired extends Widget
                 'color' => 'danger',
                 'title' => trans_choice('admin.widgets.action_required.urgent_maintenance', $urgentMaintenanceCount, ['count' => $urgentMaintenanceCount]),
                 'body' => __('admin.widgets.action_required.urgent_maintenance_body'),
-                'url' => MaintenanceRequestResource::getUrl('index', ['tableFilters' => ['priority' => ['value' => 'urgent']]]),
+                'url' => MaintenanceRequestResource::getUrl('index', [
+                    'tableFilters' => ['priority' => ['value' => 'urgent']],
+                    'tableSortColumn' => 'submitted_at',
+                    'tableSortDirection' => 'asc',
+                ]),
             ];
         }
 
@@ -104,7 +112,11 @@ class ActionRequired extends Widget
                 'color' => 'danger',
                 'title' => trans_choice('admin.widgets.action_required.sla_breached', $slaBreachedCount, ['count' => $slaBreachedCount]),
                 'body' => __('admin.widgets.action_required.sla_breached_body'),
-                'url' => MaintenanceRequestResource::getUrl('index', ['tableFilters' => ['sla_breached' => ['isActive' => true]]]),
+                'url' => MaintenanceRequestResource::getUrl('index', [
+                    'tableFilters' => ['sla_breached' => ['isActive' => true]],
+                    'tableSortColumn' => 'target_resolution_at',
+                    'tableSortDirection' => 'asc',
+                ]),
             ];
         }
 
@@ -115,7 +127,11 @@ class ActionRequired extends Widget
                 'color' => 'danger',
                 'title' => trans_choice('admin.widgets.action_required.overdue_invoices', $overdueCount, ['count' => $overdueCount]),
                 'body' => __('admin.widgets.action_required.overdue_invoices_body', ['amount' => number_format((float) $overdueAmount, 0)]),
-                'url' => InvoiceResource::getUrl('index', ['tableFilters' => ['overdue_only' => ['isActive' => true]]]),
+                'url' => InvoiceResource::getUrl('index', [
+                    'tableFilters' => ['overdue_only' => ['isActive' => true]],
+                    'tableSortColumn' => 'due_date',
+                    'tableSortDirection' => 'asc',
+                ]),
             ];
         }
 
@@ -126,7 +142,11 @@ class ActionRequired extends Widget
                 'color' => 'danger',
                 'title' => trans_choice('admin.widgets.action_required.expiring_critical', $expiringCriticalCount, ['count' => $expiringCriticalCount]),
                 'body' => __('admin.widgets.action_required.expiring_critical_body'),
-                'url' => LeaseResource::getUrl('index', ['tableFilters' => ['expiring_soon' => ['isActive' => true]]]),
+                'url' => LeaseResource::getUrl('index', [
+                    'tableFilters' => ['expiring_soon' => ['isActive' => true]],
+                    'tableSortColumn' => 'expiry_date',
+                    'tableSortDirection' => 'asc',
+                ]),
             ];
         }
 
@@ -137,7 +157,11 @@ class ActionRequired extends Widget
                 'color' => 'warning',
                 'title' => trans_choice('admin.widgets.action_required.expiring_soon', $expiringSoonCount, ['count' => $expiringSoonCount]),
                 'body' => __('admin.widgets.action_required.expiring_soon_body'),
-                'url' => LeaseResource::getUrl('index', ['tableFilters' => ['expiring_soon' => ['isActive' => true]]]),
+                'url' => LeaseResource::getUrl('index', [
+                    'tableFilters' => ['expiring_soon' => ['isActive' => true]],
+                    'tableSortColumn' => 'expiry_date',
+                    'tableSortDirection' => 'asc',
+                ]),
             ];
         }
 
@@ -148,18 +172,29 @@ class ActionRequired extends Widget
                 'color' => 'info',
                 'title' => trans_choice('admin.widgets.action_required.vacant_units', $vacantCount, ['count' => $vacantCount]),
                 'body' => __('admin.widgets.action_required.vacant_units_body'),
-                'url' => UnitResource::getUrl('index', ['tableFilters' => ['status' => ['value' => 'vacant']]]),
+                'url' => UnitResource::getUrl('index', [
+                    'tableFilters' => ['status' => ['value' => 'vacant']],
+                    'tableSortColumn' => 'area_sqm',
+                    'tableSortDirection' => 'desc',
+                ]),
             ];
         }
 
         if ($unbilledLeasesCount > 0) {
+            // "Unbilled leases" wants the operator on the Leases page filtered
+            // to active leases — that's where they trigger Monthly Billing.
+            // Sort newest-first so leases that just commenced surface fastest.
             $items[] = [
                 'key' => 'unbilled',
                 'icon' => 'heroicon-o-document-plus',
                 'color' => 'warning',
                 'title' => trans_choice('admin.widgets.action_required.unbilled_leases', $unbilledLeasesCount, ['count' => $unbilledLeasesCount]),
                 'body' => __('admin.widgets.action_required.unbilled_leases_body'),
-                'url' => InvoiceResource::getUrl('index'),
+                'url' => LeaseResource::getUrl('index', [
+                    'tableFilters' => ['status' => ['value' => 'active']],
+                    'tableSortColumn' => 'commencement_date',
+                    'tableSortDirection' => 'desc',
+                ]),
             ];
         }
 

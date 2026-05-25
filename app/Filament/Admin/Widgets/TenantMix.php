@@ -28,10 +28,6 @@ class TenantMix extends ChartWidget
 
     protected static ?int $sort = 4;
 
-    protected ?string $maxHeight = '260px';
-
-    protected int|string|array $columnSpan = 1;
-
     /**
      * Stable palette mapped to known categories; falls back per-index for unknowns.
      */

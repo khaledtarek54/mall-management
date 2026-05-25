@@ -28,9 +28,6 @@ class ArAging extends ChartWidget
 
     protected static ?int $sort = 3;
 
-    protected ?string $maxHeight = '260px';
-
-    protected int|string|array $columnSpan = 1;
 
     protected function getData(): array
     {
