@@ -34,10 +34,7 @@ class ArAging extends ChartWidget
 
     protected function getData(): array
     {
-        $assetId = \App\Support\TenantScope::currentAssetId();
-        $base = fn () => $assetId
-            ? Invoice::whereHas('lease.unit', fn ($q) => $q->where('asset_id', $assetId))
-            : Invoice::query();
+        $base = fn () => \App\Support\TenantScope::applyTo(Invoice::query(), 'lease.unit');
 
         $buckets = [
             'current' => [

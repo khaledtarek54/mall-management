@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Payments;
 
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
+use App\Filament\Admin\Resources\Concerns\ScopesViaProperty;
 use App\Filament\Admin\Resources\Payments\Pages\CreatePayment;
 use App\Filament\Admin\Resources\Payments\Pages\EditPayment;
 use App\Filament\Admin\Resources\Payments\Pages\ListPayments;
@@ -21,6 +22,12 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 class PaymentResource extends Resource
 {
     use RoleGatedActions;
+    use ScopesViaProperty;
+
+    protected static function tenantScopeRelation(): string
+    {
+        return 'invoices.lease.unit';
+    }
 
     protected static ?string $model = Payment::class;
 
@@ -76,31 +83,7 @@ class PaymentResource extends Resource
         ];
     }
 
-    public static function getRecordRouteBindingEloquentQuery(): Builder
-    {
-        return parent::getRecordRouteBindingEloquentQuery()
-            ->withoutGlobalScopes([
-                SoftDeletingScope::class,
-            ]);
-    }
-
-    public static function getEloquentQuery(): Builder
-    {
-        $query = parent::getEloquentQuery();
-
-        if ($assetId = \App\Support\TenantScope::currentAssetId()) {
-            $query->whereHas('invoices.lease.unit', fn ($q) => $q->where('asset_id', $assetId));
-        }
-
-        return $query;
-    }
-
-    public static function scopeEloquentQueryToTenant(Builder $query, ?Model $tenant): Builder
-    {
-        return $query;
-    }
-
-    public static function getGloballySearchableAttributes(): array
+public static function getGloballySearchableAttributes(): array
     {
         return ['reference', 'tenant.name'];
     }

@@ -35,6 +35,40 @@ class TenantScope
     }
 
     /**
+     * Apply tenant scoping to a query in one call. Used by widgets and
+     * services that need to constrain a Model query to the current
+     * property — passes through unchanged when "All Properties" is
+     * active or no tenant is set.
+     *
+     *   $invoices = TenantScope::applyTo(Invoice::query(), 'lease.unit');
+     *
+     * Pass `null` (or omit) for `$relation` when the model itself has
+     * `asset_id` directly (Unit, UtilityMeter, CamExpensePool).
+     *
+     * @template TModel of \Illuminate\Database\Eloquent\Model
+     * @param  \Illuminate\Database\Eloquent\Builder<TModel>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<TModel>
+     */
+    public static function applyTo(
+        \Illuminate\Database\Eloquent\Builder $query,
+        ?string $relation = null,
+    ): \Illuminate\Database\Eloquent\Builder {
+        $assetId = self::currentAssetId();
+        if ($assetId === null) {
+            return $query;
+        }
+
+        if ($relation === null) {
+            return $query->where('asset_id', $assetId);
+        }
+
+        return $query->whereHas(
+            $relation,
+            fn ($q) => $q->where('asset_id', $assetId),
+        );
+    }
+
+    /**
      * When "All Properties" is active and the user has restricted access
      * (not super_admin), the queries still need to be constrained to the
      * user's assigned properties. Returns the list of asset IDs the

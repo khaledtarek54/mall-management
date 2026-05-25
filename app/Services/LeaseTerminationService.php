@@ -54,11 +54,17 @@ class LeaseTerminationService
                 'end_date' => $terminationDate,
             ]);
 
-            // 4. Cancel open invoices if requested
+            // 4. Cancel open invoices if requested — but only fully unpaid
+            // ones. A partially-paid invoice that we silently cancelled would
+            // orphan the tenant's paid_amount (they'd have paid into a
+            // record that no longer claims any balance). Operators who want
+            // to void a partially-paid invoice must issue a credit note for
+            // the paid portion explicitly — that keeps the AR ledger honest.
             if ($cancelOpenInvoices) {
                 Invoice::where('lease_id', $lease->id)
                     ->whereIn('status', ['draft', 'issued', 'partially_paid', 'overdue'])
                     ->where('balance', '>', 0)
+                    ->where('paid_amount', '=', 0)
                     ->each(function (Invoice $invoice) {
                         $invoice->update([
                             'status' => 'cancelled',

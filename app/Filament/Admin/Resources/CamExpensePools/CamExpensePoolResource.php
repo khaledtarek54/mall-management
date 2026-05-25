@@ -7,6 +7,7 @@ use App\Filament\Admin\Resources\CamExpensePools\Pages\EditCamExpensePool;
 use App\Filament\Admin\Resources\CamExpensePools\Pages\ListCamExpensePools;
 use App\Filament\Admin\Resources\CamExpensePools\Schemas\CamExpensePoolForm;
 use App\Filament\Admin\Resources\CamExpensePools\Tables\CamExpensePoolsTable;
+use App\Filament\Admin\Resources\Concerns\BypassesScopingOnAll;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Models\CamExpensePool;
 use BackedEnum;
@@ -19,6 +20,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class CamExpensePoolResource extends Resource
 {
+    use BypassesScopingOnAll;
     use RoleGatedActions;
 
     protected static function permissionModule(): string
@@ -80,23 +82,4 @@ class CamExpensePoolResource extends Resource
         ];
     }
 
-    public static function getRecordRouteBindingEloquentQuery(): Builder
-    {
-        return parent::getRecordRouteBindingEloquentQuery()
-            ->withoutGlobalScopes([SoftDeletingScope::class]);
-    }
-
-    public static function getEloquentQuery(): Builder
-    {
-        return parent::getEloquentQuery();
-    }
-
-    public static function scopeEloquentQueryToTenant(Builder $query, ?\Illuminate\Database\Eloquent\Model $tenant): Builder
-    {
-        if ($tenant instanceof \App\Models\Asset && $tenant->isAllProperties()) {
-            return $query;
-        }
-
-        return parent::scopeEloquentQueryToTenant($query, $tenant);
-    }
 }

@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Tenants;
 
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
+use App\Filament\Admin\Resources\Concerns\ScopesViaProperty;
 use App\Filament\Admin\Resources\Tenants\Pages\CreateTenant;
 use App\Filament\Admin\Resources\Tenants\Pages\EditTenant;
 use App\Filament\Admin\Resources\Tenants\Pages\ListTenants;
@@ -21,6 +22,12 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 class TenantResource extends Resource
 {
     use RoleGatedActions;
+    use ScopesViaProperty;
+
+    protected static function tenantScopeRelation(): string
+    {
+        return 'leases.unit';
+    }
 
     protected static ?string $model = Tenant::class;
 
@@ -80,32 +87,7 @@ class TenantResource extends Resource
         ];
     }
 
-    public static function getRecordRouteBindingEloquentQuery(): Builder
-    {
-        return parent::getRecordRouteBindingEloquentQuery()
-            ->withoutGlobalScopes([
-                SoftDeletingScope::class,
-            ]);
-    }
-
-    public static function getEloquentQuery(): Builder
-    {
-        $query = parent::getEloquentQuery();
-
-        if ($assetId = \App\Support\TenantScope::currentAssetId()) {
-            // Show tenants who have at least one lease in this property.
-            $query->whereHas('leases.unit', fn ($q) => $q->where('asset_id', $assetId));
-        }
-
-        return $query;
-    }
-
-    public static function scopeEloquentQueryToTenant(Builder $query, ?Model $tenant): Builder
-    {
-        return $query;
-    }
-
-    public static function getGloballySearchableAttributes(): array
+public static function getGloballySearchableAttributes(): array
     {
         return ['name', 'legal_name', 'email', 'phone', 'contact_person'];
     }

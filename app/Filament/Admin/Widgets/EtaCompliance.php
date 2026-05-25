@@ -28,14 +28,10 @@ class EtaCompliance extends StatsOverviewWidget
 
     protected function getStats(): array
     {
-        $assetId = \App\Support\TenantScope::currentAssetId();
-
         // We only count invoices that have actually been issued (or beyond).
         // Drafts and cancelled invoices aren't part of the compliance posture.
-        $base = ($assetId
-            ? Invoice::whereHas('lease.unit', fn ($q) => $q->where('asset_id', $assetId))
-            : Invoice::query()
-        )->whereIn('status', ['issued', 'partially_paid', 'paid', 'overdue']);
+        $base = \App\Support\TenantScope::applyTo(Invoice::query(), 'lease.unit')
+            ->whereIn('status', ['issued', 'partially_paid', 'paid', 'overdue']);
 
         $valid = (clone $base)->where('eta_status', 'valid')->count();
         $submitted = (clone $base)->where('eta_status', 'submitted')->count();

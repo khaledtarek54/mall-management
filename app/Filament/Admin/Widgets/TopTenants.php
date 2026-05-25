@@ -33,12 +33,7 @@ class TopTenants extends TableWidget
     {
         return $table
             ->query(function (): Builder {
-                $assetId = \App\Support\TenantScope::currentAssetId();
-                $base = $assetId
-                    ? Lease::whereHas('unit', fn ($q) => $q->where('asset_id', $assetId))
-                    : Lease::query();
-
-                return $base
+                return \App\Support\TenantScope::applyTo(Lease::query(), 'unit')
                     ->where('status', 'active')
                     ->with(['tenant', 'unit'])
                     ->orderByDesc('base_rent_monthly')

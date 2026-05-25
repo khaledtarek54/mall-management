@@ -37,12 +37,7 @@ class OpenMaintenanceRequests extends TableWidget
     {
         return $table
             ->query(function (): Builder {
-                $assetId = \App\Support\TenantScope::currentAssetId();
-                $base = $assetId
-                    ? MaintenanceRequest::whereHas('unit', fn ($q) => $q->where('asset_id', $assetId))
-                    : MaintenanceRequest::query();
-
-                return $base
+                return \App\Support\TenantScope::applyTo(MaintenanceRequest::query(), 'unit')
                     ->whereIn('status', MaintenanceRequest::OPEN_STATUSES)
                     ->with(['tenant', 'unit', 'assignee'])
                     ->orderByRaw("FIELD(priority, 'urgent', 'high', 'medium', 'low')")

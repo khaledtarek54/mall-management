@@ -3,6 +3,7 @@
 namespace App\Services\Eta;
 
 use App\Models\Invoice;
+use RuntimeException;
 
 /**
  * Builds the JSON document ETA expects for B2B invoice submission.
@@ -20,6 +21,17 @@ class EtaJsonBuilder
 
         $issuer = config('eta.issuer');
         $tenant = $invoice->lease?->tenant;
+        $receiverType = $this->mapTenantType($tenant?->type);
+
+        // Business receivers must carry a tax_id — ETA validates this at
+        // submission time and rejects the document otherwise. Catch it here
+        // so the operator sees a clear "tenant X is missing a tax ID"
+        // error instead of an opaque ETA rejection later.
+        if ($receiverType === 'B' && empty($tenant?->tax_id)) {
+            throw new RuntimeException(
+                "Tenant '{$tenant?->name}' (id={$tenant?->id}) is a business but has no tax_id — ETA submission requires one. Add the tax registration number on the tenant record before submitting invoice {$invoice->number}."
+            );
+        }
 
         return [
             'issuer' => [
@@ -36,7 +48,7 @@ class EtaJsonBuilder
                     'street' => $tenant?->address ?? 'N/A',
                     'buildingNumber' => '1',
                 ],
-                'type' => $this->mapTenantType($tenant?->type),
+                'type' => $receiverType,
                 'id' => $tenant?->tax_id ?? '000000000',
                 'name' => $tenant?->legal_name ?? $tenant?->name ?? 'Unknown',
             ],

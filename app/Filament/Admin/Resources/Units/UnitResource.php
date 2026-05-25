@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Units;
 
+use App\Filament\Admin\Resources\Concerns\BypassesScopingOnAll;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Units\Pages\CreateUnit;
 use App\Filament\Admin\Resources\Units\Pages\EditUnit;
@@ -20,6 +21,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class UnitResource extends Resource
 {
+    use BypassesScopingOnAll;
     use RoleGatedActions;
 
     protected static ?string $model = Unit::class;
@@ -81,30 +83,7 @@ class UnitResource extends Resource
         return 'danger';
     }
 
-    public static function getRecordRouteBindingEloquentQuery(): Builder
-    {
-        return parent::getRecordRouteBindingEloquentQuery()
-            ->withoutGlobalScopes([
-                SoftDeletingScope::class,
-            ]);
-    }
-
-    public static function getEloquentQuery(): Builder
-    {
-        return parent::getEloquentQuery();
-    }
-
-    public static function scopeEloquentQueryToTenant(Builder $query, ?Model $tenant): Builder
-    {
-        // "All Properties" pseudo-tenant bypasses scoping entirely.
-        if ($tenant instanceof \App\Models\Asset && $tenant->isAllProperties()) {
-            return $query;
-        }
-
-        return parent::scopeEloquentQueryToTenant($query, $tenant);
-    }
-
-    public static function getGloballySearchableAttributes(): array
+public static function getGloballySearchableAttributes(): array
     {
         return ['code', 'asset.name', 'activeLease.tenant.name'];
     }

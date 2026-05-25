@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Invoices;
 
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
+use App\Filament\Admin\Resources\Concerns\ScopesViaProperty;
 use App\Filament\Admin\Resources\Invoices\Pages\CreateInvoice;
 use App\Filament\Admin\Resources\Invoices\Pages\EditInvoice;
 use App\Filament\Admin\Resources\Invoices\Pages\ListInvoices;
@@ -21,6 +22,12 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 class InvoiceResource extends Resource
 {
     use RoleGatedActions;
+    use ScopesViaProperty;
+
+    protected static function tenantScopeRelation(): string
+    {
+        return 'lease.unit';
+    }
 
     protected static ?string $model = Invoice::class;
 
@@ -88,30 +95,6 @@ class InvoiceResource extends Resource
     public static function getNavigationBadgeColor(): ?string
     {
         return 'danger';
-    }
-
-    public static function getRecordRouteBindingEloquentQuery(): Builder
-    {
-        return parent::getRecordRouteBindingEloquentQuery()
-            ->withoutGlobalScopes([
-                SoftDeletingScope::class,
-            ]);
-    }
-
-    public static function getEloquentQuery(): Builder
-    {
-        $query = parent::getEloquentQuery();
-
-        if ($assetId = \App\Support\TenantScope::currentAssetId()) {
-            $query->whereHas('lease.unit', fn ($q) => $q->where('asset_id', $assetId));
-        }
-
-        return $query;
-    }
-
-    public static function scopeEloquentQueryToTenant(Builder $query, ?Model $tenant): Builder
-    {
-        return $query;
     }
 
     public static function getGloballySearchableAttributes(): array

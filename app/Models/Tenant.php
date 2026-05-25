@@ -97,17 +97,41 @@ class Tenant extends Authenticatable implements FilamentUser, HasMedia
         return $this->hasMany(MaintenanceRequest::class);
     }
 
-    public function outstandingBalance(): float
+    public function creditNotes(): HasMany
     {
-        return (float) $this->invoices()
-            ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
-            ->sum('balance');
+        return $this->hasMany(CreditNote::class);
     }
 
+    /**
+     * Net outstanding AR for this tenant: open invoice balances minus the
+     * tenant's unapplied credit-note balances. A tenant carrying a 1000 EGP
+     * invoice and a 300 EGP issued credit note owes 700, not 1000.
+     */
+    public function outstandingBalance(): float
+    {
+        $invoiceBalance = (float) $this->invoices()
+            ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
+            ->sum('balance');
+
+        $creditNoteBalance = (float) $this->creditNotes()
+            ->whereIn('status', ['issued', 'partially_applied'])
+            ->sum('balance');
+
+        return round($invoiceBalance - $creditNoteBalance, 2);
+    }
+
+    /**
+     * Delinquent = at least one invoice with a remaining balance is past
+     * its due date. Doesn't trust the `status` column alone — that column
+     * is only auto-flipped to 'overdue' by Payment hooks, so manually
+     * cancelled / orphaned invoices can stay 'issued' indefinitely.
+     */
     public function isDelinquent(): bool
     {
         return $this->invoices()
-            ->where('status', 'overdue')
+            ->where('balance', '>', 0)
+            ->where('due_date', '<', now())
+            ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
             ->exists();
     }
 }

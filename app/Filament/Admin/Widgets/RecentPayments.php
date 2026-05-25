@@ -31,12 +31,7 @@ class RecentPayments extends TableWidget
     {
         return $table
             ->query(function (): Builder {
-                $assetId = \App\Support\TenantScope::currentAssetId();
-                $base = $assetId
-                    ? Payment::whereHas('invoices.lease.unit', fn ($q) => $q->where('asset_id', $assetId))
-                    : Payment::query();
-
-                return $base
+                return \App\Support\TenantScope::applyTo(Payment::query(), 'invoices.lease.unit')
                     ->where('status', 'captured')
                     ->with('tenant')
                     ->latest('payment_date')

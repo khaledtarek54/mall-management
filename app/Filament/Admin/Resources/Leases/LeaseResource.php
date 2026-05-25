@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Leases;
 
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
+use App\Filament\Admin\Resources\Concerns\ScopesViaProperty;
 use App\Filament\Admin\Resources\Leases\Pages\CreateLease;
 use App\Filament\Admin\Resources\Leases\Pages\EditLease;
 use App\Filament\Admin\Resources\Leases\Pages\ListLeases;
@@ -21,6 +22,12 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 class LeaseResource extends Resource
 {
     use RoleGatedActions;
+    use ScopesViaProperty;
+
+    protected static function tenantScopeRelation(): string
+    {
+        return 'unit';
+    }
 
     protected static ?string $model = Lease::class;
 
@@ -75,32 +82,6 @@ class LeaseResource extends Resource
             'create' => CreateLease::route('/create'),
             'edit' => EditLease::route('/{record}/edit'),
         ];
-    }
-
-    public static function getRecordRouteBindingEloquentQuery(): Builder
-    {
-        return parent::getRecordRouteBindingEloquentQuery()
-            ->withoutGlobalScopes([
-                SoftDeletingScope::class,
-            ]);
-    }
-
-    public static function getEloquentQuery(): Builder
-    {
-        $query = parent::getEloquentQuery();
-
-        if ($assetId = \App\Support\TenantScope::currentAssetId()) {
-            $query->whereHas('unit', fn ($q) => $q->where('asset_id', $assetId));
-        }
-
-        return $query;
-    }
-
-    // Lease doesn't carry asset_id directly (goes through unit). Tell Filament
-    // not to auto-scope — we already do it in getEloquentQuery above.
-    public static function scopeEloquentQueryToTenant(Builder $query, ?\Illuminate\Database\Eloquent\Model $tenant): Builder
-    {
-        return $query;
     }
 
     public static function getGloballySearchableAttributes(): array

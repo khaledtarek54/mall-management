@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\UtilityMeters;
 
+use App\Filament\Admin\Resources\Concerns\BypassesScopingOnAll;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\UtilityMeters\Pages\CreateUtilityMeter;
 use App\Filament\Admin\Resources\UtilityMeters\Pages\EditUtilityMeter;
@@ -19,6 +20,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class UtilityMeterResource extends Resource
 {
+    use BypassesScopingOnAll;
     use RoleGatedActions;
 
     protected static ?string $model = UtilityMeter::class;
@@ -71,20 +73,5 @@ class UtilityMeterResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()->with(['asset', 'unit']);
-    }
-
-    public static function scopeEloquentQueryToTenant(Builder $query, ?\Illuminate\Database\Eloquent\Model $tenant): Builder
-    {
-        if ($tenant instanceof \App\Models\Asset && $tenant->isAllProperties()) {
-            return $query;
-        }
-
-        return parent::scopeEloquentQueryToTenant($query, $tenant);
-    }
-
-    public static function getRecordRouteBindingEloquentQuery(): Builder
-    {
-        return parent::getRecordRouteBindingEloquentQuery()
-            ->withoutGlobalScopes([SoftDeletingScope::class]);
     }
 }

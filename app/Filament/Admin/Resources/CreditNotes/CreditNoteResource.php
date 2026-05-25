@@ -7,6 +7,7 @@ use App\Filament\Admin\Resources\CreditNotes\Pages\EditCreditNote;
 use App\Filament\Admin\Resources\CreditNotes\Pages\ListCreditNotes;
 use App\Filament\Admin\Resources\CreditNotes\Schemas\CreditNoteForm;
 use App\Filament\Admin\Resources\CreditNotes\Tables\CreditNotesTable;
+use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Models\CreditNote;
 use BackedEnum;
@@ -20,6 +21,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class CreditNoteResource extends Resource
 {
+    use BypassesFilamentTenantAutoScope;
     use RoleGatedActions;
 
     protected static ?string $model = CreditNote::class;
@@ -74,17 +76,6 @@ class CreditNoteResource extends Resource
             'create' => CreateCreditNote::route('/create'),
             'edit' => EditCreditNote::route('/{record}/edit'),
         ];
-    }
-
-    public static function getRecordRouteBindingEloquentQuery(): Builder
-    {
-        return parent::getRecordRouteBindingEloquentQuery()
-            ->withoutGlobalScopes([SoftDeletingScope::class]);
-    }
-
-    public static function scopeEloquentQueryToTenant(Builder $query, ?\Illuminate\Database\Eloquent\Model $tenant): Builder
-    {
-        return $query;
     }
 
     public static function getEloquentQuery(): Builder

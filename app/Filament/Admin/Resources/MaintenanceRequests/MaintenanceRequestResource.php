@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\MaintenanceRequests;
 
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
+use App\Filament\Admin\Resources\Concerns\ScopesViaProperty;
 use App\Filament\Admin\Resources\MaintenanceRequests\Pages\CreateMaintenanceRequest;
 use App\Filament\Admin\Resources\MaintenanceRequests\Pages\EditMaintenanceRequest;
 use App\Filament\Admin\Resources\MaintenanceRequests\Pages\ListMaintenanceRequests;
@@ -21,6 +22,12 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 class MaintenanceRequestResource extends Resource
 {
     use RoleGatedActions;
+    use ScopesViaProperty;
+
+    protected static function tenantScopeRelation(): string
+    {
+        return 'unit';
+    }
 
     protected static function permissionModule(): string
     {
@@ -98,31 +105,7 @@ class MaintenanceRequestResource extends Resource
         ];
     }
 
-    public static function getRecordRouteBindingEloquentQuery(): Builder
-    {
-        return parent::getRecordRouteBindingEloquentQuery()
-            ->withoutGlobalScopes([
-                SoftDeletingScope::class,
-            ]);
-    }
-
-    public static function getEloquentQuery(): Builder
-    {
-        $query = parent::getEloquentQuery();
-
-        if ($assetId = \App\Support\TenantScope::currentAssetId()) {
-            $query->whereHas('unit', fn ($q) => $q->where('asset_id', $assetId));
-        }
-
-        return $query;
-    }
-
-    public static function scopeEloquentQueryToTenant(Builder $query, ?Model $tenant): Builder
-    {
-        return $query;
-    }
-
-    public static function getGloballySearchableAttributes(): array
+public static function getGloballySearchableAttributes(): array
     {
         return ['reference', 'title', 'tenant.name', 'unit.code'];
     }

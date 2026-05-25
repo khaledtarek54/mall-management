@@ -45,6 +45,9 @@ class User extends Authenticatable implements FilamentUser, HasTenants
 
     public function getTenants(Panel $panel): Collection
     {
+        // Soft-deleted assets are intentionally excluded from the tenant
+        // switcher — selecting one would land the user in a property that
+        // no longer exists.
         $assets = $this->hasRole('super_admin')
             ? Asset::query()->where('code', '!=', Asset::ALL_PROPERTIES_CODE)->get()
             : $this->assignedAssets()->where('assets.code', '!=', Asset::ALL_PROPERTIES_CODE)->get();
@@ -64,13 +67,24 @@ class User extends Authenticatable implements FilamentUser, HasTenants
 
     public function canAccessTenant(Model $tenant): bool
     {
+        if (! $tenant instanceof Asset) {
+            return false;
+        }
+
+        // A trashed asset is never accessible — guard against URL tampering
+        // (a user assigned to an asset that gets soft-deleted shouldn't be
+        // able to keep operating on it via the saved URL).
+        if (method_exists($tenant, 'trashed') && $tenant->trashed()) {
+            return false;
+        }
+
         if ($this->hasRole('super_admin')) {
             return true;
         }
 
         // "All Properties" is accessible whenever the user has more than
         // one assigned property — same gate as getTenants().
-        if ($tenant instanceof Asset && $tenant->isAllProperties()) {
+        if ($tenant->isAllProperties()) {
             return $this->assignedAssets()->count() > 1;
         }
 
