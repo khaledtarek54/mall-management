@@ -99,8 +99,7 @@ class ActionRequired extends Widget
                 'body' => __('admin.widgets.action_required.urgent_maintenance_body'),
                 'url' => MaintenanceRequestResource::getUrl('index', [
                     'tableFilters' => ['priority' => ['value' => 'urgent']],
-                    'tableSortColumn' => 'submitted_at',
-                    'tableSortDirection' => 'asc',
+                    'tableSort' => 'submitted_at:asc',
                 ]),
             ];
         }
@@ -114,8 +113,7 @@ class ActionRequired extends Widget
                 'body' => __('admin.widgets.action_required.sla_breached_body'),
                 'url' => MaintenanceRequestResource::getUrl('index', [
                     'tableFilters' => ['sla_breached' => ['isActive' => true]],
-                    'tableSortColumn' => 'target_resolution_at',
-                    'tableSortDirection' => 'asc',
+                    'tableSort' => 'target_resolution_at:asc',
                 ]),
             ];
         }
@@ -129,8 +127,7 @@ class ActionRequired extends Widget
                 'body' => __('admin.widgets.action_required.overdue_invoices_body', ['amount' => number_format((float) $overdueAmount, 0)]),
                 'url' => InvoiceResource::getUrl('index', [
                     'tableFilters' => ['overdue_only' => ['isActive' => true]],
-                    'tableSortColumn' => 'due_date',
-                    'tableSortDirection' => 'asc',
+                    'tableSort' => 'due_date:asc',
                 ]),
             ];
         }
@@ -144,8 +141,7 @@ class ActionRequired extends Widget
                 'body' => __('admin.widgets.action_required.expiring_critical_body'),
                 'url' => LeaseResource::getUrl('index', [
                     'tableFilters' => ['expiring_soon' => ['isActive' => true]],
-                    'tableSortColumn' => 'expiry_date',
-                    'tableSortDirection' => 'asc',
+                    'tableSort' => 'expiry_date:asc',
                 ]),
             ];
         }
@@ -159,8 +155,7 @@ class ActionRequired extends Widget
                 'body' => __('admin.widgets.action_required.expiring_soon_body'),
                 'url' => LeaseResource::getUrl('index', [
                     'tableFilters' => ['expiring_soon' => ['isActive' => true]],
-                    'tableSortColumn' => 'expiry_date',
-                    'tableSortDirection' => 'asc',
+                    'tableSort' => 'expiry_date:asc',
                 ]),
             ];
         }
@@ -174,8 +169,7 @@ class ActionRequired extends Widget
                 'body' => __('admin.widgets.action_required.vacant_units_body'),
                 'url' => UnitResource::getUrl('index', [
                     'tableFilters' => ['status' => ['value' => 'vacant']],
-                    'tableSortColumn' => 'area_sqm',
-                    'tableSortDirection' => 'desc',
+                    'tableSort' => 'area_sqm:desc',
                 ]),
             ];
         }
@@ -192,8 +186,7 @@ class ActionRequired extends Widget
                 'body' => __('admin.widgets.action_required.unbilled_leases_body'),
                 'url' => LeaseResource::getUrl('index', [
                     'tableFilters' => ['status' => ['value' => 'active']],
-                    'tableSortColumn' => 'commencement_date',
-                    'tableSortDirection' => 'desc',
+                    'tableSort' => 'commencement_date:desc',
                 ]),
             ];
         }

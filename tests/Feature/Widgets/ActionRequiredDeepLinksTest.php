@@ -1,7 +1,6 @@
 <?php
 
 use App\Filament\Admin\Widgets\ActionRequired;
-use App\Models\Charge;
 use App\Models\MaintenanceRequest;
 
 beforeEach(function () {
@@ -52,8 +51,7 @@ it('urgent_maintenance link filters by priority AND sorts oldest first', functio
         $url = $card['url'];
         expect($url)
             ->toContain('tableFilters%5Bpriority%5D%5Bvalue%5D=urgent')
-            ->toContain('tableSortColumn=submitted_at')
-            ->toContain('tableSortDirection=asc');
+            ->toContain('tableSort=submitted_at%3Aasc');
     });
 });
 
@@ -64,8 +62,7 @@ it('sla_breached link filters + sorts most-overdue first', function () {
 
         expect($card['url'])
             ->toContain('sla_breached')
-            ->toContain('tableSortColumn=target_resolution_at')
-            ->toContain('tableSortDirection=asc');
+            ->toContain('tableSort=target_resolution_at%3Aasc');
     });
 });
 
@@ -76,8 +73,7 @@ it('overdue_invoices link filters + sorts oldest-due-date first', function () {
 
         expect($card['url'])
             ->toContain('overdue_only')
-            ->toContain('tableSortColumn=due_date')
-            ->toContain('tableSortDirection=asc');
+            ->toContain('tableSort=due_date%3Aasc');
     });
 });
 
@@ -88,8 +84,7 @@ it('expiring_critical link filters + sorts soonest-expiring first', function () 
 
         expect($card['url'])
             ->toContain('expiring_soon')
-            ->toContain('tableSortColumn=expiry_date')
-            ->toContain('tableSortDirection=asc');
+            ->toContain('tableSort=expiry_date%3Aasc');
     });
 });
 
@@ -100,7 +95,25 @@ it('vacant_units link filters + sorts biggest-area first', function () {
 
         expect($card['url'])
             ->toContain('tableFilters%5Bstatus%5D%5Bvalue%5D=vacant')
-            ->toContain('tableSortColumn=area_sqm')
-            ->toContain('tableSortDirection=desc');
+            ->toContain('tableSort=area_sqm%3Adesc');
+    });
+});
+
+/**
+ * Filament 4 swapped the URL parameter from Filament 3's
+ * `tableSortColumn=X&tableSortDirection=Y` to a single
+ * `tableSort=column:direction`. This test pins the format so a future
+ * Filament upgrade — or a copy/paste from old docs — can't silently
+ * break the deep-links.
+ */
+it('uses the Filament 4 tableSort=column:direction URL format, not the Filament 3 dual-param form', function () {
+    asTenant($this->asset, function () {
+        $urls = collect(actionCards())->pluck('url');
+
+        foreach ($urls as $url) {
+            expect($url)
+                ->not->toContain('tableSortColumn=')
+                ->not->toContain('tableSortDirection=');
+        }
     });
 });
