@@ -14,8 +14,10 @@
 | Super Admin | `admin@mall.test` | `password` |
 | Manager | `manager@mall.test` | `password` |
 | Viewer | `viewer@mall.test` | `password` |
+| Leasing Manager | `leasing@mall.test` | `password` |
+| Maintenance Manager | `maintenance@mall.test` | `password` |
 
-Use **Super Admin** for the demo — full access to create/edit.
+Use **Super Admin** for the demo — full access to create/edit. Swap to the role-specific logins when demoing role-tailored dashboards.
 
 ---
 
@@ -117,20 +119,33 @@ Sidebar → **Settings → Users**.
 
 ## Things to flag if asked
 
-- **ETA submission fields** are in the invoice model (`eta_submission_id`, `eta_submitted_at`, `eta_response`) — wiring to the Egyptian Tax Authority feed is the next phase.
-- **Portal** — there's a separate `/portal` panel where tenants log in to see their statements and pay invoices. Mention it but don't navigate (we're showing admin tonight).
-- **WhatsApp + PDF** — invoice and statement actions support generating PDFs and sharing via WhatsApp. Demo button if you have time.
+- **ETA e-invoicing** is live in mock mode — submit-to-ETA action on invoices returns a stubbed Valid response. Flip `eta.mock` off in `/admin/settings → ETA` when preprod creds land. **ETA Compliance widget** on the dashboard surfaces Valid/Submitted/Rejected/Pending counts at a glance, each tile clickable into a filtered invoice list.
+- **Credit Notes & Refunds** — full AR lifecycle at `/admin/credit-notes` (issue → apply → void with idempotent service-layer math).
+- **Vendor Management** — `/admin/vendors` with contacts + contracts; maintenance requests route to vendors via the External Vendor select.
+- **Reports module** — `/admin/reports` with downloadable Monthly Close PDF + AR Aging drilldown.
+- **Settings + Module Flags** — `/admin/settings → Modules` turns any optional module on/off live.
+- **Custom Roles + Permissions** — `/admin/roles` lets admins create custom roles with any of 81 granular permissions.
+- **Role-tailored dashboards** — log in as `leasing@mall.test` or `maintenance@mall.test` to demo per-role widget sets.
+- **Portal** — there's a separate `/portal` panel where tenants log in to see their statements and pay invoices.
+- **Mobile API** — `/api/v1/auth/login` ships Sanctum tenant auth today; resource endpoints are Q2.
+- **WhatsApp + PDF** — invoice and statement actions support generating PDFs and sharing via WhatsApp.
 
 ## Numbers cheat-sheet for tonight
 
 ```
-Property:      Haya Walk
-Units:         50 (33 occupied · 17 vacant)
-Tenants:       33
-Active leases: 33
-MRR:           EGP 1.63M
-Invoices:      215 total · 12 overdue
-Collected MTD: EGP 220K (May 2026)
+Property:        Haya Walk
+Units:           50 (33 occupied · 17 vacant)
+Tenants:         33
+Active leases:   33
+MRR:             EGP 1.63M
+Invoices:        ~200 total · ~10 overdue
+Credit notes:    4 (across draft / issued / applied / void)
+Vendors:         8 (with primary contacts + contracts)
+Maintenance:     5 seeded across statuses + 5 distinct channels
+Permissions:     81 across 18 modules
+Roles:           6 built-in + custom-role UI
+Dashboard:       12 widgets, role-tailored per role
+Tests:           36 PHPUnit (124 assertions) · 170+ Playwright
 ```
 
 يلا بسم الله 💪

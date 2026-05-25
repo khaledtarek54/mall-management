@@ -101,32 +101,43 @@ This is the strategic air. PropEzy is a generalist proptech platform built in UA
 
 ## 4. Gap analysis vs PropEzy
 
-Maintenance and multi-property both removed (shipped). What remains:
+Every gap from the original analysis is now closed or surpassed except the credential-blocked ones. The dashboard parity sprint (see [docs/GAP-ANALYSIS-PROPEZY-DASHBOARD.md](docs/GAP-ANALYSIS-PROPEZY-DASHBOARD.md)) closed the last visible feature gaps.
 
 | Capability | PropEzy | Us | Status |
 |---|---|---|---|
 | Lease management | ✓ Mature | ✓ Built | Match |
-| Invoicing + billing | ✓ Mature | ✓ Built + Arabic PDF | We exceed |
+| Invoicing + billing | ✓ Mature | ✓ Built + Arabic PDF + Monthly Close PDF | We exceed |
 | Tenant portal (web) | ✓ Mature | ✓ Built | Match |
-| Audit trail | ✓ Mature | ✓ Built (Spatie ActivityLog on 7 models) | Match |
-| RBAC | ✓ Mature | ✓ Built | Match |
+| Audit trail | ✓ Mature | ✓ Built (Spatie ActivityLog on **13 models**) | We exceed |
+| **RBAC** | ✓ Mature | ✓ **81 granular permissions + 6 built-in roles + custom-role creator UI** | We exceed |
 | Document mgmt | ✓ Mature | ✓ Built (Spatie MediaLibrary) | Match |
-| Maintenance / CAFM | ✓ Mature | ✓ **Built** ([FEATURES.md](FEATURES.md)) | Match |
-| Multi-property tenancy | ✓ Mature | ✓ **Built** (session switcher + dynamic brand) | Match |
-| Reporting / BI widgets | ✓ Mature | ✓ Built (10 widgets) | Roughly match |
-| Occupancy mapping | Generic | Visual grid | We exceed |
-| **Egyptian ETA e-invoicing** | ❌ Not advertised | ⚙ Architected — needs creds | Big differentiator once activated |
-| **Arabic-native UI + PDF** | ❌ Not advertised | ✓ Native shaping + 685-line lang files | We exceed |
-| **Mall-specific (CAM, % rent, tenant sales)** | ❌ Not advertised | 🚧 To build (Module E + F below) | **Our headline moat** |
-| **Egyptian payment rails (Paymob, InstaPay)** | ❌ Not advertised | ⏸ Stubbed | Credential-blocked |
-| **Vendor management** | Generic | Not built | Gap — Week 1 build |
-| **Owner portal** | ✓ Mature | Not built | Gap — Week 2 build |
-| **Energy management** | ✓ Mature | Not built | Gap — Week 3 stub |
-| Tenant mobile app | ✓ iOS + Android | None | Defer — counter with WhatsApp |
-| White-label | Limited | ✓ Multi-operator + dynamic brand | We exceed |
+| Maintenance / CAFM | ✓ Mature | ✓ Built + **channel attribution** + **vendor routing** | We exceed |
+| Multi-property tenancy | ✓ Mature | ✓ Built (session switcher + dynamic brand) | Match |
+| **Reporting / BI widgets** | ✓ Mature (Power BI) | ✓ **12 widgets, role-tailored per user** | Match (with mall-vertical depth) |
+| Occupancy mapping | Generic | ✓ Visual grid | We exceed |
+| **Reports module + Monthly Close PDF** | ✓ "Standard reports" | ✓ Monthly Close PDF (EN + AR) + AR Aging drilldown page | We exceed |
+| **Egyptian ETA e-invoicing** | ❌ Not advertised | ✓ Architected + mock-ready + **dashboard compliance widget** | **Headline differentiator** (live on creds) |
+| **Arabic-native UI + PDF** | ❌ Not advertised | ✓ Native shaping + ~1,100-line lang files | We exceed |
+| **Mall-specific (CAM, % rent, tenant sales)** | ❌ Not advertised | ✓ All shipped (Tenant Sales + Percentage Rent both formulas + CAM Reconciliation) | **Our headline moat** |
+| **Sales Density column** (mall benchmark) | ❌ Not advertised | ✓ Live (declared sales ÷ sqm) | We exceed |
+| **Leasing Pipeline funnel** | ❌ Not advertised | ✓ Live (Draft → Active with EGP/mo per stage) | We exceed |
+| **Role-tailored dashboards** | ✓ Five dedicated interfaces | ✓ Six built-in roles + custom roles via UI | Match |
+| **Credit Notes & Refunds** | ❌ Not advertised | ✓ Full lifecycle + 6 PHPUnit tests | We exceed |
+| **Vendor management** | Generic | ✓ Vendors + contacts + contracts + maintenance routing | Match |
+| **Owner portal** | ✓ Mature | ✓ Built (`/owner` panel, scoped to owned assets) | Match |
+| **Property staff assignment** | Implicit | ✓ Explicit `asset_user` pivot | We exceed |
+| Energy management | ✓ Mature | ✓ Built (12-month chart; optimization Q3) | Match |
+| **Dynamic Settings + Module Feature Flags** | ❌ Not advertised | ✓ Every config DB-editable; modules toggleable live | We exceed |
+| **Egyptian payment rails (Paymob, InstaPay)** | ❌ Not advertised | ⏸ Stubbed, gated by `integrations.paymob_enabled` | Credential-blocked |
+| Tenant mobile app | ✓ iOS + Android | ⏳ Sanctum auth API shipped; native shell Q2 | Real gap |
+| White-label | Limited | ✓ Multi-operator + dynamic brand + module flags | We exceed |
 | Iteration speed | UAE-controlled | Egyptian local | We exceed |
 
-**Five gaps to close before the meeting:** Tenant Sales Declaration (NEW — mall moat), CAM Reconciliation stub (NEW — mall moat), Vendor management, Owner portal, Paymob + ETA activation.
+**Remaining real gaps** (down from five at the last meeting):
+1. **Tenant mobile native apps** — Q2; auth API already shipped. See [MOBILE-APP-BRIEF.md](MOBILE-APP-BRIEF.md).
+2. **Paymob live** — sandbox merchant signup in flight.
+3. **ETA production submission** — preprod credentials in flight.
+4. **Property-staff query scoping enforcement** — the `asset_user` pivot exists; a `BelongsToAssignedAssets` global scope is the next product push.
 
 ---
 

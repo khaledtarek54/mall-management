@@ -1,6 +1,6 @@
-# Eltizam Demo Script — 25-minute working version
+# Eltizam Demo Script — 30-minute working version
 
-> **Overlay on [DEMO.md](DEMO.md), not a replacement.** This script adapts the existing 10-minute Jawad-direct flow into a 25-minute Eltizam-tailored partnership pitch with the new mall-specific modules (Tenant Sales, CAM, ETA, Owner Portal, Multi-property branding).
+> **Overlay on [DEMO.md](DEMO.md), not a replacement.** Adapts the existing flow into a 30-minute Eltizam-tailored partnership pitch. Since the last refresh we've shipped a dashboard parity sprint (ETA Compliance widget · Leasing Pipeline · Sales Density · Role-tailored views), Credit Notes & Refunds (full AR lifecycle), Vendor Management (vendors + contacts + contracts wired into maintenance), RBAC overhaul (81 granular permissions + custom role creator UI), Property Staff Assignment, Dynamic Settings + Module Feature Flags (turn modules on/off live), Reports module (Monthly Close PDF + AR Aging drilldown).
 > **Audience:** Eltizam decision-makers + technical evaluators.
 > **Tone:** Confident, specific, partnership-framed. Never "ours is better than yours." Always "ours is specialized for what yours isn't."
 
@@ -23,9 +23,15 @@
 
 | Role | URL | Email | Password |
 |---|---|---|---|
-| Admin | `/admin` | `admin@mall.test` | `password` |
+| Super Admin | `/admin` | `admin@mall.test` | `password` |
+| Operations Manager | `/admin` | `manager@mall.test` | `password` |
+| Viewer (stakeholder) | `/admin` | `viewer@mall.test` | `password` |
+| **Leasing Manager** ⭐ | `/admin` | `leasing@mall.test` | `password` |
+| **Maintenance Manager** ⭐ | `/admin` | `maintenance@mall.test` | `password` |
 | Owner | `/owner` | `owner@jawad.test` | `password` |
 | Tenant | `/portal` | `tenant1@haya.test` | `password` |
+
+The two ⭐ logins exist specifically to demo **role-tailored dashboards** — each sees only their relevant widgets (step 9 below).
 
 ---
 
@@ -49,7 +55,13 @@ Point at the KPI strip:
 - **Collected This Month** — "With month-over-month delta. Green / amber / red based on collection rate."
 - **Outstanding AR** — "And the count of overdue invoices."
 
-Brief scroll through other widgets — AR Aging, Tenant Mix, Monthly Revenue Trend.
+Scroll down — point at the **ETA Compliance** strip (4 tiles: Valid / Submitted / Rejected / Pending).
+
+> "This is the Egyptian-CFO moment. At a glance you see what % of invoices the regulator has accepted, what's been rejected, what's still queued. Each tile deep-links into a pre-filtered invoice list. PropEzy doesn't surface this anywhere because they don't build for ETA compliance."
+
+Scroll further — point at the **Leasing Pipeline** strip (Drafts / Pending Approval / Active / Renewed with EGP/mo value per stage).
+
+> "Leasing-funnel view. Lease lifecycle by stage with the EGP value sitting at each. Drafts you haven't approved yet, signed leases pending start, active book value, renewals. Click any stage → filtered lease list."
 
 > "Everything you're looking at is also rendered in Arabic, RTL, with the right month names and numerals. I'll flip locales near the end so you don't think this is bolted on."
 
@@ -135,7 +147,55 @@ Confirm submission. Badge flips to Valid. Notification fires with the submission
 
 > "Open the response in the activity log — full audit trail of every ETA round-trip stored as JSON."
 
-### 8 · Owner Portal (2 min) — the partnership signal
+### 7.5 · Credit Notes & Refunds (1.5 min) — AR completeness
+
+Sidebar → **Credit Notes**.
+
+> "AR isn't complete without credit notes. A tenant disputes a service charge, you settle by issuing a credit note. Or stock returns, refunds, goodwill adjustments. Every real PMS has this; PropEzy doesn't advertise it."
+
+Show the list: 4 seeded notes covering every state — draft, issued-with-balance, partially-applied, void.
+
+Open the **issued** one. Header action: **Apply to Invoice**.
+
+> "Pick any open invoice for this tenant. The action caps the application at the minimum of the credit note's remaining balance, the invoice's open balance, and what I request. Idempotent on void — once voided, applying again is a no-op."
+
+Confirm. Show the notification: "EGP 2,000 applied to invoice INV-HW-XXXXX." The credit note's status flips to "applied" or stays "issued" if there's remaining balance. The invoice's balance drops.
+
+> "Six PHPUnit tests lock this math — issue, apply, cap-at-minimum, void-when-applied throws, fully-applied status flip, no-op on voided notes. Service-layer, not UI-layer."
+
+### 8 · Vendor Management (1 min) — Maintenance routing
+
+Sidebar → **Vendors**.
+
+> "First-class vendor entity — contractor / supplier / service-provider / consultant — with primary contacts and contracts. Eight seeded Egyptian-mall vendors: Cool-Air HVAC, BrightSpark Electrical, PureWater Plumbing, CleanFleet Janitorial, SecureGuard, GreenLeaf, PestStop, FireSafe."
+
+Open Cool-Air → show the two relation managers (Contacts + Contracts).
+
+> "Contracts have asset linkage, value, currency, scope, status (draft → active → expired → terminated). Nav badge counts contracts expiring within 30 days so admins see what needs renewal."
+
+Open any Maintenance Request → show the **External Vendor** field on the form + the toggleable Channel column on the table.
+
+> "Maintenance requests now have two assignment lanes: internal staff `assigned_to` and external `assigned_to_vendor_id`. Routing the urgent AC complaint to Cool-Air takes one dropdown click. The Channel column tracks how the request came in — portal, WhatsApp, phone, email, walk-in — so you know which channels need staffing."
+
+### 9 · Role-tailored dashboards (1.5 min) — the PropEzy headline gap closed
+
+Open a **second** window (or use private tab). Log in as `leasing@mall.test / password`.
+
+> "PropEzy's headline differentiator: dedicated interfaces for CXOs, portfolio managers, property managers, leasing managers, maintenance managers. We had one admin dashboard for everyone — that was a real gap. Now closed."
+
+Land on `/admin` as the leasing manager. The dashboard shows: Action Required · Mall Stats · Leasing Pipeline · Tenant Mix · Expiring Leases · Top Tenants (with **Sales Density** column).
+
+> "Leasing-focused widget set. No AR Aging because that's finance, no Open Maintenance because that's ops, no Energy because that's facilities."
+
+Now switch to `maintenance@mall.test`. Reload.
+
+> "Same code, same dashboard route. Different person, different lens. Action Required, Mall Stats, Open Maintenance queue, Energy Consumption. Six built-in roles, custom roles can be created from the UI with any of 81 granular permissions."
+
+Open `/admin/roles` (only super_admin can see it).
+
+> "Custom role creator — name, then collapsible section per module with a checkbox list. System roles can't be renamed or deleted; custom ones can. Every resource gate, every action, every dashboard widget reads from this permissions table."
+
+### 10 · Owner Portal (2 min) — the partnership signal
 
 Switch to **Window B** (already logged in as `owner@jawad.test`).
 
@@ -151,7 +211,7 @@ Click Properties → click Haya Walk → show the Property Performance section w
 
 > "Each operator deploying us into the Eltizam portfolio would get their owner portal here. Customizable per-operator branding, same engine."
 
-### 9 · Tenant portal — the WhatsApp moment (1.5 min)
+### 11 · Tenant portal — the WhatsApp moment (1.5 min)
 
 Switch to **Window C** (phone or second screen — `/portal` logged in as Café Crema).
 
@@ -165,7 +225,7 @@ Show the PDF. Then click the native share — point at WhatsApp.
 
 > "Egyptian tenants live on WhatsApp. They share the PDF with their accountant in two taps. Our roadmap also includes admin-side WhatsApp Business outbound reminders — gated behind `WHATSAPP_ENABLED` until you wire Meta or BSP credentials."
 
-### 10 · Energy & Utilities (1 min)
+### 12 · Energy & Utilities (1 min)
 
 Back to admin. Sidebar → **Energy & Utilities**.
 
@@ -175,7 +235,27 @@ Scroll to the dashboard → **Energy Consumption** chart.
 
 > "12-month bar chart across electric, water, gas. Today this is monitoring. The optimization workflows — anomaly detection, peak-demand alerts, IoT sensor integration — are Q3 work, intentionally. We didn't want to ship a fake IoT story."
 
-### 11 · Arabic locale flip (45 sec)
+### 13 · Settings + Module Feature Flags (1.5 min) — "everything is configurable"
+
+Back as super_admin. Sidebar → **Settings**.
+
+> "Every config value the operator should be able to touch — late-fee percentage, grace days, SLA hours per priority, ETA toggles, Paymob/WhatsApp flags, issuer info — lives in this DB-backed Settings panel, not in env files."
+
+Five tabs: Modules / Billing / Maintenance / ETA / Integrations.
+
+Click **Modules** tab. Show the 9 toggles.
+
+> "Every optional module has a feature flag. Watch this."
+
+Toggle **Vendors** off → click **Save settings**. Watch the sidebar — Vendors disappears.
+
+> "Visit `/admin/vendors` directly?" Type it in. Page returns 403.
+
+Toggle it back on → save → it reappears.
+
+> "Audit-friendly: every setting change is a real DB write, with a full ActivityLog audit trail. Operators can also create custom roles that grant `settings.manage` to specific people."
+
+### 14 · Arabic locale flip (45 sec)
 
 Click the **عربي** pill in the topbar.
 
@@ -183,15 +263,15 @@ Click the **عربي** pill in the topbar.
 
 Flip back to EN.
 
-### 12 · Roadmap close (1 min)
+### 15 · Roadmap close (1 min)
 
 Back to dashboard.
 
-> "What's coming. Paymob payments — sandbox merchant signup in flight. ETA preprod credentials — application in flight. Vendor management as first-class entities for routing maintenance tickets externally. Mobile app — Egyptian-mall-tenant specialist, Q2, briefed at [MOBILE-APP-BRIEF.md](MOBILE-APP-BRIEF.md). CAM auto-true-up. Accounting close export."
+> "What's coming. Paymob payments — sandbox merchant signup in flight. ETA preprod credentials — application in flight. Mobile tenant app — Egyptian-mall-tenant specialist, Q2, briefed at [MOBILE-APP-BRIEF.md](MOBILE-APP-BRIEF.md); login auth already shipped against the new Sanctum API. Property-staff scoping enforcement (the asset_user pivot exists; query-scoping is the next batch). CAM auto-true-up scheduled command exists; the dashboard wizard is polish. Accounting close export."
 
-> "The roadmap order is your call. Pilot starts at Haya Walk because the data's already realistic. Six months, defined commercial, white-label option ready. Everything you see today is in production code — 68 Playwright specs, real audit trail, real Arabic. Hand-over format is yours; we ship clean."
+> "The roadmap order is your call. Pilot starts at Haya Walk because the data's already realistic. Six months, defined commercial, white-label option ready. What you saw today is production code — 22 entities, 36 PHPUnit service tests locking the billing math, 170+ Playwright specs covering every page across all 3 panels, real audit trail on 13 models, real Arabic with mPDF shaping. Hand-over format is yours; we ship clean."
 
-### 13 · Partnership ask (1 min)
+### 16 · Partnership ask (1 min)
 
 Close laptop. Eye contact.
 
@@ -238,23 +318,27 @@ Let them lead. The platform is the source of truth — open whatever they ask. C
 | Step | Target | Cumulative |
 |---|---|---|
 | 1. Frame | 1:00 | 1:00 |
-| 2. Dashboard | 2:00 | 3:00 |
-| 3. Multi-property | 2:00 | 5:00 |
-| 4. Maintenance | 1:30 | 6:30 |
-| 5. Tenant Sales ⭐ | 3:00 | 9:30 |
-| 6. CAM | 2:00 | 11:30 |
-| 7. ETA ⭐⭐ | 2:00 | 13:30 |
-| 8. Owner Portal | 2:00 | 15:30 |
-| 9. Tenant Portal | 1:30 | 17:00 |
-| 10. Energy | 1:00 | 18:00 |
-| 11. Arabic | 0:45 | 18:45 |
-| 12. Roadmap | 1:00 | 19:45 |
-| 13. Partnership ask | 1:00 | 20:45 |
-| Q&A buffer | ~4:00 | ~25:00 |
+| 2. Dashboard (+ ETA Compliance, Leasing Pipeline) | 2:30 | 3:30 |
+| 3. Multi-property brand swap | 2:00 | 5:30 |
+| 4. Maintenance triage | 1:30 | 7:00 |
+| 5. Tenant Sales ⭐ | 3:00 | 10:00 |
+| 6. CAM Reconciliation | 2:00 | 12:00 |
+| 7. ETA e-invoicing ⭐⭐ | 2:00 | 14:00 |
+| 7.5. Credit Notes & Refunds | 1:30 | 15:30 |
+| 8. Vendor Management | 1:00 | 16:30 |
+| 9. Role-tailored dashboards ⭐ | 1:30 | 18:00 |
+| 10. Owner Portal | 2:00 | 20:00 |
+| 11. Tenant Portal | 1:30 | 21:30 |
+| 12. Energy | 1:00 | 22:30 |
+| 13. Settings + Module Flags ⭐ | 1:30 | 24:00 |
+| 14. Arabic flip | 0:45 | 24:45 |
+| 15. Roadmap | 1:00 | 25:45 |
+| 16. Partnership ask | 1:00 | 26:45 |
+| Q&A buffer | ~3:15 | ~30:00 |
 
-If you're running long: cut Energy (step 10) and Arabic (step 11) — the brand-swap in step 3 already implicitly shows locale support; energy is the lowest-stakes module.
+If you're running long: cut Energy (step 12) — the brand-swap in step 3 already implicitly shows locale support; Energy is the lowest-stakes module. You can also fold Vendor Management (step 8) into the Maintenance triage (step 4) by mentioning the assignment dropdown without leaving the page.
 
-If you're running short: extend Tenant Sales (step 5) — workflow drill into the dispute flow, show audit log entries, show the auto-generated Charge on the lease.
+If you're running short: extend Tenant Sales (step 5) — workflow drill into the dispute flow, show audit log entries, show the auto-generated Charge on the lease. Or extend step 13 (Settings) — toggle one module live, walk to the affected resource, show it's gone, toggle back.
 
 ---
 

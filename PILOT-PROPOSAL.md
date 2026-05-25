@@ -22,20 +22,35 @@ A six-month pilot deployment of **Atriom** — a production-grade Egyptian-mall 
 |---|---|
 | Lease lifecycle: create, renew, terminate, expire | ✓ Live |
 | Monthly billing engine — one-click run, EG VAT (rent exempt, service 14%), idempotent | ✓ Live |
-| Tenant sales declarations + percentage-rent auto-billing | ✓ Live |
+| **Credit Notes & Refunds** — issue / apply / void with idempotent service-layer math | ✓ Live |
+| **Late-fee automation** — scheduled daily, idempotent per invoice, % + grace days configurable from Settings | ✓ Live |
+| Tenant sales declarations + percentage-rent auto-billing (both formulas: artificial + natural breakpoint) | ✓ Live |
 | CAM (common-area maintenance) reconciliation — pro-rata allocation by leased sqm | ✓ Live |
 | ETA e-invoicing (Egyptian Tax Authority) — JSON document builder + submission | ✓ Mock; live on credentials |
-| Maintenance ticketing — admin triage + tenant portal submission + SLA tracking | ✓ Live |
+| **ETA Compliance dashboard widget** — Valid / Submitted / Rejected / Pending tiles, clickable to filtered invoice lists | ✓ Live |
+| **Reports module** — downloadable Monthly Close PDF (EN + AR) + AR Aging drilldown | ✓ Live |
+| Maintenance ticketing — admin triage + tenant portal submission + SLA tracking + **channel attribution** | ✓ Live |
+| **Vendor Management** — vendors + contacts + contracts; routes external maintenance via `assigned_to_vendor_id` | ✓ Live |
 | Multi-property tenancy with per-operator brand swap (logo, name, favicon) | ✓ Live |
+| **Property-staff assignment** — `asset_user` pivot assigns staff to specific properties | ✓ Live |
 | Three Filament panels: Admin, Tenant Portal, Owner Portal | ✓ Live |
-| Arabic-native UI + mPDF Arabic-shaped invoice / statement PDFs | ✓ Live |
-| Dashboard widgets: occupancy, MRR, AR aging, expiring leases, energy consumption | ✓ Live |
-| Spatie audit trail across 7 entities | ✓ Live |
+| **Mobile API** at `/api/v1/*` — Sanctum tenant auth (login + me + logout) shipped | ✓ Live (auth) |
+| Arabic-native UI + mPDF Arabic-shaped invoice / statement / monthly-close PDFs | ✓ Live |
+| **12 role-tailored dashboard widgets** — leasing / maintenance / finance see only relevant signal | ✓ Live |
+| **Sales Density column** on Top Tenants — mall-vertical benchmark (declared sales ÷ sqm) | ✓ Live |
+| **Leasing Pipeline widget** — Draft → Active funnel with EGP/mo per stage | ✓ Live |
+| **81 granular RBAC permissions** across 18 modules + 6 built-in roles + **custom role creator UI** | ✓ Live |
+| **Dynamic Settings panel** at `/admin/settings` — Modules / Billing / Maintenance / ETA / Integrations tabs | ✓ Live |
+| **Module Feature Flags** — turn any optional module on/off live (hides nav + blocks URLs + hides widgets) | ✓ Live |
+| Spatie audit trail across 13 entities | ✓ Live |
 | Spatie media library — contract / ID / maintenance-photo uploads | ✓ Live |
+| **CSV imports** for bootstrapping (Tenants / Units / Leases) with sample templates | ✓ Live |
+| **Scheduled jobs** — monthly billing, late fees daily, CAM annual reconciliation | ✓ Live |
+| **GitHub Actions CI** — PHPUnit (sqlite) + Playwright (MySQL) on every push | ✓ Live |
 | Paymob integration (card / InstaPay / wallet) | ⏸ Architected; live on sandbox credentials |
 | WhatsApp Business API outbound (invoice reminders) | ⏸ Architected; live on Meta/BSP credentials |
 
-Full feature inventory in [FEATURES.md](FEATURES.md). Strategic context in [MASTER-PLAN.md](MASTER-PLAN.md).
+Full feature inventory in [FEATURES.md](FEATURES.md). Strategic context in [MASTER-PLAN.md](MASTER-PLAN.md). Dashboard parity vs PropEzy in [docs/GAP-ANALYSIS-PROPEZY-DASHBOARD.md](docs/GAP-ANALYSIS-PROPEZY-DASHBOARD.md).
 
 ---
 

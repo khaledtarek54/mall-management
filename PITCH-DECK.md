@@ -58,18 +58,25 @@ If they push back on "we can add this to PropEzy" — that's slide 9's job. Don'
 
 **Production-grade today, in Egypt, for Egyptian malls.**
 
-- 10-entity data model — Asset, Operator, Unit, Tenant, Lease, Charge, Invoice, Payment, MaintenanceRequest, SalesDeclaration
-- 3 Filament panels — Admin (`/admin`), Tenant (`/portal`), Owner (`/owner`)
-- 68 Playwright E2E specs across auth, CRUD, locale, PDF, multi-property, ETA
-- 685-line Arabic translation file — real RTL, not Google-translated
-- mPDF Arabic shaping + bidi for invoice / statement PDFs
-- 10 admin dashboard widgets including portfolio occupancy, AR aging, energy consumption trend
+- **22-entity data model** — every real PMS entity from Asset down to CreditNoteItem, Vendor, VendorContract, MaintenanceRequestComment
+- **3 Filament panels** — Admin (`/admin`), Tenant (`/portal`), Owner (`/owner`) — plus a Sanctum REST API at `/api/v1/*` for the upcoming mobile app
+- **12 admin dashboard widgets, role-tailored** — leasing managers see leasing pipeline + tenant mix; maintenance managers see open MR + energy; finance sees AR aging + ETA compliance
+- **Egyptian-CFO-grade signal** — ETA Compliance tiles (Valid/Submitted/Rejected/Pending, clickable to filtered invoice lists), Leasing Pipeline funnel (Draft → Active with EGP/mo per stage), Sales Density column on Top Tenants
+- **170+ Playwright E2E specs** + **36 PHPUnit service tests** (124 assertions) locking the billing math
+- **81 granular RBAC permissions** across 18 modules, **custom role creator UI**, 6 built-in roles
+- **Property-staff assignment** via `asset_user` pivot — admins assign staff to specific properties
+- **Dynamic Settings** — every config value editable from `/admin/settings` with tabs (Modules / Billing / Maintenance / ETA / Integrations)
+- **Module Feature Flags** — turn entire modules on/off live; disabled modules vanish from the sidebar, block direct URL access, hide their widgets
+- **~1,100-line Arabic translation file** + mPDF Arabic shaping + bidi for invoices, statements, monthly close PDF
 - Multi-property tenancy with per-operator dynamic branding (logo + name + favicon swap)
+- **Reports module** — downloadable Monthly Close PDF (EN + AR), AR Aging drilldown page
+- Full **Credit Notes & Refunds** AR lifecycle (issue · apply · void with idempotent service-layer math)
+- **Vendor management** — vendors + contacts + contracts + routing maintenance to external vendors
 
 **Speaker notes:**
 Tight, specific, numerical. Don't editorialize. Let the numbers carry the credibility. The next slide is the demo handoff.
 
-If anyone asks tech stack: Laravel 13.8 + PHP 8.4 + Filament 4 + MySQL. Industry-standard, easy to onboard developers.
+If anyone asks tech stack: Laravel 13.8 + PHP 8.4 + Filament 4 + MySQL + Sanctum + Spatie (Permission / Settings / ActivityLog / MediaLibrary). Industry-standard, easy to onboard developers.
 
 ---
 
@@ -97,17 +104,27 @@ If demo wifi dies, you have the backup video.
 
 | Feature | Status | What it means |
 |---|---|---|
-| **ETA e-invoicing** | Architected, mock-ready | Document JSON spec implemented; flip `ETA_MOCK=false` when creds arrive |
-| **Arabic PDF rendering** | Production | mPDF with autoArabic + autoLangToFont; DomPDF (Filament default) emits broken Arabic |
-| **EG VAT model** | Production | Rent exempt, service 14% — per-charge `vat_applicable` + `vat_rate` |
-| **EGP / DD-MM-YYYY** | Throughout | No retrofit; engineered in |
-| **Paymob (card/InstaPay/wallet)** | Architected | Gated by `PAYMOB_ENABLED`; wires up at sandbox-cred-arrival |
-| **WhatsApp Business** | Architected | Gated by `WHATSAPP_ENABLED`; ready for Meta or BSP integration |
+| **ETA e-invoicing** | Architected, mock-ready | Document JSON spec implemented (v1.0, T1/V009 tax codes); flip `ETA_MOCK=false` when creds arrive |
+| **ETA Compliance dashboard widget** | ✓ Live | 4-tile posture (Valid/Submitted/Rejected/Pending) deep-linking to filtered invoice lists — the headline CFO moment |
+| **Arabic PDF rendering** | ✓ Production | mPDF with autoArabic + autoLangToFont; DomPDF (Filament default) emits broken Arabic |
+| **EG VAT model** | ✓ Production | Rent exempt, service 14% — per-charge `vat_applicable` + `vat_rate`; VAT summary in Monthly Close PDF |
+| **Tenant Sales Declaration + Percentage Rent** | ✓ Live | Both formulas (artificial + natural breakpoint); 6 PHPUnit tests lock the math |
+| **CAM Reconciliation** | ✓ Live | Pro-rata by sqm; idempotent allocation generator + per-allocation true-up charges |
+| **Credit Notes & Refunds** | ✓ Live | Full AR lifecycle (issue → apply → void) with idempotent service-layer math |
+| **Vendor Management** | ✓ Live | Vendors + contacts + contracts; FK on `maintenance_requests.assigned_to_vendor_id` |
+| **Custom Roles + 81 Permissions** | ✓ Live | UI to create custom roles with any combo of granular permissions |
+| **Module Feature Flags** | ✓ Live | Turn any optional module on/off from `/admin/settings`; live toggle in the demo |
+| **Property Staff Assignment** | ✓ Live | `asset_user` pivot — assign staff to specific properties |
+| **Dynamic Settings panel** | ✓ Live | Late-fee %, SLA hours, ETA flags, integrations — editable from UI, not env files |
+| **EGP / DD-MM-YYYY** | ✓ Throughout | No retrofit; engineered in |
+| **Mobile API (Sanctum)** | ✓ Auth shipped | Tenant login + token issue at `/api/v1/auth/login`; resource endpoints arriving Q2 |
+| **Paymob (card/InstaPay/wallet)** | Architected | Gated by `integrations.paymob_enabled` flag; wires up at sandbox-cred arrival |
+| **WhatsApp Business** | Architected | Gated by `integrations.whatsapp_enabled` flag; ready for Meta or BSP integration |
 
 **Speaker notes:**
 This is the proof slide. Every row maps to code that exists today. Be ready to open the codebase if asked.
 
-ETA is the headline. Mention that the JSON document builder mirrors ETA's published v1.0 spec — issuer, receiver, invoice lines, T1/V009 tax codes, totals. PropEzy doesn't advertise any of this for Egypt.
+The three headline rows for Egyptian buyers: **ETA Compliance widget** (the only PMS in Egypt that shows ETA posture on the dashboard), **Tenant Sales + Percentage Rent** (mall-vertical specialization PropEzy doesn't advertise), **Custom Roles + Module Flags** (operator can shape the platform without touching code).
 
 ---
 
@@ -208,9 +225,9 @@ White-label premium is ~30% — that's the right answer if they push for "no co-
 
 | Quarter | Focus |
 |---|---|
-| **Live today** | Lease lifecycle · billing · multi-property tenancy · maintenance · tenant sales · CAM · ETA (mock) · Arabic PDF · multi-operator branding · Owner portal · Energy data model |
-| **Q1 2026** | Paymob live · ETA preprod credentials · vendor management · email-on-issue · CSV imports |
-| **Q2 2026** | Mobile tenant app (Egyptian-mall-tenant specialist — see [MOBILE-APP-BRIEF.md](MOBILE-APP-BRIEF.md)) · ETA production cert · CAM auto-true-up · advanced analytics |
+| **Live today** | Lease lifecycle · monthly billing engine · multi-property tenancy · maintenance + vendor routing · tenant sales + percentage rent · CAM reconciliation · ETA (mock) + dashboard compliance widget · Arabic PDF · multi-operator dynamic branding · Owner portal · Energy data + 12-month consumption chart · **Credit Notes & Refunds** · **Vendor Management** · **Custom Roles + 81 granular permissions + role manager UI** · **Property Staff Assignment** · **Dynamic Settings + Module Feature Flags** · **Reports module (Monthly Close PDF + AR Aging drilldown)** · **Role-tailored dashboards** · **Mobile API auth (Sanctum)** · CSV imports · scheduled jobs · CI on every push |
+| **Q1 2026** | Paymob live (sandbox merchant in flight) · ETA preprod credentials (taxpayer profile in flight) · email-on-issue Mailable (shipped, awaiting SMTP) · Property-staff query scoping enforcement · Recurring Maintenance Schedules · Reports: collections report + tenant statement enhancements |
+| **Q2 2026** | Mobile tenant app — Egyptian-mall-tenant specialist — see [MOBILE-APP-BRIEF.md](MOBILE-APP-BRIEF.md) (login API already shipped) · ETA production cert · CAM auto-true-up wizard · Anchor tenant performance widget + foot-traffic placeholders |
 | **Q3 2026** | IoT integration hooks · energy optimization workflows · accounting close export · predictive maintenance |
 | **Q4 2026** | AI-assisted lease abstraction · tenant ratings · churn prediction · anchor performance analytics |
 
@@ -280,8 +297,12 @@ Print this slide as a leave-behind. The Eltizam team will want to circulate inte
 | "We already have PropEzy" | "PropEzy is great for community. We're complementary for Egyptian retail. Show me a mall-specific feature in PropEzy." |
 | "Why not extend PropEzy?" | See slide 9. Speed + specialization + opportunity cost. |
 | "What about UAE deployment?" | "Egypt-first today. UAE is a Q3 conversation once Egyptian operations are proven." |
-| "Show us your ETA integration" | Open the Invoices page, click Submit to ETA, show the Valid response. "Mock today, live when creds arrive." |
-| "Mobile app?" | "Q2 — see [MOBILE-APP-BRIEF.md](MOBILE-APP-BRIEF.md). Today we lean on web tenant portal + WhatsApp, which is how Egyptian tenants actually communicate." |
+| "Show us your ETA integration" | Open the Invoices page, click Submit to ETA, show the Valid response. "Mock today, live when creds arrive. Plus the ETA Compliance widget on the dashboard — at-a-glance Valid/Submitted/Rejected/Pending posture." |
+| "Mobile app?" | "Auth API already shipped against the new Sanctum endpoint. Resource endpoints next. Brief at [MOBILE-APP-BRIEF.md](MOBILE-APP-BRIEF.md). Today we lean on web tenant portal + WhatsApp, which is how Egyptian tenants actually communicate." |
+| **"What about role-based access control?"** | "81 granular permissions across 18 modules. 6 built-in roles (super_admin, manager, viewer, owner, leasing_manager, maintenance_manager). UI to create custom roles with any combination. Show `/admin/roles` if asked." |
+| **"Can we turn modules off?"** | "Yes — every optional module has a feature flag in `/admin/settings → Modules`. Toggle off live: the module disappears from the sidebar and blocks direct URL access. Demo it: turn off Vendors → it's gone." |
+| **"Can we configure billing rules?"** | "Yes — `/admin/settings → Billing` has late-fee percentage, grace days, billing day, CAM reconciliation schedule. All DB-backed via Spatie laravel-settings, audit-logged." |
+| **"Custom Egyptian mall workflows we'd need"** | "List them. We've shipped sales declarations, percentage rent (both formulas), CAM reconciliation, ETA submission, channel-attributed maintenance. Anything else, we'd scope as a sprint." |
 | "Pricing seems high / low" | Let them lead. If high — point to international platform comparables (Yardi, MRI). If low — emphasize the local-team velocity premium they're skipping. |
 | "Who else is using it?" | "Jawad Developments at Haya Walk. We're being selective on the next deployment — vertical fit matters more than logo collection." |
 | "What if Aldar acquires Eltizam?" | "Same answer either way — Egyptian retail is a tractor without a driver right now. We solve a specific problem regardless of corporate structure." |
