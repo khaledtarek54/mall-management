@@ -1099,6 +1099,9 @@ return [
         'roles' => 'Access Roles',
         'role' => 'Role',
         'role_helper' => 'super_admin = full control · manager = create + edit · viewer = read-only.',
+        'properties' => 'Property Access',
+        'properties_helper' => 'Which properties this user can switch into. New users start with every property selected — deselect to restrict.',
+        'assigned_properties' => 'Assigned properties',
         'created' => 'Created',
         'roles_list' => [
             'super_admin' => 'Super Admin',

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Users\Schemas;
 
+use App\Models\Asset;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
@@ -46,6 +47,28 @@ class UserForm
                         ->preload()
                         ->required()
                         ->helperText(__('admin.users.role_helper'))
+                        ->columnSpanFull(),
+                ]),
+            Section::make(__('admin.users.properties'))
+                ->description(__('admin.users.properties_helper'))
+                ->components([
+                    Select::make('assignedAssets')
+                        ->label(__('admin.users.assigned_properties'))
+                        ->relationship(
+                            'assignedAssets',
+                            'name',
+                            modifyQueryUsing: fn ($query) => $query
+                                ->where('assets.code', '!=', Asset::ALL_PROPERTIES_CODE),
+                        )
+                        ->multiple()
+                        ->preload()
+                        ->searchable()
+                        // New users get every real property selected by default —
+                        // it's easier to deselect than to remember to add them all.
+                        // On edit, the existing pivot drives the value.
+                        ->default(fn (string $operation): array => $operation === 'create'
+                            ? Asset::where('code', '!=', Asset::ALL_PROPERTIES_CODE)->pluck('id')->all()
+                            : [])
                         ->columnSpanFull(),
                 ]),
         ]);
