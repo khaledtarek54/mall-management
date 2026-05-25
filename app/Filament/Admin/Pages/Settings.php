@@ -71,32 +71,41 @@ class Settings extends Page implements HasSchemas
         $eta = app(EtaSettings::class);
         $mods = app(ModulesSettings::class);
 
+        // Filament treats dots in field names as nested-array paths, so the
+        // form state must be nested (e.g. data['billing']['late_fee_percent'])
+        // rather than flat dotted keys.
         $this->data = [
-            'billing.late_fee_percent' => $billing->late_fee_percent,
-            'billing.late_fee_grace_days' => $billing->late_fee_grace_days,
-            'billing.late_fee_minimum' => $billing->late_fee_minimum,
-            'billing.monthly_billing_day' => $billing->monthly_billing_day,
-            'billing.monthly_billing_time' => $billing->monthly_billing_time,
-            'billing.cam_reconciliation_month' => $billing->cam_reconciliation_month,
-            'billing.cam_reconciliation_day' => $billing->cam_reconciliation_day,
-            'billing.cam_reconciliation_time' => $billing->cam_reconciliation_time,
-
-            'maintenance.sla_urgent_hours' => $maint->sla_urgent_hours,
-            'maintenance.sla_high_hours' => $maint->sla_high_hours,
-            'maintenance.sla_medium_hours' => $maint->sla_medium_hours,
-            'maintenance.sla_low_hours' => $maint->sla_low_hours,
-
-            'integrations.paymob_enabled' => $integ->paymob_enabled,
-            'integrations.whatsapp_enabled' => $integ->whatsapp_enabled,
-
-            'eta.enabled' => $eta->enabled,
-            'eta.mock' => $eta->mock,
-            'eta.issuer_name' => $eta->issuer_name,
-            'eta.issuer_tax_registration_number' => $eta->issuer_tax_registration_number,
+            'billing' => [
+                'late_fee_percent' => $billing->late_fee_percent,
+                'late_fee_grace_days' => $billing->late_fee_grace_days,
+                'late_fee_minimum' => $billing->late_fee_minimum,
+                'monthly_billing_day' => $billing->monthly_billing_day,
+                'monthly_billing_time' => $billing->monthly_billing_time,
+                'cam_reconciliation_month' => $billing->cam_reconciliation_month,
+                'cam_reconciliation_day' => $billing->cam_reconciliation_day,
+                'cam_reconciliation_time' => $billing->cam_reconciliation_time,
+            ],
+            'maintenance' => [
+                'sla_urgent_hours' => $maint->sla_urgent_hours,
+                'sla_high_hours' => $maint->sla_high_hours,
+                'sla_medium_hours' => $maint->sla_medium_hours,
+                'sla_low_hours' => $maint->sla_low_hours,
+            ],
+            'integrations' => [
+                'paymob_enabled' => $integ->paymob_enabled,
+                'whatsapp_enabled' => $integ->whatsapp_enabled,
+            ],
+            'eta' => [
+                'enabled' => $eta->enabled,
+                'mock' => $eta->mock,
+                'issuer_name' => $eta->issuer_name,
+                'issuer_tax_registration_number' => $eta->issuer_tax_registration_number,
+            ],
+            'modules' => [],
         ];
 
         foreach (Modules::KEYS as $key) {
-            $this->data["modules.{$key}"] = (bool) ($mods->{$key} ?? true);
+            $this->data['modules'][$key] = (bool) ($mods->{$key} ?? true);
         }
 
         $this->form->fill($this->data);
@@ -126,38 +135,38 @@ class Settings extends Page implements HasSchemas
         $state = $this->form->getState();
 
         $billing = app(BillingSettings::class);
-        $billing->late_fee_percent = (float) $state['billing.late_fee_percent'];
-        $billing->late_fee_grace_days = (int) $state['billing.late_fee_grace_days'];
-        $billing->late_fee_minimum = (float) $state['billing.late_fee_minimum'];
-        $billing->monthly_billing_day = (int) $state['billing.monthly_billing_day'];
-        $billing->monthly_billing_time = (string) $state['billing.monthly_billing_time'];
-        $billing->cam_reconciliation_month = (int) $state['billing.cam_reconciliation_month'];
-        $billing->cam_reconciliation_day = (int) $state['billing.cam_reconciliation_day'];
-        $billing->cam_reconciliation_time = (string) $state['billing.cam_reconciliation_time'];
+        $billing->late_fee_percent = (float) $state['billing']['late_fee_percent'];
+        $billing->late_fee_grace_days = (int) $state['billing']['late_fee_grace_days'];
+        $billing->late_fee_minimum = (float) $state['billing']['late_fee_minimum'];
+        $billing->monthly_billing_day = (int) $state['billing']['monthly_billing_day'];
+        $billing->monthly_billing_time = (string) $state['billing']['monthly_billing_time'];
+        $billing->cam_reconciliation_month = (int) $state['billing']['cam_reconciliation_month'];
+        $billing->cam_reconciliation_day = (int) $state['billing']['cam_reconciliation_day'];
+        $billing->cam_reconciliation_time = (string) $state['billing']['cam_reconciliation_time'];
         $billing->save();
 
         $maint = app(MaintenanceSettings::class);
-        $maint->sla_urgent_hours = (int) $state['maintenance.sla_urgent_hours'];
-        $maint->sla_high_hours = (int) $state['maintenance.sla_high_hours'];
-        $maint->sla_medium_hours = (int) $state['maintenance.sla_medium_hours'];
-        $maint->sla_low_hours = (int) $state['maintenance.sla_low_hours'];
+        $maint->sla_urgent_hours = (int) $state['maintenance']['sla_urgent_hours'];
+        $maint->sla_high_hours = (int) $state['maintenance']['sla_high_hours'];
+        $maint->sla_medium_hours = (int) $state['maintenance']['sla_medium_hours'];
+        $maint->sla_low_hours = (int) $state['maintenance']['sla_low_hours'];
         $maint->save();
 
         $integ = app(IntegrationsSettings::class);
-        $integ->paymob_enabled = (bool) $state['integrations.paymob_enabled'];
-        $integ->whatsapp_enabled = (bool) $state['integrations.whatsapp_enabled'];
+        $integ->paymob_enabled = (bool) $state['integrations']['paymob_enabled'];
+        $integ->whatsapp_enabled = (bool) $state['integrations']['whatsapp_enabled'];
         $integ->save();
 
         $eta = app(EtaSettings::class);
-        $eta->enabled = (bool) $state['eta.enabled'];
-        $eta->mock = (bool) $state['eta.mock'];
-        $eta->issuer_name = (string) $state['eta.issuer_name'];
-        $eta->issuer_tax_registration_number = (string) $state['eta.issuer_tax_registration_number'];
+        $eta->enabled = (bool) $state['eta']['enabled'];
+        $eta->mock = (bool) $state['eta']['mock'];
+        $eta->issuer_name = (string) $state['eta']['issuer_name'];
+        $eta->issuer_tax_registration_number = (string) $state['eta']['issuer_tax_registration_number'];
         $eta->save();
 
         $mods = app(ModulesSettings::class);
         foreach (Modules::KEYS as $key) {
-            $mods->{$key} = (bool) ($state["modules.{$key}"] ?? true);
+            $mods->{$key} = (bool) ($state['modules'][$key] ?? true);
         }
         $mods->save();
 
