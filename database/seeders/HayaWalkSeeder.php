@@ -36,10 +36,12 @@ class HayaWalkSeeder extends Seeder
 
         // 0. Admin + role-demo users (all share password 'password')
         $users = [
-            ['email' => 'admin@mall.test',   'name' => 'Mall Admin',         'role' => 'super_admin'],
-            ['email' => 'manager@mall.test', 'name' => 'Operations Manager', 'role' => 'manager'],
-            ['email' => 'viewer@mall.test',  'name' => 'Property Auditor',   'role' => 'viewer'],
-            ['email' => 'owner@jawad.test',  'name' => 'Jawad Owner',        'role' => 'owner'],
+            ['email' => 'admin@mall.test',       'name' => 'Mall Admin',           'role' => 'super_admin'],
+            ['email' => 'manager@mall.test',     'name' => 'Operations Manager',   'role' => 'manager'],
+            ['email' => 'viewer@mall.test',      'name' => 'Property Auditor',     'role' => 'viewer'],
+            ['email' => 'owner@jawad.test',      'name' => 'Jawad Owner',          'role' => 'owner'],
+            ['email' => 'leasing@mall.test',     'name' => 'Leasing Manager',      'role' => 'leasing_manager'],
+            ['email' => 'maintenance@mall.test', 'name' => 'Maintenance Manager',  'role' => 'maintenance_manager'],
         ];
         foreach ($users as $u) {
             $user = User::updateOrCreate(
