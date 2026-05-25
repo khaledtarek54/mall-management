@@ -3,27 +3,239 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
+/**
+ * Single source of truth for the platform's RBAC catalog.
+ *
+ * - PERMISSIONS — full list of granular permission keys ("module.action"),
+ *   grouped by module so it's obvious what each module exposes.
+ * - ROLES        — built-in roles and the permission sets they receive.
+ *
+ * Custom roles created by admins via the UI live in the `roles` table
+ * alongside these and can hold any combination of the same permissions.
+ */
 class RolesPermissionsSeeder extends Seeder
 {
+    /** @var array<string, string> name => description */
     public const ROLES = [
-        'super_admin' => 'Full access — create, edit, delete, view everything.',
-        'manager' => 'Day-to-day operations — create + edit, no delete.',
-        'viewer' => 'Read-only access for stakeholders + auditors.',
-        'owner' => 'Property owner — read-only access to their portfolio via /owner panel.',
-        'leasing_manager' => 'Leasing pipeline, tenant onboarding, lease renewals + terminations.',
+        'super_admin'         => 'Full access — create, edit, delete, view everything plus settings + role management.',
+        'manager'             => 'Day-to-day operations — create + edit on every module, no delete, no settings.',
+        'viewer'              => 'Read-only access for stakeholders + auditors.',
+        'owner'               => 'Property owner — read-only access to their portfolio via /owner panel.',
+        'leasing_manager'     => 'Leasing pipeline, tenant onboarding, lease renewals + terminations.',
         'maintenance_manager' => 'Maintenance request triage + vendor dispatch + SLA management.',
+    ];
+
+    /**
+     * Full permission catalog, grouped by module. The seeder iterates this
+     * to create rows in the `permissions` table. The Filament Role resource
+     * uses the same grouping to render its permission picker.
+     *
+     * @var array<string, array<string, string>>
+     */
+    public const PERMISSIONS = [
+        'assets' => [
+            'assets.view'   => 'View properties',
+            'assets.create' => 'Create properties',
+            'assets.edit'   => 'Edit properties',
+            'assets.delete' => 'Delete properties',
+        ],
+        'units' => [
+            'units.view'   => 'View units',
+            'units.create' => 'Create units',
+            'units.edit'   => 'Edit units',
+            'units.delete' => 'Delete units',
+        ],
+        'tenants' => [
+            'tenants.view'   => 'View tenants',
+            'tenants.create' => 'Create tenants',
+            'tenants.edit'   => 'Edit tenants',
+            'tenants.delete' => 'Delete tenants',
+        ],
+        'leases' => [
+            'leases.view'             => 'View leases',
+            'leases.create'           => 'Create leases',
+            'leases.edit'             => 'Edit leases',
+            'leases.delete'           => 'Delete leases',
+            'leases.terminate'        => 'Terminate leases',
+            'leases.renew'            => 'Renew leases',
+            'leases.generate_invoice' => 'Generate invoices from a lease',
+        ],
+        'invoices' => [
+            'invoices.view'                => 'View invoices',
+            'invoices.create'              => 'Create invoices',
+            'invoices.edit'                => 'Edit invoices',
+            'invoices.delete'              => 'Delete invoices',
+            'invoices.run_monthly_billing' => 'Run monthly billing for all active leases',
+            'invoices.submit_to_eta'       => 'Submit invoices to the Egyptian Tax Authority',
+            'invoices.send_whatsapp'       => 'Send invoice via WhatsApp',
+        ],
+        'payments' => [
+            'payments.view'   => 'View payments',
+            'payments.create' => 'Record payments',
+            'payments.edit'   => 'Edit payments',
+            'payments.delete' => 'Delete payments',
+        ],
+        'credit_notes' => [
+            'credit_notes.view'   => 'View credit notes',
+            'credit_notes.create' => 'Create credit notes',
+            'credit_notes.edit'   => 'Edit credit notes',
+            'credit_notes.delete' => 'Delete credit notes',
+            'credit_notes.issue'  => 'Issue a draft credit note',
+            'credit_notes.apply'  => 'Apply a credit note to an invoice',
+            'credit_notes.void'   => 'Void a credit note',
+        ],
+        'maintenance' => [
+            'maintenance.view'          => 'View maintenance requests',
+            'maintenance.create'        => 'Create maintenance requests',
+            'maintenance.edit'          => 'Edit maintenance requests',
+            'maintenance.delete'        => 'Delete maintenance requests',
+            'maintenance.assign'        => 'Assign maintenance requests to staff or vendors',
+            'maintenance.change_status' => 'Move requests across status transitions',
+        ],
+        'tenant_sales' => [
+            'tenant_sales.view'    => 'View tenant sales declarations',
+            'tenant_sales.create'  => 'Create tenant sales declarations',
+            'tenant_sales.edit'    => 'Edit tenant sales declarations',
+            'tenant_sales.delete'  => 'Delete tenant sales declarations',
+            'tenant_sales.lock'    => 'Lock a declaration + generate percentage-rent charge',
+            'tenant_sales.dispute' => 'Mark a declaration as disputed',
+        ],
+        'cam' => [
+            'cam.view'                 => 'View CAM pools and allocations',
+            'cam.create'               => 'Create CAM expense pools',
+            'cam.edit'                 => 'Edit CAM expense pools',
+            'cam.delete'               => 'Delete CAM expense pools',
+            'cam.generate_allocations' => 'Generate per-lease allocations from a pool',
+            'cam.bill_allocation'      => 'Bill a CAM allocation (creates a true-up charge)',
+            'cam.mark_reconciled'      => 'Close a pool as fully reconciled',
+        ],
+        'utility_meters' => [
+            'utility_meters.view'   => 'View utility meters',
+            'utility_meters.create' => 'Create utility meters',
+            'utility_meters.edit'   => 'Edit utility meters',
+            'utility_meters.delete' => 'Delete utility meters',
+        ],
+        'vendors' => [
+            'vendors.view'   => 'View vendors',
+            'vendors.create' => 'Create vendors',
+            'vendors.edit'   => 'Edit vendors',
+            'vendors.delete' => 'Delete vendors',
+        ],
+        'notes' => [
+            'notes.view'   => 'View communications log entries',
+            'notes.create' => 'Log communications',
+            'notes.edit'   => 'Edit communications log entries',
+            'notes.delete' => 'Delete communications log entries',
+        ],
+        'users' => [
+            'users.view'   => 'View users',
+            'users.create' => 'Create users',
+            'users.edit'   => 'Edit users',
+            'users.delete' => 'Delete users',
+        ],
+        'roles' => [
+            'roles.view'   => 'View roles',
+            'roles.create' => 'Create custom roles',
+            'roles.edit'   => 'Edit roles + their permissions',
+            'roles.delete' => 'Delete custom roles',
+        ],
+        'reports' => [
+            'reports.view'     => 'View reports',
+            'reports.download' => 'Download monthly close PDF',
+        ],
+        'activity_log' => [
+            'activity_log.view' => 'View the activity log',
+        ],
+        'settings' => [
+            'settings.view'   => 'View settings',
+            'settings.manage' => 'Edit system settings (billing rules, SLA, integrations)',
+        ],
     ];
 
     public function run(): void
     {
-        // Reset cached roles so freshly-seeded roles take effect immediately.
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
+        // 1) Create every permission row.
+        foreach (self::PERMISSIONS as $module => $perms) {
+            foreach (array_keys($perms) as $name) {
+                Permission::findOrCreate($name, 'web');
+            }
+        }
+
+        // 2) Create every role row.
         foreach (array_keys(self::ROLES) as $name) {
             Role::findOrCreate($name, 'web');
         }
+
+        // 3) Wire role => permission set.
+        $this->syncRolePermissions();
+    }
+
+    private function syncRolePermissions(): void
+    {
+        $all = $this->flatPermissionList();
+
+        // super_admin gets EVERYTHING.
+        Role::findByName('super_admin', 'web')->syncPermissions($all);
+
+        // manager: every view/create/edit + workflow actions; no delete; no settings.manage; no roles edit.
+        $managerPerms = collect($all)
+            ->reject(fn ($p) => str_ends_with($p, '.delete'))
+            ->reject(fn ($p) => in_array($p, ['settings.manage', 'roles.create', 'roles.edit', 'roles.delete']))
+            ->values()
+            ->all();
+        Role::findByName('manager', 'web')->syncPermissions($managerPerms);
+
+        // viewer: every .view + reports.download.
+        $viewerPerms = collect($all)
+            ->filter(fn ($p) => str_ends_with($p, '.view') || $p === 'reports.download')
+            ->values()
+            ->all();
+        Role::findByName('viewer', 'web')->syncPermissions($viewerPerms);
+
+        // owner: limited read on the modules that show up in the /owner panel.
+        Role::findByName('owner', 'web')->syncPermissions([
+            'assets.view', 'units.view', 'leases.view', 'invoices.view',
+            'maintenance.view', 'reports.view', 'reports.download',
+        ]);
+
+        // leasing_manager: full lease/tenant workflow + view supporting modules.
+        Role::findByName('leasing_manager', 'web')->syncPermissions([
+            'assets.view', 'units.view',
+            'tenants.view', 'tenants.create', 'tenants.edit',
+            'leases.view', 'leases.create', 'leases.edit',
+            'leases.terminate', 'leases.renew', 'leases.generate_invoice',
+            'invoices.view', 'invoices.create',
+            'tenant_sales.view', 'tenant_sales.lock', 'tenant_sales.dispute',
+            'notes.view', 'notes.create',
+            'reports.view',
+        ]);
+
+        // maintenance_manager: maintenance workflow + vendor dispatch.
+        Role::findByName('maintenance_manager', 'web')->syncPermissions([
+            'assets.view', 'units.view', 'tenants.view',
+            'maintenance.view', 'maintenance.create', 'maintenance.edit',
+            'maintenance.assign', 'maintenance.change_status',
+            'vendors.view', 'vendors.create', 'vendors.edit',
+            'utility_meters.view',
+            'notes.view', 'notes.create',
+        ]);
+    }
+
+    /** @return string[] */
+    private function flatPermissionList(): array
+    {
+        $out = [];
+        foreach (self::PERMISSIONS as $module => $perms) {
+            foreach (array_keys($perms) as $name) {
+                $out[] = $name;
+            }
+        }
+        return $out;
     }
 }

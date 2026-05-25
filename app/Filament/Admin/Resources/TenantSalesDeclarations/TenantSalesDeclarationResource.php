@@ -21,6 +21,11 @@ class TenantSalesDeclarationResource extends Resource
 {
     use RoleGatedActions;
 
+    protected static function permissionModule(): string
+    {
+        return 'tenant_sales';
+    }
+
     protected static ?string $model = TenantSalesDeclaration::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPresentationChartLine;

@@ -21,6 +21,11 @@ class CamExpensePoolResource extends Resource
 {
     use RoleGatedActions;
 
+    protected static function permissionModule(): string
+    {
+        return 'cam';
+    }
+
     protected static ?string $model = CamExpensePool::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingOffice2;

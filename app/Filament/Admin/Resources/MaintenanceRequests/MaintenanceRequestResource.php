@@ -22,6 +22,11 @@ class MaintenanceRequestResource extends Resource
 {
     use RoleGatedActions;
 
+    protected static function permissionModule(): string
+    {
+        return 'maintenance';
+    }
+
     protected static ?string $model = MaintenanceRequest::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedWrenchScrewdriver;
