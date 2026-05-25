@@ -99,12 +99,37 @@ class AssetResource extends Resource
             // not a real property.
             ->where('assets.code', '!=', Asset::ALL_PROPERTIES_CODE);
 
+        // When inside a specific property context (not the All Properties
+        // view), restrict the list to that property only — the operator
+        // can edit only the property they currently have active.
+        if ($assetId = \App\Support\TenantScope::currentAssetId()) {
+            $query->where('assets.id', $assetId);
+
+            return $query;
+        }
+
+        // All Properties view (or no tenant): fall back to the
+        // user's assigned set.
         $ids = \App\Support\AssignedAssets::idsForCurrentUser();
         if ($ids !== null) {
             $query->whereIn('assets.id', $ids);
         }
 
         return $query;
+    }
+
+    /**
+     * Creating a new property is only allowed from the "All Properties"
+     * view (or when no tenant is set). Inside a specific property's
+     * context, the user can only edit that property.
+     */
+    public static function canCreate(): bool
+    {
+        if (\App\Support\TenantScope::currentAssetId() !== null) {
+            return false;
+        }
+
+        return static::hasPermission('create');
     }
 
     public static function getGloballySearchableAttributes(): array
