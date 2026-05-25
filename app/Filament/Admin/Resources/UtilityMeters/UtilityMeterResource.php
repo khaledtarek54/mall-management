@@ -68,7 +68,14 @@ class UtilityMeterResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['asset', 'unit']);
+        $query = parent::getEloquentQuery()->with(['asset', 'unit']);
+
+        $ids = \App\Support\AssignedAssets::idsForCurrentUser();
+        if ($ids !== null) {
+            $query->whereIn('utility_meters.asset_id', $ids);
+        }
+
+        return $query;
     }
 
     public static function getRecordRouteBindingEloquentQuery(): Builder

@@ -115,6 +115,39 @@ class HayaWalkSeeder extends Seeder
             ]);
         }
 
+        // Second small Jawad property — Plaza Annex. Exists so property-staff
+        // scoping enforcement has visible effect: a staff member assigned only
+        // to Haya Walk should not see Plaza Annex's units/leases/invoices,
+        // and vice versa. Lightweight on purpose (8 units, no leases yet) so
+        // the demo dataset stays clean.
+        $plazaAnnex = Asset::updateOrCreate(
+            ['code' => 'PA'],
+            [
+                'operator_id' => $jawad->id,
+                'name' => 'Plaza Annex',
+                'type' => 'retail_walk',
+                'address' => 'Plaza Road, 6th of October City',
+                'city' => '6th of October',
+                'country' => 'Egypt',
+                'total_area_sqm' => 2200,
+                'leasable_area_sqm' => 1600,
+                'currency' => 'EGP',
+                'is_active' => true,
+                'metadata' => ['owner' => 'Jawad Developments', 'launched' => '2026', 'notes' => 'Strip annex; scoping demo asset.'],
+            ],
+        );
+        foreach (range(1, 8) as $n) {
+            \App\Models\Unit::updateOrCreate(
+                ['asset_id' => $plazaAnnex->id, 'code' => sprintf('PA-%02d', $n)],
+                [
+                    'floor' => 'Ground',
+                    'category' => $n <= 4 ? 'retail' : 'food_beverage',
+                    'area_sqm' => 80 + ($n * 5),
+                    'status' => 'vacant',
+                ],
+            );
+        }
+
         // 2. Define unit layout — 50 units across 3 zones (A, B, C)
         $units = $this->unitLayout();
 

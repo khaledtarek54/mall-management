@@ -86,6 +86,18 @@ class AssetResource extends Resource
             ]);
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        $ids = \App\Support\AssignedAssets::idsForCurrentUser();
+        if ($ids !== null) {
+            $query->whereIn('assets.id', $ids);
+        }
+
+        return $query;
+    }
+
     public static function getGloballySearchableAttributes(): array
     {
         return ['name', 'code', 'city'];

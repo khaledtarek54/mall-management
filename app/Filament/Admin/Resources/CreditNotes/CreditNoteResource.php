@@ -82,6 +82,24 @@ class CreditNoteResource extends Resource
             ->withoutGlobalScopes([SoftDeletingScope::class]);
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        $ids = \App\Support\AssignedAssets::idsForCurrentUser();
+        if ($ids !== null) {
+            // Scope via the linked lease's unit's asset. Standalone credit
+            // notes (no lease_id) are visible regardless — they're tenant-
+            // level adjustments, not asset-scoped.
+            $query->where(function ($q) use ($ids) {
+                $q->whereNull('lease_id')
+                  ->orWhereHas('lease.unit', fn ($q2) => $q2->whereIn('asset_id', $ids));
+            });
+        }
+
+        return $query;
+    }
+
     public static function getGloballySearchableAttributes(): array
     {
         return ['number', 'tenant.name', 'invoice.number'];

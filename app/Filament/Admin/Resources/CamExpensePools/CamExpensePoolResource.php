@@ -83,4 +83,16 @@ class CamExpensePoolResource extends Resource
         return parent::getRecordRouteBindingEloquentQuery()
             ->withoutGlobalScopes([SoftDeletingScope::class]);
     }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        $ids = \App\Support\AssignedAssets::idsForCurrentUser();
+        if ($ids !== null) {
+            $query->whereIn('cam_expense_pools.asset_id', $ids);
+        }
+
+        return $query;
+    }
 }

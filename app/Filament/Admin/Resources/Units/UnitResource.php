@@ -87,6 +87,18 @@ class UnitResource extends Resource
             ]);
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        $ids = \App\Support\AssignedAssets::idsForCurrentUser();
+        if ($ids !== null) {
+            $query->whereIn('units.asset_id', $ids);
+        }
+
+        return $query;
+    }
+
     public static function getGloballySearchableAttributes(): array
     {
         return ['code', 'asset.name', 'activeLease.tenant.name'];

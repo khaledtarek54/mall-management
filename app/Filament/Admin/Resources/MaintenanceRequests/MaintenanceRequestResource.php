@@ -106,6 +106,18 @@ class MaintenanceRequestResource extends Resource
             ]);
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        $ids = \App\Support\AssignedAssets::idsForCurrentUser();
+        if ($ids !== null) {
+            $query->whereHas('unit', fn ($q) => $q->whereIn('asset_id', $ids));
+        }
+
+        return $query;
+    }
+
     public static function getGloballySearchableAttributes(): array
     {
         return ['reference', 'title', 'tenant.name', 'unit.code'];

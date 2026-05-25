@@ -98,6 +98,18 @@ class InvoiceResource extends Resource
             ]);
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        $ids = \App\Support\AssignedAssets::idsForCurrentUser();
+        if ($ids !== null) {
+            $query->whereHas('lease.unit', fn ($q) => $q->whereIn('asset_id', $ids));
+        }
+
+        return $query;
+    }
+
     public static function getGloballySearchableAttributes(): array
     {
         return ['number', 'tenant.name', 'lease.unit.code', 'lease.reference'];

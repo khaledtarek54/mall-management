@@ -88,4 +88,16 @@ class TenantSalesDeclarationResource extends Resource
         return parent::getRecordRouteBindingEloquentQuery()
             ->withoutGlobalScopes([SoftDeletingScope::class]);
     }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        $ids = \App\Support\AssignedAssets::idsForCurrentUser();
+        if ($ids !== null) {
+            $query->whereHas('lease.unit', fn ($q) => $q->whereIn('asset_id', $ids));
+        }
+
+        return $query;
+    }
 }
