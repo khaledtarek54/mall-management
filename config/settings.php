@@ -11,6 +11,7 @@ return [
         \App\Settings\MaintenanceSettings::class,
         \App\Settings\IntegrationsSettings::class,
         \App\Settings\EtaSettings::class,
+        \App\Settings\ModulesSettings::class,
     ],
 
     /*

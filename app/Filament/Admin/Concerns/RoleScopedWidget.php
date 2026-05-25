@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Concerns;
 
+use App\Support\Modules;
 use Illuminate\Support\Facades\Auth;
 
 /**
@@ -25,8 +26,22 @@ trait RoleScopedWidget
         return ['super_admin', 'manager', 'viewer', 'leasing_manager', 'maintenance_manager'];
     }
 
+    /**
+     * Optional: feature-flag module this widget belongs to. If set and the
+     * module is disabled in /admin/settings → Modules, the widget hides.
+     * Return null for widgets that aren't tied to a toggleable module.
+     */
+    protected static function widgetModule(): ?string
+    {
+        return null;
+    }
+
     public static function canView(): bool
     {
+        $module = static::widgetModule();
+        if ($module !== null && ! Modules::enabled($module)) {
+            return false;
+        }
         return static::roleAllowsView();
     }
 

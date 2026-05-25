@@ -45,6 +45,16 @@ class Reports extends Page
         return __('admin.groups.reports');
     }
 
+    public static function canAccess(): bool
+    {
+        return \App\Support\Modules::enabled('reports');
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return \App\Support\Modules::enabled('reports');
+    }
+
     public function downloadMonthlyClose()
     {
         $period = $this->resolvePeriod();

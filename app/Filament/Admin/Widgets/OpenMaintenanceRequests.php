@@ -19,6 +19,11 @@ class OpenMaintenanceRequests extends TableWidget
         return ['manager', 'maintenance_manager'];
     }
 
+    protected static function widgetModule(): ?string
+    {
+        return 'maintenance';
+    }
+
     protected static ?int $sort = 6;
 
     protected int|string|array $columnSpan = 'full';

@@ -17,6 +17,11 @@ class EnergyConsumptionTrend extends ChartWidget
         return ['manager', 'maintenance_manager', 'viewer'];
     }
 
+    protected static function widgetModule(): ?string
+    {
+        return 'utility_meters';
+    }
+
     public function getHeading(): ?string
     {
         return __('admin.widgets.energy_consumption.heading');

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Concerns;
 
+use App\Support\Modules;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
@@ -53,7 +54,21 @@ trait RoleGatedActions
             return false;
         }
 
+        // Composite gate: module feature flag AND user permission.
+        if (! Modules::enabled($module)) {
+            return false;
+        }
+
         return $user->can("{$module}.{$action}");
+    }
+
+    /**
+     * Hide the resource from the sidebar when its module is turned off.
+     * Filament calls this once per render; cheap.
+     */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return Modules::enabled(static::permissionModule());
     }
 
     public static function canViewAny(): bool

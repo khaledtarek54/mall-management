@@ -13,6 +13,11 @@ class ArAging extends Page
 
     protected static bool $shouldRegisterNavigation = false; // reached via the Reports page
 
+    public static function canAccess(): bool
+    {
+        return \App\Support\Modules::enabled('reports');
+    }
+
     protected string $view = 'filament.pages.ar-aging';
 
     protected static string $routePath = 'ar-aging';

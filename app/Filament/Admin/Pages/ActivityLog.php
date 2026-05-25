@@ -37,6 +37,16 @@ class ActivityLog extends Page implements HasTable
         return __('admin.groups.reports');
     }
 
+    public static function canAccess(): bool
+    {
+        return \App\Support\Modules::enabled('activity_log');
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return \App\Support\Modules::enabled('activity_log');
+    }
+
     public function table(Table $table): Table
     {
         return $table

@@ -6,6 +6,8 @@ use App\Settings\BillingSettings;
 use App\Settings\EtaSettings;
 use App\Settings\IntegrationsSettings;
 use App\Settings\MaintenanceSettings;
+use App\Settings\ModulesSettings;
+use App\Support\Modules;
 use BackedEnum;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -67,6 +69,7 @@ class Settings extends Page implements HasSchemas
         $maint = app(MaintenanceSettings::class);
         $integ = app(IntegrationsSettings::class);
         $eta = app(EtaSettings::class);
+        $mods = app(ModulesSettings::class);
 
         $this->data = [
             'billing.late_fee_percent' => $billing->late_fee_percent,
@@ -92,6 +95,10 @@ class Settings extends Page implements HasSchemas
             'eta.issuer_tax_registration_number' => $eta->issuer_tax_registration_number,
         ];
 
+        foreach (Modules::KEYS as $key) {
+            $this->data["modules.{$key}"] = (bool) ($mods->{$key} ?? true);
+        }
+
         $this->form->fill($this->data);
     }
 
@@ -100,6 +107,7 @@ class Settings extends Page implements HasSchemas
         return $schema->statePath('data')->components([
             Tabs::make('settings_tabs')
                 ->tabs([
+                    Tab::make(__('admin.settings.tabs.modules'))->icon('heroicon-o-squares-plus')->schema($this->modulesFields()),
                     Tab::make(__('admin.settings.tabs.billing'))->icon('heroicon-o-banknotes')->schema($this->billingFields()),
                     Tab::make(__('admin.settings.tabs.maintenance'))->icon('heroicon-o-wrench-screwdriver')->schema($this->maintenanceFields()),
                     Tab::make(__('admin.settings.tabs.eta'))->icon('heroicon-o-document-text')->schema($this->etaFields()),
@@ -146,6 +154,12 @@ class Settings extends Page implements HasSchemas
         $eta->issuer_name = (string) $state['eta.issuer_name'];
         $eta->issuer_tax_registration_number = (string) $state['eta.issuer_tax_registration_number'];
         $eta->save();
+
+        $mods = app(ModulesSettings::class);
+        foreach (Modules::KEYS as $key) {
+            $mods->{$key} = (bool) ($state["modules.{$key}"] ?? true);
+        }
+        $mods->save();
 
         Notification::make()
             ->title(__('admin.settings.saved'))
@@ -243,6 +257,21 @@ class Settings extends Page implements HasSchemas
                     TextInput::make('eta.issuer_name')->label(__('admin.settings.fields.eta_issuer_name'))->columnSpan(2)->required(),
                     TextInput::make('eta.issuer_tax_registration_number')->label(__('admin.settings.fields.eta_issuer_trn'))->columnSpan(2)->required(),
                 ]),
+        ];
+    }
+
+    /** @return array<int, mixed> */
+    private function modulesFields(): array
+    {
+        return [
+            Section::make(__('admin.settings.sections.modules'))
+                ->description(__('admin.settings.sections.modules_description'))
+                ->columns(2)
+                ->components(array_map(
+                    fn (string $key) => Toggle::make("modules.{$key}")
+                        ->label(__("admin.permission_modules.{$key}")),
+                    Modules::KEYS,
+                )),
         ];
     }
 

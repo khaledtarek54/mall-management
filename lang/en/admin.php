@@ -15,12 +15,15 @@ return [
         'save' => 'Save settings',
         'saved' => 'Settings updated.',
         'tabs' => [
+            'modules'      => 'Modules',
             'billing'      => 'Billing',
             'maintenance'  => 'Maintenance',
             'eta'          => 'ETA e-Invoicing',
             'integrations' => 'Integrations',
         ],
         'sections' => [
+            'modules' => 'Toggle Modules',
+            'modules_description' => 'Turn entire modules on or off. Disabled modules disappear from the sidebar, block direct URL access, and hide their dashboard widgets. Core modules (Properties, Units, Tenants, Leases, Invoices, Payments, Users, Roles, Settings) cannot be disabled.',
             'late_fees' => 'Late Fees',
             'late_fees_description' => 'Applied automatically to overdue invoices once past the grace period.',
             'schedules' => 'Scheduled Jobs',
