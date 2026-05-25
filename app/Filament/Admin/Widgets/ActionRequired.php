@@ -84,8 +84,9 @@ class ActionRequired extends Widget
             ->count();
 
         $items = [];
+        $maintenanceEnabled = \App\Support\Modules::enabled('maintenance');
 
-        if ($urgentMaintenanceCount > 0) {
+        if ($maintenanceEnabled && $urgentMaintenanceCount > 0) {
             $items[] = [
                 'key' => 'urgent_maintenance',
                 'icon' => 'heroicon-o-wrench-screwdriver',
@@ -96,7 +97,7 @@ class ActionRequired extends Widget
             ];
         }
 
-        if ($slaBreachedCount > 0) {
+        if ($maintenanceEnabled && $slaBreachedCount > 0) {
             $items[] = [
                 'key' => 'sla_breached',
                 'icon' => 'heroicon-o-clock',

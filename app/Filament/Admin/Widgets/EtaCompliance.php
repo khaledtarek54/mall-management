@@ -24,6 +24,11 @@ class EtaCompliance extends StatsOverviewWidget
         return ['manager', 'viewer'];
     }
 
+    protected static function widgetModule(): ?string
+    {
+        return 'eta';
+    }
+
     protected static ?int $sort = 2;
 
     protected function getStats(): array
@@ -69,9 +74,4 @@ class EtaCompliance extends StatsOverviewWidget
         ];
     }
 
-    public static function canView(): bool
-    {
-        // Both gates must pass: the ETA module enabled + the user's role.
-        return config('eta.enabled', true) && static::roleAllowsView();
-    }
 }

@@ -57,8 +57,10 @@ class AdminPanelProvider extends PanelProvider
                 ActionRequired::class,
                 MallStats::class,
                 EtaCompliance::class,
-                ArAging::class,
                 LeasingPipeline::class,
+                // AR Aging + Tenant Mix are half-width (columnSpan = 1) so
+                // they render side by side as a single row of charts.
+                ArAging::class,
                 TenantMix::class,
                 MonthlyRevenueTrend::class,
                 ExpiringLeases::class,

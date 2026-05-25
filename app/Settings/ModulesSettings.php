@@ -31,6 +31,7 @@ class ModulesSettings extends Settings
     public bool $notes = true;
     public bool $reports = true;
     public bool $activity_log = true;
+    public bool $eta = true;
 
     public static function group(): string
     {

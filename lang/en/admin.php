@@ -888,6 +888,7 @@ return [
         'reports' => 'Reports',
         'activity_log' => 'Activity Log',
         'settings' => 'Settings',
+        'eta' => 'ETA e-Invoicing',
     ],
 
     'statuses' => [

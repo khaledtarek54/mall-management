@@ -888,6 +888,7 @@ return [
         'reports' => 'التقارير',
         'activity_log' => 'سجل النشاط',
         'settings' => 'الإعدادات',
+        'eta' => 'الفوترة الإلكترونية ETA',
     ],
 
     'statuses' => [

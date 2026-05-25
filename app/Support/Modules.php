@@ -30,6 +30,7 @@ class Modules
         'notes',
         'reports',
         'activity_log',
+        'eta',
     ];
 
     public static function enabled(string $module): bool
