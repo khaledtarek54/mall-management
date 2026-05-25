@@ -12,8 +12,8 @@ use Spatie\LaravelSettings\Settings;
  */
 class IntegrationsSettings extends Settings
 {
-    public bool $paymob_enabled;
-    public bool $whatsapp_enabled;
+    public bool $paymob_enabled = false;
+    public bool $whatsapp_enabled = false;
 
     public static function group(): string
     {

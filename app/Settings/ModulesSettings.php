@@ -20,15 +20,17 @@ use Spatie\LaravelSettings\Settings;
  */
 class ModulesSettings extends Settings
 {
-    public bool $credit_notes;
-    public bool $maintenance;
-    public bool $tenant_sales;
-    public bool $cam;
-    public bool $utility_meters;
-    public bool $vendors;
-    public bool $notes;
-    public bool $reports;
-    public bool $activity_log;
+    // All optional modules default to ON — matches the seed migration and
+    // means a fresh clone with no settings DB rows still behaves correctly.
+    public bool $credit_notes = true;
+    public bool $maintenance = true;
+    public bool $tenant_sales = true;
+    public bool $cam = true;
+    public bool $utility_meters = true;
+    public bool $vendors = true;
+    public bool $notes = true;
+    public bool $reports = true;
+    public bool $activity_log = true;
 
     public static function group(): string
     {

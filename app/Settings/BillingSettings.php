@@ -11,16 +11,19 @@ use Spatie\LaravelSettings\Settings;
  */
 class BillingSettings extends Settings
 {
-    public float $late_fee_percent;
-    public int $late_fee_grace_days;
-    public float $late_fee_minimum;
+    // PHP-level defaults so the class is usable even before the settings
+    // migration has run (e.g. fresh clone, CI before seed, deploy ordering).
+    // The DB row, when present, overrides these.
+    public float $late_fee_percent = 2.0;
+    public int $late_fee_grace_days = 7;
+    public float $late_fee_minimum = 50.00;
 
-    public int $monthly_billing_day;
-    public string $monthly_billing_time;
+    public int $monthly_billing_day = 1;
+    public string $monthly_billing_time = '02:00';
 
-    public int $cam_reconciliation_month;
-    public int $cam_reconciliation_day;
-    public string $cam_reconciliation_time;
+    public int $cam_reconciliation_month = 1;
+    public int $cam_reconciliation_day = 15;
+    public string $cam_reconciliation_time = '03:00';
 
     public static function group(): string
     {

@@ -12,10 +12,10 @@ use Spatie\LaravelSettings\Settings;
  */
 class EtaSettings extends Settings
 {
-    public bool $enabled;
-    public bool $mock;
-    public string $issuer_name;
-    public string $issuer_tax_registration_number;
+    public bool $enabled = true;
+    public bool $mock = true;
+    public string $issuer_name = 'Atriom Demo Operator';
+    public string $issuer_tax_registration_number = '123-456-789';
 
     public static function group(): string
     {

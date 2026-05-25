@@ -10,10 +10,10 @@ use Spatie\LaravelSettings\Settings;
  */
 class MaintenanceSettings extends Settings
 {
-    public int $sla_urgent_hours;
-    public int $sla_high_hours;
-    public int $sla_medium_hours;
-    public int $sla_low_hours;
+    public int $sla_urgent_hours = 4;
+    public int $sla_high_hours = 24;
+    public int $sla_medium_hours = 72;
+    public int $sla_low_hours = 168;
 
     public static function group(): string
     {
