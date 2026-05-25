@@ -59,6 +59,96 @@ return [
         ],
     ],
 
+    'setup' => [
+        'title' => 'Welcome — let\'s get you set up',
+        'title_done' => 'You\'re all set ✓',
+        'description' => 'Five steps from a blank platform to your first invoice. (:done of :total complete.)',
+        'description_done' => 'Every essential is in place — invoices flowing, tenants on board, leases tracked. The widgets below give you the daily pulse.',
+        'next_step' => 'Next step',
+        'of' => 'of',
+        'steps' => [
+            'properties' => 'Add a property',
+            'properties_description' => 'Your mall, plaza, or office building — Atriom organizes everything underneath it.',
+            'units' => 'Add units',
+            'units_description' => 'Shops, food-court stalls, kiosks. Each unit lives under a property.',
+            'tenants' => 'Add tenants',
+            'tenants_description' => 'The brands renting your units. They get their own portal login.',
+            'leases' => 'Sign your first lease',
+            'leases_description' => 'A lease connects a tenant to a unit with rent terms. Drives every invoice.',
+            'invoices' => 'Generate invoices',
+            'invoices_description' => 'Run Monthly Billing to create the first batch from your active leases.',
+        ],
+        'cta' => [
+            'create_property' => 'Create your first property',
+            'create_unit' => 'Add a unit',
+            'create_tenant' => 'Add a tenant',
+            'create_lease' => 'Sign a lease',
+            'create_invoice' => 'Open invoices to bill',
+        ],
+    ],
+
+    'empty' => [
+        'assets' => [
+            'heading' => 'No properties yet',
+            'description' => 'Add your first mall, plaza, or office building to organize everything underneath it.',
+            'cta' => 'Add your first property',
+        ],
+        'units' => [
+            'heading' => 'No units yet',
+            'description' => 'Shops, food-court stalls, kiosks. Each unit belongs to a property and can be leased.',
+            'cta' => 'Add a unit',
+        ],
+        'tenants' => [
+            'heading' => 'No tenants yet',
+            'description' => 'Add the brands renting your units. They\'ll get their own portal login to see invoices and submit maintenance.',
+            'cta' => 'Add a tenant',
+        ],
+        'leases' => [
+            'heading' => 'No leases yet',
+            'description' => 'A lease connects a tenant to a unit with rent terms. Every invoice flows from here.',
+            'cta' => 'Sign a lease',
+        ],
+        'invoices' => [
+            'heading' => 'No invoices yet',
+            'description' => 'Run Monthly Billing on the toolbar to generate this month\'s invoices for every active lease.',
+            'cta' => 'Create an invoice',
+        ],
+        'payments' => [
+            'heading' => 'No payments recorded',
+            'description' => 'Record incoming rent payments and allocate them to invoices.',
+            'cta' => 'Record a payment',
+        ],
+        'credit_notes' => [
+            'heading' => 'No credit notes yet',
+            'description' => 'Issue credit notes to settle disputes, refund returns, or adjust an invoice.',
+            'cta' => 'Issue a credit note',
+        ],
+        'vendors' => [
+            'heading' => 'No vendors yet',
+            'description' => 'Add contractors and suppliers to route maintenance requests externally and track service contracts.',
+            'cta' => 'Add a vendor',
+        ],
+        'maintenance' => [
+            'heading' => 'No maintenance requests',
+            'description' => 'When a tenant reports an issue from the portal — or you log one yourself — it lands here for triage.',
+            'cta' => 'Log a maintenance request',
+        ],
+        'tenant_sales' => [
+            'heading' => 'No sales declarations yet',
+            'description' => 'Tenants on percentage-rent leases declare their monthly sales here. Locking a declaration generates the percentage-rent charge.',
+        ],
+        'cam' => [
+            'heading' => 'No CAM expense pools yet',
+            'description' => 'Create an annual common-area expense pool, then generate per-lease allocations pro-rata by leased square meters.',
+            'cta' => 'Create a CAM pool',
+        ],
+        'utility_meters' => [
+            'heading' => 'No utility meters yet',
+            'description' => 'Add electric, water, and gas meters per property. Track consumption monthly to spot anomalies.',
+            'cta' => 'Add a meter',
+        ],
+    ],
+
     'tooltips' => [
         'credit_notes_ready' => 'Credit notes issued with a remaining balance — ready to apply to invoices.',
         'vendor_contracts_expiring' => 'Vendor contracts expiring within 30 days.',

@@ -87,6 +87,14 @@ class AssetsTable
                         ->visible(fn () => AssetResource::canRestoreAny()),
                 ]),
             ])
-            ->defaultSort('name');
+            ->defaultSort('name')
+            ->emptyStateIcon('heroicon-o-building-office-2')
+            ->emptyStateHeading(__('admin.empty.assets.heading'))
+            ->emptyStateDescription(__('admin.empty.assets.description'))
+            ->emptyStateActions([
+                \Filament\Actions\CreateAction::make()
+                    ->label(__('admin.empty.assets.cta'))
+                    ->icon('heroicon-o-plus'),
+            ]);
     }
 }

@@ -76,6 +76,14 @@ class UtilityMetersTable
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),
+            ])
+            ->emptyStateIcon('heroicon-o-bolt')
+            ->emptyStateHeading(__('admin.empty.utility_meters.heading'))
+            ->emptyStateDescription(__('admin.empty.utility_meters.description'))
+            ->emptyStateActions([
+                \Filament\Actions\CreateAction::make()
+                    ->label(__('admin.empty.utility_meters.cta'))
+                    ->icon('heroicon-o-plus'),
             ]);
     }
 }

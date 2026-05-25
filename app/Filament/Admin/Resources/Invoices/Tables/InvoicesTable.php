@@ -311,6 +311,14 @@ class InvoicesTable
                         ->visible(fn () => InvoiceResource::canRestoreAny()),
                 ]),
             ])
-            ->defaultSort('issue_date', 'desc');
+            ->defaultSort('issue_date', 'desc')
+            ->emptyStateIcon('heroicon-o-banknotes')
+            ->emptyStateHeading(__('admin.empty.invoices.heading'))
+            ->emptyStateDescription(__('admin.empty.invoices.description'))
+            ->emptyStateActions([
+                \Filament\Actions\CreateAction::make()
+                    ->label(__('admin.empty.invoices.cta'))
+                    ->icon('heroicon-o-plus'),
+            ]);
     }
 }

@@ -12,6 +12,7 @@ use App\Filament\Admin\Widgets\MallStats;
 use App\Filament\Admin\Widgets\MonthlyRevenueTrend;
 use App\Filament\Admin\Widgets\OpenMaintenanceRequests;
 use App\Filament\Admin\Widgets\RecentPayments;
+use App\Filament\Admin\Widgets\SetupGuide;
 use App\Filament\Admin\Widgets\TenantMix;
 use App\Filament\Admin\Widgets\TopTenants;
 use App\Support\CurrentOperator;
@@ -62,6 +63,7 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->discoverWidgets(in: app_path('Filament/Admin/Widgets'), for: 'App\\Filament\\Admin\\Widgets')
             ->widgets([
+                SetupGuide::class,
                 ActionRequired::class,
                 MallStats::class,
                 EtaCompliance::class,

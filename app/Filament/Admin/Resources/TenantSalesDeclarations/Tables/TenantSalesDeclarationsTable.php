@@ -122,6 +122,9 @@ class TenantSalesDeclarationsTable
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),
-            ]);
+            ])
+            ->emptyStateIcon('heroicon-o-presentation-chart-line')
+            ->emptyStateHeading(__('admin.empty.tenant_sales.heading'))
+            ->emptyStateDescription(__('admin.empty.tenant_sales.description'));
     }
 }

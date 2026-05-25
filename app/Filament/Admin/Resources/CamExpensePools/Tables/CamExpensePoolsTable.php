@@ -106,6 +106,14 @@ class CamExpensePoolsTable
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),
+            ])
+            ->emptyStateIcon('heroicon-o-building-library')
+            ->emptyStateHeading(__('admin.empty.cam.heading'))
+            ->emptyStateDescription(__('admin.empty.cam.description'))
+            ->emptyStateActions([
+                \Filament\Actions\CreateAction::make()
+                    ->label(__('admin.empty.cam.cta'))
+                    ->icon('heroicon-o-plus'),
             ]);
     }
 }

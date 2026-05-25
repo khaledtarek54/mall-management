@@ -409,6 +409,14 @@ class LeasesTable
                         ->visible(fn () => LeaseResource::canRestoreAny()),
                 ]),
             ])
-            ->defaultSort('commencement_date', 'desc');
+            ->defaultSort('commencement_date', 'desc')
+            ->emptyStateIcon('heroicon-o-document-text')
+            ->emptyStateHeading(__('admin.empty.leases.heading'))
+            ->emptyStateDescription(__('admin.empty.leases.description'))
+            ->emptyStateActions([
+                \Filament\Actions\CreateAction::make()
+                    ->label(__('admin.empty.leases.cta'))
+                    ->icon('heroicon-o-plus'),
+            ]);
     }
 }

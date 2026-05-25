@@ -65,6 +65,14 @@ class VendorsTable
                     DeleteBulkAction::make()->visible(fn () => VendorResource::canDeleteAny()),
                 ]),
             ])
-            ->defaultSort('name');
+            ->defaultSort('name')
+            ->emptyStateIcon('heroicon-o-building-office-2')
+            ->emptyStateHeading(__('admin.empty.vendors.heading'))
+            ->emptyStateDescription(__('admin.empty.vendors.description'))
+            ->emptyStateActions([
+                \Filament\Actions\CreateAction::make()
+                    ->label(__('admin.empty.vendors.cta'))
+                    ->icon('heroicon-o-plus'),
+            ]);
     }
 }

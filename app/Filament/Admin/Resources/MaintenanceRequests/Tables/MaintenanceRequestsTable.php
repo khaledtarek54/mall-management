@@ -208,6 +208,14 @@ class MaintenanceRequestsTable
                         ->visible(fn () => MaintenanceRequestResource::canRestoreAny()),
                 ]),
             ])
-            ->defaultSort('submitted_at', 'desc');
+            ->defaultSort('submitted_at', 'desc')
+            ->emptyStateIcon('heroicon-o-wrench-screwdriver')
+            ->emptyStateHeading(__('admin.empty.maintenance.heading'))
+            ->emptyStateDescription(__('admin.empty.maintenance.description'))
+            ->emptyStateActions([
+                \Filament\Actions\CreateAction::make()
+                    ->label(__('admin.empty.maintenance.cta'))
+                    ->icon('heroicon-o-plus'),
+            ]);
     }
 }

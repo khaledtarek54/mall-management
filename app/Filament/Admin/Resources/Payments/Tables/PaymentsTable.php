@@ -152,6 +152,14 @@ class PaymentsTable
                         ->visible(fn () => PaymentResource::canRestoreAny()),
                 ]),
             ])
-            ->defaultSort('payment_date', 'desc');
+            ->defaultSort('payment_date', 'desc')
+            ->emptyStateIcon('heroicon-o-credit-card')
+            ->emptyStateHeading(__('admin.empty.payments.heading'))
+            ->emptyStateDescription(__('admin.empty.payments.description'))
+            ->emptyStateActions([
+                \Filament\Actions\CreateAction::make()
+                    ->label(__('admin.empty.payments.cta'))
+                    ->icon('heroicon-o-plus'),
+            ]);
     }
 }

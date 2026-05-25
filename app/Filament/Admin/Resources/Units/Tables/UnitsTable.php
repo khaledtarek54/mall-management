@@ -137,6 +137,14 @@ class UnitsTable
                         ->visible(fn () => UnitResource::canRestoreAny()),
                 ]),
             ])
-            ->defaultSort('code');
+            ->defaultSort('code')
+            ->emptyStateIcon('heroicon-o-rectangle-stack')
+            ->emptyStateHeading(__('admin.empty.units.heading'))
+            ->emptyStateDescription(__('admin.empty.units.description'))
+            ->emptyStateActions([
+                \Filament\Actions\CreateAction::make()
+                    ->label(__('admin.empty.units.cta'))
+                    ->icon('heroicon-o-plus'),
+            ]);
     }
 }

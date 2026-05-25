@@ -92,6 +92,14 @@ class CreditNotesTable
                         ->visible(fn () => CreditNoteResource::canDeleteAny()),
                 ]),
             ])
-            ->defaultSort('issue_date', 'desc');
+            ->defaultSort('issue_date', 'desc')
+            ->emptyStateIcon('heroicon-o-receipt-refund')
+            ->emptyStateHeading(__('admin.empty.credit_notes.heading'))
+            ->emptyStateDescription(__('admin.empty.credit_notes.description'))
+            ->emptyStateActions([
+                \Filament\Actions\CreateAction::make()
+                    ->label(__('admin.empty.credit_notes.cta'))
+                    ->icon('heroicon-o-plus'),
+            ]);
     }
 }

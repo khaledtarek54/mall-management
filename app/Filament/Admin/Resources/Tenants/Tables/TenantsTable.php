@@ -150,6 +150,14 @@ class TenantsTable
                         ->visible(fn () => TenantResource::canRestoreAny()),
                 ]),
             ])
-            ->defaultSort('name');
+            ->defaultSort('name')
+            ->emptyStateIcon('heroicon-o-users')
+            ->emptyStateHeading(__('admin.empty.tenants.heading'))
+            ->emptyStateDescription(__('admin.empty.tenants.description'))
+            ->emptyStateActions([
+                \Filament\Actions\CreateAction::make()
+                    ->label(__('admin.empty.tenants.cta'))
+                    ->icon('heroicon-o-plus'),
+            ]);
     }
 }
