@@ -4,13 +4,17 @@ namespace App\Filament\Admin\Pages;
 
 use App\Support\ActivityLogChangeRenderer;
 use BackedEnum;
+use Carbon\CarbonImmutable;
+use Filament\Forms\Components\DatePicker;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Spatie\Activitylog\Models\Activity;
 
 class ActivityLog extends Page implements HasTable
@@ -113,7 +117,64 @@ class ActivityLog extends Page implements HasTable
                 SelectFilter::make('event')
                     ->label(__('admin.activity.event'))
                     ->options(fn () => __('admin.activity.events')),
+
+                // Quick presets — common audit windows. Picking one
+                // overrides the custom date range below.
+                SelectFilter::make('period')
+                    ->label(__('admin.activity.period'))
+                    ->options([
+                        'today' => __('admin.activity.periods.today'),
+                        'yesterday' => __('admin.activity.periods.yesterday'),
+                        'last_7_days' => __('admin.activity.periods.last_7_days'),
+                        'last_30_days' => __('admin.activity.periods.last_30_days'),
+                        'this_month' => __('admin.activity.periods.this_month'),
+                        'last_month' => __('admin.activity.periods.last_month'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        $now = CarbonImmutable::now();
+
+                        [$from, $to] = match ($data['value'] ?? null) {
+                            'today' => [$now->startOfDay(), $now->endOfDay()],
+                            'yesterday' => [$now->subDay()->startOfDay(), $now->subDay()->endOfDay()],
+                            'last_7_days' => [$now->subDays(7)->startOfDay(), $now->endOfDay()],
+                            'last_30_days' => [$now->subDays(30)->startOfDay(), $now->endOfDay()],
+                            'this_month' => [$now->startOfMonth(), $now->endOfMonth()],
+                            'last_month' => [$now->subMonth()->startOfMonth(), $now->subMonth()->endOfMonth()],
+                            default => [null, null],
+                        };
+
+                        return $query
+                            ->when($from, fn (Builder $q, $start) => $q->where('created_at', '>=', $start))
+                            ->when($to, fn (Builder $q, $end) => $q->where('created_at', '<=', $end));
+                    }),
+
+                // Custom date range — used when the preset doesn't fit.
+                Filter::make('created_range')
+                    ->label(__('admin.activity.when'))
+                    ->schema([
+                        DatePicker::make('created_from')
+                            ->label(__('admin.filters.created_from'))
+                            ->native(false),
+                        DatePicker::make('created_until')
+                            ->label(__('admin.filters.created_until'))
+                            ->native(false),
+                    ])
+                    ->columns(2)
+                    ->query(fn (Builder $query, array $data): Builder => $query
+                        ->when($data['created_from'] ?? null, fn (Builder $q, $date) => $q->whereDate('created_at', '>=', $date))
+                        ->when($data['created_until'] ?? null, fn (Builder $q, $date) => $q->whereDate('created_at', '<=', $date)))
+                    ->indicateUsing(function (array $data): array {
+                        $indicators = [];
+                        if ($data['created_from'] ?? null) {
+                            $indicators[] = __('admin.filters.created_from') . ': ' . \Carbon\Carbon::parse($data['created_from'])->format('d/m/Y');
+                        }
+                        if ($data['created_until'] ?? null) {
+                            $indicators[] = __('admin.filters.created_until') . ': ' . \Carbon\Carbon::parse($data['created_until'])->format('d/m/Y');
+                        }
+                        return $indicators;
+                    }),
             ])
+            ->filtersFormColumns(2)
             ->defaultSort('id', 'desc')
             ->paginated([25, 50, 100]);
     }

@@ -1164,6 +1164,15 @@ return [
         'empty_value' => '(فارغ)',
         'bool_true' => 'نعم',
         'bool_false' => 'لا',
+        'period' => 'الفترة',
+        'periods' => [
+            'today' => 'اليوم',
+            'yesterday' => 'أمس',
+            'last_7_days' => 'آخر 7 أيام',
+            'last_30_days' => 'آخر 30 يومًا',
+            'this_month' => 'هذا الشهر',
+            'last_month' => 'الشهر الماضي',
+        ],
     ],
 
     'statement' => [

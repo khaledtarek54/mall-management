@@ -1164,6 +1164,15 @@ return [
         'empty_value' => '(empty)',
         'bool_true' => 'yes',
         'bool_false' => 'no',
+        'period' => 'Period',
+        'periods' => [
+            'today' => 'Today',
+            'yesterday' => 'Yesterday',
+            'last_7_days' => 'Last 7 days',
+            'last_30_days' => 'Last 30 days',
+            'this_month' => 'This month',
+            'last_month' => 'Last month',
+        ],
     ],
 
     'statement' => [
