@@ -1,17 +1,11 @@
 <?php
 
-use App\Filament\Admin\Pages\ActivityLog;
+use App\Support\ActivityLogChangeRenderer;
 use Spatie\Activitylog\Models\Activity;
-
-beforeEach(function () {
-    $this->page = new ActivityLog;
-});
 
 function renderChanges(Activity $activity): string
 {
-    $page = new ActivityLog;
-    $ref = new ReflectionMethod($page, 'renderChanges');
-    return $ref->invoke($page, $activity);
+    return app(ActivityLogChangeRenderer::class)->render($activity);
 }
 
 it('renders a single-field update as old → new with proper HTML', function () {
@@ -110,4 +104,22 @@ it('formats boolean and array values legibly', function () {
         ->toContain('yes')               // old true
         ->toContain('no')                // new false
         ->toContain('&quot;key&quot;');  // JSON-encoded array, html-escaped
+});
+
+/**
+ * Coverage guard: every place that surfaces activity diffs in the UI
+ * must route through ActivityLogChangeRenderer. If anyone copy-pastes
+ * the old `$old[$field] ?? '∅'` formatter back in, this test should
+ * fail because it'd duplicate the column state again.
+ */
+it('the standalone ActivityLog page and the resource-embedded ActivitiesRelationManager both use the shared renderer', function () {
+    $page = file_get_contents(app_path('Filament/Admin/Pages/ActivityLog.php'));
+    $rm = file_get_contents(app_path('Filament/Admin/RelationManagers/ActivitiesRelationManager.php'));
+
+    foreach (['page' => $page, 'relation manager' => $rm] as $label => $source) {
+        expect($source)
+            ->toContain('ActivityLogChangeRenderer')
+            ->not->toContain('∅')                // old empty-marker glyph
+            ->not->toContain("'attribute_changes'"); // old binding that caused the duplicate render
+    }
 });

@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\RelationManagers;
 
 use App\Models\User;
+use App\Support\ActivityLogChangeRenderer;
 use Filament\Forms\Components\DatePicker;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
@@ -44,24 +45,11 @@ class ActivitiesRelationManager extends RelationManager
                         'deleted' => 'danger',
                         default => 'gray',
                     }),
-                TextColumn::make('attribute_changes')
+                TextColumn::make('changes')
                     ->label(__('admin.activity.changes'))
-                    ->formatStateUsing(function (Activity $record): string {
-                        $changes = $record->attribute_changes;
-                        if (! $changes || ! isset($changes['attributes'])) {
-                            return '—';
-                        }
-                        $lines = [];
-                        $old = $changes['old'] ?? [];
-                        foreach ($changes['attributes'] as $field => $newValue) {
-                            $oldValue = $old[$field] ?? '∅';
-                            $lines[] = "{$field}: {$oldValue} → {$newValue}";
-                        }
-                        return implode(' · ', $lines);
-                    })
-                    ->wrap()
-                    ->size('xs')
-                    ->color('gray'),
+                    ->state(fn (Activity $record): string => app(ActivityLogChangeRenderer::class)->render($record))
+                    ->html()
+                    ->wrap(),
             ])
             ->filters([
                 SelectFilter::make('event')

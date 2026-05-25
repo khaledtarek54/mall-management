@@ -8,6 +8,7 @@ use App\Models\Lease;
 use App\Models\Payment;
 use App\Models\Tenant;
 use App\Models\Unit;
+use App\Support\TenantScope;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 
@@ -38,7 +39,7 @@ class ReportService
         $monthStart = $period;
         $monthEnd = $period->endOfMonth();
 
-        $invoicesInMonth = Invoice::query()
+        $invoicesInMonth = TenantScope::applyTo(Invoice::query(), 'lease.unit')
             ->whereBetween('issue_date', [$monthStart, $monthEnd])
             ->get();
 
@@ -47,7 +48,7 @@ class ReportService
             'total' => round((float) $group->sum('total'), 2),
         ])->all();
 
-        $paymentsInMonth = Payment::query()
+        $paymentsInMonth = TenantScope::applyTo(Payment::query(), 'invoices.lease.unit')
             ->whereBetween('payment_date', [$monthStart, $monthEnd])
             ->where('status', 'captured')
             ->get();
@@ -62,7 +63,7 @@ class ReportService
         $arAging = $this->arAgingBuckets($monthEnd);
         $outstandingTotal = array_sum(array_column($arAging, 'total'));
 
-        $creditNotes = \App\Models\CreditNote::query()
+        $creditNotes = $this->scopedCreditNotes()
             ->whereBetween('issue_date', [$monthStart, $monthEnd])
             ->whereIn('status', ['issued', 'applied'])
             ->get();
@@ -109,7 +110,7 @@ class ReportService
     {
         $asOf = $asOf ?? CarbonImmutable::now()->endOfDay();
 
-        $openInvoices = Invoice::query()
+        $openInvoices = TenantScope::applyTo(Invoice::query(), 'lease.unit')
             ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
             ->where('balance', '>', 0)
             ->whereDate('issue_date', '<=', $asOf)
@@ -160,7 +161,7 @@ class ReportService
             default => throw new \InvalidArgumentException("Unknown bucket: {$bucket}"),
         };
 
-        return Invoice::query()
+        return TenantScope::applyTo(Invoice::query(), 'lease.unit')
             ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
             ->where('balance', '>', 0)
             ->with(['tenant', 'lease.unit'])
@@ -182,7 +183,7 @@ class ReportService
     {
         $now = CarbonImmutable::now();
 
-        $openInvoices = Invoice::query()
+        $openInvoices = TenantScope::applyTo(Invoice::query(), 'lease.unit')
             ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
             ->where('balance', '>', 0)
             ->whereDate('due_date', '<', $now)
@@ -215,10 +216,22 @@ class ReportService
      */
     private function revenueByType(CarbonImmutable $start, CarbonImmutable $end): array
     {
-        $rows = \App\Models\InvoiceItem::query()
+        $query = \App\Models\InvoiceItem::query()
             ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
             ->whereBetween('invoices.issue_date', [$start, $end])
-            ->whereNotIn('invoices.status', ['cancelled', 'draft'])
+            ->whereNotIn('invoices.status', ['cancelled', 'draft']);
+
+        if ($assetId = TenantScope::currentAssetId()) {
+            $query->whereExists(function ($q) use ($assetId) {
+                $q->select(\DB::raw(1))
+                  ->from('leases')
+                  ->join('units', 'units.id', '=', 'leases.unit_id')
+                  ->whereColumn('leases.id', 'invoices.lease_id')
+                  ->where('units.asset_id', $assetId);
+            });
+        }
+
+        $rows = $query
             ->selectRaw('invoice_items.type, SUM(invoice_items.amount) AS subtotal')
             ->groupBy('invoice_items.type')
             ->get();
@@ -228,5 +241,24 @@ class ReportService
             $out[$row->type] = round((float) $row->subtotal, 2);
         }
         return $out;
+    }
+
+    /**
+     * Credit notes scoped to the current property. Mirrors CreditNoteResource:
+     * standalone (no lease_id) credit notes are tenant-level adjustments and
+     * remain visible across properties.
+     */
+    private function scopedCreditNotes(): \Illuminate\Database\Eloquent\Builder
+    {
+        $query = \App\Models\CreditNote::query();
+
+        if ($assetId = TenantScope::currentAssetId()) {
+            $query->where(function ($q) use ($assetId) {
+                $q->whereNull('lease_id')
+                  ->orWhereHas('lease.unit', fn ($q2) => $q2->where('asset_id', $assetId));
+            });
+        }
+
+        return $query;
     }
 }
