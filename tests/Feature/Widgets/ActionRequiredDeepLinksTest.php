@@ -2,8 +2,10 @@
 
 use App\Filament\Admin\Widgets\ActionRequired;
 use App\Models\MaintenanceRequest;
+use Database\Seeders\RolesPermissionsSeeder;
 
 beforeEach(function () {
+    $this->seed(RolesPermissionsSeeder::class);
     ensureAllPropertiesAsset();
     $this->asset = makeAsset();
     $this->unit = makeUnit($this->asset, ['status' => 'vacant']);
@@ -33,7 +35,9 @@ beforeEach(function () {
         'due_date' => now()->subDays(10),
     ]);
 
-    $this->actingAs(makeUser('manager'));
+    // Manager needs the test asset in their assigned-assets pivot, otherwise
+    // Filament's canAccessTenant gate 404s the URL.
+    $this->actingAs(makeUser('manager', [$this->asset->id]));
 });
 
 function actionCards(): array
@@ -43,77 +47,106 @@ function actionCards(): array
     return $ref->invoke($widget)['items'];
 }
 
-it('urgent_maintenance link filters by priority AND sorts oldest first', function () {
+/**
+ * Filament 4 aliases the Livewire query string: the table component's
+ * `$tableSort` is published as `?sort=` and `$tableFilters` as
+ * `?filters=`. Generating URLs with the property names (tableSort,
+ * tableFilters) silently fails to bind on the receiving page.
+ */
+it('urgent_maintenance link uses filters[priority] + sort=submitted_at:asc', function () {
     asTenant($this->asset, function () {
         $card = collect(actionCards())->firstWhere('key', 'urgent_maintenance');
         expect($card)->not->toBeNull();
-
-        $url = $card['url'];
-        expect($url)
-            ->toContain('tableFilters%5Bpriority%5D%5Bvalue%5D=urgent')
-            ->toContain('tableSort=submitted_at%3Aasc');
+        expect($card['url'])
+            ->toContain('filters%5Bpriority%5D%5Bvalue%5D=urgent')
+            ->toContain('sort=submitted_at%3Aasc');
     });
 });
 
-it('sla_breached link filters + sorts most-overdue first', function () {
+it('sla_breached link uses filters[sla_breached] + sort=target_resolution_at:asc', function () {
     asTenant($this->asset, function () {
         $card = collect(actionCards())->firstWhere('key', 'sla_breached');
-        expect($card)->not->toBeNull();
-
         expect($card['url'])
-            ->toContain('sla_breached')
-            ->toContain('tableSort=target_resolution_at%3Aasc');
+            ->toContain('filters%5Bsla_breached%5D')
+            ->toContain('sort=target_resolution_at%3Aasc');
     });
 });
 
-it('overdue_invoices link filters + sorts oldest-due-date first', function () {
+it('overdue_invoices link uses filters[overdue_only] + sort=due_date:asc', function () {
     asTenant($this->asset, function () {
         $card = collect(actionCards())->firstWhere('key', 'overdue');
-        expect($card)->not->toBeNull();
-
         expect($card['url'])
-            ->toContain('overdue_only')
-            ->toContain('tableSort=due_date%3Aasc');
+            ->toContain('filters%5Boverdue_only%5D')
+            ->toContain('sort=due_date%3Aasc');
     });
 });
 
-it('expiring_critical link filters + sorts soonest-expiring first', function () {
+it('expiring_critical link uses filters[expiring_soon] + sort=expiry_date:asc', function () {
     asTenant($this->asset, function () {
         $card = collect(actionCards())->firstWhere('key', 'expiring_critical');
-        expect($card)->not->toBeNull();
-
         expect($card['url'])
-            ->toContain('expiring_soon')
-            ->toContain('tableSort=expiry_date%3Aasc');
+            ->toContain('filters%5Bexpiring_soon%5D')
+            ->toContain('sort=expiry_date%3Aasc');
     });
 });
 
-it('vacant_units link filters + sorts biggest-area first', function () {
+it('vacant_units link uses filters[status]=vacant + sort=area_sqm:desc', function () {
     asTenant($this->asset, function () {
         $card = collect(actionCards())->firstWhere('key', 'vacant');
-        expect($card)->not->toBeNull();
-
         expect($card['url'])
-            ->toContain('tableFilters%5Bstatus%5D%5Bvalue%5D=vacant')
-            ->toContain('tableSort=area_sqm%3Adesc');
+            ->toContain('filters%5Bstatus%5D%5Bvalue%5D=vacant')
+            ->toContain('sort=area_sqm%3Adesc');
     });
 });
 
 /**
- * Filament 4 swapped the URL parameter from Filament 3's
- * `tableSortColumn=X&tableSortDirection=Y` to a single
- * `tableSort=column:direction`. This test pins the format so a future
- * Filament upgrade — or a copy/paste from old docs — can't silently
- * break the deep-links.
+ * Format-regression guards. The Livewire query-string alias machinery
+ * publishes only the aliased keys; the raw property names never reach
+ * the URL. If a future copy/paste resurrects them, the cards will
+ * silently stop filtering/sorting.
  */
-it('uses the Filament 4 tableSort=column:direction URL format, not the Filament 3 dual-param form', function () {
+it('never emits Filament 3 tableSortColumn / tableSortDirection URL params', function () {
     asTenant($this->asset, function () {
         $urls = collect(actionCards())->pluck('url');
-
         foreach ($urls as $url) {
             expect($url)
                 ->not->toContain('tableSortColumn=')
                 ->not->toContain('tableSortDirection=');
         }
+    });
+});
+
+it('never emits the raw tableSort / tableFilters property names — Filament 4 aliases them to sort + filters', function () {
+    asTenant($this->asset, function () {
+        $urls = collect(actionCards())->pluck('url');
+        foreach ($urls as $url) {
+            expect($url)
+                ->not->toContain('tableSort=')
+                ->not->toContain('tableFilters%5B');
+        }
+    });
+});
+
+/**
+ * End-to-end: actually GET the deep-link URL through the kernel and
+ * confirm Filament reflects the filter + sort state in the rendered
+ * Livewire payload. This is the test that would have caught the bug.
+ */
+it('the rendered page sets $tableSort and $tableFilters from the URL', function () {
+    asTenant($this->asset, function () {
+        $card = collect(actionCards())->firstWhere('key', 'overdue');
+        $path = parse_url($card['url'], PHP_URL_PATH) . '?' . parse_url($card['url'], PHP_URL_QUERY);
+
+        $response = $this->get($path);
+        $response->assertOk();
+
+        $html = $response->getContent();
+
+        // Livewire serialises the component state into the page. We expect
+        // `tableSort":"due_date:asc"` and `tableFilters":[{"overdue_only":...
+        // to show up in the wire-snapshot blob.
+        expect($html)
+            ->toContain('due_date:asc')
+            ->toContain('overdue_only');
     });
 });

@@ -98,8 +98,8 @@ class ActionRequired extends Widget
                 'title' => trans_choice('admin.widgets.action_required.urgent_maintenance', $urgentMaintenanceCount, ['count' => $urgentMaintenanceCount]),
                 'body' => __('admin.widgets.action_required.urgent_maintenance_body'),
                 'url' => MaintenanceRequestResource::getUrl('index', [
-                    'tableFilters' => ['priority' => ['value' => 'urgent']],
-                    'tableSort' => 'submitted_at:asc',
+                    'filters' => ['priority' => ['value' => 'urgent']],
+                    'sort' => 'submitted_at:asc',
                 ]),
             ];
         }
@@ -112,8 +112,8 @@ class ActionRequired extends Widget
                 'title' => trans_choice('admin.widgets.action_required.sla_breached', $slaBreachedCount, ['count' => $slaBreachedCount]),
                 'body' => __('admin.widgets.action_required.sla_breached_body'),
                 'url' => MaintenanceRequestResource::getUrl('index', [
-                    'tableFilters' => ['sla_breached' => ['isActive' => true]],
-                    'tableSort' => 'target_resolution_at:asc',
+                    'filters' => ['sla_breached' => ['isActive' => true]],
+                    'sort' => 'target_resolution_at:asc',
                 ]),
             ];
         }
@@ -126,8 +126,8 @@ class ActionRequired extends Widget
                 'title' => trans_choice('admin.widgets.action_required.overdue_invoices', $overdueCount, ['count' => $overdueCount]),
                 'body' => __('admin.widgets.action_required.overdue_invoices_body', ['amount' => number_format((float) $overdueAmount, 0)]),
                 'url' => InvoiceResource::getUrl('index', [
-                    'tableFilters' => ['overdue_only' => ['isActive' => true]],
-                    'tableSort' => 'due_date:asc',
+                    'filters' => ['overdue_only' => ['isActive' => true]],
+                    'sort' => 'due_date:asc',
                 ]),
             ];
         }
@@ -140,8 +140,8 @@ class ActionRequired extends Widget
                 'title' => trans_choice('admin.widgets.action_required.expiring_critical', $expiringCriticalCount, ['count' => $expiringCriticalCount]),
                 'body' => __('admin.widgets.action_required.expiring_critical_body'),
                 'url' => LeaseResource::getUrl('index', [
-                    'tableFilters' => ['expiring_soon' => ['isActive' => true]],
-                    'tableSort' => 'expiry_date:asc',
+                    'filters' => ['expiring_soon' => ['isActive' => true]],
+                    'sort' => 'expiry_date:asc',
                 ]),
             ];
         }
@@ -154,8 +154,8 @@ class ActionRequired extends Widget
                 'title' => trans_choice('admin.widgets.action_required.expiring_soon', $expiringSoonCount, ['count' => $expiringSoonCount]),
                 'body' => __('admin.widgets.action_required.expiring_soon_body'),
                 'url' => LeaseResource::getUrl('index', [
-                    'tableFilters' => ['expiring_soon' => ['isActive' => true]],
-                    'tableSort' => 'expiry_date:asc',
+                    'filters' => ['expiring_soon' => ['isActive' => true]],
+                    'sort' => 'expiry_date:asc',
                 ]),
             ];
         }
@@ -168,8 +168,8 @@ class ActionRequired extends Widget
                 'title' => trans_choice('admin.widgets.action_required.vacant_units', $vacantCount, ['count' => $vacantCount]),
                 'body' => __('admin.widgets.action_required.vacant_units_body'),
                 'url' => UnitResource::getUrl('index', [
-                    'tableFilters' => ['status' => ['value' => 'vacant']],
-                    'tableSort' => 'area_sqm:desc',
+                    'filters' => ['status' => ['value' => 'vacant']],
+                    'sort' => 'area_sqm:desc',
                 ]),
             ];
         }
@@ -185,8 +185,8 @@ class ActionRequired extends Widget
                 'title' => trans_choice('admin.widgets.action_required.unbilled_leases', $unbilledLeasesCount, ['count' => $unbilledLeasesCount]),
                 'body' => __('admin.widgets.action_required.unbilled_leases_body'),
                 'url' => LeaseResource::getUrl('index', [
-                    'tableFilters' => ['status' => ['value' => 'active']],
-                    'tableSort' => 'commencement_date:desc',
+                    'filters' => ['status' => ['value' => 'active']],
+                    'sort' => 'commencement_date:desc',
                 ]),
             ];
         }
