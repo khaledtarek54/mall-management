@@ -29,7 +29,7 @@ class EtaCompliance extends StatsOverviewWidget
         return 'eta';
     }
 
-    protected static ?int $sort = 2;
+    protected static ?int $sort = 7;
 
     protected function getStats(): array
     {

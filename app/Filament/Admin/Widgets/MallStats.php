@@ -21,6 +21,11 @@ class MallStats extends StatsOverviewWidget
         return ['manager', 'viewer', 'leasing_manager', 'maintenance_manager'];
     }
 
+    // Dashboard order: SetupGuide(-1) → ActionRequired(0) → MallStats(1)
+    // → LeasingPipeline(2) → ExpiringLeases(3) → TopTenants(4) →
+    // ArAging(5) + TenantMix(6) [paired half-width charts] →
+    // EtaCompliance(7) → MonthlyRevenueTrend(8) → RecentPayments(9) →
+    // OpenMaintenanceRequests(10) → EnergyConsumptionTrend(11).
     protected static ?int $sort = 1;
 
     protected function getStats(): array

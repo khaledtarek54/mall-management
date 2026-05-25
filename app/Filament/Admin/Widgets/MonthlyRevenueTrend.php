@@ -29,7 +29,7 @@ class MonthlyRevenueTrend extends ChartWidget
         return __('admin.widgets.monthly_revenue_trend.description');
     }
 
-    protected static ?int $sort = 2;
+    protected static ?int $sort = 8;
 
     protected int|string|array $columnSpan = 'full';
 

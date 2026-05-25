@@ -26,9 +26,9 @@ class ArAging extends ChartWidget
         return __('admin.widgets.ar_aging.description');
     }
 
-    protected static ?int $sort = 3;
+    protected static ?int $sort = 5;
 
-    protected ?string $maxHeight = '260px';
+    // protected ?string $maxHeight = '260px';
 
     protected int|string|array $columnSpan = 1;
 

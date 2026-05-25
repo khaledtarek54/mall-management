@@ -23,7 +23,7 @@ class LeasingPipeline extends StatsOverviewWidget
         return ['manager', 'leasing_manager'];
     }
 
-    protected static ?int $sort = 4;
+    protected static ?int $sort = 2;
 
     protected function getStats(): array
     {

@@ -26,7 +26,7 @@ class TenantMix extends ChartWidget
         return __('admin.widgets.tenant_mix.description');
     }
 
-    protected static ?int $sort = 4;
+    protected static ?int $sort = 6;
 
     protected ?string $maxHeight = '260px';
 

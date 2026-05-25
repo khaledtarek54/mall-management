@@ -32,7 +32,7 @@ class EnergyConsumptionTrend extends ChartWidget
         return __('admin.widgets.energy_consumption.description');
     }
 
-    protected static ?int $sort = 8;
+    protected static ?int $sort = 11;
 
     protected int|string|array $columnSpan = 'full';
 
