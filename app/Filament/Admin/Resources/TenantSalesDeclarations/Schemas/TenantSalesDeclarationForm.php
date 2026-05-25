@@ -20,8 +20,14 @@ class TenantSalesDeclarationForm
                 ->components([
                     Select::make('lease_id')
                         ->label(__('admin.resources.lease.singular'))
-                        ->options(fn () => Lease::with(['tenant', 'unit'])->where('status', 'active')->get()
-                            ->mapWithKeys(fn (Lease $l) => [$l->id => sprintf('%s — %s (%s)', $l->reference, $l->tenant?->name, $l->unit?->code)]))
+                        ->options(function () {
+                            $assetId = \App\Support\TenantScope::currentAssetId();
+                            return Lease::with(['tenant', 'unit'])
+                                ->where('status', 'active')
+                                ->when($assetId, fn ($q) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)))
+                                ->get()
+                                ->mapWithKeys(fn (Lease $l) => [$l->id => sprintf('%s — %s (%s)', $l->reference, $l->tenant?->name, $l->unit?->code)]);
+                        })
                         ->searchable()
                         ->required(),
                     DatePicker::make('period_start')

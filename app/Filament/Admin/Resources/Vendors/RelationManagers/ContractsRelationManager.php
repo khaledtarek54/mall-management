@@ -41,9 +41,12 @@ class ContractsRelationManager extends RelationManager
                     ->native(false),
                 Select::make('asset_id')
                     ->label(__('admin.resources.asset.singular'))
-                    ->options(fn () => Asset::query()->withoutGlobalScopes()->orderBy('name')->pluck('name', 'id')->all())
+                    ->options(fn () => Asset::query()->orderBy('name')->pluck('name', 'id')->all())
                     ->searchable()
-                    ->placeholder('—'),
+                    ->placeholder('—')
+                    ->default(fn () => \App\Support\TenantScope::currentAssetId())
+                    ->disabled(fn () => \App\Support\TenantScope::currentAssetId() !== null)
+                    ->dehydrated(),
                 DatePicker::make('start_date')->label(__('admin.fields.start_date') ?: 'Start')->required()->native(false),
                 DatePicker::make('end_date')->label(__('admin.fields.end_date') ?: 'End')->native(false),
                 TextInput::make('value')

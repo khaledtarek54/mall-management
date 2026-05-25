@@ -20,7 +20,10 @@ class UnitForm
                         ->label(__('admin.tables.unit.asset'))
                         ->relationship('asset', 'name')
                         ->required()
-                        ->native(false),
+                        ->native(false)
+                        ->default(fn () => \App\Support\TenantScope::currentAssetId())
+                        ->disabled(fn () => \App\Support\TenantScope::currentAssetId() !== null)
+                        ->dehydrated(),
                     TextInput::make('code')
                         ->label(__('admin.tables.unit.code'))
                         ->required()

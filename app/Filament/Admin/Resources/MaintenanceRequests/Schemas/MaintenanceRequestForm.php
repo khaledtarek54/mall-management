@@ -35,8 +35,14 @@ class MaintenanceRequestForm
                         ->required(),
                     Select::make('unit_id')
                         ->label(__('admin.fields.unit_label'))
-                        ->options(fn () => Unit::with('asset')->orderBy('code')->get()
-                            ->mapWithKeys(fn (Unit $u) => [$u->id => $u->fullName()]))
+                        ->options(function () {
+                            $assetId = \App\Support\TenantScope::currentAssetId();
+                            return Unit::with('asset')
+                                ->when($assetId, fn ($q) => $q->where('asset_id', $assetId))
+                                ->orderBy('code')
+                                ->get()
+                                ->mapWithKeys(fn (Unit $u) => [$u->id => $u->fullName()]);
+                        })
                         ->searchable()
                         ->required(),
                     Select::make('priority')

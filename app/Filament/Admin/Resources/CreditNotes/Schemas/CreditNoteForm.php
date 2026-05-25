@@ -42,8 +42,10 @@ class CreditNoteForm
                             if (! $tenantId) {
                                 return [];
                             }
+                            $assetId = \App\Support\TenantScope::currentAssetId();
                             return Invoice::query()
                                 ->where('tenant_id', $tenantId)
+                                ->when($assetId, fn ($q) => $q->whereHas('lease.unit', fn ($u) => $u->where('asset_id', $assetId)))
                                 ->orderByDesc('issue_date')
                                 ->limit(50)
                                 ->get()
@@ -64,7 +66,14 @@ class CreditNoteForm
 
                     Select::make('lease_id')
                         ->label(__('admin.fields.lease'))
-                        ->relationship('lease', 'reference')
+                        ->relationship(
+                            'lease',
+                            'reference',
+                            modifyQueryUsing: fn ($query) => $query->when(
+                                \App\Support\TenantScope::currentAssetId(),
+                                fn ($q, $assetId) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)),
+                            ),
+                        )
                         ->searchable()
                         ->preload(),
 

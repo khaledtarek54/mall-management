@@ -27,7 +27,14 @@ class InvoiceForm
                         ->dehydrated(),
                     Select::make('lease_id')
                         ->label(__('admin.fields.lease'))
-                        ->relationship('lease', 'reference')
+                        ->relationship(
+                            'lease',
+                            'reference',
+                            modifyQueryUsing: fn ($query) => $query->when(
+                                \App\Support\TenantScope::currentAssetId(),
+                                fn ($q, $assetId) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)),
+                            ),
+                        )
                         ->searchable(['reference'])
                         ->preload()
                         ->getOptionLabelFromRecordUsing(fn (Lease $record) => trim(

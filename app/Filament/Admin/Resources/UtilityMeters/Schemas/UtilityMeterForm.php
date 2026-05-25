@@ -27,13 +27,19 @@ class UtilityMeterForm
                         ->required()
                         ->native(false)
                         ->searchable()
-                        ->reactive(),
+                        ->reactive()
+                        ->default(fn () => \App\Support\TenantScope::currentAssetId())
+                        ->disabled(fn () => \App\Support\TenantScope::currentAssetId() !== null)
+                        ->dehydrated(),
                     Select::make('unit_id')
                         ->label(__('admin.fields.unit_label'))
-                        ->options(fn ($get) => Unit::query()
-                            ->when($get('asset_id'), fn ($q, $assetId) => $q->where('asset_id', $assetId))
-                            ->orderBy('code')
-                            ->pluck('code', 'id'))
+                        ->options(function ($get) {
+                            $assetId = $get('asset_id') ?: \App\Support\TenantScope::currentAssetId();
+                            return Unit::query()
+                                ->when($assetId, fn ($q, $aid) => $q->where('asset_id', $aid))
+                                ->orderBy('code')
+                                ->pluck('code', 'id');
+                        })
                         ->native(false)
                         ->searchable()
                         ->placeholder(__('admin.fields.common_area_placeholder')),

@@ -23,7 +23,10 @@ class CamExpensePoolForm
                         ->options(fn () => Asset::orderBy('name')->pluck('name', 'id'))
                         ->required()
                         ->native(false)
-                        ->searchable(),
+                        ->searchable()
+                        ->default(fn () => \App\Support\TenantScope::currentAssetId())
+                        ->disabled(fn () => \App\Support\TenantScope::currentAssetId() !== null)
+                        ->dehydrated(),
                     TextInput::make('period_year')
                         ->label(__('admin.fields.period_year'))
                         ->required()

@@ -27,7 +27,14 @@ class LeaseForm
                         ->dehydrated(),
                     Select::make('unit_id')
                         ->label(__('admin.fields.unit_label'))
-                        ->relationship('unit', 'code')
+                        ->relationship(
+                            'unit',
+                            'code',
+                            modifyQueryUsing: fn ($query) => $query->when(
+                                \App\Support\TenantScope::currentAssetId(),
+                                fn ($q, $assetId) => $q->where('asset_id', $assetId),
+                            ),
+                        )
                         ->searchable()
                         ->preload()
                         ->required(),
