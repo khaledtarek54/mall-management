@@ -51,6 +51,13 @@ class MaintenanceRequestForm
                         ->default('other')
                         ->required()
                         ->native(false),
+                    Select::make('channel')
+                        ->label(__('admin.fields.channel'))
+                        ->options(fn () => __('admin.enums.maintenance_channel'))
+                        ->default('portal')
+                        ->required()
+                        ->native(false)
+                        ->helperText(__('admin.fields.channel_helper')),
                     Select::make('status')
                         ->label(__('admin.tables.common.status'))
                         ->options(fn () => __('admin.statuses.maintenance_request'))

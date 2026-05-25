@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Widgets;
 
+use App\Filament\Admin\Concerns\RoleScopedWidget;
 use App\Models\Asset;
 use App\Models\Invoice;
 use App\Models\Lease;
@@ -13,6 +14,14 @@ use Illuminate\Support\Facades\DB;
 
 class MallStats extends StatsOverviewWidget
 {
+    use RoleScopedWidget;
+
+    // Headline KPIs — everyone with admin access sees these.
+    protected static function allowedRoles(): array
+    {
+        return ['manager', 'viewer', 'leasing_manager', 'maintenance_manager'];
+    }
+
     protected static ?int $sort = 1;
 
     protected function getStats(): array

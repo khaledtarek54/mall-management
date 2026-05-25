@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Widgets;
 
+use App\Filament\Admin\Concerns\RoleScopedWidget;
 use App\Models\Invoice;
 use App\Models\Payment;
 use Carbon\CarbonImmutable;
@@ -11,6 +12,13 @@ use Illuminate\Support\Facades\DB;
 
 class MonthlyRevenueTrend extends ChartWidget
 {
+    use RoleScopedWidget;
+
+    protected static function allowedRoles(): array
+    {
+        return ['manager', 'viewer'];
+    }
+
     public function getHeading(): ?string
     {
         return __('admin.widgets.monthly_revenue_trend.heading');

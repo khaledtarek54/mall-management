@@ -2,12 +2,20 @@
 
 namespace App\Filament\Admin\Widgets;
 
+use App\Filament\Admin\Concerns\RoleScopedWidget;
 use App\Models\Lease;
 use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
 
 class TenantMix extends ChartWidget
 {
+    use RoleScopedWidget;
+
+    protected static function allowedRoles(): array
+    {
+        return ['manager', 'leasing_manager', 'viewer'];
+    }
+
     public function getHeading(): ?string
     {
         return __('admin.widgets.tenant_mix.heading');

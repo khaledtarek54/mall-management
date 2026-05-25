@@ -31,7 +31,7 @@ class TranslationCoverageTest extends TestCase
         // at runtime. Pulled from the source-of-truth — DB enums + Spatie role seeder.
         $coverage = [
             // Spatie roles (RolesPermissionsSeeder)
-            'users.roles_list' => ['super_admin', 'manager', 'viewer', 'owner'],
+            'users.roles_list' => ['super_admin', 'manager', 'viewer', 'owner', 'leasing_manager', 'maintenance_manager'],
 
             // Status enums (mirror the migration enum lists)
             'statuses.lease' => ['draft', 'pending_approval', 'active', 'expired', 'renewed', 'terminated', 'cancelled'],
@@ -52,6 +52,7 @@ class TranslationCoverageTest extends TestCase
             // Type / category enums
             'enums.method' => ['card', 'bank_transfer', 'instapay', 'wallet', 'cash', 'cheque', 'other'],
             'enums.maintenance_category' => ['electrical', 'plumbing', 'hvac', 'structural', 'cleaning', 'safety', 'other'],
+            'enums.maintenance_channel' => ['portal', 'whatsapp', 'phone', 'email', 'walk_in', 'admin'],
             'enums.maintenance_priority' => ['low', 'medium', 'high', 'urgent'],
             'enums.category' => ['retail', 'food_beverage', 'wellness', 'service', 'kiosk', 'office', 'storage'],
             'enums.asset_type' => ['mall', 'retail_walk', 'mixed_use', 'office', 'residential'],

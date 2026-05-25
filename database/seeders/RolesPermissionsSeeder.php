@@ -13,6 +13,8 @@ class RolesPermissionsSeeder extends Seeder
         'manager' => 'Day-to-day operations — create + edit, no delete.',
         'viewer' => 'Read-only access for stakeholders + auditors.',
         'owner' => 'Property owner — read-only access to their portfolio via /owner panel.',
+        'leasing_manager' => 'Leasing pipeline, tenant onboarding, lease renewals + terminations.',
+        'maintenance_manager' => 'Maintenance request triage + vendor dispatch + SLA management.',
     ];
 
     public function run(): void

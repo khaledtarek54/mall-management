@@ -52,6 +52,13 @@ class MaintenanceRequestsTable
                     ->badge()
                     ->color('gray')
                     ->formatStateUsing(fn (string $state) => __("admin.enums.maintenance_category.{$state}")),
+                TextColumn::make('channel')
+                    ->label(__('admin.tables.maintenance.channel'))
+                    ->badge()
+                    ->color('info')
+                    ->placeholder('—')
+                    ->formatStateUsing(fn (?string $state) => $state ? __("admin.enums.maintenance_channel.{$state}") : null)
+                    ->toggleable(isToggledHiddenByDefault: false),
                 TextColumn::make('priority')
                     ->label(__('admin.tables.maintenance.priority'))
                     ->badge()
@@ -108,6 +115,9 @@ class MaintenanceRequestsTable
                 SelectFilter::make('category')
                     ->label(__('admin.filters.category'))
                     ->options(fn () => __('admin.enums.maintenance_category')),
+                SelectFilter::make('channel')
+                    ->label(__('admin.filters.channel'))
+                    ->options(fn () => __('admin.enums.maintenance_channel')),
                 SelectFilter::make('assigned_to')
                     ->label(__('admin.filters.assigned_to'))
                     ->options(fn () => User::orderBy('name')->pluck('name', 'id')),

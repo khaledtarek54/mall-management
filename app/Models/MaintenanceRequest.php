@@ -59,6 +59,7 @@ class MaintenanceRequest extends Model implements HasMedia
         'status',
         'priority',
         'category',
+        'channel',
         'title',
         'description',
         'resolution_notes',

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Widgets;
 
+use App\Filament\Admin\Concerns\RoleScopedWidget;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Filament\Admin\Resources\MaintenanceRequests\MaintenanceRequestResource;
@@ -15,6 +16,14 @@ use Filament\Widgets\Widget;
 
 class ActionRequired extends Widget
 {
+    use RoleScopedWidget;
+
+    // ActionRequired is the inbox — every operational role sees it.
+    protected static function allowedRoles(): array
+    {
+        return ['manager', 'leasing_manager', 'maintenance_manager'];
+    }
+
     protected string $view = 'filament.admin.widgets.action-required';
 
     protected static ?int $sort = 0;

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Widgets;
 
+use App\Filament\Admin\Concerns\RoleScopedWidget;
 use App\Models\MeterReading;
 use Carbon\CarbonImmutable;
 use Filament\Widgets\ChartWidget;
@@ -9,6 +10,13 @@ use Illuminate\Support\Facades\DB;
 
 class EnergyConsumptionTrend extends ChartWidget
 {
+    use RoleScopedWidget;
+
+    protected static function allowedRoles(): array
+    {
+        return ['manager', 'maintenance_manager', 'viewer'];
+    }
+
     public function getHeading(): ?string
     {
         return __('admin.widgets.energy_consumption.heading');

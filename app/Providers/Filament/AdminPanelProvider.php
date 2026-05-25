@@ -5,7 +5,9 @@ namespace App\Providers\Filament;
 use App\Filament\Admin\Widgets\ActionRequired;
 use App\Filament\Admin\Widgets\ArAging;
 use App\Filament\Admin\Widgets\EnergyConsumptionTrend;
+use App\Filament\Admin\Widgets\EtaCompliance;
 use App\Filament\Admin\Widgets\ExpiringLeases;
+use App\Filament\Admin\Widgets\LeasingPipeline;
 use App\Filament\Admin\Widgets\MallStats;
 use App\Filament\Admin\Widgets\MonthlyRevenueTrend;
 use App\Filament\Admin\Widgets\OpenMaintenanceRequests;
@@ -62,7 +64,9 @@ class AdminPanelProvider extends PanelProvider
             ->widgets([
                 ActionRequired::class,
                 MallStats::class,
+                EtaCompliance::class,
                 ArAging::class,
+                LeasingPipeline::class,
                 TenantMix::class,
                 MonthlyRevenueTrend::class,
                 ExpiringLeases::class,

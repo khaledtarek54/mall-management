@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Widgets;
 
+use App\Filament\Admin\Concerns\RoleScopedWidget;
 use App\Models\Lease;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -10,6 +11,13 @@ use Illuminate\Database\Eloquent\Builder;
 
 class ExpiringLeases extends TableWidget
 {
+    use RoleScopedWidget;
+
+    protected static function allowedRoles(): array
+    {
+        return ['manager', 'leasing_manager', 'viewer'];
+    }
+
     protected static ?int $sort = 5;
 
     protected int|string|array $columnSpan = 'full';

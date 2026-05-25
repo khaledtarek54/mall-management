@@ -253,6 +253,17 @@ All accounts persist through `migrate:fresh --seed`.
 - **Endpoints shipped**: `POST /auth/login`, `GET /auth/me`, `POST /auth/logout`. Bilingual messages via `Accept-Language`.
 - **13 PHPUnit feature tests** cover valid login, wrong password, unknown email, inactive + blacklisted account blocks, missing-field validation, device-token revocation semantics, multi-device support, `/me` auth requirement, logout revoking exactly the current token.
 
+### Dashboard parity sprint (PropEzy gap-closure batch)
+Five dashboard enhancements shipped together based on the [PropEzy dashboard gap analysis](docs/GAP-ANALYSIS-PROPEZY-DASHBOARD.md):
+
+- **ETA Compliance widget** ([app/Filament/Admin/Widgets/EtaCompliance.php](app/Filament/Admin/Widgets/EtaCompliance.php)) — 4 stats tiles showing Valid / Submitted / Rejected / Not-yet-submitted invoice counts against the Egyptian Tax Authority. Each tile deep-links to a pre-filtered invoice list. Gated by `eta.enabled` config. The Egyptian-CFO-wow moment.
+- **Leasing Pipeline widget** ([app/Filament/Admin/Widgets/LeasingPipeline.php](app/Filament/Admin/Widgets/LeasingPipeline.php)) — Funnel view: count + EGP/mo value at Draft / Pending Approval / Active / Renewed stages. Each clickable to a filtered lease list.
+- **Role-tailored dashboards** ([app/Filament/Admin/Concerns/RoleScopedWidget.php](app/Filament/Admin/Concerns/RoleScopedWidget.php)) — Trait + central role map gates which widgets each Spatie role sees. Two new roles: `leasing_manager` (pipeline + tenant mix + expiring leases + top tenants) and `maintenance_manager` (action-required + open MR + energy). `super_admin` always sees everything; `manager` sees the full operational view; `viewer` sees KPIs only. Directly neutralizes PropEzy's "5 role-specific dashboards" positioning.
+- **Sales Density column** on TopTenants — the mall-vertical benchmark (declared sales ÷ unit sqm) computed from the most recent locked sales declaration. Shows "—" when no declaration exists. Tooltip explains the calculation.
+- **Channel attribution on Maintenance Requests** — new `channel` enum column (portal / whatsapp / phone / email / walk_in / admin) on `maintenance_requests`, surfaced as a form select with helper text + table column (toggleable) + filter. Backfilled in the seeder with realistic channel mix across all seeded MRs.
+
+23 new lines of EN + AR translations, integrated into the existing [TranslationCoverageTest](tests/Feature/TranslationCoverageTest.php) regression guard. The dashboard now matches every advertised PropEzy capability and adds three (ETA compliance, sales density, leasing pipeline) that PropEzy doesn't advertise at all.
+
 ### Reports module (finance team essentials)
 - **Reports page** at `/admin/reports` — month picker, four headline KPI cards (Invoices Issued · Payments Captured · Collections Rate · Outstanding AR), AR aging summary with five clickable buckets, revenue-by-type table.
 - **Monthly Close PDF** ([MonthlyCloseReportPdfService](app/Services/Reports/MonthlyCloseReportPdfService.php)) — A4 PDF (EN + AR + RTL) covering KPIs, invoices-by-status, payments-by-method, AR aging table, VAT summary, revenue-by-type breakdown, credit notes summary. Mirrors the same mPDF stack as Invoice PDFs.

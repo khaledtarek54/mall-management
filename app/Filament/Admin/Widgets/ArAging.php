@@ -2,12 +2,20 @@
 
 namespace App\Filament\Admin\Widgets;
 
+use App\Filament\Admin\Concerns\RoleScopedWidget;
 use App\Models\Invoice;
 use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
 
 class ArAging extends ChartWidget
 {
+    use RoleScopedWidget;
+
+    protected static function allowedRoles(): array
+    {
+        return ['manager', 'viewer'];
+    }
+
     public function getHeading(): ?string
     {
         return __('admin.widgets.ar_aging.heading');

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Widgets;
 
+use App\Filament\Admin\Concerns\RoleScopedWidget;
 use App\Filament\Admin\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use App\Models\MaintenanceRequest;
 use Filament\Tables\Columns\TextColumn;
@@ -11,6 +12,13 @@ use Illuminate\Database\Eloquent\Builder;
 
 class OpenMaintenanceRequests extends TableWidget
 {
+    use RoleScopedWidget;
+
+    protected static function allowedRoles(): array
+    {
+        return ['manager', 'maintenance_manager'];
+    }
+
     protected static ?int $sort = 6;
 
     protected int|string|array $columnSpan = 'full';
