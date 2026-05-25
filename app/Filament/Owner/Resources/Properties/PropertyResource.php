@@ -7,7 +7,6 @@ use App\Filament\Owner\Resources\Properties\Pages\ViewProperty;
 use App\Filament\Owner\Resources\Properties\Schemas\PropertyInfolist;
 use App\Filament\Owner\Resources\Properties\Tables\PropertiesTable;
 use App\Models\Asset;
-use App\Models\Scopes\CurrentOperatorScope;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -67,7 +66,7 @@ class PropertyResource extends Resource
         $userId = Auth::id();
 
         return parent::getEloquentQuery()
-            ->withoutGlobalScopes([CurrentOperatorScope::class])
+            ->where('code', '!=', Asset::ALL_PROPERTIES_CODE)
             ->whereHas('owners', fn ($q) => $q->where('user_id', $userId))
             ->withCount('units');
     }

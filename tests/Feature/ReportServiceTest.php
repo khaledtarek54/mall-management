@@ -6,7 +6,6 @@ use App\Models\Asset;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Lease;
-use App\Models\Operator;
 use App\Models\Payment;
 use App\Models\Tenant;
 use App\Models\Unit;
@@ -21,9 +20,8 @@ class ReportServiceTest extends TestCase
 
     private function scaffoldLease(): Lease
     {
-        $operator = Operator::create(['name' => 'Op', 'slug' => 'op-' . uniqid(), 'primary_color' => '#000', 'is_active' => true]);
         $asset = Asset::create([
-            'operator_id' => $operator->id, 'name' => 'A', 'code' => 'A-' . uniqid(),
+            'name' => 'A', 'code' => 'A-' . uniqid(),
             'type' => 'mall', 'city' => 'Cairo', 'country' => 'EG',
             'total_area_sqm' => 100, 'leasable_area_sqm' => 100,
             'currency' => 'EGP', 'is_active' => true,

@@ -93,8 +93,8 @@ class TenantSalesDeclarationResource extends Resource
     {
         $query = parent::getEloquentQuery();
 
-        if ($tenant = \Filament\Facades\Filament::getTenant()) {
-            $query->whereHas('lease.unit', fn ($q) => $q->where('asset_id', $tenant->getKey()));
+        if ($assetId = \App\Support\TenantScope::currentAssetId()) {
+            $query->whereHas('lease.unit', fn ($q) => $q->where('asset_id', $assetId));
         }
 
         return $query;

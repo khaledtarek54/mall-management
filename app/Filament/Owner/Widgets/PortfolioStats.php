@@ -5,7 +5,6 @@ namespace App\Filament\Owner\Widgets;
 use App\Models\Asset;
 use App\Models\Invoice;
 use App\Models\Lease;
-use App\Models\Scopes\CurrentOperatorScope;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Facades\Auth;
@@ -15,15 +14,13 @@ class PortfolioStats extends BaseWidget
     protected function getStats(): array
     {
         $user = Auth::user();
-        $assetIds = $user?->ownedAssets()->withoutGlobalScopes()->pluck('assets.id') ?? collect();
+        $assetIds = $user?->ownedAssets()->pluck('assets.id') ?? collect();
 
         if ($assetIds->isEmpty()) {
             return [];
         }
 
-        // Owned assets, bypass operator scoping
-        $assets = Asset::withoutGlobalScopes([CurrentOperatorScope::class])
-            ->whereIn('id', $assetIds)
+        $assets = Asset::whereIn('id', $assetIds)
             ->withCount('units')
             ->get();
 

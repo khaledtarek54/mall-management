@@ -45,11 +45,21 @@ class User extends Authenticatable implements FilamentUser, HasTenants
 
     public function getTenants(Panel $panel): Collection
     {
-        if ($this->hasRole('super_admin')) {
-            return Asset::query()->withoutGlobalScopes()->get();
+        $assets = $this->hasRole('super_admin')
+            ? Asset::query()->where('code', '!=', Asset::ALL_PROPERTIES_CODE)->get()
+            : $this->assignedAssets()->where('assets.code', '!=', Asset::ALL_PROPERTIES_CODE)->get();
+
+        // Prepend the "All Properties" pseudo-tenant whenever the user has
+        // more than one property — it's the portfolio view across their
+        // assigned set (or every property, for super_admin).
+        if ($assets->count() > 1) {
+            $all = Asset::where('code', Asset::ALL_PROPERTIES_CODE)->first();
+            if ($all) {
+                $assets = $assets->prepend($all);
+            }
         }
 
-        return $this->assignedAssets()->withoutGlobalScopes()->get();
+        return $assets;
     }
 
     public function canAccessTenant(Model $tenant): bool
@@ -58,8 +68,13 @@ class User extends Authenticatable implements FilamentUser, HasTenants
             return true;
         }
 
+        // "All Properties" is accessible whenever the user has more than
+        // one assigned property — same gate as getTenants().
+        if ($tenant instanceof Asset && $tenant->isAllProperties()) {
+            return $this->assignedAssets()->count() > 1;
+        }
+
         return $this->assignedAssets()
-            ->withoutGlobalScopes()
             ->whereKey($tenant->getKey())
             ->exists();
     }

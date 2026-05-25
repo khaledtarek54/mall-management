@@ -8,19 +8,17 @@ use Illuminate\Support\Facades\Auth;
 /**
  * Property-staff query scoping helper.
  *
- * Resources call AssignedAssets::idsForCurrentUser() in their getEloquentQuery()
- * to filter to only the assets the user is assigned to (via the `asset_user`
- * pivot). Returns NULL when scoping should not apply — meaning "show everything".
+ * Returns the list of asset IDs the current user can see, or null when no
+ * scoping should apply (super_admin, no auth, or a user with no
+ * assignments — back-compat for single-mall deployments).
  *
- * Policy:
- *  - No authenticated user      → null (treat as system; don't scope)
- *  - super_admin                → null (platform admin sees everything)
- *  - User with 0 assigned assets → null (back-compat for single-mall deployments
- *                                  where assignments aren't used yet)
- *  - User with N assigned assets → array of N asset IDs
- *
- * Composes cleanly with CurrentOperatorScope (per-operator filtering) — both
- * layers apply independently to Asset rows.
+ * Most of the platform now scopes via Filament's per-property tenancy —
+ * the URL slug carries the active property and queries filter through
+ * App\Support\TenantScope::currentAssetId(). This helper remains useful
+ * only at boundaries that sit ABOVE the tenancy layer: the AssetResource
+ * (which lists properties themselves) and the "All Properties" pseudo-
+ * tenant view (where we still need to constrain non-super-admin users
+ * to their assigned set).
  */
 class AssignedAssets
 {
@@ -53,7 +51,7 @@ class AssignedAssets
         }
 
         $ids = $user->assignedAssets()
-            ->withoutGlobalScopes()
+            ->where('assets.code', '!=', \App\Models\Asset::ALL_PROPERTIES_CODE)
             ->pluck('assets.id')
             ->all();
 

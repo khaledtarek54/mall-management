@@ -30,14 +30,19 @@ class ExpiringLeases extends TableWidget
     public function table(Table $table): Table
     {
         return $table
-            ->query(
-                fn (): Builder => Lease::query()
+            ->query(function (): Builder {
+                $assetId = \App\Support\TenantScope::currentAssetId();
+                $base = $assetId
+                    ? Lease::whereHas('unit', fn ($q) => $q->where('asset_id', $assetId))
+                    : Lease::query();
+
+                return $base
                     ->where('status', 'active')
                     ->whereDate('expiry_date', '<=', now()->addDays(90))
                     ->whereDate('expiry_date', '>=', now())
                     ->with(['tenant', 'unit'])
-                    ->orderBy('expiry_date')
-            )
+                    ->orderBy('expiry_date');
+            })
             ->columns([
                 TextColumn::make('tenant.name')
                     ->label(__('admin.widgets.expiring_leases.tenant'))

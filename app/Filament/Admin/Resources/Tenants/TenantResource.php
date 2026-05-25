@@ -92,9 +92,9 @@ class TenantResource extends Resource
     {
         $query = parent::getEloquentQuery();
 
-        if ($tenant = \Filament\Facades\Filament::getTenant()) {
+        if ($assetId = \App\Support\TenantScope::currentAssetId()) {
             // Show tenants who have at least one lease in this property.
-            $query->whereHas('leases.unit', fn ($q) => $q->where('asset_id', $tenant->getKey()));
+            $query->whereHas('leases.unit', fn ($q) => $q->where('asset_id', $assetId));
         }
 
         return $query;

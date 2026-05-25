@@ -30,14 +30,19 @@ class RecentPayments extends TableWidget
     public function table(Table $table): Table
     {
         return $table
-            ->query(
-                fn (): Builder => Payment::query()
+            ->query(function (): Builder {
+                $assetId = \App\Support\TenantScope::currentAssetId();
+                $base = $assetId
+                    ? Payment::whereHas('invoices.lease.unit', fn ($q) => $q->where('asset_id', $assetId))
+                    : Payment::query();
+
+                return $base
                     ->where('status', 'captured')
                     ->with('tenant')
                     ->latest('payment_date')
                     ->latest('id')
-                    ->limit(8)
-            )
+                    ->limit(8);
+            })
             ->columns([
                 TextColumn::make('payment_date')
                     ->label(__('admin.widgets.recent_payments.when'))

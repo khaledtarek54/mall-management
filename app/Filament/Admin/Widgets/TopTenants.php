@@ -32,13 +32,18 @@ class TopTenants extends TableWidget
     public function table(Table $table): Table
     {
         return $table
-            ->query(
-                fn (): Builder => Lease::query()
+            ->query(function (): Builder {
+                $assetId = \App\Support\TenantScope::currentAssetId();
+                $base = $assetId
+                    ? Lease::whereHas('unit', fn ($q) => $q->where('asset_id', $assetId))
+                    : Lease::query();
+
+                return $base
                     ->where('status', 'active')
                     ->with(['tenant', 'unit'])
                     ->orderByDesc('base_rent_monthly')
-                    ->limit(10)
-            )
+                    ->limit(10);
+            })
             ->columns([
                 TextColumn::make('tenant.name')
                     ->label(__('admin.widgets.top_tenants.tenant'))

@@ -73,6 +73,15 @@ class UtilityMeterResource extends Resource
         return parent::getEloquentQuery()->with(['asset', 'unit']);
     }
 
+    public static function scopeEloquentQueryToTenant(Builder $query, ?\Illuminate\Database\Eloquent\Model $tenant): Builder
+    {
+        if ($tenant instanceof \App\Models\Asset && $tenant->isAllProperties()) {
+            return $query;
+        }
+
+        return parent::scopeEloquentQueryToTenant($query, $tenant);
+    }
+
     public static function getRecordRouteBindingEloquentQuery(): Builder
     {
         return parent::getRecordRouteBindingEloquentQuery()

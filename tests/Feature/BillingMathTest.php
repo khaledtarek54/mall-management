@@ -9,7 +9,6 @@ use App\Models\Charge;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Lease;
-use App\Models\Operator;
 use App\Models\Tenant;
 use App\Models\TenantSalesDeclaration;
 use App\Models\Unit;
@@ -27,15 +26,7 @@ class BillingMathTest extends TestCase
 
     private function makeLease(array $overrides = []): Lease
     {
-        $operator = Operator::create([
-            'name' => 'Test Operator',
-            'slug' => 'test-' . uniqid(),
-            'primary_color' => '#000000',
-            'is_active' => true,
-        ]);
-
         $asset = Asset::create([
-            'operator_id' => $operator->id,
             'name' => 'Test Asset',
             'code' => 'TST-' . uniqid(),
             'type' => 'mall',
@@ -249,11 +240,8 @@ class BillingMathTest extends TestCase
 
     public function test_cam_allocation_distributes_by_sqm(): void
     {
-        $operator = Operator::create([
-            'name' => 'CAM Op', 'slug' => 'cam-' . uniqid(), 'primary_color' => '#000', 'is_active' => true,
-        ]);
         $asset = Asset::create([
-            'operator_id' => $operator->id, 'name' => 'A', 'code' => 'CA-' . uniqid(),
+            'name' => 'A', 'code' => 'CA-' . uniqid(),
             'type' => 'mall', 'city' => 'Cairo', 'country' => 'EG',
             'total_area_sqm' => 1000, 'leasable_area_sqm' => 1000,
             'currency' => 'EGP', 'is_active' => true,
@@ -305,11 +293,8 @@ class BillingMathTest extends TestCase
 
     public function test_cam_bill_creates_idempotent_charge(): void
     {
-        $operator = Operator::create([
-            'name' => 'CAM Op', 'slug' => 'cam2-' . uniqid(), 'primary_color' => '#000', 'is_active' => true,
-        ]);
         $asset = Asset::create([
-            'operator_id' => $operator->id, 'name' => 'A', 'code' => 'CA-' . uniqid(),
+            'name' => 'A', 'code' => 'CA-' . uniqid(),
             'type' => 'mall', 'city' => 'Cairo', 'country' => 'EG',
             'total_area_sqm' => 500, 'leasable_area_sqm' => 500,
             'currency' => 'EGP', 'is_active' => true,

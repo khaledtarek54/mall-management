@@ -90,4 +90,13 @@ class CamExpensePoolResource extends Resource
     {
         return parent::getEloquentQuery();
     }
+
+    public static function scopeEloquentQueryToTenant(Builder $query, ?\Illuminate\Database\Eloquent\Model $tenant): Builder
+    {
+        if ($tenant instanceof \App\Models\Asset && $tenant->isAllProperties()) {
+            return $query;
+        }
+
+        return parent::scopeEloquentQueryToTenant($query, $tenant);
+    }
 }

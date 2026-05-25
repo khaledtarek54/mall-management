@@ -36,13 +36,18 @@ class OpenMaintenanceRequests extends TableWidget
     public function table(Table $table): Table
     {
         return $table
-            ->query(
-                fn (): Builder => MaintenanceRequest::query()
+            ->query(function (): Builder {
+                $assetId = \App\Support\TenantScope::currentAssetId();
+                $base = $assetId
+                    ? MaintenanceRequest::whereHas('unit', fn ($q) => $q->where('asset_id', $assetId))
+                    : MaintenanceRequest::query();
+
+                return $base
                     ->whereIn('status', MaintenanceRequest::OPEN_STATUSES)
                     ->with(['tenant', 'unit', 'assignee'])
                     ->orderByRaw("FIELD(priority, 'urgent', 'high', 'medium', 'low')")
-                    ->orderBy('submitted_at')
-            )
+                    ->orderBy('submitted_at');
+            })
             ->columns([
                 TextColumn::make('reference')
                     ->label(__('admin.widgets.open_maintenance.reference'))

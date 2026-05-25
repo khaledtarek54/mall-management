@@ -89,8 +89,8 @@ class LeaseResource extends Resource
     {
         $query = parent::getEloquentQuery();
 
-        if ($tenant = \Filament\Facades\Filament::getTenant()) {
-            $query->whereHas('unit', fn ($q) => $q->where('asset_id', $tenant->getKey()));
+        if ($assetId = \App\Support\TenantScope::currentAssetId()) {
+            $query->whereHas('unit', fn ($q) => $q->where('asset_id', $assetId));
         }
 
         return $query;

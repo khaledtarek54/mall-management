@@ -35,33 +35,49 @@ class ActionRequired extends Widget
     public function getViewData(): array
     {
         $now = Carbon::now();
+        $assetId = \App\Support\TenantScope::currentAssetId();
 
-        $overdueInvoicesQuery = Invoice::where('balance', '>', 0)->where('due_date', '<', $now);
-        $overdueCount = (clone $overdueInvoicesQuery)->count();
-        $overdueAmount = (clone $overdueInvoicesQuery)->sum('balance');
+        $invoiceBase = fn () => $assetId
+            ? Invoice::whereHas('lease.unit', fn ($q) => $q->where('asset_id', $assetId))
+            : Invoice::query();
 
-        $expiringCriticalCount = Lease::where('status', 'active')
+        $leaseBase = fn () => $assetId
+            ? Lease::whereHas('unit', fn ($q) => $q->where('asset_id', $assetId))
+            : Lease::query();
+
+        $unitBase = fn () => $assetId
+            ? Unit::where('asset_id', $assetId)
+            : Unit::query();
+
+        $maintBase = fn () => $assetId
+            ? MaintenanceRequest::whereHas('unit', fn ($q) => $q->where('asset_id', $assetId))
+            : MaintenanceRequest::query();
+
+        $overdueCount = $invoiceBase()->where('balance', '>', 0)->where('due_date', '<', $now)->count();
+        $overdueAmount = $invoiceBase()->where('balance', '>', 0)->where('due_date', '<', $now)->sum('balance');
+
+        $expiringCriticalCount = $leaseBase()->where('status', 'active')
             ->whereBetween('expiry_date', [$now, (clone $now)->addDays(30)])
             ->count();
 
-        $expiringSoonCount = Lease::where('status', 'active')
+        $expiringSoonCount = $leaseBase()->where('status', 'active')
             ->whereBetween('expiry_date', [(clone $now)->addDays(31), (clone $now)->addDays(90)])
             ->count();
 
-        $vacantCount = Unit::where('status', 'vacant')->count();
+        $vacantCount = $unitBase()->where('status', 'vacant')->count();
 
-        $urgentMaintenanceCount = MaintenanceRequest::whereIn('status', MaintenanceRequest::OPEN_STATUSES)
+        $urgentMaintenanceCount = $maintBase()->whereIn('status', MaintenanceRequest::OPEN_STATUSES)
             ->where('priority', 'urgent')
             ->count();
 
-        $slaBreachedCount = MaintenanceRequest::whereIn('status', MaintenanceRequest::OPEN_STATUSES)
+        $slaBreachedCount = $maintBase()->whereIn('status', MaintenanceRequest::OPEN_STATUSES)
             ->whereNotNull('target_resolution_at')
             ->where('target_resolution_at', '<', $now)
             ->count();
 
         $monthStart = (clone $now)->startOfMonth();
         $monthEnd = (clone $now)->endOfMonth();
-        $unbilledLeasesCount = Lease::where('status', 'active')
+        $unbilledLeasesCount = $leaseBase()->where('status', 'active')
             ->whereDoesntHave('invoices', function ($q) use ($monthStart, $monthEnd) {
                 $q->whereBetween('period_start', [$monthStart, $monthEnd]);
             })

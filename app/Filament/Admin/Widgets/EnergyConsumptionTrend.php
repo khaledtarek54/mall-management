@@ -42,14 +42,20 @@ class EnergyConsumptionTrend extends ChartWidget
     {
         $end = CarbonImmutable::now()->endOfMonth();
         $start = CarbonImmutable::now()->startOfMonth()->subMonths(11);
+        $assetId = \App\Support\TenantScope::currentAssetId();
 
-        // Sum consumption per (month, meter type) — gives us 3 series across 12 months.
-        $rows = DB::table('meter_readings')
+        $query = DB::table('meter_readings')
             ->join('utility_meters', 'utility_meters.id', '=', 'meter_readings.utility_meter_id')
             ->selectRaw("DATE_FORMAT(reading_date, '%Y-%m') as ym, utility_meters.type as type, SUM(consumption) as total")
             ->whereBetween('reading_date', [$start, $end])
-            ->groupBy('ym', 'type')
-            ->get();
+            ->groupBy('ym', 'type');
+
+        if ($assetId) {
+            $query->where('utility_meters.asset_id', $assetId);
+        }
+
+        // Sum consumption per (month, meter type) — gives us 3 series across 12 months.
+        $rows = $query->get();
 
         $labels = [];
         $current = $start;

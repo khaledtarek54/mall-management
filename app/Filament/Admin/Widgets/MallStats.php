@@ -3,7 +3,6 @@
 namespace App\Filament\Admin\Widgets;
 
 use App\Filament\Admin\Concerns\RoleScopedWidget;
-use App\Models\Asset;
 use App\Models\Invoice;
 use App\Models\Lease;
 use App\Models\Payment;
@@ -26,14 +25,33 @@ class MallStats extends StatsOverviewWidget
 
     protected function getStats(): array
     {
-        $asset = Asset::first();
+        $assetId = \App\Support\TenantScope::currentAssetId();
 
-        $occupancy = $asset?->occupancyRate() ?? 0;
-        $totalUnits = $asset?->units()->count() ?? 0;
-        $occupiedUnits = $asset?->occupiedUnitsCount() ?? 0;
-        $vacantUnits = $asset?->vacantUnitsCount() ?? 0;
+        // Tenant context: scope all queries to current property. "All
+        // Properties" view returns currentAssetId() === null, so the
+        // helpers fall back to platform-wide aggregates.
+        $unitQuery = fn () => $assetId
+            ? \App\Models\Unit::where('asset_id', $assetId)
+            : \App\Models\Unit::query();
 
-        $monthlyRecurring = (float) Lease::where('status', 'active')
+        $leaseQuery = fn () => $assetId
+            ? Lease::whereHas('unit', fn ($q) => $q->where('asset_id', $assetId))
+            : Lease::query();
+
+        $invoiceQuery = fn () => $assetId
+            ? Invoice::whereHas('lease.unit', fn ($q) => $q->where('asset_id', $assetId))
+            : Invoice::query();
+
+        $paymentQuery = fn () => $assetId
+            ? Payment::whereHas('invoices.lease.unit', fn ($q) => $q->where('asset_id', $assetId))
+            : Payment::query();
+
+        $totalUnits = $unitQuery()->count();
+        $occupiedUnits = $unitQuery()->where('status', 'occupied')->count();
+        $vacantUnits = $unitQuery()->where('status', 'vacant')->count();
+        $occupancy = $totalUnits > 0 ? round(($occupiedUnits / $totalUnits) * 100, 1) : 0;
+
+        $monthlyRecurring = (float) $leaseQuery()->where('status', 'active')
             ->selectRaw('SUM(base_rent_monthly + service_charge_monthly) as total')
             ->value('total');
 
@@ -42,22 +60,22 @@ class MallStats extends StatsOverviewWidget
         $startOfLastMonth = $now->subMonth()->startOfMonth();
         $endOfLastMonth = $now->subMonth()->endOfMonth();
 
-        $collectedThisMonth = (float) Payment::where('status', 'captured')
+        $collectedThisMonth = (float) $paymentQuery()->where('status', 'captured')
             ->whereBetween('payment_date', [$startOfMonth, $now])
             ->sum('amount');
 
-        $collectedLastMonth = (float) Payment::where('status', 'captured')
+        $collectedLastMonth = (float) $paymentQuery()->where('status', 'captured')
             ->whereBetween('payment_date', [$startOfLastMonth, $endOfLastMonth])
             ->sum('amount');
 
-        $outstandingAR = (float) Invoice::whereIn('status', ['issued', 'partially_paid', 'overdue'])
+        $outstandingAR = (float) $invoiceQuery()->whereIn('status', ['issued', 'partially_paid', 'overdue'])
             ->sum('balance');
 
-        $overdueAR = (float) Invoice::where('balance', '>', 0)
+        $overdueAR = (float) $invoiceQuery()->where('balance', '>', 0)
             ->where('due_date', '<', now())
             ->sum('balance');
 
-        $overdueCount = Invoice::where('balance', '>', 0)
+        $overdueCount = $invoiceQuery()->where('balance', '>', 0)
             ->where('due_date', '<', now())
             ->count();
 
@@ -67,15 +85,15 @@ class MallStats extends StatsOverviewWidget
 
         $collectedDelta = $this->percentDelta($collectedThisMonth, $collectedLastMonth);
 
-        $occupancySeries = $this->occupancyHistorySeries(6);
+        $occupancySeries = $this->occupancyHistorySeries(6, $assetId);
         $billedSeries = $this->monthlySeries(
-            Invoice::query()->whereNotIn('status', ['cancelled', 'credited']),
+            $invoiceQuery()->whereNotIn('status', ['cancelled', 'credited']),
             'period_start',
             'total',
             6,
         );
         $collectedSeries = $this->monthlySeries(
-            Payment::query()->where('status', 'captured'),
+            $paymentQuery()->where('status', 'captured'),
             'payment_date',
             'amount',
             6,
@@ -166,23 +184,33 @@ class MallStats extends StatsOverviewWidget
      * Approximate historical occupancy ratios for the last N months,
      * based on leases whose [commencement_date .. expiry_date] cover each month-end.
      */
-    protected function occupancyHistorySeries(int $months): array
+    protected function occupancyHistorySeries(int $months, ?int $assetId = null): array
     {
-        $totalUnits = max(1, DB::table('units')->whereNull('deleted_at')->count());
+        $unitCountQuery = DB::table('units')->whereNull('deleted_at');
+        if ($assetId) {
+            $unitCountQuery->where('asset_id', $assetId);
+        }
+        $totalUnits = max(1, $unitCountQuery->count());
+
         $now = CarbonImmutable::now();
         $series = [];
 
         for ($i = $months - 1; $i >= 0; $i--) {
             $monthEnd = $now->subMonths($i)->endOfMonth();
-            $occupied = DB::table('leases')
-                ->whereNull('deleted_at')
-                ->whereNotIn('status', ['cancelled', 'draft'])
-                ->where('commencement_date', '<=', $monthEnd)
+            $occupiedQuery = DB::table('leases')
+                ->whereNull('leases.deleted_at')
+                ->whereNotIn('leases.status', ['cancelled', 'draft'])
+                ->where('leases.commencement_date', '<=', $monthEnd)
                 ->where(function ($q) use ($monthEnd) {
-                    $q->whereNull('expiry_date')->orWhere('expiry_date', '>=', $monthEnd);
-                })
-                ->distinct('unit_id')
-                ->count('unit_id');
+                    $q->whereNull('leases.expiry_date')->orWhere('leases.expiry_date', '>=', $monthEnd);
+                });
+
+            if ($assetId) {
+                $occupiedQuery->join('units', 'units.id', '=', 'leases.unit_id')
+                    ->where('units.asset_id', $assetId);
+            }
+
+            $occupied = $occupiedQuery->distinct('leases.unit_id')->count('leases.unit_id');
 
             $series[] = round(($occupied / $totalUnits) * 100, 1);
         }

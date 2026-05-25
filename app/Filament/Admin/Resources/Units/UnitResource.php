@@ -94,6 +94,16 @@ class UnitResource extends Resource
         return parent::getEloquentQuery();
     }
 
+    public static function scopeEloquentQueryToTenant(Builder $query, ?Model $tenant): Builder
+    {
+        // "All Properties" pseudo-tenant bypasses scoping entirely.
+        if ($tenant instanceof \App\Models\Asset && $tenant->isAllProperties()) {
+            return $query;
+        }
+
+        return parent::scopeEloquentQueryToTenant($query, $tenant);
+    }
+
     public static function getGloballySearchableAttributes(): array
     {
         return ['code', 'asset.name', 'activeLease.tenant.name'];

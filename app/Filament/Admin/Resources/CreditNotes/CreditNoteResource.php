@@ -91,14 +91,13 @@ class CreditNoteResource extends Resource
     {
         $query = parent::getEloquentQuery();
 
-        if ($tenant = \Filament\Facades\Filament::getTenant()) {
-            $tenantId = $tenant->getKey();
+        if ($assetId = \App\Support\TenantScope::currentAssetId()) {
             // Scope via the linked lease's unit's asset. Standalone credit
             // notes (no lease_id) are visible regardless — they're tenant-
             // level adjustments, not asset-scoped.
-            $query->where(function ($q) use ($tenantId) {
+            $query->where(function ($q) use ($assetId) {
                 $q->whereNull('lease_id')
-                  ->orWhereHas('lease.unit', fn ($q2) => $q2->where('asset_id', $tenantId));
+                  ->orWhereHas('lease.unit', fn ($q2) => $q2->where('asset_id', $assetId));
             });
         }
 

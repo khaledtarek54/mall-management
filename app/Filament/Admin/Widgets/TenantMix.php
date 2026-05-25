@@ -47,13 +47,20 @@ class TenantMix extends ChartWidget
 
     protected function getData(): array
     {
-        $counts = Lease::query()
+        $assetId = \App\Support\TenantScope::currentAssetId();
+
+        $query = Lease::query()
             ->where('leases.status', 'active')
             ->join('units', 'units.id', '=', 'leases.unit_id')
             ->selectRaw('units.category as category, COUNT(*) as cnt')
             ->groupBy('units.category')
-            ->orderByDesc('cnt')
-            ->pluck('cnt', 'category');
+            ->orderByDesc('cnt');
+
+        if ($assetId) {
+            $query->where('units.asset_id', $assetId);
+        }
+
+        $counts = $query->pluck('cnt', 'category');
 
         $labels = [];
         $data = [];

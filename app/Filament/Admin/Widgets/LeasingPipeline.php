@@ -27,7 +27,12 @@ class LeasingPipeline extends StatsOverviewWidget
 
     protected function getStats(): array
     {
-        $byStatus = Lease::query()
+        $assetId = \App\Support\TenantScope::currentAssetId();
+        $leases = $assetId
+            ? Lease::whereHas('unit', fn ($q) => $q->where('asset_id', $assetId))
+            : Lease::query();
+
+        $byStatus = $leases
             ->selectRaw('status, COUNT(*) as count, SUM(base_rent_monthly + service_charge_monthly) as monthly_value')
             ->groupBy('status')
             ->get()

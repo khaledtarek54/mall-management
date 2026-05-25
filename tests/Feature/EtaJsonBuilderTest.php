@@ -7,7 +7,6 @@ use App\Models\Charge;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Lease;
-use App\Models\Operator;
 use App\Models\Tenant;
 use App\Models\Unit;
 use App\Services\Eta\EtaJsonBuilder;
@@ -20,9 +19,8 @@ class EtaJsonBuilderTest extends TestCase
 
     public function test_build_produces_required_eta_fields(): void
     {
-        $operator = Operator::create(['name' => 'Op', 'slug' => 'op', 'primary_color' => '#000', 'is_active' => true]);
         $asset = Asset::create([
-            'operator_id' => $operator->id, 'name' => 'A', 'code' => 'A',
+            'name' => 'A', 'code' => 'A',
             'type' => 'mall', 'city' => 'Cairo', 'country' => 'EG',
             'total_area_sqm' => 100, 'leasable_area_sqm' => 100,
             'currency' => 'EGP', 'is_active' => true,
@@ -82,9 +80,8 @@ class EtaJsonBuilderTest extends TestCase
 
     public function test_individual_tenant_maps_to_person_type(): void
     {
-        $operator = Operator::create(['name' => 'Op', 'slug' => 'op-i', 'primary_color' => '#000', 'is_active' => true]);
         $asset = Asset::create([
-            'operator_id' => $operator->id, 'name' => 'A', 'code' => 'AI',
+            'name' => 'A', 'code' => 'AI',
             'type' => 'mall', 'city' => 'Cairo', 'country' => 'EG',
             'total_area_sqm' => 100, 'leasable_area_sqm' => 100,
             'currency' => 'EGP', 'is_active' => true,

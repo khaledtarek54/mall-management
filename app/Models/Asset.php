@@ -2,11 +2,8 @@
 
 namespace App\Models;
 
-use App\Models\Scopes\CurrentOperatorScope;
-use Illuminate\Database\Eloquent\Attributes\ScopedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
@@ -14,22 +11,28 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
-#[ScopedBy([CurrentOperatorScope::class])]
 class Asset extends Model
 {
     use HasFactory, LogsActivity, SoftDeletes;
 
+    /**
+     * Reserved code for the synthetic "All Properties" tenant — the
+     * pseudo-asset shown in the property switcher that bypasses
+     * per-property scoping. Backed by a real DB row so Filament can
+     * resolve it from the URL slug.
+     */
+    public const ALL_PROPERTIES_CODE = 'ALL';
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['operator_id', 'name', 'code', 'type', 'city', 'leasable_area_sqm', 'is_active'])
+            ->logOnly(['name', 'code', 'type', 'city', 'leasable_area_sqm', 'is_active'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('asset');
     }
 
     protected $fillable = [
-        'operator_id',
         'name',
         'code',
         'type',
@@ -50,9 +53,9 @@ class Asset extends Model
         'leasable_area_sqm' => 'decimal:2',
     ];
 
-    public function operator(): BelongsTo
+    public function isAllProperties(): bool
     {
-        return $this->belongsTo(Operator::class);
+        return $this->code === self::ALL_PROPERTIES_CODE;
     }
 
     public function units(): HasMany

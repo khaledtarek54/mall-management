@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\Asset;
-use App\Models\Operator;
 use App\Models\User;
 use App\Support\AssignedAssets;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -39,12 +38,7 @@ class AssignedAssetsTest extends TestCase
 
     private function makeAsset(): Asset
     {
-        $operator = Operator::create([
-            'name' => 'Op', 'slug' => 'op-' . uniqid(),
-            'primary_color' => '#000', 'is_active' => true,
-        ]);
         return Asset::create([
-            'operator_id' => $operator->id,
             'name' => 'Test Asset ' . uniqid(),
             'code' => strtoupper(substr(uniqid(), -6)),
             'type' => 'mall', 'city' => 'Cairo', 'country' => 'EG',

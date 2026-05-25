@@ -40,15 +40,24 @@ class MonthlyRevenueTrend extends ChartWidget
         $end = CarbonImmutable::now()->endOfMonth();
         $start = CarbonImmutable::now()->startOfMonth()->subMonths(11);
         $currentMonthKey = CarbonImmutable::now()->format('Y-m');
+        $assetId = \App\Support\TenantScope::currentAssetId();
 
-        $billed = Invoice::query()
+        $invoiceBase = $assetId
+            ? Invoice::whereHas('lease.unit', fn ($q) => $q->where('asset_id', $assetId))
+            : Invoice::query();
+
+        $paymentBase = $assetId
+            ? Payment::whereHas('invoices.lease.unit', fn ($q) => $q->where('asset_id', $assetId))
+            : Payment::query();
+
+        $billed = (clone $invoiceBase)
             ->selectRaw("DATE_FORMAT(period_start, '%Y-%m') as ym, SUM(total) as amount")
             ->whereBetween('period_start', [$start, $end])
             ->whereNotIn('status', ['cancelled', 'credited'])
             ->groupBy('ym')
             ->pluck('amount', 'ym');
 
-        $collected = Payment::query()
+        $collected = (clone $paymentBase)
             ->selectRaw("DATE_FORMAT(payment_date, '%Y-%m') as ym, SUM(amount) as amount")
             ->whereBetween('payment_date', [$start, $end])
             ->where('status', 'captured')
@@ -58,11 +67,19 @@ class MonthlyRevenueTrend extends ChartWidget
         // Collection rate is computed per invoice month (payments allocated back
         // to the month their invoice was issued in), not per cash-flow month —
         // otherwise payments-on-old-AR distort the ratio.
-        $paidPerInvoiceMonth = DB::table('invoice_payment')
+        $paidPerMonthQuery = DB::table('invoice_payment')
             ->join('invoices', 'invoices.id', '=', 'invoice_payment.invoice_id')
-            ->selectRaw("DATE_FORMAT(invoices.period_start, '%Y-%m') as ym, SUM(invoice_payment.allocated_amount) as amount")
             ->whereBetween('invoices.period_start', [$start, $end])
-            ->whereNotIn('invoices.status', ['cancelled', 'credited'])
+            ->whereNotIn('invoices.status', ['cancelled', 'credited']);
+
+        if ($assetId) {
+            $paidPerMonthQuery->join('leases', 'leases.id', '=', 'invoices.lease_id')
+                ->join('units', 'units.id', '=', 'leases.unit_id')
+                ->where('units.asset_id', $assetId);
+        }
+
+        $paidPerInvoiceMonth = $paidPerMonthQuery
+            ->selectRaw("DATE_FORMAT(invoices.period_start, '%Y-%m') as ym, SUM(invoice_payment.allocated_amount) as amount")
             ->groupBy('ym')
             ->pluck('amount', 'ym');
 

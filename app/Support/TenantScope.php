@@ -1,0 +1,65 @@
+<?php
+
+namespace App\Support;
+
+use App\Models\Asset;
+use Filament\Facades\Filament;
+
+/**
+ * Single source of truth for "which property are we filtering to?"
+ *
+ * Used by widgets and any code that needs to scope queries to the current
+ * Filament tenant. Returns null when the user picked "All Properties" or
+ * when no tenant context is set (e.g. CLI, console commands), meaning
+ * "do not scope".
+ */
+class TenantScope
+{
+    /**
+     * Current tenant's asset ID, or null when scoping should not apply
+     * (no tenant set, or the "All Properties" pseudo-tenant is active).
+     */
+    public static function currentAssetId(): ?int
+    {
+        $tenant = Filament::getTenant();
+
+        if (! $tenant instanceof Asset) {
+            return null;
+        }
+
+        if ($tenant->isAllProperties()) {
+            return null;
+        }
+
+        return (int) $tenant->getKey();
+    }
+
+    /**
+     * When "All Properties" is active and the user has restricted access
+     * (not super_admin), the queries still need to be constrained to the
+     * user's assigned properties. Returns the list of asset IDs the
+     * current user can see, or null if no constraint should apply
+     * (super_admin viewing All, or single-property fallback).
+     *
+     * @return int[]|null
+     */
+    public static function visibleAssetIds(): ?array
+    {
+        $tenant = Filament::getTenant();
+
+        // No tenant: defer to AssignedAssets — covers CLI + edge cases.
+        if (! $tenant instanceof Asset) {
+            return AssignedAssets::idsForCurrentUser();
+        }
+
+        // Single property — caller should use currentAssetId() instead;
+        // returning [id] still works for whereIn-based filters.
+        if (! $tenant->isAllProperties()) {
+            return [(int) $tenant->getKey()];
+        }
+
+        // "All Properties" mode: super_admin sees all, others see only
+        // their assigned set.
+        return AssignedAssets::idsForCurrentUser();
+    }
+}

@@ -34,50 +34,55 @@ class ArAging extends ChartWidget
 
     protected function getData(): array
     {
+        $assetId = \App\Support\TenantScope::currentAssetId();
+        $base = fn () => $assetId
+            ? Invoice::whereHas('lease.unit', fn ($q) => $q->where('asset_id', $assetId))
+            : Invoice::query();
+
         $buckets = [
             'current' => [
-                'amount' => (float) Invoice::where('balance', '>', 0)
+                'amount' => (float) $base()->where('balance', '>', 0)
                     ->where('due_date', '>=', now())
                     ->sum('balance'),
-                'count' => Invoice::where('balance', '>', 0)
+                'count' => $base()->where('balance', '>', 0)
                     ->where('due_date', '>=', now())
                     ->count(),
             ],
             '1_30' => [
-                'amount' => (float) Invoice::where('balance', '>', 0)
+                'amount' => (float) $base()->where('balance', '>', 0)
                     ->where('due_date', '<', now())
                     ->where('due_date', '>=', now()->subDays(30))
                     ->sum('balance'),
-                'count' => Invoice::where('balance', '>', 0)
+                'count' => $base()->where('balance', '>', 0)
                     ->where('due_date', '<', now())
                     ->where('due_date', '>=', now()->subDays(30))
                     ->count(),
             ],
             '31_60' => [
-                'amount' => (float) Invoice::where('balance', '>', 0)
+                'amount' => (float) $base()->where('balance', '>', 0)
                     ->where('due_date', '<', now()->subDays(30))
                     ->where('due_date', '>=', now()->subDays(60))
                     ->sum('balance'),
-                'count' => Invoice::where('balance', '>', 0)
+                'count' => $base()->where('balance', '>', 0)
                     ->where('due_date', '<', now()->subDays(30))
                     ->where('due_date', '>=', now()->subDays(60))
                     ->count(),
             ],
             '61_90' => [
-                'amount' => (float) Invoice::where('balance', '>', 0)
+                'amount' => (float) $base()->where('balance', '>', 0)
                     ->where('due_date', '<', now()->subDays(60))
                     ->where('due_date', '>=', now()->subDays(90))
                     ->sum('balance'),
-                'count' => Invoice::where('balance', '>', 0)
+                'count' => $base()->where('balance', '>', 0)
                     ->where('due_date', '<', now()->subDays(60))
                     ->where('due_date', '>=', now()->subDays(90))
                     ->count(),
             ],
             '90_plus' => [
-                'amount' => (float) Invoice::where('balance', '>', 0)
+                'amount' => (float) $base()->where('balance', '>', 0)
                     ->where('due_date', '<', now()->subDays(90))
                     ->sum('balance'),
-                'count' => Invoice::where('balance', '>', 0)
+                'count' => $base()->where('balance', '>', 0)
                     ->where('due_date', '<', now()->subDays(90))
                     ->count(),
             ],

@@ -14,7 +14,6 @@ use App\Models\MaintenanceRequest;
 use App\Models\MaintenanceRequestComment;
 use App\Models\MeterReading;
 use App\Models\Note;
-use App\Models\Operator;
 use App\Models\Payment;
 use App\Models\Tenant;
 use App\Models\TenantSalesDeclaration;
@@ -51,58 +50,24 @@ class HayaWalkSeeder extends Seeder
             $user->syncRoles([$u['role']]);
         }
 
-        // 0.5. Operators — Jawad (owns Haya Walk) + a Demo operator for the white-label story
-        $jawad = Operator::updateOrCreate(
-            ['slug' => 'jawad'],
-            [
-                'name' => 'Jawad Developments',
-                'logo_path' => 'images/jawad-logo.png',
-                'favicon_path' => 'jawad-favicon.png',
-                'primary_color' => '#C9A961',
-                'contact_email' => 'info@jawad.test',
-                'metadata' => ['established' => 2003],
-                'is_active' => true,
-            ],
-        );
-
-        // Eltizam Egypt — white-label demo placeholder using the real Eltizam Group
-        // brand (logo + gold hex extracted directly from their public mark). The
-        // brand-swap moment in the demo lands with Eltizam's actual identity, not
-        // a fabricated placeholder.
-        Operator::updateOrCreate(
-            ['slug' => 'eltizam-egypt'],
-            [
-                'name' => 'Eltizam Egypt',
-                'logo_path' => 'images/eltizam-logo.png',
-                'favicon_path' => 'images/eltizam-logo.png',
-                'primary_color' => '#F0B010', // Eltizam brand gold — sampled from the logo's signature swirl
-                'contact_email' => 'info@eltizam.eg',
-                'metadata' => [
-                    'established' => 2021,
-                    'note' => 'JV with Al Ahly Sabbour, EGP 2bn',
-                    'brand_source' => 'Eltizam Group public mark (eltizam-logo.png in public/images)',
-                ],
-                'is_active' => true,
-            ],
-        );
-
         // 1. The Asset
-        $hayaWalk = Asset::create([
-            'operator_id' => $jawad->id,
-            'name' => 'Haya Walk',
-            'code' => 'HW',
-            'type' => 'retail_walk',
-            'address' => 'Wahat Road, 6th of October City',
-            'city' => '6th of October',
-            'country' => 'Egypt',
-            'total_area_sqm' => 12000,
-            'leasable_area_sqm' => 8500,
-            'currency' => 'EGP',
-            'metadata' => [
-                'owner' => 'Jawad Developments',
-                'launched' => '2025',
+        $hayaWalk = Asset::updateOrCreate(
+            ['code' => 'HW'],
+            [
+                'name' => 'Haya Walk',
+                'type' => 'retail_walk',
+                'address' => 'Wahat Road, 6th of October City',
+                'city' => '6th of October',
+                'country' => 'Egypt',
+                'total_area_sqm' => 12000,
+                'leasable_area_sqm' => 8500,
+                'currency' => 'EGP',
+                'metadata' => [
+                    'owner' => 'Jawad Developments',
+                    'launched' => '2025',
+                ],
             ],
-        ]);
+        );
 
         // Attach the owner user to Haya Walk at 100% ownership
         $ownerUser = User::where('email', 'owner@jawad.test')->first();
@@ -123,7 +88,6 @@ class HayaWalkSeeder extends Seeder
         $plazaAnnex = Asset::updateOrCreate(
             ['code' => 'PA'],
             [
-                'operator_id' => $jawad->id,
                 'name' => 'Plaza Annex',
                 'type' => 'retail_walk',
                 'address' => 'Plaza Road, 6th of October City',

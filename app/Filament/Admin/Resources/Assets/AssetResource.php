@@ -93,7 +93,11 @@ class AssetResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
+        $query = parent::getEloquentQuery()
+            // Always hide the synthetic "All Properties" pseudo-asset from
+            // the property management list — it's a tenant-switcher artifact,
+            // not a real property.
+            ->where('assets.code', '!=', Asset::ALL_PROPERTIES_CODE);
 
         $ids = \App\Support\AssignedAssets::idsForCurrentUser();
         if ($ids !== null) {

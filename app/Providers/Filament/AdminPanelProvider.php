@@ -16,7 +16,6 @@ use App\Filament\Admin\Widgets\SetupGuide;
 use App\Filament\Admin\Widgets\TenantMix;
 use App\Filament\Admin\Widgets\TopTenants;
 use App\Models\Asset;
-use App\Support\CurrentOperator;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -41,22 +40,10 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
-            ->brandName(fn (): string => CurrentOperator::get()?->name ?? 'Atriom')
-            ->brandLogo(function (): ?string {
-                $operator = CurrentOperator::get();
-                if ($operator) {
-                    return $operator->logoUrl();
-                }
-                return asset('images/atriom-logo.svg');
-            })
+            ->brandName('Atriom')
+            ->brandLogo(asset('images/atriom-logo.svg'))
             ->brandLogoHeight('2.5rem')
-            ->favicon(function (): ?string {
-                $operator = CurrentOperator::get();
-                if ($operator) {
-                    return $operator->faviconUrl();
-                }
-                return asset('atriom-favicon.svg');
-            })
+            ->favicon(asset('atriom-favicon.svg'))
             ->tenant(Asset::class, slugAttribute: 'code')
             ->tenantRegistration(\App\Filament\Admin\Pages\Tenancy\RegisterProperty::class)
             ->discoverResources(in: app_path('Filament/Admin/Resources'), for: 'App\\Filament\\Admin\\Resources')
