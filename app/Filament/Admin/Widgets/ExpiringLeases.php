@@ -18,7 +18,7 @@ class ExpiringLeases extends TableWidget
         return ['manager', 'leasing_manager', 'viewer'];
     }
 
-    protected static ?int $sort = 3;
+    protected static ?int $sort = 5;
 
     protected int|string|array $columnSpan = 'full';
 
