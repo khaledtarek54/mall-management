@@ -44,9 +44,15 @@ class EnergyConsumptionTrend extends ChartWidget
         $start = CarbonImmutable::now()->startOfMonth()->subMonths(11);
         $assetId = \App\Support\TenantScope::currentAssetId();
 
+        $monthExpr = match (DB::connection()->getDriverName()) {
+            'sqlite' => "strftime('%Y-%m', reading_date)",
+            'pgsql' => "to_char(reading_date, 'YYYY-MM')",
+            default => "DATE_FORMAT(reading_date, '%Y-%m')",
+        };
+
         $query = DB::table('meter_readings')
             ->join('utility_meters', 'utility_meters.id', '=', 'meter_readings.utility_meter_id')
-            ->selectRaw("DATE_FORMAT(reading_date, '%Y-%m') as ym, utility_meters.type as type, SUM(consumption) as total")
+            ->selectRaw("{$monthExpr} as ym, utility_meters.type as type, SUM(consumption) as total")
             ->whereBetween('reading_date', [$start, $end])
             ->groupBy('ym', 'type');
 

@@ -165,9 +165,16 @@ class MallStats extends StatsOverviewWidget
         $end = CarbonImmutable::now()->endOfMonth();
         $start = $end->subMonths($months - 1)->startOfMonth();
 
+        $driver = DB::connection()->getDriverName();
+        $monthExpr = match ($driver) {
+            'sqlite' => "strftime('%Y-%m', {$dateColumn})",
+            'pgsql' => "to_char({$dateColumn}, 'YYYY-MM')",
+            default => "DATE_FORMAT({$dateColumn}, '%Y-%m')",
+        };
+
         $rows = (clone $query)
             ->whereBetween($dateColumn, [$start, $end])
-            ->selectRaw("DATE_FORMAT({$dateColumn}, '%Y-%m') as ym, SUM({$sumColumn}) as total")
+            ->selectRaw("{$monthExpr} as ym, SUM({$sumColumn}) as total")
             ->groupBy('ym')
             ->pluck('total', 'ym');
 

@@ -41,6 +41,11 @@ class MonthlyRevenueTrend extends ChartWidget
         $start = CarbonImmutable::now()->startOfMonth()->subMonths(11);
         $currentMonthKey = CarbonImmutable::now()->format('Y-m');
         $assetId = \App\Support\TenantScope::currentAssetId();
+        $monthExpr = fn (string $col): string => match (DB::connection()->getDriverName()) {
+            'sqlite' => "strftime('%Y-%m', {$col})",
+            'pgsql' => "to_char({$col}, 'YYYY-MM')",
+            default => "DATE_FORMAT({$col}, '%Y-%m')",
+        };
 
         $invoiceBase = $assetId
             ? Invoice::whereHas('lease.unit', fn ($q) => $q->where('asset_id', $assetId))
@@ -51,14 +56,14 @@ class MonthlyRevenueTrend extends ChartWidget
             : Payment::query();
 
         $billed = (clone $invoiceBase)
-            ->selectRaw("DATE_FORMAT(period_start, '%Y-%m') as ym, SUM(total) as amount")
+            ->selectRaw("" . $monthExpr('period_start') . " as ym, SUM(total) as amount")
             ->whereBetween('period_start', [$start, $end])
             ->whereNotIn('status', ['cancelled', 'credited'])
             ->groupBy('ym')
             ->pluck('amount', 'ym');
 
         $collected = (clone $paymentBase)
-            ->selectRaw("DATE_FORMAT(payment_date, '%Y-%m') as ym, SUM(amount) as amount")
+            ->selectRaw("" . $monthExpr('payment_date') . " as ym, SUM(amount) as amount")
             ->whereBetween('payment_date', [$start, $end])
             ->where('status', 'captured')
             ->groupBy('ym')
@@ -79,7 +84,7 @@ class MonthlyRevenueTrend extends ChartWidget
         }
 
         $paidPerInvoiceMonth = $paidPerMonthQuery
-            ->selectRaw("DATE_FORMAT(invoices.period_start, '%Y-%m') as ym, SUM(invoice_payment.allocated_amount) as amount")
+            ->selectRaw("" . $monthExpr('invoices.period_start') . " as ym, SUM(invoice_payment.allocated_amount) as amount")
             ->groupBy('ym')
             ->pluck('amount', 'ym');
 
