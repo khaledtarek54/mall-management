@@ -27,6 +27,8 @@ class UtilityMeterResource extends Resource
 
     protected static ?int $navigationSort = 8;
 
+    protected static ?string $tenantOwnershipRelationshipName = 'asset';
+
     public static function getNavigationLabel(): string
     {
         return __('admin.navigation.energy');
@@ -68,14 +70,7 @@ class UtilityMeterResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['asset', 'unit']);
-
-        $ids = \App\Support\AssignedAssets::idsForCurrentUser();
-        if ($ids !== null) {
-            $query->whereIn('utility_meters.asset_id', $ids);
-        }
-
-        return $query;
+        return parent::getEloquentQuery()->with(['asset', 'unit']);
     }
 
     public static function getRecordRouteBindingEloquentQuery(): Builder

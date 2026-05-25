@@ -15,6 +15,7 @@ use App\Filament\Admin\Widgets\RecentPayments;
 use App\Filament\Admin\Widgets\SetupGuide;
 use App\Filament\Admin\Widgets\TenantMix;
 use App\Filament\Admin\Widgets\TopTenants;
+use App\Models\Asset;
 use App\Support\CurrentOperator;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -56,6 +57,8 @@ class AdminPanelProvider extends PanelProvider
                 }
                 return asset('atriom-favicon.svg');
             })
+            ->tenant(Asset::class, slugAttribute: 'code')
+            ->tenantRegistration(\App\Filament\Admin\Pages\Tenancy\RegisterProperty::class)
             ->discoverResources(in: app_path('Filament/Admin/Resources'), for: 'App\\Filament\\Admin\\Resources')
             ->discoverPages(in: app_path('Filament/Admin/Pages'), for: 'App\\Filament\\Admin\\Pages')
             ->pages([

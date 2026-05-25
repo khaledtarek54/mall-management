@@ -84,6 +84,22 @@ class PaymentResource extends Resource
             ]);
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        if ($tenant = \Filament\Facades\Filament::getTenant()) {
+            $query->whereHas('invoices.lease.unit', fn ($q) => $q->where('asset_id', $tenant->getKey()));
+        }
+
+        return $query;
+    }
+
+    public static function scopeEloquentQueryToTenant(Builder $query, ?Model $tenant): Builder
+    {
+        return $query;
+    }
+
     public static function getGloballySearchableAttributes(): array
     {
         return ['reference', 'tenant.name'];

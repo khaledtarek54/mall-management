@@ -30,6 +30,11 @@ class AssetResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'name';
 
+    // Asset IS the tenant — managing assets sits ABOVE the per-property
+    // context, so it bypasses tenancy. The query below still scopes to
+    // properties the user is assigned to.
+    protected static bool $isScopedToTenant = false;
+
     public static function getNavigationLabel(): string
     {
         return __('admin.navigation.properties');

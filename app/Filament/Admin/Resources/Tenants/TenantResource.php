@@ -88,6 +88,23 @@ class TenantResource extends Resource
             ]);
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        if ($tenant = \Filament\Facades\Filament::getTenant()) {
+            // Show tenants who have at least one lease in this property.
+            $query->whereHas('leases.unit', fn ($q) => $q->where('asset_id', $tenant->getKey()));
+        }
+
+        return $query;
+    }
+
+    public static function scopeEloquentQueryToTenant(Builder $query, ?Model $tenant): Builder
+    {
+        return $query;
+    }
+
     public static function getGloballySearchableAttributes(): array
     {
         return ['name', 'legal_name', 'email', 'phone', 'contact_person'];

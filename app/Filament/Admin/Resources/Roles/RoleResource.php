@@ -32,6 +32,9 @@ class RoleResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'name';
 
+    // Roles are a system-level concept, not property-scoped.
+    protected static bool $isScopedToTenant = false;
+
     public static function getNavigationLabel(): string
     {
         return __('admin.navigation.roles');

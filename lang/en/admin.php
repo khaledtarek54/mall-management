@@ -59,6 +59,12 @@ return [
         ],
     ],
 
+    'tenancy' => [
+        'register_label' => 'Add property',
+        'register_heading' => 'Create your first property',
+        'register_subheading' => 'A property is a mall, plaza, or office building. Once created, every list and report scopes to it — switch between properties from the menu at the top.',
+    ],
+
     'setup' => [
         'title' => 'Welcome — let\'s get you set up',
         'title_done' => 'You\'re all set ✓',

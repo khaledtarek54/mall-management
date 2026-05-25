@@ -4,19 +4,22 @@ namespace App\Models;
 
 use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
+use Filament\Models\Contracts\HasTenants;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Collection;
 use Spatie\Permission\Traits\HasRoles;
 
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'remember_token'])]
-class User extends Authenticatable implements FilamentUser
+class User extends Authenticatable implements FilamentUser, HasTenants
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, HasRoles, Notifiable;
@@ -38,6 +41,27 @@ class User extends Authenticatable implements FilamentUser
             'admin' => $this->roles()->where('name', '!=', 'owner')->exists(),
             default => true,
         };
+    }
+
+    public function getTenants(Panel $panel): Collection
+    {
+        if ($this->hasRole('super_admin')) {
+            return Asset::query()->withoutGlobalScopes()->get();
+        }
+
+        return $this->assignedAssets()->withoutGlobalScopes()->get();
+    }
+
+    public function canAccessTenant(Model $tenant): bool
+    {
+        if ($this->hasRole('super_admin')) {
+            return true;
+        }
+
+        return $this->assignedAssets()
+            ->withoutGlobalScopes()
+            ->whereKey($tenant->getKey())
+            ->exists();
     }
 
     public function assignedMaintenanceRequests(): HasMany

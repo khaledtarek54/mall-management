@@ -30,6 +30,8 @@ class UnitResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'code';
 
+    protected static ?string $tenantOwnershipRelationshipName = 'asset';
+
     public static function getNavigationLabel(): string
     {
         return __('admin.navigation.tenant_directory');
@@ -89,14 +91,7 @@ class UnitResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
-
-        $ids = \App\Support\AssignedAssets::idsForCurrentUser();
-        if ($ids !== null) {
-            $query->whereIn('units.asset_id', $ids);
-        }
-
-        return $query;
+        return parent::getEloquentQuery();
     }
 
     public static function getGloballySearchableAttributes(): array

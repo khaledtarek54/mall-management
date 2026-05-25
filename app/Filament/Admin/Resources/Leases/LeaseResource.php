@@ -89,11 +89,17 @@ class LeaseResource extends Resource
     {
         $query = parent::getEloquentQuery();
 
-        $ids = \App\Support\AssignedAssets::idsForCurrentUser();
-        if ($ids !== null) {
-            $query->whereHas('unit', fn ($q) => $q->whereIn('asset_id', $ids));
+        if ($tenant = \Filament\Facades\Filament::getTenant()) {
+            $query->whereHas('unit', fn ($q) => $q->where('asset_id', $tenant->getKey()));
         }
 
+        return $query;
+    }
+
+    // Lease doesn't carry asset_id directly (goes through unit). Tell Filament
+    // not to auto-scope — we already do it in getEloquentQuery above.
+    public static function scopeEloquentQueryToTenant(Builder $query, ?\Illuminate\Database\Eloquent\Model $tenant): Builder
+    {
         return $query;
     }
 

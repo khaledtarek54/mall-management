@@ -32,6 +32,8 @@ class CamExpensePoolResource extends Resource
 
     protected static ?int $navigationSort = 7;
 
+    protected static ?string $tenantOwnershipRelationshipName = 'asset';
+
     public static function getNavigationLabel(): string
     {
         return __('admin.navigation.cam');
@@ -86,13 +88,6 @@ class CamExpensePoolResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
-
-        $ids = \App\Support\AssignedAssets::idsForCurrentUser();
-        if ($ids !== null) {
-            $query->whereIn('cam_expense_pools.asset_id', $ids);
-        }
-
-        return $query;
+        return parent::getEloquentQuery();
     }
 }

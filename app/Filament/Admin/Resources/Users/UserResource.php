@@ -26,6 +26,10 @@ class UserResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'email';
 
+    // Users are a cross-property concept — a single user is assigned to many
+    // properties via asset_user, so the resource bypasses tenancy.
+    protected static bool $isScopedToTenant = false;
+
     public static function getNavigationLabel(): string
     {
         return __('admin.navigation.users');

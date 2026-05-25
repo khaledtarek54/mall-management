@@ -3,12 +3,10 @@
 namespace App\Filament\Admin\Widgets;
 
 use App\Filament\Admin\Concerns\RoleScopedWidget;
-use App\Filament\Admin\Resources\Assets\AssetResource;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Filament\Admin\Resources\Tenants\TenantResource;
 use App\Filament\Admin\Resources\Units\UnitResource;
-use App\Models\Asset;
 use App\Models\Invoice;
 use App\Models\Lease;
 use App\Models\Tenant;
@@ -49,21 +47,19 @@ class SetupGuide extends Widget
 
     public function getViewData(): array
     {
+        // With panel tenancy enabled, every list & query is property-scoped,
+        // so the setup checklist measures THIS property's state, not the
+        // whole platform. Creating a property is now a tenancy-registration
+        // step that happens before the dashboard renders.
+        $tenant = \Filament\Facades\Filament::getTenant();
+        $assetId = $tenant?->getKey();
+
         $steps = [
-            [
-                'key' => 'properties',
-                'label' => __('admin.setup.steps.properties'),
-                'description' => __('admin.setup.steps.properties_description'),
-                'done' => Asset::query()->withoutGlobalScopes()->exists(),
-                'url' => AssetResource::getUrl('create'),
-                'cta' => __('admin.setup.cta.create_property'),
-                'icon' => 'heroicon-o-building-office-2',
-            ],
             [
                 'key' => 'units',
                 'label' => __('admin.setup.steps.units'),
                 'description' => __('admin.setup.steps.units_description'),
-                'done' => Unit::query()->exists(),
+                'done' => Unit::query()->where('asset_id', $assetId)->exists(),
                 'url' => UnitResource::getUrl('create'),
                 'cta' => __('admin.setup.cta.create_unit'),
                 'icon' => 'heroicon-o-rectangle-stack',
@@ -72,7 +68,9 @@ class SetupGuide extends Widget
                 'key' => 'tenants',
                 'label' => __('admin.setup.steps.tenants'),
                 'description' => __('admin.setup.steps.tenants_description'),
-                'done' => Tenant::query()->exists(),
+                'done' => Tenant::query()
+                    ->whereHas('leases.unit', fn ($q) => $q->where('asset_id', $assetId))
+                    ->exists(),
                 'url' => TenantResource::getUrl('create'),
                 'cta' => __('admin.setup.cta.create_tenant'),
                 'icon' => 'heroicon-o-users',
@@ -81,7 +79,9 @@ class SetupGuide extends Widget
                 'key' => 'leases',
                 'label' => __('admin.setup.steps.leases'),
                 'description' => __('admin.setup.steps.leases_description'),
-                'done' => Lease::query()->exists(),
+                'done' => Lease::query()
+                    ->whereHas('unit', fn ($q) => $q->where('asset_id', $assetId))
+                    ->exists(),
                 'url' => LeaseResource::getUrl('create'),
                 'cta' => __('admin.setup.cta.create_lease'),
                 'icon' => 'heroicon-o-document-text',
@@ -90,7 +90,9 @@ class SetupGuide extends Widget
                 'key' => 'invoices',
                 'label' => __('admin.setup.steps.invoices'),
                 'description' => __('admin.setup.steps.invoices_description'),
-                'done' => Invoice::query()->exists(),
+                'done' => Invoice::query()
+                    ->whereHas('lease.unit', fn ($q) => $q->where('asset_id', $assetId))
+                    ->exists(),
                 'url' => InvoiceResource::getUrl('index'),
                 'cta' => __('admin.setup.cta.create_invoice'),
                 'icon' => 'heroicon-o-banknotes',

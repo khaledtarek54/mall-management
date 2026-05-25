@@ -110,11 +110,15 @@ class MaintenanceRequestResource extends Resource
     {
         $query = parent::getEloquentQuery();
 
-        $ids = \App\Support\AssignedAssets::idsForCurrentUser();
-        if ($ids !== null) {
-            $query->whereHas('unit', fn ($q) => $q->whereIn('asset_id', $ids));
+        if ($tenant = \Filament\Facades\Filament::getTenant()) {
+            $query->whereHas('unit', fn ($q) => $q->where('asset_id', $tenant->getKey()));
         }
 
+        return $query;
+    }
+
+    public static function scopeEloquentQueryToTenant(Builder $query, ?Model $tenant): Builder
+    {
         return $query;
     }
 
