@@ -117,11 +117,13 @@ class MallStats extends StatsOverviewWidget
                 ->color($occupancyColor)
                 ->chart($occupancySeries),
 
+            // No sparkline on MRR — contractual rent is a stable number; a
+            // billed-in-month sparkline would dip in the partial current month
+            // and visually contradict the headline (audit F-4 / D-3).
             Stat::make(__('admin.widgets.mall_stats.monthly_revenue'), 'EGP '.number_format($monthlyRecurring, 0))
                 ->description(__('admin.widgets.mall_stats.monthly_revenue_desc'))
                 ->descriptionIcon('heroicon-m-banknotes')
-                ->color('primary')
-                ->chart($billedSeries),
+                ->color('primary'),
 
             Stat::make(__('admin.widgets.mall_stats.collected_this_month'), 'EGP '.number_format($collectedThisMonth, 0))
                 ->description($this->collectedDescription($collectionRate, $collectedDelta))
@@ -155,8 +157,12 @@ class MallStats extends StatsOverviewWidget
 
     protected function percentDelta(float $current, float $previous): ?float
     {
+        // Both zero or no prior data → no meaningful delta. Returning a
+        // hard-coded 100 % (the previous behavior) misled fresh installs
+        // into showing "↑ 100 % vs last month" when there was no baseline
+        // to compare against (audit F-5 / D-4).
         if ($previous <= 0) {
-            return $current > 0 ? 100.0 : null;
+            return null;
         }
 
         return round((($current - $previous) / $previous) * 100, 1);

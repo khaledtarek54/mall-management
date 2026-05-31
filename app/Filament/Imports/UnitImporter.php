@@ -46,7 +46,7 @@ class UnitImporter extends Importer
 
             ImportColumn::make('status')
                 ->label(__('admin.tables.common.status'))
-                ->rules(['nullable', 'in:vacant,occupied,maintenance,reserved']),
+                ->rules(['nullable', 'in:vacant,reserved,occupied,maintenance']),
         ];
     }
 

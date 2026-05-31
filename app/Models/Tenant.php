@@ -113,8 +113,13 @@ class Tenant extends Authenticatable implements FilamentUser, HasMedia
             ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
             ->sum('balance');
 
+        // The CreditNote status enum is (draft, issued, applied, void) —
+        // a 'partially_applied' state was once contemplated but never
+        // shipped. CreditNoteService leaves a partly-applied note in
+        // 'issued' (balance > 0); 'issued' alone is the correct filter.
+        // See audit M14 F-55 / D-41.
         $creditNoteBalance = (float) $this->creditNotes()
-            ->whereIn('status', ['issued', 'partially_applied'])
+            ->where('status', 'issued')
             ->sum('balance');
 
         return round($invoiceBalance - $creditNoteBalance, 2);
