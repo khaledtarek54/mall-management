@@ -15,7 +15,9 @@ class ArAging extends Page
 
     public static function canAccess(): bool
     {
-        return \App\Support\Modules::enabled('reports');
+        // Module flag AND per-user permission (audit M18 F-68 / D-53).
+        return \App\Support\Modules::enabled('reports')
+            && \Illuminate\Support\Facades\Auth::user()?->can('reports.view');
     }
 
     protected string $view = 'filament.pages.ar-aging';

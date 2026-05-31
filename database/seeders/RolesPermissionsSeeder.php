@@ -217,6 +217,8 @@ class RolesPermissionsSeeder extends Seeder
         ]);
 
         // maintenance_manager: maintenance workflow + vendor dispatch.
+        // Reports.view granted so they can drill into AR aging to chase
+        // delinquent F&B tenants (audit M18 D-53 follow-on).
         Role::findByName('maintenance_manager', 'web')->syncPermissions([
             'assets.view', 'units.view', 'tenants.view',
             'maintenance.view', 'maintenance.create', 'maintenance.edit',
@@ -224,6 +226,7 @@ class RolesPermissionsSeeder extends Seeder
             'vendors.view', 'vendors.create', 'vendors.edit',
             'utility_meters.view',
             'notes.view', 'notes.create',
+            'reports.view',
         ]);
     }
 

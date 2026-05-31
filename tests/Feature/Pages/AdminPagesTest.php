@@ -58,6 +58,9 @@ it('Reports page downloadMonthlyClose returns a PDF streamed response', function
 });
 
 it('Reports page gating + navigation reflect the reports module toggle', function () {
+    $this->seed(\Database\Seeders\RolesPermissionsSeeder::class);
+    $this->actingAs(makeUser('manager', [$this->asset->id]));
+
     $settings = app(ModulesSettings::class);
     $settings->reports = false;
     $settings->save();
@@ -69,6 +72,16 @@ it('Reports page gating + navigation reflect the reports module toggle', functio
     $settings->save();
 
     expect(Reports::canAccess())->toBeTrue();
+});
+
+it('Reports page denies access to users that lack reports.view', function () {
+    $this->seed(\Database\Seeders\RolesPermissionsSeeder::class);
+    $user = makeUser('manager', [$this->asset->id]);
+    $user->syncPermissions([]);
+    $user->syncRoles([]);
+    $this->actingAs($user);
+
+    expect(Reports::canAccess())->toBeFalse();
 });
 
 it('Reports page exposes title + nav labels (translations resolved)', function () {
@@ -101,6 +114,9 @@ it('ArAging page builds view data with bucket labels + total balance', function 
 });
 
 it('ArAging page exposes title + access gate + nav group', function () {
+    $this->seed(\Database\Seeders\RolesPermissionsSeeder::class);
+    $this->actingAs(makeUser('manager', [$this->asset->id]));
+
     expect((new ArAging)->getTitle())->toBeString()->not->toBeEmpty();
     expect(ArAging::canAccess())->toBeTrue();
     expect(ArAging::getNavigationGroup())->toBeString();
