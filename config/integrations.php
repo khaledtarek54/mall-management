@@ -15,6 +15,25 @@ return [
 
     'paymob' => [
         'enabled' => env('PAYMOB_ENABLED', false),
+
+        // Sandbox is the default Paymob URL; flip to https://accept.paymob.com
+        // for production. Live sandbox sits at the same accept.paymob.com host
+        // — Paymob distinguishes by your account's environment, not by URL.
+        'base_url' => env('PAYMOB_BASE_URL', 'https://accept.paymob.com'),
+
+        // 4 credentials from the Paymob dashboard (see PAYMOB-SETUP.md):
+        //   api_key         → Account → Profile → API Key
+        //   integration_id  → Developers → Payment Integrations → your card integration
+        //   iframe_id       → Developers → Iframes
+        //   hmac_secret     → Account → Profile → HMAC
+        'api_key' => env('PAYMOB_API_KEY'),
+        'integration_id' => env('PAYMOB_INTEGRATION_ID'),
+        'iframe_id' => env('PAYMOB_IFRAME_ID'),
+        'hmac_secret' => env('PAYMOB_HMAC_SECRET'),
+
+        // Currency must match the integration's account currency (EGP for
+        // Egyptian Paymob accounts).
+        'currency' => env('PAYMOB_CURRENCY', 'EGP'),
     ],
 
     'whatsapp' => [
