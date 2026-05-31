@@ -82,20 +82,33 @@ class LeaseForm
             Section::make(__('admin.sections.financial_terms'))
                 ->columns(3)
                 ->components([
+                    // Rent fields are read-only on Edit. Operators change them
+                    // through the "Change rent" record action so the matching
+                    // Charge.amount stays in sync (audit M04 F-20 / D-13). On
+                    // Create the LeaseObserver seeds the charges from these
+                    // values, so they remain editable here.
                     TextInput::make('base_rent_monthly')
                         ->label(__('admin.fields.base_rent_monthly'))
                         ->prefix('EGP')
                         ->numeric()
                         ->required()
                         ->minValue(0)
-                        ->helperText(__('admin.helpers.base_rent_monthly')),
+                        ->disabled(fn (string $operation): bool => $operation === 'edit')
+                        ->dehydrated()
+                        ->helperText(fn (string $operation): string => $operation === 'edit'
+                            ? __('admin.helpers.base_rent_monthly_edit_lock')
+                            : __('admin.helpers.base_rent_monthly')),
                     TextInput::make('service_charge_monthly')
                         ->label(__('admin.fields.service_charge_monthly'))
                         ->prefix('EGP')
                         ->numeric()
                         ->minValue(0)
                         ->default(0)
-                        ->helperText(__('admin.helpers.service_charge_monthly')),
+                        ->disabled(fn (string $operation): bool => $operation === 'edit')
+                        ->dehydrated()
+                        ->helperText(fn (string $operation): string => $operation === 'edit'
+                            ? __('admin.helpers.service_charge_monthly_edit_lock')
+                            : __('admin.helpers.service_charge_monthly')),
                     TextInput::make('security_deposit')
                         ->label(__('admin.fields.security_deposit'))
                         ->prefix('EGP')

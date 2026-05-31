@@ -356,6 +356,48 @@ class LeasesTable
                             ->success()
                             ->send();
                     }),
+                Action::make('changeRent')
+                    ->label(__('admin.actions.change_rent'))
+                    ->icon('heroicon-o-currency-dollar')
+                    ->color('warning')
+                    ->visible(fn (Lease $record) => in_array($record->status, ['active', 'pending_approval'], true) && LeaseResource::canEdit($record))
+                    ->modalHeading(fn (Lease $record) => __('admin.actions.change_rent_modal_heading', ['ref' => $record->reference]))
+                    ->modalDescription(__('admin.actions.change_rent_modal_description'))
+                    ->fillForm(fn (Lease $record) => [
+                        'base_rent_monthly' => (float) $record->base_rent_monthly,
+                        'service_charge_monthly' => (float) $record->service_charge_monthly,
+                    ])
+                    ->schema([
+                        TextInput::make('base_rent_monthly')
+                            ->label(__('admin.fields.base_rent_monthly'))
+                            ->prefix('EGP')
+                            ->numeric()
+                            ->minValue(0)
+                            ->required(),
+                        TextInput::make('service_charge_monthly')
+                            ->label(__('admin.fields.service_charge_monthly'))
+                            ->prefix('EGP')
+                            ->numeric()
+                            ->minValue(0)
+                            ->required(),
+                        Textarea::make('reason')
+                            ->label(__('admin.actions.change_rent_reason'))
+                            ->placeholder(__('admin.actions.change_rent_reason_placeholder'))
+                            ->rows(2),
+                    ])
+                    ->action(function (Lease $record, array $data) {
+                        $updated = app(\App\Services\LeaseRentChangeService::class)->apply($record, $data);
+
+                        Notification::make()
+                            ->title(__('admin.actions.rent_changed'))
+                            ->body(__('admin.actions.rent_changed_body', [
+                                'ref' => $updated->reference,
+                                'rent' => 'EGP ' . number_format((float) $updated->base_rent_monthly, 2),
+                                'service' => 'EGP ' . number_format((float) $updated->service_charge_monthly, 2),
+                            ]))
+                            ->success()
+                            ->send();
+                    }),
                 Action::make('terminate')
                     ->label(__('admin.actions.terminate'))
                     ->icon('heroicon-o-x-circle')
