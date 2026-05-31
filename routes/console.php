@@ -42,3 +42,11 @@ Schedule::command('cam:reconcile')
     )
     ->name('atriom-cam-reconcile')
     ->withoutOverlapping();
+
+// Daily housekeeping. Vendor contracts past their end_date get auto-
+// expired so the nav-badge "expiring soon" alert stays meaningful
+// (audit M15 F-58 / D-43).
+Schedule::command('vendors:expire-contracts')
+    ->dailyAt('02:30')
+    ->name('atriom-expire-vendor-contracts')
+    ->withoutOverlapping();
