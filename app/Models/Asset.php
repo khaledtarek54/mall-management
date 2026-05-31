@@ -10,10 +10,12 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 
-class Asset extends Model
+class Asset extends Model implements HasMedia
 {
-    use HasFactory, LogsActivity, SoftDeletes;
+    use HasFactory, InteractsWithMedia, LogsActivity, SoftDeletes;
 
     /**
      * Reserved code for the synthetic "All Properties" tenant — the
@@ -26,7 +28,7 @@ class Asset extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['name', 'code', 'type', 'city', 'leasable_area_sqm', 'is_active'])
+            ->logOnly(['name', 'code', 'type', 'city', 'leasable_area_sqm', 'is_active', 'primary_color'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('asset');
@@ -42,6 +44,7 @@ class Asset extends Model
         'total_area_sqm',
         'leasable_area_sqm',
         'currency',
+        'primary_color',
         'metadata',
         'is_active',
     ];
@@ -56,6 +59,33 @@ class Asset extends Model
     public function isAllProperties(): bool
     {
         return $this->code === self::ALL_PROPERTIES_CODE;
+    }
+
+    // ============ Per-property branding ============
+
+    /**
+     * MediaLibrary collections — `logo` (top-nav brand) and `favicon`
+     * (browser tab icon). Single-file each: re-uploading replaces.
+     */
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('logo')->singleFile();
+        $this->addMediaCollection('favicon')->singleFile();
+    }
+
+    /**
+     * Public URL for the property's logo, or null if no custom logo
+     * is uploaded. AdminPanelProvider falls back to the platform
+     * Atriom logo when this returns null.
+     */
+    public function logoUrl(): ?string
+    {
+        return $this->getFirstMediaUrl('logo') ?: null;
+    }
+
+    public function faviconUrl(): ?string
+    {
+        return $this->getFirstMediaUrl('favicon') ?: null;
     }
 
     public function units(): HasMany

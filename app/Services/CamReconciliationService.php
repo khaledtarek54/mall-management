@@ -69,6 +69,66 @@ class CamReconciliationService
     }
 
     /**
+     * Full annual reconciliation lifecycle for every pool in a given year.
+     *
+     * For each draft/reconciling pool: generate allocations, optionally bill
+     * each one, then bump pool status. Idempotent at every step:
+     * already-billed allocations are skipped, already-reconciled pools are
+     * skipped. Returns a stats array per pool so the caller (CLI / scheduled
+     * job / admin action) can report exactly what happened.
+     *
+     * @return array<int, array{pool_id:int, asset:string, allocations:int, billed:int, status:string}>
+     */
+    public function autoTrueUpForYear(int $year, bool $autoBill = false): array
+    {
+        $pools = CamExpensePool::query()
+            ->where('period_year', $year)
+            ->whereIn('status', ['draft', 'reconciling'])
+            ->with('asset')
+            ->get();
+
+        $report = [];
+
+        foreach ($pools as $pool) {
+            $allocations = $this->generateAllocations($pool);
+            $billed = 0;
+
+            if ($autoBill) {
+                foreach ($pool->allocations()->where('status', 'pending')->get() as $allocation) {
+                    $this->bill($allocation);
+                    $billed++;
+                }
+            }
+
+            // Pool moves to 'reconciled' once allocations exist and billing was
+            // requested; otherwise to 'reconciling' so the admin queue surfaces
+            // it for manual review.
+            $nextStatus = match (true) {
+                $autoBill && $allocations > 0 => 'reconciled',
+                $allocations > 0 => 'reconciling',
+                default => $pool->status,
+            };
+
+            if ($nextStatus !== $pool->status) {
+                $pool->update([
+                    'status' => $nextStatus,
+                    'reconciled_at' => $nextStatus === 'reconciled' ? now() : $pool->reconciled_at,
+                ]);
+            }
+
+            $report[] = [
+                'pool_id' => $pool->id,
+                'asset' => $pool->asset?->name ?? '—',
+                'allocations' => $allocations,
+                'billed' => $billed,
+                'status' => $pool->fresh()->status,
+            ];
+        }
+
+        return $report;
+    }
+
+    /**
      * Bill a single allocation: creates a one-off Charge on the lease for the
      * true_up_amount. Positive true-up = tenant owes more. Negative = credit due
      * (we still create the charge with negative amount so the next invoice nets it).

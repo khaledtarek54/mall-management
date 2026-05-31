@@ -2,7 +2,9 @@
 
 namespace App\Filament\Admin\Resources\Assets\Schemas;
 
+use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -63,6 +65,27 @@ class AssetForm
                 ->components([
                     Toggle::make('is_active')
                         ->default(true),
+                ]),
+            Section::make(__('admin.sections.branding'))
+                ->description(__('admin.sections.branding_description'))
+                ->columns(3)
+                ->components([
+                    SpatieMediaLibraryFileUpload::make('logo')
+                        ->label(__('admin.fields.brand_logo'))
+                        ->collection('logo')
+                        ->image()
+                        ->imageEditor()
+                        ->maxSize(2048)
+                        ->helperText(__('admin.fields.brand_logo_helper')),
+                    SpatieMediaLibraryFileUpload::make('favicon')
+                        ->label(__('admin.fields.brand_favicon'))
+                        ->collection('favicon')
+                        ->image()
+                        ->maxSize(512)
+                        ->helperText(__('admin.fields.brand_favicon_helper')),
+                    ColorPicker::make('primary_color')
+                        ->label(__('admin.fields.brand_primary_color'))
+                        ->helperText(__('admin.fields.brand_primary_color_helper')),
                 ]),
         ]);
     }

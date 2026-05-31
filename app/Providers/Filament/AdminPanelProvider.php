@@ -16,6 +16,7 @@ use App\Filament\Admin\Widgets\SetupGuide;
 use App\Filament\Admin\Widgets\TenantMix;
 use App\Filament\Admin\Widgets\TopTenants;
 use App\Models\Asset;
+use Filament\Facades\Filament;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -40,10 +41,15 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
-            ->brandName('Atriom')
-            ->brandLogo(asset('images/atriom-logo.svg'))
+            // Branding resolves from the active property tenant when one is
+            // set. Each Asset can carry its own logo (MediaLibrary `logo`
+            // collection) + favicon + primary-colour hex. The synthetic
+            // ALL pseudo-tenant + the no-tenant case both fall back to
+            // platform Atriom branding.
+            ->brandName(fn (): string => self::resolveBrandName())
+            ->brandLogo(fn (): string => self::resolveBrandLogo())
             ->brandLogoHeight('2.5rem')
-            ->favicon(asset('atriom-favicon.svg'))
+            ->favicon(fn (): string => self::resolveFavicon())
             ->tenant(Asset::class, slugAttribute: 'code')
             ->tenantRegistration(\App\Filament\Admin\Pages\Tenancy\RegisterProperty::class)
             ->discoverResources(in: app_path('Filament/Admin/Resources'), for: 'App\\Filament\\Admin\\Resources')
@@ -88,8 +94,91 @@ class AdminPanelProvider extends PanelProvider
                 DispatchServingFilamentEvent::class,
                 \App\Http\Middleware\SetLocale::class,
             ])
+            ->renderHook(
+                \Filament\View\PanelsRenderHook::HEAD_END,
+                fn (): string => self::renderPerTenantThemeOverride(),
+            )
             ->authMiddleware([
                 Authenticate::class,
             ]);
+    }
+
+    /**
+     * Brand label for the topbar. Per-property name when a tenant is active
+     * and isn't the synthetic All-Properties pseudo-asset.
+     */
+    protected static function resolveBrandName(): string
+    {
+        $tenant = Filament::getTenant();
+        if ($tenant instanceof Asset && ! $tenant->isAllProperties()) {
+            return $tenant->name;
+        }
+        return 'Atriom';
+    }
+
+    protected static function resolveBrandLogo(): string
+    {
+        $tenant = Filament::getTenant();
+        if ($tenant instanceof Asset && ! $tenant->isAllProperties()) {
+            if ($logo = $tenant->logoUrl()) {
+                return $logo;
+            }
+        }
+        return asset('images/atriom-logo.svg');
+    }
+
+    protected static function resolveFavicon(): string
+    {
+        $tenant = Filament::getTenant();
+        if ($tenant instanceof Asset && ! $tenant->isAllProperties()) {
+            if ($favicon = $tenant->faviconUrl()) {
+                return $favicon;
+            }
+        }
+        return asset('atriom-favicon.svg');
+    }
+
+    /**
+     * Inject a per-request <style> block overriding Filament's CSS primary
+     * colour variable from the active tenant's `primary_color` hex. Filament 4's
+     * `->colors()` is evaluated once at panel boot so we can't dynamic-set
+     * it there; the CSS-var override is the supported way to per-tenant-skin
+     * the panel chrome. Empty string when no tenant / no colour set.
+     */
+    protected static function renderPerTenantThemeOverride(): string
+    {
+        $tenant = Filament::getTenant();
+        if (! $tenant instanceof Asset || $tenant->isAllProperties() || ! $tenant->primary_color) {
+            return '';
+        }
+
+        $hex = ltrim($tenant->primary_color, '#');
+        if (! preg_match('/^[0-9a-fA-F]{6}$/', $hex)) {
+            return '';
+        }
+
+        // Convert hex → comma-separated RGB triplet so we can hand it to
+        // every Filament `--primary-XXX` variant. Filament's tailwind config
+        // expects RGB without rgb() wrapping.
+        [$r, $g, $b] = [hexdec(substr($hex, 0, 2)), hexdec(substr($hex, 2, 2)), hexdec(substr($hex, 4, 2))];
+        $rgb = "{$r}, {$g}, {$b}";
+
+        return <<<HTML
+<style>
+:root {
+    --primary-50: {$rgb};
+    --primary-100: {$rgb};
+    --primary-200: {$rgb};
+    --primary-300: {$rgb};
+    --primary-400: {$rgb};
+    --primary-500: {$rgb};
+    --primary-600: {$rgb};
+    --primary-700: {$rgb};
+    --primary-800: {$rgb};
+    --primary-900: {$rgb};
+    --primary-950: {$rgb};
+}
+</style>
+HTML;
     }
 }
