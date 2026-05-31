@@ -22,7 +22,7 @@
 | 12 | Tenant Sales Declarations | 🟡 Yellow | [12-tenant-sales.md](12-tenant-sales.md) | F-17 carryover fix applied. 4 Yellow: F-48 no void-locked action, F-49 plaintext sales values, F-50 missing `cancelled`/`voided` enum states, F-51 no re-submission flow. 9 Pest + 5 e2e green. |
 | 13 | Utility Meters & Energy | 🟡 Yellow | [13-utilities.md](13-utilities.md) | Meter registry clean; data model + widget good. **F-52**: no UI to add readings post-seed (operator must use tinker). F-53: no dedicated model tests. F-54: Q3 roadmap for consumption-billing. No F-17. |
 | 14 | Credit Notes | 🟡 Yellow | [14-credit-notes.md](14-credit-notes.md) | F-17 carryover fix (6th instance, missed earlier). 2 Yellow: F-55 `partially_applied` dead filter on Tenant::outstandingBalance, F-56 no portal/owner credit visibility. 8 Pest + 6 e2e green. |
-| 15 | Vendors & Contracts | ⬜ Not started | — | |
+| 15 | Vendors & Contracts | 🟡 Yellow | [15-vendors.md](15-vendors.md) | **F-17 carryover #6 complete — all done.** 3 Yellow: F-58 no contract auto-expire, F-59 no tax_id format validation, F-60 no VendorTest. 5 Pest + 6 e2e green. |
 | 16 | Assets (tenancy) | ⬜ Not started | — | |
 | 17 | Users & Roles | ⬜ Not started | — | |
 | 18 | Reports | ⬜ Not started | — | |
@@ -281,3 +281,18 @@ Per the user's "do recommended" instruction after triage.
 - **Cross-cutting F-17 corrected**: 5 of 6 (was thinking 4 of 5). Vendors (M15) is the last.
 
 **Next:** Module 15 — Vendors.
+
+### 2026-05-31 — Module 15 Vendors 🟡
+
+- Vendor + VendorContact + VendorContract — single migration creates all 3 + modifies maintenance_requests to add `assigned_to_vendor_id`.
+- VendorResource is **global** (`$isScopedToTenant = false`); vendors serve cross-property. Contracts can be asset-scoped (nullable asset_id).
+- Two RelationManagers on VendorResource: Contacts (primary-first sort), Contracts.
+- **Inline fix — F-17 (Vendors, final carryover, #6)** 🔴: nav badge queries `VendorContract` (different from resource's `Vendor` model). Used `TenantScope::currentAssetId()` directly rather than `static::getEloquentQuery()` because the badge's underlying model differs. Now Haya Walk view shows only Haya Walk's contracts expiring; ALL view shows portfolio-wide.
+- **Cross-cutting F-17 COMPLETE**: ✅ Units · ✅ Invoices · ✅ Maintenance · ✅ TenantSales · ✅ CreditNotes · ✅ Vendors.
+- **3 Yellow** (deferred):
+  - **F-58**: no scheduled auto-expire for vendor contracts; `active` stays `active` past `end_date`.
+  - **F-59**: no `tax_id` format validation (would catch bad data pre-ETA submission).
+  - **F-60**: no dedicated VendorTest.
+- Tests: 5 Pest + 6 e2e (1 flake on slow run, passed on retry) all green. Full Pest 295/295.
+
+**Next:** Module 16 — Assets / Tenancy.

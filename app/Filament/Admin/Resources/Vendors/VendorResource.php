@@ -113,13 +113,23 @@ class VendorResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        // Vendor contracts expiring in the next 30 days — landlord needs to renew or terminate.
-        $count = \App\Models\VendorContract::query()
+        // Vendor contracts expiring in the next 30 days — landlord needs to
+        // renew or terminate. Vendors themselves are global (not tenant-
+        // scoped), but vendor contracts carry an asset_id, so when an
+        // operator is scoped to a specific property they see only that
+        // property's expiring contracts. ALL pseudo-asset bypasses the
+        // filter and returns the portfolio-wide count.
+        $query = \App\Models\VendorContract::query()
             ->where('status', 'active')
             ->whereNotNull('end_date')
             ->whereDate('end_date', '<=', now()->addDays(30))
-            ->whereDate('end_date', '>=', now())
-            ->count();
+            ->whereDate('end_date', '>=', now());
+
+        if ($assetId = \App\Support\TenantScope::currentAssetId()) {
+            $query->where('asset_id', $assetId);
+        }
+
+        $count = $query->count();
 
         return $count > 0 ? (string) $count : null;
     }
