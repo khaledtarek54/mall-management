@@ -30,7 +30,7 @@ it('renders the tenant brand name + theme override in the panel HTML', function 
     // Per-tenant logo URL is in the rendered img tag (MediaLibrary public URL contains the filename)
     expect($html)->toContain('hw-logo');
     // CSS-var override is injected via the HEAD_END render hook
-    expect($html)->toContain('--primary-500: 15, 118, 110');
+    expect($html)->toContain('--primary-500: #0F766E');
 });
 
 it('falls back to Atriom branding for the All-Properties pseudo-tenant', function () {

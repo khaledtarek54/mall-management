@@ -103,7 +103,7 @@ it('emits an empty theme override when primary_color is not a valid 6-digit hex'
     expect(callBrandingResolver('renderPerTenantThemeOverride'))->toBe('');
 });
 
-it('emits a style block with CSS variables converted from hex to RGB triplets', function () {
+it('emits a style block with hex shades derived via color-mix()', function () {
     $hw = makeAsset(['code' => 'HW', 'primary_color' => '#0F766E']);
     setTenantQuiet($hw);
 
@@ -111,15 +111,17 @@ it('emits a style block with CSS variables converted from hex to RGB triplets', 
 
     expect($css)->toContain('<style>');
     expect($css)->toContain('</style>');
-    // 0F=15, 76=118, 6E=110
-    expect($css)->toContain('--primary-500: 15, 118, 110');
-    expect($css)->toContain('--primary-50: 15, 118, 110');
-    expect($css)->toContain('--primary-950: 15, 118, 110');
+    // 500 is the raw hex (Filament uses var(--primary-500) directly as a colour)
+    expect($css)->toContain('--primary-500: #0F766E');
+    // Lighter + darker shades derived via color-mix so hover/focus states vary
+    expect($css)->toContain('--primary-50:  color-mix(in oklab, #0F766E 6%,  white)');
+    expect($css)->toContain('--primary-600: color-mix(in oklab, #0F766E 88%, black)');
+    expect($css)->toContain('--primary-950: color-mix(in oklab, #0F766E 25%, black)');
 });
 
 it('accepts hex with or without the leading hash', function () {
     $hw = makeAsset(['code' => 'HW', 'primary_color' => '0F766E']);
     setTenantQuiet($hw);
 
-    expect(callBrandingResolver('renderPerTenantThemeOverride'))->toContain('15, 118, 110');
+    expect(callBrandingResolver('renderPerTenantThemeOverride'))->toContain('#0F766E');
 });

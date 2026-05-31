@@ -140,10 +140,17 @@ class AdminPanelProvider extends PanelProvider
 
     /**
      * Inject a per-request <style> block overriding Filament's CSS primary
-     * colour variable from the active tenant's `primary_color` hex. Filament 4's
-     * `->colors()` is evaluated once at panel boot so we can't dynamic-set
-     * it there; the CSS-var override is the supported way to per-tenant-skin
-     * the panel chrome. Empty string when no tenant / no colour set.
+     * colour variables from the active tenant's `primary_color` hex.
+     *
+     * Filament 4's `->colors()` is evaluated once at panel boot, so to
+     * per-tenant-skin the chrome we override the `--primary-N` palette per
+     * request. Filament's compiled CSS uses these directly
+     * (e.g. `background-color: var(--primary-600)`), so the values must be
+     * complete colours — not RGB triplets. We pin the hex at the 500 shade
+     * and derive lighter (50-400) and darker (600-950) variations with
+     * `color-mix()`, which is supported in all evergreen browsers.
+     *
+     * Empty string when no tenant / not a real tenant / no colour set.
      */
     protected static function renderPerTenantThemeOverride(): string
     {
@@ -152,31 +159,25 @@ class AdminPanelProvider extends PanelProvider
             return '';
         }
 
-        $hex = ltrim($tenant->primary_color, '#');
-        if (! preg_match('/^[0-9a-fA-F]{6}$/', $hex)) {
+        $hex = '#' . ltrim($tenant->primary_color, '#');
+        if (! preg_match('/^#[0-9a-fA-F]{6}$/', $hex)) {
             return '';
         }
-
-        // Convert hex → comma-separated RGB triplet so we can hand it to
-        // every Filament `--primary-XXX` variant. Filament's tailwind config
-        // expects RGB without rgb() wrapping.
-        [$r, $g, $b] = [hexdec(substr($hex, 0, 2)), hexdec(substr($hex, 2, 2)), hexdec(substr($hex, 4, 2))];
-        $rgb = "{$r}, {$g}, {$b}";
 
         return <<<HTML
 <style>
 :root {
-    --primary-50: {$rgb};
-    --primary-100: {$rgb};
-    --primary-200: {$rgb};
-    --primary-300: {$rgb};
-    --primary-400: {$rgb};
-    --primary-500: {$rgb};
-    --primary-600: {$rgb};
-    --primary-700: {$rgb};
-    --primary-800: {$rgb};
-    --primary-900: {$rgb};
-    --primary-950: {$rgb};
+    --primary-50:  color-mix(in oklab, {$hex} 6%,  white);
+    --primary-100: color-mix(in oklab, {$hex} 12%, white);
+    --primary-200: color-mix(in oklab, {$hex} 24%, white);
+    --primary-300: color-mix(in oklab, {$hex} 40%, white);
+    --primary-400: color-mix(in oklab, {$hex} 65%, white);
+    --primary-500: {$hex};
+    --primary-600: color-mix(in oklab, {$hex} 88%, black);
+    --primary-700: color-mix(in oklab, {$hex} 70%, black);
+    --primary-800: color-mix(in oklab, {$hex} 55%, black);
+    --primary-900: color-mix(in oklab, {$hex} 40%, black);
+    --primary-950: color-mix(in oklab, {$hex} 25%, black);
 }
 </style>
 HTML;
