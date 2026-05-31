@@ -77,4 +77,27 @@ class MaintenanceRequestResource extends Resource
     {
         return false;
     }
+
+    /**
+     * Open maintenance request count across the owner's portfolio. See
+     * audit M10 F-40.
+     */
+    public static function getNavigationBadge(): ?string
+    {
+        $count = static::getEloquentQuery()
+            ->whereIn('status', MaintenanceRequest::OPEN_STATUSES)
+            ->count();
+
+        return $count > 0 ? (string) $count : null;
+    }
+
+    public static function getNavigationBadgeColor(): string|array|null
+    {
+        $hasUrgent = static::getEloquentQuery()
+            ->whereIn('status', MaintenanceRequest::OPEN_STATUSES)
+            ->where('priority', 'urgent')
+            ->exists();
+
+        return $hasUrgent ? 'danger' : 'warning';
+    }
 }

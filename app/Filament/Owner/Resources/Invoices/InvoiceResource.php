@@ -77,4 +77,22 @@ class InvoiceResource extends Resource
     {
         return false;
     }
+
+    /**
+     * Overdue invoice count across the owner's portfolio. See audit M10 F-40.
+     */
+    public static function getNavigationBadge(): ?string
+    {
+        $count = static::getEloquentQuery()
+            ->where('balance', '>', 0)
+            ->where('due_date', '<', now())
+            ->count();
+
+        return $count > 0 ? (string) $count : null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'danger';
+    }
 }
