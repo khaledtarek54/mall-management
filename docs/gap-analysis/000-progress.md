@@ -11,7 +11,7 @@
 | 01 | Dashboard & Widgets | 🟡 Yellow | [01-dashboard.md](01-dashboard.md) | Code healthy (45 widget + 36 page + 15 e2e tests green); 5 findings — DEMO.md narrative drift (F-1..F-3), MRR sparkline UX (F-4), percentDelta latent bug (F-5); 4 deferred decisions D-1..D-4; one inline fix F-6 (seeder log message). |
 | 02 | Tenants | 🟢 Green | [02-tenants.md](02-tenants.md) | Tenant model + auth flow + portal panel + 3-endpoint mobile API all clean. 75 tests + 4 portal e2e green. 5 Yellow extensibility findings (F-7..F-11) — none block demo or pilot. |
 | 03 | Units | 🟡 Yellow | [03-units.md](03-units.md) | 2 inline fixes — F-12 importer enum drift (accepted `anchor`/`other`, rejected `storage`), F-17 nav badge tenant leak (Unit only). F-17 also affects Invoices/Maintenance/Vendors/TenantSales — carry-over to those modules. |
-| 04 | Leases | ⬜ Not started | — | |
+| 04 | Leases | 🟡 Yellow | [04-leases.md](04-leases.md) | 3 lifecycle services (Creation/Renewal/Termination) excellent; standard Create/Edit form bypasses them — no charges seeded, no unit flip, rent fields drift from Charge::amount. Demo path (wizard + modals) safe. No carryover from Module 03 F-17. |
 | 05 | Invoices | ⬜ Not started | — | |
 | 06 | Payments | ⬜ Not started | — | |
 | 07 | CAM | ⬜ Not started | — | |
@@ -95,3 +95,20 @@ Legend: ⬜ Not started · 🟦 In progress · 🟢 Green · 🟡 Yellow · 🔴
 - 1 explicit non-finding: no `app/Policies/` dir exists for ANY resource — Spatie roles + `RoleGatedActions`/`RoleScopedWidget` traits are the deliberate permission stack. Documented so it doesn't get re-flagged.
 
 **Next:** Module 04 — Leases.
+
+### 2026-05-31 — Module 04 Leases 🟡
+
+- Lease model (155 LOC, 24 fillable cols, 4 date casts, 6 decimal casts, `previous_lease_id` self-ref for renewal chain).
+- 3 services (Creation 106 LOC, Renewal 93 LOC, Termination 79 LOC) — all DB-transactional, all single-method, all well-tested.
+- LeasesTable (422 LOC): 8 cols, 7 filters, **Quick New Lease wizard** (header) + **Renew** + **Terminate** record actions, all calling services.
+- EditLease has Generate Invoice header action with 4 outcome notifications.
+- Termination policy correctly preserves paid_amount ledger (does NOT auto-cancel partially-paid invoices) — excellent docstring at LeaseTerminationService:57-62.
+- LeaseResource has **no** `getNavigationBadge()` — no carryover from Module 03 F-17.
+- **3 findings, all the same root cause** (standard form bypasses services):
+  - **F-19** 🟡: `CreateLease.php` is just `extends CreateRecord` — operators using "Create" instead of the wizard get a lease with no charges, no unit flip, no auto-reference. Demo path uses the wizard, so DEMO works; production rollout doesn't.
+  - **F-20** 🟡: editing `base_rent_monthly` / `service_charge_monthly` on the Edit form doesn't propagate to `Charge::amount`. Tables/MRR/percentage-rent see the new value; billing keeps using the old.
+  - **F-21** 🟡: editing `status` on the Edit form doesn't sync unit status (only the Terminate modal does that).
+- Tests: 36 Pest --filter='Lease' green · 17 functional e2e (Renew/Generate-Invoice/Monthly-Billing/ETA/bulk/locale-switch) green · full Pest 287/287 still green.
+- **3 deferred decisions** (D-12 fix approach for F-19/F-21 — recommend B `LeaseObserver`; D-13 fix approach for F-20 — recommend "Change rent" action + read-only display; D-14 test coverage gate).
+
+**Next:** Module 05 — Invoices.
