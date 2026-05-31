@@ -148,6 +148,17 @@
             font-size: 9.5pt;
             color: #4A4A4A;
         }
+        .eta-block {
+            margin-top: 14px;
+            padding: 10px 14px;
+            background: #ECF4F2;
+            border-left: {{ $isRtl ? '0 none' : '3px solid #0F766E' }};
+            border-right: {{ $isRtl ? '3px solid #0F766E' : '0 none' }};
+            font-size: 9pt;
+            color: #0F1419;
+        }
+        .eta-block .eta-line { margin-top: 3px; }
+        .eta-block .eta-mono { font-family: monospace; color: #0F766E; }
     </style>
 </head>
 <body>
@@ -255,6 +266,28 @@
         <div class="notes">
             <div class="label" style="margin-bottom:4px;">{{ __('admin.pdf.notes') }}</div>
             {{ $invoice->notes }}
+        </div>
+    @endif
+
+    @if($invoice->eta_submission_id)
+        <div class="eta-block">
+            <div class="label" style="margin-bottom:4px;">{{ __('admin.pdf.eta_reference') }}</div>
+            <div class="eta-line">
+                <strong>{{ __('admin.pdf.eta_submission_id') }}:</strong>
+                <span class="eta-mono">{{ $invoice->eta_submission_id }}</span>
+            </div>
+            @if($invoice->eta_long_id)
+                <div class="eta-line">
+                    <strong>{{ __('admin.pdf.eta_long_id') }}:</strong>
+                    <span class="eta-mono">{{ $invoice->eta_long_id }}</span>
+                </div>
+            @endif
+            @if($invoice->eta_submitted_at)
+                <div class="eta-line">
+                    <strong>{{ __('admin.pdf.eta_submitted_at') }}:</strong>
+                    {{ $invoice->eta_submitted_at->format('d/m/Y H:i') }}
+                </div>
+            @endif
         </div>
     @endif
 

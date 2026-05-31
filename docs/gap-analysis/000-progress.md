@@ -15,7 +15,7 @@
 | 05 | Invoices | 🟡 Yellow | [05-invoices.md](05-invoices.md) | F-17 carryover fix applied (overdue badge now per-property). 3 deferred — F-22 no cron schedule for billing/late-fees, F-23 InvoiceIssued mail doesn't attach PDF, F-24 ETA mock mode is the default. 63 Pest + 9 PDF/ETA e2e all green. |
 | 06 | Payments | 🟢 Green | [06-payments.md](06-payments.md) | Boot hooks (`saved`/`deleted` → recompute) are codebase's gold standard for consistency — pattern Lease (D-12) should adopt. 3 Yellow extensibility: F-25 per-row allocation guard, F-26 cross-tenant pivot constraint, F-27 dedicated tests. No F-17 carryover. |
 | 07 | CAM | 🟢 Green | [07-cam.md](07-cam.md) | Well-scoped MVP per FEATURES.md "v1 intentionally shallow". 4 Yellow extensibility (mid-year termination, portal visibility, auto-true-up scheduling, expense categories) all align with documented Q2 roadmap. No F-17 carryover. |
-| 08 | ETA e-invoicing | ⬜ Not started | — | |
+| 08 | ETA e-invoicing | 🟡 Yellow | [08-eta.md](08-eta.md) | F-32 inline fix: ETA reference block (submission_id / long_id / submitted_at) now on Invoice PDF, bilingual. 3 Yellow extensibility (F-33 Rejected tile filter, F-34 job retry/backoff, F-35 Pending tile non-clickable). D-17 cutover sequence specified. |
 | 09 | Maintenance / CAFM | ⬜ Not started | — | |
 | 10 | Owner Portal panel | ⬜ Not started | — | |
 | 11 | Tenant Portal panel | ⬜ Not started | — | |
@@ -164,3 +164,18 @@ Legend: ⬜ Not started · 🟦 In progress · 🟢 Green · 🟡 Yellow · 🔴
 - Tests: 12 Pest `CamAutoTrueUpTest` cases green · 2 e2e green · full Pest 287/287.
 
 **Next:** Module 08 — ETA e-invoicing.
+
+### 2026-05-31 — Module 08 ETA 🟡
+
+- Services: EtaJsonBuilder (147 LOC, EGS code map, 5-decimal round, tax-id guard); EtaSubmissionService (71 LOC, idempotent on valid); EtaApiClient (83 LOC, mock vs OAuth real).
+- EtaSettings exposes 4 fields (`enabled, mock, issuer_name, issuer_TRN`) at `/admin/settings → ETA`.
+- Invoice surface: 5 ETA columns; 6-state enum; submit/bulk-submit actions visible only when `status ∈ ['issued','partially_paid','paid','overdue'] && eta_status !== 'valid'`.
+- **Inline fix — F-32** 🟡: Invoice PDF had no ETA reference block. Now shows submission_id + long_id + submitted_at in a teal-bordered block above the footer; bilingual via 4 new `admin.pdf.eta_*` keys.
+- **3 Yellow findings (deferred)**:
+  - **F-33**: EtaCompliance Rejected tile counts `invalid+rejected` but URL filter is `invalid` only.
+  - **F-34**: SubmitInvoiceToEta uses default Laravel retries (3) with no backoff — could rate-limit auth on production.
+  - **F-35**: EtaCompliance Pending tile not clickable (DEMO.md says all tiles are).
+- **D-17 production-cutover spec added** (env vars + Settings fields + pre-cutover validation steps + rollback plan).
+- Tests: 18 ETA Pest green · 9 PDF/ETA e2e green · full Pest 287/287 after fix.
+
+**Next:** Module 09 — Maintenance / CAFM.

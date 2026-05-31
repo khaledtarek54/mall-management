@@ -1263,6 +1263,10 @@ return [
         'term' => 'Term',
         'notes' => 'Notes',
         'footer' => 'Payment due within :days days of issue · Bank transfer / Card / InstaPay · Queries: billing@:slug.test',
+        'eta_reference' => 'ETA e-Invoice Reference',
+        'eta_submission_id' => 'Submission ID',
+        'eta_long_id' => 'Long ID',
+        'eta_submitted_at' => 'Submitted',
     ],
     'operators' => [
         'label' => 'Operator',
