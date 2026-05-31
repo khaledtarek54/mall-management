@@ -237,10 +237,11 @@ class HayaWalkSeeder extends Seeder
         $this->seedCreditNotes();
         $this->seedStaffAssignments($hayaWalk);
 
-        $this->command->info("✅ Created Haya Walk with {$occupiedCount} occupied, {$vacantCount} vacant units");
+        $plazaUnitCount = Unit::where('asset_id', $plazaAnnex->id)->count();
+        $this->command->info("✅ Created Haya Walk with {$occupiedCount} occupied, {$vacantCount} vacant units (+ {$plazaUnitCount} vacant units on Plaza Annex demo asset)");
         $this->command->info("✅ Generated leases, charges, invoices, and payment history");
         $this->command->newLine();
-        $this->command->info('📊 Demo metrics:');
+        $this->command->info('📊 Demo metrics (Haya Walk):');
         $this->command->info('   Occupancy: ' . $hayaWalk->fresh()->occupancyRate() . '%');
         $this->command->info('   Total leases: ' . Lease::count());
         $this->command->info('   Total invoices: ' . Invoice::count());
