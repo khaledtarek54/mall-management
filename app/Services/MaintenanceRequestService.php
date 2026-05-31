@@ -52,8 +52,51 @@ class MaintenanceRequestService
                 'target_resolution_at' => $this->defaultTargetResolution($priority),
             ]);
 
+            $this->notifyOperators($request);
+
             return $request;
         });
+    }
+
+    /**
+     * Notify managers + maintenance_managers that a new portal-submitted
+     * request needs triage. Database channel only — bell entry, no email.
+     * Scopes to staff actually assigned to the unit's asset so multi-property
+     * deployments don't fan out cross-property.
+     *
+     * The whole block is wrapped in Throwable — if the Spatie roles aren't
+     * seeded (e.g. minimal test envs), the role() query throws RoleDoesNotExist
+     * and we silently skip rather than breaking the request creation path.
+     */
+    private function notifyOperators(MaintenanceRequest $request): void
+    {
+        $assetId = $request->unit?->asset_id;
+        if (! $assetId) {
+            return;
+        }
+
+        try {
+            $recipients = \App\Models\User::query()
+                ->role(['manager', 'maintenance_manager', 'super_admin'])
+                ->whereHas('assignedAssets', fn ($q) => $q->where('assets.id', $assetId))
+                ->get();
+
+            if ($recipients->isEmpty()) {
+                $recipients = \App\Models\User::query()->role('super_admin')->get();
+            }
+
+            if ($recipients->isNotEmpty()) {
+                \Illuminate\Support\Facades\Notification::send(
+                    $recipients,
+                    new \App\Notifications\PortalMaintenanceSubmittedNotification($request)
+                );
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('Portal maintenance notification fan-out failed', [
+                'request_id' => $request->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     public function transition(MaintenanceRequest $request, string $next, array $extra = []): MaintenanceRequest
