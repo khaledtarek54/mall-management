@@ -535,6 +535,9 @@ return [
     'filters' => [
         'status' => 'Status',
         'overdue_only' => 'Overdue Only',
+        'eta_status' => 'ETA Status',
+        'needs_eta_attention' => 'Needs ETA Attention',
+        'eta_pending' => 'ETA Pending',
         'period' => 'Period',
         'period_from' => 'Period From',
         'period_until' => 'Period Until',

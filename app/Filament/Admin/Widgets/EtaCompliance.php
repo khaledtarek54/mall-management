@@ -48,6 +48,10 @@ class EtaCompliance extends StatsOverviewWidget
         $total = $valid + $submitted + $rejected + $pending;
         $validPct = $total > 0 ? round(($valid / $total) * 100) : 0;
 
+        // Each tile links to the matching InvoicesTable filter (audit M08
+        // D-24/D-26). Valid + Submitted hit the eta_status SelectFilter;
+        // Rejected and Pending hit dedicated multi-value filters so the
+        // counts on the tile match the rows on the destination list.
         return [
             Stat::make(__('admin.widgets.eta.valid'), number_format($valid))
                 ->description(__('admin.widgets.eta.valid_desc', ['pct' => $validPct]))
@@ -65,12 +69,13 @@ class EtaCompliance extends StatsOverviewWidget
                 ->description(__('admin.widgets.eta.rejected_desc'))
                 ->descriptionIcon('heroicon-m-exclamation-triangle')
                 ->color($rejected > 0 ? 'danger' : 'gray')
-                ->url(InvoiceResource::getUrl('index', ['tableFilters' => ['eta_status' => ['value' => 'invalid']]])),
+                ->url(InvoiceResource::getUrl('index', ['tableFilters' => ['needs_eta_attention' => ['isActive' => true]]])),
 
             Stat::make(__('admin.widgets.eta.pending'), number_format($pending))
                 ->description(__('admin.widgets.eta.pending_desc'))
                 ->descriptionIcon('heroicon-m-clock')
-                ->color($pending > 0 ? 'warning' : 'gray'),
+                ->color($pending > 0 ? 'warning' : 'gray')
+                ->url(InvoiceResource::getUrl('index', ['tableFilters' => ['eta_pending' => ['isActive' => true]]])),
         ];
     }
 

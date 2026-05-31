@@ -170,6 +170,24 @@ class InvoicesTable
                 Filter::make('overdue_only')
                     ->label(__('admin.filters.overdue_only'))
                     ->query(fn ($query) => $query->where('balance', '>', 0)->where('due_date', '<', now())),
+                // ETA compliance filters. The dashboard EtaCompliance widget
+                // tiles deep-link into these so each tile lands on a real,
+                // filtered list rather than the unfiltered one (audit M08
+                // F-33 / F-35 / D-24 / D-26).
+                SelectFilter::make('eta_status')
+                    ->label(__('admin.filters.eta_status'))
+                    ->options(fn () => __('admin.statuses.eta'))
+                    ->visible(fn () => \App\Support\Modules::enabled('eta')),
+                Filter::make('needs_eta_attention')
+                    ->label(__('admin.filters.needs_eta_attention'))
+                    ->query(fn ($query) => $query->whereIn('eta_status', ['invalid', 'rejected']))
+                    ->visible(fn () => \App\Support\Modules::enabled('eta')),
+                Filter::make('eta_pending')
+                    ->label(__('admin.filters.eta_pending'))
+                    ->query(fn ($query) => $query->where(fn ($q) => $q
+                        ->whereNull('eta_status')
+                        ->orWhere('eta_status', 'pending')))
+                    ->visible(fn () => \App\Support\Modules::enabled('eta')),
                 TrashedFilter::make(),
             ])
             ->filtersFormColumns(2)

@@ -535,6 +535,9 @@ return [
     'filters' => [
         'status' => 'الحالة',
         'overdue_only' => 'المتأخرة فقط',
+        'eta_status' => 'حالة مصلحة الضرائب',
+        'needs_eta_attention' => 'تحتاج تدخّل لدى المصلحة',
+        'eta_pending' => 'قيد التقديم للمصلحة',
         'period' => 'الفترة',
         'period_from' => 'الفترة من',
         'period_until' => 'الفترة حتى',
