@@ -58,3 +58,12 @@ Schedule::command('activitylog:clean')
     ->monthlyOn(1, '05:00')
     ->name('atriom-clean-activity-log')
     ->withoutOverlapping();
+
+// Daily auto-close pass on resolved maintenance requests older than
+// config('maintenance.auto_close_after_days') (default 7). Without this
+// resolved tickets accumulate forever — operators occasionally need the
+// "open" filter to actually mean "current work" (audit M09 F-38 / D-30).
+Schedule::command('maintenance:auto-close')
+    ->dailyAt('03:00')
+    ->name('atriom-auto-close-maintenance')
+    ->withoutOverlapping();
