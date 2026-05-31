@@ -67,3 +67,12 @@ Schedule::command('maintenance:auto-close')
     ->dailyAt('03:00')
     ->name('atriom-auto-close-maintenance')
     ->withoutOverlapping();
+
+// Hourly scan for open requests past their target_resolution_at. Alerts
+// managers + maintenance_managers on the asset (or super_admins as
+// fallback) via the bell. Idempotent through sla_breach_notified_at, so
+// each breach surfaces once.
+Schedule::command('maintenance:scan-sla-breaches')
+    ->hourly()
+    ->name('atriom-scan-sla-breaches')
+    ->withoutOverlapping();

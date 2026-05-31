@@ -68,6 +68,7 @@ class MaintenanceRequest extends Model implements HasMedia
         'resolved_at',
         'closed_at',
         'target_resolution_at',
+        'sla_breach_notified_at',
     ];
 
     protected $casts = [
@@ -76,6 +77,7 @@ class MaintenanceRequest extends Model implements HasMedia
         'resolved_at' => 'datetime',
         'closed_at' => 'datetime',
         'target_resolution_at' => 'datetime',
+        'sla_breach_notified_at' => 'datetime',
     ];
 
     public function tenant(): BelongsTo

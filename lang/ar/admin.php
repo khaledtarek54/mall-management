@@ -720,7 +720,14 @@ return [
         'sales_locked_billing_hint' => 'سيظهر هذا المبلغ في فاتورتك الشهرية القادمة.',
         'sales_locked_title' => 'تم تثبيت إقرار المبيعات',
         'sales_locked_short' => ':period · نسبة الإيجار :amount.',
-        // Admin / operator-facing
+        // Admin / operator-facing (incoming triage events)
+        'portal_maintenance_submitted_title' => 'طلب صيانة جديد',
+        'portal_maintenance_submitted_body' => ':tenant (وحدة :unit) قدّم: ":title" · أولوية :priority',
+        'sales_submitted_title' => 'إقرار مبيعات جديد',
+        'sales_submitted_body' => ':tenant (وحدة :unit) قدّم إقرار :period · :sales',
+        'sla_breached_title' => 'تجاوز اتفاقية مستوى الخدمة',
+        'sla_breached_body' => 'تذكرة :reference (:priority) تجاوزت موعد الحل المستهدف بـ :hours ساعة.',
+        // Admin / operator-facing (existing operator-initiated events)
         'declaration_locked' => 'تم تثبيت الإقرار',
         'declaration_locked_body' => 'تم إضافة نسبة الإيجار :amount جنيه إلى دورة الفوترة القادمة.',
         'declaration_disputed' => 'تم تسجيل اعتراض على الإقرار',

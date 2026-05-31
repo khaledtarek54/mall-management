@@ -720,7 +720,14 @@ return [
         'sales_locked_billing_hint' => 'This amount will appear on your next monthly invoice.',
         'sales_locked_title' => 'Sales declaration locked',
         'sales_locked_short' => ':period · percentage rent :amount.',
-        // Admin / operator-facing (kept below for the existing keys)
+        // Admin / operator-facing (incoming triage events)
+        'portal_maintenance_submitted_title' => 'New maintenance request',
+        'portal_maintenance_submitted_body' => ':tenant (unit :unit) submitted: ":title" · priority :priority',
+        'sales_submitted_title' => 'New sales declaration',
+        'sales_submitted_body' => ':tenant (unit :unit) submitted :period · :sales',
+        'sla_breached_title' => 'SLA breached',
+        'sla_breached_body' => 'Ticket :reference (:priority) is :hours h past its target resolution.',
+        // Admin / operator-facing (existing operator-initiated events)
         'declaration_locked' => 'Declaration locked',
         'declaration_locked_body' => 'Percentage rent of EGP :amount queued for next billing run.',
         'declaration_disputed' => 'Declaration marked as disputed',
