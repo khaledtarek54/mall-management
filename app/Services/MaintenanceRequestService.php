@@ -109,10 +109,29 @@ class MaintenanceRequestService
         ]);
     }
 
+    /**
+     * SLA target for a request based on its priority. Reads from the
+     * MaintenanceSettings (operator-tunable via /admin/settings → Maintenance)
+     * first, then falls back to config/maintenance.php so a deploy without
+     * Settings rows still produces a sensible target (audit M09 F-36 / D-28).
+     */
     public function defaultTargetResolution(string $priority): \Carbon\Carbon
     {
-        $hours = config("maintenance.sla.{$priority}.resolve_hours", 168);
+        try {
+            $settings = app(\App\Settings\MaintenanceSettings::class);
+            $hours = match ($priority) {
+                'urgent' => $settings->sla_urgent_hours,
+                'high' => $settings->sla_high_hours,
+                'medium' => $settings->sla_medium_hours,
+                'low' => $settings->sla_low_hours,
+                default => null,
+            };
+        } catch (\Throwable $e) {
+            $hours = null;
+        }
 
-        return now()->addHours($hours);
+        $hours ??= config("maintenance.sla.{$priority}.resolve_hours", 168);
+
+        return now()->addHours((int) $hours);
     }
 }
