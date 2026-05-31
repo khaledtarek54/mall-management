@@ -25,6 +25,11 @@ class OwnerPanelProvider extends PanelProvider
             ->id('owner')
             ->path('owner')
             ->login()
+            // Owners see portfolio-level events on the bell — currently
+            // limited to SLA breaches across their owned assets. Mail is
+            // not used on the owner side in v1.
+            ->databaseNotifications()
+            ->databaseNotificationsPolling('60s')
             ->brandName('Atriom · Owner Portal')
             ->brandLogo(asset('images/atriom-logo.svg'))
             ->brandLogoHeight('2.5rem')

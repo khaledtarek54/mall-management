@@ -32,6 +32,10 @@ class PortalPanelProvider extends PanelProvider
             // password from the top-bar avatar.
             ->passwordReset()
             ->profile(isSimple: false)
+            // Top-bar bell — tenants see invoice issued / payment received /
+            // maintenance status change / sales declaration locked here.
+            ->databaseNotifications()
+            ->databaseNotificationsPolling('30s')
             ->brandName('Atriom · Tenant Portal')
             ->brandLogo(asset('images/atriom-logo.svg'))
             ->brandLogoHeight('2.5rem')

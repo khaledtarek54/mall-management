@@ -46,6 +46,12 @@ class AdminPanelProvider extends PanelProvider
             // top-bar avatar (audit M17 F-64 / D-49).
             ->passwordReset()
             ->profile(isSimple: false)
+            // Top-bar bell icon for portal-submitted maintenance, new sales
+            // declarations awaiting review, SLA breaches, and operator-
+            // initiated audit events. Database channel only on the admin
+            // side; mail goes to the tenant-facing notifications.
+            ->databaseNotifications()
+            ->databaseNotificationsPolling('30s')
             // TOTP 2FA via Google Authenticator etc. Enforced only on the
             // super_admin role (full-system access); other roles can opt
             // in via the top-bar menu item. Audit M17 F-65 / D-50.
