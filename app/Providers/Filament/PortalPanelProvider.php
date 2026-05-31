@@ -26,6 +26,12 @@ class PortalPanelProvider extends PanelProvider
             ->id('portal')
             ->path('portal')
             ->login()
+            // Tenant password lifecycle without an operator round-trip
+            // (audit M02 F-8 / M11 F-44 / D-49). Requires MAIL_* env set in
+            // production. EditProfile lets the tenant change their own
+            // password from the top-bar avatar.
+            ->passwordReset()
+            ->profile(isSimple: false)
             ->brandName('Atriom · Tenant Portal')
             ->brandLogo(asset('images/atriom-logo.svg'))
             ->brandLogoHeight('2.5rem')

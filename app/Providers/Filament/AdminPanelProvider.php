@@ -41,6 +41,11 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            // Admin password lifecycle. Operators can recover access without
+            // a super_admin reset, and can change their own password from the
+            // top-bar avatar (audit M17 F-64 / D-49).
+            ->passwordReset()
+            ->profile(isSimple: false)
             // Branding resolves from the active property tenant when one is
             // set. Each Asset can carry its own logo (MediaLibrary `logo`
             // collection) + favicon + primary-colour hex. The synthetic
