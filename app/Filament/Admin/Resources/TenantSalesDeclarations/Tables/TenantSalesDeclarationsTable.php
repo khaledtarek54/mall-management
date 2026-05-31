@@ -116,6 +116,35 @@ class TenantSalesDeclarationsTable
                         ]);
                         Notification::make()->warning()->title(__('admin.notifications.declaration_disputed'))->send();
                     }),
+                // Void a previously-locked declaration if it turns out to be
+                // wrong post-lock. Deactivates the percentage_rent Charge so
+                // the next monthly billing run skips it; sets status to
+                // disputed; stamps audit_notes with the reason + operator
+                // (audit M12 F-48 / D-36).
+                Action::make('voidLocked')
+                    ->label(__('admin.actions.void_locked_declaration'))
+                    ->icon('heroicon-o-no-symbol')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalHeading(__('admin.actions.void_locked_modal_heading'))
+                    ->modalDescription(__('admin.actions.void_locked_modal_description'))
+                    ->schema([
+                        Textarea::make('reason')
+                            ->label(__('admin.fields.void_reason'))
+                            ->required()
+                            ->rows(3)
+                            ->placeholder(__('admin.actions.void_locked_reason_placeholder')),
+                    ])
+                    ->visible(fn (TenantSalesDeclaration $record) => $record->status === 'locked')
+                    ->action(function (TenantSalesDeclaration $record, array $data): void {
+                        app(\App\Services\PercentageRentCalculationService::class)
+                            ->voidLocked($record, auth()->user(), $data['reason']);
+
+                        Notification::make()
+                            ->warning()
+                            ->title(__('admin.notifications.declaration_voided'))
+                            ->send();
+                    }),
                 EditAction::make(),
             ])
             ->toolbarActions([

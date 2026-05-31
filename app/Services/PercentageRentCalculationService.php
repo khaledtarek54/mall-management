@@ -83,6 +83,43 @@ class PercentageRentCalculationService
         });
     }
 
+    /**
+     * Void a previously-locked declaration: flip status to `disputed`,
+     * deactivate the percentage_rent Charge so the next monthly billing
+     * run skips it, and stamp audit_notes with the reason.
+     *
+     * Idempotent: voiding a non-locked declaration is a no-op (the action
+     * is UI-gated to status=locked, but we belt-and-braces in case a future
+     * caller doesn't gate). Audit M12 F-48 / D-36.
+     */
+    public function voidLocked(TenantSalesDeclaration $declaration, User $voidedBy, string $reason): TenantSalesDeclaration
+    {
+        if ($declaration->status !== 'locked') {
+            return $declaration;
+        }
+
+        return DB::transaction(function () use ($declaration, $voidedBy, $reason) {
+            // Find and deactivate the percentage_rent Charge created at lock
+            // time. Match by period_start so we don't accidentally void a
+            // sibling-period charge on the same lease.
+            Charge::where('lease_id', $declaration->lease_id)
+                ->where('type', 'percentage_rent')
+                ->whereDate('start_date', $declaration->period_start)
+                ->update(['is_active' => false, 'end_date' => now()]);
+
+            $existing = $declaration->audit_notes ? rtrim($declaration->audit_notes) . "\n\n" : '';
+            $stamp = now()->format('Y-m-d');
+            $note = "Voided on {$stamp} by {$voidedBy->name}: {$reason}";
+
+            $declaration->update([
+                'status' => 'disputed',
+                'audit_notes' => $existing . $note,
+            ]);
+
+            return $declaration->refresh();
+        });
+    }
+
     private function createPercentageRentCharge(TenantSalesDeclaration $declaration, float $amount): Charge
     {
         return Charge::create([
