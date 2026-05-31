@@ -18,7 +18,7 @@
 | 08 | ETA e-invoicing | 🟡 Yellow | [08-eta.md](08-eta.md) | F-32 inline fix: ETA reference block (submission_id / long_id / submitted_at) now on Invoice PDF, bilingual. 3 Yellow extensibility (F-33 Rejected tile filter, F-34 job retry/backoff, F-35 Pending tile non-clickable). D-17 cutover sequence specified. |
 | 09 | Maintenance / CAFM | 🟡 Yellow | [09-maintenance.md](09-maintenance.md) | F-17 carryover fix on both badge methods. 3 Yellow: F-36 MaintenanceSettings SLA props are unused (service reads config), F-37 no notifications on status/SLA, F-38 auto_close_after_days never acted on. 17 Pest + 3 e2e green. |
 | 10 | Owner Portal panel | 🟢 Green | [10-owner-portal.md](10-owner-portal.md) | Mature read-only third panel. 3 resources scoped via `asset_owner` pivot (no Filament tenancy). PortfolioStats widget + Statement PDF. 2 Yellow: F-40 nav badges, F-41 dormant `cam.view` permission. 11 Pest + 5 e2e green. |
-| 11 | Tenant Portal panel | ⬜ Not started | — | |
+| 11 | Tenant Portal panel | 🟢 Green | [11-tenant-portal.md](11-tenant-portal.md) | 4 resources (Invoices/Payments/Maintenance/Sales) properly scoped + bilingual. AccountBalance + OpenMaintenance widgets, TenantStatementPdfService. 4 Yellow: F-42 Pay Now is a stub, F-43 no portal CAM view, F-44 no lock notification, F-45 no archive ZIP. Cross-refs F-8/F-9. |
 | 12 | Tenant Sales Declarations | ⬜ Not started | — | |
 | 13 | Utility Meters & Energy | ⬜ Not started | — | |
 | 14 | Credit Notes | ⬜ Not started | — | |
@@ -219,3 +219,20 @@ Per the user's "do recommended" instruction after triage.
 - Tests: 11 Pest · 5 e2e green.
 
 **Next:** Module 11 — Tenant Portal.
+
+### 2026-05-31 — Module 11 Tenant Portal 🟢
+
+- Panel: `Atriom · Tenant Portal` at `/portal`, dedicated `portal` guard, SetLocale middleware (RTL-ready).
+- 4 Resources: Invoices (read-only + Download PDF + Download Statement + Pay Now stub), Payments (read-only), MaintenanceRequests (submit + view + public-comments-only RelationManager), TenantSalesDeclarations (submit + view; admin-driven `locked|disputed` state machine).
+- 2 Widgets: AccountBalance (4 stats via `Tenant::outstandingBalance` netting credit notes), OpenMaintenance (table widget).
+- TenantStatementPdfService 12-month trailing; mPDF; invoked from BOTH admin and portal.
+- No F-17 carryover. PII isolation correct (`tenant_id` filter on all 4 resources). Internal comments hidden via `is_internal=false` filter.
+- **4 Yellow** (all forward-looking, none block demo):
+  - **F-42**: Pay Now action is a stub (notification only) gated by `integrations.paymob.enabled`. Production needs real PSP integration.
+  - **F-43**: No portal CAM allocation view (cross-ref M07 F-29, M10 F-41 — bundle decision).
+  - **F-44**: No notification to tenant on declaration lock — tenant must refresh.
+  - **F-45**: No "Download 12-month archive ZIP" convenience.
+- Cross-refs M02 F-8 (no password reset) + F-9 (no profile self-update) re-flagged for Module 20 cross-cutting.
+- Tests: 4 portal Pest + 4 e2e + 2 portal-flow tests in 17-functional-actions all green.
+
+**Next:** Module 12 — Tenant Sales Declarations + Percentage Rent.
