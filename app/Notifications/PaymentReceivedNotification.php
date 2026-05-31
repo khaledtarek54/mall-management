@@ -1,0 +1,58 @@
+<?php
+
+namespace App\Notifications;
+
+use App\Models\Payment;
+use Illuminate\Bus\Queueable;
+use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Notifications\Notification;
+
+class PaymentReceivedNotification extends Notification
+{
+    use Queueable;
+
+    public function __construct(public Payment $payment) {}
+
+    public function via(object $notifiable): array
+    {
+        return ['mail', 'database'];
+    }
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        $invoiceLines = $this->payment->invoices->map(
+            fn ($invoice) => $invoice->number . ' (EGP ' . number_format((float) $invoice->pivot->allocated_amount, 2) . ')'
+        )->implode(', ');
+
+        return (new MailMessage)
+            ->subject(__('admin.notifications.payment_received_subject', ['reference' => $this->payment->reference]))
+            ->greeting(__('admin.notifications.payment_received_greeting', ['name' => $this->payment->tenant?->name ?? '']))
+            ->line(__('admin.notifications.payment_received_body', [
+                'amount' => 'EGP ' . number_format((float) $this->payment->amount, 2),
+                'method' => __("admin.fields.payment_methods.{$this->payment->method}", [], null) ?: $this->payment->method,
+                'date' => $this->payment->payment_date->format('d/m/Y'),
+            ]))
+            ->when($invoiceLines !== '', fn (MailMessage $m) => $m->line(__('admin.notifications.payment_received_allocations', ['invoices' => $invoiceLines])))
+            ->line(__('admin.notifications.payment_received_thanks'));
+    }
+
+    public function toDatabase(object $notifiable): array
+    {
+        $invoiceNumbers = $this->payment->invoices->pluck('number')->implode(', ');
+
+        return [
+            'type' => 'payment_received',
+            'payment_id' => $this->payment->id,
+            'reference' => $this->payment->reference,
+            'amount' => (float) $this->payment->amount,
+            'method' => $this->payment->method,
+            'title' => __('admin.notifications.payment_received_title'),
+            'body' => __('admin.notifications.payment_received_short', [
+                'amount' => 'EGP ' . number_format((float) $this->payment->amount, 2),
+                'invoices' => $invoiceNumbers ?: '—',
+            ]),
+            'icon' => 'heroicon-o-banknotes',
+            'color' => 'success',
+        ];
+    }
+}

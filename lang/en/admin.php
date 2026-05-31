@@ -699,6 +699,18 @@ return [
     ],
 
     'notifications' => [
+        // Tenant-facing
+        'invoice_issued_subject' => 'New invoice :number from Atriom',
+        'invoice_issued_title' => 'New invoice',
+        'invoice_issued_body' => 'Invoice :number for :total has been issued. The PDF is attached.',
+        'payment_received_subject' => 'Payment received · :reference',
+        'payment_received_greeting' => 'Hi :name,',
+        'payment_received_body' => 'We received your payment of :amount via :method on :date.',
+        'payment_received_allocations' => 'Allocated to: :invoices',
+        'payment_received_thanks' => 'Thank you for your payment.',
+        'payment_received_title' => 'Payment received',
+        'payment_received_short' => ':amount allocated to :invoices.',
+        // Admin / operator-facing (kept below for the existing keys)
         'declaration_locked' => 'Declaration locked',
         'declaration_locked_body' => 'Percentage rent of EGP :amount queued for next billing run.',
         'declaration_disputed' => 'Declaration marked as disputed',

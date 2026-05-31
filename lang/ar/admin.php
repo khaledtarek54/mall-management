@@ -699,6 +699,18 @@ return [
     ],
 
     'notifications' => [
+        // Tenant-facing
+        'invoice_issued_subject' => 'فاتورة جديدة :number من أتريوم',
+        'invoice_issued_title' => 'فاتورة جديدة',
+        'invoice_issued_body' => 'تم إصدار الفاتورة :number بقيمة :total. ملف PDF مرفق.',
+        'payment_received_subject' => 'تم استلام الدفعة · :reference',
+        'payment_received_greeting' => 'مرحبًا :name،',
+        'payment_received_body' => 'استلمنا دفعتك بقيمة :amount عبر :method بتاريخ :date.',
+        'payment_received_allocations' => 'تم تخصيصها للفواتير: :invoices',
+        'payment_received_thanks' => 'شكرًا لسداد الدفعة.',
+        'payment_received_title' => 'تم استلام الدفعة',
+        'payment_received_short' => 'تم تخصيص :amount للفواتير :invoices.',
+        // Admin / operator-facing
         'declaration_locked' => 'تم تثبيت الإقرار',
         'declaration_locked_body' => 'تم إضافة نسبة الإيجار :amount جنيه إلى دورة الفوترة القادمة.',
         'declaration_disputed' => 'تم تسجيل اعتراض على الإقرار',

@@ -134,6 +134,28 @@ class Payment extends Model
         static::saved(function (self $payment) {
             // Status change (e.g. captured ↔ failed) must roll forward to invoices.
             $payment->recomputeAllocatedInvoices();
+
+            // Tenant notification on the captured transition. We fire when
+            // status is captured AND the row has at least one allocated
+            // invoice. The Filament Create/Edit pages call save() before
+            // syncing the pivot, then call save() again implicitly via
+            // recomputeAllocatedInvoices; we want the post-sync save, so
+            // the wasChanged check handles re-entrant calls correctly.
+            if ($payment->wasChanged('status') && $payment->status === 'captured') {
+                $payment->load('tenant', 'invoices');
+                if ($payment->tenant && $payment->invoices->isNotEmpty()) {
+                    try {
+                        $payment->tenant->notify(
+                            new \App\Notifications\PaymentReceivedNotification($payment)
+                        );
+                    } catch (\Throwable $e) {
+                        \Log::warning('Payment received notification failed', [
+                            'payment_id' => $payment->id,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
+            }
         });
 
         static::deleted(function (self $payment) {
