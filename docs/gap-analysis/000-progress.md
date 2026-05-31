@@ -25,7 +25,7 @@
 | 15 | Vendors & Contracts | 🟡 Yellow | [15-vendors.md](15-vendors.md) | **F-17 carryover #6 complete — all done.** 3 Yellow: F-58 no contract auto-expire, F-59 no tax_id format validation, F-60 no VendorTest. 5 Pest + 6 e2e green. |
 | 16 | Assets (tenancy) | 🟢 Green | [16-assets-tenancy.md](16-assets-tenancy.md) | 80-test coverage on the most thoughtfully-designed code in the repo. 3-trait split (Scopes/Bypasses/CustomScope) + ALL-as-real-row pattern + per-property branding. 2 Yellow: F-61 no AssetTest, F-62 no multi-property growth UX. |
 | 17 | Users & Roles | 🟡 Yellow | [17-users-roles.md](17-users-roles.md) | RBAC production-ready: 6 roles · 81 perms · 18 modules · Spatie cache w/ explicit forget after role mutations. 5 Yellow operational-readiness gaps: F-63 default `password`, F-64 no self-service, F-65 no MFA, F-66 free-form pivot role, F-67 no User LogsActivity. |
-| 18 | Reports | ⬜ Not started | — | |
+| 18 | Reports | 🟡 Yellow | [18-reports.md](18-reports.md) | ReportService 264 LOC pure math + bilingual PDF + filtered ActivityLog. 3 Yellow: F-68 reports pages gate on module flag only (no `reports.view` check), F-69 exporters all sync (queue for prod), F-70 no query caching. |
 | 19 | Mobile API `/api/v1` | ⬜ Not started | — | |
 | 20 | Cross-cutting | ⬜ Not started | — | |
 
@@ -330,3 +330,19 @@ Per the user's "do recommended" instruction after triage.
 - Tests: 31 Pest --filter='User|Role|Permission|PanelAccess' green. Full Pest 295/295.
 
 **Next:** Module 18 — Reports.
+
+### 2026-05-31 — Module 18 Reports 🟡
+
+- ReportService (264 LOC): `monthlyClose`, `arAgingBuckets`, `arAgingDrilldown(bucket)`, `topDelinquentTenants`. Pure math, TenantScope-aware.
+- MonthlyCloseReportPdfService bilingual via mPDF (xbriyaz/dejavusans), filename `atriom-monthly-close-YYYY-mm.pdf`.
+- Reports page: period picker + KPI cards + AR Aging bucket cards (color-coded clickable) + Revenue by Type + Download PDF action.
+- ActivityLog page: 6 period presets + custom range + log_name + event filter. Polymorphic causer (User or Tenant).
+- 5 Exporters (Tenant/Lease/Invoice/Payment/Unit) all `sync` connection.
+- Settings page: 5 settings classes across Modules/Billing/Maintenance/ETA/Integrations tabs. `settings.view` + `settings.manage` gates.
+- **3 Yellow** (deferred):
+  - **F-68**: Reports + ArAging gate on `Modules::enabled('reports')` only — no `reports.view` perm check (Spatie permission exists but isn't consulted).
+  - **F-69**: All 5 exporters sync. For larger datasets need queued.
+  - **F-70**: No query caching on ReportService — each page load runs fresh aggregations.
+- Tests: 31 Pest `Report|ActivityLog` green · 4 e2e green · Full Pest 295/295.
+
+**Next:** Module 19 — Mobile API.
