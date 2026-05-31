@@ -68,6 +68,18 @@ class TenantsTable
                         'blacklisted' => 'danger',
                         default => 'gray',
                     }),
+                // Delinquency = at least one invoice with balance > 0 past
+                // its due_date (Tenant::isDelinquent). Surfaces the tested
+                // model method in the table so operators can spot defaulters
+                // at a glance (audit M02 F-11 / D-9).
+                TextColumn::make('is_delinquent')
+                    ->label(__('admin.tables.tenant.delinquent'))
+                    ->badge()
+                    ->state(fn (Tenant $record): string => $record->isDelinquent() ? 'delinquent' : 'current')
+                    ->color(fn (string $state): string => $state === 'delinquent' ? 'danger' : 'success')
+                    ->icon(fn (string $state): string => $state === 'delinquent' ? 'heroicon-m-exclamation-triangle' : 'heroicon-m-check-circle')
+                    ->formatStateUsing(fn (string $state) => __("admin.tables.tenant.delinquency_state.{$state}"))
+                    ->toggleable(),
             ])
             ->filters([
                 SelectFilter::make('status')
@@ -84,6 +96,19 @@ class TenantsTable
                     ->queries(
                         true: fn (Builder $query) => $query->whereHas('activeLeases'),
                         false: fn (Builder $query) => $query->whereDoesntHave('activeLeases'),
+                        blank: fn (Builder $query) => $query,
+                    ),
+                TernaryFilter::make('is_delinquent')
+                    ->label(__('admin.tables.tenant.delinquent'))
+                    ->queries(
+                        true: fn (Builder $query) => $query->whereHas('invoices', fn (Builder $q) => $q
+                            ->where('balance', '>', 0)
+                            ->where('due_date', '<', now())
+                            ->whereIn('status', ['issued', 'partially_paid', 'overdue'])),
+                        false: fn (Builder $query) => $query->whereDoesntHave('invoices', fn (Builder $q) => $q
+                            ->where('balance', '>', 0)
+                            ->where('due_date', '<', now())
+                            ->whereIn('status', ['issued', 'partially_paid', 'overdue'])),
                         blank: fn (Builder $query) => $query,
                     ),
                 Filter::make('created_range')

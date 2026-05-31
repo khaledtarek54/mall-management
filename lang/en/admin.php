@@ -435,6 +435,11 @@ return [
             'email' => 'Email',
             'units' => 'Units',
             'balance' => 'Balance',
+            'delinquent' => 'Delinquency',
+            'delinquency_state' => [
+                'current' => 'Current',
+                'delinquent' => 'Past Due',
+            ],
         ],
         'lease' => [
             'reference' => 'Reference',

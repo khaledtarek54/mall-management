@@ -435,6 +435,11 @@ return [
             'email' => 'البريد الإلكتروني',
             'units' => 'الوحدات',
             'balance' => 'الرصيد',
+            'delinquent' => 'حالة التأخر',
+            'delinquency_state' => [
+                'current' => 'منتظم',
+                'delinquent' => 'متأخر',
+            ],
         ],
         'lease' => [
             'reference' => 'المرجع',
