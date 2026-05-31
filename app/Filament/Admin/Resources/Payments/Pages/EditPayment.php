@@ -90,6 +90,17 @@ class EditPayment extends EditRecord
             $sync[$invoiceId] = ['allocated_amount' => round($amount, 2)];
         }
 
+        try {
+            $payment->assertInvoicesShareTenant(array_keys($sync));
+        } catch (\DomainException $e) {
+            Notification::make()
+                ->title(__('admin.actions.allocation_exceeds_title'))
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+            $this->halt();
+        }
+
         $payment->invoices()->sync($sync);
 
         // Recompute every invoice that was ever attached so detached ones flip back to outstanding.

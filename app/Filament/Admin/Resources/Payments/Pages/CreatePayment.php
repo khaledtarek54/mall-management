@@ -62,6 +62,16 @@ class CreatePayment extends CreateRecord
         }
 
         if (! empty($sync)) {
+            try {
+                $payment->assertInvoicesShareTenant(array_keys($sync));
+            } catch (\DomainException $e) {
+                Notification::make()
+                    ->title(__('admin.actions.allocation_exceeds_title'))
+                    ->body($e->getMessage())
+                    ->danger()
+                    ->send();
+                $this->halt();
+            }
             $payment->invoices()->sync($sync);
             $payment->recomputeAllocatedInvoices();
         }

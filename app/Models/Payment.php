@@ -90,6 +90,35 @@ class Payment extends Model
         $this->invoices()->get()->each->recomputeTotals();
     }
 
+    /**
+     * Throw if any of the given invoice IDs belongs to a tenant different
+     * from this payment. Used by the admin Create/Edit pages before they
+     * sync the invoice_payment pivot — the form's tenant filter already
+     * prevents cross-tenant picks in normal use, but a stale repeater row
+     * or an API client could bypass that, so we guard at the model layer
+     * too (audit M06 F-26 / D-19).
+     *
+     * @param  array<int>  $invoiceIds
+     *
+     * @throws \DomainException
+     */
+    public function assertInvoicesShareTenant(array $invoiceIds): void
+    {
+        if (empty($invoiceIds)) {
+            return;
+        }
+
+        $offending = Invoice::whereIn('id', $invoiceIds)
+            ->where('tenant_id', '!=', $this->tenant_id)
+            ->first();
+
+        if ($offending) {
+            throw new \DomainException(
+                __('admin.payment.cross_tenant_allocation', ['invoice' => $offending->number])
+            );
+        }
+    }
+
     protected static function booted(): void
     {
         static::creating(function (self $payment) {

@@ -1287,5 +1287,9 @@ return [
         'all' => 'All Operators',
         'switch' => 'Switch operator',
     ],
+    'payment' => [
+        'allocation_exceeds_balance' => 'Allocation to invoice :invoice cannot exceed :max — that invoice does not have enough open balance for this amount.',
+        'cross_tenant_allocation' => 'Cannot allocate to invoice :invoice — that invoice belongs to a different tenant.',
+    ],
 
 ];

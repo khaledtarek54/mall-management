@@ -133,6 +133,42 @@ class PaymentForm
                                 ->numeric()
                                 ->minValue(0.01)
                                 ->required()
+                                // Per-row cap at the picked invoice's
+                                // (balance + this row's already-allocated
+                                // amount). Stops over-allocation that the
+                                // existing total-only guard would miss
+                                // (audit M06 F-25 / D-18).
+                                ->rule(function (Get $get) {
+                                    return function (string $attribute, $value, $fail) use ($get) {
+                                        $invoiceId = $get('invoice_id');
+                                        if (! $invoiceId) {
+                                            return;
+                                        }
+                                        $invoice = \App\Models\Invoice::find($invoiceId);
+                                        if (! $invoice) {
+                                            return;
+                                        }
+                                        // When editing, the invoice's balance
+                                        // already accounts for the existing
+                                        // allocation on this row — add it back
+                                        // so the cap doesn't reject a legal
+                                        // edit-then-resave.
+                                        $existingAllocation = 0.0;
+                                        if ($paymentId = $get('../../id')) {
+                                            $existingAllocation = (float) \DB::table('invoice_payment')
+                                                ->where('invoice_id', $invoiceId)
+                                                ->where('payment_id', $paymentId)
+                                                ->value('allocated_amount') ?: 0.0;
+                                        }
+                                        $cap = round((float) $invoice->balance + $existingAllocation, 2);
+                                        if ((float) $value > $cap + 0.005) {
+                                            $fail(__('admin.payment.allocation_exceeds_balance', [
+                                                'invoice' => $invoice->number,
+                                                'max' => 'EGP ' . number_format($cap, 2),
+                                            ]));
+                                        }
+                                    };
+                                })
                                 ->columnSpan(4),
                         ]),
 
