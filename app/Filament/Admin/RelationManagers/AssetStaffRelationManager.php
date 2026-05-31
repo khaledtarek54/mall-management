@@ -89,21 +89,19 @@ class AssetStaffRelationManager extends RelationManager
                                 ->pluck('name', 'id'))
                             ->searchable(),
                     )
-                    ->form(fn ($action) => $action->getDefaultForm()->components(array_merge(
-                        [$action->getRecordSelect()],
-                        [
-                            TextInput::make('role')
-                                ->label(__('admin.fields.staff_role'))
-                                ->maxLength(100),
-                            DatePicker::make('assigned_at')
-                                ->label(__('admin.fields.assigned_at'))
-                                ->default(now())
-                                ->native(false),
-                            Textarea::make('notes')
-                                ->label(__('admin.fields.notes'))
-                                ->rows(2),
-                        ],
-                    ))),
+                    ->schema(fn (AttachAction $action): array => [
+                        $action->getRecordSelect(),
+                        TextInput::make('role')
+                            ->label(__('admin.fields.staff_role'))
+                            ->maxLength(100),
+                        DatePicker::make('assigned_at')
+                            ->label(__('admin.fields.assigned_at'))
+                            ->default(now())
+                            ->native(false),
+                        Textarea::make('notes')
+                            ->label(__('admin.fields.notes'))
+                            ->rows(2),
+                    ]),
             ])
             ->recordActions([
                 EditAction::make(),
