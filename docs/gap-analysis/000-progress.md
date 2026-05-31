@@ -17,7 +17,7 @@
 | 07 | CAM | 🟢 Green | [07-cam.md](07-cam.md) | Well-scoped MVP per FEATURES.md "v1 intentionally shallow". 4 Yellow extensibility (mid-year termination, portal visibility, auto-true-up scheduling, expense categories) all align with documented Q2 roadmap. No F-17 carryover. |
 | 08 | ETA e-invoicing | 🟡 Yellow | [08-eta.md](08-eta.md) | F-32 inline fix: ETA reference block (submission_id / long_id / submitted_at) now on Invoice PDF, bilingual. 3 Yellow extensibility (F-33 Rejected tile filter, F-34 job retry/backoff, F-35 Pending tile non-clickable). D-17 cutover sequence specified. |
 | 09 | Maintenance / CAFM | 🟡 Yellow | [09-maintenance.md](09-maintenance.md) | F-17 carryover fix on both badge methods. 3 Yellow: F-36 MaintenanceSettings SLA props are unused (service reads config), F-37 no notifications on status/SLA, F-38 auto_close_after_days never acted on. 17 Pest + 3 e2e green. |
-| 10 | Owner Portal panel | ⬜ Not started | — | |
+| 10 | Owner Portal panel | 🟢 Green | [10-owner-portal.md](10-owner-portal.md) | Mature read-only third panel. 3 resources scoped via `asset_owner` pivot (no Filament tenancy). PortfolioStats widget + Statement PDF. 2 Yellow: F-40 nav badges, F-41 dormant `cam.view` permission. 11 Pest + 5 e2e green. |
 | 11 | Tenant Portal panel | ⬜ Not started | — | |
 | 12 | Tenant Sales Declarations | ⬜ Not started | — | |
 | 13 | Utility Meters & Energy | ⬜ Not started | — | |
@@ -196,3 +196,26 @@ Legend: ⬜ Not started · 🟦 In progress · 🟢 Green · 🟡 Yellow · 🔴
 - **Cross-cutting F-17 progress**: ✅ Units · ✅ Invoices · ✅ Maintenance · ⏳ TenantSales (Module 12) · ⏳ Vendors (Module 15).
 
 **Paused here per user's "go through Module 9 then pause" choice.** Modules 10-20 ahead. Recommend triage of D-1..D-30 before continuing.
+
+### 2026-05-31 — D-1, D-2, D-12 applied; D-15 retracted
+
+Per the user's "do recommended" instruction after triage.
+
+- **D-12 applied**: `LeaseObserver` + `LeaseCreationService::seedStandardCharges` static helper + `CreateLease::afterCreate` hook. Form path now seeds charges and the observer flips unit status across all paths. 8 new Pest tests; full suite 295/295.
+- **D-15 retracted**: pre-flight grep miss; routes/console.php already schedules the 3 jobs via `BillingSettings`. Findings F-22 / F-30 marked superseded in their module docs.
+- **D-1 + D-2 applied**: `HayaWalkSeeder::DEMO_RNG_SEED = 4242` + `mt_srand` at run() top + 3 `->inRandomOrder()` queries replaced with `orderByRaw('(id * 17) % 101)` (SQLite RANDOM() can't be seeded). Two consecutive seeds now produce identical `EGP 656,516.19` AR. DEMO.md §2 has new "Step 0: switch to Haya Walk" pre-step + locked KPI numbers (Collected ~170K, AR ~657K, 11 overdue, ~588K past due). Plaza Annex kept with explainer in §4.
+
+### 2026-05-31 — Module 10 Owner Portal 🟢
+
+- Panel: `Atriom · Owner Portal` at `/owner`, no Filament tenancy.
+- Resources: Properties + Invoices + Maintenance, all read-only, scoped via `whereHas('...owners', fn => where('user_id', auth()->id()))` chains.
+- PortfolioStats widget: 4 stats (Assets count + leasable area, Occupancy %, MRR, Outstanding AR), aggregated across owner's owned assets.
+- Statement PDF action on ViewProperty → `AssetStatementPdfService` (12-month trailing); HTTP+Livewire test added in commit 7a10690.
+- Role gating: owner ↔ admin panel mutually exclusive in `User::canAccessPanel`.
+- **2 Yellow** (deferred):
+  - **F-40**: no nav badges on Owner Resources — useful for multi-asset owners (overdue count, open maintenance).
+  - **F-41**: `'cam.view'` permission granted to owner role but no Owner CAM resource exists. Dormant.
+- No F-17 carryover. No PII leakage.
+- Tests: 11 Pest · 5 e2e green.
+
+**Next:** Module 11 — Tenant Portal.
