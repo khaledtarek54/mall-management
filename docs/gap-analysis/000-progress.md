@@ -13,7 +13,7 @@
 | 03 | Units | 🟡 Yellow | [03-units.md](03-units.md) | 2 inline fixes — F-12 importer enum drift (accepted `anchor`/`other`, rejected `storage`), F-17 nav badge tenant leak (Unit only). F-17 also affects Invoices/Maintenance/Vendors/TenantSales — carry-over to those modules. |
 | 04 | Leases | 🟡 Yellow | [04-leases.md](04-leases.md) | 3 lifecycle services (Creation/Renewal/Termination) excellent; standard Create/Edit form bypasses them — no charges seeded, no unit flip, rent fields drift from Charge::amount. Demo path (wizard + modals) safe. No carryover from Module 03 F-17. |
 | 05 | Invoices | 🟡 Yellow | [05-invoices.md](05-invoices.md) | F-17 carryover fix applied (overdue badge now per-property). 3 deferred — F-22 no cron schedule for billing/late-fees, F-23 InvoiceIssued mail doesn't attach PDF, F-24 ETA mock mode is the default. 63 Pest + 9 PDF/ETA e2e all green. |
-| 06 | Payments | ⬜ Not started | — | |
+| 06 | Payments | 🟢 Green | [06-payments.md](06-payments.md) | Boot hooks (`saved`/`deleted` → recompute) are codebase's gold standard for consistency — pattern Lease (D-12) should adopt. 3 Yellow extensibility: F-25 per-row allocation guard, F-26 cross-tenant pivot constraint, F-27 dedicated tests. No F-17 carryover. |
 | 07 | CAM | ⬜ Not started | — | |
 | 08 | ETA e-invoicing | ⬜ Not started | — | |
 | 09 | Maintenance / CAFM | ⬜ Not started | — | |
@@ -132,3 +132,19 @@ Legend: ⬜ Not started · 🟦 In progress · 🟢 Green · 🟡 Yellow · 🔴
 - Cross-cutting F-17 progress: ✅ Units · ✅ Invoices · ⏳ Maintenance · ⏳ TenantSales · ⏳ Vendors.
 
 **Next:** Module 06 — Payments.
+
+### 2026-05-31 — Module 06 Payments 🟢
+
+- Payment model (138 LOC): `creating` race-safe ref-gen, `saved` + `deleted` both fire `recomputeAllocatedInvoices()`. THE gold-standard side-effect pattern in this codebase.
+- Pivot `invoice_payment` has `allocated_amount`; `Invoice::recomputeTotals()` reads only `captured` payments.
+- Admin: PaymentForm has live allocation repeater — picks tenant's `balance>0` invoices oldest-first, auto-fills `min(balance, remaining)`, color-coded "Allocated/Unallocated" summary. Best UX in the codebase.
+- EditPayment recomputes BOTH previously- and newly-attached invoices (covers re-allocation).
+- Portal: read-only payments list (tenant_id scope).
+- No F-17 carryover.
+- **3 Yellow findings (no inline fixes)**:
+  - **F-25**: form lacks per-row `allocated_amount ≤ invoice.balance` validation. Admin can over-allocate → invoice gets paid_amount > total. UI auto-suggest prevents in normal use; rule needed.
+  - **F-26**: no DB/model guard preventing cross-tenant allocation in pivot. UI filters by tenant; raw inserts can bypass.
+  - **F-27**: no dedicated PaymentTest.php / allocation-recompute test. 11 indirect tests pass (scoping, widgets, reports).
+- **Cross-link**: D-12 (Module 04 Lease observer) recommendation = "do what Payment does in boot()".
+
+**Next:** Module 07 — CAM.
