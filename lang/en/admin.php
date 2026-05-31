@@ -153,6 +153,10 @@ return [
             'description' => 'Add electric, water, and gas meters per property. Track consumption monthly to spot anomalies.',
             'cta' => 'Add a meter',
         ],
+        'meter_readings' => [
+            'heading' => 'No readings yet',
+            'description' => 'Log a monthly reading to start tracking consumption on this meter.',
+        ],
     ],
 
     'tooltips' => [
@@ -555,6 +559,7 @@ return [
         'created_until' => 'Created Until',
         'date_from' => 'From',
         'date_until' => 'Until',
+        'year' => 'Year',
         'tenant' => 'Tenant',
         'unit' => 'Unit',
         'asset' => 'Asset',
@@ -681,6 +686,7 @@ return [
         'void_credit_note_confirm' => 'Voiding stops this credit note from being applied. Already-applied credits cannot be voided — issue an offsetting note instead.',
         'add_contact' => 'Add Contact',
         'add_contract' => 'Add Contract',
+        'add_reading' => 'Log Reading',
         'bulk_download_pdfs' => 'Download PDFs (zip)',
         'bulk_submit_to_eta' => 'Submit selected to ETA',
         'log_communication' => 'Log Communication',
@@ -819,6 +825,10 @@ return [
         'calculated_percentage_rent_help' => 'Auto-computed from the lease percentage-rent terms.',
         'audit_notes' => 'Audit Notes',
         'void_reason' => 'Reason for Void',
+        'reading_date' => 'Reading Date',
+        'reading_value' => 'Odometer',
+        'consumption' => 'Consumption',
+        'cost' => 'Cost',
         'period_year' => 'Year',
         'total_actual_expense' => 'Total Actual Expense',
         'total_estimated_collected' => 'Total Estimated Collected',
@@ -838,6 +848,8 @@ return [
     ],
 
     'helpers' => [
+        'reading_date' => 'Date the meter was read. The widget aggregates by month.',
+        'reading_value' => 'Current odometer value. Consumption auto-fills from the delta against the prior reading; you can override if the meter was reset.',
         'term_months' => 'Total lease length in months. Typical Egyptian mall leases run 12, 24, or 36 months.',
         'tenant_tax_id_format' => '9-digit Egyptian Tax Registration Number, optional dashes (XXX-XXX-XXX). Required for ETA e-invoice submission on business tenants.',
         'base_rent_monthly' => 'Fixed monthly rent. VAT-exempt under the Egyptian tax model.',
@@ -1126,6 +1138,7 @@ return [
 
     'relation_managers' => [
         'notes' => 'Communications',
+        'meter_readings' => 'Monthly Readings',
     ],
 
     'users' => [

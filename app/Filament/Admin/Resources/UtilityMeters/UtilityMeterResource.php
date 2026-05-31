@@ -70,6 +70,13 @@ class UtilityMeterResource extends Resource
         ];
     }
 
+    public static function getRelations(): array
+    {
+        return [
+            \App\Filament\Admin\Resources\UtilityMeters\RelationManagers\ReadingsRelationManager::class,
+        ];
+    }
+
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()->with(['asset', 'unit']);
