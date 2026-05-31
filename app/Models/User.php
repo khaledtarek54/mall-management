@@ -18,13 +18,14 @@ use Illuminate\Support\Collection;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 use Spatie\Permission\Traits\HasRoles;
+use Stephenjude\FilamentTwoFactorAuthentication\TwoFactorAuthenticatable;
 
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements FilamentUser, HasTenants
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, HasRoles, LogsActivity, Notifiable;
+    use HasFactory, HasRoles, LogsActivity, Notifiable, TwoFactorAuthenticatable;
 
     /**
      * Track create/edit/delete on staff accounts so the ActivityLog page

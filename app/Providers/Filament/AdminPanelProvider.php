@@ -46,6 +46,15 @@ class AdminPanelProvider extends PanelProvider
             // top-bar avatar (audit M17 F-64 / D-49).
             ->passwordReset()
             ->profile(isSimple: false)
+            // TOTP 2FA via Google Authenticator etc. Enforced only on the
+            // super_admin role (full-system access); other roles can opt
+            // in via the top-bar menu item. Audit M17 F-65 / D-50.
+            ->plugin(
+                \Stephenjude\FilamentTwoFactorAuthentication\TwoFactorAuthenticationPlugin::make()
+                    ->enableTwoFactorAuthentication()
+                    ->addTwoFactorMenuItem()
+                    ->forceTwoFactorSetup(fn (): bool => auth()->user()?->hasRole('super_admin') === true)
+            )
             // Branding resolves from the active property tenant when one is
             // set. Each Asset can carry its own logo (MediaLibrary `logo`
             // collection) + favicon + primary-colour hex. The synthetic
