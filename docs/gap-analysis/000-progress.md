@@ -24,7 +24,7 @@
 | 14 | Credit Notes | 🟡 Yellow | [14-credit-notes.md](14-credit-notes.md) | F-17 carryover fix (6th instance, missed earlier). 2 Yellow: F-55 `partially_applied` dead filter on Tenant::outstandingBalance, F-56 no portal/owner credit visibility. 8 Pest + 6 e2e green. |
 | 15 | Vendors & Contracts | 🟡 Yellow | [15-vendors.md](15-vendors.md) | **F-17 carryover #6 complete — all done.** 3 Yellow: F-58 no contract auto-expire, F-59 no tax_id format validation, F-60 no VendorTest. 5 Pest + 6 e2e green. |
 | 16 | Assets (tenancy) | 🟢 Green | [16-assets-tenancy.md](16-assets-tenancy.md) | 80-test coverage on the most thoughtfully-designed code in the repo. 3-trait split (Scopes/Bypasses/CustomScope) + ALL-as-real-row pattern + per-property branding. 2 Yellow: F-61 no AssetTest, F-62 no multi-property growth UX. |
-| 17 | Users & Roles | ⬜ Not started | — | |
+| 17 | Users & Roles | 🟡 Yellow | [17-users-roles.md](17-users-roles.md) | RBAC production-ready: 6 roles · 81 perms · 18 modules · Spatie cache w/ explicit forget after role mutations. 5 Yellow operational-readiness gaps: F-63 default `password`, F-64 no self-service, F-65 no MFA, F-66 free-form pivot role, F-67 no User LogsActivity. |
 | 18 | Reports | ⬜ Not started | — | |
 | 19 | Mobile API `/api/v1` | ⬜ Not started | — | |
 | 20 | Cross-cutting | ⬜ Not started | — | |
@@ -313,3 +313,20 @@ Per the user's "do recommended" instruction after triage.
 - Tests: **80** Pest cases across Tenancy/Asset/Branding all green (most heavily tested area of the repo). Full Pest 295/295.
 
 **Next:** Module 17 — Users + Roles.
+
+### 2026-05-31 — Module 17 Users & Roles 🟡
+
+- User (119 LOC): `Authenticatable + FilamentUser + HasTenants`. `HasRoles, Notifiable` traits. **No LogsActivity** — F-67.
+- 6 built-in roles + 81 permissions across 18 modules. Naming: `{module}.{action}` (e.g. `invoices.run_monthly_billing`, `leases.terminate`).
+- Spatie cache TTL 24h **with explicit `forgetCachedPermissions()` after Create + Edit role** — fresh perms within request.
+- Admin/Users hardcoded to super_admin only. Users form has Properties multi-select (defaults to all real assets on create, then deselect to restrict).
+- Admin/Roles uses `RoleGatedActions` trait; form has one CheckboxList per module; built-in role names locked.
+- **5 Yellow** (deferred — all pre-pilot ops gaps):
+  - **F-63**: seeded users all use literal `'password'`. Need env-driven rotation.
+  - **F-64**: no user self-service (profile, password reset).
+  - **F-65**: no 2FA / MFA.
+  - **F-66**: `asset_user.role` is free-form string; barely used. Enum, remove, or document.
+  - **F-67**: User CRUD has no activity log. Add LogsActivity pre-pilot.
+- Tests: 31 Pest --filter='User|Role|Permission|PanelAccess' green. Full Pest 295/295.
+
+**Next:** Module 18 — Reports.
