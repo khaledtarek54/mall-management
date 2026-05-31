@@ -157,6 +157,10 @@ return [
             'heading' => 'No readings yet',
             'description' => 'Log a monthly reading to start tracking consumption on this meter.',
         ],
+        'portal_cam_allocations' => [
+            'heading' => 'No common-area charges yet',
+            'description' => 'When the mall closes its annual CAM reconciliation, your share will appear here with a full breakdown.',
+        ],
     ],
 
     'tooltips' => [
@@ -223,6 +227,7 @@ return [
         'maintenance' => 'Maintenance',
         'tenant_sales' => 'Tenant Sales',
         'cam' => 'CAM Reconciliation',
+        'cam_allocations' => 'Common Area Charges',
         'energy' => 'Energy & Utilities',
         'users' => 'Users',
     ],
@@ -241,6 +246,7 @@ return [
         'maintenance_request' => ['singular' => 'Maintenance Request', 'plural' => 'Maintenance Requests'],
         'tenant_sales' => ['singular' => 'Sales Declaration', 'plural' => 'Tenant Sales Declarations'],
         'cam_pool' => ['singular' => 'CAM Pool', 'plural' => 'CAM Reconciliation'],
+        'cam_allocation' => ['singular' => 'CAM Allocation', 'plural' => 'Common Area Charges'],
         'utility_meter' => ['singular' => 'Utility Meter', 'plural' => 'Energy & Utilities'],
     ],
 
@@ -829,6 +835,11 @@ return [
         'reading_value' => 'Odometer',
         'consumption' => 'Consumption',
         'cost' => 'Cost',
+        'your_share' => 'Your Share',
+        'tenant_share' => 'Tenant Share',
+        'allocated_amount' => 'Allocated',
+        'estimated_paid' => 'Already Paid',
+        'true_up_amount' => 'True-up',
         'period_year' => 'Year',
         'total_actual_expense' => 'Total Actual Expense',
         'total_estimated_collected' => 'Total Estimated Collected',
@@ -852,6 +863,7 @@ return [
         'reading_value' => 'Current odometer value. Consumption auto-fills from the delta against the prior reading; you can override if the meter was reset.',
         'term_months' => 'Total lease length in months. Typical Egyptian mall leases run 12, 24, or 36 months.',
         'tenant_tax_id_format' => '9-digit Egyptian Tax Registration Number, optional dashes (XXX-XXX-XXX). Required for ETA e-invoice submission on business tenants.',
+        'true_up_explainer' => 'Positive = you still owe this amount. Negative = the mall over-collected and credits this back on your next invoice.',
         'base_rent_monthly' => 'Fixed monthly rent. VAT-exempt under the Egyptian tax model.',
         'base_rent_monthly_edit_lock' => 'Locked on Edit. Use the “Change rent” record action so the recurring Charge row updates atomically with the lease.',
         'service_charge_monthly' => 'Monthly service charge for shared services (security, cleaning, common-area HVAC). 14% VAT applies.',
@@ -867,6 +879,8 @@ return [
     ],
 
     'sections' => [
+        'cam_period' => 'Reconciliation Period',
+        'cam_breakdown' => 'Your CAM Share',
         'tenant_information' => 'Tenant Information',
         'contact' => 'Contact',
         'lease_details' => 'Lease Details',
