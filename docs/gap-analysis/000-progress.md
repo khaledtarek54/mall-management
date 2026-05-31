@@ -16,7 +16,7 @@
 | 06 | Payments | 🟢 Green | [06-payments.md](06-payments.md) | Boot hooks (`saved`/`deleted` → recompute) are codebase's gold standard for consistency — pattern Lease (D-12) should adopt. 3 Yellow extensibility: F-25 per-row allocation guard, F-26 cross-tenant pivot constraint, F-27 dedicated tests. No F-17 carryover. |
 | 07 | CAM | 🟢 Green | [07-cam.md](07-cam.md) | Well-scoped MVP per FEATURES.md "v1 intentionally shallow". 4 Yellow extensibility (mid-year termination, portal visibility, auto-true-up scheduling, expense categories) all align with documented Q2 roadmap. No F-17 carryover. |
 | 08 | ETA e-invoicing | 🟡 Yellow | [08-eta.md](08-eta.md) | F-32 inline fix: ETA reference block (submission_id / long_id / submitted_at) now on Invoice PDF, bilingual. 3 Yellow extensibility (F-33 Rejected tile filter, F-34 job retry/backoff, F-35 Pending tile non-clickable). D-17 cutover sequence specified. |
-| 09 | Maintenance / CAFM | ⬜ Not started | — | |
+| 09 | Maintenance / CAFM | 🟡 Yellow | [09-maintenance.md](09-maintenance.md) | F-17 carryover fix on both badge methods. 3 Yellow: F-36 MaintenanceSettings SLA props are unused (service reads config), F-37 no notifications on status/SLA, F-38 auto_close_after_days never acted on. 17 Pest + 3 e2e green. |
 | 10 | Owner Portal panel | ⬜ Not started | — | |
 | 11 | Tenant Portal panel | ⬜ Not started | — | |
 | 12 | Tenant Sales Declarations | ⬜ Not started | — | |
@@ -179,3 +179,20 @@ Legend: ⬜ Not started · 🟦 In progress · 🟢 Green · 🟡 Yellow · 🔴
 - Tests: 18 ETA Pest green · 9 PDF/ETA e2e green · full Pest 287/287 after fix.
 
 **Next:** Module 09 — Maintenance / CAFM.
+
+### 2026-05-31 — Module 09 Maintenance 🟡
+
+- MaintenanceRequest (130 LOC): 18 fillable, 7-state status, 4 priorities, 7 categories, 6 channels, polymorphic comments, Spatie media, LogsActivity.
+- State machine in service `TRANSITIONS` constant (explicit, testable).
+- Service methods: `create`, `transition` (validates), `assign` (auto-transitions submitted→acknowledged), `comment` (uses `getMorphClass()`), `defaultTargetResolution` (reads config).
+- 3 panels: Admin (full CRUD + Change Status modal + Assign modal + Vendor select), Portal (tenant submits + comments back), Owner (read-only via `unit.asset.owners`).
+- OpenMaintenanceRequests widget correctly tenant-scoped via `TenantScope::applyTo(..., 'unit')`.
+- **Inline fix — F-17 (Maintenance carryover)** 🔴: BOTH `getNavigationBadge()` and `getNavigationBadgeColor()` did raw `MaintenanceRequest::whereIn(...)` queries — leaked across properties. Now use `static::getEloquentQuery()`.
+- **3 Yellow findings (deferred)**:
+  - **F-36**: MaintenanceSettings has 4 SLA props that are NEVER read by anything — service reads `config('maintenance.sla.*')` instead. Numbers diverge (Settings 4h urgent vs config 24h urgent). Either delete props or wire service to Settings (recommend latter for operator tunability).
+  - **F-37**: No notifications on status change, SLA breach, or vendor assignment.
+  - **F-38**: `config('maintenance.auto_close_after_days')` is read but no job/command acts on it. `resolved` is effectively terminal in practice.
+- Tests: 17 Pest green · 3 functional e2e green · full Pest 287/287 after fix.
+- **Cross-cutting F-17 progress**: ✅ Units · ✅ Invoices · ✅ Maintenance · ⏳ TenantSales (Module 12) · ⏳ Vendors (Module 15).
+
+**Paused here per user's "go through Module 9 then pause" choice.** Modules 10-20 ahead. Recommend triage of D-1..D-30 before continuing.

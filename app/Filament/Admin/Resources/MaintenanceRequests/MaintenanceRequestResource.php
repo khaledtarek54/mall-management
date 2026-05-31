@@ -64,14 +64,20 @@ class MaintenanceRequestResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        $count = MaintenanceRequest::whereIn('status', MaintenanceRequest::OPEN_STATUSES)->count();
+        // Respect the active Filament tenant (Asset). ScopesViaProperty
+        // applies the unit.asset_id filter; ALL pseudo-asset bypasses scope
+        // and returns the portfolio-wide count.
+        $count = static::getEloquentQuery()
+            ->whereIn('status', MaintenanceRequest::OPEN_STATUSES)
+            ->count();
 
         return $count > 0 ? (string) $count : null;
     }
 
     public static function getNavigationBadgeColor(): string|array|null
     {
-        $hasUrgent = MaintenanceRequest::whereIn('status', MaintenanceRequest::OPEN_STATUSES)
+        $hasUrgent = static::getEloquentQuery()
+            ->whereIn('status', MaintenanceRequest::OPEN_STATUSES)
             ->where('priority', 'urgent')
             ->exists();
 
