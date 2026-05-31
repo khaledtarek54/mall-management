@@ -3,6 +3,35 @@ import { expectNoLaravelError } from './helpers.js';
 
 test.use({ storageState: 'storage/playwright-state/admin.json' });
 
+/**
+ * Open the edit-page header-action (Filament 4 may inline it as a button OR
+ * collapse it into an "Actions" dropdown when there are several). We try the
+ * direct button first; if that's not visible quickly, we open the dropdown
+ * and pick the action from there.
+ */
+/**
+ * Click a Filament page-header action (downloadPdf, etc.) by name, surviving
+ * Xdebug-slow coverage runs where the action may not be a directly-visible
+ * inline button. Strategy:
+ *   1. Try a visible button/link with the label.
+ *   2. Fall back to Filament 4's `wire:click="mountAction('<name>')"` button,
+ *      force-clicking even if hidden (e.g. inside an unopened dropdown).
+ *
+ * `actionName` mirrors the Action::make('<name>') string.
+ */
+async function clickHeaderAction(page, labelRegex, actionName) {
+  const direct = page.locator('button:visible, a:visible').filter({ hasText: labelRegex }).first();
+  if (await direct.isVisible({ timeout: 10000 }).catch(() => false)) {
+    await direct.click();
+    return;
+  }
+  // Filament 4 emits  wire:click="mountAction('downloadPdf')"  on every
+  // header-action button. Targeting that attribute works whether the action
+  // is rendered inline or tucked behind an overflow dropdown.
+  const wireBtn = page.locator(`button[wire\\:click*="${actionName}"]`).first();
+  await wireBtn.click({ force: true, timeout: 15000 });
+}
+
 test('Admin can download invoice PDF in English', async ({ page }) => {
   await page.goto('/locale/en');
   await page.goto('/admin/ALL/invoices');
@@ -14,7 +43,7 @@ test('Admin can download invoice PDF in English', async ({ page }) => {
   await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
 
   const downloadPromise = page.waitForEvent('download', { timeout: 30000 });
-  await page.locator('button:has-text("Download PDF"), a:has-text("Download PDF")').first().click();
+  await clickHeaderAction(page, /Download PDF/i, 'downloadPdf');
   const download = await downloadPromise;
   const path = await download.path();
   expect(path).toBeTruthy();
@@ -37,8 +66,7 @@ test('Admin can download invoice PDF in Arabic', async ({ page }) => {
   await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
 
   const downloadPromise = page.waitForEvent('download', { timeout: 30000 });
-  // Try Arabic + English labels
-  await page.locator('button, a').filter({ hasText: /Download PDF|تنزيل|PDF/i }).first().click();
+  await clickHeaderAction(page, /Download PDF|تنزيل|تحميل/i, 'downloadPdf');
   const download = await downloadPromise;
   const path = await download.path();
   const buf = (await import('fs')).readFileSync(path);

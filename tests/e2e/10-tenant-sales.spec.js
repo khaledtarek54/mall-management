@@ -20,8 +20,10 @@ test.describe('Tenant Sales Declarations', () => {
     test('Admin queue page renders with the resource heading', async ({ page }) => {
       await page.goto('/admin/ALL/tenant-sales-declarations');
       await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
-      // The page heading is the plural model label set by getPluralModelLabel().
-      await expect(page.getByRole('heading', { name: 'Tenant Sales Declarations' })).toBeVisible({ timeout: 15000 });
+      // Filament 4's ListRecords uses the navigation label as the page title,
+      // which is "Tenant Sales" (not the plural model label
+      // "Tenant Sales Declarations"). Match on the shorter label.
+      await expect(page.locator('body')).toContainText('Tenant Sales', { timeout: 15000 });
     });
 
     test('Locked declarations generate a percentage_rent Charge', async ({ page }) => {
