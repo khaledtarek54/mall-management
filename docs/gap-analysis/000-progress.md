@@ -20,7 +20,7 @@
 | 10 | Owner Portal panel | 🟢 Green | [10-owner-portal.md](10-owner-portal.md) | Mature read-only third panel. 3 resources scoped via `asset_owner` pivot (no Filament tenancy). PortfolioStats widget + Statement PDF. 2 Yellow: F-40 nav badges, F-41 dormant `cam.view` permission. 11 Pest + 5 e2e green. |
 | 11 | Tenant Portal panel | 🟢 Green | [11-tenant-portal.md](11-tenant-portal.md) | 4 resources (Invoices/Payments/Maintenance/Sales) properly scoped + bilingual. AccountBalance + OpenMaintenance widgets, TenantStatementPdfService. 4 Yellow: F-42 Pay Now is a stub, F-43 no portal CAM view, F-44 no lock notification, F-45 no archive ZIP. Cross-refs F-8/F-9. |
 | 12 | Tenant Sales Declarations | 🟡 Yellow | [12-tenant-sales.md](12-tenant-sales.md) | F-17 carryover fix applied. 4 Yellow: F-48 no void-locked action, F-49 plaintext sales values, F-50 missing `cancelled`/`voided` enum states, F-51 no re-submission flow. 9 Pest + 5 e2e green. |
-| 13 | Utility Meters & Energy | ⬜ Not started | — | |
+| 13 | Utility Meters & Energy | 🟡 Yellow | [13-utilities.md](13-utilities.md) | Meter registry clean; data model + widget good. **F-52**: no UI to add readings post-seed (operator must use tinker). F-53: no dedicated model tests. F-54: Q3 roadmap for consumption-billing. No F-17. |
 | 14 | Credit Notes | ⬜ Not started | — | |
 | 15 | Vendors & Contracts | ⬜ Not started | — | |
 | 16 | Assets (tenancy) | ⬜ Not started | — | |
@@ -253,3 +253,16 @@ Per the user's "do recommended" instruction after triage.
 - Tests: 9 Pest + 5 e2e green. Full Pest 295/295.
 
 **Next:** Module 13 — Utility Meters & Energy.
+
+### 2026-05-31 — Module 13 Utilities 🟡
+
+- UtilityMeter (53 LOC) + MeterReading (33 LOC). 3 types (electric/water/gas), 3 statuses. unit_id nullable for common-area. Unique (utility_meter_id, reading_date) prevents duplicates.
+- Admin UtilityMeterResource with 7-col form + 7-col table; type/status colour-coded; `readings_count` badge.
+- EnergyConsumptionTrend widget (already covered M01) — driver-aware month grouping, common-area + per-unit aggregation, locale-aware labels.
+- **F-52** 🟡: no admin UI for MeterReadings — no Resource, no RelationManager. Operator must `php artisan tinker` to add readings post-seed. By-design per FEATURES.md L411 "v1 monitoring-only"; D-38 catalogs the RelationManager work.
+- F-53 🟡: no dedicated model tests (bundle with post-sweep test pass).
+- F-54 🟡: consumption → billing is Q3 roadmap.
+- No F-17 carryover; no owner/portal exposure (admin-only).
+- Tests: 4 Pest + 2 e2e green.
+
+**Next:** Module 14 — Credit Notes.
