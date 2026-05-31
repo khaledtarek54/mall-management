@@ -21,7 +21,7 @@
 | 11 | Tenant Portal panel | 🟢 Green | [11-tenant-portal.md](11-tenant-portal.md) | 4 resources (Invoices/Payments/Maintenance/Sales) properly scoped + bilingual. AccountBalance + OpenMaintenance widgets, TenantStatementPdfService. 4 Yellow: F-42 Pay Now is a stub, F-43 no portal CAM view, F-44 no lock notification, F-45 no archive ZIP. Cross-refs F-8/F-9. |
 | 12 | Tenant Sales Declarations | 🟡 Yellow | [12-tenant-sales.md](12-tenant-sales.md) | F-17 carryover fix applied. 4 Yellow: F-48 no void-locked action, F-49 plaintext sales values, F-50 missing `cancelled`/`voided` enum states, F-51 no re-submission flow. 9 Pest + 5 e2e green. |
 | 13 | Utility Meters & Energy | 🟡 Yellow | [13-utilities.md](13-utilities.md) | Meter registry clean; data model + widget good. **F-52**: no UI to add readings post-seed (operator must use tinker). F-53: no dedicated model tests. F-54: Q3 roadmap for consumption-billing. No F-17. |
-| 14 | Credit Notes | ⬜ Not started | — | |
+| 14 | Credit Notes | 🟡 Yellow | [14-credit-notes.md](14-credit-notes.md) | F-17 carryover fix (6th instance, missed earlier). 2 Yellow: F-55 `partially_applied` dead filter on Tenant::outstandingBalance, F-56 no portal/owner credit visibility. 8 Pest + 6 e2e green. |
 | 15 | Vendors & Contracts | ⬜ Not started | — | |
 | 16 | Assets (tenancy) | ⬜ Not started | — | |
 | 17 | Users & Roles | ⬜ Not started | — | |
@@ -266,3 +266,18 @@ Per the user's "do recommended" instruction after triage.
 - Tests: 4 Pest + 2 e2e green.
 
 **Next:** Module 14 — Credit Notes.
+
+### 2026-05-31 — Module 14 Credit Notes 🟡
+
+- CreditNote (118 LOC) + CreditNoteItem (30 LOC). Status enum (`draft, issued, applied, void`). Boot auto-numbers CN-HW-YYYYMM-####.
+- CreditNoteService (108 LOC): `issue`, `applyToInvoice` (atomic both sides; caps at min of 3 balances), `void` (throws if applied_amount > 0). All idempotent + DB-transactional.
+- Admin: custom `getEloquentQuery()` scopes via `lease.unit.asset_id` OR allows standalone (lease_id IS NULL) notes. Form has live recompute. 4 record actions (Issue/Apply/Void/Delete).
+- **Inline fix — F-17 (CreditNotes, 6th carryover)** 🔴: nav badge was `static::getModel()::query()`; now uses `static::getEloquentQuery()`. I missed this in Module 03's audit (listed 5 resources, actually 6). Updated cross-cutting status.
+- **2 Yellow** (deferred):
+  - **F-55**: `Tenant::outstandingBalance()` filters credit notes for `whereIn('status', ['issued', 'partially_applied'])` — but the enum has no `partially_applied` value. Harmless dead filter; clean up by removing or extending the enum.
+  - **F-56**: No portal/owner visibility of credit notes (tenant sees balance shrink but no line-item).
+- Positive: void-applied refusal forces offsetting note (preserves AR audit trail). Standalone notes supported via nullable FKs + scoped query.
+- Tests: 8 Pest + 6 e2e green. Full Pest 295/295.
+- **Cross-cutting F-17 corrected**: 5 of 6 (was thinking 4 of 5). Vendors (M15) is the last.
+
+**Next:** Module 15 — Vendors.

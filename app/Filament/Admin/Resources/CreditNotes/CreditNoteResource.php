@@ -111,8 +111,10 @@ class CreditNoteResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        // Count credit notes ready to apply — `issued` status with balance remaining.
-        $count = static::getModel()::query()
+        // Count credit notes ready to apply — `issued` status with balance
+        // remaining. Uses getEloquentQuery() so the per-property scope (or
+        // standalone tenant-level note visibility) applied above is honored.
+        $count = static::getEloquentQuery()
             ->where('status', 'issued')
             ->where('balance', '>', 0)
             ->count();
