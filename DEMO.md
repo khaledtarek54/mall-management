@@ -113,6 +113,12 @@ Sidebar → **Reports → Activity Log**.
 
 > "Every create / update / delete on leases, invoices, payments, tenants is tracked — who, when, what changed. Compliance trail out of the box."
 
+### 9.5 · Notifications (30 s)
+
+Click the **bell** icon in the top bar.
+
+> "Operator inbox — every tenant-side action we care about lands here. A maintenance request submitted from the portal, a sales declaration filed, an SLA breach on an open ticket. Tenants get the matching events as email + their own portal bell — invoice issued, payment received, maintenance status changes, sales declaration locked. All driven by the standard Laravel notifications system, so adding Slack or WhatsApp channels later is one line per notification class."
+
 ### 10 · Users & roles (30 s)
 
 Sidebar → **Settings → Users**.
@@ -131,6 +137,8 @@ Sidebar → **Settings → Users**.
 - **Custom Roles + Permissions** — `/admin/roles` lets admins create custom roles with any of 81 granular permissions.
 - **Role-tailored dashboards** — log in as `leasing@mall.test` or `maintenance@mall.test` to demo per-role widget sets.
 - **Portal** — there's a separate `/portal` panel where tenants log in to see their statements and pay invoices.
+- **Paymob Pay Now** — wired end-to-end (auth → order → payment key → iframe → HMAC-verified callback). Disabled in the demo (`PAYMOB_ENABLED=false`) so the button is hidden; flip it on plus 4 dashboard creds (see `PAYMOB-SETUP.md`) and tenants pay invoices through the iframe directly. Status is reconciled by the S2S callback, not the browser redirect.
+- **Two-factor auth** — TOTP 2FA enforced for super-admins on the admin panel; other roles can opt-in from their profile.
 - **Mobile API** — `/api/v1/auth/login` ships Sanctum tenant auth today; resource endpoints are Q2.
 - **WhatsApp + PDF** — invoice and statement actions support generating PDFs and sharing via WhatsApp.
 
@@ -149,7 +157,7 @@ Maintenance:     5 seeded across statuses + 5 distinct channels
 Permissions:     81 across 18 modules
 Roles:           6 built-in + custom-role UI
 Dashboard:       12 widgets, role-tailored per role
-Tests:           184 Pest (479 assertions, ~3.5s parallel) · 18 Playwright spec files
+Tests:           369 Pest (981 assertions, ~6.5s parallel) · 18 Playwright spec files
 ```
 
 يلا بسم الله 💪
