@@ -42,13 +42,23 @@ class MergeCoverageCommand extends Command
         $merged = null;
         foreach ($files as $i => $file) {
             try {
+                // Two formats live in this directory:
+                //  - Pest writes a PHP script (starts with `<?php return \unserialize(...)`)
+                //    via its --coverage-php flag.
+                //  - Our RecordCoverage middleware writes raw serialized data.
+                // Detect by the leading bytes.
                 $raw = file_get_contents($file);
-                $cov = @unserialize($raw, ['allowed_classes' => true]);
+                if (str_starts_with(ltrim($raw), '<?php')) {
+                    $cov = include $file;
+                } else {
+                    $cov = @unserialize($raw, ['allowed_classes' => true]);
+                }
             } catch (\Throwable $e) {
                 $this->warn("Skipping unreadable dump {$file}: {$e->getMessage()}");
                 continue;
             }
             if (! $cov instanceof CodeCoverage) {
+                $this->warn("Skipping {$file}: not a CodeCoverage object");
                 continue;
             }
 

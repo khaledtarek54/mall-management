@@ -48,10 +48,9 @@ echo "  Pest done — pest.cov ${PEST_BYTES} bytes"
 
 echo ""
 echo "▸ Step 2/3: Playwright e2e with per-request coverage..."
-scripts/e2e-coverage.sh "$@" || true
-# The e2e script also runs coverage:merge into coverage/e2e — we'll re-merge
-# everything into coverage/combined below. Either way storage/coverage holds
-# pest.cov + the per-request dumps.
+# Tell e2e-coverage.sh to skip its internal merge so its cleanup doesn't
+# delete pest.cov — we'll merge both together in step 3.
+E2E_NO_MERGE=1 scripts/e2e-coverage.sh "$@" || true
 
 echo ""
 echo "▸ Step 3/3: Merging Pest + Playwright into one report..."

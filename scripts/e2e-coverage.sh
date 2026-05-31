@@ -131,8 +131,14 @@ echo "▸ Stopping server..."
 cleanup
 trap - EXIT INT TERM
 
-echo "▸ Merging coverage dumps..."
-php artisan coverage:merge --html=coverage/e2e
+# When called from coverage-all.sh we skip the internal merge so its outer
+# merge can include pest.cov alongside the per-request dumps.
+if [ -n "${E2E_NO_MERGE:-}" ]; then
+  echo "▸ Skipping internal merge (E2E_NO_MERGE set)."
+else
+  echo "▸ Merging coverage dumps..."
+  php artisan coverage:merge --html=coverage/e2e
+fi
 
 echo ""
 echo "✓ HTML report: file://${PROJECT_ROOT}/coverage/e2e/index.html"
