@@ -50,3 +50,11 @@ Schedule::command('vendors:expire-contracts')
     ->dailyAt('02:30')
     ->name('atriom-expire-vendor-contracts')
     ->withoutOverlapping();
+
+// Monthly housekeeping. Spatie's activitylog:clean drops rows older than
+// the config's clean_after_days (default 365) so the audit log doesn't
+// accumulate indefinitely (audit M20 F-75 / D-59).
+Schedule::command('activitylog:clean')
+    ->monthlyOn(1, '05:00')
+    ->name('atriom-clean-activity-log')
+    ->withoutOverlapping();
