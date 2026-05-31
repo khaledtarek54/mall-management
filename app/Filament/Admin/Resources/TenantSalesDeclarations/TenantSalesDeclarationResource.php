@@ -61,7 +61,13 @@ class TenantSalesDeclarationResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        $count = TenantSalesDeclaration::where('status', 'submitted')->count();
+        // Respect the active Filament tenant (Asset). ScopesViaProperty's
+        // getEloquentQuery() applies the lease.unit.asset_id filter; the
+        // ALL pseudo-asset bypasses scoping and returns the portfolio-wide
+        // count of declarations awaiting admin review.
+        $count = static::getEloquentQuery()
+            ->where('status', 'submitted')
+            ->count();
 
         return $count > 0 ? (string) $count : null;
     }

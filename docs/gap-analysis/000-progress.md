@@ -19,7 +19,7 @@
 | 09 | Maintenance / CAFM | 🟡 Yellow | [09-maintenance.md](09-maintenance.md) | F-17 carryover fix on both badge methods. 3 Yellow: F-36 MaintenanceSettings SLA props are unused (service reads config), F-37 no notifications on status/SLA, F-38 auto_close_after_days never acted on. 17 Pest + 3 e2e green. |
 | 10 | Owner Portal panel | 🟢 Green | [10-owner-portal.md](10-owner-portal.md) | Mature read-only third panel. 3 resources scoped via `asset_owner` pivot (no Filament tenancy). PortfolioStats widget + Statement PDF. 2 Yellow: F-40 nav badges, F-41 dormant `cam.view` permission. 11 Pest + 5 e2e green. |
 | 11 | Tenant Portal panel | 🟢 Green | [11-tenant-portal.md](11-tenant-portal.md) | 4 resources (Invoices/Payments/Maintenance/Sales) properly scoped + bilingual. AccountBalance + OpenMaintenance widgets, TenantStatementPdfService. 4 Yellow: F-42 Pay Now is a stub, F-43 no portal CAM view, F-44 no lock notification, F-45 no archive ZIP. Cross-refs F-8/F-9. |
-| 12 | Tenant Sales Declarations | ⬜ Not started | — | |
+| 12 | Tenant Sales Declarations | 🟡 Yellow | [12-tenant-sales.md](12-tenant-sales.md) | F-17 carryover fix applied. 4 Yellow: F-48 no void-locked action, F-49 plaintext sales values, F-50 missing `cancelled`/`voided` enum states, F-51 no re-submission flow. 9 Pest + 5 e2e green. |
 | 13 | Utility Meters & Energy | ⬜ Not started | — | |
 | 14 | Credit Notes | ⬜ Not started | — | |
 | 15 | Vendors & Contracts | ⬜ Not started | — | |
@@ -236,3 +236,20 @@ Per the user's "do recommended" instruction after triage.
 - Tests: 4 portal Pest + 4 e2e + 2 portal-flow tests in 17-functional-actions all green.
 
 **Next:** Module 12 — Tenant Sales Declarations + Percentage Rent.
+
+### 2026-05-31 — Module 12 Tenant Sales 🟡
+
+- TenantSalesDeclaration model (81 LOC, polymorphic `declared_by` (User|Tenant), 3-state status `submitted|locked|disputed`).
+- Unique constraint `(lease_id, period_start)` prevents duplicates.
+- PercentageRentCalculationService (102 LOC): both `artificial` and `natural_breakpoint` formulas; idempotent `lock()` creates a one-off Charge.
+- Admin resource: Lock + Dispute record actions; lock auto-creates `percentage_rent` Charge for next monthly run.
+- **Inline fix — F-17 carryover** 🔴: `TenantSalesDeclaration::where(...)` → `static::getEloquentQuery()->where(...)` so nav badge respects tenant scope.
+- **4 Yellow** (deferred):
+  - **F-48**: No mechanism to void a locked declaration (Charge stays active even if dispute discovered later).
+  - **F-49**: `declared_sales` stored plaintext (legal review may require encryption).
+  - **F-50**: Status enum missing `cancelled`/`voided` states.
+  - **F-51**: No re-submission workflow (unique constraint forces hard/soft delete-and-retry).
+- Cross-cutting F-17 progress: ✅ Units · ✅ Invoices · ✅ Maintenance · ✅ TenantSales · ⏳ Vendors (M15).
+- Tests: 9 Pest + 5 e2e green. Full Pest 295/295.
+
+**Next:** Module 13 — Utility Meters & Energy.
