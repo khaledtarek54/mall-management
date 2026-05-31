@@ -44,7 +44,14 @@ class HayaWalkSeeder extends Seeder
 
         $this->command->info('🏬 Seeding Haya Walk demo data...');
 
-        // 0. Admin + role-demo users (all share password 'password')
+        // Demo password lives in env so production deploys can rotate
+        // without touching the seeder (audit M17 F-63 / D-48). Default
+        // 'password' matches DEMO.md for dev + CI. Pre-pilot deploys
+        // MUST override DEMO_USER_PASSWORD and trigger a first-login
+        // rotation when the URL becomes public.
+        $demoPassword = Hash::make((string) env('DEMO_USER_PASSWORD', 'password'));
+
+        // 0. Admin + role-demo users (all share the demo password above)
         $users = [
             ['email' => 'admin@mall.test',       'name' => 'Mall Admin',           'role' => 'super_admin'],
             ['email' => 'manager@mall.test',     'name' => 'Operations Manager',   'role' => 'manager'],
@@ -56,7 +63,7 @@ class HayaWalkSeeder extends Seeder
         foreach ($users as $u) {
             $user = User::updateOrCreate(
                 ['email' => $u['email']],
-                ['name' => $u['name'], 'password' => Hash::make('password')],
+                ['name' => $u['name'], 'password' => $demoPassword],
             );
             $user->syncRoles([$u['role']]);
         }
@@ -160,7 +167,7 @@ class HayaWalkSeeder extends Seeder
                 'legal_name' => $tenantData['legal'] ?? $tenantData['name'] . ' LLC',
                 'type' => 'company',
                 'email' => $portalEmail,
-                'password' => $i < 3 ? Hash::make('password') : null,
+                'password' => $i < 3 ? $demoPassword : null,
                 'phone' => '+201' . rand(100000000, 999999999),
                 'whatsapp' => '+201' . rand(100000000, 999999999),
                 'tax_id' => (string) rand(100000000, 999999999),
