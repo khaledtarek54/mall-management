@@ -14,7 +14,7 @@
 | 04 | Leases | 🟡 Yellow | [04-leases.md](04-leases.md) | 3 lifecycle services (Creation/Renewal/Termination) excellent; standard Create/Edit form bypasses them — no charges seeded, no unit flip, rent fields drift from Charge::amount. Demo path (wizard + modals) safe. No carryover from Module 03 F-17. |
 | 05 | Invoices | 🟡 Yellow | [05-invoices.md](05-invoices.md) | F-17 carryover fix applied (overdue badge now per-property). 3 deferred — F-22 no cron schedule for billing/late-fees, F-23 InvoiceIssued mail doesn't attach PDF, F-24 ETA mock mode is the default. 63 Pest + 9 PDF/ETA e2e all green. |
 | 06 | Payments | 🟢 Green | [06-payments.md](06-payments.md) | Boot hooks (`saved`/`deleted` → recompute) are codebase's gold standard for consistency — pattern Lease (D-12) should adopt. 3 Yellow extensibility: F-25 per-row allocation guard, F-26 cross-tenant pivot constraint, F-27 dedicated tests. No F-17 carryover. |
-| 07 | CAM | ⬜ Not started | — | |
+| 07 | CAM | 🟢 Green | [07-cam.md](07-cam.md) | Well-scoped MVP per FEATURES.md "v1 intentionally shallow". 4 Yellow extensibility (mid-year termination, portal visibility, auto-true-up scheduling, expense categories) all align with documented Q2 roadmap. No F-17 carryover. |
 | 08 | ETA e-invoicing | ⬜ Not started | — | |
 | 09 | Maintenance / CAFM | ⬜ Not started | — | |
 | 10 | Owner Portal panel | ⬜ Not started | — | |
@@ -148,3 +148,19 @@ Legend: ⬜ Not started · 🟦 In progress · 🟢 Green · 🟡 Yellow · 🔴
 - **Cross-link**: D-12 (Module 04 Lease observer) recommendation = "do what Payment does in boot()".
 
 **Next:** Module 07 — CAM.
+
+### 2026-05-31 — Module 07 CAM 🟢
+
+- CamExpensePool (per asset+period_year, status `draft → reconciling → reconciled → closed`).
+- CamAllocation (per pool+lease, status `pending → billed → disputed → closed`, supports negative true_up for credits).
+- CamReconciliationService 171 LOC: `generateAllocations` is idempotent (updateOrCreate on pool+lease key); `bill` creates one-off Charge `vat_applicable=false`; `autoTrueUpForYear` walks all pools, optionally auto-bills.
+- CLI `cam:reconcile --year=YYYY [--auto-bill]`. **Not scheduled** — explicit Q2 per FEATURES.md L411.
+- No F-17 carryover. No portal/owner CAM surface.
+- **4 Yellow extensibility findings** (none are bugs — all match documented Q2 roadmap):
+  - **F-28**: mid-year lease termination leaks CAM accounting (terminated lease excluded from year-end; no proration/credit). Product decision.
+  - **F-29**: no portal CAM visibility — tenant sees the charge with no breakdown.
+  - **F-30**: auto-true-up not scheduled (matches F-22 / F-30 batching for Module 20 cron commit).
+  - **F-31**: single `total_actual_expense` field — no per-category breakdown (security/cleaning/HVAC/etc.).
+- Tests: 12 Pest `CamAutoTrueUpTest` cases green · 2 e2e green · full Pest 287/287.
+
+**Next:** Module 08 — ETA e-invoicing.
