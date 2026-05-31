@@ -748,6 +748,11 @@ return [
         'credit_note_voided' => 'تم إلغاء إشعار الخصم',
         'vendor_created' => 'تم حفظ المورد',
         'maintenance_assigned_vendor' => 'تم الإسناد إلى المورد :vendor.',
+        // Paymob
+        'pay_now_failed' => 'تعذر بدء الدفع',
+        'pay_now_failed_body' => 'لم تقبل بوابة Paymob الطلب. حاول مرة أخرى بعد قليل.',
+        'payment_return_success' => 'تم استلام دفعتك. ستُحدَّث الفاتورة بمجرد تأكيد البوابة.',
+        'payment_return_failed' => 'لم تتم عملية الدفع. يمكنك المحاولة من جديد أو اختيار فاتورة أخرى.',
     ],
 
     'fields' => [

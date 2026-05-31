@@ -19,8 +19,11 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // The API does not use cookies/session — Sanctum tokens only. Disable
         // CSRF for /api/* (Laravel does this by default but spell it out).
+        // Paymob's S2S callback is HMAC-verified and not browser-originated,
+        // so it is also CSRF-exempt.
         $middleware->validateCsrfTokens(except: [
             'api/*',
+            'paymob/callback',
         ]);
 
         // E2E coverage capture — only active when the server is booted with

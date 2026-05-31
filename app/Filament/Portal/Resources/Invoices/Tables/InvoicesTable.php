@@ -4,6 +4,7 @@ namespace App\Filament\Portal\Resources\Invoices\Tables;
 
 use App\Models\Invoice;
 use App\Services\InvoicePdfService;
+use App\Services\Paymob\PaymobPaymentInitiator;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
@@ -14,6 +15,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class InvoicesTable
 {
@@ -145,11 +147,23 @@ class InvoicesTable
                     ->visible(fn ($record) => config('integrations.paymob.enabled') && $record->balance > 0)
                     ->requiresConfirmation()
                     ->modalHeading(fn ($record) => __('admin.actions.pay_now') . ' · ' . $record->number)
-                    ->action(fn ($record) => Notification::make()
-                        ->title(__('admin.actions.pay_now'))
-                        ->body($record->number)
-                        ->success()
-                        ->send()),
+                    ->action(function (Invoice $record) {
+                        try {
+                            $url = app(PaymobPaymentInitiator::class)->start($record);
+
+                            return redirect()->away($url);
+                        } catch (\Throwable $e) {
+                            Log::warning('Paymob Pay Now failed', [
+                                'invoice_id' => $record->id,
+                                'error' => $e->getMessage(),
+                            ]);
+                            Notification::make()
+                                ->danger()
+                                ->title(__('admin.notifications.pay_now_failed'))
+                                ->body(__('admin.notifications.pay_now_failed_body'))
+                                ->send();
+                        }
+                    }),
             ])
             ->defaultSort('issue_date', 'desc');
     }

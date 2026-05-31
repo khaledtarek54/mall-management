@@ -748,6 +748,11 @@ return [
         'credit_note_voided' => 'Credit note voided',
         'vendor_created' => 'Vendor saved',
         'maintenance_assigned_vendor' => 'Assigned to vendor :vendor.',
+        // Paymob
+        'pay_now_failed' => 'Could not start payment',
+        'pay_now_failed_body' => 'Paymob did not accept the request. Please try again in a moment.',
+        'payment_return_success' => 'Your payment was received. The invoice will update once the gateway confirms it.',
+        'payment_return_failed' => 'The payment did not go through. You can try again or pick another invoice.',
     ],
 
     'fields' => [
