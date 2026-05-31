@@ -37,7 +37,7 @@ class UnitImporter extends Importer
 
             ImportColumn::make('category')
                 ->label(__('admin.tables.unit.category'))
-                ->rules(['nullable', 'in:retail,food_beverage,service,wellness,kiosk,anchor,office,other']),
+                ->rules(['nullable', 'in:retail,food_beverage,wellness,service,kiosk,office,storage']),
 
             ImportColumn::make('area_sqm')
                 ->label(__('admin.tables.unit.area'))

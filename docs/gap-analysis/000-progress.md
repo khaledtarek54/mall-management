@@ -10,7 +10,7 @@
 | 00 | Pre-flight | 🟢 Green | [00-preflight.md](00-preflight.md) | Pest 287/287 · migrate+seed clean · 3 panels respond · API JSON contract OK |
 | 01 | Dashboard & Widgets | 🟡 Yellow | [01-dashboard.md](01-dashboard.md) | Code healthy (45 widget + 36 page + 15 e2e tests green); 5 findings — DEMO.md narrative drift (F-1..F-3), MRR sparkline UX (F-4), percentDelta latent bug (F-5); 4 deferred decisions D-1..D-4; one inline fix F-6 (seeder log message). |
 | 02 | Tenants | 🟢 Green | [02-tenants.md](02-tenants.md) | Tenant model + auth flow + portal panel + 3-endpoint mobile API all clean. 75 tests + 4 portal e2e green. 5 Yellow extensibility findings (F-7..F-11) — none block demo or pilot. |
-| 03 | Units | ⬜ Not started | — | |
+| 03 | Units | 🟡 Yellow | [03-units.md](03-units.md) | 2 inline fixes — F-12 importer enum drift (accepted `anchor`/`other`, rejected `storage`), F-17 nav badge tenant leak (Unit only). F-17 also affects Invoices/Maintenance/Vendors/TenantSales — carry-over to those modules. |
 | 04 | Leases | ⬜ Not started | — | |
 | 05 | Invoices | ⬜ Not started | — | |
 | 06 | Payments | ⬜ Not started | — | |
@@ -76,3 +76,22 @@ Legend: ⬜ Not started · 🟦 In progress · 🟢 Green · 🟡 Yellow · 🔴
 - 5 deferred decisions (D-5..D-9) carried to end-of-sweep walk-through.
 
 **Next:** Module 03 — Units.
+
+### 2026-05-31 — Module 03 Units 🟡
+
+- Unit model (69 LOC, no observers/policies/scopes); HasOne `activeLease` filtered by status + latest.
+- Migration: 4-state status enum, 7-state category enum, soft delete, indexes on `(asset_id,status)` and `category`.
+- Admin: UnitResource with `BypassesScopingOnAll`, ImportAction + ExportAction, table has 6 filters incl. expiring-soon/critical.
+- OccupancyMap page: floor-grouped grid Blade view with status colour map (82 LOC, healthy).
+- Owner panel: no dedicated UnitResource — read-only via PropertyResource.
+- **2 inline fixes**:
+  - **F-12** 🔴: UnitImporter category rule diverged from DB enum (accepted `anchor`/`other`, rejected `storage`). Aligned to migration enum exactly.
+  - **F-17** 🔴: Nav badge `Unit::where('status','vacant')->count()` ignored Filament tenant scope. Now uses `static::getEloquentQuery()` (correct via `BypassesScopingOnAll`).
+- **F-17 is cross-cutting** — same pattern present in 4 other resources:
+  - InvoiceResource (Module 05) · MaintenanceRequestResource (Module 09) · VendorResource (Module 15) · TenantSalesDeclarationResource (Module 12)
+  - Each will get the same fix in its own module commit.
+- Tests: 16 Pest matched · 3 import e2e green · full Pest 287/287 after each fix.
+- **2 deferred** (D-10 add UnitTest.php · D-11 reorder importer status enum for grep-readability).
+- 1 explicit non-finding: no `app/Policies/` dir exists for ANY resource — Spatie roles + `RoleGatedActions`/`RoleScopedWidget` traits are the deliberate permission stack. Documented so it doesn't get re-flagged.
+
+**Next:** Module 04 — Leases.

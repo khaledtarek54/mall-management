@@ -75,7 +75,12 @@ class UnitResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        return (string) static::getModel()::where('status', 'vacant')->count();
+        // getEloquentQuery() respects the active Filament tenant (Asset) via
+        // BypassesScopingOnAll, so the badge reflects the currently-viewed
+        // property — not a global count. "All Properties" view returns the
+        // portfolio-wide total because the trait skips scoping for the ALL
+        // pseudo-asset.
+        return (string) static::getEloquentQuery()->where('status', 'vacant')->count();
     }
 
     public static function getNavigationBadgeColor(): ?string
