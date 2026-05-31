@@ -26,7 +26,7 @@
 | 16 | Assets (tenancy) | 🟢 Green | [16-assets-tenancy.md](16-assets-tenancy.md) | 80-test coverage on the most thoughtfully-designed code in the repo. 3-trait split (Scopes/Bypasses/CustomScope) + ALL-as-real-row pattern + per-property branding. 2 Yellow: F-61 no AssetTest, F-62 no multi-property growth UX. |
 | 17 | Users & Roles | 🟡 Yellow | [17-users-roles.md](17-users-roles.md) | RBAC production-ready: 6 roles · 81 perms · 18 modules · Spatie cache w/ explicit forget after role mutations. 5 Yellow operational-readiness gaps: F-63 default `password`, F-64 no self-service, F-65 no MFA, F-66 free-form pivot role, F-67 no User LogsActivity. |
 | 18 | Reports | 🟡 Yellow | [18-reports.md](18-reports.md) | ReportService 264 LOC pure math + bilingual PDF + filtered ActivityLog. 3 Yellow: F-68 reports pages gate on module flag only (no `reports.view` check), F-69 exporters all sync (queue for prod), F-70 no query caching. |
-| 19 | Mobile API `/api/v1` | ⬜ Not started | — | |
+| 19 | Mobile API `/api/v1` | 🟡 Yellow | [19-mobile-api.md](19-mobile-api.md) | Auth shipped + tested (3 endpoints). Designed full shortlist (~21 endpoints, ~1650 LOC est, 30 test cases) matching MOBILE-APP-BRIEF.md parity. Implementation deferred — pre-pilot for parity, post-pilot for push. F-72 (no password reset) bundles with M02 F-8. |
 | 20 | Cross-cutting | ⬜ Not started | — | |
 
 Legend: ⬜ Not started · 🟦 In progress · 🟢 Green · 🟡 Yellow · 🔴 Red
@@ -346,3 +346,17 @@ Per the user's "do recommended" instruction after triage.
 - Tests: 31 Pest `Report|ActivityLog` green · 4 e2e green · Full Pest 295/295.
 
 **Next:** Module 19 — Mobile API.
+
+### 2026-05-31 — Module 19 Mobile API 🟡
+
+- Current state: 3 auth endpoints (`login`, `me`, `logout`) all tested via LoginTest (8 cases) + AuthenticatedRoutesTest. Quality is the reference bar for the rest.
+- Designed shortlist organized into 7 groups (auth completion / profile + balance / invoices / payments / maintenance / sales / devices) — ~21 endpoints matching MOBILE-APP-BRIEF.md parity.
+- **3 Yellow** (deferred — design module, not implementation):
+  - **F-71**: only auth endpoints shipped; rest of the surface unimplemented.
+  - **F-72**: no password reset flow (cross-ref M02 F-8 + portal panel) — bundle.
+  - **F-73**: no device-tokens table or push pipeline (depends on D-29 notification design).
+- D-56: approve the endpoint shortlist + green-light implementation.
+- D-57: combine password-reset across web portal (M02 F-8) and mobile API in one flow.
+- Tests: 20 Pest `Api/V1` cases green; full Pest 295/295.
+
+**Next:** Module 20 — Cross-cutting + production checklist (final).
