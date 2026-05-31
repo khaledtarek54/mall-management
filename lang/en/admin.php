@@ -520,6 +520,11 @@ return [
             'permissions' => 'Permissions',
             'users' => 'Users',
         ],
+        'user' => [
+            'name' => 'Name',
+            'email' => 'Email',
+            'role' => 'Role',
+        ],
     ],
 
     'filters' => [
