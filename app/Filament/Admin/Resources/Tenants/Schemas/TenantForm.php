@@ -41,7 +41,18 @@ class TenantForm
                         ->native(false),
                     TextInput::make('tax_id')
                         ->label(__('admin.fields.tax_id'))
-                        ->maxLength(50),
+                        ->maxLength(50)
+                        // Egyptian Tax Registration Number: 9 digits, optional
+                        // dashes (`XXX-XXX-XXX`). Required at ETA-submission
+                        // time for business tenants — validating here surfaces
+                        // bad data before billing instead of letting ETA reject
+                        // it (audit M15 F-59 / D-44).
+                        ->regex('/^\d{3}-?\d{3}-?\d{3}$/')
+                        ->validationMessages([
+                            'regex' => __('admin.validation.tenant_tax_id_format'),
+                        ])
+                        ->placeholder('123-456-789')
+                        ->helperText(__('admin.helpers.tenant_tax_id_format')),
                     TextInput::make('national_id')
                         ->label(__('admin.fields.national_id'))
                         ->maxLength(20),

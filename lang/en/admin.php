@@ -830,6 +830,7 @@ return [
 
     'helpers' => [
         'term_months' => 'Total lease length in months. Typical Egyptian mall leases run 12, 24, or 36 months.',
+        'tenant_tax_id_format' => '9-digit Egyptian Tax Registration Number, optional dashes (XXX-XXX-XXX). Required for ETA e-invoice submission on business tenants.',
         'base_rent_monthly' => 'Fixed monthly rent. VAT-exempt under the Egyptian tax model.',
         'base_rent_monthly_edit_lock' => 'Locked on Edit. Use the “Change rent” record action so the recurring Charge row updates atomically with the lease.',
         'service_charge_monthly' => 'Monthly service charge for shared services (security, cleaning, common-area HVAC). 14% VAT applies.',
@@ -1290,6 +1291,9 @@ return [
     'payment' => [
         'allocation_exceeds_balance' => 'Allocation to invoice :invoice cannot exceed :max — that invoice does not have enough open balance for this amount.',
         'cross_tenant_allocation' => 'Cannot allocate to invoice :invoice — that invoice belongs to a different tenant.',
+    ],
+    'validation' => [
+        'tenant_tax_id_format' => 'Tax ID must be 9 digits, optionally formatted as XXX-XXX-XXX (Egyptian Tax Registration Number).',
     ],
 
 ];
