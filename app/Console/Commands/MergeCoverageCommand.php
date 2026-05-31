@@ -7,6 +7,7 @@ use SebastianBergmann\CodeCoverage\CodeCoverage;
 use SebastianBergmann\CodeCoverage\Report\Clover as CloverReport;
 use SebastianBergmann\CodeCoverage\Report\Html\Facade as HtmlReport;
 use SebastianBergmann\CodeCoverage\Report\Text as TextReport;
+use SebastianBergmann\CodeCoverage\Report\Thresholds;
 
 /**
  * Merges all per-request .cov files written by RecordCoverage middleware
@@ -67,7 +68,7 @@ class MergeCoverageCommand extends Command
         }
 
         // Text report — short percentage line to stdout.
-        $text = (new TextReport)->process($merged, showColors: false);
+        $text = (new TextReport(Thresholds::default(), false, true))->process($merged, showColors: false);
         $this->line($text);
 
         // HTML report.

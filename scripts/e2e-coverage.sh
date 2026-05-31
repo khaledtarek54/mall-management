@@ -19,6 +19,11 @@ XDEBUG_SO="/Applications/Herd.app/Contents/Resources/xdebug/xdebug-84-arm64.so"
 PORT="${E2E_COVERAGE_PORT:-8765}"
 HOST="127.0.0.1"
 BASE_URL="http://${HOST}:${PORT}"
+# Parallelism — PHP_CLI_SERVER_WORKERS forks the dev server so it can handle
+# concurrent requests; Playwright workers drive different spec files in
+# parallel. Cap Playwright below PHP workers so server-side never queues.
+PHP_WORKERS="${E2E_PHP_WORKERS:-16}"
+PW_WORKERS="${E2E_PW_WORKERS:-2}"
 
 if [ ! -f "$XDEBUG_SO" ]; then
   echo "✗ Xdebug binary not found at $XDEBUG_SO"
@@ -26,16 +31,30 @@ if [ ! -f "$XDEBUG_SO" ]; then
   exit 1
 fi
 
-echo "▸ Cleaning previous coverage dumps..."
-rm -rf storage/coverage coverage/e2e
+echo "▸ Cleaning previous coverage dumps + freeing port..."
+# Remove per-request dumps + HTML output, but PRESERVE pest.cov so the
+# combined coverage-all pipeline can layer on top of a prior Pest run.
 mkdir -p storage/coverage coverage/e2e
+find storage/coverage -name 'req-*.cov' -delete 2>/dev/null || true
+rm -f storage/coverage/server.log storage/coverage/server.pid
+rm -rf coverage/e2e
+mkdir -p coverage/e2e
+# Kill anything still bound to the coverage port from a prior aborted run.
+if PIDS=$(lsof -ti tcp:"$PORT" 2>/dev/null) && [ -n "$PIDS" ]; then
+  echo "  freeing port ${PORT} (killing PIDs: ${PIDS})"
+  echo "$PIDS" | xargs -n1 kill -9 2>/dev/null || true
+  sleep 1
+fi
 
-echo "▸ Starting coverage server on ${BASE_URL} (Xdebug coverage mode)..."
+echo "▸ Starting coverage server on ${BASE_URL} (Xdebug, PHP_CLI_SERVER_WORKERS=${PHP_WORKERS})..."
 # Use PHP's built-in server directly instead of `artisan serve`. `artisan serve`
 # only whitelists a fixed set of env vars when spawning workers (see
 # vendor/laravel/framework/.../ServeCommand.php::$passthroughVariables), so
 # COVERAGE=1 never reaches the request handler. `php -S` passes the full
 # parent env through unchanged.
+#
+# PHP_CLI_SERVER_WORKERS forks N worker processes so the dev server can
+# handle concurrent requests — required for Playwright workers > 1.
 #
 # The Laravel router script uses getcwd() for the include path, so we cd
 # into public/ before launching the server.
@@ -43,6 +62,7 @@ ROUTER="$PROJECT_ROOT/vendor/laravel/framework/src/Illuminate/Foundation/resourc
 (
   cd "$PROJECT_ROOT/public"
   COVERAGE=1 \
+  PHP_CLI_SERVER_WORKERS="$PHP_WORKERS" \
     /Applications/Herd.app/Contents/Resources/herd coverage \
       -dzend_extension="$XDEBUG_SO" \
       -dxdebug.mode=coverage \
@@ -76,9 +96,34 @@ for i in $(seq 1 60); do
   sleep 1
 done
 
-echo "▸ Running Playwright suite against ${BASE_URL}..."
+echo "▸ Running Playwright suite against ${BASE_URL} (workers=${PW_WORKERS})..."
+# Skip 99-system-smoke during coverage runs by default: it hits the same URLs
+# the per-resource specs already cover, but uses ~3x the runtime and tends
+# to saturate the dev server. Pass --include-smoke to opt in.
+INCLUDE_SMOKE=0
+ARGS=()
+for a in "$@"; do
+  if [ "$a" = "--include-smoke" ]; then
+    INCLUDE_SMOKE=1
+  else
+    ARGS+=("$a")
+  fi
+done
+
+# Default to all specs except 99-system-smoke (unless user passed explicit paths).
+# Bash 3-compatible (no mapfile/readarray on macOS default).
+if [ "${#ARGS[@]}" -eq 0 ]; then
+  while IFS= read -r f; do ARGS+=("$f"); done < <(
+    if [ "$INCLUDE_SMOKE" = "1" ]; then
+      ls tests/e2e/*.spec.js
+    else
+      ls tests/e2e/*.spec.js | grep -v '99-system-smoke'
+    fi
+  )
+fi
+
 set +e
-PLAYWRIGHT_BASE_URL="${BASE_URL}" npx playwright test "$@"
+PLAYWRIGHT_BASE_URL="${BASE_URL}" npx playwright test --workers="${PW_WORKERS}" "${ARGS[@]}"
 PLAYWRIGHT_EXIT=$?
 set -e
 

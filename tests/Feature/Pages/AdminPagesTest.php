@@ -4,7 +4,13 @@ use App\Actions\Api\Auth\LogoutTenantAction;
 use App\Filament\Admin\Pages\ArAging;
 use App\Filament\Admin\Pages\Reports;
 use App\Settings\ModulesSettings;
+use Illuminate\Support\Carbon;
 use Laravel\Sanctum\PersonalAccessToken;
+
+// Freeze "now" so CarbonImmutable::createFromFormat('Y-m', ...) on the Reports
+// page is deterministic regardless of which day-of-month the suite runs on.
+beforeEach(fn () => Carbon::setTestNow('2026-02-15 10:00:00'));
+afterEach(fn () => Carbon::setTestNow());
 
 beforeEach(function () {
     ensureAllPropertiesAsset();

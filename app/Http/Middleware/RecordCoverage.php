@@ -21,19 +21,26 @@ class RecordCoverage
 {
     public function handle(Request $request, Closure $next)
     {
-        @file_put_contents('/tmp/cov-debug.log', date('H:i:s') . " handle() path={$request->path()} shouldRecord=" . (self::shouldRecord() ? 'yes' : 'no') . "\n", FILE_APPEND);
-
         if (! self::shouldRecord()) {
             return $next($request);
         }
 
-        $coverage = $this->makeCoverage();
-        $coverage->start($request->path() ?: 'root');
+        try {
+            $coverage = $this->makeCoverage();
+            $coverage->start($request->path() ?: 'root');
+        } catch (\Throwable) {
+            // Coverage capture must never block a request. Swallow + continue.
+            return $next($request);
+        }
 
         $response = $next($request);
 
-        $coverage->stop();
-        $this->persist($coverage);
+        try {
+            $coverage->stop();
+            $this->persist($coverage);
+        } catch (\Throwable) {
+            // ditto
+        }
 
         return $response;
     }
@@ -49,7 +56,16 @@ class RecordCoverage
     private function makeCoverage(): CodeCoverage
     {
         $filter = new Filter;
-        $filter->includeDirectory(base_path('app'));
+        // Newer php-code-coverage dropped includeDirectory() in favor of an
+        // explicit file list. Walk app/ once and feed it the .php files.
+        $files = [];
+        $dir = new \RecursiveDirectoryIterator(base_path('app'));
+        foreach (new \RecursiveIteratorIterator($dir) as $f) {
+            if ($f->isFile() && $f->getExtension() === 'php') {
+                $files[] = $f->getPathname();
+            }
+        }
+        $filter->includeFiles($files);
 
         return new CodeCoverage(
             (new Selector)->forLineCoverage($filter),

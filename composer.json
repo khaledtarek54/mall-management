@@ -71,6 +71,10 @@
             "Composer\\Config::disableProcessTimeout",
             "scripts/e2e-coverage.sh"
         ],
+        "coverage-all": [
+            "Composer\\Config::disableProcessTimeout",
+            "scripts/coverage-all.sh"
+        ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi",

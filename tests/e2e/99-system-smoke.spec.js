@@ -16,53 +16,53 @@ import { expectNoLaravelError } from './helpers.js';
 
 const ADMIN_LIST_PAGES = [
   '/admin',                              // dashboard
-  '/admin/assets',
-  '/admin/units',
-  '/admin/tenants',
-  '/admin/leases',
-  '/admin/invoices',
-  '/admin/payments',
-  '/admin/credit-notes',
-  '/admin/maintenance-requests',
-  '/admin/tenant-sales-declarations',
-  '/admin/cam-expense-pools',
-  '/admin/utility-meters',
-  '/admin/vendors',
-  '/admin/users',
-  '/admin/occupancy-map',
-  '/admin/activity-log',
+  '/admin/ALL/assets',
+  '/admin/ALL/units',
+  '/admin/ALL/tenants',
+  '/admin/ALL/leases',
+  '/admin/ALL/invoices',
+  '/admin/ALL/payments',
+  '/admin/ALL/credit-notes',
+  '/admin/ALL/maintenance-requests',
+  '/admin/ALL/tenant-sales-declarations',
+  '/admin/ALL/cam-expense-pools',
+  '/admin/ALL/utility-meters',
+  '/admin/ALL/vendors',
+  '/admin/ALL/users',
+  '/admin/ALL/occupancy-map',
+  '/admin/ALL/activity-log',
 ];
 
 const ADMIN_CREATE_PAGES = [
-  '/admin/assets/create',
-  '/admin/units/create',
-  '/admin/tenants/create',
-  '/admin/leases/create',
-  '/admin/invoices/create',
-  '/admin/payments/create',
-  '/admin/credit-notes/create',
-  '/admin/maintenance-requests/create',
-  '/admin/tenant-sales-declarations/create',
-  '/admin/cam-expense-pools/create',
-  '/admin/utility-meters/create',
-  '/admin/vendors/create',
-  '/admin/users/create',
+  '/admin/ALL/assets/create',
+  '/admin/ALL/units/create',
+  '/admin/ALL/tenants/create',
+  '/admin/ALL/leases/create',
+  '/admin/ALL/invoices/create',
+  '/admin/ALL/payments/create',
+  '/admin/ALL/credit-notes/create',
+  '/admin/ALL/maintenance-requests/create',
+  '/admin/ALL/tenant-sales-declarations/create',
+  '/admin/ALL/cam-expense-pools/create',
+  '/admin/ALL/utility-meters/create',
+  '/admin/ALL/vendors/create',
+  '/admin/ALL/users/create',
 ];
 
 // Resources where we'll click into the first record's edit page.
 const ADMIN_EDIT_TARGETS = [
-  { list: '/admin/assets', editPattern: /\/admin\/assets\/\d+\/edit/ },
-  { list: '/admin/units', editPattern: /\/admin\/units\/\d+\/edit/ },
-  { list: '/admin/tenants', editPattern: /\/admin\/tenants\/\d+\/edit/ },
-  { list: '/admin/leases', editPattern: /\/admin\/leases\/\d+\/edit/ },
-  { list: '/admin/invoices', editPattern: /\/admin\/invoices\/\d+\/edit/ },
-  { list: '/admin/payments', editPattern: /\/admin\/payments\/\d+\/edit/ },
-  { list: '/admin/maintenance-requests', editPattern: /\/admin\/maintenance-requests\/\d+\/edit/ },
-  { list: '/admin/tenant-sales-declarations', editPattern: /\/admin\/tenant-sales-declarations\/\d+\/edit/ },
-  { list: '/admin/cam-expense-pools', editPattern: /\/admin\/cam-expense-pools\/\d+\/edit/ },
-  { list: '/admin/utility-meters', editPattern: /\/admin\/utility-meters\/\d+\/edit/ },
-  { list: '/admin/vendors', editPattern: /\/admin\/vendors\/\d+\/edit/ },
-  { list: '/admin/users', editPattern: /\/admin\/users\/\d+\/edit/ },
+  { list: '/admin/ALL/assets', editPattern: /\/admin\/assets\/\d+\/edit/ },
+  { list: '/admin/ALL/units', editPattern: /\/admin\/units\/\d+\/edit/ },
+  { list: '/admin/ALL/tenants', editPattern: /\/admin\/tenants\/\d+\/edit/ },
+  { list: '/admin/ALL/leases', editPattern: /\/admin\/leases\/\d+\/edit/ },
+  { list: '/admin/ALL/invoices', editPattern: /\/admin\/invoices\/\d+\/edit/ },
+  { list: '/admin/ALL/payments', editPattern: /\/admin\/payments\/\d+\/edit/ },
+  { list: '/admin/ALL/maintenance-requests', editPattern: /\/admin\/maintenance-requests\/\d+\/edit/ },
+  { list: '/admin/ALL/tenant-sales-declarations', editPattern: /\/admin\/tenant-sales-declarations\/\d+\/edit/ },
+  { list: '/admin/ALL/cam-expense-pools', editPattern: /\/admin\/cam-expense-pools\/\d+\/edit/ },
+  { list: '/admin/ALL/utility-meters', editPattern: /\/admin\/utility-meters\/\d+\/edit/ },
+  { list: '/admin/ALL/vendors', editPattern: /\/admin\/vendors\/\d+\/edit/ },
+  { list: '/admin/ALL/users', editPattern: /\/admin\/users\/\d+\/edit/ },
 ];
 
 const PORTAL_PAGES = [
@@ -149,15 +149,15 @@ test.describe('ADMIN panel — opening filter panel does not 500', () => {
   // evaluate getModel() and modifyQueryUsing closures, where most
   // closure-injection bugs surface.
   const filterablePages = [
-    '/admin/invoices',
-    '/admin/payments',
-    '/admin/credit-notes',
-    '/admin/leases',
-    '/admin/maintenance-requests',
-    '/admin/tenant-sales-declarations',
-    '/admin/vendors',
-    '/admin/units',
-    '/admin/tenants',
+    '/admin/ALL/invoices',
+    '/admin/ALL/payments',
+    '/admin/ALL/credit-notes',
+    '/admin/ALL/leases',
+    '/admin/ALL/maintenance-requests',
+    '/admin/ALL/tenant-sales-declarations',
+    '/admin/ALL/vendors',
+    '/admin/ALL/units',
+    '/admin/ALL/tenants',
   ];
 
   for (const path of filterablePages) {
@@ -275,11 +275,11 @@ test.describe('ARABIC locale — critical admin pages render', () => {
 
   const arabicCheckPages = [
     '/admin',
-    '/admin/invoices',
-    '/admin/credit-notes',
-    '/admin/vendors',
-    '/admin/maintenance-requests',
-    '/admin/users',
+    '/admin/ALL/invoices',
+    '/admin/ALL/credit-notes',
+    '/admin/ALL/vendors',
+    '/admin/ALL/maintenance-requests',
+    '/admin/ALL/users',
   ];
 
   for (const path of arabicCheckPages) {

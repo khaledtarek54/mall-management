@@ -10,14 +10,14 @@ test.describe('CAM Reconciliation', () => {
   });
 
   test('CAM Reconciliation page is reachable and renders', async ({ page }) => {
-    const response = await page.goto('/admin/cam-expense-pools');
+    const response = await page.goto('/admin/ALL/cam-expense-pools');
     expect(response.status()).toBeLessThan(400);
     await expectNoLaravelError(page);
     await expect(page.getByRole('heading', { name: 'CAM Reconciliation' })).toBeVisible({ timeout: 15000 });
   });
 
   test('Seeded pools render with both Haya Walk rows', async ({ page }) => {
-    await page.goto('/admin/cam-expense-pools');
+    await page.goto('/admin/ALL/cam-expense-pools');
     await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
     // Two pool rows seeded by HayaWalkSeeder (last year + current year) — so Haya Walk
     // appears twice in the asset column.

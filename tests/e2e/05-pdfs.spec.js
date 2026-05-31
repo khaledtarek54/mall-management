@@ -5,10 +5,10 @@ test.use({ storageState: 'storage/playwright-state/admin.json' });
 
 test('Admin can download invoice PDF in English', async ({ page }) => {
   await page.goto('/locale/en');
-  await page.goto('/admin/invoices');
+  await page.goto('/admin/ALL/invoices');
   await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
 
-  const firstEdit = page.locator('a[href*="/admin/invoices/"][href$="/edit"]').first();
+  const firstEdit = page.locator('a[href*="/admin/ALL/invoices/"][href$="/edit"]').first();
   const href = await firstEdit.getAttribute('href');
   await page.goto(new URL(href, 'http://x').pathname);
   await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
@@ -28,10 +28,10 @@ test('Admin can download invoice PDF in English', async ({ page }) => {
 
 test('Admin can download invoice PDF in Arabic', async ({ page }) => {
   await page.goto('/locale/ar');
-  await page.goto('/admin/invoices');
+  await page.goto('/admin/ALL/invoices');
   await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
 
-  const firstEdit = page.locator('a[href*="/admin/invoices/"][href$="/edit"]').first();
+  const firstEdit = page.locator('a[href*="/admin/ALL/invoices/"][href$="/edit"]').first();
   const href = await firstEdit.getAttribute('href');
   await page.goto(new URL(href, 'http://x').pathname);
   await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
@@ -47,10 +47,10 @@ test('Admin can download invoice PDF in Arabic', async ({ page }) => {
 
 test('Admin can download tenant statement PDF', async ({ page }) => {
   await page.goto('/locale/en');
-  await page.goto('/admin/tenants');
+  await page.goto('/admin/ALL/tenants');
   await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
 
-  const firstEdit = page.locator('a[href*="/admin/tenants/"][href$="/edit"]').first();
+  const firstEdit = page.locator('a[href*="/admin/ALL/tenants/"][href$="/edit"]').first();
   const href = await firstEdit.getAttribute('href');
   await page.goto(new URL(href, 'http://x').pathname);
   await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});

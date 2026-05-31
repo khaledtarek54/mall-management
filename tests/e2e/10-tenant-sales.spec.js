@@ -11,14 +11,14 @@ test.describe('Tenant Sales Declarations', () => {
     });
 
     test('Admin can open the Tenant Sales review queue', async ({ page }) => {
-      const response = await page.goto('/admin/tenant-sales-declarations');
+      const response = await page.goto('/admin/ALL/tenant-sales-declarations');
       expect(response.status()).toBeLessThan(400);
       await expectNoLaravelError(page);
       await expect(page.locator('text=Tenant Sales').first()).toBeVisible();
     });
 
     test('Admin queue page renders with the resource heading', async ({ page }) => {
-      await page.goto('/admin/tenant-sales-declarations');
+      await page.goto('/admin/ALL/tenant-sales-declarations');
       await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
       // The page heading is the plural model label set by getPluralModelLabel().
       await expect(page.getByRole('heading', { name: 'Tenant Sales Declarations' })).toBeVisible({ timeout: 15000 });
@@ -28,7 +28,7 @@ test.describe('Tenant Sales Declarations', () => {
       // Seeder runs lock() on month-3-back rows. Charges of type percentage_rent should exist.
       // We verify indirectly: the Charges admin page should not 500, and at least one
       // percentage-rent invoice item should show on a recent invoice.
-      const response = await page.goto('/admin/invoices');
+      const response = await page.goto('/admin/ALL/invoices');
       expect(response.status()).toBeLessThan(400);
       await expectNoLaravelError(page);
     });

@@ -10,7 +10,8 @@ test.describe('Authentication', () => {
     await expect(page.locator('input[wire\\:model="data.password"]')).toBeVisible();
 
     await loginAdmin(page);
-    await expect(page).toHaveURL(/\/admin$/);
+    // Filament tenancy: post-login lands on /admin/{tenantCode}, not /admin.
+    await expect(page).toHaveURL(/\/admin\/[A-Z0-9_-]+$/);
     expect(errors, 'No JS errors during login').toEqual([]);
   });
 
@@ -33,7 +34,7 @@ test.describe('Authentication', () => {
   });
 
   test('protected admin routes redirect to login when unauthenticated', async ({ page }) => {
-    await page.goto('/admin/invoices');
+    await page.goto('/admin/ALL/invoices');
     await expect(page).toHaveURL(/\/admin\/login/);
   });
 

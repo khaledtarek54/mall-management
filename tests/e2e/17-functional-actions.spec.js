@@ -33,7 +33,7 @@ test.describe('ADMIN: invoice actions', () => {
   test.use({ storageState: 'storage/playwright-state/admin.json' });
 
   test('Run Monthly Billing modal opens', async ({ page }) => {
-    await page.goto('/admin/invoices', { waitUntil: 'networkidle' });
+    await page.goto('/admin/ALL/invoices', { waitUntil: 'networkidle' });
     await clickAction(page, 'Run Monthly Billing');
     await expectModalWithText(page, /generate invoices/i);
     // Cancel out
@@ -41,7 +41,7 @@ test.describe('ADMIN: invoice actions', () => {
   });
 
   test('Download PDF starts a file download', async ({ page }) => {
-    await page.goto('/admin/invoices', { waitUntil: 'networkidle' });
+    await page.goto('/admin/ALL/invoices', { waitUntil: 'networkidle' });
     const downloadPromise = page.waitForEvent('download', { timeout: 15000 });
     await page.locator('button:visible, a:visible').filter({ hasText: /^\s*PDF\s*$/ }).first().click();
     const download = await downloadPromise;
@@ -50,7 +50,7 @@ test.describe('ADMIN: invoice actions', () => {
   });
 
   test('Submit to ETA action exists in row actions', async ({ page }) => {
-    await page.goto('/admin/invoices', { waitUntil: 'networkidle' });
+    await page.goto('/admin/ALL/invoices', { waitUntil: 'networkidle' });
     // Per-row actions may be inside a dropdown; just confirm the action
     // label is present somewhere in the document (the closure-evaluation
     // bug would prevent the action from rendering at all).
@@ -67,8 +67,8 @@ test.describe('ADMIN: lease actions', () => {
   test.use({ storageState: 'storage/playwright-state/admin.json' });
 
   test('Generate Invoice header action wired on lease edit', async ({ page }) => {
-    await page.goto('/admin/leases', { waitUntil: 'networkidle' });
-    const editLink = page.locator('a[href*="/admin/leases/"][href$="/edit"]').first();
+    await page.goto('/admin/ALL/leases', { waitUntil: 'networkidle' });
+    const editLink = page.locator('a[href*="/admin/ALL/leases/"][href$="/edit"]').first();
     const href = await editLink.getAttribute('href');
     await page.goto(href, { waitUntil: 'networkidle' });
     const html = await page.content();
@@ -76,7 +76,7 @@ test.describe('ADMIN: lease actions', () => {
   });
 
   test('Renew lease modal opens', async ({ page }) => {
-    await page.goto('/admin/leases', { waitUntil: 'networkidle' });
+    await page.goto('/admin/ALL/leases', { waitUntil: 'networkidle' });
     const btn = page.locator('button:visible, a:visible').filter({ hasText: /^\s*Renew\s*$/i }).first();
     if (await btn.isVisible({ timeout: 2000 }).catch(() => false)) {
       await btn.click();
@@ -100,8 +100,8 @@ test.describe('ADMIN: credit note workflow', () => {
 
   test('issue action button exists on a draft credit note', async ({ page }) => {
     // First make sure we can reach a credit note (create one if none exist)
-    await page.goto('/admin/credit-notes', { waitUntil: 'networkidle' });
-    const firstEdit = page.locator('a[href*="/admin/credit-notes/"][href$="/edit"]').first();
+    await page.goto('/admin/ALL/credit-notes', { waitUntil: 'networkidle' });
+    const firstEdit = page.locator('a[href*="/admin/ALL/credit-notes/"][href$="/edit"]').first();
     if (!(await firstEdit.isVisible({ timeout: 2000 }).catch(() => false))) {
       // No credit notes seeded — skip. Direct end-to-end create is a separate test.
       test.skip(true, 'No credit notes — create flow covered separately');
@@ -122,14 +122,14 @@ test.describe('ADMIN: vendor creation end-to-end', () => {
 
   test('can create a vendor end-to-end (form submit → edit page)', async ({ page }) => {
     const vendorName = `Test Vendor ${Date.now()}`;
-    await page.goto('/admin/vendors/create', { waitUntil: 'networkidle' });
+    await page.goto('/admin/ALL/vendors/create', { waitUntil: 'networkidle' });
     await expectNoLaravelError(page);
 
     await page.locator('input[wire\\:model="data.name"], input[id*="data.name"]').first().fill(vendorName);
     await page.locator('button[type="submit"]').filter({ hasText: /create|save/i }).first().click();
 
     // Successful create redirects to the new record's edit page
-    await page.waitForURL(/\/admin\/vendors\/\d+\/edit/, { timeout: 10000 });
+    await page.waitForURL(/\/admin\/[A-Z0-9_-]+\/vendors\/\d+\/edit/, { timeout: 10000 });
     await expectNoLaravelError(page);
 
     // Confirm the new vendor name appears (as a heading or in the page title)
@@ -145,7 +145,7 @@ test.describe('ADMIN: maintenance actions', () => {
   test.use({ storageState: 'storage/playwright-state/admin.json' });
 
   test('Change Status modal opens', async ({ page }) => {
-    await page.goto('/admin/maintenance-requests', { waitUntil: 'networkidle' });
+    await page.goto('/admin/ALL/maintenance-requests', { waitUntil: 'networkidle' });
     const btn = page.locator('button:visible, a:visible').filter({ hasText: /Change Status/i }).first();
     if (await btn.isVisible({ timeout: 2000 }).catch(() => false)) {
       await btn.click();
@@ -160,8 +160,8 @@ test.describe('ADMIN: maintenance actions', () => {
   });
 
   test('maintenance edit page loads with vendor select', async ({ page }) => {
-    await page.goto('/admin/maintenance-requests', { waitUntil: 'networkidle' });
-    const editLink = page.locator('a[href*="/admin/maintenance-requests/"][href$="/edit"]').first();
+    await page.goto('/admin/ALL/maintenance-requests', { waitUntil: 'networkidle' });
+    const editLink = page.locator('a[href*="/admin/ALL/maintenance-requests/"][href$="/edit"]').first();
     await editLink.click();
     await page.waitForLoadState('networkidle');
     await expectNoLaravelError(page);
@@ -178,7 +178,7 @@ test.describe('ADMIN: tenant sales actions', () => {
   test.use({ storageState: 'storage/playwright-state/admin.json' });
 
   test('Lock action modal opens on a submitted declaration', async ({ page }) => {
-    await page.goto('/admin/tenant-sales-declarations', { waitUntil: 'networkidle' });
+    await page.goto('/admin/ALL/tenant-sales-declarations', { waitUntil: 'networkidle' });
     const btn = page.locator('button:visible, a:visible').filter({ hasText: /^\s*Lock\s*$/ }).first();
     if (await btn.isVisible({ timeout: 2000 }).catch(() => false)) {
       await btn.click();
@@ -201,9 +201,9 @@ test.describe('ADMIN: CAM actions', () => {
   test.use({ storageState: 'storage/playwright-state/admin.json' });
 
   test('Generate Allocations action available on a draft pool', async ({ page }) => {
-    await page.goto('/admin/cam-expense-pools', { waitUntil: 'networkidle' });
+    await page.goto('/admin/ALL/cam-expense-pools', { waitUntil: 'networkidle' });
     // Find a draft pool — typically the most recent year
-    const firstEdit = page.locator('a[href*="/admin/cam-expense-pools/"][href$="/edit"]').first();
+    const firstEdit = page.locator('a[href*="/admin/ALL/cam-expense-pools/"][href$="/edit"]').first();
     if (!(await firstEdit.isVisible({ timeout: 2000 }).catch(() => false))) {
       test.skip(true, 'No CAM pools');
       return;
@@ -224,7 +224,7 @@ test.describe('ADMIN: bulk actions', () => {
   test.use({ storageState: 'storage/playwright-state/admin.json' });
 
   test('selecting invoices enables bulk action toolbar', async ({ page }) => {
-    await page.goto('/admin/invoices', { waitUntil: 'networkidle' });
+    await page.goto('/admin/ALL/invoices', { waitUntil: 'networkidle' });
 
     // Check first 2 row checkboxes (skip the "select all" header one)
     const rowCheckboxes = page.locator('table input[type="checkbox"]:visible');

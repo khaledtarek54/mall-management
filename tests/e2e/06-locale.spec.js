@@ -31,7 +31,7 @@ test('Arabic locale renders translated nav labels', async ({ page }) => {
 
 test('Arabic invoice index renders Arabic column headers', async ({ page }) => {
   await page.goto('/locale/ar');
-  await page.goto('/admin/invoices');
+  await page.goto('/admin/ALL/invoices');
   await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
   // Status column header in Arabic; check the thead block contains at least one Arabic header
   await expect(page.locator('thead').first()).toContainText(/الحالة|الرقم|المستأجر|الإجمالي/);
@@ -41,7 +41,7 @@ test('Locale persists across page navigation', async ({ page }) => {
   await page.goto('/locale/ar');
   await page.goto('/admin');
   await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
-  await page.goto('/admin/invoices');
+  await page.goto('/admin/ALL/invoices');
   await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
   const dir = await page.locator('html').getAttribute('dir');
   expect(dir).toBe('rtl');

@@ -4,7 +4,15 @@ use App\Jobs\ApplyLateFees;
 use App\Jobs\RunMonthlyBilling;
 use App\Models\Charge;
 use App\Models\Invoice;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Bus;
+
+// Freeze "now" so Carbon::createFromFormat('Y-m', 'YYYY-MM') doesn't overflow
+// when the suite runs on a day-of-month that doesn't exist in the target
+// month (e.g. running on the 31st with target month February → day-of-month
+// rolls into March 3 → period drifts to YYYY-03).
+beforeEach(fn () => Carbon::setTestNow('2026-02-15 10:00:00'));
+afterEach(fn () => Carbon::setTestNow());
 
 /* ───────── billing:apply-late-fees ───────── */
 

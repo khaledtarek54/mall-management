@@ -19,14 +19,14 @@ test.describe('Multi-property tenancy (session-based operator switcher)', () => 
 
   test('Switching to Jawad shows Haya Walk in Properties', async ({ page }) => {
     await page.goto('/operator/switch/jawad');
-    await page.goto('/admin/assets');
+    await page.goto('/admin/ALL/assets');
     await expectNoLaravelError(page);
     await expect(page.locator('text=Haya Walk').first()).toBeVisible();
   });
 
   test('Switching to Eltizam Egypt hides Haya Walk (operator has no assets)', async ({ page }) => {
     await page.goto('/operator/switch/eltizam-egypt');
-    await page.goto('/admin/assets');
+    await page.goto('/admin/ALL/assets');
     await expectNoLaravelError(page);
     // Eltizam Egypt has no assets, so the Haya Walk row must not appear in the table body
     await expect(page.locator('table').locator('text=Haya Walk')).toHaveCount(0);
@@ -35,7 +35,7 @@ test.describe('Multi-property tenancy (session-based operator switcher)', () => 
   test('Switching back to "all" restores cross-operator visibility', async ({ page }) => {
     await page.goto('/operator/switch/eltizam-egypt');
     await page.goto('/operator/switch/all');
-    await page.goto('/admin/assets');
+    await page.goto('/admin/ALL/assets');
     await expectNoLaravelError(page);
     await expect(page.locator('text=Haya Walk').first()).toBeVisible();
   });
