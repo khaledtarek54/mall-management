@@ -27,7 +27,7 @@
 | 17 | Users & Roles | 🟡 Yellow | [17-users-roles.md](17-users-roles.md) | RBAC production-ready: 6 roles · 81 perms · 18 modules · Spatie cache w/ explicit forget after role mutations. 5 Yellow operational-readiness gaps: F-63 default `password`, F-64 no self-service, F-65 no MFA, F-66 free-form pivot role, F-67 no User LogsActivity. |
 | 18 | Reports | 🟡 Yellow | [18-reports.md](18-reports.md) | ReportService 264 LOC pure math + bilingual PDF + filtered ActivityLog. 3 Yellow: F-68 reports pages gate on module flag only (no `reports.view` check), F-69 exporters all sync (queue for prod), F-70 no query caching. |
 | 19 | Mobile API `/api/v1` | 🟡 Yellow | [19-mobile-api.md](19-mobile-api.md) | Auth shipped + tested (3 endpoints). Designed full shortlist (~21 endpoints, ~1650 LOC est, 30 test cases) matching MOBILE-APP-BRIEF.md parity. Implementation deferred — pre-pilot for parity, post-pilot for push. F-72 (no password reset) bundles with M02 F-8. |
-| 20 | Cross-cutting | ⬜ Not started | — | |
+| 20 | Cross-cutting | 🟢 Green | [20-cross-cutting.md](20-cross-cutting.md) | i18n comprehensive (1277 lines × 2 langs · TranslationCoverageTest); queue infra in place; branding correct. 3 Yellow runbook items: F-74 queue worker docs, F-75 activity-log retention, F-76 storage:link. **Sweep complete.** |
 
 Legend: ⬜ Not started · 🟦 In progress · 🟢 Green · 🟡 Yellow · 🔴 Red
 
@@ -360,3 +360,29 @@ Per the user's "do recommended" instruction after triage.
 - Tests: 20 Pest `Api/V1` cases green; full Pest 295/295.
 
 **Next:** Module 20 — Cross-cutting + production checklist (final).
+
+### 2026-05-31 — Module 20 Cross-cutting 🟢 — **SWEEP CLOSEOUT**
+
+- i18n: 1,277 lines per language; TranslationCoverageTest enforces 76+ canonical keys across enums + roles + activity log subjects.
+- Queue: db driver, `jobs` + `job_batches` + `failed_jobs` tables provisioned.
+- Storage: Spatie MediaLibrary (logos / favicons on Asset; documents on Lease + MaintenanceRequest; KYC on Tenant).
+- Logging: stack → single channel; no Sentry/Pulse/Telescope/Nightwatch wired.
+- Security: SetLocale append; CSRF excluded from `api/*`; login throttle 5/min; sessions db driver.
+- Branding: per-property logo + favicon + primary_color; recent commit `4a96a67` correctly fixed an invalid-CSS injection bug.
+- CI: PHPUnit + Playwright on every PR.
+- **3 Yellow runbook items**:
+  - **F-74**: no documented queue-worker deployment path.
+  - **F-75**: no activity-log retention (Spatie ships `activitylog:clean`).
+  - **F-76**: production deploy must run `storage:link`.
+- All 3 are on the production checklist.
+
+### 2026-05-31 — SWEEP COMPLETE
+
+- **21 modules audited** (pre-flight + 1-20). **18 commits**. **8 inline fixes**. Pest **287 → 295**.
+- F-17 cross-cutting nav-badge fix: **complete** (6/6 resources).
+- D-1, D-2, D-12 recommendations applied; D-15 retracted; remaining 57 decisions catalogued in [998-deferred-backlog.md](998-deferred-backlog.md).
+- Production checklist drafted in [999-production-checklist.md](999-production-checklist.md) — needs operator sign-off.
+
+**Final module ratings:** 00 🟢 · 01 🟡 · 02 🟢 · 03 🟡 · 04 🟡 · 05 🟡 · 06 🟢 · 07 🟢 · 08 🟡 · 09 🟡 · 10 🟢 · 11 🟢 · 12 🟡 · 13 🟡 · 14 🟡 · 15 🟡 · 16 🟢 · 17 🟡 · 18 🟡 · 19 🟡 · 20 🟢.
+
+**8 Green** modules; **13 Yellow** (no Red). Every Yellow is documented with a deferred decision; none are demo blockers; the dozen pre-pilot items are concentrated in M17 (Users) + M11 (Pay Now stub) + M08 (ETA cutover).
