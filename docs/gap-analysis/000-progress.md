@@ -12,7 +12,7 @@
 | 02 | Tenants | 🟢 Green | [02-tenants.md](02-tenants.md) | Tenant model + auth flow + portal panel + 3-endpoint mobile API all clean. 75 tests + 4 portal e2e green. 5 Yellow extensibility findings (F-7..F-11) — none block demo or pilot. |
 | 03 | Units | 🟡 Yellow | [03-units.md](03-units.md) | 2 inline fixes — F-12 importer enum drift (accepted `anchor`/`other`, rejected `storage`), F-17 nav badge tenant leak (Unit only). F-17 also affects Invoices/Maintenance/Vendors/TenantSales — carry-over to those modules. |
 | 04 | Leases | 🟡 Yellow | [04-leases.md](04-leases.md) | 3 lifecycle services (Creation/Renewal/Termination) excellent; standard Create/Edit form bypasses them — no charges seeded, no unit flip, rent fields drift from Charge::amount. Demo path (wizard + modals) safe. No carryover from Module 03 F-17. |
-| 05 | Invoices | ⬜ Not started | — | |
+| 05 | Invoices | 🟡 Yellow | [05-invoices.md](05-invoices.md) | F-17 carryover fix applied (overdue badge now per-property). 3 deferred — F-22 no cron schedule for billing/late-fees, F-23 InvoiceIssued mail doesn't attach PDF, F-24 ETA mock mode is the default. 63 Pest + 9 PDF/ETA e2e all green. |
 | 06 | Payments | ⬜ Not started | — | |
 | 07 | CAM | ⬜ Not started | — | |
 | 08 | ETA e-invoicing | ⬜ Not started | — | |
@@ -112,3 +112,23 @@ Legend: ⬜ Not started · 🟦 In progress · 🟢 Green · 🟡 Yellow · 🔴
 - **3 deferred decisions** (D-12 fix approach for F-19/F-21 — recommend B `LeaseObserver`; D-13 fix approach for F-20 — recommend "Change rent" action + read-only display; D-14 test coverage gate).
 
 **Next:** Module 05 — Invoices.
+
+### 2026-05-31 — Module 05 Invoices 🟡
+
+- Invoice (193 LOC, 19 fillable, 8-state status, 6-state eta_status, boot-time number gen, LogsActivity on 9 cols).
+- InvoiceItem (50 LOC, saving-hook auto-computes vat_amount + total).
+- 3 panels: Admin (full CRUD + 10 cols, 7 filters, PDF/WhatsApp/ETA/bulk-ZIP), Owner (read-only, asset.owners scope), Portal (read-only, tenant_id scope).
+- Services: MonthlyBillingService 244 LOC (idempotent, chunked, prorate-aware), InvoicePdfService 56 LOC (mPDF + xbriyaz/dejavusans), LateFeeService 92 LOC (config-driven grace + percent + min), Eta/{JsonBuilder, SubmissionService, ApiClient}.
+- Jobs: RunMonthlyBilling, ApplyLateFees, SubmitInvoiceToEta. **No scheduling**.
+- Mail: InvoiceIssued (Markdown view, no PDF attachment).
+- PDF view: 265 LOC bilingual Blade with `dir="rtl"` switch and ETA reference block.
+- **Inline fix — F-17 carryover** 🔴: InvoiceResource navigation badge (overdue count) was global; now per-property via `getEloquentQuery()`.
+- **3 deferred findings**:
+  - **F-22** 🟡: Neither `billing:run-monthly` nor `billing:apply-late-fees` are scheduled. Production must add `->withSchedule()` + server cron. Code sketch in 05-invoices.md §F-22.
+  - **F-23** 🟡: `InvoiceIssued` mail has no `attachments()`. Tenant gets email but no PDF. Fix is ~10 LOC.
+  - **F-24** 🟡: ETA defaults to mock mode (correct for demo, must flip for production). Goes on production checklist.
+- Positive: ETA tenant-tax-id guard throws RuntimeException pre-submission (catches the issue early); LateFeeService double-application guard; MonthlyBillingService idempotency. All tested.
+- Tests: 63 Invoice/Billing/ETA/LateFee Pest green · 9 PDF/ETA e2e green · full Pest 287/287 after fix.
+- Cross-cutting F-17 progress: ✅ Units · ✅ Invoices · ⏳ Maintenance · ⏳ TenantSales · ⏳ Vendors.
+
+**Next:** Module 06 — Payments.
