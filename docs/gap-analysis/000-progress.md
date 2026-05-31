@@ -296,3 +296,20 @@ Per the user's "do recommended" instruction after triage.
 - Tests: 5 Pest + 6 e2e (1 flake on slow run, passed on retry) all green. Full Pest 295/295.
 
 **Next:** Module 16 — Assets / Tenancy.
+
+### 2026-05-31 — Module 16 Assets & Tenancy 🟢
+
+- Asset (150 LOC, ALL_PROPERTIES_CODE constant + isAllProperties() check).
+- Operator concept retired by `2026_05_25_215041`; per-property branding moves onto Asset (logo, favicon, primary_color).
+- TenantScope (99 LOC): `currentAssetId`, `applyTo($q, ?$relation)`, `visibleAssetIds()`.
+- 3 scoping traits with sharp responsibility split (ScopesViaProperty for indirect-FK · BypassesScopingOnAll for direct-FK · BypassesFilamentTenantAutoScope for custom).
+- AssetResource hides the ALL row from management list; canCreate blocked inside a property (force ALL view to add).
+- RegisterProperty tenancy page handles fresh-install onboarding (zero-property case).
+- User::getTenants prepends ALL only for multi-property users.
+- **2 Yellow** (deferred):
+  - **F-61**: no dedicated AssetTest for the model's computed methods.
+  - **F-62**: no multi-property growth path UX (single-property managers can't add a sibling without a super_admin).
+- Recent commit `4a96a67` fixed a CSS injection bug in per-property branding; that work is consistent with the design.
+- Tests: **80** Pest cases across Tenancy/Asset/Branding all green (most heavily tested area of the repo). Full Pest 295/295.
+
+**Next:** Module 17 — Users + Roles.
