@@ -15,6 +15,10 @@ beforeEach(function () {
         'commencement_date' => now()->subYear(),
         'expiry_date' => now()->addDays(15),
     ]);
+    // LeaseObserver flips $this->unit to 'occupied' on the active lease above.
+    // The vacant_units card needs at least one genuinely vacant unit on the
+    // same asset to surface, so make a second unit and leave it leaseless.
+    makeUnit($this->asset, ['status' => 'vacant']);
 
     // Seed one of each "actionable" thing so every card surfaces.
     MaintenanceRequest::create([

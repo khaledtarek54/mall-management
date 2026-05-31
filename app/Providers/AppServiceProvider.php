@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Models\Lease;
+use App\Observers\LeaseObserver;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Support\Facades\Blade;
@@ -16,6 +18,8 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        Lease::observe(LeaseObserver::class);
+
         FilamentView::registerRenderHook(
             PanelsRenderHook::TOPBAR_END,
             fn (): string => Blade::render('@include("filament.language-switch")'),

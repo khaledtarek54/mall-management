@@ -127,7 +127,19 @@ E2E:
 
 [InvoiceResource:86-93](../../app/Filament/Admin/Resources/Invoices/InvoiceResource.php#L86-L93) was `static::getModel()::where(...)->count()`. Now uses `static::getEloquentQuery()` so `ScopesViaProperty::getEloquentQuery()` applies `whereHas('lease.unit', ...)->where('asset_id', currentAssetId)`. Carryover from [Module 03 F-17](03-units.md#-f-17-cross-cutting-partially-fixed--navigation-badges-bypass-tenant-scope). Pest 287/287 green after fix.
 
-### 🟡 F-22. `RunMonthlyBilling` and `ApplyLateFees` are NOT scheduled
+### 🟢 F-22 — **Superseded** (false alarm).
+
+The audit missed [routes/console.php:24-44](../../routes/console.php#L24) where the schedule is already wired:
+
+```
+Schedule::job(new RunMonthlyBilling)   → monthly on day/time from BillingSettings
+Schedule::job(new ApplyLateFees)       → daily at 04:00
+Schedule::command('cam:reconcile')     → annually (Jan 15 by default, BillingSettings-driven)
+```
+
+Verified by `php artisan schedule:list`. Server cron must run `schedule:run` every minute for any of these to fire — that's an Ops checklist item, not a code change. **F-22 retracted.**
+
+**Original (mistaken) finding kept below for traceability:**
 
 Both jobs and their commands exist and work end-to-end, but `bootstrap/app.php` + `app/Console/` have **no `$schedule->command()` or `$schedule->job()` calls anywhere**. The intended invocation is:
 

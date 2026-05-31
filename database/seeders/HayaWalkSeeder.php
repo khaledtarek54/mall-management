@@ -29,8 +29,19 @@ use Illuminate\Support\Facades\Hash;
 
 class HayaWalkSeeder extends Seeder
 {
+    /**
+     * Deterministic seed for PHP's RNG. Locks every `rand()` call below to a
+     * reproducible sequence so the demo numbers (occupancy %, AR balance,
+     * collected this month, overdue count) stay stable across reseeds and
+     * across environments. Absolute dates still float (they're computed
+     * from real `now()`), but relative quantities and ratios are pinned.
+     */
+    public const DEMO_RNG_SEED = 4242;
+
     public function run(): void
     {
+        mt_srand(self::DEMO_RNG_SEED);
+
         $this->command->info('🏬 Seeding Haya Walk demo data...');
 
         // 0. Admin + role-demo users (all share password 'password')
@@ -741,8 +752,12 @@ class HayaWalkSeeder extends Seeder
     {
         $now = Carbon::now();
 
+        // orderByRaw('id * 17 % 101') is a deterministic pseudo-random
+        // shuffle — gives a "looks random" spread without depending on
+        // SQLite's RANDOM() (which can't be seeded). Same pattern used
+        // for AR-aging spread + credit notes below.
         $invoices = Invoice::where('balance', '>', 0)
-            ->inRandomOrder()
+            ->orderByRaw('(id * 17) % 101')
             ->limit($count * 3)
             ->get();
 
@@ -799,7 +814,7 @@ class HayaWalkSeeder extends Seeder
             ['days' => 110, 'count' => 1],  // 90+
         ];
 
-        $leases = Lease::where('status', 'active')->inRandomOrder()->limit(10)->get();
+        $leases = Lease::where('status', 'active')->orderByRaw('(id * 17) % 101')->limit(10)->get();
         $i = 0;
 
         foreach ($buckets as $bucket) {
@@ -1178,7 +1193,7 @@ class HayaWalkSeeder extends Seeder
         $invoices = Invoice::query()
             ->whereIn('status', ['issued', 'partially_paid', 'paid'])
             ->with('lease.tenant')
-            ->inRandomOrder()
+            ->orderByRaw('(id * 17) % 101')
             ->limit(4)
             ->get();
 

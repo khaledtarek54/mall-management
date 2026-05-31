@@ -29,6 +29,9 @@ return Application::configure(basePath: dirname(__DIR__))
             $middleware->prepend(\App\Http\Middleware\RecordCoverage::class);
         }
     })
+    // Scheduled jobs live in routes/console.php — see Schedule::job(...) and
+    // Schedule::command(...) calls there for the monthly billing, daily late
+    // fees, and annual CAM reconciliation cadences.
     ->withExceptions(function (Exceptions $exceptions): void {
         //
     })->create();

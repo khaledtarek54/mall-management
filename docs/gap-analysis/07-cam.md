@@ -86,9 +86,11 @@ Tenants see a `Charge` row on their invoice ("CAM Reconciliation — 2026 — EG
 
 **Fix scope:** add a Portal CAM allocations view showing the tenant's per-year share + breakdown line. Estimated 1-day. Defer to D-22.
 
-### 🟡 F-30. Annual auto-true-up not scheduled
+### 🟢 F-30 — **Partially superseded** (audit miss).
 
-[CamAnnualReconciliationCommand](../../app/Console/Commands/CamAnnualReconciliationCommand.php) is fully working but has no scheduler entry. Per FEATURES.md L411: "v1 is admin-manual click. Auto-true-up at year-end (scheduled job that runs Generate Allocations + Bill across all leases) is Q2 work." → **explicit Q2 deliverable**, not a regression. Documenting for the production roadmap with F-22 (monthly-billing) and F-30 (this) batched into one cron-config commit at Module 20.
+[routes/console.php:37-44](../../routes/console.php#L37) already schedules `cam:reconcile` annually (Jan 15 @ 03:00 by default, `BillingSettings`-driven). What's NOT scheduled is the `--auto-bill` variant — the cron runs in review-only mode, leaving admins to click Bill per allocation. That matches FEATURES.md L411's "v1 admin-manual" stance.
+
+**Remaining decision (D-23-bis):** flip the annual cron to `cam:reconcile --auto-bill` for full automation, or keep review-only as the safer default? Defer — operator preference, not a code defect.
 
 ### 🟡 F-31. No expense categories — single total budget
 

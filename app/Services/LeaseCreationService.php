@@ -53,38 +53,61 @@ class LeaseCreationService
                 'payment_terms_days' => (int) ($payload['lease']['payment_terms_days'] ?? 7),
             ]);
 
+            self::seedStandardCharges($lease, $rent, $service, $commencement);
+
+            $unit->update(['status' => 'occupied']);
+
+            return $lease;
+        });
+    }
+
+    /**
+     * Seed Egypt's standard rent + service-charge pair on a lease. Idempotent:
+     * skips when the lease already has charges. Used by `create()` and by
+     * `CreateLease::handleRecordCreation()` so the standard Filament form
+     * gets the same charges the wizard produces.
+     */
+    public static function seedStandardCharges(
+        Lease $lease,
+        float $rent,
+        float $service,
+        ?\DateTimeInterface $commencement = null,
+    ): void {
+        if ($lease->charges()->exists()) {
+            return;
+        }
+
+        $commencement = $commencement ?? $lease->commencement_date;
+
+        if ($rent > 0) {
             Charge::create([
                 'lease_id' => $lease->id,
                 'name' => 'Base Rent',
                 'type' => 'base_rent',
                 'amount' => $rent,
-                'currency' => 'EGP',
+                'currency' => $lease->currency ?? 'EGP',
                 'frequency' => 'monthly',
                 'vat_applicable' => false,
                 'vat_rate' => 0,
                 'start_date' => $commencement,
                 'is_active' => true,
             ]);
+        }
 
-            if ($service > 0) {
-                Charge::create([
-                    'lease_id' => $lease->id,
-                    'name' => 'Service Charge',
-                    'type' => 'service_charge',
-                    'amount' => $service,
-                    'currency' => 'EGP',
-                    'frequency' => 'monthly',
-                    'vat_applicable' => true,
-                    'vat_rate' => 14.00,
-                    'start_date' => $commencement,
-                    'is_active' => true,
-                ]);
-            }
-
-            $unit->update(['status' => 'occupied']);
-
-            return $lease;
-        });
+        if ($service > 0) {
+            Charge::create([
+                'lease_id' => $lease->id,
+                'name' => 'Service Charge',
+                'type' => 'service_charge',
+                'amount' => $service,
+                'currency' => $lease->currency ?? 'EGP',
+                'frequency' => 'monthly',
+                'vat_applicable' => true,
+                'vat_rate' => 14.00,
+                'start_date' => $commencement,
+                'is_active' => true,
+            ]);
+        }
     }
 
     private function createTenant(array $data): Tenant

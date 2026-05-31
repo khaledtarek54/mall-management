@@ -31,15 +31,19 @@ Click the **عربي** toggle to flip RTL momentarily, then back to EN.
 
 ### 2 · Dashboard (2 min) — the headline
 
-Login → land on the dashboard.
+Login lands on **All Properties** (the portfolio view).
+
+**Step 0 — switch to Haya Walk:** click the property switcher in the top bar and pick **Haya Walk**. The KPIs below are pinned to Haya Walk's seed data; the All-Properties view also includes the Plaza Annex multi-tenancy demo asset and would show different (lower) occupancy.
 
 **KPI strip (top row):**
 
 - "Four headline KPIs. Each one has a real sparkline drawn from the last 6 months of actual data — not placeholder shapes."
 - "Occupancy: 66 % — 33 of 50 units leased. The line shows how it trended."
 - "Monthly Recurring Revenue: EGP 1.63M — the recurring rent + service charge contracted across all active leases."
-- "Collected This Month: EGP 220K — note the month-over-month delta. Coloring goes green / amber / red based on collection rate vs expected."
-- "Outstanding AR: EGP 270K, 7 invoices overdue — that's the warning icon's job."
+- "Collected This Month: EGP ~170K — note the month-over-month delta. Coloring goes green / amber / red based on collection rate vs expected."
+- "Outstanding AR: EGP ~657K, 11 invoices overdue — that's the warning icon's job. (~EGP 588K of that is past due; the remainder is current AR still within payment terms.)"
+
+> **Demo numbers are pinned** by the seeder's RNG seed (`HayaWalkSeeder::DEMO_RNG_SEED`). Re-seeding produces the same values every time; if these drift, re-check that seed.
 
 **Revenue Trend chart:**
 
@@ -69,7 +73,7 @@ Switch back to EN before continuing.
 
 Sidebar → **Properties**. Open Haya Walk.
 
-> "Asset → units → leases. One property, 50 units, 33 occupied. Click any unit to see the active lease and tenant."
+> "Asset → units → leases. One property, 50 leasable units, 33 occupied (66 %). Click any unit to see the active lease and tenant. The 'Plaza Annex' row is a stub asset that demos our multi-property tenancy — it has 8 units but no active leases, so it stays empty for this story."
 
 ### 5 · Tenant Directory (1 min)
 
