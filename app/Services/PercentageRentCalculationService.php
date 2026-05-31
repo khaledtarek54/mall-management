@@ -79,6 +79,23 @@ class PercentageRentCalculationService
                 $this->createPercentageRentCharge($declaration, $owed);
             }
 
+            // Notify the lease's tenant. Even when owed is zero we tell them
+            // their declaration has been locked — the absence of a charge IS
+            // useful information (they were under-threshold this period).
+            $tenant = $declaration->lease?->tenant;
+            if ($tenant) {
+                try {
+                    $tenant->notify(
+                        new \App\Notifications\SalesDeclarationLockedNotification($declaration->refresh())
+                    );
+                } catch (\Throwable $e) {
+                    \Log::warning('Sales declaration locked notification failed', [
+                        'declaration_id' => $declaration->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
             return $declaration->refresh();
         });
     }

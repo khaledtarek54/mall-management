@@ -84,6 +84,22 @@ class MaintenanceRequestService
 
         $request->update($payload);
 
+        // Notify the requesting tenant. Skip the cancelled-by-tenant case
+        // because the tenant just triggered it themselves (their own
+        // cancellation doesn't need a self-notification).
+        if ($next !== 'cancelled' && $request->tenant) {
+            try {
+                $request->tenant->notify(
+                    new \App\Notifications\MaintenanceStatusChangedNotification($request->refresh(), $current)
+                );
+            } catch (\Throwable $e) {
+                \Log::warning('Maintenance status notification failed', [
+                    'request_id' => $request->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
         return $request->refresh();
     }
 
