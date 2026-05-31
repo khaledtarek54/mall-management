@@ -23,7 +23,7 @@
 | 13 | Utility Meters & Energy | 🟡 Yellow | [13-utilities.md](13-utilities.md) | Meter registry clean; data model + widget good. **F-52**: no UI to add readings post-seed (operator must use tinker). F-53: no dedicated model tests. F-54: Q3 roadmap for consumption-billing. No F-17. |
 | 14 | Credit Notes | 🟡 Yellow | [14-credit-notes.md](14-credit-notes.md) | F-17 carryover fix (6th instance, missed earlier). 2 Yellow: F-55 `partially_applied` dead filter on Tenant::outstandingBalance, F-56 no portal/owner credit visibility. 8 Pest + 6 e2e green. |
 | 15 | Vendors & Contracts | 🟡 Yellow | [15-vendors.md](15-vendors.md) | **F-17 carryover #6 complete — all done.** 3 Yellow: F-58 no contract auto-expire, F-59 no tax_id format validation, F-60 no VendorTest. 5 Pest + 6 e2e green. |
-| 16 | Assets (tenancy) | ⬜ Not started | — | |
+| 16 | Assets (tenancy) | 🟢 Green | [16-assets-tenancy.md](16-assets-tenancy.md) | 80-test coverage on the most thoughtfully-designed code in the repo. 3-trait split (Scopes/Bypasses/CustomScope) + ALL-as-real-row pattern + per-property branding. 2 Yellow: F-61 no AssetTest, F-62 no multi-property growth UX. |
 | 17 | Users & Roles | ⬜ Not started | — | |
 | 18 | Reports | ⬜ Not started | — | |
 | 19 | Mobile API `/api/v1` | ⬜ Not started | — | |
