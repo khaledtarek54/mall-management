@@ -9,7 +9,7 @@
 |---|---|---|---|---|
 | 00 | Pre-flight | 🟢 Green | [00-preflight.md](00-preflight.md) | Pest 287/287 · migrate+seed clean · 3 panels respond · API JSON contract OK |
 | 01 | Dashboard & Widgets | 🟡 Yellow | [01-dashboard.md](01-dashboard.md) | Code healthy (45 widget + 36 page + 15 e2e tests green); 5 findings — DEMO.md narrative drift (F-1..F-3), MRR sparkline UX (F-4), percentDelta latent bug (F-5); 4 deferred decisions D-1..D-4; one inline fix F-6 (seeder log message). |
-| 02 | Tenants | ⬜ Not started | — | |
+| 02 | Tenants | 🟢 Green | [02-tenants.md](02-tenants.md) | Tenant model + auth flow + portal panel + 3-endpoint mobile API all clean. 75 tests + 4 portal e2e green. 5 Yellow extensibility findings (F-7..F-11) — none block demo or pilot. |
 | 03 | Units | ⬜ Not started | — | |
 | 04 | Leases | ⬜ Not started | — | |
 | 05 | Invoices | ⬜ Not started | — | |
@@ -59,3 +59,20 @@ Legend: ⬜ Not started · 🟦 In progress · 🟢 Green · 🟡 Yellow · 🔴
 - **4 decisions deferred** to end-of-sweep walk-through: D-1 Plaza Annex policy · D-2 demo numbers (deterministic seeder vs update DEMO copy) · D-3 MRR sparkline semantic · D-4 percentDelta fix.
 
 **Next:** Module 02 — Tenants.
+
+### 2026-05-31 — Module 02 Tenants 🟢
+
+- Tenant model (137 LOC): `Authenticatable` + `FilamentUser` + `HasApiTokens` + `HasMedia` + `LogsActivity` + `SoftDeletes`. Auth correctly gated by `status === 'active'` in both `canAccessPanel` and `LoginTenantAction`.
+- Admin: TenantResource with `RoleGatedActions` + `ScopesViaProperty` (`leases.unit`), 5 relation managers, statement PDF action, 5 filters incl. created-range + trashed.
+- Portal: dedicated `portal` auth guard, 4 resources, 2 widgets (AccountBalance uses `outstandingBalance()`).
+- Mobile API: 3 endpoints (login/me/logout); LoginTenantAction is the single-action class per user preference; thoroughly tested.
+- Tests: **75 Pest tests + 4 portal e2e** all green. LoginTest covers wrong-pw / unknown-email / inactive / blacklisted / missing-fields / same-device-revoke / cross-device-isolation.
+- **5 Yellow findings** (no inline fixes — all are extensibility/policy):
+  - **F-7**: API `TenantResource` exposes `tax_id` despite model `$hidden` — confirm intentional + add comment.
+  - **F-8**: No password reset flow (portal or API) — production-readiness gap, not demo blocker.
+  - **F-9**: No tenant self-service profile update — Q2 mobile-app territory.
+  - **F-10**: Only `/auth/*` endpoints on mobile API — explicit Q2 roadmap per DEMO-ELTIZAM; design list cross-referenced for Module 19.
+  - **F-11**: `Tenant::isDelinquent()` implemented + tested but never surfaced in UI. Add badge/filter or remove.
+- 5 deferred decisions (D-5..D-9) carried to end-of-sweep walk-through.
+
+**Next:** Module 03 — Units.
