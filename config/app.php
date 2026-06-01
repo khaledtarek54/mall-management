@@ -54,6 +54,10 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    // Deep link the mobile app handles for password reset. The reset email's
+    // button points here with ?token=&email= appended.
+    'mobile_reset_url' => env('APP_MOBILE_RESET_URL', env('APP_URL', 'http://localhost') . '/reset-password'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone

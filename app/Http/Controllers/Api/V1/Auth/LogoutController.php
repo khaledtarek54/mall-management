@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers\Api\V1\Auth;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\Api\V1\ApiController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Laravel\Sanctum\PersonalAccessToken;
 
-class LogoutController extends Controller
+class LogoutController extends ApiController
 {
     public function __invoke(Request $request): JsonResponse
     {
@@ -17,8 +17,6 @@ class LogoutController extends Controller
             $token->delete();
         }
 
-        return response()->json([
-            'message' => __('auth.logout_success'),
-        ]);
+        return $this->ok(message: __('auth.logout_success'));
     }
 }

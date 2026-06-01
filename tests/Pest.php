@@ -130,6 +130,18 @@ function makeInvoice(Lease $lease, array $attrs = []): Invoice
     ], $attrs));
 }
 
+/**
+ * Authorization header carrying a fresh Sanctum token for a tenant — the
+ * mobile API auth path. Keeps /api/v1 tests a single call away from "as this
+ * tenant".
+ *
+ * @return array<string,string>
+ */
+function apiHeaders(Tenant $tenant, string $device = 'test-device'): array
+{
+    return ['Authorization' => 'Bearer ' . $tenant->createToken($device, ['tenant:*'])->plainTextToken];
+}
+
 function makeUser(string $role = 'manager', array $assetIds = []): User
 {
     seedRoles();

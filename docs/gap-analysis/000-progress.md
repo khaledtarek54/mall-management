@@ -26,7 +26,7 @@
 | 16 | Assets (tenancy) | 🟢 Green | [16-assets-tenancy.md](16-assets-tenancy.md) | 80-test coverage on the most thoughtfully-designed code in the repo. 3-trait split (Scopes/Bypasses/CustomScope) + ALL-as-real-row pattern + per-property branding. 2 Yellow: F-61 no AssetTest, F-62 no multi-property growth UX. |
 | 17 | Users & Roles | 🟡 Yellow | [17-users-roles.md](17-users-roles.md) | RBAC production-ready: 6 roles · 81 perms · 18 modules · Spatie cache w/ explicit forget after role mutations. 5 Yellow operational-readiness gaps: F-63 default `password`, F-64 no self-service, F-65 no MFA, F-66 free-form pivot role, F-67 no User LogsActivity. |
 | 18 | Reports | 🟡 Yellow | [18-reports.md](18-reports.md) | ReportService 264 LOC pure math + bilingual PDF + filtered ActivityLog. 3 Yellow: F-68 reports pages gate on module flag only (no `reports.view` check), F-69 exporters all sync (queue for prod), F-70 no query caching. |
-| 19 | Mobile API `/api/v1` | 🟡 Yellow | [19-mobile-api.md](19-mobile-api.md) | Auth shipped + tested (3 endpoints). Designed full shortlist (~21 endpoints, ~1650 LOC est, 30 test cases) matching MOBILE-APP-BRIEF.md parity. Implementation deferred — pre-pilot for parity, post-pilot for push. F-72 (no password reset) bundles with M02 F-8. |
+| 19 | Mobile API `/api/v1` | 🟢 Green | [19-mobile-api.md](19-mobile-api.md) | **Implemented 2026-06-01.** Full `/me/*` parity + auth completion + device registration (~22 endpoints) shipped via single-action classes; 52 Api/V1 Pest cases, full suite 408/408. Dev docs: [docs/api/MOBILE-API.md](../api/MOBILE-API.md). F-71/F-72 resolved; F-73 partial (registration done, push delivery post-pilot). Pay Now excluded (D-33). |
 | 20 | Cross-cutting | 🟢 Green | [20-cross-cutting.md](20-cross-cutting.md) | i18n comprehensive (1277 lines × 2 langs · TranslationCoverageTest); queue infra in place; branding correct. 3 Yellow runbook items: F-74 queue worker docs, F-75 activity-log retention, F-76 storage:link. **Sweep complete.** |
 
 Legend: ⬜ Not started · 🟦 In progress · 🟢 Green · 🟡 Yellow · 🔴 Red
@@ -384,5 +384,27 @@ Per the user's "do recommended" instruction after triage.
 - Production checklist drafted in [999-production-checklist.md](999-production-checklist.md) — needs operator sign-off.
 
 **Final module ratings:** 00 🟢 · 01 🟡 · 02 🟢 · 03 🟡 · 04 🟡 · 05 🟡 · 06 🟢 · 07 🟢 · 08 🟡 · 09 🟡 · 10 🟢 · 11 🟢 · 12 🟡 · 13 🟡 · 14 🟡 · 15 🟡 · 16 🟢 · 17 🟡 · 18 🟡 · 19 🟡 · 20 🟢.
+
+### 2026-06-01 — Module 19 Mobile API: built (🟡 → 🟢)
+
+Per the user's go-ahead on D-56, implemented the full mobile API surface designed in the audit.
+
+- **~22 endpoints** across 7 groups (profile/account, invoices, payments, maintenance, sales declarations, auth completion, device tokens), all under `auth:tenant-api` except login + password-reset request/apply.
+- **Architecture**: thin invokable controllers on a shared `ApiController` base (envelope/pagination/PDF helpers); **one single-action class per write** in `app/Actions/Api/V1/` (matching the praised `LoginTenantAction` pattern), delegating to existing domain services (`MaintenanceRequestService`, `PercentageRentCalculationService`, `InvoicePdfService`, `TenantStatementPdfService`) so mobile + portal share one code path (DRY); FormRequests for validation; JSON Resources for output.
+- **New infra**: `SetApiLocale` middleware (Accept-Language → locale, registered on the `api` group); `tenants` password-reset broker + `tenant_password_reset_tokens` table + `TenantResetPasswordNotification`; `device_tokens` table + model; `Tenant` now implements `CanResetPassword` and gains `deviceTokens()` + `salesDeclarations()` (hasManyThrough) relations.
+- **Security**: every `/me/*` route scoped server-side via `$request->user()` — cross-tenant ids return 404; anti-enumeration on login + forgot-password; reset revokes all tokens, change revokes all but current; `i18n` EN/AR with `lang/{en,ar}/api.php`.
+- **Excluded**: Pay Now / payment initiation (D-33); push *delivery* fan-out (post-pilot, D-29) — token registration shipped.
+- **Tests**: 52 new Api/V1 Pest cases (happy paths, cross-tenant 404 isolation, validation 422, unauthenticated 401, pagination, upsert, anti-enumeration). **Full suite 408/408 green.** Two additive migrations applied to dev DB.
+- **Docs**: [docs/api/MOBILE-API.md](../api/MOBILE-API.md) — full developer reference (business domain, auth, every endpoint with request/response, error catalog, screen→endpoint map, out-of-scope list).
+
+### 2026-06-01 — Module 19 Mobile API: reconciled with the Flutter contract
+
+The Flutter dev sent an API contract that diverged from the build. Reconciled per the user's decisions:
+
+- **Conventions adapted backend-wide to the FE contract**: all `/api/v1` JSON is now **camelCase** (out) and accepts camelCase (in) via `SnakeCaseRequestKeys` + `CamelCaseResponseKeys` middleware (`App\Support\KeyCase`); every error renders as `{message, statusCode}` (+ `errors` for validation) via the `render` callback in `bootstrap/app.php`.
+- **Login reshaped**: request is `{email, password}` (`deviceName` now optional, defaults to User-Agent); `data` is the **leases array** (flat `LoginLeaseResource`: id/name/shop/mall/unitNumber/startDate/endDate/isActive, ISO-8601 Z dates) with the token at top-level `accessToken`/`tokenType`. Error codes **400** (bad body) / **401** (wrong creds) / **403** (blocked → app's Blocked screen), replacing the prior generic 422.
+- **Security calls**: the contract's *tokenless* password reset (email + newPassword, no verification) was an account-takeover hole — **rejected**; kept the secure email-link + token flow (FE Forgot-Password screen must become two steps). The 401-vs-403 login distinction trades a little enumeration resistance for the Blocked-screen UX (accepted product tradeoff).
+- **Flagged for FE confirmation**: the `name`/`shop` lease field mapping, and that `accessToken` sits at top level (the contract was self-contradictory — `data` can't be both a leases array and hold the token).
+- **Tests**: LoginTest rewritten for the new shape/codes; all `/api/v1` assertions updated to camelCase. **Full suite 409/409 green (`--parallel`).**
 
 **8 Green** modules; **13 Yellow** (no Red). Every Yellow is documented with a deferred decision; none are demo blockers; the dozen pre-pilot items are concentrated in M17 (Users) + M11 (Pay Now stub) + M08 (ETA cutover).

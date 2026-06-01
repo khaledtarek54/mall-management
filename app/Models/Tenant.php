@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use App\Notifications\TenantResetPasswordNotification;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
+use Illuminate\Contracts\Auth\CanResetPassword as CanResetPasswordContract;
+use Illuminate\Auth\Passwords\CanResetPassword;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -16,9 +20,9 @@ use Spatie\Activitylog\Support\LogOptions;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
-class Tenant extends Authenticatable implements FilamentUser, HasMedia
+class Tenant extends Authenticatable implements CanResetPasswordContract, FilamentUser, HasMedia
 {
-    use HasApiTokens, HasFactory, InteractsWithMedia, LogsActivity, Notifiable, SoftDeletes;
+    use CanResetPassword, HasApiTokens, HasFactory, InteractsWithMedia, LogsActivity, Notifiable, SoftDeletes;
 
     public function getActivitylogOptions(): LogOptions
     {
@@ -100,6 +104,30 @@ class Tenant extends Authenticatable implements FilamentUser, HasMedia
     public function creditNotes(): HasMany
     {
         return $this->hasMany(CreditNote::class);
+    }
+
+    public function deviceTokens(): HasMany
+    {
+        return $this->hasMany(DeviceToken::class);
+    }
+
+    /**
+     * Sales declarations belong to a Lease, not directly to the Tenant, so we
+     * reach them through the leases table. Mirrors the portal resource's
+     * whereHas('lease', ...) scoping, expressed as a relationship.
+     */
+    public function salesDeclarations(): HasManyThrough
+    {
+        return $this->hasManyThrough(TenantSalesDeclaration::class, Lease::class);
+    }
+
+    /**
+     * Send the mobile-app password reset link. Overrides the default so the
+     * link targets the app deep-link rather than a web route.
+     */
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new TenantResetPasswordNotification($token));
     }
 
     /**

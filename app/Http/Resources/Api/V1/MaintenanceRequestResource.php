@@ -1,0 +1,47 @@
+<?php
+
+namespace App\Http\Resources\Api\V1;
+
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+/**
+ * @mixin \App\Models\MaintenanceRequest
+ */
+class MaintenanceRequestResource extends JsonResource
+{
+    /**
+     * @return array<string,mixed>
+     */
+    public function toArray(Request $request): array
+    {
+        return [
+            'id' => $this->id,
+            'reference' => $this->reference,
+            'title' => $this->title,
+            'description' => $this->description,
+            'status' => $this->status,
+            'priority' => $this->priority,
+            'category' => $this->category,
+            'channel' => $this->channel,
+            'is_open' => $this->isOpen(),
+            'is_overdue' => $this->isOverdue(),
+            // Whether the tenant may still cancel — true only before staff
+            // start work. Mirrors the cancel endpoint's guard so the app can
+            // show/hide the button without a round-trip.
+            'can_cancel' => in_array($this->status, ['submitted', 'acknowledged'], true),
+            'submitted_at' => optional($this->submitted_at)->toIso8601String(),
+            'acknowledged_at' => optional($this->acknowledged_at)->toIso8601String(),
+            'resolved_at' => optional($this->resolved_at)->toIso8601String(),
+            'closed_at' => optional($this->closed_at)->toIso8601String(),
+            'target_resolution_at' => optional($this->target_resolution_at)->toIso8601String(),
+            'resolution_notes' => $this->resolution_notes,
+            'unit' => $this->whenLoaded('unit', fn () => $this->unit ? [
+                'id' => $this->unit->id,
+                'code' => $this->unit->code,
+                'floor' => $this->unit->floor,
+            ] : null),
+            'comments' => MaintenanceRequestCommentResource::collection($this->whenLoaded('comments')),
+        ];
+    }
+}

@@ -108,6 +108,16 @@ return [
             'expire' => 60,
             'throttle' => 60,
         ],
+
+        // Mobile API tenant password reset. Kept in a dedicated table so a
+        // tenant and a staff user that happen to share an email can never
+        // collide on the same reset token (the default table is keyed by email).
+        'tenants' => [
+            'provider' => 'tenants',
+            'table' => 'tenant_password_reset_tokens',
+            'expire' => 60,
+            'throttle' => 60,
+        ],
     ],
 
     /*
