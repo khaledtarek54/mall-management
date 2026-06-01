@@ -1,10 +1,14 @@
 name: CI
 
+# Auto-runs are disabled — CI no longer runs on every push/PR. The workflow can
+# still be launched on demand from the Actions tab (Run workflow). To re-enable
+# automatic CI, uncomment the push / pull_request blocks below.
 on:
-  push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main, develop]
+  workflow_dispatch:
+  # push:
+  #   branches: [main, develop]
+  # pull_request:
+  #   branches: [main, develop]
 
 jobs:
   phpunit:
