@@ -1,7 +1,9 @@
 # Module 19 — Mobile API
 
-> Date: 2026-05-31
-> Status: 🟡 Yellow — auth is shipped + tested; the read+submit endpoints required by MOBILE-APP-BRIEF.md are not yet implemented. This module is "design + endpoint inventory" not "build" — design is the user's pick (D-15 questions answered).
+> Date: 2026-05-31 · **Implemented 2026-06-01**
+> Status: 🟢 Green — the full `/api/v1/me/*` parity surface + auth completion + device-token registration is now shipped and tested (52 Api/V1 Pest cases; full suite 408/408). See [docs/api/MOBILE-API.md](../api/MOBILE-API.md) for the developer-facing reference. The original Yellow design notes are kept below for history.
+>
+> **Build summary (D-56 approved):** ~22 new endpoints across 7 groups, single-action write classes (`app/Actions/Api/V1/`), thin invokable controllers on a shared `ApiController` base, JSON Resources, FormRequests, `Accept-Language` locale middleware, dedicated `tenants` password-reset broker, `device_tokens` table. Pay Now / payment-initiation deliberately excluded (D-33); push *delivery* pipeline deferred post-pilot (token registration shipped).
 > Surface: [routes/api.php](../../routes/api.php), [Http/Controllers/Api/V1/](../../app/Http/Controllers/Api/V1/), [Http/Resources/Api/V1/](../../app/Http/Resources/Api/V1/), [Http/Requests/Api/V1/](../../app/Http/Requests/Api/V1/), [Actions/Api/Auth/](../../app/Actions/Api/Auth/), Sanctum `tenant-api` guard.
 
 ## 1. Current state (shipped)
@@ -145,19 +147,17 @@ About 2-3 dev-days of focused work.
 
 LoginTenantAction is the single-action pattern (user preference); FormRequest validates + normalizes; tokens have `tenant:*` ability scope; thoughtful "revoke prior token with same device name" to keep "manage devices" screen sane. Anything new should follow this pattern.
 
-### 🟡 F-71. No `/api/v1/me/*` endpoints shipped
+### ✅ F-71. `/api/v1/me/*` endpoints shipped (was 🟡)
 
-Confirmed — `routes/api.php` has only the 3 auth endpoints. Everything else from MOBILE-APP-BRIEF.md is unshipped.
+**Resolved 2026-06-01.** All groups 3.2–3.6 implemented exactly as designed: profile/balance/leases, invoices (list/view/PDF/statement), payments (list/view), maintenance (list/create/view/comment/cancel), sales declarations (list/create/view). Scoping verified identical to the portal (direct `tenant_id`; `whereHas('lease')` for declarations). Cross-tenant access returns 404.
 
-**D-56**: confirm the endpoint shortlist above + give green light to implement. Bulk implementation work, not a small inline fix.
+### ✅ F-72. Password reset flow shipped (was 🟡, cross-ref M02 F-8)
 
-### 🟡 F-72. No password reset flow (cross-ref M02 F-8)
+**Resolved 2026-06-01.** `forgot-password` / `reset-password` / `change-password` implemented via a dedicated `tenants` password broker + `tenant_password_reset_tokens` table + `TenantResetPasswordNotification` (deep-link email). Anti-enumeration on forgot; all-token-revoke on reset; current-token-preserving revoke on change. (Web-portal side of M02 F-8 — Filament `->passwordReset()` — still open per D-57.)
 
-Mobile app needs `forgot/reset/change-password`. Already flagged at Module 02. Bundle here.
+### 🟡 F-73. Device registration shipped; push *delivery* still deferred
 
-### 🟡 F-73. No device-tokens table or push pipeline
-
-Mobile push (FCM / APNS) needs server-side device registration + a listener that fires on key events. Tied to broader notification design (M09 F-37 / D-29).
+**Partially resolved 2026-06-01.** `device_tokens` table + `POST/DELETE /me/devices` registration endpoints shipped (upsert on tenant+platform+device_name). The server-side fan-out listener (fire push on invoice issued / payment captured / maintenance status change / declaration locked) remains deferred to the broader notification design (M09 F-37 / D-29).
 
 ### 🟢 LoginTest is the reference quality bar
 

@@ -22,89 +22,92 @@ class LoginTest extends TestCase
         ], $overrides));
     }
 
-    public function test_returns_token_and_tenant_on_valid_credentials(): void
+    public function test_returns_token_and_leases_on_valid_credentials(): void
     {
-        $tenant = $this->makeTenant();
+        $tenant = $this->makeTenant(['name' => 'Acme Co', 'contact_person' => 'John Doe']);
+        makeLease(makeUnit(makeAsset(['name' => 'City Mall']), ['code' => 'B-214']), $tenant);
 
         $response = $this->postJson('/api/v1/auth/login', [
             'email' => $tenant->email,
             'password' => 'secret-pw',
-            'device_name' => 'iPhone 16 Pro',
         ]);
 
         $response->assertOk()
             ->assertJsonStructure([
-                'data' => [
-                    'tenant' => ['id', 'name', 'email', 'status'],
-                    'token',
-                    'token_type',
-                ],
+                'data' => [['id', 'name', 'shop', 'mall', 'unitNumber', 'startDate', 'endDate', 'isActive']],
+                'accessToken',
+                'tokenType',
                 'message',
             ])
-            ->assertJsonPath('data.tenant.id', $tenant->id)
-            ->assertJsonPath('data.token_type', 'Bearer');
+            ->assertJsonPath('tokenType', 'Bearer')
+            ->assertJsonPath('data.0.name', 'John Doe')
+            ->assertJsonPath('data.0.shop', 'Acme Co')
+            ->assertJsonPath('data.0.mall', 'City Mall')
+            ->assertJsonPath('data.0.unitNumber', 'B-214')
+            ->assertJsonPath('data.0.isActive', true);
 
-        $this->assertNotEmpty($response->json('data.token'));
+        $this->assertNotEmpty($response->json('accessToken'));
         $this->assertDatabaseHas('personal_access_tokens', [
             'tokenable_type' => Tenant::class,
             'tokenable_id' => $tenant->id,
-            'name' => 'iPhone 16 Pro',
         ]);
     }
 
-    public function test_rejects_wrong_password(): void
+    public function test_data_is_always_an_array_even_with_no_leases(): void
+    {
+        $tenant = $this->makeTenant();
+
+        $response = $this->postJson('/api/v1/auth/login', [
+            'email' => $tenant->email, 'password' => 'secret-pw',
+        ])->assertOk();
+
+        $this->assertIsArray($response->json('data'));
+        $this->assertCount(0, $response->json('data'));
+    }
+
+    public function test_rejects_wrong_password_with_401(): void
     {
         $tenant = $this->makeTenant();
 
         $this->postJson('/api/v1/auth/login', [
-            'email' => $tenant->email,
-            'password' => 'wrong',
-            'device_name' => 'iPhone',
+            'email' => $tenant->email, 'password' => 'wrong',
         ])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(['email']);
+            ->assertStatus(401)
+            ->assertJsonPath('statusCode', 401)
+            ->assertJsonStructure(['message', 'statusCode']);
     }
 
-    public function test_rejects_unknown_email(): void
+    public function test_rejects_unknown_email_with_401(): void
     {
         $this->postJson('/api/v1/auth/login', [
-            'email' => 'nobody@example.com',
-            'password' => 'whatever',
-            'device_name' => 'iPhone',
-        ])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(['email']);
+            'email' => 'nobody@example.com', 'password' => 'whatever',
+        ])->assertStatus(401);
     }
 
-    public function test_blocks_inactive_account(): void
+    public function test_blocks_inactive_account_with_403(): void
     {
         $tenant = $this->makeTenant(['status' => 'inactive']);
 
         $this->postJson('/api/v1/auth/login', [
-            'email' => $tenant->email,
-            'password' => 'secret-pw',
-            'device_name' => 'iPhone',
-        ])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(['email']);
+            'email' => $tenant->email, 'password' => 'secret-pw',
+        ])->assertStatus(403)->assertJsonPath('statusCode', 403);
     }
 
-    public function test_blocks_blacklisted_account(): void
+    public function test_blocks_blacklisted_account_with_403(): void
     {
         $tenant = $this->makeTenant(['status' => 'blacklisted']);
 
         $this->postJson('/api/v1/auth/login', [
-            'email' => $tenant->email,
-            'password' => 'secret-pw',
-            'device_name' => 'iPhone',
-        ])->assertStatus(422);
+            'email' => $tenant->email, 'password' => 'secret-pw',
+        ])->assertStatus(403);
     }
 
-    public function test_requires_all_three_fields(): void
+    public function test_missing_fields_return_400(): void
     {
         $this->postJson('/api/v1/auth/login', [])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(['email', 'password', 'device_name']);
+            ->assertStatus(400)
+            ->assertJsonPath('statusCode', 400)
+            ->assertJsonStructure(['message', 'statusCode']);
     }
 
     public function test_revokes_prior_token_for_same_device(): void
@@ -112,20 +115,15 @@ class LoginTest extends TestCase
         $tenant = $this->makeTenant();
 
         $first = $this->postJson('/api/v1/auth/login', [
-            'email' => $tenant->email,
-            'password' => 'secret-pw',
-            'device_name' => 'iPhone 16',
-        ])->json('data.token');
+            'email' => $tenant->email, 'password' => 'secret-pw', 'device_name' => 'iPhone 16',
+        ])->json('accessToken');
 
         $second = $this->postJson('/api/v1/auth/login', [
-            'email' => $tenant->email,
-            'password' => 'secret-pw',
-            'device_name' => 'iPhone 16',
-        ])->json('data.token');
+            'email' => $tenant->email, 'password' => 'secret-pw', 'device_name' => 'iPhone 16',
+        ])->json('accessToken');
 
         $this->assertNotSame($first, $second);
-        $this->assertEquals(1, $tenant->tokens()->where('name', 'iPhone 16')->count(),
-            'a fresh login on the same device should revoke + replace, not stack tokens');
+        $this->assertEquals(1, $tenant->tokens()->where('name', 'iPhone 16')->count());
     }
 
     public function test_keeps_tokens_separate_across_devices(): void
