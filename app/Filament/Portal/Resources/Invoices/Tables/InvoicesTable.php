@@ -149,9 +149,9 @@ class InvoicesTable
                     ->modalHeading(fn ($record) => __('admin.actions.pay_now') . ' · ' . $record->number)
                     ->action(function (Invoice $record) {
                         try {
-                            $url = app(PaymobPaymentInitiator::class)->start($record);
+                            $session = app(PaymobPaymentInitiator::class)->start($record);
 
-                            return redirect()->away($url);
+                            return redirect()->away($session['iframe_url']);
                         } catch (\Throwable $e) {
                             Log::warning('Paymob Pay Now failed', [
                                 'invoice_id' => $record->id,

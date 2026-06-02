@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\V1\Profile\UpdateProfileController;
 use App\Http\Controllers\Api\V1\SalesDeclarations\CreateSalesDeclarationController;
 use App\Http\Controllers\Api\V1\SalesDeclarations\ListSalesDeclarationsController;
 use App\Http\Controllers\Api\V1\SalesDeclarations\ShowSalesDeclarationController;
+use App\Http\Controllers\Api\V1\Tenant\InitiatePaymobSessionController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -78,6 +79,16 @@ Route::prefix('v1')->group(function () {
         Route::get('me/invoices/{id}', ShowInvoiceController::class)->whereNumber('id')->name('api.v1.me.invoices.show');
         Route::get('me/invoices/{id}/pdf', InvoicePdfController::class)->whereNumber('id')->name('api.v1.me.invoices.pdf');
         Route::get('me/statement', StatementController::class)->name('api.v1.me.statement');
+
+        // Paymob session — tighter throttle (5/min) than the global 60/min
+        // because each call hits Paymob upstream. The initiator is idempotent
+        // within REUSE_WINDOW_SECONDS, so retries inside that window are free
+        // (no fresh Paymob order created).
+        Route::middleware('throttle:5,1')->group(function () {
+            Route::post('me/invoices/{invoice}/paymob-session', InitiatePaymobSessionController::class)
+                ->whereNumber('invoice')
+                ->name('api.v1.me.invoices.paymob-session');
+        });
 
         // --- Payments ---
         Route::get('me/payments', ListPaymentsController::class)->name('api.v1.me.payments.index');

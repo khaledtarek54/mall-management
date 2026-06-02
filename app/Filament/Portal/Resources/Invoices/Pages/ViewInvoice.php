@@ -39,9 +39,9 @@ class ViewInvoice extends ViewRecord
                 ->modalHeading(fn () => __('admin.actions.pay_now') . ' · ' . $this->record->number)
                 ->action(function () {
                     try {
-                        $url = app(PaymobPaymentInitiator::class)->start($this->record);
+                        $session = app(PaymobPaymentInitiator::class)->start($this->record);
 
-                        return redirect()->away($url);
+                        return redirect()->away($session['iframe_url']);
                     } catch (\Throwable $e) {
                         Log::warning('Paymob Pay Now failed', [
                             'invoice_id' => $this->record->id,

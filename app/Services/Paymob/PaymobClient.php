@@ -25,6 +25,13 @@ use RuntimeException;
  */
 class PaymobClient
 {
+    /**
+     * Paymob payment_key TTL — the iframe / SDK rejects the token after this
+     * many seconds. Shared with PaymobPaymentInitiator so the reuse window
+     * stays consistent with the gateway-side expiration.
+     */
+    public const PAYMENT_TOKEN_TTL_SECONDS = 3600;
+
     public function __construct(
         protected string $baseUrl,
         protected string $apiKey,
@@ -114,7 +121,7 @@ class PaymobClient
         $response = Http::acceptJson()->post("{$this->baseUrl}/api/acceptance/payment_keys", [
             'auth_token' => $bearerToken,
             'amount_cents' => $amountCents,
-            'expiration' => 3600,
+            'expiration' => self::PAYMENT_TOKEN_TTL_SECONDS,
             'order_id' => $orderId,
             'billing_data' => [
                 'first_name' => $parts[0] ?: 'Atriom',

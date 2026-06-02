@@ -129,10 +129,115 @@ When you're ready to take real money:
 - `app/Services/Paymob/PaymobClient.php` is the thin API wrapper (auth →
   order → payment key → iframe URL + HMAC verify).
 - `app/Services/Paymob/PaymobPaymentInitiator.php` glues the client to an
-  `initiated` Payment row keyed by the Paymob order ID.
+  `initiated` Payment row keyed by the Paymob order ID. Idempotent: a second
+  call inside the reuse window (`REUSE_WINDOW_SECONDS`, 45 minutes) returns
+  the existing session rather than burning a fresh Paymob order.
 - `app/Http/Controllers/Paymob/CallbackController.php` handles the S2S
   callback (HMAC-verified, CSRF-exempt) and the browser return URL.
 - The Pay Now action in the portal `Invoices` table and view page calls the
   initiator and redirects to the iframe.
 - Invoice totals + tenant notifications fire from the existing
   `Payment::saved` hook once the callback flips status to `captured`.
+
+## Mobile (Flutter) integration
+
+The Flutter app does **not** hold the Paymob API key or HMAC secret. It calls
+our backend, gets a short-lived session, and lets Paymob's mobile SDK (or a
+WebView) take it from there. The S2S callback we ship is the authoritative
+source of truth for `paid` status — the mobile client polls the invoice
+endpoint after the payment UI dismisses.
+
+### Endpoint
+
+```http
+POST /api/v1/invoices/{invoice}/paymob-session
+Authorization: Bearer <tenant Sanctum token>
+```
+
+Response (200):
+
+```json
+{
+  "data": {
+    "payment_token": "ZXlKaGJHY2lPaUpJVXpV…",
+    "iframe_url": "https://accept.paymob.com/api/acceptance/iframes/12345?payment_token=ZXlKaG…",
+    "iframe_id": "12345",
+    "order_id": 4242424,
+    "payment_id": 117,
+    "expires_at": "2026-06-02T11:30:00+00:00",
+    "reused": false
+  }
+}
+```
+
+Error contract:
+
+| Status | `error` body                | Reason                                                       |
+|--------|-----------------------------|--------------------------------------------------------------|
+| 401    | —                           | No / invalid bearer token                                    |
+| 403    | —                           | Invoice belongs to another tenant                            |
+| 409    | `paymob_disabled`           | `PAYMOB_ENABLED=false`                                       |
+| 422    | `no_balance`                | Invoice fully paid                                           |
+| 422    | `invoice_not_payable`       | Invoice cancelled / credited                                 |
+| 429    | —                           | More than 5 fresh sessions in a minute                       |
+| 502    | `paymob_upstream_error`     | Paymob returned a non-2xx during auth/order/payment-key step |
+
+### Two integration patterns
+
+**A. Native SDK (recommended for production)** — better UX, native card form,
+Apple Pay / Google Pay, save-card. Hand the `payment_token` to the
+[`paymob_payment`](https://pub.dev/packages/paymob_payment) plugin's
+`acceptPayment()`. The `iframe_id` is needed once at app config.
+
+```dart
+final session = await api.initPaymobSession(invoiceId: invoice.id);
+final result = await PaymobPayment.instance.acceptPayment(
+  context: context,
+  currency: 'EGP',
+  amountInCents: (invoice.balance * 100).round(),
+  onPayment: (response) async {
+    // Don't trust this response for state. Poll the invoice.
+    await api.refreshInvoice(invoice.id);
+  },
+);
+```
+
+**B. WebView (simplest, ships today)** — open the `iframe_url` in
+[`webview_flutter`](https://pub.dev/packages/webview_flutter), listen for
+the `/paymob/return` redirect to close the sheet.
+
+```dart
+final session = await api.initPaymobSession(invoiceId: invoice.id);
+await Navigator.push(context, MaterialPageRoute(
+  builder: (_) => PaymobWebViewPage(
+    iframeUrl: session.iframeUrl,
+    onReturn: () async {
+      Navigator.pop(context);
+      await api.refreshInvoice(invoice.id);
+    },
+  ),
+));
+```
+
+### Idempotency
+
+Tapping Pay Now twice within 45 minutes returns the same Paymob session
+(`reused: true`). This protects the Paymob-side rate limits and prevents
+zombie `initiated` Payment rows. The Flutter app can call the endpoint
+defensively without producing duplicates.
+
+### Polling for status
+
+After the user dismisses the SDK / WebView, the Flutter app must refetch the
+invoice — the local "success" callback is informational only. The
+authoritative status update lands when Paymob hits our `/paymob/callback`
+webhook, which can happen seconds after the user sees "success" in the UI.
+
+### Deep-link return URL for WebView
+
+For the WebView path, ask the mobile dev which URL they want to use to detect
+"done" — anything we register as the Paymob "Transaction response callback"
+will work, e.g. `https://your-host/paymob/return` (current default) or a
+custom deep-link scheme like `atriom://paymob/return`. The S2S callback URL
+stays `https://your-host/paymob/callback` regardless — that one is server-to-
+server and never visible to the app.
