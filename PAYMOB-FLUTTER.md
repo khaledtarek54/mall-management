@@ -116,36 +116,37 @@ Paymob, creates an order, requests a payment key, and returns a payload
 that lets you launch either a WebView or the Paymob SDK.
 
 ```http
-POST /api/v1/invoices/{invoice_id}/paymob-session
+POST /api/v1/me/invoices/{invoice_id}/paymob-session
 Authorization: Bearer <token>
 Accept: application/json
 ```
 
-Response 200:
+Response 200 (keys are camelCase — the backend's API middleware re-cases
+the internal snake_case Resource on the way out):
 
 ```json
 {
   "data": {
-    "payment_token": "ZXlKaGJHY2lPaUpJVXpVeE1pSXNJblI1Y0NJNklr…",
-    "iframe_url": "https://accept.paymob.com/api/acceptance/iframes/1049031?payment_token=ZXlKaG…",
-    "iframe_id": "1049031",
-    "order_id": 537814381,
-    "payment_id": 193,
-    "expires_at": "2026-06-02T09:46:39+00:00",
+    "paymentToken": "ZXlKaGJHY2lPaUpJVXpVeE1pSXNJblI1Y0NJNklr…",
+    "iframeUrl": "https://accept.paymob.com/api/acceptance/iframes/1049031?payment_token=ZXlKaG…",
+    "iframeId": "1049031",
+    "orderId": 537814381,
+    "paymentId": 193,
+    "expiresAt": "2026-06-02T09:46:39+00:00",
     "reused": false
   }
 }
 ```
 
-| Field           | Use it for                                                 |
-|-----------------|------------------------------------------------------------|
-| `payment_token` | Native Paymob SDK (`PaymobPayment.instance.acceptPayment`) |
-| `iframe_url`    | WebView the user opens                                     |
-| `iframe_id`     | Native SDK config (rarely needed if you use `iframe_url`)  |
-| `order_id`      | Paymob's order id — useful for support / logs              |
-| `payment_id`    | Our `Payment` row id — useful for polling                  |
-| `expires_at`    | Session expiration (1 hour from issue)                     |
-| `reused`        | `true` if you called within 45 min and got a cached session |
+| Field          | Use it for                                                 |
+|----------------|------------------------------------------------------------|
+| `paymentToken` | Native Paymob SDK (`PaymobPayment.instance.acceptPayment`) |
+| `iframeUrl`    | WebView the user opens                                     |
+| `iframeId`     | Native SDK config (rarely needed if you use `iframeUrl`)   |
+| `orderId`      | Paymob's order id — useful for support / logs              |
+| `paymentId`    | Our `Payment` row id — useful for polling                  |
+| `expiresAt`    | Session expiration (1 hour from issue)                     |
+| `reused`       | `true` if you called within 45 min and got a cached session |
 
 ### Error contract
 
@@ -156,7 +157,7 @@ Response 200:
 | 409    | `paymob_disabled`        | Backend has Paymob switched off              | Hide Pay Now   |
 | 422    | `no_balance`             | Invoice is already paid                      | "Already paid" |
 | 422    | `invoice_not_payable`    | Invoice cancelled / credited                 | Hide Pay Now   |
-| 429    | —                        | More than 5 sessions per minute              | "Try again in 1 min" |
+| 429    | —                        | More than 60 calls/min on the auth'd surface | "Try again in 1 min" |
 | 502    | `paymob_upstream_error`  | Paymob returned an error                     | "Try again later" |
 
 ### Idempotency
@@ -198,11 +199,11 @@ class PaymobSession {
   final bool reused;
 
   PaymobSession.fromJson(Map<String, dynamic> j)
-    : paymentToken = j['payment_token'],
-      iframeUrl = j['iframe_url'],
-      orderId = j['order_id'],
-      paymentId = j['payment_id'],
-      expiresAt = DateTime.parse(j['expires_at']),
+    : paymentToken = j['paymentToken'],
+      iframeUrl = j['iframeUrl'],
+      orderId = j['orderId'],
+      paymentId = j['paymentId'],
+      expiresAt = DateTime.parse(j['expiresAt']),
       reused = j['reused'];
 }
 
@@ -213,7 +214,7 @@ class PaymobService {
 
   Future<PaymobSession> initSession(int invoiceId) async {
     final res = await http.post(
-      Uri.parse('$baseUrl/api/v1/invoices/$invoiceId/paymob-session'),
+      Uri.parse('$baseUrl/api/v1/me/invoices/$invoiceId/paymob-session'),
       headers: {
         'Authorization': 'Bearer $token',
         'Accept': 'application/json',
@@ -396,18 +397,28 @@ window between "user thinks they paid" and "backend confirms paid".
 **More polished pattern:**
 
 1. Close the sheet, show a spinner overlay.
-2. Poll the invoice every 1.5 seconds for up to 15 seconds.
+2. Poll `GET /api/v1/me/invoices/{id}` every 1.5 seconds for up to 15
+   seconds.
 3. If the invoice flips to `paid`, show a green checkmark.
 4. If 15 seconds pass with no change, show "Payment is processing —
    refresh in a minute."
 
-> **The polling endpoint** (`GET /api/v1/invoices/{id}`) is on the backend
-> roadmap but not shipped yet. For now, refetch your invoice list endpoint
-> when you have one, or just rely on pull-to-refresh.
+```dart
+Future<bool> pollUntilPaid(int invoiceId, {int maxAttempts = 10}) async {
+  for (var i = 0; i < maxAttempts; i++) {
+    await Future.delayed(const Duration(milliseconds: 1500));
+    final invoice = await api.showInvoice(invoiceId);
+    if (invoice.status == 'paid') return true;
+  }
+  return false;
+}
+```
 
-The `payment_id` from the session response gives you a stable handle if
+The `paymentId` from the session response gives you a stable handle if
 you want to surface "this payment is processing" UI even before the
-invoice flips.
+invoice flips. The full mobile invoice surface (`me/invoices`,
+`me/invoices/{id}`, `me/payments`, `me/statement`, …) is in routes/api.php
+— see the [mobile API contract](#) the backend team owns.
 
 ---
 
