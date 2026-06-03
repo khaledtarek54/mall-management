@@ -49,6 +49,55 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
 
+    // Temporary diagnostic endpoint — gated by a fixed token. Remove once
+    // the Laravel Cloud bring-up is complete.
+    Route::get('_diag', function (\Illuminate\Http\Request $request) {
+        if ($request->query('token') !== 'atriom-diag-7f3c91') {
+            abort(403);
+        }
+
+        $out = [
+            'php' => PHP_VERSION,
+            'app_env' => config('app.env'),
+            'app_debug' => config('app.debug'),
+            'app_url' => config('app.url'),
+            'db_connection' => config('database.default'),
+            'db_host' => config('database.connections.'.config('database.default').'.host'),
+            'db_database' => config('database.connections.'.config('database.default').'.database'),
+            'cache_store' => config('cache.default'),
+            'session_driver' => config('session.driver'),
+            'queue_default' => config('queue.default'),
+        ];
+
+        try {
+            $out['db_ping'] = \Illuminate\Support\Facades\DB::connection()->getPdo() ? 'ok' : 'no-pdo';
+        } catch (\Throwable $e) {
+            $out['db_ping'] = 'error: '.$e->getMessage();
+        }
+
+        try {
+            $out['tables'] = \Illuminate\Support\Facades\DB::connection()
+                ->getSchemaBuilder()
+                ->getTableListing();
+        } catch (\Throwable $e) {
+            $out['tables'] = 'error: '.$e->getMessage();
+        }
+
+        try {
+            $out['users_count'] = \Illuminate\Support\Facades\DB::table('users')->count();
+        } catch (\Throwable $e) {
+            $out['users_count'] = 'error: '.$e->getMessage();
+        }
+
+        try {
+            $out['tenants_count'] = \Illuminate\Support\Facades\DB::table('tenants')->count();
+        } catch (\Throwable $e) {
+            $out['tenants_count'] = 'error: '.$e->getMessage();
+        }
+
+        return response()->json($out, 200, [], JSON_PRETTY_PRINT);
+    });
+
     // ============ Public (unauthenticated) ============
     Route::middleware('throttle:5,1')->group(function () {
         Route::post('auth/login', LoginController::class)->name('api.v1.auth.login');
