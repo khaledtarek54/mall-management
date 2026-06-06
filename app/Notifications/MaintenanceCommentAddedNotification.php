@@ -67,6 +67,8 @@ class MaintenanceCommentAddedNotification extends Notification
                 ]),
                 'icon' => 'heroicon-o-chat-bubble-left-right',
                 'color' => 'info',
+                'format' => 'filament', // Filament's bell only renders notifications tagged with this
+                'duration' => 'persistent', // stay until dismissed (a non-persistent toast auto-deletes the row after ~6s)
             ];
         }
 
@@ -83,6 +85,8 @@ class MaintenanceCommentAddedNotification extends Notification
             ]),
             'icon' => 'heroicon-o-chat-bubble-left-right',
             'color' => 'primary',
+            'format' => 'filament', // Filament's bell only renders notifications tagged with this
+            'duration' => 'persistent', // stay until dismissed (a non-persistent toast auto-deletes the row after ~6s)
         ];
     }
 }

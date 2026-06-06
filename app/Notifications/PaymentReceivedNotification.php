@@ -21,14 +21,14 @@ class PaymentReceivedNotification extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         $invoiceLines = $this->payment->invoices->map(
-            fn ($invoice) => $invoice->number . ' (EGP ' . number_format((float) $invoice->pivot->allocated_amount, 2) . ')'
+            fn ($invoice) => $invoice->number.' (EGP '.number_format((float) $invoice->pivot->allocated_amount, 2).')'
         )->implode(', ');
 
         return (new MailMessage)
             ->subject(__('admin.notifications.payment_received_subject', ['reference' => $this->payment->reference]))
             ->greeting(__('admin.notifications.payment_received_greeting', ['name' => $this->payment->tenant?->name ?? '']))
             ->line(__('admin.notifications.payment_received_body', [
-                'amount' => 'EGP ' . number_format((float) $this->payment->amount, 2),
+                'amount' => 'EGP '.number_format((float) $this->payment->amount, 2),
                 'method' => __("admin.fields.payment_methods.{$this->payment->method}", [], null) ?: $this->payment->method,
                 'date' => $this->payment->payment_date->format('d/m/Y'),
             ]))
@@ -48,11 +48,13 @@ class PaymentReceivedNotification extends Notification
             'method' => $this->payment->method,
             'title' => __('admin.notifications.payment_received_title'),
             'body' => __('admin.notifications.payment_received_short', [
-                'amount' => 'EGP ' . number_format((float) $this->payment->amount, 2),
+                'amount' => 'EGP '.number_format((float) $this->payment->amount, 2),
                 'invoices' => $invoiceNumbers ?: '—',
             ]),
             'icon' => 'heroicon-o-banknotes',
             'color' => 'success',
+            'format' => 'filament', // Filament's bell only renders notifications tagged with this
+            'duration' => 'persistent', // stay until dismissed (a non-persistent toast auto-deletes the row after ~6s)
         ];
     }
 }

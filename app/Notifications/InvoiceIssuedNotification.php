@@ -48,10 +48,12 @@ class InvoiceIssuedNotification extends Notification
             'title' => __('admin.notifications.invoice_issued_title'),
             'body' => __('admin.notifications.invoice_issued_body', [
                 'number' => $this->invoice->number,
-                'total' => 'EGP ' . number_format((float) $this->invoice->total, 2),
+                'total' => 'EGP '.number_format((float) $this->invoice->total, 2),
             ]),
             'icon' => 'heroicon-o-document-text',
             'color' => 'primary',
+            'format' => 'filament', // Filament's bell only renders notifications tagged with this
+            'duration' => 'persistent', // stay until dismissed (a non-persistent toast auto-deletes the row after ~6s)
         ];
     }
 }

@@ -26,7 +26,7 @@ class SalesDeclarationLockedNotification extends Notification
             ]))
             ->line(__('admin.notifications.sales_locked_body', [
                 'period' => $this->declaration->periodLabel(),
-                'amount' => 'EGP ' . number_format((float) $this->declaration->calculated_percentage_rent, 2),
+                'amount' => 'EGP '.number_format((float) $this->declaration->calculated_percentage_rent, 2),
             ]))
             ->line(__('admin.notifications.sales_locked_billing_hint'));
     }
@@ -41,10 +41,12 @@ class SalesDeclarationLockedNotification extends Notification
             'title' => __('admin.notifications.sales_locked_title'),
             'body' => __('admin.notifications.sales_locked_short', [
                 'period' => $this->declaration->periodLabel(),
-                'amount' => 'EGP ' . number_format((float) $this->declaration->calculated_percentage_rent, 2),
+                'amount' => 'EGP '.number_format((float) $this->declaration->calculated_percentage_rent, 2),
             ]),
             'icon' => 'heroicon-o-lock-closed',
             'color' => 'warning',
+            'format' => 'filament', // Filament's bell only renders notifications tagged with this
+            'duration' => 'persistent', // stay until dismissed (a non-persistent toast auto-deletes the row after ~6s)
         ];
     }
 }

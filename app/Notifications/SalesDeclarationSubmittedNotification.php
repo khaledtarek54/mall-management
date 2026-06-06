@@ -36,10 +36,12 @@ class SalesDeclarationSubmittedNotification extends Notification
                 'tenant' => $this->declaration->lease?->tenant?->name ?? '—',
                 'unit' => $this->declaration->lease?->unit?->code ?? '—',
                 'period' => $this->declaration->periodLabel(),
-                'sales' => 'EGP ' . number_format((float) $this->declaration->declared_sales, 2),
+                'sales' => 'EGP '.number_format((float) $this->declaration->declared_sales, 2),
             ]),
             'icon' => 'heroicon-o-presentation-chart-line',
             'color' => 'warning',
+            'format' => 'filament', // Filament's bell only renders notifications tagged with this
+            'duration' => 'persistent', // stay until dismissed (a non-persistent toast auto-deletes the row after ~6s)
         ];
     }
 }

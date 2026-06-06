@@ -65,6 +65,8 @@ class MaintenanceStatusChangedNotification extends Notification
                 'in_progress' => 'warning',
                 default => 'primary',
             },
+            'format' => 'filament', // Filament's bell only renders notifications tagged with this
+            'duration' => 'persistent', // stay until dismissed (a non-persistent toast auto-deletes the row after ~6s)
         ];
     }
 }
