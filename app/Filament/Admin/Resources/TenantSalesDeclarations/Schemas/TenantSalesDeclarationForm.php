@@ -3,12 +3,15 @@
 namespace App\Filament\Admin\Resources\TenantSalesDeclarations\Schemas;
 
 use App\Models\Lease;
+use App\Models\TenantSalesDeclaration;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Illuminate\Validation\Rules\Unique;
 
 class TenantSalesDeclarationForm
 {
@@ -34,7 +37,15 @@ class TenantSalesDeclarationForm
                         ->label(__('admin.fields.period_start'))
                         ->required()
                         ->displayFormat('d/m/Y')
-                        ->default(now()->startOfMonth()->subMonth()),
+                        ->default(now()->startOfMonth()->subMonth())
+                        ->unique(
+                            table: TenantSalesDeclaration::class,
+                            ignoreRecord: true,
+                            modifyRuleUsing: fn (Unique $rule, Get $get) => $rule->where('lease_id', $get('lease_id')),
+                        )
+                        ->validationMessages([
+                            'unique' => __('api.sales_declaration_duplicate'),
+                        ]),
                     DatePicker::make('period_end')
                         ->label(__('admin.fields.period_end'))
                         ->required()
