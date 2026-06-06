@@ -17,7 +17,11 @@ class CreateMaintenanceRequestController extends ApiController
         CreateMaintenanceRequestRequest $request,
         CreateMaintenanceRequestAction $action
     ): JsonResponse {
-        $maintenanceRequest = $action->handle($request->user(), $request->payload());
+        $maintenanceRequest = $action->handle(
+            $request->user(),
+            $request->payload(),
+            $request->attachments(),
+        );
 
         return $this->ok(
             new MaintenanceRequestResource($maintenanceRequest),
