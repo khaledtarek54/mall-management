@@ -1,7 +1,5 @@
 <?php
 
-use App\Models\Invoice;
-
 it('flags invoices past their due date as overdue', function () {
     $asset = makeAsset();
     $unit = makeUnit($asset);
@@ -45,7 +43,9 @@ it('reports zero days overdue for current invoices', function () {
 });
 
 it('auto-generates a unique invoice number with the asset code and period', function () {
-    $asset = makeAsset();
+    // Distinctive code proves the number is derived from the property, not a
+    // hardcoded prefix.
+    $asset = makeAsset(['code' => 'XY']);
     $unit = makeUnit($asset);
     $lease = makeLease($unit);
 
@@ -53,9 +53,9 @@ it('auto-generates a unique invoice number with the asset code and period', func
     $b = makeInvoice($lease, ['issue_date' => '2026-02-15']);
     $c = makeInvoice($lease, ['issue_date' => '2026-03-01']);
 
-    expect($a->number)->toMatch('/^INV-HW-202602-\d{4}$/');
-    expect($b->number)->toMatch('/^INV-HW-202602-\d{4}$/');
-    expect($c->number)->toMatch('/^INV-HW-202603-\d{4}$/');
+    expect($a->number)->toMatch('/^INV-XY-202602-\d{4}$/');
+    expect($b->number)->toMatch('/^INV-XY-202602-\d{4}$/');
+    expect($c->number)->toMatch('/^INV-XY-202603-\d{4}$/');
     expect($a->number)->not->toBe($b->number);
 });
 

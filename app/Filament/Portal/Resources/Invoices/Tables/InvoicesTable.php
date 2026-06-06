@@ -2,9 +2,11 @@
 
 namespace App\Filament\Portal\Resources\Invoices\Tables;
 
+use App\Actions\Api\V1\Payments\RecordDemoPaymentAction;
 use App\Models\Invoice;
 use App\Services\InvoicePdfService;
 use App\Services\Paymob\PaymobPaymentInitiator;
+use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
@@ -62,6 +64,7 @@ class InvoicesTable
                         if (in_array($record->status, ['paid', 'cancelled'])) {
                             return null;
                         }
+
                         return $record->due_date?->isPast() ? 'danger' : null;
                     }),
                 TextColumn::make('status')
@@ -87,6 +90,7 @@ class InvoicesTable
                         if (! $tenant) {
                             return [];
                         }
+
                         return $tenant->leases()
                             ->with('unit')
                             ->get()
@@ -113,11 +117,12 @@ class InvoicesTable
                     ->indicateUsing(function (array $data): array {
                         $indicators = [];
                         if ($data['period_from'] ?? null) {
-                            $indicators[] = __('admin.filters.period_from') . ': ' . \Carbon\Carbon::parse($data['period_from'])->format('d/m/Y');
+                            $indicators[] = __('admin.filters.period_from').': '.Carbon::parse($data['period_from'])->format('d/m/Y');
                         }
                         if ($data['period_until'] ?? null) {
-                            $indicators[] = __('admin.filters.period_until') . ': ' . \Carbon\Carbon::parse($data['period_until'])->format('d/m/Y');
+                            $indicators[] = __('admin.filters.period_until').': '.Carbon::parse($data['period_until'])->format('d/m/Y');
                         }
+
                         return $indicators;
                     }),
                 Filter::make('unpaid_only')
@@ -134,8 +139,9 @@ class InvoicesTable
                     ->action(function (Invoice $record) {
                         $svc = app(InvoicePdfService::class);
                         $pdf = $svc->build($record);
+
                         return response()->streamDownload(
-                            fn () => print($pdf),
+                            fn () => print ($pdf),
                             $svc->filename($record),
                             ['Content-Type' => 'application/pdf'],
                         );
@@ -146,7 +152,7 @@ class InvoicesTable
                     ->color('primary')
                     ->visible(fn ($record) => config('integrations.paymob.enabled') && $record->balance > 0)
                     ->requiresConfirmation()
-                    ->modalHeading(fn ($record) => __('admin.actions.pay_now') . ' · ' . $record->number)
+                    ->modalHeading(fn ($record) => __('admin.actions.pay_now').' · '.$record->number)
                     ->action(function (Invoice $record) {
                         try {
                             $session = app(PaymobPaymentInitiator::class)->start($record);
@@ -163,6 +169,33 @@ class InvoicesTable
                                 ->body(__('admin.notifications.pay_now_failed_body'))
                                 ->send();
                         }
+                    }),
+                // Demo payment — shown only while Paymob is disabled. Records a
+                // successful payment through the real capture path (same as the
+                // mobile pay-demo endpoint): invoice → paid, payment created,
+                // tenant notified. Lets the portal demonstrate the full
+                // post-payment flow without a live gateway.
+                Action::make('payDemo')
+                    ->label(__('admin.actions.pay_now'))
+                    ->icon('heroicon-o-credit-card')
+                    ->color('primary')
+                    ->visible(fn (Invoice $record) => ! config('integrations.paymob.enabled')
+                        && (float) $record->balance > 0
+                        && ! in_array($record->status, ['cancelled', 'credited'], true))
+                    ->requiresConfirmation()
+                    ->modalHeading(fn (Invoice $record) => __('admin.actions.pay_now').' · '.$record->number)
+                    ->modalDescription(fn (Invoice $record) => __('admin.actions.pay_demo_modal_body', [
+                        'amount' => number_format((float) $record->balance, 2),
+                    ]))
+                    ->modalSubmitActionLabel(__('admin.actions.pay_now'))
+                    ->action(function (Invoice $record) {
+                        app(RecordDemoPaymentAction::class)->handle($record);
+
+                        Notification::make()
+                            ->success()
+                            ->title(__('admin.notifications.payment_received_title'))
+                            ->body(__('admin.actions.pay_demo_success', ['number' => $record->number]))
+                            ->send();
                     }),
             ])
             ->defaultSort('issue_date', 'desc');

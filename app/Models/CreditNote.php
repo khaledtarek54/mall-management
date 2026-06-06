@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -84,13 +85,13 @@ class CreditNote extends Model
         return (float) $this->balance > 0 && in_array($this->status, ['issued', 'applied']);
     }
 
-    public static function generateNumber(string $assetCode = 'HW', ?\DateTimeInterface $issueDate = null): string
+    public static function generateNumber(string $assetCode = 'AW', ?\DateTimeInterface $issueDate = null): string
     {
-        $issueDate = $issueDate ? \Illuminate\Support\Carbon::instance($issueDate) : now();
+        $issueDate = $issueDate ? Carbon::instance($issueDate) : now();
         $prefix = sprintf('CN-%s-%s-', $assetCode, $issueDate->format('Ym'));
 
         $lastNumber = static::withTrashed()
-            ->where('number', 'like', $prefix . '%')
+            ->where('number', 'like', $prefix.'%')
             ->orderByDesc('number')
             ->value('number');
 
@@ -98,14 +99,15 @@ class CreditNote extends Model
             ? ((int) substr($lastNumber, strlen($prefix))) + 1
             : 1;
 
-        return $prefix . str_pad((string) $next, 4, '0', STR_PAD_LEFT);
+        return $prefix.str_pad((string) $next, 4, '0', STR_PAD_LEFT);
     }
 
     protected static function booted(): void
     {
         static::creating(function (self $note) {
             if (empty($note->number)) {
-                $note->number = static::generateNumber('HW', $note->issue_date);
+                $assetCode = $note->lease?->unit?->asset?->code ?: 'AW';
+                $note->number = static::generateNumber($assetCode, $note->issue_date);
             }
             if (empty($note->currency)) {
                 $note->currency = 'EGP';

@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -79,8 +80,8 @@ class Invoice extends Model
     public function payments(): BelongsToMany
     {
         return $this->belongsToMany(Payment::class)
-                    ->withPivot('allocated_amount')
-                    ->withTimestamps();
+            ->withPivot('allocated_amount')
+            ->withTimestamps();
     }
 
     // ============ Status helpers ============
@@ -96,6 +97,7 @@ class Invoice extends Model
         if (! $this->isOverdue()) {
             return 0;
         }
+
         return (int) $this->due_date->diffInDays(now());
     }
 
@@ -110,9 +112,9 @@ class Invoice extends Model
         $this->save();
     }
 
-    public static function generateNumber(string $assetCode = 'HW', ?\DateTimeInterface $issueDate = null): string
+    public static function generateNumber(string $assetCode = 'AW', ?\DateTimeInterface $issueDate = null): string
     {
-        $issueDate = $issueDate ? \Illuminate\Support\Carbon::instance($issueDate) : now();
+        $issueDate = $issueDate ? Carbon::instance($issueDate) : now();
         $prefix = sprintf('INV-%s-%s-', $assetCode, $issueDate->format('Ym'));
 
         $last = static::withTrashed()
@@ -127,9 +129,9 @@ class Invoice extends Model
         return sprintf('%s%04d', $prefix, $next);
     }
 
-    protected static function generateUniqueNumber(?\DateTimeInterface $issueDate = null): string
+    protected static function generateUniqueNumber(string $assetCode = 'AW', ?\DateTimeInterface $issueDate = null): string
     {
-        $candidate = static::generateNumber('HW', $issueDate);
+        $candidate = static::generateNumber($assetCode, $issueDate);
 
         $attempts = 0;
         while (static::withTrashed()->where('number', $candidate)->exists()) {
@@ -137,8 +139,8 @@ class Invoice extends Model
             if ($attempts > 100) {
                 throw new \RuntimeException('Unable to allocate a unique invoice number after 100 attempts.');
             }
-            $issue = $issueDate ? \Illuminate\Support\Carbon::instance($issueDate) : now();
-            $prefix = sprintf('INV-HW-%s-', $issue->format('Ym'));
+            $issue = $issueDate ? Carbon::instance($issueDate) : now();
+            $prefix = sprintf('INV-%s-%s-', $assetCode, $issue->format('Ym'));
             $n = ((int) substr($candidate, strlen($prefix))) + 1;
             $candidate = sprintf('%s%04d', $prefix, $n);
         }
@@ -150,8 +152,11 @@ class Invoice extends Model
     {
         static::creating(function (self $invoice) {
             // Always (re)generate at save time so we never persist a stale
-            // form-cached number that could collide with another record.
-            $invoice->number = static::generateUniqueNumber($invoice->issue_date);
+            // form-cached number that could collide with another record. The
+            // prefix is the property's code (INV-AW-…), derived from the linked
+            // lease's unit; falls back to AW when no lease is attached.
+            $assetCode = $invoice->lease?->unit?->asset?->code ?: 'AW';
+            $invoice->number = static::generateUniqueNumber($assetCode, $invoice->issue_date);
 
             if (empty($invoice->currency)) {
                 $invoice->currency = 'EGP';
@@ -181,7 +186,7 @@ class Invoice extends Model
                 $this->status = 'paid';
             } elseif ($this->paid_amount > 0) {
                 $this->status = 'partially_paid';
-            } elseif ($this->due_date && \Illuminate\Support\Carbon::parse($this->due_date)->isPast()) {
+            } elseif ($this->due_date && Carbon::parse($this->due_date)->isPast()) {
                 $this->status = 'overdue';
             } else {
                 $this->status = 'issued';
