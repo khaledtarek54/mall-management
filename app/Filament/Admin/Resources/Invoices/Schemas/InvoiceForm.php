@@ -31,12 +31,26 @@ class InvoiceForm
                         ->relationship(
                             'lease',
                             'reference',
-                            modifyQueryUsing: fn ($query) => $query->when(
-                                TenantScope::currentAssetId(),
-                                fn ($q, $assetId) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)),
-                            ),
+                            modifyQueryUsing: function ($query, ?string $search = null) {
+                                $query
+                                    ->with(['tenant:id,name', 'unit:id,code'])
+                                    ->when(
+                                        TenantScope::currentAssetId(),
+                                        fn ($q, $assetId) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)),
+                                    );
+
+                                if (filled($search)) {
+                                    $term = '%'.$search.'%';
+                                    $query->where(fn ($q) => $q
+                                        ->where('reference', 'like', $term)
+                                        ->orWhereHas('tenant', fn ($t) => $t->where('name', 'like', $term))
+                                        ->orWhereHas('unit', fn ($u) => $u->where('code', 'like', $term)));
+                                }
+
+                                return $query;
+                            },
                         )
-                        ->searchable(['reference'])
+                        ->searchable()
                         ->preload()
                         ->getOptionLabelFromRecordUsing(fn (Lease $record) => trim(
                             ($record->reference ?? '—').' · '.($record->tenant?->name ?? '—').' · '.($record->unit?->code ?? '—')
