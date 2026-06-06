@@ -51,6 +51,63 @@ it('creates a maintenance request via the service path', function () {
     ]);
 });
 
+it('creates a request with image + PDF attachments', function () {
+    Storage::fake('public');
+    $tenant = makeTenant();
+    makeLease(makeUnit(makeAsset()), $tenant);
+
+    // Multipart upload (post, not postJson) so the files reach the request.
+    $response = $this->post('/api/v1/me/maintenance-requests', [
+        'title' => 'Leaking pipe',
+        'description' => 'Water under the sink.',
+        'category' => 'plumbing',
+        'attachments' => [
+            UploadedFile::fake()->image('damage.jpg'),
+            UploadedFile::fake()->create('report.pdf', 100, 'application/pdf'),
+        ],
+    ], array_merge(apiHeaders($tenant), ['Accept' => 'application/json']))
+        ->assertCreated();
+
+    // URLs come back in the 201 so the app can render them without a re-fetch.
+    expect($response->json('data.attachments'))->toHaveCount(2);
+
+    $request = MaintenanceRequest::firstWhere('title', 'Leaking pipe');
+    expect($request->getMedia('attachments'))->toHaveCount(2);
+});
+
+it('rejects a non image/PDF attachment', function () {
+    Storage::fake('public');
+    $tenant = makeTenant();
+    makeLease(makeUnit(makeAsset()), $tenant);
+
+    $this->post('/api/v1/me/maintenance-requests', [
+        'title' => 'Broken AC',
+        'description' => 'See the clip.',
+        'category' => 'hvac',
+        'attachments' => [UploadedFile::fake()->create('clip.mp4', 200, 'video/mp4')],
+    ], array_merge(apiHeaders($tenant), ['Accept' => 'application/json']))
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['attachments.0']);
+});
+
+it('rejects more than five attachments', function () {
+    Storage::fake('public');
+    $tenant = makeTenant();
+    makeLease(makeUnit(makeAsset()), $tenant);
+
+    $this->post('/api/v1/me/maintenance-requests', [
+        'title' => 'Too many',
+        'description' => 'Six photos.',
+        'category' => 'other',
+        'attachments' => array_map(
+            fn ($i) => UploadedFile::fake()->image("photo{$i}.jpg"),
+            range(1, 6),
+        ),
+    ], array_merge(apiHeaders($tenant), ['Accept' => 'application/json']))
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['attachments']);
+});
+
 it('validates the create payload', function () {
     $tenant = makeTenant();
 

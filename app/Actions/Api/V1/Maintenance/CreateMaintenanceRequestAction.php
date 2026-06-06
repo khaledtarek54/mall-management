@@ -5,6 +5,7 @@ namespace App\Actions\Api\V1\Maintenance;
 use App\Models\MaintenanceRequest;
 use App\Models\Tenant;
 use App\Services\MaintenanceRequestService;
+use Illuminate\Http\UploadedFile;
 
 /**
  * Submit a maintenance request from the mobile app.
@@ -20,9 +21,20 @@ class CreateMaintenanceRequestAction
 
     /**
      * @param  array<string,mixed>  $data
+     * @param  array<int, UploadedFile>  $attachments  Photos / PDFs of the issue.
      */
-    public function handle(Tenant $tenant, array $data): MaintenanceRequest
+    public function handle(Tenant $tenant, array $data, array $attachments = []): MaintenanceRequest
     {
-        return $this->service->create($data, $tenant)->load('unit');
+        $request = $this->service->create($data, $tenant);
+
+        // Push uploaded files into the same `attachments` collection the portal
+        // uses, so app- and admin-sourced attachments are indistinguishable
+        // downstream. Done outside the service's create transaction because
+        // media moves files on disk and the portal handles its own upload.
+        foreach ($attachments as $file) {
+            $request->addMedia($file)->toMediaCollection('attachments');
+        }
+
+        return $request->load('unit', 'media');
     }
 }
