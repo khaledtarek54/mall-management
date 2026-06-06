@@ -37,7 +37,7 @@ class PortalMaintenanceSubmittedNotification extends Notification
                 'tenant' => $this->request->tenant?->name ?? '—',
                 'unit' => $this->request->unit?->code ?? '—',
                 'title' => $this->request->title,
-                'priority' => __("admin.statuses.maintenance_priority.{$this->request->priority}"),
+                'priority' => __("admin.enums.maintenance_priority.{$this->request->priority}"),
             ]),
             'icon' => 'heroicon-o-wrench-screwdriver',
             'color' => $this->request->priority === 'urgent' ? 'danger' : 'warning',

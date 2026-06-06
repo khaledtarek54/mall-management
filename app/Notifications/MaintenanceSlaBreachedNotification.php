@@ -35,7 +35,7 @@ class MaintenanceSlaBreachedNotification extends Notification
             'title' => __('admin.notifications.sla_breached_title'),
             'body' => __('admin.notifications.sla_breached_body', [
                 'reference' => $this->request->reference,
-                'priority' => __("admin.statuses.maintenance_priority.{$this->request->priority}"),
+                'priority' => __("admin.enums.maintenance_priority.{$this->request->priority}"),
                 'hours' => $hoursOver,
             ]),
             'icon' => 'heroicon-o-clock',
