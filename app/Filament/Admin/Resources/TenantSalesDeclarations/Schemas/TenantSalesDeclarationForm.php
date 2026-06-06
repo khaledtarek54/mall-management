@@ -52,7 +52,7 @@ class TenantSalesDeclarationForm
                         ->prefix('EGP')
                         ->numeric()
                         ->disabled()
-                        ->dehydrated()
+                        ->dehydrated(false)
                         ->step('0.01')
                         ->helperText(__('admin.fields.calculated_percentage_rent_help')),
                     Select::make('status')
