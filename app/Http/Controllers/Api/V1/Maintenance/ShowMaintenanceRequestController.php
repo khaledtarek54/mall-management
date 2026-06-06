@@ -17,6 +17,7 @@ class ShowMaintenanceRequestController extends ApiController
         $maintenanceRequest = $request->user()->maintenanceRequests()
             ->with([
                 'unit',
+                'media',
                 'comments' => fn ($q) => $q->where('is_internal', false),
                 'comments.author',
             ])

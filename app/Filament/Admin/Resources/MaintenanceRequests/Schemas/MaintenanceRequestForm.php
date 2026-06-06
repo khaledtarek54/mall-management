@@ -6,6 +6,7 @@ use App\Models\MaintenanceRequest;
 use App\Models\Tenant;
 use App\Models\Unit;
 use App\Models\User;
+use App\Support\TenantScope;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
@@ -36,7 +37,8 @@ class MaintenanceRequestForm
                     Select::make('unit_id')
                         ->label(__('admin.fields.unit_label'))
                         ->options(function () {
-                            $assetId = \App\Support\TenantScope::currentAssetId();
+                            $assetId = TenantScope::currentAssetId();
+
                             return Unit::with('asset')
                                 ->when($assetId, fn ($q) => $q->where('asset_id', $assetId))
                                 ->orderBy('code')
@@ -104,7 +106,14 @@ class MaintenanceRequestForm
                     DateTimePicker::make('target_resolution_at')
                         ->label(__('admin.fields.target_resolution_at'))
                         ->native(false)
-                        ->seconds(false),
+                        ->seconds(false)
+                        // A resolution target can't predate the request itself.
+                        // On edit, floor it at the record's creation date; on
+                        // create the row doesn't exist yet, so floor at today.
+                        ->minDate(fn (?MaintenanceRequest $record) => $record?->created_at?->startOfDay() ?? today())
+                        ->validationMessages([
+                            'after_or_equal' => __('admin.validation.maintenance_resolution_after_creation'),
+                        ]),
                 ]),
 
             Section::make(__('admin.sections.resolution'))
@@ -131,7 +140,11 @@ class MaintenanceRequestForm
                         ->downloadable()
                         ->openable()
                         ->preserveFilenames()
-                        ->acceptedFileTypes(['image/*', 'application/pdf', 'video/mp4'])
+                        // Images + PDF only — these are what the tenant app can
+                        // render/preview. Wider types (video, office docs) were
+                        // dropped per QA so the mobile viewer never gets a file
+                        // it can't open.
+                        ->acceptedFileTypes(['image/*', 'application/pdf'])
                         ->maxSize(10240)
                         ->columnSpanFull(),
                 ]),

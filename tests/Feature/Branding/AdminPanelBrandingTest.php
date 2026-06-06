@@ -16,12 +16,12 @@ beforeEach(function () {
  * The static branding resolvers on AdminPanelProvider are protected — bridge
  * via reflection so we can exercise each one without booting the full panel.
  */
-function callBrandingResolver(string $method): string
+function callBrandingResolver(string $method, mixed ...$args): string
 {
     $ref = new ReflectionMethod(AdminPanelProvider::class, $method);
     $ref->setAccessible(true);
 
-    return (string) $ref->invoke(null);
+    return (string) $ref->invoke(null, ...$args);
 }
 
 /**
@@ -54,11 +54,18 @@ it('returns the tenant property name when a real tenant is active', function () 
     expect(callBrandingResolver('resolveBrandName'))->toBe('Heliopolis West');
 });
 
-it('falls back to the Atriom logo when no tenant-uploaded logo exists', function () {
+it('falls back to the light Atriom logo when no tenant-uploaded logo exists', function () {
     $hw = makeAsset(['code' => 'HW']);
     setTenantQuiet($hw);
 
-    expect(callBrandingResolver('resolveBrandLogo'))->toContain('atriom-logo.svg');
+    expect(callBrandingResolver('resolveBrandLogo'))->toContain('atriom-logo-light.svg');
+});
+
+it('falls back to the dark Atriom logo in dark mode', function () {
+    $hw = makeAsset(['code' => 'HW']);
+    setTenantQuiet($hw);
+
+    expect(callBrandingResolver('resolveBrandLogo', true))->toContain('atriom-logo-dark.svg');
 });
 
 it('returns the tenant logo URL when one is uploaded', function () {

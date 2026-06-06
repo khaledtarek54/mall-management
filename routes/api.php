@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\V1\Profile\UpdateProfileController;
 use App\Http\Controllers\Api\V1\SalesDeclarations\CreateSalesDeclarationController;
 use App\Http\Controllers\Api\V1\SalesDeclarations\ListSalesDeclarationsController;
 use App\Http\Controllers\Api\V1\SalesDeclarations\ShowSalesDeclarationController;
+use App\Http\Controllers\Api\V1\Tenant\DemoPayInvoiceController;
 use App\Http\Controllers\Api\V1\Tenant\InitiatePaymobSessionController;
 use Illuminate\Support\Facades\Route;
 
@@ -86,6 +87,14 @@ Route::prefix('v1')->group(function () {
         Route::post('me/invoices/{invoice}/paymob-session', InitiatePaymobSessionController::class)
             ->whereNumber('invoice')
             ->name('api.v1.me.invoices.paymob-session');
+
+        // Demo payment shortcut — only active while Paymob is disabled. Marks
+        // the invoice paid through the real capture path (no gateway call) so
+        // the app can simulate a successful payment in environments without a
+        // live PSP. Returns 409 once PAYMOB_ENABLED=true.
+        Route::post('me/invoices/{invoice}/pay-demo', DemoPayInvoiceController::class)
+            ->whereNumber('invoice')
+            ->name('api.v1.me.invoices.pay-demo');
 
         // --- Payments ---
         Route::get('me/payments', ListPaymentsController::class)->name('api.v1.me.payments.index');

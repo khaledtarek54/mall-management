@@ -81,7 +81,9 @@ class MaintenanceRequestForm
                         ->downloadable()
                         ->openable()
                         ->preserveFilenames()
-                        ->acceptedFileTypes(['image/*', 'application/pdf', 'video/mp4'])
+                        // Images + PDF only — keep tenant uploads to what the
+                        // app and admin viewer can preview (QA-restricted).
+                        ->acceptedFileTypes(['image/*', 'application/pdf'])
                         ->maxSize(10240)
                         ->maxFiles(5)
                         ->columnSpanFull(),

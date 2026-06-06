@@ -2,11 +2,12 @@
 
 namespace App\Http\Resources\Api\V1;
 
+use App\Models\MaintenanceRequest;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * @mixin \App\Models\MaintenanceRequest
+ * @mixin MaintenanceRequest
  */
 class MaintenanceRequestResource extends JsonResource
 {
@@ -42,6 +43,19 @@ class MaintenanceRequestResource extends JsonResource
                 'floor' => $this->unit->floor,
             ] : null),
             'comments' => MaintenanceRequestCommentResource::collection($this->whenLoaded('comments')),
+            // Attachments uploaded by tenant or staff (Spatie media library,
+            // `attachments` collection). Absolute URLs so the app can render
+            // images / open PDFs directly. Only images + PDF are accepted on
+            // upload, so the app never receives a type it can't preview.
+            'attachments' => $this->whenLoaded('media', fn () => $this->getMedia('attachments')
+                ->map(fn ($media) => [
+                    'id' => $media->id,
+                    'name' => $media->file_name,
+                    'mime_type' => $media->mime_type,
+                    'size' => $media->size,
+                    'url' => $media->getFullUrl(),
+                ])
+                ->values()),
         ];
     }
 }

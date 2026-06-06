@@ -2,6 +2,8 @@
 
 use App\Models\MaintenanceRequest;
 use App\Models\Tenant;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 function makeMaintenance(Tenant $tenant, array $attrs = []): MaintenanceRequest
 {
@@ -82,6 +84,24 @@ it('adds a public comment', function () {
     $this->assertDatabaseHas('maintenance_request_comments', [
         'maintenance_request_id' => $request->id, 'body' => 'Any update?', 'is_internal' => false,
     ]);
+});
+
+it('syncs attachment URLs to the app in the show + list responses', function () {
+    Storage::fake('public');
+    $tenant = makeTenant();
+    $request = makeMaintenance($tenant);
+    $request->addMedia(UploadedFile::fake()->image('damage.jpg'))->toMediaCollection('attachments');
+
+    // Response keys are camelCased by the CamelCaseResponseKeys middleware to
+    // match the Flutter app (mime_type → mimeType).
+    $show = $this->getJson("/api/v1/me/maintenance-requests/{$request->id}", apiHeaders($tenant))->assertOk();
+    expect($show->json('data.attachments'))->toHaveCount(1);
+    expect($show->json('data.attachments.0'))->toHaveKeys(['id', 'name', 'mimeType', 'size', 'url']);
+    expect($show->json('data.attachments.0.name'))->toContain('damage');
+    expect($show->json('data.attachments.0.url'))->toContain('damage');
+
+    $list = $this->getJson('/api/v1/me/maintenance-requests', apiHeaders($tenant))->assertOk();
+    expect($list->json('data.0.attachments'))->toHaveCount(1);
 });
 
 it('cancels a not-yet-started request', function () {

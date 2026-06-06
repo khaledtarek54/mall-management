@@ -6,8 +6,15 @@ use App\Models\MaintenanceRequest;
 use App\Models\MaintenanceRequestComment;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Notifications\MaintenanceCommentAddedNotification;
+use App\Notifications\MaintenanceStatusChangedNotification;
+use App\Notifications\PortalMaintenanceSubmittedNotification;
+use App\Settings\MaintenanceSettings;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 use InvalidArgumentException;
 
 class MaintenanceRequestService
@@ -70,25 +77,13 @@ class MaintenanceRequestService
      */
     private function notifyOperators(MaintenanceRequest $request): void
     {
-        $assetId = $request->unit?->asset_id;
-        if (! $assetId) {
-            return;
-        }
-
         try {
-            $recipients = \App\Models\User::query()
-                ->role(['manager', 'maintenance_manager', 'super_admin'])
-                ->whereHas('assignedAssets', fn ($q) => $q->where('assets.id', $assetId))
-                ->get();
-
-            if ($recipients->isEmpty()) {
-                $recipients = \App\Models\User::query()->role('super_admin')->get();
-            }
+            $recipients = $this->staffRecipientsFor($request);
 
             if ($recipients->isNotEmpty()) {
-                \Illuminate\Support\Facades\Notification::send(
+                Notification::send(
                     $recipients,
-                    new \App\Notifications\PortalMaintenanceSubmittedNotification($request)
+                    new PortalMaintenanceSubmittedNotification($request)
                 );
             }
         } catch (\Throwable $e) {
@@ -97,6 +92,34 @@ class MaintenanceRequestService
                 'error' => $e->getMessage(),
             ]);
         }
+    }
+
+    /**
+     * Property-team recipients for a request: managers / maintenance_managers /
+     * super_admins assigned to the unit's asset, falling back to every
+     * super_admin when nobody is assigned. Empty collection when the request
+     * has no unit/asset. Shared by the submit fan-out and tenant-comment
+     * fan-out so both target the same people.
+     *
+     * @return Collection<int, User>
+     */
+    private function staffRecipientsFor(MaintenanceRequest $request): Collection
+    {
+        $assetId = $request->unit?->asset_id;
+        if (! $assetId) {
+            return collect();
+        }
+
+        $recipients = User::query()
+            ->role(['manager', 'maintenance_manager', 'super_admin'])
+            ->whereHas('assignedAssets', fn ($q) => $q->where('assets.id', $assetId))
+            ->get();
+
+        if ($recipients->isEmpty()) {
+            $recipients = User::query()->role('super_admin')->get();
+        }
+
+        return $recipients;
     }
 
     public function transition(MaintenanceRequest $request, string $next, array $extra = []): MaintenanceRequest
@@ -133,7 +156,7 @@ class MaintenanceRequestService
         if ($next !== 'cancelled' && $request->tenant) {
             try {
                 $request->tenant->notify(
-                    new \App\Notifications\MaintenanceStatusChangedNotification($request->refresh(), $current)
+                    new MaintenanceStatusChangedNotification($request->refresh(), $current)
                 );
             } catch (\Throwable $e) {
                 \Log::warning('Maintenance status notification failed', [
@@ -159,13 +182,56 @@ class MaintenanceRequestService
 
     public function comment(MaintenanceRequest $request, Model $author, string $body, bool $isInternal = false): MaintenanceRequestComment
     {
-        return MaintenanceRequestComment::create([
+        $comment = MaintenanceRequestComment::create([
             'maintenance_request_id' => $request->id,
             'author_type' => $author->getMorphClass(),
             'author_id' => $author->getKey(),
             'body' => $body,
             'is_internal' => $isInternal,
         ]);
+
+        // Internal staff-only notes are never broadcast. Public comments fan
+        // out: a tenant's comment pings the property team (the gap QA hit),
+        // and a staff comment pings the tenant — keeping both sides in sync.
+        if (! $isInternal) {
+            $this->notifyOfComment($request, $author, $comment);
+        }
+
+        return $comment;
+    }
+
+    /**
+     * Route a public comment to the other party. Wrapped in Throwable so a
+     * missing role catalogue / mail hiccup never breaks the comment write.
+     */
+    private function notifyOfComment(MaintenanceRequest $request, Model $author, MaintenanceRequestComment $comment): void
+    {
+        try {
+            if ($author instanceof Tenant) {
+                $recipients = $this->staffRecipientsFor($request);
+                if ($recipients->isNotEmpty()) {
+                    Notification::send(
+                        $recipients,
+                        new MaintenanceCommentAddedNotification($request, $comment)
+                    );
+                }
+
+                return;
+            }
+
+            // Staff (or system) author → notify the requesting tenant.
+            if ($request->tenant) {
+                $request->tenant->notify(
+                    new MaintenanceCommentAddedNotification($request, $comment)
+                );
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('Maintenance comment notification failed', [
+                'request_id' => $request->id,
+                'comment_id' => $comment->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**
@@ -174,10 +240,10 @@ class MaintenanceRequestService
      * first, then falls back to config/maintenance.php so a deploy without
      * Settings rows still produces a sensible target (audit M09 F-36 / D-28).
      */
-    public function defaultTargetResolution(string $priority): \Carbon\Carbon
+    public function defaultTargetResolution(string $priority): Carbon
     {
         try {
-            $settings = app(\App\Settings\MaintenanceSettings::class);
+            $settings = app(MaintenanceSettings::class);
             $hours = match ($priority) {
                 'urgent' => $settings->sla_urgent_hours,
                 'high' => $settings->sla_high_hours,

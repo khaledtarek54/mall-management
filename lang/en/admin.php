@@ -715,6 +715,10 @@ return [
         'maintenance_status_body' => 'Ticket ":title" moved from :from to :to.',
         'maintenance_status_short' => '":title" is now :status.',
         'maintenance_status_resolution' => 'Resolution notes: :notes',
+        'maintenance_comment_subject' => 'New update on maintenance :reference',
+        'maintenance_comment_title' => 'Maintenance update · :reference',
+        'maintenance_comment_body' => 'The property team added an update to ":title": :comment',
+        'maintenance_comment_short' => 'New comment on ":title".',
         'sales_locked_subject' => 'Your :period sales declaration is locked',
         'sales_locked_body' => 'Your :period sales declaration has been locked by the operator. Percentage rent owed: :amount.',
         'sales_locked_billing_hint' => 'This amount will appear on your next monthly invoice.',
@@ -723,6 +727,8 @@ return [
         // Admin / operator-facing (incoming triage events)
         'portal_maintenance_submitted_title' => 'New maintenance request',
         'portal_maintenance_submitted_body' => ':tenant (unit :unit) submitted: ":title" · priority :priority',
+        'maintenance_comment_staff_title' => 'New tenant comment',
+        'maintenance_comment_staff_body' => ':tenant commented on :reference (":title"): :comment',
         'sales_submitted_title' => 'New sales declaration',
         'sales_submitted_body' => ':tenant (unit :unit) submitted :period · :sales',
         'sla_breached_title' => 'SLA breached',
@@ -1364,6 +1370,8 @@ return [
     ],
     'validation' => [
         'tenant_tax_id_format' => 'Tax ID must be 9 digits, optionally formatted as XXX-XXX-XXX (Egyptian Tax Registration Number).',
+        'invoice_due_after_issue' => 'The due date must be after the issue date.',
+        'maintenance_resolution_after_creation' => 'The resolution date cannot be earlier than the request creation date.',
     ],
 
 ];
