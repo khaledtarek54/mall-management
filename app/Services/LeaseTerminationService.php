@@ -15,7 +15,8 @@ class LeaseTerminationService
      * Terminate an active lease early.
      *
      * - Marks lease status = 'terminated', stores termination date + reason
-     * - Frees the unit (status = 'vacant')
+     * - Unit status is recomputed by LeaseObserver — falls to 'reserved' if
+     *   another draft/pending lease exists on the unit, else 'vacant'
      * - Deactivates the lease's recurring charges (is_active = false)
      * - Optionally cancels open invoices (status = 'cancelled', balance = 0)
      *
@@ -45,8 +46,7 @@ class LeaseTerminationService
                 'notes' => $existingNotes . $reasonLine,
             ]);
 
-            // 2. Free the unit
-            $lease->unit?->update(['status' => 'vacant']);
+            // 2. Unit status is recomputed by LeaseObserver from step 1.
 
             // 3. Deactivate charges (so monthly billing won't generate further invoices)
             Charge::where('lease_id', $lease->id)->update([

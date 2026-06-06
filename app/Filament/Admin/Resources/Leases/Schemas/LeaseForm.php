@@ -3,7 +3,9 @@
 namespace App\Filament\Admin\Resources\Leases\Schemas;
 
 use App\Models\Lease;
+use App\Models\Unit;
 use App\Support\TenantScope;
+use Closure;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
@@ -11,6 +13,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 
 class LeaseForm
@@ -31,14 +34,52 @@ class LeaseForm
                         ->relationship(
                             'unit',
                             'code',
-                            modifyQueryUsing: fn ($query) => $query->when(
-                                TenantScope::currentAssetId(),
-                                fn ($q, $assetId) => $q->where('asset_id', $assetId),
-                            ),
+                            modifyQueryUsing: function ($query, Get $get, ?Lease $record) {
+                                $query->when(
+                                    TenantScope::currentAssetId(),
+                                    fn ($q, $assetId) => $q->where('asset_id', $assetId),
+                                );
+
+                                if ($get('show_occupied_units')) {
+                                    return $query;
+                                }
+
+                                return $query->where(function ($q) use ($record) {
+                                    $q->whereNotIn('status', ['occupied', 'reserved']);
+
+                                    if ($record?->unit_id) {
+                                        $q->orWhere('id', $record->unit_id);
+                                    }
+                                });
+                            },
                         )
+                        ->getOptionLabelFromRecordUsing(fn (Unit $unit) => sprintf(
+                            '%s · %s',
+                            $unit->code,
+                            __("admin.statuses.unit.{$unit->status}"),
+                        ))
                         ->searchable()
                         ->preload()
-                        ->required(),
+                        ->required()
+                        ->helperText(fn (Get $get): ?string => $get('show_occupied_units')
+                            ? __('admin.helpers.unit_showing_all')
+                            : __('admin.helpers.only_available_units'))
+                        ->rules([
+                            fn (Get $get, ?Lease $record): Closure => function (string $attribute, $value, Closure $fail) use ($get, $record) {
+                                if ($get('status') !== 'active' || ! $value) {
+                                    return;
+                                }
+
+                                $exists = Lease::where('unit_id', $value)
+                                    ->where('status', 'active')
+                                    ->when($record, fn ($q) => $q->where('id', '!=', $record->id))
+                                    ->exists();
+
+                                if ($exists) {
+                                    $fail(__('admin.validation.unit_has_active_lease'));
+                                }
+                            },
+                        ]),
                     Select::make('tenant_id')
                         ->label(__('admin.resources.tenant.singular'))
                         ->relationship('tenant', 'name')
@@ -56,6 +97,13 @@ class LeaseForm
                         ->default('draft')
                         ->required()
                         ->native(false),
+                    Toggle::make('show_occupied_units')
+                        ->label(__('admin.fields.show_occupied_units'))
+                        ->helperText(__('admin.helpers.show_occupied_units'))
+                        ->live()
+                        ->dehydrated(false)
+                        ->default(false)
+                        ->columnSpan(2),
                 ]),
 
             Section::make(__('admin.sections.term'))

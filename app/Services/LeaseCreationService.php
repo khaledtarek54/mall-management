@@ -27,6 +27,17 @@ class LeaseCreationService
                 : $this->createTenant($payload['tenant']);
 
             $unit = Unit::with('asset')->findOrFail($payload['lease']['unit_id']);
+
+            $hasActiveLease = Lease::where('unit_id', $unit->id)
+                ->where('status', 'active')
+                ->exists();
+
+            if ($hasActiveLease) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'lease.unit_id' => __('admin.validation.unit_has_active_lease'),
+                ]);
+            }
+
             $assetCode = $unit->asset?->code ?? 'AW';
 
             $commencement = CarbonImmutable::parse($payload['lease']['commencement_date']);
@@ -55,7 +66,8 @@ class LeaseCreationService
 
             self::seedStandardCharges($lease, $rent, $service, $commencement);
 
-            $unit->update(['status' => 'occupied']);
+            // Unit status is projected by LeaseObserver from the lease's
+            // 'active' status — no explicit flip needed here.
 
             return $lease;
         });

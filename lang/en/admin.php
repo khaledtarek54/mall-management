@@ -805,6 +805,7 @@ return [
         'service_charge_helper' => '14% VAT will be applied automatically.',
         'security_deposit_helper' => 'Defaults to 3× rent if blank.',
         'only_vacant_units' => 'Only vacant units are listed.',
+        'show_occupied_units' => 'Show occupied units',
         'new_term_months' => 'New Term (months)',
         'new_rent' => 'New Monthly Rent',
         'new_service_charge' => 'New Monthly Service Charge',
@@ -918,6 +919,9 @@ return [
         'percentage_rent_rate' => 'Percentage of sales above the threshold owed as additional rent. Typical mall rates: 5%–8% for F&B, 4%–6% for retail.',
         'cam_actual_expense' => 'Total amount the mall actually spent on common-area maintenance this year (security, cleaning, HVAC, landscaping, lobby lighting).',
         'cam_estimated_collected' => 'Total estimated CAM already collected from tenants via their monthly service charge. The variance = actual − collected drives the year-end true-up.',
+        'show_occupied_units' => 'Include units that are reserved or already have an active lease (e.g. when scheduling a renewal that overlaps the current lease).',
+        'unit_showing_all' => 'Showing all units, including reserved and occupied ones.',
+        'only_available_units' => 'Only vacant units are listed. Reserved units (a draft or pending lease exists) and occupied units are hidden.',
     ],
 
     'sections' => [
@@ -1374,6 +1378,7 @@ return [
         'tenant_tax_id_format' => 'Tax ID must be 9 digits, optionally formatted as XXX-XXX-XXX (Egyptian Tax Registration Number).',
         'invoice_due_after_issue' => 'The due date must be after the issue date.',
         'maintenance_resolution_after_creation' => 'The resolution date cannot be earlier than the request creation date.',
+        'unit_has_active_lease' => 'This unit already has an active lease. Terminate it first or pick another unit.',
     ],
 
 ];

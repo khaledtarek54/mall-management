@@ -242,16 +242,33 @@ class LeasesTable
                                 ->icon('heroicon-o-document-text')
                                 ->columns(2)
                                 ->schema([
+                                    Toggle::make('lease.show_occupied_units')
+                                        ->label(__('admin.fields.show_occupied_units'))
+                                        ->helperText(__('admin.helpers.show_occupied_units'))
+                                        ->live()
+                                        ->dehydrated(false)
+                                        ->default(false)
+                                        ->columnSpanFull(),
                                     Select::make('lease.unit_id')
                                         ->label(__('admin.fields.unit_label'))
-                                        ->options(fn () => Unit::with('asset')
-                                            ->where('status', 'vacant')
+                                        ->options(fn (Get $get) => Unit::with('asset')
+                                            ->when(
+                                                ! $get('lease.show_occupied_units'),
+                                                fn ($q) => $q->where('status', 'vacant'),
+                                            )
                                             ->get()
-                                            ->mapWithKeys(fn (Unit $u) => [$u->id => $u->fullName() . ' · ' . __("admin.enums.category.{$u->category}")]))
+                                            ->mapWithKeys(fn (Unit $u) => [$u->id => sprintf(
+                                                '%s · %s · %s',
+                                                $u->fullName(),
+                                                __("admin.enums.category.{$u->category}"),
+                                                __("admin.statuses.unit.{$u->status}"),
+                                            )]))
                                         ->searchable()
                                         ->required()
                                         ->columnSpanFull()
-                                        ->helperText(__('admin.fields.only_vacant_units')),
+                                        ->helperText(fn (Get $get): string => $get('lease.show_occupied_units')
+                                            ? __('admin.helpers.unit_showing_all')
+                                            : __('admin.helpers.only_available_units')),
                                     DatePicker::make('lease.commencement_date')
                                         ->label(__('admin.fields.commencement_date'))
                                         ->required()

@@ -4,6 +4,7 @@ use App\Models\Charge;
 use App\Models\Tenant;
 use App\Services\LeaseCreationService;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
 beforeEach(function () {
     $this->asset = makeAsset(['code' => 'MALL']);
@@ -117,6 +118,24 @@ it('applies defaults: security_deposit = rent * 3, escalation_rate = 7%, payment
     expect($lease->escalation_type)->toBe('fixed_percent');
     expect((int) $lease->payment_terms_days)->toBe(7);
     expect($lease->currency)->toBe('EGP');
+});
+
+it('refuses to create a lease on a unit that already has an active lease', function () {
+    $existingTenant = makeTenant();
+    makeLease($this->unit, $existingTenant, ['status' => 'active']);
+
+    $newTenant = makeTenant();
+
+    expect(fn () => app(LeaseCreationService::class)->create([
+        'tenant_mode' => 'existing',
+        'tenant_id' => $newTenant->id,
+        'lease' => [
+            'unit_id' => $this->unit->id,
+            'commencement_date' => '2026-06-01',
+            'term_months' => 12,
+            'base_rent_monthly' => 5000,
+        ],
+    ]))->toThrow(ValidationException::class);
 });
 
 it('honours overrides for security_deposit, escalation_rate, payment_terms_days', function () {

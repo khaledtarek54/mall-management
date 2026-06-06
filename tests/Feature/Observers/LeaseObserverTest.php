@@ -18,11 +18,46 @@ it('flips the unit to occupied when a lease is created with status=active', func
     expect($unit->fresh()->status)->toBe('occupied');
 });
 
-it('leaves the unit alone when a lease is created with status=draft', function () {
+it('marks the unit reserved when a lease is created with status=draft', function () {
     $unit = makeUnit($this->asset, ['status' => 'vacant']);
     makeLease($unit, $this->tenant, ['status' => 'draft']);
 
+    expect($unit->fresh()->status)->toBe('reserved');
+});
+
+it('marks the unit reserved when a lease is created with status=pending_approval', function () {
+    $unit = makeUnit($this->asset, ['status' => 'vacant']);
+    makeLease($unit, $this->tenant, ['status' => 'pending_approval']);
+
+    expect($unit->fresh()->status)->toBe('reserved');
+});
+
+it('flips reserved back to vacant when the only non-terminal lease is cancelled', function () {
+    $unit = makeUnit($this->asset, ['status' => 'vacant']);
+    $lease = makeLease($unit, $this->tenant, ['status' => 'draft']);
+    expect($unit->fresh()->status)->toBe('reserved');
+
+    $lease->update(['status' => 'cancelled']);
+
     expect($unit->fresh()->status)->toBe('vacant');
+});
+
+it('keeps reserved when one of several non-terminal leases is cancelled', function () {
+    $unit = makeUnit($this->asset, ['status' => 'vacant']);
+    $a = makeLease($unit, $this->tenant, ['status' => 'draft']);
+    makeLease($unit, makeTenant(), ['status' => 'pending_approval']);
+
+    $a->update(['status' => 'cancelled']);
+
+    expect($unit->fresh()->status)->toBe('reserved');
+});
+
+it('never overwrites a unit marked as maintenance', function () {
+    $unit = makeUnit($this->asset, ['status' => 'maintenance']);
+
+    makeLease($unit, $this->tenant, ['status' => 'active']);
+
+    expect($unit->fresh()->status)->toBe('maintenance');
 });
 
 it('flips the unit back to vacant when an existing lease is updated to terminated', function () {
@@ -38,7 +73,7 @@ it('flips the unit back to vacant when an existing lease is updated to terminate
 it('flips the unit to occupied when an existing lease is updated from draft to active', function () {
     $unit = makeUnit($this->asset, ['status' => 'vacant']);
     $lease = makeLease($unit, $this->tenant, ['status' => 'draft']);
-    expect($unit->fresh()->status)->toBe('vacant');
+    expect($unit->fresh()->status)->toBe('reserved');
 
     $lease->update(['status' => 'active']);
 
