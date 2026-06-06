@@ -95,31 +95,19 @@ class MaintenanceRequestService
     }
 
     /**
-     * Property-team recipients for a request: managers / maintenance_managers /
-     * super_admins assigned to the unit's asset, falling back to every
-     * super_admin when nobody is assigned. Empty collection when the request
-     * has no unit/asset. Shared by the submit fan-out and tenant-comment
+     * Property-team recipients for a request: managers / maintenance_managers
+     * assigned to the unit's asset, plus every super_admin (platform owners see
+     * all property activity). Shared by the submit fan-out and tenant-comment
      * fan-out so both target the same people.
      *
      * @return Collection<int, User>
      */
     private function staffRecipientsFor(MaintenanceRequest $request): Collection
     {
-        $assetId = $request->unit?->asset_id;
-        if (! $assetId) {
-            return collect();
-        }
-
-        $recipients = User::query()
-            ->role(['manager', 'maintenance_manager', 'super_admin'])
-            ->whereHas('assignedAssets', fn ($q) => $q->where('assets.id', $assetId))
-            ->get();
-
-        if ($recipients->isEmpty()) {
-            $recipients = User::query()->role('super_admin')->get();
-        }
-
-        return $recipients;
+        return app(AssetStaffRecipients::class)->for(
+            $request->unit?->asset_id,
+            ['manager', 'maintenance_manager'],
+        );
     }
 
     public function transition(MaintenanceRequest $request, string $next, array $extra = []): MaintenanceRequest

@@ -1,14 +1,14 @@
 <?php
 
 use App\Filament\Portal\Resources\TenantSalesDeclarations\Pages\CreateTenantSalesDeclaration;
-use App\Models\TenantSalesDeclaration;
-use App\Models\User;
 use App\Notifications\PortalMaintenanceSubmittedNotification;
 use App\Notifications\SalesDeclarationSubmittedNotification;
 use App\Services\MaintenanceRequestService;
 use Database\Seeders\RolesPermissionsSeeder;
+use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
+use Spatie\Permission\Models\Role;
 
 beforeEach(function () {
     $this->seed(RolesPermissionsSeeder::class);
@@ -45,12 +45,29 @@ it('a portal maintenance submission notifies assigned managers + maintenance_man
     Notification::assertNotSentTo($this->managerOffAsset, PortalMaintenanceSubmittedNotification::class);
 });
 
+it('a super_admin always receives operator-side notifications, even when not assigned to the asset', function () {
+    Notification::fake();
+    $superAdmin = makeUser('super_admin'); // deliberately not assigned to any asset
+
+    app(MaintenanceRequestService::class)->create([
+        'title' => 'AC out',
+        'description' => 'storefront is hot',
+        'priority' => 'high',
+        'category' => 'hvac',
+        'unit_id' => $this->unit->id,
+    ], $this->tenant);
+
+    // Super_admin is in even though off-asset; assigned property staff still get it.
+    Notification::assertSentTo($superAdmin, PortalMaintenanceSubmittedNotification::class);
+    Notification::assertSentTo($this->managerOnAsset, PortalMaintenanceSubmittedNotification::class);
+});
+
 it('a portal sales declaration submission notifies assigned managers + leasing_managers', function () {
     Notification::fake();
     $leasingOnAsset = makeUser('leasing_manager', [$this->asset->id]);
     $leasingOffAsset = makeUser('leasing_manager');
 
-    \Filament\Facades\Filament::setCurrentPanel(\Filament\Facades\Filament::getPanel('portal'));
+    Filament::setCurrentPanel(Filament::getPanel('portal'));
     $this->actingAs($this->tenant, 'portal');
 
     Livewire::test(CreateTenantSalesDeclaration::class)
@@ -66,14 +83,14 @@ it('a portal sales declaration submission notifies assigned managers + leasing_m
     Notification::assertSentTo($leasingOnAsset, SalesDeclarationSubmittedNotification::class);
     Notification::assertNotSentTo($leasingOffAsset, SalesDeclarationSubmittedNotification::class);
 
-    \Filament\Facades\Filament::setCurrentPanel(\Filament\Facades\Filament::getPanel('admin'));
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
 });
 
 it('when no roles match (test env without seeded roles) the notification path silently skips', function () {
     Notification::fake();
 
     // Drop every Spatie role row so role(['manager', ...]) returns nothing.
-    \Spatie\Permission\Models\Role::query()->delete();
+    Role::query()->delete();
 
     app(MaintenanceRequestService::class)->create([
         'title' => 'No one to receive',

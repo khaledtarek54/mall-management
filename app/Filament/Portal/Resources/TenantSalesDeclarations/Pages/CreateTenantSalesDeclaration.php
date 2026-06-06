@@ -4,9 +4,12 @@ namespace App\Filament\Portal\Resources\TenantSalesDeclarations\Pages;
 
 use App\Filament\Portal\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
 use App\Models\Tenant;
+use App\Notifications\SalesDeclarationSubmittedNotification;
+use App\Services\AssetStaffRecipients;
 use App\Services\PercentageRentCalculationService;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Notification;
 
 class CreateTenantSalesDeclaration extends CreateRecord
 {
@@ -29,32 +32,25 @@ class CreateTenantSalesDeclaration extends CreateRecord
         app(PercentageRentCalculationService::class)->recalculate($declaration);
 
         // Operator-side bell: managers + leasing_managers assigned to the
-        // lease's asset get a database notification so the new declaration
-        // surfaces in their triage queue. Mail skipped — high frequency at
-        // scale; the admin Sales Declarations nav badge already counts
-        // submitted rows.
-        $assetId = $declaration->lease?->unit?->asset_id;
-        if ($assetId) {
-            $recipients = \App\Models\User::query()
-                ->role(['manager', 'leasing_manager', 'super_admin'])
-                ->whereHas('assignedAssets', fn ($q) => $q->where('assets.id', $assetId))
-                ->get();
+        // lease's asset, plus every super_admin, get a database notification so
+        // the new declaration surfaces in their triage queue. Mail skipped —
+        // high frequency at scale; the admin Sales Declarations nav badge
+        // already counts submitted rows.
+        $recipients = app(AssetStaffRecipients::class)->for(
+            $declaration->lease?->unit?->asset_id,
+            ['manager', 'leasing_manager'],
+        );
 
-            if ($recipients->isEmpty()) {
-                $recipients = \App\Models\User::query()->role('super_admin')->get();
-            }
-
-            try {
-                \Illuminate\Support\Facades\Notification::send(
-                    $recipients,
-                    new \App\Notifications\SalesDeclarationSubmittedNotification($declaration->fresh())
-                );
-            } catch (\Throwable $e) {
-                \Log::warning('Portal sales declaration notification fan-out failed', [
-                    'declaration_id' => $declaration->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
+        try {
+            Notification::send(
+                $recipients,
+                new SalesDeclarationSubmittedNotification($declaration->fresh())
+            );
+        } catch (\Throwable $e) {
+            \Log::warning('Portal sales declaration notification fan-out failed', [
+                'declaration_id' => $declaration->id,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 

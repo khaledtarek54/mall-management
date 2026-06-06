@@ -3,8 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Models\MaintenanceRequest;
-use App\Models\User;
 use App\Notifications\MaintenanceSlaBreachedNotification;
+use App\Services\AssetStaffRecipients;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Notification;
 
@@ -49,19 +49,10 @@ class ScanMaintenanceSlaBreachesCommand extends Command
         $alerted = 0;
         foreach ($breached as $request) {
             try {
-                $assetId = $request->unit?->asset_id;
-                if (! $assetId) {
-                    continue;
-                }
-
-                $recipients = User::query()
-                    ->role(['manager', 'maintenance_manager', 'super_admin'])
-                    ->whereHas('assignedAssets', fn ($q) => $q->where('assets.id', $assetId))
-                    ->get();
-
-                if ($recipients->isEmpty()) {
-                    $recipients = User::query()->role('super_admin')->get();
-                }
+                $recipients = app(AssetStaffRecipients::class)->for(
+                    $request->unit?->asset_id,
+                    ['manager', 'maintenance_manager'],
+                );
 
                 if ($recipients->isNotEmpty()) {
                     Notification::send($recipients, new MaintenanceSlaBreachedNotification($request));
@@ -69,7 +60,7 @@ class ScanMaintenanceSlaBreachesCommand extends Command
                     $alerted++;
                 }
             } catch (\Throwable $e) {
-                $this->warn("  failed on #{$request->id}: " . $e->getMessage());
+                $this->warn("  failed on #{$request->id}: ".$e->getMessage());
             }
         }
 
