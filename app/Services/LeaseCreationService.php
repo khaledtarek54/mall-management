@@ -27,7 +27,7 @@ class LeaseCreationService
                 : $this->createTenant($payload['tenant']);
 
             $unit = Unit::with('asset')->findOrFail($payload['lease']['unit_id']);
-            $assetCode = $unit->asset?->code ?? 'HW';
+            $assetCode = $unit->asset?->code ?? 'AW';
 
             $commencement = CarbonImmutable::parse($payload['lease']['commencement_date']);
             $termMonths = (int) $payload['lease']['term_months'];

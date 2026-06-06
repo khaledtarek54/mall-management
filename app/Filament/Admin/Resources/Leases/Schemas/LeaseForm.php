@@ -23,7 +23,7 @@ class LeaseForm
                 ->components([
                     TextInput::make('reference')
                         ->label(__('admin.fields.reference'))
-                        ->default(fn () => Lease::generateReference('HW'))
+                        ->default(fn () => Lease::generateReference('AW'))
                         ->disabled()
                         ->dehydrated(),
                     Select::make('unit_id')

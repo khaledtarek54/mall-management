@@ -146,7 +146,7 @@ class Lease extends Model implements HasMedia
 
     // ============ Generation helpers ============
 
-    public static function generateReference(string $assetCode = 'HW'): string
+    public static function generateReference(string $assetCode = 'AW'): string
     {
         $year = now()->format('Y');
         $count = static::whereYear('created_at', $year)->count() + 1;

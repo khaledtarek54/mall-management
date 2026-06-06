@@ -100,7 +100,7 @@ class LeaseImporter extends Importer
         }
 
         return new Lease([
-            'reference' => Lease::generateReference($this->data['asset_code'] ?? 'HW'),
+            'reference' => Lease::generateReference($this->data['asset_code'] ?? 'AW'),
         ]);
     }
 

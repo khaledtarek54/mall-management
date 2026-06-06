@@ -122,7 +122,7 @@ class MaintenanceRequest extends Model implements HasMedia
             && $this->target_resolution_at->isPast();
     }
 
-    public static function generateReference(string $assetCode = 'HW'): string
+    public static function generateReference(string $assetCode = 'AW'): string
     {
         $year = now()->format('Y');
         $count = static::whereYear('created_at', $year)->withTrashed()->count() + 1;

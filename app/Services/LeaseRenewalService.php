@@ -35,7 +35,7 @@ class LeaseRenewalService
         $expiry = $commencement->addMonths($termMonths)->subDay();
 
         return DB::transaction(function () use ($original, $termMonths, $newRent, $newServiceCharge, $commencement, $expiry) {
-            $assetCode = $original->unit?->asset?->code ?? 'HW';
+            $assetCode = $original->unit?->asset?->code ?? 'AW';
 
             $renewal = Lease::create([
                 'reference' => Lease::generateReference($assetCode),

@@ -25,7 +25,7 @@ class MaintenanceRequestForm
                 ->components([
                     TextInput::make('reference')
                         ->label(__('admin.fields.reference'))
-                        ->default(fn () => MaintenanceRequest::generateReference('HW'))
+                        ->default(fn () => MaintenanceRequest::generateReference('AW'))
                         ->disabled()
                         ->dehydrated(),
                     Select::make('tenant_id')

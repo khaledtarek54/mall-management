@@ -45,7 +45,7 @@ class MaintenanceRequestService
 
             $request = MaintenanceRequest::create([
                 'reference' => MaintenanceRequest::generateReference(
-                    $unit?->asset?->code ?? 'HW'
+                    $unit?->asset?->code ?? 'AW'
                 ),
                 'tenant_id' => $tenant->id,
                 'unit_id' => $data['unit_id'] ?? $unit?->id,
