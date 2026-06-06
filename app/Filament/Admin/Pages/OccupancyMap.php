@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Pages;
 
 use App\Models\Asset;
 use App\Support\AssignedAssets;
+use App\Support\TenantScope;
 use BackedEnum;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
@@ -21,12 +22,25 @@ class OccupancyMap extends Page
 
     public function mount(): void
     {
+        // If a specific property is the active tenant, lock the page to it —
+        // the dropdown is only meaningful in "All Properties" mode.
+        if (($tenantAssetId = TenantScope::currentAssetId()) !== null) {
+            $this->assetId = $tenantAssetId;
+
+            return;
+        }
+
         $requested = (int) request()->query('asset', 0);
 
         // Never default to (or honor) a property the user isn't assigned to.
         $this->assetId = $this->isAssetVisible($requested)
             ? $requested
             : ($this->visibleAssets()->value('id'));
+    }
+
+    public function isAllPropertiesMode(): bool
+    {
+        return TenantScope::currentAssetId() === null;
     }
 
     /**
@@ -75,7 +89,10 @@ class OccupancyMap extends Page
 
     protected function getViewData(): array
     {
-        $assets = $this->visibleAssets()->get(['id', 'name']);
+        $allPropertiesMode = $this->isAllPropertiesMode();
+        $assets = $allPropertiesMode
+            ? $this->visibleAssets()->get(['id', 'name'])
+            : collect();
 
         // Resolve the selected property, but only within the visible set — a
         // tampered ?asset= / wire value for an unassigned property is ignored.
@@ -85,6 +102,7 @@ class OccupancyMap extends Page
 
         if (! $asset) {
             return [
+                'allPropertiesMode' => $allPropertiesMode,
                 'assets' => $assets,
                 'asset' => null,
                 'units' => collect(),
@@ -101,6 +119,7 @@ class OccupancyMap extends Page
             ->get();
 
         return [
+            'allPropertiesMode' => $allPropertiesMode,
             'assets' => $assets,
             'asset' => $asset,
             'units' => $units,

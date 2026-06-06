@@ -9,7 +9,7 @@
 @endphp
 
 <x-filament-panels::page>
-    @if ($assets->count() > 1)
+    @if ($allPropertiesMode && $assets->count() > 1)
         <x-filament::section :heading="__('admin.occupancy.select_property')" compact>
             <x-filament::input.wrapper>
                 <x-filament::input.select
