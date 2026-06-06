@@ -16,13 +16,13 @@ test.describe('CAM Reconciliation', () => {
     await expect(page.getByRole('heading', { name: 'CAM Reconciliation' })).toBeVisible({ timeout: 15000 });
   });
 
-  test('Seeded pools render with both Haya Walk rows', async ({ page }) => {
+  test('Seeded pools render with both Atriom Walk rows', async ({ page }) => {
     await page.goto('/admin/ALL/cam-expense-pools');
     await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
-    // Two pool rows seeded by HayaWalkSeeder (last year + current year) — so Haya Walk
+    // Two pool rows seeded by DemoSeeder (last year + current year) — so Atriom Walk
     // appears twice in the asset column.
-    const hayaWalkCells = page.locator('td').filter({ hasText: 'Haya Walk' });
-    await expect(hayaWalkCells.first()).toBeVisible({ timeout: 10000 });
-    await expect(hayaWalkCells).toHaveCount(2);
+    const atriomWalkCells = page.locator('td').filter({ hasText: 'Atriom Walk' });
+    await expect(atriomWalkCells.first()).toBeVisible({ timeout: 10000 });
+    await expect(atriomWalkCells).toHaveCount(2);
   });
 });

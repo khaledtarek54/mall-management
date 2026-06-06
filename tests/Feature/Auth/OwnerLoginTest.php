@@ -16,15 +16,15 @@ afterEach(function () {
 
 it('an owner user can authenticate into the owner panel', function () {
     $owner = User::create([
-        'name' => 'Jawad Owner',
-        'email' => 'owner@jawad.test',
+        'name' => 'Property Owner',
+        'email' => 'owner@atriom.test',
         'password' => bcrypt('password'),
     ]);
     $owner->syncRoles(['owner']);
 
     Livewire::test(Login::class)
         ->fillForm([
-            'email' => 'owner@jawad.test',
+            'email' => 'owner@atriom.test',
             'password' => 'password',
             'remember' => false,
         ])

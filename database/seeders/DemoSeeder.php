@@ -23,11 +23,15 @@ use App\Models\UtilityMeter;
 use App\Models\Vendor;
 use App\Models\VendorContact;
 use App\Models\VendorContract;
+use App\Services\CamReconciliationService;
+use App\Services\Eta\EtaSubmissionService;
+use App\Services\PercentageRentCalculationService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
-class HayaWalkSeeder extends Seeder
+class DemoSeeder extends Seeder
 {
     /**
      * Deterministic seed for PHP's RNG. Locks every `rand()` call below to a
@@ -42,7 +46,7 @@ class HayaWalkSeeder extends Seeder
     {
         mt_srand(self::DEMO_RNG_SEED);
 
-        $this->command->info('🏬 Seeding Haya Walk demo data...');
+        $this->command->info('🏬 Seeding Atriom Walk demo data...');
 
         // Demo password lives in env so production deploys can rotate
         // without touching the seeder (audit M17 F-63 / D-48). Default
@@ -56,7 +60,7 @@ class HayaWalkSeeder extends Seeder
             ['email' => 'admin@mall.test',       'name' => 'Mall Admin',           'role' => 'super_admin'],
             ['email' => 'manager@mall.test',     'name' => 'Operations Manager',   'role' => 'manager'],
             ['email' => 'viewer@mall.test',      'name' => 'Property Auditor',     'role' => 'viewer'],
-            ['email' => 'owner@jawad.test',      'name' => 'Jawad Owner',          'role' => 'owner'],
+            ['email' => 'owner@atriom.test',     'name' => 'Property Owner',       'role' => 'owner'],
             ['email' => 'leasing@mall.test',     'name' => 'Leasing Manager',      'role' => 'leasing_manager'],
             ['email' => 'maintenance@mall.test', 'name' => 'Maintenance Manager',  'role' => 'maintenance_manager'],
         ];
@@ -69,10 +73,10 @@ class HayaWalkSeeder extends Seeder
         }
 
         // 1. The Asset
-        $hayaWalk = Asset::updateOrCreate(
-            ['code' => 'HW'],
+        $atriomWalk = Asset::updateOrCreate(
+            ['code' => 'AW'],
             [
-                'name' => 'Haya Walk',
+                'name' => 'Atriom Walk',
                 'type' => 'retail_walk',
                 'address' => 'Wahat Road, 6th of October City',
                 'city' => '6th of October',
@@ -81,16 +85,16 @@ class HayaWalkSeeder extends Seeder
                 'leasable_area_sqm' => 8500,
                 'currency' => 'EGP',
                 'metadata' => [
-                    'owner' => 'Jawad Developments',
+                    'owner' => 'Atriom Developments',
                     'launched' => '2025',
                 ],
             ],
         );
 
-        // Attach the owner user to Haya Walk at 100% ownership
-        $ownerUser = User::where('email', 'owner@jawad.test')->first();
+        // Attach the owner user to Atriom Walk at 100% ownership
+        $ownerUser = User::where('email', 'owner@atriom.test')->first();
         if ($ownerUser) {
-            $hayaWalk->owners()->syncWithoutDetaching([
+            $atriomWalk->owners()->syncWithoutDetaching([
                 $ownerUser->id => [
                     'ownership_percentage' => 100,
                     'started_at' => '2020-01-01',
@@ -98,9 +102,9 @@ class HayaWalkSeeder extends Seeder
             ]);
         }
 
-        // Second small Jawad property — Plaza Annex. Exists so property-staff
+        // Second small property — Plaza Annex. Exists so property-staff
         // scoping enforcement has visible effect: a staff member assigned only
-        // to Haya Walk should not see Plaza Annex's units/leases/invoices,
+        // to Atriom Walk should not see Plaza Annex's units/leases/invoices,
         // and vice versa. Lightweight on purpose (8 units, no leases yet) so
         // the demo dataset stays clean.
         $plazaAnnex = Asset::updateOrCreate(
@@ -115,11 +119,11 @@ class HayaWalkSeeder extends Seeder
                 'leasable_area_sqm' => 1600,
                 'currency' => 'EGP',
                 'is_active' => true,
-                'metadata' => ['owner' => 'Jawad Developments', 'launched' => '2026', 'notes' => 'Strip annex; scoping demo asset.'],
+                'metadata' => ['owner' => 'Atriom Developments', 'launched' => '2026', 'notes' => 'Strip annex; scoping demo asset.'],
             ],
         );
         foreach (range(1, 8) as $n) {
-            \App\Models\Unit::updateOrCreate(
+            Unit::updateOrCreate(
                 ['asset_id' => $plazaAnnex->id, 'code' => sprintf('PA-%02d', $n)],
                 [
                     'floor' => 'Ground',
@@ -141,7 +145,7 @@ class HayaWalkSeeder extends Seeder
 
         foreach ($units as $i => $unitData) {
             $unit = Unit::create([
-                'asset_id' => $hayaWalk->id,
+                'asset_id' => $atriomWalk->id,
                 'code' => $unitData['code'],
                 'floor' => $unitData['floor'],
                 'category' => $unitData['category'],
@@ -152,24 +156,25 @@ class HayaWalkSeeder extends Seeder
             // Leave ~15% vacant (7 of 50) for realistic occupancy
             if ($i >= count($tenants)) {
                 $vacantCount++;
+
                 continue;
             }
 
             $tenantData = $tenants[$i];
 
-            // First three tenants get portal-login creds (tenant1/2/3@haya.test / password)
+            // First three tenants get portal-login creds (tenant1/2/3@atriomwalk.test / password)
             $portalEmail = $i < 3
-                ? 'tenant' . ($i + 1) . '@haya.test'
-                : ($tenantData['email'] ?? strtolower(str_replace(' ', '', $tenantData['name'])) . '@example.com');
+                ? 'tenant'.($i + 1).'@atriomwalk.test'
+                : ($tenantData['email'] ?? Str::slug($tenantData['name']).'@example.com');
 
             $tenant = Tenant::create([
                 'name' => $tenantData['name'],
-                'legal_name' => $tenantData['legal'] ?? $tenantData['name'] . ' LLC',
+                'legal_name' => $tenantData['legal'] ?? $tenantData['name'].' LLC',
                 'type' => 'company',
                 'email' => $portalEmail,
                 'password' => $i < 3 ? $demoPassword : null,
-                'phone' => '+201' . rand(100000000, 999999999),
-                'whatsapp' => '+201' . rand(100000000, 999999999),
+                'phone' => '+201'.rand(100000000, 999999999),
+                'whatsapp' => '+201'.rand(100000000, 999999999),
                 'tax_id' => (string) rand(100000000, 999999999),
                 'contact_person' => $tenantData['contact'] ?? 'Owner',
                 'status' => 'active',
@@ -190,7 +195,7 @@ class HayaWalkSeeder extends Seeder
             $service = round($rent * 0.15, 0); // service charge ~15% of rent
 
             $lease = Lease::create([
-                'reference' => Lease::generateReference('HW'),
+                'reference' => Lease::generateReference('AW'),
                 'unit_id' => $unit->id,
                 'tenant_id' => $tenant->id,
                 'status' => 'active',
@@ -245,25 +250,25 @@ class HayaWalkSeeder extends Seeder
 
         $this->seedCurrentMonthPayments();
         $this->seedArAgingSpread();
-        $this->seedVendors($hayaWalk);
+        $this->seedVendors($atriomWalk);
         $this->seedMaintenanceRequests();
         $this->seedTenantSalesDeclarations();
-        $this->seedCamReconciliation($hayaWalk);
+        $this->seedCamReconciliation($atriomWalk);
         $this->seedEtaSubmissions();
-        $this->seedUtilityMeters($hayaWalk);
+        $this->seedUtilityMeters($atriomWalk);
         $this->seedTenantNotes();
         $this->seedCreditNotes();
-        $this->seedStaffAssignments($hayaWalk);
+        $this->seedStaffAssignments($atriomWalk);
 
         $plazaUnitCount = Unit::where('asset_id', $plazaAnnex->id)->count();
-        $this->command->info("✅ Created Haya Walk with {$occupiedCount} occupied, {$vacantCount} vacant units (+ {$plazaUnitCount} vacant units on Plaza Annex demo asset)");
-        $this->command->info("✅ Generated leases, charges, invoices, and payment history");
+        $this->command->info("✅ Created Atriom Walk with {$occupiedCount} occupied, {$vacantCount} vacant units (+ {$plazaUnitCount} vacant units on Plaza Annex demo asset)");
+        $this->command->info('✅ Generated leases, charges, invoices, and payment history');
         $this->command->newLine();
-        $this->command->info('📊 Demo metrics (Haya Walk):');
-        $this->command->info('   Occupancy: ' . $hayaWalk->fresh()->occupancyRate() . '%');
-        $this->command->info('   Total leases: ' . Lease::count());
-        $this->command->info('   Total invoices: ' . Invoice::count());
-        $this->command->info('   Outstanding AR: EGP ' . number_format(Invoice::whereIn('status', ['issued', 'partially_paid', 'overdue'])->sum('balance'), 2));
+        $this->command->info('📊 Demo metrics (Atriom Walk):');
+        $this->command->info('   Occupancy: '.$atriomWalk->fresh()->occupancyRate().'%');
+        $this->command->info('   Total leases: '.Lease::count());
+        $this->command->info('   Total invoices: '.Invoice::count());
+        $this->command->info('   Outstanding AR: EGP '.number_format(Invoice::whereIn('status', ['issued', 'partially_paid', 'overdue'])->sum('balance'), 2));
     }
 
     /**
@@ -274,9 +279,9 @@ class HayaWalkSeeder extends Seeder
     private function seedMaintenanceRequests(): void
     {
         $tenants = Tenant::whereIn('email', [
-            'tenant1@haya.test',
-            'tenant2@haya.test',
-            'tenant3@haya.test',
+            'tenant1@atriomwalk.test',
+            'tenant2@atriomwalk.test',
+            'tenant3@atriomwalk.test',
         ])->with(['leases.unit'])->get()->keyBy('email');
 
         $manager = User::where('email', 'manager@mall.test')->first();
@@ -287,9 +292,9 @@ class HayaWalkSeeder extends Seeder
         }
 
         $seedData = [
-            // tenant1 — Café Crema (A-01) — urgent + open
+            // tenant1 — Cilantro (A-01) — urgent + open
             [
-                'tenant_email' => 'tenant1@haya.test',
+                'tenant_email' => 'tenant1@atriomwalk.test',
                 'title' => 'AC unit blowing warm air',
                 'description' => 'Customer area AC has been blowing warm air since yesterday morning. With the heat, we are losing sit-down customers. Need urgent fix.',
                 'category' => 'hvac',
@@ -306,9 +311,9 @@ class HayaWalkSeeder extends Seeder
 
             // tenant1 — older, resolved one
             [
-                'tenant_email' => 'tenant1@haya.test',
+                'tenant_email' => 'tenant1@atriomwalk.test',
                 'title' => 'Front signage light flickering',
-                'description' => 'The Café Crema sign at the entrance flickers at night.',
+                'description' => 'The Cilantro sign at the entrance flickers at night.',
                 'category' => 'electrical',
                 'channel' => 'portal',
                 'priority' => 'medium',
@@ -319,9 +324,9 @@ class HayaWalkSeeder extends Seeder
                 'resolution_notes' => 'Replaced faulty driver and two LED modules. Verified at night.',
             ],
 
-            // tenant2 — Optix Eyewear (A-02) — awaiting tenant
+            // tenant2 — Magrabi Optical (A-02) — awaiting tenant
             [
-                'tenant_email' => 'tenant2@haya.test',
+                'tenant_email' => 'tenant2@atriomwalk.test',
                 'title' => 'Leak from ceiling near display cases',
                 'description' => 'There is water dripping from one of the ceiling tiles near our front display. We placed a bucket but need this checked before stock is damaged.',
                 'category' => 'plumbing',
@@ -337,7 +342,7 @@ class HayaWalkSeeder extends Seeder
 
             // tenant2 — closed
             [
-                'tenant_email' => 'tenant2@haya.test',
+                'tenant_email' => 'tenant2@atriomwalk.test',
                 'title' => 'Door auto-closer too tight',
                 'description' => 'Glass door is hard to push for elderly customers.',
                 'category' => 'structural',
@@ -351,9 +356,9 @@ class HayaWalkSeeder extends Seeder
                 'resolution_notes' => 'Loosened spring tension. Customer confirmed door now opens easily.',
             ],
 
-            // tenant3 — The Burger Joint — acknowledged, just opened
+            // tenant3 — Buffalo Burger — acknowledged, just opened
             [
-                'tenant_email' => 'tenant3@haya.test',
+                'tenant_email' => 'tenant3@atriomwalk.test',
                 'title' => 'Fire alarm beeping every 2 minutes',
                 'description' => 'The small fire-alarm sensor near the kitchen has been beeping every couple of minutes since this morning. Probably low battery. We did not touch it.',
                 'category' => 'safety',
@@ -465,7 +470,7 @@ class HayaWalkSeeder extends Seeder
             return;
         }
 
-        $service = app(\App\Services\PercentageRentCalculationService::class);
+        $service = app(PercentageRentCalculationService::class);
         $superAdmin = User::where('email', 'admin@mall.test')->first();
         $created = 0;
         $locked = 0;
@@ -525,7 +530,7 @@ class HayaWalkSeeder extends Seeder
      */
     private function seedCamReconciliation(Asset $asset): void
     {
-        $service = app(\App\Services\CamReconciliationService::class);
+        $service = app(CamReconciliationService::class);
         $superAdmin = User::where('email', 'admin@mall.test')->first();
 
         // Last year — reconciled + all billed
@@ -564,7 +569,7 @@ class HayaWalkSeeder extends Seeder
             'notes' => 'YTD accrued expenses. Annual reconciliation runs at year end.',
         ]);
 
-        $this->command->info("   Seeded 2 CAM pools ({$lastYear} reconciled + {$closedPool->allocations()->count()} allocations billed, ".now()->year." draft awaiting generation)");
+        $this->command->info("   Seeded 2 CAM pools ({$lastYear} reconciled + {$closedPool->allocations()->count()} allocations billed, ".now()->year.' draft awaiting generation)');
     }
 
     /**
@@ -574,7 +579,7 @@ class HayaWalkSeeder extends Seeder
      */
     private function seedEtaSubmissions(): void
     {
-        $service = app(\App\Services\Eta\EtaSubmissionService::class);
+        $service = app(EtaSubmissionService::class);
 
         // Submit a slice: every 3rd issued/paid invoice. Mix of statuses
         // (the mock returns Valid; we manually flip a few to invalid/rejected
@@ -625,13 +630,13 @@ class HayaWalkSeeder extends Seeder
         $admin = User::where('email', 'admin@mall.test')->first();
         $manager = User::where('email', 'manager@mall.test')->first();
 
-        if (!$admin || !$manager) {
+        if (! $admin || ! $manager) {
             return;
         }
 
         // Pick the 3 portal-login tenants + a couple of others for variety
         $tenants = Tenant::query()
-            ->whereIn('email', ['tenant1@haya.test', 'tenant2@haya.test', 'tenant3@haya.test'])
+            ->whereIn('email', ['tenant1@atriomwalk.test', 'tenant2@atriomwalk.test', 'tenant3@atriomwalk.test'])
             ->orWhereNotNull('email')
             ->limit(8)
             ->get();
@@ -836,7 +841,7 @@ class HayaWalkSeeder extends Seeder
                 $dueDate = $now->copy()->subDays($bucket['days']);
 
                 Invoice::create([
-                    'number' => Invoice::generateNumber('HW', $dueDate),
+                    'number' => Invoice::generateNumber('AW', $dueDate),
                     'lease_id' => $lease->id,
                     'tenant_id' => $lease->tenant_id,
                     'status' => $bucket['days'] > 0 ? 'overdue' : 'issued',
@@ -888,7 +893,7 @@ class HayaWalkSeeder extends Seeder
             };
 
             $invoice = Invoice::create([
-                'number' => Invoice::generateNumber('HW', $issueDate),
+                'number' => Invoice::generateNumber('AW', $issueDate),
                 'lease_id' => $lease->id,
                 'tenant_id' => $tenant->id,
                 'status' => $status,
@@ -906,7 +911,7 @@ class HayaWalkSeeder extends Seeder
 
             InvoiceItem::create([
                 'invoice_id' => $invoice->id,
-                'description' => 'Monthly Rent - ' . $period->format('F Y'),
+                'description' => 'Monthly Rent - '.$period->format('F Y'),
                 'type' => 'base_rent',
                 'amount' => $rent,
                 'vat_rate' => 0,
@@ -916,7 +921,7 @@ class HayaWalkSeeder extends Seeder
 
             InvoiceItem::create([
                 'invoice_id' => $invoice->id,
-                'description' => 'Service Charge - ' . $period->format('F Y'),
+                'description' => 'Service Charge - '.$period->format('F Y'),
                 'type' => 'service_charge',
                 'amount' => $service,
                 'vat_rate' => 14.00,
@@ -1020,52 +1025,60 @@ class HayaWalkSeeder extends Seeder
         return array_merge($zoneA, $zoneB, $zoneC);
     }
 
+    /**
+     * Tenant roster — recognizable Egyptian retail / F&B / service brands,
+     * ordered to line up with the unit layout's category per index (Zone A
+     * front F&B + retail, Zone B retail/service/wellness, Zone C wellness +
+     * F&B). The first three (Cilantro, Magrabi Optical, Buffalo Burger) get
+     * portal logins and drive the seeded maintenance demo, so keep them first.
+     */
     private function tenantList(): array
     {
         return [
-            ['name' => 'Café Crema', 'contact' => 'Ahmed Hassan'],
-            ['name' => 'Optix Eyewear', 'contact' => 'Mona Sherif'],
-            ['name' => 'The Burger Joint', 'contact' => 'Karim Adel'],
-            ['name' => 'El Doctor Pharmacy', 'contact' => 'Dr. Sara Mahmoud'],
-            ['name' => 'Marina Patisserie', 'contact' => 'Pierre Khouri'],
-            ['name' => 'Stylo Salon', 'contact' => 'Nada Fahmy'],
-            ['name' => 'Sushi Lab', 'contact' => 'Yuki Tanaka'],
-            ['name' => 'Zara Express', 'contact' => 'Layla Mostafa'],
-            ['name' => 'Bambini Italian Kitchen', 'contact' => 'Marco Rossi'],
-            ['name' => 'Mobile World', 'contact' => 'Tarek Saad'],
-            // B Zone
-            ['name' => 'Pretty Petals Florist', 'contact' => 'Rania Habib'],
-            ['name' => 'Cairo Booksellers', 'contact' => 'Omar El-Sayed'],
-            ['name' => 'Quick Cuts Barber', 'contact' => 'Hassan Aly'],
-            ['name' => 'Toy Galaxy', 'contact' => 'Heba Mostafa'],
-            ['name' => 'Glow Beauty Lounge', 'contact' => 'Salma Adel'],
-            ['name' => 'Lush Cosmetics', 'contact' => 'Yara Wahby'],
-            ['name' => 'Speedy Laundry', 'contact' => 'Ibrahim Naguib'],
-            ['name' => 'Vintage Closet', 'contact' => 'Dina Rashed'],
-            ['name' => 'Pet Paradise', 'contact' => 'Khaled Yousef'],
-            ['name' => 'Shoe Atelier', 'contact' => 'Sherif Eldin'],
-            ['name' => 'Home Essentials', 'contact' => 'Marwa Salem'],
-            ['name' => 'Tech Hub Electronics', 'contact' => 'Amr Kamel'],
-            ['name' => 'FlexFit Gym', 'contact' => 'Coach Mido'],
-            ['name' => 'Quick Dry Cleaners', 'contact' => 'Wael Hosni'],
-            ['name' => 'Kids Wonderland', 'contact' => 'Hala Ismail'],
-            // C Zone
-            ['name' => 'Wellness Spa Sanctuary', 'contact' => 'Dr. Sherif Hany'],
-            ['name' => 'Roastery Coffee Co.', 'contact' => 'Ali Mahmoud'],
-            ['name' => 'Modern Mart', 'contact' => 'Fatma Zaki'],
-            ['name' => 'Andiamo Italian', 'contact' => 'Antonio Bianchi'],
-            ['name' => 'Pure Yoga Studio', 'contact' => 'Maya Salah'],
-            ['name' => 'ATM Branch — NBE', 'contact' => 'Branch Manager'],
-            ['name' => 'Sunset Sunglasses', 'contact' => 'Ramy Adel'],
-            ['name' => 'The Grill House', 'contact' => 'Chef Hossam'],
-            // 43rd tenant onwards — leaving some vacant
+            // Zone A — front of walk (F&B + premium retail)
+            ['name' => 'Cilantro', 'legal' => 'Cilantro Café Egypt LLC', 'contact' => 'Ahmed Hassan'],          // A-01 F&B (portal)
+            ['name' => 'Magrabi Optical', 'legal' => 'Magrabi Optical Egypt LLC', 'contact' => 'Mona Sherif'],  // A-02 retail (portal)
+            ['name' => 'Buffalo Burger', 'legal' => 'Buffalo Burger Egypt LLC', 'contact' => 'Karim Adel'],     // A-03 F&B (portal)
+            ['name' => 'Seif Pharmacy', 'legal' => 'Seif Pharmacies LLC', 'contact' => 'Dr. Sara Mahmoud'],     // A-04 retail
+            ['name' => 'Tseppas', 'legal' => 'Tseppas Patisserie LLC', 'contact' => 'Nermeen Fouad'],           // A-05 F&B
+            ['name' => 'Concrete', 'legal' => 'Concrete Menswear LLC', 'contact' => 'Nada Fahmy'],              // A-06 retail
+            ['name' => 'Abou El Sid', 'legal' => 'Abou El Sid Restaurants LLC', 'contact' => 'Hossam Darwish'], // A-07 F&B
+            ['name' => 'Mobaco', 'legal' => 'Mobaco Cotton LLC', 'contact' => 'Layla Mostafa'],                 // A-08 retail
+            ['name' => 'Zööba', 'legal' => 'Zooba Egyptian Eatery LLC', 'contact' => 'Marwan Adel'],            // A-09 F&B
+            ['name' => 'B.TECH', 'legal' => 'B.TECH Egypt LLC', 'contact' => 'Tarek Saad'],                     // A-10 retail
+            // Zone B — retail, services, wellness
+            ['name' => 'Town Team', 'legal' => 'Town Team Apparel LLC', 'contact' => 'Rania Habib'],            // B-01 retail
+            ['name' => 'Diwan Bookstore', 'legal' => 'Diwan Bookstores LLC', 'contact' => 'Omar El-Sayed'],     // B-02 retail
+            ['name' => 'Spotless Dry Cleaners', 'legal' => 'Spotless Laundry LLC', 'contact' => 'Hassan Aly'],  // B-03 service
+            ['name' => 'Carina', 'legal' => 'Carina Wear LLC', 'contact' => 'Heba Mostafa'],                    // B-04 retail
+            ['name' => 'Smart Gym', 'legal' => 'Smart Gym Fitness LLC', 'contact' => 'Coach Mido'],             // B-05 wellness
+            ['name' => 'Mihyar', 'legal' => 'Mihyar Fashion LLC', 'contact' => 'Yara Wahby'],                   // B-06 retail
+            ['name' => 'Fawry Plus', 'legal' => 'Fawry Banking Services LLC', 'contact' => 'Ibrahim Naguib'],   // B-07 service
+            ['name' => 'Dandy Mega Store', 'legal' => 'Dandy Retail LLC', 'contact' => 'Dina Rashed'],          // B-08 retail
+            ['name' => '2B Computers', 'legal' => '2B Egypt LLC', 'contact' => 'Khaled Yousef'],                // B-09 retail
+            ['name' => "Gentlemen's Barber", 'legal' => 'Gentlemen Grooming LLC', 'contact' => 'Sherif Eldin'], // B-10 service
+            ['name' => 'Mobica', 'legal' => 'Mobica Furniture LLC', 'contact' => 'Marwa Salem'],               // B-11 retail
+            ['name' => 'El Araby Home', 'legal' => 'El Araby Group LLC', 'contact' => 'Amr Kamel'],             // B-12 retail
+            ['name' => 'El Ezaby Pharmacy', 'legal' => 'El Ezaby Pharmacies LLC', 'contact' => 'Dr. Sherif Hany'], // B-13 wellness
+            ['name' => 'Bosta Pickup Point', 'legal' => 'Bosta Logistics LLC', 'contact' => 'Wael Hosni'],      // B-14 service
+            ['name' => 'Kazyon Market', 'legal' => 'Kazyon Retail LLC', 'contact' => 'Hala Ismail'],            // B-15 retail
+            // Zone C — wellness + F&B (back of walk)
+            ['name' => 'California Gym', 'legal' => 'California Fitness Egypt LLC', 'contact' => 'Coach Sherif'], // C-01 wellness
+            ['name' => 'Cook Door', 'legal' => 'Cook Door Egypt LLC', 'contact' => 'Ali Mahmoud'],              // C-02 F&B
+            ['name' => 'Seoudi Market', 'legal' => 'Seoudi Supermarket LLC', 'contact' => 'Fatma Zaki'],        // C-03 retail
+            ['name' => "Mo'men", 'legal' => 'Momen Group LLC', 'contact' => 'Mostafa Lotfy'],                   // C-04 F&B
+            ['name' => 'Cleopatra Wellness Spa', 'legal' => 'Cleopatra Spa LLC', 'contact' => 'Maya Salah'],    // C-05 wellness
+            ['name' => 'Crystal Laundry', 'legal' => 'Crystal Care LLC', 'contact' => 'Wael Sobhy'],           // C-06 service
+            ['name' => 'Tradeline', 'legal' => 'Tradeline Stores LLC', 'contact' => 'Ramy Adel'],              // C-07 retail
+            ['name' => 'Gad Restaurant', 'legal' => 'Gad Foods LLC', 'contact' => 'Chef Hossam'],              // C-08 F&B
+            // Remaining units stay vacant for realistic occupancy
         ];
     }
 
     /**
      * Seed realistic vendors for the maintenance + supplier side of the business.
      * Each gets a primary contact and (where it makes sense) an active service contract
-     * against Haya Walk.
+     * against Atriom Walk.
      */
     private function seedVendors(Asset $asset): void
     {
@@ -1186,7 +1199,7 @@ class HayaWalkSeeder extends Seeder
             }
         }
 
-        $this->command->info('   Vendors seeded: ' . Vendor::count());
+        $this->command->info('   Vendors seeded: '.Vendor::count());
     }
 
     /**
@@ -1235,7 +1248,7 @@ class HayaWalkSeeder extends Seeder
             $void->save();
         }
 
-        $this->command->info('   Credit notes seeded: ' . CreditNote::count());
+        $this->command->info('   Credit notes seeded: '.CreditNote::count());
     }
 
     private function makeCreditNote(Invoice $invoice, float $total, string $reason, string $description): CreditNote
@@ -1270,7 +1283,7 @@ class HayaWalkSeeder extends Seeder
     }
 
     /**
-     * Assign the demo staff users (manager, leasing, maintenance) to Haya Walk
+     * Assign the demo staff users (manager, leasing, maintenance) to Atriom Walk
      * so the new asset_user pivot has realistic data on first boot.
      */
     private function seedStaffAssignments(Asset $asset): void
@@ -1295,6 +1308,6 @@ class HayaWalkSeeder extends Seeder
             ]);
         }
 
-        $this->command->info('   Staff assignments seeded: ' . $asset->staff()->count());
+        $this->command->info('   Staff assignments seeded: '.$asset->staff()->count());
     }
 }

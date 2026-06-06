@@ -1,11 +1,30 @@
-# Atriom Demo Run-through — Haya Walk (Jawad Developments)
+# Atriom — Demo Run-through (Atriom Walk)
 
-## Pre-flight (5 minutes before)
+Audience: **operations team walkthrough**. Goal: show that Atriom runs the
+day-to-day of a retail property — leasing, billing, collections, maintenance,
+tenant comms, and reporting — faster and cleaner than spreadsheets.
 
-1. Open `http://mall-management.test/admin` in a fresh browser window — clear cookies if you logged in earlier so the login screen shows.
-2. Switch language toggle to **EN** for the team review tonight; switch to **عربي** mid-demo to show RTL support.
-3. Zoom level 100 % (Cmd + 0 in Brave).
-4. Close unused tabs / silence notifications.
+> Environment for this demo: **Laravel Cloud** (deployed). Use your app's Cloud
+> URL — find it in the Cloud dashboard (`khaled-tarek/mall-management → main →
+> the web app's URL`). Everywhere below, `<APP>` = that URL, e.g.
+> `https://<APP>/admin`.
+
+---
+
+## Pre-flight (10 minutes before)
+
+1. **Re-seed fresh demo data** so the numbers are clean and consistent. On Laravel
+   Cloud, open the app → **Commands** (or a deploy SSH/console) and run:
+   ```
+   php artisan migrate:fresh --seed --force
+   ```
+   ⚠️ This wipes and rebuilds the database — only do it on the demo instance.
+   The seed is deterministic (`DemoSeeder::DEMO_RNG_SEED`), so the KPIs
+   below come out the same every time.
+2. Open `https://<APP>/admin` in a fresh **incognito** window (no stale login).
+3. Language: keep **EN**, flip to **عربي** once mid-demo to show RTL, then back.
+4. Zoom 100%, close other tabs, silence notifications.
+5. Have this file open on a second screen as your script.
 
 ## Logins
 
@@ -16,148 +35,183 @@
 | Viewer | `viewer@mall.test` | `password` |
 | Leasing Manager | `leasing@mall.test` | `password` |
 | Maintenance Manager | `maintenance@mall.test` | `password` |
+| Owner (read-only `/owner`) | `owner@atriom.test` | `password` |
+| Tenant portal (`/portal`) | `tenant1@atriomwalk.test` | `password` |
 
-Use **Super Admin** for the demo — full access to create/edit. Swap to the role-specific logins when demoing role-tailored dashboards.
+> All demo users share one password = the `DEMO_USER_PASSWORD` env var on Cloud
+> (falls back to `password`). Drive the demo as **Super Admin**; swap to a
+> role-specific login only to show role-tailored dashboards.
 
 ---
 
-## Live narration script
+## Live narration script (~15 min core)
 
-### 1 · Login screen (15 s)
+### 1 · Login + dashboard (2.5 min) — lead with value
+Log in as Super Admin. You land on **All Properties** (portfolio view).
 
-> "This is the operations portal for Haya Walk. Branded login, bilingual right out of the gate."
+- **Switch to Atriom Walk** in the top-bar property switcher. "Atriom is
+  multi-property — this operator runs Atriom Walk plus a second strip, Plaza Annex.
+  Everything you see re-scopes to the property you pick."
+- **KPI strip:** "Four live KPIs, each with a real 6-month sparkline — not
+  placeholders. Occupancy 66% (33 of 50 units), Monthly Recurring Revenue
+  ~EGP 1.6M, Collected This Month, and Outstanding AR with an overdue count.
+  The AR tile turns amber/red as collection slips."
+- **Revenue Trend:** "12 months billed vs collected, with the collection-rate
+  line on a second axis. Hover for exact EGP."
+- **AR Aging / Tenant Mix / Expiring Leases / Top Tenants / Recent Payments:**
+  "The operations cockpit — what's overdue, what's expiring in 90 days, who your
+  biggest tenants are, and the latest money in."
 
-Click the **عربي** toggle to flip RTL momentarily, then back to EN.
+### 2 · Arabic / RTL (20 s)
+Flip **عربي** in the top bar. "Same data, full RTL, EGP and localized dates."
+Flip back to EN.
 
-### 2 · Dashboard (2 min) — the headline
+### 3 · Properties, units & the occupancy map (1.5 min)
+Sidebar → **Properties** → Atriom Walk. "One asset, 50 leasable units across
+three zones, 33 occupied." Then sidebar → **Occupancy Map**: "A color-coded
+floor view — occupied / vacant / reserved / maintenance at a glance. Staff only
+see the properties they're assigned to."
 
-Login lands on **All Properties** (the portfolio view).
+### 4 · Tenant directory (1 min)
+Sidebar → **Tenant Directory**. "33 tenants — real brands: Cilantro, Buffalo
+Burger, Seoudi Market, B.TECH, Magrabi, Cook Door… Each can be granted a portal
+login from the Edit screen. Search / filter / sort all work."
 
-**Step 0 — switch to Haya Walk:** click the property switcher in the top bar and pick **Haya Walk**. The KPIs below are pinned to Haya Walk's seed data; the All-Properties view also includes the Plaza Annex multi-tenancy demo asset and would show different (lower) occupancy.
+### 5 · Create a lease — show the speed (1.5 min)
+Sidebar → **Leases → New Lease**. Pick a vacant unit (list filters to vacant),
+set dates + base rent + service charge ("14% VAT auto-applied"), point out the
+**percentage-rent** section ("base rent + a % of sales above a breakpoint —
+standard in malls"). Save → "unit flips to occupied automatically."
 
-**KPI strip (top row):**
+### 6 · Create an invoice — the killer feature (2 min)
+Sidebar → **Invoices → New Invoice**. Pick a lease — "watch the line items
+**auto-fill from the lease's monthly charges**, VAT pre-computed." Edit an amount
+→ subtotal/VAT/total update live. Add a "Late fee" line. Note: **the due date
+must be after the issue date** (try an earlier date — it's blocked). Save →
+"number auto-generated, items linked."
 
-- "Four headline KPIs. Each one has a real sparkline drawn from the last 6 months of actual data — not placeholder shapes."
-- "Occupancy: 66 % — 33 of 50 units leased. The line shows how it trended."
-- "Monthly Recurring Revenue: EGP 1.63M — the recurring rent + service charge contracted across all active leases."
-- "Collected This Month: EGP ~170K — note the month-over-month delta. Coloring goes green / amber / red based on collection rate vs expected."
-- "Outstanding AR: EGP ~657K, 11 invoices overdue — that's the warning icon's job. (~EGP 588K of that is past due; the remainder is current AR still within payment terms.)"
+### 7 · Monthly billing + collections (1.5 min)
+On the Invoices list, point out **Run Monthly Billing**: "one click generates an
+invoice per active lease for the period, skipping anyone already billed." Then
+open a tenant with a balance and **record a payment** → "AR and the dashboard
+update instantly; the tenant gets an email + portal notification."
 
-> **Demo numbers are pinned** by the seeder's RNG seed (`HayaWalkSeeder::DEMO_RNG_SEED`). Re-seeding produces the same values every time; if these drift, re-check that seed.
+### 8 · Maintenance (2 min) — the operations heart
+Sidebar → **Maintenance**. "Five live tickets across statuses and channels —
+WhatsApp, phone, walk-in, portal, email." Open the urgent Cilantro AC ticket:
+- "Status workflow with SLA targets; **the resolution-target date can't predate
+  the request**."
+- "Internal notes vs tenant-visible comments. **A tenant comment pings the
+  operations bell; a staff reply notifies the tenant.**"
+- "Photo/PDF attachments — restricted to images and PDFs — and they sync to the
+  tenant mobile app."
+- Assign to a vendor from the **Vendors** directory (8 vendors with contacts +
+  contracts).
 
-**Revenue Trend chart:**
+### 9 · Sales declarations & CAM (1.5 min)
+Sidebar → **Sales Declarations**: "Tenants declare monthly sales; you review and
+**lock** one → it auto-creates the percentage-rent charge for next billing."
+Then **CAM**: "Annual common-area cost pool, pro-rata allocations per leased
+sqm, billed as true-ups. Last year reconciled; this year is a draft you can
+generate live."
 
-- "12 months of billed vs collected, side-by-side bars. The terracotta line is the **collection rate** on a secondary axis — 100 % means everything billed was collected. Hover anywhere…" (hover bars) "…tooltips give exact EGP."
+### 10 · Reporting, ETA & audit (1.5 min)
+- **Reports** → downloadable Monthly Close PDF + AR aging drill-down.
+- **ETA Compliance** widget / invoice action → "Egyptian Tax Authority
+  e-invoicing, running in mock mode; flip one flag for live creds."
+- **Activity Log** → "every create/edit/delete tracked: who, when, what changed."
+- **Notifications bell** → "operator inbox for portal events + SLA breaches."
 
-**AR Aging:**
-
-- "Receivables bucketed by days past due — green is current, gold is 1-30, orange 31-60, red after that. We can drill into any bucket later." (hover a bar) "Tooltip shows the EGP value **and** the invoice count."
-
-**Tenant Mix:**
-
-- "Active leases by category — retail vs F&B vs wellness etc. Lets the client see at a glance whether the mall is balanced."
-
-**Below the fold:**
-
-- Leases Expiring next 90 days, Top Tenants by rent, Recent Payments feed.
-
-### 3 · Switch to Arabic (15 s)
-
-Click **عربي** in the top bar.
-
-> "Same dashboard, same data, full RTL. Currency stays EGP, dates are localized."
-
-Switch back to EN before continuing.
-
-### 4 · Properties / Units (1 min)
-
-Sidebar → **Properties**. Open Haya Walk.
-
-> "Asset → units → leases. One property, 50 leasable units, 33 occupied (66 %). Click any unit to see the active lease and tenant. The 'Plaza Annex' row is a stub asset that demos our multi-property tenancy — it has 8 units but no active leases, so it stays empty for this story."
-
-### 5 · Tenant Directory (1 min)
-
-Sidebar → **Tenant Directory**.
-
-> "33 tenants. Each has a portal login we can grant from the Edit screen. Search, filter, sort all work."
-
-### 6 · Create a Lease — show the speed (1.5 min)
-
-Sidebar → **Leases** → **New Lease**.
-
-- "Tenant: existing or new in one form. Searchable picker."
-- Pick a vacant unit (the list filters to vacant only).
-- Set dates, base rent, service charge. "14 % VAT applied automatically."
-- "Percentage rent section — for tenants who pay base + a % of sales above a threshold. Standard in shopping malls."
-- Save. "Lease is created, unit flips to occupied automatically."
-
-### 7 · Create an Invoice — the killer feature (2 min)
-
-Sidebar → **Invoices** → **New Invoice**.
-
-- Pick a lease from the dropdown (show the search + the `REF · Tenant · Unit` formatting).
-- **Watch the items repeater auto-fill from the lease's monthly charges** — base rent, service charge, with VAT pre-computed.
-- Edit an amount — show Subtotal / VAT / Total updating live.
-- Add a line: "Late fee", amount 5000, 14 % — totals update.
-- Save. "Number auto-generated, status set, items linked."
-
-### 8 · Monthly Billing button (45 s)
-
-On the **Invoices** list page, point out the **Run Monthly Billing** button.
-
-> "Click this and we generate invoices for every active lease for the current period — one invoice per lease, items from each lease's charges. The system skips anyone already billed for this period."
-
-### 9 · Activity Log (30 s)
-
-Sidebar → **Reports → Activity Log**.
-
-> "Every create / update / delete on leases, invoices, payments, tenants is tracked — who, when, what changed. Compliance trail out of the box."
-
-### 9.5 · Notifications (30 s)
-
-Click the **bell** icon in the top bar.
-
-> "Operator inbox — every tenant-side action we care about lands here. A maintenance request submitted from the portal, a sales declaration filed, an SLA breach on an open ticket. Tenants get the matching events as email + their own portal bell — invoice issued, payment received, maintenance status changes, sales declaration locked. All driven by the standard Laravel notifications system, so adding Slack or WhatsApp channels later is one line per notification class."
-
-### 10 · Users & roles (30 s)
-
-Sidebar → **Settings → Users**.
-
-> "Three roles: super admin, manager, viewer. The login they're using now is super admin — manager can create/edit but not delete users, viewer is read-only."
+### 11 · Roles, portal & mobile (1 min)
+- **Settings → Users / Roles**: "6 built-in roles + a custom-role builder over
+  81 granular permissions. Managers can't delete; viewers are read-only."
+- Open `/portal` as `tenant1@atriomwalk.test`: "tenant self-service — statements,
+  invoices, pay online, raise maintenance."
+- Mention the **mobile API** (`/api/v1`) powering the tenant app: invoices,
+  payments, maintenance with attachments, sales declarations, push tokens.
 
 ---
 
 ## Things to flag if asked
 
-- **ETA e-invoicing** is live in mock mode — submit-to-ETA action on invoices returns a stubbed Valid response. Flip `eta.mock` off in `/admin/settings → ETA` when preprod creds land. **ETA Compliance widget** on the dashboard surfaces Valid/Submitted/Rejected/Pending counts at a glance, each tile clickable into a filtered invoice list.
-- **Credit Notes & Refunds** — full AR lifecycle at `/admin/credit-notes` (issue → apply → void with idempotent service-layer math).
-- **Vendor Management** — `/admin/vendors` with contacts + contracts; maintenance requests route to vendors via the External Vendor select.
-- **Reports module** — `/admin/reports` with downloadable Monthly Close PDF + AR Aging drilldown.
-- **Settings + Module Flags** — `/admin/settings → Modules` turns any optional module on/off live.
-- **Custom Roles + Permissions** — `/admin/roles` lets admins create custom roles with any of 81 granular permissions.
-- **Role-tailored dashboards** — log in as `leasing@mall.test` or `maintenance@mall.test` to demo per-role widget sets.
-- **Portal** — there's a separate `/portal` panel where tenants log in to see their statements and pay invoices.
-- **Paymob Pay Now** — wired end-to-end (auth → order → payment key → iframe → HMAC-verified callback). Disabled in the demo (`PAYMOB_ENABLED=false`) so the button is hidden; flip it on plus 4 dashboard creds (see `PAYMOB-SETUP.md`) and tenants pay invoices through the iframe directly. Status is reconciled by the S2S callback, not the browser redirect.
-- **Two-factor auth** — TOTP 2FA enforced for super-admins on the admin panel; other roles can opt-in from their profile.
-- **Mobile API** — `/api/v1/auth/login` ships Sanctum tenant auth today; resource endpoints are Q2.
-- **WhatsApp + PDF** — invoice and statement actions support generating PDFs and sharing via WhatsApp.
+- **Online payments (Paymob)** — wired end-to-end (auth → order → iframe →
+  HMAC-verified callback). Disabled in the demo (`PAYMOB_ENABLED=false`) so the
+  button is hidden; a `pay-demo` API endpoint lets the mobile app simulate a
+  successful payment through the real capture path until live creds land.
+- **Credit notes & refunds** — full AR lifecycle (issue → apply → void).
+- **Two-factor auth** — TOTP enforced for super-admins; opt-in for others.
+- **Module flags** — `/admin/settings → Modules` turns optional modules on/off
+  live.
+- **WhatsApp + PDF** — invoice/statement sharing.
+- **Multi-property scoping** — staff assigned to one property never see another's
+  data (Plaza Annex demonstrates this).
 
-## Numbers cheat-sheet for tonight
+## Numbers cheat-sheet
 
 ```
-Property:        Haya Walk
-Units:           50 (33 occupied · 17 vacant)
-Tenants:         33
+Property:        Atriom Walk (Atriom Developments) + Plaza Annex (scoping demo)
+Units:           50 (33 occupied · 17 vacant) → 66% occupancy
+Tenants:         33 — real Egyptian brands (F&B / retail / wellness / service)
 Active leases:   33
-MRR:             EGP 1.63M
+MRR:             ~EGP 1.6M
 Invoices:        ~200 total · ~10 overdue
-Credit notes:    4 (across draft / issued / applied / void)
-Vendors:         8 (with primary contacts + contracts)
-Maintenance:     5 seeded across statuses + 5 distinct channels
-Permissions:     81 across 18 modules
-Roles:           6 built-in + custom-role UI
-Dashboard:       12 widgets, role-tailored per role
-Tests:           369 Pest (981 assertions, ~6.5s parallel) · 18 Playwright spec files
+Credit notes:    4 (draft / issued / applied / void)
+Vendors:         8 (contacts + contracts)
+Maintenance:     5 tickets across statuses + 5 channels
+Permissions:     81 across 18 modules · 6 roles + custom-role UI
+Tests:           444 Pest (green) + Playwright e2e specs
 ```
+
+---
+
+## Meeting playbook — how to run the session
+
+**Mindset:** you're not listing features, you're showing *their workday* getting
+easier. Talk in their language (occupancy, collections, overdue, SLA), not the
+software's.
+
+**Open (2 min):** one sentence on what Atriom is, then ask them to describe
+*their* current process — what tool do they use today, what's the daily pain
+(chasing payments? maintenance tracking? reporting to owners?). Their answers
+tell you which sections below to dwell on.
+
+**Run the story, not the menu:** follow the script as "a month in the life of a
+property": dashboard → new tenant/lease → invoice → collect → maintenance →
+month-end report. Skip sections that don't match their pain.
+
+**Let them drive:** after section 5–6, hand over — ask them to create a lease or
+record a payment themselves. Hands-on for 2 minutes beats 10 minutes of you
+clicking.
+
+**Anchor on their pain points (pick 2–3):**
+- Collections/AR → dashboard AR tile, aging chart, record-payment, statements.
+- Maintenance/SLA → ticket workflow, channels, vendor dispatch, attachments,
+  tenant notifications.
+- Owner reporting → Reports PDF, owner portal (`owner@atriom.test`).
+- Compliance → ETA e-invoicing + Activity Log audit trail.
+
+**Discovery questions to ask them:**
+- How many properties / units / tenants do you manage today?
+- What system are you on now (Excel, ERP, nothing)? Biggest frustration?
+- Do you do percentage rent / CAM reconciliation? ETA e-invoicing yet?
+- How do tenants reach you for maintenance today? Is there an app?
+- Who needs logins, and what should each role see?
+
+**Handle "can it do X?":** if yes, show it. If it's there but you're unsure,
+say "yes — let me confirm the exact flow and follow up" rather than fumbling
+live. If it's not there, "not yet — easy to add" and note it. Never demo a
+half-working edge feature.
+
+**Close (3 min):** summarize the 2–3 things that hit their pain, agree a concrete
+next step (pilot on one real property, a follow-up with their data, or a
+stakeholder demo). Capture every question/gap they raised.
+
+**Do / Don't:**
+- ✅ Re-seed beforehand; rehearse the create-lease→invoice flow once.
+- ✅ Keep it to ~15–20 min of driving, leave room for their questions.
+- ✅ Use the Arabic toggle — it lands well with an Egyptian ops team.
+- ❌ Don't open every module; depth on their pain beats breadth.
+- ❌ Don't dive into tech internals (Filament/Laravel) unless they ask.
+- ❌ Don't show the raw API/JSON unless someone technical asks.
 
 يلا بسم الله 💪

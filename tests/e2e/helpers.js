@@ -27,13 +27,13 @@ export async function loginAdmin(page, email = 'admin@mall.test', password = 'pa
   await waitForLoggedIn(page, '/admin');
 }
 
-export async function loginPortal(page, email = 'tenant1@haya.test', password = 'password') {
+export async function loginPortal(page, email = 'tenant1@atriomwalk.test', password = 'password') {
   await page.goto('/portal/login');
   await fillLogin(page, email, password);
   await waitForLoggedIn(page, '/portal');
 }
 
-export async function loginOwner(page, email = 'owner@jawad.test', password = 'password') {
+export async function loginOwner(page, email = 'owner@atriom.test', password = 'password') {
   await page.goto('/owner/login');
   await fillLogin(page, email, password);
   await waitForLoggedIn(page, '/owner');
