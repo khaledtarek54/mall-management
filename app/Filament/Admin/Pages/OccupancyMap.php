@@ -3,9 +3,11 @@
 namespace App\Filament\Admin\Pages;
 
 use App\Models\Asset;
+use App\Support\AssignedAssets;
 use BackedEnum;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Database\Eloquent\Builder;
 
 class OccupancyMap extends Page
 {
@@ -19,7 +21,36 @@ class OccupancyMap extends Page
 
     public function mount(): void
     {
-        $this->assetId = (int) request()->query('asset', Asset::query()->orderBy('id')->value('id'));
+        $requested = (int) request()->query('asset', 0);
+
+        // Never default to (or honor) a property the user isn't assigned to.
+        $this->assetId = $this->isAssetVisible($requested)
+            ? $requested
+            : ($this->visibleAssets()->value('id'));
+    }
+
+    /**
+     * Properties the current user may view in the map — their assigned set,
+     * or every real property for super_admin / unassigned (back-compat).
+     * The synthetic "All Properties" pseudo-asset is always excluded.
+     *
+     * @return Builder<Asset>
+     */
+    protected function visibleAssets(): Builder
+    {
+        $allowedIds = AssignedAssets::idsForCurrentUser();
+
+        return Asset::query()
+            ->where('code', '!=', Asset::ALL_PROPERTIES_CODE)
+            ->when($allowedIds !== null, fn ($q) => $q->whereIn('id', $allowedIds))
+            ->orderBy('name');
+    }
+
+    protected function isAssetVisible(?int $assetId): bool
+    {
+        return $assetId
+            ? (clone $this->visibleAssets())->whereKey($assetId)->exists()
+            : false;
     }
 
     public function updatedAssetId(): void
@@ -44,9 +75,12 @@ class OccupancyMap extends Page
 
     protected function getViewData(): array
     {
-        $assets = Asset::query()->orderBy('name')->get(['id', 'name']);
-        $asset = $this->assetId
-            ? Asset::query()->find($this->assetId)
+        $assets = $this->visibleAssets()->get(['id', 'name']);
+
+        // Resolve the selected property, but only within the visible set — a
+        // tampered ?asset= / wire value for an unassigned property is ignored.
+        $asset = $this->isAssetVisible($this->assetId)
+            ? $assets->firstWhere('id', $this->assetId) ?? Asset::query()->find($this->assetId)
             : $assets->first();
 
         if (! $asset) {

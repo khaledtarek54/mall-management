@@ -23,6 +23,24 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
  */
 trait BypassesFilamentTenantAutoScope
 {
+    /**
+     * Opt out of Filament's automatic tenancy entirely. These resources scope
+     * reads themselves in `getEloquentQuery()`, and their models carry no
+     * `asset` ownership relationship.
+     *
+     * Returning false stops Panel::boot() from BOTH adding Filament's own
+     * tenant global scope AND registering the model `creating`/`created` hooks
+     * (observeTenancyModelCreation). Those hooks resolve the panel's default
+     * ownership relationship — `asset` — and threw a LogicException on every
+     * create while a property tenant was active (tenant / invoice / credit
+     * note creation all 500'd). Overriding `scopeEloquentQueryToTenant` alone
+     * was not enough: it only neutralises the read scope, not the create hook.
+     */
+    public static function isScopedToTenant(): bool
+    {
+        return false;
+    }
+
     public static function scopeEloquentQueryToTenant(Builder $query, ?Model $tenant): Builder
     {
         return $query;

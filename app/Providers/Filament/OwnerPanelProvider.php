@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Owner\Widgets\PortfolioStats;
+use App\Http\Middleware\SetLocale;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -17,6 +18,7 @@ use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+
 class OwnerPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
@@ -31,7 +33,10 @@ class OwnerPanelProvider extends PanelProvider
             ->databaseNotifications()
             ->databaseNotificationsPolling('60s')
             ->brandName('Atriom · Owner Portal')
-            ->brandLogo(asset('images/atriom-logo.svg'))
+            // Explicit light/dark variants wired to Filament's theme toggle —
+            // the auto atriom-logo.svg keys off the OS scheme and desyncs.
+            ->brandLogo(asset('images/atriom-logo-light.svg'))
+            ->darkModeBrandLogo(asset('images/atriom-logo-dark.svg'))
             ->brandLogoHeight('2.5rem')
             ->favicon(asset('atriom-favicon.svg'))
             ->discoverResources(in: app_path('Filament/Owner/Resources'), for: 'App\\Filament\\Owner\\Resources')
@@ -58,7 +63,7 @@ class OwnerPanelProvider extends PanelProvider
                 SubstituteBindings::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
-                \App\Http\Middleware\SetLocale::class,
+                SetLocale::class,
             ])
             ->authMiddleware([
                 Authenticate::class,

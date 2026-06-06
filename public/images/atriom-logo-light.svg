@@ -1,6 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" preserveAspectRatio="xMidYMid meet">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 216 80" preserveAspectRatio="xMidYMid meet">
   <!-- Atriom logo for LIGHT backgrounds.
-       Wordmark in ink (#0F1419), teal arch mark, amber skylight dot. -->
+       Wordmark in ink (#0F1419), teal arch mark, amber skylight dot.
+       viewBox is cropped to the artwork bounds (mark + "atriom" ends ~x=205)
+       so the logo sits centred on the login screen — the old 320-wide box
+       left ~110px of dead space on the right, shifting it visually left. -->
   <g transform="translate(8, 14)">
     <path d="M 4 50 L 4 24 A 22 22 0 0 1 48 24 L 48 50"
           fill="none" stroke="#0F766E" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>

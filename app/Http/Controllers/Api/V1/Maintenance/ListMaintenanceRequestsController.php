@@ -15,7 +15,7 @@ class ListMaintenanceRequestsController extends ApiController
     public function __invoke(Request $request): AnonymousResourceCollection
     {
         $query = $request->user()->maintenanceRequests()
-            ->with('unit')
+            ->with(['unit', 'media'])
             ->latest('submitted_at');
 
         if ($status = $request->query('status')) {

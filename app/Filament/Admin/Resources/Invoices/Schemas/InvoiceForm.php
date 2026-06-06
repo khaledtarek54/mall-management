@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Invoices\Schemas;
 
 use App\Models\Lease;
+use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -31,7 +32,7 @@ class InvoiceForm
                             'lease',
                             'reference',
                             modifyQueryUsing: fn ($query) => $query->when(
-                                \App\Support\TenantScope::currentAssetId(),
+                                TenantScope::currentAssetId(),
                                 fn ($q, $assetId) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)),
                             ),
                         )
@@ -72,10 +73,19 @@ class InvoiceForm
                     DatePicker::make('issue_date')
                         ->label(__('admin.fields.issue_date'))
                         ->required()
+                        ->live(onBlur: true)
                         ->native(false),
                     DatePicker::make('due_date')
                         ->label(__('admin.fields.due_date'))
                         ->required()
+                        // A due date on/before the issue date is nonsensical for
+                        // AR ageing (it would be "overdue" the moment it's
+                        // issued). Enforce strictly-after here so manual invoice
+                        // entry can't break the billing timeline.
+                        ->after('issue_date')
+                        ->validationMessages([
+                            'after' => __('admin.validation.invoice_due_after_issue'),
+                        ])
                         ->native(false),
                     DatePicker::make('period_start')
                         ->label(__('admin.fields.period_start'))

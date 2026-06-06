@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Filament\Portal\Widgets\AccountBalance;
 use App\Filament\Portal\Widgets\OpenMaintenance;
+use App\Http\Middleware\SetLocale;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -37,7 +38,10 @@ class PortalPanelProvider extends PanelProvider
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')
             ->brandName('Atriom · Tenant Portal')
-            ->brandLogo(asset('images/atriom-logo.svg'))
+            // Explicit light/dark variants wired to Filament's theme toggle —
+            // the auto atriom-logo.svg keys off the OS scheme and desyncs.
+            ->brandLogo(asset('images/atriom-logo-light.svg'))
+            ->darkModeBrandLogo(asset('images/atriom-logo-dark.svg'))
             ->brandLogoHeight('2.5rem')
             ->favicon(asset('atriom-favicon.svg'))
             ->authGuard('portal')
@@ -62,7 +66,7 @@ class PortalPanelProvider extends PanelProvider
                 SubstituteBindings::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
-                \App\Http\Middleware\SetLocale::class,
+                SetLocale::class,
             ])
             ->authMiddleware([
                 Authenticate::class,

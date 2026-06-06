@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Admin\Pages\Tenancy\RegisterProperty;
 use App\Filament\Admin\Widgets\ActionRequired;
 use App\Filament\Admin\Widgets\ArAging;
 use App\Filament\Admin\Widgets\EnergyConsumptionTrend;
@@ -15,6 +16,7 @@ use App\Filament\Admin\Widgets\RecentPayments;
 use App\Filament\Admin\Widgets\SetupGuide;
 use App\Filament\Admin\Widgets\TenantMix;
 use App\Filament\Admin\Widgets\TopTenants;
+use App\Http\Middleware\SetLocale;
 use App\Models\Asset;
 use Filament\Facades\Filament;
 use Filament\Http\Middleware\Authenticate;
@@ -25,12 +27,14 @@ use Filament\Navigation\NavigationGroup;
 use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
+use Filament\View\PanelsRenderHook;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use Stephenjude\FilamentTwoFactorAuthentication\TwoFactorAuthenticationPlugin;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -45,7 +49,15 @@ class AdminPanelProvider extends PanelProvider
             // a super_admin reset, and can change their own password from the
             // top-bar avatar (audit M17 F-64 / D-49).
             ->passwordReset()
-            ->profile(isSimple: false)
+            // Simple (standalone) profile page — NOT the full-chrome variant.
+            // This panel has property tenancy, but the profile route
+            // (/admin/profile) is not tenant-scoped, so Filament::getTenant()
+            // is null there. The full-chrome layout renders the property
+            // switcher, whose label calls getTenantName($tenant) — with a null
+            // tenant that throws a TypeError and 500s the page. The simple
+            // layout has no switcher, so it renders cleanly while still letting
+            // operators edit their name / email / password (audit M17 F-64 / D-49).
+            ->profile()
             // Top-bar bell icon for portal-submitted maintenance, new sales
             // declarations awaiting review, SLA breaches, and operator-
             // initiated audit events. Database channel only on the admin
@@ -56,7 +68,7 @@ class AdminPanelProvider extends PanelProvider
             // super_admin role (full-system access); other roles can opt
             // in via the top-bar menu item. Audit M17 F-65 / D-50.
             ->plugin(
-                \Stephenjude\FilamentTwoFactorAuthentication\TwoFactorAuthenticationPlugin::make()
+                TwoFactorAuthenticationPlugin::make()
                     ->enableTwoFactorAuthentication()
                     ->addTwoFactorMenuItem()
                     ->forceTwoFactorSetup(fn (): bool => auth()->user()?->hasRole('super_admin') === true)
@@ -68,10 +80,11 @@ class AdminPanelProvider extends PanelProvider
             // platform Atriom branding.
             ->brandName(fn (): string => self::resolveBrandName())
             ->brandLogo(fn (): string => self::resolveBrandLogo())
+            ->darkModeBrandLogo(fn (): string => self::resolveBrandLogo(dark: true))
             ->brandLogoHeight('2.5rem')
             ->favicon(fn (): string => self::resolveFavicon())
             ->tenant(Asset::class, slugAttribute: 'code')
-            ->tenantRegistration(\App\Filament\Admin\Pages\Tenancy\RegisterProperty::class)
+            ->tenantRegistration(RegisterProperty::class)
             ->discoverResources(in: app_path('Filament/Admin/Resources'), for: 'App\\Filament\\Admin\\Resources')
             ->discoverPages(in: app_path('Filament/Admin/Pages'), for: 'App\\Filament\\Admin\\Pages')
             ->pages([
@@ -112,10 +125,10 @@ class AdminPanelProvider extends PanelProvider
                 SubstituteBindings::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
-                \App\Http\Middleware\SetLocale::class,
+                SetLocale::class,
             ])
             ->renderHook(
-                \Filament\View\PanelsRenderHook::HEAD_END,
+                PanelsRenderHook::HEAD_END,
                 fn (): string => self::renderPerTenantThemeOverride(),
             )
             ->authMiddleware([
@@ -133,10 +146,20 @@ class AdminPanelProvider extends PanelProvider
         if ($tenant instanceof Asset && ! $tenant->isAllProperties()) {
             return $tenant->name;
         }
+
         return 'Atriom';
     }
 
-    protected static function resolveBrandLogo(): string
+    /**
+     * Brand logo for the active property, else the platform wordmark. We serve
+     * an explicit light/dark variant rather than the auto-adapting
+     * atriom-logo.svg — that file keys off the OS `prefers-color-scheme`, which
+     * desyncs from Filament's own in-app theme toggle (light panel + dark OS
+     * rendered a cream wordmark on a white dashboard). Wiring the variant to
+     * Filament's mode keeps the logo readable in both. A per-property logo is
+     * used for both modes (each Asset carries a single logo asset).
+     */
+    protected static function resolveBrandLogo(bool $dark = false): string
     {
         $tenant = Filament::getTenant();
         if ($tenant instanceof Asset && ! $tenant->isAllProperties()) {
@@ -144,7 +167,8 @@ class AdminPanelProvider extends PanelProvider
                 return $logo;
             }
         }
-        return asset('images/atriom-logo.svg');
+
+        return asset($dark ? 'images/atriom-logo-dark.svg' : 'images/atriom-logo-light.svg');
     }
 
     protected static function resolveFavicon(): string
@@ -155,6 +179,7 @@ class AdminPanelProvider extends PanelProvider
                 return $favicon;
             }
         }
+
         return asset('atriom-favicon.svg');
     }
 
@@ -179,7 +204,7 @@ class AdminPanelProvider extends PanelProvider
             return '';
         }
 
-        $hex = '#' . ltrim($tenant->primary_color, '#');
+        $hex = '#'.ltrim($tenant->primary_color, '#');
         if (! preg_match('/^#[0-9a-fA-F]{6}$/', $hex)) {
             return '';
         }

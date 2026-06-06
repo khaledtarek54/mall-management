@@ -715,6 +715,10 @@ return [
         'maintenance_status_body' => 'انتقلت تذكرة ":title" من :from إلى :to.',
         'maintenance_status_short' => '":title" أصبحت :status.',
         'maintenance_status_resolution' => 'ملاحظات الحل: :notes',
+        'maintenance_comment_subject' => 'تحديث جديد على طلب الصيانة :reference',
+        'maintenance_comment_title' => 'تحديث صيانة · :reference',
+        'maintenance_comment_body' => 'أضاف فريق العقار تحديثاً على ":title": :comment',
+        'maintenance_comment_short' => 'تعليق جديد على ":title".',
         'sales_locked_subject' => 'تم تثبيت إقرار مبيعات :period',
         'sales_locked_body' => 'تم تثبيت إقرار مبيعاتك لشهر :period من قبل المشغّل. نسبة الإيجار المستحقة: :amount.',
         'sales_locked_billing_hint' => 'سيظهر هذا المبلغ في فاتورتك الشهرية القادمة.',
@@ -723,6 +727,8 @@ return [
         // Admin / operator-facing (incoming triage events)
         'portal_maintenance_submitted_title' => 'طلب صيانة جديد',
         'portal_maintenance_submitted_body' => ':tenant (وحدة :unit) قدّم: ":title" · أولوية :priority',
+        'maintenance_comment_staff_title' => 'تعليق جديد من المستأجر',
+        'maintenance_comment_staff_body' => ':tenant علّق على :reference (":title"): :comment',
         'sales_submitted_title' => 'إقرار مبيعات جديد',
         'sales_submitted_body' => ':tenant (وحدة :unit) قدّم إقرار :period · :sales',
         'sla_breached_title' => 'تجاوز اتفاقية مستوى الخدمة',
@@ -1364,6 +1370,8 @@ return [
     ],
     'validation' => [
         'tenant_tax_id_format' => 'يجب أن يتكون الرقم الضريبي من 9 أرقام، ويمكن تنسيقه كـ XXX-XXX-XXX (رقم التسجيل الضريبي المصري).',
+        'invoice_due_after_issue' => 'يجب أن يكون تاريخ الاستحقاق بعد تاريخ الإصدار.',
+        'maintenance_resolution_after_creation' => 'لا يمكن أن يكون تاريخ الحل أقدم من تاريخ إنشاء الطلب.',
     ],
 
 ];
