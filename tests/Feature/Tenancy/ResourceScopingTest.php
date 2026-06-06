@@ -6,8 +6,8 @@ use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Filament\Admin\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
-use App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
 use App\Filament\Admin\Resources\Tenants\TenantResource;
+use App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
 use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Filament\Admin\Resources\UtilityMeters\UtilityMeterResource;
 use App\Models\Asset;
@@ -87,7 +87,7 @@ describe('Invoice scoping', function () {
 describe('Payment scoping', function () {
     it('scopes payments via invoice→lease→unit', function () {
         $payment = Payment::create([
-            'reference' => 'PAY-' . uniqid(),
+            'reference' => 'PAY-'.uniqid(),
             'tenant_id' => $this->hwInvoice->tenant_id,
             'payment_date' => '2026-02-15',
             'amount' => 1000,
@@ -112,7 +112,7 @@ describe('Payment scoping', function () {
 describe('CreditNote scoping', function () {
     it('scopes credit notes via lease.unit and always shows standalone ones', function () {
         $linked = CreditNote::create([
-            'number' => 'CN-LINKED-' . uniqid(),
+            'number' => 'CN-LINKED-'.uniqid(),
             'tenant_id' => $this->hwInvoice->tenant_id,
             'lease_id' => $this->hwLease->id,
             'reason' => 'adjustment',
@@ -124,7 +124,7 @@ describe('CreditNote scoping', function () {
         ]);
 
         $standalone = CreditNote::create([
-            'number' => 'CN-STAND-' . uniqid(),
+            'number' => 'CN-STAND-'.uniqid(),
             'tenant_id' => $this->paInvoice->tenant_id,
             'lease_id' => null,
             'reason' => 'adjustment',
@@ -150,7 +150,7 @@ describe('CreditNote scoping', function () {
 describe('MaintenanceRequest scoping', function () {
     it('scopes requests via unit.asset_id', function () {
         $hwReq = MaintenanceRequest::create([
-            'reference' => 'MR-HW-' . uniqid(),
+            'reference' => 'MR-HW-'.uniqid(),
             'unit_id' => $this->hwUnit->id,
             'tenant_id' => $this->hwLease->tenant_id,
             'title' => 'AC broken',
@@ -162,7 +162,7 @@ describe('MaintenanceRequest scoping', function () {
         ]);
 
         $paReq = MaintenanceRequest::create([
-            'reference' => 'MR-PA-' . uniqid(),
+            'reference' => 'MR-PA-'.uniqid(),
             'unit_id' => $this->paUnit->id,
             'tenant_id' => $this->paLease->tenant_id,
             'title' => 'Lights out',

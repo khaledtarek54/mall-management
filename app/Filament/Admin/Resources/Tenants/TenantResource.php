@@ -2,6 +2,11 @@
 
 namespace App\Filament\Admin\Resources\Tenants;
 
+use App\Filament\Admin\RelationManagers\ActivitiesRelationManager;
+use App\Filament\Admin\RelationManagers\TenantLeasesRelationManager;
+use App\Filament\Admin\RelationManagers\TenantMaintenanceRelationManager;
+use App\Filament\Admin\RelationManagers\TenantNotesRelationManager;
+use App\Filament\Admin\RelationManagers\TenantPaymentsRelationManager;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Concerns\ScopesViaProperty;
 use App\Filament\Admin\Resources\Tenants\Pages\CreateTenant;
@@ -18,7 +23,6 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class TenantResource extends Resource
 {
@@ -93,11 +97,11 @@ class TenantResource extends Resource
     public static function getRelations(): array
     {
         return [
-            \App\Filament\Admin\RelationManagers\TenantLeasesRelationManager::class,
-            \App\Filament\Admin\RelationManagers\TenantPaymentsRelationManager::class,
-            \App\Filament\Admin\RelationManagers\TenantMaintenanceRelationManager::class,
-            \App\Filament\Admin\RelationManagers\TenantNotesRelationManager::class,
-            \App\Filament\Admin\RelationManagers\ActivitiesRelationManager::class,
+            TenantLeasesRelationManager::class,
+            TenantPaymentsRelationManager::class,
+            TenantMaintenanceRelationManager::class,
+            TenantNotesRelationManager::class,
+            ActivitiesRelationManager::class,
         ];
     }
 
@@ -110,7 +114,7 @@ class TenantResource extends Resource
         ];
     }
 
-public static function getGloballySearchableAttributes(): array
+    public static function getGloballySearchableAttributes(): array
     {
         return ['name', 'legal_name', 'email', 'phone', 'contact_person'];
     }
