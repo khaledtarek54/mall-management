@@ -42,7 +42,7 @@ class AppServiceProvider extends ServiceProvider
             fn (): string => Blade::render('<div class="flex justify-center mb-4">@include("filament.language-switch")</div>'),
         );
 
-        // "Powered by TriTech" attribution across every panel. Filament renders
+        // "Powered by TRITECH" attribution across every panel. Filament renders
         // the FOOTER hook in both the main and the simple (login / password-
         // reset) layouts, so this single registration covers authenticated and
         // auth pages alike. Registered globally so admin, owner, and portal all

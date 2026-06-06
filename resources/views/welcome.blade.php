@@ -258,7 +258,7 @@
 
     <footer>
         Atriom &middot; Built for the Egyptian retail vertical &middot; <a href="{{ url('/admin/login') }}">Sign in</a>
-        <span class="powered-by">Powered by <strong>TriTech</strong></span>
+        <span class="powered-by">Powered by <strong>TRITECH</strong></span>
     </footer>
 </body>
 </html>
