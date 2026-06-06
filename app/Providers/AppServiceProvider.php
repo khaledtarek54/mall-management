@@ -41,5 +41,15 @@ class AppServiceProvider extends ServiceProvider
             PanelsRenderHook::AUTH_LOGIN_FORM_BEFORE,
             fn (): string => Blade::render('<div class="flex justify-center mb-4">@include("filament.language-switch")</div>'),
         );
+
+        // "Powered by TriTech" attribution across every panel. Filament renders
+        // the FOOTER hook in both the main and the simple (login / password-
+        // reset) layouts, so this single registration covers authenticated and
+        // auth pages alike. Registered globally so admin, owner, and portal all
+        // inherit it from one place.
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::FOOTER,
+            fn (): string => view('branding.powered-by')->render(),
+        );
     }
 }

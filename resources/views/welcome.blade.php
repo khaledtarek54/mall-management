@@ -196,6 +196,19 @@
         }
         footer a { color: var(--ink-muted); text-decoration: none; font-weight: 500; }
         footer a:hover { color: var(--amber); }
+        .powered-by {
+            display: block;
+            margin-top: 0.6rem;
+            font-size: 0.72rem;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: var(--ink-subtle);
+        }
+        .powered-by strong {
+            color: var(--teal);
+            font-weight: 700;
+            letter-spacing: 0.04em;
+        }
     </style>
 </head>
 <body>
@@ -245,6 +258,7 @@
 
     <footer>
         Atriom &middot; Built for the Egyptian retail vertical &middot; <a href="{{ url('/admin/login') }}">Sign in</a>
+        <span class="powered-by">Powered by <strong>TriTech</strong></span>
     </footer>
 </body>
 </html>
