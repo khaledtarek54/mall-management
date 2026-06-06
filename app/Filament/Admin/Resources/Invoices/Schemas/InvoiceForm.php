@@ -31,26 +31,40 @@ class InvoiceForm
                         ->relationship(
                             'lease',
                             'reference',
-                            modifyQueryUsing: function ($query, ?string $search = null) {
-                                $query
-                                    ->with(['tenant:id,name', 'unit:id,code'])
-                                    ->when(
-                                        TenantScope::currentAssetId(),
-                                        fn ($q, $assetId) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)),
-                                    );
-
-                                if (filled($search)) {
-                                    $term = '%'.$search.'%';
-                                    $query->where(fn ($q) => $q
-                                        ->where('reference', 'like', $term)
-                                        ->orWhereHas('tenant', fn ($t) => $t->where('name', 'like', $term))
-                                        ->orWhereHas('unit', fn ($u) => $u->where('code', 'like', $term)));
-                                }
-
-                                return $query;
-                            },
+                            modifyQueryUsing: fn ($query) => $query
+                                ->with(['tenant:id,name', 'unit:id,code'])
+                                ->when(
+                                    TenantScope::currentAssetId(),
+                                    fn ($q, $assetId) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)),
+                                ),
                         )
-                        ->searchable()
+                        // Search columns are kept non-empty so Filament treats this as having
+                        // dynamic (server-side) search results — see Select::hasDynamicSearchResults().
+                        // The actual matching is done by getSearchResultsUsing() below, which spans
+                        // the lease reference, tenant name, and unit code.
+                        ->searchable(['reference'])
+                        ->getSearchResultsUsing(function (string $search): array {
+                            $term = '%'.$search.'%';
+
+                            return Lease::query()
+                                ->with(['tenant:id,name', 'unit:id,code'])
+                                ->when(
+                                    TenantScope::currentAssetId(),
+                                    fn ($q, $assetId) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)),
+                                )
+                                ->where(fn ($q) => $q
+                                    ->where('reference', 'like', $term)
+                                    ->orWhereHas('tenant', fn ($t) => $t->where('name', 'like', $term))
+                                    ->orWhereHas('unit', fn ($u) => $u->where('code', 'like', $term)))
+                                ->limit(50)
+                                ->get()
+                                ->mapWithKeys(fn (Lease $lease) => [
+                                    $lease->id => trim(
+                                        ($lease->reference ?? '—').' · '.($lease->tenant?->name ?? '—').' · '.($lease->unit?->code ?? '—')
+                                    ),
+                                ])
+                                ->all();
+                        })
                         ->preload()
                         ->getOptionLabelFromRecordUsing(fn (Lease $record) => trim(
                             ($record->reference ?? '—').' · '.($record->tenant?->name ?? '—').' · '.($record->unit?->code ?? '—')
