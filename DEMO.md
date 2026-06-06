@@ -35,7 +35,6 @@ tenant comms, and reporting — faster and cleaner than spreadsheets.
 | Viewer | `viewer@mall.test` | `password` |
 | Leasing Manager | `leasing@mall.test` | `password` |
 | Maintenance Manager | `maintenance@mall.test` | `password` |
-| Owner (read-only `/owner`) | `owner@atriom.test` | `password` |
 | Tenant portal (`/portal`) | `tenant1@atriomwalk.test` | `password` |
 
 > All demo users share one password = the `DEMO_USER_PASSWORD` env var on Cloud
@@ -187,7 +186,7 @@ clicking.
 - Collections/AR → dashboard AR tile, aging chart, record-payment, statements.
 - Maintenance/SLA → ticket workflow, channels, vendor dispatch, attachments,
   tenant notifications.
-- Owner reporting → Reports PDF, owner portal (`owner@atriom.test`).
+- Owner / stakeholder reporting → Reports PDF + Monthly Close, dashboard KPIs.
 - Compliance → ETA e-invoicing + Activity Log audit trail.
 
 **Discovery questions to ask them:**

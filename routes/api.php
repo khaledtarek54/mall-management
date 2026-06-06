@@ -35,7 +35,7 @@ use Illuminate\Support\Facades\Route;
 | API Routes — Mobile (tenant-facing)
 |--------------------------------------------------------------------------
 | Sanctum token auth against the `tenants` provider. Web/admin endpoints
-| are NOT exposed here; the Filament panels at /admin /portal /owner are
+| are NOT exposed here; the Filament panels at /admin /portal are
 | separate session-based flows.
 |
 | Conventions:

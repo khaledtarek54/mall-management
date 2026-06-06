@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Models\Lease;
 use App\Observers\LeaseObserver;
+use App\Providers\Filament\OwnerPanelProvider;
 use App\Services\Paymob\PaymobClient;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
@@ -18,6 +19,14 @@ class AppServiceProvider extends ServiceProvider
         // to build it through the fromConfig factory so controllers + actions
         // can typehint it directly.
         $this->app->singleton(PaymobClient::class, fn () => PaymobClient::fromConfig());
+
+        // Owner portal is opt-in. Registering its panel provider only when the
+        // feature flag is on keeps the /owner panel (routes + login) entirely
+        // absent while disabled. Tests set OWNER_PORTAL_ENABLED=true so the
+        // owner-panel suite still runs.
+        if (config('features.owner_portal')) {
+            $this->app->register(OwnerPanelProvider::class);
+        }
     }
 
     public function boot(): void

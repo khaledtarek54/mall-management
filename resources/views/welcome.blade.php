@@ -228,11 +228,13 @@
                 <div class="panel-title">Admin Console</div>
                 <div class="panel-desc">Run the mall day to day — leases, billing, maintenance, ETA submissions.</div>
             </a>
+            @if (config('features.owner_portal'))
             <a class="panel" href="{{ url('/owner') }}">
                 <div class="panel-label">For Owners</div>
                 <div class="panel-title">Owner Portal</div>
                 <div class="panel-desc">Portfolio view across owned assets — performance, financials, oversight.</div>
             </a>
+            @endif
             <a class="panel" href="{{ url('/portal') }}">
                 <div class="panel-label">For Tenants</div>
                 <div class="panel-title">Tenant Portal</div>
