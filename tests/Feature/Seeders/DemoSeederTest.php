@@ -44,6 +44,16 @@ it('contains no "Jawad" references anywhere in the seeded data', function () {
     }
 });
 
+it('gives every portal-login tenant an unpaid invoice for the Pay Now demo', function () {
+    foreach (['tenant1@atriomwalk.test', 'tenant2@atriomwalk.test', 'tenant3@atriomwalk.test'] as $email) {
+        $tenant = Tenant::where('email', $email)->first();
+        expect($tenant)->not->toBeNull("Expected portal tenant: {$email}");
+        expect(
+            Invoice::where('tenant_id', $tenant->id)->where('balance', '>', 0)->exists()
+        )->toBeTrue("Portal tenant {$email} needs an unpaid invoice for the demo");
+    }
+});
+
 it('uses recognizable Egyptian retail brands', function () {
     foreach (['Cilantro', 'Buffalo Burger', 'Cook Door', 'Seoudi Market', 'B.TECH', 'Magrabi Optical'] as $brand) {
         expect(Tenant::where('name', $brand)->exists())->toBeTrue("Expected seeded tenant: {$brand}");

@@ -250,6 +250,7 @@ class DemoSeeder extends Seeder
 
         $this->seedCurrentMonthPayments();
         $this->seedArAgingSpread();
+        $this->seedPortalDemoInvoices();
         $this->seedVendors($atriomWalk);
         $this->seedMaintenanceRequests();
         $this->seedTenantSalesDeclarations();
@@ -269,6 +270,75 @@ class DemoSeeder extends Seeder
         $this->command->info('   Total leases: '.Lease::count());
         $this->command->info('   Total invoices: '.Invoice::count());
         $this->command->info('   Outstanding AR: EGP '.number_format(Invoice::whereIn('status', ['issued', 'partially_paid', 'overdue'])->sum('balance'), 2));
+    }
+
+    /**
+     * Guarantee each portal-login tenant (tenant1/2/3) has one fresh UNPAID
+     * invoice, so the tenant-portal "Pay Now" demo always has something to pay
+     * (the button only shows when balance > 0). Runs after the payment seeders
+     * so nothing settles these.
+     */
+    private function seedPortalDemoInvoices(): void
+    {
+        $tenants = Tenant::whereIn('email', [
+            'tenant1@atriomwalk.test',
+            'tenant2@atriomwalk.test',
+            'tenant3@atriomwalk.test',
+        ])->with('leases.unit')->get();
+
+        $issueDate = Carbon::now()->startOfMonth();
+        $created = 0;
+
+        foreach ($tenants as $tenant) {
+            $lease = $tenant->leases->first();
+            if (! $lease) {
+                continue;
+            }
+
+            $rent = (float) $lease->base_rent_monthly;
+            $service = (float) $lease->service_charge_monthly;
+            $vat = round($service * 0.14, 2);
+            $total = round($rent + $service + $vat, 2);
+
+            $invoice = Invoice::create([
+                'lease_id' => $lease->id,
+                'tenant_id' => $tenant->id,
+                'status' => 'issued',
+                'issue_date' => $issueDate,
+                'due_date' => Carbon::now()->addDays(7),
+                'period_start' => $issueDate,
+                'period_end' => $issueDate->copy()->endOfMonth(),
+                'subtotal' => $rent + $service,
+                'vat_amount' => $vat,
+                'total' => $total,
+                'paid_amount' => 0,
+                'balance' => $total,
+                'currency' => 'EGP',
+            ]);
+
+            InvoiceItem::create([
+                'invoice_id' => $invoice->id,
+                'description' => 'Monthly Rent - '.$issueDate->format('F Y'),
+                'type' => 'base_rent',
+                'amount' => $rent,
+                'vat_rate' => 0,
+                'vat_amount' => 0,
+                'total' => $rent,
+            ]);
+            InvoiceItem::create([
+                'invoice_id' => $invoice->id,
+                'description' => 'Service Charge - '.$issueDate->format('F Y'),
+                'type' => 'service_charge',
+                'amount' => $service,
+                'vat_rate' => 14.00,
+                'vat_amount' => $vat,
+                'total' => $service + $vat,
+            ]);
+
+            $created++;
+        }
+
+        $this->command->info("   Seeded {$created} unpaid portal-demo invoices (Pay Now targets)");
     }
 
     /**
