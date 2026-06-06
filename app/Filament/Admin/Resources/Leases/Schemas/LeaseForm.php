@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Leases\Schemas;
 
 use App\Models\Lease;
+use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
@@ -31,7 +32,7 @@ class LeaseForm
                             'unit',
                             'code',
                             modifyQueryUsing: fn ($query) => $query->when(
-                                \App\Support\TenantScope::currentAssetId(),
+                                TenantScope::currentAssetId(),
                                 fn ($q, $assetId) => $q->where('asset_id', $assetId),
                             ),
                         )
@@ -104,6 +105,7 @@ class LeaseForm
                         ->numeric()
                         ->minValue(0)
                         ->default(0)
+                        ->dehydrateStateUsing(fn ($state) => $state ?? 0)
                         ->disabled(fn (string $operation): bool => $operation === 'edit')
                         ->dehydrated()
                         ->helperText(fn (string $operation): string => $operation === 'edit'
@@ -115,6 +117,7 @@ class LeaseForm
                         ->numeric()
                         ->minValue(0)
                         ->default(0)
+                        ->dehydrateStateUsing(fn ($state) => $state ?? 0)
                         ->helperText(__('admin.helpers.security_deposit')),
                     TextInput::make('escalation_rate')
                         ->label(__('admin.fields.escalation_rate'))
@@ -123,6 +126,7 @@ class LeaseForm
                         ->minValue(0)
                         ->maxValue(100)
                         ->default(7)
+                        ->dehydrateStateUsing(fn ($state) => $state ?? 0)
                         ->helperText(__('admin.helpers.escalation_rate')),
                     Select::make('escalation_type')
                         ->label(__('admin.fields.escalation_type'))
@@ -134,6 +138,7 @@ class LeaseForm
                         ->label(__('admin.fields.payment_terms_days'))
                         ->numeric()
                         ->default(7)
+                        ->dehydrateStateUsing(fn ($state) => $state ?? 7)
                         ->suffix(__('admin.fields.days')),
                     Toggle::make('security_deposit_received')
                         ->label(__('admin.fields.security_deposit_received'))
