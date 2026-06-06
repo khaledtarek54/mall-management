@@ -187,6 +187,23 @@ describe('Tenant scoping', function () {
             expect($ids)->toContain($this->hwLease->tenant_id)->not->toContain($this->paLease->tenant_id);
         });
     });
+
+    it('keeps a lease-less (just-created) tenant visible + resolvable in a property context', function () {
+        // A freshly created tenant has no lease yet. It must stay visible so the
+        // list shows it and the post-create edit redirect resolves (not 404).
+        $orphan = makeTenant();
+
+        asTenant($this->hw, function () use ($orphan) {
+            $ids = scopedResourceQuery(TenantResource::class)->pluck('id')->all();
+            expect($ids)
+                ->toContain($orphan->id)
+                ->toContain($this->hwLease->tenant_id)
+                ->not->toContain($this->paLease->tenant_id);
+
+            // The edit page resolves the record through this query — confirm it finds it.
+            expect(TenantResource::getEloquentQuery()->whereKey($orphan->id)->exists())->toBeTrue();
+        });
+    });
 });
 
 describe('UtilityMeter scoping', function () {

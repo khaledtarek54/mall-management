@@ -10,6 +10,7 @@ use App\Filament\Admin\Resources\Tenants\Pages\ListTenants;
 use App\Filament\Admin\Resources\Tenants\Schemas\TenantForm;
 use App\Filament\Admin\Resources\Tenants\Tables\TenantsTable;
 use App\Models\Tenant;
+use App\Support\TenantScope;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -65,6 +66,28 @@ class TenantResource extends Resource
     public static function table(Table $table): Table
     {
         return TenantsTable::configure($table);
+    }
+
+    /**
+     * Scope tenants to those leased in the active property — but ALSO keep
+     * tenants that have no lease yet. A just-created tenant has no lease, so
+     * the plain property scope (whereHas leases.unit) would hide it: it would
+     * vanish from the list and the post-create redirect to its edit page would
+     * 404. Including the lease-less set keeps brand-new (unassigned) tenants
+     * visible and editable until a lease ties them to a property.
+     */
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        if ($assetId = TenantScope::currentAssetId()) {
+            $query->where(function (Builder $q) use ($assetId) {
+                $q->whereHas(static::tenantScopeRelation(), fn (Builder $r) => $r->where('asset_id', $assetId))
+                    ->orWhereDoesntHave('leases');
+            });
+        }
+
+        return $query;
     }
 
     public static function getRelations(): array
