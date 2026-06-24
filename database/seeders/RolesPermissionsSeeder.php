@@ -131,6 +131,12 @@ class RolesPermissionsSeeder extends Seeder
             'departments.edit'   => 'Edit departments',
             'departments.delete' => 'Delete departments',
         ],
+        'marketing' => [
+            'marketing.view'   => 'View marketing budgets and spend',
+            'marketing.create' => 'Create marketing budgets and spend',
+            'marketing.edit'   => 'Edit marketing budgets and spend',
+            'marketing.delete' => 'Delete marketing budgets and spend',
+        ],
         'notes' => [
             'notes.view'   => 'View communications log entries',
             'notes.create' => 'Log communications',

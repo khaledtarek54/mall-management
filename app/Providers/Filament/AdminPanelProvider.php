@@ -112,6 +112,7 @@ class AdminPanelProvider extends PanelProvider
                 NavigationGroup::make('Operations')->label(fn () => __('admin.groups.operations')),
                 NavigationGroup::make('Billing')->label(fn () => __('admin.groups.billing')),
                 NavigationGroup::make('Reports')->label(fn () => __('admin.groups.reports')),
+                NavigationGroup::make('Marketing')->label(fn () => __('admin.groups.marketing')),
                 NavigationGroup::make('Settings')->label(fn () => __('admin.groups.settings')),
             ])
             ->sidebarCollapsibleOnDesktop()

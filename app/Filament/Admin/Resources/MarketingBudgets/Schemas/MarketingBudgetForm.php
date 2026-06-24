@@ -1,0 +1,43 @@
+<?php
+
+namespace App\Filament\Admin\Resources\MarketingBudgets\Schemas;
+
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
+
+class MarketingBudgetForm
+{
+    public static function configure(Schema $schema): Schema
+    {
+        return $schema->columns(1)->components([
+            Section::make(__('admin.resources.marketing_budget.singular'))
+                ->columns(2)
+                ->components([
+                    Select::make('asset_id')
+                        ->label(__('admin.tables.marketing_budget.property'))
+                        ->relationship('asset', 'name')
+                        ->searchable()
+                        ->preload()
+                        ->required(),
+                    TextInput::make('period_year')
+                        ->label(__('admin.tables.marketing_budget.year'))
+                        ->numeric()
+                        ->required()
+                        ->default((int) date('Y')),
+                    Select::make('status')
+                        ->label(__('admin.tables.marketing_budget.status'))
+                        ->options(['open' => 'Open', 'closed' => 'Closed'])
+                        ->default('open')
+                        ->required()
+                        ->native(false),
+                    Textarea::make('notes')
+                        ->label(__('admin.fields.notes'))
+                        ->rows(2)
+                        ->columnSpanFull(),
+                ]),
+        ]);
+    }
+}

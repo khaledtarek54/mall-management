@@ -4,6 +4,7 @@ return [
 
     'groups' => [
         'operations' => 'العمليات',
+        'marketing' => 'التسويق',
         'billing' => 'الفوترة',
         'reports' => 'التقارير',
         'settings' => 'الإعدادات',
@@ -242,6 +243,8 @@ return [
         'credit_note' => ['singular' => 'إشعار خصم', 'plural' => 'إشعارات الخصم'],
         'vendor' => ['singular' => 'مورد', 'plural' => 'الموردون'],
         'department' => ['singular' => 'قسم', 'plural' => 'الأقسام'],
+        'marketing_budget' => ['singular' => 'ميزانية تسويق', 'plural' => 'ميزانيات التسويق'],
+        'marketing_spend' => ['singular' => 'مصروف تسويق', 'plural' => 'مصروفات التسويق'],
         'role' => ['singular' => 'دور', 'plural' => 'الأدوار والصلاحيات'],
         'user' => ['singular' => 'مستخدم', 'plural' => 'المستخدمون'],
         'maintenance_request' => ['singular' => 'طلب صيانة', 'plural' => 'طلبات الصيانة'],
@@ -427,6 +430,21 @@ return [
             'active' => 'نشط',
             'sort_order' => 'الترتيب',
             'description' => 'الوصف',
+        ],
+        'marketing_budget' => [
+            'property' => 'العقار',
+            'year' => 'السنة',
+            'accrued' => 'المستحَق (رسوم 5%)',
+            'spent' => 'المصروف',
+            'balance' => 'الرصيد',
+            'status' => 'الحالة',
+        ],
+        'marketing_spend' => [
+            'category' => 'الفئة',
+            'description' => 'الوصف',
+            'amount' => 'المبلغ',
+            'spent_on' => 'التاريخ',
+            'receipt' => 'رقم الإيصال',
         ],
         'asset' => [
             'name' => 'الاسم',

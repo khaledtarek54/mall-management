@@ -4,6 +4,7 @@ return [
 
     'groups' => [
         'operations' => 'Operations',
+        'marketing' => 'Marketing',
         'billing' => 'Billing',
         'reports' => 'Reports',
         'settings' => 'Settings',
@@ -242,6 +243,8 @@ return [
         'credit_note' => ['singular' => 'Credit Note', 'plural' => 'Credit Notes'],
         'vendor' => ['singular' => 'Vendor', 'plural' => 'Vendors'],
         'department' => ['singular' => 'Department', 'plural' => 'Departments'],
+        'marketing_budget' => ['singular' => 'Marketing Budget', 'plural' => 'Marketing Budgets'],
+        'marketing_spend' => ['singular' => 'Marketing Spend', 'plural' => 'Marketing Spend'],
         'role' => ['singular' => 'Role', 'plural' => 'Roles & Permissions'],
         'user' => ['singular' => 'User', 'plural' => 'Users'],
         'maintenance_request' => ['singular' => 'Maintenance Request', 'plural' => 'Maintenance Requests'],
@@ -427,6 +430,21 @@ return [
             'active' => 'Active',
             'sort_order' => 'Order',
             'description' => 'Description',
+        ],
+        'marketing_budget' => [
+            'property' => 'Property',
+            'year' => 'Year',
+            'accrued' => 'Accrued (5% levy)',
+            'spent' => 'Spent',
+            'balance' => 'Balance',
+            'status' => 'Status',
+        ],
+        'marketing_spend' => [
+            'category' => 'Category',
+            'description' => 'Description',
+            'amount' => 'Amount',
+            'spent_on' => 'Date',
+            'receipt' => 'Receipt #',
         ],
         'asset' => [
             'name' => 'Name',
