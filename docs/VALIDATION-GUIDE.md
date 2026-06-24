@@ -32,11 +32,13 @@ Toggle **عربي** in the top bar to spot-check Arabic / RTL labels. (A few mar
 - [ ] Create a new department (e.g. "Security") → saves and lists.
 - [ ] Edit / deactivate works; labels translate under عربي.
 
-## 2. Department staff membership · DEPT-4
-**Business rule:** operator staff belong to departments.
+## 2. Department membership grants access · DEPT-4/6
+**Business rule:** departments are a **fixed set**; staff are **registered** to a department, which grants that department's **role** → they then see that department's pages (and only those). Access is RBAC, not the Department model.
 **Where:** `/admin` → Departments → open one → **Members** tab.
-- [ ] Attach a user with a role label (e.g. "Lead") → appears.
-- [ ] Detach works.
+- [ ] Attach a user to **Accounting** → they gain the `accounting` role.
+- [ ] Log in as that user → they see only Accounting's resources (Invoices / Payments / Credit Notes / CAM), nothing else.
+- [ ] Detach → the role is removed.
+- [ ] You **cannot create** a new department (fixed set — no Create button).
 
 ## 3. Maintenance → departments (assign / redirect / reject) · req #5
 **Business rule:** a work-order is assigned to a department; the operator can redirect a mis-routed one to another department (with the **full** list visible), reject it, and do all the work.

@@ -33,6 +33,13 @@ class DepartmentResource extends Resource
     // Departments are operator-wide org units, not per-property records.
     protected static bool $isScopedToTenant = false;
 
+    // Fixed reference set (HR / Marketing / Accounting / Leasing / Operations),
+    // seeded — operators manage membership, not the department list itself.
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
     public static function getNavigationLabel(): string
     {
         return __('admin.resources.department.plural');

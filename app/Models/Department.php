@@ -70,6 +70,41 @@ class Department extends Model
             ->withTimestamps();
     }
 
+    /**
+     * The spatie role that grants access to this department's resources — access
+     * is RBAC, not the Department model (FR DEPT, hybrid design). Existing
+     * functional roles are reused where they already match a department.
+     */
+    public function roleName(): string
+    {
+        return match ($this->slug) {
+            'leasing' => 'leasing_manager',
+            'operations' => 'maintenance_manager',
+            default => $this->slug, // accounting, marketing, hr
+        };
+    }
+
+    /** Assign this department's role to every current member (idempotent). */
+    public function assignRolesToMembers(): void
+    {
+        $role = $this->roleName();
+        $this->members()->get()->each(fn (User $u) => $u->assignRole($role));
+    }
+
+    /** Register a user into this department: membership + the department role. */
+    public function registerMember(User $user, array $pivot = []): void
+    {
+        $this->members()->syncWithoutDetaching([$user->id => $pivot]);
+        $user->assignRole($this->roleName());
+    }
+
+    /** Remove a user from this department: membership + the department role. */
+    public function unregisterMember(User $user): void
+    {
+        $this->members()->detach($user->id);
+        $user->removeRole($this->roleName());
+    }
+
     public function isGlobal(): bool
     {
         return $this->asset_id === null;

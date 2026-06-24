@@ -21,7 +21,7 @@ it('gates create/edit on the departments permission for a manager', function () 
     $dept = Department::create(['name' => 'Marketing']);
 
     expect(DepartmentResource::canViewAny())->toBeTrue()
-        ->and(DepartmentResource::canCreate())->toBeTrue()
+        ->and(DepartmentResource::canCreate())->toBeFalse() // fixed set — no create
         ->and(DepartmentResource::canEdit($dept))->toBeTrue()
         ->and(DepartmentResource::canDelete($dept))->toBeFalse();
 });

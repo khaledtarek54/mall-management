@@ -17,13 +17,15 @@ class DepartmentForm
             Section::make(__('admin.resources.department.singular'))
                 ->columns(2)
                 ->components([
+                    // Fixed reference set — identity is seeded, not editable.
                     TextInput::make('name')
                         ->label(__('admin.tables.department.name'))
-                        ->required()
-                        ->maxLength(150),
+                        ->disabled()
+                        ->dehydrated(false),
                     TextInput::make('code')
                         ->label(__('admin.tables.department.code'))
-                        ->maxLength(20),
+                        ->disabled()
+                        ->dehydrated(false),
                     Select::make('asset_id')
                         ->label(__('admin.tables.department.scope'))
                         ->relationship('asset', 'name')

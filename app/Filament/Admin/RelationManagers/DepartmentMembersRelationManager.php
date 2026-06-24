@@ -101,11 +101,15 @@ class DepartmentMembersRelationManager extends RelationManager
                         Textarea::make('notes')
                             ->label(__('admin.fields.notes'))
                             ->rows(2),
-                    ]),
+                    ])
+                    // Registering a user into a department grants the matching
+                    // department role (FR DEPT — access is RBAC, not the model).
+                    ->after(fn ($livewire) => $livewire->getOwnerRecord()->assignRolesToMembers()),
             ])
             ->recordActions([
                 EditAction::make(),
-                DetachAction::make(),
+                DetachAction::make()
+                    ->after(fn (\Illuminate\Database\Eloquent\Model $record, $livewire) => $record->removeRole($livewire->getOwnerRecord()->roleName())),
             ])
             ->defaultSort('pivot_assigned_at', 'desc');
     }

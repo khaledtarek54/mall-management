@@ -24,9 +24,12 @@ class RolesPermissionsSeeder extends Seeder
         'super_admin'         => 'Full access — create, edit, delete, view everything plus settings + role management.',
         'manager'             => 'Day-to-day operations — create + edit on every module, no delete, no settings.',
         'viewer'              => 'Read-only access for stakeholders + auditors.',
-        'owner'               => 'Property owner — read-only access to their portfolio via /owner panel.',
-        'leasing_manager'     => 'Leasing pipeline, tenant onboarding, lease renewals + terminations.',
-        'maintenance_manager' => 'Maintenance request triage + vendor dispatch + SLA management.',
+        'owner'               => 'Jawad owner — read-only oversight of owned properties in the admin app + owner requests.',
+        'leasing_manager'     => 'Leasing department — properties, units, tenants, leases.',
+        'maintenance_manager' => 'Operations department — maintenance triage, vendor dispatch, SLA, meters.',
+        'accounting'          => 'Accounting department — invoices, payments, credit notes, CAM, marketing receipts.',
+        'marketing'           => 'Marketing department — offers, promotions, events, the marketing budget.',
+        'hr'                  => 'HR department — staff accounts, roles, departments.',
     ];
 
     /**
@@ -248,6 +251,35 @@ class RolesPermissionsSeeder extends Seeder
             'utility_meters.view',
             'notes.view', 'notes.create',
             'reports.view',
+        ]);
+
+        // accounting department — billing, payments, credit notes, CAM.
+        Role::findByName('accounting', 'web')->syncPermissions([
+            'assets.view', 'units.view', 'tenants.view',
+            'invoices.view', 'invoices.create', 'invoices.edit',
+            'invoices.run_monthly_billing', 'invoices.submit_to_eta', 'invoices.send_whatsapp',
+            'payments.view', 'payments.create', 'payments.edit',
+            'credit_notes.view', 'credit_notes.create', 'credit_notes.edit',
+            'credit_notes.issue', 'credit_notes.apply', 'credit_notes.void',
+            'cam.view', 'cam.create', 'cam.edit',
+            'cam.generate_allocations', 'cam.bill_allocation', 'cam.mark_reconciled',
+            'marketing.view',
+            'reports.view', 'reports.download',
+        ]);
+
+        // marketing department — offers/promotions/events + the marketing budget.
+        Role::findByName('marketing', 'web')->syncPermissions([
+            'assets.view',
+            'marketing.view', 'marketing.create', 'marketing.edit',
+            'reports.view',
+        ]);
+
+        // hr department — staff accounts, roles, departments.
+        Role::findByName('hr', 'web')->syncPermissions([
+            'users.view', 'users.create', 'users.edit',
+            'roles.view',
+            'departments.view',
+            'activity_log.view',
         ]);
     }
 

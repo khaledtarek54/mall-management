@@ -27,6 +27,7 @@ Legend: ✅ done · ☐ pending · 🟡 partial · 🔴 not started · ⏸️ de
 | 7 | Tenant commercial register (segel togary) | ✅ | ✅ | ☐ | `a492358` |
 | 8 | Scheduled work window (from→to) | ✅ | ✅ | ☐ | `a492358` |
 | 9 | Owner model — no portal; owners are admin RBAC users scoped to owned properties | ✅ | ✅ | ☐ | `464241d` |
+| 10 | Department access — fixed set; each dept maps to a role; registering a user grants its role (hybrid design) | ✅ | ✅ | ☐ | this change |
 
 → Walk these through [VALIDATION-GUIDE.md](VALIDATION-GUIDE.md) §§0–8 and tick the **Validated** column here as each passes.
 
