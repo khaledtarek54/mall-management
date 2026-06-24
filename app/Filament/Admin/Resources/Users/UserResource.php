@@ -47,7 +47,7 @@ class UserResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('admin.groups.settings');
+        return __('admin.groups.hr');
     }
 
     public static function canAccess(): bool

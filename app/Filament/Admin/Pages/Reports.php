@@ -42,7 +42,7 @@ class Reports extends Page
 
     public static function getNavigationGroup(): ?string
     {
-        return __('admin.groups.reports');
+        return __('admin.groups.accounting');
     }
 
     public static function canAccess(): bool

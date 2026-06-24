@@ -109,10 +109,13 @@ class AdminPanelProvider extends PanelProvider
                 EnergyConsumptionTrend::class,
             ])
             ->navigationGroups([
+                // Sidebar organized by department (FR DEPT). Access to each
+                // resource is still RBAC; this is just the grouping.
+                NavigationGroup::make('Leasing')->label(fn () => __('admin.groups.leasing')),
                 NavigationGroup::make('Operations')->label(fn () => __('admin.groups.operations')),
-                NavigationGroup::make('Billing')->label(fn () => __('admin.groups.billing')),
-                NavigationGroup::make('Reports')->label(fn () => __('admin.groups.reports')),
+                NavigationGroup::make('Accounting')->label(fn () => __('admin.groups.accounting')),
                 NavigationGroup::make('Marketing')->label(fn () => __('admin.groups.marketing')),
+                NavigationGroup::make('HR')->label(fn () => __('admin.groups.hr')),
                 NavigationGroup::make('Settings')->label(fn () => __('admin.groups.settings')),
             ])
             ->sidebarCollapsibleOnDesktop()

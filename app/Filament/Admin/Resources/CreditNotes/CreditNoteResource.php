@@ -49,7 +49,7 @@ class CreditNoteResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('admin.groups.billing');
+        return __('admin.groups.accounting');
     }
 
     public static function form(Schema $schema): Schema

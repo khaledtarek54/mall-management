@@ -14,6 +14,8 @@
 
 Toggle **عربي** in the top bar to spot-check Arabic / RTL labels. (A few marketing/owner-request enum labels are English-only for now — noted where relevant.)
 
+The admin **sidebar is grouped by department** — **Leasing** (Properties/Units/Tenants/Leases/Sales/Occupancy) · **Operations** (Maintenance/Vendors/Meters/Owner Requests) · **Accounting** (Invoices/Payments/Credit Notes/CAM/Reports) · **Marketing** (Budgets) · **HR** (Users/Roles/Departments) · **Settings**. What each user actually sees depends on their role.
+
 ---
 
 ## 0. Owner access — no owner portal (model correction 2026-06-25)

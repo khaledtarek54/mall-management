@@ -4,6 +4,9 @@ return [
 
     'groups' => [
         'operations' => 'العمليات',
+        'leasing' => 'التأجير',
+        'accounting' => 'المحاسبة',
+        'hr' => 'الموارد البشرية',
         'marketing' => 'التسويق',
         'billing' => 'الفوترة',
         'reports' => 'التقارير',

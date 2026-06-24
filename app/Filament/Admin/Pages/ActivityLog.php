@@ -39,7 +39,7 @@ class ActivityLog extends Page implements HasTable
 
     public static function getNavigationGroup(): ?string
     {
-        return __('admin.groups.reports');
+        return __('admin.groups.settings');
     }
 
     public static function canAccess(): bool

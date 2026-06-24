@@ -59,7 +59,7 @@ class TenantResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('admin.groups.operations');
+        return __('admin.groups.leasing');
     }
 
     public static function form(Schema $schema): Schema

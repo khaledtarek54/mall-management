@@ -43,7 +43,7 @@ class ArAging extends Page
 
     public static function getNavigationGroup(): ?string
     {
-        return __('admin.groups.reports');
+        return __('admin.groups.accounting');
     }
 
     protected function getViewData(): array

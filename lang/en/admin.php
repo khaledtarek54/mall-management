@@ -4,6 +4,9 @@ return [
 
     'groups' => [
         'operations' => 'Operations',
+        'leasing' => 'Leasing',
+        'accounting' => 'Accounting',
+        'hr' => 'HR',
         'marketing' => 'Marketing',
         'billing' => 'Billing',
         'reports' => 'Reports',

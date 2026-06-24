@@ -84,7 +84,7 @@ class OccupancyMap extends Page
 
     public static function getNavigationGroup(): ?string
     {
-        return __('admin.groups.operations');
+        return __('admin.groups.leasing');
     }
 
     protected function getViewData(): array

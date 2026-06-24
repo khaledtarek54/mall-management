@@ -90,7 +90,7 @@ The platform is **multi-property**: an `Asset` is one mall; everything hangs off
 | Closed-request immutability (REQ-3) | ✅ Done | `0fdd558` |
 | Owner requests — owner-create + operator inbox + respond (OWN-1/2), **in the admin app** | ✅ Done | `4340a39`, `1b7da75` |
 | Owner model — Jawad owners are admin RBAC users scoped to **owned** properties; `/owner` portal retired | ✅ Done | this change |
-| Department access — fixed set; each dept maps to a role; membership grants the role (hybrid) | ✅ Done | this change |
+| Department access — fixed set; role-per-dept; membership grants the role; **sidebar grouped by department** | ✅ Done | `14dcc99` + nav reorg |
 | Marketing — 5% levy, auto budget, spend + receipts, admin UI (MKT-1..5) | ✅ Done | `2f22fec` → `af097c4` |
 | Tenant commercial register (TEN-1) | ✅ Done | `a492358` |
 | Scheduled work window from→to (REQ-1) | ✅ Done | `a492358` |
@@ -129,7 +129,7 @@ The platform is **multi-property**: an `Asset` is one mall; everything hangs off
 - **DEPT-3** ⏸️ `[DEFERRED]` — Department **requests/payments route through Accounting** for approval/processing. Exact workflow to be defined with the accounting team. See [§10 ACCT](#10-accounting-hub-acct).
 - **DEPT-4** 🔧 `[design]` — Department membership is separate from spatie RBAC roles (which stay global). Keep "who is in which department at which property" flexible, mirroring the existing `asset_user` pattern.
 - **DEPT-5** 🔧 `[design]` — Each department is a self-contained ERP module (own resources, dashboard widgets, permissions) so departments can be added/toggled like the existing `ModulesSettings` feature flags.
-- **DEPT-6** 🟢 `[DONE]` — **Access via roles (hybrid, decided 2026-06-25).** Each department maps to a spatie role (`leasing`→`leasing_manager`, `operations`→`maintenance_manager`, + net-new `accounting`/`marketing`/`hr`) carrying that department's resource permissions. **Registering a user into a department grants the role** (`Department::registerMember()` / `roleName()`), so `RoleGatedActions` shows them only that department's pages. The Department model is **not** used for access control. *Sidebar-by-department nav-grouping is a separate, cosmetic follow-up.*
+- **DEPT-6** 🟢 `[DONE]` — **Access via roles (hybrid, decided 2026-06-25).** Each department maps to a spatie role (`leasing`→`leasing_manager`, `operations`→`maintenance_manager`, + net-new `accounting`/`marketing`/`hr`) carrying that department's resource permissions. **Registering a user into a department grants the role** (`Department::registerMember()` / `roleName()`), so `RoleGatedActions` shows them only that department's pages. The Department model is **not** used for access control. The **admin sidebar is grouped by department** — Leasing / Operations / Accounting / Marketing / HR (+ Settings) — with each resource's `getNavigationGroup()` pointing at its department.
 
 ---
 
