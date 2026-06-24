@@ -137,6 +137,12 @@ class RolesPermissionsSeeder extends Seeder
             'marketing.edit'   => 'Edit marketing budgets and spend',
             'marketing.delete' => 'Delete marketing budgets and spend',
         ],
+        'owner_requests' => [
+            'owner_requests.view'   => 'View owner requests',
+            'owner_requests.create' => 'Create owner requests',
+            'owner_requests.edit'   => 'Respond to / edit owner requests',
+            'owner_requests.delete' => 'Delete owner requests',
+        ],
         'notes' => [
             'notes.view'   => 'View communications log entries',
             'notes.create' => 'Log communications',
