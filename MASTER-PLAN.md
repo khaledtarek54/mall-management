@@ -13,9 +13,7 @@
 | Doc | Purpose | Stays in scope? |
 |---|---|---|
 | [FEATURES.md](FEATURES.md) | Source of truth for what's built | ✓ Don't duplicate the built-features list here — link |
-| [DEMO.md](DEMO.md) | 10-minute live-demo script | ✓ Keep; Eltizam version is an overlay, not a rewrite |
-| [PROPOSAL.md](PROPOSAL.md) | Jawad-direct commercial pitch | ⚠ Superseded for the Eltizam pursuit; commercial skeleton still useful |
-| **MASTER-PLAN.md** (this) | Eltizam strategy + sprint plan + competitive position | — |
+| [DEMO.md](DEMO.md) | 10-minute live-demo script | ✓ Keep; Eltizam version is an overlay, not a rewrite || **MASTER-PLAN.md** (this) | Eltizam strategy + sprint plan + competitive position | — |
 
 **What's shipped that V1 of this plan treated as a build:**
 - **Maintenance / CAFM module** — model, admin + portal resources, polymorphic comments, SLA config in [`config/maintenance.php`](config/maintenance.php), seeded data, [`MaintenanceRequestService`](app/Services/MaintenanceRequestService.php). See [FEATURES.md § Maintenance](FEATURES.md).
@@ -196,7 +194,7 @@ Every gap from the original analysis is now closed or surpassed except the crede
 | # | Artifact | Key positioning |
 |---|---|---|
 | 1 | **Eltizam partnership pitch deck** (12 slides) | Theme: specialization + partnership, not replacement. Acknowledge PropEzy's strength on slide 2; introduce mall-vertical thesis by slide 4. |
-| 2 | **Pilot proposal PDF** (1-pager) | Haya Walk, 6 months, defined scope. Lift commercials from [PROPOSAL.md](PROPOSAL.md). |
+| 2 | **Pilot proposal PDF** (1-pager) | Haya Walk, 6 months, defined scope. See [PILOT-PROPOSAL.md](PILOT-PROPOSAL.md). |
 | 3 | **Architecture diagram** | Visual showing PropEzy and our platform sitting side-by-side under Eltizam's service layer — not stacked, not competitive. Section 8 below sketches it. |
 | 4 | **Roadmap document** | Q1: ship now-in-progress sprint. Q2: mobile + advanced analytics + ETA prod + CAM auto-true-up. Q3: IoT hooks + energy full. Q4: AI insights, predictive maintenance. |
 | 5 | **Eltizam-tuned demo script** | Overlay on [DEMO.md](DEMO.md). Add: maintenance walkthrough (Tafawuq angle), tenant sales declaration (mall-specific differentiator), owner portal (Eltizam-as-operator), close on partnership framing. |

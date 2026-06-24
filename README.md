@@ -70,15 +70,39 @@ Hitting `/admin` bare redirects to `/admin/{first-property}/...`. Users with mor
 
 ## Documentation
 
+**Product & requirements**
+
 | Doc | When to read it |
 |---|---|
-| [FEATURES.md](FEATURES.md) | Full feature inventory + implementation notes |
+| [docs/FUNCTIONAL-REQUIREMENTS.md](docs/FUNCTIONAL-REQUIREMENTS.md) | Planned ERP/department requirements (requests, marketing, tenant-users) — reconciled against current code |
+| [FEATURES.md](FEATURES.md) | Full feature inventory + roadmap + demo playbook |
+
+**Technical**
+
+| Doc | When to read it |
+|---|---|
 | [TECH-DEEPDIVE.md](TECH-DEEPDIVE.md) | Stack rationale, security, multi-tenancy design, ETA architecture, testing, scaling, deployment |
+| [FULL-DOCUMENTATION.md](FULL-DOCUMENTATION.md) | Comprehensive technical reference — models, APIs, console commands, deployment |
+| [INFRA.md](INFRA.md) | Infrastructure / hosting notes |
+| [PAYMOB-SETUP.md](PAYMOB-SETUP.md) | Paymob payment-gateway setup |
+| [PAYMOB-FLUTTER.md](PAYMOB-FLUTTER.md) | Paymob + Flutter integration guide |
+| [MOBILE-APP-BRIEF.md](MOBILE-APP-BRIEF.md) | Business briefing for the mobile developer (Q2 tenant app) |
+
+**Strategy & sales**
+
+| Doc | When to read it |
+|---|---|
 | [MASTER-PLAN.md](MASTER-PLAN.md) | Internal strategy + competitive context (Eltizam pursuit) |
 | [PITCH-DECK.md](PITCH-DECK.md) | 12-slide partnership pitch for prospects |
 | [PILOT-PROPOSAL.md](PILOT-PROPOSAL.md) | One-page pilot commercial proposal |
+| [DEMO.md](DEMO.md) | 10-minute base live-demo script |
 | [DEMO-ELTIZAM.md](DEMO-ELTIZAM.md) | 25-min Eltizam-tuned live-demo script |
-| [MOBILE-APP-BRIEF.md](MOBILE-APP-BRIEF.md) | Business briefing for mobile developer (Q2 tenant app) |
+
+**Deeper docs under [`docs/`](docs/)**
+
+- [`docs/api/`](docs/api/) — mobile API reference + v1 architecture
+- [`docs/gap-analysis/`](docs/gap-analysis/) — per-module audit reports (20 modules + plan / progress / production checklist)
+- [`docs/PROPEZY-DEEP-DIVE.md`](docs/PROPEZY-DEEP-DIVE.md) · [`docs/GAP-ANALYSIS-PROPEZY-DASHBOARD.md`](docs/GAP-ANALYSIS-PROPEZY-DASHBOARD.md) — competitor (PropEzy) research
 
 ---
 

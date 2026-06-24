@@ -416,6 +416,19 @@ Bigger installs or scope decisions that deserve their own session.
 - [ ] **Accounting export** — Excel/SAP-friendly export for the accounting team's monthly close (invoices + payments + journal entries). CSV export already exists for raw data.
 - [ ] **Tenant ratings / scorecard** — track on-time payment %, lease-renewal history, contract compliance, declared sales accuracy vs POS audit.
 
+## Planned — department-oriented ERP (requirements captured 2026-06-24)
+
+Net-new scope from the [Functional Requirements](docs/FUNCTIONAL-REQUIREMENTS.md) — **captured, not yet built**. Framed as a department ERP: operator = Eltizam, owner = Jawad, with requests + notifications as the cross-department fabric and Accounting as the financial hub.
+
+- [ ] **Departments as first-class org modules** — HR, Marketing, Accounting, Leasing, Operations (CAFM). Data-driven `Department` model; staff membership mirrors the `asset_user` pivot; inter-department comms over the existing notification fabric. (FR DEPT-1/2/4/5)
+- [ ] **Marketing department + budget** — offers / promotions / events / printed-work catalog; **5%-of-base-rent** marketing levy as a versioned setting + new `marketing` Charge type; auto-maintained budget modeled on the CAM expense-pool/allocation pattern; spend receipts routed to Accounting. (FR MKT-1..5, ACCT-3)
+- [ ] **HR department** — staff records / internal workflows (scope TBD). (FR DEPT-1)
+- [ ] **Owner requests** — Jawad (owner) users raise requests to Eltizam or to each other, over a request contract shared with maintenance. (FR OWN-1/2)
+- [ ] **Tenant users + roles** — multiple users per tenant with a `tenant_admin` role; only the tenant admin may submit requests (today a tenant is a single login). (FR TEN-3, ACC-6, MNT-1)
+- [ ] **Maintenance ↔ departments** — assign work-orders to a department; operator redirect/reject with the full department list visible; extend overdue + late-fee alerts to owner users (builds on the shipped overdue scan + the planned Maintenance v2 chargebacks above). (FR MNT-2/3/5/6)
+- [ ] **Scheduled work window + closed-request immutability** — explicit `from→to` date/time on requests; lock terminal-status requests against edits. (FR REQ-1/3)
+- [ ] **Accounting routing of department requests/payments** — deferred pending the accounting-team workflow definition. (FR DEPT-3 / ACCT-2)
+
 ---
 
 ## Implementation notes for whoever picks this up later

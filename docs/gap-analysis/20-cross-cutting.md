@@ -76,8 +76,6 @@
 | [PITCH-DECK.md](../../PITCH-DECK.md) | Investor narrative |
 | [PILOT-PROPOSAL.md](../../PILOT-PROPOSAL.md) | Pilot scope + metrics |
 | [MOBILE-APP-BRIEF.md](../../MOBILE-APP-BRIEF.md) | Tenant-mobile-app brief (drives Module 19 design) |
-| [PROPOSAL.md](../../PROPOSAL.md) | High-level engagement |
-
 ## 9. Findings
 
 ### 🟡 F-74. No documented queue-worker deployment path
