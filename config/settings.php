@@ -12,6 +12,7 @@ return [
         \App\Settings\IntegrationsSettings::class,
         \App\Settings\EtaSettings::class,
         \App\Settings\ModulesSettings::class,
+        \App\Settings\MarketingSettings::class,
     ],
 
     /*
