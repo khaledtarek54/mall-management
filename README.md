@@ -74,7 +74,8 @@ Hitting `/admin` bare redirects to `/admin/{first-property}/...`. Users with mor
 
 | Doc | When to read it |
 |---|---|
-| [docs/FUNCTIONAL-REQUIREMENTS.md](docs/FUNCTIONAL-REQUIREMENTS.md) | Planned ERP/department requirements (requests, marketing, tenant-users) — reconciled against current code |
+| [docs/FUNCTIONAL-REQUIREMENTS.md](docs/FUNCTIONAL-REQUIREMENTS.md) | ERP/department requirements + **live build status** (§3) — departments, requests, marketing, owner requests |
+| [docs/VALIDATION-GUIDE.md](docs/VALIDATION-GUIDE.md) | Hands-on per-feature checklist to validate shipped features against the business model |
 | [FEATURES.md](FEATURES.md) | Full feature inventory + roadmap + demo playbook |
 
 **Technical**

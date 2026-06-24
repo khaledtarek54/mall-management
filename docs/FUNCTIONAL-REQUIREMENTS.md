@@ -2,7 +2,7 @@
 
 > Date: 2026-06-24
 > Owner: Khaled (gpt@getpayin.com)
-> Status: 🟡 Draft v2 — primary requirements captured, ERP/department framing, open items flagged
+> Status: 🟢 v3 — most requirement groups built & shipped; **live build status in §3**, hands-on checks in [VALIDATION-GUIDE.md](VALIDATION-GUIDE.md)
 > Scope: ERP org model · access & roles · departments · request workflows · tenant registration & users · units & leases · marketing budget · accounting hub
 > Reconciled against: `app/Models`, `database/migrations`, `app/Filament`, `app/Notifications`, `app/Settings` as of 2026-06-24
 
@@ -78,21 +78,34 @@ The platform is **multi-property**: an `Asset` is one mall; everything hangs off
 
 ---
 
-## 3. Reconciliation summary (exists vs. build)
+## 3. Implementation status (live)
 
-| Requirement area | Status | Anchor / note |
+> **This table + the per-section commits are the authoritative state.** The per-FR tags in §§4–14 below reflect the *original plan* (planning-time), not live status — read them as design intent. To validate the built features hands-on, see [VALIDATION-GUIDE.md](VALIDATION-GUIDE.md).
+
+| Requirement area | Status | Commit / note |
 |---|---|---|
-| Maintenance requests (lifecycle, priority, category, channel, assignment) | 🟢 `[EXISTS]` | [MaintenanceRequest.php](../app/Models/MaintenanceRequest.php) |
-| "Late/overdue" detection + SLA-breach notification | 🟡 `[EXTEND]` | extend recipients to owner |
-| Closed-request immutability | 🟡 `[EXTEND]` | policy/state guard on terminal statuses |
-| Tenant-admin-only request submission | 🔵 `[NEW]` | needs tenant-users + roles |
-| Owner → operator / owner → owner requests | 🔵 `[NEW]` | new Owner Request type ([§6B](#6b-owner-request-own)) |
-| Departments + inter-dept comms (ERP) | 🔵 `[NEW]` | new `Department` model + notifications |
-| Tenant registration fields | 🟡 `[EXTEND]` | add commercial register |
-| Master unit / multi-unit lease | 🟡 `[EXTEND]` | lease is 1:1 with unit today |
-| Marketing module + 5% fee + budget | 🔵 `[NEW]` | model on CAM pool/allocation pattern |
-| Accounting as financial hub | 🟡 `[EXTEND]` | billing exists; add dept routing |
-| RBAC, audit, notifications, settings | 🟢 `[EXISTS]` | spatie/permission, activitylog, notifications, settings |
+| Departments ERP — model, admin UI, RBAC, 5 seeded depts | ✅ Done | `701d246` |
+| Department staff membership (members pivot + UI) | ✅ Done | `4b12538` |
+| Maintenance → departments — assign, redirect, full dept list (ACC-4) | ✅ Done | `4f78c60` |
+| Closed-request immutability (REQ-3) | ✅ Done | `0fdd558` |
+| Owner requests — operator inbox + owner-portal create/track (OWN-1/2) | ✅ Done | `4340a39`, `1b7da75` |
+| Marketing — 5% levy, auto budget, spend + receipts, admin UI (MKT-1..5) | ✅ Done | `2f22fec` → `af097c4` |
+| Tenant commercial register (TEN-1) | ✅ Done | `a492358` |
+| Scheduled work window from→to (REQ-1) | ✅ Done | `a492358` |
+| Late/overdue → notify **owners** + late fees (MNT-5/6) | 🟡 To-do | SLA-breach infra exists but notifies *staff* only; owner recipients + late-fee charges not built |
+| Department-to-department messaging (DEPT-2) | 🟡 To-do | notification infra + departments exist; no dedicated dept→dept action yet |
+| Master unit / multi-unit lease (UNIT-1) | 🔴 To-do | lease is still 1:1 with a unit; needs a `lease_unit` pivot ([O-6](#open-items)) |
+| Tenant-users — only tenant-admin submits (TEN-3) | ⏸️ Deferred | your decision 2026-06-24; would rewrite portal + mobile (Sanctum) auth |
+| Dept requests/payments via Accounting (DEPT-3 / ACCT-2) | ⏸️ Deferred | pending the accounting-team workflow |
+| RBAC, audit trail, notifications, settings | 🟢 Pre-existing | reused as-is |
+
+### Remaining work plan
+
+1. **#4 — overdue → owners + late fees.** (a) *Small:* add owner (Jawad) users to the recipient set of `MaintenanceSlaBreachedNotification` (the daily `maintenance:scan-sla-breaches` job already fires it to staff). (b) *Needs your input:* late fees — decide **O-3** (what triggers a fee — past the work-window end, or the SLA deadline?) and **O-4** (who is charged + the amount), then realize it as a charge + alert.
+2. **#11 — department-to-department messaging.** A "Message department" action that fans a notification to a target department's members (reuse the existing notification fabric + `department_user` membership). Small.
+3. **#7 — master unit / multi-unit lease.** The one structural item. Add a `lease_unit` pivot (with `is_master`) so a lease can span several units, keeping existing 1:1 leases valid; surface in the lease form + occupancy. Isolated + schema-touching — build and validate on its own ([UNIT-1/3](#8-units--leases-unit), [O-6](#open-items)). Medium.
+
+**Deferred (by decision / dependency):** tenant-users auth rewrite (TEN-3); accounting routing of department spend (DEPT-3 / ACCT-2 — pending your accounting team).
 
 ---
 
