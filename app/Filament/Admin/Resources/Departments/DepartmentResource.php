@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Departments;
 
+use App\Filament\Admin\RelationManagers\DepartmentMembersRelationManager;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Departments\Pages\CreateDepartment;
 use App\Filament\Admin\Resources\Departments\Pages\EditDepartment;
@@ -60,6 +61,13 @@ class DepartmentResource extends Resource
     public static function table(Table $table): Table
     {
         return DepartmentsTable::configure($table);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            DepartmentMembersRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

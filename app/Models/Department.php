@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
@@ -56,6 +57,17 @@ class Department extends Model
     public function head(): BelongsTo
     {
         return $this->belongsTo(User::class, 'head_user_id');
+    }
+
+    /**
+     * Operator staff assigned to this department (DEPT-4). Pivot mirrors the
+     * asset_user staff pattern (free-form role label + tenure dates).
+     */
+    public function members(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'department_user')
+            ->withPivot(['role', 'assigned_at', 'ended_at', 'notes'])
+            ->withTimestamps();
     }
 
     public function isGlobal(): bool

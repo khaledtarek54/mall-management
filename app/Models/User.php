@@ -134,4 +134,15 @@ class User extends Authenticatable implements FilamentUser, HasTenants
             ->withPivot(['role', 'assigned_at', 'ended_at', 'notes'])
             ->withTimestamps();
     }
+
+    /**
+     * Operator departments this user belongs to (DEPT-4). Pivot mirrors the
+     * asset_user staff pattern (free-form role label + tenure dates).
+     */
+    public function departments(): BelongsToMany
+    {
+        return $this->belongsToMany(Department::class, 'department_user')
+            ->withPivot(['role', 'assigned_at', 'ended_at', 'notes'])
+            ->withTimestamps();
+    }
 }
