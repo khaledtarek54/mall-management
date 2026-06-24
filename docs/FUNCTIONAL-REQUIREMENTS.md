@@ -66,7 +66,7 @@ The platform is **multi-property**: an `Asset` is one mall; everything hangs off
 |---|---|---|
 | **Atriom** | The software platform itself (our product). | The whole codebase. |
 | **Eltizam** | The **operator** — runs all mall operations, performs the work; holds operator/admin access. | Admin Console (`/admin`); staff via `asset_user` pivot; `super_admin`/`manager`/etc. roles. |
-| **Jawad** | An **owner** customer (e.g. Haya Walk) — oversight only: reads/monitors; may raise owner requests. | Owner Portal (`/owner`); `owner` role; `asset_owner` pivot (`ownership_percentage`). |
+| **Jawad** | An **owner** customer — oversight + raises owner requests. An **RBAC user in the admin app**, scoped to owned properties (the `/owner` portal is retired). | `owner` role; `asset_owner` pivot; admin access via `User::canAccessPanel` + `User::accessibleAssets()`. |
 | **Tenant** | A company (or individual) leasing unit(s). | `Tenant` model + Tenant Portal (`/portal`). |
 | **Tenant admin** | The *one* tenant-side user permitted to submit requests. | 🔵 No tenant-user/role concept today — **net-new** ([§7](#7-tenants-company--users-ten)). |
 | **Department** | Operator org unit: HR, Marketing, Accounting, Leasing, Operations. | 🔵 No `Department` model — **net-new** ([§5](#5-departments-dept)). |
@@ -88,7 +88,8 @@ The platform is **multi-property**: an `Asset` is one mall; everything hangs off
 | Department staff membership (members pivot + UI) | ✅ Done | `4b12538` |
 | Maintenance → departments — assign, redirect, full dept list (ACC-4) | ✅ Done | `4f78c60` |
 | Closed-request immutability (REQ-3) | ✅ Done | `0fdd558` |
-| Owner requests — operator inbox + owner-portal create/track (OWN-1/2) | ✅ Done | `4340a39`, `1b7da75` |
+| Owner requests — owner-create + operator inbox + respond (OWN-1/2), **in the admin app** | ✅ Done | `4340a39`, `1b7da75` |
+| Owner model — Jawad owners are admin RBAC users scoped to **owned** properties; `/owner` portal retired | ✅ Done | this change |
 | Marketing — 5% levy, auto budget, spend + receipts, admin UI (MKT-1..5) | ✅ Done | `2f22fec` → `af097c4` |
 | Tenant commercial register (TEN-1) | ✅ Done | `a492358` |
 | Scheduled work window from→to (REQ-1) | ✅ Done | `a492358` |

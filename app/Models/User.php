@@ -54,9 +54,10 @@ class User extends Authenticatable implements FilamentUser, HasTenants
     {
         return match ($panel->getId()) {
             'owner' => $this->hasRole('owner'),
-            // Anyone with a non-owner role can access /admin. This naturally
-            // covers built-in roles AND any custom roles created via the UI.
-            'admin' => $this->roles()->where('name', '!=', 'owner')->exists(),
+            // Any user with a role can access /admin. Jawad owners are now
+            // RBAC users inside the admin app (the /owner portal is retired);
+            // their permissions + owned-property scoping limit what they see.
+            'admin' => $this->roles()->exists(),
             default => true,
         };
     }
@@ -68,11 +69,11 @@ class User extends Authenticatable implements FilamentUser, HasTenants
         // no longer exists.
         $assets = $this->hasRole('super_admin')
             ? Asset::query()->where('code', '!=', Asset::ALL_PROPERTIES_CODE)->get()
-            : $this->assignedAssets()->where('assets.code', '!=', Asset::ALL_PROPERTIES_CODE)->get();
+            : $this->accessibleAssets();
 
         // Prepend the "All Properties" pseudo-tenant whenever the user has
         // more than one property — it's the portfolio view across their
-        // assigned set (or every property, for super_admin).
+        // accessible set (or every property, for super_admin).
         if ($assets->count() > 1) {
             $all = Asset::where('code', Asset::ALL_PROPERTIES_CODE)->first();
             if ($all) {
@@ -101,14 +102,32 @@ class User extends Authenticatable implements FilamentUser, HasTenants
         }
 
         // "All Properties" is accessible whenever the user has more than
-        // one assigned property — same gate as getTenants().
+        // one accessible property — same gate as getTenants().
         if ($tenant->isAllProperties()) {
-            return $this->assignedAssets()->count() > 1;
+            return $this->accessibleAssets()->count() > 1;
         }
 
-        return $this->assignedAssets()
-            ->whereKey($tenant->getKey())
-            ->exists();
+        // Staff assignment (asset_user) OR legal ownership (asset_owner).
+        return $this->assignedAssets()->whereKey($tenant->getKey())->exists()
+            || $this->ownedAssets()->whereKey($tenant->getKey())->exists();
+    }
+
+    /**
+     * The distinct set of properties this user can operate on in the admin
+     * app: staff assignments (asset_user) ∪ legal ownership (asset_owner).
+     * Jawad owners are scoped to their owned properties this way. Excludes the
+     * synthetic "All Properties" pseudo-asset.
+     *
+     * @return Collection<int, Asset>
+     */
+    public function accessibleAssets(): Collection
+    {
+        $code = Asset::ALL_PROPERTIES_CODE;
+
+        $assigned = $this->assignedAssets()->where('assets.code', '!=', $code)->get();
+        $owned = $this->ownedAssets()->where('assets.code', '!=', $code)->get();
+
+        return $assigned->concat($owned)->unique('id')->values();
     }
 
     public function assignedMaintenanceRequests(): HasMany

@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Filament\Owner\Resources\OwnerRequests\Pages;
+namespace App\Filament\Admin\Resources\OwnerRequests\Pages;
 
-use App\Filament\Owner\Resources\OwnerRequests\OwnerRequestResource;
+use App\Filament\Admin\Resources\OwnerRequests\OwnerRequestResource;
 use App\Services\OwnerRequestService;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Model;

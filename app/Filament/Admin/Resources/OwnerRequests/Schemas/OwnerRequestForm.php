@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Filament\Owner\Resources\OwnerRequests\Schemas;
+namespace App\Filament\Admin\Resources\OwnerRequests\Schemas;
 
+use App\Models\Asset;
 use App\Models\OwnerRequest;
 use App\Models\User;
 use Filament\Forms\Components\DateTimePicker;
@@ -43,7 +44,10 @@ class OwnerRequestForm
                         ->required(fn ($get) => $get('recipient') === 'owner'),
                     Select::make('asset_id')
                         ->label(__('admin.tables.owner_request.property'))
-                        ->options(fn () => Auth::user()?->ownedAssets()->orderBy('name')->pluck('name', 'assets.id') ?? [])
+                        ->options(fn () => Asset::query()
+                            ->where('code', '!=', Asset::ALL_PROPERTIES_CODE)
+                            ->orderBy('name')
+                            ->pluck('name', 'id'))
                         ->searchable()
                         ->placeholder('—'),
                     Select::make('priority')

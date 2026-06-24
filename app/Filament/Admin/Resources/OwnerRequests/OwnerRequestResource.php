@@ -3,14 +3,18 @@
 namespace App\Filament\Admin\Resources\OwnerRequests;
 
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
+use App\Filament\Admin\Resources\OwnerRequests\Pages\CreateOwnerRequest;
 use App\Filament\Admin\Resources\OwnerRequests\Pages\ListOwnerRequests;
+use App\Filament\Admin\Resources\OwnerRequests\Schemas\OwnerRequestForm;
 use App\Filament\Admin\Resources\OwnerRequests\Tables\OwnerRequestsTable;
 use App\Models\OwnerRequest;
 use BackedEnum;
 use Filament\Resources\Resource;
+use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
 
 class OwnerRequestResource extends Resource
 {
@@ -46,6 +50,11 @@ class OwnerRequestResource extends Resource
         return __('admin.groups.operations');
     }
 
+    public static function form(Schema $schema): Schema
+    {
+        return OwnerRequestForm::configure($schema);
+    }
+
     public static function table(Table $table): Table
     {
         return OwnerRequestsTable::configure($table);
@@ -55,15 +64,25 @@ class OwnerRequestResource extends Resource
     {
         return [
             'index' => ListOwnerRequests::route('/'),
+            'create' => CreateOwnerRequest::route('/create'),
         ];
     }
 
     public static function getEloquentQuery(): Builder
     {
-        // Operator inbox: only requests addressed to the operator team.
+        $user = Auth::user();
+
+        // Operators (who can respond) see the operator inbox; Jawad owners see
+        // only the requests they raised.
+        if ($user && $user->can('owner_requests.edit')) {
+            return parent::getEloquentQuery()
+                ->where('recipient', 'operator')
+                ->with(['creator', 'asset']);
+        }
+
         return parent::getEloquentQuery()
-            ->where('recipient', 'operator')
-            ->with(['creator', 'asset']);
+            ->where('created_by_user_id', $user?->id)
+            ->with(['creator', 'assignee', 'asset']);
     }
 
     public static function getNavigationBadge(): ?string

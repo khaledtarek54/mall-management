@@ -50,13 +50,16 @@ class AssignedAssets
             return null;
         }
 
-        $ids = $user->assignedAssets()
-            ->where('assets.code', '!=', \App\Models\Asset::ALL_PROPERTIES_CODE)
-            ->pluck('assets.id')
-            ->all();
+        $code = \App\Models\Asset::ALL_PROPERTIES_CODE;
 
-        // No assignments → unrestricted (back-compat; admins haven't configured
-        // staff-property assignments yet, so show everything).
+        // Staff assignments (asset_user) ∪ legal ownership (asset_owner) — so
+        // Jawad owners are scoped to their owned properties, not unrestricted.
+        $assigned = $user->assignedAssets()->where('assets.code', '!=', $code)->pluck('assets.id')->all();
+        $owned = $user->ownedAssets()->where('assets.code', '!=', $code)->pluck('assets.id')->all();
+        $ids = array_values(array_unique(array_merge($assigned, $owned)));
+
+        // No assignments and no ownership → unrestricted (back-compat;
+        // single-mall deployments with no explicit assignments show everything).
         if (empty($ids)) {
             return null;
         }

@@ -217,9 +217,12 @@ class RolesPermissionsSeeder extends Seeder
         Role::findByName('viewer', 'web')->syncPermissions($viewerPerms);
 
         // owner: limited read on the modules that show up in the /owner panel.
+        // owner: Jawad owners — read-only oversight of their portfolio (now in
+        // the admin app) plus the right to raise + track owner requests.
         Role::findByName('owner', 'web')->syncPermissions([
             'assets.view', 'units.view', 'leases.view', 'invoices.view',
             'maintenance.view', 'reports.view', 'reports.download',
+            'owner_requests.view', 'owner_requests.create',
         ]);
 
         // leasing_manager: full lease/tenant workflow + view supporting modules.

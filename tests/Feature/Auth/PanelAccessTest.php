@@ -16,9 +16,9 @@ it('lets every non-owner role into the admin panel', function () {
     }
 });
 
-it('blocks owners from the admin panel', function () {
+it('lets owners into the admin panel (owners are RBAC users; no separate portal)', function () {
     $owner = makeUser('owner');
-    expect($owner->canAccessPanel(Filament::getPanel('admin')))->toBeFalse();
+    expect($owner->canAccessPanel(Filament::getPanel('admin')))->toBeTrue();
 });
 
 it('lets only owners into the owner panel', function () {

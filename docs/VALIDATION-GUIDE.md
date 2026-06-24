@@ -9,10 +9,19 @@
 | Role | URL | Email | Password |
 |---|---|---|---|
 | Eltizam operator (admin) | `/admin` | `admin@mall.test` | `password` |
-| Jawad owner | `/owner` | `owner@jawad.test` | `password` |
+| Jawad owner (RBAC user in admin) | `/admin` | `owner@atriom.test` | `password` |
 | Tenant | `/portal` | `tenant1@haya.test` | `password` |
 
 Toggle **عربي** in the top bar to spot-check Arabic / RTL labels. (A few marketing/owner-request enum labels are English-only for now — noted where relevant.)
+
+---
+
+## 0. Owner access — no owner portal (model correction 2026-06-25)
+**Business rule:** there is **no separate owner portal**; Jawad owners are users with roles/permissions in the **admin app**, scoped to the properties they own.
+**Where:** log in at `/admin` as `owner@atriom.test`.
+- [ ] The owner lands in the **admin app** (the `/owner` site is gone / 404s).
+- [ ] The property switcher shows only their **owned** property (Atriom Walk), not every mall.
+- [ ] The owner has read-only oversight (Properties / Leases / Invoices / Maintenance / Reports) per their permissions, plus **Owner Requests** (create + track) — and no edit/delete/create on the oversight modules.
 
 ---
 
@@ -52,10 +61,10 @@ Toggle **عربي** in the top bar to spot-check Arabic / RTL labels. (A few mar
 
 ## 6. Owner requests — Jawad ↔ Eltizam / Jawad ↔ Jawad · req #2/3
 **Business rule:** a Jawad owner raises a request to the Eltizam operator team or to another owner; the operator responds; both sides are notified; closed requests are immutable.
-**Where:** both panels.
-- [ ] `/owner` → **Owner Requests → New** → recipient **Eltizam (operator)** → submit. (Also try **Another owner**.)
-- [ ] `/admin` → **Owner Requests** inbox → request appears → **Respond** (set status + notes).
-- [ ] Back on `/owner` → the request shows the updated status + notes; bell notifications fire both ways.
+**Where:** the **admin app** — owners and operators are both RBAC users there (no separate portal).
+- [ ] As the **owner** (`owner@atriom.test`) → **Owner Requests → New** → recipient **Eltizam (operator)** → submit. (Also try **Another owner**.) The owner sees only their own requests.
+- [ ] As an **operator** (`admin@mall.test`) → **Owner Requests** inbox → the request appears → **Respond** (set status + notes). Owners have no Respond action.
+- [ ] Back as the **owner** → the request shows the updated status + notes; bell notifications fire both ways.
 
 ## 7. Tenant registration fields · req #8
 **Business rule:** tenant captures national ID, tax card, **commercial register (segel togary)**, company name, responsible person + phone, email.

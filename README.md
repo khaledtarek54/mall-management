@@ -7,7 +7,7 @@ Atriom is a specialized operations platform for the Egyptian retail vertical —
 | Panel | Path | Audience |
 |---|---|---|
 | Admin Console | `/admin/{property}` | Mall operators — per-property tenancy with an "All Properties" portfolio view for users assigned to multiple malls |
-| Owner Portal | `/owner` | Property owners — read-only portfolio view |
+| ~~Owner Portal~~ (retired) | `/owner` | Off by default — **Jawad owners are now RBAC users in the Admin Console**, scoped to their owned properties |
 | Tenant Portal | `/portal` | Mall tenants (the retailers / F&B / service shops) |
 
 ---
@@ -39,7 +39,7 @@ Visit the landing page at `http://localhost:8000/` (or `http://mall-management.t
 | `/admin` | `viewer@mall.test` | viewer |
 | `/admin` | `leasing@mall.test` | leasing_manager |
 | `/admin` | `maintenance@mall.test` | maintenance_manager |
-| `/owner` | `owner@jawad.test` | owner (owns Haya Walk) |
+| `/admin` | `owner@atriom.test` | owner — RBAC user scoped to Atriom Walk |
 | `/portal` | `tenant1@haya.test` | Café Crema (tenant) |
 | `/portal` | `tenant2@haya.test` | Optix Eyewear (tenant) |
 | `/portal` | `tenant3@haya.test` | The Burger Joint (tenant) |
