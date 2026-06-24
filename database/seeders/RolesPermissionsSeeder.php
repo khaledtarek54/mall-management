@@ -125,6 +125,12 @@ class RolesPermissionsSeeder extends Seeder
             'vendors.edit'   => 'Edit vendors',
             'vendors.delete' => 'Delete vendors',
         ],
+        'departments' => [
+            'departments.view'   => 'View departments',
+            'departments.create' => 'Create departments',
+            'departments.edit'   => 'Edit departments',
+            'departments.delete' => 'Delete departments',
+        ],
         'notes' => [
             'notes.view'   => 'View communications log entries',
             'notes.create' => 'Log communications',
