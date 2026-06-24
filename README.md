@@ -74,6 +74,7 @@ Hitting `/admin` bare redirects to `/admin/{first-property}/...`. Users with mor
 
 | Doc | When to read it |
 |---|---|
+| [docs/PROGRESS.md](docs/PROGRESS.md) | **Start here** — single sign-off tracker: build / test / validate status per business feature, what's left, next part |
 | [docs/FUNCTIONAL-REQUIREMENTS.md](docs/FUNCTIONAL-REQUIREMENTS.md) | ERP/department requirements + **live build status** (§3) — departments, requests, marketing, owner requests |
 | [docs/VALIDATION-GUIDE.md](docs/VALIDATION-GUIDE.md) | Hands-on per-feature checklist to validate shipped features against the business model |
 | [FEATURES.md](FEATURES.md) | Full feature inventory + roadmap + demo playbook |
