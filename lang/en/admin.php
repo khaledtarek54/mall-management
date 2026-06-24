@@ -455,6 +455,13 @@ return [
             'priority' => 'Priority',
             'status' => 'Status',
             'created' => 'Created',
+            'recipient' => 'Send to',
+            'to_operator' => 'Eltizam (operator)',
+            'to_owner' => 'Another owner',
+            'assigned_owner' => 'To owner',
+            'message' => 'Message',
+            'schedule_from' => 'Schedule from',
+            'schedule_to' => 'Schedule to',
         ],
         'asset' => [
             'name' => 'Name',

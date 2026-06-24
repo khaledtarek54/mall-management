@@ -455,6 +455,13 @@ return [
             'priority' => 'الأولوية',
             'status' => 'الحالة',
             'created' => 'تاريخ الإنشاء',
+            'recipient' => 'إرسال إلى',
+            'to_operator' => 'التزام (المشغّل)',
+            'to_owner' => 'مالك آخر',
+            'assigned_owner' => 'إلى المالك',
+            'message' => 'الرسالة',
+            'schedule_from' => 'من تاريخ',
+            'schedule_to' => 'إلى تاريخ',
         ],
         'asset' => [
             'name' => 'الاسم',
