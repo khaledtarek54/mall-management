@@ -218,7 +218,43 @@ class MonthlyBillingService
             InvoiceItem::create($item + ['invoice_id' => $invoice->id]);
         }
 
+        $this->accrueMarketingLevy($lease, $items, $effectivePeriodStart);
+
         return $invoice;
+    }
+
+    /**
+     * Accrue the marketing levy — a percentage of billed base rent (FR MKT-2/5)
+     * — into the property's marketing budget. An internal allocation: it does
+     * NOT add a tenant charge, so invoice totals are unchanged. Wrapped so a
+     * budget hiccup never breaks invoice generation.
+     */
+    private function accrueMarketingLevy(Lease $lease, \Illuminate\Support\Collection $items, CarbonImmutable $periodStart): void
+    {
+        try {
+            $rentBilled = (float) $items->where('type', 'base_rent')->sum('amount');
+            if ($rentBilled <= 0) {
+                return;
+            }
+
+            $svc = app(MarketingLevyService::class);
+            $levy = round($rentBilled * $svc->ratePercent() / 100, 2);
+            if ($levy <= 0) {
+                return;
+            }
+
+            $assetId = $lease->loadMissing('unit')->unit?->asset_id;
+            if (! $assetId) {
+                return;
+            }
+
+            $svc->accrue($assetId, (int) $periodStart->year, $levy);
+        } catch (Throwable $e) {
+            Log::warning('Marketing levy accrual failed', [
+                'lease_id' => $lease->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     private function chargeAppliesToPeriod(Charge $charge, CarbonImmutable $periodStart, CarbonImmutable $periodEnd): bool
