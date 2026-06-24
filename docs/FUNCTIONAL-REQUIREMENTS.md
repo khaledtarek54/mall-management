@@ -162,7 +162,7 @@ A "request" is the central ERP workflow object, with **three concrete types** ov
 
   — *covers original request #8.*
 - **TEN-2** 🟢 `[EXISTS]` — Tenant `type` distinguishes `individual` vs `company`; company vs responsible-person fields already separated. *(Derived from #8.)*
-- **TEN-3** 🔵 `[NEW]` — **Tenant users with roles.** Today a `Tenant` is a *single* login (password on the tenant record — [auth-columns migration](../database/migrations/2026_05_12_125617_add_auth_columns_to_tenants_table.php)). To support "multiple users per tenant, only the tenant admin submits requests" ([ACC-6](#4-access-roles--org-acc)/[MNT-1](#6a-maintenance-work-order-mnt)), add a `tenant_users` concept with at least `tenant_admin` and `tenant_staff` roles. — *covers #9 (tenant-admin gating).*
+- **TEN-3** ⏸️ `[DEFERRED]` — **Tenant users with roles.** Today a `Tenant` is a *single* login (password on the tenant record — [auth-columns migration](../database/migrations/2026_05_12_125617_add_auth_columns_to_tenants_table.php)). **Decision 2026-06-24: deferred** — the single tenant login already acts as the tenant admin and sole submitter, so #9's intent is met; full multi-user-per-tenant (`tenant_admin`/`tenant_staff`) would require re-architecting the portal + mobile (Sanctum) auth and is a separate, deliberate migration. — *covers #9 (tenant-admin gating).*
 
 ---
 
@@ -222,7 +222,7 @@ Non-blocking — design can proceed while these are confirmed.
 
 | # | Question | Why it matters |
 |---|---|---|
-| **O-1** | Tenant portal: keep self-service (gated to tenant admin) — confirmed direction? | Resolves earlier O-8; drives TEN-3/MNT-1. |
+| **O-1** | ✅ Decided 2026-06-24: tenant-users **deferred** — current 1-login-per-tenant suffices (acts as tenant admin / sole submitter). | Avoids a breaking mobile-auth change; see TEN-3. |
 | **O-2** | Final **owner-request** status list + who performs each transition. | OWN lifecycle. |
 | **O-3** | What triggers a maintenance **"late fee"** (vs. just "overdue")? | "Overdue" solved; a *fee* is net-new (MNT-6). |
 | **O-4** | **Who is charged** a maintenance late fee, and how is the amount set? | Billing + accounting routing. |

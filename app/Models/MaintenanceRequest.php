@@ -121,6 +121,14 @@ class MaintenanceRequest extends Model implements HasMedia
         return in_array($this->status, self::OPEN_STATUSES, true);
     }
 
+    /**
+     * Terminal (closed/cancelled) work-orders are immutable — FR REQ-3.
+     */
+    public function isTerminal(): bool
+    {
+        return in_array($this->status, ['closed', 'cancelled'], true);
+    }
+
     public function isOverdue(): bool
     {
         return $this->isOpen()

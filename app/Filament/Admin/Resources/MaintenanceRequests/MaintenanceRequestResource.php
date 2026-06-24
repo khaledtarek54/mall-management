@@ -21,7 +21,9 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class MaintenanceRequestResource extends Resource
 {
-    use RoleGatedActions;
+    use RoleGatedActions {
+        canEdit as protected roleGatedCanEdit;
+    }
     use ScopesViaProperty;
 
     protected static function tenantScopeRelation(): string
@@ -32,6 +34,20 @@ class MaintenanceRequestResource extends Resource
     protected static function permissionModule(): string
     {
         return 'maintenance';
+    }
+
+    /**
+     * Closed/cancelled work-orders are immutable (FR REQ-3). Returning false
+     * here also hides the Edit / Redirect / Assign row-actions, which all gate
+     * on canEdit().
+     */
+    public static function canEdit(Model $record): bool
+    {
+        if ($record instanceof MaintenanceRequest && $record->isTerminal()) {
+            return false;
+        }
+
+        return static::roleGatedCanEdit($record);
     }
 
     protected static ?string $model = MaintenanceRequest::class;
