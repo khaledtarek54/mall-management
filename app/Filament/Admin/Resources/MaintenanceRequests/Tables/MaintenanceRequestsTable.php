@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\MaintenanceRequests\Tables;
 
 use App\Filament\Admin\Resources\MaintenanceRequests\MaintenanceRequestResource;
+use App\Models\Department;
 use App\Models\MaintenanceRequest;
 use App\Models\User;
 use App\Services\MaintenanceRequestService;
@@ -27,7 +28,7 @@ class MaintenanceRequestsTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['tenant', 'unit', 'assignee']))
+            ->modifyQueryUsing(fn ($query) => $query->with(['tenant', 'unit', 'assignee', 'department']))
             ->columns([
                 TextColumn::make('reference')
                     ->label(__('admin.tables.maintenance.reference'))
@@ -84,6 +85,12 @@ class MaintenanceRequestsTable
                         'cancelled' => 'danger',
                         default => 'gray',
                     }),
+                TextColumn::make('department.name')
+                    ->label(__('admin.resources.department.singular'))
+                    ->badge()
+                    ->color('gray')
+                    ->placeholder('—')
+                    ->toggleable(),
                 TextColumn::make('assignee.name')
                     ->label(__('admin.tables.maintenance.assigned_to'))
                     ->placeholder(__('admin.fields.unassigned'))
@@ -118,6 +125,9 @@ class MaintenanceRequestsTable
                 SelectFilter::make('channel')
                     ->label(__('admin.filters.channel'))
                     ->options(fn () => __('admin.enums.maintenance_channel')),
+                SelectFilter::make('department_id')
+                    ->label(__('admin.resources.department.singular'))
+                    ->options(fn () => Department::where('is_active', true)->orderBy('sort_order')->pluck('name', 'id')),
                 SelectFilter::make('assigned_to')
                     ->label(__('admin.filters.assigned_to'))
                     ->options(fn () => User::orderBy('name')->pluck('name', 'id')),
@@ -194,6 +204,29 @@ class MaintenanceRequestsTable
 
                         Notification::make()
                             ->title(__('admin.actions.assigned'))
+                            ->success()
+                            ->send();
+                    }),
+                Action::make('redirect')
+                    ->label(__('admin.actions.redirect'))
+                    ->icon('heroicon-o-arrows-right-left')
+                    ->color('gray')
+                    ->visible(fn (MaintenanceRequest $record) => MaintenanceRequestResource::canEdit($record))
+                    ->fillForm(fn (MaintenanceRequest $record) => ['department_id' => $record->department_id])
+                    ->schema([
+                        Select::make('department_id')
+                            ->label(__('admin.resources.department.singular'))
+                            ->options(fn () => Department::where('is_active', true)->orderBy('sort_order')->pluck('name', 'id'))
+                            ->searchable()
+                            ->placeholder(__('admin.fields.unassigned'))
+                            ->native(false),
+                    ])
+                    ->action(function (MaintenanceRequest $record, array $data) {
+                        app(MaintenanceRequestService::class)
+                            ->redirectToDepartment($record, $data['department_id'] ?? null);
+
+                        Notification::make()
+                            ->title(__('admin.actions.redirected'))
                             ->success()
                             ->send();
                     }),

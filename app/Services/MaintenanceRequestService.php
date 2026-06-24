@@ -168,6 +168,19 @@ class MaintenanceRequestService
         return $request->refresh();
     }
 
+    /**
+     * Route (or re-route) a work-order to an operator department. Passing null
+     * clears the assignment. Redirecting a mis-triaged request to the correct
+     * department is just an update of this column (FR MNT-2 / MNT-3); the
+     * activity log captures the from→to change.
+     */
+    public function redirectToDepartment(MaintenanceRequest $request, ?int $departmentId): MaintenanceRequest
+    {
+        $request->update(['department_id' => $departmentId]);
+
+        return $request->refresh();
+    }
+
     public function comment(MaintenanceRequest $request, Model $author, string $body, bool $isInternal = false): MaintenanceRequestComment
     {
         $comment = MaintenanceRequestComment::create([

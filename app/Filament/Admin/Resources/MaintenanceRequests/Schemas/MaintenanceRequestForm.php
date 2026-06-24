@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\MaintenanceRequests\Schemas;
 
+use App\Models\Department;
 use App\Models\MaintenanceRequest;
 use App\Models\Tenant;
 use App\Models\Unit;
@@ -92,6 +93,12 @@ class MaintenanceRequestForm
             Section::make(__('admin.sections.assignment'))
                 ->columns(2)
                 ->components([
+                    Select::make('department_id')
+                        ->label(__('admin.resources.department.singular'))
+                        ->options(fn () => Department::where('is_active', true)->orderBy('sort_order')->pluck('name', 'id'))
+                        ->searchable()
+                        ->placeholder(__('admin.fields.unassigned'))
+                        ->native(false),
                     Select::make('assigned_to')
                         ->label(__('admin.fields.assigned_to'))
                         ->options(fn () => User::orderBy('name')->pluck('name', 'id'))

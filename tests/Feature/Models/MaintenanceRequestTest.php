@@ -34,22 +34,3 @@ it('isOverdue() returns true past target_resolution_at while still open', functi
     expect($onTime->isOverdue())->toBeFalse();
     expect($closed->isOverdue())->toBeFalse();
 });
-
-function makeMaintenanceRequest(array $attrs = []): MaintenanceRequest
-{
-    $asset = makeAsset();
-    $unit = makeUnit($asset);
-    $tenant = makeTenant();
-
-    return MaintenanceRequest::create(array_merge([
-        'reference' => 'MR-' . uniqid(),
-        'unit_id' => $unit->id,
-        'tenant_id' => $tenant->id,
-        'title' => 'Test',
-        'description' => 'Test description',
-        'status' => 'submitted',
-        'priority' => 'medium',
-        'category' => 'electrical',
-        'submitted_at' => now(),
-    ], $attrs));
-}

@@ -682,6 +682,8 @@ return [
         'status_changed_body' => ':ref → :status',
         'assign' => 'Assign',
         'assigned' => 'Assigned',
+        'redirect' => 'Redirect to department',
+        'redirected' => 'Request redirected',
         'lock_declaration' => 'Lock',
         'lock_declaration_confirm' => 'Locking finalizes the declaration and generates a percentage-rent charge on the lease for the next billing run.',
         'dispute_declaration' => 'Dispute',

@@ -682,6 +682,8 @@ return [
         'status_changed_body' => ':ref ← :status',
         'assign' => 'إسناد',
         'assigned' => 'تم الإسناد',
+        'redirect' => 'إعادة توجيه إلى قسم',
+        'redirected' => 'تمت إعادة توجيه الطلب',
         'lock_declaration' => 'تثبيت',
         'lock_declaration_confirm' => 'تثبيت الإقرار يُنهي المراجعة ويُنشئ رسم نسبة الإيجار على العقد للدورة الفوترية القادمة.',
         'dispute_declaration' => 'اعتراض',
