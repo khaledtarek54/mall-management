@@ -69,6 +69,8 @@ class MaintenanceRequest extends Model implements HasMedia
         'resolved_at',
         'closed_at',
         'target_resolution_at',
+        'scheduled_from',
+        'scheduled_to',
         'sla_breach_notified_at',
     ];
 
@@ -78,6 +80,8 @@ class MaintenanceRequest extends Model implements HasMedia
         'resolved_at' => 'datetime',
         'closed_at' => 'datetime',
         'target_resolution_at' => 'datetime',
+        'scheduled_from' => 'datetime',
+        'scheduled_to' => 'datetime',
         'sla_breach_notified_at' => 'datetime',
     ];
 

@@ -43,6 +43,7 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
         'whatsapp',
         'tax_id',
         'national_id',
+        'commercial_register',
         'address',
         'contact_person',
         'contact_person_phone',

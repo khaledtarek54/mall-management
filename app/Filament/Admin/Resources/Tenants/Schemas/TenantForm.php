@@ -56,6 +56,9 @@ class TenantForm
                     TextInput::make('national_id')
                         ->label(__('admin.fields.national_id'))
                         ->maxLength(20),
+                    TextInput::make('commercial_register')
+                        ->label(__('admin.fields.commercial_register'))
+                        ->maxLength(50),
                 ]),
             Section::make(__('admin.sections.contact'))
                 ->columns(2)

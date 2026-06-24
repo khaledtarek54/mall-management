@@ -123,7 +123,7 @@ A "request" is the central ERP workflow object, with **three concrete types** ov
 
 ### 6.0 Shared request rules (REQ)
 
-- **REQ-1** 🟡 `[EXTEND]` — Every request carries a **scheduled work window**: `from` date/time → `to` date/time (when the work is performed). *Maintenance has timestamps but no explicit requested window — add `scheduled_from` / `scheduled_to`.* — *covers original request #6.*
+- **REQ-1** 🟢 `[DONE]` — Every request carries a **scheduled work window**: `from` date/time → `to` date/time (when the work is performed). **Implemented:** `scheduled_from` / `scheduled_to` on `maintenance_requests` and `owner_requests`, exposed in the forms. — *covers original request #6.*
 - **REQ-2** 🟢 `[EXISTS]` — Status lifecycle defined for maintenance: `submitted → acknowledged → in_progress → awaiting_tenant → resolved → closed`, plus `cancelled`. Other request types reuse a comparable lifecycle. See [`STATUSES`](../app/Models/MaintenanceRequest.php#L19-L27). *(Cross-cutting — no single originating request.)*
 - **REQ-3** 🟡 `[EXTEND]` — **Closed requests are immutable.** At a terminal status (`closed`, `cancelled`), no field edits, comments, or reassignment. *Enforce via model policy + status guard; activity log already records the close.* — *covers original request #1.*
 - **REQ-4** 🟢 `[EXISTS]` — Full **audit trail** on status/assignment changes via spatie/activitylog. See [`getActivitylogOptions()`](../app/Models/MaintenanceRequest.php#L43-L50). *(Cross-cutting.)*
@@ -154,7 +154,7 @@ A "request" is the central ERP workflow object, with **three concrete types** ov
   |---|---|---|
   | National ID | `national_id` | 🟢 |
   | Tax Card (bta2et darba) | `tax_id` (`// VAT registration / national ID`) | 🟡 clarify vs. dedicated tax-card no. ([O-5](#open-items)) |
-  | Commercial Register (segel togary) | — | 🔵 **add `commercial_register`** |
+  | Commercial Register (segel togary) | `commercial_register` | 🟢 added (TEN-1) |
   | Company name (esm el sherka) | `name` / `legal_name` | 🟢 |
   | Responsible person (esm el mas2ol) | `contact_person` | 🟢 |
   | Responsible person phone | `contact_person_phone` | 🟢 |

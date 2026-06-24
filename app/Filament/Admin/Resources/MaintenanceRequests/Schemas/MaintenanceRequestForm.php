@@ -121,6 +121,14 @@ class MaintenanceRequestForm
                         ->validationMessages([
                             'after_or_equal' => __('admin.validation.maintenance_resolution_after_creation'),
                         ]),
+                    DateTimePicker::make('scheduled_from')
+                        ->label(__('admin.fields.scheduled_from'))
+                        ->native(false)
+                        ->seconds(false),
+                    DateTimePicker::make('scheduled_to')
+                        ->label(__('admin.fields.scheduled_to'))
+                        ->native(false)
+                        ->seconds(false),
                 ]),
 
             Section::make(__('admin.sections.resolution'))
