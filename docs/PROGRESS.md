@@ -14,28 +14,28 @@
 
 ## Part 1 — Business model
 
-### 1. Departments (org backbone) · ✅ Built · ☐ Validated
+### 1. Departments (org backbone) · ✅ Built · ✅ Validated
 **What it does:** the operator's organization is modeled as five fixed departments — **HR, Marketing, Accounting, Leasing, Operations**. They're the backbone everything else hangs off (covers original request #10).
 **How to test:** `/admin` → sidebar **HR → Departments**.
 - See the 5 departments listed.
 - Open one → you can set its head / active flag; there is **no "New department"** button, name/code are locked, and departments **cannot be deleted** (the set is fixed).
 **Your notes:** _____________________
 
-### 2. Department access = roles (register a user → they get access) · ✅ Built · ☐ Validated
+### 2. Department access = roles (register a user → they get access) · ✅ Built · ✅ Validated
 **What it does:** access is by **role**, not the department record. Each department has a **same-named** role (leasing / operations / accounting / marketing / hr), **strictly scoped** to its own pages; **registering a user into a department grants that role**, so they see only that department's pages (covers "users registered to departments"). Cross-cutting roles: super_admin, manager, viewer, owner.
 **How to test:** `/admin` → Departments → **Accounting** → **Members** tab → attach a user. Then log in as that user.
 - They see **only** Accounting's resources (Invoices / Payments / Credit Notes / CAM), nothing else.
 - Detach them → access is removed.
 **Your notes:** _____________________
 
-### 3. Sidebar grouped by department · ✅ Built · ☐ Validated
+### 3. Sidebar grouped by department · ✅ Built · ✅ Validated
 **What it does:** the admin sidebar is organized by department so each contains its pages.
 **How to test:** `/admin` as `admin@mall.test` → look at the sidebar groups:
 - **Leasing** (Properties/Units/Tenants/Leases/Sales/Occupancy) · **Operations** (Maintenance/Vendors/Meters/Owner Requests) · **Accounting** (Invoices/Payments/Credit Notes/CAM/Reports) · **Marketing** · **HR** (Users/Roles/Departments) · **Settings**.
 - *(Hard-refresh if you still see the old groups.)*
 **Your notes:** _____________________
 
-### 4. Owner model — no owner portal; owners are admin users · ✅ Built · ☐ Validated
+### 4. Owner model — no owner portal; owners are admin users · ✅ Built · ✅ Validated
 **What it does:** there is **no separate owner portal**. Jawad owners log into the **admin app** with a role, scoped to the properties they **own** (covers req #9 framing).
 **How to test:** log in as **`owner@atriom.test`**.
 - Lands in `/admin` (the old `/owner` site is gone).
@@ -43,7 +43,7 @@
 - **Read-only oversight of everything** (all departments/modules) — but only for their owned property — + **Owner Requests**; no edit/create/delete.
 **Your notes:** _____________________
 
-### 5. Maintenance → departments (assign / redirect / reject) · ✅ Built · ☐ Validated
+### 5. Maintenance → departments (assign / redirect / reject) · ✅ Built · ✅ Validated
 **What it does:** a maintenance work-order is assigned to a department; the operator can redirect a mis-routed one (with the **full** dept list shown), reject it, and do all the work (covers req #5).
 **How to test:** `/admin` → **Operations → Maintenance** → open a request.
 - **Assignment** section has a **Department** select; the list has a Department column + filter.
