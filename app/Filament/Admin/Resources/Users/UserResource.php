@@ -70,6 +70,17 @@ class UserResource extends Resource
         return Auth::user()?->hasRole('super_admin') && Auth::id() !== $record->id;
     }
 
+    // Bulk delete is off by default (project convention); single delete above stays.
+    public static function canDeleteAny(): bool
+    {
+        return false;
+    }
+
+    public static function canForceDeleteAny(): bool
+    {
+        return false;
+    }
+
     public static function form(Schema $schema): Schema
     {
         return UserForm::configure($schema);

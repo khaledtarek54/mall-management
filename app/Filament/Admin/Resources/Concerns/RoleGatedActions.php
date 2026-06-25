@@ -26,6 +26,17 @@ use Illuminate\Support\Str;
 trait RoleGatedActions
 {
     /**
+     * Whether **bulk** delete (and bulk force-delete) is allowed on this
+     * resource. OFF by default across the whole project — a destructive
+     * multi-row action shouldn't be one mis-click. Single-record delete is
+     * unaffected (still gated by the `delete` permission).
+     *
+     * Opt a resource back in by adding to it:
+     *     protected static bool $bulkDeletable = true;
+     */
+    protected static bool $bulkDeletable = false;
+
+    /**
      * Permission-key module for this resource. Defaults to the snake_case
      * plural of the model basename (Invoice → "invoices") which matches the
      * keys in RolesPermissionsSeeder::PERMISSIONS. Override in resources
@@ -98,7 +109,8 @@ trait RoleGatedActions
 
     public static function canDeleteAny(): bool
     {
-        return static::hasPermission('delete');
+        // Bulk delete is opt-in per resource (see $bulkDeletable).
+        return static::$bulkDeletable && static::hasPermission('delete');
     }
 
     public static function canForceDelete(Model $record): bool
@@ -108,7 +120,8 @@ trait RoleGatedActions
 
     public static function canForceDeleteAny(): bool
     {
-        return static::hasPermission('delete');
+        // Bulk force-delete follows the same opt-in as bulk delete.
+        return static::$bulkDeletable && static::hasPermission('delete');
     }
 
     public static function canRestore(Model $record): bool

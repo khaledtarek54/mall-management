@@ -6,6 +6,8 @@ use App\Models\Lease;
 use App\Observers\LeaseObserver;
 use App\Providers\Filament\OwnerPanelProvider;
 use App\Services\Paymob\PaymobClient;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Support\Facades\Blade;
@@ -32,6 +34,15 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Lease::observe(LeaseObserver::class);
+
+        // Bulk delete is OFF by default across every Filament table — a
+        // destructive multi-row action shouldn't be one mis-click. Most
+        // resources gate it on RoleGatedActions::canDeleteAny() (opt back in
+        // with `protected static bool $bulkDeletable = true;`); this backstop
+        // hides any DeleteBulkAction that isn't explicitly gated (e.g. relation
+        // managers). A table re-shows it with `->visible(...)`.
+        DeleteBulkAction::configureUsing(fn (DeleteBulkAction $action) => $action->hidden());
+        ForceDeleteBulkAction::configureUsing(fn (ForceDeleteBulkAction $action) => $action->hidden());
 
         FilamentView::registerRenderHook(
             PanelsRenderHook::TOPBAR_END,
