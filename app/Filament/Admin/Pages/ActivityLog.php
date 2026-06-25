@@ -44,12 +44,18 @@ class ActivityLog extends Page implements HasTable
 
     public static function canAccess(): bool
     {
-        return \App\Support\Modules::enabled('activity_log');
+        // The activity feed spans every property and has no asset_id, so it
+        // can't be cleanly scoped to one property. Limit it to the
+        // full-portfolio roles that legitimately see all properties — a
+        // property-restricted user (owner / department staff) would
+        // otherwise read other properties' financial + tenant activity.
+        return \App\Support\Modules::enabled('activity_log')
+            && (\Illuminate\Support\Facades\Auth::user()?->hasAnyRole(['super_admin', 'manager', 'viewer']) ?? false);
     }
 
     public static function shouldRegisterNavigation(): bool
     {
-        return \App\Support\Modules::enabled('activity_log');
+        return static::canAccess();
     }
 
     public function table(Table $table): Table

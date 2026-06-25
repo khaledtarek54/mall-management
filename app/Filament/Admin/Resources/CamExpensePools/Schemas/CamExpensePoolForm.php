@@ -2,7 +2,6 @@
 
 namespace App\Filament\Admin\Resources\CamExpensePools\Schemas;
 
-use App\Models\Asset;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -20,7 +19,7 @@ class CamExpensePoolForm
                 ->components([
                     Select::make('asset_id')
                         ->label(__('admin.resources.asset.singular'))
-                        ->options(fn () => Asset::orderBy('name')->pluck('name', 'id'))
+                        ->options(fn () => \App\Support\TenantScope::selectableAssetOptions())
                         ->required()
                         ->native(false)
                         ->searchable()

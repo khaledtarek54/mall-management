@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Asset;
+use App\Models\Tenant;
 use Filament\Facades\Filament;
 
 /**
@@ -95,5 +96,47 @@ class TenantScope
         // "All Properties" mode: super_admin sees all, others see only
         // their assigned set.
         return AssignedAssets::idsForCurrentUser();
+    }
+
+    /**
+     * Property-picker options (id => name) scoped to what the current user
+     * may select: the current property, their assigned set in All-Properties
+     * mode, or every real property for super_admin. Always excludes the
+     * synthetic "All Properties" pseudo-asset.
+     *
+     * @return array<int, string>
+     */
+    public static function selectableAssetOptions(): array
+    {
+        $ids = self::visibleAssetIds();
+
+        $query = Asset::query()->where('code', '!=', Asset::ALL_PROPERTIES_CODE);
+        if ($ids !== null) {
+            $query->whereIn('id', $ids);
+        }
+
+        return $query->orderBy('name')->pluck('name', 'id')->all();
+    }
+
+    /**
+     * Tenant-picker options (id => name) scoped to the current user's
+     * visible properties via leases -> unit -> asset_id. Unconstrained for
+     * super_admin in All-Properties mode.
+     *
+     * @return array<int, string>
+     */
+    public static function selectableTenantOptions(): array
+    {
+        $ids = self::visibleAssetIds();
+
+        return Tenant::query()
+            ->when($ids !== null, fn ($q) => $q->where(fn ($w) => $w
+                ->whereHas('leases.unit', fn ($u) => $u->whereIn('asset_id', (array) $ids))
+                // Unaffiliated tenants (no lease yet) belong to no property,
+                // so they're safe to offer everywhere — not a cross-property leak.
+                ->orWhereDoesntHave('leases')))
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->all();
     }
 }

@@ -4,7 +4,6 @@ namespace App\Filament\Admin\Resources\MaintenanceRequests\Schemas;
 
 use App\Models\Department;
 use App\Models\MaintenanceRequest;
-use App\Models\Tenant;
 use App\Models\Unit;
 use App\Models\User;
 use App\Support\TenantScope;
@@ -31,7 +30,7 @@ class MaintenanceRequestForm
                         ->dehydrated(),
                     Select::make('tenant_id')
                         ->label(__('admin.resources.tenant.singular'))
-                        ->options(fn () => Tenant::orderBy('name')->pluck('name', 'id'))
+                        ->options(fn () => TenantScope::selectableTenantOptions())
                         ->searchable()
                         ->preload()
                         ->required(),
@@ -95,7 +94,7 @@ class MaintenanceRequestForm
                 ->components([
                     Select::make('department_id')
                         ->label(__('admin.resources.department.singular'))
-                        ->options(fn () => Department::where('is_active', true)->orderBy('sort_order')->pluck('name', 'id'))
+                        ->options(fn () => Department::selectableOptions())
                         ->searchable()
                         ->placeholder(__('admin.fields.unassigned'))
                         ->native(false),

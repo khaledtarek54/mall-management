@@ -202,7 +202,7 @@ class LeasesTable
                                         ->columnSpanFull(),
                                     Select::make('tenant_id')
                                         ->label(__('admin.fields.pick_existing_tenant'))
-                                        ->options(fn () => Tenant::orderBy('name')->pluck('name', 'id'))
+                                        ->options(fn () => \App\Support\TenantScope::selectableTenantOptions())
                                         ->searchable()
                                         ->required()
                                         ->visible(fn (Get $get) => $get('tenant_mode') === 'existing')

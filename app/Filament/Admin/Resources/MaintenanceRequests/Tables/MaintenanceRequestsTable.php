@@ -127,7 +127,7 @@ class MaintenanceRequestsTable
                     ->options(fn () => __('admin.enums.maintenance_channel')),
                 SelectFilter::make('department_id')
                     ->label(__('admin.resources.department.singular'))
-                    ->options(fn () => Department::where('is_active', true)->orderBy('sort_order')->pluck('name', 'id')),
+                    ->options(fn () => Department::selectableOptions()),
                 SelectFilter::make('assigned_to')
                     ->label(__('admin.filters.assigned_to'))
                     ->options(fn () => User::orderBy('name')->pluck('name', 'id')),
@@ -216,7 +216,7 @@ class MaintenanceRequestsTable
                     ->schema([
                         Select::make('department_id')
                             ->label(__('admin.resources.department.singular'))
-                            ->options(fn () => Department::where('is_active', true)->orderBy('sort_order')->pluck('name', 'id'))
+                            ->options(fn () => Department::selectableOptions())
                             ->searchable()
                             ->placeholder(__('admin.fields.unassigned'))
                             ->native(false),

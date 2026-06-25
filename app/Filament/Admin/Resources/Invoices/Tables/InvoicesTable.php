@@ -115,7 +115,9 @@ class InvoicesTable
                     ->preload(),
                 SelectFilter::make('unit_id')
                     ->label(__('admin.filters.unit'))
-                    ->options(fn () => Unit::orderBy('code')->pluck('code', 'id'))
+                    ->options(fn () => Unit::query()
+                        ->when(\App\Support\TenantScope::visibleAssetIds(), fn ($q, $ids) => $q->whereIn('asset_id', $ids))
+                        ->orderBy('code')->pluck('code', 'id'))
                     ->searchable()
                     ->query(fn (Builder $query, array $data): Builder => $query
                         ->when($data['value'] ?? null, fn (Builder $q, $unitId) => $q->whereHas('lease', fn (Builder $l) => $l->where('unit_id', $unitId)))),

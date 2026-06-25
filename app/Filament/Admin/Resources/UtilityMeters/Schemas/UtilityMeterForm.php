@@ -2,7 +2,6 @@
 
 namespace App\Filament\Admin\Resources\UtilityMeters\Schemas;
 
-use App\Models\Asset;
 use App\Models\Unit;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -23,7 +22,7 @@ class UtilityMeterForm
                         ->maxLength(50),
                     Select::make('asset_id')
                         ->label(__('admin.resources.asset.singular'))
-                        ->options(fn () => Asset::orderBy('name')->pluck('name', 'id'))
+                        ->options(fn () => \App\Support\TenantScope::selectableAssetOptions())
                         ->required()
                         ->native(false)
                         ->searchable()

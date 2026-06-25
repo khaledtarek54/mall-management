@@ -18,10 +18,12 @@ class MarketingBudgetForm
                 ->components([
                     Select::make('asset_id')
                         ->label(__('admin.tables.marketing_budget.property'))
-                        ->relationship('asset', 'name')
+                        ->options(fn () => \App\Support\TenantScope::selectableAssetOptions())
                         ->searchable()
-                        ->preload()
-                        ->required(),
+                        ->required()
+                        ->default(fn () => \App\Support\TenantScope::currentAssetId())
+                        ->disabled(fn () => \App\Support\TenantScope::currentAssetId() !== null)
+                        ->dehydrated(),
                     TextInput::make('period_year')
                         ->label(__('admin.tables.marketing_budget.year'))
                         ->numeric()

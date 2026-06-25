@@ -41,7 +41,7 @@ class ContractsRelationManager extends RelationManager
                     ->native(false),
                 Select::make('asset_id')
                     ->label(__('admin.resources.asset.singular'))
-                    ->options(fn () => Asset::query()->orderBy('name')->pluck('name', 'id')->all())
+                    ->options(fn () => \App\Support\TenantScope::selectableAssetOptions())
                     ->searchable()
                     ->placeholder('—')
                     ->default(fn () => \App\Support\TenantScope::currentAssetId())

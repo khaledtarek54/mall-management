@@ -108,6 +108,29 @@ class Department extends Model
         return $this->asset_id === null;
     }
 
+    /**
+     * Active-department options (id => name) for a picker, scoped so a
+     * property-restricted user only sees global departments plus those of
+     * the properties they can access. Super_admin (no scope) sees all.
+     *
+     * @return \Illuminate\Support\Collection<int, string>
+     */
+    public static function selectableOptions(): \Illuminate\Support\Collection
+    {
+        $ids = \App\Support\TenantScope::visibleAssetIds();
+
+        return static::query()
+            ->where('is_active', true)
+            ->where(function ($q) use ($ids) {
+                $q->whereNull('asset_id');
+                $ids === null
+                    ? $q->orWhereNotNull('asset_id')
+                    : $q->orWhereIn('asset_id', $ids);
+            })
+            ->orderBy('sort_order')
+            ->pluck('name', 'id');
+    }
+
     protected static function booted(): void
     {
         static::creating(function (self $department) {
