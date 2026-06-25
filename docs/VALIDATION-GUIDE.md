@@ -64,6 +64,7 @@ The admin **sidebar is grouped by department** — **Leasing** (Properties/Units
 **Where:** `/admin` → **Marketing → Marketing Budgets**.
 - [ ] HW **2025** and **2026** budgets show **Accrued** (~EGP 169k / ~248k = 5% of billed rent) and **Balance**.
 - [ ] Open a budget → **Marketing Spend** tab → add a spend (category, amount, receipt #) → the **Balance drops** by that amount.
+- [ ] Recording a spend **larger than the remaining balance** is **allowed** but shows a **"Budget exceeded" warning** and the balance goes negative (warn-but-allow, decided 2026-06-25).
 - [ ] The 5% rate lives in Settings and is captured per-charge (changing it won't rewrite history).
 - [ ] *(Math check)* Run **Monthly Billing** for a new month → the budget **Accrued** rises by 5% of that month's billed rent, and tenant **invoice totals are unchanged** (internal allocation, not a tenant line item).
 

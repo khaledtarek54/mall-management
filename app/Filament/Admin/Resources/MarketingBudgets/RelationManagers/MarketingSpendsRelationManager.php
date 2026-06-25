@@ -9,6 +9,7 @@ use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
@@ -43,7 +44,8 @@ class MarketingSpendsRelationManager extends RelationManager
                 ->label(__('admin.tables.marketing_spend.amount'))
                 ->numeric()
                 ->minValue(0)
-                ->required(),
+                ->required()
+                ->helperText(__('admin.tables.marketing_spend.overspend_hint')),
             DatePicker::make('spent_on')
                 ->label(__('admin.tables.marketing_spend.spent_on'))
                 ->default(now())
@@ -86,12 +88,32 @@ class MarketingSpendsRelationManager extends RelationManager
                     ->placeholder('—'),
             ])
             ->headerActions([
-                CreateAction::make(),
+                CreateAction::make()->after(fn () => $this->warnIfOverBudget()),
             ])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()->after(fn () => $this->warnIfOverBudget()),
                 DeleteAction::make(),
             ])
             ->defaultSort('spent_on', 'desc');
+    }
+
+    /**
+     * "Warn but allow": marketing spend MAY exceed the accrued budget, but if
+     * it pushes the balance negative we surface a non-blocking warning so the
+     * overspend is visible (FR MKT-5 — confirmed behaviour 2026-06-25).
+     */
+    protected function warnIfOverBudget(): void
+    {
+        $balance = $this->getOwnerRecord()->fresh()->balance();
+
+        if ($balance < 0) {
+            Notification::make()
+                ->warning()
+                ->title(__('admin.tables.marketing_spend.overspend_title'))
+                ->body(__('admin.tables.marketing_spend.overspend_body', [
+                    'amount' => number_format(abs($balance), 2),
+                ]))
+                ->send();
+        }
     }
 }

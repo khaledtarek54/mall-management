@@ -367,26 +367,41 @@ it('hr covers Roles + Departments (view) and is shut out of every operational mo
 
 /*
 |--------------------------------------------------------------------------
-| UserResource — bespoke super_admin-only gates (bypasses RoleGatedActions)
+| UserResource — HR-manageable Users (permission-gated); delete super_admin-only
 |--------------------------------------------------------------------------
-| The Users resource is HR's by navigation grouping, but its CRUD is wired to
-| super_admin only via canAccess()/canCreate()/canEdit()/canDelete(). We test
-| the gates it actually defines.
+| Users is the HR department's resource: access/create/edit gate on
+| users.view/create/edit, so hr (and the cross-cutting roles holding those
+| perms) manage staff accounts. Delete stays super_admin-only + self-guard.
 */
 
-it('only super_admin can access + create users', function () {
-    $this->actingAs(makeUser('super_admin'));
-    expect(UserResource::canAccess())->toBeTrue()
-        ->and(UserResource::canCreate())->toBeTrue();
+it('gates Users access/create on users.* permissions (HR-manageable)', function () {
+    // roles holding users.view reach the Users list
+    foreach (['super_admin', 'manager', 'viewer', 'owner', 'hr'] as $role) {
+        $this->actingAs(makeUser($role));
+        expect(UserResource::canAccess())->toBeTrue("{$role} should access Users");
+    }
 
-    foreach (['manager', 'viewer', 'owner', 'hr', 'leasing', 'accounting', 'marketing', 'operations'] as $role) {
+    // roles holding users.create can create
+    foreach (['super_admin', 'manager', 'hr'] as $role) {
+        $this->actingAs(makeUser($role));
+        expect(UserResource::canCreate())->toBeTrue("{$role} should create Users");
+    }
+
+    // read-only roles can see but not create
+    foreach (['viewer', 'owner'] as $role) {
+        $this->actingAs(makeUser($role));
+        expect(UserResource::canCreate())->toBeFalse("{$role} cannot create Users");
+    }
+
+    // department roles without users.* are shut out entirely
+    foreach (['leasing', 'operations', 'accounting', 'marketing'] as $role) {
         $this->actingAs(makeUser($role));
         expect(UserResource::canAccess())->toBeFalse("{$role} must not access Users")
             ->and(UserResource::canCreate())->toBeFalse("{$role} must not create Users");
     }
 });
 
-it('super_admin can edit any user but never delete itself; non-admins cannot edit users', function () {
+it('HR can edit users; delete stays super_admin-only with a self-delete guard', function () {
     $admin = makeUser('super_admin');
     $other = makeUser('viewer');
 
@@ -395,8 +410,14 @@ it('super_admin can edit any user but never delete itself; non-admins cannot edi
         ->and(UserResource::canDelete($other))->toBeTrue()
         ->and(UserResource::canDelete($admin))->toBeFalse('cannot delete your own account');
 
+    // hr edits users (users.edit) but cannot delete (super_admin-only)
     $this->actingAs(makeUser('hr'));
-    expect(UserResource::canEdit($other))->toBeFalse('hr cannot edit users (super_admin-gated)')
+    expect(UserResource::canEdit($other))->toBeTrue('hr can edit users')
+        ->and(UserResource::canDelete($other))->toBeFalse('hr cannot delete users');
+
+    // viewer is read-only: no edit, no delete
+    $this->actingAs(makeUser('viewer'));
+    expect(UserResource::canEdit($other))->toBeFalse('viewer cannot edit users')
         ->and(UserResource::canDelete($other))->toBeFalse();
 });
 

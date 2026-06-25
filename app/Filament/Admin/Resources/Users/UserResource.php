@@ -50,24 +50,27 @@ class UserResource extends Resource
         return __('admin.groups.hr');
     }
 
+    // Users is the HR department's resource: access/create/edit are gated on
+    // the users.* permissions (so hr — and the cross-cutting roles that hold
+    // them — can manage staff accounts). Delete stays super_admin-only below.
     public static function canAccess(): bool
     {
-        return Auth::user()?->hasRole('super_admin') ?? false;
+        return Auth::user()?->can('users.view') ?? false;
     }
 
     public static function canViewAny(): bool
     {
-        return Auth::user()?->hasRole('super_admin') ?? false;
+        return Auth::user()?->can('users.view') ?? false;
     }
 
     public static function canCreate(): bool
     {
-        return Auth::user()?->hasRole('super_admin') ?? false;
+        return Auth::user()?->can('users.create') ?? false;
     }
 
     public static function canEdit($record): bool
     {
-        return Auth::user()?->hasRole('super_admin') ?? false;
+        return Auth::user()?->can('users.edit') ?? false;
     }
 
     public static function canDelete($record): bool

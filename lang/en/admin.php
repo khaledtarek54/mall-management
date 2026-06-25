@@ -449,6 +449,9 @@ return [
             'amount' => 'Amount',
             'spent_on' => 'Date',
             'receipt' => 'Receipt #',
+            'overspend_hint' => 'Spending beyond the accrued budget is allowed; an overspend will be flagged.',
+            'overspend_title' => 'Budget exceeded',
+            'overspend_body' => 'This puts the marketing budget over by EGP :amount. Recorded anyway.',
         ],
         'owner_request' => [
             'reference' => 'Reference',
