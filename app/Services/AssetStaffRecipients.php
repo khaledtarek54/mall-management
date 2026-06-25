@@ -35,4 +35,21 @@ class AssetStaffRecipients
             ->unique('id')
             ->values();
     }
+
+    /**
+     * Jawad owner users for a property — for oversight alerts (e.g. an SLA
+     * breach). Scoped by the asset_owner relationship.
+     *
+     * @return Collection<int, User>
+     */
+    public function owners(?int $assetId): Collection
+    {
+        if (! $assetId) {
+            return collect();
+        }
+
+        return User::query()
+            ->whereHas('ownedAssets', fn ($q) => $q->where('assets.id', $assetId))
+            ->get();
+    }
 }

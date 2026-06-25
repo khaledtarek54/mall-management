@@ -49,6 +49,7 @@ The admin **sidebar is grouped by department** — **Leasing** (Properties/Units
 - [ ] List has a **Department** column + filter.
 - [ ] Row action **"Redirect to department"** shows the full department list and reassigns.
 - [ ] Status → **Cancelled** acts as reject; operator can move acknowledge → in-progress → resolve → close.
+- [ ] When a request passes its **Target Resolution** (overdue), the property **owner** also gets a bell alert (in addition to staff) — fired by the daily `maintenance:scan-sla-breaches` scan.
 
 ## 4. Closed-request immutability · req #1
 **Business rule:** once **Closed** or **Cancelled**, a request can't be modified.

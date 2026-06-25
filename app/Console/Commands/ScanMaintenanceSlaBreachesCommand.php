@@ -49,10 +49,13 @@ class ScanMaintenanceSlaBreachesCommand extends Command
         $alerted = 0;
         foreach ($breached as $request) {
             try {
-                $recipients = app(AssetStaffRecipients::class)->for(
-                    $request->unit?->asset_id,
-                    ['manager', 'maintenance_manager'],
-                );
+                $assetId = $request->unit?->asset_id;
+                $service = app(AssetStaffRecipients::class);
+                $recipients = $service->for($assetId, ['manager', 'maintenance_manager'])
+                    // Jawad owners get the oversight alert too (FR MNT-5).
+                    ->merge($service->owners($assetId))
+                    ->unique('id')
+                    ->values();
 
                 if ($recipients->isNotEmpty()) {
                     Notification::send($recipients, new MaintenanceSlaBreachedNotification($request));

@@ -35,7 +35,8 @@ Legend: ✅ done · ☐ pending · 🟡 partial · 🔴 not started · ⏸️ de
 
 | # | Feature | State | Plan |
 |---|---|:---:|---|
-| #4 | Overdue → notify **Jawad owners** + maintenance **late fees** | 🟡 | add owners to SLA-breach recipients (small); late fees need decisions **O-3/O-4** |
+| #4a | Overdue → notify **Jawad owners** | ✅ Done | owners merged into the SLA-breach scan |
+| #4b | Maintenance **late fees** | 🔴 | needs decisions **O-3/O-4** (what triggers a fee + who pays) |
 | #11 | Department-to-department **messaging** | 🔴 | "Message department" action → notify the dept's members |
 | #7 | **Master unit** / multi-unit lease | 🔴 | `lease_unit` pivot; isolated schema change |
 

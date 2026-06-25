@@ -94,7 +94,8 @@ The platform is **multi-property**: an `Asset` is one mall; everything hangs off
 | Marketing — 5% levy, auto budget, spend + receipts, admin UI (MKT-1..5) | ✅ Done | `2f22fec` → `af097c4` |
 | Tenant commercial register (TEN-1) | ✅ Done | `a492358` |
 | Scheduled work window from→to (REQ-1) | ✅ Done | `a492358` |
-| Late/overdue → notify **owners** + late fees (MNT-5/6) | 🟡 To-do | SLA-breach infra exists but notifies *staff* only; owner recipients + late-fee charges not built |
+| Overdue → notify **owners** (MNT-5) | ✅ Done | owners (`asset_owner`) merged into the SLA-breach scan |
+| Maintenance **late fees** (MNT-6) | 🟡 To-do | needs O-3/O-4 (what triggers a fee + who pays) |
 | Department-to-department messaging (DEPT-2) | 🟡 To-do | notification infra + departments exist; no dedicated dept→dept action yet |
 | Master unit / multi-unit lease (UNIT-1) | 🔴 To-do | lease is still 1:1 with a unit; needs a `lease_unit` pivot ([O-6](#open-items)) |
 | Tenant-users — only tenant-admin submits (TEN-3) | ⏸️ Deferred | your decision 2026-06-24; would rewrite portal + mobile (Sanctum) auth |
@@ -152,7 +153,7 @@ A "request" is the central ERP workflow object, with **three concrete types** ov
 - **MNT-2** 🟡 `[EXTEND]` — A work-order is **assigned to a department** (and optionally a staff user or vendor). *Today assignment targets `User` (`assigned_to`) or `Vendor` (`assigned_to_vendor_id`); add a `department_id` dimension.* See [MaintenanceRequest.php](../app/Models/MaintenanceRequest.php#L98-L106). — *covers #5.*
 - **MNT-3** 🔵 `[NEW]` — Operator can **redirect a misrouted request to another department** and **reject** it (with reason). *Reassignment exists; the department redirect + the shown department list ([ACC-4](#4-access-roles--org-acc)) depend on the net-new Department model.* — *covers #5.*
 - **MNT-4** 🟢 `[EXISTS]` — Operator (`super_admin`) can perform all work on any request: acknowledge → progress → resolve → close, with comments. — *covers #5.*
-- **MNT-5** 🟡 `[EXTEND]` — A work-order that is **late/overdue** notifies **owner (Jawad) users** as oversight. *"Overdue" already = `isOverdue()` (open AND past `target_resolution_at`); the daily `maintenance:scan-sla-breaches` job fires `MaintenanceSlaBreachedNotification` once (idempotent via `sla_breach_notified_at`). Extend recipients to owner users.* See [isOverdue()](../app/Models/MaintenanceRequest.php#L118-L123) · [sla migration](../database/migrations/2026_05_31_213931_add_sla_breach_notified_at_to_maintenance_requests.php). — *covers #4.*
+- **MNT-5** 🟢 `[DONE]` — A work-order that is **late/overdue** notifies **owner (Jawad) users** as oversight. **Implemented**: owner users (via `asset_owner`) are merged into the `maintenance:scan-sla-breaches` recipients (`AssetStaffRecipients::owners()`). *"Overdue" already = `isOverdue()` (open AND past `target_resolution_at`); the daily `maintenance:scan-sla-breaches` job fires `MaintenanceSlaBreachedNotification` once (idempotent via `sla_breach_notified_at`). Extend recipients to owner users.* See [isOverdue()](../app/Models/MaintenanceRequest.php#L118-L123) · [sla migration](../database/migrations/2026_05_31_213931_add_sla_breach_notified_at_to_maintenance_requests.php). — *covers #4.*
 - **MNT-6** 🔵 `[NEW]` — **Late fees** on a work-order also notify owner users. *No maintenance late-fee concept exists; see [O-3](#open-items)/[O-4](#open-items) (trigger + who is charged).* — *covers #4.*
 
 ### 6B. Owner request (OWN)
