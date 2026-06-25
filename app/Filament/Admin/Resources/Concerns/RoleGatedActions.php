@@ -18,18 +18,22 @@ use Illuminate\Support\Str;
  *  - {module}.view   → canViewAny, canView
  *  - {module}.create → canCreate
  *  - {module}.edit   → canEdit, canRestore
- *  - {module}.delete → canDelete, canForceDelete
+ *
+ * DELETE is special: project-wide, **only super_admin can delete** (single or
+ * bulk, normal or force) regardless of any "{module}.delete" permission — a
+ * destructive action is reserved for the platform owner. Bulk delete is
+ * additionally off unless a resource opts in via $bulkDeletable.
  *
  * Custom roles with arbitrary permission combinations (e.g. "invoices.create
- * but not invoices.delete") work without any code change.
+ * but not invoices.edit") work without any code change.
  */
 trait RoleGatedActions
 {
     /**
      * Whether **bulk** delete (and bulk force-delete) is allowed on this
      * resource. OFF by default across the whole project — a destructive
-     * multi-row action shouldn't be one mis-click. Single-record delete is
-     * unaffected (still gated by the `delete` permission).
+     * multi-row action shouldn't be one mis-click. Even when true, only
+     * super_admin sees it (see canDeleteAny).
      *
      * Opt a resource back in by adding to it:
      *     protected static bool $bulkDeletable = true;
@@ -73,6 +77,12 @@ trait RoleGatedActions
         return $user->can("{$module}.{$action}");
     }
 
+    /** Delete is reserved for the platform owner, project-wide. */
+    protected static function isSuperAdmin(): bool
+    {
+        return Auth::user()?->hasRole('super_admin') ?? false;
+    }
+
     /**
      * Hide the resource from the sidebar when its module is turned off.
      * Filament calls this once per render; cheap.
@@ -104,24 +114,24 @@ trait RoleGatedActions
 
     public static function canDelete(Model $record): bool
     {
-        return static::hasPermission('delete');
+        // Only super_admin can delete — ignores the {module}.delete permission.
+        return static::isSuperAdmin();
     }
 
     public static function canDeleteAny(): bool
     {
-        // Bulk delete is opt-in per resource (see $bulkDeletable).
-        return static::$bulkDeletable && static::hasPermission('delete');
+        // Bulk delete: opt-in per resource ($bulkDeletable) AND super_admin only.
+        return static::$bulkDeletable && static::isSuperAdmin();
     }
 
     public static function canForceDelete(Model $record): bool
     {
-        return static::hasPermission('delete');
+        return static::isSuperAdmin();
     }
 
     public static function canForceDeleteAny(): bool
     {
-        // Bulk force-delete follows the same opt-in as bulk delete.
-        return static::$bulkDeletable && static::hasPermission('delete');
+        return static::$bulkDeletable && static::isSuperAdmin();
     }
 
     public static function canRestore(Model $record): bool

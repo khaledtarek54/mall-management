@@ -18,8 +18,13 @@ it('disables bulk delete by default on every resource, even with the delete perm
         ->and(UserResource::canDeleteAny())->toBeFalse();
 });
 
-it('still allows single-record delete (only bulk delete is disabled)', function () {
-    $this->actingAs(makeUser('super_admin'));
+it('restricts delete to super_admin, even when another role holds the delete permission', function () {
+    \Spatie\Permission\Models\Role::findByName('viewer', 'web')->givePermissionTo('invoices.delete');
+    app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
 
+    $this->actingAs(makeUser('viewer'));
+    expect(InvoiceResource::canDelete(new Invoice()))->toBeFalse();
+
+    $this->actingAs(makeUser('super_admin'));
     expect(InvoiceResource::canDelete(new Invoice()))->toBeTrue();
 });
