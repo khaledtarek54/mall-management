@@ -19,6 +19,27 @@ class EditLease extends EditRecord
 {
     protected static string $resource = LeaseResource::class;
 
+    /** Pre-fill the additional-units selector from the lease's pivot (non-master units). */
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        $data['additional_unit_ids'] = $this->record->units()
+            ->wherePivot('is_master', false)
+            ->pluck('units.id')
+            ->all();
+
+        return $data;
+    }
+
+    /** Sync the full unit set (master = unit_id) after saving the lease. */
+    protected function afterSave(): void
+    {
+        $additional = $this->data['additional_unit_ids'] ?? [];
+        $this->record->syncUnits(
+            [$this->record->unit_id, ...$additional],
+            $this->record->unit_id,
+        );
+    }
+
     protected function getHeaderActions(): array
     {
         return [

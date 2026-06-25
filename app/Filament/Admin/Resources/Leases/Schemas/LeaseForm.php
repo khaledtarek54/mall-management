@@ -30,7 +30,8 @@ class LeaseForm
                         ->disabled()
                         ->dehydrated(),
                     Select::make('unit_id')
-                        ->label(__('admin.fields.unit_label'))
+                        ->label(__('admin.fields.master_unit'))
+                        ->live()
                         ->relationship(
                             'unit',
                             'code',
@@ -80,6 +81,34 @@ class LeaseForm
                                 }
                             },
                         ]),
+                    Select::make('additional_unit_ids')
+                        ->label(__('admin.fields.additional_units'))
+                        ->helperText(__('admin.fields.additional_units_helper'))
+                        ->multiple()
+                        ->searchable()
+                        ->preload()
+                        ->dehydrated(false)
+                        ->options(function (Get $get, ?Lease $record) {
+                            $assetId = TenantScope::currentAssetId();
+                            $master = $get('unit_id');
+
+                            return Unit::query()
+                                ->when($assetId, fn ($q, $aid) => $q->where('asset_id', $aid))
+                                ->where(function ($q) use ($record) {
+                                    $q->whereNotIn('status', ['occupied', 'reserved', 'maintenance']);
+                                    if ($record) {
+                                        $q->orWhereIn('id', $record->units()->pluck('units.id'));
+                                    }
+                                })
+                                ->when($master, fn ($q, $m) => $q->where('id', '!=', $m))
+                                ->orderBy('code')
+                                ->get()
+                                ->mapWithKeys(fn (Unit $u) => [$u->id => sprintf(
+                                    '%s · %s',
+                                    $u->code,
+                                    __("admin.statuses.unit.{$u->status}"),
+                                )]);
+                        }),
                     Select::make('tenant_id')
                         ->label(__('admin.resources.tenant.singular'))
                         ->relationship('tenant', 'name')

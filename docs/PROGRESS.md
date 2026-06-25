@@ -107,9 +107,12 @@
 - **O-3:** what triggers a fee — passing the **scheduled work-window end**, or the **SLA deadline**?
 - **O-4:** **who is charged** (tenant? responsible party?) and **how much** (flat / % / per-day)?
 
-### 14. Master unit / multi-unit lease · 🔴 Not started · req #7
-**What it will do:** today a lease covers exactly **one** unit. This lets **one lease span several units** with one designated **master unit** (e.g. a shop that took an adjacent kiosk), while keeping all existing single-unit leases valid.
-**Plan:** add a `lease_unit` link (with an `is_master` flag), surface it in the lease form + occupancy. It's the only **schema-touching** item, so I'll build + validate it on its own.
+### 14. Master unit / multi-unit lease · ✅ Built · ☐ Validated · req #7
+**What it does:** a lease can span **several units** with one designated **master** (e.g. a shop that took an adjacent kiosk); all existing single-unit leases stay valid. A `lease_unit` pivot holds the units (the `is_master` one mirrors to `leases.unit_id`); **every unit in a lease shows occupied**.
+**How to test:** `/admin` → **Leasing → Leases**.
+- The seeded demo has one **multi-unit lease** — its row shows the master unit badge with a **"+ &lt;code&gt;"** for the extra unit.
+- Edit any lease → the form has a **Unit (master)** select + an **Additional units** multi-select. Add a vacant unit → save → both units now read **occupied** (Units list); remove it → the unit is **freed** (vacant) again.
+**Your notes:** _____________________
 
 ---
 

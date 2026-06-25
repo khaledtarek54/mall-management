@@ -51,7 +51,13 @@ class LeasesTable
                     ->label(__('admin.tables.lease.unit'))
                     ->badge()
                     ->color('gray')
-                    ->searchable(),
+                    ->searchable()
+                    // Surface multi-unit leases: list the additional (non-master) units.
+                    ->description(function (\App\Models\Lease $record): ?string {
+                        $extra = $record->units->reject(fn ($u) => $u->pivot->is_master);
+
+                        return $extra->isNotEmpty() ? '+ ' . $extra->pluck('code')->join(', ') : null;
+                    }),
                 TextColumn::make('tenant.name')
                     ->label(__('admin.tables.lease.tenant'))
                     ->searchable()

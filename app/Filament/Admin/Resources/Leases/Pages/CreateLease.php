@@ -27,5 +27,12 @@ class CreateLease extends CreateRecord
             rent: (float) $lease->base_rent_monthly,
             service: (float) $lease->service_charge_monthly,
         );
+
+        // Multi-unit lease: attach any additional units, keeping unit_id as the
+        // master. The observer already created the master pivot row.
+        $additional = $this->data['additional_unit_ids'] ?? [];
+        if (! empty($additional)) {
+            $lease->syncUnits([$lease->unit_id, ...$additional], $lease->unit_id);
+        }
     }
 }

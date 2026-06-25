@@ -251,6 +251,19 @@ class DemoSeeder extends Seeder
             $this->generateInvoiceHistory($lease, $tenant, $rent, $service, $commencement);
         }
 
+        // Showcase a MULTI-UNIT lease (#7 master unit): expand one active lease
+        // to also cover an adjacent vacant unit, keeping the original as master.
+        $multiLease = Lease::where('status', 'active')->orderBy('id')->first();
+        $spareUnit = Unit::where('asset_id', $atriomWalk->id)
+            ->where('status', 'vacant')
+            ->orderBy('id')
+            ->first();
+        if ($multiLease && $spareUnit) {
+            $multiLease->syncUnits([$multiLease->unit_id, $spareUnit->id], $multiLease->unit_id);
+            $occupiedCount++;
+            $vacantCount--;
+        }
+
         $this->seedCurrentMonthPayments();
         $this->seedArAgingSpread();
         $this->seedPortalDemoInvoices();

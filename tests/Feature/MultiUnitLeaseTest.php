@@ -1,6 +1,12 @@
 <?php
 
-use App\Models\Lease;
+use App\Filament\Admin\Resources\Leases\Pages\EditLease;
+use App\Filament\Admin\Resources\Leases\Pages\ListLeases;
+use Database\Seeders\RolesPermissionsSeeder;
+use Filament\Facades\Filament;
+use Livewire\Livewire;
+
+afterEach(fn () => Filament::setTenant(null, isQuiet: true));
 
 it('mirrors a single-unit lease into one master pivot row and occupies the unit', function () {
     $asset = makeAsset();
@@ -61,4 +67,40 @@ it('frees a unit when it is removed from the lease', function () {
     expect($lease->units()->pluck('units.id')->all())->toBe([$a->id])
         ->and($b->fresh()->status)->toBe('vacant')   // freed
         ->and($a->fresh()->status)->toBe('occupied');
+});
+
+it('adds an additional unit through the edit form and occupies it', function () {
+    $this->seed(RolesPermissionsSeeder::class);
+    $this->actingAs(makeUser('super_admin'));
+    $asset = makeAsset(['code' => 'HW']);
+    Filament::setTenant($asset);
+
+    $master = makeUnit($asset, ['code' => 'A-01', 'status' => 'vacant']);
+    $extra = makeUnit($asset, ['code' => 'A-02', 'status' => 'vacant']);
+    $lease = makeLease($master, null, ['status' => 'active']);
+
+    Livewire::test(EditLease::class, ['record' => $lease->getRouteKey()])
+        ->assertFormSet(['additional_unit_ids' => []])      // none yet (prefill)
+        ->fillForm(['additional_unit_ids' => [$extra->id]])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($lease->units()->pluck('units.id')->all())->toContain($extra->id)
+        ->and($extra->fresh()->status)->toBe('occupied');   // additional unit now occupied
+});
+
+it('lists additional units in the leases table', function () {
+    $this->seed(RolesPermissionsSeeder::class);
+    $this->actingAs(makeUser('super_admin'));
+    $asset = makeAsset(['code' => 'HW']);
+    Filament::setTenant($asset);
+
+    $master = makeUnit($asset, ['code' => 'A-01']);
+    $extra = makeUnit($asset, ['code' => 'A-02']);
+    $lease = makeLease($master, null, ['status' => 'active']);
+    $lease->syncUnits([$master->id, $extra->id], $master->id);
+
+    Livewire::test(ListLeases::class)
+        ->assertOk()
+        ->assertSee('A-02');   // additional unit surfaced in the row description
 });

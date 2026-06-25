@@ -85,6 +85,12 @@ The admin **sidebar is grouped by department** — **Leasing** (Properties/Units
 **Where:** `/admin` → Maintenance → edit a request → Assignment section.
 - [ ] **Scheduled from** / **Scheduled to** date-time fields present.
 
+## 9. Multi-unit lease — master unit · req #7
+**Business rule:** a lease can span several units with one designated **master**; existing single-unit leases stay valid; every unit in the lease counts as occupied.
+**Where:** `/admin` → **Leasing → Leases**.
+- [ ] The seeded demo has a **multi-unit lease** — the row shows the master badge with **"+ &lt;code&gt;"** for the extra unit.
+- [ ] Editing a lease shows a **Unit (master)** select + an **Additional units** multi-select; adding a vacant unit occupies it, removing it frees it again.
+
 ---
 
 ## Not yet built / deferred — do NOT expect these yet
@@ -93,8 +99,7 @@ The admin **sidebar is grouped by department** — **Leasing** (Properties/Units
 |---|---|---|
 | 4 | Late/overdue → notify **Jawad owners** + maintenance **late fees** | Overdue detection exists but alerts *staff* only; late fees not built (pending your O-3/O-4 decisions) |
 | 11 | Department-to-department **messaging** action | Infra ready; no dedicated "message a department" action yet |
-| 7 | **Master unit** / multi-unit lease | Not built; a lease is still one unit |
 | 9 | **Tenant-users** (only tenant-admin submits) | Deferred by your decision (single tenant login already acts as the admin); would rewrite mobile auth |
 | 12 | Dept requests/payments **via Accounting** | Deferred pending your accounting team |
 
-When §§1–8 are ticked, you're validated to proceed. The table above is the remaining scope — see [FUNCTIONAL-REQUIREMENTS.md §3](FUNCTIONAL-REQUIREMENTS.md) for the build plan.
+When §§1–9 are ticked, you're validated to proceed. The table above is the remaining scope — see [FUNCTIONAL-REQUIREMENTS.md §3](FUNCTIONAL-REQUIREMENTS.md) for the build plan.

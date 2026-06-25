@@ -20,7 +20,9 @@ it('seeds the full demo dataset without error', function () {
     expect(Tenant::count())->toBe(33);
     expect(Invoice::count())->toBeGreaterThan(0);
     expect(Asset::where('code', 'AW')->exists())->toBeTrue();
-    expect(Asset::where('code', 'AW')->first()->units()->where('status', 'occupied')->count())->toBe(33);
+    // 33 single-unit leases + the extra unit of the one multi-unit demo lease.
+    expect(Asset::where('code', 'AW')->first()->units()->where('status', 'occupied')->count())->toBe(34);
+    expect(\App\Models\Lease::has('units', '>', 1)->exists())->toBeTrue();   // demo multi-unit lease
     // Maintenance seeding depends on the portal-tenant emails matching the
     // generator — guard that coordination so a domain rename can't silently
     // drop the maintenance demo data.
