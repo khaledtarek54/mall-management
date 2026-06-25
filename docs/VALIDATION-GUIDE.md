@@ -41,6 +41,7 @@ The admin **sidebar is grouped by department** — **Leasing** (Properties/Units
 - [ ] Log in as that user → they see only Accounting's resources (Invoices / Payments / Credit Notes / CAM), nothing else.
 - [ ] Detach → the role is removed.
 - [ ] You **cannot create** a new department (fixed set — no Create button).
+- [ ] A department's **Message** action sends a bell notification to that department's members (inter-department contact).
 
 ## 3. Maintenance → departments (assign / redirect / reject) · req #5
 **Business rule:** a work-order is assigned to a department; the operator can redirect a mis-routed one to another department (with the **full** list visible), reject it, and do all the work.

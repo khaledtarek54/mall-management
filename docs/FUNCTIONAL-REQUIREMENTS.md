@@ -96,7 +96,7 @@ The platform is **multi-property**: an `Asset` is one mall; everything hangs off
 | Scheduled work window from→to (REQ-1) | ✅ Done | `a492358` |
 | Overdue → notify **owners** (MNT-5) | ✅ Done | owners (`asset_owner`) merged into the SLA-breach scan |
 | Maintenance **late fees** (MNT-6) | 🟡 To-do | needs O-3/O-4 (what triggers a fee + who pays) |
-| Department-to-department messaging (DEPT-2) | 🟡 To-do | notification infra + departments exist; no dedicated dept→dept action yet |
+| Department-to-department messaging (DEPT-2) | ✅ Done | "Message" action on a department → bell to its members |
 | Master unit / multi-unit lease (UNIT-1) | 🔴 To-do | lease is still 1:1 with a unit; needs a `lease_unit` pivot ([O-6](#open-items)) |
 | Tenant-users — only tenant-admin submits (TEN-3) | ⏸️ Deferred | your decision 2026-06-24; would rewrite portal + mobile (Sanctum) auth |
 | Dept requests/payments via Accounting (DEPT-3 / ACCT-2) | ⏸️ Deferred | pending the accounting-team workflow |
@@ -126,7 +126,7 @@ The platform is **multi-property**: an `Asset` is one mall; everything hangs off
 ## 5. Departments (DEPT)
 
 - **DEPT-1** 🟢 `[DONE]` — Departments **HR, Marketing, Accounting, Leasing, Operations** seeded as a **fixed reference set** (no create/update UI — decided 2026-06-25). The `Department` model is a thin **domain** entity (maintenance assignment, marketing-budget owner, inter-dept requests, membership roster); **access is RBAC, not the model** (see DEPT-6).
-- **DEPT-2** 🟡 `[EXTEND]` — Departments **contact each other via notifications** (reuse Laravel notifications + the in-app `notifications` table — infra already present).
+- **DEPT-2** 🟢 `[DONE]` — Departments **contact each other via notifications**. **Implemented**: a **Message** action on a department (`DepartmentMessageService` → `DepartmentMessageNotification`, bell) notifies that department's members. *Available to roles with `departments.view`; grant it to more dept roles to widen who can send.*
 - **DEPT-3** ⏸️ `[DEFERRED]` — Department **requests/payments route through Accounting** for approval/processing. Exact workflow to be defined with the accounting team. See [§10 ACCT](#10-accounting-hub-acct).
 - **DEPT-4** 🔧 `[design]` — Department membership is separate from spatie RBAC roles (which stay global). Keep "who is in which department at which property" flexible, mirroring the existing `asset_user` pattern.
 - **DEPT-5** 🔧 `[design]` — Each department is a self-contained ERP module (own resources, dashboard widgets, permissions) so departments can be added/toggled like the existing `ModulesSettings` feature flags.

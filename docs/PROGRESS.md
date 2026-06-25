@@ -27,7 +27,9 @@ Legend: ✅ done · ☐ pending · 🟡 partial · 🔴 not started · ⏸️ de
 | 7 | Tenant commercial register (segel togary) | ✅ | ✅ | ☐ | `a492358` |
 | 8 | Scheduled work window (from→to) | ✅ | ✅ | ☐ | `a492358` |
 | 9 | Owner model — no portal; owners are admin RBAC users scoped to owned properties | ✅ | ✅ | ☐ | `464241d` |
-| 10 | Department access — fixed set; each dept maps to a role; registering a user grants its role (hybrid); **sidebar grouped by department** | ✅ | ✅ | ☐ | `14dcc99` + this change |
+| 10 | Department access — fixed set; each dept maps to a role; registering a user grants its role (hybrid); **sidebar grouped by department** | ✅ | ✅ | ☐ | `14dcc99` + `16ee1d6` |
+| 11 | Overdue → notify Jawad owners (MNT-5) | ✅ | ✅ | ☐ | `9776d8d` |
+| 12 | Department-to-department messaging — "Message" action → bell to members (DEPT-2) | ✅ | ✅ | ☐ | this change |
 
 → Walk these through [VALIDATION-GUIDE.md](VALIDATION-GUIDE.md) §§0–8 and tick the **Validated** column here as each passes.
 
@@ -37,7 +39,6 @@ Legend: ✅ done · ☐ pending · 🟡 partial · 🔴 not started · ⏸️ de
 |---|---|:---:|---|
 | #4a | Overdue → notify **Jawad owners** | ✅ Done | owners merged into the SLA-breach scan |
 | #4b | Maintenance **late fees** | 🔴 | needs decisions **O-3/O-4** (what triggers a fee + who pays) |
-| #11 | Department-to-department **messaging** | 🔴 | "Message department" action → notify the dept's members |
 | #7 | **Master unit** / multi-unit lease | 🔴 | `lease_unit` pivot; isolated schema change |
 
 ### C. Deferred — out of the business part by decision
