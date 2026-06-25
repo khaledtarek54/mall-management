@@ -69,7 +69,7 @@
 - The owner of that property gets a bell notification.
 **Your notes:** _____________________
 
-### 9. Owner requests (Jawad → Eltizam / Jawad → Jawad) · ✅ Built · ☐ Validated
+### 9. Owner requests (Jawad → Eltizam / Jawad → Jawad) · ✅ Built · ✅ Validated
 **What it does:** a Jawad owner raises a request to the operator team or to another owner; the operator responds; both get notified; closed ones are immutable (covers req #2, #3).
 **How to test:**
 - As **owner** (`owner@atriom.test`) → **Operations → Owner Requests → New** → recipient **Eltizam (operator)** → submit. (Also try **Another owner**.)
@@ -77,13 +77,13 @@
 - Back as the owner → it shows the response; the owner sees only their own requests and has no Respond action.
 **Your notes:** _____________________
 
-### 10. Departments contact each other (messaging) · ✅ Built · ☐ Validated
+### 10. Departments contact each other (messaging) · ✅ Built · ✅ Validated
 **What it does:** one department can send a message to another; that department's members get a bell notification (covers req #11).
 **How to test:** `/admin` → **HR → Departments** → on any department row use the **Message** action → write a message.
 - The target department's members get a bell notification (the sender doesn't).
 **Your notes:** _____________________
 
-### 11. Marketing — 5% levy + auto budget + spend & receipts · ✅ Built · ☐ Validated
+### 11. Marketing — 5% levy + auto budget + spend & receipts · ✅ Built · ✅ Validated
 **What it does:** a **5%** (configurable) marketing levy on rent funds a per-property marketing budget; marketing spend (offers/promotions/events/printed work) draws it down with a receipt to accounting; the budget is auto-maintained (covers req #13, #14, #15).
 **How to test:** `/admin` → **Marketing → Marketing Budgets**.
 - HW **2025** and **2026** budgets show **Accrued** (~EGP 169k / 248k = 5% of billed rent) + **Balance**.
@@ -91,7 +91,7 @@
 - *(Math: run Monthly Billing for a new month → Accrued rises by 5% of that rent; tenant invoice totals are unchanged — it's an internal allocation.)*
 **Your notes:** _____________________
 
-### 12. Tenant commercial register field · ✅ Built · ☐ Validated
+### 12. Tenant commercial register field · ✅ Built · ✅ Validated
 **What it does:** the tenant record captures the **commercial register (segel togary)** alongside national ID, tax card, company name, responsible person + phone, email (covers req #8).
 **How to test:** `/admin` → **Leasing → Tenants** → edit a tenant.
 - **Commercial Register** field present in the Tenant Information section.
