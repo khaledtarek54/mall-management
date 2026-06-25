@@ -77,6 +77,27 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
         return $this->hasMany(Lease::class);
     }
 
+    /** Portal login accounts for this tenant (req #9 multi-user). */
+    public function users(): HasMany
+    {
+        return $this->hasMany(TenantUser::class);
+    }
+
+    /**
+     * Notify the tenant on every surface: the Tenant record (the mobile API
+     * still authenticates it) AND each portal user (the web bell reads
+     * TenantUser notifications). Tenants with no portal users still get the
+     * Tenant copy, so nothing regresses.
+     */
+    public function notifyPortal($notification): void
+    {
+        $this->notify($notification);
+
+        foreach ($this->users as $user) {
+            $user->notify($notification);
+        }
+    }
+
     public function activeLeases(): HasMany
     {
         return $this->leases()->where('status', 'active');

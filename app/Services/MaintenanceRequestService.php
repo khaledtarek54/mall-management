@@ -143,7 +143,7 @@ class MaintenanceRequestService
         // cancellation doesn't need a self-notification).
         if ($next !== 'cancelled' && $request->tenant) {
             try {
-                $request->tenant->notify(
+                $request->tenant->notifyPortal(
                     new MaintenanceStatusChangedNotification($request->refresh(), $current)
                 );
             } catch (\Throwable $e) {
@@ -222,7 +222,7 @@ class MaintenanceRequestService
 
             // Staff (or system) author → notify the requesting tenant.
             if ($request->tenant) {
-                $request->tenant->notify(
+                $request->tenant->notifyPortal(
                     new MaintenanceCommentAddedNotification($request, $comment)
                 );
             }

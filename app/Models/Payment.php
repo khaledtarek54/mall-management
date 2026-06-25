@@ -145,7 +145,7 @@ class Payment extends Model
                 $payment->load('tenant', 'invoices');
                 if ($payment->tenant && $payment->invoices->isNotEmpty()) {
                     try {
-                        $payment->tenant->notify(
+                        $payment->tenant->notifyPortal(
                             new \App\Notifications\PaymentReceivedNotification($payment)
                         );
                     } catch (\Throwable $e) {

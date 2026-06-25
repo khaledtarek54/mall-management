@@ -36,7 +36,7 @@ class ViewInvoice extends ViewRecord
                 ->label(__('admin.actions.pay_now'))
                 ->icon('heroicon-o-credit-card')
                 ->color('primary')
-                ->visible(fn () => config('integrations.paymob.enabled') && $this->record->balance > 0)
+                ->visible(fn () => \App\Support\Portal::isAdmin() && config('integrations.paymob.enabled') && $this->record->balance > 0)
                 ->requiresConfirmation()
                 ->modalHeading(fn () => __('admin.actions.pay_now').' · '.$this->record->number)
                 ->action(function () {
@@ -64,7 +64,8 @@ class ViewInvoice extends ViewRecord
                 ->label(__('admin.actions.pay_now'))
                 ->icon('heroicon-o-credit-card')
                 ->color('primary')
-                ->visible(fn () => ! config('integrations.paymob.enabled')
+                ->visible(fn () => \App\Support\Portal::isAdmin()
+                    && ! config('integrations.paymob.enabled')
                     && (float) $this->record->balance > 0
                     && ! in_array($this->record->status, ['cancelled', 'credited'], true))
                 ->requiresConfirmation()

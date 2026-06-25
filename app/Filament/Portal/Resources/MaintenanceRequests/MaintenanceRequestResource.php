@@ -81,7 +81,8 @@ class MaintenanceRequestResource extends Resource
 
     public static function canCreate(): bool
     {
-        return true;
+        // Only the tenant-admin may submit requests; other users are read-only.
+        return \App\Support\Portal::isAdmin();
     }
 
     public static function canEdit($record): bool

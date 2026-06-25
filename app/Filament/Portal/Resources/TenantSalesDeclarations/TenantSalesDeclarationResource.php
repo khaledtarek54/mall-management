@@ -72,7 +72,8 @@ class TenantSalesDeclarationResource extends Resource
 
     public static function canCreate(): bool
     {
-        return true;
+        // Only the tenant-admin may submit declarations; others are read-only.
+        return \App\Support\Portal::isAdmin();
     }
 
     public static function canEdit($record): bool

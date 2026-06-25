@@ -138,7 +138,7 @@ class MonthlyBillingService
         try {
             // Notification ships via 'mail' + 'database' so the tenant gets
             // both an email with PDF attachment and a portal bell entry.
-            $tenant->notify(new \App\Notifications\InvoiceIssuedNotification($invoice));
+            $tenant->notifyPortal(new \App\Notifications\InvoiceIssuedNotification($invoice));
         } catch (Throwable $e) {
             Log::warning('Invoice issued notification failed to queue', [
                 'invoice_id' => $invoice->id,

@@ -85,7 +85,7 @@ class PercentageRentCalculationService
             $tenant = $declaration->lease?->tenant;
             if ($tenant) {
                 try {
-                    $tenant->notify(
+                    $tenant->notifyPortal(
                         new \App\Notifications\SalesDeclarationLockedNotification($declaration->refresh())
                     );
                 } catch (\Throwable $e) {

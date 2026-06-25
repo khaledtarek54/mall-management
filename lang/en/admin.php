@@ -237,6 +237,7 @@ return [
     ],
 
     'resources' => [
+        'portal_user' => ['singular' => 'Portal User', 'plural' => 'Portal Users'],
         'asset' => ['singular' => 'Property', 'plural' => 'Properties'],
         'unit' => ['singular' => 'Unit', 'plural' => 'Units'],
         'tenant' => ['singular' => 'Tenant', 'plural' => 'Tenants'],
@@ -855,6 +856,8 @@ return [
         'master_unit' => 'Unit (master)',
         'additional_units' => 'Additional units',
         'additional_units_helper' => 'Optional — extra units this lease also covers (e.g. an adjacent kiosk). All count as occupied.',
+        'password' => 'Password',
+        'portal_admin' => 'Portal admin',
         'commencement_date' => 'Commencement Date',
         'expiry_date' => 'Expiry Date',
         'term_months' => 'Term',
@@ -969,6 +972,8 @@ return [
     ],
 
     'helpers' => [
+        'portal_admin' => 'Admins can submit requests and payments; other users are read-only.',
+        'password_leave_blank' => 'Leave blank to keep the current password.',
         'reading_date' => 'Date the meter was read. The widget aggregates by month.',
         'reading_value' => 'Current odometer value. Consumption auto-fills from the delta against the prior reading; you can override if the meter was reset.',
         'term_months' => 'Total lease length in months. Typical Egyptian mall leases run 12, 24, or 36 months.',
