@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
@@ -72,6 +73,56 @@ class Lease extends Model implements HasMedia
     public function unit(): BelongsTo
     {
         return $this->belongsTo(Unit::class);
+    }
+
+    /**
+     * All units this lease covers (master + additional) via lease_unit.
+     * leases.unit_id stays the MASTER unit (see masterUnit()).
+     */
+    public function units(): BelongsToMany
+    {
+        return $this->belongsToMany(Unit::class, 'lease_unit')
+            ->withPivot('is_master')
+            ->withTimestamps();
+    }
+
+    /** The master unit — the lease's primary unit (= leases.unit_id). */
+    public function masterUnit(): BelongsTo
+    {
+        return $this->unit();
+    }
+
+    /**
+     * Set the full unit set for this lease and designate one master, keeping
+     * leases.unit_id (= master) in sync and recomputing occupancy for every
+     * affected unit. The master defaults to the first id when not supplied.
+     *
+     * @param  array<int>  $unitIds
+     */
+    public function syncUnits(array $unitIds, ?int $masterUnitId = null): void
+    {
+        $unitIds = array_values(array_unique(array_map('intval', $unitIds)));
+        if ($unitIds === []) {
+            return;
+        }
+
+        $master = in_array((int) $masterUnitId, $unitIds, true) ? (int) $masterUnitId : $unitIds[0];
+        $previous = $this->units()->pluck('units.id')->all();
+
+        $pivot = [];
+        foreach ($unitIds as $id) {
+            $pivot[$id] = ['is_master' => $id === $master];
+        }
+        $this->units()->sync($pivot);
+
+        if ((int) $this->unit_id !== $master) {
+            $this->forceFill(['unit_id' => $master])->saveQuietly();
+        }
+
+        Unit::whereIn('id', array_unique([...$previous, ...$unitIds]))
+            ->get()
+            ->each
+            ->recomputeStatus();
     }
 
     public function tenant(): BelongsTo

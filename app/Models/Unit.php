@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -39,6 +40,16 @@ class Unit extends Model
         return $this->hasMany(Lease::class);
     }
 
+    /**
+     * Every lease that includes this unit (master OR additional) via the
+     * lease_unit pivot. This is the occupancy-relevant relationship for
+     * multi-unit leases — leases() only finds leases where this is the master.
+     */
+    public function allLeases(): BelongsToMany
+    {
+        return $this->belongsToMany(Lease::class, 'lease_unit')->withPivot('is_master');
+    }
+
     public function maintenanceRequests(): HasMany
     {
         return $this->hasMany(MaintenanceRequest::class);
@@ -59,6 +70,30 @@ class Unit extends Model
     public function currentTenant(): ?Tenant
     {
         return $this->activeLease?->tenant;
+    }
+
+    /**
+     * Project this unit's status from the leases that include it (via the
+     * lease_unit pivot, so multi-unit leases count). 'maintenance' is a manual
+     * override and never auto-overwritten. Idempotent.
+     */
+    public function recomputeStatus(): void
+    {
+        if ($this->status === 'maintenance') {
+            return;
+        }
+
+        $statuses = $this->allLeases()->pluck('leases.status');
+
+        $target = match (true) {
+            $statuses->contains('active') => 'occupied',
+            $statuses->intersect(['draft', 'pending_approval', 'renewed'])->isNotEmpty() => 'reserved',
+            default => 'vacant',
+        };
+
+        if ($this->status !== $target) {
+            $this->update(['status' => $target]);
+        }
     }
 
     // Get display name like "Haya Walk · A-01"
