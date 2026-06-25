@@ -53,7 +53,7 @@ it('walks the happy path: submitted → acknowledged → in_progress → resolve
 
 it('assigns a user and auto-acknowledges from submitted', function () {
     $svc = app(MaintenanceRequestService::class);
-    $assignee = makeUser('maintenance_manager');
+    $assignee = makeUser('operations');
 
     $request = $svc->create([
         'title' => 'X', 'description' => 'Y', 'priority' => 'low', 'category' => 'other',
@@ -67,7 +67,7 @@ it('assigns a user and auto-acknowledges from submitted', function () {
 
 it('logs internal vs tenant-visible comments', function () {
     $svc = app(MaintenanceRequestService::class);
-    $author = makeUser('maintenance_manager');
+    $author = makeUser('operations');
 
     $request = $svc->create([
         'title' => 'X', 'description' => 'Y', 'priority' => 'low', 'category' => 'other',

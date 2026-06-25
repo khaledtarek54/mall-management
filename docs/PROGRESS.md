@@ -22,7 +22,7 @@
 **Your notes:** _____________________
 
 ### 2. Department access = roles (register a user → they get access) · ✅ Built · ☐ Validated
-**What it does:** access is by **role**, not the department record. Each department has a matching role with that department's permissions; **registering a user into a department grants the role**, so they see only that department's pages (covers "users registered to departments").
+**What it does:** access is by **role**, not the department record. Each department has a **same-named** role (leasing / operations / accounting / marketing / hr), **strictly scoped** to its own pages; **registering a user into a department grants that role**, so they see only that department's pages (covers "users registered to departments"). Cross-cutting roles: super_admin, manager, viewer, owner.
 **How to test:** `/admin` → Departments → **Accounting** → **Members** tab → attach a user. Then log in as that user.
 - They see **only** Accounting's resources (Invoices / Payments / Credit Notes / CAM), nothing else.
 - Detach them → access is removed.

@@ -14,7 +14,7 @@ class EnergyConsumptionTrend extends ChartWidget
 
     protected static function allowedRoles(): array
     {
-        return ['manager', 'maintenance_manager', 'viewer'];
+        return ['manager', 'operations', 'viewer'];
     }
 
     protected static function widgetModule(): ?string

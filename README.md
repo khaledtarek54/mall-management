@@ -37,8 +37,8 @@ Visit the landing page at `http://localhost:8000/` (or `http://mall-management.t
 | `/admin` | `admin@mall.test` | super_admin |
 | `/admin` | `manager@mall.test` | manager |
 | `/admin` | `viewer@mall.test` | viewer |
-| `/admin` | `leasing@mall.test` | leasing_manager |
-| `/admin` | `maintenance@mall.test` | maintenance_manager |
+| `/admin` | `leasing@mall.test` | leasing |
+| `/admin` | `maintenance@mall.test` | operations |
 | `/admin` | `owner@atriom.test` | owner — RBAC user scoped to Atriom Walk |
 | `/portal` | `tenant1@haya.test` | Café Crema (tenant) |
 | `/portal` | `tenant2@haya.test` | Optix Eyewear (tenant) |
@@ -56,7 +56,7 @@ Hitting `/admin` bare redirects to `/admin/{first-property}/...`. Users with mor
 - **CAM Reconciliation** — Annual common-area-expense pools with pro-rata allocations and per-allocation billing
 - **ETA e-invoicing** — Document JSON builder, signing, status persistence. Module-toggleable from `/admin/settings → Modules`; mock mode by default; flip `ETA_MOCK=false` when preprod credentials land
 - **Per-property tenancy (Filament panel)** — URL-scoped to `/admin/{property-code}/...`, property switcher in top nav, "All Properties" portfolio view for users with multi-mall access, per-tenant tables / widgets / forms throughout
-- **RBAC** — 6 roles (super_admin / manager / leasing_manager / maintenance_manager / viewer / owner) × 81 permissions × per-user property assignment via the `asset_user` pivot. New users default to every property selected
+- **RBAC** — 6 roles (super_admin / manager / leasing / operations / viewer / owner) × 81 permissions × per-user property assignment via the `asset_user` pivot. New users default to every property selected
 - **Module feature flags** — credit_notes, maintenance, tenant_sales, cam, utility_meters, vendors, notes, reports, activity_log, eta — each toggleable from Settings; disabled modules hide from sidebar + dashboard + block route access
 - **Maintenance** — Tenant submissions, admin triage with SLA tracking, polymorphic comments, photo attachments
 - **Energy & Utilities** — Meter management with monthly readings + 12-month consumption chart

@@ -25,11 +25,11 @@ beforeEach(function () {
 
     // Two operators assigned to this asset; one not assigned.
     $this->managerOnAsset = makeUser('manager', [$this->asset->id]);
-    $this->maintOnAsset = makeUser('maintenance_manager', [$this->asset->id]);
+    $this->maintOnAsset = makeUser('operations', [$this->asset->id]);
     $this->managerOffAsset = makeUser('manager');
 });
 
-it('a portal maintenance submission notifies assigned managers + maintenance_managers, not others', function () {
+it('a portal maintenance submission notifies assigned managers + operationss, not others', function () {
     Notification::fake();
 
     app(MaintenanceRequestService::class)->create([
@@ -62,10 +62,10 @@ it('a super_admin always receives operator-side notifications, even when not ass
     Notification::assertSentTo($this->managerOnAsset, PortalMaintenanceSubmittedNotification::class);
 });
 
-it('a portal sales declaration submission notifies assigned managers + leasing_managers', function () {
+it('a portal sales declaration submission notifies assigned managers + leasings', function () {
     Notification::fake();
-    $leasingOnAsset = makeUser('leasing_manager', [$this->asset->id]);
-    $leasingOffAsset = makeUser('leasing_manager');
+    $leasingOnAsset = makeUser('leasing', [$this->asset->id]);
+    $leasingOffAsset = makeUser('leasing');
 
     Filament::setCurrentPanel(Filament::getPanel('portal'));
     $this->actingAs($this->tenant, 'portal');

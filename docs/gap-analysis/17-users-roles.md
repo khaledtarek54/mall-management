@@ -39,8 +39,8 @@
 | `manager` | Day-to-day ops: create/edit all modules, no delete, no settings/roles |
 | `viewer` | All `.view` + `reports.download` |
 | `owner` | Owner portal: `assets.view, units.view, leases.view, invoices.view, maintenance.view, reports.*` |
-| `leasing_manager` | Lease + tenant pipeline + invoicing; no payments/CAM/maintenance |
-| `maintenance_manager` | Maintenance triage + vendor dispatch: `maintenance.*, vendors.*, utility_meters.view, notes.*` |
+| `leasing` | Lease + tenant pipeline + invoicing; no payments/CAM/maintenance |
+| `operations` | Maintenance triage + vendor dispatch: `maintenance.*, vendors.*, utility_meters.view, notes.*` |
 
 **81 permissions** in `RolesPermissionsSeeder::PERMISSIONS` across 18 modules. Naming: `{module}.{action}` — `assets.view`, `invoices.run_monthly_billing`, `leases.renew`, `tenant_sales.lock`, `cam.bill_allocation`, etc. Clear, greppable, audit-friendly.
 
@@ -133,7 +133,7 @@ CreateRole and EditRole call `forgetCachedPermissions()` after save — so role 
 | Full Pest | **295 passed / 0 failed** | 4.x s |
 
 Highlights:
-- [Auth/PermissionsTest](../../tests/Feature/Auth/PermissionsTest.php) — super_admin/viewer/manager/leasing_manager/maintenance_manager permission matrices.
+- [Auth/PermissionsTest](../../tests/Feature/Auth/PermissionsTest.php) — super_admin/viewer/manager/leasing/operations permission matrices.
 - [Users/UserPropertyAssignmentTest](../../tests/Feature/Users/UserPropertyAssignmentTest.php) — create form defaults, edit form preserves state, restricted/unrestricted tenant visibility.
 - [Tenancy/UserTenantsTest](../../tests/Feature/Tenancy/UserTenantsTest.php) — ALL prepend logic, soft-deleted block.
 

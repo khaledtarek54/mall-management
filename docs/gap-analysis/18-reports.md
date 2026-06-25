@@ -64,9 +64,9 @@
 
 Compare to Settings page which DOES gate by `Auth::user()?->can('settings.view')`.
 
-Realistically: should `maintenance_manager` see AR aging numbers? Should `viewer` see Monthly Close PDF? Probably yes — viewers and managers commonly review reports. But the omission is unintentional, not a deliberate design choice.
+Realistically: should `operations` see AR aging numbers? Should `viewer` see Monthly Close PDF? Probably yes — viewers and managers commonly review reports. But the omission is unintentional, not a deliberate design choice.
 
-**Fix scope (deferred D-53):** add `canAccess() = Modules::enabled('reports') && Auth::user()?->can('reports.view')` on Reports + ArAging. Decide whether to grant `reports.view` to `maintenance_manager` (probably yes for AR Aging if they need to chase delinquent F&B tenants).
+**Fix scope (deferred D-53):** add `canAccess() = Modules::enabled('reports') && Auth::user()?->can('reports.view')` on Reports + ArAging. Decide whether to grant `reports.view` to `operations` (probably yes for AR Aging if they need to chase delinquent F&B tenants).
 
 ### 🟡 F-69. Exporters all run synchronously
 
@@ -108,7 +108,7 @@ All 3 Yellow findings are scope/policy decisions. F-68 in particular needs an ex
 
 | # | Decision | Default |
 |---|---|---|
-| D-53 | F-68: gate Reports + ArAging on `reports.view` | Apply — small one-liner per page; grant `reports.view` to viewer/manager/leasing_manager/maintenance_manager |
+| D-53 | F-68: gate Reports + ArAging on `reports.view` | Apply — small one-liner per page; grant `reports.view` to viewer/manager/leasing/operations |
 | D-54 | F-69: flip Exporters to queued | Apply once queue worker is provisioned (production checklist item) |
 | D-55 | F-70: cache ReportService results | Defer until first scale event |
 

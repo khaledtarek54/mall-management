@@ -88,7 +88,7 @@
 - [ ] 2FA decision (D-50 / F-65): integrate `laravel/fortify` or `pragma/laravel-2fa` for super_admin role minimum
 - [ ] User CRUD has activity log (D-52 / F-67) — small fix worth applying pre-launch
 - [ ] Tenant + Vendor `tax_id` format validation (D-44 / F-59) before ETA cutover
-- [ ] Reports + ArAging permission gating (D-53 / F-68) — viewer / manager / leasing_manager / maintenance_manager get `reports.view`
+- [ ] Reports + ArAging permission gating (D-53 / F-68) — viewer / manager / leasing / operations get `reports.view`
 
 ## 11. Monitoring
 

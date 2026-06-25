@@ -16,7 +16,7 @@ class OpenMaintenanceRequests extends TableWidget
 
     protected static function allowedRoles(): array
     {
-        return ['manager', 'maintenance_manager'];
+        return ['manager', 'operations'];
     }
 
     protected static function widgetModule(): ?string

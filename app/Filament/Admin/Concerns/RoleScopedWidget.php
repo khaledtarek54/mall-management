@@ -23,7 +23,7 @@ trait RoleScopedWidget
      */
     protected static function allowedRoles(): array
     {
-        return ['super_admin', 'manager', 'viewer', 'leasing_manager', 'maintenance_manager'];
+        return ['super_admin', 'manager', 'viewer', 'leasing', 'operations'];
     }
 
     /**

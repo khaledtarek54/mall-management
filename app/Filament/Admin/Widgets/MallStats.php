@@ -18,7 +18,7 @@ class MallStats extends StatsOverviewWidget
     // Headline KPIs — everyone with admin access sees these.
     protected static function allowedRoles(): array
     {
-        return ['manager', 'viewer', 'leasing_manager', 'maintenance_manager'];
+        return ['manager', 'viewer', 'leasing', 'operations'];
     }
 
     // Dashboard order: SetupGuide(-1) → ActionRequired(0) → MallStats(1)

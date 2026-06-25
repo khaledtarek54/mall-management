@@ -15,7 +15,7 @@ class ExpiringLeases extends TableWidget
 
     protected static function allowedRoles(): array
     {
-        return ['manager', 'leasing_manager', 'viewer'];
+        return ['manager', 'leasing', 'viewer'];
     }
 
     protected static ?int $sort = 5;

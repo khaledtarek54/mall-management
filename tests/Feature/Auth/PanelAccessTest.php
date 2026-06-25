@@ -10,7 +10,7 @@ beforeEach(function () {
 it('lets every non-owner role into the admin panel', function () {
     $adminPanel = Filament::getPanel('admin');
 
-    foreach (['super_admin', 'manager', 'leasing_manager', 'maintenance_manager', 'viewer'] as $role) {
+    foreach (['super_admin', 'manager', 'leasing', 'operations', 'viewer'] as $role) {
         $user = makeUser($role);
         expect($user->canAccessPanel($adminPanel))->toBeTrue("Role {$role} should access /admin");
     }

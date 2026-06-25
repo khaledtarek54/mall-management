@@ -13,7 +13,7 @@ class TenantMix extends ChartWidget
 
     protected static function allowedRoles(): array
     {
-        return ['manager', 'leasing_manager', 'viewer'];
+        return ['manager', 'leasing', 'viewer'];
     }
 
     public function getHeading(): ?string

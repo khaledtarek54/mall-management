@@ -32,7 +32,7 @@ pest()->extend(TestCase::class)
  */
 function seedRoles(): void
 {
-    foreach (['super_admin', 'manager', 'leasing_manager', 'maintenance_manager', 'viewer', 'owner'] as $role) {
+    foreach (['super_admin', 'manager', 'leasing', 'operations', 'viewer', 'owner'] as $role) {
         Role::findOrCreate($role, 'web');
     }
 }

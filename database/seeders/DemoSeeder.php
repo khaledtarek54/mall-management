@@ -61,8 +61,8 @@ class DemoSeeder extends Seeder
             ['email' => 'manager@mall.test',     'name' => 'Operations Manager',   'role' => 'manager'],
             ['email' => 'viewer@mall.test',      'name' => 'Property Auditor',     'role' => 'viewer'],
             ['email' => 'owner@atriom.test',     'name' => 'Property Owner',       'role' => 'owner'],
-            ['email' => 'leasing@mall.test',     'name' => 'Leasing Manager',      'role' => 'leasing_manager'],
-            ['email' => 'maintenance@mall.test', 'name' => 'Maintenance Manager',  'role' => 'maintenance_manager'],
+            ['email' => 'leasing@mall.test',     'name' => 'Leasing Manager',      'role' => 'leasing'],
+            ['email' => 'maintenance@mall.test', 'name' => 'Maintenance Manager',  'role' => 'operations'],
         ];
         foreach ($users as $u) {
             $user = User::updateOrCreate(

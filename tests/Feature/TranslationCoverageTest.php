@@ -31,7 +31,7 @@ class TranslationCoverageTest extends TestCase
         // at runtime. Pulled from the source-of-truth — DB enums + Spatie role seeder.
         $coverage = [
             // Spatie roles (RolesPermissionsSeeder)
-            'users.roles_list' => ['super_admin', 'manager', 'viewer', 'owner', 'leasing_manager', 'maintenance_manager'],
+            'users.roles_list' => ['super_admin', 'manager', 'viewer', 'owner', 'leasing', 'operations'],
 
             // Status enums (mirror the migration enum lists)
             'statuses.lease' => ['draft', 'pending_approval', 'active', 'expired', 'renewed', 'terminated', 'cancelled'],

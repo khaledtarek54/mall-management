@@ -16,20 +16,24 @@ use Spatie\Permission\PermissionRegistrar;
  *
  * Custom roles created by admins via the UI live in the `roles` table
  * alongside these and can hold any combination of the same permissions.
+ *
+ * The five DEPARTMENT roles (leasing / operations / accounting / marketing /
+ * hr) are **strictly scoped** to their own department's resources — each sees
+ * only its own sidebar group. `super_admin` and `manager` are cross-department.
  */
 class RolesPermissionsSeeder extends Seeder
 {
     /** @var array<string, string> name => description */
     public const ROLES = [
-        'super_admin'         => 'Full access — create, edit, delete, view everything plus settings + role management.',
-        'manager'             => 'Day-to-day operations — create + edit on every module, no delete, no settings.',
-        'viewer'              => 'Read-only access for stakeholders + auditors.',
-        'owner'               => 'Jawad owner — read-only oversight of owned properties in the admin app + owner requests.',
-        'leasing_manager'     => 'Leasing department — properties, units, tenants, leases.',
-        'maintenance_manager' => 'Operations department — maintenance triage, vendor dispatch, SLA, meters.',
-        'accounting'          => 'Accounting department — invoices, payments, credit notes, CAM, marketing receipts.',
-        'marketing'           => 'Marketing department — offers, promotions, events, the marketing budget.',
-        'hr'                  => 'HR department — staff accounts, roles, departments.',
+        'super_admin' => 'Full access — create, edit, delete, view everything plus settings + role management.',
+        'manager'     => 'General manager — create + edit on every module, no delete, no settings.',
+        'viewer'      => 'Read-only access for stakeholders + auditors.',
+        'owner'       => 'Jawad owner — read-only oversight of owned properties in the admin app + owner requests.',
+        'leasing'     => 'Leasing department — properties, units, tenants, leases, sales.',
+        'operations'  => 'Operations department — maintenance, vendor dispatch, meters.',
+        'accounting'  => 'Accounting department — invoices, payments, credit notes, CAM, reports.',
+        'marketing'   => 'Marketing department — the marketing budget + spend.',
+        'hr'          => 'HR department — staff accounts, roles, departments.',
     ];
 
     /**
@@ -219,43 +223,38 @@ class RolesPermissionsSeeder extends Seeder
             ->all();
         Role::findByName('viewer', 'web')->syncPermissions($viewerPerms);
 
-        // owner: limited read on the modules that show up in the /owner panel.
-        // owner: Jawad owners — read-only oversight of their portfolio (now in
-        // the admin app) plus the right to raise + track owner requests.
+        // owner: Jawad owners — read-only oversight of their owned properties
+        // (in the admin app) plus the right to raise + track owner requests.
         Role::findByName('owner', 'web')->syncPermissions([
             'assets.view', 'units.view', 'leases.view', 'invoices.view',
             'maintenance.view', 'reports.view', 'reports.download',
             'owner_requests.view', 'owner_requests.create',
         ]);
 
-        // leasing_manager: full lease/tenant workflow + view supporting modules.
-        Role::findByName('leasing_manager', 'web')->syncPermissions([
-            'assets.view', 'units.view',
+        // ---- DEPARTMENT roles: strictly scoped to their own sidebar group ----
+
+        // leasing: Properties, Units, Tenants, Leases, Tenant Sales.
+        Role::findByName('leasing', 'web')->syncPermissions([
+            'assets.view',
+            'units.view', 'units.create', 'units.edit',
             'tenants.view', 'tenants.create', 'tenants.edit',
             'leases.view', 'leases.create', 'leases.edit',
             'leases.terminate', 'leases.renew', 'leases.generate_invoice',
-            'invoices.view', 'invoices.create',
             'tenant_sales.view', 'tenant_sales.lock', 'tenant_sales.dispute',
             'notes.view', 'notes.create',
-            'reports.view',
         ]);
 
-        // maintenance_manager: maintenance workflow + vendor dispatch.
-        // Reports.view granted so they can drill into AR aging to chase
-        // delinquent F&B tenants (audit M18 D-53 follow-on).
-        Role::findByName('maintenance_manager', 'web')->syncPermissions([
-            'assets.view', 'units.view', 'tenants.view',
+        // operations: Maintenance, Vendors, Utility Meters.
+        Role::findByName('operations', 'web')->syncPermissions([
             'maintenance.view', 'maintenance.create', 'maintenance.edit',
             'maintenance.assign', 'maintenance.change_status',
             'vendors.view', 'vendors.create', 'vendors.edit',
-            'utility_meters.view',
+            'utility_meters.view', 'utility_meters.create', 'utility_meters.edit',
             'notes.view', 'notes.create',
-            'reports.view',
         ]);
 
-        // accounting department — billing, payments, credit notes, CAM.
+        // accounting: Invoices, Payments, Credit Notes, CAM, Reports.
         Role::findByName('accounting', 'web')->syncPermissions([
-            'assets.view', 'units.view', 'tenants.view',
             'invoices.view', 'invoices.create', 'invoices.edit',
             'invoices.run_monthly_billing', 'invoices.submit_to_eta', 'invoices.send_whatsapp',
             'payments.view', 'payments.create', 'payments.edit',
@@ -263,23 +262,19 @@ class RolesPermissionsSeeder extends Seeder
             'credit_notes.issue', 'credit_notes.apply', 'credit_notes.void',
             'cam.view', 'cam.create', 'cam.edit',
             'cam.generate_allocations', 'cam.bill_allocation', 'cam.mark_reconciled',
-            'marketing.view',
             'reports.view', 'reports.download',
         ]);
 
-        // marketing department — offers/promotions/events + the marketing budget.
+        // marketing: Marketing Budgets + spend.
         Role::findByName('marketing', 'web')->syncPermissions([
-            'assets.view',
             'marketing.view', 'marketing.create', 'marketing.edit',
-            'reports.view',
         ]);
 
-        // hr department — staff accounts, roles, departments.
+        // hr: Users, Roles, Departments.
         Role::findByName('hr', 'web')->syncPermissions([
             'users.view', 'users.create', 'users.edit',
             'roles.view',
             'departments.view',
-            'activity_log.view',
         ]);
     }
 

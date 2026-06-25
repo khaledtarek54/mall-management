@@ -1277,8 +1277,11 @@ return [
             'manager' => 'مدير تشغيلي',
             'viewer' => 'مشاهد',
             'owner' => 'مالك',
-            'leasing_manager' => 'مدير التأجير',
-            'maintenance_manager' => 'مدير الصيانة',
+            'leasing' => 'التأجير',
+            'operations' => 'العمليات',
+            'accounting' => 'المحاسبة',
+            'marketing' => 'التسويق',
+            'hr' => 'الموارد البشرية',
         ],
     ],
 

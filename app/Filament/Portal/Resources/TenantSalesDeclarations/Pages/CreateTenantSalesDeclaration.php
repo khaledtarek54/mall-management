@@ -31,14 +31,14 @@ class CreateTenantSalesDeclaration extends CreateRecord
 
         app(PercentageRentCalculationService::class)->recalculate($declaration);
 
-        // Operator-side bell: managers + leasing_managers assigned to the
+        // Operator-side bell: managers + leasings assigned to the
         // lease's asset, plus every super_admin, get a database notification so
         // the new declaration surfaces in their triage queue. Mail skipped —
         // high frequency at scale; the admin Sales Declarations nav badge
         // already counts submitted rows.
         $recipients = app(AssetStaffRecipients::class)->for(
             $declaration->lease?->unit?->asset_id,
-            ['manager', 'leasing_manager'],
+            ['manager', 'leasing'],
         );
 
         try {

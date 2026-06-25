@@ -7,8 +7,8 @@ use Database\Seeders\RolesPermissionsSeeder;
 beforeEach(fn () => $this->seed(RolesPermissionsSeeder::class));
 
 it('maps each department to its access role', function () {
-    expect((new Department(['slug' => 'leasing']))->roleName())->toBe('leasing_manager')
-        ->and((new Department(['slug' => 'operations']))->roleName())->toBe('maintenance_manager')
+    expect((new Department(['slug' => 'leasing']))->roleName())->toBe('leasing')
+        ->and((new Department(['slug' => 'operations']))->roleName())->toBe('operations')
         ->and((new Department(['slug' => 'accounting']))->roleName())->toBe('accounting')
         ->and((new Department(['slug' => 'marketing']))->roleName())->toBe('marketing')
         ->and((new Department(['slug' => 'hr']))->roleName())->toBe('hr');

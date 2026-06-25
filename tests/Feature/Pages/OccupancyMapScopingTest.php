@@ -19,7 +19,7 @@ function occupancyViewData(OccupancyMap $page): array
 
 it('restricts the property list + selection to the staff member\'s assigned assets', function () {
     // Maintenance manager assigned to Haya Walk only.
-    $user = makeUser('maintenance_manager', [$this->hw->id]);
+    $user = makeUser('operations', [$this->hw->id]);
     $this->actingAs($user);
 
     $page = new OccupancyMap;

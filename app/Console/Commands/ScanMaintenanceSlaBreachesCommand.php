@@ -51,7 +51,7 @@ class ScanMaintenanceSlaBreachesCommand extends Command
             try {
                 $assetId = $request->unit?->asset_id;
                 $service = app(AssetStaffRecipients::class);
-                $recipients = $service->for($assetId, ['manager', 'maintenance_manager'])
+                $recipients = $service->for($assetId, ['manager', 'operations'])
                     // Jawad owners get the oversight alert too (FR MNT-5).
                     ->merge($service->owners($assetId))
                     ->unique('id')

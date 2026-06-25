@@ -77,11 +77,9 @@ class Department extends Model
      */
     public function roleName(): string
     {
-        return match ($this->slug) {
-            'leasing' => 'leasing_manager',
-            'operations' => 'maintenance_manager',
-            default => $this->slug, // accounting, marketing, hr
-        };
+        // A department's slug IS its access-role name
+        // (leasing / operations / accounting / marketing / hr).
+        return $this->slug;
     }
 
     /** Assign this department's role to every current member (idempotent). */

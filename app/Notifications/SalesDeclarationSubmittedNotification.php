@@ -8,7 +8,7 @@ use Illuminate\Notifications\Notification;
 
 /**
  * Operator-side bell entry when a tenant submits a sales declaration from
- * the portal. Routes to manager + leasing_manager users assigned to the
+ * the portal. Routes to manager + leasing users assigned to the
  * lease's asset. Mail intentionally skipped.
  */
 class SalesDeclarationSubmittedNotification extends Notification

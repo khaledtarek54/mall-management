@@ -54,7 +54,7 @@ Departments map cleanly onto what exists today plus two net-new modules:
 | **Marketing** | Offers, promotions, events, printed work, 5% budget | 🔵 **net-new** |
 | **HR** | Staff records & internal workflows | 🔵 **net-new** |
 
-🔧 **ACC/DEPT-design:** A `Department` is a first-class, **data-driven** entity (not a hard-coded enum) so new departments are added without a migration. The existing `manager / leasing_manager / maintenance_manager` RBAC roles map into departments; departments are the *org* axis, RBAC roles are the *permission* axis — kept separate.
+🔧 **ACC/DEPT-design:** A `Department` is a first-class, **data-driven** entity (not a hard-coded enum) so new departments are added without a migration. The existing `manager / leasing / operations` RBAC roles map into departments; departments are the *org* axis, RBAC roles are the *permission* axis — kept separate.
 
 ---
 
@@ -130,7 +130,7 @@ The platform is **multi-property**: an `Asset` is one mall; everything hangs off
 - **DEPT-3** ⏸️ `[DEFERRED]` — Department **requests/payments route through Accounting** for approval/processing. Exact workflow to be defined with the accounting team. See [§10 ACCT](#10-accounting-hub-acct).
 - **DEPT-4** 🔧 `[design]` — Department membership is separate from spatie RBAC roles (which stay global). Keep "who is in which department at which property" flexible, mirroring the existing `asset_user` pattern.
 - **DEPT-5** 🔧 `[design]` — Each department is a self-contained ERP module (own resources, dashboard widgets, permissions) so departments can be added/toggled like the existing `ModulesSettings` feature flags.
-- **DEPT-6** 🟢 `[DONE]` — **Access via roles (hybrid, decided 2026-06-25).** Each department maps to a spatie role (`leasing`→`leasing_manager`, `operations`→`maintenance_manager`, + net-new `accounting`/`marketing`/`hr`) carrying that department's resource permissions. **Registering a user into a department grants the role** (`Department::registerMember()` / `roleName()`), so `RoleGatedActions` shows them only that department's pages. The Department model is **not** used for access control. The **admin sidebar is grouped by department** — Leasing / Operations / Accounting / Marketing / HR (+ Settings) — with each resource's `getNavigationGroup()` pointing at its department.
+- **DEPT-6** 🟢 `[DONE]` — **Access via roles (hybrid, decided 2026-06-25).** Each department maps to a **same-named** spatie role (`leasing` / `operations` / `accounting` / `marketing` / `hr` — slug == role name), **strictly scoped** to that department's resources (no cross-department views). Plus cross-cutting roles: `super_admin` (only role that can delete), `manager` (all modules, create+edit, no delete), `viewer` (read-only), `owner`. **Registering a user into a department grants the role** (`Department::registerMember()` / `roleName()`), so `RoleGatedActions` shows them only that department's pages. The Department model is **not** used for access control. The **admin sidebar is grouped by department** — Leasing / Operations / Accounting / Marketing / HR (+ Settings) — with each resource's `getNavigationGroup()` pointing at its department.
 
 ---
 

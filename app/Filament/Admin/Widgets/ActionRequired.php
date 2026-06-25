@@ -21,7 +21,7 @@ class ActionRequired extends Widget
     // ActionRequired is the inbox — every operational role sees it.
     protected static function allowedRoles(): array
     {
-        return ['manager', 'leasing_manager', 'maintenance_manager'];
+        return ['manager', 'leasing', 'operations'];
     }
 
     protected string $view = 'filament.admin.widgets.action-required';

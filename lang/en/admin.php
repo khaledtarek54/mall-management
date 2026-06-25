@@ -1277,8 +1277,11 @@ return [
             'manager' => 'Manager',
             'viewer' => 'Viewer',
             'owner' => 'Owner',
-            'leasing_manager' => 'Leasing Manager',
-            'maintenance_manager' => 'Maintenance Manager',
+            'leasing' => 'Leasing',
+            'operations' => 'Operations',
+            'accounting' => 'Accounting',
+            'marketing' => 'Marketing',
+            'hr' => 'HR',
         ],
     ],
 

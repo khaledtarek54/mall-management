@@ -66,7 +66,7 @@ class MaintenanceRequestService
     }
 
     /**
-     * Notify managers + maintenance_managers that a new portal-submitted
+     * Notify managers + operationss that a new portal-submitted
      * request needs triage. Database channel only — bell entry, no email.
      * Scopes to staff actually assigned to the unit's asset so multi-property
      * deployments don't fan out cross-property.
@@ -95,7 +95,7 @@ class MaintenanceRequestService
     }
 
     /**
-     * Property-team recipients for a request: managers / maintenance_managers
+     * Property-team recipients for a request: managers / operationss
      * assigned to the unit's asset, plus every super_admin (platform owners see
      * all property activity). Shared by the submit fan-out and tenant-comment
      * fan-out so both target the same people.
@@ -106,7 +106,7 @@ class MaintenanceRequestService
     {
         return app(AssetStaffRecipients::class)->for(
             $request->unit?->asset_id,
-            ['manager', 'maintenance_manager'],
+            ['manager', 'operations'],
         );
     }
 

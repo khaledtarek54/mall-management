@@ -144,8 +144,8 @@ Ranked by leverage (effort × demo impact for Eltizam-tier buyers):
 - `super_admin` sees everything (current)
 - `manager` sees ActionRequired + MallStats + AR Aging + MaintenanceRequests + RecentPayments (operational)
 - `viewer` sees MallStats + ArAging + RevenueTrend (read-only KPI view)
-- `leasing_manager` (new role) — ExpiringLeases + TenantMix + OccupancyMap shortcut + pipeline widget
-- `maintenance_manager` (new role) — OpenMaintenanceRequests + SLA dashboard + vendor performance
+- `leasing` (new role) — ExpiringLeases + TenantMix + OccupancyMap shortcut + pipeline widget
+- `operations` (new role) — OpenMaintenanceRequests + SLA dashboard + vendor performance
 
 **Effort**: ~2 days. New roles in `RolesPermissionsSeeder`, role-aware widget registration in `AdminPanelProvider`.
 

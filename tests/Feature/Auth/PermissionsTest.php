@@ -40,9 +40,9 @@ it('manager can create + edit operations but not delete or touch settings', func
     expect($manager->can('settings.edit'))->toBeFalse();
 });
 
-it('leasing_manager is scoped to leases + tenants modules', function () {
-    $lm = makeUser('leasing_manager');
-    $lm->syncRoles(['leasing_manager']);
+it('leasing is scoped to leases + tenants modules', function () {
+    $lm = makeUser('leasing');
+    $lm->syncRoles(['leasing']);
 
     expect($lm->can('leases.create'))->toBeTrue();
     expect($lm->can('tenants.create'))->toBeTrue();
@@ -50,9 +50,9 @@ it('leasing_manager is scoped to leases + tenants modules', function () {
     expect($lm->can('maintenance.assign'))->toBeFalse();
 });
 
-it('maintenance_manager is scoped to maintenance', function () {
-    $mm = makeUser('maintenance_manager');
-    $mm->syncRoles(['maintenance_manager']);
+it('operations is scoped to maintenance', function () {
+    $mm = makeUser('operations');
+    $mm->syncRoles(['operations']);
 
     expect($mm->can('maintenance.create'))->toBeTrue();
     expect($mm->can('maintenance.edit'))->toBeTrue();

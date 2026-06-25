@@ -32,7 +32,7 @@ class SetupGuide extends Widget
     {
         // Only operational + admin roles see the setup guide. Viewers and
         // owners don't drive setup, they consume it.
-        return ['manager', 'leasing_manager'];
+        return ['manager', 'leasing'];
     }
 
     protected string $view = 'filament.admin.widgets.setup-guide';

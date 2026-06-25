@@ -8,7 +8,7 @@ use Illuminate\Notifications\Notification;
 
 /**
  * Operator-side bell entry when a tenant submits a maintenance request via
- * the portal. Routes to manager + maintenance_manager users assigned to
+ * the portal. Routes to manager + operations users assigned to
  * the unit's asset. Mail intentionally skipped — high-frequency operations
  * channel, the bell is the right surface.
  */

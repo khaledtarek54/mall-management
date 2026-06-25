@@ -20,7 +20,7 @@ class LeasingPipeline extends StatsOverviewWidget
 
     protected static function allowedRoles(): array
     {
-        return ['manager', 'leasing_manager'];
+        return ['manager', 'leasing'];
     }
 
     protected static ?int $sort = 2;
