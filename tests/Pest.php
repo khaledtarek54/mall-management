@@ -93,6 +93,18 @@ function makeTenant(array $attrs = []): Tenant
     ], $attrs));
 }
 
+/** A portal login for a tenant (admin by default). actingAs(.., 'portal'). */
+function makeTenantUser(Tenant $tenant, bool $isAdmin = true): \App\Models\TenantUser
+{
+    return \App\Models\TenantUser::create([
+        'tenant_id' => $tenant->id,
+        'name' => $tenant->name . ' user',
+        'email' => 'tu' . uniqid() . '@test.local',
+        'password' => bcrypt('password'),
+        'is_admin' => $isAdmin,
+    ]);
+}
+
 function makeLease(Unit $unit, ?Tenant $tenant = null, array $attrs = []): Lease
 {
     $tenant ??= makeTenant();

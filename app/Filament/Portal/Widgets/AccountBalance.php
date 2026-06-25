@@ -16,7 +16,7 @@ class AccountBalance extends StatsOverviewWidget
     protected function getStats(): array
     {
         /** @var Tenant|null $tenant */
-        $tenant = Auth::guard('portal')->user();
+        $tenant = \App\Support\Portal::tenant();
 
         if (! $tenant) {
             return [];

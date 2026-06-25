@@ -18,7 +18,7 @@ class CreateMaintenanceRequest extends CreateRecord
     protected function handleRecordCreation(array $data): Model
     {
         /** @var Tenant $tenant */
-        $tenant = Auth::guard('portal')->user();
+        $tenant = \App\Support\Portal::tenant();
 
         $request = app(MaintenanceRequestService::class)->create($data, $tenant);
 

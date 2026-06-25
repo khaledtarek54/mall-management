@@ -22,7 +22,7 @@ class ListInvoices extends ListRecords
                 ->color('primary')
                 ->action(function () {
                     /** @var Tenant $tenant */
-                    $tenant = Auth::guard('portal')->user();
+                    $tenant = \App\Support\Portal::tenant();
                     $svc = app(TenantStatementPdfService::class);
                     $pdf = $svc->build($tenant);
                     return response()->streamDownload(

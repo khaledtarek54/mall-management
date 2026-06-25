@@ -14,7 +14,7 @@ beforeEach(function () {
     $this->invoice = makeInvoice($lease, ['status' => 'issued', 'paid_amount' => 0, 'balance' => 11400]);
 
     Filament::setCurrentPanel(Filament::getPanel('portal'));
-    $this->actingAs($this->tenant, 'portal');
+    $this->actingAs(makeTenantUser($this->tenant), 'portal');
 });
 
 afterEach(fn () => Filament::setCurrentPanel(Filament::getPanel('admin')));

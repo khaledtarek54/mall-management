@@ -19,7 +19,7 @@ class CreateTenantSalesDeclaration extends CreateRecord
     {
         $data['declared_at'] ??= now();
         $data['declared_by_type'] = Tenant::class;
-        $data['declared_by_id'] = Auth::guard('portal')->id();
+        $data['declared_by_id'] = \App\Support\Portal::tenantId();
         $data['status'] = 'submitted';
 
         return $data;

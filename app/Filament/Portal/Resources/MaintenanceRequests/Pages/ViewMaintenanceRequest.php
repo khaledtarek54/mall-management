@@ -41,7 +41,7 @@ class ViewMaintenanceRequest extends ViewRecord
                 ])
                 ->action(function (array $data) {
                     /** @var Tenant $tenant */
-                    $tenant = Auth::guard('portal')->user();
+                    $tenant = \App\Support\Portal::tenant();
                     app(MaintenanceRequestService::class)
                         ->comment($this->record, $tenant, $data['body'], false);
 

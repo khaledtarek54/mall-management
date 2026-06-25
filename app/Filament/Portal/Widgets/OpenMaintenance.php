@@ -26,7 +26,7 @@ class OpenMaintenance extends TableWidget
         return $table
             ->query(
                 fn (): Builder => MaintenanceRequest::query()
-                    ->where('tenant_id', Auth::guard('portal')->id())
+                    ->where('tenant_id', \App\Support\Portal::tenantId())
                     ->whereIn('status', MaintenanceRequest::OPEN_STATUSES)
                     ->with('unit')
                     ->latest('submitted_at')

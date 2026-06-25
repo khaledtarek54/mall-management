@@ -51,7 +51,7 @@ beforeEach(function () {
 });
 
 it('portal tenant A sees only their own CAM allocation, not Tenant B\'s', function () {
-    $this->actingAs($this->tenantA, 'portal');
+    $this->actingAs(makeTenantUser($this->tenantA), 'portal');
 
     Livewire::test(PortalListCamAllocations::class)
         ->assertCanSeeTableRecords([$this->allocA])
@@ -59,7 +59,7 @@ it('portal tenant A sees only their own CAM allocation, not Tenant B\'s', functi
 });
 
 it('portal tenant B sees only their own CAM allocation', function () {
-    $this->actingAs($this->tenantB, 'portal');
+    $this->actingAs(makeTenantUser($this->tenantB), 'portal');
 
     Livewire::test(PortalListCamAllocations::class)
         ->assertCanSeeTableRecords([$this->allocB])

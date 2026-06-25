@@ -61,7 +61,7 @@ class InvoiceResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->where('tenant_id', Auth::guard('portal')->id());
+            ->where('tenant_id', \App\Support\Portal::tenantId());
     }
 
     public static function canCreate(): bool

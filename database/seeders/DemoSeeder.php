@@ -183,6 +183,29 @@ class DemoSeeder extends Seeder
                 'status' => 'active',
             ]);
 
+            // Portal logins (req #9 multi-user): the first three tenants get an
+            // ADMIN TenantUser; tenant1 also gets a second, NON-admin (read-only)
+            // user so the admin-can-write / others-read-only split is demoable.
+            if ($i < 3) {
+                \App\Models\TenantUser::create([
+                    'tenant_id' => $tenant->id,
+                    'name' => $tenantData['contact'] ?? 'Tenant Admin',
+                    'email' => $portalEmail,
+                    'password' => $demoPassword,
+                    'is_admin' => true,
+                ]);
+
+                if ($i === 0) {
+                    \App\Models\TenantUser::create([
+                        'tenant_id' => $tenant->id,
+                        'name' => 'Tenant Staff (read-only)',
+                        'email' => 'staff1@atriomwalk.test',
+                        'password' => $demoPassword,
+                        'is_admin' => false,
+                    ]);
+                }
+            }
+
             // Create the lease
             $commencement = Carbon::now()->subMonths(rand(2, 10))->startOfMonth();
             $term = $tenantData['term'] ?? 36;

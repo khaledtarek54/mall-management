@@ -60,7 +60,7 @@ class CamAllocationResource extends Resource
     {
         return parent::getEloquentQuery()
             ->with(['pool.asset', 'lease.unit.asset'])
-            ->whereHas('lease', fn (Builder $q) => $q->where('tenant_id', Auth::guard('portal')->id()));
+            ->whereHas('lease', fn (Builder $q) => $q->where('tenant_id', \App\Support\Portal::tenantId()));
     }
 
     public static function canCreate(): bool

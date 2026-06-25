@@ -26,7 +26,7 @@ class TenantSalesDeclarationForm
                     Select::make('lease_id')
                         ->label(__('admin.resources.lease.singular'))
                         ->options(fn () => Lease::with('unit')
-                            ->where('tenant_id', Auth::guard('portal')->id())
+                            ->where('tenant_id', \App\Support\Portal::tenantId())
                             ->where('status', 'active')
                             ->where('has_percentage_rent', true)
                             ->get()

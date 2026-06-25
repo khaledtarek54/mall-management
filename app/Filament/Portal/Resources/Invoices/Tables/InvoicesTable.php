@@ -86,7 +86,7 @@ class InvoicesTable
                 SelectFilter::make('unit_id')
                     ->label(__('admin.filters.unit'))
                     ->options(function (): array {
-                        $tenant = Auth::guard('portal')->user();
+                        $tenant = \App\Support\Portal::tenant();
                         if (! $tenant) {
                             return [];
                         }

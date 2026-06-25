@@ -42,7 +42,7 @@ class MaintenanceRequestForm
                         ->label(__('admin.fields.unit_label'))
                         ->options(function () {
                             /** @var Tenant|null $tenant */
-                            $tenant = Auth::guard('portal')->user();
+                            $tenant = \App\Support\Portal::tenant();
                             if (! $tenant) {
                                 return [];
                             }
@@ -57,7 +57,7 @@ class MaintenanceRequestForm
                         ->columnSpanFull()
                         ->default(function () {
                             /** @var Tenant|null $tenant */
-                            $tenant = Auth::guard('portal')->user();
+                            $tenant = \App\Support\Portal::tenant();
                             return $tenant?->activeLeases()->first()?->unit_id;
                         }),
                     Textarea::make('description')

@@ -45,7 +45,7 @@ return [
         ],
         'portal' => [
             'driver' => 'session',
-            'provider' => 'tenants',
+            'provider' => 'tenant_users',
         ],
         // Mobile API — Sanctum token guard authenticating against the Tenant model.
         'tenant-api' => [
@@ -79,6 +79,12 @@ return [
         'tenants' => [
             'driver' => 'eloquent',
             'model' => Tenant::class,
+        ],
+        // Portal logins (req #9 multi-user). The portal guard authenticates a
+        // TenantUser; the Tenant company is reached via ->tenant.
+        'tenant_users' => [
+            'driver' => 'eloquent',
+            'model' => \App\Models\TenantUser::class,
         ],
     ],
 
@@ -114,6 +120,14 @@ return [
         // collide on the same reset token (the default table is keyed by email).
         'tenants' => [
             'provider' => 'tenants',
+            'table' => 'tenant_password_reset_tokens',
+            'expire' => 60,
+            'throttle' => 60,
+        ],
+        // Portal multi-user password reset (req #9). Shares the tenant reset
+        // table (keyed by email; tenant-user emails are unique).
+        'tenant_users' => [
+            'provider' => 'tenant_users',
             'table' => 'tenant_password_reset_tokens',
             'expire' => 60,
             'throttle' => 60,

@@ -68,7 +68,7 @@ it('a portal sales declaration submission notifies assigned managers + leasings'
     $leasingOffAsset = makeUser('leasing');
 
     Filament::setCurrentPanel(Filament::getPanel('portal'));
-    $this->actingAs($this->tenant, 'portal');
+    $this->actingAs(makeTenantUser($this->tenant), 'portal');
 
     Livewire::test(CreateTenantSalesDeclaration::class)
         ->fillForm([

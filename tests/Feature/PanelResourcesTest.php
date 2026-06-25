@@ -96,7 +96,7 @@ it('Portal InvoiceResource filters to invoices the authenticated tenant owns', f
     $otherLease = makeLease($this->unit, $otherTenant);
     $strangerInvoice = makeInvoice($otherLease);
 
-    auth('portal')->login($this->tenant);
+    auth('portal')->login(makeTenantUser($this->tenant));
 
     $ids = PortalInvoiceResource::getEloquentQuery()->pluck('id')->all();
     expect($ids)->toContain($mine->id);
@@ -121,7 +121,7 @@ it('Portal PaymentResource scoped via Auth::guard(portal)', function () {
         'currency' => 'EGP', 'payment_date' => now(),
     ]);
 
-    auth('portal')->login($this->tenant);
+    auth('portal')->login(makeTenantUser($this->tenant));
 
     $ids = PortalPaymentResource::getEloquentQuery()->pluck('id')->all();
     expect($ids)->toContain($payment->id);
@@ -137,7 +137,7 @@ it('Portal MaintenanceRequestResource scoped via Auth::guard(portal); canCreate=
         'submitted_at' => now(),
     ]);
 
-    auth('portal')->login($this->tenant);
+    auth('portal')->login(makeTenantUser($this->tenant));
 
     $ids = PortalMRResource::getEloquentQuery()->pluck('id')->all();
     expect($ids)->toContain($mine->id);
@@ -155,7 +155,7 @@ it('Portal TenantSalesDeclarationResource scoped via lease.tenant_id', function 
         'status' => 'submitted',
     ]);
 
-    auth('portal')->login($this->tenant);
+    auth('portal')->login(makeTenantUser($this->tenant));
 
     $ids = PortalTSDResource::getEloquentQuery()->pluck('id')->all();
     expect($ids)->toContain($tsd->id);
