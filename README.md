@@ -39,6 +39,9 @@ Visit the landing page at `http://localhost:8000/` (or `http://mall-management.t
 | `/admin` | `viewer@mall.test` | viewer |
 | `/admin` | `leasing@mall.test` | leasing |
 | `/admin` | `maintenance@mall.test` | operations |
+| `/admin` | `accounting@mall.test` | accounting |
+| `/admin` | `marketing@mall.test` | marketing |
+| `/admin` | `hr@mall.test` | hr |
 | `/admin` | `owner@atriom.test` | owner — RBAC user scoped to Atriom Walk |
 | `/portal` | `tenant1@haya.test` | Café Crema (tenant) |
 | `/portal` | `tenant2@haya.test` | Optix Eyewear (tenant) |

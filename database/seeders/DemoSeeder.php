@@ -63,6 +63,9 @@ class DemoSeeder extends Seeder
             ['email' => 'owner@atriom.test',     'name' => 'Property Owner',       'role' => 'owner'],
             ['email' => 'leasing@mall.test',     'name' => 'Leasing Manager',      'role' => 'leasing'],
             ['email' => 'maintenance@mall.test', 'name' => 'Maintenance Manager',  'role' => 'operations'],
+            ['email' => 'accounting@mall.test',  'name' => 'Accounting Lead',      'role' => 'accounting'],
+            ['email' => 'marketing@mall.test',   'name' => 'Marketing Lead',       'role' => 'marketing'],
+            ['email' => 'hr@mall.test',          'name' => 'HR Lead',              'role' => 'hr'],
         ];
         foreach ($users as $u) {
             $user = User::updateOrCreate(
@@ -1362,6 +1365,9 @@ class DemoSeeder extends Seeder
             ['email' => 'manager@mall.test',     'role' => 'Operations Manager'],
             ['email' => 'leasing@mall.test',     'role' => 'Leasing Lead'],
             ['email' => 'maintenance@mall.test', 'role' => 'Facilities Supervisor'],
+            ['email' => 'accounting@mall.test',  'role' => 'Accounting Lead'],
+            ['email' => 'marketing@mall.test',   'role' => 'Marketing Lead'],
+            ['email' => 'hr@mall.test',          'role' => 'HR Lead'],
         ];
 
         foreach ($assignments as $a) {
