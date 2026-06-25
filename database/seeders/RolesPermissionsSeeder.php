@@ -223,13 +223,16 @@ class RolesPermissionsSeeder extends Seeder
             ->all();
         Role::findByName('viewer', 'web')->syncPermissions($viewerPerms);
 
-        // owner: Jawad owners — read-only oversight of their owned properties
-        // (in the admin app) plus the right to raise + track owner requests.
-        Role::findByName('owner', 'web')->syncPermissions([
-            'assets.view', 'units.view', 'leases.view', 'invoices.view',
-            'maintenance.view', 'reports.view', 'reports.download',
-            'owner_requests.view', 'owner_requests.create',
-        ]);
+        // owner: Jawad owners SEE EVERYTHING read-only (every module / department),
+        // but only for the properties they OWN (scoped via User::accessibleAssets),
+        // plus the right to raise + track owner requests.
+        $ownerPerms = collect($all)
+            ->filter(fn ($p) => str_ends_with($p, '.view') || $p === 'reports.download')
+            ->push('owner_requests.create')
+            ->unique()
+            ->values()
+            ->all();
+        Role::findByName('owner', 'web')->syncPermissions($ownerPerms);
 
         // ---- DEPARTMENT roles: strictly scoped to their own sidebar group ----
 

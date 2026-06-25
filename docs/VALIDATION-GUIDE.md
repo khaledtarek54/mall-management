@@ -25,7 +25,7 @@ The admin **sidebar is grouped by department** — **Leasing** (Properties/Units
 **Where:** log in at `/admin` as `owner@atriom.test`.
 - [ ] The owner lands in the **admin app** (the `/owner` site is gone / 404s).
 - [ ] The property switcher shows only their **owned** property (Atriom Walk), not every mall.
-- [ ] The owner has read-only oversight (Properties / Leases / Invoices / Maintenance / Reports) per their permissions, plus **Owner Requests** (create + track) — and no edit/delete/create on the oversight modules.
+- [ ] The owner has **read-only oversight of everything** (all departments/modules) — but only for their owned property — plus **Owner Requests** (create + track); no edit/create/delete anywhere.
 
 ---
 

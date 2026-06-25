@@ -40,7 +40,7 @@
 **How to test:** log in as **`owner@atriom.test`**.
 - Lands in `/admin` (the old `/owner` site is gone).
 - Property switcher shows **only their owned property** (Atriom Walk), not every mall.
-- Read-only oversight + **Owner Requests**; no edit/create on oversight modules.
+- **Read-only oversight of everything** (all departments/modules) — but only for their owned property — + **Owner Requests**; no edit/create/delete.
 **Your notes:** _____________________
 
 ### 5. Maintenance → departments (assign / redirect / reject) · ✅ Built · ☐ Validated
