@@ -63,7 +63,7 @@
 - **Scheduled from** / **Scheduled to** date-time fields are present.
 **Your notes:** _____________________
 
-### 8. Overdue work-orders alert the owner · ✅ Built · ☐ Validated
+### 8. Overdue work-orders alert the owner · ✅ Built · ✅ Validated
 **What it does:** when a work-order passes its SLA target while still open, the property **owner (Jawad)** gets a bell alert too, not just staff (covers req #4, part 1).
 **How to test:** the daily scan fires it; to force it, run `php artisan maintenance:scan-sla-breaches` after setting a request's Target Resolution to the past.
 - The owner of that property gets a bell notification.
