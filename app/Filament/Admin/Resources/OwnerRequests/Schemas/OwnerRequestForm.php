@@ -44,10 +44,17 @@ class OwnerRequestForm
                         ->required(fn ($get) => $get('recipient') === 'owner'),
                     Select::make('asset_id')
                         ->label(__('admin.tables.owner_request.property'))
-                        ->options(fn () => Asset::query()
-                            ->where('code', '!=', Asset::ALL_PROPERTIES_CODE)
-                            ->orderBy('name')
-                            ->pluck('name', 'id'))
+                        ->options(function () {
+                            $user = Auth::user();
+                            $query = Asset::query()->where('code', '!=', Asset::ALL_PROPERTIES_CODE);
+                            // Scope to the user's own properties — an owner picks
+                            // only what they own; super_admin sees all.
+                            if ($user && ! $user->hasRole('super_admin')) {
+                                $query->whereIn('id', $user->accessibleAssets()->pluck('id'));
+                            }
+
+                            return $query->orderBy('name')->pluck('name', 'id');
+                        })
                         ->searchable()
                         ->placeholder('—'),
                     Select::make('priority')
