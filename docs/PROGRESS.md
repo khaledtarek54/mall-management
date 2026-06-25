@@ -51,7 +51,7 @@
 - Setting status to **Cancelled** = reject; you can move it acknowledge → in-progress → resolve → close.
 **Your notes:** _____________________
 
-### 6. Closed requests can't be modified · ✅ Built · ☐ Validated
+### 6. Closed requests can't be modified · ✅ Built · ✅ Validated
 **What it does:** once a request is **Closed** or **Cancelled** it's locked (covers req #1).
 **How to test:** `/admin` → Maintenance → open a **Closed/Cancelled** request.
 - No **Edit / Redirect / Assign** actions are offered on it.
