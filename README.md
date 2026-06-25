@@ -43,9 +43,10 @@ Visit the landing page at `http://localhost:8000/` (or `http://mall-management.t
 | `/admin` | `marketing@mall.test` | marketing |
 | `/admin` | `hr@mall.test` | hr |
 | `/admin` | `owner@atriom.test` | owner — RBAC user scoped to Atriom Walk |
-| `/portal` | `tenant1@haya.test` | Café Crema (tenant) |
-| `/portal` | `tenant2@haya.test` | Optix Eyewear (tenant) |
-| `/portal` | `tenant3@haya.test` | The Burger Joint (tenant) |
+| `/portal` | `tenant1@atriomwalk.test` | Tenant **admin** — can submit requests + payments |
+| `/portal` | `staff1@atriomwalk.test` | Same tenant, **read-only** user (can't submit) |
+| `/portal` | `tenant2@atriomwalk.test` | Tenant admin |
+| `/portal` | `tenant3@atriomwalk.test` | Tenant admin |
 
 Hitting `/admin` bare redirects to `/admin/{first-property}/...`. Users with more than one assigned property see an **All Properties** option in the top-nav switcher that bypasses scoping for a portfolio-wide view.
 

@@ -91,13 +91,18 @@ The admin **sidebar is grouped by department** — **Leasing** (Properties/Units
 - [ ] The seeded demo has a **multi-unit lease** — the row shows the master badge with **"+ &lt;code&gt;"** for the extra unit.
 - [ ] Editing a lease shows a **Unit (master)** select + an **Additional units** multi-select; adding a vacant unit occupies it, removing it frees it again.
 
+## 10. Multi-user tenant portal — admin submits, others read-only · req #9
+**Business rule:** a tenant company can have several portal logins; only **admin** user(s) may submit requests/payments, others are **read-only** (viewing is shared). Operators create these users from the Tenant resource.
+**Where:** `/admin` → **Leasing → Tenants** → edit a tenant → **Portal Users**; and the `/portal` login.
+- [ ] The Tenant edit page has a **Portal Users** tab → create a user (name, email, password, **Portal admin** toggle).
+- [ ] `/portal` as `tenant1@atriomwalk.test` (admin) → can **submit a maintenance request** + sees **Pay Now**.
+- [ ] `/portal` as `staff1@atriomwalk.test` (read-only) → **same data visible**, but **no "New" maintenance and no Pay Now**.
+
 ---
 
-## Not yet built / deferred — do NOT expect these yet
+## Scope notes
 
-| # | Item | State |
-|---|---|---|
-| 9 | **Tenant-users** (only tenant-admin submits) | Deferred by your decision (single tenant login already acts as the admin); would rewrite mobile auth |
-| 12 | Dept requests/payments **via Accounting** | Deferred pending your accounting team |
+- **Req #9 (tenant-users)** — ✅ built (§10 above). *Only the web portal is multi-user; the mobile API still uses the single company login — a later pass.*
+- **Req #12 (inter-department requests via Accounting)** — **not needed**: internal departments don't raise requests to each other; the only requests are owner-initiated (owner → owner, or owner → Eltizam operator/users), which is the Owner Requests feature (§6). Clarified 2026-06-25.
 
-When §§1–9 are ticked, you're validated to proceed. The table above is the remaining scope — see [FUNCTIONAL-REQUIREMENTS.md §3](FUNCTIONAL-REQUIREMENTS.md) for the build plan.
+When §§1–10 are ticked, you're validated to proceed — see [FUNCTIONAL-REQUIREMENTS.md §3](FUNCTIONAL-REQUIREMENTS.md) for the build plan.
