@@ -57,7 +57,7 @@
 - No **Edit / Redirect / Assign** actions are offered on it.
 **Your notes:** _____________________
 
-### 7. Scheduled work window (from → to) · ✅ Built · ☐ Validated
+### 7. Scheduled work window (from → to) · ✅ Built · ✅ Validated
 **What it does:** a request carries a from→to date/time for when the work is performed (distinct from the SLA deadline) (covers req #6).
 **How to test:** `/admin` → Maintenance → edit a request → Assignment section.
 - **Scheduled from** / **Scheduled to** date-time fields are present.
