@@ -264,6 +264,11 @@ class DemoSeeder extends Seeder
         $this->seedCreditNotes();
         $this->seedStaffAssignments($atriomWalk);
 
+        // Accrue the 5% marketing levy from all billed base rent so the
+        // marketing budgets aren't empty on a fresh demo (FR MKT-5).
+        \Illuminate\Support\Facades\Artisan::call('marketing:backfill-budgets');
+        $this->command->info('   Marketing budgets backfilled from billed rent');
+
         $plazaUnitCount = Unit::where('asset_id', $plazaAnnex->id)->count();
         $this->command->info("✅ Created Atriom Walk with {$occupiedCount} occupied, {$vacantCount} vacant units (+ {$plazaUnitCount} vacant units on Plaza Annex demo asset)");
         $this->command->info('✅ Generated leases, charges, invoices, and payment history');
