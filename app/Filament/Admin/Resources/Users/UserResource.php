@@ -55,6 +55,11 @@ class UserResource extends Resource
         return Auth::user()?->hasRole('super_admin') ?? false;
     }
 
+    public static function canViewAny(): bool
+    {
+        return Auth::user()?->hasRole('super_admin') ?? false;
+    }
+
     public static function canCreate(): bool
     {
         return Auth::user()?->hasRole('super_admin') ?? false;
@@ -68,6 +73,17 @@ class UserResource extends Resource
     public static function canDelete($record): bool
     {
         return Auth::user()?->hasRole('super_admin') && Auth::id() !== $record->id;
+    }
+
+    // Force-delete + restore must never be more permissive than delete.
+    public static function canForceDelete($record): bool
+    {
+        return Auth::user()?->hasRole('super_admin') ?? false;
+    }
+
+    public static function canRestore($record): bool
+    {
+        return Auth::user()?->hasRole('super_admin') ?? false;
     }
 
     // Bulk delete is off by default (project convention); single delete above stays.

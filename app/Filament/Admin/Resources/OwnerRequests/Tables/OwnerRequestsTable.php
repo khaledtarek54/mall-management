@@ -40,8 +40,8 @@ class OwnerRequestsTable
                 TextColumn::make('priority')
                     ->label(__('admin.tables.owner_request.priority'))
                     ->badge()
-                    ->formatStateUsing(fn (string $s) => Str::headline($s))
-                    ->color(fn (string $s) => match ($s) {
+                    ->formatStateUsing(fn (string $state) => Str::headline($state))
+                    ->color(fn (string $state) => match ($state) {
                         'high' => 'danger',
                         'medium' => 'warning',
                         default => 'gray',
@@ -49,8 +49,8 @@ class OwnerRequestsTable
                 TextColumn::make('status')
                     ->label(__('admin.tables.owner_request.status'))
                     ->badge()
-                    ->formatStateUsing(fn (string $s) => Str::headline($s))
-                    ->color(fn (string $s) => match ($s) {
+                    ->formatStateUsing(fn (string $state) => Str::headline($state))
+                    ->color(fn (string $state) => match ($state) {
                         'open' => 'info',
                         'in_progress' => 'primary',
                         'resolved' => 'success',
