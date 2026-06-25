@@ -1,5 +1,7 @@
 # Validation Guide — Business-Model Sign-off
 
+> ▶ **Work through [PROGRESS.md](PROGRESS.md) instead** — it's the feature-by-feature workbook (business purpose + how-to-test + your sign-off, one feature at a time). This file is the same steps in reference form.
+>
 > Walk through each shipped feature in the running app and confirm it matches the business intent. Tick each box; if anything behaves differently from the **Business rule**, flag it.
 > Built against [FUNCTIONAL-REQUIREMENTS.md](FUNCTIONAL-REQUIREMENTS.md); status mirrors that doc's §3.
 > Local app: `http://mall-management.test` (Herd) — all migrations + seeds already applied.
