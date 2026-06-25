@@ -18,7 +18,7 @@
 **What it does:** the operator's organization is modeled as five fixed departments — **HR, Marketing, Accounting, Leasing, Operations**. They're the backbone everything else hangs off (covers original request #10).
 **How to test:** `/admin` → sidebar **HR → Departments**.
 - See the 5 departments listed.
-- Open one → you can set its head / active flag; there is **no "New department"** button (the set is fixed) and name/code are locked.
+- Open one → you can set its head / active flag; there is **no "New department"** button, name/code are locked, and departments **cannot be deleted** (the set is fixed).
 **Your notes:** _____________________
 
 ### 2. Department access = roles (register a user → they get access) · ✅ Built · ☐ Validated

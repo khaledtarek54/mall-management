@@ -4,7 +4,6 @@ namespace App\Filament\Admin\Resources\Departments;
 
 use App\Filament\Admin\RelationManagers\DepartmentMembersRelationManager;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
-use App\Filament\Admin\Resources\Departments\Pages\CreateDepartment;
 use App\Filament\Admin\Resources\Departments\Pages\EditDepartment;
 use App\Filament\Admin\Resources\Departments\Pages\ListDepartments;
 use App\Filament\Admin\Resources\Departments\Schemas\DepartmentForm;
@@ -34,8 +33,19 @@ class DepartmentResource extends Resource
     protected static bool $isScopedToTenant = false;
 
     // Fixed reference set (HR / Marketing / Accounting / Leasing / Operations),
-    // seeded — operators manage membership, not the department list itself.
+    // seeded — operators manage membership, never the department list itself:
+    // NO create, NO delete.
     public static function canCreate(): bool
+    {
+        return false;
+    }
+
+    public static function canDelete($record): bool
+    {
+        return false;
+    }
+
+    public static function canDeleteAny(): bool
     {
         return false;
     }
@@ -81,7 +91,6 @@ class DepartmentResource extends Resource
     {
         return [
             'index' => ListDepartments::route('/'),
-            'create' => CreateDepartment::route('/create'),
             'edit' => EditDepartment::route('/{record}/edit'),
         ];
     }

@@ -50,6 +50,8 @@ it('unregistering a user removes the department role and membership', function (
         ->and($dept->members()->whereKey($user->id)->exists())->toBeFalse();
 });
 
-it('does not allow creating departments (fixed reference set)', function () {
-    expect(DepartmentResource::canCreate())->toBeFalse();
+it('locks the fixed department set — no create, no delete', function () {
+    expect(DepartmentResource::canCreate())->toBeFalse()
+        ->and(DepartmentResource::canDeleteAny())->toBeFalse()
+        ->and(DepartmentResource::canDelete(new Department(['name' => 'x'])))->toBeFalse();
 });

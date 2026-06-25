@@ -6,14 +6,11 @@ use App\Filament\Admin\Resources\Departments\DepartmentResource;
 use App\Models\Department;
 use App\Services\DepartmentMessageService;
 use Filament\Actions\Action;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
 
@@ -46,9 +43,6 @@ class DepartmentsTable
                     ->sortable(),
             ])
             ->defaultSort('sort_order')
-            ->filters([
-                TrashedFilter::make(),
-            ])
             ->recordActions([
                 // Inter-department messaging (FR DEPT-2): notify this
                 // department's members via the bell.
@@ -72,11 +66,7 @@ class DepartmentsTable
                             ->send();
                     }),
                 EditAction::make()->visible(fn ($record) => DepartmentResource::canEdit($record)),
-            ])
-            ->toolbarActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make()->visible(fn () => DepartmentResource::canDeleteAny()),
-                ]),
             ]);
+        // No delete / bulk-delete / trashed filter — departments are a fixed set.
     }
 }
