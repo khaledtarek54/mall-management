@@ -794,6 +794,8 @@ return [
         'sales_submitted_body' => ':tenant (unit :unit) submitted :period · :sales',
         'sla_breached_title' => 'SLA breached',
         'sla_breached_body' => 'Ticket :reference (:priority) is :hours h past its target resolution.',
+        'invoice_overdue_title' => 'Invoice overdue',
+        'invoice_overdue_body' => 'Invoice :number is :days days overdue — EGP :amount unpaid.',
         // Admin / operator-facing (existing operator-initiated events)
         'declaration_locked' => 'Declaration locked',
         'declaration_locked_body' => 'Percentage rent of EGP :amount queued for next billing run.',

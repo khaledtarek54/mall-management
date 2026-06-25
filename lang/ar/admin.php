@@ -794,6 +794,8 @@ return [
         'sales_submitted_body' => ':tenant (وحدة :unit) قدّم إقرار :period · :sales',
         'sla_breached_title' => 'تجاوز اتفاقية مستوى الخدمة',
         'sla_breached_body' => 'تذكرة :reference (:priority) تجاوزت موعد الحل المستهدف بـ :hours ساعة.',
+        'invoice_overdue_title' => 'فاتورة متأخرة',
+        'invoice_overdue_body' => 'الفاتورة :number متأخرة :days يوماً — :amount جنيه غير مدفوعة.',
         // Admin / operator-facing (existing operator-initiated events)
         'declaration_locked' => 'تم تثبيت الإقرار',
         'declaration_locked_body' => 'تم إضافة نسبة الإيجار :amount جنيه إلى دورة الفوترة القادمة.',

@@ -76,3 +76,10 @@ Schedule::command('maintenance:scan-sla-breaches')
     ->hourly()
     ->name('atriom-scan-sla-breaches')
     ->withoutOverlapping();
+
+// Daily scan for overdue (late-paid) invoices. Alerts the property's Jawad
+// owners via the bell. Idempotent through owner_overdue_notified_at.
+Schedule::command('billing:scan-overdue-invoices')
+    ->dailyAt('06:00')
+    ->name('atriom-scan-overdue-invoices')
+    ->withoutOverlapping();

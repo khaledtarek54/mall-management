@@ -46,6 +46,7 @@ class Invoice extends Model
         'eta_status',
         'eta_long_id',
         'notes',
+        'owner_overdue_notified_at',
     ];
 
     protected $casts = [
@@ -54,6 +55,7 @@ class Invoice extends Model
         'period_start' => 'date',
         'period_end' => 'date',
         'eta_submitted_at' => 'datetime',
+        'owner_overdue_notified_at' => 'datetime',
         'subtotal' => 'decimal:2',
         'vat_amount' => 'decimal:2',
         'total' => 'decimal:2',

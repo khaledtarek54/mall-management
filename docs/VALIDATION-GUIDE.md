@@ -97,8 +97,6 @@ The admin **sidebar is grouped by department** — **Leasing** (Properties/Units
 
 | # | Item | State |
 |---|---|---|
-| 4 | Late/overdue → notify **Jawad owners** + maintenance **late fees** | Overdue detection exists but alerts *staff* only; late fees not built (pending your O-3/O-4 decisions) |
-| 11 | Department-to-department **messaging** action | Infra ready; no dedicated "message a department" action yet |
 | 9 | **Tenant-users** (only tenant-admin submits) | Deferred by your decision (single tenant login already acts as the admin); would rewrite mobile auth |
 | 12 | Dept requests/payments **via Accounting** | Deferred pending your accounting team |
 

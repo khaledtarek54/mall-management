@@ -101,11 +101,12 @@
 
 ## Part 1 — still to build
 
-### 13. Maintenance late fees · ⛔ Blocked (needs your decision) · req #4 (part 2)
-**What it will do:** when a maintenance work-order is late, charge a **late fee** and alert the owner (the alert half is done in #8; the *fee* is not built).
-**Needs from you (before I can build):**
-- **O-3:** what triggers a fee — passing the **scheduled work-window end**, or the **SLA deadline**?
-- **O-4:** **who is charged** (tenant? responsible party?) and **how much** (flat / % / per-day)?
+### 13. Owner alerts: late maintenance + overdue invoices · ✅ Built · ☐ Validated · req #4
+**What it does:** Jawad owners get bell alerts about problems on their property — **(a)** a maintenance request that **breaches its SLA without being finished in time** (shipped as #8), and **(b)** a tenant who is **late paying an invoice** (overdue). *No late fees* — owner notifications only (clarified 2026-06-25).
+**How to test:**
+- **Overdue invoices:** run `php artisan billing:scan-overdue-invoices` → log in as `owner@atriom.test` → the bell shows **"Invoice overdue"** alerts for late-paid invoices on Atriom Walk. Idempotent — re-running doesn't duplicate.
+- **Late maintenance:** see #8 (`php artisan maintenance:scan-sla-breaches`).
+**Your notes:** _____________________
 
 ### 14. Master unit / multi-unit lease · ✅ Built · ☐ Validated · req #7
 **What it does:** a lease can span **several units** with one designated **master** (e.g. a shop that took an adjacent kiosk); all existing single-unit leases stay valid. A `lease_unit` pivot holds the units (the `is_master` one mirrors to `leases.unit_id`); **every unit in a lease shows occupied**.
