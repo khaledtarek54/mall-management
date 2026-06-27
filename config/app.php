@@ -69,7 +69,9 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    // Scheduled jobs (monthly billing, late fees, scans) fire on this wall-clock.
+    // Production should set APP_TIMEZONE=Africa/Cairo; default UTC keeps tests/CI stable.
+    'timezone' => env('APP_TIMEZONE', 'UTC'),
 
     /*
     |--------------------------------------------------------------------------

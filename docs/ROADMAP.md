@@ -6,6 +6,13 @@
 
 ---
 
+## ✅ Completed since this audit
+
+- **Latin-digit lock** — all numbers render in Western digits even in the Arabic UI (`Number::useLocale('en')` + regression test).
+- **Security + env hardening bundle** — security headers on every response (X-Frame-Options, X-Content-Type-Options, Referrer-Policy, HSTS in prod) + a **strict CSP scoped to the public `/pay` pages**; **Sanctum token TTL** (30-day default, env-driven); **`APP_TIMEZONE`** env-driven (set Africa/Cairo in prod); prod guidance in `.env.example` for `APP_DEBUG`/`LOG_LEVEL`/`SESSION_ENCRYPT`; **2FA config-gated** for write roles (`SECURITY_FORCE_2FA_ROLES`). Confirmed already-covered: Filament throttles login (5/min), demo password is env-driven.
+
+---
+
 ## 🔴 P0 — blocks go-live (real money / tax)
 
 | Item | What & why | Owner | Effort |

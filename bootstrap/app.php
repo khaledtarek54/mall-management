@@ -28,6 +28,9 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\CamelCaseResponseKeys::class,
         ]);
 
+        // Baseline security headers on every response (+ a tight CSP on /pay/*).
+        $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
+
         // The API does not use cookies/session — Sanctum tokens only. Disable
         // CSRF for /api/* (Laravel does this by default but spell it out).
         // Paymob's S2S callback is HMAC-verified and not browser-originated,

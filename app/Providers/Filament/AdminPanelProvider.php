@@ -71,7 +71,7 @@ class AdminPanelProvider extends PanelProvider
                 TwoFactorAuthenticationPlugin::make()
                     ->enableTwoFactorAuthentication()
                     ->addTwoFactorMenuItem()
-                    ->forceTwoFactorSetup(fn (): bool => auth()->user()?->hasRole('super_admin') === true)
+                    ->forceTwoFactorSetup(fn (): bool => auth()->user()?->hasAnyRole(config('security.force_2fa_roles', ['super_admin'])) === true)
             )
             // Branding resolves from the active property tenant when one is
             // set. Each Asset can carry its own logo (MediaLibrary `logo`

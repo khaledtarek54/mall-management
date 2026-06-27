@@ -50,7 +50,9 @@ return [
     |
     */
 
-    'expiration' => null,
+    // Finite token lifetime (minutes) so a leaked mobile token can't live forever.
+    // Default 30 days; override via SANCTUM_TOKEN_EXPIRATION. null = never expires.
+    'expiration' => env('SANCTUM_TOKEN_EXPIRATION', 43200),
 
     /*
     |--------------------------------------------------------------------------
