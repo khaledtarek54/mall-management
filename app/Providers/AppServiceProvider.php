@@ -13,6 +13,7 @@ use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Number;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -40,6 +41,12 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Numbers are ALWAYS in Western/Latin digits (0-9), even in the Arabic
+        // UI — the Laravel Number helper (and Filament ->money(), which uses it)
+        // otherwise emits Arabic-Indic digits under the 'ar' locale. Carbon's
+        // bundled 'ar' locale already uses Western digits for dates.
+        Number::useLocale('en');
+
         Lease::observe(LeaseObserver::class);
 
         // Bulk delete is OFF by default across every Filament table — a
