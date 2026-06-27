@@ -6,6 +6,7 @@ use App\Models\MaintenanceRequest;
 use App\Notifications\MaintenanceSlaBreachedNotification;
 use App\Services\AssetStaffRecipients;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 
 class ScanMaintenanceSlaBreachesCommand extends Command
@@ -49,17 +50,33 @@ class ScanMaintenanceSlaBreachesCommand extends Command
         $alerted = 0;
         foreach ($breached as $request) {
             try {
-                $assetId = $request->unit?->asset_id;
-                $service = app(AssetStaffRecipients::class);
-                $recipients = $service->for($assetId, ['manager', 'operations'])
-                    // Jawad owners get the oversight alert too (FR MNT-5).
-                    ->merge($service->owners($assetId))
-                    ->unique('id')
-                    ->values();
+                // Lock the request + re-check the stamp inside the transaction so
+                // an overlapping/concurrent scan can't alert the same breach twice.
+                $sent = DB::transaction(function () use ($request) {
+                    $locked = MaintenanceRequest::query()->lockForUpdate()->find($request->id);
+                    if (! $locked || $locked->sla_breach_notified_at !== null) {
+                        return false;
+                    }
 
-                if ($recipients->isNotEmpty()) {
-                    Notification::send($recipients, new MaintenanceSlaBreachedNotification($request));
-                    $request->forceFill(['sla_breach_notified_at' => now()])->save();
+                    $assetId = $locked->unit?->asset_id;
+                    $service = app(AssetStaffRecipients::class);
+                    $recipients = $service->for($assetId, ['manager', 'operations'])
+                        // Jawad owners get the oversight alert too (FR MNT-5).
+                        ->merge($service->owners($assetId))
+                        ->unique('id')
+                        ->values();
+
+                    if ($recipients->isEmpty()) {
+                        return false;
+                    }
+
+                    Notification::send($recipients, new MaintenanceSlaBreachedNotification($locked));
+                    $locked->forceFill(['sla_breach_notified_at' => now()])->save();
+
+                    return true;
+                });
+
+                if ($sent) {
                     $alerted++;
                 }
             } catch (\Throwable $e) {

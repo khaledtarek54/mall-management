@@ -6,6 +6,7 @@ use App\Models\Invoice;
 use App\Notifications\InvoiceOverdueOwnerNotification;
 use App\Services\AssetStaffRecipients;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 
 /**
@@ -53,12 +54,26 @@ class ScanOverdueInvoicesCommand extends Command
         $alerted = 0;
         foreach ($overdue as $invoice) {
             try {
-                $assetId = $invoice->lease?->unit?->asset_id;
-                $owners = app(AssetStaffRecipients::class)->owners($assetId);
+                // Lock the invoice + re-check the stamp inside the transaction so
+                // an overlapping/concurrent scan can't notify the owner twice.
+                $sent = DB::transaction(function () use ($invoice) {
+                    $locked = Invoice::query()->lockForUpdate()->find($invoice->id);
+                    if (! $locked || $locked->owner_overdue_notified_at !== null) {
+                        return false;
+                    }
 
-                if ($owners->isNotEmpty()) {
-                    Notification::send($owners, new InvoiceOverdueOwnerNotification($invoice));
-                    $invoice->forceFill(['owner_overdue_notified_at' => now()])->save();
+                    $owners = app(AssetStaffRecipients::class)->owners($locked->lease?->unit?->asset_id);
+                    if ($owners->isEmpty()) {
+                        return false;
+                    }
+
+                    Notification::send($owners, new InvoiceOverdueOwnerNotification($locked));
+                    $locked->forceFill(['owner_overdue_notified_at' => now()])->save();
+
+                    return true;
+                });
+
+                if ($sent) {
                     $alerted++;
                 }
             } catch (\Throwable $e) {
