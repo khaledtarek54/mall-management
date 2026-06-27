@@ -37,11 +37,7 @@ class EditInvoice extends EditRecord
                 ->visible(fn () => config('integrations.paymob.enabled') && $this->record->isPayable())
                 ->modalHeading(fn () => __('admin.actions.payment_link').' · '.$this->record->number)
                 ->modalSubmitAction(false)
-                ->modalContent(fn () => new \Illuminate\Support\HtmlString(
-                    '<p style="margin-bottom:.5rem;font-size:.875rem;color:#6b7280;">'.e(__('admin.actions.payment_link_hint')).'</p>'
-                    .'<input readonly onclick="this.select()" value="'.e($this->record->paymentLinkUrl()).'" '
-                    .'style="width:100%;padding:.6rem .75rem;border:1px solid #d1d5db;border-radius:.5rem;font-size:.8125rem;" />'
-                )),
+                ->modalContent(fn () => view('filament.payment-link-modal', ['invoice' => $this->record])),
             DeleteAction::make(),
             ForceDeleteAction::make(),
             RestoreAction::make(),

@@ -100,6 +100,18 @@ it('serves a 404 for the Apple Pay domain-association file until provisioned', f
     $this->get('/.well-known/apple-developer-merchantid-domain-association')->assertNotFound();
 });
 
+it('renders the pay-link QR + copy modal', function () {
+    $invoice = payLinkInvoice();
+
+    expect($invoice->paymentLinkQrSvg())->toContain('<svg')->not->toContain('<?xml');
+
+    $html = view('filament.payment-link-modal', ['invoice' => $invoice])->render();
+    expect($html)
+        ->toContain('Copy')
+        ->toContain('<svg')                       // scan-to-pay QR
+        ->toContain($invoice->paymentLinkUrl());  // the shareable URL
+});
+
 it('shows the amount paid on this link, not the full invoice total', function () {
     $invoice = payLinkInvoice(); // total 11,400
 

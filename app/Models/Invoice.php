@@ -109,6 +109,20 @@ class Invoice extends Model
         return route('pay.show', ['token' => $this->paymentLinkToken()]);
     }
 
+    /** Inline SVG QR code of the pay link, for scan-to-pay (no GD/imagick needed). */
+    public function paymentLinkQrSvg(int $size = 170): string
+    {
+        $renderer = new \BaconQrCode\Renderer\ImageRenderer(
+            new \BaconQrCode\Renderer\RendererStyle\RendererStyle($size, 2),
+            new \BaconQrCode\Renderer\Image\SvgImageBackEnd(),
+        );
+
+        $svg = (new \BaconQrCode\Writer($renderer))->writeString($this->paymentLinkUrl());
+
+        // Strip the XML prolog so the SVG embeds cleanly inside HTML.
+        return (string) preg_replace('/^<\?xml.*?\?>\s*/s', '', $svg);
+    }
+
     /** Whether there is still a balance that can be collected online. */
     public function isPayable(): bool
     {
