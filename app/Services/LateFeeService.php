@@ -59,19 +59,23 @@ class LateFeeService
      */
     public function applyTo(Invoice $invoice): bool
     {
-        if ($invoice->items()->where('type', 'late_fee')->exists()) {
-            return false;
-        }
-
         $percent = (float) config('billing.late_fee_percent', 2.0);
         $min = (float) config('billing.late_fee_minimum', 50.0);
-        $balance = (float) $invoice->balance;
 
-        $fee = max($min, round($balance * $percent / 100, 2));
+        return DB::transaction(function () use ($invoice, $percent, $min) {
+            // Lock the invoice row and re-check the idempotency guard INSIDE the
+            // transaction, so two concurrent late-fee runs can't both pass the
+            // "no late_fee yet" check and double-charge the same invoice.
+            $locked = Invoice::query()->lockForUpdate()->find($invoice->id);
 
-        return DB::transaction(function () use ($invoice, $fee) {
+            if (! $locked || $locked->items()->where('type', 'late_fee')->exists()) {
+                return false;
+            }
+
+            $fee = max($min, round((float) $locked->balance * $percent / 100, 2));
+
             InvoiceItem::create([
-                'invoice_id' => $invoice->id,
+                'invoice_id' => $locked->id,
                 'description' => __('admin.enums.invoice_item_type.late_fee'),
                 'type' => 'late_fee',
                 'amount' => $fee,
@@ -80,11 +84,11 @@ class LateFeeService
                 'total' => $fee,
             ]);
 
-            $invoice->subtotal = (float) $invoice->subtotal + $fee;
-            $invoice->total = (float) $invoice->total + $fee;
-            $invoice->balance = (float) $invoice->balance + $fee;
-            $invoice->status = 'overdue';
-            $invoice->save();
+            $locked->subtotal = (float) $locked->subtotal + $fee;
+            $locked->total = (float) $locked->total + $fee;
+            $locked->balance = (float) $locked->balance + $fee;
+            $locked->status = 'overdue';
+            $locked->save();
 
             return true;
         });

@@ -57,11 +57,19 @@ class LeaseRenewalService
                 'has_percentage_rent' => $original->has_percentage_rent,
                 'percentage_rent_threshold' => $original->percentage_rent_threshold,
                 'percentage_rent_rate' => $original->percentage_rent_rate,
+                'percentage_rent_calculation_type' => $original->percentage_rent_calculation_type,
                 'billing_day' => $original->billing_day,
                 'payment_terms_days' => $original->payment_terms_days,
                 'notes' => $original->notes,
                 'metadata' => $original->metadata,
             ]);
+
+            // Carry the original's FULL unit set into the renewal — a multi-unit
+            // lease must keep all its units, not just the master (unit_id).
+            $unitIds = $original->units()->pluck('units.id')->all();
+            if (count($unitIds) > 1) {
+                $renewal->syncUnits($unitIds, $original->unit_id);
+            }
 
             foreach ($original->charges as $charge) {
                 $amount = match ($charge->type) {

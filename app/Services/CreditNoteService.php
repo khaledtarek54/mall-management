@@ -62,17 +62,12 @@ class CreditNoteService
             $note->applied_at = $note->applied_at ?? now();
             $note->save();
 
-            // Adjust the invoice side. We treat applied credit like a payment for AR purposes:
-            // paid_amount goes up, balance goes down, status flips when fully covered.
-            $invoice->paid_amount = (float) $invoice->paid_amount + $amount;
-            $invoice->balance = (float) $invoice->total - (float) $invoice->paid_amount;
-            if ($invoice->balance <= 0) {
-                $invoice->status = 'paid';
-                $invoice->balance = 0;
-            } elseif ($invoice->paid_amount > 0) {
-                $invoice->status = 'partially_paid';
-            }
-            $invoice->save();
+            // Record the applied credit durably (credit_applied_amount) so
+            // Invoice::recomputeTotals — which otherwise sums only the payments
+            // pivot — folds it into paid_amount/balance/status. This keeps a
+            // later payment recompute from erasing the credit.
+            $invoice->credit_applied_amount = (float) $invoice->credit_applied_amount + $amount;
+            $invoice->recomputeTotals();
 
             return $amount;
         });

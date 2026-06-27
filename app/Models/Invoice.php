@@ -38,6 +38,7 @@ class Invoice extends Model
         'vat_amount',
         'total',
         'paid_amount',
+        'credit_applied_amount',
         'balance',
         'currency',
         'eta_submission_id',
@@ -60,6 +61,7 @@ class Invoice extends Model
         'vat_amount' => 'decimal:2',
         'total' => 'decimal:2',
         'paid_amount' => 'decimal:2',
+        'credit_applied_amount' => 'decimal:2',
         'balance' => 'decimal:2',
         'eta_response' => 'array',
     ];
@@ -178,6 +180,11 @@ class Invoice extends Model
         $paid = (float) $this->payments()
             ->where('payments.status', 'captured')
             ->sum('invoice_payment.allocated_amount');
+
+        // Applied credit notes settle AR too (they bump credit_applied_amount,
+        // not the payments pivot) — include them so a later payment recompute
+        // doesn't erase the credit.
+        $paid += (float) $this->credit_applied_amount;
 
         $this->paid_amount = round($paid, 2);
         $this->balance = round(max(0, (float) $this->total - $this->paid_amount), 2);

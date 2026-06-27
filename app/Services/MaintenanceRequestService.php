@@ -159,6 +159,10 @@ class MaintenanceRequestService
 
     public function assign(MaintenanceRequest $request, ?int $userId): MaintenanceRequest
     {
+        if ($request->isTerminal()) {
+            return $request;
+        }
+
         $request->update(['assigned_to' => $userId]);
 
         if ($userId && $request->status === 'submitted') {
@@ -176,6 +180,13 @@ class MaintenanceRequestService
      */
     public function redirectToDepartment(MaintenanceRequest $request, ?int $departmentId): MaintenanceRequest
     {
+        // Terminal (closed/cancelled) work-orders are immutable (FR REQ-3) — the
+        // UI hides the action, but guard the service too so no path can re-route
+        // a finished request.
+        if ($request->isTerminal()) {
+            return $request;
+        }
+
         $request->update(['department_id' => $departmentId]);
 
         return $request->refresh();

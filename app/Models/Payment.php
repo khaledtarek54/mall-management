@@ -38,6 +38,7 @@ class Payment extends Model
         'cheque_clearance_date',
         'notes',
         'received_by',
+        'receipt_notified_at',
     ];
 
     protected $casts = [
@@ -45,7 +46,37 @@ class Payment extends Model
         'cheque_clearance_date' => 'date',
         'amount' => 'decimal:2',
         'gateway_response' => 'array',
+        'receipt_notified_at' => 'datetime',
     ];
+
+    /**
+     * Fire the "payment received" tenant notification exactly once — when the
+     * payment is captured AND has at least one allocated invoice. Called from
+     * the saved() hook (gateway flips, where allocations precede the status
+     * change) and from the Create/Edit pages after they sync the pivot (where
+     * allocations follow it). Idempotent via receipt_notified_at.
+     */
+    public function notifyReceiptOnce(): void
+    {
+        if ($this->status !== 'captured' || $this->receipt_notified_at) {
+            return;
+        }
+
+        $this->load('tenant', 'invoices');
+        if (! $this->tenant || $this->invoices->isEmpty()) {
+            return;
+        }
+
+        try {
+            $this->tenant->notifyPortal(new \App\Notifications\PaymentReceivedNotification($this));
+            $this->forceFill(['receipt_notified_at' => now()])->saveQuietly();
+        } catch (\Throwable $e) {
+            \Log::warning('Payment received notification failed', [
+                'payment_id' => $this->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
 
     public function tenant(): BelongsTo
     {
@@ -135,27 +166,12 @@ class Payment extends Model
             // Status change (e.g. captured ↔ failed) must roll forward to invoices.
             $payment->recomputeAllocatedInvoices();
 
-            // Tenant notification on the captured transition. We fire when
-            // status is captured AND the row has at least one allocated
-            // invoice. The Filament Create/Edit pages call save() before
-            // syncing the pivot, then call save() again implicitly via
-            // recomputeAllocatedInvoices; we want the post-sync save, so
-            // the wasChanged check handles re-entrant calls correctly.
-            if ($payment->wasChanged('status') && $payment->status === 'captured') {
-                $payment->load('tenant', 'invoices');
-                if ($payment->tenant && $payment->invoices->isNotEmpty()) {
-                    try {
-                        $payment->tenant->notifyPortal(
-                            new \App\Notifications\PaymentReceivedNotification($payment)
-                        );
-                    } catch (\Throwable $e) {
-                        \Log::warning('Payment received notification failed', [
-                            'payment_id' => $payment->id,
-                            'error' => $e->getMessage(),
-                        ]);
-                    }
-                }
-            }
+            // Receipt notification — fires once the payment is captured AND has
+            // allocations. The gateway path allocates before flipping to
+            // captured (this hook delivers it); the Create/Edit pages allocate
+            // AFTER save and re-trigger via notifyReceiptOnce() in their
+            // after-hooks. Idempotent through receipt_notified_at.
+            $payment->notifyReceiptOnce();
         });
 
         static::deleted(function (self $payment) {

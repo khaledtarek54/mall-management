@@ -30,7 +30,17 @@ class PaymentForm
                         ->dehydrated(false),
                     Select::make('tenant_id')
                         ->label(__('admin.resources.tenant.singular'))
-                        ->relationship('tenant', 'name')
+                        ->relationship('tenant', 'name', modifyQueryUsing: function ($query) {
+                            // Scope to tenants of the current property — a
+                            // property-restricted user must not allocate a
+                            // payment to another property's tenant/invoices.
+                            $ids = \App\Support\TenantScope::visibleAssetIds();
+
+                            return $query->when($ids !== null, fn ($q) => $q->whereHas(
+                                'leases.unit',
+                                fn ($u) => $u->whereIn('asset_id', $ids),
+                            ));
+                        })
                         ->searchable(['name', 'legal_name', 'email', 'phone'])
                         ->preload()
                         ->required()
@@ -87,6 +97,7 @@ class PaymentForm
                                     return Invoice::query()
                                         ->where('tenant_id', $tenantId)
                                         ->where('balance', '>', 0)
+                                        ->when(\App\Support\TenantScope::visibleAssetIds(), fn ($q, $ids) => $q->whereHas('lease.unit', fn ($u) => $u->whereIn('asset_id', $ids)))
                                         ->orderBy('due_date')
                                         ->get()
                                         ->mapWithKeys(fn (Invoice $i) => [

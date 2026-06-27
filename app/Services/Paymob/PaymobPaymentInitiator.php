@@ -126,6 +126,14 @@ class PaymobPaymentInitiator
             return null;
         }
 
+        // Only reuse a session whose amount still matches what's owed. If a
+        // credit or partial payment reduced the invoice balance since the
+        // session was created, the gateway token is bound to the OLD (higher)
+        // amount — reusing it would overcharge. Fall through to a fresh session.
+        if (round((float) $payment->amount, 2) !== round((float) $invoice->balance, 2)) {
+            return null;
+        }
+
         $stored = (array) $payment->gateway_response;
         if (empty($stored['iframe_url']) || empty($stored['payment_token']) || empty($stored['order_id'])) {
             return null;

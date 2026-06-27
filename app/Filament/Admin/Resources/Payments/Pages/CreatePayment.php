@@ -72,8 +72,13 @@ class CreatePayment extends CreateRecord
                     ->send();
                 $this->halt();
             }
-            $payment->invoices()->sync($sync);
-            $payment->recomputeAllocatedInvoices();
+            \Illuminate\Support\Facades\DB::transaction(function () use ($payment, $sync) {
+                $payment->invoices()->sync($sync);
+                $payment->recomputeAllocatedInvoices();
+            });
+
+            // Allocations are now synced — deliver the receipt notification.
+            $payment->notifyReceiptOnce();
         }
     }
 }

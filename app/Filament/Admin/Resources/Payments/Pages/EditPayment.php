@@ -101,10 +101,15 @@ class EditPayment extends EditRecord
             $this->halt();
         }
 
-        $payment->invoices()->sync($sync);
+        \Illuminate\Support\Facades\DB::transaction(function () use ($payment, $sync, $previouslyAttached) {
+            $payment->invoices()->sync($sync);
 
-        // Recompute every invoice that was ever attached so detached ones flip back to outstanding.
-        $touchedIds = array_unique(array_merge($previouslyAttached, array_keys($sync)));
-        \App\Models\Invoice::whereIn('id', $touchedIds)->get()->each->recomputeTotals();
+            // Recompute every invoice that was ever attached so detached ones flip back to outstanding.
+            $touchedIds = array_unique(array_merge($previouslyAttached, array_keys($sync)));
+            \App\Models\Invoice::whereIn('id', $touchedIds)->get()->each->recomputeTotals();
+        });
+
+        // Allocations are now synced — deliver the receipt notification.
+        $payment->notifyReceiptOnce();
     }
 }

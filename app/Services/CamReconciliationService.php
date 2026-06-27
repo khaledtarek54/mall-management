@@ -48,19 +48,26 @@ class CamReconciliationService
                 $estimated = round((float) $pool->total_estimated_collected * $share, 2);
                 $trueUp = round($allocated - $estimated, 2);
 
-                CamAllocation::updateOrCreate(
-                    [
-                        'cam_expense_pool_id' => $pool->id,
-                        'lease_id' => $lease->id,
-                    ],
-                    [
-                        'pro_rata_share_pct' => round($share * 100, 4),
-                        'allocated_amount' => $allocated,
-                        'estimated_paid' => $estimated,
-                        'true_up_amount' => $trueUp,
-                        'status' => 'pending',
-                    ],
-                );
+                $allocation = CamAllocation::firstOrNew([
+                    'cam_expense_pool_id' => $pool->id,
+                    'lease_id' => $lease->id,
+                ]);
+
+                // Never re-touch an allocation that's already been billed —
+                // re-generating must not reset its status to 'pending', which
+                // would let the same true-up be billed a second time.
+                if ($allocation->exists && $allocation->status !== 'pending') {
+                    continue;
+                }
+
+                $allocation->fill([
+                    'pro_rata_share_pct' => round($share * 100, 4),
+                    'allocated_amount' => $allocated,
+                    'estimated_paid' => $estimated,
+                    'true_up_amount' => $trueUp,
+                    'status' => 'pending',
+                ]);
+                $allocation->save();
                 $count++;
             }
 

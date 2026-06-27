@@ -268,8 +268,11 @@ class MonthlyBillingService
 
         return match ($charge->frequency) {
             'monthly' => true,
+            // Calendar-month difference (day-of-month agnostic) so a mid-month
+            // start date doesn't push the quarter a month late. diffInMonths()
+            // under-counts when the period's day is earlier than the start's.
             'quarterly' => $charge->start_date
-                ? ((int) $charge->start_date->diffInMonths($periodStart)) % 3 === 0
+                ? ((($periodStart->year - $charge->start_date->year) * 12 + $periodStart->month - $charge->start_date->month) % 3 === 0)
                 : ($periodStart->month - 1) % 3 === 0,
             'annually' => $charge->start_date
                 ? $charge->start_date->month === $periodStart->month
