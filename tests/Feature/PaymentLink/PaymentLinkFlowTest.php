@@ -39,6 +39,16 @@ it('404s an unknown pay token (no enumeration)', function () {
     $this->get('/pay/'.str_repeat('x', 48))->assertNotFound();
 });
 
+it('renders the public pay page in Arabic (RTL) when requested', function () {
+    $invoice = payLinkInvoice();
+
+    $this->get(route('pay.show', ['token' => $invoice->paymentLinkToken(), 'lang' => 'ar']))
+        ->assertOk()
+        ->assertSee('المبلغ المستحق')        // "Amount due"
+        ->assertSee('الدفع بالبطاقة')         // "Pay with card"
+        ->assertSee('dir="rtl"', false);     // RTL layout
+});
+
 it('redirects an already-settled invoice to the status page', function () {
     $invoice = payLinkInvoice();
     $token = $invoice->paymentLinkToken();

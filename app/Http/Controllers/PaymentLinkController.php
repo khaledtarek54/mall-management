@@ -28,9 +28,21 @@ class PaymentLinkController
         return Invoice::where('payment_link_token', $token)->firstOrFail();
     }
 
-    /** GET /pay/{token} — invoice summary + Pay button. */
-    public function show(string $token): View|RedirectResponse
+    /** Public visitors have no session — pick the language from ?lang or the browser. */
+    protected function locale(Request $request): string
     {
+        $lang = $request->query('lang');
+        if (in_array($lang, ['en', 'ar'], true)) {
+            return $lang;
+        }
+
+        return $request->getPreferredLanguage(['en', 'ar']) ?: (string) config('app.locale', 'en');
+    }
+
+    /** GET /pay/{token} — invoice summary + Pay button. */
+    public function show(Request $request, string $token): View|RedirectResponse
+    {
+        app()->setLocale($this->locale($request));
         $invoice = $this->resolve($token);
 
         // Nothing to collect → show the result instead of an empty pay form.
@@ -49,6 +61,7 @@ class PaymentLinkController
     /** POST /pay/{token}/start — open a Paymob session and hand off to the gateway. */
     public function start(Request $request, string $token, PaymobPaymentInitiator $initiator): RedirectResponse
     {
+        app()->setLocale($this->locale($request));
         $invoice = $this->resolve($token);
 
         if (! config('integrations.paymob.enabled') || ! $invoice->isPayable()) {
@@ -72,8 +85,9 @@ class PaymentLinkController
     }
 
     /** GET /pay/{token}/status — public result page (paid / failed / processing). */
-    public function status(string $token): View
+    public function status(Request $request, string $token): View
     {
+        app()->setLocale($this->locale($request));
         $invoice = $this->resolve($token)->loadMissing('tenant');
 
         $payment = $invoice->payments()

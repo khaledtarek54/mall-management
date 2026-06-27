@@ -831,6 +831,7 @@ return [
     ],
 
     'fields' => [
+        'asset' => 'العقار',
         'documents' => 'المستندات',
         'tenant_mode' => 'المستأجر',
         'tenant_mode_new' => 'مستأجر جديد',

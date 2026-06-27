@@ -831,6 +831,7 @@ return [
     ],
 
     'fields' => [
+        'asset' => 'Property',
         'documents' => 'Documents',
         'tenant_mode' => 'Tenant',
         'tenant_mode_new' => 'New tenant',

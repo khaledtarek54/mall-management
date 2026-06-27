@@ -1,14 +1,19 @@
 @php
-    $map = [
-        'paid'       => ['#0f766e', '#ecfdf5', '✓', 'Payment successful', 'Your payment has been received. Thank you.'],
-        'failed'     => ['#b91c1c', '#fef2f2', '✕', 'Payment failed', 'The payment did not go through. You can try again.'],
-        'processing' => ['#b45309', '#fffbeb', '…', 'Processing payment', 'We are confirming your payment. This page will update automatically.'],
-        'unpaid'     => ['#475569', '#f1f5f9', '•', 'Invoice not paid', 'This invoice has not been paid yet.'],
+    $rtl = app()->getLocale() === 'ar';
+    // Presentation only (colour/bg/icon); the title + message come from translations.
+    $style = [
+        'paid'       => ['#0f766e', '#ecfdf5', '✓'],
+        'failed'     => ['#b91c1c', '#fef2f2', '✕'],
+        'processing' => ['#b45309', '#fffbeb', '…'],
+        'unpaid'     => ['#475569', '#f1f5f9', '•'],
     ];
-    [$color, $bg, $icon, $title, $msg] = $map[$state] ?? $map['unpaid'];
+    [$color, $bg, $icon] = $style[$state] ?? $style['unpaid'];
+    $title = __('pay.states.'.$state.'.title');
+    $msg = __('pay.states.'.$state.'.msg');
+    $amountLabel = $state === 'paid' ? __('pay.amount_paid') : ($state === 'processing' ? __('pay.amount') : __('pay.amount_due'));
 @endphp
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ app()->getLocale() }}" dir="{{ $rtl ? 'rtl' : 'ltr' }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -40,20 +45,19 @@
         <div class="title">{{ $title }}</div>
         <p class="msg">{{ $msg }}</p>
 
-        @php $amountLabel = $state === 'paid' ? 'Amount paid' : ($state === 'processing' ? 'Amount' : 'Amount due'); @endphp
         <div style="color:#94a3b8;font-size:12px;">{{ $amountLabel }}</div>
         <div class="amount">{{ number_format((float) $amount, 2) }} {{ $invoice->currency ?? 'EGP' }}</div>
-        <div class="meta">Invoice {{ $invoice->number }}@if ($invoice->tenant) · {{ $invoice->tenant->name }}@endif</div>
+        <div class="meta">{{ __('pay.invoice') }} {{ $invoice->number }}@if ($invoice->tenant) · {{ $invoice->tenant->name }}@endif</div>
 
         @if ($state === 'paid' && $appDeepLink)
-            <div><a class="btn btn-app" href="{{ $appDeepLink }}">Open the app to confirm</a></div>
+            <div><a class="btn btn-app" href="{{ $appDeepLink }}">{{ __('pay.open_app') }}</a></div>
         @endif
 
         @if ($state === 'failed' && $invoice->isPayable())
-            <div><a class="btn btn-retry" href="{{ route('pay.show', ['token' => $token]) }}">Try again</a></div>
+            <div><a class="btn btn-retry" href="{{ route('pay.show', ['token' => $token]) }}">{{ __('pay.try_again') }}</a></div>
         @endif
 
-        <div class="foot">Secured by Paymob</div>
+        <div class="foot">{{ __('pay.secured_by') }}</div>
     </div>
 </div>
 </body>

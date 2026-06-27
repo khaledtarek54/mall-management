@@ -1,10 +1,11 @@
+@php $rtl = app()->getLocale() === 'ar'; @endphp
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ app()->getLocale() }}" dir="{{ $rtl ? 'rtl' : 'ltr' }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
-    <title>Pay invoice {{ $invoice->number }} · Atriom</title>
+    <title>{{ __('pay.title', ['number' => $invoice->number]) }} · Atriom</title>
     <style>
         :root { --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --brand:#0f766e; --bg:#f1f5f9; }
         * { box-sizing: border-box; }
@@ -31,32 +32,32 @@
 <body>
 <div class="wrap">
     <div class="card">
-        <div class="head"><span class="brand">Atriom</span><span style="color:var(--muted);font-size:13px;">secure payment</span></div>
+        <div class="head"><span class="brand">Atriom</span><span style="color:var(--muted);font-size:13px;">{{ __('pay.secure_payment') }}</span></div>
         <div class="body">
             @if (session('error'))
                 <div class="err">{{ session('error') }}</div>
             @endif
 
-            <div class="label">Amount due</div>
+            <div class="label">{{ __('pay.amount_due') }}</div>
             <div class="amount">{{ number_format((float) $invoice->balance, 2) }} <span class="cur">{{ $invoice->currency ?? 'EGP' }}</span></div>
 
             <div class="meta">
-                <div class="row"><span class="k">Invoice</span><span>{{ $invoice->number }}</span></div>
+                <div class="row"><span class="k">{{ __('pay.invoice') }}</span><span>{{ $invoice->number }}</span></div>
                 @if ($invoice->tenant)
-                    <div class="row"><span class="k">Billed to</span><span>{{ $invoice->tenant->name }}</span></div>
+                    <div class="row"><span class="k">{{ __('pay.billed_to') }}</span><span>{{ $invoice->tenant->name }}</span></div>
                 @endif
                 @if ($invoice->period_start && $invoice->period_end)
-                    <div class="row"><span class="k">Period</span><span>{{ $invoice->period_start->format('d M') }} – {{ $invoice->period_end->format('d M Y') }}</span></div>
+                    <div class="row"><span class="k">{{ __('pay.period') }}</span><span>{{ $invoice->period_start->format('d M') }} – {{ $invoice->period_end->format('d M Y') }}</span></div>
                 @endif
                 @if ($invoice->due_date)
-                    <div class="row"><span class="k">Due</span><span>{{ $invoice->due_date->format('d M Y') }}</span></div>
+                    <div class="row"><span class="k">{{ __('pay.due') }}</span><span>{{ $invoice->due_date->format('d M Y') }}</span></div>
                 @endif
             </div>
 
             @if ($paymentEnabled)
                 <form method="POST" action="{{ route('pay.start', ['token' => $token]) }}">
                     @csrf
-                    <button class="btn btn-pay" type="submit">Pay with card</button>
+                    <button class="btn btn-pay" type="submit">{{ __('pay.pay_with_card') }}</button>
                 </form>
 
                 @if ($applePayEnabled)
@@ -67,10 +68,10 @@
                     </form>
                 @endif
             @else
-                <div class="err" style="margin-top:14px;">Online payment is temporarily unavailable. Please try again later.</div>
+                <div class="err" style="margin-top:14px;">{{ __('pay.unavailable') }}</div>
             @endif
         </div>
-        <div class="foot">Secured by Paymob · You will be redirected to a secure payment page.</div>
+        <div class="foot">{{ __('pay.secured_by') }} · {{ __('pay.redirect_note') }}</div>
     </div>
 </div>
 </body>

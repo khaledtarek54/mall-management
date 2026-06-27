@@ -93,6 +93,87 @@ class TranslationCoverageTest extends TestCase
         );
     }
 
+    /** Every key must exist in BOTH locales — no EN-only or AR-only keys. */
+    public function test_en_ar_key_parity_across_all_lang_files(): void
+    {
+        $diffs = [];
+        foreach (['admin', 'api', 'auth', 'errors', 'pay'] as $f) {
+            $en = $this->flatten(require base_path("lang/en/$f.php"));
+            $ar = $this->flatten(require base_path("lang/ar/$f.php"));
+            foreach (array_keys(array_diff_key($en, $ar)) as $k) {
+                $diffs[] = "AR missing: $f.$k";
+            }
+            foreach (array_keys(array_diff_key($ar, $en)) as $k) {
+                $diffs[] = "EN missing: $f.$k";
+            }
+        }
+
+        $this->assertEmpty($diffs, "EN/AR translation key parity broken:\n  - " . implode("\n  - ", $diffs));
+    }
+
+    /** Every __('ns.key') referenced in the code must resolve (leaf or array group). */
+    public function test_referenced_translation_keys_exist(): void
+    {
+        $ns = ['admin', 'api', 'auth', 'errors', 'pay'];
+        $leaves = [];
+        foreach ($ns as $f) {
+            foreach (array_keys($this->flatten(require base_path("lang/en/$f.php"))) as $k) {
+                $leaves["$f.$k"] = true;
+            }
+        }
+        $leafKeys = array_keys($leaves);
+        $resolves = function (string $key) use ($leaves, $leafKeys): bool {
+            if (isset($leaves[$key])) {
+                return true;
+            }
+            $prefix = $key . '.';
+            foreach ($leafKeys as $lk) {
+                if (str_starts_with($lk, $prefix)) {
+                    return true; // an array group (e.g. enums.method)
+                }
+            }
+            return false;
+        };
+
+        $missing = [];
+        foreach (['app', 'resources/views'] as $dir) {
+            foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(base_path($dir))) as $file) {
+                if (! $file->isFile() || ! str_ends_with($file->getFilename(), '.php')) {
+                    continue;
+                }
+                if (preg_match_all('/(?:__|trans|@lang|Lang::get)\(\s*[\'"]([a-zA-Z0-9_.\-]+)[\'"]/', file_get_contents($file->getPathname()), $m)) {
+                    foreach ($m[1] as $key) {
+                        if (! in_array(explode('.', $key)[0], $ns, true) || str_ends_with($key, '.')) {
+                            continue; // framework namespace or dynamic key
+                        }
+                        if (! $resolves($key)) {
+                            $missing[$key] = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        $this->assertEmpty(
+            array_keys($missing),
+            "Translation keys referenced in code but missing from lang files (render raw):\n  - " . implode("\n  - ", array_keys($missing)),
+        );
+    }
+
+    private function flatten(array $a, string $prefix = ''): array
+    {
+        $out = [];
+        foreach ($a as $k => $v) {
+            $key = $prefix === '' ? (string) $k : "$prefix.$k";
+            if (is_array($v)) {
+                $out += $this->flatten($v, $key);
+            } else {
+                $out[$key] = $v;
+            }
+        }
+        return $out;
+    }
+
     private function dig(array $a, array $parts): mixed
     {
         foreach ($parts as $p) {
