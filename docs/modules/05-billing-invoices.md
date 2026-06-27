@@ -1,0 +1,815 @@
+# Billing & Invoices
+> Generate and track monthly invoices for leased retail units, including VAT compliance, proration, payment reconciliation, and overdue notifications.
+
+## 1. Purpose & business context
+
+The Billing module automates the monthly invoicing lifecycle for Eltizam operators. Each Eltizam manages leases on behalf of Jawad property owners; invoices are issued to Eltizam's tenants (retailers) for rent, service charges, utilities, and other recurring fees. The system:
+- Generates invoices idempotently from lease charges (avoiding duplicates within a period)
+- Applies 14% VAT only to service/utility charges (base rent is VAT-exempt per Egyptian law)
+- Supports proration for mid-month lease commencement
+- Enforces quarterly/annual charge cadences (e.g., calendar-month-agnostic quarterly billing)
+- Tracks payment status via a payment-allocation pivot and credit notes
+- Notifies tenants on issuance and alerts Jawad owners on overdue balances
+
+This is the core AR (accounts receivable) engine; all recurring revenue flows through it.
+
+## 2. Domain model
+
+### Key tables & models
+
+| Table | Model | Key columns | Meaning |
+|-------|-------|------------|---------|
+| `invoices` | `Invoice` | `number` (unique, e.g. `INV-AW-202603-0001`), `lease_id`, `tenant_id`, `status` (enum: draft, issued, partially_paid, paid, overdue, disputed, cancelled, credited), `issue_date`, `due_date`, `period_start`, `period_end`, `subtotal`, `vat_amount`, `total`, `paid_amount`, `credit_applied_amount`, `balance`, `currency` (EGP), `eta_submission_id`, `eta_status`, `owner_overdue_notified_at` | One per lease per billing period; issue_date = period_start for full months or commencement for prorated first month. |
+| `invoice_items` | `InvoiceItem` | `invoice_id`, `charge_id` (nullable), `description`, `type` (enum: base_rent, service_charge, utility, parking, percentage_rent, late_fee, other), `amount`, `vat_rate`, `vat_amount`, `total` | Line items derived from Lease charges; one per applicable charge per invoice. |
+| `charges` | `Charge` | `lease_id`, `name`, `type`, `amount`, `currency` (EGP), `frequency` (enum: monthly, quarterly, annually, one_time), `vat_applicable` (boolean), `vat_rate` (default 14), `start_date`, `end_date`, `is_active` | Recurring billing items attached to a lease; defines what is billed and how often. |
+| `payments` → `invoice_payment` (pivot) | Payment / Invoice | `invoices.invoice_payment.allocated_amount`, `payment.status` (captured, pending, failed, refunded) | Many-to-many junction; each payment can be allocated across multiple invoices. Only **captured** payments count toward AR settlement. |
+
+### Relationships
+
+- **Invoice** `belongsTo` Lease, Tenant
+- **Invoice** `hasMany` InvoiceItem
+- **Invoice** `belongsToMany` Payment (via `invoice_payment` pivot with `allocated_amount`)
+- **InvoiceItem** `belongsTo` Invoice, Charge (nullable)
+- **Charge** `belongsTo` Lease
+
+### Column notes
+
+- `credit_applied_amount`: Tracks credit notes applied to this invoice durably (separate from payment pivot). Critical for preventing credit erasure during payment recomputes.
+- `balance` = `total - paid_amount` (recomputed after each payment or credit allocation)
+- `status` auto-advances: `issued` → `overdue` (if due_date is past), `partially_paid` (if 0 < paid < total), `paid` (if balance ≤ 0). Manual overrides (disputed, cancelled, credited) are preserved.
+- `eta_status`: Egyptian Tax Authority compliance status; initially null, updated via EtaSubmissionService.
+
+## 3. Business rules & invariants
+
+### Money & VAT
+
+1. **VAT is 14% and only applies to service charges, utilities, and parking — NOT base rent or percentage rent.** This is controlled per charge:
+   - `Charge.vat_applicable` = true/false
+   - `Charge.vat_rate` = 14.00 (for taxed charges)
+   - `InvoiceItem.vat_rate` inherits from Charge; if Charge.vat_applicable = false, vat_rate = 0
+   - VAT per item = `amount * (vat_rate / 100)`, rounded to 2 decimals
+   - Invoice totals: `subtotal = sum(item.amount)`, `vat_amount = sum(item.vat_amount)`, `total = subtotal + vat_amount`
+   - **Test:** `BillingScenarioTest::test_computes_subtotal_vat_and_total_exactly__service_charge_taxed_base_rent_exempt` confirms base rent = 0 VAT, service charge = 14% VAT
+
+2. **Proration:** When a lease commences mid-month and proration is enabled, charges are scaled by factor = `daysBilled / daysInPeriod` (inclusive). VAT is recalculated on the prorated amount.
+   - **Formula:** factor = `(periodEnd.diffInDays(commencement) + 1) / (periodEnd.diffInDays(periodStart) + 1)`
+   - **Test:** `BillingScenarioTest::test_pro_rates_the_first_partial_month_when_prorate_is_requested` pins 16 days in March from 15th = 16/30 = 0.5333
+   - **Gotcha:** Proration only applies if (a) flag is true AND (b) commencement is between periodStart and periodEnd AND (c) commencement > periodStart. A mid-month commencement can be billed full-month if prorate=false (UI default).
+
+3. **Charge frequency & applicability:**
+   - **Monthly** — always applies (if active in the period)
+   - **Quarterly** — applies when calendar-month difference (day-of-month agnostic) from start_date is a multiple of 3
+     - **Formula:** `((periodYear - startYear) * 12 + periodMonth - startMonth) % 3 === 0`
+     - **Gotcha (fixed):** Old code used `diffInMonths()` which counts whole months; 2026-01-15 to 2026-04-01 = 2 whole months (bug). New formula uses calendar-month delta = 3.
+     - **Test:** `QuarterlyChargeTimingTest::test_bills_a_mid_month_quarterly_charge_exactly_3_calendar_months_after_its_start__april` + `test_does_not_bill_the_mid_month_quarterly_charge_in_the_off_quarter_month__may`
+   - **Annually** — applies in the anniversary month of start_date (or January if no start_date)
+   - **One-time** — applies only if start_date falls within the billing period
+   - All frequencies respect `start_date` and `end_date` windows (if charge window ends before period or starts after, it doesn't apply)
+
+4. **Invoice number format:** `INV-{ASSET_CODE}-{YYYYMM}-{SEQNUM}` (e.g. `INV-AW-202603-0001`)
+   - Derived from Lease.unit.asset.code at invoice creation time (booted hook)
+   - Sequence resets per month per asset
+   - **Test:** `InvoiceTest::test_auto_generates_a_unique_invoice_number_with_the_asset_code_and_period`
+
+### AR Reconciliation
+
+5. **Paid amount is the sum of two sources:**
+   - Captured payments via the `invoice_payment` pivot: `sum(invoice_payment.allocated_amount where payments.status = 'captured')`
+   - Credit notes applied durably via `invoices.credit_applied_amount`
+   - **Formula (in Invoice::recomputeTotals()):** `paid_amount = sum(captured payments) + credit_applied_amount`
+   - This ensures a credit note isn't erased by a later payment recompute
+   - **Test:** `CreditNoteBalanceDriftTest::test_keeps_an_applied_credit_when_a_later_captured_payment_recomputes_the_invoice`
+
+6. **Balance is never negative:** `balance = max(0, total - paid_amount)` (rounded to 2 decimals)
+
+### Idempotency & lifecycle
+
+7. **Invoice generation is idempotent per lease+period:** If an invoice already exists with the same period_start, the run skips it.
+   - **Entry points:** `MonthlyBillingService::runForPeriod()` (batch all active leases) or `generateForLease()` (single lease, returns status array)
+   - **Test:** `BillingScenarioTest::test_skips_with_already_billed_when_an_invoice_already_covers_the_period` + `Services/MonthlyBillingServiceTest::test_is_idempotent_a_second_run_for_the_same_period_creates_no_duplicates`
+
+8. **Only active leases with overlapping commencement/expiry are billed by runForPeriod:**
+   - Status = 'active' (not draft, terminated, etc.)
+   - commencement_date ≤ period_end
+   - expiry_date is null OR expiry_date ≥ period_start
+   - **Test:** `BillingScenarioTest::test_runForPeriod_does_not_bill_a_draft_lease` + `test_runForPeriod_does_not_bill_a_terminated_lease` + `test_runForPeriod_does_not_bill_a_lease_whose_expiry_precedes_the_period`
+
+9. **Status auto-transitions (unless manually overridden to cancelled/disputed/credited):**
+   - `issued` (new invoices)
+   - → `overdue` if due_date < today AND balance > 0
+   - → `partially_paid` if 0 < paid_amount < total
+   - → `paid` if balance ≤ 0 AND paid_amount > 0
+   - Manual statuses (cancelled, disputed, credited) are preserved across recomputes
+   - **Test:** `InvoiceTest::test_recalculates_balance__status_when_paid_amount_changes`
+
+### Due date & payment terms
+
+10. **Due date is set at issuance:** `due_date = issue_date + lease.payment_terms_days` (default 7 if not set)
+    - For prorated invoices, due_date is still `issue_date + payment_terms_days`; issue_date shifts to commencement, not period_start
+    - **Test:** `BillingScenarioTest::test_derives_the_due_date_as_period_start__payment_terms_days`
+
+### Constraints (database)
+
+11. Invoice.number is UNIQUE
+12. Invoice.lease_id is RESTRICTED on delete (soft-deleted invoices retain their lease reference)
+13. Invoice.tenant_id is RESTRICTED on delete
+14. InvoiceItem.invoice_id is CASCADE on delete (items are purged with invoice)
+15. Charge.lease_id is CASCADE on delete (charges are purged with lease)
+
+## 4. Lifecycle / state machine
+
+| Status | Transition trigger | Next state(s) | Terminal? | Mutable via UI? |
+|--------|-------------------|---------------|-----------|-----------------|
+| `draft` | Manual creation in Filament | `issued` (via save) | No | Yes (read-only in form; set before creation) |
+| `issued` | Invoice created, or due_date is future | `partially_paid` (payment > 0), `overdue` (due_date past), `paid` (balance ≤ 0) | No | Yes (can set manually) |
+| `partially_paid` | 0 < paid_amount < total | `paid` (more payments), `overdue` (due_date past) | No | Yes (manual override) |
+| `paid` | paid_amount ≥ total | ✓ (stable) | Yes (unless manually adjusted) | Yes (manual only) |
+| `overdue` | due_date past AND balance > 0 | `partially_paid`, `paid`, or stays `overdue` | No | Yes (manual override) |
+| `disputed` | Manual override | Any (manual resolution) | No (pending investigation) | Yes (manual) |
+| `cancelled` | Manual override | ✓ (irreversible in practice) | Yes | Yes (manual) |
+| `credited` | Manual override (typically after credit note) | ✓ (irreversible) | Yes | Yes (manual) |
+
+**Automatic transitions:** Only issued/partially_paid/overdue → newer status via `recomputeTotals()` after payment/credit changes. Cancelled/disputed/credited are preserved and never auto-overwritten.
+
+**Overdue flag:** An invoice is "overdue" if status is overdue OR (status is issued/partially_paid AND due_date < today). Method: `Invoice::isOverdue()`.
+
+## 5. Services, jobs & scheduled commands
+
+### MonthlyBillingService
+
+**File:** `/app/Services/MonthlyBillingService.php`
+
+#### runForPeriod(?CarbonImmutable $period = null): array
+
+Generates invoices for every active lease for a given month. Defaults to the current month.
+
+**Signature:**
+```php
+public function runForPeriod(?CarbonImmutable $period = null): array
+```
+
+**Return:** `['period' => 'Y-m', 'leases_considered' => int, 'created' => int, 'skipped' => int, 'failed' => int, 'failed_lease_ids' => int[]]`
+
+**Behavior:**
+- Selects all leases with status='active', commencement ≤ period_end, and expiry_date >= period_start (or null)
+- Processes each in chunks of 100 (via chunkById for memory efficiency)
+- Skips any lease that already has an invoice covering the period (idempotent)
+- Wraps each lease in its own transaction; one failure doesn't abort the whole run
+- Fires `InvoiceIssuedNotification` to tenant on success
+- Logs failures with lease_id and exception message
+
+**Idempotency:** Yes. Checked via `Invoice::where('lease_id', $lease_id)->whereDate('period_start', $periodStart)->exists()`.
+
+**Locking:** None (but per-lease transactions prevent concurrent overwrites of the same lease).
+
+**When it runs:** Typically via `RunMonthlyBillingCommand` triggered by a scheduler or admin action in Filament (see Tables section). Can also be queued via `--queue` flag.
+
+#### generateForLease(Lease $lease, ?CarbonImmutable $period = null, bool $prorate = false): array
+
+Generates a single invoice for one lease for a given month. Used by the Filament UI to issue an invoice for a specific lease on demand.
+
+**Return:** `['status' => 'created'|'skipped'|'failed', 'reason' => string (optional), 'invoice' => Invoice|null]`
+
+**Behavior:**
+- Checks idempotency (skips if already billed)
+- Loads active charges for the lease
+- Filters charges by applicability (frequency + time window)
+- If no applicable charges, returns `['status' => 'skipped', 'reason' => 'no_applicable_charges', 'invoice' => null]`
+- Applies proration only if (a) prorate=true AND (b) lease commences mid-period
+- Computes line items, totals, VAT
+- Creates Invoice + InvoiceItems in a transaction
+- Accesses marketing levy (wrapped in try-catch so billing is not blocked by budget errors)
+- Fires notification on success
+
+**Proration flag:** Defaults to false. When true and commencement is between period start/end, pro-rates charges and shifts period_start/issue_date to commencement.
+
+**When it's called:** Primarily from the Filament invoice creation form (manually triggered by admin) or test scenarios.
+
+### Private helpers
+
+#### chargeAppliesToPeriod(Charge $c, CarbonImmutable $periodStart, CarbonImmutable $periodEnd): bool
+
+Determines if a charge is due in the given month based on its frequency and time window.
+
+**Quarterly logic (day-of-month agnostic):**
+```php
+'quarterly' => $charge->start_date
+    ? ((($periodStart->year - $charge->start_date->year) * 12 + $periodStart->month - $charge->start_date->month) % 3 === 0)
+    : ($periodStart->month - 1) % 3 === 0,
+```
+
+**Annual logic:**
+```php
+'annually' => $charge->start_date
+    ? $charge->start_date->month === $periodStart->month
+    : $periodStart->month === 1,
+```
+
+#### notifyInvoiceIssued(Invoice $invoice): void
+
+Notifies the tenant via `$tenant->notifyPortal(InvoiceIssuedNotification)`. Wraps in try-catch (fails gracefully if notification queue is down).
+
+#### accrueMarketingLevy(Lease $lease, Collection $items, CarbonImmutable $periodStart): void
+
+Internal allocation (no tenant charge): extracts base_rent amount from billed items, multiplies by marketing levy rate (via MarketingLevyService), and accrue to the property's marketing budget. Wrapped in try-catch so billing is never blocked.
+
+---
+
+### RunMonthlyBilling (Job)
+
+**File:** `/app/Jobs/RunMonthlyBilling.php`
+
+Queued job that dispatches `MonthlyBillingService::runForPeriod()`.
+
+**Constructor:** `__construct(public ?string $period = null)` — period as 'Y-m' string, defaults to current month.
+
+**Timeout:** 600 seconds (10 min).
+
+**Tries:** 1 (no retry on failure).
+
+**Invoked via:** `RunMonthlyBillingCommand --queue` flag.
+
+---
+
+### RunMonthlyBillingCommand
+
+**File:** `/app/Console/Commands/RunMonthlyBillingCommand.php`
+
+CLI entry point for monthly billing.
+
+**Signature:**
+```
+billing:run-monthly {--period= : YYYY-MM} {--queue : Dispatch the job}
+```
+
+**Usage examples:**
+```bash
+php artisan billing:run-monthly                    # Current month, sync
+php artisan billing:run-monthly --period=2026-03  # March 2026, sync
+php artisan billing:run-monthly --queue            # Current month, queued
+```
+
+**Behavior:**
+- Parses period (defaults to now)
+- If `--queue`, dispatches RunMonthlyBilling job
+- Otherwise, calls service directly and prints table with stats
+- Exits with FAILURE code if any lease failed
+
+---
+
+### ScanOverdueInvoicesCommand
+
+**File:** `/app/Console/Commands/ScanOverdueInvoicesCommand.php`
+
+Notifies Jawad owners about overdue invoices on their properties (daily, idempotent).
+
+**Signature:**
+```
+billing:scan-overdue-invoices {--dry-run : Print without notifying}
+```
+
+**Behavior:**
+- Fetches all invoices with status in [issued, partially_paid, overdue], balance > 0, due_date < now, and owner_overdue_notified_at is null
+- For each, locks the invoice and re-checks the stamp inside a transaction (prevents concurrent double-notify)
+- Resolves owners via `AssetStaffRecipients::owners($asset_id)`
+- Sends `InvoiceOverdueOwnerNotification` to each owner (database channel)
+- Sets `owner_overdue_notified_at = now()` (idempotency marker)
+- If `--dry-run`, prints what would be alerted without writing
+
+**Idempotency:** Via `owner_overdue_notified_at` timestamp. Each overdue invoice alerts once, ever.
+
+**Locking:** Uses `lockForUpdate()` within transaction to prevent overlapping scans from notifying the same invoice twice.
+
+**Concurrency note:** Safe for parallel runs; the lock + re-check pattern prevents duplicate notifications.
+
+## 6. Filament resources & key fields
+
+### Admin InvoiceResource
+
+**File:** `/app/Filament/Admin/Resources/Invoices/InvoiceResource.php`
+
+**Scoping:** `ScopesViaProperty` trait (tenant-scoped). Access controlled via lease.unit.asset_id (property).
+
+**Permissions:** Standard RBAC (can be gated per role via Resource::canCreate/Edit/Delete methods, not shown in read view).
+
+#### Form (InvoiceForm)
+
+**File:** `/app/Filament/Admin/Resources/Invoices/Schemas/InvoiceForm.php`
+
+**Sections:**
+
+1. **Invoice Details** (3 columns)
+   - `number` — disabled, auto-generated at save
+   - `lease_id` (required) — searchable relationship, server-side search on reference + tenant name + unit code; `live()` afterStateUpdated prefills tenant and items
+   - `tenant_id` (required) — relationship, searchable
+   - `status` — enum select (draft/issued/partially_paid/paid/overdue/disputed/cancelled/credited)
+   - `issue_date` (required) — date picker, live
+   - `due_date` (required) — date picker, validated `after('issue_date')` (no same-day or past due dates allowed)
+   - `period_start` (required) — date picker
+   - `period_end` (required) — date picker
+
+2. **Items** (repeater, live)
+   - `type` (required) — enum (base_rent/service_charge/utility/parking/percentage_rent/late_fee/other), default base_rent
+   - `description` (required) — text
+   - `amount` (required, ≥ 0) — numeric, live(onBlur), triggers recomputeItem()
+   - `vat_rate` (required, 0–100%) — numeric, default 14, live(onBlur), triggers recomputeItem()
+   - `total` — computed, disabled, shows amount + VAT
+   - **Dynamic VAT:** Item auto-recalculates `vat_amount = amount * vat_rate / 100`, then `total = amount + vat_amount`
+   - **Live recalculation:** Changes to amount or vat_rate trigger parent invoice totals update (subtotal, vat_amount, total, balance)
+   - **Prefilling:** When lease is selected, if no items exist, reads lease.charges (monthly + one_time only) and pre-fills repeater
+
+3. **Amounts** (4 columns, read-only)
+   - `subtotal` — sum of item.amount
+   - `vat_amount` — sum of item.vat_amount
+   - `total` — subtotal + vat_amount
+   - `balance` — total - paid_amount
+
+4. **Notes** (collapsible)
+   - `notes` — textarea
+
+**Validation:**
+- `due_date` must be after `issue_date` (custom message)
+- All required fields must be filled
+- Amounts must be ≥ 0
+- VAT rate 0–100%
+
+#### Table (InvoicesTable)
+
+**File:** `/app/Filament/Admin/Resources/Invoices/Tables/InvoicesTable.php`
+
+**Columns (read-only):**
+- `number` — searchable, copyable, mono font
+- `tenant.name` — searchable, bold
+- `lease.unit.code` — badge, gray
+- `period_start` — formatted as "Mar 2026"
+- `total` — money (EGP), right-aligned, sortable
+- `paid_amount` — money (EGP), success color, right-aligned, sortable
+- `balance` — money (EGP), danger if > 0, bold, right-aligned, sortable
+- `due_date` — formatted d/m/Y, danger color if past, sortable
+- `status` — badge with i18n label, color-coded (success=paid, warning=partially_paid/disputed, danger=overdue, info=issued)
+- `eta_status` — badge (if ETA module enabled), color-coded (success=valid, info=submitted, danger=invalid/rejected, gray=cancelled/pending/null)
+
+**Filters:**
+- Status — select (draft/issued/partially_paid/paid/overdue)
+- Tenant — relationship + search
+- Unit — select with search
+- Period — date range (period_start)
+- Due date range — date range (due_date)
+- Overdue only — toggle (balance > 0 AND due_date < now)
+- ETA status (if module enabled) — select
+- Needs ETA attention — eta_status in (invalid, rejected)
+- ETA pending — eta_status is null or pending
+- Trashed — soft-delete toggle
+
+**Header Actions:**
+- **Export** — CSV via InvoiceExporter
+- **Run monthly billing** — admin action, requires confirmation, launches MonthlyBillingService::runForPeriod() and shows success/warning notification with stats
+
+**Record Actions:**
+- **Edit** — if canEdit($record)
+- **Download PDF** — streams InvoicePdfService::build($record) as PDF
+- **Send WhatsApp** — if config enabled, status in [issued/partially_paid/overdue], visible if canEdit()
+- **Submit to ETA** — if ETA module enabled, eta_status not already 'valid', status in [issued/partially_paid/paid/overdue]
+  - Shows mock/live warning
+  - Calls EtaSubmissionService::submit($record)
+  - Notifies on success with updated eta_status and submission_id
+
+**Bulk Actions:**
+- Export
+- Download PDFs as ZIP
+- Bulk submit to ETA (skips already-valid, notifies count submitted/skipped)
+- Delete (soft)
+- Force delete
+- Restore
+
+**Navigation badge:** Count of overdue invoices (balance > 0, due_date < now) in the active property, red color.
+
+**Global search:** Searches number, tenant.name, lease.unit.code, lease.reference.
+
+---
+
+### Portal InvoiceResource (Tenant view)
+
+**File:** `/app/Filament/Portal/Resources/Invoices/InvoiceResource.php`
+
+**Scoping:** Filtered to tenant_id = Portal::tenantId() (current logged-in tenant).
+
+**Capabilities:** Read-only (canCreate/Edit/Delete all return false).
+
+**Pages:**
+- **ListInvoices** — table view (same columns as Admin, minus eta_status if tenant-facing, minus edit actions)
+- **ViewInvoice** — detail view via infolist
+
+---
+
+### Filament TenantScope
+
+**Reference:** `/app/Support/TenantScope.php`
+
+Used in form/table queries to auto-scope to the current property (Asset):
+```php
+->when(
+    TenantScope::currentAssetId(),
+    fn ($q, $assetId) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId))
+)
+```
+
+## 7. Notifications & integrations
+
+### InvoiceIssuedNotification
+
+**File:** `/app/Notifications/InvoiceIssuedNotification.php`
+
+**Sent to:** Tenant (the billed entity).
+
+**Channels:** mail + database (bell entry).
+
+**Email:**
+- Subject: "Invoice {number} issued"
+- Markdown template: `emails.invoice-issued`
+- Attachment: PDF from InvoicePdfService (generated inline)
+
+**Database (bell):**
+- Type: 'invoice_issued'
+- Title: "Invoice Issued"
+- Body: "Invoice {number} · EGP {total} due {due_date}"
+- Icon: document-text, color primary
+- Duration: persistent (stays until dismissed)
+
+**Fired:** At the end of `MonthlyBillingService::generateInvoiceForLease()` (both batch and single-lease flows).
+
+**Wrapping:** Wrapped in try-catch in `notifyInvoiceIssued()` — failures log but don't block invoice creation.
+
+---
+
+### InvoiceOverdueOwnerNotification
+
+**File:** `/app/Notifications/InvoiceOverdueOwnerNotification.php`
+
+**Sent to:** Jawad owners of the property (via AssetStaffRecipients::owners()).
+
+**Channels:** database (bell only, not email).
+
+**Database:**
+- Type: 'invoice_overdue'
+- Title: "Invoice Overdue"
+- Body: "Invoice {number} · {days} days overdue · EGP {balance} owed"
+- Icon: banknotes, color danger
+- Duration: persistent
+
+**Fired:** By `ScanOverdueInvoicesCommand` for each invoice with balance > 0, due_date < today, and no prior notification (idempotent via `owner_overdue_notified_at`).
+
+---
+
+### ETA Integration
+
+**Module flag:** `Modules::enabled('eta')`.
+
+**Interaction:** Invoices can be submitted to the Egyptian Tax Authority (ETA) system.
+
+**Fields:**
+- `eta_submission_id` — unique ID returned by ETA
+- `eta_submitted_at` — timestamp of last submission
+- `eta_response` — JSON blob (full ETA response)
+- `eta_status` — enum (pending, submitted, valid, invalid, rejected, cancelled)
+- `eta_long_id` — alternate ETA identifier
+
+**Service:** `EtaSubmissionService::submit(Invoice $invoice): Invoice` — updates eta_* fields and returns the refreshed model.
+
+**Visibility:** Filters/actions in table are hidden if ETA module is disabled.
+
+**No side effects on AR:** ETA submission is purely compliance; it doesn't affect invoice balance, status, or payment reconciliation.
+
+## 8. Extension points — how to change/extend SAFELY
+
+### Adding a new charge type
+
+1. **Add to enum:** Edit migration or add new migration to expand the `type` enum in both `charges` and `invoice_items` tables.
+   ```php
+   // In migration:
+   $table->enum('type', ['base_rent', 'service_charge', 'utility', 'parking', 'percentage_rent', 'late_fee', 'other', 'my_new_type']);
+   ```
+
+2. **Update Charge model:** No code change needed (enum is handled by DB).
+
+3. **Update VAT logic (if applicable):** If the new type should be taxed:
+   - In Filament form, the VAT rate defaults to 14 but is user-selectable per charge.
+   - No code change needed; the form respects `charge.vat_applicable` already.
+
+4. **Add translation keys:** For Filament enums, add i18n keys:
+   ```php
+   // In app/Filament/Resources/Invoices/Schemas/InvoiceForm:
+   Select::make('type')->options(fn () => __('admin.enums.invoice_item_type'))
+   // Ensure 'admin.enums.invoice_item_type.my_new_type' exists in lang files
+   ```
+
+5. **Add tests:** Add a scenario in `BillingScenarioTest.php` that exercises the new type.
+   ```php
+   it('bills the new charge type with correct VAT', function () {
+       $lease = billingLease();
+       billingCharge($lease, [
+           'name' => 'My Charge', 'type' => 'my_new_type', 'amount' => 1000,
+           'vat_applicable' => true, 'vat_rate' => 14
+       ]);
+       $invoice = app(MonthlyBillingService::class)->generateForLease($lease)['invoice'];
+       expect((float) $invoice->vat_amount)->toBe(140.0);
+   });
+   ```
+
+**DO NOT:** Hard-code charge types in the service; the system is generic and works by reading charge.type and charge.vat_applicable.
+
+---
+
+### Changing the VAT rate (globally or by tenant)
+
+**Global rate:** Currently hard-coded as 14% in migrations and Charge model defaults. To make it configurable:
+
+1. Add to `BillingSettings`:
+   ```php
+   public float $vat_rate_percent = 14.0;
+   ```
+
+2. Update `InvoiceForm` default:
+   ```php
+   TextInput::make('vat_rate')->default(fn () => settings('billing.vat_rate_percent'))
+   ```
+
+3. Update `MonthlyBillingService::generateInvoiceForLease()`:
+   ```php
+   $vatRate = $charge->vat_applicable ? (float) $charge->vat_rate : 0.0;
+   // No change needed — reads from Charge.vat_rate, which can be per-charge
+   ```
+
+4. Test the new setting value.
+
+**Per-tenant or per-lease rate:** Currently not supported. To add, store vat_override on Tenant or Lease and read it in MonthlyBillingService. This would be a larger feature (need UI, tests, migration).
+
+---
+
+### Adding a new charge frequency
+
+Example: **fortnightly** (every 2 weeks).
+
+1. Add to migration:
+   ```php
+   $table->enum('frequency', [..., 'fortnightly']);
+   ```
+
+2. Implement `chargeAppliesToPeriod()` logic:
+   ```php
+   'fortnightly' => // biweekly logic here
+   ```
+
+3. **Challenge:** Fortnightly doesn't align to calendar months. You'd need to track which fortnight(s) fall within the billing month. More complex than monthly/quarterly/annual.
+
+4. Test thoroughly to avoid billing a charge 0 or 2 times per month unexpectedly.
+
+**Recommendation:** Keep to calendar-aligned frequencies (monthly, quarterly, annual) unless you redesign the period model.
+
+---
+
+### Integrating a payment gateway (e.g., Paymob)
+
+The payment system is separate from invoicing; see the Payment module. Key integration points:
+
+- When a payment is captured, `Payment.invoices().attach($invoiceId, ['allocated_amount' => $amt])`
+- Capture webhook triggers `$invoice->recomputeTotals()` (see PaymentController or PaymentService)
+- This updates paid_amount, balance, and status
+
+**To integrate:**
+
+1. Ensure the gateway can POST payment confirmations.
+2. In the payment handler, call `Invoice.recomputeTotals()` after attaching payments.
+3. Write a test that simulates the webhook → attachment → recompute flow.
+
+**DO NOT:** Modify invoice.total or invoice.subtotal in the payment handler; these are set at issuance and immutable.
+
+---
+
+### Customizing invoice PDF layout or adding dynamic sections
+
+**File:** `/app/Services/InvoicePdfService.php` (not shown, but referenced throughout).
+
+To customize the PDF:
+
+1. Edit `InvoicePdfService::build(Invoice $invoice): string` to change PDF generation logic.
+2. Ensure the PDF includes all required tax fields for ETA compliance (if applicable).
+3. Test the PDF visually and ensure file size is reasonable (PDF generation can be slow).
+
+---
+
+### Extending the AR reconciliation (e.g., discount, writing off bad debt)
+
+Currently, balance = total - paid_amount - credit_applied_amount. To add discounts or write-offs:
+
+1. Add a column `invoices.discount_amount` or `invoices.writeoff_amount`.
+2. Update `Invoice::recomputeTotals()`:
+   ```php
+   $settled = $paid + $credit_applied + $discount + $writeoff;
+   $this->balance = max(0, $this->total - $settled);
+   ```
+
+3. Add UI in Filament form to set discount_amount.
+4. Add audit logging (already in place via LogsActivity on Invoice).
+5. Test that balance remains >= 0.
+
+**Validation:** Ensure total discount + writeoff ≤ total (no negative balances).
+
+---
+
+### Implementing late fees
+
+Late fees are NOT generated automatically by MonthlyBillingService; they are applied on-demand via `LateFeeService::runForToday()` (separate module, not detailed here). To integrate with invoicing:
+
+1. `LateFeeService` creates an InvoiceItem with type='late_fee' and attaches it to the overdue invoice.
+2. The invoice's total increases; balance is recalculated.
+3. Test: `BillingMathTest::test_late_fee_applies_once_per_invoice` confirms idempotency and grace period.
+
+---
+
+## 9. Gotchas, edge cases & recently-fixed bugs
+
+### 1. Proration factor precision
+
+**Gotcha:** Proration factor is rounded to 4 decimals in the service (`round($daysBilled / $daysInPeriod, 4)`). This is then multiplied by each charge amount, and the result rounded to 2 decimals. Rounding errors are minimal but possible over many prorated charges.
+
+**Example:** 16 / 30 = 0.5333... rounded to 4 decimals = 0.5333. × 10000 = 5333.00. Matches test expectation.
+
+**Impact:** Minimal; only visible in edge cases with many fractional cents. The 2-decimal rounding per item absorbs most variance.
+
+---
+
+### 2. Quarterly charge bug (FIXED)
+
+**Bug (old code):** `chargeAppliesToPeriod()` used `diffInMonths()` to decide quarterly applicability. `diffInMonths()` counts whole months, so 2026-01-15 to 2026-04-01 = 2 whole months (not 3). A quarterly charge would be billed a month late.
+
+**Fix:** Use calendar-month delta: `((periodYear - startYear) * 12 + periodMonth - startMonth) % 3 === 0`. This is day-of-month agnostic and correctly identifies 3-month cadences.
+
+**Tests:** `QuarterlyChargeTimingTest` pins the corrected behavior.
+
+**Impact:** Quarterly charges now bill on the correct month. This is a breaking fix; if you have old invoices that were generated with the old logic, they are already in the past and immutable.
+
+---
+
+### 3. Credit note AR drift (FIXED)
+
+**Bug (old code):** When a credit note was applied to an invoice, it bumped `paid_amount`, but `Invoice::recomputeTotals()` (called on a later payment) only summed `captured payments` pivot — it ignored the applied credit. So the credit was silently erased.
+
+**Example:**
+- Invoice total 1000, issued.
+- Credit 300 applied → paid_amount = 300, balance = 700.
+- Payment 700 captured → `recomputeTotals()` sums only the payment (700) and sets paid_amount = 700, balance = 300. The credit vanishes!
+
+**Fix:** Added `invoices.credit_applied_amount` column. `CreditNoteService::applyToInvoice()` bumps this column, then calls `recomputeTotals()`, which sums both the payments pivot AND credit_applied_amount.
+
+**Formula:** `paid_amount = sum(captured payments) + credit_applied_amount`.
+
+**Migration:** Backfilled existing invoices by calculating credit = paid_amount − sum(captured payments) for each invoice.
+
+**Tests:** `CreditNoteBalanceDriftTest::test_keeps_an_applied_credit_when_a_later_captured_payment_recomputes_the_invoice`.
+
+**Impact:** Credits are now durable and survive payment recomputes. This is critical for AR accuracy.
+
+---
+
+### 4. Invoice number collision risk (low)
+
+**Gotcha:** Invoice numbers are generated at save time (booted hook) to ensure uniqueness. If two requests create invoices in quick succession (same second, same property, same month), they could contend on the sequence counter. The code includes a retry loop (up to 100 attempts) to allocate a unique number.
+
+**Safeguard:** Each invoice.number is UNIQUE in the DB. If a collision occurs, the save fails and exception is caught by MonthlyBillingService (logged as failure for that lease).
+
+**Impact:** Extremely rare; the 100-attempt retry is conservative. Only possible if you're bulk-creating invoices in parallel for the same property in the same second.
+
+---
+
+### 5. Charge window edge cases
+
+**Gotcha:** If a charge has start_date = 2026-03-15 and you bill 2026-03-01, the charge does NOT apply (its start is after period_end). The period must overlap the charge window.
+
+```php
+// In chargeAppliesToPeriod():
+if ($charge->start_date && $charge->start_date->greaterThan($periodEnd)) {
+    return false;
+}
+```
+
+**Why:** Prevents double-billing a charge if it starts mid-period and proration is not enabled. Callers must explicitly enable prorate=true to bill the partial month.
+
+---
+
+### 6. Null payment_terms_days
+
+**Gotcha:** If a lease has no payment_terms_days (null), the default is 7. This is in `MonthlyBillingService::generateInvoiceForLease()`:
+
+```php
+$dueDate = $issueDate->addDays($lease->payment_terms_days ?? 7);
+```
+
+**Impact:** Safe; the default is reasonable for most leases.
+
+---
+
+### 7. Lease status transition and billing
+
+**Gotcha:** `runForPeriod()` only bills active leases at query time. If a lease transitions from draft → active after the query runs, it won't be billed for that month. Conversely, if a lease terminates mid-period, it was already billed for the full month (no proration on termination).
+
+**Why:** Leases are billed monthly in bulk; individual status changes are not re-triggered. To re-bill a lease after status changes, call `generateForLease()` explicitly (UI or manual command).
+
+---
+
+### 8. Soft-deletes and invoice lookups
+
+**Gotcha:** Invoices are soft-deleted (SoftDeletes trait). When checking idempotency, the service uses `Invoice::where('lease_id', $lease)->whereDate('period_start', $period)` — this does NOT include soft-deleted invoices by default (Eloquent scoping).
+
+**Why:** Prevents re-creating an invoice if the old one was accidentally trashed.
+
+**If you need to untrash:** Use `->withTrashed()` or `->onlyTrashed()` queries explicitly.
+
+---
+
+### 9. Marketing levy side effect
+
+**Gotcha:** During invoice generation, if a lease has a marketing charge configured, the system accesses `MarketingLevyService::accrue()` to allocate a percentage of base rent to a budget pool. This is wrapped in try-catch and non-blocking (failures log but don't abort invoice creation).
+
+**Why:** Separate business logic; marketing budgets are not AR-critical.
+
+**Impact:** If the marketing budget is misconfigured or full, invoices still generate correctly.
+
+---
+
+### 10. Period boundary conditions
+
+**Gotcha:** A lease with commencement_date = 2026-03-31 (end of month) and billing for 2026-03 results in prorated billing for 1 day (factor = 1/31). This is correct but very small charge. Depending on VAT, the rounded charge could be 0.01 EGP or 0.
+
+**Why:** Math is precise; edge cases are rare in practice.
+
+**Mitigation:** Manual invoice creation in Filament allows override of amounts if needed.
+
+---
+
+### 11. Concurrent overdue scans
+
+**Safeguard:** `ScanOverdueInvoicesCommand` uses `lockForUpdate()` within a transaction to prevent overlapping runs from double-notifying the same owner. The idempotency marker `owner_overdue_notified_at` ensures each invoice is alerted only once.
+
+**Impact:** Safe to run the command frequently (e.g., every hour) without risk of duplicate notifications.
+
+---
+
+## 10. Tests & related modules
+
+### Test files for this module
+
+| File | Purpose |
+|------|---------|
+| `/tests/Feature/Services/MonthlyBillingServiceTest.php` | Batch billing idempotency, lease filtering, charge applicability |
+| `/tests/Feature/Scenarios/BillingScenarioTest.php` | End-to-end invoice generation, VAT, proration, due dates, frequency logic |
+| `/tests/Feature/Scenarios/InvoiceOverdueScenarioTest.php` | Overdue status, owner notifications, scanning |
+| `/tests/Feature/Models/InvoiceTest.php` | Invoice model helpers (isOverdue, daysOverdue, recalculateBalance, number generation) |
+| `/tests/Feature/BillingMathTest.php` | Percentage rent, CAM allocation, late fees, billing idempotency (integration scenarios) |
+| `/tests/Feature/Regression/QuarterlyChargeTimingTest.php` | Quarterly charge calendar-month logic (regression) |
+| `/tests/Feature/Regression/CreditNoteBalanceDriftTest.php` | Credit + payment reconciliation (regression) |
+| `/tests/Feature/Resources/InvoiceEtaFiltersTest.php` | ETA compliance filters in Filament table |
+| `/tests/Feature/Resources/InvoiceDateValidationTest.php` | Filament form validation (due_date > issue_date) |
+| `/tests/Feature/Notifications/InvoiceAndPaymentNotificationsTest.php` | Notification dispatch (issued, overdue) |
+| `/tests/Feature/InvoiceOverdueOwnerAlertTest.php` | Owner overdue notifications and idempotency |
+| `/tests/Feature/Api/V1/InvoicesTest.php` | API endpoints (if any) |
+| `/tests/Feature/Api/V1/Tenant/DemoPayInvoiceTest.php` | Tenant payment simulation |
+
+**Key test scenarios to understand before extending:**
+1. **BillingScenarioTest** — canonical source for business rules (VAT, proration, due dates, charge frequency)
+2. **QuarterlyChargeTimingTest** — quarterly billing cadence (the fixed bug)
+3. **CreditNoteBalanceDriftTest** — credit + payment AR settlement (the fixed bug)
+
+---
+
+### Related modules
+
+| Module | Interaction |
+|--------|-------------|
+| **Lease** | Invoices are tied to leases; lease commencement/expiry/status control billing eligibility. Payment terms default is read from lease. |
+| **Charge** | Defines what is billed; the service reads Charge.type, frequency, amount, vat_applicable, vat_rate, start_date, end_date, is_active. |
+| **Payment & Payment Pivot** | Captured payments settle AR via the invoice_payment pivot. `Invoice::recomputeTotals()` is called whenever payments change. |
+| **Credit Notes** | Applied credits settle AR durably via credit_applied_amount. `CreditNoteService::applyToInvoice()` bumps this column. |
+| **Late Fees** | Applied on-demand via separate LateFeeService; adds an InvoiceItem type='late_fee' to an overdue invoice. |
+| **CAM Reconciliation** | CAM allocations are billed to tenants as charges; the service reads active charges and bills them. |
+| **Marketing Levy** | A percentage of base rent is accrued to a budget pool during invoice generation (side effect, non-blocking). |
+| **ETA Compliance** | Invoices can be submitted to the Egyptian Tax Authority; ETA status is tracked but does not affect AR. |
+| **Tenant & Tenant Notifications** | Notifications are sent to tenants (mail + portal bell) on issuance. |
+| **Jawad (Owner) Notifications** | Owner overdue alerts are sent via the Notification system (database channel). |
+
+---
+
+### Documentation links
+
+- **Lease module:** `/docs/modules/xx-leases.md` (commencement, expiry, status, payment terms)
+- **Charge module:** Not a separate module; Charge is a sub-entity of Lease. See Lease module for details.
+- **Payment module:** `/docs/modules/xx-payments.md` (payment capturing, reconciliation, Paymob integration)
+- **Credit Notes module:** `/docs/modules/xx-credit-notes.md` (credit issuance, application, AR settlement)
+- **Late Fees module:** Integrated into Billing module; LateFeeService applies fees to overdue invoices.
+- **ETA Compliance module:** `/docs/modules/xx-eta.md` (Egyptian Tax Authority integration)
+
+---
+
+## Summary
+
+The Billing & Invoices module is the core AR engine of the platform. It automates monthly invoice generation from lease charges, enforces Egyptian tax compliance (14% VAT on service charges only), supports lease commencement proration, and reconciles payments + credit notes durably. The system is designed for idempotency (safe to re-run) and includes extensive tests covering edge cases (quarterly billing cadence, credit + payment drift, proration precision). Key extension points are adding charge types/frequencies and integrating external payment gateways. Recently fixed bugs include quarterly charge timing (day-of-month agnostic calendar delta) and credit note AR drift (via credit_applied_amount column), both of which are regression-tested.

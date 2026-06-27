@@ -78,37 +78,21 @@ Hitting `/admin` bare redirects to `/admin/{first-property}/...`. Users with mor
 
 | Doc | When to read it |
 |---|---|
-| [docs/PROGRESS.md](docs/PROGRESS.md) | **Start here** — single sign-off tracker: build / test / validate status per business feature, what's left, next part |
-| [docs/FUNCTIONAL-REQUIREMENTS.md](docs/FUNCTIONAL-REQUIREMENTS.md) | ERP/department requirements + **live build status** (§3) — departments, requests, marketing, owner requests |
-| [docs/VALIDATION-GUIDE.md](docs/VALIDATION-GUIDE.md) | Hands-on per-feature checklist to validate shipped features against the business model |
-| [FEATURES.md](FEATURES.md) | Full feature inventory + roadmap + demo playbook |
+| [docs/OVERVIEW.md](docs/OVERVIEW.md) | **Start here** — consolidated project overview + module index |
+| [docs/modules/](docs/modules/) | **Per-module reference** (20 docs): business rules, lifecycle, fields, **extension points**, gotchas — the source of truth for changing logic |
+| [docs/PROGRESS.md](docs/PROGRESS.md) | Feature-by-feature sign-off tracker (build / test / validate) |
+| [docs/FUNCTIONAL-REQUIREMENTS.md](docs/FUNCTIONAL-REQUIREMENTS.md) | The FRD — requirements ↔ live build status |
+| [docs/VALIDATION-GUIDE.md](docs/VALIDATION-GUIDE.md) | Hands-on per-feature validation checklist |
 
-**Technical**
-
-| Doc | When to read it |
-|---|---|
-| [TECH-DEEPDIVE.md](TECH-DEEPDIVE.md) | Stack rationale, security, multi-tenancy design, ETA architecture, testing, scaling, deployment |
-| [FULL-DOCUMENTATION.md](FULL-DOCUMENTATION.md) | Comprehensive technical reference — models, APIs, console commands, deployment |
-| [INFRA.md](INFRA.md) | Infrastructure / hosting notes |
-| [PAYMOB-SETUP.md](PAYMOB-SETUP.md) | Paymob payment-gateway setup |
-| [PAYMOB-FLUTTER.md](PAYMOB-FLUTTER.md) | Paymob + Flutter integration guide |
-| [MOBILE-APP-BRIEF.md](MOBILE-APP-BRIEF.md) | Business briefing for the mobile developer (Q2 tenant app) |
-
-**Strategy & sales**
+**Technical / ops**
 
 | Doc | When to read it |
 |---|---|
-| [MASTER-PLAN.md](MASTER-PLAN.md) | Internal strategy + competitive context (Eltizam pursuit) |
-| [PITCH-DECK.md](PITCH-DECK.md) | 12-slide partnership pitch for prospects |
-| [PILOT-PROPOSAL.md](PILOT-PROPOSAL.md) | One-page pilot commercial proposal |
-| [DEMO.md](DEMO.md) | 10-minute base live-demo script |
-| [DEMO-ELTIZAM.md](DEMO-ELTIZAM.md) | 25-min Eltizam-tuned live-demo script |
-
-**Deeper docs under [`docs/`](docs/)**
-
-- [`docs/api/`](docs/api/) — mobile API reference + v1 architecture
-- [`docs/gap-analysis/`](docs/gap-analysis/) — per-module audit reports (20 modules + plan / progress / production checklist)
-- [`docs/PROPEZY-DEEP-DIVE.md`](docs/PROPEZY-DEEP-DIVE.md) · [`docs/GAP-ANALYSIS-PROPEZY-DASHBOARD.md`](docs/GAP-ANALYSIS-PROPEZY-DASHBOARD.md) — competitor (PropEzy) research
+| [INFRA.md](INFRA.md) | Production runbook / hosting |
+| [PAYMOB-SETUP.md](PAYMOB-SETUP.md) · [PAYMOB-FLUTTER.md](PAYMOB-FLUTTER.md) | Paymob gateway setup + Flutter integration |
+| [MOBILE-APP-BRIEF.md](MOBILE-APP-BRIEF.md) | Business briefing for the mobile developer |
+| [docs/api/](docs/api/) | Mobile API reference + v1 architecture |
+| [docs/gap-analysis/](docs/gap-analysis/) | Per-feature technical gap analysis + deferred backlog + production checklist |
 
 ---
 
