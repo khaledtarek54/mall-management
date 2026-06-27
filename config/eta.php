@@ -44,4 +44,32 @@ return [
             'building_number' => env('ETA_ISSUER_BUILDING', '1'),
         ],
     ],
+
+    /*
+    | EGS / GS1 item codes registered with ETA per charge type. ETA requires a
+    | registered code on every line item. These are PLACEHOLDERS until the
+    | operator's taxpayer profile is set up — override each via env once the real
+    | codes are issued (no code change needed).
+    */
+    'egs_codes' => [
+        'base_rent' => env('ETA_EGS_BASE_RENT', 'EG-6820-001'),
+        'service_charge' => env('ETA_EGS_SERVICE_CHARGE', 'EG-6820-002'),
+        'utility' => env('ETA_EGS_UTILITY', 'EG-3530-001'),
+        'parking' => env('ETA_EGS_PARKING', 'EG-5221-001'),
+        'percentage_rent' => env('ETA_EGS_PERCENTAGE_RENT', 'EG-6820-003'),
+        'default' => env('ETA_EGS_DEFAULT', 'EG-6820-999'),
+    ],
+
+    /*
+    | Document signing (CAdES). ETA PRODUCTION rejects unsigned B2B documents.
+    | Keep disabled for mock/preprod plumbing; provision the operator's
+    | certificate and bind a real EtaDocumentSigner (in AppServiceProvider)
+    | before production. EtaApiClient refuses to submit if this is enabled while
+    | only the passthrough UnsignedEtaSigner is bound.
+    */
+    'signing' => [
+        'enabled' => env('ETA_SIGNING_ENABLED', false),
+        'certificate_path' => env('ETA_CERTIFICATE_PATH'),
+        'private_key_path' => env('ETA_PRIVATE_KEY_PATH'),
+    ],
 ];

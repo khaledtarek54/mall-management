@@ -5,6 +5,8 @@ namespace App\Providers;
 use App\Models\Lease;
 use App\Observers\LeaseObserver;
 use App\Providers\Filament\OwnerPanelProvider;
+use App\Services\Eta\Signing\EtaDocumentSigner;
+use App\Services\Eta\Signing\UnsignedEtaSigner;
 use App\Services\Paymob\PaymobClient;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ForceDeleteBulkAction;
@@ -21,6 +23,11 @@ class AppServiceProvider extends ServiceProvider
         // to build it through the fromConfig factory so controllers + actions
         // can typehint it directly.
         $this->app->singleton(PaymobClient::class, fn () => PaymobClient::fromConfig());
+
+        // ETA document signing is pluggable. The default is a passthrough (no-op)
+        // so mock/preprod plumbing works without a certificate; bind a real CAdES
+        // signer here once the operator's signing certificate is provisioned.
+        $this->app->bind(EtaDocumentSigner::class, UnsignedEtaSigner::class);
 
         // Owner portal is opt-in. Registering its panel provider only when the
         // feature flag is on keeps the /owner panel (routes + login) entirely

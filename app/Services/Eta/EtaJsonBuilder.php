@@ -128,16 +128,11 @@ class EtaJsonBuilder
 
     private function mapItemCode(?string $chargeType): string
     {
-        // ETA wants EGS item codes. These are placeholder mappings — replace with
-        // the registered EGS codes for each charge type once the taxpayer profile is set.
-        return match ($chargeType) {
-            'base_rent' => 'EG-6820-001',
-            'service_charge' => 'EG-6820-002',
-            'utility' => 'EG-3530-001',
-            'parking' => 'EG-5221-001',
-            'percentage_rent' => 'EG-6820-003',
-            default => 'EG-6820-999',
-        };
+        // EGS item codes are config-driven (config/eta.php → env) so the operator's
+        // real registered codes drop in without a code change. See config 'egs_codes'.
+        $codes = (array) config('eta.egs_codes', []);
+
+        return $codes[$chargeType] ?? $codes['default'] ?? 'EG-6820-999';
     }
 
     private function round(float $value): float
