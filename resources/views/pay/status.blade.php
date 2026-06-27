@@ -40,7 +40,9 @@
         <div class="title">{{ $title }}</div>
         <p class="msg">{{ $msg }}</p>
 
-        <div class="amount">{{ number_format((float) $invoice->total, 2) }} {{ $invoice->currency ?? 'EGP' }}</div>
+        @php $amountLabel = $state === 'paid' ? 'Amount paid' : ($state === 'processing' ? 'Amount' : 'Amount due'); @endphp
+        <div style="color:#94a3b8;font-size:12px;">{{ $amountLabel }}</div>
+        <div class="amount">{{ number_format((float) $amount, 2) }} {{ $invoice->currency ?? 'EGP' }}</div>
         <div class="meta">Invoice {{ $invoice->number }}@if ($invoice->tenant) · {{ $invoice->tenant->name }}@endif</div>
 
         @if ($state === 'paid' && $appDeepLink)

@@ -99,3 +99,22 @@ it('hides the Apple Pay button unless configured', function () {
 it('serves a 404 for the Apple Pay domain-association file until provisioned', function () {
     $this->get('/.well-known/apple-developer-merchantid-domain-association')->assertNotFound();
 });
+
+it('shows the amount paid on this link, not the full invoice total', function () {
+    $invoice = payLinkInvoice(); // total 11,400
+
+    // The invoice was partly paid before; this link collects the remaining 4,000.
+    $payment = Payment::create([
+        'tenant_id' => $invoice->tenant_id, 'amount' => 4000, 'currency' => 'EGP',
+        'method' => 'card', 'status' => 'captured', 'payment_date' => now(),
+        'gateway' => 'paymob', 'channel' => Payment::CHANNEL_LINK,
+    ]);
+    $payment->invoices()->attach($invoice->id, ['allocated_amount' => 4000]);
+    $invoice->update(['balance' => 0, 'status' => 'paid']);
+
+    $this->get(route('pay.status', ['token' => $invoice->paymentLinkToken()]))
+        ->assertOk()
+        ->assertSee('Amount paid')
+        ->assertSee('4,000.00')
+        ->assertDontSee('11,400.00'); // not the full invoice total
+});

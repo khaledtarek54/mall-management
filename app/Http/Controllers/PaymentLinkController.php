@@ -88,10 +88,15 @@ class PaymentLinkController
             default => 'unpaid',
         };
 
+        // Show the amount transacted on THIS link (what the client paid / owes),
+        // not the full invoice total — the invoice may have been partly paid before.
+        $amount = $payment !== null ? (float) $payment->amount : (float) $invoice->balance;
+
         return view('pay.status', [
             'invoice' => $invoice,
             'token' => $token,
             'state' => $state,
+            'amount' => $amount,
             'appDeepLink' => config('integrations.app_deep_link'),
         ]);
     }
