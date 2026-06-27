@@ -35,8 +35,17 @@ class CallbackController
         $payload = $request->all();
 
         if (! $this->client->verifyHmac($payload, $signature)) {
+            // Log the payload SHAPE (keys only — never values/PII) so a non-standard
+            // callback can be diagnosed. Paymob fires more than just the charge
+            // callback to this URL (e.g. ones with a null order id); those legitimately
+            // fail HMAC and are harmless, but we want to see what arrived.
             Log::warning('Paymob callback rejected: bad HMAC', [
+                'has_signature' => $signature !== '',
+                'has_obj' => array_key_exists('obj', $payload),
                 'order_id' => data_get($payload, 'obj.order.id'),
+                'txn_id' => data_get($payload, 'obj.id'),
+                'payload_keys' => array_keys($payload),
+                'obj_keys' => is_array($payload['obj'] ?? null) ? array_keys($payload['obj']) : null,
             ]);
 
             return response()->json(['ok' => false, 'error' => 'invalid_hmac'], 401);
