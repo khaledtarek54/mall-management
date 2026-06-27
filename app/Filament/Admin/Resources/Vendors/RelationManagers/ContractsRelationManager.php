@@ -48,13 +48,18 @@ class ContractsRelationManager extends RelationManager
                     ->disabled(fn () => \App\Support\TenantScope::currentAssetId() !== null)
                     ->dehydrated(),
                 DatePicker::make('start_date')->label(__('admin.fields.start_date') ?: 'Start')->required()->native(false),
-                DatePicker::make('end_date')->label(__('admin.fields.end_date') ?: 'End')->native(false),
+                DatePicker::make('end_date')->label(__('admin.fields.end_date') ?: 'End')->native(false)->afterOrEqual('start_date'),
                 TextInput::make('value')
                     ->label(__('admin.fields.amount'))
                     ->prefix('EGP')
                     ->numeric()
                     ->minValue(0),
-                TextInput::make('currency')->default('EGP')->maxLength(3),
+                Select::make('currency')
+                    ->label(__('admin.fields.currency'))
+                    ->options(['EGP' => 'EGP', 'USD' => 'USD', 'EUR' => 'EUR', 'GBP' => 'GBP', 'SAR' => 'SAR', 'AED' => 'AED'])
+                    ->default('EGP')
+                    ->required()
+                    ->native(false),
             ]),
             Section::make(__('admin.sections.notes'))->collapsed()->components([
                 Textarea::make('scope')->label(__('admin.fields.description'))->rows(3)->columnSpanFull(),

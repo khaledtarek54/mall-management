@@ -56,9 +56,11 @@ class AssetForm
                 ->components([
                     TextInput::make('total_area_sqm')
                         ->numeric()
+                        ->minValue(0)
                         ->suffix('m²'),
                     TextInput::make('leasable_area_sqm')
                         ->numeric()
+                        ->minValue(0)
                         ->suffix('m²'),
                 ]),
             Section::make(__('admin.sections.status'))
@@ -85,6 +87,7 @@ class AssetForm
                         ->helperText(__('admin.fields.brand_favicon_helper')),
                     ColorPicker::make('primary_color')
                         ->label(__('admin.fields.brand_primary_color'))
+                        ->maxLength(7)
                         ->helperText(__('admin.fields.brand_primary_color_helper')),
                 ]),
         ]);

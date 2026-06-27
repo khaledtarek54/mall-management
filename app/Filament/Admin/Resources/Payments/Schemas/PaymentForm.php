@@ -57,6 +57,7 @@ class PaymentForm
                         ->label(__('admin.fields.amount'))
                         ->prefix('EGP')
                         ->numeric()
+                        ->minValue(0)
                         ->required()
                         ->live(onBlur: true)
                         ->afterStateUpdated(function (Set $set, Get $get) {

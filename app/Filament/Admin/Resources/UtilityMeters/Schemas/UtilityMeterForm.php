@@ -19,7 +19,8 @@ class UtilityMeterForm
                     TextInput::make('meter_number')
                         ->label(__('admin.fields.meter_number'))
                         ->required()
-                        ->maxLength(50),
+                        ->maxLength(50)
+                        ->unique(ignoreRecord: true),
                     Select::make('asset_id')
                         ->label(__('admin.resources.asset.singular'))
                         ->options(fn () => \App\Support\TenantScope::selectableAssetOptions())

@@ -34,6 +34,10 @@ class ReadingsRelationManager extends RelationManager
                 ->required()
                 ->native(false)
                 ->default(now()->startOfMonth()->toDateString())
+                ->unique(
+                    ignoreRecord: true,
+                    modifyRuleUsing: fn (\Illuminate\Validation\Rules\Unique $rule) => $rule->where('utility_meter_id', $this->ownerRecord->id),
+                )
                 ->helperText(__('admin.helpers.reading_date')),
             TextInput::make('reading_value')
                 ->label(__('admin.fields.reading_value'))

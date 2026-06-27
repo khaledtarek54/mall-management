@@ -23,7 +23,7 @@ percentage-rent on tenant sales, maintenance, vendor management, marketing budge
 | **Tenants** | The **retailers / F&B / service shops** leasing units | Tenant portal `/portal` + mobile app |
 | **PropEzy** | A competitor (research kept in `docs/gap-analysis/`) | — |
 
-**Status:** all original requirements built + validated; **1043 passing Pest tests** + a Playwright E2E suite; production-ready, in a live pilot with Eltizam.
+**Status:** all original requirements built + validated; **1075 passing Pest tests** + a Playwright E2E suite; production-ready, in a live pilot with Eltizam.
 
 ---
 
@@ -92,9 +92,10 @@ purpose, domain model, business rules, lifecycle/state-machine, services, Filame
 
 QA ran in layers — see [`docs/modules/`](modules/) gotchas sections and the regression suite:
 
-- **1043 Pest tests** (`vendor/bin/pest --parallel`; run with `--parallel` per project convention). `:memory:` sqlite.
+- **1075 Pest tests** (`vendor/bin/pest --parallel`; run with `--parallel` per project convention). `:memory:` sqlite.
 - **Scenario suites** — `tests/Feature/Scenarios/` (RBAC matrix, scoping, every module's happy/negative/boundary/state cases).
-- **Regression suite** — `tests/Feature/Regression/` (one guard per fixed bug, each verified to fail without its fix).
+- **Regression suite** — `tests/Feature/Regression/` (one guard per fixed bug, each verified to fail without its fix), incl. `Regression/Validation/` — field-validation guards proving each form rule rejects bad input.
+- **Field-validation hardening (2026-06-27)** — every Filament resource was audited field-by-field against its column constraints; 26 fault-tolerance fixes applied (property-scoped tenant selects, non-negative money, unique constraints, date ordering, length caps) + 32 regression cases.
 - **E2E** — `tests/e2e/` Playwright (`npx playwright test --project=chromium` against Herd `mall-management.test`).
 - **Concurrency** validated against real MySQL (late-fee + scan idempotency under parallel runs).
 - **Security** — adversarial pentest pass (auth/scoping/webhook-HMAC/secrets) found only low info-disclosure, fixed.

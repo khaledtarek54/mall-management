@@ -28,6 +28,7 @@ class UnitForm
                         ->label(__('admin.tables.unit.code'))
                         ->required()
                         ->maxLength(20)
+                        ->unique(ignoreRecord: true, modifyRuleUsing: fn (\Illuminate\Validation\Rules\Unique $rule, \Filament\Schemas\Components\Utilities\Get $get) => $rule->where('asset_id', $get('asset_id')))
                         ->placeholder('A-01'),
                     TextInput::make('floor')
                         ->label(__('admin.pdf.floor'))
@@ -40,6 +41,7 @@ class UnitForm
                     TextInput::make('area_sqm')
                         ->label(__('admin.tables.unit.area'))
                         ->numeric()
+                        ->minValue(0)
                         ->required()
                         ->suffix('m²'),
                     Select::make('status')

@@ -154,6 +154,7 @@ class LeaseForm
                     DatePicker::make('expiry_date')
                         ->label(__('admin.fields.expiry_date'))
                         ->required()
+                        ->after('commencement_date')
                         ->native(false),
                 ]),
 
@@ -214,6 +215,7 @@ class LeaseForm
                     TextInput::make('payment_terms_days')
                         ->label(__('admin.fields.payment_terms_days'))
                         ->numeric()
+                        ->minValue(0)
                         ->default(7)
                         ->dehydrateStateUsing(fn ($state) => $state ?? 7)
                         ->suffix(__('admin.fields.days')),

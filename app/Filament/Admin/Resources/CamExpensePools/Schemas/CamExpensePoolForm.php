@@ -32,6 +32,7 @@ class CamExpensePoolForm
                         ->numeric()
                         ->minValue(2020)
                         ->maxValue(2099)
+                        ->unique(ignoreRecord: true, modifyRuleUsing: fn (\Illuminate\Validation\Rules\Unique $rule, \Filament\Schemas\Components\Utilities\Get $get) => $rule->where('asset_id', $get('asset_id')))
                         ->default(fn () => now()->year),
                     Select::make('status')
                         ->label(__('admin.tables.common.status'))
@@ -61,6 +62,7 @@ class CamExpensePoolForm
                     Textarea::make('notes')
                         ->label(__('admin.fields.notes'))
                         ->rows(3)
+                        ->maxLength(5000)
                         ->columnSpanFull(),
                 ]),
         ]);

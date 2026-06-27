@@ -29,8 +29,8 @@ class CreditNoteForm
 
                     Select::make('tenant_id')
                         ->label(__('admin.resources.tenant.singular'))
-                        ->relationship('tenant', 'name')
-                        ->searchable(['name', 'legal_name', 'email'])
+                        ->options(fn () => \App\Support\TenantScope::selectableTenantOptions())
+                        ->searchable()
                         ->preload()
                         ->required()
                         ->live(),
@@ -115,6 +115,7 @@ class CreditNoteForm
                             TextInput::make('description')
                                 ->label(__('admin.fields.description'))
                                 ->required()
+                                ->maxLength(255)
                                 ->columnSpan(5),
                             TextInput::make('amount')
                                 ->label(__('admin.fields.amount'))

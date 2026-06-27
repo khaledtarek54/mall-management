@@ -28,7 +28,8 @@ class MarketingBudgetForm
                         ->label(__('admin.tables.marketing_budget.year'))
                         ->numeric()
                         ->required()
-                        ->default((int) date('Y')),
+                        ->default((int) date('Y'))
+                        ->unique(ignoreRecord: true, modifyRuleUsing: fn (\Illuminate\Validation\Rules\Unique $rule, \Filament\Schemas\Components\Utilities\Get $get) => $rule->where('asset_id', $get('asset_id'))),
                     Select::make('status')
                         ->label(__('admin.tables.marketing_budget.status'))
                         ->options(['open' => 'Open', 'closed' => 'Closed'])

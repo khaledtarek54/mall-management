@@ -50,6 +50,7 @@ class TenantSalesDeclarationForm
                         ->label(__('admin.fields.period_end'))
                         ->required()
                         ->displayFormat('d/m/Y')
+                        ->afterOrEqual('period_start')
                         ->default(now()->subMonth()->endOfMonth()),
                     TextInput::make('declared_sales')
                         ->label(__('admin.fields.declared_sales'))

@@ -43,6 +43,7 @@ class AssetStaffRelationManager extends RelationManager
                 ->native(false),
             DatePicker::make('ended_at')
                 ->label(__('admin.fields.ended_at'))
+                ->afterOrEqual('assigned_at')
                 ->native(false),
             Textarea::make('notes')
                 ->label(__('admin.fields.notes'))

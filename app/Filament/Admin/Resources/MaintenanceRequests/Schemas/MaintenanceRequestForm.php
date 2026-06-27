@@ -127,7 +127,8 @@ class MaintenanceRequestForm
                     DateTimePicker::make('scheduled_to')
                         ->label(__('admin.fields.scheduled_to'))
                         ->native(false)
-                        ->seconds(false),
+                        ->seconds(false)
+                        ->afterOrEqual('scheduled_from'),
                 ]),
 
             Section::make(__('admin.sections.resolution'))

@@ -45,6 +45,7 @@ class DepartmentForm
                     TextInput::make('sort_order')
                         ->label(__('admin.tables.department.sort_order'))
                         ->numeric()
+                        ->minValue(0)
                         ->default(0),
                     Textarea::make('description')
                         ->label(__('admin.tables.department.description'))

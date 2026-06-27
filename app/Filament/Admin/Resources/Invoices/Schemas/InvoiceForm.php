@@ -89,7 +89,17 @@ class InvoiceForm
                         ->required(),
                     Select::make('tenant_id')
                         ->label(__('admin.resources.tenant.singular'))
-                        ->relationship('tenant', 'name')
+                        ->relationship('tenant', 'name', modifyQueryUsing: function ($query) {
+                            // Scope to tenants of the current property — a
+                            // property-restricted user must not invoice another
+                            // property's tenant. Mirrors PaymentForm.
+                            $ids = \App\Support\TenantScope::visibleAssetIds();
+
+                            return $query->when($ids !== null, fn ($q) => $q->whereHas(
+                                'leases.unit',
+                                fn ($u) => $u->whereIn('asset_id', $ids),
+                            ));
+                        })
                         ->searchable(['name', 'legal_name', 'email', 'phone'])
                         ->preload()
                         ->required(),
@@ -122,6 +132,9 @@ class InvoiceForm
                     DatePicker::make('period_end')
                         ->label(__('admin.fields.period_end'))
                         ->required()
+                        // The billing period must move forward in time; a period
+                        // ending on/before its start is meaningless for proration.
+                        ->after('period_start')
                         ->native(false),
                 ]),
 
@@ -149,6 +162,7 @@ class InvoiceForm
                             TextInput::make('description')
                                 ->label(__('admin.fields.description'))
                                 ->required()
+                                ->maxLength(255)
                                 ->columnSpan(3),
                             TextInput::make('amount')
                                 ->label(__('admin.fields.amount'))
