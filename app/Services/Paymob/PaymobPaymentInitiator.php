@@ -51,15 +51,17 @@ class PaymobPaymentInitiator
      *
      * @return array{payment_token:string,iframe_url:string,order_id:int,payment_id:int,expires_at:\Carbon\CarbonImmutable,reused:bool}
      */
-    public function start(Invoice $invoice): array
+    public function start(Invoice $invoice, string $channel = Payment::CHANNEL_MOBILE, ?int $integrationId = null): array
     {
-        if ($reused = $this->findReusableSession($invoice)) {
+        // The card flow reuses a recent session; the Apple Pay flow (its own
+        // integration) always builds fresh so a card token is never served for it.
+        if ($integrationId === null && $reused = $this->findReusableSession($invoice, $channel)) {
             return $reused;
         }
 
-        $session = $this->client->buildPaymentSession($invoice);
+        $session = $this->client->buildPaymentSession($invoice, $integrationId);
 
-        return DB::transaction(function () use ($invoice, $session) {
+        return DB::transaction(function () use ($invoice, $session, $channel) {
             $payment = Payment::create([
                 'tenant_id' => $invoice->tenant_id,
                 'amount' => $invoice->balance,
@@ -68,6 +70,7 @@ class PaymobPaymentInitiator
                 'status' => 'initiated',
                 'payment_date' => now(),
                 'gateway' => 'paymob',
+                'channel' => $channel,
                 'gateway_transaction_id' => self::orderRef($session['order_id']),
                 'gateway_response' => [
                     'order_id' => $session['order_id'],
@@ -111,11 +114,14 @@ class PaymobPaymentInitiator
      * session is still within the reuse window. Returns the same shape as
      * start() with reused=true, or null if no usable session exists.
      */
-    protected function findReusableSession(Invoice $invoice): ?array
+    protected function findReusableSession(Invoice $invoice, string $channel = Payment::CHANNEL_MOBILE): ?array
     {
+        // Scope reuse to the SAME channel so a mobile session is never reused for
+        // a payment-link payment (their return handling + reporting differ).
         $payment = Payment::query()
             ->where('gateway', 'paymob')
             ->where('status', 'initiated')
+            ->where('channel', $channel)
             ->where('tenant_id', $invoice->tenant_id)
             ->whereHas('invoices', fn ($q) => $q->where('invoices.id', $invoice->id))
             ->where('created_at', '>=', now()->subSeconds(self::REUSE_WINDOW_SECONDS))

@@ -34,7 +34,17 @@ return [
         // Currency must match the integration's account currency (EGP for
         // Egyptian Paymob accounts).
         'currency' => env('PAYMOB_CURRENCY', 'EGP'),
+
+        // Apple Pay is a SEPARATE Paymob integration (its own integration_id)
+        // and needs a verified domain (see docs/PAYMENT-LINK-APPLEPAY.md). Leave
+        // empty to keep the Apple Pay button hidden. Card payments are unaffected.
+        'apple_pay_integration_id' => env('PAYMOB_APPLE_PAY_INTEGRATION_ID'),
     ],
+
+    // Deep link that opens the tenant mobile app (e.g. "atriom://invoices").
+    // Surfaced on the public payment status page as an "Open the app" button
+    // so a client can confirm a paid invoice in-app. Empty = button hidden.
+    'app_deep_link' => env('APP_DEEP_LINK'),
 
     'whatsapp' => [
         'enabled' => env('WHATSAPP_ENABLED', false),

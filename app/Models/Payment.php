@@ -23,6 +23,12 @@ class Payment extends Model
             ->useLogName('payment');
     }
 
+    /** Payment initiation channels — keep the online link + in-app flows separate. */
+    public const CHANNEL_MOBILE = 'mobile_api';
+    public const CHANNEL_PORTAL = 'portal';
+    public const CHANNEL_LINK = 'payment_link';
+    public const CHANNEL_ADMIN = 'admin';
+
     protected $fillable = [
         'reference',
         'tenant_id',
@@ -32,6 +38,7 @@ class Payment extends Model
         'status',
         'payment_date',
         'gateway',
+        'channel',
         'gateway_transaction_id',
         'gateway_response',
         'cheque_number',

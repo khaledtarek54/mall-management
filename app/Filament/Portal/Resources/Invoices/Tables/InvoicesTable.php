@@ -155,7 +155,7 @@ class InvoicesTable
                     ->modalHeading(fn ($record) => __('admin.actions.pay_now').' · '.$record->number)
                     ->action(function (Invoice $record) {
                         try {
-                            $session = app(PaymobPaymentInitiator::class)->start($record);
+                            $session = app(PaymobPaymentInitiator::class)->start($record, \App\Models\Payment::CHANNEL_PORTAL);
 
                             return redirect()->away($session['iframe_url']);
                         } catch (\Throwable $e) {

@@ -112,7 +112,7 @@ class PaymobClient
     /**
      * @param  array{name?:string,email?:string,phone_number?:string}  $billing
      */
-    public function requestPaymentKey(string $bearerToken, int $orderId, float $amount, array $billing): string
+    public function requestPaymentKey(string $bearerToken, int $orderId, float $amount, array $billing, ?int $integrationId = null): string
     {
         $amountCents = (int) round($amount * 100);
         $tenantName = $billing['name'] ?? '';
@@ -133,7 +133,9 @@ class PaymobClient
                 'city' => 'Cairo', 'country' => 'EG', 'state' => 'NA',
             ],
             'currency' => $this->currency,
-            'integration_id' => $this->integrationId,
+            // A different integration_id (e.g. Apple Pay) can be supplied; falls
+            // back to the default card integration.
+            'integration_id' => $integrationId ?? $this->integrationId,
         ]);
 
         $this->throwIfFailed($response, 'requestPaymentKey');
@@ -155,7 +157,7 @@ class PaymobClient
      * End-to-end: auth → order → payment key → iframe URL. Returns:
      * ['payment_token' => ..., 'iframe_url' => ..., 'order_id' => ...]
      */
-    public function buildPaymentSession(Invoice $invoice): array
+    public function buildPaymentSession(Invoice $invoice, ?int $integrationId = null): array
     {
         $amount = (float) $invoice->balance;
         if ($amount <= 0) {
@@ -168,7 +170,7 @@ class PaymobClient
             'name' => $invoice->tenant?->name ?? '',
             'email' => $invoice->tenant?->email ?? null,
             'phone_number' => $invoice->tenant?->phone ?? null,
-        ]);
+        ], $integrationId);
 
         return [
             'payment_token' => $paymentToken,

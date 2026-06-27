@@ -88,6 +88,34 @@ class Invoice extends Model
             ->withTimestamps();
     }
 
+    // ============ Online payment link ============
+
+    /**
+     * Stable, unguessable token behind the public pay link. Lazily generated +
+     * persisted on first access, so existing invoices get one on demand.
+     */
+    public function paymentLinkToken(): string
+    {
+        if (blank($this->payment_link_token)) {
+            $this->forceFill(['payment_link_token' => \Illuminate\Support\Str::random(48)])->save();
+        }
+
+        return $this->payment_link_token;
+    }
+
+    /** Public, no-login URL a client can open to pay this invoice. */
+    public function paymentLinkUrl(): string
+    {
+        return route('pay.show', ['token' => $this->paymentLinkToken()]);
+    }
+
+    /** Whether there is still a balance that can be collected online. */
+    public function isPayable(): bool
+    {
+        return ! in_array($this->status, ['cancelled', 'credited'], true)
+            && round((float) $this->balance, 2) > 0;
+    }
+
     // ============ Status helpers ============
 
     public function isOverdue(): bool

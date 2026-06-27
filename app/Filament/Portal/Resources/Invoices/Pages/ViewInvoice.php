@@ -41,7 +41,7 @@ class ViewInvoice extends ViewRecord
                 ->modalHeading(fn () => __('admin.actions.pay_now').' · '.$this->record->number)
                 ->action(function () {
                     try {
-                        $session = app(PaymobPaymentInitiator::class)->start($this->record);
+                        $session = app(PaymobPaymentInitiator::class)->start($this->record, \App\Models\Payment::CHANNEL_PORTAL);
 
                         return redirect()->away($session['iframe_url']);
                     } catch (\Throwable $e) {

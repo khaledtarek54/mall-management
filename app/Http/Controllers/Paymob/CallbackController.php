@@ -102,9 +102,28 @@ class CallbackController
     public function returned(Request $request): RedirectResponse
     {
         // Paymob appends ?success=true|false&id=<txn>&order=<order_id>… to
-        // the merchant return URL. We only use it for UX messaging — the
+        // the merchant return URL. We only use it for routing/UX — the
         // server-to-server processed() callback is the source of truth.
         $success = $request->query('success') === 'true';
+        $orderId = (int) $request->query('order', 0);
+
+        // A payment-link payment returns to the PUBLIC status page; in-app
+        // (mobile / portal / admin) payments return to the authenticated portal.
+        if ($orderId) {
+            $payment = Payment::where('gateway', 'paymob')
+                ->where(fn ($q) => $q
+                    ->where('gateway_transaction_id', PaymobPaymentInitiator::orderRef($orderId))
+                    ->orWhere('gateway_transaction_id', 'like', '%:order:'.$orderId))
+                ->latest('id')
+                ->first();
+
+            if ($payment?->channel === Payment::CHANNEL_LINK) {
+                $token = $payment->invoices()->first()?->payment_link_token;
+                if ($token) {
+                    return redirect()->route('pay.status', ['token' => $token]);
+                }
+            }
+        }
 
         return redirect()->to('/portal/invoices')->with(
             $success ? 'status' : 'error',
