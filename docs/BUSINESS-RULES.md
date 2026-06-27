@@ -23,6 +23,8 @@ You do **not** need to read any code. Each rule is described in business terms. 
 
 **Risk legend:** 🔴 **HIGH** = wrong value causes wrong tax owed, wrong amounts billed, or a legal/compliance breach. 🟠 **MEDIUM** = wrong value causes disputes, rework, or minor mis-billing. 🟡 **LOW** = cosmetic, operational, or audit-trail detail.
 
+> **Verifying the numbers:** once you've confirmed the *rules* below, confirm the *figures* tie out by running `php artisan billing:reconcile` (optionally `--month=YYYY-MM`). It independently re-derives the receivables from source records and prints control totals (invoiced / collected / credits / outstanding AR / VAT) for you to reconcile against your own books.
+
 **"Configurable?"** tells you whether a value can be changed by an admin in the settings screen (no developer needed), or whether it is fixed in code (a developer must change it).
 
 ---

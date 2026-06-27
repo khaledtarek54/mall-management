@@ -96,6 +96,7 @@ QA ran in layers — see [`docs/modules/`](modules/) gotchas sections and the re
 - **Scenario suites** — `tests/Feature/Scenarios/` (RBAC matrix, scoping, every module's happy/negative/boundary/state cases).
 - **Regression suite** — `tests/Feature/Regression/` (one guard per fixed bug, each verified to fail without its fix), incl. `Regression/Validation/` — field-validation guards proving each form rule rejects bad input.
 - **Field-validation hardening (2026-06-27)** — every Filament resource was audited field-by-field against its column constraints; 26 fault-tolerance fixes applied (property-scoped tenant selects, non-negative money, unique constraints, date ordering, length caps) + 32 regression cases.
+- **Reconciliation harness** — `php artisan billing:reconcile [--month=YYYY-MM]` independently re-derives the AR books from source (line items, captured allocations, applied credits) and confirms stored totals tie out (read-only; exits non-zero on any discrepancy). Guarded by `tests/Feature/Reconciliation/`. Run before a monthly close or tax filing.
 - **E2E** — `tests/e2e/` Playwright (`npx playwright test --project=chromium` against Herd `mall-management.test`).
 - **Concurrency** validated against real MySQL (late-fee + scan idempotency under parallel runs).
 - **Security** — adversarial pentest pass (auth/scoping/webhook-HMAC/secrets) found only low info-disclosure, fixed.
