@@ -108,6 +108,7 @@ Demo logins (password `password`): `admin@mall.test` (super_admin) · `manager@/
 
 | Doc | Purpose |
 |---|---|
+| [docs/BUSINESS-RULES.md](BUSINESS-RULES.md) | **Business-rules & assumptions register** — every encoded financial rule (VAT, levy, CAM, late fees, percentage rent…) for **operator/accountant sign-off before go-live**. Verified accurate against code 2026-06-27. |
 | [README.md](../README.md) | Repo entry — setup, panels, demo accounts |
 | [docs/FUNCTIONAL-REQUIREMENTS.md](FUNCTIONAL-REQUIREMENTS.md) | The FRD — requirements ↔ build status |
 | [docs/PROGRESS.md](PROGRESS.md) | Feature-by-feature validation workbook |
