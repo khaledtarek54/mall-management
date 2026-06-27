@@ -54,6 +54,14 @@ class Lease extends Model implements HasMedia
         'metadata',
     ];
 
+    // Non-nullable boolean columns: default the in-memory model so a
+    // service-created lease (which may omit them) never propagates null into
+    // the NOT NULL columns (e.g. on renewal before a DB re-read).
+    protected $attributes = [
+        'has_percentage_rent' => false,
+        'security_deposit_received' => false,
+    ];
+
     protected $casts = [
         'commencement_date' => 'date',
         'expiry_date' => 'date',

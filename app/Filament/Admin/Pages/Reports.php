@@ -59,6 +59,11 @@ class Reports extends Page
 
     public function downloadMonthlyClose()
     {
+        abort_unless(
+            \Illuminate\Support\Facades\Auth::user()?->can('reports.download') ?? false,
+            403,
+        );
+
         $period = $this->resolvePeriod();
         $svc = app(MonthlyCloseReportPdfService::class);
         $pdf = $svc->build($period);

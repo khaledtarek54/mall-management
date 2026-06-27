@@ -17,6 +17,7 @@
             </div>
 
             <div style="display: flex; gap: 0.5rem;">
+                @can('reports.download')
                 <x-filament::button
                     wire:click="downloadMonthlyClose"
                     icon="heroicon-o-arrow-down-tray"
@@ -24,6 +25,7 @@
                 >
                     {{ __('admin.reports.download_monthly_close_pdf') }}
                 </x-filament::button>
+                @endcan
 
                 <x-filament::button
                     tag="a"

@@ -30,4 +30,15 @@ class MeterReading extends Model
     {
         return $this->belongsTo(UtilityMeter::class, 'utility_meter_id');
     }
+
+    protected static function booted(): void
+    {
+        // cost is NOT NULL (DDL default 0); a blank/optional form field
+        // dehydrates null, which bypasses the default — coerce it to 0.
+        static::saving(function (self $reading) {
+            if ($reading->cost === null) {
+                $reading->cost = 0;
+            }
+        });
+    }
 }

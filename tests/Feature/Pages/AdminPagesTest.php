@@ -48,6 +48,9 @@ it('Reports page falls back to current month when the period string is malformed
 });
 
 it('Reports page downloadMonthlyClose returns a PDF streamed response', function () {
+    $this->seed(\Database\Seeders\RolesPermissionsSeeder::class);
+    $this->actingAs(makeUser('accounting'));   // holds reports.download
+
     $page = new Reports;
     $page->period = '2026-02';
 

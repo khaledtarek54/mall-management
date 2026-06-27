@@ -23,13 +23,13 @@ class MaintenanceStatusChangedNotification extends Notification
         return (new MailMessage)
             ->subject(__('admin.notifications.maintenance_status_subject', [
                 'reference' => $this->request->reference,
-                'status' => __("admin.statuses.maintenance.{$this->request->status}"),
+                'status' => __("admin.statuses.maintenance_request.{$this->request->status}"),
             ]))
             ->greeting(__('admin.notifications.payment_received_greeting', ['name' => $this->request->tenant?->name ?? '']))
             ->line(__('admin.notifications.maintenance_status_body', [
                 'title' => $this->request->title,
-                'from' => __("admin.statuses.maintenance.{$this->previousStatus}"),
-                'to' => __("admin.statuses.maintenance.{$this->request->status}"),
+                'from' => __("admin.statuses.maintenance_request.{$this->previousStatus}"),
+                'to' => __("admin.statuses.maintenance_request.{$this->request->status}"),
             ]))
             ->when(
                 in_array($this->request->status, ['resolved', 'closed'], true) && $this->request->resolution_notes,
@@ -50,7 +50,7 @@ class MaintenanceStatusChangedNotification extends Notification
             ]),
             'body' => __('admin.notifications.maintenance_status_short', [
                 'title' => $this->request->title,
-                'status' => __("admin.statuses.maintenance.{$this->request->status}"),
+                'status' => __("admin.statuses.maintenance_request.{$this->request->status}"),
             ]),
             'status' => $this->request->status,
             'icon' => match ($this->request->status) {
