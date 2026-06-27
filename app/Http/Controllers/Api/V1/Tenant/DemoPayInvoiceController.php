@@ -44,7 +44,9 @@ class DemoPayInvoiceController extends ApiController
         }
 
         if ((int) $invoice->tenant_id !== (int) $tenant->getKey()) {
-            throw new HttpException(403, 'This invoice does not belong to the authenticated tenant.');
+            // 404 (not 403) so another tenant's invoice is indistinguishable from
+            // a non-existent one — closes cross-tenant invoice-ID enumeration.
+            abort(404);
         }
 
         if (in_array($invoice->status, ['cancelled', 'credited'], true)) {

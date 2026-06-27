@@ -20,6 +20,8 @@ test.describe('ETA e-invoicing', () => {
     await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
     // Seeder produces ~55 Valid ETA badges across the invoices table (recent invoices first).
     // Filament badges render the localized status text; "Valid" appears in multiple rows.
-    await expect(page.getByText('Valid', { exact: true }).first()).toBeVisible({ timeout: 15000 });
+    // Scope to the table — a hidden "Valid" eta_status filter option renders
+    // before the table and would otherwise be matched by .first().
+    await expect(page.locator('table').getByText('Valid', { exact: true }).first()).toBeVisible({ timeout: 15000 });
   });
 });

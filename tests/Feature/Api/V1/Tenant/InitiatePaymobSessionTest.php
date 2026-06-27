@@ -108,7 +108,7 @@ class InitiatePaymobSessionTest extends TestCase
             "/api/v1/me/invoices/{$invoice->id}/paymob-session",
             [],
             ['Authorization' => "Bearer {$intruderToken}"],
-        )->assertStatus(403);
+        )->assertStatus(404);   // 404 not 403 — no cross-tenant existence leak
 
         $this->assertSame(0, Payment::where('gateway', 'paymob')->count(),
             'Foreign-tenant attempt must not create a Payment row.');

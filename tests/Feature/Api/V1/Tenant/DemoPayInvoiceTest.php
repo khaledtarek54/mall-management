@@ -45,12 +45,12 @@ it('refuses an invoice with no outstanding balance', function () {
         ->assertJsonPath('error', 'no_balance');
 });
 
-it('refuses another tenant\'s invoice', function () {
+it('returns 404 for another tenant\'s invoice (no cross-tenant existence leak)', function () {
     $tenant = makeTenant();
     $otherInvoice = makeInvoice(makeLease(makeUnit(makeAsset())));
 
     $this->postJson("/api/v1/me/invoices/{$otherInvoice->id}/pay-demo", [], apiHeaders($tenant))
-        ->assertStatus(403);
+        ->assertStatus(404);
 });
 
 it('is disabled (409) once Paymob is enabled', function () {

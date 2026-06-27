@@ -48,9 +48,10 @@ class InitiatePaymobSessionController extends Controller
         }
 
         if ((int) $invoice->tenant_id !== (int) $tenant->getKey()) {
-            // Match Laravel's default abort behaviour but with an explicit
-            // JSON body for the mobile client.
-            throw new HttpException(403, 'This invoice does not belong to the authenticated tenant.');
+            // 404 (not 403) so another tenant's invoice is indistinguishable from
+            // a non-existent one — closes cross-tenant invoice-ID enumeration
+            // (matches the ShowInvoiceController convention).
+            abort(404);
         }
 
         if (in_array($invoice->status, ['cancelled', 'credited'], true)) {

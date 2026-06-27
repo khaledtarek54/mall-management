@@ -34,9 +34,11 @@ export async function loginPortal(page, email = 'tenant1@atriomwalk.test', passw
 }
 
 export async function loginOwner(page, email = 'owner@atriom.test', password = 'password') {
-  await page.goto('/owner/login');
+  // Owners are now RBAC users in the admin app (the standalone /owner portal
+  // was retired); they log in at /admin, scoped to their owned properties.
+  await page.goto('/admin/login');
   await fillLogin(page, email, password);
-  await waitForLoggedIn(page, '/owner');
+  await waitForLoggedIn(page, '/admin');
 }
 
 export async function setLocale(page, locale) {

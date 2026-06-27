@@ -75,11 +75,10 @@ const PORTAL_PAGES = [
   '/portal/tenant-sales-declarations/create',
 ];
 
+// Owners are admin RBAC users now (the /owner portal was retired) — they walk
+// the admin app, scoped to their owned properties.
 const OWNER_PAGES = [
-  '/owner',
-  '/owner/properties',
-  '/owner/invoices',
-  '/owner/maintenance-requests',
+  '/admin',
 ];
 
 // Reusable assertion: nothing rendered as a raw `admin.foo.bar.baz` key in
@@ -220,7 +219,7 @@ test.describe('PORTAL panel — first record detail loads', () => {
 
 // ============================================================================
 
-test.describe('OWNER panel — every page loads cleanly', () => {
+test.describe('OWNER (admin RBAC user) — admin app loads; /owner portal retired', () => {
   test.use({ storageState: 'storage/playwright-state/owner.json' });
 
   for (const path of OWNER_PAGES) {
@@ -231,32 +230,11 @@ test.describe('OWNER panel — every page loads cleanly', () => {
       await expectNoRawTranslationKey(page);
     });
   }
-});
 
-test.describe('OWNER panel — first record view loads', () => {
-  test.use({ storageState: 'storage/playwright-state/owner.json' });
-
-  const targets = [
-    { list: '/owner/properties', pattern: /\/owner\/properties\/\d+/ },
-    { list: '/owner/invoices', pattern: /\/owner\/invoices\/\d+/ },
-    { list: '/owner/maintenance-requests', pattern: /\/owner\/maintenance-requests\/\d+/ },
-  ];
-
-  for (const target of targets) {
-    test(`first record on ${target.list}`, async ({ page }) => {
-      await page.goto(target.list, { waitUntil: 'networkidle' });
-      const link = page.locator(`a[href^="${target.list}/"]`).first();
-      const href = await link.getAttribute('href').catch(() => null);
-      if (!href) {
-        test.skip(true, 'No records');
-        return;
-      }
-      const response = await page.goto(href, { waitUntil: 'networkidle' });
-      expect(response?.status()).toBeLessThan(500);
-      await expectNoLaravelError(page);
-      await expectNoRawTranslationKey(page);
-    });
-  }
+  test('the retired /owner portal returns 404', async ({ page }) => {
+    const response = await page.goto('/owner');
+    expect(response?.status()).toBe(404);
+  });
 });
 
 // ============================================================================

@@ -1340,6 +1340,11 @@ return [
             'vendor' => 'Vendor',
             'vendor_contract' => 'Vendor Contract',
             'note' => 'Note',
+            'marketing_budget' => 'Marketing Budget',
+            'marketing_spend' => 'Marketing Spend',
+            'department' => 'Department',
+            'user' => 'User',
+            'owner_request' => 'Owner Request',
         ],
         'events' => [
             'created' => 'Created',

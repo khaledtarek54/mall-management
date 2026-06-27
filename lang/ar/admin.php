@@ -1340,6 +1340,11 @@ return [
             'vendor' => 'مورد',
             'vendor_contract' => 'عقد مورد',
             'note' => 'ملاحظة',
+            'marketing_budget' => 'ميزانية تسويق',
+            'marketing_spend' => 'مصروف تسويق',
+            'department' => 'قسم',
+            'user' => 'مستخدم',
+            'owner_request' => 'طلب مالك',
         ],
         'events' => [
             'created' => 'إنشاء',
