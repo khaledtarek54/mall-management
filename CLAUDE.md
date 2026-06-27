@@ -30,5 +30,10 @@ npx playwright test --project=chromium   # E2E (against Herd mall-management.tes
 ```
 Scheduled (`routes/console.php`): `maintenance:scan-sla-breaches` · `billing:scan-overdue-invoices` · `billing:apply-late-fees` · `maintenance:auto-close` · `vendors:expire-contracts` · `cam:reconcile`.
 
+## Skills (`.claude/skills/`)
+- **`/new-module`** — scaffold a module the Atriom way (model+migration, service, RBAC + property-scoped Filament resource, permissions, doc, tests).
+- **`/qa-sweep [mode]`** — multi-agent QA: `scenario` · `adversarial` · `field-audit` · `concurrency` · `security` · `e2e` (default `full`).
+- **`/safe-change`** — definition-of-done for changing a module's business logic (read doc → service → invariants → test → regression → update doc → commit).
+
 ## Demo logins (password `password`)
 `admin@mall.test` (super_admin) · `manager@/viewer@/leasing@/maintenance@/accounting@/marketing@/hr@mall.test` · `owner@atriom.test` (owner) · portal `tenant1@atriomwalk.test` (admin) / `staff1@atriomwalk.test` (read-only).
