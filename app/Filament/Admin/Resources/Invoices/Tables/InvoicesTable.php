@@ -240,6 +240,18 @@ class InvoicesTable
                             ['Content-Type' => 'application/pdf'],
                         );
                     }),
+                Action::make('paymentLink')
+                    ->label(__('admin.actions.payment_link'))
+                    ->icon('heroicon-o-link')
+                    ->color('gray')
+                    ->visible(fn (Invoice $record) => config('integrations.paymob.enabled') && $record->isPayable())
+                    ->modalHeading(fn (Invoice $record) => __('admin.actions.payment_link').' · '.$record->number)
+                    ->modalSubmitAction(false)
+                    ->modalContent(fn (Invoice $record) => new \Illuminate\Support\HtmlString(
+                        '<p style="margin-bottom:.5rem;font-size:.875rem;color:#6b7280;">'.e(__('admin.actions.payment_link_hint')).'</p>'
+                        .'<input readonly onclick="this.select()" value="'.e($record->paymentLinkUrl()).'" '
+                        .'style="width:100%;padding:.6rem .75rem;border:1px solid #d1d5db;border-radius:.5rem;font-size:.8125rem;" />'
+                    )),
                 Action::make('sendWhatsApp')
                     ->label(__('admin.actions.send_whatsapp'))
                     ->icon('heroicon-o-chat-bubble-left-right')

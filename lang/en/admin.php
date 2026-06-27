@@ -660,6 +660,8 @@ return [
         'import_help' => 'Upload a CSV file. Existing records are matched and updated; new ones are created.',
         'send_whatsapp' => 'WhatsApp',
         'pay_now' => 'Pay Now',
+        'payment_link' => 'Payment link',
+        'payment_link_hint' => 'Share this link with the client to pay this invoice online:',
         'pay_demo_modal_body' => 'This records a successful card payment of EGP :amount and marks the invoice as paid.',
         'pay_demo_success' => 'Payment received — invoice :number is now marked paid.',
         'renew' => 'Renew',

@@ -351,6 +351,10 @@ Demo-only (gates to PAYMOB_ENABLED=false): simulates a successful Paymob capture
 - `tests/Feature/Api/V1/Tenant/InitiatePaymobSessionTest.php` — portal Pay-Now endpoint.
 - `tests/Feature/Portal/PortalDemoPaymentTest.php` — demo capture from portal.
 
+### Online payment link & channels (2026-06-27)
+
+Payments carry a **`channel`** (`payments.channel`): `payment_link` (public `/pay/{token}` page), `mobile_api` (the app), `portal` (tenant portal Pay Now), `admin`. Paymob **session reuse is scoped per channel**, and `CallbackController::returned()` routes the browser by channel — `payment_link` → the public status page `/pay/{token}/status`, everything else → the portal. The S2S capture + tenant notification are shared. The public link is surfaced via the admin/portal **"Payment link"** action and the mobile `invoice.payment_link_url`. **Apple Pay** is scaffolded (a separate `PAYMOB_APPLE_PAY_INTEGRATION_ID` + the `/.well-known/apple-developer-merchantid-domain-association` route), off until configured. Full runbook: **[docs/PAYMENT-LINK-APPLEPAY.md](../PAYMENT-LINK-APPLEPAY.md)**. Tests: `tests/Feature/PaymentLink/PaymentLinkFlowTest.php`.
+
 ### Related Modules
 
 - **[Invoices & AR](./04-invoices.md)** — Invoice creation, ETA submission, monthly billing. Invoices are the payment target; recomputeTotals drives AR.

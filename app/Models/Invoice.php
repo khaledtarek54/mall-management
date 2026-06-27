@@ -196,6 +196,11 @@ class Invoice extends Model
             if ($invoice->balance === null) {
                 $invoice->balance = (float) ($invoice->total ?? 0) - (float) ($invoice->paid_amount ?? 0);
             }
+            // Pre-generate the public pay-link token so the API/admin/portal never
+            // write during a read. Existing invoices get one lazily (paymentLinkToken).
+            if (blank($invoice->payment_link_token)) {
+                $invoice->payment_link_token = \Illuminate\Support\Str::random(48);
+            }
         });
     }
 

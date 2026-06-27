@@ -32,6 +32,10 @@ class InvoiceResource extends JsonResource
             'is_overdue' => $this->isOverdue(),
             'days_overdue' => $this->daysOverdue(),
 
+            // Shareable public pay link (no login) — null once nothing is owed.
+            // Lets the app surface a "share payment link" alongside in-app pay.
+            'payment_link_url' => $this->isPayable() ? $this->paymentLinkUrl() : null,
+
             // ETA (Egyptian Tax Authority) e-invoice references — present once
             // the invoice has been accepted by the ETA portal. Useful for the
             // app to show a "tax-registered" badge.
