@@ -70,6 +70,7 @@ class TranslationCoverageTest extends TestCase
                 'lease', 'invoice', 'payment', 'tenant', 'charge', 'asset',
                 'maintenance_request', 'tenant_sales', 'cam_pool',
                 'credit_note', 'vendor', 'vendor_contract', 'note',
+                'access_control',
             ],
         ];
 

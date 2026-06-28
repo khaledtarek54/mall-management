@@ -81,6 +81,7 @@ class ActivityLog extends Page implements HasTable
                         'payment' => 'success',
                         'tenant' => 'primary',
                         'charge' => 'gray',
+                        'access_control' => 'danger',
                         default => 'gray',
                     }),
                 TextColumn::make('subject_id')
@@ -95,6 +96,7 @@ class ActivityLog extends Page implements HasTable
                             'Payment' => $record->subject->reference,
                             'Tenant' => $record->subject->name,
                             'Charge' => $record->subject->name,
+                            'User', 'Role', 'Permission' => $record->subject->name,
                             default => '#' . $record->subject_id,
                         };
                     })

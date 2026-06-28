@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Roles\Pages;
 
 use App\Filament\Admin\Resources\Roles\RoleResource;
+use App\Support\AccessControlAudit;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Resources\Pages\CreateRecord;
 use Spatie\Permission\PermissionRegistrar;
@@ -29,7 +30,11 @@ class CreateRole extends CreateRecord
             $selected = $this->data[$key] ?? [];
             $names = array_merge($names, $selected);
         }
-        $this->record->syncPermissions(array_unique($names));
+        $after = array_values(array_unique($names));
+
+        $this->record->syncPermissions($after);
         app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+        AccessControlAudit::log($this->record, 'permission_granted', $after);
     }
 }

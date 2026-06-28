@@ -1353,6 +1353,7 @@ return [
             'department' => 'Department',
             'user' => 'User',
             'owner_request' => 'Owner Request',
+            'access_control' => 'Access Control',
         ],
         'events' => [
             'created' => 'Created',

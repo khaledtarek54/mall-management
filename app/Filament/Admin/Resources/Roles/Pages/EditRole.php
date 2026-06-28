@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Roles\Pages;
 
 use App\Filament\Admin\Resources\Roles\RoleResource;
+use App\Support\AccessControlAudit;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
@@ -39,13 +40,22 @@ class EditRole extends EditRecord
      */
     protected function afterSave(): void
     {
+        $before = $this->record->permissions()->pluck('name')->all();
+
         $names = [];
         foreach (RolesPermissionsSeeder::PERMISSIONS as $module => $perms) {
             $key = "permissions_module_{$module}";
             $selected = $this->data[$key] ?? [];
             $names = array_merge($names, $selected);
         }
-        $this->record->syncPermissions(array_unique($names));
+        $after = array_values(array_unique($names));
+
+        $this->record->syncPermissions($after);
         app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+        // syncPermissions() bulk-detaches silently (no spatie event), so audit
+        // the permission diff explicitly — this page is the only UI that edits it.
+        AccessControlAudit::log($this->record, 'permission_granted', array_values(array_diff($after, $before)));
+        AccessControlAudit::log($this->record, 'permission_revoked', array_values(array_diff($before, $after)));
     }
 }

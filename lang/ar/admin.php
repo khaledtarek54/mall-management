@@ -1353,6 +1353,7 @@ return [
             'department' => 'قسم',
             'user' => 'مستخدم',
             'owner_request' => 'طلب مالك',
+            'access_control' => 'التحكم في الصلاحيات',
         ],
         'events' => [
             'created' => 'إنشاء',

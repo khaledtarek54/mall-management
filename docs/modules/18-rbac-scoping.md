@@ -162,6 +162,14 @@ Returns tenants leased in the user's visible properties, plus lease-less orphan 
 
 No integrations specific to RBAC. User activity is logged to `activity_log` table via Spatie ActivityLog (User model logs name/email/email_verified_at changes).
 
+### Access-control audit trail (`log_name = access_control`)
+
+Role and permission grants/revokes are audited — the "who granted whom which access" record that the model-attribute logging can't capture (roles/permissions are pivot rows). All entries land under the **`access_control`** log name in the standard Activity Log viewer (danger-coloured badge).
+
+- **User↔role** (`role_granted` / `role_revoked`): captured via spatie's permission **events** — `config('permission.events_enabled') = true` + `App\Listeners\LogAccessControlChange` subscribing to `RoleAttachedEvent`/`RoleDetachedEvent` (fired by `assignRole`/`removeRole`/`syncRoles`, e.g. via Department membership). The event payload is an array of role **ids**, normalised to names by `App\Support\AccessControlAudit::namesFrom()`.
+- **Role↔permission** (`permission_granted` / `permission_revoked`): captured by an explicit before/after **diff** in `CreateRole`/`EditRole` — **not** events, because `syncPermissions()` bulk-detaches silently without firing `PermissionDetachedEvent`.
+- **Only authenticated, human-initiated changes are logged** (`AccessControlAudit::log()` gates on `auth()->check()`): seeding (`migrate:fresh --seed`) and CLI grants have no causer, so they're skipped — keeping the trail meaningful and the test suite deterministic. Direct pivot manipulation (`$user->roles()->detach()`) bypasses the trait methods and is **not** captured.
+
 Database notifications are used for operational events (portal maintenance requests, sales declarations, SLA breaches, audit events) and are scoped per-user inbox (no RBAC-specific notification dispatch rules).
 
 ## 8. Extension points — how to change/extend SAFELY
