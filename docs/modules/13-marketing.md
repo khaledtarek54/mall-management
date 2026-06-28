@@ -155,10 +155,11 @@ MarketingBudget has two statuses: `open` and `closed`. No enforced transitions; 
 
 **File:** `app/Filament/Admin/Resources/MarketingBudgets/MarketingBudgetResource.php`
 
-**Pages:**
-- **List** (`ListMarketingBudgets`): Table with property, year, accrued, spent, balance, status.
-- **Create** (`CreateMarketingBudget`): Form to create new budget (rare; usually auto-created by backfill or accrual).
-- **Edit** (`EditMarketingBudget`): Form to edit notes/status; embedded relation manager for spends.
+**Pages:** (no Create — budgets are **auto-provisioned**, see below)
+- **List** (`ListMarketingBudgets`): Table with property, year, collected levy, spent, available, status.
+- **Edit** (`EditMarketingBudget`): read-only fund panel (collected levy / spent / available) + read-only property/year identity; editable status/notes; embedded relation manager for spends (each spend shows the available fund). `canCreate`/`canDelete` = false for everyone.
+
+**Auto-provisioning (2026-06-28):** a budget is one-per-property-per-year and is created automatically — `marketing:ensure-budgets` (scheduled daily, idempotent `firstOrCreate` per property) + lazily via `MarketingBudget::forPeriod()` on the first billed levy. Users never hand-create or delete budgets; they only record spends. `accrued_amount` is derived from billed levy items (see § Business rules 4).
 
 **Permissions (RBAC):**
 - Module: `marketing` (see `permissionModule()`).
@@ -345,7 +346,7 @@ If an Asset is deleted, all its Marketing Budgets cascade-delete. If an external
 
 When a MarketingBudget is manually created (via the form), it defaults to `accrued_amount = 0` and `spent_amount = 0`, so `balance() = 0`. No spends can be recorded against a zero-balance budget without overspending.
 
-**Normal flow:** Budgets are usually auto-created by the backfill command or on first lease billing. Manual creation is rare.
+**Normal flow:** Budgets are **auto-provisioned** — `marketing:ensure-budgets` (daily) creates one per property per year, and `forPeriod()` lazily creates on first billed levy. There is **no manual create/delete** (canCreate/canDelete = false); users only record spends.
 
 ## 10. Tests & related modules
 
