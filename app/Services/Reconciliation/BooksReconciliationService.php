@@ -92,6 +92,28 @@ class BooksReconciliationService
         }
         $checks[] = $this->check('payment_allocation', 'No payment allocated beyond its amount', $d);
 
+        // 5. Marketing fund integrity: accrued + spent must match their derived
+        //    sources (billed marketing items / recorded spends). Catches any drift.
+        $d = [];
+        foreach (\App\Models\MarketingBudget::query()->with('asset')->get() as $budget) {
+            $accrued = round((float) \App\Models\InvoiceItem::query()
+                ->where('invoice_items.type', 'marketing')
+                ->whereHas('invoice', fn ($q) => $q->where('status', '!=', 'cancelled')
+                    ->whereYear('issue_date', $budget->period_year)
+                    ->whereHas('lease.unit', fn ($u) => $u->where('asset_id', $budget->asset_id)))
+                ->sum('amount'), 2);
+            $spent = round((float) $budget->spends()->sum('amount'), 2);
+            $ref = ($budget->asset?->name ?? "asset {$budget->asset_id}")." {$budget->period_year}";
+
+            if (abs($accrued - (float) $budget->accrued_amount) > self::EPS) {
+                $d[] = ['ref' => $ref, 'detail' => "accrued stored {$budget->accrued_amount} ≠ billed marketing items {$accrued}"];
+            }
+            if (abs($spent - (float) $budget->spent_amount) > self::EPS) {
+                $d[] = ['ref' => $ref, 'detail' => "spent stored {$budget->spent_amount} ≠ recorded spends {$spent}"];
+            }
+        }
+        $checks[] = $this->check('marketing_budget', 'Marketing accrued = billed levies, spent = recorded spends', $d);
+
         // Control totals — the figures an accountant reconciles against their own books.
         $controlTotals = [
             'invoiceCount'  => $invoices->count(),

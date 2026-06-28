@@ -85,9 +85,10 @@ it('creates renewal with new amounts, marks original renewed, clones charges wit
     expect((bool) $renewal->security_deposit_received)->toBeTrue();
     expect((float) $renewal->escalation_rate)->toBe(7.0);
 
-    // Charges: 3 cloned. base_rent + service_charge use new values, parking unchanged.
+    // Charges: 3 cloned (base_rent + service_charge at new values, parking unchanged)
+    // + the marketing levy resynced to 5% of the new base rent.
     $charges = Charge::where('lease_id', $renewal->id)->get();
-    expect($charges)->toHaveCount(3);
+    expect($charges)->toHaveCount(4);
 
     $rent = $charges->firstWhere('type', 'base_rent');
     expect((float) $rent->amount)->toBe(12000.0);
@@ -97,6 +98,9 @@ it('creates renewal with new amounts, marks original renewed, clones charges wit
 
     $parking = $charges->firstWhere('type', 'parking');
     expect((float) $parking->amount)->toBe(500.0);
+
+    $marketing = $charges->firstWhere('type', 'marketing');
+    expect((float) $marketing->amount)->toBe(600.0); // 5% of new base rent (12000)
     expect((bool) $parking->vat_applicable)->toBeTrue();
 });
 

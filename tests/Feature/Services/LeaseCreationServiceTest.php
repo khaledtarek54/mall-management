@@ -40,7 +40,7 @@ it('creates a lease + base rent + service charge and marks the unit occupied', f
     expect($this->unit->fresh()->status)->toBe('occupied');
 
     $charges = Charge::where('lease_id', $lease->id)->get();
-    expect($charges)->toHaveCount(2);
+    expect($charges)->toHaveCount(3); // base rent + service charge + marketing levy
 
     $rent = $charges->firstWhere('type', 'base_rent');
     expect((float) $rent->amount)->toBe(10000.0);
@@ -51,6 +51,11 @@ it('creates a lease + base rent + service charge and marks the unit occupied', f
     expect((float) $svc->amount)->toBe(1500.0);
     expect((bool) $svc->vat_applicable)->toBeTrue();
     expect((float) $svc->vat_rate)->toBe(14.0);
+
+    // Marketing levy = 5% of base rent, charged to the tenant, VAT-exempt.
+    $marketing = $charges->firstWhere('type', 'marketing');
+    expect((float) $marketing->amount)->toBe(500.0);
+    expect((bool) $marketing->vat_applicable)->toBeFalse();
 });
 
 it('skips the service charge row when service_charge_monthly is zero', function () {
@@ -69,8 +74,8 @@ it('skips the service charge row when service_charge_monthly is zero', function 
     ]);
 
     $charges = Charge::where('lease_id', $lease->id)->get();
-    expect($charges)->toHaveCount(1);
-    expect($charges->first()->type)->toBe('base_rent');
+    expect($charges)->toHaveCount(2); // base rent + marketing levy (no service charge)
+    expect($charges->pluck('type')->all())->toEqualCanonicalizing(['base_rent', 'marketing']);
 });
 
 it('creates a new tenant when tenant_mode is "new"', function () {

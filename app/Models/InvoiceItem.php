@@ -36,6 +36,22 @@ class InvoiceItem extends Model
             $item->vat_amount = round($amount * $rate / 100, 2);
             $item->total = round($amount + (float) $item->vat_amount, 2);
         });
+
+        // A 'marketing' line item funds the property's marketing budget — keep the
+        // budget's accrued_amount DERIVED from these items (mirrors recomputeSpent).
+        $syncMarketing = function (self $item) {
+            if ($item->type !== 'marketing') {
+                return;
+            }
+            $invoice = $item->invoice;
+            $assetId = $invoice?->lease?->unit?->asset_id;
+            $year = $invoice?->issue_date?->year;
+            if ($assetId && $year) {
+                MarketingBudget::forPeriod($assetId, (int) $year)->recomputeAccrued();
+            }
+        };
+        static::saved($syncMarketing);
+        static::deleted($syncMarketing);
     }
 
     public function invoice(): BelongsTo

@@ -1214,6 +1214,7 @@ return [
             'utility' => 'مرافق',
             'parking' => 'انتظار سيارات',
             'percentage_rent' => 'إيجار نسبي من المبيعات',
+            'marketing' => 'رسوم التسويق',
             'late_fee' => 'غرامة تأخير',
             'other' => 'أخرى',
         ],

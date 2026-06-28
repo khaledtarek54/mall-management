@@ -57,7 +57,7 @@ class TranslationCoverageTest extends TestCase
             'enums.category' => ['retail', 'food_beverage', 'wellness', 'service', 'kiosk', 'office', 'storage'],
             'enums.asset_type' => ['mall', 'retail_walk', 'mixed_use', 'office', 'residential'],
             'enums.meter_type' => ['electric', 'water', 'gas'],
-            'enums.invoice_item_type' => ['base_rent', 'service_charge', 'utility', 'parking', 'percentage_rent', 'late_fee', 'other'],
+            'enums.invoice_item_type' => ['base_rent', 'service_charge', 'utility', 'parking', 'percentage_rent', 'marketing', 'late_fee', 'other'],
             'enums.credit_note_reason' => ['return', 'dispute', 'adjustment', 'discount', 'refund', 'other'],
             'enums.vendor_type' => ['contractor', 'supplier', 'service_provider', 'consultant', 'other'],
 

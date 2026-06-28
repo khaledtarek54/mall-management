@@ -94,7 +94,7 @@ it('creation projects the unit from vacant to occupied through the observer', fu
         ->and($lease->units()->wherePivot('is_master', true)->count())->toBe(1);
 });
 
-it('the first billing run after creation invoices exactly the two seeded charges with correct VAT split', function () {
+it('the first billing run after creation invoices the three seeded charges with correct VAT split', function () {
     $lease = createLeaseVia($this->unit->id, [
         'commencement_date' => '2026-01-01',
         'base_rent_monthly' => 10000,
@@ -107,12 +107,12 @@ it('the first billing run after creation invoices exactly the two seeded charges
     expect($result['status'])->toBe('created');
     $invoice = $result['invoice'];
 
-    // subtotal = 10000 (rent) + 2000 (service) = 12000;
-    // VAT only on the service charge = 280; total = 12280.
-    expect((float) $invoice->subtotal)->toBe(12000.0)
+    // subtotal = 10000 (rent) + 2000 (service) + 500 (marketing levy, 5% of rent) = 12500;
+    // VAT only on the service charge = 280 (rent + marketing are VAT-exempt); total = 12780.
+    expect((float) $invoice->subtotal)->toBe(12500.0)
         ->and((float) $invoice->vat_amount)->toBe(280.0)
-        ->and((float) $invoice->total)->toBe(12280.0)
-        ->and($invoice->items()->count())->toBe(2);
+        ->and((float) $invoice->total)->toBe(12780.0)
+        ->and($invoice->items()->count())->toBe(3);
 });
 
 /*

@@ -1214,6 +1214,7 @@ return [
             'utility' => 'Utility',
             'parking' => 'Parking',
             'percentage_rent' => 'Percentage Rent',
+            'marketing' => 'Marketing Levy',
             'late_fee' => 'Late Fee',
             'other' => 'Other',
         ],

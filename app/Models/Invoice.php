@@ -216,6 +216,23 @@ class Invoice extends Model
                 $invoice->payment_link_token = \Illuminate\Support\Str::random(48);
             }
         });
+
+        // Cancelling/un-cancelling an invoice changes whether its marketing levy
+        // counts toward the fund (recomputeAccrued excludes cancelled). The item
+        // hook doesn't fire on a status-only change, so re-derive here.
+        static::updated(function (self $invoice) {
+            if (! $invoice->wasChanged('status')) {
+                return;
+            }
+            if ($invoice->status !== 'cancelled' && $invoice->getOriginal('status') !== 'cancelled') {
+                return; // neither old nor new status is cancelled — accrual unaffected
+            }
+            $assetId = $invoice->lease?->unit?->asset_id;
+            $year = optional($invoice->issue_date)->year;
+            if ($assetId && $year && $invoice->items()->where('type', 'marketing')->exists()) {
+                MarketingBudget::forPeriod($assetId, (int) $year)->recomputeAccrued();
+            }
+        });
     }
 
     /**

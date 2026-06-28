@@ -2,6 +2,7 @@
 
 use App\Filament\Admin\Resources\MarketingBudgets\MarketingBudgetResource;
 use App\Models\Charge;
+use App\Models\InvoiceItem;
 use App\Models\Lease;
 use App\Models\MarketingBudget;
 use App\Services\MarketingLevyService;
@@ -16,19 +17,31 @@ use Livewire\Livewire;
 |--------------------------------------------------------------------------
 | Marketing scenarios — net-new coverage beyond Levy/Budget/Spend unit tests.
 |
+| The levy is now a REAL Charge (5% of base rent, VAT-exempt) that bills to the
+| tenant as a `marketing` InvoiceItem. The property marketing budget's
+| accrued_amount is DERIVED from those billed items (MarketingBudget::
+| recomputeAccrued), so it reconciles rather than being incremented.
+|
 | Focus areas (per the brief):
-|   * the 5% levy ACCRUES on BILLED base rent (billing a lease raises the
-|     budget's accrued by 5% of the billed rent),
+|   * the budget accrual DERIVES from the billed 5% levy items (billing a lease
+|     raises the budget's accrued by 5% of the billed rent),
+|   * re-billing the same period is idempotent — no double accrual,
+|   * accrual follows the billed (pro-rated) levy, not the full monthly levy,
 |   * a MarketingSpend draws DOWN the running balance,
 |   * over-budget spend boundary (spend > remaining balance) — asserts the
 |     ACTUAL behavior (currently ALLOWED, balance goes negative),
-|   * the 5% rate is captured per-charge / per-accrual so changing the
-|     Settings rate does NOT rewrite historical charges or accruals,
-|   * zero / negative spend amounts.
+|   * the 5% rate is captured per-charge / per-item at billing time so changing
+|     the Settings rate does NOT rewrite already-billed items or accruals,
+|   * zero / negative spend amounts,
+|   * RBAC + per-property separation.
 |--------------------------------------------------------------------------
 */
 
-/** Build a billable lease (base-rent Charge present) at the given monthly rent. */
+/**
+ * Build a billable lease carrying a base-rent Charge AND the marketing levy
+ * Charge at the lease's then-current rate — the shape a real lease has once
+ * LeaseCreationService seeds it.
+ */
 function scenarioLeaseWithRent(float $rent, array $leaseAttrs = []): Lease
 {
     $asset = makeAsset();
@@ -47,8 +60,11 @@ function scenarioLeaseWithRent(float $rent, array $leaseAttrs = []): Lease
         'frequency' => 'monthly',
         'vat_applicable' => false,
         'vat_rate' => 0,
+        'start_date' => $lease->commencement_date,
         'is_active' => true,
     ]);
+
+    app(MarketingLevyService::class)->createLevyCharge($lease);
 
     return $lease;
 }
@@ -65,7 +81,7 @@ afterEach(function () {
 });
 
 /*
-| ---- BILLING-DRIVEN ACCRUAL (5% of BILLED base rent) ------------------- |
+| ---- BILLING-DRIVEN ACCRUAL (derived from 5% levy items) --------------- |
 */
 
 it('raises the budget accrued by 5% of billed base rent when a lease is billed', function () {
@@ -73,11 +89,9 @@ it('raises the budget accrued by 5% of billed base rent when a lease is billed',
 
     app(MonthlyBillingService::class)->generateForLease($lease, CarbonImmutable::parse('2026-03-01'));
 
-    $budget = MarketingBudget::where('asset_id', $lease->unit->asset_id)
-        ->where('period_year', 2026)
-        ->first();
+    $budget = MarketingBudget::forPeriod($lease->unit->asset_id, 2026)->refresh();
 
-    // 5% of 20,000 billed rent = 1,000 accrued; nothing spent yet.
+    // 5% of 20,000 billed rent = 1,000 accrued (derived from the marketing item).
     expect((float) $budget->accrued_amount)->toBe(1000.0)
         ->and($budget->balance())->toBe(1000.0);
 });
@@ -90,9 +104,7 @@ it('accrues the levy month over month — each billed period adds 5%', function 
     $svc->generateForLease($lease, CarbonImmutable::parse('2026-04-01'));
     $svc->generateForLease($lease, CarbonImmutable::parse('2026-05-01'));
 
-    $budget = MarketingBudget::where('asset_id', $lease->unit->asset_id)
-        ->where('period_year', 2026)
-        ->first();
+    $budget = MarketingBudget::forPeriod($lease->unit->asset_id, 2026)->refresh();
 
     // 3 months × (5% of 10,000) = 1,500 into the SAME per-year budget row.
     expect(MarketingBudget::where('asset_id', $lease->unit->asset_id)->count())->toBe(1)
@@ -109,12 +121,14 @@ it('does not accrue twice when the same period is billed again (idempotent)', fu
     expect($first['status'])->toBe('created')
         ->and($second['status'])->toBe('skipped');
 
-    $budget = MarketingBudget::where('asset_id', $lease->unit->asset_id)->first();
+    // The derived accrual reflects the single billed marketing item, not two.
+    $budget = MarketingBudget::forPeriod($lease->unit->asset_id, 2026)->refresh();
     expect((float) $budget->accrued_amount)->toBe(500.0);
 });
 
-it('accrues nothing when a lease has no base rent to bill', function () {
-    // A lease whose only active charge is service charge — no base_rent line.
+it('accrues nothing when a lease has no marketing levy to bill', function () {
+    // A lease whose only active charge is service charge — no base_rent, hence
+    // no marketing levy line, hence nothing to derive an accrual from.
     $asset = makeAsset();
     $unit = makeUnit($asset);
     $lease = makeLease($unit, null, ['base_rent_monthly' => 0, 'commencement_date' => '2026-01-01']);
@@ -133,22 +147,26 @@ it('accrues nothing when a lease has no base rent to bill', function () {
 
     app(MonthlyBillingService::class)->generateForLease($lease, CarbonImmutable::parse('2026-03-01'));
 
+    // No marketing item was billed, so no budget row is created/accrued.
     expect(MarketingBudget::where('asset_id', $asset->id)->exists())->toBeFalse();
 });
 
-it('accrues against the billed (pro-rated) rent, not the full monthly rent', function () {
+it('accrues against the billed (pro-rated) levy, not the full monthly levy', function () {
     // Lease commences 16 Mar 2026; March has 31 days → 16 days billed.
     $lease = scenarioLeaseWithRent(31000, ['commencement_date' => '2026-03-16']);
 
     $result = app(MonthlyBillingService::class)
         ->generateForLease($lease, CarbonImmutable::parse('2026-03-01'), prorate: true);
 
-    $billedRent = (float) $result['invoice']->subtotal;
+    // The marketing item is pro-rated by the same factor as the rest of the invoice.
+    $billedLevy = (float) InvoiceItem::where('invoice_id', $result['invoice']->id)
+        ->where('type', 'marketing')
+        ->value('amount');
 
-    $budget = MarketingBudget::where('asset_id', $lease->unit->asset_id)->first();
+    $budget = MarketingBudget::forPeriod($lease->unit->asset_id, 2026)->refresh();
 
-    // Levy must equal 5% of the ACTUAL billed (pro-rated) rent, not 5% of 31,000.
-    expect((float) $budget->accrued_amount)->toBe(round($billedRent * 0.05, 2))
+    // Accrual equals the ACTUAL billed (pro-rated) levy, not 5% of full 31,000 (1,550).
+    expect((float) $budget->accrued_amount)->toBe($billedLevy)
         ->and((float) $budget->accrued_amount)->toBeLessThan(1550.0);
 });
 
@@ -160,7 +178,7 @@ it('draws the running balance down as spends are recorded against accrued levy',
     $lease = scenarioLeaseWithRent(40000); // 5% = 2,000 accrued
     app(MonthlyBillingService::class)->generateForLease($lease, CarbonImmutable::parse('2026-03-01'));
 
-    $budget = MarketingBudget::where('asset_id', $lease->unit->asset_id)->first();
+    $budget = MarketingBudget::forPeriod($lease->unit->asset_id, 2026)->refresh();
     expect($budget->balance())->toBe(2000.0);
 
     $budget->spends()->create([
@@ -242,32 +260,45 @@ it('keeps drawing down past zero across multiple spends', function () {
 });
 
 /*
-| ---- RATE VERSIONING (per-charge / per-accrual capture) ---------------- |
+| ---- RATE VERSIONING (per-item / per-charge capture) ------------------- |
 | Changing the operator-tunable Settings rate must NOT rewrite history:    |
-|   * an already-billed accrual stays at the old rate,                     |
-|   * an already-created marketing Charge keeps its captured amount,        |
-|   * only FUTURE billing/charges pick up the new rate.                     |
+|   * an already-billed marketing item keeps its captured amount,          |
+|   * the derived accrual for the billed period stays put,                 |
+|   * an already-created marketing Charge keeps its captured amount until   |
+|     explicitly re-synced; only future billing picks up the new rate.     |
 */
 
 it('does not rewrite a historical accrual when the levy rate later changes', function () {
     setLevyRate(5.0);
-    $lease = scenarioLeaseWithRent(10000);
+    $lease = scenarioLeaseWithRent(10000); // marketing charge captured at 5% → 500
 
     // Bill March at 5% → accrue 500.
     app(MonthlyBillingService::class)->generateForLease($lease, CarbonImmutable::parse('2026-03-01'));
 
+    // Capture a handle to the billed March levy item before the rate moves.
+    $marchItem = InvoiceItem::where('type', 'marketing')
+        ->whereHas('invoice', fn ($q) => $q->where('lease_id', $lease->id))
+        ->first();
+    expect((float) $marchItem->amount)->toBe(500.0);
+
     // Operator bumps the rate to 8%.
     setLevyRate(8.0);
 
-    $budget = MarketingBudget::where('asset_id', $lease->unit->asset_id)->first();
+    // The already-billed March item is frozen at the rate in force when billed,
+    // so the derived accrual for March is untouched.
+    expect((float) $marchItem->fresh()->amount)->toBe(500.0)
+        ->and((float) MarketingBudget::forPeriod($lease->unit->asset_id, 2026)->refresh()->accrued_amount)->toBe(500.0);
 
-    // March accrual is frozen at the rate in force when it was billed.
-    expect((float) $budget->accrued_amount)->toBe(500.0);
-
-    // April bills at the NEW 8% → adds 800; March's 500 is untouched.
+    // Re-sync the lease's marketing charge to the NEW rate, then bill April → +800.
+    // Use a freshly-loaded lease so billing reads the re-synced charge, not the
+    // 5% charge the March run cached onto the original instance.
+    $lease = $lease->fresh();
+    app(MarketingLevyService::class)->createLevyCharge($lease);
     app(MonthlyBillingService::class)->generateForLease($lease, CarbonImmutable::parse('2026-04-01'));
 
-    expect((float) $budget->refresh()->accrued_amount)->toBe(1300.0);
+    expect((float) MarketingBudget::forPeriod($lease->unit->asset_id, 2026)->refresh()->accrued_amount)->toBe(1300.0)
+        // March's billed item is STILL 500 — history is not rewritten.
+        ->and((float) $marchItem->fresh()->amount)->toBe(500.0);
 });
 
 it('captures the rate on the marketing Charge so a later rate change does not alter it', function () {
@@ -295,18 +326,37 @@ it('captures the rate on the marketing Charge so a later rate change does not al
 
 it('applies the current rate to NEW billing while leaving prior accruals intact', function () {
     setLevyRate(5.0);
-    $leaseA = scenarioLeaseWithRent(10000);
+    $leaseA = scenarioLeaseWithRent(10000); // levy captured at 5% → 500
     app(MonthlyBillingService::class)->generateForLease($leaseA, CarbonImmutable::parse('2026-03-01'));
 
     setLevyRate(7.5);
-    $leaseB = scenarioLeaseWithRent(10000);
+    $leaseB = scenarioLeaseWithRent(10000); // levy captured at 7.5% → 750
     app(MonthlyBillingService::class)->generateForLease($leaseB, CarbonImmutable::parse('2026-03-01'));
 
-    $budgetA = MarketingBudget::where('asset_id', $leaseA->unit->asset_id)->first();
-    $budgetB = MarketingBudget::where('asset_id', $leaseB->unit->asset_id)->first();
+    $budgetA = MarketingBudget::forPeriod($leaseA->unit->asset_id, 2026)->refresh();
+    $budgetB = MarketingBudget::forPeriod($leaseB->unit->asset_id, 2026)->refresh();
 
     expect((float) $budgetA->accrued_amount)->toBe(500.0)   // old rate, frozen
         ->and((float) $budgetB->accrued_amount)->toBe(750.0); // new rate
+});
+
+/*
+| ---- ACCRUAL AUTO-REVERSES ON INVOICE CANCELLATION --------------------- |
+| The accrual is DERIVED (recomputeAccrued excludes cancelled invoices), so |
+| cancelling the invoice that carried the levy backs the accrual out.       |
+*/
+
+it('reverses the derived accrual when the billed invoice is cancelled', function () {
+    $lease = scenarioLeaseWithRent(10000);
+
+    $result = app(MonthlyBillingService::class)->generateForLease($lease, CarbonImmutable::parse('2026-03-01'));
+    $budget = MarketingBudget::forPeriod($lease->unit->asset_id, 2026)->refresh();
+    expect((float) $budget->accrued_amount)->toBe(500.0);
+
+    $result['invoice']->update(['status' => 'cancelled']);
+
+    // Cancelled invoices are excluded from the derived accrual → back to 0.
+    expect((float) MarketingBudget::forPeriod($lease->unit->asset_id, 2026)->refresh()->accrued_amount)->toBe(0.0);
 });
 
 /*
@@ -434,8 +484,8 @@ it('keeps each property\'s marketing budget separate when both are billed', func
     $svc->generateForLease($leaseA, CarbonImmutable::parse('2026-03-01'));
     $svc->generateForLease($leaseB, CarbonImmutable::parse('2026-03-01'));
 
-    $budgetA = MarketingBudget::where('asset_id', $leaseA->unit->asset_id)->first();
-    $budgetB = MarketingBudget::where('asset_id', $leaseB->unit->asset_id)->first();
+    $budgetA = MarketingBudget::forPeriod($leaseA->unit->asset_id, 2026)->refresh();
+    $budgetB = MarketingBudget::forPeriod($leaseB->unit->asset_id, 2026)->refresh();
 
     expect((float) $budgetA->accrued_amount)->toBe(500.0)
         ->and((float) $budgetB->accrued_amount)->toBe(3000.0)

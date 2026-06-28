@@ -154,7 +154,7 @@ class InvoiceForm
                         ->schema([
                             Select::make('type')
                                 ->label(__('admin.fields.type'))
-                                ->options(fn () => __('admin.enums.invoice_item_type'))
+                                ->options(fn () => \App\Enums\InvoiceItemType::options())
                                 ->required()
                                 ->default('base_rent')
                                 ->native(false)

@@ -93,6 +93,12 @@ class LeaseRenewalService
                 ]);
             }
 
+            // Resync the marketing levy to the renewal's (possibly escalated) rent
+            // so it's 5% of the NEW base rent, not the copied original amount.
+            if ($newRent > 0) {
+                app(\App\Services\MarketingLevyService::class)->createLevyCharge($renewal->fresh());
+            }
+
             $original->update(['status' => 'renewed']);
 
             return $renewal;

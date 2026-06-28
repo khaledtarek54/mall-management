@@ -125,9 +125,10 @@ it('seeds standard charges via CreateLease afterCreate when none exist', functio
         service: (float) $lease->service_charge_monthly,
     );
 
-    expect($lease->charges()->count())->toBe(2);
+    expect($lease->charges()->count())->toBe(3); // base rent + service + marketing levy
     expect($lease->charges()->where('type', 'base_rent')->first()->amount)->toEqual(10000);
     expect($lease->charges()->where('type', 'service_charge')->first()->amount)->toEqual(1500);
+    expect($lease->charges()->where('type', 'marketing')->first()->amount)->toEqual(500);
 });
 
 it('seedStandardCharges is idempotent — second call does not duplicate', function () {
@@ -146,9 +147,9 @@ it('seedStandardCharges is idempotent — second call does not duplicate', funct
         'payment_terms_days' => 7,
     ]);
     \App\Services\LeaseCreationService::seedStandardCharges($lease, 10000, 1500);
-    expect($lease->fresh()->charges()->count())->toBe(2);
+    expect($lease->fresh()->charges()->count())->toBe(3); // base rent + service + marketing
 
     // Second call — must not double-seed.
     \App\Services\LeaseCreationService::seedStandardCharges($lease->fresh(), 10000, 1500);
-    expect($lease->fresh()->charges()->count())->toBe(2);
+    expect($lease->fresh()->charges()->count())->toBe(3);
 });

@@ -84,6 +84,12 @@ class LeaseRentChangeService
                 );
             }
 
+            // The marketing levy is 5% of base rent — keep it in lock-step so the
+            // next bill (and the marketing fund) reflects the new rent.
+            if ($newRent > 0) {
+                app(\App\Services\MarketingLevyService::class)->createLevyCharge($lease->fresh());
+            }
+
             return $lease->fresh();
         });
     }

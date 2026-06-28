@@ -120,6 +120,12 @@ class LeaseCreationService
                 'is_active' => true,
             ]);
         }
+
+        // Marketing levy — a % of base rent charged to the tenant (VAT-exempt).
+        // It bills as its own line item and funds the property's marketing budget.
+        if ($rent > 0) {
+            app(MarketingLevyService::class)->createLevyCharge($lease);
+        }
     }
 
     private function createTenant(array $data): Tenant

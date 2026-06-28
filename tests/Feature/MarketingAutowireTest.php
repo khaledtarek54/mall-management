@@ -1,11 +1,17 @@
 <?php
 
 use App\Models\Charge;
+use App\Models\InvoiceItem;
 use App\Models\Lease;
 use App\Models\MarketingBudget;
+use App\Services\MarketingLevyService;
 use App\Services\MonthlyBillingService;
 use Carbon\CarbonImmutable;
 
+/**
+ * Build a billable lease that carries BOTH a base-rent charge and the marketing
+ * levy charge — the shape a real lease has once LeaseCreationService seeds it.
+ */
 function marketingLeaseWithRent(float $rent): Lease
 {
     $asset = makeAsset();
@@ -24,28 +30,38 @@ function marketingLeaseWithRent(float $rent): Lease
         'is_active' => true,
     ]);
 
+    app(MarketingLevyService::class)->createLevyCharge($lease);
+
     return $lease;
 }
 
-it('accrues 5% of billed base rent into the marketing budget', function () {
+it('derives the budget accrual from the billed marketing line item', function () {
     $lease = marketingLeaseWithRent(10000);
 
     $result = app(MonthlyBillingService::class)->generateForLease($lease, CarbonImmutable::parse('2026-03-01'));
     expect($result['status'])->toBe('created');
 
-    $budget = MarketingBudget::where('asset_id', $lease->unit->asset_id)->where('period_year', 2026)->first();
-    expect($budget)->not->toBeNull()
+    // The billed marketing line item is the source of truth for the accrual.
+    $marketingItem = InvoiceItem::where('invoice_id', $result['invoice']->id)
+        ->where('type', 'marketing')
+        ->first();
+
+    $budget = MarketingBudget::forPeriod($lease->unit->asset_id, 2026)->refresh();
+
+    expect((float) $marketingItem->amount)->toBe(500.0)
+        ->and((float) $budget->accrued_amount)->toBe((float) $marketingItem->amount)
         ->and((float) $budget->accrued_amount)->toBe(500.0);
 });
 
-it('does not add a tenant line item — invoice total is unchanged', function () {
+it('charges the levy to the tenant — the invoice total now includes it', function () {
     $lease = marketingLeaseWithRent(10000);
 
     $result = app(MonthlyBillingService::class)->generateForLease($lease, CarbonImmutable::parse('2026-04-01'));
 
-    // Base rent is VAT-exempt, so the invoice total equals the rent exactly:
-    // the levy is an internal accrual, not a billed line.
-    expect((float) $result['invoice']->total)->toBe(10000.0);
+    // Base rent (10,000, VAT-exempt) + marketing levy (500, VAT-exempt) = 10,500.
+    // The levy is a real billed line, not a silent internal accrual.
+    expect((float) $result['invoice']->total)->toBe(10500.0)
+        ->and((float) $result['invoice']->subtotal)->toBe(10500.0);
 });
 
 it('backfills marketing budgets from historical base rent', function () {
@@ -56,6 +72,6 @@ it('backfills marketing budgets from historical base rent', function () {
 
     $this->artisan('marketing:backfill-budgets')->assertSuccessful();
 
-    $budget = MarketingBudget::where('asset_id', $lease->unit->asset_id)->where('period_year', 2026)->first();
+    $budget = MarketingBudget::forPeriod($lease->unit->asset_id, 2026)->refresh();
     expect((float) $budget->accrued_amount)->toBe(400.0);
 });

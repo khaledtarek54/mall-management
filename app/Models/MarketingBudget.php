@@ -66,6 +66,26 @@ class MarketingBudget extends Model
     }
 
     /**
+     * Recompute accrued_amount from the billed marketing line items for this
+     * property + year (cancelled invoices excluded). Derived from source, so it
+     * reconciles and auto-reverses on invoice cancellation — never a blind
+     * running total. The single source of truth for the marketing fund's income.
+     */
+    public function recomputeAccrued(): void
+    {
+        $accrued = InvoiceItem::query()
+            ->where('invoice_items.type', 'marketing')
+            ->whereHas('invoice', function ($q) {
+                $q->where('status', '!=', 'cancelled')
+                    ->whereYear('issue_date', $this->period_year)
+                    ->whereHas('lease.unit', fn ($u) => $u->where('asset_id', $this->asset_id));
+            })
+            ->sum('amount');
+
+        $this->update(['accrued_amount' => round((float) $accrued, 2)]);
+    }
+
+    /**
      * Get-or-create the budget row for an asset + year. The single entry point
      * so accrual and spend always target one row per (asset, period).
      */

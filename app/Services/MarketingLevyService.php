@@ -45,24 +45,13 @@ class MarketingLevyService
             [
                 'name' => 'Marketing Levy',
                 'amount' => $this->amountFor($lease),
-                'currency' => $lease->currency,
+                'currency' => $lease->currency ?? 'EGP',
                 'frequency' => 'monthly',
                 'vat_applicable' => false,
                 'vat_rate' => 0,
+                'start_date' => $lease->commencement_date,
                 'is_active' => true,
             ],
         );
-    }
-
-    /**
-     * Accrue an amount into the property's marketing budget for a given year
-     * (FR MKT-5). Single entry point so the running total stays derived.
-     */
-    public function accrue(int $assetId, int $year, float $amount): MarketingBudget
-    {
-        $budget = MarketingBudget::forPeriod($assetId, $year);
-        $budget->increment('accrued_amount', $amount);
-
-        return $budget->refresh();
     }
 }

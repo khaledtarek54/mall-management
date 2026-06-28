@@ -71,6 +71,23 @@ it('catches a broken invoice composition (subtotal + VAT ≠ total)', function (
     expect(collect($report['checks'])->firstWhere('key', 'invoice_composition')['passed'])->toBeFalse();
 });
 
+it('catches a marketing budget whose accrued drifted from the billed levies', function () {
+    $asset = makeAsset();
+    $lease = makeLease(makeUnit($asset), null, ['commencement_date' => '2026-01-01', 'base_rent_monthly' => 10000]);
+    app(\App\Services\MarketingLevyService::class)->createLevyCharge($lease);
+    app(\App\Services\MonthlyBillingService::class)->generateForLease($lease->fresh(), \Illuminate\Support\Carbon::parse('2026-02-01')->toImmutable());
+
+    // Clean: accrued is derived from the billed marketing line item → ties out.
+    expect(reconcile()['ok'])->toBeTrue();
+
+    // Corrupt the stored accrued_amount, bypassing the derive.
+    \App\Models\MarketingBudget::query()->update(['accrued_amount' => 99999]);
+
+    $report = reconcile();
+    expect($report['ok'])->toBeFalse();
+    expect(collect($report['checks'])->firstWhere('key', 'marketing_budget')['passed'])->toBeFalse();
+});
+
 it('includes applied credit notes in the derived paid amount', function () {
     $invoice = makeInvoice(makeLease(makeUnit(makeAsset())));
     $invoice->credit_applied_amount = 1400;
