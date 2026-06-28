@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\TenantRequestType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -43,7 +44,7 @@ class MaintenanceRequest extends Model implements HasMedia
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['status', 'priority', 'category', 'assigned_to', 'assigned_to_vendor_id', 'department_id', 'target_resolution_at', 'resolution_notes'])
+            ->logOnly(['request_type', 'status', 'priority', 'category', 'assigned_to', 'assigned_to_vendor_id', 'department_id', 'target_resolution_at', 'resolution_notes', 'csat_rating'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('maintenance_request');
@@ -54,6 +55,7 @@ class MaintenanceRequest extends Model implements HasMedia
         'tenant_id',
         'unit_id',
         'lease_id',
+        'request_type',
         'assigned_to',
         'assigned_to_vendor_id',
         'department_id',
@@ -72,9 +74,13 @@ class MaintenanceRequest extends Model implements HasMedia
         'scheduled_from',
         'scheduled_to',
         'sla_breach_notified_at',
+        'csat_rating',
+        'csat_comment',
     ];
 
     protected $casts = [
+        'request_type' => TenantRequestType::class,
+        'csat_rating' => 'integer',
         'submitted_at' => 'datetime',
         'acknowledged_at' => 'datetime',
         'resolved_at' => 'datetime',
