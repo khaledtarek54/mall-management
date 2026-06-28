@@ -40,10 +40,12 @@ class MarketingSpendsRelationManager extends RelationManager
                 ->hiddenLabel()
                 ->columnSpanFull()
                 ->content(new \Illuminate\Support\HtmlString(
-                    '<div style="display:flex;flex-wrap:wrap;gap:1.5rem;font-size:.875rem;padding:.5rem .75rem;background:#f1f5f9;border-radius:.5rem;">'
-                    .'<span>'.e(__('admin.tables.marketing_budget.accrued')).': <strong>'.number_format((float) $budget->accrued_amount, 2).'</strong></span>'
-                    .'<span>'.e(__('admin.tables.marketing_budget.spent')).': <strong>'.number_format((float) $budget->spent_amount, 2).'</strong></span>'
-                    .'<span style="color:#0f766e;">'.e(__('admin.tables.marketing_budget.balance')).': <strong>'.number_format((float) $budget->balance(), 2).' EGP</strong></span>'
+                    // Theme-aware: translucent neutral bg + inherited text colour so it
+                    // reads in both light and dark mode (no hardcoded light background).
+                    '<div style="display:flex;flex-wrap:wrap;gap:1.25rem;font-size:.875rem;padding:.6rem .85rem;background:rgba(148,163,184,0.15);border:1px solid rgba(148,163,184,0.25);border-radius:.5rem;color:inherit;">'
+                    .'<span style="opacity:.8;">'.e(__('admin.tables.marketing_budget.accrued')).': <strong>'.number_format((float) $budget->accrued_amount, 2).'</strong></span>'
+                    .'<span style="opacity:.8;">'.e(__('admin.tables.marketing_budget.spent')).': <strong>'.number_format((float) $budget->spent_amount, 2).'</strong></span>'
+                    .'<span style="color:#14b8a6;font-weight:600;">'.e(__('admin.tables.marketing_budget.balance')).': <strong>'.number_format((float) $budget->balance(), 2).' EGP</strong></span>'
                     .'</div>'
                 )),
             Select::make('category')
