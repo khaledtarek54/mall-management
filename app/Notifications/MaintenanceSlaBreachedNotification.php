@@ -34,6 +34,7 @@ class MaintenanceSlaBreachedNotification extends Notification
             'hours_over_sla' => $hoursOver,
             'title' => __('admin.notifications.sla_breached_title'),
             'body' => __('admin.notifications.sla_breached_body', [
+                'type' => $this->request->typeLabel(),
                 'reference' => $this->request->reference,
                 'priority' => __("admin.enums.maintenance_priority.{$this->request->priority}"),
                 'hours' => $hoursOver,

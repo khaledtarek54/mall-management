@@ -39,6 +39,7 @@ class MaintenanceCommentAddedNotification extends Notification
     {
         return (new MailMessage)
             ->subject(__('admin.notifications.maintenance_comment_subject', [
+                'type' => $this->request->typeLabel(),
                 'reference' => $this->request->reference,
             ]))
             ->greeting(__('admin.notifications.payment_received_greeting', [
@@ -78,6 +79,7 @@ class MaintenanceCommentAddedNotification extends Notification
             'request_id' => $this->request->id,
             'reference' => $this->request->reference,
             'title' => __('admin.notifications.maintenance_comment_title', [
+                'type' => $this->request->typeLabel(),
                 'reference' => $this->request->reference,
             ]),
             'body' => __('admin.notifications.maintenance_comment_short', [

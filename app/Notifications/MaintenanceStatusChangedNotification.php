@@ -22,11 +22,13 @@ class MaintenanceStatusChangedNotification extends Notification
     {
         return (new MailMessage)
             ->subject(__('admin.notifications.maintenance_status_subject', [
+                'type' => $this->request->typeLabel(),
                 'reference' => $this->request->reference,
                 'status' => __("admin.statuses.maintenance_request.{$this->request->status}"),
             ]))
             ->greeting(__('admin.notifications.payment_received_greeting', ['name' => $this->request->tenant?->name ?? '']))
             ->line(__('admin.notifications.maintenance_status_body', [
+                'type' => $this->request->typeLabel(),
                 'title' => $this->request->title,
                 'from' => __("admin.statuses.maintenance_request.{$this->previousStatus}"),
                 'to' => __("admin.statuses.maintenance_request.{$this->request->status}"),
@@ -46,6 +48,7 @@ class MaintenanceStatusChangedNotification extends Notification
             'request_id' => $this->request->id,
             'reference' => $this->request->reference,
             'title' => __('admin.notifications.maintenance_status_title', [
+                'type' => $this->request->typeLabel(),
                 'reference' => $this->request->reference,
             ]),
             'body' => __('admin.notifications.maintenance_status_short', [

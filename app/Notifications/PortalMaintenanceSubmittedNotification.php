@@ -32,7 +32,9 @@ class PortalMaintenanceSubmittedNotification extends Notification
             'tenant' => $this->request->tenant?->name,
             'unit' => $this->request->unit?->code,
             'priority' => $this->request->priority,
-            'title' => __('admin.notifications.portal_maintenance_submitted_title'),
+            'title' => __('admin.notifications.portal_maintenance_submitted_title', [
+                'type' => $this->request->typeLabel(),
+            ]),
             'body' => __('admin.notifications.portal_maintenance_submitted_body', [
                 'tenant' => $this->request->tenant?->name ?? '—',
                 'unit' => $this->request->unit?->code ?? '—',

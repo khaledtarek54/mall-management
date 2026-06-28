@@ -146,6 +146,16 @@ class MaintenanceRequest extends Model implements HasMedia
             && $this->target_resolution_at->isPast();
     }
 
+    /**
+     * Localised label for this request's type (Maintenance, Complaint, …). Used
+     * as the `:type` placeholder in notification copy so a complaint never reads
+     * "Maintenance …". Falls back to the maintenance label for legacy rows.
+     */
+    public function typeLabel(): string
+    {
+        return ($this->request_type ?? TenantRequestType::default())->label();
+    }
+
     public static function generateReference(string $assetCode = 'AW', string $prefix = 'MR'): string
     {
         $year = now()->format('Y');
