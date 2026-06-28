@@ -2,9 +2,22 @@
 
 > **Goal.** Turn the maintenance-request feature into a general **Tenant Request** system so a tenant can raise *any* kind of request (maintenance, complaint, inquiry, access/parking, billing query, document request, amenity booking, …) from the admin dashboard, the tenant portal, and the mobile app — built the way real property-management systems do it.
 >
-> **Status:** PLAN ONLY (no code yet). Drafted 2026-06-28 from a full code investigation. Pick up phase by phase.
+> **Status:** IN PROGRESS — Phase 1 (additive) + most of Phase 2 shipped. See the progress log below. Drafted 2026-06-28.
 >
 > **Guiding principle:** the maintenance feature is *already* a generic "request" with a state machine, comments, attachments, SLA, routing, and notifications. We are **renaming + typing** it, not rebuilding it. Lowest-risk, highest-reuse path. Keep the suite green at every phase.
+
+---
+
+## ✅ Progress log (live)
+
+Built additive-first (no risky internal rename yet); suite green at every step (1197 tests).
+
+- **[done] Type foundation** — `App\Enums\TenantRequestType` (7 types, each with sub-categories / has-SLA + per-priority hours / scheduling / default-department slug / reference prefix). Migration adds `request_type` (default `maintenance`, indexed) + `csat_rating`/`csat_comment`; `category` enum → free-form nullable string. Model cast + activity-log. *(commits `4cd17fb`, `246a1ee`)*
+- **[done] Type-aware service** — per-type reference prefix, SLA only for SLA-bearing types, auto-routing to the type's default department. *(commit `246a1ee`)*
+- **[done] Admin** — form has a live Request Type select + dynamic Sub-category; create page sets SLA/routing per type; table has a type column + filter. *(commit `18850ac`)*
+- **[done] Tenant portal + mobile API** — portal form type picker + dynamic sub-category; `/me/maintenance-requests` accepts `request_type`, validates sub-category per type, defaults to maintenance for back-compat; API transformer exposes `request_type`. 5 API tests. *(commit `72a55a6`)*
+- **[done] Relabel** — admin + portal nav/resource/section labels → "Requests" (en/ar); module doc updated.
+- **[next] Per-type notification copy** (status/comment/submitted still say "maintenance"); **the internal rename** (`MaintenanceRequest`→`TenantRequest`, table, RBAC `maintenance.*`→`requests.*`, morph-map — §4); **CSAT** rating UI + report (Phase 4); **owner-panel** resource relabel; the **DB `request_types` table** if operators need self-service (Phase 2 §3.2).
 
 ---
 

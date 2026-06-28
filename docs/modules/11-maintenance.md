@@ -1,10 +1,26 @@
-# Maintenance Work-Orders
+# Tenant Requests (incl. Maintenance)
 
-> System for managing maintenance requests from tenants, routing to departments, tracking SLA compliance, and achieving resolution within scheduled work windows and target deadlines.
+> System for managing **tenant requests** — maintenance *and* every other thing a tenant may ask for (complaint, inquiry, access/security, billing query, document request, …) — routing to the right department, tracking SLA compliance, and achieving resolution within scheduled work windows and target deadlines.
+
+> **Generalisation status (Plan 1).** This module began life as "Maintenance Requests" and is being generalised into a typed **Tenant Request** system — see [docs/plans/01-tenant-requests-plan.md](../plans/01-tenant-requests-plan.md). **Done so far:** a `request_type` discriminator (`App\Enums\TenantRequestType` — 7 types, each with its own sub-categories, SLA, routing, scheduling and reference prefix), a type-aware create path (admin form, tenant portal, mobile API), CSAT capture columns, and the admin nav/labels relabelled to "Requests". **Not yet done:** the internal class/table/permission rename (model is still `MaintenanceRequest`, table `maintenance_requests`, RBAC module `maintenance.*`), per-type notification copy, and CSAT reporting. The model name "Maintenance*" below therefore still refers to the live class names.
 
 ## 1. Purpose & business context
 
-The maintenance module handles the full lifecycle of facility maintenance requests. Tenants (via the portal) or admin staff can create work-orders for repairs/maintenance across the mall's units. The system assigns requests to departments, tracks progress through a state machine (submitted → acknowledged → in_progress → resolved → closed), enforces SLA targets by priority, scans for breaches daily, and prevents changes to terminal (closed/cancelled) requests. A scheduled work window (scheduled_from/to) is independent of the SLA deadline (target_resolution_at) — the work may happen weeks after the deadline is set, e.g. for planned preventative maintenance.
+The module handles the full lifecycle of a tenant request. Tenants (via the portal or the mobile app) or admin staff create requests across the mall's units. The system **types** each request (maintenance, complaint, inquiry, access, billing, document, other), auto-routes it to that type's default department, tracks progress through a state machine (submitted → acknowledged → in_progress → resolved → closed), enforces SLA targets by priority **for the types that have an SLA** (maintenance/complaint/access; inquiry/billing/document carry none), scans for breaches daily, and prevents changes to terminal (closed/cancelled) requests. A scheduled work window (scheduled_from/to) is independent of the SLA deadline (target_resolution_at) — the work may happen weeks after the deadline is set, e.g. for planned preventative maintenance.
+
+### 1a. Request types (`App\Enums\TenantRequestType`)
+
+Each type carries its own intake config (model-level, not a DB enum — `request_type` is a string, so adding a type needs no migration). Phase 2 promotes this enum to an operator-tunable `request_types` table; the accessors mirror the planned columns.
+
+| Type | Sub-categories | SLA | Routes to | Ref prefix |
+|------|----------------|-----|-----------|-----------|
+| maintenance | electrical, plumbing, hvac, structural, cleaning, safety, other | yes (operator-tunable via MaintenanceSettings) | Operations | `MR` |
+| complaint | noise, cleanliness, conduct, other | yes (code map) | Operations | `CR` |
+| access | keys_cards, parking, after_hours, visitor, delivery | yes (code map) | Operations | `AR` |
+| document | lease_copy, renewal, termination_notice, noc_certificate | no | Leasing | `DR` |
+| billing | — | no | Accounting | `BQ` |
+| inquiry | — | no | (unassigned — triage) | `IQ` |
+| other | — | no | (unassigned — triage) | `REQ` |
 
 ## 2. Domain model
 
@@ -13,16 +29,17 @@ The maintenance module handles the full lifecycle of facility maintenance reques
 | Column | Type | Constraints | Meaning |
 |--------|------|-----------|---------|
 | id | bigint | PK | Auto-increment ID |
-| reference | string | UNIQUE | Human-readable code: `MR-{asset_code}-{year}-{seq}`, e.g. `MR-HW-2026-0001` |
+| reference | string | UNIQUE | Human-readable code: `{prefix}-{asset_code}-{year}-{seq}`, e.g. `MR-AW-2026-0001`. Prefix is per request type (MR/CR/IQ/AR/BQ/DR/REQ). |
 | tenant_id | bigint | FK→Tenant | Who submitted or is affected by the request |
-| unit_id | bigint | FK→Unit | Which unit (storefront/space) needs maintenance |
+| unit_id | bigint | FK→Unit | Which unit (storefront/space) the request concerns |
 | lease_id | bigint | FK→Lease, nullable | The lease in effect (may be null if no active lease) |
+| request_type | string | NOT NULL, default `maintenance`, indexed | The request type (`TenantRequestType`). Backfilled to `maintenance` for all legacy rows. |
 | assigned_to | bigint | FK→User, nullable | Internal staff member responsible (staff role) |
 | assigned_to_vendor_id | bigint | FK→Vendor, nullable | External vendor contractor assigned (coexists with assigned_to) |
-| department_id | bigint | FK→Department, nullable | Which operator department owns triage/execution (routing) |
+| department_id | bigint | FK→Department, nullable | Which operator department owns triage/execution. Auto-set from the type's default department on intake; still re-routable. |
 | status | enum | One of STATUSES | Current lifecycle state (see §4) |
-| priority | enum | low, medium, high, urgent | SLA tier; drives target_resolution_at calculation |
-| category | enum | electrical, plumbing, hvac, structural, cleaning, safety, other | Problem domain classification |
+| priority | enum | low, medium, high, urgent | SLA tier; drives target_resolution_at calculation (for types with an SLA) |
+| category | string | nullable | The type's **sub-category** (electrical, parking, lease_copy, …). Was a maintenance-only DB enum; now a free-form string whose valid values come from `TenantRequestType::subcategories()`. Null for types with none. |
 | channel | enum | portal, whatsapp, phone, email, walk_in, admin | Intake method; defaults to portal if tenant-submitted |
 | title | string | Max 150 chars | Brief description of issue |
 | description | text | Max 2000 chars (portal) | Full problem statement |
@@ -35,6 +52,8 @@ The maintenance module handles the full lifecycle of facility maintenance reques
 | scheduled_from | timestamp | nullable | Planned start of actual work window (decoupled from SLA target) |
 | scheduled_to | timestamp | nullable | Planned end of work window (must be ≥ scheduled_from if both set) |
 | sla_breach_notified_at | timestamp | nullable | Stamped by scan-sla-breaches after firing alert (idempotency guard) |
+| csat_rating | tinyint | nullable | Close-out satisfaction score (1–5) captured from the tenant. Columns added now; the rating UI/report is a later phase. |
+| csat_comment | text | nullable | Optional free-text feedback accompanying the CSAT score |
 | created_at | timestamp | - | Record creation |
 | updated_at | timestamp | - | Last update |
 | deleted_at | timestamp | nullable | Soft-delete timestamp |
