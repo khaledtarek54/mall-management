@@ -45,6 +45,18 @@ it('shows a single payment', function () {
         ->assertJsonPath('data.id', $payment->id);
 });
 
+it('exposes the payment channel so the app can show how it was paid', function () {
+    $tenant = makeTenant();
+    $invoice = makeInvoice(makeLease(makeUnit(makeAsset()), $tenant));
+    $payment = makeAllocatedPayment($tenant, $invoice);
+    $payment->update(['channel' => Payment::CHANNEL_MOBILE]);
+
+    $this->getJson("/api/v1/me/payments/{$payment->id}", apiHeaders($tenant))
+        ->assertOk()
+        ->assertJsonPath('data.channel', Payment::CHANNEL_MOBILE)
+        ->assertJsonStructure(['data' => ['channel', 'receiptAt']]);
+});
+
 it('returns 404 for another tenant\'s payment', function () {
     $tenant = makeTenant();
     $other = makeTenant();

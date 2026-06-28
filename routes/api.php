@@ -6,6 +6,8 @@ use App\Http\Controllers\Api\V1\Auth\LoginController;
 use App\Http\Controllers\Api\V1\Auth\LogoutController;
 use App\Http\Controllers\Api\V1\Auth\MeController;
 use App\Http\Controllers\Api\V1\Auth\ResetPasswordController;
+use App\Http\Controllers\Api\V1\CreditNotes\ListCreditNotesController;
+use App\Http\Controllers\Api\V1\CreditNotes\ShowCreditNoteController;
 use App\Http\Controllers\Api\V1\Devices\RegisterDeviceController;
 use App\Http\Controllers\Api\V1\Devices\UnregisterDeviceController;
 use App\Http\Controllers\Api\V1\Invoices\InvoicePdfController;
@@ -17,11 +19,16 @@ use App\Http\Controllers\Api\V1\Maintenance\CommentMaintenanceRequestController;
 use App\Http\Controllers\Api\V1\Maintenance\CreateMaintenanceRequestController;
 use App\Http\Controllers\Api\V1\Maintenance\ListMaintenanceRequestsController;
 use App\Http\Controllers\Api\V1\Maintenance\ShowMaintenanceRequestController;
+use App\Http\Controllers\Api\V1\Notifications\ListNotificationsController;
+use App\Http\Controllers\Api\V1\Notifications\MarkAllNotificationsReadController;
+use App\Http\Controllers\Api\V1\Notifications\MarkNotificationReadController;
+use App\Http\Controllers\Api\V1\Notifications\UnreadCountController;
 use App\Http\Controllers\Api\V1\Payments\ListPaymentsController;
 use App\Http\Controllers\Api\V1\Payments\ShowPaymentController;
 use App\Http\Controllers\Api\V1\Profile\BalanceController;
 use App\Http\Controllers\Api\V1\Profile\LeasesController;
 use App\Http\Controllers\Api\V1\Profile\ShowProfileController;
+use App\Http\Controllers\Api\V1\Profile\SummaryController;
 use App\Http\Controllers\Api\V1\Profile\UpdateProfileController;
 use App\Http\Controllers\Api\V1\SalesDeclarations\CreateSalesDeclarationController;
 use App\Http\Controllers\Api\V1\SalesDeclarations\ListSalesDeclarationsController;
@@ -73,6 +80,8 @@ Route::prefix('v1')->group(function () {
         Route::get('me', ShowProfileController::class)->name('api.v1.me.show');
         Route::patch('me', UpdateProfileController::class)->name('api.v1.me.update');
         Route::get('me/balance', BalanceController::class)->name('api.v1.me.balance');
+        // Home-screen rollup — money owed + open work + things needing attention.
+        Route::get('me/summary', SummaryController::class)->name('api.v1.me.summary');
         Route::get('me/leases', LeasesController::class)->name('api.v1.me.leases');
 
         // --- Invoices ---
@@ -99,6 +108,17 @@ Route::prefix('v1')->group(function () {
         // --- Payments ---
         Route::get('me/payments', ListPaymentsController::class)->name('api.v1.me.payments.index');
         Route::get('me/payments/{id}', ShowPaymentController::class)->whereNumber('id')->name('api.v1.me.payments.show');
+
+        // --- Credit notes (read-only — issued by the operator) ---
+        Route::get('me/credit-notes', ListCreditNotesController::class)->name('api.v1.me.credit-notes.index');
+        Route::get('me/credit-notes/{id}', ShowCreditNoteController::class)->whereNumber('id')->name('api.v1.me.credit-notes.show');
+
+        // --- Notifications inbox ---
+        // Specific paths before the {id} route so they aren't captured by it.
+        Route::get('me/notifications', ListNotificationsController::class)->name('api.v1.me.notifications.index');
+        Route::get('me/notifications/unread-count', UnreadCountController::class)->name('api.v1.me.notifications.unread-count');
+        Route::post('me/notifications/read-all', MarkAllNotificationsReadController::class)->name('api.v1.me.notifications.read-all');
+        Route::post('me/notifications/{id}/read', MarkNotificationReadController::class)->name('api.v1.me.notifications.read');
 
         // --- Maintenance requests ---
         Route::get('me/maintenance-requests', ListMaintenanceRequestsController::class)->name('api.v1.me.maintenance.index');

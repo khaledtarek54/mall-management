@@ -24,6 +24,10 @@ class PaymentResource extends JsonResource
             'status' => $this->status,
             'payment_date' => optional($this->payment_date)->toDateString(),
             'gateway' => $this->gateway,
+            // How the payment was taken: payment_link / mobile_api / portal / admin.
+            'channel' => $this->channel,
+            // When the captured-payment receipt fired (null until captured).
+            'receipt_at' => optional($this->receipt_notified_at)->toIso8601String(),
 
             // Per-invoice allocation. A single payment can clear several
             // invoices; each row carries how much of this payment landed on

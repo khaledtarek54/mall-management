@@ -767,6 +767,7 @@ return [
     ],
 
     'notifications' => [
+        'marked_read' => 'تم تعليم الإشعار كمقروء.',
         // Tenant-facing
         'invoice_issued_subject' => 'فاتورة جديدة :number من أتريوم',
         'invoice_issued_title' => 'فاتورة جديدة',

@@ -8,12 +8,16 @@ The Mobile API (v1) provides a dedicated entry point for the tenant-facing mobil
 
 The API powers:
 - **Authentication**: login (issuing Sanctum tokens), logout, password reset/change
-- **Profile & Balance**: tenant company details, account balance, payment status, leases
-- **Invoices & Payments**: full invoice history, line items, PDF statements, payment history + allocations
-- **Paymob Integration**: initiate card payment sessions (iframe + mobile SDK flows), validate HMAC callbacks
+- **Profile & Balance**: tenant company details, account balance, `GET /me/summary` home-screen rollup, leases
+- **Invoices & Payments**: full invoice history (incl. `paymentLinkUrl`, ETA refs, `creditAppliedAmount`), line items, PDF statements, payment history + allocations (incl. `channel` + `receiptAt`)
+- **Paymob Integration**: initiate card payment sessions (iframe + mobile SDK flows, `mobile_api` channel), validate HMAC callbacks
+- **Credit Notes**: read-only list/detail of operator-issued credits (`GET /me/credit-notes`)
+- **Notifications**: in-app inbox — list, unread-count, mark-read, mark-all-read (`GET/POST /me/notifications`)
 - **Maintenance**: submit maintenance requests, comment, cancel, track status
 - **Sales Declarations**: declare monthly/quarterly sales for percentage-rent leases
 - **Device Registration**: push-notification token management (FCM/APNS)
+
+> The full endpoint reference (request/response shapes) lives in [`docs/api/MOBILE-API.md`](../api/MOBILE-API.md).
 
 All routes are versioned under `/api/v1` and are protected by the `auth:tenant-api` Sanctum guard (except public endpoints: login, forgot/reset password). Responses follow a standard JSON envelope: `{ data, message?, meta?, links? }`. Validation errors return 422. Rate limiting is enforced: login 5/min, password reset 3/min, authenticated endpoints 60/min.
 

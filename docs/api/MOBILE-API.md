@@ -3,7 +3,7 @@
 > Tenant-facing REST API for the Atriom mall-management mobile app.
 > Base URL: `https://<host>/api/v1`
 > Auth: Bearer tokens (Laravel Sanctum), `tenants` provider.
-> Last updated: 2026-06-01.
+> Last updated: 2026-06-28 — added `/me/summary`, credit-notes + notifications inbox; documented Paymob session/pay-demo; invoices carry `paymentLinkUrl` + `creditAppliedAmount`; payments carry `channel` + `receiptAt`.
 
 This document is the single reference a mobile developer needs to build the
 app: the business domain, the auth model, every endpoint with request/response
@@ -258,6 +258,17 @@ ignored — those are admin-managed. Partial updates are fine (PATCH semantics).
   "currency": "EGP", "isDelinquent": true } }
 ```
 
+#### 🔒 `GET /me/summary` — one-call home-screen rollup
+Money owed + open work + things needing the tenant's attention, so the app
+doesn't fan out to balance + maintenance + declarations + notifications.
+```json
+{ "data": { "outstanding": 8000.00, "overdue": 5000.00, "openInvoices": 2,
+  "creditAvailable": 1500.00, "isDelinquent": true, "openMaintenance": 1,
+  "disputedDeclarations": 0, "canDeclareSales": true,
+  "unreadNotifications": 3, "currency": "EGP" } }
+```
+`canDeclareSales` is true when the tenant has an active percentage-rent lease.
+
 #### 🔒 `GET /me/leases` — active leases (usually one)
 ```json
 { "data": [ { "id": 9, "reference": "LSE-HW-2026-0007", "status": "active",
@@ -281,8 +292,9 @@ Query: `status`, `period_from`, `period_until` (YYYY-MM-DD, against `issue_date`
   "issueDate": "2026-05-01", "dueDate": "2026-05-10",
   "periodStart": "2026-05-01", "periodEnd": "2026-05-31",
   "subtotal": 12000.00, "vatAmount": 1680.00, "total": 13680.00,
-  "paidAmount": 0.00, "balance": 13680.00, "currency": "EGP",
+  "paidAmount": 0.00, "creditAppliedAmount": 0.00, "balance": 13680.00, "currency": "EGP",
   "isOverdue": true, "daysOverdue": 22,
+  "paymentLinkUrl": "https://app.../pay/abc123",
   "etaStatus": "valid", "etaSubmissionId": "...", "etaLongId": "...",
   "lease": { "id": 9, "reference": "LSE-HW-2026-0007", "unit": { "id": 4, "code": "A-01", "floor": "G" } } } ],
   "meta": { "currentPage": 1, "lastPage": 4, "perPage": 25, "total": 92 }, "links": { ... } }
@@ -295,7 +307,10 @@ invoice is accepted; use them to show a "tax-registered" badge.
 #### 🔒 `GET /me/invoices/{id}` — detail with line items
 Adds `items: [{ id, description, type, amount, vat_rate, vat_amount, total }]`.
 `type` ∈ `base_rent`, `service_charge`, `utility`, `parking`, `percentage_rent`,
-`late_fee`, `other`.
+`marketing`, `late_fee`, `other`.
+`creditAppliedAmount` is the portion of `paidAmount` covered by applied credit
+notes (vs cash). `paymentLinkUrl` is a shareable no-login Paymob link (null once
+nothing is owed) — the app can share it or open it in a WebView.
 
 #### 🔒 `GET /me/invoices/{id}/pdf` — streams `application/pdf`
 Bilingual (follows `Accept-Language`), `Content-Disposition: attachment`.
@@ -315,6 +330,7 @@ Query: `method`, `status`, `page`, `per_page`.
 { "data": [ { "id": 31, "reference": "PAY-202605-0004", "amount": 13680.00,
   "currency": "EGP", "method": "instapay", "status": "captured",
   "paymentDate": "2026-05-09", "gateway": null,
+  "channel": "mobile_api", "receiptAt": "2026-05-09T11:30:00+00:00",
   "allocations": [ { "invoiceId": 50, "invoiceNumber": "INV-HW-202605-0001", "allocatedAmount": 13680.00 } ] } ],
   "meta": { ... }, "links": { ... } }
 ```
@@ -324,15 +340,61 @@ Query: `method`, `status`, `page`, `per_page`.
 balance** — show others as informational.
 
 #### 🔒 `GET /me/payments/{id}` — detail with allocations.
+`channel` ∈ `mobile_api`, `portal`, `payment_link`, `admin` (how the payment was
+taken). `receiptAt` is when the captured-payment receipt fired (null until captured).
 
-> **Pay Now is not in v1.** Payment *initiation* (Paymob) is out of scope for
-> the pilot (decision D-33). The app may show a "Pay Now" button, but there is
-> no endpoint to call yet — it will be added in a later version. Don't build
-> against a payment-initiation endpoint; it doesn't exist.
+#### 🔒 `POST /me/invoices/{id}/paymob-session` — start an in-app payment
+Returns a Paymob session (`paymentToken` + `iframeUrl`) tagged with the
+`mobile_api` channel. Hand the token to the Paymob Flutter SDK (native card form,
+Apple/Google Pay) or open `iframeUrl` in a WebView. The authoritative result
+comes from the S2S webhook — **poll `GET /me/invoices/{id}`** for the invoice to
+flip to `paid`; don't trust the SDK's local result. Errors: `404` not yours,
+`409` Paymob disabled, `422` nothing payable, `429` throttled (5/min), `502`
+upstream. (Alternatively, share `invoice.paymentLinkUrl` — a no-login web link.)
+
+#### 🔒 `POST /me/invoices/{id}/pay-demo` — simulate a payment (Paymob disabled only)
+Marks the invoice paid through the real capture path (no gateway). Returns `409`
+once Paymob is live. For demo/staging environments without a live PSP.
 
 ---
 
-### 4.5 Maintenance requests
+### 4.5 Credit notes
+
+#### 🔒 `GET /me/credit-notes` — paginated, newest first
+Operator-issued credits on the tenant's account. Query: `status` (`issued` /
+`applied` / `void`), `page`, `per_page`.
+```json
+{ "data": [ { "id": 7, "number": "CN-HW-2026-0003", "status": "issued",
+  "reason": "adjustment", "subtotal": 1500.00, "vatAmount": 0.00, "total": 1500.00,
+  "appliedAmount": 0.00, "balance": 1500.00, "currency": "EGP",
+  "issueDate": "2026-05-12", "appliedAt": null } ],
+  "meta": { ... }, "links": { ... } }
+```
+
+#### 🔒 `GET /me/credit-notes/{id}` — detail (adds the linked `invoice`).
+`404` if not yours. Read-only — credits are issued by the operator.
+
+---
+
+### 4.6 Notifications (in-app inbox)
+
+#### 🔒 `GET /me/notifications` — paginated, newest first
+Pass `?unread=1` for unread only.
+```json
+{ "data": [ { "id": "9b1c...", "type": "PaymentReceivedNotification",
+  "data": { "title": "Payment received", "invoiceNumber": "INV-HW-202605-0001" },
+  "read": false, "readAt": null, "createdAt": "2026-05-09T11:30:00+00:00" } ],
+  "meta": { ... }, "links": { ... } }
+```
+`type` is the short notification class name — branch on it in the app.
+
+#### 🔒 `GET /me/notifications/unread-count` → `{ "data": { "unreadCount": 3 } }` (badge)
+#### 🔒 `POST /me/notifications/{id}/read` — mark one read (`404` if not yours).
+#### 🔒 `POST /me/notifications/read-all` — mark every unread read.
+
+---
+
+### 4.7 Maintenance requests
 
 #### 🔒 `GET /me/maintenance-requests` — paginated, newest first
 Query: `status`, `page`, `per_page`.
@@ -378,7 +440,7 @@ No body. → `200` with the cancelled request. `422` if work has already started
 
 ---
 
-### 4.6 Sales declarations (percentage-rent leases only)
+### 4.8 Sales declarations (percentage-rent leases only)
 
 Only relevant for leases where `has_percentage_rent = true`. For other tenants,
 hide this section of the app.
@@ -408,7 +470,7 @@ invoice).
 
 ---
 
-### 4.7 Push device tokens
+### 4.9 Push device tokens
 
 Register the device's FCM (Android) / APNS (iOS) token so the backend can target
 pushes. (The push *delivery* pipeline ships after the pilot; registering now is

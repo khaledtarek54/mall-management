@@ -767,6 +767,7 @@ return [
     ],
 
     'notifications' => [
+        'marked_read' => 'Notification marked as read.',
         // Tenant-facing
         'invoice_issued_subject' => 'New invoice :number from Atriom',
         'invoice_issued_title' => 'New invoice',

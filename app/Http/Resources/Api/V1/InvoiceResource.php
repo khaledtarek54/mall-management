@@ -27,6 +27,8 @@ class InvoiceResource extends JsonResource
             'vat_amount' => (float) $this->vat_amount,
             'total' => (float) $this->total,
             'paid_amount' => (float) $this->paid_amount,
+            // Portion of paid_amount covered by applied credit notes (vs cash).
+            'credit_applied_amount' => (float) $this->credit_applied_amount,
             'balance' => (float) $this->balance,
             'currency' => $this->currency,
             'is_overdue' => $this->isOverdue(),
