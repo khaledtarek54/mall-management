@@ -8,8 +8,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * A push-notification registration (FCM / APNS) for one tenant device.
  * Registered by the mobile app on login and refreshed when the OS rotates
- * the token. The actual push fan-out (a listener on Invoice/Payment/etc.)
- * is a separate, post-pilot concern — this table just holds the targets.
+ * the token. The push fan-out reads these targets: the `push` notification
+ * channel ({@see \App\Notifications\Channels\PushChannel}) sends every
+ * tenant-facing notification to the tenant's tokens via the bound
+ * {@see \App\Services\Push\PushSender} (NullPushSender until FCM creds land).
  */
 class DeviceToken extends Model
 {

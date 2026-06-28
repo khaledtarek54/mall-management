@@ -32,7 +32,7 @@ class MaintenanceCommentAddedNotification extends Notification
 
     public function via(object $notifiable): array
     {
-        return $notifiable instanceof Tenant ? ['mail', 'database'] : ['database'];
+        return $notifiable instanceof Tenant ? ['mail', 'database', 'push'] : ['database'];
     }
 
     public function toMail(object $notifiable): MailMessage

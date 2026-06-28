@@ -5,14 +5,19 @@ namespace App\Providers;
 use App\Models\Lease;
 use App\Observers\LeaseObserver;
 use App\Providers\Filament\OwnerPanelProvider;
+use App\Notifications\Channels\PushChannel;
 use App\Services\Eta\Signing\EtaDocumentSigner;
 use App\Services\Eta\Signing\UnsignedEtaSigner;
 use App\Services\Paymob\PaymobClient;
+use App\Services\Push\FcmPushSender;
+use App\Services\Push\NullPushSender;
+use App\Services\Push\PushSender;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Number;
 use Illuminate\Support\ServiceProvider;
 
@@ -29,6 +34,20 @@ class AppServiceProvider extends ServiceProvider
         // so mock/preprod plumbing works without a certificate; bind a real CAdES
         // signer here once the operator's signing certificate is provisioned.
         $this->app->bind(EtaDocumentSigner::class, UnsignedEtaSigner::class);
+
+        // Push delivery is pluggable + off by default (NullPushSender). Bind the
+        // real FCM sender only when push is enabled AND a credentials path is set,
+        // so the app runs without any Firebase setup (the DB inbox + email still
+        // deliver). Mirrors the EtaDocumentSigner pattern.
+        $this->app->bind(PushSender::class, function ($app) {
+            $cfg = $app['config']->get('integrations.push', []);
+
+            if (($cfg['enabled'] ?? false) && ! empty($cfg['fcm']['credentials'])) {
+                return new FcmPushSender($cfg['fcm']['credentials'], $cfg['fcm']['project_id'] ?? null);
+            }
+
+            return new NullPushSender();
+        });
 
         // Owner portal is opt-in. Registering its panel provider only when the
         // feature flag is on keeps the /owner panel (routes + login) entirely
@@ -48,6 +67,11 @@ class AppServiceProvider extends ServiceProvider
         Number::useLocale('en');
 
         Lease::observe(LeaseObserver::class);
+
+        // Register the 'push' notification channel (FCM via the bound PushSender).
+        // Always registered so a notification with 'push' in its via() resolves
+        // even when push is disabled (the NullPushSender just no-ops).
+        Notification::resolved(fn ($service) => $service->extend('push', fn ($app) => $app->make(PushChannel::class)));
 
         // Bulk delete is OFF by default across every Filament table — a
         // destructive multi-row action shouldn't be one mis-click. Most

@@ -41,6 +41,21 @@ return [
         'apple_pay_integration_id' => env('PAYMOB_APPLE_PAY_INTEGRATION_ID'),
     ],
 
+    // Push notifications to the tenant mobile app (Firebase Cloud Messaging).
+    // FCM itself is free + unlimited; this only fans out the DB notifications we
+    // already store to the tenant's registered device tokens. Disabled by
+    // default → NullPushSender (no-op); the in-app inbox + email still deliver.
+    // To light it up: create a free Firebase project, download the service-
+    // account JSON (Project settings → Service accounts → Generate new key),
+    // point FCM_CREDENTIALS at it, set PUSH_ENABLED=true.
+    'push' => [
+        'enabled' => env('PUSH_ENABLED', false),
+        'fcm' => [
+            'credentials' => env('FCM_CREDENTIALS'), // absolute path to the service-account JSON
+            'project_id' => env('FCM_PROJECT_ID'),   // optional; falls back to project_id in the JSON
+        ],
+    ],
+
     // Deep link that opens the tenant mobile app (e.g. "atriom://invoices").
     // Surfaced on the public payment status page as an "Open the app" button
     // so a client can confirm a paid invoice in-app. Empty = button hidden.

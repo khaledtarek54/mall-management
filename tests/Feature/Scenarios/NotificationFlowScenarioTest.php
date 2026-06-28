@@ -148,7 +148,7 @@ it('routes the invoice-issued notification over both the mail and database chann
     $invoice = makeInvoice(notifLease());
 
     expect((new InvoiceIssuedNotification($invoice))->via($this->tenant))
-        ->toBe(['mail', 'database']);
+        ->toBe(['mail', 'database', 'push']);
 });
 
 // ============================================================================
@@ -337,9 +337,9 @@ it('the staff-comment toDatabase payload (tenant recipient) carries the tenant-f
         ->and($payload['body'])->toBe('New comment on "AC not cooling".')
         ->and($payload['color'])->toBe('primary');
 
-    // via() for a Tenant uses both channels.
+    // via() for a Tenant uses mail + database + push.
     expect((new MaintenanceCommentAddedNotification($request, $comment))->via($this->tenant))
-        ->toBe(['mail', 'database']);
+        ->toBe(['mail', 'database', 'push']);
 });
 
 it('a TENANT comment notifies staff over database-only, with the staff-facing payload', function () {

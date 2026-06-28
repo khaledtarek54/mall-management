@@ -37,6 +37,8 @@ MAIL_MAILER=smtp                # + MAIL_HOST/PORT/USERNAME/PASSWORD/ENCRYPTION 
 
 Integration creds (see ETA-PAYMOB-CERTIFICATION.md): `PAYMOB_*` (live, after KYC), `ETA_*` (live + `ETA_MOCK=false` + signing cert), Apple Pay (`PAYMOB_APPLE_PAY_INTEGRATION_ID` + domain file).
 
+**Mobile push** (Firebase Cloud Messaging — free, unlimited): create a free Firebase project, download the service-account JSON (Project settings → Service accounts → Generate new key), then set `PUSH_ENABLED=true`, `FCM_CREDENTIALS=/abs/path/to/service-account.json` (optionally `FCM_PROJECT_ID`). Off by default → `NullPushSender` (the in-app inbox + email still deliver). No cost beyond the Apple Developer Program ($99/yr) needed to ship the iOS app at all.
+
 ---
 
 ## 2. Deploy steps (each release)

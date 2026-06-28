@@ -473,8 +473,13 @@ invoice).
 ### 4.9 Push device tokens
 
 Register the device's FCM (Android) / APNS (iOS) token so the backend can target
-pushes. (The push *delivery* pipeline ships after the pilot; registering now is
-safe and forward-compatible.)
+pushes. **Push delivery is wired** (FCM): once the backend's Firebase creds are
+set (`PUSH_ENABLED`), every tenant-facing notification — invoice issued, payment
+received, maintenance status/comment, sales declaration locked — is pushed to the
+registered tokens, carrying the same title/body as the in-app inbox plus id
+fields (`invoiceId`, `maintenanceId`, `declarationId`) in the `data` payload for
+deep-linking on tap. Until creds are set the backend no-ops gracefully (inbox +
+email still deliver), so registering now is safe.
 
 #### 🔒 `POST /me/devices`
 ```json
