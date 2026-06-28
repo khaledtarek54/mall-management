@@ -203,7 +203,8 @@ it('routes the Roles table edit to the guarded page', function () {
     $role = Role::create(['name' => 'custom_route', 'guard_name' => 'web']);
 
     Livewire::test(ListRoles::class)
-        ->assertTableActionHasUrl('edit', RoleResource::getUrl('edit', ['record' => $role]), $role);
+        ->assertTableActionHasUrl('edit', RoleResource::getUrl('edit', ['record' => $role]), $role)
+        ->assertActionHasUrl('create', RoleResource::getUrl('create'));
 });
 
 it('renders access-control entries in the Activity Log (not as a dash)', function () {

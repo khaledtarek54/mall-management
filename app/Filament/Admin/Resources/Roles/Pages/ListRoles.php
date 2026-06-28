@@ -12,6 +12,8 @@ class ListRoles extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return [CreateAction::make()];
+        // Navigate to the Create PAGE (not a modal): the permission CheckboxLists
+        // are dehydrated(false) and only CreateRole::afterCreate syncs + audits them.
+        return [CreateAction::make()->url(RoleResource::getUrl('create'))];
     }
 }
