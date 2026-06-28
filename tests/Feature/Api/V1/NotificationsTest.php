@@ -77,6 +77,23 @@ it('marks all notifications read', function () {
     expect($tenant->unreadNotifications()->count())->toBe(0);
 });
 
+it('strips Filament render-only keys from the notification payload', function () {
+    $tenant = makeTenant();
+    makeTenantNotification($tenant, data: [
+        'invoice_number' => 'INV-1', // meaningful — kept
+        'icon' => 'heroicon-o-bell', 'color' => 'primary',
+        'format' => 'filament', 'duration' => 'persistent', // render-only — stripped
+    ]);
+
+    $data = $this->getJson('/api/v1/me/notifications', apiHeaders($tenant))
+        ->assertOk()
+        ->json('data.0.data');
+
+    // camelCased on output; meaningful keys kept, render hints gone.
+    expect($data)->toHaveKey('invoiceNumber')
+        ->and($data)->not->toHaveKeys(['icon', 'color', 'format', 'duration']);
+});
+
 it('requires authentication', function () {
     $this->getJson('/api/v1/me/notifications')->assertUnauthorized();
 });

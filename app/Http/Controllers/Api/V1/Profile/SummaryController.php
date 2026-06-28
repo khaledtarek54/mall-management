@@ -32,8 +32,10 @@ class SummaryController extends ApiController
             'outstanding' => round($tenant->outstandingBalance(), 2),
             'overdue' => round($overdue, 2),
             'open_invoices' => $openInvoices->where('balance', '>', 0)->count(),
+            // 'issued' only — same filter Tenant::outstandingBalance() uses for
+            // spendable credit (applied/void notes carry no remaining balance).
             'credit_available' => round((float) $tenant->creditNotes()
-                ->whereIn('status', ['issued', 'applied'])->sum('balance'), 2),
+                ->where('status', 'issued')->sum('balance'), 2),
             'is_delinquent' => $tenant->isDelinquent(),
 
             // Open work
