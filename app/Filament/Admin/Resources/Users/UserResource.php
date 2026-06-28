@@ -102,39 +102,49 @@ class UserResource extends Resource
     }
 
     /**
-     * Server-side enforcement: only a super_admin may grant or revoke the
-     * super_admin role. Run from the User Create/Edit pages AFTER the roles
-     * relationship is synced (Filament saves the Select from component state, so
-     * mutating form data beforehand doesn't hold) — it corrects the saved state
-     * so a non-super_admin can neither escalate a user (or themselves) to
-     * super_admin nor strip it from someone who has it.
+     * The "crown-jewel" write-everything roles. Only a super_admin may grant or
+     * revoke these — they confer broad, cross-property power, so a deliberately
+     * limited role (e.g. hr with users.edit but no roles.edit) must not be able
+     * to mint them. Functional/department roles + read-only roles (viewer/owner)
+     * stay grantable by any users.edit holder.
+     */
+    public const PROTECTED_ROLES = ['super_admin', 'manager'];
+
+    /**
+     * Server-side enforcement of the protected-role policy. Run from the User
+     * Create/Edit pages AFTER the roles relationship is synced (Filament saves
+     * the Select from component state, so mutating form data beforehand doesn't
+     * hold) — for a non-super_admin actor it corrects the saved state so they can
+     * neither grant nor revoke a protected role, and logs the blocked attempt.
      *
      * @param  array<int, string>  $rolesBefore  role names the user held before the save
      */
-    public static function enforceSuperAdminRule(User $user, array $rolesBefore): void
+    public static function enforceProtectedRolesRule(User $user, array $rolesBefore): void
     {
         if (Auth::user()?->hasRole('super_admin')) {
             return;
         }
 
-        $hadSuper = in_array('super_admin', $rolesBefore, true);
-        $hasSuper = $user->hasRole('super_admin');
+        foreach (self::PROTECTED_ROLES as $role) {
+            $hadIt = in_array($role, $rolesBefore, true);
+            $hasIt = $user->hasRole($role);
 
-        if ($hadSuper === $hasSuper) {
-            return; // no super_admin change attempted
+            if ($hadIt === $hasIt) {
+                continue; // no change to this protected role
+            }
+
+            if ($hadIt) {
+                $user->assignRole($role);   // non-super_admin cannot revoke it
+            } else {
+                $user->removeRole($role);   // non-super_admin cannot grant it
+            }
+
+            // Record the blocked attempt — a privilege-escalation probe (even one
+            // reverted) is exactly what a security reviewer wants in the trail.
+            AccessControlAudit::log($user, 'protected_role_change_blocked', [
+                ($hadIt ? 'attempted revoke' : 'attempted grant').': '.$role,
+            ]);
         }
-
-        if ($hadSuper) {
-            $user->assignRole('super_admin');   // non-super_admin cannot revoke it
-        } else {
-            $user->removeRole('super_admin');   // non-super_admin cannot grant it
-        }
-
-        // Record the blocked attempt — a privilege-escalation probe (even one
-        // reverted) is exactly what a security reviewer wants to see in the trail.
-        AccessControlAudit::log($user, 'super_admin_change_blocked', [
-            $hadSuper ? 'attempted revoke' : 'attempted grant',
-        ]);
     }
 
     public static function form(Schema $schema): Schema

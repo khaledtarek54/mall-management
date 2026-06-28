@@ -1,5 +1,7 @@
 <?php
 
+use App\Filament\Admin\RelationManagers\DepartmentMembersRelationManager;
+use App\Filament\Admin\Resources\Departments\Pages\EditDepartment;
 use App\Filament\Admin\Resources\Roles\Pages\CreateRole;
 use App\Filament\Admin\Resources\Roles\Pages\EditRole;
 use App\Filament\Admin\Resources\Roles\Pages\ListRoles;
@@ -181,8 +183,31 @@ it('blocks a non-super_admin from granting super_admin through the User form', f
     expect($target->fresh()->hasRole('super_admin'))->toBeFalse()
         ->and($target->fresh()->hasRole('viewer'))->toBeTrue()
         // the blocked attempt is itself recorded
-        ->and(acField(acRows($target->id)->firstWhere(fn ($a) => acField($a, 'super_admin_change_blocked')), 'super_admin_change_blocked'))
-        ->toContain('attempted grant');
+        ->and(acField(acRows($target->id)->firstWhere(fn ($a) => acField($a, 'protected_role_change_blocked')), 'protected_role_change_blocked'))
+        ->toContain('attempted grant: super_admin');
+});
+
+it('blocks a non-super_admin from granting the manager role through the User form', function () {
+    $hr = User::factory()->create();
+    $hr->assignRole('hr'); // holds users.* but not roles.edit, and is not super_admin
+    $this->actingAs($hr);
+    acTenant();
+
+    $target = User::factory()->create();
+    $target->assignRole('viewer');
+
+    Livewire::test(EditUser::class, ['record' => $target->getRouteKey()])
+        ->fillForm(['roles' => [
+            Role::findByName('viewer', 'web')->id,
+            Role::findByName('manager', 'web')->id, // attempt to confer near-total power
+        ]])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($target->fresh()->hasRole('manager'))->toBeFalse()
+        ->and($target->fresh()->hasRole('viewer'))->toBeTrue()
+        ->and(acField(acRows($target->id)->firstWhere(fn ($a) => acField($a, 'protected_role_change_blocked')), 'protected_role_change_blocked'))
+        ->toContain('attempted grant: manager');
 });
 
 it('routes the Users table edit + header create to the guarded pages (no modal bypass)', function () {
@@ -291,6 +316,36 @@ it('audits role revoke when a member is removed from a department', function () 
     $dept->unregisterMember($user);
 
     expect(acField(acRows($user->id)->firstWhere(fn ($a) => acField($a, 'role_revoked')), 'role_revoked'))
+        ->toBe('leasing');
+});
+
+it('audits dept membership grant + revoke through the relation-manager attach/detach actions', function () {
+    $this->actingAs(acAdmin());
+    acTenant();
+    $dept = Department::create(['name' => 'Leasing']); // slug = leasing
+    $target = User::factory()->create();
+
+    // Attach action -> ->after assignRolesToMembers grants the dept role + audits.
+    Livewire::test(DepartmentMembersRelationManager::class, [
+        'ownerRecord' => $dept,
+        'pageClass' => EditDepartment::class,
+    ])
+        ->mountTableAction('attach')
+        ->setTableActionData(['recordId' => $target->id])
+        ->callMountedTableAction();
+
+    expect($target->fresh()->hasRole('leasing'))->toBeTrue()
+        ->and(acField(acRows($target->id)->firstWhere(fn ($a) => acField($a, 'role_granted')), 'role_granted'))
+        ->toBe('leasing');
+
+    // Detach action -> ->after unregisterMember revokes + audits.
+    Livewire::test(DepartmentMembersRelationManager::class, [
+        'ownerRecord' => $dept->fresh(),
+        'pageClass' => EditDepartment::class,
+    ])->callTableAction('detach', $target);
+
+    expect($target->fresh()->hasRole('leasing'))->toBeFalse()
+        ->and(acField(acRows($target->id)->firstWhere(fn ($a) => acField($a, 'role_revoked')), 'role_revoked'))
         ->toBe('leasing');
 });
 

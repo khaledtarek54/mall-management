@@ -12,8 +12,9 @@ class CreateUser extends CreateRecord
 
     protected function afterCreate(): void
     {
-        // A new user had no roles; a non-super_admin cannot create one as super_admin.
-        UserResource::enforceSuperAdminRule($this->record, []);
+        // A new user had no roles; a non-super_admin cannot create one with a
+        // protected role (super_admin / manager).
+        UserResource::enforceProtectedRolesRule($this->record, []);
 
         AccessControlAudit::logRoleDiff(
             $this->record,

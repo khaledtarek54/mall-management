@@ -22,6 +22,12 @@ use Illuminate\Database\Eloquent\Model;
  * Only authenticated, human-initiated changes are recorded ({@see log()} gates
  * on auth()->check()): seeding and CLI grants have no causer, so they're
  * skipped — the "who" is the whole point of the trail.
+ *
+ * Deliberate non-audit: deleting a User cascades its model_has_roles pivot away,
+ * which we do NOT log — removing an account is not a privilege change to a
+ * surviving subject. Deleting a Role IS audited (EditRole's DeleteAction->before
+ * logs role_deleted, a mass revoke). Bulk role/user delete stays off project-wide
+ * (guarded by BulkDeleteDisabledTest), so there is no unaudited bulk-revoke path.
  */
 class AccessControlAudit
 {

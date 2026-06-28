@@ -1,6 +1,7 @@
 <?php
 
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
+use App\Filament\Admin\Resources\Roles\RoleResource;
 use App\Filament\Admin\Resources\Tenants\TenantResource;
 use App\Filament\Admin\Resources\Users\UserResource;
 use App\Models\Invoice;
@@ -15,7 +16,11 @@ it('disables bulk delete by default on every resource, even with the delete perm
     expect(InvoiceResource::canDeleteAny())->toBeFalse()
         ->and(InvoiceResource::canForceDeleteAny())->toBeFalse()
         ->and(TenantResource::canDeleteAny())->toBeFalse()
-        ->and(UserResource::canDeleteAny())->toBeFalse();
+        ->and(UserResource::canDeleteAny())->toBeFalse()
+        // Roles too: bulk-deleting roles is a mass access revoke. It stays off
+        // (only EditRole's single delete is audited) — re-enabling it without an
+        // audit hook would silently drop the role_deleted trail.
+        ->and(RoleResource::canDeleteAny())->toBeFalse();
 });
 
 it('restricts delete to super_admin, even when another role holds the delete permission', function () {

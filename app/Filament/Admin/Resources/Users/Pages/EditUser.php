@@ -30,9 +30,9 @@ class EditUser extends EditRecord
 
     protected function afterSave(): void
     {
-        // Correct the super_admin bit FIRST (so the audit reflects the real
+        // Enforce the protected-role policy FIRST (so the audit reflects the real
         // outcome), then log the role delta.
-        UserResource::enforceSuperAdminRule($this->record, $this->rolesBefore);
+        UserResource::enforceProtectedRolesRule($this->record, $this->rolesBefore);
 
         AccessControlAudit::logRoleDiff(
             $this->record,
