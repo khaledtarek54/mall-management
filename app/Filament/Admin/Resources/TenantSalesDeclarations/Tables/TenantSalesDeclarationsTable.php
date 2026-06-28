@@ -81,7 +81,7 @@ class TenantSalesDeclarationsTable
                             ->label(__('admin.fields.audit_notes'))
                             ->rows(3),
                     ])
-                    ->visible(fn (TenantSalesDeclaration $record) => $record->status === 'submitted')
+                    ->visible(fn (TenantSalesDeclaration $record) => $record->status === 'submitted' && auth()->user()?->can('tenant_sales.lock'))
                     ->action(function (TenantSalesDeclaration $record, array $data): void {
                         app(PercentageRentCalculationService::class)->lock(
                             $record,
@@ -108,7 +108,7 @@ class TenantSalesDeclarationsTable
                             ->required()
                             ->rows(3),
                     ])
-                    ->visible(fn (TenantSalesDeclaration $record) => $record->status === 'submitted')
+                    ->visible(fn (TenantSalesDeclaration $record) => $record->status === 'submitted' && auth()->user()?->can('tenant_sales.dispute'))
                     ->action(function (TenantSalesDeclaration $record, array $data): void {
                         $record->update([
                             'status' => 'disputed',
@@ -135,7 +135,7 @@ class TenantSalesDeclarationsTable
                             ->rows(3)
                             ->placeholder(__('admin.actions.void_locked_reason_placeholder')),
                     ])
-                    ->visible(fn (TenantSalesDeclaration $record) => $record->status === 'locked')
+                    ->visible(fn (TenantSalesDeclaration $record) => $record->status === 'locked' && auth()->user()?->can('tenant_sales.lock'))
                     ->action(function (TenantSalesDeclaration $record, array $data): void {
                         app(\App\Services\PercentageRentCalculationService::class)
                             ->voidLocked($record, auth()->user(), $data['reason']);

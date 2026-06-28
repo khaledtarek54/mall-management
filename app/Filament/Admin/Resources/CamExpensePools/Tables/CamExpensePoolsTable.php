@@ -76,7 +76,7 @@ class CamExpensePoolsTable
                     ->color('primary')
                     ->requiresConfirmation()
                     ->modalDescription(__('admin.actions.generate_allocations_confirm'))
-                    ->visible(fn (CamExpensePool $record) => in_array($record->status, ['draft', 'reconciling']))
+                    ->visible(fn (CamExpensePool $record) => in_array($record->status, ['draft', 'reconciling']) && auth()->user()?->can('cam.generate_allocations'))
                     ->action(function (CamExpensePool $record): void {
                         $count = app(CamReconciliationService::class)->generateAllocations($record);
                         $record->update(['status' => 'reconciling']);
@@ -91,7 +91,7 @@ class CamExpensePoolsTable
                     ->icon('heroicon-o-check-badge')
                     ->color('success')
                     ->requiresConfirmation()
-                    ->visible(fn (CamExpensePool $record) => $record->status === 'reconciling')
+                    ->visible(fn (CamExpensePool $record) => $record->status === 'reconciling' && auth()->user()?->can('cam.mark_reconciled'))
                     ->action(function (CamExpensePool $record): void {
                         $record->update([
                             'status' => 'reconciled',

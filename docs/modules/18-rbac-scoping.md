@@ -276,6 +276,19 @@ Or in Blade:
 @role('super_admin') ... @endrole
 ```
 
+### Gate custom actions explicitly (they do NOT inherit gating)
+
+`RoleGatedActions` auto-authorizes only the **built-in** Edit/Delete/Create actions a resource generates. A **custom `Action::make('…')`** (row, header, bulk, or relation-manager) defaults to **allowed** — Filament has no permission to infer. **Every custom action that mutates must carry its own `->visible(...)` gate**, e.g.:
+```php
+Action::make('lock')->visible(fn ($record) => $record->status === 'submitted'
+    && auth()->user()?->can('tenant_sales.lock'))
+```
+Same for **relation-manager** Create/Edit/Delete/Attach/Detach (Filament authorises those only via `isReadOnly()`, and there are no model policies): gate create/edit on the child module's `.edit` permission, **delete on super_admin** (`auth()->user()?->hasRole('super_admin')`), and **department-membership attach/detach on `roles.edit`** (attaching a member *grants* a spatie role, so it needs role-management authority, not merely `departments.edit`). Header/table actions on a list page that should run page-class logic must be routed to the page (`->url(Resource::getUrl('edit', …))`), not left as modals.
+
+### Property scoping covers "All Properties" mode
+
+Scoping is **not** "only when a single property is selected". In **All-Properties** mode a *restricted* user must still be pinned to their assigned set — only super_admin (or an unconstrained user) is genuinely portfolio-wide. Always derive the constraint from `TenantScope::visibleAssetIds()` (returns `null` only for super_admin), not `currentAssetId()` (null in All-mode → no scope → **leak**). This is wired into `TenantScope::applyTo()` (widgets/services), `ScopesViaProperty`/`BypassesScopingOnAll` (resource tables), and the per-resource `getEloquentQuery()` overrides. Cross-property **selects** use `TenantScope::selectable*` helpers (or `modifyQueryUsing` with `visibleAssetIds()`).
+
 ## 9. Gotchas, edge cases & recently-fixed bugs
 
 ### "All Properties" pseudo-tenant

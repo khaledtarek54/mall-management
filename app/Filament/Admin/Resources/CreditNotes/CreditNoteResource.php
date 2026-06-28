@@ -90,6 +90,12 @@ class CreditNoteResource extends Resource
                 $q->whereNull('lease_id')
                   ->orWhereHas('lease.unit', fn ($q2) => $q2->where('asset_id', $assetId));
             });
+        } elseif (($ids = \App\Support\TenantScope::visibleAssetIds()) !== null) {
+            // "All Properties" for a restricted user — pin to their assigned set.
+            $query->where(function ($q) use ($ids) {
+                $q->whereNull('lease_id')
+                  ->orWhereHas('lease.unit', fn ($q2) => $q2->whereIn('asset_id', $ids));
+            });
         }
 
         return $query;

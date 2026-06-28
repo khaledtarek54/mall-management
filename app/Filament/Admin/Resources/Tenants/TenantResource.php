@@ -90,6 +90,12 @@ class TenantResource extends Resource
                 $q->whereHas(static::tenantScopeRelation(), fn (Builder $r) => $r->where('asset_id', $assetId))
                     ->orWhereDoesntHave('leases');
             });
+        } elseif (($ids = TenantScope::visibleAssetIds()) !== null) {
+            // "All Properties" for a restricted user — pin to their assigned set.
+            $query->where(function (Builder $q) use ($ids) {
+                $q->whereHas(static::tenantScopeRelation(), fn (Builder $r) => $r->whereIn('asset_id', $ids))
+                    ->orWhereDoesntHave('leases');
+            });
         }
 
         return $query;

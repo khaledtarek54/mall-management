@@ -131,11 +131,14 @@ class ReadingsRelationManager extends RelationManager
             ])
             ->headerActions([
                 CreateAction::make()
-                    ->label(__('admin.actions.add_reading')),
+                    ->label(__('admin.actions.add_reading'))
+                    ->visible(fn () => auth()->user()?->can('utility_meters.edit') ?? false),
             ])
             ->recordActions([
-                EditAction::make(),
-                DeleteAction::make(),
+                EditAction::make()
+                    ->visible(fn () => auth()->user()?->can('utility_meters.edit') ?? false),
+                DeleteAction::make()
+                    ->visible(fn () => auth()->user()?->hasRole('super_admin') ?? false),
             ])
             ->defaultSort('reading_date', 'desc')
             ->emptyStateIcon('heroicon-o-clipboard-document-list')

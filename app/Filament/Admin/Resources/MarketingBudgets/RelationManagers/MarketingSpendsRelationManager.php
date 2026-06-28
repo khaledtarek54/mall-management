@@ -102,11 +102,14 @@ class MarketingSpendsRelationManager extends RelationManager
                     ->placeholder('—'),
             ])
             ->headerActions([
-                CreateAction::make()->after(fn () => $this->warnIfOverBudget()),
+                CreateAction::make()->after(fn () => $this->warnIfOverBudget())
+                    ->visible(fn () => auth()->user()?->can('marketing.edit') ?? false),
             ])
             ->recordActions([
-                EditAction::make()->after(fn () => $this->warnIfOverBudget()),
-                DeleteAction::make(),
+                EditAction::make()->after(fn () => $this->warnIfOverBudget())
+                    ->visible(fn () => auth()->user()?->can('marketing.edit') ?? false),
+                DeleteAction::make()
+                    ->visible(fn () => auth()->user()?->hasRole('super_admin') ?? false),
             ])
             ->defaultSort('spent_on', 'desc');
     }

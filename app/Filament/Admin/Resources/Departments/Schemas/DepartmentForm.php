@@ -6,6 +6,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use App\Support\TenantScope;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 
@@ -28,7 +29,8 @@ class DepartmentForm
                         ->dehydrated(false),
                     Select::make('asset_id')
                         ->label(__('admin.tables.department.scope'))
-                        ->relationship('asset', 'name')
+                        // Scoped to the user's visible properties (null = global dept).
+                        ->options(fn () => TenantScope::selectableAssetOptions())
                         ->searchable()
                         ->preload()
                         ->placeholder(__('admin.tables.department.global'))

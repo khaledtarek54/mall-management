@@ -111,7 +111,18 @@ class LeaseForm
                         }),
                     Select::make('tenant_id')
                         ->label(__('admin.resources.tenant.singular'))
-                        ->relationship('tenant', 'name')
+                        // Scope the picker to tenants in the user's visible properties
+                        // (+ unaffiliated tenants, which belong to no property yet).
+                        ->relationship('tenant', 'name', modifyQueryUsing: function ($query) {
+                            $ids = \App\Support\TenantScope::visibleAssetIds();
+                            if ($ids === null) {
+                                return $query;
+                            }
+
+                            return $query->where(fn ($w) => $w
+                                ->whereHas('leases.unit', fn ($u) => $u->whereIn('asset_id', $ids))
+                                ->orWhereDoesntHave('leases'));
+                        })
                         ->searchable()
                         ->preload()
                         ->required()

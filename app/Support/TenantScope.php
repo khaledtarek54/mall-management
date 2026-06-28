@@ -55,18 +55,24 @@ class TenantScope
         ?string $relation = null,
     ): \Illuminate\Database\Eloquent\Builder {
         $assetId = self::currentAssetId();
-        if ($assetId === null) {
+        if ($assetId !== null) {
+            return $relation === null
+                ? $query->where('asset_id', $assetId)
+                : $query->whereHas($relation, fn ($q) => $q->where('asset_id', $assetId));
+        }
+
+        // "All Properties" (or no tenant): a restricted user must still be pinned
+        // to their assigned set — only super_admin / unconstrained gets null here
+        // (genuinely portfolio-wide). Without this, All-mode leaked every property
+        // to restricted users in widgets/services.
+        $ids = self::visibleAssetIds();
+        if ($ids === null) {
             return $query;
         }
 
-        if ($relation === null) {
-            return $query->where('asset_id', $assetId);
-        }
-
-        return $query->whereHas(
-            $relation,
-            fn ($q) => $q->where('asset_id', $assetId),
-        );
+        return $relation === null
+            ? $query->whereIn('asset_id', $ids)
+            : $query->whereHas($relation, fn ($q) => $q->whereIn('asset_id', $ids));
     }
 
     /**

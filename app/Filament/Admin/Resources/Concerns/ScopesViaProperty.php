@@ -26,12 +26,15 @@ trait ScopesViaProperty
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();
+        $relation = static::tenantScopeRelation();
 
         if ($assetId = TenantScope::currentAssetId()) {
-            $query->whereHas(
-                static::tenantScopeRelation(),
-                fn (Builder $q) => $q->where('asset_id', $assetId),
-            );
+            $query->whereHas($relation, fn (Builder $q) => $q->where('asset_id', $assetId));
+        } elseif (($ids = TenantScope::visibleAssetIds()) !== null) {
+            // "All Properties" for a RESTRICTED user — pin to their assigned set
+            // (super_admin / unconstrained returns null = portfolio-wide). Without
+            // this, All-mode leaked every property's records to restricted roles.
+            $query->whereHas($relation, fn (Builder $q) => $q->whereIn('asset_id', $ids));
         }
 
         return $query;

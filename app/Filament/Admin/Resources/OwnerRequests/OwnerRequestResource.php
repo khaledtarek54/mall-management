@@ -75,8 +75,13 @@ class OwnerRequestResource extends Resource
         // Operators (who can respond) see the operator inbox; Jawad owners see
         // only the requests they raised.
         if ($user && $user->can('owner_requests.edit')) {
+            // A property-restricted operator only sees requests for their assigned
+            // properties (idsForCurrentUser returns null for super_admin = all).
+            $ids = \App\Support\AssignedAssets::idsForCurrentUser();
+
             return parent::getEloquentQuery()
                 ->where('recipient', 'operator')
+                ->when($ids !== null, fn (Builder $q) => $q->whereIn('asset_id', $ids))
                 ->with(['creator', 'asset']);
         }
 

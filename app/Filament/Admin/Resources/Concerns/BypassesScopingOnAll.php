@@ -22,7 +22,13 @@ trait BypassesScopingOnAll
     public static function scopeEloquentQueryToTenant(Builder $query, ?Model $tenant): Builder
     {
         if ($tenant instanceof Asset && $tenant->isAllProperties()) {
-            return $query;
+            // Portfolio-wide list — but a RESTRICTED user is still pinned to their
+            // assigned properties (visibleAssetIds returns null only for
+            // super_admin / unconstrained). Otherwise All-mode leaked every
+            // property's direct-FK records (Units, Meters, CAM pools).
+            $ids = \App\Support\TenantScope::visibleAssetIds();
+
+            return $ids === null ? $query : $query->whereIn('asset_id', $ids);
         }
 
         return parent::scopeEloquentQueryToTenant($query, $tenant);

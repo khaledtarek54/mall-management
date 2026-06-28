@@ -93,11 +93,14 @@ class ContractsRelationManager extends RelationManager
                     ->options(fn () => __('admin.statuses.vendor_contract')),
             ])
             ->headerActions([
-                CreateAction::make()->label(__('admin.actions.add_contract')),
+                CreateAction::make()->label(__('admin.actions.add_contract'))
+                    ->visible(fn () => auth()->user()?->can('vendors.edit') ?? false),
             ])
             ->recordActions([
-                EditAction::make(),
-                DeleteAction::make(),
+                EditAction::make()
+                    ->visible(fn () => auth()->user()?->can('vendors.edit') ?? false),
+                DeleteAction::make()
+                    ->visible(fn () => auth()->user()?->hasRole('super_admin') ?? false),
             ])
             ->defaultSort('start_date', 'desc');
     }

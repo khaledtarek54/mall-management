@@ -335,7 +335,7 @@ class LeasesTable
                     ->label(__('admin.actions.renew'))
                     ->icon('heroicon-o-arrow-path')
                     ->color('success')
-                    ->visible(fn ($record) => $record->status === 'active' && LeaseResource::canEdit($record))
+                    ->visible(fn ($record) => $record->status === 'active' && LeaseResource::canEdit($record) && auth()->user()?->can('leases.renew'))
                     ->modalHeading(fn (Lease $record) => __('admin.actions.renew_modal_heading', ['ref' => $record->reference]))
                     ->modalDescription(fn (Lease $record) => __('admin.actions.renew_modal_description', ['ends' => $record->expiry_date->format('d/m/Y')]))
                     ->fillForm(fn (Lease $record) => [
@@ -425,7 +425,7 @@ class LeasesTable
                     ->label(__('admin.actions.terminate'))
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
-                    ->visible(fn (Lease $record) => in_array($record->status, ['active', 'pending_approval'], true) && LeaseResource::canEdit($record))
+                    ->visible(fn (Lease $record) => in_array($record->status, ['active', 'pending_approval'], true) && LeaseResource::canEdit($record) && auth()->user()?->can('leases.terminate'))
                     ->modalHeading(fn (Lease $record) => __('admin.actions.terminate_modal_heading', ['ref' => $record->reference]))
                     ->modalDescription(fn (Lease $record) => __('admin.actions.terminate_modal_description', ['unit' => $record->unit?->code ?? '—']))
                     ->modalSubmitActionLabel(__('admin.actions.terminate_submit'))

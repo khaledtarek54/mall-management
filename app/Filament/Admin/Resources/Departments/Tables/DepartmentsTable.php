@@ -57,6 +57,7 @@ class DepartmentsTable
                             ->required()
                             ->rows(4),
                     ])
+                    ->visible(fn ($record) => DepartmentResource::canEdit($record))
                     ->action(function (Department $record, array $data) {
                         $count = app(DepartmentMessageService::class)->send($record, Auth::user(), $data['body']);
 

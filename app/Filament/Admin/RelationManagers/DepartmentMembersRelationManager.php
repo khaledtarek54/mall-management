@@ -79,6 +79,10 @@ class DepartmentMembersRelationManager extends RelationManager
             ])
             ->headerActions([
                 AttachAction::make()
+                    // Attaching a member GRANTS that department's spatie role, so
+                    // managing membership requires role-management authority
+                    // (roles.edit = super_admin), not merely departments.edit.
+                    ->visible(fn () => auth()->user()?->can('roles.edit') ?? false)
                     ->preloadRecordSelect()
                     ->recordSelect(
                         fn (Select $select) => $select
@@ -108,8 +112,11 @@ class DepartmentMembersRelationManager extends RelationManager
                     ->after(fn ($livewire) => $livewire->getOwnerRecord()->assignRolesToMembers()),
             ])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()
+                    ->visible(fn () => auth()->user()?->can('roles.edit') ?? false),
                 DetachAction::make()
+                    // Detaching REVOKES the department role — same role-management gate.
+                    ->visible(fn () => auth()->user()?->can('roles.edit') ?? false)
                     ->after(fn (\Illuminate\Database\Eloquent\Model $record, $livewire) => $livewire->getOwnerRecord()->unregisterMember($record)),
             ])
             ->defaultSort('pivot_assigned_at', 'desc');

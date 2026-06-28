@@ -45,11 +45,14 @@ class ContactsRelationManager extends RelationManager
                 IconColumn::make('is_primary')->boolean()->label(__('admin.fields.primary_contact') ?: 'Primary'),
             ])
             ->headerActions([
-                CreateAction::make()->label(__('admin.actions.add_contact')),
+                CreateAction::make()->label(__('admin.actions.add_contact'))
+                    ->visible(fn () => auth()->user()?->can('vendors.edit') ?? false),
             ])
             ->recordActions([
-                EditAction::make(),
-                DeleteAction::make(),
+                EditAction::make()
+                    ->visible(fn () => auth()->user()?->can('vendors.edit') ?? false),
+                DeleteAction::make()
+                    ->visible(fn () => auth()->user()?->hasRole('super_admin') ?? false),
             ])
             ->defaultSort('is_primary', 'desc');
     }

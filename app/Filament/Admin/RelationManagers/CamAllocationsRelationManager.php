@@ -73,7 +73,7 @@ class CamAllocationsRelationManager extends RelationManager
                     ->color('success')
                     ->requiresConfirmation()
                     ->modalDescription(__('admin.actions.bill_allocation_confirm'))
-                    ->visible(fn (CamAllocation $record) => $record->status === 'pending')
+                    ->visible(fn (CamAllocation $record) => $record->status === 'pending' && auth()->user()?->can('cam.bill_allocation'))
                     ->action(function (CamAllocation $record): void {
                         app(CamReconciliationService::class)->bill($record);
                         Notification::make()
