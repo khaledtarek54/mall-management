@@ -7,8 +7,10 @@ use App\Services\Eta\EtaSubmissionService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
+use App\Support\OpsLog;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Throwable;
 
 class SubmitInvoiceToEta implements ShouldQueue
 {
@@ -39,5 +41,18 @@ class SubmitInvoiceToEta implements ShouldQueue
     public function handle(EtaSubmissionService $service): void
     {
         $service->submit($this->invoice);
+    }
+
+    /**
+     * All retries exhausted — a tax submission has NOT gone through. Surface it
+     * loudly so it doesn't go unnoticed for weeks (lands in failed_jobs too).
+     */
+    public function failed(?Throwable $e): void
+    {
+        OpsLog::error('eta.job_exhausted', [
+            'invoice_id' => $this->invoice->id,
+            'invoice_number' => $this->invoice->number,
+            'error' => $e?->getMessage(),
+        ]);
     }
 }

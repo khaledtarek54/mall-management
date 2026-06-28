@@ -73,6 +73,25 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // Operational/diagnostic events for the money + integration paths
+        // (Paymob, ETA, billing, CAM, late fees), written via App\Support\OpsLog.
+        // Kept in their own retained file so outages, rejections, and batch
+        // summaries are easy to find + alert on. PRODUCTION: add slack for
+        // alerting — OPS_LOG_STACK="ops_daily,slack".
+        'ops' => [
+            'driver' => 'stack',
+            'channels' => explode(',', (string) env('OPS_LOG_STACK', 'ops_daily')),
+            'ignore_exceptions' => false,
+        ],
+
+        'ops_daily' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/ops.log'),
+            'level' => env('OPS_LOG_LEVEL', 'info'),
+            'days' => env('OPS_LOG_DAYS', 60),
+            'replace_placeholders' => true,
+        ],
+
         'slack' => [
             'driver' => 'slack',
             'url' => env('LOG_SLACK_WEBHOOK_URL'),

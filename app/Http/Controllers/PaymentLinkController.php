@@ -8,7 +8,7 @@ use App\Services\Paymob\PaymobPaymentInitiator;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
+use App\Support\OpsLog;
 
 /**
  * The PUBLIC online payment link — no login. A client opens /pay/{token},
@@ -75,7 +75,7 @@ class PaymentLinkController
         try {
             $session = $initiator->start($invoice, Payment::CHANNEL_LINK, $integrationId);
         } catch (\Throwable $e) {
-            Log::warning('Payment-link session failed', ['invoice' => $invoice->id, 'error' => $e->getMessage()]);
+            OpsLog::warning('Payment-link session failed', ['invoice' => $invoice->id, 'error' => $e->getMessage()]);
 
             return redirect()->route('pay.show', ['token' => $token])
                 ->with('error', __('admin.notifications.payment_return_failed'));

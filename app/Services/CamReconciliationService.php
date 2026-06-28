@@ -6,6 +6,7 @@ use App\Models\CamAllocation;
 use App\Models\CamExpensePool;
 use App\Models\Charge;
 use App\Models\Lease;
+use App\Support\OpsLog;
 use Illuminate\Support\Facades\DB;
 
 class CamReconciliationService
@@ -95,42 +96,61 @@ class CamReconciliationService
             ->get();
 
         $report = [];
+        $failed = 0;
 
         foreach ($pools as $pool) {
-            $allocations = $this->generateAllocations($pool);
-            $billed = 0;
+            try {
+                $allocations = $this->generateAllocations($pool);
+                $billed = 0;
 
-            if ($autoBill) {
-                foreach ($pool->allocations()->where('status', 'pending')->get() as $allocation) {
-                    $this->bill($allocation);
-                    $billed++;
+                if ($autoBill) {
+                    foreach ($pool->allocations()->where('status', 'pending')->get() as $allocation) {
+                        $this->bill($allocation);
+                        $billed++;
+                    }
                 }
-            }
 
-            // Pool moves to 'reconciled' once allocations exist and billing was
-            // requested; otherwise to 'reconciling' so the admin queue surfaces
-            // it for manual review.
-            $nextStatus = match (true) {
-                $autoBill && $allocations > 0 => 'reconciled',
-                $allocations > 0 => 'reconciling',
-                default => $pool->status,
-            };
+                // Pool moves to 'reconciled' once allocations exist and billing was
+                // requested; otherwise to 'reconciling' so the admin queue surfaces
+                // it for manual review.
+                $nextStatus = match (true) {
+                    $autoBill && $allocations > 0 => 'reconciled',
+                    $allocations > 0 => 'reconciling',
+                    default => $pool->status,
+                };
 
-            if ($nextStatus !== $pool->status) {
-                $pool->update([
-                    'status' => $nextStatus,
-                    'reconciled_at' => $nextStatus === 'reconciled' ? now() : $pool->reconciled_at,
+                if ($nextStatus !== $pool->status) {
+                    $pool->update([
+                        'status' => $nextStatus,
+                        'reconciled_at' => $nextStatus === 'reconciled' ? now() : $pool->reconciled_at,
+                    ]);
+                }
+
+                $report[] = [
+                    'pool_id' => $pool->id,
+                    'asset' => $pool->asset?->name ?? '—',
+                    'allocations' => $allocations,
+                    'billed' => $billed,
+                    'status' => $pool->fresh()->status,
+                ];
+            } catch (\Throwable $e) {
+                // One bad pool shouldn't abort the whole annual run — log + continue.
+                $failed++;
+                OpsLog::error('cam.pool_failed', [
+                    'pool_id' => $pool->id,
+                    'year' => $year,
+                    'error' => $e->getMessage(),
                 ]);
             }
-
-            $report[] = [
-                'pool_id' => $pool->id,
-                'asset' => $pool->asset?->name ?? '—',
-                'allocations' => $allocations,
-                'billed' => $billed,
-                'status' => $pool->fresh()->status,
-            ];
         }
+
+        OpsLog::info('cam.run_complete', [
+            'year' => $year,
+            'pools' => $pools->count(),
+            'reconciled' => count($report),
+            'failed' => $failed,
+            'auto_bill' => $autoBill,
+        ]);
 
         return $report;
     }

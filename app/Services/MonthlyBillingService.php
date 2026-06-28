@@ -9,7 +9,7 @@ use App\Models\InvoiceItem;
 use App\Models\Lease;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
+use App\Support\OpsLog;
 use Illuminate\Support\Facades\Mail;
 use Throwable;
 
@@ -69,7 +69,7 @@ class MonthlyBillingService
                     } catch (Throwable $e) {
                         $stats['failed']++;
                         $stats['failed_lease_ids'][] = $lease->id;
-                        Log::error('Monthly billing failed for lease', [
+                        OpsLog::error('Monthly billing failed for lease', [
                             'lease_id' => $lease->id,
                             'period' => $periodStart->format('Y-m'),
                             'exception' => $e,
@@ -77,6 +77,17 @@ class MonthlyBillingService
                     }
                 }
             });
+
+        // Run-level summary so a partial failure (e.g. 5 of 500 leases) is
+        // visible without trawling per-lease error lines.
+        OpsLog::info('Monthly billing run complete', collect($stats)->except('failed_lease_ids')->all());
+        if ($stats['failed'] > 0) {
+            OpsLog::warning('Monthly billing run had failures', [
+                'period' => $stats['period'],
+                'failed' => $stats['failed'],
+                'failed_lease_ids' => $stats['failed_lease_ids'],
+            ]);
+        }
 
         return $stats;
     }
@@ -110,7 +121,7 @@ class MonthlyBillingService
                 fn () => $this->generateInvoiceForLease($lease, $periodStart, $periodEnd, $prorate)
             );
         } catch (Throwable $e) {
-            Log::error('Single-lease invoice generation failed', [
+            OpsLog::error('Single-lease invoice generation failed', [
                 'lease_id' => $lease->id,
                 'period' => $periodStart->format('Y-m'),
                 'exception' => $e,
@@ -140,7 +151,7 @@ class MonthlyBillingService
             // both an email with PDF attachment and a portal bell entry.
             $tenant->notifyPortal(new \App\Notifications\InvoiceIssuedNotification($invoice));
         } catch (Throwable $e) {
-            Log::warning('Invoice issued notification failed to queue', [
+            OpsLog::warning('Invoice issued notification failed to queue', [
                 'invoice_id' => $invoice->id,
                 'error' => $e->getMessage(),
             ]);
@@ -250,7 +261,7 @@ class MonthlyBillingService
 
             $svc->accrue($assetId, (int) $periodStart->year, $levy);
         } catch (Throwable $e) {
-            Log::warning('Marketing levy accrual failed', [
+            OpsLog::warning('Marketing levy accrual failed', [
                 'lease_id' => $lease->id,
                 'error' => $e->getMessage(),
             ]);

@@ -9,7 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
+use App\Support\OpsLog;
 
 /**
  * Two roles:
@@ -39,7 +39,7 @@ class CallbackController
             // callback can be diagnosed. Paymob fires more than just the charge
             // callback to this URL (e.g. ones with a null order id); those legitimately
             // fail HMAC and are harmless, but we want to see what arrived.
-            Log::warning('Paymob callback rejected: bad HMAC', [
+            OpsLog::warning('Paymob callback rejected: bad HMAC', [
                 'has_signature' => $signature !== '',
                 'has_obj' => array_key_exists('obj', $payload),
                 'order_id' => data_get($payload, 'obj.order.id'),
@@ -67,7 +67,7 @@ class CallbackController
             // Could be a duplicate retry after we've already promoted the
             // gateway_transaction_id, or an unknown order. Either way we 200
             // so Paymob doesn't retry indefinitely.
-            Log::info('Paymob callback for unknown order — already processed?', [
+            OpsLog::info('Paymob callback for unknown order — already processed?', [
                 'order_id' => $orderId,
                 'txn_id' => $txnId,
             ]);

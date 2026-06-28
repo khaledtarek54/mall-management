@@ -72,6 +72,18 @@ it('starts a payment_link session and redirects to the gateway iframe', function
     expect((float) $payment->amount)->toBe(11400.0);
 });
 
+it('redirects back with an error (no orphan payment) when the gateway is down', function () {
+    Http::fake(['*/api/auth/tokens' => Http::response([], 500)]); // Paymob outage
+    $invoice = payLinkInvoice();
+    $token = $invoice->paymentLinkToken();
+
+    $resp = $this->post(route('pay.start', ['token' => $token]));
+
+    $resp->assertRedirect(route('pay.show', ['token' => $token]));
+    $resp->assertSessionHas('error');
+    expect(Payment::where('channel', Payment::CHANNEL_LINK)->count())->toBe(0);
+});
+
 it('shows success on the status page once the balance is cleared', function () {
     $invoice = payLinkInvoice();
     $invoice->update(['balance' => 0, 'status' => 'paid']);

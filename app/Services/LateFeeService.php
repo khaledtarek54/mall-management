@@ -6,7 +6,7 @@ use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
+use App\Support\OpsLog;
 
 class LateFeeService
 {
@@ -41,14 +41,14 @@ class LateFeeService
                 }
             } catch (\Throwable $e) {
                 $stats['failed']++;
-                Log::error('Late fee application failed', [
+                OpsLog::error('Late fee application failed', [
                     'invoice_id' => $invoice->id,
                     'error' => $e->getMessage(),
                 ]);
             }
         }
 
-        Log::info('Late fee batch complete', $stats);
+        OpsLog::info('Late fee batch complete', $stats);
 
         return $stats;
     }

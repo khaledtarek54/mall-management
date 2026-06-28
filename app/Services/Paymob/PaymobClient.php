@@ -3,6 +3,7 @@
 namespace App\Services\Paymob;
 
 use App\Models\Invoice;
+use App\Support\OpsLog;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
@@ -245,6 +246,14 @@ class PaymobClient
 
         $body = (string) $response->body();
         $trimmed = strlen($body) > 240 ? substr($body, 0, 240) . '…' : $body;
+
+        // Make a Paymob outage visible instead of silent (the body is Paymob's
+        // error response — no card data is ever returned by these endpoints).
+        OpsLog::warning('paymob.request_failed', [
+            'step' => $step,
+            'status' => $response->status(),
+            'body' => $trimmed,
+        ]);
 
         throw new RuntimeException(
             "Paymob {$step} failed: HTTP {$response->status()} · {$trimmed}"

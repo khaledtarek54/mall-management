@@ -3,6 +3,7 @@
 namespace App\Services\Eta;
 
 use App\Models\Invoice;
+use App\Support\OpsLog;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -31,6 +32,13 @@ class EtaSubmissionService
             try {
                 $response = $this->client->submitDocument($document);
             } catch (Throwable $e) {
+                // Transport/auth failure — surface it (message only; never the
+                // document, which carries tenant tax id / name / address).
+                OpsLog::error('eta.submission_failed', [
+                    'invoice_id' => $invoice->id,
+                    'error' => $e->getMessage(),
+                ]);
+
                 $invoice->update([
                     'eta_status' => 'rejected',
                     'eta_response' => ['error' => $e->getMessage()],
@@ -51,11 +59,20 @@ class EtaSubmissionService
                     'eta_submitted_at' => now(),
                     'eta_response' => $response,
                 ]);
+                OpsLog::info('eta.submission_accepted', [
+                    'invoice_id' => $invoice->id,
+                    'status' => $invoice->eta_status,
+                    'submission_id' => $invoice->eta_submission_id,
+                ]);
             } elseif ($rejected) {
                 $invoice->update([
                     'eta_status' => 'rejected',
                     'eta_submitted_at' => now(),
                     'eta_response' => $response,
+                ]);
+                OpsLog::warning('eta.submission_rejected', [
+                    'invoice_id' => $invoice->id,
+                    'reason' => $rejected['error'] ?? $rejected['documentStatus'] ?? 'rejected',
                 ]);
             } else {
                 $invoice->update([
