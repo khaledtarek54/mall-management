@@ -7,9 +7,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Spatie\Permission\Models\Role;
 
 class UserForm
 {
@@ -48,12 +46,6 @@ class UserForm
                         ->multiple()
                         ->preload()
                         ->required()
-                        // Only a super_admin may grant the super_admin role. The
-                        // option is disabled (not removed) for everyone else so an
-                        // existing super_admin user isn't silently stripped on edit;
-                        // UserResource::guardSuperAdminAssignment enforces it server-side.
-                        ->disableOptionWhen(fn (string $value): bool => ! Auth::user()?->hasRole('super_admin')
-                            && Role::whereKey($value)->value('name') === 'super_admin')
                         ->helperText(__('admin.users.role_helper'))
                         ->columnSpanFull(),
                 ]),

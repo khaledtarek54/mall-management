@@ -21,11 +21,6 @@ class EditUser extends EditRecord
         ];
     }
 
-    protected function mutateFormDataBeforeSave(array $data): array
-    {
-        return UserResource::guardSuperAdminAssignment($data, $this->record);
-    }
-
     protected function beforeSave(): void
     {
         // Captured before the roles relationship is synced (the Select saves via
@@ -35,6 +30,10 @@ class EditUser extends EditRecord
 
     protected function afterSave(): void
     {
+        // Correct the super_admin bit FIRST (so the audit reflects the real
+        // outcome), then log the role delta.
+        UserResource::enforceSuperAdminRule($this->record, $this->rolesBefore);
+
         AccessControlAudit::logRoleDiff(
             $this->record,
             $this->rolesBefore,

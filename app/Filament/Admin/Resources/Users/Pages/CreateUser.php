@@ -10,13 +10,11 @@ class CreateUser extends CreateRecord
 {
     protected static string $resource = UserResource::class;
 
-    protected function mutateFormDataBeforeCreate(array $data): array
-    {
-        return UserResource::guardSuperAdminAssignment($data, null);
-    }
-
     protected function afterCreate(): void
     {
+        // A new user had no roles; a non-super_admin cannot create one as super_admin.
+        UserResource::enforceSuperAdminRule($this->record, []);
+
         AccessControlAudit::logRoleDiff(
             $this->record,
             [],

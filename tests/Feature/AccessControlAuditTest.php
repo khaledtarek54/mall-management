@@ -155,34 +155,58 @@ it('lists every granted role name in one entry', function () {
 | ---- Privilege-escalation guard: only super_admin grants super_admin ---- |
 */
 
-it('strips super_admin from a grant attempted by a non-super_admin', function () {
-    $this->actingAs(makeUser('manager')); // manager holds users.* but is not super_admin
-    $superId = Role::findByName('super_admin', 'web')->id;
+it('blocks a non-super_admin from granting super_admin through the User form', function () {
+    $manager = User::factory()->create();
+    $manager->assignRole('manager'); // holds users.* but is not super_admin
+    $this->actingAs($manager);
+    acTenant();
 
-    $out = UserResource::guardSuperAdminAssignment(['roles' => [$superId]], null);
-
-    expect($out['roles'])->not->toContain($superId);
-});
-
-it('lets a super_admin grant super_admin', function () {
-    $this->actingAs(acAdmin());
-    $superId = Role::findByName('super_admin', 'web')->id;
-
-    $out = UserResource::guardSuperAdminAssignment(['roles' => [$superId]], null);
-
-    expect($out['roles'])->toContain($superId);
-});
-
-it('preserves an existing super_admin so a non-super_admin cannot revoke it', function () {
-    $this->actingAs(makeUser('manager'));
     $target = User::factory()->create();
-    $target->assignRole('super_admin');
-    $superId = Role::findByName('super_admin', 'web')->id;
+    $target->assignRole('viewer');
 
-    // manager submits a role set WITHOUT super_admin — the guard re-adds it.
-    $out = UserResource::guardSuperAdminAssignment(['roles' => []], $target);
+    Livewire::test(EditUser::class, ['record' => $target->getRouteKey()])
+        ->fillForm(['roles' => [
+            Role::findByName('viewer', 'web')->id,
+            Role::findByName('super_admin', 'web')->id, // attempt to escalate
+        ]])
+        ->call('save')
+        ->assertHasNoFormErrors();
 
-    expect($out['roles'])->toContain($superId);
+    expect($target->fresh()->hasRole('super_admin'))->toBeFalse()
+        ->and($target->fresh()->hasRole('viewer'))->toBeTrue();
+});
+
+it('lets a super_admin grant super_admin through the User form', function () {
+    $admin = acAdmin();
+    $this->actingAs($admin);
+    acTenant();
+
+    $target = User::factory()->create();
+
+    Livewire::test(EditUser::class, ['record' => $target->getRouteKey()])
+        ->fillForm(['roles' => [Role::findByName('super_admin', 'web')->id]])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($target->fresh()->hasRole('super_admin'))->toBeTrue();
+});
+
+it('a non-super_admin cannot revoke an existing super_admin through the User form', function () {
+    $manager = User::factory()->create();
+    $manager->assignRole('manager');
+    $this->actingAs($manager);
+    acTenant();
+
+    $target = User::factory()->create();
+    $target->syncRoles(['super_admin', 'viewer']);
+
+    // manager drops super_admin from the set — enforcement re-adds it.
+    Livewire::test(EditUser::class, ['record' => $target->getRouteKey()])
+        ->fillForm(['roles' => [Role::findByName('viewer', 'web')->id]])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($target->fresh()->hasRole('super_admin'))->toBeTrue();
 });
 
 /*
@@ -226,6 +250,23 @@ it('audits role revoke when a member is removed from a department', function () 
 /*
 | ---- Role pages: permission diff (incl. the revoke path) + deletion ----- |
 */
+
+it('audits permissions granted when a role is created via the form', function () {
+    $this->actingAs(acAdmin());
+    acTenant();
+
+    Livewire::test(CreateRole::class)
+        ->fillForm([
+            'name' => 'new_audit_role',
+            'permissions_module_invoices' => ['invoices.view'],
+        ])
+        ->call('create')
+        ->assertHasNoFormErrors();
+
+    $role = Role::findByName('new_audit_role', 'web');
+
+    expect(acField(acRows($role->id)->first(), 'permission_granted'))->toContain('invoices.view');
+});
 
 it('audits both the permission grant and revoke through the Role edit form', function () {
     $this->actingAs(acAdmin());
