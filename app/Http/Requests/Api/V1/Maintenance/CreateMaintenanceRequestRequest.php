@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api\V1\Maintenance;
 
+use App\Enums\TenantRequestType;
 use App\Models\MaintenanceRequest;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -15,10 +16,21 @@ class CreateMaintenanceRequestRequest extends FormRequest
 
     public function rules(): array
     {
+        // The type drives which sub-categories are valid. Omitted → maintenance,
+        // so existing app builds that only send `category` keep working.
+        $type = TenantRequestType::tryFrom((string) $this->input('request_type')) ?? TenantRequestType::default();
+        $subcategories = $type->subcategories();
+
         return [
+            'request_type' => ['sometimes', Rule::in(TenantRequestType::values())],
             'title' => ['required', 'string', 'max:255'],
             'description' => ['required', 'string', 'max:5000'],
-            'category' => ['required', Rule::in(MaintenanceRequest::CATEGORIES)],
+            // Sub-category is required for types that define one (maintenance,
+            // access, document, complaint) and validated against that type's set;
+            // types without sub-categories (inquiry, billing) accept none.
+            'category' => $subcategories === []
+                ? ['nullable']
+                : ['required', Rule::in($subcategories)],
             'priority' => ['sometimes', Rule::in(MaintenanceRequest::PRIORITIES)],
             // If supplied, the unit must belong to one of THIS tenant's leases.
             // Prevents a tenant from filing against someone else's unit. When
@@ -49,6 +61,7 @@ class CreateMaintenanceRequestRequest extends FormRequest
     public function payload(): array
     {
         return [
+            'request_type' => $this->input('request_type', TenantRequestType::default()->value),
             'title' => $this->input('title'),
             'description' => $this->input('description'),
             'category' => $this->input('category'),

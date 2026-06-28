@@ -2,12 +2,15 @@
 
 namespace App\Filament\Portal\Resources\MaintenanceRequests\Schemas;
 
+use App\Enums\TenantRequestType;
 use App\Models\Tenant;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Auth;
 
@@ -20,16 +23,28 @@ class MaintenanceRequestForm
                 ->description(__('admin.maintenance.portal_create_description'))
                 ->columns(2)
                 ->components([
+                    Select::make('request_type')
+                        ->label(__('admin.fields.request_type'))
+                        ->options(fn () => TenantRequestType::options())
+                        ->default(TenantRequestType::default()->value)
+                        ->required()
+                        ->native(false)
+                        ->live()
+                        ->afterStateUpdated(fn (Set $set) => $set('category', null))
+                        ->columnSpanFull(),
                     TextInput::make('title')
                         ->label(__('admin.fields.maintenance_title'))
                         ->required()
                         ->maxLength(150)
                         ->columnSpanFull(),
                     Select::make('category')
-                        ->label(__('admin.fields.category'))
-                        ->options(fn () => __('admin.enums.maintenance_category'))
-                        ->default('other')
-                        ->required()
+                        ->label(__('admin.fields.subcategory'))
+                        ->options(fn (Get $get) => collect(
+                            (TenantRequestType::tryFrom((string) $get('request_type')) ?? TenantRequestType::default())->subcategories()
+                        )->mapWithKeys(fn (string $s) => [$s => __("admin.enums.tenant_request_subcategory.{$s}")]))
+                        ->visible(fn (Get $get) => filled(
+                            (TenantRequestType::tryFrom((string) $get('request_type')) ?? TenantRequestType::default())->subcategories()
+                        ))
                         ->native(false),
                     Select::make('priority')
                         ->label(__('admin.fields.priority'))

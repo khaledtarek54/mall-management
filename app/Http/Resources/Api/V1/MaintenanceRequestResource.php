@@ -19,10 +19,13 @@ class MaintenanceRequestResource extends JsonResource
         return [
             'id' => $this->id,
             'reference' => $this->reference,
+            'request_type' => $this->request_type?->value,
             'title' => $this->title,
             'description' => $this->description,
             'status' => $this->status,
             'priority' => $this->priority,
+            // The type's sub-category (electrical, parking, lease_copy…); null
+            // for types that have none (inquiry, billing query).
             'category' => $this->category,
             'channel' => $this->channel,
             'is_open' => $this->isOpen(),
