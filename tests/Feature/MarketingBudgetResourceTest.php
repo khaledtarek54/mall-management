@@ -24,6 +24,21 @@ it('renders the marketing budgets list with a balance column', function () {
     Livewire::test(ListMarketingBudgets::class)->assertOk();
 });
 
+it('renders the edit-budget form with the read-only fund displays', function () {
+    $this->actingAs(makeUser('super_admin'));
+    $asset = makeAsset(['code' => 'HW']);
+    Filament::setTenant($asset);
+
+    $budget = MarketingBudget::create([
+        'asset_id' => $asset->id, 'period_year' => 2026,
+        'accrued_amount' => 5000, 'spent_amount' => 1200,
+    ]);
+
+    Livewire::test(EditMarketingBudget::class, ['record' => $budget->getRouteKey()])
+        ->assertOk()
+        ->assertSee('3,800.00 EGP'); // balance = accrued − spent, via the TextEntry
+});
+
 it('renders the marketing spends relation manager', function () {
     $this->actingAs(makeUser('super_admin'));
     $asset = makeAsset(['code' => 'HW']);

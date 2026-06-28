@@ -921,7 +921,6 @@ return [
         'lease' => 'Lease',
         'description' => 'Description',
         'vat_rate' => 'VAT %',
-        'allocated_amount' => 'Allocated Amount',
         'reference_auto' => 'Auto-generated on save',
         'role_name' => 'Role name',
         'role_name_helper' => 'Lowercase, numbers, underscores only (e.g. "finance_lead"). System roles cannot be renamed.',

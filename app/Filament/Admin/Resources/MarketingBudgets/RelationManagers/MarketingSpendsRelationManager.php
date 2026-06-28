@@ -36,10 +36,11 @@ class MarketingSpendsRelationManager extends RelationManager
         $budget = $this->getOwnerRecord();
 
         return $schema->columns(2)->components([
-            \Filament\Forms\Components\Placeholder::make('fund')
+            \Filament\Infolists\Components\TextEntry::make('fund')
                 ->hiddenLabel()
                 ->columnSpanFull()
-                ->content(new \Illuminate\Support\HtmlString(
+                ->html()
+                ->state(new \Illuminate\Support\HtmlString(
                     // Theme-aware: translucent neutral bg + inherited text colour so it
                     // reads in both light and dark mode (no hardcoded light background).
                     '<div style="display:flex;flex-wrap:wrap;gap:1.25rem;font-size:.875rem;padding:.6rem .85rem;background:rgba(148,163,184,0.15);border:1px solid rgba(148,163,184,0.25);border-radius:.5rem;color:inherit;">'

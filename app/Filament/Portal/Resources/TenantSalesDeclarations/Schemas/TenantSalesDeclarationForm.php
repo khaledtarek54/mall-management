@@ -5,8 +5,8 @@ namespace App\Filament\Portal\Resources\TenantSalesDeclarations\Schemas;
 use App\Models\Lease;
 use App\Models\TenantSalesDeclaration;
 use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
@@ -35,9 +35,9 @@ class TenantSalesDeclarationForm
                             ]))
                         ->required()
                         ->native(false),
-                    Placeholder::make('period_info')
+                    TextEntry::make('period_info')
                         ->label(__('admin.fields.period'))
-                        ->content(fn () => now()->subMonth()->isoFormat('MMMM YYYY')),
+                        ->state(fn () => now()->subMonth()->isoFormat('MMMM YYYY')),
                     DatePicker::make('period_start')
                         ->label(__('admin.fields.period_start'))
                         ->required()

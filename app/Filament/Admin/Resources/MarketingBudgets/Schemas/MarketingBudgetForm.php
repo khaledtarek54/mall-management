@@ -2,10 +2,10 @@
 
 namespace App\Filament\Admin\Resources\MarketingBudgets\Schemas;
 
-use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 
@@ -44,15 +44,15 @@ class MarketingBudgetForm
                 ->visible(fn ($record) => $record !== null)
                 ->columns(3)
                 ->components([
-                    Placeholder::make('accrued_display')
+                    TextEntry::make('accrued_display')
                         ->label(__('admin.tables.marketing_budget.accrued'))
-                        ->content(fn ($record) => number_format((float) $record->accrued_amount, 2).' EGP'),
-                    Placeholder::make('spent_display')
+                        ->state(fn ($record) => number_format((float) $record->accrued_amount, 2).' EGP'),
+                    TextEntry::make('spent_display')
                         ->label(__('admin.tables.marketing_budget.spent'))
-                        ->content(fn ($record) => number_format((float) $record->spent_amount, 2).' EGP'),
-                    Placeholder::make('balance_display')
+                        ->state(fn ($record) => number_format((float) $record->spent_amount, 2).' EGP'),
+                    TextEntry::make('balance_display')
                         ->label(__('admin.tables.marketing_budget.balance'))
-                        ->content(fn ($record) => number_format((float) $record->balance(), 2).' EGP'),
+                        ->state(fn ($record) => number_format((float) $record->balance(), 2).' EGP'),
                 ]),
         ]);
     }
