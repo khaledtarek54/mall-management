@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\MaintenanceRequests\Tables;
 
+use App\Enums\TenantRequestType;
 use App\Filament\Admin\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use App\Models\Department;
 use App\Models\MaintenanceRequest;
@@ -48,11 +49,24 @@ class MaintenanceRequestsTable
                     ->label(__('admin.tables.maintenance.unit'))
                     ->badge()
                     ->color('gray'),
+                TextColumn::make('request_type')
+                    ->label(__('admin.fields.request_type'))
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => ($state instanceof TenantRequestType ? $state : TenantRequestType::from((string) $state))->label())
+                    ->color(fn ($state): string => match ($state instanceof TenantRequestType ? $state : TenantRequestType::tryFrom((string) $state)) {
+                        TenantRequestType::Maintenance => 'warning',
+                        TenantRequestType::Complaint => 'danger',
+                        TenantRequestType::Inquiry => 'info',
+                        TenantRequestType::Access => 'primary',
+                        TenantRequestType::Billing => 'success',
+                        default => 'gray',
+                    }),
                 TextColumn::make('category')
-                    ->label(__('admin.tables.maintenance.category'))
+                    ->label(__('admin.fields.subcategory'))
                     ->badge()
                     ->color('gray')
-                    ->formatStateUsing(fn (string $state) => __("admin.enums.maintenance_category.{$state}")),
+                    ->placeholder('—')
+                    ->formatStateUsing(fn (?string $state) => $state ? __("admin.enums.tenant_request_subcategory.{$state}") : null),
                 TextColumn::make('channel')
                     ->label(__('admin.tables.maintenance.channel'))
                     ->badge()
@@ -116,12 +130,12 @@ class MaintenanceRequestsTable
                 SelectFilter::make('status')
                     ->label(__('admin.filters.status'))
                     ->options(fn () => __('admin.statuses.maintenance_request')),
+                SelectFilter::make('request_type')
+                    ->label(__('admin.fields.request_type'))
+                    ->options(fn () => TenantRequestType::options()),
                 SelectFilter::make('priority')
                     ->label(__('admin.filters.priority'))
                     ->options(fn () => __('admin.enums.maintenance_priority')),
-                SelectFilter::make('category')
-                    ->label(__('admin.filters.category'))
-                    ->options(fn () => __('admin.enums.maintenance_category')),
                 SelectFilter::make('channel')
                     ->label(__('admin.filters.channel'))
                     ->options(fn () => __('admin.enums.maintenance_channel')),

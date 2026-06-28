@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\MaintenanceRequests\Schemas;
 
+use App\Enums\TenantRequestType;
 use App\Models\Department;
 use App\Models\MaintenanceRequest;
 use App\Models\Unit;
@@ -13,6 +14,8 @@ use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 
 class MaintenanceRequestForm
@@ -28,6 +31,23 @@ class MaintenanceRequestForm
                         ->default(fn () => MaintenanceRequest::generateReference('AW'))
                         ->disabled()
                         ->dehydrated(),
+                    Select::make('request_type')
+                        ->label(__('admin.fields.request_type'))
+                        ->options(fn () => TenantRequestType::options())
+                        ->default(TenantRequestType::default()->value)
+                        ->required()
+                        ->native(false)
+                        ->live()
+                        // Keep the reference prefix in step with the chosen type,
+                        // and clear a now-irrelevant sub-category on type change.
+                        ->afterStateUpdated(function ($state, Set $set) {
+                            $type = TenantRequestType::tryFrom((string) $state) ?? TenantRequestType::default();
+                            $set('reference', MaintenanceRequest::generateReference('AW', $type->referencePrefix()));
+                            $set('category', null);
+                        })
+                        // Type is fixed once a request exists (it would invalidate
+                        // the reference + routing); editable only on create.
+                        ->disabledOn('edit'),
                     Select::make('tenant_id')
                         ->label(__('admin.resources.tenant.singular'))
                         ->options(fn () => TenantScope::selectableTenantOptions())
@@ -54,10 +74,16 @@ class MaintenanceRequestForm
                         ->required()
                         ->native(false),
                     Select::make('category')
-                        ->label(__('admin.fields.category'))
-                        ->options(fn () => __('admin.enums.maintenance_category'))
-                        ->default('other')
-                        ->required()
+                        ->label(__('admin.fields.subcategory'))
+                        // Options + visibility follow the chosen type: each type
+                        // exposes its own sub-categories (electrical…, parking…,
+                        // lease_copy…); types with none hide the field entirely.
+                        ->options(fn (Get $get) => collect(
+                            (TenantRequestType::tryFrom((string) $get('request_type')) ?? TenantRequestType::default())->subcategories()
+                        )->mapWithKeys(fn (string $s) => [$s => __("admin.enums.tenant_request_subcategory.{$s}")]))
+                        ->visible(fn (Get $get) => filled(
+                            (TenantRequestType::tryFrom((string) $get('request_type')) ?? TenantRequestType::default())->subcategories()
+                        ))
                         ->native(false),
                     Select::make('channel')
                         ->label(__('admin.fields.channel'))

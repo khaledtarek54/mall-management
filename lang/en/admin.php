@@ -933,6 +933,8 @@ return [
         'user' => 'User',
         'priority' => 'Priority',
         'category' => 'Category',
+        'request_type' => 'Request Type',
+        'subcategory' => 'Sub-category',
         'channel' => 'Channel',
         'channel_helper' => 'How the tenant reported this issue. Helps track which channels need staffing.',
         'maintenance_title' => 'Title',
