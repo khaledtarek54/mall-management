@@ -44,6 +44,13 @@ class OwnerRequestService
      */
     public function transition(OwnerRequest $request, string $status, array $extra = []): OwnerRequest
     {
+        // Terminal requests (resolved / closed / cancelled) are immutable — the
+        // UI hides the respond action, but guard at the service layer too so no
+        // caller can mutate an already-responded request.
+        if ($request->isTerminal()) {
+            return $request;
+        }
+
         $payload = ['status' => $status];
 
         if ($status === 'resolved') {

@@ -221,6 +221,7 @@ class LeaseForm
                         ->label(__('admin.fields.escalation_type'))
                         ->options(fn () => __('admin.enums.escalation_type'))
                         ->default('fixed_percent')
+                        ->required() // NOT-NULL column — never dehydrate null
                         ->native(false)
                         ->helperText(__('admin.helpers.escalation_type')),
                     TextInput::make('payment_terms_days')

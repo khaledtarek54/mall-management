@@ -70,8 +70,12 @@ class TenantSalesDeclarationForm
                     Select::make('status')
                         ->label(__('admin.tables.common.status'))
                         ->options(fn () => __('admin.statuses.tenant_sales'))
-                        ->default('submitted')
-                        ->required()
+                        // Read-only: status transitions go through the lock / dispute
+                        // / void actions, which run PercentageRentCalculationService
+                        // (creating the billing charge + stamping locked_at). A raw
+                        // status='locked' write here would silently skip billing.
+                        ->disabled()
+                        ->dehydrated(false)
                         ->native(false),
                 ]),
 

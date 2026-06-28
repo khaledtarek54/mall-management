@@ -141,7 +141,13 @@ class BooksReconciliationService
             'invoiced'      => round((float) $invoices->sum('total'), 2),
             'collected'     => round((float) $invoices->sum('paid_amount'), 2),
             'creditApplied' => round((float) $invoices->sum('credit_applied_amount'), 2),
-            'outstandingAR' => round((float) $invoices->sum('balance'), 2),
+            // Outstanding AR = the canonical AR definition (open + owed), matching
+            // outstandingBalance() / the AR-aging report — not every non-cancelled
+            // invoice (which would fold in paid/credited/disputed/draft rows).
+            'outstandingAR' => round((float) $invoices
+                ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
+                ->where('balance', '>', 0)
+                ->sum('balance'), 2),
             'vatTotal'      => round((float) $invoices->sum('vat_amount'), 2),
         ];
 

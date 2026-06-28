@@ -33,6 +33,19 @@ class TenantSalesDeclarationResource extends Resource
         return 'tenant_sales';
     }
 
+    // A locked declaration is terminal/immutable — it has already created a
+    // percentage_rent billing charge. Editing it (e.g. flipping status back to
+    // 'submitted') could double-bill or strand the charge, so block edit
+    // entirely; corrections go through the void action.
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        if ($record->status === 'locked') {
+            return false;
+        }
+
+        return static::hasPermission('edit');
+    }
+
     protected static ?string $model = TenantSalesDeclaration::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPresentationChartLine;

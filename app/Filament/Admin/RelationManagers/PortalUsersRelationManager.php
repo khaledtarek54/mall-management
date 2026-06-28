@@ -46,6 +46,7 @@ class PortalUsersRelationManager extends RelationManager
                 ->label(__('admin.fields.password'))
                 ->password()
                 ->revealable()
+                ->minLength(8)
                 // The TenantUser 'hashed' cast hashes on save; leave blank on
                 // edit to keep the current password.
                 ->dehydrated(fn ($state) => filled($state))

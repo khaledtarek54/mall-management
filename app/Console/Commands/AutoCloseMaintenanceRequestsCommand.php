@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\MaintenanceRequest;
 use App\Services\MaintenanceRequestService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 
 class AutoCloseMaintenanceRequestsCommand extends Command
 {
@@ -57,8 +58,24 @@ class AutoCloseMaintenanceRequestsCommand extends Command
         $failed = [];
         foreach ($candidates as $request) {
             try {
-                $service->transition($request, 'closed');
-                $closed++;
+                // Lock + re-check inside the txn so an overlapping run (or a manual
+                // close between the query and here) is skipped cleanly rather than
+                // throwing / double-notifying.
+                $applied = DB::transaction(function () use ($service, $request) {
+                    $locked = MaintenanceRequest::query()->lockForUpdate()->find($request->id);
+
+                    if (! $locked || $locked->status !== 'resolved') {
+                        return false;
+                    }
+
+                    $service->transition($locked, 'closed');
+
+                    return true;
+                });
+
+                if ($applied) {
+                    $closed++;
+                }
             } catch (\Throwable $e) {
                 $failed[] = "#{$request->id}: " . $e->getMessage();
             }

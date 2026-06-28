@@ -164,11 +164,16 @@ class CamReconciliationService
      */
     public function bill(CamAllocation $allocation): CamAllocation
     {
-        if ($allocation->status === 'billed') {
-            return $allocation;
-        }
-
         return DB::transaction(function () use ($allocation) {
+            // Re-load under a row lock and re-check INSIDE the txn — two concurrent
+            // bill() calls would otherwise both pass a stale status check and each
+            // create a true-up Charge (double-bill).
+            $allocation = CamAllocation::query()->lockForUpdate()->find($allocation->id);
+
+            if (! $allocation || $allocation->status === 'billed') {
+                return $allocation;
+            }
+
             $pool = $allocation->pool;
             $year = $pool->period_year;
             $amount = (float) $allocation->true_up_amount;

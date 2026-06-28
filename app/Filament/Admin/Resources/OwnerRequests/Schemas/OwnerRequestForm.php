@@ -80,7 +80,8 @@ class OwnerRequestForm
                     DateTimePicker::make('scheduled_to')
                         ->label(__('admin.tables.owner_request.schedule_to'))
                         ->native(false)
-                        ->seconds(false),
+                        ->seconds(false)
+                        ->afterOrEqual('scheduled_from'),
                 ]),
         ]);
     }

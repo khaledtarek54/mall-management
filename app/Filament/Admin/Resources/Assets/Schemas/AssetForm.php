@@ -42,9 +42,11 @@ class AssetForm
                     TextInput::make('city')
                         ->label(__('admin.tables.asset.city'))
                         ->required()
+                        ->maxLength(255)
                         ->default('Cairo'),
                     TextInput::make('country')
                         ->required()
+                        ->maxLength(255)
                         ->default('Egypt'),
                     TextInput::make('currency')
                         ->required()

@@ -46,6 +46,13 @@ class CreditNoteService
             return 0.0;
         }
 
+        // Only apply to a live, payable invoice — applying to a cancelled /
+        // credited / disputed / draft / paid invoice would consume the credit's
+        // balance against a row that isn't collecting, silently leaking it.
+        if (! in_array($invoice->status, ['issued', 'partially_paid', 'overdue'], true)) {
+            return 0.0;
+        }
+
         $amount = $requestedAmount === null
             ? min($available, $owed)
             : min($available, $owed, (float) $requestedAmount);

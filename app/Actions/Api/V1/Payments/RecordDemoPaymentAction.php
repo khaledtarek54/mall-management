@@ -24,6 +24,13 @@ class RecordDemoPaymentAction
     public function handle(Invoice $invoice): Payment
     {
         return DB::transaction(function () use ($invoice) {
+            // Lock + re-check the balance INSIDE the txn so two concurrent
+            // pay-demo requests can't both read a positive balance and
+            // over-capture the invoice (the second serialises on the lock and
+            // sees balance 0).
+            $invoice = Invoice::query()->lockForUpdate()->findOrFail($invoice->id);
+            abort_if((float) $invoice->balance <= 0, 422, __('admin.notifications.pay_now_failed_body'));
+
             $amount = round((float) $invoice->balance, 2);
 
             $payment = Payment::create([
@@ -47,6 +54,10 @@ class RecordDemoPaymentAction
             // notifies the tenant, exactly as the real callback would.
             $payment->status = 'captured';
             $payment->save();
+
+            // Lock-safe backstop: roll back if this capture pushed the invoice
+            // past its total (a parallel real/demo capture racing this one).
+            $payment->assertInvoicesNotOverAllocated([$invoice->id]);
 
             return $payment->load('invoices');
         });

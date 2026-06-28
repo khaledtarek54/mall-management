@@ -75,6 +75,16 @@ class PercentageRentCalculationService
                 'audit_notes' => $auditNotes,
             ]);
 
+            // Defense-in-depth: deactivate any prior active percentage_rent charge
+            // for this lease+period so a re-lock can never leave two active charges
+            // (double-bill). voidLocked uses the same period-matching query.
+            Charge::query()
+                ->where('lease_id', $declaration->lease_id)
+                ->where('type', 'percentage_rent')
+                ->whereDate('start_date', $declaration->period_start)
+                ->where('is_active', true)
+                ->update(['is_active' => false]);
+
             if ($owed > 0) {
                 $this->createPercentageRentCharge($declaration, $owed);
             }

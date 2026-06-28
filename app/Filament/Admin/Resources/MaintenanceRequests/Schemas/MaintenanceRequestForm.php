@@ -70,7 +70,12 @@ class MaintenanceRequestForm
                         ->label(__('admin.tables.common.status'))
                         ->options(fn () => __('admin.statuses.maintenance_request'))
                         ->default('submitted')
-                        ->required()
+                        // Read-only: status changes go through the Change-Status action
+                        // (MaintenanceRequestService::transition) — the state machine that
+                        // validates the hop, stamps resolved_at/closed_at, and notifies.
+                        // A raw form write would skip all of that (and break auto-close).
+                        ->disabled()
+                        ->dehydrated(false)
                         ->native(false),
                 ]),
 
