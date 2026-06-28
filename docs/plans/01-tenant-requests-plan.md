@@ -17,7 +17,12 @@ Built additive-first (no risky internal rename yet); suite green at every step (
 - **[done] Admin** — form has a live Request Type select + dynamic Sub-category; create page sets SLA/routing per type; table has a type column + filter. *(commit `18850ac`)*
 - **[done] Tenant portal + mobile API** — portal form type picker + dynamic sub-category; `/me/maintenance-requests` accepts `request_type`, validates sub-category per type, defaults to maintenance for back-compat; API transformer exposes `request_type`. 5 API tests. *(commit `72a55a6`)*
 - **[done] Relabel** — admin + portal nav/resource/section labels → "Requests" (en/ar); module doc updated.
-- **[next] Per-type notification copy** (status/comment/submitted still say "maintenance"); **the internal rename** (`MaintenanceRequest`→`TenantRequest`, table, RBAC `maintenance.*`→`requests.*`, morph-map — §4); **CSAT** rating UI + report (Phase 4); **owner-panel** resource relabel; the **DB `request_types` table** if operators need self-service (Phase 2 §3.2).
+- **[done] Per-type notification copy** — status/comment/submitted/SLA notifications now say the request's type (Complaint, Inquiry, …) via a `:type` placeholder fed by `MaintenanceRequest::typeLabel()`; regression test pins it. *(commit `c2542d7`)*
+- **[next — start here tomorrow]** in priority order:
+  1. **CSAT** — rating capture on resolved/closed (portal "rate" action + mobile `POST /me/requests/{id}/rate` + admin column); columns `csat_rating`/`csat_comment` already exist. A small "avg satisfaction / SLA compliance by type" report widget.
+  2. **Owner-panel** resource relabel (trivial; the owner Filament resource still reads the shared keys but verify).
+  3. **The internal rename** (`MaintenanceRequest`→`TenantRequest`, tables, RBAC `maintenance.*`→`requests.*`, routes) — the big, risky one: handle the morph-map hazard (`activity_log.subject_type` + Spatie `media.model_type` store the FQCN) per §4. Do it as its own dedicated, well-tested pass.
+  4. **DB `request_types` table** (Phase 2 §3.2) only if operators need self-service type/SLA/routing config.
 
 ---
 
