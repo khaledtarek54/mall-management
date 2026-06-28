@@ -300,11 +300,12 @@ class DemoSeeder extends Seeder
         $this->seedCreditNotes();
         $this->seedStaffAssignments($atriomWalk);
 
-        // Re-derive the marketing budgets from the billed levy line items, then
-        // record a few spends so the fund shows accrued + spent + a live balance.
+        // Auto-provision a budget for every property (current year), re-derive
+        // them from billed levy items, then record a few demo spends.
+        \Illuminate\Support\Facades\Artisan::call('marketing:ensure-budgets');
         \Illuminate\Support\Facades\Artisan::call('marketing:backfill-budgets');
         $this->seedMarketingSpends();
-        $this->command->info('   Marketing budgets derived from billed levies + demo spends');
+        $this->command->info('   Marketing budgets auto-provisioned + derived + demo spends');
 
         $plazaUnitCount = Unit::where('asset_id', $plazaAnnex->id)->count();
         $this->command->info("✅ Created Atriom Walk with {$occupiedCount} occupied, {$vacantCount} vacant units (+ {$plazaUnitCount} vacant units on Plaza Annex demo asset)");

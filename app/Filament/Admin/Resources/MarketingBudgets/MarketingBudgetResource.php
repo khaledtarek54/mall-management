@@ -4,7 +4,6 @@ namespace App\Filament\Admin\Resources\MarketingBudgets;
 
 use App\Filament\Admin\Resources\Concerns\BypassesScopingOnAll;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
-use App\Filament\Admin\Resources\MarketingBudgets\Pages\CreateMarketingBudget;
 use App\Filament\Admin\Resources\MarketingBudgets\Pages\EditMarketingBudget;
 use App\Filament\Admin\Resources\MarketingBudgets\Pages\ListMarketingBudgets;
 use App\Filament\Admin\Resources\MarketingBudgets\RelationManagers\MarketingSpendsRelationManager;
@@ -25,6 +24,26 @@ class MarketingBudgetResource extends Resource
     protected static function permissionModule(): string
     {
         return 'marketing';
+    }
+
+    /**
+     * Budgets are an auto-provisioned ledger — one per property per year, funded
+     * by the levy + ensured by `marketing:ensure-budgets`. Users record spends
+     * against them; they never hand-create (or delete) a budget.
+     */
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
+    public static function canDelete($record): bool
+    {
+        return false;
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return false;
     }
 
     protected static ?string $model = MarketingBudget::class;
@@ -78,7 +97,6 @@ class MarketingBudgetResource extends Resource
     {
         return [
             'index' => ListMarketingBudgets::route('/'),
-            'create' => CreateMarketingBudget::route('/create'),
             'edit' => EditMarketingBudget::route('/{record}/edit'),
         ];
     }

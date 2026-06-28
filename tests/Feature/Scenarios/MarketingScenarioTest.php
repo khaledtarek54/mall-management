@@ -436,7 +436,7 @@ it('rejects a missing/blank spend amount at the form layer', function () {
 | ---- RBAC: marketing module gating ------------------------------------- |
 */
 
-it('lets the marketing role view and create but never delete budgets', function () {
+it('lets the marketing role view + manage budgets but never create or delete them', function () {
     $this->seed(RolesPermissionsSeeder::class);
     $this->actingAs(makeUser('marketing'));
 
@@ -445,9 +445,9 @@ it('lets the marketing role view and create but never delete budgets', function 
     $budget = MarketingBudget::create(['asset_id' => $asset->id, 'period_year' => 2026]);
 
     expect(MarketingBudgetResource::canViewAny())->toBeTrue()
-        ->and(MarketingBudgetResource::canCreate())->toBeTrue()
         ->and(MarketingBudgetResource::canEdit($budget))->toBeTrue()
-        // delete is reserved for super_admin project-wide, even with marketing.delete.
+        // Budgets are auto-provisioned per property/year — never hand-created or deleted.
+        ->and(MarketingBudgetResource::canCreate())->toBeFalse()
         ->and(MarketingBudgetResource::canDelete($budget))->toBeFalse();
 });
 
@@ -459,7 +459,7 @@ it('forbids non-marketing departments from touching the marketing budget', funct
         ->and(MarketingBudgetResource::canCreate())->toBeFalse();
 });
 
-it('grants super_admin full control including delete', function () {
+it('auto-provisions budgets — even super_admin cannot create or delete them', function () {
     $this->seed(RolesPermissionsSeeder::class);
     $this->actingAs(makeUser('super_admin'));
 
@@ -467,9 +467,26 @@ it('grants super_admin full control including delete', function () {
     Filament::setTenant($asset);
     $budget = MarketingBudget::create(['asset_id' => $asset->id, 'period_year' => 2026]);
 
+    // Budgets are an auto-provisioned ledger (marketing:ensure-budgets) — no
+    // create/delete UI for anyone; super_admin still views + manages spends.
     expect(MarketingBudgetResource::canViewAny())->toBeTrue()
-        ->and(MarketingBudgetResource::canCreate())->toBeTrue()
-        ->and(MarketingBudgetResource::canDelete($budget))->toBeTrue();
+        ->and(MarketingBudgetResource::canCreate())->toBeFalse()
+        ->and(MarketingBudgetResource::canDelete($budget))->toBeFalse();
+});
+
+it('marketing:ensure-budgets auto-provisions one budget per property per year (idempotent)', function () {
+    $a1 = makeAsset();
+    $a2 = makeAsset();
+    expect(MarketingBudget::where('period_year', 2026)->count())->toBe(0);
+
+    $this->artisan('marketing:ensure-budgets', ['--year' => 2026])->assertExitCode(0);
+
+    expect(MarketingBudget::where('period_year', 2026)->where('asset_id', $a1->id)->exists())->toBeTrue()
+        ->and(MarketingBudget::where('period_year', 2026)->where('asset_id', $a2->id)->exists())->toBeTrue();
+
+    // Re-run: no duplicates (firstOrCreate).
+    $this->artisan('marketing:ensure-budgets', ['--year' => 2026])->assertExitCode(0);
+    expect(MarketingBudget::where('period_year', 2026)->whereIn('asset_id', [$a1->id, $a2->id])->count())->toBe(2);
 });
 
 /*

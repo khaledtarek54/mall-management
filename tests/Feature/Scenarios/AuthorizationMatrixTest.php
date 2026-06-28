@@ -108,10 +108,11 @@ it('super_admin can view + create every resource', function () {
         expect($resource::canViewAny())->toBeTrue("super_admin canViewAny({$key})");
     }
 
-    // Create is allowed everywhere except the locked Department set.
+    // Create is allowed everywhere except the locked Department set and the
+    // auto-provisioned MarketingBudget (one per property/year — never hand-created).
     foreach (matrixResources() as $key => $resource) {
-        if ($key === 'Department') {
-            expect($resource::canCreate())->toBeFalse('Department set is fixed — no create');
+        if (in_array($key, ['Department', 'MarketingBudget'], true)) {
+            expect($resource::canCreate())->toBeFalse("{$key} is auto-managed/fixed — no create");
 
             continue;
         }
@@ -142,11 +143,15 @@ it('manager can view + create across modules but cannot delete', function () {
     $this->actingAs(makeUser('manager'));
 
     // Representative spread across departments.
-    foreach (['Asset', 'Unit', 'Tenant', 'Lease', 'Invoice', 'Payment', 'Cam', 'Maintenance', 'Vendor', 'MarketingBudget'] as $key) {
+    foreach (['Asset', 'Unit', 'Tenant', 'Lease', 'Invoice', 'Payment', 'Cam', 'Maintenance', 'Vendor'] as $key) {
         $resource = matrixResources()[$key];
         expect($resource::canViewAny())->toBeTrue("manager view {$key}")
             ->and($resource::canCreate())->toBeTrue("manager create {$key}");
     }
+
+    // MarketingBudget is auto-provisioned — manager views + manages spends, but no create.
+    expect(matrixResources()['MarketingBudget']::canViewAny())->toBeTrue('manager view MarketingBudget')
+        ->and(matrixResources()['MarketingBudget']::canCreate())->toBeFalse('budgets are auto-provisioned');
 
     expect(InvoiceResource::canEdit($invoice))->toBeTrue()
         ->and(InvoiceResource::canDelete($invoice))->toBeFalse('manager must never delete')
@@ -297,7 +302,9 @@ it('accounting can edit an invoice but not delete it', function () {
 
 it('marketing covers MarketingBudgets and nothing else', function () {
     assertViewCreate($this, 'marketing', [
-        'MarketingBudget' => [true, true],
+        // Marketing views its budgets (+ manages spends) but never creates them —
+        // budgets are auto-provisioned per property/year.
+        'MarketingBudget' => [true, false],
         // Forbidden.
         'Asset'        => [false, false],
         'Unit'         => [false, false],

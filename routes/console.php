@@ -83,3 +83,11 @@ Schedule::command('billing:scan-overdue-invoices')
     ->dailyAt('06:00')
     ->name('atriom-scan-overdue-invoices')
     ->withoutOverlapping();
+
+// Daily auto-provision of the current year's marketing budget for every
+// property (idempotent). Users never hand-create budgets — they appear here,
+// funded by the levy, and at year rollover the new year's budgets show up.
+Schedule::command('marketing:ensure-budgets')
+    ->dailyAt('01:30')
+    ->name('atriom-ensure-marketing-budgets')
+    ->withoutOverlapping();

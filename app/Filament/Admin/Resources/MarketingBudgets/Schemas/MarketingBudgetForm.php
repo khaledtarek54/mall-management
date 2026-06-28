@@ -17,20 +17,16 @@ class MarketingBudgetForm
             Section::make(__('admin.resources.marketing_budget.singular'))
                 ->columns(2)
                 ->components([
+                    // Identity fields are auto-provisioned (one budget per property
+                    // per year) — shown read-only, never editable.
                     Select::make('asset_id')
                         ->label(__('admin.tables.marketing_budget.property'))
                         ->options(fn () => \App\Support\TenantScope::selectableAssetOptions())
-                        ->searchable()
-                        ->required()
-                        ->default(fn () => \App\Support\TenantScope::currentAssetId())
-                        ->disabled(fn () => \App\Support\TenantScope::currentAssetId() !== null)
-                        ->dehydrated(),
+                        ->disabled(),
                     TextInput::make('period_year')
                         ->label(__('admin.tables.marketing_budget.year'))
                         ->numeric()
-                        ->required()
-                        ->default((int) date('Y'))
-                        ->unique(ignoreRecord: true, modifyRuleUsing: fn (\Illuminate\Validation\Rules\Unique $rule, \Filament\Schemas\Components\Utilities\Get $get) => $rule->where('asset_id', $get('asset_id'))),
+                        ->disabled(),
                     Select::make('status')
                         ->label(__('admin.tables.marketing_budget.status'))
                         ->options(['open' => 'Open', 'closed' => 'Closed'])
