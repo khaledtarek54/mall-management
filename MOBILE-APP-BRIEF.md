@@ -2,12 +2,15 @@
 
 > This is a business briefing, not a technical one. Build it however you build mobile apps well.
 > Audience: an experienced mobile dev coming into the Atriom project cold.
+> **Refreshed 2026-06-28** to match the current backend.
+
+> **Current state (read this).** The **tenant mobile API is built and complete** for v1 — auth, balance, a one-call home summary, invoices (+ PDF), payments, credit notes, maintenance (with photos), sales declarations, an in-app notifications inbox, and device registration. **The full, authoritative contract is [`docs/api/MOBILE-API.md`](docs/api/MOBILE-API.md)** — build against that, not this briefing (this is the *why*, that's the *what*). **Paymob** card payments are wired and sandbox-tested end-to-end (in-app session + shareable payment links); production switches on once the operator's KYC clears. **ETA** e-invoicing is wired (mock mode until the signing certificate lands). **Push** delivery (FCM) is wired on the backend — register a device token and the tenant-facing events push automatically once Firebase creds are set. The one thing you'll need from the backend team: a **staging URL or tunnel** (there's no public host yet).
 
 ---
 
 ## What this product is
 
-A mall operations platform for the Egyptian market. There's already a working web app — admin side at `/admin` and tenant side at `/portal`. Both work today. Demo property is **Haya Walk**, a retail walk in 6th of October City with 50 units across 3 zones (A/B/C), operated by Jawad Developments.
+A mall operations platform for the Egyptian market. There's already a working web app — admin side at `/admin` and tenant side at `/portal`. Both work today. The demo property is **Atriom Walk**, a retail walk in 6th of October City with 50 units across 3 zones (A/B/C). The mall is **operated by Eltizam** (the operator who runs the day-to-day) on behalf of the property **owner, Jawad** — the tenant never deals with either directly; to them it's just "the mall."
 
 This mobile app is the **tenant-facing mobile companion** to the web tenant portal. It's the shop owner's phone app. Not the admin app. Not the owner app. Not a resident community app.
 
@@ -17,7 +20,7 @@ If you only remember one thing: **a mall tenant on the go needs to pay bills, se
 
 ## Who actually uses this
 
-The user is a **mall tenant** — meaning a retailer / café / restaurant / kiosk / service shop that rents a unit in the mall. In Haya Walk's case, examples:
+The user is a **mall tenant** — meaning a retailer / café / restaurant / kiosk / service shop that rents a unit in the mall. In Atriom Walk's case, examples:
 
 - **Café Crema** — coffee shop, A-zone, 80sqm, run by Hana Mostafa
 - **Optix Eyewear** — eyewear retailer, B-zone, 45sqm
@@ -78,7 +81,7 @@ To design this app well, you need to understand what a mall tenant actually deal
 These are the words you'll see in the UI. Get the meanings right and the app will feel native.
 
 ### Asset
-A property. In our case the only one is "Haya Walk" but the system supports many. Think of it as **the mall itself**. For a multi-property tenant (rare), they might rent in more than one asset.
+A property. In our case the only one is "Atriom Walk" but the system supports many. Think of it as **the mall itself**. For a multi-property tenant (rare), they might rent in more than one asset.
 
 ### Unit
 A single rentable space inside an asset. Identified by a code like `A-01`, `B-12`, `C-07`. Has a floor, a zone (A/B/C), a category (retail/F&B/service/wellness/kiosk), and an area in square meters. A unit is either **occupied** (has an active lease) or **vacant**.
@@ -207,7 +210,7 @@ Things that international apps get wrong about Egypt. Don't repeat the mistakes.
   3. **Wallets** — Vodafone Cash, Etisalat Cash, Orange Money. Smaller share but real.
   4. **Bank transfer** — slower, more common for large amounts
 - Cash and cheque exist but those are admin-recorded, not in-app
-- The actual payment gateway is **Paymob** (Egyptian payment processor). That integration isn't live yet (the gateway accounts are being applied for), but when it is, this app needs to deep-link or in-app web-view their checkout
+- The actual payment gateway is **Paymob** (Egyptian payment processor). **This is wired and sandbox-tested end-to-end.** The app starts a payment by calling `POST /me/invoices/{id}/paymob-session` → it gets back a `paymentToken` (hand to the Paymob Flutter SDK for a native card form + Apple/Google Pay) and an `iframeUrl` (open in a WebView). The authoritative result comes from the backend webhook — **poll `GET /me/invoices/{id}`** for the invoice to flip to `paid`, don't trust the SDK's local result. There's also a shareable, no-login **payment link** on each invoice (`paymentLinkUrl`) you can hand off via the share sheet. Production card capture switches on when the operator's Paymob KYC clears; until then use `pay-demo` in staging.
 
 ### WhatsApp culture
 - Egyptians live on WhatsApp. Tenants will share invoice PDFs with their accountant via WhatsApp. They'll receive payment reminders via WhatsApp.
@@ -215,8 +218,8 @@ Things that international apps get wrong about Egypt. Don't repeat the mistakes.
 
 ### ETA (Egyptian Tax Authority) e-invoicing
 - Egypt has a national e-invoicing mandate. Invoices must be submitted to ETA for B2B transactions.
-- Each invoice has an `eta_submission_id` once submitted. The tenant doesn't really care about this — but their accountant does.
-- Surface this on the invoice view: small line "ETA Submitted ✓" or similar when the status field has a value. Don't make it the headline.
+- **This is wired** (running in mock mode until the operator's signing certificate is provisioned). The invoice payload carries `etaStatus` + `etaSubmissionId` / `etaLongId` once accepted. The tenant doesn't really care — but their accountant does.
+- Surface it on the invoice view: a small "ETA Registered ✓" line when `etaStatus` is `valid`. Don't make it the headline.
 
 ### VAT model (do NOT generalize)
 - **Base rent is VAT-exempt** in Egypt. Period.
@@ -276,22 +279,24 @@ The mall admin currently **generates a tenant password** on their behalf via a "
 
 ## What the web tenant portal does today (mobile parity, then expansion)
 
-The web portal at `/portal` already implements most of what mobile needs. Visit it logged in as `tenant1@haya.test` / `password` to see it in action. Mobile should match parity then add native polish.
+The web portal at `/portal` already implements most of what mobile needs. Visit it logged in as `tenant1@atriomwalk.test` / `password` to see it in action. Mobile should match parity then add native polish.
 
 Today's portal features:
 - **Account Balance** widget — outstanding total, overdue total, open invoice count
 - **Open Maintenance** widget — own open maintenance request count
 - **Invoices list** — own invoices, status badges, sortable
-- **Invoice view** — line items, totals, PDF download
-- **Pay Now button** — stubbed today, will be Paymob when wired
-- **Payments list** — own payments, allocations, methods
+- **Invoice view** — line items, totals, PDF download, ETA status, applied credit
+- **Pay Now** — wired to Paymob (in-app session) + a shareable no-login payment link
+- **Payments list** — own payments, allocations, methods, channel
+- **Credit Notes** — operator-issued credits on the account (read-only)
+- **Notifications inbox** — in-app list of account events (with unread badge)
 - **Statement of Account** — header action on Invoices page, generates a multi-page PDF
 - **Maintenance Requests** — list, submit, view status timeline, comment, cancel-if-not-started
 - **Tenant Sales Declarations** — submit, view own history (note: only visible to F&B/retail tenants whose lease has `has_percentage_rent = true`)
 - **Language switch** EN/AR — segmented pill, top right
 
 Mobile expansion opportunities beyond parity:
-- Push notifications on invoice issued, payment received, maintenance status change, declaration locked/disputed, payment reminder
+- **Push notifications** — *backend delivery is built* (FCM): register a device token (`POST /me/devices`) and the backend pushes invoice-issued / payment-received / maintenance status + comment / declaration-locked events, with deep-link ids in the payload. Lights up once the operator's Firebase creds are set.
 - Biometric unlock for return visits
 - Native camera capture for maintenance photos (already photo-uploads via web, but mobile cameras feel better)
 - Share invoice PDF via native share sheet (the WhatsApp share is the killer feature)
@@ -304,7 +309,7 @@ Mobile expansion opportunities beyond parity:
 
 When you build screens, you'll need to walk this graph. Here's how things connect in plain English:
 
-- An **Operator** (e.g. Jawad Developments) owns one or more **Assets** (e.g. Haya Walk).
+- An **Operator** (Eltizam) runs one or more **Assets** (e.g. Atriom Walk) on behalf of their **Owner** (Jawad). To the tenant it's just "the mall."
 - An **Asset** contains **Units** (e.g. A-01 through C-50).
 - A **Tenant** signs a **Lease** for a specific **Unit**.
 - A **Lease** has multiple **Charges** (base rent, service charge, parking, etc.) — each charge has a frequency.
@@ -327,14 +332,14 @@ That's their world. Don't show them anything else.
 
 ## Real-world numbers for design sanity
 
-To calibrate your designs, here are real-ish figures from Haya Walk:
+To calibrate your designs, here are real-ish figures from Atriom Walk:
 
 - Mall total leasable area: 8,500 sqm across 50 units
 - Active leases: ~33 (66% occupancy)
 - Vacant units: 17
 - Typical small retail unit: 40-60 sqm, EGP 20,000-30,000 monthly rent
 - Typical F&B unit: 80-120 sqm, EGP 45,000-70,000 monthly rent
-- Typical anchor unit (rare in Haya Walk): 200+ sqm, EGP 100,000+ monthly rent
+- Typical anchor unit (rare in Atriom Walk): 200+ sqm, EGP 100,000+ monthly rent
 - Service charge: ~15% of rent
 - Total mall outstanding AR at any given time: EGP 400,000-600,000
 - Typical tenant's monthly invoice: EGP 20,000 to EGP 80,000
@@ -361,9 +366,10 @@ If those five workflows feel as easy as a banking app's bill-pay flow, the app h
 ## Reference materials
 
 - Web admin at `/admin` (login: `admin@mall.test` / `password`)
-- Web tenant portal at `/portal` (logins: `tenant1@haya.test`, `tenant2@haya.test`, `tenant3@haya.test`, all `password`)
+- Web tenant portal at `/portal` (logins: `tenant1@atriomwalk.test`, `tenant2@atriomwalk.test`, `tenant3@atriomwalk.test`, all `password`)
 - The web portal is the closest visual + flow reference for what mobile should match-then-improve
-- See `MASTER-PLAN.md` for strategic context (Eltizam partnership, competitive positioning vs PropEzy)
-- See `FEATURES.md` for the full feature inventory of what's built on the web side
+- **[`docs/api/MOBILE-API.md`](docs/api/MOBILE-API.md)** — the authoritative API contract (every endpoint, request/response shape, error model). Build against this.
+- [`docs/OVERVIEW.md`](docs/OVERVIEW.md) — the system overview + per-module docs in `docs/modules/` for how each feature behaves on the web side
+- [`docs/gap-analysis/`](docs/gap-analysis/) — strategic/competitive context (Eltizam partnership, positioning vs PropEzy)
 
 When in doubt about a label, a workflow, or a status meaning — open the web portal, log in as a tenant, and look. The web portal is the source of truth for tenant-side behavior.
