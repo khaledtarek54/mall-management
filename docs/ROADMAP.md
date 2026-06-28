@@ -10,6 +10,7 @@
 
 - **Latin-digit lock** — all numbers render in Western digits even in the Arabic UI (`Number::useLocale('en')` + regression test).
 - **Security + env hardening bundle** — security headers on every response (X-Frame-Options, X-Content-Type-Options, Referrer-Policy, HSTS in prod) + a **strict CSP scoped to the public `/pay` pages**; **Sanctum token TTL** (30-day default, env-driven); **`APP_TIMEZONE`** env-driven (set Africa/Cairo in prod); prod guidance in `.env.example` for `APP_DEBUG`/`LOG_LEVEL`/`SESSION_ENCRYPT`; **2FA config-gated** for write roles (`SECURITY_FORCE_2FA_ROLES`). Confirmed already-covered: Filament throttles login (5/min), demo password is env-driven.
+- **Observability + indexes** — `App\Support\OpsLog` helper + a dedicated, PII-scrubbed `ops` log channel instrumenting every money/integration path (Paymob client + callback, ETA submission + job retry-exhaustion, monthly-billing/late-fee/CAM run summaries, payment-link); **`payments.gateway_transaction_id` indexed** (the webhook hot path); the 5 exporters are now config-driven (`EXPORT_QUEUE_CONNECTION`) to queue in prod. *(The audit's other "missing index" claims — activity_log/notifications morphs, invoice_payment/cam/maintenance FKs — were already covered; verified via `SHOW INDEX`.)*
 
 ---
 
