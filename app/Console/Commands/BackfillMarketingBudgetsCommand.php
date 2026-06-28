@@ -2,52 +2,51 @@
 
 namespace App\Console\Commands;
 
-use App\Models\Invoice;
+use App\Models\Lease;
 use App\Models\MarketingBudget;
 use App\Services\MarketingLevyService;
 use Illuminate\Console\Command;
 
 /**
- * Rebuilds marketing budgets by accruing the levy (% of base rent) across all
- * historically billed invoices (FR MKT-5). Idempotent — sets accrued_amount
- * per (asset, year) rather than incrementing, so it's safe to re-run.
+ * Prepares existing data for the derived marketing-levy flow: seeds a marketing
+ * levy Charge on every active lease that lacks one (so future billing includes
+ * the tenant-facing levy line), then re-derives every budget's accrued (from
+ * billed marketing items) and spent (from recorded spends). Idempotent.
+ *
+ * Historical invoices are NOT retro-charged the levy — accrued reflects only
+ * marketing items actually billed, so prior-year budgets settle at what was
+ * really billed (0 for periods before the levy line existed).
  */
 class BackfillMarketingBudgetsCommand extends Command
 {
     protected $signature = 'marketing:backfill-budgets';
 
-    protected $description = 'Rebuild marketing budgets by accruing the levy on all historically billed base rent';
+    protected $description = 'Seed marketing levy charges on active leases + re-derive marketing budgets';
 
     public function handle(MarketingLevyService $svc): int
     {
-        $rate = $svc->ratePercent();
-        $totals = [];
-
-        Invoice::with(['items' => fn ($q) => $q->where('type', 'base_rent'), 'lease.unit'])
-            ->chunkById(200, function ($invoices) use (&$totals) {
-                foreach ($invoices as $invoice) {
-                    $rent = (float) $invoice->items->sum('amount');
-                    $assetId = $invoice->lease?->unit?->asset_id;
-                    $year = $invoice->period_start?->year;
-
-                    if ($rent <= 0 || ! $assetId || ! $year) {
-                        continue;
-                    }
-
-                    $totals[$assetId][$year] = ($totals[$assetId][$year] ?? 0) + $rent;
+        $seeded = 0;
+        Lease::query()
+            ->where('status', 'active')
+            ->where('base_rent_monthly', '>', 0)
+            ->whereDoesntHave('charges', fn ($q) => $q->where('type', 'marketing'))
+            ->chunkById(200, function ($leases) use ($svc, &$seeded) {
+                foreach ($leases as $lease) {
+                    $svc->createLevyCharge($lease);
+                    $seeded++;
                 }
             });
 
-        $count = 0;
-        foreach ($totals as $assetId => $years) {
-            foreach ($years as $year => $rent) {
-                MarketingBudget::forPeriod((int) $assetId, (int) $year)
-                    ->update(['accrued_amount' => round($rent * $rate / 100, 2)]);
-                $count++;
+        $recomputed = 0;
+        MarketingBudget::query()->chunkById(200, function ($budgets) use (&$recomputed) {
+            foreach ($budgets as $budget) {
+                $budget->recomputeAccrued();
+                $budget->recomputeSpent();
+                $recomputed++;
             }
-        }
+        });
 
-        $this->info("Rebuilt {$count} marketing budget(s) from billed base rent at {$rate}%.");
+        $this->info("Seeded {$seeded} marketing levy charge(s) on active leases; re-derived {$recomputed} budget(s).");
 
         return self::SUCCESS;
     }

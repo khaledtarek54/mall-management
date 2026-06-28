@@ -4,7 +4,7 @@
 
 ## 1. Purpose & business context
 
-The marketing module captures an operator's promotional/marketing expenditure and how it is funded. The Eltizam (operator) pays a recurring **marketing levy** (5% by default, configurable) on each tenant's base rent; this is NOT passed to the tenant but is instead pooled into a per-property marketing budget. The operator then draws from that budget to fund offers, promotions, events, and printed work, tracked as discrete spend items. The Jawad (property owner) can view accrued levies and spends to ensure the operator remains within budget (though overspend is allowed with a warning). This mirrors the CAM/expense-pool model but inverted: income accrual rather than cost allocation.
+The marketing module captures an operator's promotional/marketing expenditure and how it is funded. A recurring **marketing levy** (5% by default, configurable) is charged on each tenant's base rent **as a VAT-exempt line item on the tenant's invoice** (rewired 2026-06-28 — confirmed business decision); the collected levy is pooled into a per-property marketing budget. The operator then draws from that budget to fund offers, promotions, events, and printed work, tracked as discrete spend items. The Jawad (property owner) can view accrued levies and spends to ensure the operator remains within budget (though overspend is allowed with a warning). This mirrors the CAM/expense-pool model but inverted: income accrual rather than cost allocation.
 
 ## 2. Domain model
 
@@ -34,10 +34,12 @@ The marketing module captures an operator's promotional/marketing expenditure an
    - Monthly frequency.
    - Amount is captured and does NOT change retroactively if the lease's base_rent_monthly changes (the Charge itself is updated separately; only the rate-at-creation-time is versioned).
 
-4. **Budget accrual (FR MKT-5):** 
-   - During invoice generation (MonthlyBillingService), if a lease's billed base_rent is > 0, the levy (5% of actual billed rent) is accrued into the budget for that property + year.
-   - Accrual is idempotent: billing the same month twice adds only once (enforced by the billing engine's period dedup, not by the levy code itself).
-   - If a lease is prorated, the levy is 5% of the **prorated rent**, not the full monthly amount (see MarketingScenarioTest, "pro-rated rent" test).
+4. **Budget accrual (FR MKT-5) — DERIVED, rewired 2026-06-28:**
+   - The levy is a real **tenant invoice line item** (`invoice_items.type = 'marketing'`, VAT-exempt) — it is **charged to the tenant** (the invoice total includes it), not an internal set-aside.
+   - `MarketingBudget::recomputeAccrued()` **derives** `accrued_amount` = SUM of non-cancelled billed marketing items for the asset + year. It is **not** a running increment — it's re-derived from source (mirrors `recomputeSpent` and `Invoice::recomputeTotals`).
+   - Triggered reactively by `InvoiceItem`'s saved/deleted hook (billing creates the item → budget re-derives) and by `Invoice` cancellation (status→cancelled re-derives), so the accrual **auto-reverses** when an invoice is cancelled.
+   - Reconcilable: the `marketing_budget` check in `billing:reconcile` asserts `accrued == billed levies` and `spent == recorded spends`.
+   - The levy charge is seeded on lease creation and **kept in lock-step with base rent** on rent-change + renewal (`MarketingLevyService::createLevyCharge`). A prorated first-month invoice bills the prorated levy.
 
 5. **Spend recording (FR MKT-1/4):** 
    - Any spend > 0 is allowed; negative amounts are rejected at the form layer (`minValue(0)`).
