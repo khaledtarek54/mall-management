@@ -40,6 +40,6 @@ class InvoiceExporter extends Exporter
 
     public function getJobConnection(): ?string
     {
-        return 'sync';
+        return config('exports.connection', 'sync');
     }
 }
