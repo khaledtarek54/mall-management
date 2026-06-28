@@ -88,6 +88,27 @@ it('catches a marketing budget whose accrued drifted from the billed levies', fu
     expect(collect($report['checks'])->firstWhere('key', 'marketing_budget')['passed'])->toBeFalse();
 });
 
+it('catches a CAM allocation billed without a backing charge', function () {
+    $asset = makeAsset();
+    $unit = makeUnit($asset, ['area_sqm' => 100]);
+    makeLease($unit, null, ['status' => 'active']);
+    $pool = \App\Models\CamExpensePool::create([
+        'asset_id' => $asset->id, 'period_year' => 2026,
+        'total_actual_expense' => 10000, 'total_estimated_collected' => 8000, 'status' => 'draft',
+    ]);
+    app(\App\Services\CamReconciliationService::class)->generateAllocations($pool);
+
+    // Clean: the pro-rata allocations sum to the pool's expense.
+    expect(reconcile()['ok'])->toBeTrue();
+
+    // Mark an allocation billed but strip its backing charge → drift.
+    \App\Models\CamAllocation::query()->update(['status' => 'billed', 'billed_charge_id' => null]);
+
+    $report = reconcile();
+    expect($report['ok'])->toBeFalse();
+    expect(collect($report['checks'])->firstWhere('key', 'cam_allocations')['passed'])->toBeFalse();
+});
+
 it('includes applied credit notes in the derived paid amount', function () {
     $invoice = makeInvoice(makeLease(makeUnit(makeAsset())));
     $invoice->credit_applied_amount = 1400;

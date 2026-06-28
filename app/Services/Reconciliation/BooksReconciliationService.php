@@ -114,6 +114,27 @@ class BooksReconciliationService
         }
         $checks[] = $this->check('marketing_budget', 'Marketing accrued = billed levies, spent = recorded spends', $d);
 
+        // 6. CAM integrity: pro-rata allocations sum to the pool's actual expense
+        //    (within rounding), and every BILLED allocation is backed by a charge
+        //    (catches the "billed without/lost charge" + double-bill drift class).
+        $d = [];
+        foreach (\App\Models\CamExpensePool::query()->with('allocations')->get() as $pool) {
+            if ($pool->allocations->isEmpty()) {
+                continue;
+            }
+            $summed = round((float) $pool->allocations->sum('allocated_amount'), 2);
+            $tolerance = 0.01 * max(1, $pool->allocations->count()); // pro-rata rounding slack
+            if (abs($summed - (float) $pool->total_actual_expense) > $tolerance) {
+                $d[] = ['ref' => "pool #{$pool->id} ({$pool->period_year})", 'detail' => "allocations sum {$summed} ≠ pool expense {$pool->total_actual_expense}"];
+            }
+            foreach ($pool->allocations->where('status', 'billed') as $alloc) {
+                if (! $alloc->billed_charge_id || ! \App\Models\Charge::whereKey($alloc->billed_charge_id)->exists()) {
+                    $d[] = ['ref' => "pool #{$pool->id} alloc #{$alloc->id}", 'detail' => "billed but no backing charge (billed_charge_id={$alloc->billed_charge_id})"];
+                }
+            }
+        }
+        $checks[] = $this->check('cam_allocations', 'CAM allocations tie to the pool + billed ones have a charge', $d);
+
         // Control totals — the figures an accountant reconciles against their own books.
         $controlTotals = [
             'invoiceCount'  => $invoices->count(),

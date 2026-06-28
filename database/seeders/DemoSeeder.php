@@ -300,10 +300,11 @@ class DemoSeeder extends Seeder
         $this->seedCreditNotes();
         $this->seedStaffAssignments($atriomWalk);
 
-        // Accrue the 5% marketing levy from all billed base rent so the
-        // marketing budgets aren't empty on a fresh demo (FR MKT-5).
+        // Re-derive the marketing budgets from the billed levy line items, then
+        // record a few spends so the fund shows accrued + spent + a live balance.
         \Illuminate\Support\Facades\Artisan::call('marketing:backfill-budgets');
-        $this->command->info('   Marketing budgets backfilled from billed rent');
+        $this->seedMarketingSpends();
+        $this->command->info('   Marketing budgets derived from billed levies + demo spends');
 
         $plazaUnitCount = Unit::where('asset_id', $plazaAnnex->id)->count();
         $this->command->info("✅ Created Atriom Walk with {$occupiedCount} occupied, {$vacantCount} vacant units (+ {$plazaUnitCount} vacant units on Plaza Annex demo asset)");
@@ -341,8 +342,10 @@ class DemoSeeder extends Seeder
 
             $rent = (float) $lease->base_rent_monthly;
             $service = (float) $lease->service_charge_monthly;
+            $marketing = round($rent * 0.05, 2); // 5% marketing levy, charged to the tenant
             $vat = round($service * 0.14, 2);
-            $total = round($rent + $service + $vat, 2);
+            $subtotal = $rent + $service + $marketing;
+            $total = round($subtotal + $vat, 2);
 
             $invoice = Invoice::create([
                 'lease_id' => $lease->id,
@@ -352,7 +355,7 @@ class DemoSeeder extends Seeder
                 'due_date' => Carbon::now()->addDays(7),
                 'period_start' => $issueDate,
                 'period_end' => $issueDate->copy()->endOfMonth(),
-                'subtotal' => $rent + $service,
+                'subtotal' => $subtotal,
                 'vat_amount' => $vat,
                 'total' => $total,
                 'paid_amount' => 0,
@@ -377,6 +380,16 @@ class DemoSeeder extends Seeder
                 'vat_rate' => 14.00,
                 'vat_amount' => $vat,
                 'total' => $service + $vat,
+            ]);
+            // Marketing levy line — funds the property marketing budget (derived).
+            InvoiceItem::create([
+                'invoice_id' => $invoice->id,
+                'description' => 'Marketing Levy - '.$issueDate->format('F Y'),
+                'type' => 'marketing',
+                'amount' => $marketing,
+                'vat_rate' => 0,
+                'vat_amount' => 0,
+                'total' => $marketing,
             ]);
 
             $created++;
@@ -1426,5 +1439,38 @@ class DemoSeeder extends Seeder
         }
 
         $this->command->info('   Staff assignments seeded: '.$asset->staff()->count());
+    }
+
+    /**
+     * A few marketing spends per budget so the fund shows accrued (from billed
+     * levies) − spent = a live balance. Spends ~40% of the accrued fund, leaving
+     * a healthy positive balance. recomputeSpent fires via MarketingSpend's hook.
+     */
+    private function seedMarketingSpends(): void
+    {
+        $marketingLead = User::where('email', 'marketing@mall.test')->first();
+
+        $samples = [
+            ['category' => 'offer', 'description' => 'Seasonal storefront offer campaign', 'frac' => 0.20],
+            ['category' => 'event', 'description' => 'Weekend family activation', 'frac' => 0.12],
+            ['category' => 'printed_work', 'description' => 'Directory + signage reprint', 'frac' => 0.08],
+        ];
+
+        foreach (\App\Models\MarketingBudget::all() as $budget) {
+            foreach ($samples as $i => $s) {
+                $amount = round((float) $budget->accrued_amount * $s['frac'], 2);
+                if ($amount <= 0) {
+                    continue;
+                }
+                \App\Models\MarketingSpend::create([
+                    'marketing_budget_id' => $budget->id,
+                    'category' => $s['category'],
+                    'description' => $s['description'],
+                    'amount' => $amount,
+                    'spent_on' => now()->subDays(($i + 1) * 10),
+                    'created_by_user_id' => $marketingLead?->id,
+                ]);
+            }
+        }
     }
 }
