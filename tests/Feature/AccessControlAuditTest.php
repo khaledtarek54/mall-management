@@ -2,11 +2,15 @@
 
 use App\Filament\Admin\Resources\Roles\Pages\CreateRole;
 use App\Filament\Admin\Resources\Roles\Pages\EditRole;
+use App\Filament\Admin\Resources\Roles\Pages\ListRoles;
+use App\Filament\Admin\Resources\Roles\RoleResource;
 use App\Filament\Admin\Resources\Users\Pages\CreateUser;
 use App\Filament\Admin\Resources\Users\Pages\EditUser;
+use App\Filament\Admin\Resources\Users\Pages\ListUsers;
 use App\Filament\Admin\Resources\Users\UserResource;
 use App\Models\Department;
 use App\Models\User;
+use App\Support\ActivityLogChangeRenderer;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
@@ -44,7 +48,9 @@ function acRows(int $subjectId)
 
 function acField($row, string $field)
 {
-    return data_get($row?->properties, "attributes.{$field}");
+    // Read attribute_changes — the column AccessControlAudit writes (via
+    // withChanges) and the column ActivityLogChangeRenderer / the UI read.
+    return data_get($row?->attribute_changes, "attributes.{$field}");
 }
 
 /*
@@ -173,7 +179,47 @@ it('blocks a non-super_admin from granting super_admin through the User form', f
         ->assertHasNoFormErrors();
 
     expect($target->fresh()->hasRole('super_admin'))->toBeFalse()
-        ->and($target->fresh()->hasRole('viewer'))->toBeTrue();
+        ->and($target->fresh()->hasRole('viewer'))->toBeTrue()
+        // the blocked attempt is itself recorded
+        ->and(acField(acRows($target->id)->firstWhere(fn ($a) => acField($a, 'super_admin_change_blocked')), 'super_admin_change_blocked'))
+        ->toContain('attempted grant');
+});
+
+it('routes the Users table edit + header create to the guarded pages (no modal bypass)', function () {
+    $this->actingAs(acAdmin());
+    acTenant();
+    $target = User::factory()->create();
+
+    // A URL action carries no modal form, so it cannot save an escalation — every
+    // create/edit must go through the page (where enforcement + audit run).
+    Livewire::test(ListUsers::class)
+        ->assertTableActionHasUrl('edit', UserResource::getUrl('edit', ['record' => $target]), $target)
+        ->assertActionHasUrl('create', UserResource::getUrl('create'));
+});
+
+it('routes the Roles table edit to the guarded page', function () {
+    $this->actingAs(acAdmin());
+    acTenant();
+    $role = Role::create(['name' => 'custom_route', 'guard_name' => 'web']);
+
+    Livewire::test(ListRoles::class)
+        ->assertTableActionHasUrl('edit', RoleResource::getUrl('edit', ['record' => $role]), $role);
+});
+
+it('renders access-control entries in the Activity Log (not as a dash)', function () {
+    $this->actingAs(acAdmin());
+    acTenant();
+    $target = User::factory()->create();
+
+    Livewire::test(EditUser::class, ['record' => $target->getRouteKey()])
+        ->fillForm(['roles' => [Role::findByName('leasing', 'web')->id]])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    $row = acRows($target->id)->firstWhere(fn ($a) => acField($a, 'role_granted'));
+    $html = app(ActivityLogChangeRenderer::class)->render($row);
+
+    expect($html)->toContain('leasing')->not->toContain('—');
 });
 
 it('lets a super_admin grant super_admin through the User form', function () {

@@ -13,7 +13,10 @@ class ListUsers extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            CreateAction::make(),
+            // Navigate to the Create PAGE (not a modal) so CreateUser::afterCreate
+            // runs the super_admin guard + the role-grant audit.
+            CreateAction::make()
+                ->url(UserResource::getUrl('create')),
         ];
     }
 }

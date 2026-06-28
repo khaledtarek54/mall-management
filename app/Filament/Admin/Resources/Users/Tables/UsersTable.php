@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Users\Tables;
 
+use App\Filament\Admin\Resources\Users\UserResource;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -77,7 +78,11 @@ class UsersTable
             ])
             ->filtersFormColumns(2)
             ->recordActions([
-                EditAction::make(),
+                // Navigate to the Edit PAGE (not a modal): EditUser::afterSave is
+                // where the super_admin guard + the role-change audit run. A modal
+                // EditAction would save via its own handler and bypass both.
+                EditAction::make()
+                    ->url(fn ($record): string => UserResource::getUrl('edit', ['record' => $record])),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

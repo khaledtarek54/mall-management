@@ -37,7 +37,13 @@ class RolesTable
                     ->color('gray'),
             ])
             ->recordActions([
-                EditAction::make()->visible(fn ($record) => RoleResource::canEdit($record)),
+                // Navigate to the Edit PAGE (not a modal): the per-module permission
+                // CheckboxLists are dehydrated(false) and only EditRole::afterSave
+                // gathers + syncs them (and audits the diff). A modal EditAction
+                // would no-op the permission change AND skip the audit.
+                EditAction::make()
+                    ->visible(fn ($record) => RoleResource::canEdit($record))
+                    ->url(fn ($record): string => RoleResource::getUrl('edit', ['record' => $record])),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

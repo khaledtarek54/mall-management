@@ -41,10 +41,14 @@ class AccessControlAudit
                 ->performedOn($subject)
                 ->causedBy(auth()->user())
                 ->event('updated')
-                // Shaped as {attributes: {...}} so ActivityLogChangeRenderer renders
-                // it; the field name (role_granted / permission_revoked) carries the
+                // withChanges() writes the `attribute_changes` column — the one
+                // ActivityLogChangeRenderer (and the Activity Log UI) reads. Using
+                // withProperties() here would store the data in the separate
+                // `properties` column and the UI would render it as "—".
+                // Shaped as {attributes: {...}} so the renderer shows each field;
+                // the field name (role_granted / permission_revoked) carries the
                 // grant-vs-revoke semantics, the value lists the names.
-                ->withProperties(['attributes' => [$action => implode(', ', $names)]])
+                ->withChanges(['attributes' => [$action => implode(', ', $names)]])
                 ->log($action);
         } catch (\Throwable $e) {
             // Auditing is advisory — a logging failure must NEVER abort or 500 the

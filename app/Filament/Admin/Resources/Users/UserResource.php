@@ -8,6 +8,7 @@ use App\Filament\Admin\Resources\Users\Pages\ListUsers;
 use App\Filament\Admin\Resources\Users\Schemas\UserForm;
 use App\Filament\Admin\Resources\Users\Tables\UsersTable;
 use App\Models\User;
+use App\Support\AccessControlAudit;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -119,11 +120,21 @@ class UserResource extends Resource
         $hadSuper = in_array('super_admin', $rolesBefore, true);
         $hasSuper = $user->hasRole('super_admin');
 
-        if ($hadSuper && ! $hasSuper) {
+        if ($hadSuper === $hasSuper) {
+            return; // no super_admin change attempted
+        }
+
+        if ($hadSuper) {
             $user->assignRole('super_admin');   // non-super_admin cannot revoke it
-        } elseif (! $hadSuper && $hasSuper) {
+        } else {
             $user->removeRole('super_admin');   // non-super_admin cannot grant it
         }
+
+        // Record the blocked attempt — a privilege-escalation probe (even one
+        // reverted) is exactly what a security reviewer wants to see in the trail.
+        AccessControlAudit::log($user, 'super_admin_change_blocked', [
+            $hadSuper ? 'attempted revoke' : 'attempted grant',
+        ]);
     }
 
     public static function form(Schema $schema): Schema
