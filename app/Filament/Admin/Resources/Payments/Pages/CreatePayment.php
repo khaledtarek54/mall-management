@@ -64,7 +64,15 @@ class CreatePayment extends CreateRecord
         if (! empty($sync)) {
             try {
                 $payment->assertInvoicesShareTenant(array_keys($sync));
+                \Illuminate\Support\Facades\DB::transaction(function () use ($payment, $sync) {
+                    $payment->invoices()->sync($sync);
+                    $payment->recomputeAllocatedInvoices();
+                    // Lock-safe backstop: the form cap is per-request; this catches
+                    // a parallel capture that would push the invoice over its total.
+                    $payment->assertInvoicesNotOverAllocated(array_keys($sync));
+                });
             } catch (\DomainException $e) {
+                $payment->delete(); // undo the orphan payment row created before this hook
                 Notification::make()
                     ->title(__('admin.actions.allocation_exceeds_title'))
                     ->body($e->getMessage())
@@ -72,10 +80,6 @@ class CreatePayment extends CreateRecord
                     ->send();
                 $this->halt();
             }
-            \Illuminate\Support\Facades\DB::transaction(function () use ($payment, $sync) {
-                $payment->invoices()->sync($sync);
-                $payment->recomputeAllocatedInvoices();
-            });
 
             // Allocations are now synced — deliver the receipt notification.
             $payment->notifyReceiptOnce();

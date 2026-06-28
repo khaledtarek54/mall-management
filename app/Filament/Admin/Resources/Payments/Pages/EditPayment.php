@@ -92,6 +92,17 @@ class EditPayment extends EditRecord
 
         try {
             $payment->assertInvoicesShareTenant(array_keys($sync));
+
+            \Illuminate\Support\Facades\DB::transaction(function () use ($payment, $sync, $previouslyAttached) {
+                $payment->invoices()->sync($sync);
+
+                // Recompute every invoice that was ever attached so detached ones flip back to outstanding.
+                $touchedIds = array_unique(array_merge($previouslyAttached, array_keys($sync)));
+                \App\Models\Invoice::whereIn('id', $touchedIds)->get()->each->recomputeTotals();
+
+                // Lock-safe over-allocation backstop (rolls back this sync if violated).
+                $payment->assertInvoicesNotOverAllocated(array_keys($sync));
+            });
         } catch (\DomainException $e) {
             Notification::make()
                 ->title(__('admin.actions.allocation_exceeds_title'))
@@ -100,14 +111,6 @@ class EditPayment extends EditRecord
                 ->send();
             $this->halt();
         }
-
-        \Illuminate\Support\Facades\DB::transaction(function () use ($payment, $sync, $previouslyAttached) {
-            $payment->invoices()->sync($sync);
-
-            // Recompute every invoice that was ever attached so detached ones flip back to outstanding.
-            $touchedIds = array_unique(array_merge($previouslyAttached, array_keys($sync)));
-            \App\Models\Invoice::whereIn('id', $touchedIds)->get()->each->recomputeTotals();
-        });
 
         // Allocations are now synced — deliver the receipt notification.
         $payment->notifyReceiptOnce();

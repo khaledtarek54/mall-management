@@ -129,6 +129,42 @@ class Payment extends Model
     }
 
     /**
+     * Concurrency-safe over-allocation guard. Call INSIDE the same transaction
+     * that syncs the pivot (after recompute): it locks each invoice and re-checks
+     * that captured allocations + applied credits don't exceed the invoice total.
+     * The lock serialises parallel payment saves, so two captures that each fit
+     * the balance alone but together over-allocate are caught (the second rolls
+     * back). Form-level caps handle the common case; this is the race backstop.
+     *
+     * @param  array<int>  $invoiceIds
+     *
+     * @throws \DomainException
+     */
+    public function assertInvoicesNotOverAllocated(array $invoiceIds): void
+    {
+        if (empty($invoiceIds)) {
+            return;
+        }
+
+        foreach (Invoice::whereIn('id', $invoiceIds)->lockForUpdate()->get() as $invoice) {
+            $allocated = round(
+                (float) $invoice->payments()->where('payments.status', 'captured')->sum('invoice_payment.allocated_amount')
+                + (float) $invoice->credit_applied_amount,
+                2,
+            );
+
+            if ($allocated > round((float) $invoice->total, 2) + 0.01) {
+                throw new \DomainException(
+                    __('admin.payment.allocation_exceeds_balance', [
+                        'invoice' => $invoice->number,
+                        'max' => 'EGP '.number_format((float) $invoice->total, 2),
+                    ])
+                );
+            }
+        }
+    }
+
+    /**
      * Throw if any of the given invoice IDs belongs to a tenant different
      * from this payment. Used by the admin Create/Edit pages before they
      * sync the invoice_payment pivot — the form's tenant filter already
