@@ -439,9 +439,10 @@ return [
         'marketing_budget' => [
             'property' => 'Property',
             'year' => 'Year',
-            'accrued' => 'Accrued (5% levy)',
+            'fund' => 'Marketing fund',
+            'accrued' => 'Collected levy (5%)',
             'spent' => 'Spent',
-            'balance' => 'Balance',
+            'balance' => 'Available',
             'status' => 'Status',
         ],
         'marketing_spend' => [

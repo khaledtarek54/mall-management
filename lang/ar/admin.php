@@ -439,9 +439,10 @@ return [
         'marketing_budget' => [
             'property' => 'العقار',
             'year' => 'السنة',
-            'accrued' => 'المستحَق (رسوم 5%)',
+            'fund' => 'صندوق التسويق',
+            'accrued' => 'الرسوم المحصّلة (5%)',
             'spent' => 'المصروف',
-            'balance' => 'الرصيد',
+            'balance' => 'المتاح',
             'status' => 'الحالة',
         ],
         'marketing_spend' => [

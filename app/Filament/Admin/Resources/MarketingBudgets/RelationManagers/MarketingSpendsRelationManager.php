@@ -33,7 +33,19 @@ class MarketingSpendsRelationManager extends RelationManager
 
     public function form(Schema $schema): Schema
     {
+        $budget = $this->getOwnerRecord();
+
         return $schema->columns(2)->components([
+            \Filament\Forms\Components\Placeholder::make('fund')
+                ->hiddenLabel()
+                ->columnSpanFull()
+                ->content(new \Illuminate\Support\HtmlString(
+                    '<div style="display:flex;flex-wrap:wrap;gap:1.5rem;font-size:.875rem;padding:.5rem .75rem;background:#f1f5f9;border-radius:.5rem;">'
+                    .'<span>'.e(__('admin.tables.marketing_budget.accrued')).': <strong>'.number_format((float) $budget->accrued_amount, 2).'</strong></span>'
+                    .'<span>'.e(__('admin.tables.marketing_budget.spent')).': <strong>'.number_format((float) $budget->spent_amount, 2).'</strong></span>'
+                    .'<span style="color:#0f766e;">'.e(__('admin.tables.marketing_budget.balance')).': <strong>'.number_format((float) $budget->balance(), 2).' EGP</strong></span>'
+                    .'</div>'
+                )),
             Select::make('category')
                 ->label(__('admin.tables.marketing_spend.category'))
                 ->options(fn () => collect(MarketingSpend::CATEGORIES)->mapWithKeys(fn ($c) => [$c => Str::headline($c)]))

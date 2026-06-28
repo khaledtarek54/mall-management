@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\MarketingBudgets\Schemas;
 
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -40,6 +41,22 @@ class MarketingBudgetForm
                         ->label(__('admin.fields.notes'))
                         ->rows(2)
                         ->columnSpanFull(),
+                ]),
+            // The fund: derived from billed levies (income) − spends (expenses).
+            // Read-only — accrued is auto-derived from invoices, never hand-set.
+            Section::make(__('admin.tables.marketing_budget.fund'))
+                ->visible(fn ($record) => $record !== null)
+                ->columns(3)
+                ->components([
+                    Placeholder::make('accrued_display')
+                        ->label(__('admin.tables.marketing_budget.accrued'))
+                        ->content(fn ($record) => number_format((float) $record->accrued_amount, 2).' EGP'),
+                    Placeholder::make('spent_display')
+                        ->label(__('admin.tables.marketing_budget.spent'))
+                        ->content(fn ($record) => number_format((float) $record->spent_amount, 2).' EGP'),
+                    Placeholder::make('balance_display')
+                        ->label(__('admin.tables.marketing_budget.balance'))
+                        ->content(fn ($record) => number_format((float) $record->balance(), 2).' EGP'),
                 ]),
         ]);
     }
