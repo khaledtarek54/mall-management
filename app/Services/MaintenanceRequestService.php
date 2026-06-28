@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\TenantRequestType;
 use App\Models\MaintenanceRequest;
 use App\Models\MaintenanceRequestComment;
 use App\Models\Tenant;
@@ -41,28 +42,74 @@ class MaintenanceRequestService
             $unit = $tenant->activeLeases()->first()?->unit;
             $lease = $tenant->activeLeases()->first();
 
+            $type = isset($data['request_type'])
+                ? TenantRequestType::from($data['request_type'])
+                : TenantRequestType::default();
+
             $priority = $data['priority'] ?? 'medium';
 
             $request = MaintenanceRequest::create([
                 'reference' => MaintenanceRequest::generateReference(
-                    $unit?->asset?->code ?? 'AW'
+                    $unit?->asset?->code ?? 'AW',
+                    $type->referencePrefix(),
                 ),
                 'tenant_id' => $tenant->id,
                 'unit_id' => $data['unit_id'] ?? $unit?->id,
                 'lease_id' => $data['lease_id'] ?? $lease?->id,
+                'request_type' => $type->value,
                 'status' => 'submitted',
                 'priority' => $priority,
-                'category' => $data['category'] ?? 'other',
+                // `category` holds the type's sub-category (electrical, parking,
+                // lease_copy, …). Null when the type has none (inquiry, billing).
+                'category' => $data['category'] ?? null,
+                'department_id' => $data['department_id'] ?? $this->defaultDepartmentIdFor($type),
                 'title' => $data['title'],
                 'description' => $data['description'],
                 'submitted_at' => now(),
-                'target_resolution_at' => $this->defaultTargetResolution($priority),
+                'target_resolution_at' => $this->targetResolutionFor($type, $priority),
             ]);
 
             $this->notifyOperators($request);
 
             return $request;
         });
+    }
+
+    /**
+     * The department a request type is auto-routed to on intake (by Department
+     * slug — see TenantRequestType::defaultDepartmentSlug). Null when the type
+     * has no default team, or the department isn't seeded — it then lands
+     * unassigned for manual triage (existing maintenance behaviour).
+     */
+    private function defaultDepartmentIdFor(TenantRequestType $type): ?int
+    {
+        $slug = $type->defaultDepartmentSlug();
+
+        if ($slug === null) {
+            return null;
+        }
+
+        return \App\Models\Department::query()->where('slug', $slug)->value('id');
+    }
+
+    /**
+     * SLA target for a request. Types without an SLA (inquiry, billing query,
+     * document request) get no deadline. Maintenance keeps reading the operator-
+     * tunable MaintenanceSettings; other typed SLAs use the per-type code map.
+     */
+    private function targetResolutionFor(TenantRequestType $type, string $priority): ?Carbon
+    {
+        if (! $type->hasSla()) {
+            return null;
+        }
+
+        if ($type === TenantRequestType::Maintenance) {
+            return $this->defaultTargetResolution($priority);
+        }
+
+        $hours = $type->slaHours()[$priority] ?? null;
+
+        return $hours === null ? null : now()->addHours((int) $hours);
     }
 
     /**
