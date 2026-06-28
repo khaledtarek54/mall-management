@@ -3,18 +3,25 @@
 namespace App\Support;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Collection;
 
 /**
  * Central sink for access-control audit entries (role + permission grants /
- * revokes). Writes a single activity_log row under the 'access_control' log
- * name so the standard Activity Log viewer surfaces it (no viewer changes
- * needed beyond a label + badge colour).
+ * revokes, role deletion). Writes a single activity_log row under the
+ * 'access_control' log name so the standard Activity Log viewer surfaces it.
  *
- * Only authenticated, human-initiated changes are recorded — seeding and CLI
- * grants (no causer) are skipped so `migrate:fresh --seed` doesn't flood the
- * trail and the test suite stays deterministic. The "who" is the whole point of
- * the audit, so a causer-less entry carries no value here.
+ * Auditing is done with explicit before/after DIFFS at each UI mutation point
+ * (the User pages, the Department membership actions, the Role pages) rather
+ * than via spatie's permission events, because:
+ *   - Filament's roles Select saves through the raw belongsToMany pivot
+ *     (sync()/detach()), which fires NO spatie event — so the primary admin
+ *     path would be invisible to an event listener.
+ *   - spatie fires its events with the FULL requested set, not the delta, so an
+ *     event listener logs phantom grants on every idempotent re-assign.
+ * A diff is delta-aware by construction (no phantoms) and catches every path.
+ *
+ * Only authenticated, human-initiated changes are recorded ({@see log()} gates
+ * on auth()->check()): seeding and CLI grants have no causer, so they're
+ * skipped — the "who" is the whole point of the trail.
  */
 class AccessControlAudit
 {
@@ -29,46 +36,45 @@ class AccessControlAudit
             return;
         }
 
-        activity('access_control')
-            ->performedOn($subject)
-            ->causedBy(auth()->user())
-            ->event('updated')
-            // Shaped as {attributes: {...}} so ActivityLogChangeRenderer renders
-            // it; the field name (role_granted / permission_revoked) carries the
-            // grant-vs-revoke semantics, the value lists the names.
-            ->withProperties(['attributes' => [$action => implode(', ', $names)]])
-            ->log($action);
+        try {
+            activity('access_control')
+                ->performedOn($subject)
+                ->causedBy(auth()->user())
+                ->event('updated')
+                // Shaped as {attributes: {...}} so ActivityLogChangeRenderer renders
+                // it; the field name (role_granted / permission_revoked) carries the
+                // grant-vs-revoke semantics, the value lists the names.
+                ->withProperties(['attributes' => [$action => implode(', ', $names)]])
+                ->log($action);
+        } catch (\Throwable $e) {
+            // Auditing is advisory — a logging failure must NEVER abort or 500 the
+            // privileged operation it records (the grant is already committed).
+            report($e);
+        }
     }
 
     /**
-     * Normalise a spatie permission-event payload to an array of names. The
-     * payload type is INCONSISTENT across the events: role/permission *attach*
-     * and role *detach* carry an array of primary keys, while permission
-     * *detach* carries an Eloquent model (or a collection of them). Resolve
-     * every shape here so listeners don't have to.
+     * Log the role delta on a user (subject) — only genuine adds/removes produce
+     * a row, so an unchanged re-save is silent.
      *
-     * @param  class-string<Model>  $modelClass  Role::class or Permission::class
-     * @return array<int, string>
+     * @param  array<int, string>  $before
+     * @param  array<int, string>  $after
      */
-    public static function namesFrom(mixed $payload, string $modelClass): array
+    public static function logRoleDiff(Model $user, array $before, array $after): void
     {
-        $items = $payload instanceof Collection
-            ? $payload->all()
-            : (is_array($payload) ? $payload : [$payload]);
+        self::log($user, 'role_granted', array_values(array_diff($after, $before)));
+        self::log($user, 'role_revoked', array_values(array_diff($before, $after)));
+    }
 
-        return collect($items)
-            ->map(function ($item) use ($modelClass) {
-                if ($item instanceof Model) {
-                    return $item->name ?? '#'.$item->getKey();
-                }
-                if (is_int($item) || (is_string($item) && ctype_digit($item))) {
-                    return optional($modelClass::find($item))->name ?? '#'.$item;
-                }
-
-                return is_string($item) ? $item : null; // already a name
-            })
-            ->filter()
-            ->values()
-            ->all();
+    /**
+     * Log the permission delta on a role (subject).
+     *
+     * @param  array<int, string>  $before
+     * @param  array<int, string>  $after
+     */
+    public static function logPermissionDiff(Model $role, array $before, array $after): void
+    {
+        self::log($role, 'permission_granted', array_values(array_diff($after, $before)));
+        self::log($role, 'permission_revoked', array_values(array_diff($before, $after)));
     }
 }

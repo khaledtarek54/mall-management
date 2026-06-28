@@ -135,11 +135,8 @@ return [
      * \Spatie\Permission\Events\PermissionDetachedEvent
      *
      * To enable, set to true, and then create listeners to watch these events.
-     *
-     * Enabled: App\Listeners\LogAccessControlChange audits role grants/revokes
-     * (RoleAttached/Detached) into the activity log for the access-control trail.
      */
-    'events_enabled' => true,
+    'events_enabled' => false,
 
     /*
      * Teams Feature.

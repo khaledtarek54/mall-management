@@ -1361,6 +1361,7 @@ return [
             'deleted' => 'Deleted',
         ],
         'empty_value' => '(empty)',
+        'held_by' => 'held by',
         'bool_true' => 'yes',
         'bool_false' => 'no',
         'period' => 'Period',

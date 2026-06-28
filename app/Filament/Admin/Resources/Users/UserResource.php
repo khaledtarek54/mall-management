@@ -100,6 +100,43 @@ class UserResource extends Resource
         return false;
     }
 
+    /**
+     * Server-side guard: only a super_admin may grant or revoke the super_admin
+     * role. For any other actor, force the submitted role set to preserve the
+     * target's CURRENT super_admin status — so an hr/manager can't escalate a
+     * user (or themselves) to super_admin, nor strip it. Called from the User
+     * Create/Edit pages before save. (The form also hides the option in the UI,
+     * but this is the enforcement that actually holds.)
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public static function guardSuperAdminAssignment(array $data, ?User $record = null): array
+    {
+        if (! array_key_exists('roles', $data) || Auth::user()?->hasRole('super_admin')) {
+            return $data;
+        }
+
+        $superId = \Spatie\Permission\Models\Role::query()
+            ->where('name', 'super_admin')->where('guard_name', 'web')->value('id');
+
+        if (! $superId) {
+            return $data;
+        }
+
+        $roles = collect($data['roles'])
+            ->map(fn ($v) => (int) $v)
+            ->reject(fn ($id) => $id === (int) $superId);
+
+        if ($record?->hasRole('super_admin')) {
+            $roles->push((int) $superId); // preserve — non-super_admin can't revoke it either
+        }
+
+        $data['roles'] = $roles->unique()->values()->all();
+
+        return $data;
+    }
+
     public static function form(Schema $schema): Schema
     {
         return UserForm::configure($schema);

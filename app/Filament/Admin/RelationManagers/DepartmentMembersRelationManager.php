@@ -110,7 +110,7 @@ class DepartmentMembersRelationManager extends RelationManager
             ->recordActions([
                 EditAction::make(),
                 DetachAction::make()
-                    ->after(fn (\Illuminate\Database\Eloquent\Model $record, $livewire) => $record->removeRole($livewire->getOwnerRecord()->roleName())),
+                    ->after(fn (\Illuminate\Database\Eloquent\Model $record, $livewire) => $livewire->getOwnerRecord()->unregisterMember($record)),
             ])
             ->defaultSort('pivot_assigned_at', 'desc');
     }

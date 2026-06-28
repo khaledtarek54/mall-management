@@ -1361,6 +1361,7 @@ return [
             'deleted' => 'حذف',
         ],
         'empty_value' => '(فارغ)',
+        'held_by' => 'مُسند إلى',
         'bool_true' => 'نعم',
         'bool_false' => 'لا',
         'period' => 'الفترة',

@@ -35,6 +35,6 @@ class CreateRole extends CreateRecord
         $this->record->syncPermissions($after);
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
-        AccessControlAudit::log($this->record, 'permission_granted', $after);
+        AccessControlAudit::logPermissionDiff($this->record, [], $after);
     }
 }

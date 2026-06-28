@@ -2,7 +2,6 @@
 
 namespace App\Providers;
 
-use App\Listeners\LogAccessControlChange;
 use App\Models\Lease;
 use App\Observers\LeaseObserver;
 use App\Providers\Filament\OwnerPanelProvider;
@@ -14,7 +13,6 @@ use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Support\Facades\Blade;
-use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Number;
 use Illuminate\Support\ServiceProvider;
 
@@ -50,10 +48,6 @@ class AppServiceProvider extends ServiceProvider
         Number::useLocale('en');
 
         Lease::observe(LeaseObserver::class);
-
-        // Audit user↔role grants (spatie RoleAttached/Detached) into the activity
-        // log. Requires config('permission.events_enabled') = true.
-        Event::subscribe(LogAccessControlChange::class);
 
         // Bulk delete is OFF by default across every Filament table — a
         // destructive multi-row action shouldn't be one mis-click. Most

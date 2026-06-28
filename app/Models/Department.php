@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\AccessControlAudit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -82,25 +83,42 @@ class Department extends Model
         return $this->slug;
     }
 
-    /** Assign this department's role to every current member (idempotent). */
+    /** Assign this department's role to every member who lacks it (idempotent + audited). */
     public function assignRolesToMembers(): void
     {
         $role = $this->roleName();
-        $this->members()->get()->each(fn (User $u) => $u->assignRole($role));
+        $this->members()->get()->each(fn (User $u) => $this->grantRole($u, $role));
     }
 
     /** Register a user into this department: membership + the department role. */
     public function registerMember(User $user, array $pivot = []): void
     {
         $this->members()->syncWithoutDetaching([$user->id => $pivot]);
-        $user->assignRole($this->roleName());
+        $this->grantRole($user, $this->roleName());
     }
 
     /** Remove a user from this department: membership + the department role. */
     public function unregisterMember(User $user): void
     {
         $this->members()->detach($user->id);
-        $user->removeRole($this->roleName());
+        $role = $this->roleName();
+        if ($user->hasRole($role)) {
+            $user->removeRole($role);
+            AccessControlAudit::log($user, 'role_revoked', [$role]);
+        }
+    }
+
+    /**
+     * Grant a role only if the user lacks it — so re-running over the whole
+     * roster (the Attach action does) neither re-attaches nor logs phantom
+     * grants for members whose access didn't change.
+     */
+    protected function grantRole(User $user, string $role): void
+    {
+        if (! $user->hasRole($role)) {
+            $user->assignRole($role);
+            AccessControlAudit::log($user, 'role_granted', [$role]);
+        }
     }
 
     public function isGlobal(): bool

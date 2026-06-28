@@ -17,7 +17,17 @@ class EditRole extends EditRecord
     {
         return [
             DeleteAction::make()
-                ->visible(fn () => ! array_key_exists($this->record->name, RolesPermissionsSeeder::ROLES)),
+                ->visible(fn () => ! array_key_exists($this->record->name, RolesPermissionsSeeder::ROLES))
+                // Deleting a role cascades to a mass revoke (model_has_roles +
+                // role_has_permissions both cascadeOnDelete) — audit it before the
+                // record (and its subject link) is gone.
+                ->before(function (): void {
+                    $holders = $this->record->users()->pluck('name')->all();
+                    AccessControlAudit::log($this->record, 'role_deleted', [
+                        $this->record->name.' ('.__('admin.activity.held_by').': '
+                            .($holders ? implode(', ', $holders) : '—').')',
+                    ]);
+                }),
         ];
     }
 
@@ -53,9 +63,7 @@ class EditRole extends EditRecord
         $this->record->syncPermissions($after);
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
-        // syncPermissions() bulk-detaches silently (no spatie event), so audit
-        // the permission diff explicitly — this page is the only UI that edits it.
-        AccessControlAudit::log($this->record, 'permission_granted', array_values(array_diff($after, $before)));
-        AccessControlAudit::log($this->record, 'permission_revoked', array_values(array_diff($before, $after)));
+        // Audit the permission diff explicitly — this page is the only UI that edits it.
+        AccessControlAudit::logPermissionDiff($this->record, $before, $after);
     }
 }
