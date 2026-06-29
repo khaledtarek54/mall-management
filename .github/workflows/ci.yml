@@ -44,6 +44,34 @@ jobs:
       - name: Run PHPUnit
         run: php artisan test --testsuite=Unit,Feature
 
+  static-analysis:
+    name: Static analysis (PHPStan)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, intl, pdo_sqlite, sqlite3, gd, bcmath
+          coverage: none
+          tools: composer:v2
+
+      - name: Cache composer
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+
+      - name: Install composer deps
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      # Gate enforces NO NEW errors above the grandfathered phpstan-baseline.neon.
+      - name: PHPStan
+        run: vendor/bin/phpstan analyse --no-progress --error-format=github
+
   playwright:
     name: Playwright E2E
     runs-on: ubuntu-latest

@@ -1,0 +1,20 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+    - phpstan-baseline.neon
+
+parameters:
+    level: 5
+
+    paths:
+        - app
+
+    # Filament resources/schemas are declarative config classes whose generics
+    # PHPStan can't fully infer; keep them out of the gate for now (they're
+    # exercised by the E2E suite). Revisit when raising the level.
+    excludePaths:
+        - app/Filament/*/Resources/*/Schemas/*
+        - app/Filament/*/Resources/*/Pages/*
+
+    # Existing findings are captured in phpstan-baseline.neon (grandfathered);
+    # the gate enforces NO NEW errors. Burn the baseline down over time.
+    reportUnmatchedIgnoredErrors: false

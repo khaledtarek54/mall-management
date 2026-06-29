@@ -2,9 +2,17 @@
 
 > **Goal.** Be *confident* the whole system works before production — not just unit tests, but a complete QA program: high automated coverage **with a CI gate**, test-quality verification (mutation testing), static analysis, expanded E2E, the specialised testing we have *none* of today (performance, security, accessibility, contract, RTL), and a structured **manual QA + UAT** pass with a release sign-off. Nothing left behind.
 >
-> **Status:** PLAN ONLY. Drafted 2026-06-28 from a full test-surface investigation. Work through it phase by phase.
+> **Status:** IN PROGRESS — Phase 1 (tooling) started 2026-06-29. Drafted 2026-06-28 from a full test-surface investigation.
 >
 > **Reality check up front:** "100% coverage" is a *means*, not the goal. 100% line coverage with weak assertions proves nothing. The real confidence levers are **(a) a coverage gate so coverage can't regress, (b) mutation testing so we know tests actually catch bugs, and (c) a manual/exploratory QA pass for everything automation can't see.** This plan targets all three.
+
+---
+
+## ✅ Progress log (live)
+
+- **[done] Static analysis (Larastan/PHPStan)** — `larastan/larastan ^3` installed; `phpstan.neon` at **level 5** over `app/`; the 250 pre-existing findings are grandfathered in `phpstan-baseline.neon` so the gate now enforces **no new errors**. Run via `composer analyse`. A `static-analysis` job is wired into `.github/workflows/ci.yml` (ready; CI triggers remain dispatch-only — flip on when you want CI billing). *(this commit)*
+- **[done] composer QA scripts** — `composer analyse` (PHPStan), `composer lint` / `composer lint-fix` (Pint, opt-in — codebase isn't Pint-clean yet; a one-time `pint` reformat is a separate task), `composer qa` (analyse + full suite).
+- **[next — Phase 1 cont.]** model factories (only `UserFactory` today); Infection (mutation testing) config; enable CI on push/PR + a coverage gate (`--coverage --min=…`); then Phase 2 (close the per-module coverage gaps in §5).
 
 ---
 
