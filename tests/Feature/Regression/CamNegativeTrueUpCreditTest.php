@@ -71,6 +71,27 @@ it('auto-applies the CAM credit to the lease open invoices (nets what is owed)',
         ->and(app(BooksReconciliationService::class)->run()['ok'])->toBeTrue();
 });
 
+it('re-generating allocations does not clobber a billed credit allocation', function () {
+    $asset = makeAsset();
+    makeLease(makeUnit($asset, ['area_sqm' => 100]), makeTenant());
+    $pool = CamExpensePool::create([
+        'asset_id' => $asset->id, 'period_year' => 2026,
+        'total_actual_expense' => 10000, 'total_estimated_collected' => 60000, 'status' => 'draft',
+    ]);
+
+    $svc = app(CamReconciliationService::class);
+    $svc->generateAllocations($pool);
+    $svc->bill($pool->allocations()->sole());
+
+    // Re-generate (e.g. pool expense corrected) must NOT reset the billed
+    // allocation to pending or mint a second credit note.
+    $svc->generateAllocations($pool->fresh());
+
+    $alloc = $pool->allocations()->sole();
+    expect($alloc->status)->toBe('billed')
+        ->and(CreditNote::where('lease_id', $alloc->lease_id)->count())->toBe(1);
+});
+
 it('re-billing a credit allocation is a no-op (no duplicate credit note)', function () {
     $asset = makeAsset();
     makeLease(makeUnit($asset, ['area_sqm' => 100]));

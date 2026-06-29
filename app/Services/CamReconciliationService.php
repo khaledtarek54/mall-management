@@ -51,17 +51,25 @@ class CamReconciliationService
                 $estimated = round((float) $pool->total_estimated_collected * $share, 2);
                 $trueUp = round($allocated - $estimated, 2);
 
-                $allocation = CamAllocation::firstOrNew([
+                // Lock the existing row inside the txn so the status check below
+                // sees committed truth — a concurrent bill() that flipped it to
+                // 'billed' between a stale read and our save would otherwise be
+                // clobbered back to 'pending' and re-billed (double charge/credit).
+                $allocation = CamAllocation::query()
+                    ->where('cam_expense_pool_id', $pool->id)
+                    ->where('lease_id', $lease->id)
+                    ->lockForUpdate()
+                    ->first();
+
+                // Never re-touch an allocation that's already been billed.
+                if ($allocation && $allocation->status !== 'pending') {
+                    continue;
+                }
+
+                $allocation ??= new CamAllocation([
                     'cam_expense_pool_id' => $pool->id,
                     'lease_id' => $lease->id,
                 ]);
-
-                // Never re-touch an allocation that's already been billed —
-                // re-generating must not reset its status to 'pending', which
-                // would let the same true-up be billed a second time.
-                if ($allocation->exists && $allocation->status !== 'pending') {
-                    continue;
-                }
 
                 $allocation->fill([
                     'pro_rata_share_pct' => round($share * 100, 4),
