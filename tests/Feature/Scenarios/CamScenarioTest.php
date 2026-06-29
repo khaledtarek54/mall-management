@@ -188,8 +188,11 @@ it('billing an allocation creates a one-off CAM true-up charge on the lease', fu
     expect((float) $charge->amount)->toBe(10000.0);          // true_up = 50000 - 40000
     expect((bool) $charge->vat_applicable)->toBeFalse();
     expect($charge->name)->toContain('2026');
-    expect($charge->start_date->format('Y-m-d'))->toBe('2026-01-01');
-    expect($charge->end_date->format('Y-m-d'))->toBe('2026-12-31');
+    // Dated the NEXT open billing month (so the monthly engine actually picks it
+    // up), not back-dated to the reconciled year which would never be invoiced.
+    $next = \Carbon\CarbonImmutable::now()->addMonthNoOverflow()->startOfMonth();
+    expect($charge->start_date->format('Y-m-d'))->toBe($next->format('Y-m-d'))
+        ->and($charge->end_date->format('Y-m-d'))->toBe($next->endOfMonth()->format('Y-m-d'));
 });
 
 it('billing a negative-true-up allocation issues a credit note (not a negative charge)', function () {

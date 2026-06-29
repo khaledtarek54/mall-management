@@ -211,6 +211,15 @@ class CamReconciliationService
                 return $allocation->refresh();
             }
 
+            // Bill the recovery on the NEXT monthly run — NOT back-dated to the
+            // reconciled year. Reconciliation runs the FOLLOWING year (the whole
+            // {year} is already billed), so a one_time charge dated {year}-01-01
+            // would never be picked up by the monthly engine (January is already
+            // invoiced; forward months are rejected by end_date) → silent lost
+            // revenue. Dating it to the next open month lands it on the tenant's
+            // next invoice (mirrors how the negative true-up settles immediately).
+            $nextPeriod = \Carbon\CarbonImmutable::now()->addMonthNoOverflow()->startOfMonth();
+
             $charge = Charge::create([
                 'lease_id' => $allocation->lease_id,
                 'name' => "CAM Reconciliation — {$year}",
@@ -220,8 +229,8 @@ class CamReconciliationService
                 'frequency' => 'one_time',
                 'vat_applicable' => false,
                 'vat_rate' => 0,
-                'start_date' => "{$year}-01-01",
-                'end_date' => "{$year}-12-31",
+                'start_date' => $nextPeriod,
+                'end_date' => $nextPeriod->endOfMonth(),
                 'is_active' => true,
             ]);
 
