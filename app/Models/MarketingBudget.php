@@ -92,9 +92,18 @@ class MarketingBudget extends Model
      */
     public static function forPeriod(int $assetId, int $year): self
     {
-        return static::firstOrCreate([
+        // Soft-delete aware: a trashed row still occupies the (asset_id,
+        // period_year) unique key, so a plain firstOrCreate would collide and
+        // crash the billing pipeline. Restore the existing row instead.
+        $budget = static::withTrashed()->firstOrCreate([
             'asset_id' => $assetId,
             'period_year' => $year,
         ]);
+
+        if ($budget->trashed()) {
+            $budget->restore();
+        }
+
+        return $budget;
     }
 }

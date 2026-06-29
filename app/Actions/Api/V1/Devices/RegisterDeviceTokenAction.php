@@ -17,6 +17,13 @@ class RegisterDeviceTokenAction
      */
     public function handle(Tenant $tenant, array $data): DeviceToken
     {
+        // A physical device's push token maps to exactly ONE tenant. If another
+        // tenant previously registered this exact token (a shared / handed-over
+        // phone), drop their stale row first so pushes can't leak across tenants.
+        DeviceToken::where('token', $data['token'])
+            ->where('tenant_id', '!=', $tenant->id)
+            ->delete();
+
         return DeviceToken::updateOrCreate(
             [
                 'tenant_id' => $tenant->id,
