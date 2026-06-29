@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -22,10 +23,18 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('maintenance_requests', function (Blueprint $table) {
-            $table->enum('category', [
-                'electrical', 'plumbing', 'hvac', 'structural', 'cleaning', 'safety', 'other',
-            ])->default('other')->change();
+        $allowed = ['electrical', 'plumbing', 'hvac', 'structural', 'cleaning', 'safety', 'other'];
+
+        // Rows added since up() may hold null or a non-maintenance sub-category
+        // (parking, lease_copy, …) that the original NOT-NULL enum can't store —
+        // normalise them to 'other' first so restoring the constraint can't fail
+        // (MySQL strict mode) or silently lose data.
+        DB::table('maintenance_requests')
+            ->where(fn ($q) => $q->whereNull('category')->orWhereNotIn('category', $allowed))
+            ->update(['category' => 'other']);
+
+        Schema::table('maintenance_requests', function (Blueprint $table) use ($allowed) {
+            $table->enum('category', $allowed)->default('other')->change();
         });
     }
 };

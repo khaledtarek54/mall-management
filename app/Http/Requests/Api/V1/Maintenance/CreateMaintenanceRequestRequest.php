@@ -27,9 +27,10 @@ class CreateMaintenanceRequestRequest extends FormRequest
             'description' => ['required', 'string', 'max:5000'],
             // Sub-category is required for types that define one (maintenance,
             // access, document, complaint) and validated against that type's set;
-            // types without sub-categories (inquiry, billing) accept none.
+            // types without sub-categories (inquiry, billing) must NOT send one
+            // (`prohibited` → 422 if they do, so no cross-type value is persisted).
             'category' => $subcategories === []
-                ? ['nullable']
+                ? ['prohibited']
                 : ['required', Rule::in($subcategories)],
             'priority' => ['sometimes', Rule::in(TenantRequest::PRIORITIES)],
             // If supplied, the unit must belong to one of THIS tenant's leases.

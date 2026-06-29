@@ -18,13 +18,13 @@ class CreateMaintenanceRequest extends CreateRecord
 
         $type = TenantRequestType::tryFrom($data['request_type'] ?? '') ?? TenantRequestType::default();
 
-        // Only types governed by an SLA get a resolution deadline; an inquiry /
-        // billing query / document request carries none. Maintenance keeps the
-        // operator-tunable target from the settings-backed service.
+        // Per-type SLA via the SAME helper the service uses: maintenance gets the
+        // operator-tunable window, complaint/access get their own, and inquiry /
+        // billing / document get no deadline. (Previously this used the maintenance
+        // window for every SLA type.)
         if (empty($data['target_resolution_at'])) {
-            $data['target_resolution_at'] = $type->hasSla()
-                ? app(TenantRequestService::class)->defaultTargetResolution($data['priority'] ?? 'medium')
-                : null;
+            $data['target_resolution_at'] = app(TenantRequestService::class)
+                ->targetResolutionFor($type, $data['priority'] ?? 'medium');
         }
 
         // Auto-route to the type's default team when staff left it unassigned.

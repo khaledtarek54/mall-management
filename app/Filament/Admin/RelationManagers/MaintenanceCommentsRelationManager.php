@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Admin\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use App\Models\TenantRequest;
 use App\Models\Tenant;
 use App\Models\User;
@@ -64,6 +65,10 @@ class MaintenanceCommentsRelationManager extends RelationManager
                 CreateAction::make()
                     ->label(__('admin.maintenance.add_comment'))
                     ->modalHeading(__('admin.maintenance.add_comment'))
+                    // Gate explicitly (Filament actions default to ALLOWED) — and
+                    // canEdit() is false for terminal requests, so no comments are
+                    // added to a closed/cancelled ticket from here.
+                    ->visible(fn (RelationManager $livewire) => MaintenanceRequestResource::canEdit($livewire->getOwnerRecord()))
                     ->schema([
                         Textarea::make('body')
                             ->label(__('admin.maintenance.body'))
@@ -89,6 +94,7 @@ class MaintenanceCommentsRelationManager extends RelationManager
                         : __('admin.maintenance.make_internal'))
                     ->icon('heroicon-o-eye-slash')
                     ->color('gray')
+                    ->visible(fn (RelationManager $livewire) => MaintenanceRequestResource::canEdit($livewire->getOwnerRecord()))
                     ->action(fn ($record) => $record->update(['is_internal' => ! $record->is_internal])),
             ])
             ->toolbarActions([])

@@ -61,8 +61,9 @@ class TenantRequestService
                 'status' => 'submitted',
                 'priority' => $priority,
                 // `category` holds the type's sub-category (electrical, parking,
-                // lease_copy, …). Null when the type has none (inquiry, billing).
-                'category' => $data['category'] ?? null,
+                // lease_copy, …). Forced null for types that have none (inquiry,
+                // billing) so a stray cross-type value can never persist.
+                'category' => $type->subcategories() === [] ? null : ($data['category'] ?? null),
                 'department_id' => $data['department_id'] ?? $this->defaultDepartmentIdFor($type),
                 'title' => $data['title'],
                 'description' => $data['description'],
@@ -97,8 +98,12 @@ class TenantRequestService
      * SLA target for a request. Types without an SLA (inquiry, billing query,
      * document request) get no deadline. Maintenance keeps reading the operator-
      * tunable MaintenanceSettings; other typed SLAs use the per-type code map.
+     *
+     * Public so the admin create page shares this exact logic — otherwise a
+     * Complaint/Access request created in /admin would wrongly get the
+     * maintenance window instead of its own.
      */
-    private function targetResolutionFor(TenantRequestType $type, string $priority): ?Carbon
+    public function targetResolutionFor(TenantRequestType $type, string $priority): ?Carbon
     {
         if (! $type->hasSla()) {
             return null;
