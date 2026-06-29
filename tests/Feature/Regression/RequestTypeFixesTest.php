@@ -6,6 +6,7 @@ use App\Models\TenantRequest;
 use App\Services\TenantRequestService;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 
 /**
@@ -75,4 +76,16 @@ it('rejects a sub-category sent to the API for a type that has none', function (
     ], apiHeaders($tenant))
         ->assertStatus(422)
         ->assertJsonValidationErrors('category');
+});
+
+it('refuses a comment on a terminal request but allows one on a resolved one', function () {
+    $svc = app(TenantRequestService::class);
+
+    $closed = makeMaintenanceRequest(['status' => 'closed']);
+    expect(fn () => $svc->comment($closed, $closed->tenant, 'too late'))
+        ->toThrow(ValidationException::class);
+
+    // Resolved is NOT terminal — a tenant can still reply (re-open).
+    $resolved = makeMaintenanceRequest(['status' => 'resolved']);
+    expect($svc->comment($resolved, $resolved->tenant, 'one more thing')->exists)->toBeTrue();
 });

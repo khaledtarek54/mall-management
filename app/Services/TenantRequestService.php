@@ -274,6 +274,15 @@ class TenantRequestService
 
     public function comment(TenantRequest $request, Model $author, string $body, bool $isInternal = false): TenantRequestComment
     {
+        // Terminal (closed/cancelled) requests are immutable — including their
+        // comment thread. Resolved is NOT terminal, so a tenant can still reply
+        // to (re-open) a resolved request. Single guard for admin + portal + API.
+        if ($request->isTerminal()) {
+            throw ValidationException::withMessages([
+                'body' => [__('api.maintenance_cannot_comment')],
+            ]);
+        }
+
         $comment = TenantRequestComment::create([
             'tenant_request_id' => $request->id,
             'author_type' => $author->getMorphClass(),

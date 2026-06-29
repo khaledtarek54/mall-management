@@ -12,6 +12,7 @@ return [
     'maintenance_cannot_cancel' => 'لا يمكن إلغاء هذا الطلب — لقد بدأ العمل عليه بالفعل.',
     'maintenance_rated' => 'شكراً لك — تم تسجيل تقييمك.',
     'maintenance_cannot_rate' => 'لا يمكن تقييم الطلب إلا بعد حله أو إغلاقه.',
+    'maintenance_cannot_comment' => 'تم إغلاق هذا الطلب — لم يعد بالإمكان إضافة تعليقات.',
 
     // Sales declarations
     'sales_declaration_created' => 'تم إرسال إقرار المبيعات.',
