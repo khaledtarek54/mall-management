@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Enums\TenantRequestType;
 use App\Models\Asset;
 use App\Models\CamExpensePool;
 use App\Models\Charge;
@@ -450,6 +451,8 @@ class DemoSeeder extends Seeder
                 'status' => 'resolved',
                 'assign_to' => $manager,
                 'resolution_notes' => 'Replaced faulty driver and two LED modules. Verified at night.',
+                'csat' => 5,
+                'csat_comment' => 'Quick turnaround, looks great at night now. Thank you!',
             ],
 
             // tenant2 — Magrabi Optical (A-02) — awaiting tenant
@@ -496,6 +499,83 @@ class DemoSeeder extends Seeder
                 'status' => 'acknowledged',
                 'assign_to' => $manager,
             ],
+
+            // --- Non-maintenance request types (the generalised Tenant Request system) ---
+
+            // tenant1 — Complaint about a neighbour — resolved, rated
+            [
+                'tenant_email' => 'tenant1@atriomwalk.test',
+                'request_type' => 'complaint',
+                'title' => 'Loud music from neighbouring unit after hours',
+                'description' => 'The unit next door plays loud music well past closing, disturbing our evening diners. Could the team have a word?',
+                'category' => 'noise',
+                'channel' => 'portal',
+                'priority' => 'medium',
+                'submitted_days_ago' => 12,
+                'resolved_days_ago' => 9,
+                'status' => 'resolved',
+                'assign_to' => $manager,
+                'resolution_notes' => 'Spoke with the neighbouring tenant; they agreed to lower volume after 9pm. Will monitor.',
+                'csat' => 4,
+                'csat_comment' => 'Handled politely. Hope it sticks.',
+            ],
+
+            // tenant2 — General inquiry — open, no SLA, no sub-category
+            [
+                'tenant_email' => 'tenant2@atriomwalk.test',
+                'request_type' => 'inquiry',
+                'title' => 'Eid holiday trading hours?',
+                'description' => 'Can you confirm the mall opening hours during the Eid holiday so we can plan staffing?',
+                'channel' => 'portal',
+                'priority' => 'low',
+                'submitted_days_ago' => 2,
+                'status' => 'submitted',
+            ],
+
+            // tenant3 — Access request — parking permit — acknowledged
+            [
+                'tenant_email' => 'tenant3@atriomwalk.test',
+                'request_type' => 'access',
+                'title' => 'Extra parking permit for new manager',
+                'description' => 'We hired a new branch manager and need an additional basement parking permit.',
+                'category' => 'parking',
+                'channel' => 'email',
+                'priority' => 'low',
+                'submitted_days_ago' => 5,
+                'status' => 'acknowledged',
+                'assign_to' => $manager,
+            ],
+
+            // tenant1 — Billing query — in progress, routed to accounting, no SLA
+            [
+                'tenant_email' => 'tenant1@atriomwalk.test',
+                'request_type' => 'billing',
+                'title' => 'Service charge on latest invoice looks high',
+                'description' => 'The service charge on this month\'s invoice is noticeably higher than last month. Could you break it down for us?',
+                'channel' => 'portal',
+                'priority' => 'medium',
+                'submitted_days_ago' => 3,
+                'status' => 'in_progress',
+                'assign_to' => $manager,
+            ],
+
+            // tenant2 — Document request — lease copy — closed, rated
+            [
+                'tenant_email' => 'tenant2@atriomwalk.test',
+                'request_type' => 'document',
+                'title' => 'Copy of signed lease agreement',
+                'description' => 'Our accountant needs a PDF copy of our current signed lease for the annual audit.',
+                'category' => 'lease_copy',
+                'channel' => 'portal',
+                'priority' => 'low',
+                'submitted_days_ago' => 30,
+                'resolved_days_ago' => 28,
+                'closed_days_ago' => 25,
+                'status' => 'closed',
+                'assign_to' => $manager,
+                'resolution_notes' => 'Emailed the signed lease PDF and uploaded a copy to the tenant\'s document folder.',
+                'csat' => 5,
+            ],
         ];
 
         $created = 0;
@@ -514,20 +594,23 @@ class DemoSeeder extends Seeder
 
             $submittedAt = Carbon::now()->subDays($row['submitted_days_ago'])->subHours(rand(1, 6));
             $slaHours = config("maintenance.sla.{$row['priority']}.resolve_hours", 168);
+            $type = TenantRequestType::tryFrom($row['request_type'] ?? 'maintenance') ?? TenantRequestType::default();
 
             $request = MaintenanceRequest::create([
-                'reference' => MaintenanceRequest::generateReference($unit->asset->code),
+                'reference' => MaintenanceRequest::generateReference($unit->asset->code, $type->referencePrefix()),
                 'tenant_id' => $tenant->id,
                 'unit_id' => $unit->id,
                 'lease_id' => $lease->id,
+                'request_type' => $type->value,
                 'status' => 'submitted',
                 'priority' => $row['priority'],
-                'category' => $row['category'],
+                'category' => $row['category'] ?? null,
                 'channel' => $row['channel'] ?? 'portal',
                 'title' => $row['title'],
                 'description' => $row['description'],
                 'submitted_at' => $submittedAt,
-                'target_resolution_at' => $submittedAt->copy()->addHours($slaHours),
+                // Only SLA-bearing types carry a resolution deadline.
+                'target_resolution_at' => $type->hasSla() ? $submittedAt->copy()->addHours($slaHours) : null,
             ]);
 
             // Walk the request through the requested status using legal transitions.
@@ -563,6 +646,14 @@ class DemoSeeder extends Seeder
                 ]);
             }
 
+            // Close-out satisfaction on resolved/closed demo rows.
+            if (isset($row['csat']) && in_array($row['status'], ['resolved', 'closed'], true)) {
+                $request->update([
+                    'csat_rating' => $row['csat'],
+                    'csat_comment' => $row['csat_comment'] ?? null,
+                ]);
+            }
+
             foreach ($row['comments'] ?? [] as $c) {
                 $author = $c['by'] === 'manager' ? $manager : ($c['by'] === 'admin' ? $admin : $tenant);
                 MaintenanceRequestComment::create([
@@ -579,7 +670,7 @@ class DemoSeeder extends Seeder
             $created++;
         }
 
-        $this->command->info("   Seeded {$created} maintenance requests");
+        $this->command->info("   Seeded {$created} tenant requests (maintenance + complaint/inquiry/access/billing/document)");
     }
 
     /**
