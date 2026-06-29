@@ -88,6 +88,14 @@ class OwnerRequest extends Model
         $year = now()->format('Y');
         $count = static::whereYear('created_at', $year)->withTrashed()->count() + 1;
 
-        return sprintf('OR-%s-%04d', $year, $count);
+        // Bump until free — the bare count is race-prone (mirrors the money helpers).
+        $candidate = sprintf('OR-%s-%04d', $year, $count);
+        $attempts = 0;
+        while (static::withTrashed()->where('reference', $candidate)->exists() && $attempts < 50) {
+            $candidate = sprintf('OR-%s-%04d', $year, ++$count);
+            $attempts++;
+        }
+
+        return $candidate;
     }
 }

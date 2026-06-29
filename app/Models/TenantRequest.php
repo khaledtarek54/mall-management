@@ -172,6 +172,15 @@ class TenantRequest extends Model implements HasMedia
         $year = now()->format('Y');
         $count = static::whereYear('created_at', $year)->withTrashed()->count() + 1;
 
-        return sprintf('%s-%s-%s-%04d', $prefix, $assetCode, $year, $count);
+        // Bump the suffix until the reference is free — the bare count is race-prone
+        // under concurrent creates (mirrors the Invoice/Payment number helpers).
+        $candidate = sprintf('%s-%s-%s-%04d', $prefix, $assetCode, $year, $count);
+        $attempts = 0;
+        while (static::withTrashed()->where('reference', $candidate)->exists() && $attempts < 50) {
+            $candidate = sprintf('%s-%s-%s-%04d', $prefix, $assetCode, $year, ++$count);
+            $attempts++;
+        }
+
+        return $candidate;
     }
 }
