@@ -270,6 +270,9 @@ return [
             'vs_last_month' => ':delta vs last month',
             'outstanding_ar' => 'Outstanding AR',
             'outstanding_ar_desc' => 'EGP :overdue overdue · :count invoices',
+            'satisfaction' => 'Tenant Satisfaction',
+            'satisfaction_desc' => 'Avg rating · :count rated',
+            'satisfaction_none' => 'No ratings yet',
         ],
         'portfolio' => [
             'assets' => 'Properties',

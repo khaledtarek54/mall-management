@@ -270,6 +270,9 @@ return [
             'vs_last_month' => ':delta مقارنة بالشهر السابق',
             'outstanding_ar' => 'المستحقات القائمة',
             'outstanding_ar_desc' => ':overdue جنيه متأخر · :count فاتورة',
+            'satisfaction' => 'رضا المستأجرين',
+            'satisfaction_desc' => 'متوسط التقييم · :count تقييم',
+            'satisfaction_none' => 'لا توجد تقييمات بعد',
         ],
         'portfolio' => [
             'assets' => 'العقارات',

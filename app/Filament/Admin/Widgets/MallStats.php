@@ -84,6 +84,13 @@ class MallStats extends StatsOverviewWidget
             ->where('due_date', '<', now())
             ->count();
 
+        // Tenant satisfaction (CSAT) — average close-out rating across all
+        // resolved/closed requests that were rated, property-scoped.
+        $ratedQuery = fn () => \App\Models\MaintenanceRequest::whereNotNull('csat_rating')
+            ->when($assetId, fn ($q) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)));
+        $ratedCount = $ratedQuery()->count();
+        $avgCsat = $ratedCount > 0 ? round((float) $ratedQuery()->avg('csat_rating'), 1) : null;
+
         $collectionRate = $monthlyRecurring > 0
             ? round(($collectedThisMonth / $monthlyRecurring) * 100, 1)
             : 0;
@@ -138,6 +145,13 @@ class MallStats extends StatsOverviewWidget
                 ]))
                 ->descriptionIcon($overdueAR > 0 ? 'heroicon-m-exclamation-triangle' : 'heroicon-m-check-circle')
                 ->color($overdueAR > 0 ? 'danger' : 'success'),
+
+            Stat::make(__('admin.widgets.mall_stats.satisfaction'), $avgCsat !== null ? $avgCsat.' / 5' : '—')
+                ->description($avgCsat !== null
+                    ? __('admin.widgets.mall_stats.satisfaction_desc', ['count' => $ratedCount])
+                    : __('admin.widgets.mall_stats.satisfaction_none'))
+                ->descriptionIcon('heroicon-m-face-smile')
+                ->color($avgCsat === null ? 'gray' : ($avgCsat >= 4 ? 'success' : ($avgCsat >= 3 ? 'warning' : 'danger'))),
         ];
     }
 
