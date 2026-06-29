@@ -37,12 +37,14 @@
     .dark .atriom-lang-pill--active:hover { color: #18181B; }
 </style>
 <div class="atriom-lang-switch" role="group" aria-label="Language">
+    {{-- aria-current marks the active language (valid on links; aria-pressed is
+         button-only and tripped the axe aria-allowed-attr WCAG check). --}}
     <a href="{{ route('locale.switch', 'en') }}"
        class="atriom-lang-pill {{ $isAr('en') ? 'atriom-lang-pill--active' : '' }}"
-       aria-pressed="{{ $isAr('en') ? 'true' : 'false' }}"
+       @if ($isAr('en')) aria-current="true" @endif
        aria-label="English">EN</a>
     <a href="{{ route('locale.switch', 'ar') }}"
        class="atriom-lang-pill {{ $isAr('ar') ? 'atriom-lang-pill--active' : '' }}"
-       aria-pressed="{{ $isAr('ar') ? 'true' : 'false' }}"
+       @if ($isAr('ar')) aria-current="true" @endif
        aria-label="العربية">عربي</a>
 </div>
