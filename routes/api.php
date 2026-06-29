@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\V1\Maintenance\CommentMaintenanceRequestController;
 use App\Http\Controllers\Api\V1\Maintenance\CreateMaintenanceRequestController;
 use App\Http\Controllers\Api\V1\Maintenance\ListMaintenanceRequestsController;
 use App\Http\Controllers\Api\V1\Maintenance\RateMaintenanceRequestController;
+use App\Http\Controllers\Api\V1\Maintenance\ShowMaintenanceAttachmentController;
 use App\Http\Controllers\Api\V1\Maintenance\ShowMaintenanceRequestController;
 use App\Http\Controllers\Api\V1\Notifications\ListNotificationsController;
 use App\Http\Controllers\Api\V1\Notifications\MarkAllNotificationsReadController;
@@ -128,6 +129,7 @@ Route::prefix('v1')->group(function () {
         Route::post('me/maintenance-requests/{id}/comments', CommentMaintenanceRequestController::class)->whereNumber('id')->name('api.v1.me.maintenance.comment');
         Route::post('me/maintenance-requests/{id}/cancel', CancelMaintenanceRequestController::class)->whereNumber('id')->name('api.v1.me.maintenance.cancel');
         Route::post('me/maintenance-requests/{id}/rate', RateMaintenanceRequestController::class)->whereNumber('id')->name('api.v1.me.maintenance.rate');
+        Route::get('me/maintenance-requests/{id}/attachments/{media}', ShowMaintenanceAttachmentController::class)->whereNumber('id')->whereNumber('media')->name('api.v1.me.maintenance.attachment');
 
         // --- Sales declarations (percentage-rent leases) ---
         Route::get('me/sales-declarations', ListSalesDeclarationsController::class)->name('api.v1.me.sales.index');

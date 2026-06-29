@@ -1505,6 +1505,50 @@
                 }
             }
         },
+        "/v1/me/maintenance-requests/{id}/attachments/{media}": {
+            "get": {
+                "operationId": "v1.me.maintenance.attachment",
+                "tags": [
+                    "ShowMaintenanceAttachment"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "media",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
         "/v1/me/maintenance-requests/{id}": {
             "get": {
                 "operationId": "v1.me.maintenance.show",
@@ -1976,7 +2020,7 @@
                     },
                     "category": {
                         "type": "string",
-                        "description": "Sub-category is required for types that define one (maintenance,\naccess, document, complaint) and validated against that type's set;\ntypes without sub-categories (inquiry, billing) accept none.",
+                        "description": "Sub-category is required for types that define one (maintenance,\naccess, document, complaint) and validated against that type's set;\ntypes without sub-categories (inquiry, billing) must NOT send one\n(`prohibited` \u2192 422 if they do, so no cross-type value is persisted).",
                         "enum": [
                             ""
                         ]
@@ -2700,7 +2744,8 @@
                                     "type": "string"
                                 },
                                 "url": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "Authenticated, tenant-scoped stream \u2014 NOT a public URL (H2)."
                                 }
                             },
                             "required": [

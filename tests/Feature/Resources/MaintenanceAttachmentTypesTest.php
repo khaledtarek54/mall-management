@@ -8,7 +8,7 @@ use Livewire\Livewire;
 
 beforeEach(function () {
     ensureAllPropertiesAsset();
-    Storage::fake('public');
+    Storage::fake('local');
 
     $this->asset = makeAsset();
     $this->unit = makeUnit($this->asset);

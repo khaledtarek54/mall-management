@@ -126,6 +126,17 @@ class TenantRequest extends Model implements HasMedia
         return $this->hasMany(TenantRequestComment::class)->orderBy('created_at');
     }
 
+    /**
+     * Attachments live on a PRIVATE disk (not web-accessible). They're tenant
+     * photos/documents and must never be reachable via a guessable public URL —
+     * they're streamed only through authenticated, tenant-scoped endpoints (the
+     * mobile API controller + the authed admin panel). See hardening backlog H2.
+     */
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('attachments')->useDisk('local');
+    }
+
     public function isOpen(): bool
     {
         return in_array($this->status, self::OPEN_STATUSES, true);

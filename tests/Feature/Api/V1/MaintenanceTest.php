@@ -52,7 +52,7 @@ it('creates a maintenance request via the service path', function () {
 });
 
 it('creates a request with image + PDF attachments', function () {
-    Storage::fake('public');
+    Storage::fake('local');
     $tenant = makeTenant();
     makeLease(makeUnit(makeAsset()), $tenant);
 
@@ -76,7 +76,7 @@ it('creates a request with image + PDF attachments', function () {
 });
 
 it('rejects a non image/PDF attachment', function () {
-    Storage::fake('public');
+    Storage::fake('local');
     $tenant = makeTenant();
     makeLease(makeUnit(makeAsset()), $tenant);
 
@@ -91,7 +91,7 @@ it('rejects a non image/PDF attachment', function () {
 });
 
 it('rejects more than five attachments', function () {
-    Storage::fake('public');
+    Storage::fake('local');
     $tenant = makeTenant();
     makeLease(makeUnit(makeAsset()), $tenant);
 
@@ -144,7 +144,7 @@ it('adds a public comment', function () {
 });
 
 it('syncs attachment URLs to the app in the show + list responses', function () {
-    Storage::fake('public');
+    Storage::fake('local'); // attachments live on the private 'local' disk now
     $tenant = makeTenant();
     $request = makeMaintenance($tenant);
     $request->addMedia(UploadedFile::fake()->image('damage.jpg'))->toMediaCollection('attachments');
@@ -155,10 +155,32 @@ it('syncs attachment URLs to the app in the show + list responses', function () 
     expect($show->json('data.attachments'))->toHaveCount(1);
     expect($show->json('data.attachments.0'))->toHaveKeys(['id', 'name', 'mimeType', 'size', 'url']);
     expect($show->json('data.attachments.0.name'))->toContain('damage');
-    expect($show->json('data.attachments.0.url'))->toContain('damage');
+    // URL is the authenticated, tenant-scoped stream route — NOT a public file URL.
+    expect($show->json('data.attachments.0.url'))->toContain("/maintenance-requests/{$request->id}/attachments/");
 
     $list = $this->getJson('/api/v1/me/maintenance-requests', apiHeaders($tenant))->assertOk();
     expect($list->json('data.0.attachments'))->toHaveCount(1);
+});
+
+it('streams an attachment to its owner (H2)', function () {
+    Storage::fake('local');
+    $tenant = makeTenant();
+    $request = makeMaintenance($tenant);
+    $media = $request->addMedia(UploadedFile::fake()->image('private.jpg'))->toMediaCollection('attachments');
+
+    $this->get("/api/v1/me/maintenance-requests/{$request->id}/attachments/{$media->id}", apiHeaders($tenant))
+        ->assertOk();
+});
+
+it('404s a foreign tenant requesting an attachment (H2 — no cross-tenant disclosure)', function () {
+    Storage::fake('local');
+    $owner = makeTenant();
+    $request = makeMaintenance($owner);
+    $media = $request->addMedia(UploadedFile::fake()->image('private.jpg'))->toMediaCollection('attachments');
+
+    // A different tenant's token must not reach it (request isn't theirs).
+    $this->get("/api/v1/me/maintenance-requests/{$request->id}/attachments/{$media->id}", apiHeaders(makeTenant()))
+        ->assertNotFound();
 });
 
 it('cancels a not-yet-started request', function () {

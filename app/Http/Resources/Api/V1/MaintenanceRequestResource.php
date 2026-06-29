@@ -61,7 +61,8 @@ class MaintenanceRequestResource extends JsonResource
                     'name' => $media->file_name,
                     'mime_type' => $media->mime_type,
                     'size' => $media->size,
-                    'url' => $media->getFullUrl(),
+                    // Authenticated, tenant-scoped stream — NOT a public URL (H2).
+                    'url' => route('api.v1.me.maintenance.attachment', ['id' => $this->id, 'media' => $media->id]),
                 ])
                 ->values()),
         ];
