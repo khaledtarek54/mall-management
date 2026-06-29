@@ -10,6 +10,8 @@ return [
     'maintenance_comment_added' => 'Comment added.',
     'maintenance_cancelled' => 'Maintenance request cancelled.',
     'maintenance_cannot_cancel' => 'This request can no longer be cancelled — work has already started.',
+    'maintenance_rated' => 'Thank you — your feedback has been recorded.',
+    'maintenance_cannot_rate' => 'Only a resolved or closed request can be rated.',
 
     // Sales declarations
     'sales_declaration_created' => 'Sales declaration submitted.',

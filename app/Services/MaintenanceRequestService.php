@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 
 class MaintenanceRequestService
@@ -215,6 +216,33 @@ class MaintenanceRequestService
         if ($userId && $request->status === 'submitted') {
             return $this->transition($request, 'acknowledged');
         }
+
+        return $request->refresh();
+    }
+
+    /** Statuses at which the tenant may submit a close-out satisfaction rating. */
+    public const RATEABLE = ['resolved', 'closed'];
+
+    /**
+     * Record the tenant's close-out satisfaction (CSAT 1–5 + optional comment).
+     * Only a resolved/closed request can be rated; the tenant may overwrite an
+     * earlier rating. Single source of truth for both the portal action and the
+     * mobile API, so the rateable rule can't drift between them.
+     */
+    public function rate(MaintenanceRequest $request, int $rating, ?string $comment = null): MaintenanceRequest
+    {
+        if (! in_array($request->status, self::RATEABLE, true)) {
+            throw ValidationException::withMessages([
+                'status' => [__('api.maintenance_cannot_rate')],
+            ]);
+        }
+
+        $comment = $comment !== null && trim($comment) !== '' ? trim($comment) : null;
+
+        $request->update([
+            'csat_rating' => max(1, min(5, $rating)),
+            'csat_comment' => $comment,
+        ]);
 
         return $request->refresh();
     }

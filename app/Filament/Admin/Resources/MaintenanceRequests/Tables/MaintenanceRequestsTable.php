@@ -125,6 +125,13 @@ class MaintenanceRequestsTable
                     ->sortable()
                     ->color(fn ($record): ?string => $record->isOverdue() ? 'danger' : null)
                     ->toggleable(),
+                TextColumn::make('csat_rating')
+                    ->label(__('admin.fields.csat'))
+                    ->formatStateUsing(fn (?int $state) => $state ? str_repeat('★', $state) . str_repeat('☆', 5 - $state) : null)
+                    ->color('warning')
+                    ->placeholder('—')
+                    ->tooltip(fn ($record) => $record->csat_comment)
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 SelectFilter::make('status')

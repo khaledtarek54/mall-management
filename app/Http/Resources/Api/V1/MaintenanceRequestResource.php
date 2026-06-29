@@ -34,6 +34,11 @@ class MaintenanceRequestResource extends JsonResource
             // start work. Mirrors the cancel endpoint's guard so the app can
             // show/hide the button without a round-trip.
             'can_cancel' => in_array($this->status, ['submitted', 'acknowledged'], true),
+            // Whether the tenant can submit a satisfaction rating — true once the
+            // request is resolved/closed. Mirrors the rate endpoint's guard.
+            'can_rate' => in_array($this->status, \App\Services\MaintenanceRequestService::RATEABLE, true),
+            'csat_rating' => $this->csat_rating,
+            'csat_comment' => $this->csat_comment,
             'submitted_at' => optional($this->submitted_at)->toIso8601String(),
             'acknowledged_at' => optional($this->acknowledged_at)->toIso8601String(),
             'resolved_at' => optional($this->resolved_at)->toIso8601String(),

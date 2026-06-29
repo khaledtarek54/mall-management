@@ -52,7 +52,7 @@ mall. Here's the world they live in, and it's all they can ever see:
 - A **Tenant** signs a **Lease** for a Unit. A tenant usually has exactly one active lease.
 - A **Lease** carries **Charges** (base rent, service charge, parking, …). Each month the mall runs billing and every active charge on the lease becomes a line on one monthly **Invoice**.
 - A tenant settles invoices with **Payments**. One payment can be split across several invoices — each split is an **allocation** (`allocated_amount`).
-- A tenant can raise **Maintenance Requests** against their unit, comment on them, and cancel one that hasn't been started.
+- A tenant can raise **Requests** of any type (maintenance, complaint, inquiry, access, billing query, document request, …) against their unit, comment on them, cancel one that hasn't been started, and rate one once it's resolved. (The endpoints are still under `/me/maintenance-requests` for back-compat.)
 - Some retail/F&B leases have **percentage rent**: the tenant must declare their monthly **Sales** (a **Sales Declaration**); when staff *lock* it, the system creates a "percentage rent" charge that lands on next month's invoice.
 
 **The golden rule of this API:** a tenant only ever sees their own data. Every
@@ -399,29 +399,38 @@ Pass `?unread=1` for unread only.
 #### 🔒 `GET /me/maintenance-requests` — paginated, newest first
 Query: `status`, `page`, `per_page`.
 ```json
-{ "data": [ { "id": 12, "reference": "MR-HW-2026-0012", "title": "AC not cooling",
-  "description": "...", "status": "in_progress", "priority": "high",
-  "category": "hvac", "channel": "portal", "isOpen": true, "isOverdue": false,
-  "canCancel": false, "submittedAt": "2026-05-20T09:00:00+00:00",
+{ "data": [ { "id": 12, "reference": "MR-AW-2026-0012", "requestType": "maintenance",
+  "title": "AC not cooling", "description": "...", "status": "in_progress",
+  "priority": "high", "category": "hvac", "channel": "portal",
+  "isOpen": true, "isOverdue": false, "canCancel": false,
+  "canRate": false, "csatRating": null, "csatComment": null,
+  "submittedAt": "2026-05-20T09:00:00+00:00",
   "acknowledgedAt": "...", "resolvedAt": null, "closedAt": null,
   "targetResolutionAt": "...", "resolutionNotes": null,
   "unit": { "id": 4, "code": "A-01", "floor": "G" } } ],
   "meta": { ... }, "links": { ... } }
 ```
-`status` ∈ `submitted`, `acknowledged`, `in_progress`, `awaiting_tenant`,
-`resolved`, `closed`, `cancelled`. `priority` ∈ `low`, `medium`, `high`,
-`urgent`. `category` ∈ `electrical`, `plumbing`, `hvac`, `structural`,
-`cleaning`, `safety`, `other`. Use **`can_cancel`** to show/hide the cancel
-button (true only while `submitted`/`acknowledged`).
+`requestType` ∈ `maintenance`, `complaint`, `inquiry`, `access`, `billing`,
+`document`, `other`. `status` ∈ `submitted`, `acknowledged`, `in_progress`,
+`awaiting_tenant`, `resolved`, `closed`, `cancelled`. `priority` ∈ `low`,
+`medium`, `high`, `urgent`. `category` is the **type's sub-category** (e.g.
+maintenance → `electrical`…`other`; access → `parking`…; `null` for types with
+none). Use **`canCancel`** to show/hide the cancel button (true only while
+`submitted`/`acknowledged`) and **`canRate`** to show the rating prompt (true
+once `resolved`/`closed`).
 
-#### 🔒 `POST /me/maintenance-requests` — submit
+#### 🔒 `POST /me/maintenance-requests` — submit (any request type)
 ```json
-{ "title": "AC not cooling", "description": "Stopped cooling yesterday.",
-  "category": "hvac", "priority": "high", "unitId": 4 }
+{ "requestType": "complaint", "title": "Loud music next door",
+  "description": "...", "category": "noise", "priority": "high", "unitId": 4 }
 ```
-`unitId` is optional — if omitted the server uses your active lease's unit. If
-provided, it must be a unit on one of *your* leases (else `422`). → `201` with
-the created request. The team is notified automatically.
+`requestType` is optional and defaults to `maintenance` (so older builds that
+only send `category` keep working). `category` is required for types that define
+sub-categories (maintenance, access, document, complaint) and must be one of
+that type's values; types without sub-categories (inquiry, billing) omit it.
+`unitId` is optional — if omitted the server uses your active lease's unit; if
+provided it must be a unit on one of *your* leases (else `422`). → `201` with
+the created request, auto-routed to the type's default team, which is notified.
 
 #### 🔒 `GET /me/maintenance-requests/{id}` — detail with public comment thread
 Adds `comments: [{ id, body, authorKind: "tenant"|"staff", authorName, createdAt }]`.
@@ -437,6 +446,15 @@ generically as "Property team".
 #### 🔒 `POST /me/maintenance-requests/{id}/cancel`
 No body. → `200` with the cancelled request. `422` if work has already started
 (status past `acknowledged`).
+
+#### 🔒 `POST /me/maintenance-requests/{id}/rate` — satisfaction (CSAT)
+```json
+{ "rating": 5, "comment": "Fast and tidy, thank you." }
+```
+`rating` is required (integer 1–5); `comment` optional (≤1000 chars). → `200`
+with the updated request (`csatRating`/`csatComment` populated). `422` if the
+request isn't `resolved`/`closed` yet (check `canRate` first). Re-rating
+overwrites the previous score.
 
 ---
 

@@ -2,8 +2,15 @@
 
 namespace App\Filament\Portal\Resources\MaintenanceRequests\Tables;
 
+use App\Enums\TenantRequestType;
 use App\Models\MaintenanceRequest;
+use App\Services\MaintenanceRequestService;
+use App\Support\Portal;
+use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
@@ -31,11 +38,17 @@ class MaintenanceRequestsTable
                     ->label(__('admin.tables.maintenance.unit'))
                     ->badge()
                     ->color('gray'),
-                TextColumn::make('category')
-                    ->label(__('admin.tables.maintenance.category'))
+                TextColumn::make('request_type')
+                    ->label(__('admin.fields.request_type'))
                     ->badge()
                     ->color('gray')
-                    ->formatStateUsing(fn (string $state) => __("admin.enums.maintenance_category.{$state}")),
+                    ->formatStateUsing(fn ($state) => ($state instanceof TenantRequestType ? $state : TenantRequestType::from((string) $state))->label()),
+                TextColumn::make('category')
+                    ->label(__('admin.fields.subcategory'))
+                    ->badge()
+                    ->color('gray')
+                    ->placeholder('—')
+                    ->formatStateUsing(fn (?string $state) => $state ? __("admin.enums.tenant_request_subcategory.{$state}") : null),
                 TextColumn::make('priority')
                     ->label(__('admin.tables.maintenance.priority'))
                     ->badge()
@@ -77,6 +90,36 @@ class MaintenanceRequestsTable
             ])
             ->recordActions([
                 ViewAction::make(),
+                Action::make('rate')
+                    ->label(__('admin.actions.rate_request'))
+                    ->icon('heroicon-o-star')
+                    ->color('warning')
+                    // Tenant-admins only (read-only portal users can't write), and
+                    // only once the request is resolved/closed. Re-opening the
+                    // form lets them update an earlier rating.
+                    ->visible(fn (MaintenanceRequest $record) => Portal::isAdmin()
+                        && in_array($record->status, MaintenanceRequestService::RATEABLE, true))
+                    ->fillForm(fn (MaintenanceRequest $record) => [
+                        'csat_rating' => $record->csat_rating,
+                        'csat_comment' => $record->csat_comment,
+                    ])
+                    ->schema([
+                        Select::make('csat_rating')
+                            ->label(__('admin.fields.csat_rating'))
+                            ->options([1 => '★', 2 => '★★', 3 => '★★★', 4 => '★★★★', 5 => '★★★★★'])
+                            ->required()
+                            ->native(false),
+                        Textarea::make('csat_comment')
+                            ->label(__('admin.fields.csat_comment'))
+                            ->rows(3)
+                            ->maxLength(1000),
+                    ])
+                    ->action(function (MaintenanceRequest $record, array $data) {
+                        app(MaintenanceRequestService::class)
+                            ->rate($record, (int) $data['csat_rating'], $data['csat_comment'] ?? null);
+
+                        Notification::make()->title(__('admin.actions.rated'))->success()->send();
+                    }),
             ])
             ->defaultSort('submitted_at', 'desc');
     }

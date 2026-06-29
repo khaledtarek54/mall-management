@@ -52,7 +52,7 @@ Each type carries its own intake config (model-level, not a DB enum — `request
 | scheduled_from | timestamp | nullable | Planned start of actual work window (decoupled from SLA target) |
 | scheduled_to | timestamp | nullable | Planned end of work window (must be ≥ scheduled_from if both set) |
 | sla_breach_notified_at | timestamp | nullable | Stamped by scan-sla-breaches after firing alert (idempotency guard) |
-| csat_rating | tinyint | nullable | Close-out satisfaction score (1–5) captured from the tenant. Columns added now; the rating UI/report is a later phase. |
+| csat_rating | tinyint | nullable | Close-out satisfaction score (1–5). Captured from the tenant once the request is resolved/closed — via the portal "Rate" action or `POST /me/maintenance-requests/{id}/rate`. Recorded by `MaintenanceRequestService::rate()` (resolved/closed guard, clamps 1–5, overwritable). Shown as a toggleable admin column. |
 | csat_comment | text | nullable | Optional free-text feedback accompanying the CSAT score |
 | created_at | timestamp | - | Record creation |
 | updated_at | timestamp | - | Last update |
