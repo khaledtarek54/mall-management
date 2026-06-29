@@ -22,10 +22,13 @@ Built additive-first (no risky internal rename yet); suite green at every step (
 - **[done] Demo data** — `DemoSeeder` now seeds 10 tenant requests across all 6 types (per-type reference prefixes, routing/SLA, 3 CSAT ratings). *(commit `7ee1c5d`)*
 - **[done] Dashboard polish** — the "Open Requests" widget gained a type column + heading relabel; the Action-Required urgent/SLA cards relabelled to be type-agnostic (en/ar). *(commits `3707bf5`, `67c41c2`)*
 - **[done] Owner panel** — retired surface (Jawad owners use admin RBAC); nav already says "Requests" via the shared key. Left as-is intentionally.
+- **[done] CSAT analytics** — Tenant Satisfaction KPI on the MallStats dashboard (property-scoped avg, colour-coded). *(commit `5c30e08`)*
+- **[done] Internal model+table rename** — `MaintenanceRequest`→`TenantRequest`, `MaintenanceRequestComment`→`TenantRequestComment`, `MaintenanceRequestService`→`TenantRequestService`; tables `maintenance_requests`/`maintenance_request_comments`→`tenant_requests`/`tenant_request_comments`; FK `maintenance_request_id`→`tenant_request_id`; morph data (activity-log subject + media model) re-pointed to the new FQCN. Filament/API class names + route slugs kept for back-compat. Verified on MySQL; suite green. *(commit `da7095e`)*
+- **[done] RBAC label** — the roles-UI permission group + nav now read "Requests" (en/ar).
+- **[deferred — by design] RBAC permission-NAME + Modules-flag rename** (`maintenance.*`→`requests.*`, module key `maintenance`→`requests`). These are **internal identifiers never shown to users** (users see the labels, already "Requests"), and `permissionModule()` couples the RBAC key to the Modules feature-flag — so renaming the literal names needs **two production data migrations** (spatie `permissions` + spatie `settings`). Zero user value + real lock-out/hide risk in a **pre-prod window** → not worth it now. Do it post-launch as a dedicated migration if ever desired.
 - **[remaining]**:
-  1. **The internal rename** (`MaintenanceRequest`→`TenantRequest`, tables, RBAC `maintenance.*`→`requests.*`, routes) — the big, risky one: morph-map hazard (`activity_log.subject_type` + Spatie `media.model_type` store the FQCN) per §4. **Deliberately deferred** while the project is in a pre-prod de-risk window — pure tech-debt with no user-facing value; do it as its own dedicated, well-tested pass (ideally post-launch or in a hardening window). The feature is fully functional with the internal names unchanged.
-  2. **DB `request_types` table** (Phase 2 §3.2) only if operators need self-service type/SLA/routing config.
-  3. **(optional) CSAT analytics** — an avg-satisfaction / SLA-compliance-by-type stat if the operator wants it.
+  1. **DB `request_types` table** (Phase 2 §3.2) only if operators need self-service type/SLA/routing config.
+  2. **(optional)** cosmetic class-file renames (Filament `MaintenanceRequestResource`→`TenantRequestResource`, API controllers, notifications) + route-slug change — pure churn, only if a fully-consistent codebase is wanted.
 
 ---
 

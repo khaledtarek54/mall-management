@@ -1075,7 +1075,7 @@ return [
         'invoices' => 'الفواتير',
         'payments' => 'المدفوعات',
         'credit_notes' => 'إشعارات الخصم',
-        'maintenance' => 'الصيانة',
+        'maintenance' => 'الطلبات',
         'tenant_sales' => 'مبيعات المستأجرين',
         'cam' => 'تسوية المصروفات المشتركة',
         'utility_meters' => 'العدادات',

@@ -1075,7 +1075,7 @@ return [
         'invoices' => 'Invoices',
         'payments' => 'Payments',
         'credit_notes' => 'Credit Notes',
-        'maintenance' => 'Maintenance',
+        'maintenance' => 'Requests',
         'tenant_sales' => 'Tenant Sales',
         'cam' => 'CAM Reconciliation',
         'utility_meters' => 'Utility Meters',
