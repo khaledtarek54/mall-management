@@ -49,5 +49,25 @@ test.describe('Accessibility (axe WCAG 2.1 A/AA)', () => {
       const critical = await audit(page, '/admin');
       expect(critical.map((v) => v.id)).toEqual([]);
     });
+
+    test('requests list — no critical violations', async ({ page }) => {
+      const critical = await audit(page, '/admin/maintenance-requests');
+      expect(critical.map((v) => v.id)).toEqual([]);
+    });
+
+    // Forms are where a11y issues cluster (unlabeled inputs, ARIA misuse).
+    test('request create form — no critical violations', async ({ page }) => {
+      const critical = await audit(page, '/admin/maintenance-requests/create');
+      expect(critical.map((v) => v.id)).toEqual([]);
+    });
+  });
+
+  test.describe('authenticated portal', () => {
+    test.use({ storageState: 'storage/playwright-state/portal.json' });
+
+    test('portal dashboard — no critical violations', async ({ page }) => {
+      const critical = await audit(page, '/portal');
+      expect(critical.map((v) => v.id)).toEqual([]);
+    });
   });
 });
