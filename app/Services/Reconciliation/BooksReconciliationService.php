@@ -135,6 +135,17 @@ class BooksReconciliationService
                 $hasCredit = $alloc->billed_credit_note_id && \App\Models\CreditNote::whereKey($alloc->billed_credit_note_id)->exists();
                 if (! $hasCharge && ! $hasCredit) {
                     $d[] = ['ref' => "pool #{$pool->id} alloc #{$alloc->id}", 'detail' => "billed but no backing charge/credit-note (charge={$alloc->billed_charge_id}, credit={$alloc->billed_credit_note_id})"];
+                } elseif ($hasCharge) {
+                    // A positive true-up's charge must actually have REACHED a
+                    // non-cancelled invoice (it's settled on a recovery invoice at
+                    // bill() time). Catches the "billed but never invoiced" lost-
+                    // revenue class instead of masking it.
+                    $reached = \App\Models\InvoiceItem::where('charge_id', $alloc->billed_charge_id)
+                        ->whereHas('invoice', fn ($q) => $q->where('status', '!=', 'cancelled'))
+                        ->exists();
+                    if (! $reached) {
+                        $d[] = ['ref' => "pool #{$pool->id} alloc #{$alloc->id}", 'detail' => "billed true-up charge {$alloc->billed_charge_id} never reached a non-cancelled invoice (lost revenue)"];
+                    }
                 }
             }
         }

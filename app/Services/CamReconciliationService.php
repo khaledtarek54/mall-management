@@ -7,8 +7,10 @@ use App\Models\CamExpensePool;
 use App\Models\Charge;
 use App\Models\CreditNote;
 use App\Models\Invoice;
+use App\Models\InvoiceItem;
 use App\Models\Lease;
 use App\Support\OpsLog;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
 class CamReconciliationService
@@ -211,28 +213,7 @@ class CamReconciliationService
                 return $allocation->refresh();
             }
 
-            // Bill the recovery on the NEXT monthly run — NOT back-dated to the
-            // reconciled year. Reconciliation runs the FOLLOWING year (the whole
-            // {year} is already billed), so a one_time charge dated {year}-01-01
-            // would never be picked up by the monthly engine (January is already
-            // invoiced; forward months are rejected by end_date) → silent lost
-            // revenue. Dating it to the next open month lands it on the tenant's
-            // next invoice (mirrors how the negative true-up settles immediately).
-            $nextPeriod = \Carbon\CarbonImmutable::now()->addMonthNoOverflow()->startOfMonth();
-
-            $charge = Charge::create([
-                'lease_id' => $allocation->lease_id,
-                'name' => "CAM Reconciliation — {$year}",
-                'type' => 'other',
-                'amount' => $amount,
-                'currency' => 'EGP',
-                'frequency' => 'one_time',
-                'vat_applicable' => false,
-                'vat_rate' => 0,
-                'start_date' => $nextPeriod,
-                'end_date' => $nextPeriod->endOfMonth(),
-                'is_active' => true,
-            ]);
+            $charge = $this->billChargeImmediately($allocation, $amount, $year);
 
             $allocation->update([
                 'status' => 'billed',
@@ -241,6 +222,67 @@ class CamReconciliationService
 
             return $allocation->refresh();
         });
+    }
+
+    /**
+     * Settle a POSITIVE true-up (tenant owes more) on a dedicated recovery
+     * invoice IMMEDIATELY — never via a future-dated one_time charge that the
+     * monthly engine may skip. Reconciliation runs the year after the reconciled
+     * year is fully billed, AND the most likely under-collected tenant has an
+     * ended-term lease (excluded from the monthly run by the active/expiry
+     * filter), so deferring to a monthly run = silent lost revenue regardless of
+     * the date. Mirrors the negative path, which applies the credit immediately.
+     */
+    private function billChargeImmediately(CamAllocation $allocation, float $amount, int $year): Charge
+    {
+        /** @var Lease $lease */
+        $lease = $allocation->lease;
+        $now = CarbonImmutable::now();
+        $name = "CAM Reconciliation — {$year}";
+
+        // The Charge is kept for traceability + the books CAM check.
+        $charge = Charge::create([
+            'lease_id' => $lease->id,
+            'name' => $name,
+            'type' => 'other',
+            'amount' => $amount,
+            'currency' => 'EGP',
+            'frequency' => 'one_time',
+            'vat_applicable' => false,
+            'vat_rate' => 0,
+            'start_date' => $now->startOfMonth(),
+            'end_date' => $now->endOfMonth(),
+            'is_active' => true,
+        ]);
+
+        $invoice = Invoice::create([
+            'lease_id' => $lease->id,
+            'tenant_id' => $lease->tenant_id,
+            'status' => 'issued',
+            'issue_date' => $now,
+            'due_date' => $now->addDays($lease->payment_terms_days ?? 7),
+            'period_start' => $now->startOfMonth(),
+            'period_end' => $now->endOfMonth(),
+            'subtotal' => $amount,
+            'vat_amount' => 0,
+            'total' => $amount,
+            'paid_amount' => 0,
+            'balance' => $amount,
+            'currency' => $lease->currency ?? 'EGP',
+        ]);
+
+        InvoiceItem::create([
+            'invoice_id' => $invoice->id,
+            'charge_id' => $charge->id,
+            'description' => $name,
+            'type' => 'other',
+            'amount' => $amount,
+            'vat_rate' => 0,
+            'vat_amount' => 0,
+            'total' => $amount,
+        ]);
+
+        return $charge;
     }
 
     /** Apply a freshly-issued credit to the lease's open invoices, oldest first. */

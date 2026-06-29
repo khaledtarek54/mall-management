@@ -188,11 +188,11 @@ it('billing an allocation creates a one-off CAM true-up charge on the lease', fu
     expect((float) $charge->amount)->toBe(10000.0);          // true_up = 50000 - 40000
     expect((bool) $charge->vat_applicable)->toBeFalse();
     expect($charge->name)->toContain('2026');
-    // Dated the NEXT open billing month (so the monthly engine actually picks it
-    // up), not back-dated to the reconciled year which would never be invoiced.
-    $next = \Carbon\CarbonImmutable::now()->addMonthNoOverflow()->startOfMonth();
-    expect($charge->start_date->format('Y-m-d'))->toBe($next->format('Y-m-d'))
-        ->and($charge->end_date->format('Y-m-d'))->toBe($next->endOfMonth()->format('Y-m-d'));
+    // Settled IMMEDIATELY on a dedicated recovery invoice (not deferred to a
+    // future monthly run that could skip the lease) — the charge reached a
+    // non-cancelled invoice item.
+    expect(\App\Models\InvoiceItem::where('charge_id', $charge->id)
+        ->whereHas('invoice', fn ($q) => $q->where('status', '!=', 'cancelled'))->count())->toBe(1);
 });
 
 it('billing a negative-true-up allocation issues a credit note (not a negative charge)', function () {
