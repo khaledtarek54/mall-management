@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Widgets;
 
+use App\Enums\TenantRequestType;
 use App\Filament\Admin\Concerns\RoleScopedWidget;
 use App\Filament\Admin\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use App\Models\MaintenanceRequest;
@@ -59,6 +60,18 @@ class OpenMaintenanceRequests extends TableWidget
                     ->label(__('admin.widgets.open_maintenance.unit'))
                     ->badge()
                     ->color('gray'),
+                TextColumn::make('request_type')
+                    ->label(__('admin.fields.request_type'))
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => ($state instanceof TenantRequestType ? $state : TenantRequestType::from((string) $state))->label())
+                    ->color(fn ($state): string => match ($state instanceof TenantRequestType ? $state : TenantRequestType::tryFrom((string) $state)) {
+                        TenantRequestType::Maintenance => 'warning',
+                        TenantRequestType::Complaint => 'danger',
+                        TenantRequestType::Inquiry => 'info',
+                        TenantRequestType::Access => 'primary',
+                        TenantRequestType::Billing => 'success',
+                        default => 'gray',
+                    }),
                 TextColumn::make('priority')
                     ->label(__('admin.widgets.open_maintenance.priority'))
                     ->badge()

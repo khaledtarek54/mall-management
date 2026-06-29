@@ -389,7 +389,7 @@ return [
         ],
 
         'open_maintenance' => [
-            'heading' => 'Open Maintenance Requests',
+            'heading' => 'Open Requests',
             'reference' => 'Reference',
             'title' => 'Title',
             'tenant' => 'Tenant',
@@ -397,7 +397,7 @@ return [
             'priority' => 'Priority',
             'target' => 'SLA Target',
             'assigned_to' => 'Assigned To',
-            'empty' => 'No open maintenance requests — all caught up.',
+            'empty' => 'No open requests — all caught up.',
         ],
 
         'portal_open_maintenance' => [
