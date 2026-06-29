@@ -128,12 +128,17 @@ class BooksReconciliationService
                 $d[] = ['ref' => "pool #{$pool->id} ({$pool->period_year})", 'detail' => "allocations sum {$summed} ≠ pool expense {$pool->total_actual_expense}"];
             }
             foreach ($pool->allocations->where('status', 'billed') as $alloc) {
-                if (! $alloc->billed_charge_id || ! \App\Models\Charge::whereKey($alloc->billed_charge_id)->exists()) {
-                    $d[] = ['ref' => "pool #{$pool->id} alloc #{$alloc->id}", 'detail' => "billed but no backing charge (billed_charge_id={$alloc->billed_charge_id})"];
+                /** @var \App\Models\CamAllocation $alloc */
+                // A billed allocation must be backed by EITHER a charge (positive
+                // true-up) OR a credit note (negative true-up = credit owed).
+                $hasCharge = $alloc->billed_charge_id && \App\Models\Charge::whereKey($alloc->billed_charge_id)->exists();
+                $hasCredit = $alloc->billed_credit_note_id && \App\Models\CreditNote::whereKey($alloc->billed_credit_note_id)->exists();
+                if (! $hasCharge && ! $hasCredit) {
+                    $d[] = ['ref' => "pool #{$pool->id} alloc #{$alloc->id}", 'detail' => "billed but no backing charge/credit-note (charge={$alloc->billed_charge_id}, credit={$alloc->billed_credit_note_id})"];
                 }
             }
         }
-        $checks[] = $this->check('cam_allocations', 'CAM allocations tie to the pool + billed ones have a charge', $d);
+        $checks[] = $this->check('cam_allocations', 'CAM allocations tie to the pool + billed ones have a charge or credit note', $d);
 
         // Control totals — the figures an accountant reconciles against their own books.
         $controlTotals = [

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\CamAllocation;
 use App\Models\CamExpensePool;
 use App\Models\Charge;
+use App\Models\CreditNote;
 use App\Models\Lease;
 use App\Support\OpsLog;
 use Illuminate\Support\Facades\DB;
@@ -156,18 +157,23 @@ class CamReconciliationService
     }
 
     /**
-     * Bill a single allocation: creates a one-off Charge on the lease for the
-     * true_up_amount. Positive true-up = tenant owes more. Negative = credit due
-     * (we still create the charge with negative amount so the next invoice nets it).
+     * Bill a single allocation for its true-up.
+     *  - Positive true-up (tenant owes more) → a one-off Charge that lands on the
+     *    next invoice.
+     *  - Negative true-up (tenant over-paid) → a CreditNote on the tenant's
+     *    account. (Previously this was a negative one-off Charge; if the credit
+     *    exceeded January's other charges the invoice total went negative and
+     *    Invoice::recomputeTotals() floored it to 0 — silently LOSING the credit.
+     *    A CreditNote preserves it and settles future AR.)
      *
-     * Idempotent: re-billing an already-billed allocation is a no-op.
+     * Idempotent + lock-safe: re-billing an already-billed allocation is a no-op.
      */
     public function bill(CamAllocation $allocation): CamAllocation
     {
         return DB::transaction(function () use ($allocation) {
             // Re-load under a row lock and re-check INSIDE the txn — two concurrent
             // bill() calls would otherwise both pass a stale status check and each
-            // create a true-up Charge (double-bill).
+            // bill the true-up (double-bill).
             $allocation = CamAllocation::query()->lockForUpdate()->find($allocation->id);
 
             if (! $allocation || $allocation->status === 'billed') {
@@ -177,6 +183,17 @@ class CamReconciliationService
             $pool = $allocation->pool;
             $year = $pool->period_year;
             $amount = (float) $allocation->true_up_amount;
+
+            if ($amount < 0) {
+                $note = $this->billCredit($allocation, abs($amount), $year);
+
+                $allocation->update([
+                    'status' => 'billed',
+                    'billed_credit_note_id' => $note->id,
+                ]);
+
+                return $allocation->refresh();
+            }
 
             $charge = Charge::create([
                 'lease_id' => $allocation->lease_id,
@@ -199,5 +216,27 @@ class CamReconciliationService
 
             return $allocation->refresh();
         });
+    }
+
+    /** A negative true-up becomes an issued credit on the tenant's account. */
+    private function billCredit(CamAllocation $allocation, float $credit, int $year): CreditNote
+    {
+        /** @var Lease $lease */
+        $lease = $allocation->lease;
+
+        return CreditNote::create([
+            'tenant_id' => $lease->tenant_id,
+            'lease_id' => $lease->id,
+            'status' => 'issued',
+            'issue_date' => now(),
+            'reason' => 'adjustment',
+            'reason_notes' => "CAM reconciliation credit — {$year}",
+            'subtotal' => $credit,
+            'vat_amount' => 0,
+            'total' => $credit,
+            'applied_amount' => 0,
+            'balance' => $credit,
+            'currency' => 'EGP',
+        ]);
     }
 }

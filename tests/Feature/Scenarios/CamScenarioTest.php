@@ -192,7 +192,7 @@ it('billing an allocation creates a one-off CAM true-up charge on the lease', fu
     expect($charge->end_date->format('Y-m-d'))->toBe('2026-12-31');
 });
 
-it('billing a negative-true-up allocation creates a negative (credit) charge', function () {
+it('billing a negative-true-up allocation issues a credit note (not a negative charge)', function () {
     $asset = makeAsset();
     $lease = makeLease(makeUnit($asset, ['area_sqm' => 100]));
     $pool = makePool($asset, ['total_actual_expense' => 30000, 'total_estimated_collected' => 50000]);
@@ -200,8 +200,19 @@ it('billing a negative-true-up allocation creates a negative (credit) charge', f
     camService()->generateAllocations($pool);
     $billed = camService()->bill($pool->allocations()->sole());
 
-    $charge = Charge::find($billed->billed_charge_id);
-    expect((float) $charge->amount)->toBe(-20000.0);
+    // The credit is a CreditNote on the tenant's account, not a negative charge
+    // (which could be floored away on a negative-total invoice).
+    expect($billed->billed_charge_id)->toBeNull()
+        ->and($billed->billed_credit_note_id)->not->toBeNull();
+
+    $note = \App\Models\CreditNote::find($billed->billed_credit_note_id);
+    expect($note->status)->toBe('issued')
+        ->and((float) $note->total)->toBe(20000.0)
+        ->and((float) $note->balance)->toBe(20000.0)
+        ->and($note->tenant_id)->toBe($lease->tenant_id);
+
+    // No negative charge leaked onto the lease.
+    expect(Charge::where('lease_id', $lease->id)->where('amount', '<', 0)->count())->toBe(0);
 });
 
 it('re-billing an already-billed allocation is a no-op (no duplicate charge)', function () {

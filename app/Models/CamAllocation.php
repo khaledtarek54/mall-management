@@ -24,6 +24,7 @@ class CamAllocation extends Model
         'exclusions',
         'status',
         'billed_charge_id',
+        'billed_credit_note_id',
     ];
 
     protected $casts = [
@@ -48,6 +49,12 @@ class CamAllocation extends Model
     public function billedCharge(): BelongsTo
     {
         return $this->belongsTo(Charge::class, 'billed_charge_id');
+    }
+
+    /** Set instead of billedCharge when the true-up is a credit (negative). */
+    public function billedCreditNote(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\CreditNote::class, 'billed_credit_note_id');
     }
 
     public function isBilled(): bool

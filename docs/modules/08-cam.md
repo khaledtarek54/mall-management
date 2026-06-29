@@ -74,9 +74,14 @@ true_up_amount      = allocated_amount - estimated_paid
 
 ### Only pending allocations can be billed
 - A `CamAllocation` can only transition to `'billed'` if its status is `'pending'`.
-- Once billed, `bill()` becomes idempotent — re-calling it returns the same allocation and charge, does not create a second charge.
+- Once billed, `bill()` becomes idempotent — re-calling it returns the same allocation and its backing record, never a second one.
 
-**Test guard**: `CamScenarioTest::it('re-billing an already-billed allocation is a no-op...')`.
+### Positive true-up → charge; negative true-up → credit note
+- A **positive** true-up (tenant under-paid) creates a one-off `Charge` on the lease (`billed_charge_id`).
+- A **negative** true-up (tenant over-paid) creates an **issued `CreditNote`** on the tenant's account (`billed_credit_note_id`) — *not* a negative charge. A negative charge could drive a January invoice total negative, which `Invoice::recomputeTotals()` floors to 0, silently losing the credit. The credit note preserves it and settles future AR via the normal credit-apply flow.
+- The books reconciliation (`BooksReconciliationService`, CAM check) accepts a billed allocation backed by **either** a charge or a credit note.
+
+**Test guards**: `CamScenarioTest::it('re-billing an already-billed allocation is a no-op...')`, `CamScenarioTest::it('billing a negative-true-up allocation issues a credit note...')`, and `Regression/CamNegativeTrueUpCreditTest` (large credit preserved + books tie out).
 
 ### Variance definition
 ```
