@@ -10,6 +10,9 @@
 
 ## ✅ Progress log (live)
 
+- **[done] Adversarial "make it perfect" review** — a 6-dimension multi-agent review (money, security, session-changes, request-system, data-integrity, scheduled-jobs), each finding skeptically verified, surfaced **8 confirmed real defects** — **all fixed + regression-tested**. Headlines: **2 HIGH money bugs** — (1) a prorated first-month invoice evaded the double-billing guard (period_start = commencement ≠ month-start) → the month got billed twice; (2) a negative CAM true-up larger than January's charges drove the invoice total negative and `recomputeTotals()` floored the credit to 0 (lost) — now modelled as a credit note. Plus 3 of my own session bugs (admin per-type SLA, API stray sub-category, migration `down()` reversibility) and 3 LOW (ungated comment actions, comment-on-terminal, …). *(commits a3da086 → 511e754)*
+
+
 - **[done] Static analysis (Larastan/PHPStan)** — `larastan/larastan ^3` installed; `phpstan.neon` at **level 5** over `app/`; the 250 pre-existing findings are grandfathered in `phpstan-baseline.neon` so the gate now enforces **no new errors**. Run via `composer analyse`. A `static-analysis` job is wired into `.github/workflows/ci.yml` (ready; CI triggers remain dispatch-only — flip on when you want CI billing). *(this commit)*
 - **[done] composer QA scripts** — `composer analyse` (PHPStan), `composer lint` / `composer lint-fix` (Pint, opt-in — codebase isn't Pint-clean yet; a one-time `pint` reformat is a separate task), `composer qa` (analyse + full suite).
 - **[done] Model factories** — 16 factories for the core domain models (Asset, Unit, Tenant, TenantUser, Department, Vendor, Lease, Invoice, Payment, CreditNote, TenantRequest, TenantSalesDeclaration, OwnerRequest, MeterReading, UtilityMeter, MarketingBudget), each producing a fully-valid persistable record; `FactoriesSmokeTest` guards them. Added `HasFactory` to Department + Vendor. *(commit `71241ea`)*
