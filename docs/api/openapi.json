@@ -1,0 +1,3228 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "Atriom",
+        "version": "0.0.1"
+    },
+    "servers": [
+        {
+            "url": "https://mall-management.test/api"
+        }
+    ],
+    "paths": {
+        "/v1/me/balance": {
+            "get": {
+                "operationId": "v1.me.balance",
+                "tags": [
+                    "Balance"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "outstanding": {
+                                                    "type": "number"
+                                                },
+                                                "overdue": {
+                                                    "type": "number"
+                                                },
+                                                "openCount": {
+                                                    "type": "string"
+                                                },
+                                                "currency": {
+                                                    "type": "string",
+                                                    "const": "EGP"
+                                                },
+                                                "isDelinquent": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "outstanding",
+                                                "overdue",
+                                                "openCount",
+                                                "currency",
+                                                "isDelinquent"
+                                            ]
+                                        },
+                                        "message": {
+                                            "type": "null"
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/maintenance-requests/{id}/cancel": {
+            "post": {
+                "operationId": "v1.me.maintenance.cancel",
+                "tags": [
+                    "CancelMaintenanceRequest"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/MaintenanceRequestResource"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "const": "Maintenance request cancelled."
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/auth/change-password": {
+            "post": {
+                "operationId": "v1.auth.change-password",
+                "tags": [
+                    "ChangePassword"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ChangePasswordRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "null"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "const": "Password changed."
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/maintenance-requests/{id}/comments": {
+            "post": {
+                "operationId": "v1.me.maintenance.comment",
+                "tags": [
+                    "CommentMaintenanceRequest"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CommentMaintenanceRequestRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/MaintenanceRequestCommentResource"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "const": "Comment added."
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/maintenance-requests": {
+            "post": {
+                "operationId": "v1.me.maintenance.store",
+                "tags": [
+                    "CreateMaintenanceRequest"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreateMaintenanceRequestRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/MaintenanceRequestResource"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "const": "Maintenance request submitted."
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            },
+            "get": {
+                "operationId": "v1.me.maintenance.index",
+                "tags": [
+                    "ListMaintenanceRequests"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Array of `MaintenanceRequestResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/MaintenanceRequestResource"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/sales-declarations": {
+            "post": {
+                "operationId": "v1.me.sales.store",
+                "tags": [
+                    "CreateSalesDeclaration"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreateSalesDeclarationRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/TenantSalesDeclarationResource"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "const": "Sales declaration submitted."
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            },
+            "get": {
+                "operationId": "v1.me.sales.index",
+                "tags": [
+                    "ListSalesDeclarations"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Array of `TenantSalesDeclarationResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/TenantSalesDeclarationResource"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/invoices/{invoice}/pay-demo": {
+            "post": {
+                "operationId": "v1.me.invoices.pay-demo",
+                "tags": [
+                    "DemoPayInvoice"
+                ],
+                "parameters": [
+                    {
+                        "name": "invoice",
+                        "in": "path",
+                        "required": true,
+                        "description": "The invoice ID",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "`PaymentResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/PaymentResource"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "const": "Payment received"
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "message": {
+                                                    "type": "string",
+                                                    "const": "Paymob did not accept the request. Please try again in a moment."
+                                                },
+                                                "error": {
+                                                    "type": "string",
+                                                    "const": "no_balance"
+                                                },
+                                                "balance": {
+                                                    "type": "number"
+                                                }
+                                            },
+                                            "required": [
+                                                "message",
+                                                "error",
+                                                "balance"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "message": {
+                                                    "type": "string",
+                                                    "const": "Paymob did not accept the request. Please try again in a moment."
+                                                },
+                                                "error": {
+                                                    "type": "string",
+                                                    "const": "invoice_not_payable"
+                                                },
+                                                "status": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "message",
+                                                "error",
+                                                "status"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "const": "Could not start payment"
+                                        },
+                                        "error": {
+                                            "type": "string",
+                                            "const": "use_real_payment"
+                                        }
+                                    },
+                                    "required": [
+                                        "message",
+                                        "error"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/auth/forgot-password": {
+            "post": {
+                "operationId": "v1.auth.forgot-password",
+                "tags": [
+                    "ForgotPassword"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ForgotPasswordRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "null"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "const": "If that email is registered, a reset link has been sent."
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "null"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "const": "Please wait before requesting another reset link."
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/invoices/{invoice}/paymob-session": {
+            "post": {
+                "operationId": "v1.me.invoices.paymob-session",
+                "tags": [
+                    "InitiatePaymobSession"
+                ],
+                "parameters": [
+                    {
+                        "name": "invoice",
+                        "in": "path",
+                        "required": true,
+                        "description": "The invoice ID",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "`PaymobSessionResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/PaymobSessionResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "502": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "const": "Could not start payment"
+                                        },
+                                        "error": {
+                                            "type": "string",
+                                            "const": "paymob_upstream_error"
+                                        }
+                                    },
+                                    "required": [
+                                        "message",
+                                        "error"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "message": {
+                                                    "type": "string",
+                                                    "const": "Paymob did not accept the request. Please try again in a moment."
+                                                },
+                                                "error": {
+                                                    "type": "string",
+                                                    "const": "no_balance"
+                                                },
+                                                "balance": {
+                                                    "type": "number"
+                                                }
+                                            },
+                                            "required": [
+                                                "message",
+                                                "error",
+                                                "balance"
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "message": {
+                                                    "type": "string",
+                                                    "const": "Paymob did not accept the request. Please try again in a moment."
+                                                },
+                                                "error": {
+                                                    "type": "string",
+                                                    "const": "invoice_not_payable"
+                                                },
+                                                "status": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "message",
+                                                "error",
+                                                "status"
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "const": "Could not start payment"
+                                        },
+                                        "error": {
+                                            "type": "string",
+                                            "const": "paymob_disabled"
+                                        }
+                                    },
+                                    "required": [
+                                        "message",
+                                        "error"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/invoices/{id}/pdf": {
+            "get": {
+                "operationId": "v1.me.invoices.pdf",
+                "tags": [
+                    "InvoicePdf"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/pdf": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Content-Disposition": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/leases": {
+            "get": {
+                "operationId": "v1.me.leases",
+                "tags": [
+                    "Leases"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Array of `LeaseResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/LeaseResource"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/credit-notes": {
+            "get": {
+                "operationId": "v1.me.credit-notes.index",
+                "tags": [
+                    "ListCreditNotes"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Array of `CreditNoteResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/CreditNoteResource"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/invoices": {
+            "get": {
+                "operationId": "v1.me.invoices.index",
+                "tags": [
+                    "ListInvoices"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Array of `InvoiceResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/InvoiceResource"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/notifications": {
+            "get": {
+                "operationId": "v1.me.notifications.index",
+                "tags": [
+                    "ListNotifications"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated set of `NotificationResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/NotificationResource"
+                                            }
+                                        },
+                                        "links": {
+                                            "type": "object",
+                                            "properties": {
+                                                "first": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "last": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "prev": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "next": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                }
+                                            },
+                                            "required": [
+                                                "first",
+                                                "last",
+                                                "prev",
+                                                "next"
+                                            ]
+                                        },
+                                        "meta": {
+                                            "type": "object",
+                                            "properties": {
+                                                "currentPage": {
+                                                    "type": "integer",
+                                                    "minimum": 1
+                                                },
+                                                "from": {
+                                                    "type": [
+                                                        "integer",
+                                                        "null"
+                                                    ],
+                                                    "minimum": 1
+                                                },
+                                                "lastPage": {
+                                                    "type": "integer",
+                                                    "minimum": 1
+                                                },
+                                                "links": {
+                                                    "type": "array",
+                                                    "description": "Generated paginator links.",
+                                                    "items": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "url": {
+                                                                "type": [
+                                                                    "string",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "label": {
+                                                                "type": "string"
+                                                            },
+                                                            "active": {
+                                                                "type": "boolean"
+                                                            }
+                                                        },
+                                                        "required": [
+                                                            "url",
+                                                            "label",
+                                                            "active"
+                                                        ]
+                                                    }
+                                                },
+                                                "path": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ],
+                                                    "description": "Base path for paginator generated URLs."
+                                                },
+                                                "perPage": {
+                                                    "type": "integer",
+                                                    "description": "Number of items shown per page.",
+                                                    "minimum": 0
+                                                },
+                                                "to": {
+                                                    "type": [
+                                                        "integer",
+                                                        "null"
+                                                    ],
+                                                    "description": "Number of the last item in the slice.",
+                                                    "minimum": 1
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "description": "Total number of items being paginated.",
+                                                    "minimum": 0
+                                                }
+                                            },
+                                            "required": [
+                                                "currentPage",
+                                                "from",
+                                                "lastPage",
+                                                "links",
+                                                "path",
+                                                "perPage",
+                                                "to",
+                                                "total"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "links",
+                                        "meta"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/payments": {
+            "get": {
+                "operationId": "v1.me.payments.index",
+                "tags": [
+                    "ListPayments"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Array of `PaymentResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/PaymentResource"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/auth/login": {
+            "post": {
+                "operationId": "v1.auth.login",
+                "tags": [
+                    "Login"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/LoginRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Per the mobile contract: `data` is the leases array; the token rides\nalongside at the top level (camelCased to accessToken / tokenType).",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/LoginLeaseResource"
+                                            }
+                                        },
+                                        "accessToken": {
+                                            "type": "string"
+                                        },
+                                        "tokenType": {
+                                            "type": "string",
+                                            "const": "Bearer"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "const": "Login successful"
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "accessToken",
+                                        "tokenType",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/v1/auth/logout": {
+            "post": {
+                "operationId": "v1.auth.logout",
+                "tags": [
+                    "Logout"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "null"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "const": "Signed out."
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/notifications/read-all": {
+            "post": {
+                "operationId": "v1.me.notifications.read-all",
+                "tags": [
+                    "MarkAllNotificationsRead"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "null"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "const": "Notification marked as read."
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/notifications/{id}/read": {
+            "post": {
+                "operationId": "v1.me.notifications.read",
+                "tags": [
+                    "MarkNotificationRead"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "null"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "const": "Notification marked as read."
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/auth/me": {
+            "get": {
+                "operationId": "v1.auth.me",
+                "tags": [
+                    "Me"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "`TenantResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/TenantResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/maintenance-requests/{id}/rate": {
+            "post": {
+                "operationId": "v1.me.maintenance.rate",
+                "tags": [
+                    "RateMaintenanceRequest"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RateMaintenanceRequestRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/MaintenanceRequestResource"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "const": "Thank you \u2014 your feedback has been recorded."
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/devices": {
+            "post": {
+                "operationId": "v1.me.devices.store",
+                "tags": [
+                    "RegisterDevice"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RegisterDeviceRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/DeviceTokenResource"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "const": "Device registered for push notifications."
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/v1/auth/reset-password": {
+            "post": {
+                "operationId": "v1.auth.reset-password",
+                "tags": [
+                    "ResetPassword"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ResetPasswordRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "null"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "const": "Password has been reset. You can now sign in."
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/credit-notes/{id}": {
+            "get": {
+                "operationId": "v1.me.credit-notes.show",
+                "tags": [
+                    "ShowCreditNote"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "`CreditNoteResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/CreditNoteResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/invoices/{id}": {
+            "get": {
+                "operationId": "v1.me.invoices.show",
+                "tags": [
+                    "ShowInvoice"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "`InvoiceResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/InvoiceResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/maintenance-requests/{id}": {
+            "get": {
+                "operationId": "v1.me.maintenance.show",
+                "tags": [
+                    "ShowMaintenanceRequest"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "`MaintenanceRequestResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/MaintenanceRequestResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/payments/{id}": {
+            "get": {
+                "operationId": "v1.me.payments.show",
+                "tags": [
+                    "ShowPayment"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "`PaymentResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/PaymentResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/me": {
+            "get": {
+                "operationId": "v1.me.show",
+                "tags": [
+                    "ShowProfile"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "`TenantResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/TenantResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            },
+            "patch": {
+                "operationId": "v1.me.update",
+                "tags": [
+                    "UpdateProfile"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateProfileRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/TenantResource"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "const": "Profile updated."
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/sales-declarations/{id}": {
+            "get": {
+                "operationId": "v1.me.sales.show",
+                "tags": [
+                    "ShowSalesDeclaration"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "`TenantSalesDeclarationResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/TenantSalesDeclarationResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/statement": {
+            "get": {
+                "operationId": "v1.me.statement",
+                "tags": [
+                    "Statement"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/pdf": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Content-Disposition": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/summary": {
+            "get": {
+                "operationId": "v1.me.summary",
+                "tags": [
+                    "Summary"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "outstanding": {
+                                                    "type": "number",
+                                                    "description": "Money"
+                                                },
+                                                "overdue": {
+                                                    "type": "number"
+                                                },
+                                                "openInvoices": {
+                                                    "type": "string"
+                                                },
+                                                "creditAvailable": {
+                                                    "type": "number",
+                                                    "description": "'issued' only \u2014 same filter Tenant::outstandingBalance() uses for\nspendable credit (applied/void notes carry no remaining balance)."
+                                                },
+                                                "isDelinquent": {
+                                                    "type": "string"
+                                                },
+                                                "openMaintenance": {
+                                                    "type": "string",
+                                                    "description": "Open work"
+                                                },
+                                                "disputedDeclarations": {
+                                                    "type": "integer",
+                                                    "description": "Needs the tenant's attention",
+                                                    "minimum": 0
+                                                },
+                                                "canDeclareSales": {
+                                                    "type": "string"
+                                                },
+                                                "unreadNotifications": {
+                                                    "type": "integer",
+                                                    "minimum": 0
+                                                },
+                                                "currency": {
+                                                    "type": "string",
+                                                    "const": "EGP"
+                                                }
+                                            },
+                                            "required": [
+                                                "outstanding",
+                                                "overdue",
+                                                "openInvoices",
+                                                "creditAvailable",
+                                                "isDelinquent",
+                                                "openMaintenance",
+                                                "disputedDeclarations",
+                                                "canDeclareSales",
+                                                "unreadNotifications",
+                                                "currency"
+                                            ]
+                                        },
+                                        "message": {
+                                            "type": "null"
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/notifications/unread-count": {
+            "get": {
+                "operationId": "v1.me.notifications.unread-count",
+                "tags": [
+                    "UnreadCount"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "unreadCount": {
+                                                    "type": "integer",
+                                                    "minimum": 0
+                                                }
+                                            },
+                                            "required": [
+                                                "unreadCount"
+                                            ]
+                                        },
+                                        "message": {
+                                            "type": "null"
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/devices/{id}": {
+            "delete": {
+                "operationId": "v1.me.devices.destroy",
+                "tags": [
+                    "UnregisterDevice"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "null"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "const": "Device removed."
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFoundHttpException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "ChangePasswordRequest": {
+                "type": "object",
+                "properties": {
+                    "currentPassword": {
+                        "type": "string"
+                    },
+                    "password": {
+                        "type": "string",
+                        "description": "Must differ from the current one and be confirmed."
+                    },
+                    "passwordConfirmation": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "currentPassword",
+                    "password",
+                    "passwordConfirmation"
+                ],
+                "title": "ChangePasswordRequest"
+            },
+            "CommentMaintenanceRequestRequest": {
+                "type": "object",
+                "properties": {
+                    "body": {
+                        "type": "string",
+                        "maxLength": 5000
+                    }
+                },
+                "required": [
+                    "body"
+                ],
+                "title": "CommentMaintenanceRequestRequest"
+            },
+            "CreateMaintenanceRequestRequest": {
+                "type": "object",
+                "properties": {
+                    "requestType": {
+                        "type": "string",
+                        "enum": [
+                            "maintenance",
+                            "complaint",
+                            "inquiry",
+                            "access",
+                            "billing",
+                            "document",
+                            "other"
+                        ]
+                    },
+                    "title": {
+                        "type": "string",
+                        "maxLength": 255
+                    },
+                    "description": {
+                        "type": "string",
+                        "maxLength": 5000
+                    },
+                    "category": {
+                        "type": "string",
+                        "description": "Sub-category is required for types that define one (maintenance,\naccess, document, complaint) and validated against that type's set;\ntypes without sub-categories (inquiry, billing) accept none.",
+                        "enum": [
+                            ""
+                        ]
+                    },
+                    "priority": {
+                        "type": "string",
+                        "enum": [
+                            "low",
+                            "medium",
+                            "high",
+                            "urgent"
+                        ]
+                    },
+                    "unitId": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
+                        "description": "If supplied, the unit must belong to one of THIS tenant's leases.\nPrevents a tenant from filing against someone else's unit. When\nomitted, the service derives it from the active lease."
+                    },
+                    "attachments": {
+                        "type": "array",
+                        "description": "Optional photos / PDFs of the issue. Mirrors the portal upload\n(images + PDF only, \u226410 MB each, \u22645 files) so what a tenant can\nattach from the app matches what staff can attach in the admin.\nmimetypes (not mimes) validates the real content type, so a\nrenamed .mp4 can't slip through as a .jpg.",
+                        "items": {
+                            "type": "string",
+                            "format": "binary",
+                            "contentMediaType": "application/octet-stream",
+                            "maxLength": 10240
+                        },
+                        "maxItems": 5
+                    }
+                },
+                "required": [
+                    "title",
+                    "description",
+                    "category"
+                ],
+                "title": "CreateMaintenanceRequestRequest"
+            },
+            "CreateSalesDeclarationRequest": {
+                "type": "object",
+                "properties": {
+                    "leaseId": {
+                        "type": "integer",
+                        "description": "Lease must belong to this tenant. The percentage-rent check and\nduplicate-period check carry richer messages and live in the\naction; here we just establish ownership."
+                    },
+                    "periodStart": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "periodEnd": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "declaredSales": {
+                        "type": "number",
+                        "minimum": 0
+                    }
+                },
+                "required": [
+                    "leaseId",
+                    "periodStart",
+                    "periodEnd",
+                    "declaredSales"
+                ],
+                "title": "CreateSalesDeclarationRequest"
+            },
+            "CreditNoteResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "number": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "reason": {
+                        "type": "string"
+                    },
+                    "subtotal": {
+                        "type": "number"
+                    },
+                    "vatAmount": {
+                        "type": "number"
+                    },
+                    "total": {
+                        "type": "number"
+                    },
+                    "appliedAmount": {
+                        "type": "number"
+                    },
+                    "balance": {
+                        "type": "number"
+                    },
+                    "currency": {
+                        "type": "string"
+                    },
+                    "issueDate": {
+                        "type": "string"
+                    },
+                    "appliedAt": {
+                        "type": "string"
+                    },
+                    "invoice": {
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "description": "The invoice this credit was raised against (null for standalone\ntenant-level credits). Only present when eager-loaded.",
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "number": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "id",
+                            "number"
+                        ]
+                    }
+                },
+                "required": [
+                    "id",
+                    "number",
+                    "status",
+                    "reason",
+                    "subtotal",
+                    "vatAmount",
+                    "total",
+                    "appliedAmount",
+                    "balance",
+                    "currency",
+                    "issueDate",
+                    "appliedAt"
+                ],
+                "title": "CreditNoteResource"
+            },
+            "DeviceTokenResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "platform": {
+                        "type": "string"
+                    },
+                    "deviceName": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "description": "The raw push token is deliberately not echoed back \u2014 it is a\nwrite-only credential from the client's perspective."
+                    }
+                },
+                "required": [
+                    "id",
+                    "platform",
+                    "deviceName",
+                    "createdAt"
+                ],
+                "title": "DeviceTokenResource"
+            },
+            "ForgotPasswordRequest": {
+                "type": "object",
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "maxLength": 255
+                    }
+                },
+                "required": [
+                    "email"
+                ],
+                "title": "ForgotPasswordRequest"
+            },
+            "InvoiceItemResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string"
+                    },
+                    "amount": {
+                        "type": "number"
+                    },
+                    "vatRate": {
+                        "type": "number"
+                    },
+                    "vatAmount": {
+                        "type": "number"
+                    },
+                    "total": {
+                        "type": "number"
+                    }
+                },
+                "required": [
+                    "id",
+                    "description",
+                    "type",
+                    "amount",
+                    "vatRate",
+                    "vatAmount",
+                    "total"
+                ],
+                "title": "InvoiceItemResource"
+            },
+            "InvoiceResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "number": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "issueDate": {
+                        "type": "string"
+                    },
+                    "dueDate": {
+                        "type": "string"
+                    },
+                    "periodStart": {
+                        "type": "string"
+                    },
+                    "periodEnd": {
+                        "type": "string"
+                    },
+                    "subtotal": {
+                        "type": "number"
+                    },
+                    "vatAmount": {
+                        "type": "number"
+                    },
+                    "total": {
+                        "type": "number"
+                    },
+                    "paidAmount": {
+                        "type": "number"
+                    },
+                    "creditAppliedAmount": {
+                        "type": "number",
+                        "description": "Portion of paid_amount covered by applied credit notes (vs cash)."
+                    },
+                    "balance": {
+                        "type": "number"
+                    },
+                    "currency": {
+                        "type": "string"
+                    },
+                    "isOverdue": {
+                        "type": "boolean"
+                    },
+                    "daysOverdue": {
+                        "type": "integer"
+                    },
+                    "paymentLinkUrl": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Shareable public pay link (no login) \u2014 null once nothing is owed.\nLets the app surface a \"share payment link\" alongside in-app pay."
+                    },
+                    "etaStatus": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "ETA (Egyptian Tax Authority) e-invoice references \u2014 present once\nthe invoice has been accepted by the ETA portal. Useful for the\napp to show a \"tax-registered\" badge."
+                    },
+                    "etaSubmissionId": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "etaLongId": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "items": {
+                        "type": "array",
+                        "description": "Relations \u2014 only present on the detail endpoint (eager-loaded).",
+                        "items": {
+                            "$ref": "#/components/schemas/InvoiceItemResource"
+                        }
+                    },
+                    "lease": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "reference": {
+                                "type": "string"
+                            },
+                            "unit": {
+                                "type": [
+                                    "object",
+                                    "null"
+                                ],
+                                "properties": {
+                                    "id": {
+                                        "type": "integer"
+                                    },
+                                    "code": {
+                                        "type": "string"
+                                    },
+                                    "floor": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    }
+                                },
+                                "required": [
+                                    "id",
+                                    "code",
+                                    "floor"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "id",
+                            "reference",
+                            "unit"
+                        ]
+                    }
+                },
+                "required": [
+                    "id",
+                    "number",
+                    "status",
+                    "issueDate",
+                    "dueDate",
+                    "periodStart",
+                    "periodEnd",
+                    "subtotal",
+                    "vatAmount",
+                    "total",
+                    "paidAmount",
+                    "creditAppliedAmount",
+                    "balance",
+                    "currency",
+                    "isOverdue",
+                    "daysOverdue",
+                    "paymentLinkUrl",
+                    "etaStatus",
+                    "etaSubmissionId",
+                    "etaLongId"
+                ],
+                "title": "InvoiceResource"
+            },
+            "LeaseResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "reference": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "commencementDate": {
+                        "type": "string"
+                    },
+                    "expiryDate": {
+                        "type": "string"
+                    },
+                    "termMonths": {
+                        "type": "integer"
+                    },
+                    "baseRentMonthly": {
+                        "type": "number"
+                    },
+                    "serviceChargeMonthly": {
+                        "type": "number"
+                    },
+                    "totalMonthlyAmount": {
+                        "type": "number"
+                    },
+                    "currency": {
+                        "type": "string"
+                    },
+                    "hasPercentageRent": {
+                        "type": "boolean"
+                    },
+                    "percentageRentRate": {
+                        "type": [
+                            "number",
+                            "null"
+                        ]
+                    },
+                    "unit": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "code": {
+                                "type": "string"
+                            },
+                            "floor": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "category": {
+                                "type": "string"
+                            },
+                            "areaSqm": {
+                                "type": "number"
+                            },
+                            "asset": {
+                                "type": [
+                                    "object",
+                                    "null"
+                                ],
+                                "properties": {
+                                    "id": {
+                                        "type": "integer"
+                                    },
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "code": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "id",
+                                    "name",
+                                    "code"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "id",
+                            "code",
+                            "floor",
+                            "category",
+                            "areaSqm",
+                            "asset"
+                        ]
+                    }
+                },
+                "required": [
+                    "id",
+                    "reference",
+                    "status",
+                    "commencementDate",
+                    "expiryDate",
+                    "termMonths",
+                    "baseRentMonthly",
+                    "serviceChargeMonthly",
+                    "totalMonthlyAmount",
+                    "currency",
+                    "hasPercentageRent",
+                    "percentageRentRate"
+                ],
+                "title": "LeaseResource"
+            },
+            "LoginLeaseResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "shop": {
+                        "type": "string"
+                    },
+                    "mall": {
+                        "type": "string"
+                    },
+                    "unitNumber": {
+                        "type": "string"
+                    },
+                    "startDate": {
+                        "type": "string"
+                    },
+                    "endDate": {
+                        "type": "string"
+                    },
+                    "isActive": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "id",
+                    "name",
+                    "shop",
+                    "mall",
+                    "unitNumber",
+                    "startDate",
+                    "endDate",
+                    "isActive"
+                ],
+                "title": "LoginLeaseResource"
+            },
+            "LoginRequest": {
+                "type": "object",
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "maxLength": 255
+                    },
+                    "password": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "deviceName": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Optional per the mobile contract (the app doesn't send it). When\npresent it labels the token for the \"manage devices\" screen;\notherwise we fall back to the User-Agent (see deviceName()).",
+                        "maxLength": 100
+                    }
+                },
+                "required": [
+                    "email",
+                    "password"
+                ],
+                "title": "LoginRequest"
+            },
+            "MaintenanceRequestCommentResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "body": {
+                        "type": "string"
+                    },
+                    "authorKind": {
+                        "type": "string",
+                        "enum": [
+                            "tenant",
+                            "staff"
+                        ]
+                    },
+                    "authorName": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "string",
+                                "enum": [
+                                    "Property team"
+                                ]
+                            }
+                        ]
+                    },
+                    "createdAt": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "body",
+                    "authorKind",
+                    "authorName",
+                    "createdAt"
+                ],
+                "title": "MaintenanceRequestCommentResource"
+            },
+            "MaintenanceRequestResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "reference": {
+                        "type": "string"
+                    },
+                    "requestType": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "priority": {
+                        "type": "string"
+                    },
+                    "category": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "The type's sub-category (electrical, parking, lease_copy\u2026); null\nfor types that have none (inquiry, billing query)."
+                    },
+                    "channel": {
+                        "type": "string"
+                    },
+                    "isOpen": {
+                        "type": "boolean"
+                    },
+                    "isOverdue": {
+                        "type": "boolean"
+                    },
+                    "canCancel": {
+                        "type": "boolean",
+                        "description": "Whether the tenant may still cancel \u2014 true only before staff\nstart work. Mirrors the cancel endpoint's guard so the app can\nshow/hide the button without a round-trip."
+                    },
+                    "canRate": {
+                        "type": "boolean",
+                        "description": "Whether the tenant can submit a satisfaction rating \u2014 true once the\nrequest is resolved/closed. Mirrors the rate endpoint's guard."
+                    },
+                    "csatRating": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "csatComment": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "submittedAt": {
+                        "type": "string"
+                    },
+                    "acknowledgedAt": {
+                        "type": "string"
+                    },
+                    "resolvedAt": {
+                        "type": "string"
+                    },
+                    "closedAt": {
+                        "type": "string"
+                    },
+                    "targetResolutionAt": {
+                        "type": "string"
+                    },
+                    "resolutionNotes": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "unit": {
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "code": {
+                                "type": "string"
+                            },
+                            "floor": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "id",
+                            "code",
+                            "floor"
+                        ]
+                    },
+                    "comments": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/MaintenanceRequestCommentResource"
+                        }
+                    },
+                    "attachments": {
+                        "type": "array",
+                        "description": "Attachments uploaded by tenant or staff (Spatie media library,\n`attachments` collection). Absolute URLs so the app can render\nimages / open PDFs directly. Only images + PDF are accepted on\nupload, so the app never receives a type it can't preview.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "string"
+                                },
+                                "name": {
+                                    "type": "string"
+                                },
+                                "mimeType": {
+                                    "type": "string"
+                                },
+                                "size": {
+                                    "type": "string"
+                                },
+                                "url": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "id",
+                                "name",
+                                "mimeType",
+                                "size",
+                                "url"
+                            ]
+                        }
+                    }
+                },
+                "required": [
+                    "id",
+                    "reference",
+                    "requestType",
+                    "title",
+                    "description",
+                    "status",
+                    "priority",
+                    "category",
+                    "channel",
+                    "isOpen",
+                    "isOverdue",
+                    "canCancel",
+                    "canRate",
+                    "csatRating",
+                    "csatComment",
+                    "submittedAt",
+                    "acknowledgedAt",
+                    "resolvedAt",
+                    "closedAt",
+                    "targetResolutionAt",
+                    "resolutionNotes"
+                ],
+                "title": "MaintenanceRequestResource"
+            },
+            "NotificationResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string",
+                        "description": "UUID\nShort class name (e.g. \"PaymentReceivedNotification\") so the app can\nbranch on it without coupling to the PHP namespace."
+                    },
+                    "data": {
+                        "type": "array",
+                        "description": "Notification payload, minus the Filament bell render hints \u2014 those\nare server-side presentation cruft the mobile app shouldn't see (and\nstripping them keeps this from silently shipping internal keys).",
+                        "items": []
+                    },
+                    "read": {
+                        "type": "boolean"
+                    },
+                    "readAt": {
+                        "type": "string"
+                    },
+                    "createdAt": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "type",
+                    "data",
+                    "read",
+                    "readAt",
+                    "createdAt"
+                ],
+                "title": "NotificationResource"
+            },
+            "PaymentResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "reference": {
+                        "type": "string"
+                    },
+                    "amount": {
+                        "type": "number"
+                    },
+                    "currency": {
+                        "type": "string"
+                    },
+                    "method": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "paymentDate": {
+                        "type": "string"
+                    },
+                    "gateway": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "channel": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "How the payment was taken: payment_link / mobile_api / portal / admin."
+                    },
+                    "receiptAt": {
+                        "type": "string",
+                        "description": "When the captured-payment receipt fired (null until captured)."
+                    },
+                    "allocations": {
+                        "type": "array",
+                        "description": "Per-invoice allocation. A single payment can clear several\ninvoices; each row carries how much of this payment landed on\nthat invoice (the invoice_payment.allocated_amount pivot value).",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "invoiceId": {
+                                    "type": "integer"
+                                },
+                                "invoiceNumber": {
+                                    "type": "string"
+                                },
+                                "allocatedAmount": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "invoiceId",
+                                "invoiceNumber",
+                                "allocatedAmount"
+                            ]
+                        }
+                    }
+                },
+                "required": [
+                    "id",
+                    "reference",
+                    "amount",
+                    "currency",
+                    "method",
+                    "status",
+                    "paymentDate",
+                    "gateway",
+                    "channel",
+                    "receiptAt"
+                ],
+                "title": "PaymentResource"
+            },
+            "PaymobSessionResource": {
+                "type": "object",
+                "properties": {
+                    "paymentToken": {
+                        "type": "string"
+                    },
+                    "iframeUrl": {
+                        "type": "string"
+                    },
+                    "iframeId": {
+                        "type": "string"
+                    },
+                    "orderId": {
+                        "type": "string"
+                    },
+                    "paymentId": {
+                        "type": "string"
+                    },
+                    "expiresAt": {
+                        "type": "string"
+                    },
+                    "reused": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "paymentToken",
+                    "iframeUrl",
+                    "iframeId",
+                    "orderId",
+                    "paymentId",
+                    "expiresAt",
+                    "reused"
+                ],
+                "title": "PaymobSessionResource"
+            },
+            "RateMaintenanceRequestRequest": {
+                "type": "object",
+                "properties": {
+                    "rating": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 5
+                    },
+                    "comment": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "maxLength": 1000
+                    }
+                },
+                "required": [
+                    "rating"
+                ],
+                "title": "RateMaintenanceRequestRequest"
+            },
+            "RegisterDeviceRequest": {
+                "type": "object",
+                "properties": {
+                    "platform": {
+                        "type": "string",
+                        "enum": [
+                            "ios",
+                            "android"
+                        ]
+                    },
+                    "token": {
+                        "type": "string",
+                        "maxLength": 512
+                    },
+                    "deviceName": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "maxLength": 255
+                    }
+                },
+                "required": [
+                    "platform",
+                    "token"
+                ],
+                "title": "RegisterDeviceRequest"
+            },
+            "ResetPasswordRequest": {
+                "type": "object",
+                "properties": {
+                    "token": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email"
+                    },
+                    "password": {
+                        "type": "string"
+                    },
+                    "passwordConfirmation": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "token",
+                    "email",
+                    "password",
+                    "passwordConfirmation"
+                ],
+                "title": "ResetPasswordRequest"
+            },
+            "TenantResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "legalName": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "type": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "phone": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "whatsapp": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "contactPerson": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "taxId": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Deliberately re-exposed despite Tenant::$hidden. Mobile invoice\ndisplays + ETA submissions need it; national_id stays hidden\n(more sensitive PII). Confirmed at audit M02 F-7 / D-5."
+                    }
+                },
+                "required": [
+                    "id",
+                    "name",
+                    "legalName",
+                    "type",
+                    "email",
+                    "phone",
+                    "whatsapp",
+                    "contactPerson",
+                    "status",
+                    "taxId"
+                ],
+                "title": "TenantResource"
+            },
+            "TenantSalesDeclarationResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "periodStart": {
+                        "type": "string"
+                    },
+                    "periodEnd": {
+                        "type": "string"
+                    },
+                    "periodLabel": {
+                        "type": "string"
+                    },
+                    "declaredSales": {
+                        "type": "number"
+                    },
+                    "calculatedPercentageRent": {
+                        "type": "number"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "isLocked": {
+                        "type": "boolean"
+                    },
+                    "declaredAt": {
+                        "type": "string"
+                    },
+                    "lockedAt": {
+                        "type": "string"
+                    },
+                    "lease": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "reference": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "id",
+                            "reference"
+                        ]
+                    }
+                },
+                "required": [
+                    "id",
+                    "periodStart",
+                    "periodEnd",
+                    "periodLabel",
+                    "declaredSales",
+                    "calculatedPercentageRent",
+                    "status",
+                    "isLocked",
+                    "declaredAt",
+                    "lockedAt"
+                ],
+                "title": "TenantSalesDeclarationResource"
+            },
+            "UpdateProfileRequest": {
+                "type": "object",
+                "description": "Tenant self-service profile edit. Deliberately narrow: only contact fields\nthe tenant owns. name / legal_name / email / status / tax_id / national_id\nare admin-managed and NOT editable here (audit M02 F-9).",
+                "properties": {
+                    "phone": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "maxLength": 32
+                    },
+                    "whatsapp": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "maxLength": 32
+                    },
+                    "contactPerson": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "maxLength": 255
+                    },
+                    "contactPersonPhone": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "maxLength": 32
+                    },
+                    "address": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "maxLength": 1000
+                    }
+                },
+                "title": "UpdateProfileRequest"
+            }
+        },
+        "responses": {
+            "ValidationException": {
+                "description": "Validation error",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string",
+                                    "description": "Errors overview."
+                                },
+                                "errors": {
+                                    "type": "object",
+                                    "description": "A detailed description of each field that failed validation.",
+                                    "additionalProperties": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            },
+                            "required": [
+                                "message",
+                                "errors"
+                            ]
+                        }
+                    }
+                }
+            },
+            "AuthenticationException": {
+                "description": "Unauthenticated",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string",
+                                    "description": "Error overview."
+                                }
+                            },
+                            "required": [
+                                "message"
+                            ]
+                        }
+                    }
+                }
+            },
+            "ModelNotFoundException": {
+                "description": "Not found",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string",
+                                    "description": "Error overview."
+                                }
+                            },
+                            "required": [
+                                "message"
+                            ]
+                        }
+                    }
+                }
+            },
+            "NotFoundHttpException": {
+                "description": "Not found",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string",
+                                    "description": "Error overview."
+                                }
+                            },
+                            "required": [
+                                "message"
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

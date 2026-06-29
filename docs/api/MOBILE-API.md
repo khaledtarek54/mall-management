@@ -9,6 +9,14 @@ This document is the single reference a mobile developer needs to build the
 app: the business domain, the auth model, every endpoint with request/response
 shapes, error handling, and the conventions that hold across the whole surface.
 
+> **Machine-readable spec:** a generated **OpenAPI 3.1** document lives at
+> [`openapi.json`](openapi.json) — import it into Postman/Insomnia or feed it to
+> a client codegen. It's **camelCase-accurate** (matches the wire convention,
+> not the backend's snake_case). Regenerate after any API change with
+> `composer api-spec` (`php artisan api:export-spec`); a contract test fails CI
+> if a live `/api/v1` route is missing from it. This prose doc remains the
+> human-friendly companion.
+
 ---
 
 ## 0. Getting started (read first)
