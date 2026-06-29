@@ -224,6 +224,15 @@ class Invoice extends Model
             if (! $invoice->wasChanged('status')) {
                 return;
             }
+
+            // Cancelling/crediting an invoice that consumed credit would lose that
+            // credit against a row that no longer collects — return it to the
+            // tenant as an offsetting credit note. (saveQuietly inside → no recursion.)
+            if (in_array($invoice->status, ['cancelled', 'credited'], true)
+                && (float) $invoice->credit_applied_amount > 0) {
+                app(\App\Services\CreditNoteService::class)->reverseAppliedCredit($invoice);
+            }
+
             if ($invoice->status !== 'cancelled' && $invoice->getOriginal('status') !== 'cancelled') {
                 return; // neither old nor new status is cancelled — accrual unaffected
             }

@@ -91,6 +91,38 @@ class CreditNoteService
     }
 
     /**
+     * Return credit consumed by an invoice that is being cancelled/credited.
+     * The invoice no longer collects, so the applied credit would be lost; we
+     * issue an offsetting CreditNote (restoring the tenant's credit) and zero the
+     * invoice's credit_applied_amount, then re-derive its totals.
+     */
+    public function reverseAppliedCredit(Invoice $invoice): void
+    {
+        $amount = round((float) $invoice->credit_applied_amount, 2);
+        if ($amount <= 0) {
+            return;
+        }
+
+        CreditNote::create([
+            'tenant_id' => $invoice->tenant_id,
+            'lease_id' => $invoice->lease_id,
+            'status' => 'issued',
+            'issue_date' => now(),
+            'reason' => 'adjustment',
+            'reason_notes' => "Credit returned from cancelled invoice {$invoice->number}",
+            'subtotal' => $amount,
+            'vat_amount' => 0,
+            'total' => $amount,
+            'applied_amount' => 0,
+            'balance' => $amount,
+            'currency' => $invoice->currency ?? 'EGP',
+        ]);
+
+        $invoice->credit_applied_amount = 0;
+        $invoice->recomputeTotals(); // saveQuietly inside — keeps 'cancelled'/'credited' status
+    }
+
+    /**
      * Void a credit note. Cannot void an applied one without reversing the application —
      * for v1 we refuse to void if applied_amount > 0. Caller can issue an offsetting note
      * if needed.
