@@ -3,7 +3,7 @@
 use App\Filament\Portal\Resources\TenantSalesDeclarations\Pages\CreateTenantSalesDeclaration;
 use App\Notifications\PortalMaintenanceSubmittedNotification;
 use App\Notifications\SalesDeclarationSubmittedNotification;
-use App\Services\MaintenanceRequestService;
+use App\Services\TenantRequestService;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Notification;
@@ -32,7 +32,7 @@ beforeEach(function () {
 it('a portal maintenance submission notifies assigned managers + operationss, not others', function () {
     Notification::fake();
 
-    app(MaintenanceRequestService::class)->create([
+    app(TenantRequestService::class)->create([
         'title' => 'AC out',
         'description' => 'storefront is hot',
         'priority' => 'high',
@@ -49,7 +49,7 @@ it('a super_admin always receives operator-side notifications, even when not ass
     Notification::fake();
     $superAdmin = makeUser('super_admin'); // deliberately not assigned to any asset
 
-    app(MaintenanceRequestService::class)->create([
+    app(TenantRequestService::class)->create([
         'title' => 'AC out',
         'description' => 'storefront is hot',
         'priority' => 'high',
@@ -92,7 +92,7 @@ it('when no roles match (test env without seeded roles) the notification path si
     // Drop every Spatie role row so role(['manager', ...]) returns nothing.
     Role::query()->delete();
 
-    app(MaintenanceRequestService::class)->create([
+    app(TenantRequestService::class)->create([
         'title' => 'No one to receive',
         'description' => 'silent failure check',
         'priority' => 'medium',

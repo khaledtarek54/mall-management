@@ -13,7 +13,7 @@ use Spatie\Activitylog\Support\LogOptions;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
-class MaintenanceRequest extends Model implements HasMedia
+class TenantRequest extends Model implements HasMedia
 {
     use HasFactory, InteractsWithMedia, LogsActivity, SoftDeletes;
 
@@ -123,7 +123,7 @@ class MaintenanceRequest extends Model implements HasMedia
 
     public function comments(): HasMany
     {
-        return $this->hasMany(MaintenanceRequestComment::class)->orderBy('created_at');
+        return $this->hasMany(TenantRequestComment::class)->orderBy('created_at');
     }
 
     public function isOpen(): bool

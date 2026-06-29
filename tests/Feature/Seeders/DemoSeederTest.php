@@ -2,7 +2,7 @@
 
 use App\Models\Asset;
 use App\Models\Invoice;
-use App\Models\MaintenanceRequest;
+use App\Models\TenantRequest;
 use App\Models\Tenant;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
@@ -26,7 +26,7 @@ it('seeds the full demo dataset without error', function () {
     // Maintenance seeding depends on the portal-tenant emails matching the
     // generator — guard that coordination so a domain rename can't silently
     // drop the maintenance demo data.
-    expect(MaintenanceRequest::count())->toBeGreaterThan(0);
+    expect(TenantRequest::count())->toBeGreaterThan(0);
 });
 
 it('creates the owner under the atriom domain with the owner role', function () {

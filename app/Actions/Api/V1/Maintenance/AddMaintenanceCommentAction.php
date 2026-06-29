@@ -2,10 +2,10 @@
 
 namespace App\Actions\Api\V1\Maintenance;
 
-use App\Models\MaintenanceRequest;
-use App\Models\MaintenanceRequestComment;
+use App\Models\TenantRequest;
+use App\Models\TenantRequestComment;
 use App\Models\Tenant;
-use App\Services\MaintenanceRequestService;
+use App\Services\TenantRequestService;
 
 /**
  * Add a tenant comment to a maintenance request. is_internal is forced false
@@ -13,9 +13,9 @@ use App\Services\MaintenanceRequestService;
  */
 class AddMaintenanceCommentAction
 {
-    public function __construct(private MaintenanceRequestService $service) {}
+    public function __construct(private TenantRequestService $service) {}
 
-    public function handle(MaintenanceRequest $request, Tenant $tenant, string $body): MaintenanceRequestComment
+    public function handle(TenantRequest $request, Tenant $tenant, string $body): TenantRequestComment
     {
         return $this->service->comment($request, $tenant, $body, isInternal: false);
     }

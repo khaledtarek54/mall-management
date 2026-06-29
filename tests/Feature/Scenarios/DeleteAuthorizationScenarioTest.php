@@ -34,7 +34,7 @@ use App\Models\CreditNote;
 use App\Models\Department;
 use App\Models\Invoice;
 use App\Models\Lease;
-use App\Models\MaintenanceRequest;
+use App\Models\TenantRequest;
 use App\Models\Payment;
 use App\Models\Tenant;
 use App\Models\Unit;
@@ -68,7 +68,7 @@ function deleteAuthResources(): array
         'Units'                => [UnitResource::class, new Unit()],
         'Vendors'              => [VendorResource::class, new Vendor()],
         'CreditNotes'          => [CreditNoteResource::class, new CreditNote()],
-        'MaintenanceRequests'  => [MaintenanceRequestResource::class, new MaintenanceRequest()],
+        'MaintenanceRequests'  => [MaintenanceRequestResource::class, new TenantRequest()],
     ];
 }
 

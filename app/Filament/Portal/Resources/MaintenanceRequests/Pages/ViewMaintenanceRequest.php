@@ -3,9 +3,9 @@
 namespace App\Filament\Portal\Resources\MaintenanceRequests\Pages;
 
 use App\Filament\Portal\Resources\MaintenanceRequests\MaintenanceRequestResource;
-use App\Models\MaintenanceRequest;
+use App\Models\TenantRequest;
 use App\Models\Tenant;
-use App\Services\MaintenanceRequestService;
+use App\Services\TenantRequestService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
@@ -18,7 +18,7 @@ class ViewMaintenanceRequest extends ViewRecord
 
     public function getTitle(): string
     {
-        /** @var MaintenanceRequest $record */
+        /** @var TenantRequest $record */
         $record = $this->record;
         return $record->reference;
     }
@@ -42,12 +42,12 @@ class ViewMaintenanceRequest extends ViewRecord
                 ->action(function (array $data) {
                     /** @var Tenant $tenant */
                     $tenant = \App\Support\Portal::tenant();
-                    app(MaintenanceRequestService::class)
+                    app(TenantRequestService::class)
                         ->comment($this->record, $tenant, $data['body'], false);
 
                     // If admin asked for tenant input, replying flips back to in_progress.
                     if ($this->record->status === 'awaiting_tenant') {
-                        app(MaintenanceRequestService::class)
+                        app(TenantRequestService::class)
                             ->transition($this->record, 'in_progress');
                     }
 
@@ -66,7 +66,7 @@ class ViewMaintenanceRequest extends ViewRecord
                 ->modalHeading(fn () => __('admin.maintenance.cancel_modal_heading', ['ref' => $this->record->reference]))
                 ->modalDescription(__('admin.maintenance.cancel_modal_description'))
                 ->action(function () {
-                    app(MaintenanceRequestService::class)
+                    app(TenantRequestService::class)
                         ->transition($this->record, 'cancelled');
 
                     Notification::make()

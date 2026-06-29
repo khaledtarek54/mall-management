@@ -23,7 +23,7 @@ use App\Filament\Portal\Resources\Payments\PaymentResource;
 use App\Filament\Portal\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
 use App\Models\CamAllocation;
 use App\Models\CamExpensePool;
-use App\Models\MaintenanceRequest;
+use App\Models\TenantRequest;
 use App\Models\Payment;
 use App\Models\TenantSalesDeclaration;
 use App\Support\Portal;
@@ -81,14 +81,14 @@ beforeEach(function () {
     ]);
 
     /* ── Maintenance requests (scoped by tenant_id) ── */
-    $this->mrA = MaintenanceRequest::create([
+    $this->mrA = TenantRequest::create([
         'reference' => 'MR-' . uniqid(),
         'unit_id' => $this->unitA->id, 'tenant_id' => $this->tenantA->id,
         'title' => 'A leak', 'description' => 'd',
         'status' => 'submitted', 'priority' => 'medium', 'category' => 'hvac',
         'submitted_at' => now(),
     ]);
-    $this->mrB = MaintenanceRequest::create([
+    $this->mrB = TenantRequest::create([
         'reference' => 'MR-' . uniqid(),
         'unit_id' => $this->unitB->id, 'tenant_id' => $this->tenantB->id,
         'title' => 'B leak', 'description' => 'd',

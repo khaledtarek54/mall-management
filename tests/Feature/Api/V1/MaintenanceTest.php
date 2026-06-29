@@ -1,14 +1,14 @@
 <?php
 
-use App\Models\MaintenanceRequest;
+use App\Models\TenantRequest;
 use App\Models\Tenant;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
-function makeMaintenance(Tenant $tenant, array $attrs = []): MaintenanceRequest
+function makeMaintenance(Tenant $tenant, array $attrs = []): TenantRequest
 {
-    return MaintenanceRequest::create(array_merge([
-        'reference' => MaintenanceRequest::generateReference(),
+    return TenantRequest::create(array_merge([
+        'reference' => TenantRequest::generateReference(),
         'tenant_id' => $tenant->id,
         'unit_id' => makeUnit(makeAsset())->id,
         'status' => 'submitted',
@@ -46,7 +46,7 @@ it('creates a maintenance request via the service path', function () {
         ->assertJsonPath('data.status', 'submitted')
         ->assertJsonPath('data.priority', 'high');
 
-    $this->assertDatabaseHas('maintenance_requests', [
+    $this->assertDatabaseHas('tenant_requests', [
         'tenant_id' => $tenant->id, 'title' => 'AC not cooling', 'channel' => 'portal',
     ]);
 });
@@ -71,7 +71,7 @@ it('creates a request with image + PDF attachments', function () {
     // URLs come back in the 201 so the app can render them without a re-fetch.
     expect($response->json('data.attachments'))->toHaveCount(2);
 
-    $request = MaintenanceRequest::firstWhere('title', 'Leaking pipe');
+    $request = TenantRequest::firstWhere('title', 'Leaking pipe');
     expect($request->getMedia('attachments'))->toHaveCount(2);
 });
 
@@ -138,8 +138,8 @@ it('adds a public comment', function () {
         'body' => 'Any update?',
     ], apiHeaders($tenant))->assertCreated();
 
-    $this->assertDatabaseHas('maintenance_request_comments', [
-        'maintenance_request_id' => $request->id, 'body' => 'Any update?', 'is_internal' => false,
+    $this->assertDatabaseHas('tenant_request_comments', [
+        'tenant_request_id' => $request->id, 'body' => 'Any update?', 'is_internal' => false,
     ]);
 });
 

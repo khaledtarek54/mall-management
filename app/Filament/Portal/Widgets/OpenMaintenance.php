@@ -3,7 +3,7 @@
 namespace App\Filament\Portal\Widgets;
 
 use App\Filament\Portal\Resources\MaintenanceRequests\MaintenanceRequestResource;
-use App\Models\MaintenanceRequest;
+use App\Models\TenantRequest;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
@@ -25,9 +25,9 @@ class OpenMaintenance extends TableWidget
     {
         return $table
             ->query(
-                fn (): Builder => MaintenanceRequest::query()
+                fn (): Builder => TenantRequest::query()
                     ->where('tenant_id', \App\Support\Portal::tenantId())
-                    ->whereIn('status', MaintenanceRequest::OPEN_STATUSES)
+                    ->whereIn('status', TenantRequest::OPEN_STATUSES)
                     ->with('unit')
                     ->latest('submitted_at')
             )

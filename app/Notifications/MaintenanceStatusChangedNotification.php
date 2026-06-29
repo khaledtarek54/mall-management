@@ -2,7 +2,7 @@
 
 namespace App\Notifications;
 
-use App\Models\MaintenanceRequest;
+use App\Models\TenantRequest;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -11,7 +11,7 @@ class MaintenanceStatusChangedNotification extends Notification
 {
     use Queueable;
 
-    public function __construct(public MaintenanceRequest $request, public string $previousStatus) {}
+    public function __construct(public TenantRequest $request, public string $previousStatus) {}
 
     public function via(object $notifiable): array
     {

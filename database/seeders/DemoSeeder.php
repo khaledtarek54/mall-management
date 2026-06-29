@@ -11,8 +11,8 @@ use App\Models\CreditNoteItem;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Lease;
-use App\Models\MaintenanceRequest;
-use App\Models\MaintenanceRequestComment;
+use App\Models\TenantRequest;
+use App\Models\TenantRequestComment;
 use App\Models\MeterReading;
 use App\Models\Note;
 use App\Models\Payment;
@@ -596,8 +596,8 @@ class DemoSeeder extends Seeder
             $slaHours = config("maintenance.sla.{$row['priority']}.resolve_hours", 168);
             $type = TenantRequestType::tryFrom($row['request_type'] ?? 'maintenance') ?? TenantRequestType::default();
 
-            $request = MaintenanceRequest::create([
-                'reference' => MaintenanceRequest::generateReference($unit->asset->code, $type->referencePrefix()),
+            $request = TenantRequest::create([
+                'reference' => TenantRequest::generateReference($unit->asset->code, $type->referencePrefix()),
                 'tenant_id' => $tenant->id,
                 'unit_id' => $unit->id,
                 'lease_id' => $lease->id,
@@ -656,8 +656,8 @@ class DemoSeeder extends Seeder
 
             foreach ($row['comments'] ?? [] as $c) {
                 $author = $c['by'] === 'manager' ? $manager : ($c['by'] === 'admin' ? $admin : $tenant);
-                MaintenanceRequestComment::create([
-                    'maintenance_request_id' => $request->id,
+                TenantRequestComment::create([
+                    'tenant_request_id' => $request->id,
                     'author_type' => $author->getMorphClass(),
                     'author_id' => $author->getKey(),
                     'body' => $c['body'],

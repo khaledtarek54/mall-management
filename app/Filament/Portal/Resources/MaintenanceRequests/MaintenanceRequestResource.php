@@ -8,7 +8,7 @@ use App\Filament\Portal\Resources\MaintenanceRequests\Pages\ViewMaintenanceReque
 use App\Filament\Portal\Resources\MaintenanceRequests\Schemas\MaintenanceRequestForm;
 use App\Filament\Portal\Resources\MaintenanceRequests\Schemas\MaintenanceRequestInfolist;
 use App\Filament\Portal\Resources\MaintenanceRequests\Tables\MaintenanceRequestsTable;
-use App\Models\MaintenanceRequest;
+use App\Models\TenantRequest;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Auth;
 
 class MaintenanceRequestResource extends Resource
 {
-    protected static ?string $model = MaintenanceRequest::class;
+    protected static ?string $model = TenantRequest::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedWrenchScrewdriver;
 

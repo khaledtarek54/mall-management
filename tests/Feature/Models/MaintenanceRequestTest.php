@@ -1,9 +1,9 @@
 <?php
 
-use App\Models\MaintenanceRequest;
+use App\Models\TenantRequest;
 
 it('isOpen() recognises every OPEN_STATUSES value', function () {
-    foreach (MaintenanceRequest::OPEN_STATUSES as $status) {
+    foreach (TenantRequest::OPEN_STATUSES as $status) {
         $req = makeMaintenanceRequest(['status' => $status]);
         expect($req->isOpen())->toBeTrue();
     }

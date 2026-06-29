@@ -3,8 +3,8 @@
 namespace App\Filament\Portal\Resources\MaintenanceRequests\Tables;
 
 use App\Enums\TenantRequestType;
-use App\Models\MaintenanceRequest;
-use App\Services\MaintenanceRequestService;
+use App\Models\TenantRequest;
+use App\Services\TenantRequestService;
 use App\Support\Portal;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
@@ -85,7 +85,7 @@ class MaintenanceRequestsTable
                     ->options(fn () => __('admin.statuses.maintenance_request')),
                 Filter::make('open_only')
                     ->label(__('admin.filters.open_only'))
-                    ->query(fn (Builder $query) => $query->whereIn('status', MaintenanceRequest::OPEN_STATUSES))
+                    ->query(fn (Builder $query) => $query->whereIn('status', TenantRequest::OPEN_STATUSES))
                     ->default(),
             ])
             ->recordActions([
@@ -97,9 +97,9 @@ class MaintenanceRequestsTable
                     // Tenant-admins only (read-only portal users can't write), and
                     // only once the request is resolved/closed. Re-opening the
                     // form lets them update an earlier rating.
-                    ->visible(fn (MaintenanceRequest $record) => Portal::isAdmin()
-                        && in_array($record->status, MaintenanceRequestService::RATEABLE, true))
-                    ->fillForm(fn (MaintenanceRequest $record) => [
+                    ->visible(fn (TenantRequest $record) => Portal::isAdmin()
+                        && in_array($record->status, TenantRequestService::RATEABLE, true))
+                    ->fillForm(fn (TenantRequest $record) => [
                         'csat_rating' => $record->csat_rating,
                         'csat_comment' => $record->csat_comment,
                     ])
@@ -114,8 +114,8 @@ class MaintenanceRequestsTable
                             ->rows(3)
                             ->maxLength(1000),
                     ])
-                    ->action(function (MaintenanceRequest $record, array $data) {
-                        app(MaintenanceRequestService::class)
+                    ->action(function (TenantRequest $record, array $data) {
+                        app(TenantRequestService::class)
                             ->rate($record, (int) $data['csat_rating'], $data['csat_comment'] ?? null);
 
                         Notification::make()->title(__('admin.actions.rated'))->success()->send();

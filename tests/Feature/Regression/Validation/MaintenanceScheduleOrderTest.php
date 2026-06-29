@@ -5,7 +5,7 @@ use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
 
-// Guard: MaintenanceRequest scheduled_to must be >= scheduled_from.
+// Guard: TenantRequest scheduled_to must be >= scheduled_from.
 // The form field `scheduled_to` carries ->afterOrEqual('scheduled_from')
 // (MaintenanceRequestForm). Mirrors MaintenanceDateValidationTest's idiom.
 

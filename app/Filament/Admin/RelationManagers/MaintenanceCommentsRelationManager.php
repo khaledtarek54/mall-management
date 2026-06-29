@@ -2,10 +2,10 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
-use App\Models\MaintenanceRequest;
+use App\Models\TenantRequest;
 use App\Models\Tenant;
 use App\Models\User;
-use App\Services\MaintenanceRequestService;
+use App\Services\TenantRequestService;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Forms\Components\Textarea;
@@ -76,9 +76,9 @@ class MaintenanceCommentsRelationManager extends RelationManager
                             ->default(false),
                     ])
                     ->using(function (array $data, RelationManager $livewire) {
-                        /** @var MaintenanceRequest $request */
+                        /** @var TenantRequest $request */
                         $request = $livewire->getOwnerRecord();
-                        return app(MaintenanceRequestService::class)
+                        return app(TenantRequestService::class)
                             ->comment($request, Auth::user(), $data['body'], (bool) ($data['is_internal'] ?? false));
                     }),
             ])

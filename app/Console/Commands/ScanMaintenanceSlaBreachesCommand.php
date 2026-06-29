@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Models\MaintenanceRequest;
+use App\Models\TenantRequest;
 use App\Notifications\MaintenanceSlaBreachedNotification;
 use App\Services\AssetStaffRecipients;
 use Illuminate\Console\Command;
@@ -17,8 +17,8 @@ class ScanMaintenanceSlaBreachesCommand extends Command
 
     public function handle(): int
     {
-        $breached = MaintenanceRequest::query()
-            ->whereIn('status', MaintenanceRequest::OPEN_STATUSES)
+        $breached = TenantRequest::query()
+            ->whereIn('status', TenantRequest::OPEN_STATUSES)
             ->whereNotNull('target_resolution_at')
             ->where('target_resolution_at', '<', now())
             ->whereNull('sla_breach_notified_at')
@@ -53,7 +53,7 @@ class ScanMaintenanceSlaBreachesCommand extends Command
                 // Lock the request + re-check the stamp inside the transaction so
                 // an overlapping/concurrent scan can't alert the same breach twice.
                 $sent = DB::transaction(function () use ($request) {
-                    $locked = MaintenanceRequest::query()->lockForUpdate()->find($request->id);
+                    $locked = TenantRequest::query()->lockForUpdate()->find($request->id);
                     if (! $locked || $locked->sla_breach_notified_at !== null) {
                         return false;
                     }

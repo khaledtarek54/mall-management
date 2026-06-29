@@ -9,7 +9,7 @@ use App\Filament\Admin\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Models\Invoice;
 use App\Models\Lease;
-use App\Models\MaintenanceRequest;
+use App\Models\TenantRequest;
 use App\Models\Unit;
 use Carbon\Carbon;
 use Filament\Widgets\Widget;
@@ -50,8 +50,8 @@ class ActionRequired extends Widget
             : Unit::query();
 
         $maintBase = fn () => $assetId
-            ? MaintenanceRequest::whereHas('unit', fn ($q) => $q->where('asset_id', $assetId))
-            : MaintenanceRequest::query();
+            ? TenantRequest::whereHas('unit', fn ($q) => $q->where('asset_id', $assetId))
+            : TenantRequest::query();
 
         $overdueCount = $invoiceBase()->where('balance', '>', 0)->where('due_date', '<', $now)->count();
         $overdueAmount = $invoiceBase()->where('balance', '>', 0)->where('due_date', '<', $now)->sum('balance');
@@ -66,11 +66,11 @@ class ActionRequired extends Widget
 
         $vacantCount = $unitBase()->where('status', 'vacant')->count();
 
-        $urgentMaintenanceCount = $maintBase()->whereIn('status', MaintenanceRequest::OPEN_STATUSES)
+        $urgentMaintenanceCount = $maintBase()->whereIn('status', TenantRequest::OPEN_STATUSES)
             ->where('priority', 'urgent')
             ->count();
 
-        $slaBreachedCount = $maintBase()->whereIn('status', MaintenanceRequest::OPEN_STATUSES)
+        $slaBreachedCount = $maintBase()->whereIn('status', TenantRequest::OPEN_STATUSES)
             ->whereNotNull('target_resolution_at')
             ->where('target_resolution_at', '<', $now)
             ->count();

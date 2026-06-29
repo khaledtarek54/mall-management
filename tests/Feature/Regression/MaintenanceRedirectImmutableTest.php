@@ -1,16 +1,16 @@
 <?php
 
 use App\Models\Department;
-use App\Services\MaintenanceRequestService;
+use App\Services\TenantRequestService;
 
-// Regression: MaintenanceRequestService::redirectToDepartment() and assign()
+// Regression: TenantRequestService::redirectToDepartment() and assign()
 // once mutated terminal (closed/cancelled) work-orders, violating the
 // FR REQ-3 immutability rule. The fix makes both methods a no-op when
 // $request->isTerminal(). These tests pin the fixed behavior: terminal
 // requests cannot be re-routed or re-assigned, while open ones still can.
 
 it('does not re-route or re-assign a CLOSED maintenance request', function () {
-    $service = app(MaintenanceRequestService::class);
+    $service = app(TenantRequestService::class);
 
     $originalDept = Department::create(['name' => 'Operations']);
     $otherDept = Department::create(['name' => 'Leasing']);
@@ -35,7 +35,7 @@ it('does not re-route or re-assign a CLOSED maintenance request', function () {
 });
 
 it('does not re-route or re-assign a CANCELLED maintenance request', function () {
-    $service = app(MaintenanceRequestService::class);
+    $service = app(TenantRequestService::class);
 
     $originalDept = Department::create(['name' => 'Operations']);
     $otherDept = Department::create(['name' => 'Leasing']);
@@ -57,7 +57,7 @@ it('does not re-route or re-assign a CANCELLED maintenance request', function ()
 });
 
 it('still re-routes and re-assigns an OPEN maintenance request', function () {
-    $service = app(MaintenanceRequestService::class);
+    $service = app(TenantRequestService::class);
 
     $originalDept = Department::create(['name' => 'Operations']);
     $otherDept = Department::create(['name' => 'Leasing']);

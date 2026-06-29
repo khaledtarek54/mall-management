@@ -2,9 +2,9 @@
 
 namespace App\Actions\Api\V1\Maintenance;
 
-use App\Models\MaintenanceRequest;
+use App\Models\TenantRequest;
 use App\Models\Tenant;
-use App\Services\MaintenanceRequestService;
+use App\Services\TenantRequestService;
 use Illuminate\Http\UploadedFile;
 
 /**
@@ -12,18 +12,18 @@ use Illuminate\Http\UploadedFile;
  *
  * The heavy lifting (reference generation, unit/lease resolution from the
  * active lease, SLA target, staff fan-out) already lives in the shared
- * MaintenanceRequestService used by the web portal — this action is the API
+ * TenantRequestService used by the web portal — this action is the API
  * seam that delegates to it, so mobile and portal submissions stay identical.
  */
 class CreateMaintenanceRequestAction
 {
-    public function __construct(private MaintenanceRequestService $service) {}
+    public function __construct(private TenantRequestService $service) {}
 
     /**
      * @param  array<string,mixed>  $data
      * @param  array<int, UploadedFile>  $attachments  Photos / PDFs of the issue.
      */
-    public function handle(Tenant $tenant, array $data, array $attachments = []): MaintenanceRequest
+    public function handle(Tenant $tenant, array $data, array $attachments = []): TenantRequest
     {
         $request = $this->service->create($data, $tenant);
 

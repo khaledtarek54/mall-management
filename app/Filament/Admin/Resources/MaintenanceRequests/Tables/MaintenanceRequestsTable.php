@@ -5,9 +5,9 @@ namespace App\Filament\Admin\Resources\MaintenanceRequests\Tables;
 use App\Enums\TenantRequestType;
 use App\Filament\Admin\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use App\Models\Department;
-use App\Models\MaintenanceRequest;
+use App\Models\TenantRequest;
 use App\Models\User;
-use App\Services\MaintenanceRequestService;
+use App\Services\TenantRequestService;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -154,12 +154,12 @@ class MaintenanceRequestsTable
                     ->options(fn () => User::orderBy('name')->pluck('name', 'id')),
                 Filter::make('open_only')
                     ->label(__('admin.filters.open_only'))
-                    ->query(fn (Builder $query) => $query->whereIn('status', MaintenanceRequest::OPEN_STATUSES))
+                    ->query(fn (Builder $query) => $query->whereIn('status', TenantRequest::OPEN_STATUSES))
                     ->default(),
                 Filter::make('sla_breached')
                     ->label(__('admin.filters.sla_breached'))
                     ->query(fn (Builder $query) => $query
-                        ->whereIn('status', MaintenanceRequest::OPEN_STATUSES)
+                        ->whereIn('status', TenantRequest::OPEN_STATUSES)
                         ->whereNotNull('target_resolution_at')
                         ->where('target_resolution_at', '<', now())),
                 TrashedFilter::make(),
@@ -173,14 +173,14 @@ class MaintenanceRequestsTable
                     ->label(__('admin.actions.change_status'))
                     ->icon('heroicon-o-arrow-path-rounded-square')
                     ->color('primary')
-                    ->visible(fn (MaintenanceRequest $record) => MaintenanceRequestResource::canEdit($record)
-                        && ! empty(\App\Services\MaintenanceRequestService::TRANSITIONS[$record->status] ?? []))
-                    ->modalHeading(fn (MaintenanceRequest $record) => __('admin.actions.change_status_heading', ['ref' => $record->reference]))
-                    ->fillForm(fn (MaintenanceRequest $record) => ['status' => null])
-                    ->schema(fn (MaintenanceRequest $record) => [
+                    ->visible(fn (TenantRequest $record) => MaintenanceRequestResource::canEdit($record)
+                        && ! empty(\App\Services\TenantRequestService::TRANSITIONS[$record->status] ?? []))
+                    ->modalHeading(fn (TenantRequest $record) => __('admin.actions.change_status_heading', ['ref' => $record->reference]))
+                    ->fillForm(fn (TenantRequest $record) => ['status' => null])
+                    ->schema(fn (TenantRequest $record) => [
                         Select::make('status')
                             ->label(__('admin.fields.new_status'))
-                            ->options(fn () => collect(\App\Services\MaintenanceRequestService::TRANSITIONS[$record->status] ?? [])
+                            ->options(fn () => collect(\App\Services\TenantRequestService::TRANSITIONS[$record->status] ?? [])
                                 ->mapWithKeys(fn ($s) => [$s => __("admin.statuses.maintenance_request.{$s}")])
                                 ->all())
                             ->required()
@@ -192,8 +192,8 @@ class MaintenanceRequestsTable
                             ->required(fn ($get) => $get('status') === 'resolved')
                             ->visible(fn ($get) => $get('status') === 'resolved'),
                     ])
-                    ->action(function (MaintenanceRequest $record, array $data) {
-                        $svc = app(MaintenanceRequestService::class);
+                    ->action(function (TenantRequest $record, array $data) {
+                        $svc = app(TenantRequestService::class);
                         $svc->transition($record, $data['status'], $data);
 
                         Notification::make()
@@ -209,9 +209,9 @@ class MaintenanceRequestsTable
                     ->label(__('admin.actions.assign'))
                     ->icon('heroicon-o-user-plus')
                     ->color('gray')
-                    ->visible(fn (MaintenanceRequest $record) => MaintenanceRequestResource::canEdit($record)
+                    ->visible(fn (TenantRequest $record) => MaintenanceRequestResource::canEdit($record)
                         && $record->isOpen())
-                    ->fillForm(fn (MaintenanceRequest $record) => ['assigned_to' => $record->assigned_to])
+                    ->fillForm(fn (TenantRequest $record) => ['assigned_to' => $record->assigned_to])
                     ->schema([
                         Select::make('assigned_to')
                             ->label(__('admin.fields.assigned_to'))
@@ -219,8 +219,8 @@ class MaintenanceRequestsTable
                             ->searchable()
                             ->placeholder(__('admin.fields.unassigned')),
                     ])
-                    ->action(function (MaintenanceRequest $record, array $data) {
-                        app(MaintenanceRequestService::class)
+                    ->action(function (TenantRequest $record, array $data) {
+                        app(TenantRequestService::class)
                             ->assign($record, $data['assigned_to'] ?? null);
 
                         Notification::make()
@@ -232,8 +232,8 @@ class MaintenanceRequestsTable
                     ->label(__('admin.actions.redirect'))
                     ->icon('heroicon-o-arrows-right-left')
                     ->color('gray')
-                    ->visible(fn (MaintenanceRequest $record) => MaintenanceRequestResource::canEdit($record))
-                    ->fillForm(fn (MaintenanceRequest $record) => ['department_id' => $record->department_id])
+                    ->visible(fn (TenantRequest $record) => MaintenanceRequestResource::canEdit($record))
+                    ->fillForm(fn (TenantRequest $record) => ['department_id' => $record->department_id])
                     ->schema([
                         Select::make('department_id')
                             ->label(__('admin.resources.department.singular'))
@@ -242,8 +242,8 @@ class MaintenanceRequestsTable
                             ->placeholder(__('admin.fields.unassigned'))
                             ->native(false),
                     ])
-                    ->action(function (MaintenanceRequest $record, array $data) {
-                        app(MaintenanceRequestService::class)
+                    ->action(function (TenantRequest $record, array $data) {
+                        app(TenantRequestService::class)
                             ->redirectToDepartment($record, $data['department_id'] ?? null);
 
                         Notification::make()

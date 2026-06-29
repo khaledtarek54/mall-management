@@ -34,7 +34,7 @@ class VendorResource extends Resource
 
     // Vendors are typically cross-property service providers (one contractor
     // may serve several malls). Keep them global; scope by maintenance
-    // assignment when needed via MaintenanceRequest's tenant scope.
+    // assignment when needed via TenantRequest's tenant scope.
     protected static bool $isScopedToTenant = false;
 
     public static function getNavigationLabel(): string

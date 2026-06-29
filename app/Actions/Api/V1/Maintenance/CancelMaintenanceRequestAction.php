@@ -2,8 +2,8 @@
 
 namespace App\Actions\Api\V1\Maintenance;
 
-use App\Models\MaintenanceRequest;
-use App\Services\MaintenanceRequestService;
+use App\Models\TenantRequest;
+use App\Services\TenantRequestService;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -17,9 +17,9 @@ class CancelMaintenanceRequestAction
     /** Statuses a tenant may still cancel from. */
     public const CANCELLABLE = ['submitted', 'acknowledged'];
 
-    public function __construct(private MaintenanceRequestService $service) {}
+    public function __construct(private TenantRequestService $service) {}
 
-    public function handle(MaintenanceRequest $request): MaintenanceRequest
+    public function handle(TenantRequest $request): TenantRequest
     {
         if (! in_array($request->status, self::CANCELLABLE, true)) {
             throw ValidationException::withMessages([

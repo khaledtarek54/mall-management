@@ -9,7 +9,7 @@ use App\Filament\Admin\Resources\MaintenanceRequests\Pages\EditMaintenanceReques
 use App\Filament\Admin\Resources\MaintenanceRequests\Pages\ListMaintenanceRequests;
 use App\Filament\Admin\Resources\MaintenanceRequests\Schemas\MaintenanceRequestForm;
 use App\Filament\Admin\Resources\MaintenanceRequests\Tables\MaintenanceRequestsTable;
-use App\Models\MaintenanceRequest;
+use App\Models\TenantRequest;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -43,14 +43,14 @@ class MaintenanceRequestResource extends Resource
      */
     public static function canEdit(Model $record): bool
     {
-        if ($record instanceof MaintenanceRequest && $record->isTerminal()) {
+        if ($record instanceof TenantRequest && $record->isTerminal()) {
             return false;
         }
 
         return static::roleGatedCanEdit($record);
     }
 
-    protected static ?string $model = MaintenanceRequest::class;
+    protected static ?string $model = TenantRequest::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedWrenchScrewdriver;
 
@@ -84,7 +84,7 @@ class MaintenanceRequestResource extends Resource
         // applies the unit.asset_id filter; ALL pseudo-asset bypasses scope
         // and returns the portfolio-wide count.
         $count = static::getEloquentQuery()
-            ->whereIn('status', MaintenanceRequest::OPEN_STATUSES)
+            ->whereIn('status', TenantRequest::OPEN_STATUSES)
             ->count();
 
         return $count > 0 ? (string) $count : null;
@@ -93,7 +93,7 @@ class MaintenanceRequestResource extends Resource
     public static function getNavigationBadgeColor(): string|array|null
     {
         $hasUrgent = static::getEloquentQuery()
-            ->whereIn('status', MaintenanceRequest::OPEN_STATUSES)
+            ->whereIn('status', TenantRequest::OPEN_STATUSES)
             ->where('priority', 'urgent')
             ->exists();
 

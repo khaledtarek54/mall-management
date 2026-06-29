@@ -2,7 +2,7 @@
 
 namespace App\Notifications;
 
-use App\Models\MaintenanceRequest;
+use App\Models\TenantRequest;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
@@ -16,7 +16,7 @@ class PortalMaintenanceSubmittedNotification extends Notification
 {
     use Queueable;
 
-    public function __construct(public MaintenanceRequest $request) {}
+    public function __construct(public TenantRequest $request) {}
 
     public function via(object $notifiable): array
     {

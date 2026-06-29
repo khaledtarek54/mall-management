@@ -53,7 +53,7 @@ class Vendor extends Model
 
     public function maintenanceRequests(): HasMany
     {
-        return $this->hasMany(MaintenanceRequest::class, 'assigned_to_vendor_id');
+        return $this->hasMany(TenantRequest::class, 'assigned_to_vendor_id');
     }
 
     public function primaryContact(): ?VendorContact

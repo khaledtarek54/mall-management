@@ -3,7 +3,7 @@
 use App\Filament\Admin\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use App\Models\Department;
 use App\Notifications\MaintenanceSlaBreachedNotification;
-use App\Services\MaintenanceRequestService;
+use App\Services\TenantRequestService;
 use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Support\Facades\Notification;
 
@@ -20,9 +20,9 @@ use Illuminate\Support\Facades\Notification;
 | the existing happy-path tests don't cover.
 */
 
-function svc(): MaintenanceRequestService
+function svc(): TenantRequestService
 {
-    return app(MaintenanceRequestService::class);
+    return app(TenantRequestService::class);
 }
 
 // ============================================================
@@ -154,7 +154,7 @@ it('forbids ANY status move out of a terminal state via the service', function (
     $req = makeMaintenanceRequest(['status' => $terminal]);
 
     // Every other status must be rejected — terminal has no legal successors.
-    foreach (\App\Models\MaintenanceRequest::STATUSES as $target) {
+    foreach (\App\Models\TenantRequest::STATUSES as $target) {
         if ($target === $terminal) {
             continue;
         }

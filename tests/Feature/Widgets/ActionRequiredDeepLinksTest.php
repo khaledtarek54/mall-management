@@ -1,7 +1,7 @@
 <?php
 
 use App\Filament\Admin\Widgets\ActionRequired;
-use App\Models\MaintenanceRequest;
+use App\Models\TenantRequest;
 use Database\Seeders\RolesPermissionsSeeder;
 
 beforeEach(function () {
@@ -21,7 +21,7 @@ beforeEach(function () {
     makeUnit($this->asset, ['status' => 'vacant']);
 
     // Seed one of each "actionable" thing so every card surfaces.
-    MaintenanceRequest::create([
+    TenantRequest::create([
         'reference' => 'MR-' . uniqid(),
         'unit_id' => $this->unit->id,
         'tenant_id' => $this->tenant->id,

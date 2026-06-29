@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Profile;
 
 use App\Http\Controllers\Api\V1\ApiController;
-use App\Models\MaintenanceRequest;
+use App\Models\TenantRequest;
 use App\Models\TenantSalesDeclaration;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -40,7 +40,7 @@ class SummaryController extends ApiController
 
             // Open work
             'open_maintenance' => $tenant->maintenanceRequests()
-                ->whereIn('status', MaintenanceRequest::OPEN_STATUSES)->count(),
+                ->whereIn('status', TenantRequest::OPEN_STATUSES)->count(),
 
             // Needs the tenant's attention
             'disputed_declarations' => TenantSalesDeclaration::query()

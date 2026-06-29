@@ -5,7 +5,7 @@ namespace App\Filament\Admin\Widgets;
 use App\Enums\TenantRequestType;
 use App\Filament\Admin\Concerns\RoleScopedWidget;
 use App\Filament\Admin\Resources\MaintenanceRequests\MaintenanceRequestResource;
-use App\Models\MaintenanceRequest;
+use App\Models\TenantRequest;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
@@ -38,8 +38,8 @@ class OpenMaintenanceRequests extends TableWidget
     {
         return $table
             ->query(function (): Builder {
-                return \App\Support\TenantScope::applyTo(MaintenanceRequest::query(), 'unit')
-                    ->whereIn('status', MaintenanceRequest::OPEN_STATUSES)
+                return \App\Support\TenantScope::applyTo(TenantRequest::query(), 'unit')
+                    ->whereIn('status', TenantRequest::OPEN_STATUSES)
                     ->with(['tenant', 'unit', 'assignee'])
                     ->orderByRaw("FIELD(priority, 'urgent', 'high', 'medium', 'low')")
                     ->orderBy('submitted_at');

@@ -8,7 +8,7 @@ use App\Filament\Admin\Widgets\OpenMaintenanceRequests;
 use App\Filament\Admin\Widgets\RecentPayments;
 use App\Filament\Admin\Widgets\SetupGuide;
 use App\Filament\Admin\Widgets\TopTenants;
-use App\Models\MaintenanceRequest;
+use App\Models\TenantRequest;
 use App\Models\MeterReading;
 use App\Models\Payment;
 use App\Models\TenantSalesDeclaration;
@@ -178,7 +178,7 @@ it('RecentPayments query is property-scoped', function () {
 });
 
 it('OpenMaintenanceRequests query returns only open statuses, property-scoped', function () {
-    MaintenanceRequest::create([
+    TenantRequest::create([
         'reference' => 'MR-' . uniqid(),
         'unit_id' => $this->unit->id,
         'tenant_id' => $this->tenant->id,
@@ -186,7 +186,7 @@ it('OpenMaintenanceRequests query returns only open statuses, property-scoped', 
         'status' => 'in_progress', 'priority' => 'high', 'category' => 'hvac',
         'submitted_at' => now(),
     ]);
-    MaintenanceRequest::create([
+    TenantRequest::create([
         'reference' => 'MR-' . uniqid(),
         'unit_id' => $this->unit->id,
         'tenant_id' => $this->tenant->id,

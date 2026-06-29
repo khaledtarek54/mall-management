@@ -2,8 +2,8 @@
 
 namespace App\Console\Commands;
 
-use App\Models\MaintenanceRequest;
-use App\Services\MaintenanceRequestService;
+use App\Models\TenantRequest;
+use App\Services\TenantRequestService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -13,9 +13,9 @@ class AutoCloseMaintenanceRequestsCommand extends Command
         {--days= : Override config(maintenance.auto_close_after_days)}
         {--dry-run : Print what would change without writing}';
 
-    protected $description = 'Transition resolved MaintenanceRequest rows older than auto_close_after_days to status=closed (audit M09 F-38 / D-30).';
+    protected $description = 'Transition resolved TenantRequest rows older than auto_close_after_days to status=closed (audit M09 F-38 / D-30).';
 
-    public function handle(MaintenanceRequestService $service): int
+    public function handle(TenantRequestService $service): int
     {
         $days = (int) ($this->option('days') ?? config('maintenance.auto_close_after_days', 7));
 
@@ -27,7 +27,7 @@ class AutoCloseMaintenanceRequestsCommand extends Command
 
         $cutoff = now()->subDays($days);
 
-        $candidates = MaintenanceRequest::query()
+        $candidates = TenantRequest::query()
             ->where('status', 'resolved')
             ->whereNotNull('resolved_at')
             ->where('resolved_at', '<=', $cutoff)
@@ -62,7 +62,7 @@ class AutoCloseMaintenanceRequestsCommand extends Command
                 // close between the query and here) is skipped cleanly rather than
                 // throwing / double-notifying.
                 $applied = DB::transaction(function () use ($service, $request) {
-                    $locked = MaintenanceRequest::query()->lockForUpdate()->find($request->id);
+                    $locked = TenantRequest::query()->lockForUpdate()->find($request->id);
 
                     if (! $locked || $locked->status !== 'resolved') {
                         return false;

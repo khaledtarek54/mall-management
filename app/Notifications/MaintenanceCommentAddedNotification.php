@@ -2,8 +2,8 @@
 
 namespace App\Notifications;
 
-use App\Models\MaintenanceRequest;
-use App\Models\MaintenanceRequestComment;
+use App\Models\TenantRequest;
+use App\Models\TenantRequestComment;
 use App\Models\Tenant;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -26,8 +26,8 @@ class MaintenanceCommentAddedNotification extends Notification
     use Queueable;
 
     public function __construct(
-        public MaintenanceRequest $request,
-        public MaintenanceRequestComment $comment,
+        public TenantRequest $request,
+        public TenantRequestComment $comment,
     ) {}
 
     public function via(object $notifiable): array

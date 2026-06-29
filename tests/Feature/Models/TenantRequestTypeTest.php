@@ -1,7 +1,7 @@
 <?php
 
 use App\Enums\TenantRequestType;
-use App\Models\MaintenanceRequest;
+use App\Models\TenantRequest;
 
 /**
  * Plan 1, Phase 1 (additive): the request-type foundation. Every legacy

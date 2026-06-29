@@ -8,7 +8,7 @@ use App\Filament\Portal\Resources\MaintenanceRequests\MaintenanceRequestResource
 use App\Filament\Portal\Resources\Payments\PaymentResource as PortalPaymentResource;
 use App\Filament\Portal\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource as PortalTSDResource;
 use App\Models\Asset;
-use App\Models\MaintenanceRequest;
+use App\Models\TenantRequest;
 use App\Models\Payment;
 use App\Models\TenantSalesDeclaration;
 use App\Models\User;
@@ -64,7 +64,7 @@ it('Owner MaintenanceRequestResource scoped via asset.owners', function () {
     $owner = User::create(['name' => 'Owner', 'email' => 'mo@p.test', 'password' => bcrypt('x')]);
     $this->asset->owners()->attach($owner->id, ['ownership_percentage' => 100, 'started_at' => now()]);
 
-    $mr = MaintenanceRequest::create([
+    $mr = TenantRequest::create([
         'reference' => 'MR-' . uniqid(),
         'unit_id' => $this->unit->id, 'tenant_id' => $this->tenant->id,
         'title' => 't', 'description' => 'd',
@@ -129,7 +129,7 @@ it('Portal PaymentResource scoped via Auth::guard(portal)', function () {
 });
 
 it('Portal MaintenanceRequestResource scoped via Auth::guard(portal); canCreate=true', function () {
-    $mine = MaintenanceRequest::create([
+    $mine = TenantRequest::create([
         'reference' => 'MR-' . uniqid(),
         'unit_id' => $this->unit->id, 'tenant_id' => $this->tenant->id,
         'title' => 't', 'description' => 'd',

@@ -4,7 +4,7 @@ namespace App\Filament\Admin\Resources\MaintenanceRequests\Schemas;
 
 use App\Enums\TenantRequestType;
 use App\Models\Department;
-use App\Models\MaintenanceRequest;
+use App\Models\TenantRequest;
 use App\Models\Unit;
 use App\Models\User;
 use App\Support\TenantScope;
@@ -28,7 +28,7 @@ class MaintenanceRequestForm
                 ->components([
                     TextInput::make('reference')
                         ->label(__('admin.fields.reference'))
-                        ->default(fn () => MaintenanceRequest::generateReference('AW'))
+                        ->default(fn () => TenantRequest::generateReference('AW'))
                         ->disabled()
                         ->dehydrated(),
                     Select::make('request_type')
@@ -42,7 +42,7 @@ class MaintenanceRequestForm
                         // and clear a now-irrelevant sub-category on type change.
                         ->afterStateUpdated(function ($state, Set $set) {
                             $type = TenantRequestType::tryFrom((string) $state) ?? TenantRequestType::default();
-                            $set('reference', MaintenanceRequest::generateReference('AW', $type->referencePrefix()));
+                            $set('reference', TenantRequest::generateReference('AW', $type->referencePrefix()));
                             $set('category', null);
                         })
                         // Type is fixed once a request exists (it would invalidate
@@ -97,7 +97,7 @@ class MaintenanceRequestForm
                         ->options(fn () => __('admin.statuses.maintenance_request'))
                         ->default('submitted')
                         // Read-only: status changes go through the Change-Status action
-                        // (MaintenanceRequestService::transition) — the state machine that
+                        // (TenantRequestService::transition) — the state machine that
                         // validates the hop, stamps resolved_at/closed_at, and notifies.
                         // A raw form write would skip all of that (and break auto-close).
                         ->disabled()
@@ -147,7 +147,7 @@ class MaintenanceRequestForm
                         // A resolution target can't predate the request itself.
                         // On edit, floor it at the record's creation date; on
                         // create the row doesn't exist yet, so floor at today.
-                        ->minDate(fn (?MaintenanceRequest $record) => $record?->created_at?->startOfDay() ?? today())
+                        ->minDate(fn (?TenantRequest $record) => $record?->created_at?->startOfDay() ?? today())
                         ->validationMessages([
                             'after_or_equal' => __('admin.validation.maintenance_resolution_after_creation'),
                         ]),

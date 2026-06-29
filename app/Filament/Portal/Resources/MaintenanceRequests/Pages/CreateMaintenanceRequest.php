@@ -3,9 +3,9 @@
 namespace App\Filament\Portal\Resources\MaintenanceRequests\Pages;
 
 use App\Filament\Portal\Resources\MaintenanceRequests\MaintenanceRequestResource;
-use App\Models\MaintenanceRequest;
+use App\Models\TenantRequest;
 use App\Models\Tenant;
-use App\Services\MaintenanceRequestService;
+use App\Services\TenantRequestService;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Model;
@@ -20,7 +20,7 @@ class CreateMaintenanceRequest extends CreateRecord
         /** @var Tenant $tenant */
         $tenant = \App\Support\Portal::tenant();
 
-        $request = app(MaintenanceRequestService::class)->create($data, $tenant);
+        $request = app(TenantRequestService::class)->create($data, $tenant);
 
         // Attach any uploaded media that Filament's SpatieMediaLibraryFileUpload
         // staged against the form: it normally writes when the model is saved by
@@ -33,7 +33,7 @@ class CreateMaintenanceRequest extends CreateRecord
 
     protected function getCreatedNotification(): ?Notification
     {
-        /** @var MaintenanceRequest $record */
+        /** @var TenantRequest $record */
         $record = $this->record;
 
         return Notification::make()

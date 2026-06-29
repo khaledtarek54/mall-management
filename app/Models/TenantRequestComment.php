@@ -6,10 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
-class MaintenanceRequestComment extends Model
+class TenantRequestComment extends Model
 {
     protected $fillable = [
-        'maintenance_request_id',
+        'tenant_request_id',
         'author_type',
         'author_id',
         'body',
@@ -22,7 +22,7 @@ class MaintenanceRequestComment extends Model
 
     public function request(): BelongsTo
     {
-        return $this->belongsTo(MaintenanceRequest::class, 'maintenance_request_id');
+        return $this->belongsTo(TenantRequest::class, 'tenant_request_id');
     }
 
     public function author(): MorphTo

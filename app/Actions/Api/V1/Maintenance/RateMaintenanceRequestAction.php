@@ -2,8 +2,8 @@
 
 namespace App\Actions\Api\V1\Maintenance;
 
-use App\Models\MaintenanceRequest;
-use App\Services\MaintenanceRequestService;
+use App\Models\TenantRequest;
+use App\Services\TenantRequestService;
 
 /**
  * Tenant submits a close-out satisfaction rating (CSAT) for their request.
@@ -12,9 +12,9 @@ use App\Services\MaintenanceRequestService;
  */
 class RateMaintenanceRequestAction
 {
-    public function __construct(private MaintenanceRequestService $service) {}
+    public function __construct(private TenantRequestService $service) {}
 
-    public function handle(MaintenanceRequest $request, int $rating, ?string $comment = null): MaintenanceRequest
+    public function handle(TenantRequest $request, int $rating, ?string $comment = null): TenantRequest
     {
         return $this->service->rate($request, $rating, $comment);
     }

@@ -2,8 +2,8 @@
 
 use App\Models\CreditNote;
 use App\Models\CreditNoteItem;
-use App\Models\MaintenanceRequest;
-use App\Models\MaintenanceRequestComment;
+use App\Models\TenantRequest;
+use App\Models\TenantRequestComment;
 use App\Models\MeterReading;
 use App\Models\Note;
 use App\Models\User;
@@ -120,19 +120,19 @@ it('CreditNoteItem belongs to a CreditNote', function () {
     expect((float) $item->amount)->toBe(500.0);
 });
 
-/* ───────── MaintenanceRequestComment ───────── */
+/* ───────── TenantRequestComment ───────── */
 
-it('MaintenanceRequestComment relates to request + polymorphic author', function () {
+it('TenantRequestComment relates to request + polymorphic author', function () {
     $user = User::create(['name' => 'U', 'email' => 'u@t.test', 'password' => bcrypt('x')]);
-    $mr = MaintenanceRequest::create([
+    $mr = TenantRequest::create([
         'reference' => 'MR-' . uniqid(),
         'unit_id' => $this->unit->id, 'tenant_id' => $this->tenant->id,
         'title' => 'AC', 'description' => 'broken',
         'status' => 'submitted', 'priority' => 'high', 'category' => 'hvac',
         'submitted_at' => now(),
     ]);
-    $c = MaintenanceRequestComment::create([
-        'maintenance_request_id' => $mr->id,
+    $c = TenantRequestComment::create([
+        'tenant_request_id' => $mr->id,
         'author_type' => User::class, 'author_id' => $user->id,
         'body' => 'Looking into it.',
         'is_internal' => true,

@@ -1,13 +1,13 @@
 <?php
 
-use App\Services\MaintenanceRequestService;
+use App\Services\TenantRequestService;
 use Illuminate\Validation\ValidationException;
 
 /**
  * CSAT rating lives in the service so the portal action and the mobile API
  * share one rule: only resolved/closed requests are rateable, score 1–5.
  */
-beforeEach(fn () => $this->svc = app(MaintenanceRequestService::class));
+beforeEach(fn () => $this->svc = app(TenantRequestService::class));
 
 it('records a rating + comment on a resolved request', function () {
     $request = makeMaintenanceRequest(['status' => 'resolved']);

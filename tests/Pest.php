@@ -3,7 +3,7 @@
 use App\Models\Asset;
 use App\Models\Invoice;
 use App\Models\Lease;
-use App\Models\MaintenanceRequest;
+use App\Models\TenantRequest;
 use App\Models\Tenant;
 use App\Models\Unit;
 use App\Models\User;
@@ -143,13 +143,13 @@ function makeInvoice(Lease $lease, array $attrs = []): Invoice
     ], $attrs));
 }
 
-function makeMaintenanceRequest(array $attrs = []): MaintenanceRequest
+function makeMaintenanceRequest(array $attrs = []): TenantRequest
 {
     $asset = makeAsset();
     $unit = makeUnit($asset);
     $tenant = makeTenant();
 
-    return MaintenanceRequest::create(array_merge([
+    return TenantRequest::create(array_merge([
         'reference' => 'MR-' . uniqid(),
         'unit_id' => $unit->id,
         'tenant_id' => $tenant->id,

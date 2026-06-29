@@ -1,6 +1,6 @@
 <?php
 
-use App\Services\MaintenanceRequestService;
+use App\Services\TenantRequestService;
 
 beforeEach(function () {
     $this->asset = makeAsset();
@@ -10,7 +10,7 @@ beforeEach(function () {
 });
 
 it('creates a request with a reference, SLA target, and submitted status', function () {
-    $request = app(MaintenanceRequestService::class)->create([
+    $request = app(TenantRequestService::class)->create([
         'title' => 'AC broken',
         'description' => 'No cooling on the ground floor',
         'priority' => 'high',
@@ -24,15 +24,15 @@ it('creates a request with a reference, SLA target, and submitted status', funct
 });
 
 it('rejects illegal status transitions', function () {
-    $request = app(MaintenanceRequestService::class)->create([
+    $request = app(TenantRequestService::class)->create([
         'title' => 'X', 'description' => 'Y', 'priority' => 'medium', 'category' => 'other',
     ], $this->tenant);
 
-    app(MaintenanceRequestService::class)->transition($request, 'closed');
+    app(TenantRequestService::class)->transition($request, 'closed');
 })->throws(InvalidArgumentException::class, 'Illegal transition');
 
 it('walks the happy path: submitted → acknowledged → in_progress → resolved → closed', function () {
-    $svc = app(MaintenanceRequestService::class);
+    $svc = app(TenantRequestService::class);
 
     $request = $svc->create([
         'title' => 'X', 'description' => 'Y', 'priority' => 'medium', 'category' => 'other',
@@ -52,7 +52,7 @@ it('walks the happy path: submitted → acknowledged → in_progress → resolve
 });
 
 it('assigns a user and auto-acknowledges from submitted', function () {
-    $svc = app(MaintenanceRequestService::class);
+    $svc = app(TenantRequestService::class);
     $assignee = makeUser('operations');
 
     $request = $svc->create([
@@ -66,7 +66,7 @@ it('assigns a user and auto-acknowledges from submitted', function () {
 });
 
 it('logs internal vs tenant-visible comments', function () {
-    $svc = app(MaintenanceRequestService::class);
+    $svc = app(TenantRequestService::class);
     $author = makeUser('operations');
 
     $request = $svc->create([
@@ -85,7 +85,7 @@ it('derives target resolution time from SLA config by priority', function () {
         'maintenance.sla.urgent.resolve_hours' => 4,
         'maintenance.sla.low.resolve_hours' => 168,
     ]);
-    $svc = app(MaintenanceRequestService::class);
+    $svc = app(TenantRequestService::class);
 
     $urgent = $svc->defaultTargetResolution('urgent');
     $low = $svc->defaultTargetResolution('low');

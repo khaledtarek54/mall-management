@@ -1,16 +1,16 @@
 <?php
 
-use App\Models\MaintenanceRequest;
+use App\Models\TenantRequest;
 use App\Models\Tenant;
 
 /**
  * CSAT: a tenant rates their resolved/closed request (1–5 + optional comment).
  * Scoped to the caller; only rateable once resolved/closed.
  */
-function makeRateableRequest(Tenant $tenant, string $status = 'resolved'): MaintenanceRequest
+function makeRateableRequest(Tenant $tenant, string $status = 'resolved'): TenantRequest
 {
-    return MaintenanceRequest::create([
-        'reference' => MaintenanceRequest::generateReference(),
+    return TenantRequest::create([
+        'reference' => TenantRequest::generateReference(),
         'tenant_id' => $tenant->id,
         'unit_id' => makeUnit(makeAsset())->id,
         'request_type' => 'maintenance',
@@ -36,7 +36,7 @@ it('rates a resolved request', function () {
         ->assertJsonPath('data.csatRating', 5)
         ->assertJsonPath('data.csatComment', 'Fast and tidy, thank you.');
 
-    $this->assertDatabaseHas('maintenance_requests', [
+    $this->assertDatabaseHas('tenant_requests', [
         'id' => $request->id, 'csat_rating' => 5,
     ]);
 });

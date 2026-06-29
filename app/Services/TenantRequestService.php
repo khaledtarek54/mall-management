@@ -3,8 +3,8 @@
 namespace App\Services;
 
 use App\Enums\TenantRequestType;
-use App\Models\MaintenanceRequest;
-use App\Models\MaintenanceRequestComment;
+use App\Models\TenantRequest;
+use App\Models\TenantRequestComment;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Notifications\MaintenanceCommentAddedNotification;
@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 
-class MaintenanceRequestService
+class TenantRequestService
 {
     /**
      * Legal transitions. Keys = current status; values = allowed next statuses.
@@ -37,7 +37,7 @@ class MaintenanceRequestService
         'cancelled' => [],
     ];
 
-    public function create(array $data, Tenant $tenant): MaintenanceRequest
+    public function create(array $data, Tenant $tenant): TenantRequest
     {
         return DB::transaction(function () use ($data, $tenant) {
             $unit = $tenant->activeLeases()->first()?->unit;
@@ -49,8 +49,8 @@ class MaintenanceRequestService
 
             $priority = $data['priority'] ?? 'medium';
 
-            $request = MaintenanceRequest::create([
-                'reference' => MaintenanceRequest::generateReference(
+            $request = TenantRequest::create([
+                'reference' => TenantRequest::generateReference(
                     $unit?->asset?->code ?? 'AW',
                     $type->referencePrefix(),
                 ),
@@ -123,7 +123,7 @@ class MaintenanceRequestService
      * seeded (e.g. minimal test envs), the role() query throws RoleDoesNotExist
      * and we silently skip rather than breaking the request creation path.
      */
-    private function notifyOperators(MaintenanceRequest $request): void
+    private function notifyOperators(TenantRequest $request): void
     {
         try {
             $recipients = $this->staffRecipientsFor($request);
@@ -150,7 +150,7 @@ class MaintenanceRequestService
      *
      * @return Collection<int, User>
      */
-    private function staffRecipientsFor(MaintenanceRequest $request): Collection
+    private function staffRecipientsFor(TenantRequest $request): Collection
     {
         return app(AssetStaffRecipients::class)->for(
             $request->unit?->asset_id,
@@ -158,7 +158,7 @@ class MaintenanceRequestService
         );
     }
 
-    public function transition(MaintenanceRequest $request, string $next, array $extra = []): MaintenanceRequest
+    public function transition(TenantRequest $request, string $next, array $extra = []): TenantRequest
     {
         $current = $request->status;
 
@@ -205,7 +205,7 @@ class MaintenanceRequestService
         return $request->refresh();
     }
 
-    public function assign(MaintenanceRequest $request, ?int $userId): MaintenanceRequest
+    public function assign(TenantRequest $request, ?int $userId): TenantRequest
     {
         if ($request->isTerminal()) {
             return $request;
@@ -229,7 +229,7 @@ class MaintenanceRequestService
      * earlier rating. Single source of truth for both the portal action and the
      * mobile API, so the rateable rule can't drift between them.
      */
-    public function rate(MaintenanceRequest $request, int $rating, ?string $comment = null): MaintenanceRequest
+    public function rate(TenantRequest $request, int $rating, ?string $comment = null): TenantRequest
     {
         if (! in_array($request->status, self::RATEABLE, true)) {
             throw ValidationException::withMessages([
@@ -253,7 +253,7 @@ class MaintenanceRequestService
      * department is just an update of this column (FR MNT-2 / MNT-3); the
      * activity log captures the from→to change.
      */
-    public function redirectToDepartment(MaintenanceRequest $request, ?int $departmentId): MaintenanceRequest
+    public function redirectToDepartment(TenantRequest $request, ?int $departmentId): TenantRequest
     {
         // Terminal (closed/cancelled) work-orders are immutable (FR REQ-3) — the
         // UI hides the action, but guard the service too so no path can re-route
@@ -267,10 +267,10 @@ class MaintenanceRequestService
         return $request->refresh();
     }
 
-    public function comment(MaintenanceRequest $request, Model $author, string $body, bool $isInternal = false): MaintenanceRequestComment
+    public function comment(TenantRequest $request, Model $author, string $body, bool $isInternal = false): TenantRequestComment
     {
-        $comment = MaintenanceRequestComment::create([
-            'maintenance_request_id' => $request->id,
+        $comment = TenantRequestComment::create([
+            'tenant_request_id' => $request->id,
             'author_type' => $author->getMorphClass(),
             'author_id' => $author->getKey(),
             'body' => $body,
@@ -291,7 +291,7 @@ class MaintenanceRequestService
      * Route a public comment to the other party. Wrapped in Throwable so a
      * missing role catalogue / mail hiccup never breaks the comment write.
      */
-    private function notifyOfComment(MaintenanceRequest $request, Model $author, MaintenanceRequestComment $comment): void
+    private function notifyOfComment(TenantRequest $request, Model $author, TenantRequestComment $comment): void
     {
         try {
             if ($author instanceof Tenant) {

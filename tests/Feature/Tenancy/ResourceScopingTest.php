@@ -13,7 +13,7 @@ use App\Filament\Admin\Resources\UtilityMeters\UtilityMeterResource;
 use App\Models\Asset;
 use App\Models\CamExpensePool;
 use App\Models\CreditNote;
-use App\Models\MaintenanceRequest;
+use App\Models\TenantRequest;
 use App\Models\Payment;
 use App\Models\TenantSalesDeclaration;
 use App\Models\UtilityMeter;
@@ -147,9 +147,9 @@ describe('CreditNote scoping', function () {
     });
 });
 
-describe('MaintenanceRequest scoping', function () {
+describe('TenantRequest scoping', function () {
     it('scopes requests via unit.asset_id', function () {
-        $hwReq = MaintenanceRequest::create([
+        $hwReq = TenantRequest::create([
             'reference' => 'MR-HW-'.uniqid(),
             'unit_id' => $this->hwUnit->id,
             'tenant_id' => $this->hwLease->tenant_id,
@@ -161,7 +161,7 @@ describe('MaintenanceRequest scoping', function () {
             'submitted_at' => now(),
         ]);
 
-        $paReq = MaintenanceRequest::create([
+        $paReq = TenantRequest::create([
             'reference' => 'MR-PA-'.uniqid(),
             'unit_id' => $this->paUnit->id,
             'tenant_id' => $this->paLease->tenant_id,

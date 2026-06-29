@@ -184,8 +184,8 @@ it('returns 404 commenting on another tenant\'s maintenance request', function (
         apiHeaders($tenant),
     )->assertNotFound();
 
-    $this->assertDatabaseMissing('maintenance_request_comments', [
-        'maintenance_request_id' => $foreign->id,
+    $this->assertDatabaseMissing('tenant_request_comments', [
+        'tenant_request_id' => $foreign->id,
     ]);
 });
 
@@ -359,7 +359,7 @@ it('submits a maintenance request over the token and persists it to the tenant',
         ->assertJsonPath('data.title', 'Door handle loose')
         ->assertJsonPath('data.status', 'submitted');
 
-    $this->assertDatabaseHas('maintenance_requests', [
+    $this->assertDatabaseHas('tenant_requests', [
         'tenant_id' => $tenant->id,
         'title' => 'Door handle loose',
         'channel' => 'portal',

@@ -5,7 +5,7 @@ namespace App\Filament\Admin\Resources\MaintenanceRequests\Pages;
 use App\Enums\TenantRequestType;
 use App\Filament\Admin\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use App\Models\Department;
-use App\Services\MaintenanceRequestService;
+use App\Services\TenantRequestService;
 use Filament\Resources\Pages\CreateRecord;
 
 class CreateMaintenanceRequest extends CreateRecord
@@ -23,7 +23,7 @@ class CreateMaintenanceRequest extends CreateRecord
         // operator-tunable target from the settings-backed service.
         if (empty($data['target_resolution_at'])) {
             $data['target_resolution_at'] = $type->hasSla()
-                ? app(MaintenanceRequestService::class)->defaultTargetResolution($data['priority'] ?? 'medium')
+                ? app(TenantRequestService::class)->defaultTargetResolution($data['priority'] ?? 'medium')
                 : null;
         }
 

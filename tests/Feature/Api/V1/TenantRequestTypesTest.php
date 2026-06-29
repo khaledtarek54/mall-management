@@ -22,7 +22,7 @@ it('creates a non-maintenance request with no sub-category and no SLA', function
         ->assertJsonPath('data.category', null)
         ->assertJsonPath('data.targetResolutionAt', null);
 
-    $this->assertDatabaseHas('maintenance_requests', [
+    $this->assertDatabaseHas('tenant_requests', [
         'tenant_id' => $tenant->id,
         'request_type' => 'inquiry',
     ]);
@@ -86,7 +86,7 @@ it('auto-routes a request to its type default department', function () {
         'description' => 'The latest invoice has a charge I do not recognise.',
     ], apiHeaders($tenant))->assertCreated();
 
-    $this->assertDatabaseHas('maintenance_requests', [
+    $this->assertDatabaseHas('tenant_requests', [
         'tenant_id' => $tenant->id,
         'request_type' => 'billing',
         'department_id' => $accounting->id,

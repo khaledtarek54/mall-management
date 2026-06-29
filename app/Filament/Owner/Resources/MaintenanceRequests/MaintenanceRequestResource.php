@@ -5,7 +5,7 @@ namespace App\Filament\Owner\Resources\MaintenanceRequests;
 use App\Filament\Owner\Resources\MaintenanceRequests\Pages\ListMaintenanceRequests;
 use App\Filament\Owner\Resources\MaintenanceRequests\Pages\ViewMaintenanceRequest;
 use App\Filament\Owner\Resources\MaintenanceRequests\Tables\MaintenanceRequestsTable;
-use App\Models\MaintenanceRequest;
+use App\Models\TenantRequest;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Auth;
 
 class MaintenanceRequestResource extends Resource
 {
-    protected static ?string $model = MaintenanceRequest::class;
+    protected static ?string $model = TenantRequest::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedWrenchScrewdriver;
 
@@ -85,7 +85,7 @@ class MaintenanceRequestResource extends Resource
     public static function getNavigationBadge(): ?string
     {
         $count = static::getEloquentQuery()
-            ->whereIn('status', MaintenanceRequest::OPEN_STATUSES)
+            ->whereIn('status', TenantRequest::OPEN_STATUSES)
             ->count();
 
         return $count > 0 ? (string) $count : null;
@@ -94,7 +94,7 @@ class MaintenanceRequestResource extends Resource
     public static function getNavigationBadgeColor(): string|array|null
     {
         $hasUrgent = static::getEloquentQuery()
-            ->whereIn('status', MaintenanceRequest::OPEN_STATUSES)
+            ->whereIn('status', TenantRequest::OPEN_STATUSES)
             ->where('priority', 'urgent')
             ->exists();
 

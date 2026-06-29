@@ -120,7 +120,7 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
 
     public function maintenanceRequests(): HasMany
     {
-        return $this->hasMany(MaintenanceRequest::class);
+        return $this->hasMany(TenantRequest::class);
     }
 
     public function creditNotes(): HasMany

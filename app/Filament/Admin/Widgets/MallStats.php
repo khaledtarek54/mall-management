@@ -86,7 +86,7 @@ class MallStats extends StatsOverviewWidget
 
         // Tenant satisfaction (CSAT) — average close-out rating across all
         // resolved/closed requests that were rated, property-scoped.
-        $ratedQuery = fn () => \App\Models\MaintenanceRequest::whereNotNull('csat_rating')
+        $ratedQuery = fn () => \App\Models\TenantRequest::whereNotNull('csat_rating')
             ->when($assetId, fn ($q) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)));
         $ratedCount = $ratedQuery()->count();
         $avgCsat = $ratedCount > 0 ? round((float) $ratedQuery()->avg('csat_rating'), 1) : null;

@@ -3,7 +3,7 @@
 namespace App\Http\Requests\Api\V1\Maintenance;
 
 use App\Enums\TenantRequestType;
-use App\Models\MaintenanceRequest;
+use App\Models\TenantRequest;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -31,7 +31,7 @@ class CreateMaintenanceRequestRequest extends FormRequest
             'category' => $subcategories === []
                 ? ['nullable']
                 : ['required', Rule::in($subcategories)],
-            'priority' => ['sometimes', Rule::in(MaintenanceRequest::PRIORITIES)],
+            'priority' => ['sometimes', Rule::in(TenantRequest::PRIORITIES)],
             // If supplied, the unit must belong to one of THIS tenant's leases.
             // Prevents a tenant from filing against someone else's unit. When
             // omitted, the service derives it from the active lease.

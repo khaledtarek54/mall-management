@@ -160,7 +160,7 @@ class Lease extends Model implements HasMedia
 
     public function maintenanceRequests(): HasMany
     {
-        return $this->hasMany(MaintenanceRequest::class);
+        return $this->hasMany(TenantRequest::class);
     }
 
     public function salesDeclarations(): HasMany

@@ -52,7 +52,7 @@ class Unit extends Model
 
     public function maintenanceRequests(): HasMany
     {
-        return $this->hasMany(MaintenanceRequest::class);
+        return $this->hasMany(TenantRequest::class);
     }
 
     public function utilityMeters(): HasMany

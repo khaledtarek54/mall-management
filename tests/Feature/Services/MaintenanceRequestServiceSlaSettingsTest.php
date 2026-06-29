@@ -1,6 +1,6 @@
 <?php
 
-use App\Services\MaintenanceRequestService;
+use App\Services\TenantRequestService;
 use App\Settings\MaintenanceSettings;
 use Illuminate\Support\Carbon;
 
@@ -15,7 +15,7 @@ it('reads SLA hours from MaintenanceSettings when present', function () {
     $settings->sla_low_hours = 96;
     $settings->save();
 
-    $service = app(MaintenanceRequestService::class);
+    $service = app(TenantRequestService::class);
 
     expect($service->defaultTargetResolution('urgent')->diffInHours(now(), false))->toEqual(-2);
     expect($service->defaultTargetResolution('high')->diffInHours(now(), false))->toEqual(-12);
@@ -26,13 +26,13 @@ it('reads SLA hours from MaintenanceSettings when present', function () {
 it('falls back to config when given a priority not in the Settings shape', function () {
     config(['maintenance.sla.weird' => ['resolve_hours' => 999]]);
 
-    $service = app(MaintenanceRequestService::class);
+    $service = app(TenantRequestService::class);
 
     expect($service->defaultTargetResolution('weird')->diffInHours(now(), false))->toEqual(-999);
 });
 
 it('falls back to a final 168h default if neither Settings nor config defines the priority', function () {
-    $service = app(MaintenanceRequestService::class);
+    $service = app(TenantRequestService::class);
 
     expect($service->defaultTargetResolution('nonsense')->diffInHours(now(), false))->toEqual(-168);
 });

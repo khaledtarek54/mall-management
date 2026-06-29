@@ -1,7 +1,7 @@
 <?php
 
 use App\Filament\Admin\Widgets\ActionRequired;
-use App\Models\MaintenanceRequest;
+use App\Models\TenantRequest;
 use App\Settings\ModulesSettings;
 
 beforeEach(function () {
@@ -13,7 +13,7 @@ beforeEach(function () {
 
     // Seed an urgent open maintenance request so the ActionRequired widget
     // would normally surface a card for it.
-    MaintenanceRequest::create([
+    TenantRequest::create([
         'reference' => 'MR-' . uniqid(),
         'unit_id' => $this->unit->id,
         'tenant_id' => $this->tenant->id,

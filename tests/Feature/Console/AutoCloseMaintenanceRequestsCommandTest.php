@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\MaintenanceRequest;
+use App\Models\TenantRequest;
 use App\Models\Tenant;
 use App\Models\Unit;
 
@@ -11,9 +11,9 @@ beforeEach(function () {
     $this->tenant = makeTenant();
 });
 
-function makeResolvedMaintenanceRequest(Unit $unit, Tenant $tenant, array $overrides = []): MaintenanceRequest
+function makeResolvedMaintenanceRequest(Unit $unit, Tenant $tenant, array $overrides = []): TenantRequest
 {
-    return MaintenanceRequest::create(array_merge([
+    return TenantRequest::create(array_merge([
         'reference' => 'MR-' . uniqid(),
         'tenant_id' => $tenant->id,
         'unit_id' => $unit->id,

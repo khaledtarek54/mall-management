@@ -3,7 +3,7 @@
 namespace App\Filament\Admin\RelationManagers;
 
 use App\Filament\Admin\Resources\MaintenanceRequests\MaintenanceRequestResource;
-use App\Models\MaintenanceRequest;
+use App\Models\TenantRequest;
 use Filament\Actions\Action;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
@@ -72,7 +72,7 @@ class TenantMaintenanceRelationManager extends RelationManager
                 Action::make('open')
                     ->label(__('admin.actions.view'))
                     ->icon('heroicon-o-arrow-top-right-on-square')
-                    ->url(fn (MaintenanceRequest $record) => MaintenanceRequestResource::getUrl('edit', ['record' => $record])),
+                    ->url(fn (TenantRequest $record) => MaintenanceRequestResource::getUrl('edit', ['record' => $record])),
             ])
             ->toolbarActions([])
             ->defaultSort('submitted_at', 'desc');

@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\MaintenanceRequest;
+use App\Models\TenantRequest;
 use App\Notifications\MaintenanceSlaBreachedNotification;
 use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Support\Facades\Notification;
@@ -17,7 +17,7 @@ beforeEach(function () {
 it('alerts on a breached request and stamps sla_breach_notified_at', function () {
     Notification::fake();
 
-    $request = MaintenanceRequest::create([
+    $request = TenantRequest::create([
         'reference' => 'MR-' . uniqid(),
         'tenant_id' => $this->tenant->id,
         'unit_id' => $this->unit->id,
@@ -41,7 +41,7 @@ it('alerts on a breached request and stamps sla_breach_notified_at', function ()
 it('does not re-alert a request that was already notified', function () {
     Notification::fake();
 
-    MaintenanceRequest::create([
+    TenantRequest::create([
         'reference' => 'MR-' . uniqid(),
         'tenant_id' => $this->tenant->id,
         'unit_id' => $this->unit->id,
@@ -65,7 +65,7 @@ it('does not re-alert a request that was already notified', function () {
 it('--dry-run does not write or notify', function () {
     Notification::fake();
 
-    $request = MaintenanceRequest::create([
+    $request = TenantRequest::create([
         'reference' => 'MR-' . uniqid(),
         'tenant_id' => $this->tenant->id,
         'unit_id' => $this->unit->id,
@@ -89,7 +89,7 @@ it('--dry-run does not write or notify', function () {
 it('skips closed/resolved/cancelled requests even if past the target', function () {
     Notification::fake();
 
-    MaintenanceRequest::create([
+    TenantRequest::create([
         'reference' => 'MR-' . uniqid(),
         'tenant_id' => $this->tenant->id,
         'unit_id' => $this->unit->id,

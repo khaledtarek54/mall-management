@@ -1,11 +1,11 @@
 <?php
 
-use App\Models\MaintenanceRequest;
+use App\Models\TenantRequest;
 use App\Models\TenantSalesDeclaration;
 use App\Notifications\MaintenanceCommentAddedNotification;
 use App\Notifications\MaintenanceStatusChangedNotification;
 use App\Notifications\SalesDeclarationLockedNotification;
-use App\Services\MaintenanceRequestService;
+use App\Services\TenantRequestService;
 use App\Services\PercentageRentCalculationService;
 use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Support\Facades\Notification;
@@ -26,10 +26,10 @@ beforeEach(function () {
     $this->operator = makeUser('manager', [$this->asset->id]);
 });
 
-it('MaintenanceRequestService::transition notifies the tenant on status change', function () {
+it('TenantRequestService::transition notifies the tenant on status change', function () {
     Notification::fake();
 
-    $request = MaintenanceRequest::create([
+    $request = TenantRequest::create([
         'reference' => 'MR-' . uniqid(),
         'tenant_id' => $this->tenant->id,
         'unit_id' => $this->unit->id,
@@ -41,7 +41,7 @@ it('MaintenanceRequestService::transition notifies the tenant on status change',
         'submitted_at' => now(),
     ]);
 
-    app(MaintenanceRequestService::class)->transition($request, 'acknowledged');
+    app(TenantRequestService::class)->transition($request, 'acknowledged');
 
     Notification::assertSentTo(
         $this->tenant,
@@ -53,7 +53,7 @@ it('MaintenanceRequestService::transition notifies the tenant on status change',
 it('the cancelled transition does NOT fire (tenant cancelled themselves)', function () {
     Notification::fake();
 
-    $request = MaintenanceRequest::create([
+    $request = TenantRequest::create([
         'reference' => 'MR-' . uniqid(),
         'tenant_id' => $this->tenant->id,
         'unit_id' => $this->unit->id,
@@ -65,7 +65,7 @@ it('the cancelled transition does NOT fire (tenant cancelled themselves)', funct
         'submitted_at' => now(),
     ]);
 
-    app(MaintenanceRequestService::class)->transition($request, 'cancelled');
+    app(TenantRequestService::class)->transition($request, 'cancelled');
 
     Notification::assertNothingSent();
 });
@@ -73,7 +73,7 @@ it('the cancelled transition does NOT fire (tenant cancelled themselves)', funct
 it('a tenant comment notifies the assigned property team (ERP bell)', function () {
     Notification::fake();
 
-    $request = MaintenanceRequest::create([
+    $request = TenantRequest::create([
         'reference' => 'MR-' . uniqid(),
         'tenant_id' => $this->tenant->id,
         'unit_id' => $this->unit->id,
@@ -85,7 +85,7 @@ it('a tenant comment notifies the assigned property team (ERP bell)', function (
         'submitted_at' => now(),
     ]);
 
-    app(MaintenanceRequestService::class)->comment($request, $this->tenant, 'Any update?', isInternal: false);
+    app(TenantRequestService::class)->comment($request, $this->tenant, 'Any update?', isInternal: false);
 
     Notification::assertSentTo(
         $this->operator,
@@ -97,7 +97,7 @@ it('a tenant comment notifies the assigned property team (ERP bell)', function (
 it('a staff comment notifies the tenant, and internal notes notify no one', function () {
     Notification::fake();
 
-    $request = MaintenanceRequest::create([
+    $request = TenantRequest::create([
         'reference' => 'MR-' . uniqid(),
         'tenant_id' => $this->tenant->id,
         'unit_id' => $this->unit->id,
@@ -109,7 +109,7 @@ it('a staff comment notifies the tenant, and internal notes notify no one', func
         'submitted_at' => now(),
     ]);
 
-    $svc = app(MaintenanceRequestService::class);
+    $svc = app(TenantRequestService::class);
 
     $svc->comment($request, $this->operator, 'On our way', isInternal: false);
     Notification::assertSentTo($this->tenant, MaintenanceCommentAddedNotification::class);
