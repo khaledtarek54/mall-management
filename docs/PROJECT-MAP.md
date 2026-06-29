@@ -1,0 +1,184 @@
+# Atriom — Project Map (how the whole app works + where everything lives)
+
+A wayfinding guide to the **Atriom** mall-management ERP: what it does, its three
+user surfaces, the codebase layout, every URL/route family, the scheduled
+automation, and where to find each feature. Pair this with
+[OVERVIEW.md](OVERVIEW.md) (domain) and the per-module docs in
+[docs/modules/](modules/).
+
+---
+
+## 1. What it is, in one screen
+
+Atriom runs shopping malls for the operator **Eltizam**, on behalf of property
+owners (**Jawad**); the **tenants** are the retailers. It covers the full
+commercial lifecycle: properties & units → leases → billing (rent, service
+charge, VAT, CAM, percentage rent, marketing levy) → payments (incl. online via
+Paymob) → credit notes → tenant requests (maintenance + more) → utilities,
+vendors, departments, ETA e-invoicing, and reporting.
+
+**Tech stack:** Laravel 13 · PHP 8.4 · Filament 4 (admin/portal UI) · MySQL
+(prod/local), SQLite `:memory:` (tests) · Pest 4 + Playwright (1315+ tests) ·
+Sanctum (mobile API auth) · Spatie (permissions, media, activity-log, settings).
+
+**Scale of the codebase:** 28 models · 17 services · 38 API controllers · 18
+admin + 5 portal Filament resources · 13 dashboard widgets · 13 console commands
+· 12 notifications · 20 module docs · 220 test files.
+
+---
+
+## 2. The three surfaces (who logs in where)
+
+| Surface | URL prefix | Who | Auth | Built with |
+|---|---|---|---|---|
+| **Admin** | `/admin` | Eltizam staff + Jawad owners (scoped by role) | `User` + Spatie roles | Filament panel |
+| **Tenant portal** | `/portal` | Retailers (web) | `TenantUser` (multi-user; only `is_admin` may write) | Filament panel |
+| **Mobile API** | `/api/v1` | Retailers (app) | Sanctum tokens against `Tenant` | REST + JSON resources |
+| **Public pay** | `/pay/{token}` | Anyone with the link | none (token) | Blade pay page → Paymob |
+
+The admin panel is **property-aware**: the Filament "tenant" = an **Asset**
+(property); an "All Properties" pseudo-asset gives the portfolio view. Every
+cross-property query is scoped via `App\Support\TenantScope`. Cross-tenant API
+access returns **404** (no existence enumeration).
+
+---
+
+## 3. Codebase map (`app/` — what lives where)
+
+| Path | Holds | Notes |
+|---|---|---|
+| `app/Models/` | The 28 domain entities | Eloquent; money invariants live in `Invoice::recomputeTotals()` |
+| `app/Services/` | **Single-action business logic** | Controllers + Filament pages stay thin; all real logic here |
+| `app/Enums/` | Model-level enums | e.g. `TenantRequestType`, `InvoiceItemType` (no DB enums) |
+| `app/Filament/Admin/` | The admin panel | `Resources/` (18), `Widgets/` (13 dashboard), `Pages/`, `RelationManagers/` |
+| `app/Filament/Portal/` | The tenant portal | `Resources/` (5): invoices, payments, requests, sales, CAM |
+| `app/Http/Controllers/Api/V1/` | The mobile API | 38 thin controllers, one action each |
+| `app/Http/Requests/Api/V1/` | API request validators | FormRequests (validation + payload shaping) |
+| `app/Http/Resources/Api/V1/` | API JSON transformers | response shapes (camelCased on the wire) |
+| `app/Http/Middleware/` | Cross-cutting HTTP | `SecurityHeaders`, `SetLocale`, snake/camel key casing |
+| `app/Actions/Api/V1/` | API single-action classes | the seam the API controllers delegate to |
+| `app/Console/Commands/` | 13 CLI commands | billing, CAM, SLA scans, late fees, integrations check |
+| `app/Jobs/` | Queued jobs | `RunMonthlyBilling`, `ApplyLateFees`, `SubmitInvoiceToEta` |
+| `app/Notifications/` | 12 notifications | mail + database (bell) + push (FCM) channels |
+| `app/Observers/` | Model observers | e.g. `LeaseObserver` |
+| `app/Settings/` | Operator-tunable settings | Spatie settings (SLA hours, module toggles, ETA, Paymob) |
+| `app/Support/` | Helpers | `TenantScope` (property scoping), `Modules` (feature flags), `Portal`, `OpsLog`, `KeyCase` |
+| `app/Providers/` | Bootstrap | service + Filament panel providers; integration bindings |
+| `app/Mail/` | Mailables | `InvoiceIssued` |
+
+**Other top-level dirs:** `routes/` (web, api, console) · `database/` (migrations,
+factories, seeders — `DemoSeeder` = canonical demo data) · `resources/views/`
+(Blade: pay pages, PDFs, panel tweaks) · `config/` · `lang/{en,ar}/` (full
+bilingual, RTL) · `tests/` (Feature/Unit + `e2e/` Playwright) · `docs/`.
+
+---
+
+## 4. Routes (every URL family)
+
+### `routes/web.php` — browser
+- `/admin/*` — the admin Filament panel (login, dashboard, 18 resources, settings, reports).
+- `/portal/*` — the tenant portal Filament panel.
+- `/pay/{token}`, `/pay/{token}/start`, `/pay/{token}/status` — public online payment link.
+- `/locale/{en|ar}` — language switch. `/paymob/callback` — Paymob webhook (HMAC-verified).
+
+### `routes/api.php` — `/api/v1/*` (mobile, Sanctum) — see [docs/api/openapi.json](api/openapi.json)
+- **Auth:** `login · logout · me · change-password · forgot-password · reset-password`
+- **Account:** `me · me/balance · me/summary · me/leases`
+- **Invoices:** `me/invoices[/{id}[/pdf]] · me/statement · …/paymob-session · …/pay-demo`
+- **Payments / Credit notes:** `me/payments[/{id}] · me/credit-notes[/{id}]`
+- **Notifications:** `me/notifications · …/unread-count · …/read-all · …/{id}/read`
+- **Requests:** `me/maintenance-requests` CRUD + `…/{id}/comments · /cancel · /rate · /attachments/{media}`
+- **Sales declarations:** `me/sales-declarations[/{id}]` · **Devices:** `me/devices[/{id}]`
+
+### `routes/console.php` — scheduled automation (need cron + a queue worker in prod)
+`billing:run-monthly` · `billing:apply-late-fees` · `billing:scan-overdue-invoices`
+· `cam:reconcile` · `maintenance:scan-sla-breaches` · `maintenance:auto-close` ·
+`vendors:expire-contracts` · `marketing:ensure-budgets` · `activitylog:clean`.
+
+---
+
+## 5. How a request flows (the layered architecture)
+
+```
+HTTP / CLI / Schedule
+      │
+      ▼
+Route ──► Controller (API)  /  Filament Page+Resource (admin/portal)  /  Console Command
+      │        thin: validate + authorize + delegate
+      ▼
+Service  (app/Services) ── the single source of business truth, transaction-safe
+      │
+      ▼
+Model    (app/Models) ── Eloquent; money invariants in Invoice::recomputeTotals()
+      │
+      ▼
+MySQL  +  side effects: Notifications (mail/bell/push), Activity log, Media (private disk)
+```
+
+**Authorization** is layered: RBAC permissions (`{module}.{action}`, Spatie) via
+`RoleGatedActions`, **property scoping** via `TenantScope::visibleAssetIds()`,
+and **module feature-flags** via `Modules::enabled()`. Delete is super-admin only.
+
+---
+
+## 6. Module index (feature → docs + key code)
+
+Each module has a doc in [docs/modules/](modules/) with *Business rules*,
+*Extension points*, and *Gotchas*. Read the doc before changing a module.
+
+| # | Module | Doc | Core code |
+|---|--------|-----|-----------|
+| 01 | Properties & Units | `01-properties-units.md` | `Models/Asset.php`, `Unit.php` |
+| 02 | Tenants | `02-tenants.md` | `Models/Tenant.php` |
+| 03 | Portal users | `03-tenant-portal-users.md` | `Models/TenantUser.php`, `Support/Portal.php` |
+| 04 | Leases | `04-leases.md` | `Services/Lease*Service.php` |
+| 05 | Billing & Invoices | `05-billing-invoices.md` | `Services/MonthlyBillingService.php`, `Models/Invoice.php` |
+| 06 | Payments | `06-payments.md` | `Models/Payment.php`, Paymob services |
+| 07 | Credit notes | `07-credit-notes.md` | `Services/CreditNoteService.php` |
+| 08 | CAM reconciliation | `08-cam.md` | `Services/CamReconciliationService.php` |
+| 09 | Tenant sales / % rent | `09-tenant-sales-percentage-rent.md` | `Services/PercentageRentCalculationService.php` |
+| 10 | Utility meters | `10-utility-meters.md` | `Models/UtilityMeter.php`, `MeterReading.php` |
+| 11 | **Tenant requests** (incl. maintenance) | `11-maintenance.md` | `Services/TenantRequestService.php`, `Enums/TenantRequestType.php` |
+| 12 | Vendors | `12-vendors.md` | `Models/Vendor*.php` |
+| 13 | Marketing | `13-marketing.md` | `Models/MarketingBudget.php`, `Services/MarketingLevyService.php` |
+| 14 | Departments | `14-departments.md` | `Models/Department.php` |
+| 15 | Owner requests | `15-owner-requests-and-model.md` | `Services/OwnerRequestService.php` |
+| 16 | ETA e-invoicing | `16-eta-einvoicing.md` | `Services/Eta/*`, `Jobs/SubmitInvoiceToEta.php` |
+| 17 | Reports | `17-reports.md` | `Services/*PdfService.php`, `ReportService.php` |
+| 18 | RBAC & scoping | `18-rbac-scoping.md` | `Support/TenantScope.php`, `RoleGatedActions` |
+| 19 | Notifications & scans | `19-notifications-scans.md` | `app/Notifications/`, the scan commands |
+| 20 | Mobile API | `20-mobile-api.md` + `api/MOBILE-API.md` | `app/Http/Controllers/Api/V1/` |
+
+---
+
+## 7. Money invariants (the rules that must never break)
+
+- `Invoice::recomputeTotals()` is the **single source of truth**:
+  `paid_amount = captured payments + applied credit`, `balance = total − paid`.
+- **VAT 14%** on service charges; **base rent is VAT-exempt**.
+- **Marketing levy = 5%** of base rent. **CAM** split pro-rata by leased sqm
+  (negative true-up → a credit note, not a negative charge).
+- `php artisan billing:reconcile` independently re-derives the books and confirms
+  they tie out (see [BUSINESS-RULES.md](BUSINESS-RULES.md)).
+
+---
+
+## 8. Quality & operations
+
+- **Tests:** `vendor/bin/pest --parallel` (1315+) · `npx playwright test` (E2E + axe a11y).
+- **Static analysis:** `composer analyse` (PHPStan/Larastan). **API spec:** `composer api-spec` → [api/openapi.json](api/openapi.json).
+- **QA & go-live:** the manual-QA layer + release sign-off gate in [docs/qa/](qa/); readiness in [the runbook](PRODUCTION-RUNBOOK.md).
+- **Reset demo data:** `php artisan migrate:fresh --seed`.
+
+---
+
+## 9. Wayfinding — "where do I find…?"
+
+- **A business rule / money calc** → `app/Services/` + the module doc + `BUSINESS-RULES.md`.
+- **An admin screen** → `app/Filament/Admin/Resources/{Thing}/`.
+- **A tenant screen (web)** → `app/Filament/Portal/Resources/{Thing}/`.
+- **A mobile endpoint** → `routes/api.php` → `app/Http/Controllers/Api/V1/` → `app/Actions/Api/V1/`.
+- **A scheduled task** → `routes/console.php` → `app/Console/Commands/` (or `app/Jobs/`).
+- **Who can do what** → `database/seeders/RolesPermissionsSeeder.php` + `docs/modules/18-rbac-scoping.md`.
+- **A notification** → `app/Notifications/` + `docs/modules/19-notifications-scans.md`.
+- **A setting/toggle** → `app/Settings/` (Spatie settings, edited at `/admin` → Settings).
