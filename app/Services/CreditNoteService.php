@@ -35,34 +35,44 @@ class CreditNoteService
      */
     public function applyToInvoice(CreditNote $note, Invoice $invoice, ?float $requestedAmount = null): float
     {
-        if (! $note->hasBalance() || $note->status === 'void') {
-            return 0.0;
-        }
+        return DB::transaction(function () use ($note, $invoice, $requestedAmount) {
+            // Lock BOTH rows and re-read their state INSIDE the txn. Two concurrent
+            // applies would otherwise each observe the same pre-state and both
+            // commit their full amount — over-applying the credit (note balance
+            // goes negative; invoice credit_applied exceeds total). Mirrors the
+            // payment path's lock-safe over-allocation guard.
+            $note = CreditNote::query()->lockForUpdate()->find($note->id);
+            $invoice = Invoice::query()->lockForUpdate()->find($invoice->id);
 
-        $available = (float) $note->balance;
-        $owed = (float) $invoice->balance;
+            // hasBalance() = balance > 0 AND status in [issued, applied] — blocks
+            // draft / void / fully-applied notes (re-checked under the lock).
+            if (! $note || ! $invoice || ! $note->hasBalance()) {
+                return 0.0;
+            }
 
-        if ($available <= 0 || $owed <= 0) {
-            return 0.0;
-        }
+            $available = (float) $note->balance;
+            $owed = (float) $invoice->balance;
 
-        // Only apply to a live, payable invoice — applying to a cancelled /
-        // credited / disputed / draft / paid invoice would consume the credit's
-        // balance against a row that isn't collecting, silently leaking it.
-        if (! in_array($invoice->status, ['issued', 'partially_paid', 'overdue'], true)) {
-            return 0.0;
-        }
+            if ($available <= 0 || $owed <= 0) {
+                return 0.0;
+            }
 
-        $amount = $requestedAmount === null
-            ? min($available, $owed)
-            : min($available, $owed, (float) $requestedAmount);
+            // Only apply to a live, payable invoice — applying to a cancelled /
+            // credited / disputed / draft / paid invoice would consume the credit's
+            // balance against a row that isn't collecting, silently leaking it.
+            if (! in_array($invoice->status, ['issued', 'partially_paid', 'overdue'], true)) {
+                return 0.0;
+            }
 
-        if ($amount <= 0) {
-            return 0.0;
-        }
+            $amount = $requestedAmount === null
+                ? min($available, $owed)
+                : min($available, $owed, (float) $requestedAmount);
 
-        return DB::transaction(function () use ($note, $invoice, $amount) {
-            // Adjust the credit note side.
+            if ($amount <= 0) {
+                return 0.0;
+            }
+
+            // Adjust the credit note side (capped at $available above → never negative).
             $note->applied_amount = (float) $note->applied_amount + $amount;
             $note->balance = (float) $note->total - (float) $note->applied_amount;
             $note->status = $note->balance > 0 ? 'issued' : 'applied';

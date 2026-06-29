@@ -6,6 +6,7 @@ use App\Models\CamAllocation;
 use App\Models\CamExpensePool;
 use App\Models\Charge;
 use App\Models\CreditNote;
+use App\Models\Invoice;
 use App\Models\Lease;
 use App\Support\OpsLog;
 use Illuminate\Support\Facades\DB;
@@ -187,6 +188,13 @@ class CamReconciliationService
             if ($amount < 0) {
                 $note = $this->billCredit($allocation, abs($amount), $year);
 
+                // Auto-apply to the lease's open invoices (FIFO), restoring the
+                // old negative-charge behaviour where the credit netted against
+                // what the tenant owes — instead of sitting unapplied until an
+                // admin remembers to click Apply. Any remainder stays on the
+                // note as a standing credit (preserved, never lost).
+                $this->applyCreditToOpenInvoices($note, $allocation->lease_id);
+
                 $allocation->update([
                     'status' => 'billed',
                     'billed_credit_note_id' => $note->id,
@@ -216,6 +224,26 @@ class CamReconciliationService
 
             return $allocation->refresh();
         });
+    }
+
+    /** Apply a freshly-issued credit to the lease's open invoices, oldest first. */
+    private function applyCreditToOpenInvoices(CreditNote $note, int $leaseId): void
+    {
+        $service = app(CreditNoteService::class);
+
+        $openInvoices = Invoice::query()
+            ->where('lease_id', $leaseId)
+            ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
+            ->where('balance', '>', 0)
+            ->orderBy('due_date')
+            ->get();
+
+        foreach ($openInvoices as $invoice) {
+            if ((float) (CreditNote::whereKey($note->id)->value('balance') ?? 0) <= 0) {
+                break;
+            }
+            $service->applyToInvoice($note, $invoice);
+        }
     }
 
     /** A negative true-up becomes an issued credit on the tenant's account. */

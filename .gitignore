@@ -37,3 +37,8 @@ Thumbs.db
 /storage/playwright-report/
 /storage/playwright-artifacts/
 /tests/.playwright-artifacts-*/
+
+# Stray SQLite DB artifacts
+/mall_management
+*.sqlite
+!database/database.sqlite
