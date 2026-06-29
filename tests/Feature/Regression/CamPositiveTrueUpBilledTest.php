@@ -69,7 +69,7 @@ it('does not let a CAM recovery invoice pre-empt the lease regular monthly invoi
     ]);
     $svc = app(CamReconciliationService::class);
     $svc->generateAllocations($pool);
-    $svc->bill($pool->allocations()->sole());
+    $billed = $svc->bill($pool->allocations()->sole());
 
     // The Feb-2027 monthly run must STILL create the lease's regular rent invoice —
     // the recovery invoice (period 2026) must not satisfy Feb's overlap guard.
@@ -80,6 +80,11 @@ it('does not let a CAM recovery invoice pre-empt the lease regular monthly invoi
         ->whereDate('period_start', '<=', '2027-02-28')
         ->exists();
     expect($febBilled)->toBeTrue();
+
+    // …and the CAM true-up is billed EXACTLY ONCE (the recovery invoice). The
+    // recovery charge is is_active=false + dated to the reconciled year, so the
+    // Feb run must NOT re-bill it onto the regular monthly invoice (double-bill).
+    expect(InvoiceItem::where('charge_id', $billed->billed_charge_id)->count())->toBe(1);
 });
 
 it('still bills a positive true-up for an ENDED-TERM (moved-out) lease', function () {

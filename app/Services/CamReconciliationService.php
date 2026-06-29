@@ -240,7 +240,11 @@ class CamReconciliationService
         $now = CarbonImmutable::now();
         $name = "CAM Reconciliation — {$year}";
 
-        // The Charge is kept for traceability + the books CAM check.
+        // The Charge is a traceability record + the books-check anchor only — it is
+        // ALREADY settled on the recovery invoice below. It MUST be is_active=false
+        // and dated to the reconciled year so the monthly billing engine (which
+        // loads only is_active charges) never picks it up and double-bills the
+        // true-up onto the tenant's regular monthly invoice.
         $charge = Charge::create([
             'lease_id' => $lease->id,
             'name' => $name,
@@ -250,9 +254,9 @@ class CamReconciliationService
             'frequency' => 'one_time',
             'vat_applicable' => false,
             'vat_rate' => 0,
-            'start_date' => $now->startOfMonth(),
-            'end_date' => $now->endOfMonth(),
-            'is_active' => true,
+            'start_date' => CarbonImmutable::create($year, 1, 1),
+            'end_date' => CarbonImmutable::create($year, 12, 31),
+            'is_active' => false,
         ]);
 
         $invoice = Invoice::create([
