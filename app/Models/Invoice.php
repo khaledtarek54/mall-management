@@ -225,10 +225,14 @@ class Invoice extends Model
                 return;
             }
 
-            // Cancelling/crediting an invoice that consumed credit would lose that
-            // credit against a row that no longer collects — return it to the
-            // tenant as an offsetting credit note. (saveQuietly inside → no recursion.)
-            if (in_array($invoice->status, ['cancelled', 'credited'], true)
+            // CANCELLING an invoice that consumed credit would lose that credit
+            // against a row that leaves the books — return it to the tenant as an
+            // offsetting credit note. NOT 'credited': that is the terminal
+            // paid-BY-credit-note state (it STAYS on the books, revenue recognised),
+            // so its credit is the intended settlement and must stay consumed —
+            // reversing it there would double-refund + drive net AR negative.
+            // (saveQuietly inside → no recursion.)
+            if ($invoice->status === 'cancelled'
                 && (float) $invoice->credit_applied_amount > 0) {
                 app(\App\Services\CreditNoteService::class)->reverseAppliedCredit($invoice);
             }

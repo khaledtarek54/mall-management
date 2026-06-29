@@ -188,17 +188,17 @@ it('bills a full month (factor 1.0) when prorate is not requested even mid-perio
 });
 
 it('pro-rates the first partial month when prorate is requested', function () {
-    // Commences 2026-03-15. March has 30 effective billing days; from the 15th
-    // inclusive that is 16 days → factor 16/30 = 0.5333.
+    // Commences 2026-03-15. March has 31 days; from the 15th inclusive that is
+    // 17 days → factor 17/31 = 0.5484.
     $lease = billingLease(['commencement_date' => '2026-03-15', 'payment_terms_days' => 7]);
     billingCharge($lease, ['amount' => 10000, 'start_date' => '2026-03-15']);
 
     $invoice = app(MonthlyBillingService::class)
         ->generateForLease($lease, CarbonImmutable::parse('2026-03-01'), prorate: true)['invoice'];
 
-    // 10000 * 0.5333 = 5333.00.
-    expect((float) $invoice->subtotal)->toBe(5333.00)
-        ->and((float) $invoice->total)->toBe(5333.00);
+    // 10000 * 17/31 = 5483.87 (amount rounded to 2dp, not the factor).
+    expect((float) $invoice->subtotal)->toBe(5483.87)
+        ->and((float) $invoice->total)->toBe(5483.87);
 
     // Period + due date shift to the commencement date, not the 1st.
     expect($invoice->period_start->toDateString())->toBe('2026-03-15')
@@ -206,8 +206,8 @@ it('pro-rates the first partial month when prorate is requested', function () {
         ->and($invoice->due_date->toDateString())->toBe('2026-03-22')
         ->and($invoice->period_end->toDateString())->toBe('2026-03-31');
 
-    // The line label flags the proration percentage (round(0.5333*100) = 53%).
-    expect($invoice->items()->first()->description)->toBe('Base Rent - March 2026 (53% pro-rated)');
+    // The line label flags the proration percentage (round(0.5484*100) = 55%).
+    expect($invoice->items()->first()->description)->toBe('Base Rent - March 2026 (55% pro-rated)');
 });
 
 it('pro-rates VAT on the reduced base for a taxed charge', function () {
@@ -220,10 +220,10 @@ it('pro-rates VAT on the reduced base for a taxed charge', function () {
     $invoice = app(MonthlyBillingService::class)
         ->generateForLease($lease, CarbonImmutable::parse('2026-03-01'), prorate: true)['invoice'];
 
-    // 2000 * 0.5333 = 1066.60 ; VAT = round(1066.60 * 14%) = 149.32.
-    expect((float) $invoice->subtotal)->toBe(1066.60)
-        ->and((float) $invoice->vat_amount)->toBe(149.32)
-        ->and((float) $invoice->total)->toBe(1215.92);
+    // 2000 * 17/31 = 1096.77 ; VAT = round(1096.77 * 14%) = 153.55.
+    expect((float) $invoice->subtotal)->toBe(1096.77)
+        ->and((float) $invoice->vat_amount)->toBe(153.55)
+        ->and((float) $invoice->total)->toBe(1250.32);
 });
 
 it('does NOT pro-rate a lease that commenced before the billed period', function () {

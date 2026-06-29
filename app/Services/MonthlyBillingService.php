@@ -204,9 +204,17 @@ class MonthlyBillingService
             : null;
 
         if ($prorate && $commencement && $commencement->between($periodStart, $periodEnd) && $commencement->greaterThan($periodStart)) {
-            $daysInPeriod = $periodEnd->diffInDays($periodStart) + 1;
-            $daysBilled = $periodEnd->diffInDays($commencement) + 1;
-            $factor = round($daysBilled / $daysInPeriod, 4);
+            // Sign-safe, day-granular inclusive counting. Carbon 3's diffInDays is
+            // SIGNED + fractional, so the old `$periodEnd->diffInDays($start) + 1`
+            // added 1 to a negative magnitude and undercharged every mid-month
+            // move-in (and billed 0 for a last-day commencement). Count whole days
+            // on day boundaries instead.
+            $daysInPeriod = $periodStart->daysInMonth;
+            $daysBilled = (int) abs($periodEnd->startOfDay()->diffInDays($commencement->startOfDay())) + 1;
+            // Full-precision ratio — the per-line AMOUNT is rounded to 2dp, not
+            // the factor, so a clean fraction (1 of 30 days) bills exactly (1000,
+            // not 999 from a 4dp-rounded factor).
+            $factor = $daysBilled / $daysInPeriod;
             $effectivePeriodStart = $commencement;
         }
 
