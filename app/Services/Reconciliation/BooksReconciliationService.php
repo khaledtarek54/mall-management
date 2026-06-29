@@ -156,6 +156,15 @@ class BooksReconciliationService
             'vatTotal'      => round((float) $invoices->sum('vat_amount'), 2),
         ];
 
+        // Standing (unapplied) credit notes are a liability that nets against AR —
+        // include them so net AR matches Tenant::outstandingBalance() (which nets
+        // them) and the accountant doesn't read AR gross.
+        $controlTotals['creditOutstanding'] = round((float) \App\Models\CreditNote::query()
+            ->whereIn('status', ['issued', 'applied'])
+            ->where('balance', '>', 0)
+            ->sum('balance'), 2);
+        $controlTotals['netAR'] = round($controlTotals['outstandingAR'] - $controlTotals['creditOutstanding'], 2);
+
         return [
             'period' => $month ?? 'all',
             'ok' => collect($checks)->every(fn ($c) => $c['passed']),

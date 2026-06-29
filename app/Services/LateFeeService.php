@@ -84,11 +84,13 @@ class LateFeeService
                 'total' => $fee,
             ]);
 
+            // Bump only the non-derived header amounts, then let the single source
+            // of truth re-derive balance from total − paid (was writing balance
+            // directly, bypassing recomputeTotals — invariant smell).
             $locked->subtotal = (float) $locked->subtotal + $fee;
             $locked->total = (float) $locked->total + $fee;
-            $locked->balance = (float) $locked->balance + $fee;
             $locked->status = 'overdue';
-            $locked->save();
+            $locked->recomputeTotals();
 
             return true;
         });

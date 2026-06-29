@@ -8,6 +8,7 @@ use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Lease;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use App\Support\OpsLog;
 use Illuminate\Support\Facades\Mail;
@@ -26,6 +27,24 @@ class MonthlyBillingService
     public function runForPeriod(?CarbonImmutable $period = null): array
     {
         $period = ($period ?? CarbonImmutable::now())->startOfMonth();
+
+        // Serialise concurrent runs for the same period so a manual CLI run can't
+        // race the scheduled job and double-bill. (The queued job also carries
+        // WithoutOverlapping; this lock also covers the synchronous path.)
+        $result = Cache::lock('billing:run:' . $period->format('Y-m'), 900)
+            ->get(fn () => $this->billForPeriod($period));
+
+        if ($result === false) {
+            OpsLog::warning('Monthly billing skipped — a run for this period is already in progress', ['period' => $period->format('Y-m')]);
+
+            return ['period' => $period->format('Y-m'), 'leases_considered' => 0, 'created' => 0, 'skipped' => 0, 'failed' => 0, 'failed_lease_ids' => []];
+        }
+
+        return $result;
+    }
+
+    private function billForPeriod(CarbonImmutable $period): array
+    {
         $periodStart = $period;
         $periodEnd = $period->endOfMonth();
 
