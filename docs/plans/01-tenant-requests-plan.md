@@ -18,12 +18,14 @@ Built additive-first (no risky internal rename yet); suite green at every step (
 - **[done] Tenant portal + mobile API** — portal form type picker + dynamic sub-category; `/me/maintenance-requests` accepts `request_type`, validates sub-category per type, defaults to maintenance for back-compat; API transformer exposes `request_type`. 5 API tests. *(commit `72a55a6`)*
 - **[done] Relabel** — admin + portal nav/resource/section labels → "Requests" (en/ar); module doc updated.
 - **[done] Per-type notification copy** — status/comment/submitted/SLA notifications now say the request's type (Complaint, Inquiry, …) via a `:type` placeholder fed by `MaintenanceRequest::typeLabel()`; regression test pins it. *(commit `c2542d7`)*
-- **[done] CSAT** — `MaintenanceRequestService::rate()` (resolved/closed guard, clamps 1–5, overwritable) + portal "Rate" action + mobile `POST /me/maintenance-requests/{id}/rate` (with `canRate`/`csatRating`/`csatComment` in the API) + a toggleable admin column. 9 tests. Mobile-API + module docs updated.
-- **[next — start here]** in priority order:
-  1. **CSAT report** — a small "avg satisfaction / SLA compliance by type" widget (optional polish).
-  2. **Owner-panel** resource relabel (trivial; the owner Filament resource still reads the shared keys but verify).
-  3. **The internal rename** (`MaintenanceRequest`→`TenantRequest`, tables, RBAC `maintenance.*`→`requests.*`, routes) — the big, risky one: handle the morph-map hazard (`activity_log.subject_type` + Spatie `media.model_type` store the FQCN) per §4. Do it as its own dedicated, well-tested pass.
-  4. **DB `request_types` table** (Phase 2 §3.2) only if operators need self-service type/SLA/routing config.
+- **[done] CSAT** — `MaintenanceRequestService::rate()` (resolved/closed guard, clamps 1–5, overwritable) + portal "Rate" action + mobile `POST /me/maintenance-requests/{id}/rate` (with `canRate`/`csatRating`/`csatComment` in the API) + a toggleable admin column. 9 tests. Mobile-API + module docs updated. *(commit `e008f9f`)*
+- **[done] Demo data** — `DemoSeeder` now seeds 10 tenant requests across all 6 types (per-type reference prefixes, routing/SLA, 3 CSAT ratings). *(commit `7ee1c5d`)*
+- **[done] Dashboard polish** — the "Open Requests" widget gained a type column + heading relabel; the Action-Required urgent/SLA cards relabelled to be type-agnostic (en/ar). *(commits `3707bf5`, `67c41c2`)*
+- **[done] Owner panel** — retired surface (Jawad owners use admin RBAC); nav already says "Requests" via the shared key. Left as-is intentionally.
+- **[remaining]**:
+  1. **The internal rename** (`MaintenanceRequest`→`TenantRequest`, tables, RBAC `maintenance.*`→`requests.*`, routes) — the big, risky one: morph-map hazard (`activity_log.subject_type` + Spatie `media.model_type` store the FQCN) per §4. **Deliberately deferred** while the project is in a pre-prod de-risk window — pure tech-debt with no user-facing value; do it as its own dedicated, well-tested pass (ideally post-launch or in a hardening window). The feature is fully functional with the internal names unchanged.
+  2. **DB `request_types` table** (Phase 2 §3.2) only if operators need self-service type/SLA/routing config.
+  3. **(optional) CSAT analytics** — an avg-satisfaction / SLA-compliance-by-type stat if the operator wants it.
 
 ---
 
