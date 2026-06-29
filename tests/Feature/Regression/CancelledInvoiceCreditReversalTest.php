@@ -37,6 +37,30 @@ it('returns consumed credit when a credited invoice is cancelled (no leak)', fun
         ->and((float) $offsetting->balance)->toBe(5000.0);
 });
 
+it('reverses credit + zeros balance when cancelling the SAME (stale) in-memory instance', function () {
+    $tenant = makeTenant();
+    $lease = makeLease(makeUnit(makeAsset()), $tenant);
+    $invoice = makeInvoice($lease); // balance 11400
+
+    $note = CreditNote::create([
+        'number' => 'CN-' . uniqid(), 'tenant_id' => $tenant->id, 'lease_id' => $lease->id,
+        'status' => 'issued', 'issue_date' => now(), 'reason' => 'adjustment',
+        'subtotal' => 5000, 'vat_amount' => 0, 'total' => 5000,
+        'applied_amount' => 0, 'balance' => 5000, 'currency' => 'EGP',
+    ]);
+    // applyToInvoice mutates a SEPARATELY-locked copy → $invoice in-memory stays stale (credit=0).
+    app(CreditNoteService::class)->applyToInvoice($note, $invoice);
+
+    $notesBefore = CreditNote::where('tenant_id', $tenant->id)->count();
+
+    // Cancel the SAME stale instance — the reversal must still fire (reads the DB).
+    $invoice->update(['status' => 'cancelled']);
+
+    expect(CreditNote::where('tenant_id', $tenant->id)->count())->toBe($notesBefore + 1) // offsetting note
+        ->and((float) $invoice->fresh()->credit_applied_amount)->toBe(0.0)
+        ->and((float) $invoice->fresh()->balance)->toBe(0.0); // not a phantom 11400
+});
+
 it('does NOT reverse credit when an invoice is marked credited (settlement stays consumed)', function () {
     $tenant = makeTenant();
     $lease = makeLease(makeUnit(makeAsset()), $tenant);

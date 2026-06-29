@@ -76,11 +76,13 @@ class MallStats extends StatsOverviewWidget
         $outstandingAR = (float) $invoiceQuery()->whereIn('status', ['issued', 'partially_paid', 'overdue'])
             ->sum('balance');
 
-        $overdueAR = (float) $invoiceQuery()->where('balance', '>', 0)
+        $overdueAR = (float) $invoiceQuery()->whereIn('status', ['issued', 'partially_paid', 'overdue'])
+            ->where('balance', '>', 0)
             ->where('due_date', '<', now())
             ->sum('balance');
 
-        $overdueCount = $invoiceQuery()->where('balance', '>', 0)
+        $overdueCount = $invoiceQuery()->whereIn('status', ['issued', 'partially_paid', 'overdue'])
+            ->where('balance', '>', 0)
             ->where('due_date', '<', now())
             ->count();
 

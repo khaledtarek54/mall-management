@@ -261,8 +261,14 @@ class CamReconciliationService
             'status' => 'issued',
             'issue_date' => $now,
             'due_date' => $now->addDays($lease->payment_terms_days ?? 7),
-            'period_start' => $now->startOfMonth(),
-            'period_end' => $now->endOfMonth(),
+            // Period = the RECONCILED CAM YEAR, NOT the current month. The monthly
+            // billing engine's idempotency is a per-lease period-OVERLAP check; if
+            // this recovery invoice carried the current month's period it would
+            // satisfy that guard and make the monthly run SKIP the lease's regular
+            // rent invoice for the month (lost revenue). A past-year period never
+            // collides with a live monthly run.
+            'period_start' => CarbonImmutable::create($year, 1, 1),
+            'period_end' => CarbonImmutable::create($year, 12, 31),
             'subtotal' => $amount,
             'vat_amount' => 0,
             'total' => $amount,

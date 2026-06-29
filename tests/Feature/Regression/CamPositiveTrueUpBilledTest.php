@@ -2,9 +2,12 @@
 
 use App\Models\CamExpensePool;
 use App\Models\Charge;
+use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Services\CamReconciliationService;
+use App\Services\MonthlyBillingService;
 use App\Services\Reconciliation\BooksReconciliationService;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
 
 /**
@@ -45,6 +48,38 @@ it('settles a positive true-up on a recovery invoice immediately (no monthly run
     expect($item)->not->toBeNull()
         ->and((float) $item->total)->toBe(20000.0)
         ->and($item->invoice->status)->not->toBe('cancelled');
+});
+
+it('does not let a CAM recovery invoice pre-empt the lease regular monthly invoice', function () {
+    Carbon::setTestNow('2027-02-01 01:00'); // current month Feb 2027, before its monthly run
+    $asset = makeAsset();
+    $lease = makeLease(makeUnit($asset, ['area_sqm' => 100]), makeTenant(), [
+        'commencement_date' => '2026-01-01', 'expiry_date' => '2028-12-31',
+    ]);
+    Charge::create([
+        'lease_id' => $lease->id, 'name' => 'Rent', 'type' => 'base_rent',
+        'amount' => 10000, 'currency' => 'EGP', 'frequency' => 'monthly',
+        'vat_applicable' => false, 'vat_rate' => 0, 'start_date' => '2026-01-01', 'is_active' => true,
+    ]);
+
+    // Reconcile 2026 → positive true-up → recovery invoice (period 2026, not Feb 2027).
+    $pool = CamExpensePool::create([
+        'asset_id' => $asset->id, 'period_year' => 2026,
+        'total_actual_expense' => 50000, 'total_estimated_collected' => 30000, 'status' => 'draft',
+    ]);
+    $svc = app(CamReconciliationService::class);
+    $svc->generateAllocations($pool);
+    $svc->bill($pool->allocations()->sole());
+
+    // The Feb-2027 monthly run must STILL create the lease's regular rent invoice —
+    // the recovery invoice (period 2026) must not satisfy Feb's overlap guard.
+    app(MonthlyBillingService::class)->runForPeriod(CarbonImmutable::parse('2027-02-01'));
+
+    $febBilled = Invoice::where('lease_id', $lease->id)
+        ->whereDate('period_start', '>=', '2027-02-01')
+        ->whereDate('period_start', '<=', '2027-02-28')
+        ->exists();
+    expect($febBilled)->toBeTrue();
 });
 
 it('still bills a positive true-up for an ENDED-TERM (moved-out) lease', function () {

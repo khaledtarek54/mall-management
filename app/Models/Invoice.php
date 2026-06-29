@@ -231,10 +231,14 @@ class Invoice extends Model
             // paid-BY-credit-note state (it STAYS on the books, revenue recognised),
             // so its credit is the intended settlement and must stay consumed —
             // reversing it there would double-refund + drive net AR negative.
-            // (saveQuietly inside → no recursion.)
-            if ($invoice->status === 'cancelled'
-                && (float) $invoice->credit_applied_amount > 0) {
-                app(\App\Services\CreditNoteService::class)->reverseAppliedCredit($invoice);
+            // Read the PERSISTED credit_applied_amount (the in-memory instance may
+            // be stale — credit was applied to a separately-locked copy) so the
+            // reversal can't be silently skipped. (saveQuietly inside → no recursion.)
+            if ($invoice->status === 'cancelled') {
+                $appliedCredit = (float) static::whereKey($invoice->id)->value('credit_applied_amount');
+                if ($appliedCredit > 0) {
+                    app(\App\Services\CreditNoteService::class)->reverseAppliedCredit($invoice->fresh());
+                }
             }
 
             if ($invoice->status !== 'cancelled' && $invoice->getOriginal('status') !== 'cancelled') {
@@ -265,6 +269,13 @@ class Invoice extends Model
 
         $this->paid_amount = round($paid, 2);
         $this->balance = round(max(0, (float) $this->total - $this->paid_amount), 2);
+
+        // A cancelled invoice claims no AR — force balance to 0 (it left the books).
+        // Also prevents a phantom 'total' balance after a cancel-reversal zeroes the
+        // applied credit (paid→0 would otherwise re-derive balance = total).
+        if ($this->status === 'cancelled') {
+            $this->balance = 0;
+        }
 
         // Auto-status: don't override manual overrides like 'cancelled' / 'credited' / 'disputed'.
         if (! in_array($this->status, ['cancelled', 'credited', 'disputed'])) {

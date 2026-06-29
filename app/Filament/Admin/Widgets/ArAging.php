@@ -31,7 +31,10 @@ class ArAging extends ChartWidget
 
     protected function getData(): array
     {
-        $base = fn () => \App\Support\TenantScope::applyTo(Invoice::query(), 'lease.unit');
+        // Canonical AR only — open + owed (matches ReportService / BooksReconciliation);
+        // never count cancelled / credited / disputed / draft rows in the aging.
+        $base = fn () => \App\Support\TenantScope::applyTo(Invoice::query(), 'lease.unit')
+            ->whereIn('status', ['issued', 'partially_paid', 'overdue']);
 
         $buckets = [
             'current' => [
