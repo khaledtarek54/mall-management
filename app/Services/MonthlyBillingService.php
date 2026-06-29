@@ -49,8 +49,13 @@ class MonthlyBillingService
                 foreach ($leases as $lease) {
                     $stats['leases_considered']++;
 
+                    // Period-OVERLAP guard, not an exact month-start match: a
+                    // prorated first-month invoice stores period_start = the
+                    // mid-month commencement, so an exact "= month start" check
+                    // would miss it and bill the month a SECOND time (full).
                     $alreadyBilled = Invoice::where('lease_id', $lease->id)
-                        ->whereDate('period_start', $periodStart->toDateString())
+                        ->whereDate('period_start', '>=', $periodStart->toDateString())
+                        ->whereDate('period_start', '<=', $periodEnd->toDateString())
                         ->exists();
 
                     if ($alreadyBilled) {
@@ -106,8 +111,12 @@ class MonthlyBillingService
         $periodStart = $period;
         $periodEnd = $period->endOfMonth();
 
+        // Period-OVERLAP guard (see runForPeriod): catches a prorated first-month
+        // invoice whose period_start is the mid-month commencement, so re-running
+        // for that month — prorate on or off — can't double-bill.
         $alreadyBilled = Invoice::where('lease_id', $lease->id)
-            ->whereDate('period_start', $periodStart->toDateString())
+            ->whereDate('period_start', '>=', $periodStart->toDateString())
+            ->whereDate('period_start', '<=', $periodEnd->toDateString())
             ->exists();
 
         if ($alreadyBilled) {
