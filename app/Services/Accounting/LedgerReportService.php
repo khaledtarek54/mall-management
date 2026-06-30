@@ -193,8 +193,10 @@ class LedgerReportService
                 'asset' => $assets->push($this->statementRow($row, round($debit - $credit, 2))),
                 'liability' => $liabilities->push($this->statementRow($row, round($credit - $debit, 2))),
                 'equity' => $equity->push($this->statementRow($row, round($credit - $debit, 2))),
-                'revenue' => $revenueTotal += ($credit - $debit),
-                'expense' => $expenseTotal += ($debit - $credit),
+                // Round per account THEN sum — matching incomeStatement() exactly, so
+                // the balance sheet's net income can never penny-drift from the P&L.
+                'revenue' => $revenueTotal += round($credit - $debit, 2),
+                'expense' => $expenseTotal += round($debit - $credit, 2),
                 default => null,
             };
         }

@@ -356,6 +356,15 @@ balances even if a stored subtotal drifts. The scheduled run is best-effort (a s
 un-postable legacy doc is logged, not a red nightly task); an operator `--all`/`--since`
 run exits non-zero on failures.
 
+**Known limitation — cross-property payments in per-property reports:** reports scope by
+the *entry's* `asset_id`. A single payment that settles invoices across two properties is
+booked as a consolidated entry (`asset_id` = null) with per-asset receivable lines, so it
+shows correctly in **consolidated** reports but is **excluded from each property's**
+per-property report (that property's receivables read high until the next consolidated
+view). Splitting one cash receipt cleanly across properties needs inter-property
+due-to/due-from accounts — deferred to Phase 3. Single-property payments (the norm) are
+unaffected.
+
 **Deferred follow-ups (not yet built):**
 - **Security deposits (تأمينات):** the user confirmed deposits are real cash receipts
   (Dr Bank / Cr Deposits Held), but there is no *deposit-receipt* record in the data

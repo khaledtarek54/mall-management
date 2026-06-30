@@ -76,6 +76,26 @@ it('splits a cross-property payment to each asset receivable', function () {
     expect($entry->asset_id)->toBeNull(); // genuinely cross-property → consolidated
 });
 
+// Phase 2 review fix: the balance sheet's net income must equal the income
+// statement's net profit for the same scope — both round per account then sum, so
+// they can't penny-drift apart.
+it('balance-sheet net income equals income-statement net profit', function () {
+    $post = app(JournalPostingService::class);
+    $r = $this->accounts;
+    foreach ([['accounts_receivable', 'rent_revenue', 333.33], ['accounts_receivable', 'service_charge_revenue', 666.67], ['salaries_expense', 'bank', 100.01]] as [$d, $c, $amt]) {
+        $post->post(['lines' => [
+            ['ledger_account_id' => $r->id($d), 'debit' => $amt, 'credit' => 0],
+            ['ledger_account_id' => $r->id($c), 'debit' => 0, 'credit' => $amt],
+        ]]);
+    }
+
+    $year = (int) now()->year;
+    $netProfit = $this->reports->incomeStatement(null, \Carbon\CarbonImmutable::create($year, 1, 1), \Carbon\CarbonImmutable::create($year, 12, 31))['net_profit'];
+    $netIncome = $this->reports->balanceSheet(null, \Carbon\CarbonImmutable::create($year, 12, 31))['net_income'];
+
+    expect($netIncome)->toBe($netProfit);
+});
+
 // Phase 1 review fix: a credit note whose stored subtotal drifts from total − vat
 // must still post a balanced entry (sales_returns is derived from total − vat).
 it('derives a balanced credit-note entry when subtotal drifts from total minus vat', function () {

@@ -208,7 +208,7 @@ return [
         'total_assets' => 'إجمالي الأصول',
         'total_liabilities' => 'إجمالي الخصوم',
         'total_equity' => 'إجمالي حقوق الملكية',
-        'net_income_period' => 'صافي دخل الفترة',
+        'net_income_period' => 'صافي الدخل غير المُقفل',
         'total_equity_and_liabilities' => 'إجمالي الخصوم وحقوق الملكية',
         'as_of_year_end' => 'كما في نهاية العام',
         'nav_label' => 'التقارير',
