@@ -328,7 +328,7 @@ Tests (`tests/Feature/`):
 | Phase | Arabic | Scope |
 |-------|--------|-------|
 | **0 — Foundation** ✅ this doc | الأساس | Chart of accounts, fiscal years/periods, journal entries, posting service, account mappings, manual-entry UI, trial balance + general ledger, RBAC, bilingual labels, tests |
-| **1 — Auto-posting** | الترحيل الآلي | Journalizers for invoice/payment/credit-note/CAM/late-fee/deposit; fire from existing service hooks; backfill all historical documents; GL↔AR tie-out in `billing:reconcile` |
+| **1 — Auto-posting** | الترحيل الآلي | **1a (done):** journalizer engine (`Journalizer` contract + `LedgerPoster` registry) + Invoice/Payment/CreditNote journalizers + tests — additive, not yet wired. **1b (pending confirmation):** fire from existing service hooks; CAM/deposit/late-fee journalizers; backfill all historical documents; GL↔AR tie-out in `billing:reconcile` |
 | **2 — Financial statements** | القوائم المالية | Income statement + balance sheet pages, per-property & consolidated; export PDF |
 | **3 — Expenses & payables** | المصروفات والموردون | Accounts payable (vendor bills), expense/petty-cash entry, payroll posting — "everything runs through accounting" |
 | **4 — Close & compliance** | الإقفال والامتثال | Period/year-end closing entries (قيود الإقفال), optional ETA/EAS statutory report formatting |
