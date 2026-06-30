@@ -131,6 +131,106 @@ class LedgerReportService
     }
 
     /**
+     * قائمة الدخل — Income Statement (P&L) for a date range. Revenue accounts
+     * (shown as net credit) minus expense accounts (net debit) = net profit.
+     * Contra-revenue (e.g. sales returns) sits in revenue with a net debit, so it
+     * correctly reduces total revenue.
+     *
+     * @return array{revenue: Collection, expense: Collection, total_revenue: float, total_expense: float, net_profit: float}
+     */
+    public function incomeStatement(?array $assetIds = null, ?CarbonInterface $from = null, ?CarbonInterface $to = null): array
+    {
+        $rows = $this->aggregate($assetIds, $from, $to);
+
+        $revenue = collect();
+        $expense = collect();
+        foreach ($rows as $row) {
+            $debit = (float) $row->debit_total;
+            $credit = (float) $row->credit_total;
+            if ($row->type === 'revenue') {
+                $revenue->push($this->statementRow($row, round($credit - $debit, 2)));
+            } elseif ($row->type === 'expense') {
+                $expense->push($this->statementRow($row, round($debit - $credit, 2)));
+            }
+        }
+
+        $totalRevenue = round($revenue->sum('amount'), 2);
+        $totalExpense = round($expense->sum('amount'), 2);
+
+        return [
+            'revenue' => $revenue,
+            'expense' => $expense,
+            'total_revenue' => $totalRevenue,
+            'total_expense' => $totalExpense,
+            'net_profit' => round($totalRevenue - $totalExpense, 2),
+        ];
+    }
+
+    /**
+     * قائمة المركز المالي — Balance Sheet as of a date (cumulative from inception).
+     * Assets (net debit) vs Liabilities + Equity (net credit) + net income for the
+     * period not yet closed to retained earnings. Because the underlying trial
+     * balance always balances, Assets ≡ Liabilities + Equity + NetIncome.
+     *
+     * @return array{assets: Collection, liabilities: Collection, equity: Collection,
+     *     total_assets: float, total_liabilities: float, total_equity: float,
+     *     net_income: float, total_equity_and_liabilities: float, balanced: bool}
+     */
+    public function balanceSheet(?array $assetIds = null, ?CarbonInterface $asOf = null): array
+    {
+        $rows = $this->aggregate($assetIds, null, $asOf);
+
+        $assets = collect();
+        $liabilities = collect();
+        $equity = collect();
+        $revenueTotal = 0.0;
+        $expenseTotal = 0.0;
+
+        foreach ($rows as $row) {
+            $debit = (float) $row->debit_total;
+            $credit = (float) $row->credit_total;
+            match ($row->type) {
+                'asset' => $assets->push($this->statementRow($row, round($debit - $credit, 2))),
+                'liability' => $liabilities->push($this->statementRow($row, round($credit - $debit, 2))),
+                'equity' => $equity->push($this->statementRow($row, round($credit - $debit, 2))),
+                'revenue' => $revenueTotal += ($credit - $debit),
+                'expense' => $expenseTotal += ($debit - $credit),
+                default => null,
+            };
+        }
+
+        $totalAssets = round($assets->sum('amount'), 2);
+        $totalLiabilities = round($liabilities->sum('amount'), 2);
+        $totalEquity = round($equity->sum('amount'), 2);
+        $netIncome = round($revenueTotal - $expenseTotal, 2);
+        $totalEquityAndLiabilities = round($totalLiabilities + $totalEquity + $netIncome, 2);
+
+        return [
+            'assets' => $assets,
+            'liabilities' => $liabilities,
+            'equity' => $equity,
+            'total_assets' => $totalAssets,
+            'total_liabilities' => $totalLiabilities,
+            'total_equity' => $totalEquity,
+            'net_income' => $netIncome,
+            'total_equity_and_liabilities' => $totalEquityAndLiabilities,
+            'balanced' => abs($totalAssets - $totalEquityAndLiabilities) < 0.01,
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function statementRow(object $row, float $amount): array
+    {
+        return [
+            'account_id' => (int) $row->id,
+            'code' => $row->code,
+            'name_en' => $row->name_en,
+            'name_ar' => $row->name_ar,
+            'amount' => $amount,
+        ];
+    }
+
+    /**
      * Aggregate posted debit/credit per postable account with movement.
      */
     protected function aggregate(?array $assetIds, ?CarbonInterface $from, ?CarbonInterface $to): Collection

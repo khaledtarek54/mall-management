@@ -263,8 +263,8 @@ New permission modules in `RolesPermissionsSeeder::PERMISSIONS`:
 |--------|--------|------------|
 | Trial Balance | ميزان المراجعة | per account: Σ debit, Σ credit, balance — must net to zero overall |
 | General Ledger / account statement | دفتر الأستاذ / كشف حساب | per account: every line, running balance |
-| Income Statement (P&L) | قائمة الدخل | Σ revenue − Σ expense (Phase 2) |
-| Balance Sheet | قائمة المركز المالي | assets = liabilities + equity (Phase 2) |
+| Income Statement (P&L) | قائمة الدخل | Σ revenue − Σ expense = net profit (contra-revenue nets in) |
+| Balance Sheet | قائمة المركز المالي | Assets = Liabilities + Equity + net-income-for-period (until year-end close, Phase 4) |
 
 Each runs **per property** (filter `asset_id`) or **consolidated** (no filter), over a
 date range.
@@ -329,7 +329,7 @@ Tests (`tests/Feature/`):
 |-------|--------|-------|
 | **0 — Foundation** ✅ this doc | الأساس | Chart of accounts, fiscal years/periods, journal entries, posting service, account mappings, manual-entry UI, trial balance + general ledger, RBAC, bilingual labels, tests |
 | **1 — Auto-posting** ✅ | الترحيل الآلي | **1a:** journalizer engine (`Journalizer` contract + `LedgerPoster` registry) + Invoice/Payment/CreditNote journalizers. **1b:** `LedgerPoster::sync()` reconciling upsert + `accounting:sync-ledger` command (one-time `--all` backfill + scheduled recent-window sweep) + GL↔AR tie-out report. Invoice journalizer covers CAM-recovery + late-fee items automatically; ties out exactly on the demo books. |
-| **2 — Financial statements** | القوائم المالية | Income statement + balance sheet pages, per-property & consolidated; export PDF |
+| **2 — Financial statements** ✅ | القوائم المالية | **Income Statement (قائمة الدخل)** + **Balance Sheet (قائمة المركز المالي)** pages, per-property & consolidated. `LedgerReportService::incomeStatement()` (revenue − expense = net profit; contra-revenue nets correctly) and `balanceSheet()` (Assets ≡ Liabilities + Equity + net income, since the trial balance always balances). Gated by `general_ledger.view`. PDF export is a later add. |
 | **3 — Expenses & payables** | المصروفات والموردون | Accounts payable (vendor bills), expense/petty-cash entry, payroll posting — "everything runs through accounting" |
 | **4 — Close & compliance** | الإقفال والامتثال | Period/year-end closing entries (قيود الإقفال), optional ETA/EAS statutory report formatting |
 

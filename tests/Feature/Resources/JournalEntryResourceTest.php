@@ -1,6 +1,8 @@
 <?php
 
+use App\Filament\Admin\Pages\BalanceSheet;
 use App\Filament\Admin\Pages\GeneralLedger;
+use App\Filament\Admin\Pages\IncomeStatement;
 use App\Filament\Admin\Pages\TrialBalance;
 use App\Filament\Admin\Resources\JournalEntries\Pages\CreateJournalEntry;
 use App\Filament\Admin\Resources\JournalEntries\Pages\EditJournalEntry;
@@ -33,6 +35,8 @@ it('renders the accounting screens', function () {
     Livewire::test(ListJournalEntries::class)->assertOk();
     Livewire::test(TrialBalance::class)->assertOk();
     Livewire::test(GeneralLedger::class)->assertOk();
+    Livewire::test(IncomeStatement::class)->assertOk();
+    Livewire::test(BalanceSheet::class)->assertOk();
 });
 
 it('creates a draft journal entry and posts it through the UI', function () {
