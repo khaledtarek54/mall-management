@@ -58,6 +58,25 @@ it('journalizes an invoice as Dr AR / Cr revenue + VAT', function () {
     expect((float) $byAccount[$this->accounts->id('vat_payable')]->credit)->toEqualWithDelta(140.0, 0.001);
 });
 
+it('falls back to the invoice header when there are no line items', function () {
+    // Header-only invoice (no items) — must still post a balanced entry.
+    $invoice = makeInvoice(glLease(), [
+        'issue_date' => now()->toDateString(),
+        'subtotal' => 36052.50,
+        'vat_amount' => 0,
+        'total' => 36052.50,
+        'balance' => 36052.50,
+    ]);
+
+    $entry = $this->poster->post($invoice);
+
+    expect($entry)->not->toBeNull();
+    expect($entry->isBalanced())->toBeTrue();
+    $byAccount = $entry->lines->keyBy('ledger_account_id');
+    expect((float) $byAccount[$this->accounts->id('accounts_receivable')]->debit)->toEqualWithDelta(36052.50, 0.001);
+    expect((float) $byAccount[$this->accounts->id('misc_income')]->credit)->toEqualWithDelta(36052.50, 0.001);
+});
+
 it('journalizes a captured payment as Dr Bank / Cr AR', function () {
     $invoice = glInvoice(glLease());
     $payment = Payment::create([

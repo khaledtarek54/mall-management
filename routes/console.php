@@ -91,3 +91,11 @@ Schedule::command('marketing:ensure-budgets')
     ->dailyAt('01:30')
     ->name('atriom-ensure-marketing-budgets')
     ->withoutOverlapping();
+
+// Post/reconcile general-ledger entries for the recent window (idempotent,
+// self-healing). Keeps the books current; the one-time historical backfill is
+// `accounting:sync-ledger --all`. Runs after monthly billing settles.
+Schedule::command('accounting:sync-ledger')
+    ->dailyAt('05:00')
+    ->name('atriom-sync-ledger')
+    ->withoutOverlapping();

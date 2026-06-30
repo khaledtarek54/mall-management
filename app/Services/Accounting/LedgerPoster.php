@@ -46,6 +46,75 @@ class LedgerPoster
         return $this->posting->post($payload);
     }
 
+    /**
+     * Reconcile a document's ledger entry to its CURRENT state (idempotent upsert):
+     *   - no entry + has effect      → post
+     *   - entry matches              → no-op
+     *   - entry differs (e.g. late fee bumped the total) → void the stale one + re-post
+     *   - no effect now + entry exists (e.g. cancelled / refunded) → void it
+     *
+     * Safe to call repeatedly. This is what the sweep command and backfill use, so
+     * the GL self-heals regardless of how/when the source document changed — no need
+     * to entangle real-time hooks with the recomputeTotals/saveQuietly machinery.
+     */
+    public function sync(Model $source): ?JournalEntry
+    {
+        $journalizer = $this->journalizerFor($source);
+        if (! $journalizer) {
+            return null;
+        }
+
+        $payload = $journalizer->payload($source);
+
+        $existing = JournalEntry::query()
+            ->where('source_type', $source->getMorphClass())
+            ->where('source_id', $source->getKey())
+            ->where('status', 'posted')
+            ->latest('id')
+            ->first();
+
+        if ($payload === null) {
+            if ($existing) {
+                $this->posting->void($existing, 'Document no longer has a ledger effect.');
+            }
+
+            return null;
+        }
+
+        if ($existing) {
+            if ($this->matches($existing, $payload)) {
+                return $existing;
+            }
+            $this->posting->void($existing, 'Superseded by an updated document.');
+        }
+
+        $payload['source'] = $source;
+
+        return $this->posting->post($payload);
+    }
+
+    /** True when a posted entry's lines already equal the payload's (same accounts + amounts). */
+    protected function matches(JournalEntry $entry, array $payload): bool
+    {
+        $signature = static function (array $lines): array {
+            return collect($lines)
+                ->map(fn ($l) => $l['ledger_account_id']
+                    .'|'.number_format((float) ($l['debit'] ?? 0), 2, '.', '')
+                    .'|'.number_format((float) ($l['credit'] ?? 0), 2, '.', ''))
+                ->sort()
+                ->values()
+                ->all();
+        };
+
+        $existing = $entry->lines->map(fn ($l) => [
+            'ledger_account_id' => $l->ledger_account_id,
+            'debit' => (float) $l->debit,
+            'credit' => (float) $l->credit,
+        ])->all();
+
+        return $signature($existing) === $signature($payload['lines']);
+    }
+
     protected function journalizerFor(Model $source): ?Journalizer
     {
         return match ($source::class) {

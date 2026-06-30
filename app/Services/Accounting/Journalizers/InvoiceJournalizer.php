@@ -48,6 +48,15 @@ class InvoiceJournalizer implements Journalizer
             $vat += (float) $item->vat_amount;
         }
 
+        // Fallback for invoices with no line-item breakdown (legacy / header-only
+        // data): classify the whole subtotal as unclassified operating revenue
+        // (misc_income) + the header VAT, so the entry still balances to the total.
+        // Real billed invoices always carry items, so this only guards odd data.
+        if (round(array_sum($revenueByRole), 2) <= 0) {
+            $revenueByRole = ['misc_income' => round((float) $invoice->subtotal, 2)];
+            $vat = round((float) $invoice->vat_amount, 2);
+        }
+
         $lines = [[
             'ledger_account_id' => $this->accounts->id('accounts_receivable', $assetId),
             'debit' => round((float) $invoice->total, 2),

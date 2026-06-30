@@ -328,12 +328,36 @@ Tests (`tests/Feature/`):
 | Phase | Arabic | Scope |
 |-------|--------|-------|
 | **0 — Foundation** ✅ this doc | الأساس | Chart of accounts, fiscal years/periods, journal entries, posting service, account mappings, manual-entry UI, trial balance + general ledger, RBAC, bilingual labels, tests |
-| **1 — Auto-posting** | الترحيل الآلي | **1a (done):** journalizer engine (`Journalizer` contract + `LedgerPoster` registry) + Invoice/Payment/CreditNote journalizers + tests — additive, not yet wired. **1b (pending confirmation):** fire from existing service hooks; CAM/deposit/late-fee journalizers; backfill all historical documents; GL↔AR tie-out in `billing:reconcile` |
+| **1 — Auto-posting** ✅ | الترحيل الآلي | **1a:** journalizer engine (`Journalizer` contract + `LedgerPoster` registry) + Invoice/Payment/CreditNote journalizers. **1b:** `LedgerPoster::sync()` reconciling upsert + `accounting:sync-ledger` command (one-time `--all` backfill + scheduled recent-window sweep) + GL↔AR tie-out report. Invoice journalizer covers CAM-recovery + late-fee items automatically; ties out exactly on the demo books. |
 | **2 — Financial statements** | القوائم المالية | Income statement + balance sheet pages, per-property & consolidated; export PDF |
 | **3 — Expenses & payables** | المصروفات والموردون | Accounts payable (vendor bills), expense/petty-cash entry, payroll posting — "everything runs through accounting" |
 | **4 — Close & compliance** | الإقفال والامتثال | Period/year-end closing entries (قيود الإقفال), optional ETA/EAS statutory report formatting |
 
 ---
+
+## Auto-posting mechanism & current deferrals
+
+**How posting fires (Phase 1):** rather than entangle real-time hooks with the
+delicate `recomputeTotals`/`saveQuietly` money machinery, posting is a **reconciling
+sweep**. `LedgerPoster::sync($document)` makes the ledger match a document's current
+state (post / re-derive / void), and is idempotent + self-healing. It runs via:
+- **`php artisan accounting:sync-ledger --all`** — one-time historical backfill.
+- **`accounting:sync-ledger`** (scheduled daily 05:00) — recent-window sweep that keeps
+  the books current. Late fees and CAM-recovery invoices are picked up automatically
+  (the invoice journalizer re-derives from the invoice's items / header).
+
+**Deferred follow-ups (not yet built):**
+- **Security deposits (تأمينات):** the user confirmed deposits are real cash receipts
+  (Dr Bank / Cr Deposits Held), but there is no *deposit-receipt* record in the data
+  model yet (deposits live only as a number on the lease). Posting needs a deposit
+  receipt — a small, focused addition.
+- **CAM revenue classification:** CAM-recovery items use `type='other'` and currently
+  post to `misc_income`. A dedicated *CAM Recovery Revenue* line needs a distinct `cam`
+  item type on the recovery charge (a small module-08 change).
+- **`billing:reconcile` GL check:** the tie-out is reported by `accounting:sync-ledger`
+  today; folding a formal GL↔AR check into the reconciliation harness is a follow-up.
+- **Real-time posting:** the daily sweep is the mechanism; near-real-time observers can
+  be added later if needed.
 
 ## Bilingual glossary (مصطلحات)
 
