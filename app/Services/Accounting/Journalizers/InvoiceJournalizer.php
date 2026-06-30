@@ -53,6 +53,15 @@ class InvoiceJournalizer implements Journalizer
         // (misc_income) + the header VAT, so the entry still balances to the total.
         // Real billed invoices always carry items, so this only guards odd data.
         if (round(array_sum($revenueByRole), 2) <= 0) {
+            // Items present but no positive revenue = mis-typed / zero-amount items.
+            // The entry will still balance + tie out, so flag it loudly rather than
+            // letting a misclassification hide behind a green tie-out.
+            if ($invoice->items->isNotEmpty()) {
+                \Illuminate\Support\Facades\Log::warning(
+                    "InvoiceJournalizer: invoice {$invoice->number} has items but no positive revenue; "
+                    .'classifying the subtotal as misc_income — check the line items.'
+                );
+            }
             $revenueByRole = ['misc_income' => round((float) $invoice->subtotal, 2)];
             $vat = round((float) $invoice->vat_amount, 2);
         }

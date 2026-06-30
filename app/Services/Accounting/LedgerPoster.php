@@ -11,6 +11,7 @@ use App\Services\Accounting\Journalizers\InvoiceJournalizer;
 use App\Services\Accounting\Journalizers\Journalizer;
 use App\Services\Accounting\Journalizers\PaymentJournalizer;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 /**
  * The bridge between business documents and the ledger. Given a source document
@@ -64,33 +65,41 @@ class LedgerPoster
             return null;
         }
 
-        $payload = $journalizer->payload($source);
+        // Lock-safe: serialize concurrent syncs of the SAME document (a manual
+        // --all backfill can run alongside the scheduled sweep), and re-read the
+        // existing entry under the lock so two runs can't both post.
+        return DB::transaction(function () use ($source, $journalizer) {
+            $source->newQuery()->whereKey($source->getKey())->lockForUpdate()->first();
 
-        $existing = JournalEntry::query()
-            ->where('source_type', $source->getMorphClass())
-            ->where('source_id', $source->getKey())
-            ->where('status', 'posted')
-            ->latest('id')
-            ->first();
+            $payload = $journalizer->payload($source);
 
-        if ($payload === null) {
+            $existing = JournalEntry::query()
+                ->where('source_type', $source->getMorphClass())
+                ->where('source_id', $source->getKey())
+                ->where('status', 'posted')
+                ->lockForUpdate()
+                ->latest('id')
+                ->first();
+
+            if ($payload === null) {
+                if ($existing) {
+                    $this->posting->void($existing, 'Document no longer has a ledger effect.');
+                }
+
+                return null;
+            }
+
             if ($existing) {
-                $this->posting->void($existing, 'Document no longer has a ledger effect.');
+                if ($this->matches($existing, $payload)) {
+                    return $existing;
+                }
+                $this->posting->void($existing, 'Superseded by an updated document.');
             }
 
-            return null;
-        }
+            $payload['source'] = $source;
 
-        if ($existing) {
-            if ($this->matches($existing, $payload)) {
-                return $existing;
-            }
-            $this->posting->void($existing, 'Superseded by an updated document.');
-        }
-
-        $payload['source'] = $source;
-
-        return $this->posting->post($payload);
+            return $this->posting->post($payload);
+        });
     }
 
     /** True when a posted entry's lines already equal the payload's (same accounts + amounts). */
@@ -111,6 +120,12 @@ class LedgerPoster
             'debit' => (float) $l->debit,
             'credit' => (float) $l->credit,
         ])->all();
+
+        // The books dimension (asset_id) is part of the entry's identity — an
+        // invoice re-pointed to another property must re-derive, not match stale.
+        if ((int) $entry->asset_id !== (int) ($payload['asset_id'] ?? 0)) {
+            return false;
+        }
 
         return $signature($existing) === $signature($payload['lines']);
     }

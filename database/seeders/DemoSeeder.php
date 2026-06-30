@@ -1453,14 +1453,18 @@ class DemoSeeder extends Seeder
         // 3) Partially applied — issued, then half consumed against an OPEN invoice
         // via the real service so both sides stay consistent (the note's
         // applied_amount AND the invoice's credit_applied_amount move together —
-        // otherwise the ledger tie-out flags phantom drift).
+        // otherwise the ledger tie-out flags phantom drift). Target the
+        // highest-balance PAYABLE invoice so the application actually lands.
         $applyTarget = Invoice::whereIn('status', ['issued', 'partially_paid', 'overdue'])
-            ->where('balance', '>=', 2000)
-            ->first() ?? $invoices[2];
-        $partial = $this->makeCreditNote($applyTarget, 4000, 'return', 'Stock return processed for non-trading promotional fixture.');
-        $service = app(\App\Services\CreditNoteService::class);
-        $service->issue($partial);
-        $service->applyToInvoice($partial, $applyTarget, 2000);
+            ->where('balance', '>', 0)
+            ->orderByDesc('balance')
+            ->first();
+        if ($applyTarget) {
+            $partial = $this->makeCreditNote($applyTarget, 4000, 'return', 'Stock return processed for non-trading promotional fixture.');
+            $service = app(\App\Services\CreditNoteService::class);
+            $service->issue($partial);
+            $service->applyToInvoice($partial, $applyTarget, 2000);
+        }
 
         // 4) Void — refused / cancelled before application
         if (isset($invoices[3])) {

@@ -346,6 +346,16 @@ state (post / re-derive / void), and is idempotent + self-healing. It runs via:
   the books current. Late fees and CAM-recovery invoices are picked up automatically
   (the invoice journalizer re-derives from the invoice's items / header).
 
+**Robustness (from review):** `sync()` is lock-safe (runs in a transaction, locks the
+source row + existing entry) so a manual `--all` backfill and the scheduled sweep can't
+double-post; it also re-derives when an invoice is re-pointed to another property
+(`asset_id` is part of the match identity). A **payment spanning invoices across
+properties** credits each property's receivables on its own asset (the books stay correct
+per-property). Credit-note `sales_returns` is derived as `total − VAT` so the entry always
+balances even if a stored subtotal drifts. The scheduled run is best-effort (a single
+un-postable legacy doc is logged, not a red nightly task); an operator `--all`/`--since`
+run exits non-zero on failures.
+
 **Deferred follow-ups (not yet built):**
 - **Security deposits (تأمينات):** the user confirmed deposits are real cash receipts
   (Dr Bank / Cr Deposits Held), but there is no *deposit-receipt* record in the data

@@ -29,9 +29,12 @@ class CreditNoteJournalizer implements Journalizer
         $note->loadMissing('lease.unit');
         $assetId = $note->lease?->unit?->asset_id;
 
-        $subtotal = round((float) $note->subtotal, 2);
         $vat = round((float) $note->vat_amount, 2);
         $total = round((float) $note->total, 2);
+        // Derive the net (ex-VAT) return from total − VAT so the entry always
+        // balances to the receivable being reversed, even if the stored subtotal
+        // drifts from total − vat (no model invariant enforces subtotal+vat=total).
+        $netReturn = round($total - $vat, 2);
 
         if ($total <= 0) {
             return null;
@@ -39,7 +42,7 @@ class CreditNoteJournalizer implements Journalizer
 
         $lines = [[
             'ledger_account_id' => $this->accounts->id('sales_returns', $assetId),
-            'debit' => $subtotal,
+            'debit' => $netReturn,
             'credit' => 0,
             'tenant_id' => $note->tenant_id,
         ]];

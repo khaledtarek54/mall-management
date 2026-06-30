@@ -1,0 +1,97 @@
+<?php
+
+use App\Models\CreditNote;
+use App\Models\Payment;
+use App\Services\Accounting\AccountResolver;
+use App\Services\Accounting\FiscalCalendar;
+use App\Services\Accounting\JournalPostingService;
+use App\Services\Accounting\LedgerPoster;
+use App\Services\Accounting\LedgerReportService;
+use Database\Seeders\AccountMappingSeeder;
+use Database\Seeders\ChartOfAccountsSeeder;
+
+beforeEach(function () {
+    $this->seed(ChartOfAccountsSeeder::class);
+    $this->seed(AccountMappingSeeder::class);
+    app(FiscalCalendar::class)->ensureYear((int) now()->year);
+
+    $this->poster = app(LedgerPoster::class);
+    $this->accounts = app(AccountResolver::class);
+    $this->reports = app(LedgerReportService::class);
+});
+
+// Phase 0 review fix: a voided entry's original was hidden from reports while its
+// reversal still counted — corrupting the trial balance. Both must net to zero.
+it('void leaves the trial balance at zero (original + reversal both counted)', function () {
+    $je = app(JournalPostingService::class)->post([
+        'lines' => [
+            ['ledger_account_id' => $this->accounts->id('bank'), 'debit' => 1000, 'credit' => 0],
+            ['ledger_account_id' => $this->accounts->id('rent_revenue'), 'debit' => 0, 'credit' => 1000],
+        ],
+    ]);
+
+    app(JournalPostingService::class)->void($je);
+
+    expect($this->reports->trialBalance()['total_debit'])->toEqualWithDelta(0.0, 0.001);
+});
+
+// Phase 1 fix: an invoice with no line items must still post a balanced entry
+// (header fallback → misc_income) instead of throwing "needs at least two lines".
+it('posts a balanced entry for an item-less (header-only) invoice', function () {
+    $invoice = makeInvoice(makeLease(makeUnit(makeAsset())), [
+        'issue_date' => now()->toDateString(), 'subtotal' => 5000, 'vat_amount' => 0,
+        'total' => 5000, 'balance' => 5000,
+    ]);
+
+    $entry = $this->poster->post($invoice);
+
+    expect($entry->isBalanced())->toBeTrue();
+    $byAccount = $entry->lines->keyBy('ledger_account_id');
+    expect((float) $byAccount[$this->accounts->id('misc_income')]->credit)->toEqualWithDelta(5000.0, 0.001);
+});
+
+// Phase 1 review fix: a payment paying invoices across DIFFERENT properties must
+// credit each property's receivables on its OWN asset, not lump them under the first.
+it('splits a cross-property payment to each asset receivable', function () {
+    $tenant = makeTenant();
+    $leaseA = makeLease(makeUnit($assetA = makeAsset()), $tenant);
+    $leaseB = makeLease(makeUnit($assetB = makeAsset()), $tenant);
+    $invA = makeInvoice($leaseA, ['tenant_id' => $tenant->id, 'total' => 1000, 'balance' => 1000]);
+    $invB = makeInvoice($leaseB, ['tenant_id' => $tenant->id, 'total' => 2000, 'balance' => 2000]);
+
+    $payment = Payment::create([
+        'reference' => 'PAY-XA-1', 'tenant_id' => $tenant->id, 'amount' => 3000,
+        'method' => 'bank_transfer', 'status' => 'captured', 'payment_date' => now()->toDateString(),
+    ]);
+    $payment->invoices()->attach($invA->id, ['allocated_amount' => 1000]);
+    $payment->invoices()->attach($invB->id, ['allocated_amount' => 2000]);
+
+    $entry = $this->poster->post($payment->refresh());
+
+    expect($entry->isBalanced())->toBeTrue();
+    $arId = $this->accounts->id('accounts_receivable');
+    $arLines = $entry->lines->where('ledger_account_id', $arId)->keyBy('asset_id');
+    expect((float) $arLines[$assetA->id]->credit)->toEqualWithDelta(1000.0, 0.001);
+    expect((float) $arLines[$assetB->id]->credit)->toEqualWithDelta(2000.0, 0.001);
+    expect($entry->asset_id)->toBeNull(); // genuinely cross-property → consolidated
+});
+
+// Phase 1 review fix: a credit note whose stored subtotal drifts from total − vat
+// must still post a balanced entry (sales_returns is derived from total − vat).
+it('derives a balanced credit-note entry when subtotal drifts from total minus vat', function () {
+    $lease = makeLease(makeUnit(makeAsset()));
+    $note = CreditNote::create([
+        'tenant_id' => $lease->tenant_id, 'lease_id' => $lease->id, 'status' => 'issued',
+        'issue_date' => now()->toDateString(), 'reason' => 'adjustment',
+        'subtotal' => 1000, 'vat_amount' => 140, 'total' => 1200, // intentionally inconsistent
+        'applied_amount' => 0, 'balance' => 1200, 'currency' => 'EGP',
+    ]);
+
+    $entry = $this->poster->post($note);
+
+    expect($entry->isBalanced())->toBeTrue();
+    $byAccount = $entry->lines->keyBy('ledger_account_id');
+    expect((float) $byAccount[$this->accounts->id('sales_returns')]->debit)->toEqualWithDelta(1060.0, 0.001);
+    expect((float) $byAccount[$this->accounts->id('vat_payable')]->debit)->toEqualWithDelta(140.0, 0.001);
+    expect((float) $byAccount[$this->accounts->id('accounts_receivable')]->credit)->toEqualWithDelta(1200.0, 0.001);
+});

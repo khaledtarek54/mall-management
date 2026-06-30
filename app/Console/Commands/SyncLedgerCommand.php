@@ -4,8 +4,8 @@ namespace App\Console\Commands;
 
 use App\Models\CreditNote;
 use App\Models\Invoice;
-use App\Models\LedgerAccount;
 use App\Models\Payment;
+use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\LedgerReportService;
 use App\Services\Accounting\LedgerPoster;
@@ -29,13 +29,13 @@ class SyncLedgerCommand extends Command
 
     protected $description = 'Post / reconcile general-ledger entries for invoices, payments, and credit notes (idempotent).';
 
-    public function handle(LedgerPoster $poster, FiscalCalendar $calendar, LedgerReportService $reports): int
+    public function handle(LedgerPoster $poster, FiscalCalendar $calendar, LedgerReportService $reports, AccountResolver $accounts): int
     {
         $since = $this->resolveSince();
 
         $this->ensureFiscalYears($calendar);
 
-        $counts = ['posted' => 0, 'unchanged' => 0, 'voided' => 0, 'skipped' => 0, 'failed' => 0];
+        $counts = ['posted' => 0, 'unchanged' => 0, 'skipped' => 0, 'failed' => 0];
 
         $this->line($since ? "Syncing documents updated since {$since->toDateString()}..." : 'Backfilling ALL documents...');
 
@@ -46,9 +46,15 @@ class SyncLedgerCommand extends Command
         $this->newLine();
         $this->table(['result', 'count'], collect($counts)->map(fn ($v, $k) => [$k, $v])->values()->all());
 
-        $this->tieOut($reports);
+        $this->tieOut($reports, $accounts);
 
-        return $counts['failed'] > 0 ? self::FAILURE : self::SUCCESS;
+        // The scheduled (windowed) run is best-effort and idempotent — a single
+        // un-postable legacy doc shouldn't red-flag the nightly task forever.
+        // An explicit operator backfill (--all / --since) surfaces failures via a
+        // non-zero exit so they don't go unnoticed.
+        $operatorRun = $this->option('all') || $this->option('since');
+
+        return ($counts['failed'] > 0 && $operatorRun) ? self::FAILURE : self::SUCCESS;
     }
 
     private function resolveSince(): ?Carbon
@@ -114,15 +120,21 @@ class SyncLedgerCommand extends Command
      * Informational tie-out: GL receivables should equal outstanding invoice
      * balances minus tenant credits the system hasn't applied yet.
      */
-    private function tieOut(LedgerReportService $reports): void
+    private function tieOut(LedgerReportService $reports, AccountResolver $accounts): void
     {
-        $ar = LedgerAccount::where('code', '11201001')->first();
-        if (! $ar) {
+        // Resolve AR through the mapping layer (never a hard-coded code) so the
+        // tie-out follows the same account the journalizers post to.
+        try {
+            $ar = $accounts->account('accounts_receivable');
+        } catch (\DomainException) {
             return;
         }
 
         $glAr = round($reports->accountLedger($ar)['closing'], 2);
-        $invoiceBalances = round((float) Invoice::where('status', '!=', 'cancelled')->sum('balance'), 2);
+        // Net AR excludes cancelled AND credited invoices (the money model keeps both
+        // on the books but out of net receivables — credited ones are reversed by
+        // their credit notes on the GL side, so excluding them keeps both sides symmetric).
+        $invoiceBalances = round((float) Invoice::whereNotIn('status', ['cancelled', 'credited'])->sum('balance'), 2);
         $outstandingCredits = round((float) CreditNote::whereIn('status', ['issued', 'applied'])->sum('balance'), 2);
         $expected = round($invoiceBalances - $outstandingCredits, 2);
         $delta = round($glAr - $expected, 2);

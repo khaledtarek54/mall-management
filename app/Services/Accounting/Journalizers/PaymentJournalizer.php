@@ -33,35 +33,65 @@ class PaymentJournalizer implements Journalizer
         }
 
         $payment->loadMissing('invoices.lease.unit');
-        $assetId = $payment->invoices->first()?->lease?->unit?->asset_id;
 
-        $allocated = round((float) $payment->invoices->sum(fn ($i) => (float) $i->pivot->allocated_amount), 2);
-        $arCredit = min($allocated, $amount);
-        $advance = round($amount - $arCredit, 2);
+        // A payment can pay invoices across DIFFERENT properties (the form scopes by
+        // tenant, not asset). Reduce each property's receivables on its own asset so
+        // per-property books stay correct. Bucket the allocations by invoice asset.
+        $allocByAsset = [];
+        foreach ($payment->invoices as $invoice) {
+            $alloc = round((float) $invoice->pivot->allocated_amount, 2);
+            if ($alloc <= 0) {
+                continue;
+            }
+            $assetId = $invoice->lease?->unit?->asset_id; // null = no-asset bucket
+            $key = $assetId ?? 0;
+            $allocByAsset[$key] = round(($allocByAsset[$key] ?? 0) + $alloc, 2);
+        }
+
+        // Entry-level books dimension: the single asset if all allocations share one,
+        // else null (a genuinely cross-property / consolidated receipt).
+        $distinctAssets = array_values(array_filter(array_keys($allocByAsset), fn ($k) => $k !== 0));
+        $entryAsset = count($distinctAssets) === 1 ? $distinctAssets[0] : null;
 
         // cash for physical cash, otherwise the bank (card / transfer / instapay / cheque…).
         $cashRole = $payment->method === 'cash' ? 'cash' : 'bank';
 
         $lines = [[
-            'ledger_account_id' => $this->accounts->id($cashRole, $assetId),
+            'ledger_account_id' => $this->accounts->id($cashRole, $entryAsset),
             'debit' => $amount,
             'credit' => 0,
+            'asset_id' => $entryAsset,
         ]];
 
-        if ($arCredit > 0) {
+        // Credit each property's receivables, capped to the cash actually received
+        // (guards the over-allocation edge so the entry always balances to `amount`).
+        $remaining = $amount;
+        foreach ($allocByAsset as $key => $alloc) {
+            if ($remaining <= 0) {
+                break;
+            }
+            $credit = round(min($alloc, $remaining), 2);
+            if ($credit <= 0) {
+                continue;
+            }
+            $assetId = $key === 0 ? null : $key;
             $lines[] = [
                 'ledger_account_id' => $this->accounts->id('accounts_receivable', $assetId),
                 'debit' => 0,
-                'credit' => $arCredit,
+                'credit' => $credit,
+                'asset_id' => $assetId,
                 'tenant_id' => $payment->tenant_id,
             ];
+            $remaining = round($remaining - $credit, 2);
         }
 
-        if ($advance > 0) {
+        // Any unallocated remainder is a customer advance (unearned revenue).
+        if ($remaining > 0) {
             $lines[] = [
-                'ledger_account_id' => $this->accounts->id('unearned_revenue', $assetId),
+                'ledger_account_id' => $this->accounts->id('unearned_revenue', $entryAsset),
                 'debit' => 0,
-                'credit' => $advance,
+                'credit' => $remaining,
+                'asset_id' => $entryAsset,
                 'tenant_id' => $payment->tenant_id,
             ];
         }
@@ -70,7 +100,7 @@ class PaymentJournalizer implements Journalizer
             'entry_date' => $payment->payment_date,
             'description_en' => 'Payment '.$payment->reference,
             'description_ar' => 'دفعة '.$payment->reference,
-            'asset_id' => $assetId,
+            'asset_id' => $entryAsset,
             'lines' => $lines,
         ];
     }
