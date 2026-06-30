@@ -71,6 +71,7 @@ purpose, domain model, business rules, lifecycle/state-machine, services, Filame
 | 18 | [RBAC, authorization & scoping](modules/18-rbac-scoping.md) | 9 roles, RoleGatedActions, TenantScope |
 | 19 | [Notifications & scheduled scans](modules/19-notifications-scans.md) | Bell/email flows, idempotent scan commands |
 | 20 | [Mobile API (v1)](modules/20-mobile-api.md) | Sanctum endpoints, Paymob webhook |
+| 21 | [General Ledger & Accounting Core](modules/21-general-ledger.md) | Double-entry ledger: chart of accounts (دليل الحسابات), journal entries (قيود اليومية), fiscal periods, trial balance (ميزان المراجعة), general ledger (دفتر الأستاذ) — Phase 0 |
 
 ---
 

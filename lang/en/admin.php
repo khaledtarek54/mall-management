@@ -98,6 +98,14 @@ return [
     ],
 
     'empty' => [
+        'ledger_accounts' => [
+            'heading' => 'No accounts yet',
+            'description' => 'The chart of accounts is empty. Seed the standard chart or add accounts.',
+        ],
+        'journal_entries' => [
+            'heading' => 'No journal entries yet',
+            'description' => 'Create a manual entry, or entries will appear here as transactions post.',
+        ],
         'assets' => [
             'heading' => 'No properties yet',
             'description' => 'Add your first mall, plaza, or office building to organize everything underneath it.',
@@ -173,6 +181,21 @@ return [
     ],
 
     'reports' => [
+        'trial_balance_title' => 'Trial Balance',
+        'general_ledger_title' => 'General Ledger',
+        'fiscal_year' => 'Fiscal year',
+        'property_scope' => 'Property',
+        'balance_check' => 'Balance check',
+        'balanced' => 'Balanced',
+        'not_balanced' => 'Not balanced',
+        'no_movements' => 'No movements in this period.',
+        'totals' => 'Totals',
+        'choose_account' => '— Choose an account —',
+        'account' => 'Account',
+        'choose_account_hint' => 'Choose an account to view its statement.',
+        'closing_balance' => 'Closing balance',
+        'opening_balance' => 'Opening balance',
+        'running_balance' => 'Balance',
         'nav_label' => 'Reports',
         'page_title' => 'Reports',
         'monthly_close' => 'Monthly Close',
@@ -217,6 +240,10 @@ return [
     ],
 
     'navigation' => [
+        'ledger_accounts' => 'Chart of Accounts',
+        'journal_entries' => 'Journal Entries',
+        'trial_balance' => 'Trial Balance',
+        'general_ledger' => 'General Ledger',
         'dashboard' => 'Dashboard',
         'properties' => 'Properties',
         'tenant_directory' => 'Tenant Directory',
@@ -237,6 +264,8 @@ return [
     ],
 
     'resources' => [
+        'ledger_account' => ['singular' => 'Ledger Account', 'plural' => 'Chart of Accounts'],
+        'journal_entry' => ['singular' => 'Journal Entry', 'plural' => 'Journal Entries'],
         'portal_user' => ['singular' => 'Portal User', 'plural' => 'Portal Users'],
         'asset' => ['singular' => 'Property', 'plural' => 'Properties'],
         'unit' => ['singular' => 'Unit', 'plural' => 'Units'],
@@ -423,6 +452,16 @@ return [
     ],
 
     'tables' => [
+        'ledger_account' => [
+            'code' => 'Code',
+            'name_ar' => 'Name (Arabic)',
+            'name_en' => 'Name (English)',
+            'account' => 'Account',
+        ],
+        'journal_entry' => [
+            'number' => 'Entry no.',
+            'manual' => 'Manual',
+        ],
         'common' => [
             'tenant' => 'Tenant',
             'unit' => 'Unit',
@@ -650,6 +689,11 @@ return [
     ],
 
     'actions' => [
+        'add_line' => 'Add line',
+        'post_journal_entry' => 'Post',
+        'post_journal_entry_confirm' => 'Posting validates the entry balances and locks it. Continue?',
+        'void_journal_entry' => 'Void (reverse)',
+        'void_journal_entry_confirm' => 'This posts a balanced reversing entry. The original stays on the books, marked void. Continue?',
         'edit' => 'Edit',
         'view' => 'View',
         'delete' => 'Delete',
@@ -772,6 +816,10 @@ return [
     ],
 
     'notifications' => [
+        'journal_entry_posted' => 'Journal entry posted',
+        'journal_entry_post_failed' => 'Could not post the entry',
+        'journal_entry_voided' => 'Journal entry voided',
+        'journal_entry_voided_body' => 'Reversing entry :number created.',
         'marked_read' => 'Notification marked as read.',
         // Tenant-facing
         'invoice_issued_subject' => 'New invoice :number from Atriom',
@@ -838,6 +886,28 @@ return [
     ],
 
     'fields' => [
+        'account_code' => 'Account code',
+        'account_type' => 'Account nature',
+        'account_name_ar' => 'Name (Arabic)',
+        'account_name_en' => 'Name (English)',
+        'parent_account' => 'Parent account',
+        'is_postable' => 'Postable (leaf)',
+        'is_active' => 'Active',
+        'account_description' => 'Description',
+        'normal_balance' => 'Normal balance',
+        'journal_number' => 'Entry no.',
+        'entry_date' => 'Entry date',
+        'property' => 'Property',
+        'property_consolidated' => 'Consolidated (all)',
+        'entry_description_ar' => 'Description (Arabic)',
+        'entry_description_en' => 'Description (English)',
+        'debit' => 'Debit',
+        'credit' => 'Credit',
+        'line_account' => 'Account',
+        'line_description' => 'Note',
+        'total_debit' => 'Total debit',
+        'total_credit' => 'Total credit',
+        'difference' => 'Difference',
         'asset' => 'Property',
         'documents' => 'Documents',
         'tenant_mode' => 'Tenant',
@@ -989,6 +1059,11 @@ return [
     ],
 
     'helpers' => [
+        'account_type' => 'Asset / Liability / Equity / Revenue / Expense — sets the debit/credit side.',
+        'parent_account' => 'Optional — groups this account under a summary account.',
+        'is_postable' => 'Only postable (leaf) accounts can be used on journal entries.',
+        'journal_property' => 'Leave empty for a consolidated, company-level entry.',
+        'must_balance' => 'Total debit must equal total credit.',
         'portal_admin' => 'Admins can submit requests and payments; other users are read-only.',
         'password_leave_blank' => 'Leave blank to keep the current password.',
         'reading_date' => 'Date the meter was read. The widget aggregates by month.',
@@ -1014,6 +1089,10 @@ return [
     ],
 
     'sections' => [
+        'account_details' => 'Account details',
+        'journal_entry_details' => 'Entry details',
+        'journal_lines' => 'Lines (debit / credit)',
+        'journal_totals' => 'Totals',
         'cam_period' => 'Reconciliation Period',
         'cam_breakdown' => 'Your CAM Share',
         'tenant_information' => 'Tenant Information',
@@ -1068,6 +1147,10 @@ return [
     ],
 
     'permission_modules' => [
+        'ledger_accounts' => 'Chart of Accounts',
+        'journal_entries' => 'Journal Entries',
+        'accounting_periods' => 'Accounting Periods',
+        'general_ledger' => 'General Ledger & Reports',
         'assets' => 'Properties',
         'units' => 'Units',
         'tenants' => 'Tenants',
@@ -1090,6 +1173,11 @@ return [
     ],
 
     'statuses' => [
+        'journal_entry' => [
+            'draft' => 'Draft',
+            'posted' => 'Posted',
+            'void' => 'Void',
+        ],
         'lease' => [
             'draft' => 'Draft',
             'pending_approval' => 'Pending Approval',
@@ -1189,6 +1277,17 @@ return [
     ],
 
     'enums' => [
+        'ledger_account_type' => [
+            'asset' => 'Asset',
+            'liability' => 'Liability',
+            'equity' => 'Equity',
+            'revenue' => 'Revenue',
+            'expense' => 'Expense',
+        ],
+        'normal_balance' => [
+            'debit' => 'Debit',
+            'credit' => 'Credit',
+        ],
         'category' => [
             'retail' => 'Retail',
             'food_beverage' => 'Food & Beverage',

@@ -98,6 +98,14 @@ return [
     ],
 
     'empty' => [
+        'ledger_accounts' => [
+            'heading' => 'لا توجد حسابات بعد',
+            'description' => 'دليل الحسابات فارغ. أضف الحسابات أو استخدم الدليل القياسي.',
+        ],
+        'journal_entries' => [
+            'heading' => 'لا توجد قيود بعد',
+            'description' => 'أنشئ قيدًا يدويًا، أو ستظهر القيود هنا عند ترحيل العمليات.',
+        ],
         'assets' => [
             'heading' => 'لا توجد عقارات بعد',
             'description' => 'أضف أول مول أو پلازا أو مبنى إداري لتنظيم كل ما يندرج تحته.',
@@ -173,6 +181,21 @@ return [
     ],
 
     'reports' => [
+        'trial_balance_title' => 'ميزان المراجعة',
+        'general_ledger_title' => 'دفتر الأستاذ',
+        'fiscal_year' => 'السنة المالية',
+        'property_scope' => 'العقار',
+        'balance_check' => 'التحقق من التوازن',
+        'balanced' => 'متوازن',
+        'not_balanced' => 'غير متوازن',
+        'no_movements' => 'لا توجد حركات في هذه الفترة.',
+        'totals' => 'الإجماليات',
+        'choose_account' => '— اختر حسابًا —',
+        'account' => 'الحساب',
+        'choose_account_hint' => 'اختر حسابًا لعرض كشف حسابه.',
+        'closing_balance' => 'الرصيد الختامي',
+        'opening_balance' => 'رصيد افتتاحي',
+        'running_balance' => 'الرصيد',
         'nav_label' => 'التقارير',
         'page_title' => 'التقارير',
         'monthly_close' => 'الإقفال الشهري',
@@ -217,6 +240,10 @@ return [
     ],
 
     'navigation' => [
+        'ledger_accounts' => 'دليل الحسابات',
+        'journal_entries' => 'قيود اليومية',
+        'trial_balance' => 'ميزان المراجعة',
+        'general_ledger' => 'دفتر الأستاذ',
         'dashboard' => 'لوحة التحكم',
         'properties' => 'العقارات',
         'tenant_directory' => 'دليل المستأجرين',
@@ -237,6 +264,8 @@ return [
     ],
 
     'resources' => [
+        'ledger_account' => ['singular' => 'حساب', 'plural' => 'دليل الحسابات'],
+        'journal_entry' => ['singular' => 'قيد يومية', 'plural' => 'قيود اليومية'],
         'portal_user' => ['singular' => 'مستخدم بوابة', 'plural' => 'مستخدمو البوابة'],
         'asset' => ['singular' => 'عقار', 'plural' => 'العقارات'],
         'unit' => ['singular' => 'وحدة', 'plural' => 'الوحدات'],
@@ -423,6 +452,16 @@ return [
     ],
 
     'tables' => [
+        'ledger_account' => [
+            'code' => 'الرقم',
+            'name_ar' => 'الاسم (عربي)',
+            'name_en' => 'الاسم (إنجليزي)',
+            'account' => 'الحساب',
+        ],
+        'journal_entry' => [
+            'number' => 'رقم القيد',
+            'manual' => 'يدوي',
+        ],
         'common' => [
             'tenant' => 'المستأجر',
             'unit' => 'الوحدة',
@@ -650,6 +689,11 @@ return [
     ],
 
     'actions' => [
+        'add_line' => 'إضافة سطر',
+        'post_journal_entry' => 'ترحيل',
+        'post_journal_entry_confirm' => 'الترحيل يتحقق من توازن القيد ويقفله. هل تريد المتابعة؟',
+        'void_journal_entry' => 'إلغاء (عكسي)',
+        'void_journal_entry_confirm' => 'سيتم ترحيل قيد عكسي متوازن. يبقى القيد الأصلي بالدفاتر بحالة ملغى. هل تريد المتابعة؟',
         'edit' => 'تعديل',
         'view' => 'عرض',
         'delete' => 'حذف',
@@ -772,6 +816,10 @@ return [
     ],
 
     'notifications' => [
+        'journal_entry_posted' => 'تم ترحيل القيد',
+        'journal_entry_post_failed' => 'تعذّر ترحيل القيد',
+        'journal_entry_voided' => 'تم إلغاء القيد',
+        'journal_entry_voided_body' => 'تم إنشاء القيد العكسي :number.',
         'marked_read' => 'تم تعليم الإشعار كمقروء.',
         // Tenant-facing
         'invoice_issued_subject' => 'فاتورة جديدة :number من أتريوم',
@@ -838,6 +886,28 @@ return [
     ],
 
     'fields' => [
+        'account_code' => 'رقم الحساب',
+        'account_type' => 'طبيعة الحساب',
+        'account_name_ar' => 'الاسم (عربي)',
+        'account_name_en' => 'الاسم (إنجليزي)',
+        'parent_account' => 'الحساب الأب',
+        'is_postable' => 'حساب ترحيل',
+        'is_active' => 'نشط',
+        'account_description' => 'بيان',
+        'normal_balance' => 'الرصيد الطبيعي',
+        'journal_number' => 'رقم القيد',
+        'entry_date' => 'تاريخ القيد',
+        'property' => 'العقار',
+        'property_consolidated' => 'موحّد (الكل)',
+        'entry_description_ar' => 'البيان (عربي)',
+        'entry_description_en' => 'البيان (إنجليزي)',
+        'debit' => 'مدين',
+        'credit' => 'دائن',
+        'line_account' => 'الحساب',
+        'line_description' => 'بيان',
+        'total_debit' => 'إجمالي المدين',
+        'total_credit' => 'إجمالي الدائن',
+        'difference' => 'الفرق',
         'asset' => 'العقار',
         'documents' => 'المستندات',
         'tenant_mode' => 'المستأجر',
@@ -989,6 +1059,11 @@ return [
     ],
 
     'helpers' => [
+        'account_type' => 'أصول / خصوم / حقوق ملكية / إيرادات / مصروفات — تحدد طبيعة الحساب.',
+        'parent_account' => 'اختياري — يجمع هذا الحساب تحت حساب رئيسي.',
+        'is_postable' => 'حسابات الترحيل فقط هي التي تُستخدم في القيود.',
+        'journal_property' => 'اتركه فارغًا لقيد موحّد على مستوى الشركة.',
+        'must_balance' => 'يجب أن يتساوى إجمالي المدين مع إجمالي الدائن.',
         'portal_admin' => 'يمكن للمسؤولين تقديم الطلبات والمدفوعات؛ المستخدمون الآخرون للقراءة فقط.',
         'password_leave_blank' => 'اتركه فارغاً للإبقاء على كلمة المرور الحالية.',
         'reading_date' => 'تاريخ قراءة العداد. الرسم البياني يجمع البيانات شهرياً.',
@@ -1014,6 +1089,10 @@ return [
     ],
 
     'sections' => [
+        'account_details' => 'بيانات الحساب',
+        'journal_entry_details' => 'بيانات القيد',
+        'journal_lines' => 'أطراف القيد (مدين / دائن)',
+        'journal_totals' => 'الإجماليات',
         'cam_period' => 'فترة التسوية',
         'cam_breakdown' => 'حصتك من النفقات المشتركة',
         'tenant_information' => 'بيانات المستأجر',
@@ -1068,6 +1147,10 @@ return [
     ],
 
     'permission_modules' => [
+        'ledger_accounts' => 'دليل الحسابات',
+        'journal_entries' => 'قيود اليومية',
+        'accounting_periods' => 'الفترات المحاسبية',
+        'general_ledger' => 'دفتر الأستاذ والتقارير',
         'assets' => 'العقارات',
         'units' => 'الوحدات',
         'tenants' => 'المستأجرون',
@@ -1090,6 +1173,11 @@ return [
     ],
 
     'statuses' => [
+        'journal_entry' => [
+            'draft' => 'مسودة',
+            'posted' => 'مرحّل',
+            'void' => 'ملغى',
+        ],
         'lease' => [
             'draft' => 'مسودة',
             'pending_approval' => 'بانتظار الموافقة',
@@ -1189,6 +1277,17 @@ return [
     ],
 
     'enums' => [
+        'ledger_account_type' => [
+            'asset' => 'أصول',
+            'liability' => 'خصوم',
+            'equity' => 'حقوق ملكية',
+            'revenue' => 'إيرادات',
+            'expense' => 'مصروفات',
+        ],
+        'normal_balance' => [
+            'debit' => 'مدين',
+            'credit' => 'دائن',
+        ],
         'category' => [
             'retail' => 'تجزئة',
             'food_beverage' => 'طعام ومشروبات',

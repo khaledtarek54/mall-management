@@ -105,6 +105,37 @@ class TenantScope
     }
 
     /**
+     * Resolve the asset-id filter for a ledger/finance report from a user-chosen
+     * property id, clamped to what the current user may see. Returns:
+     *   - null            → portfolio-wide (only for unrestricted users; honors a
+     *                        specific pick as [id])
+     *   - [id]            → the picked property, when the user may see it
+     *   - visible set     → consolidated within the user's allowed properties, or
+     *                        a safe fallback when the pick is outside their set
+     *
+     * This prevents a property-scoped user from reading another property's books
+     * by tampering with the client-bound selection.
+     *
+     * @return array<int>|null
+     */
+    public static function reportAssetIds(?int $selected): ?array
+    {
+        $visible = self::visibleAssetIds();
+
+        if ($visible === null) {
+            // Unrestricted (super_admin / portfolio roles): honor the pick; null = all.
+            return $selected !== null ? [$selected] : null;
+        }
+
+        if ($selected !== null && in_array($selected, $visible, true)) {
+            return [$selected];
+        }
+
+        // No pick, or a pick outside the allowed set → restrict to the allowed set.
+        return $visible;
+    }
+
+    /**
      * Property-picker options (id => name) scoped to what the current user
      * may select: the current property, their assigned set in All-Properties
      * mode, or every real property for super_admin. Always excludes the

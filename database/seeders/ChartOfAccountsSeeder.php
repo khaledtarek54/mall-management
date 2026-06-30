@@ -1,0 +1,164 @@
+<?php
+
+namespace Database\Seeders;
+
+use App\Models\LedgerAccount;
+use Illuminate\Database\Seeder;
+
+/**
+ * دليل الحسابات القياسي — a standard, bilingual starter Chart of Accounts for an
+ * Egyptian mall operator. The accountant can rename, deactivate, or extend any
+ * of these. Hierarchy mirrors the familiar Egyptian coding style:
+ *   1 → 11 → 111 → 11101 → 11101001 (only the deepest leaves are postable).
+ *
+ * Parent links are resolved automatically from the code (longest existing prefix),
+ * so the flat list below is all that needs maintaining.
+ */
+class ChartOfAccountsSeeder extends Seeder
+{
+    /** @var array<int, array{0:string,1:string,2:string,3:string,4:bool}> [code, name_en, name_ar, type, is_postable] */
+    private const ACCOUNTS = [
+        // ===== 1 ASSETS — الأصول =====
+        ['1', 'Assets', 'الأصول', 'asset', false],
+        ['11', 'Current Assets', 'الأصول المتداولة', 'asset', false],
+        ['111', 'Cash & Banks', 'النقد بالخزينة والبنوك', 'asset', false],
+        ['11101', 'Cash on Hand', 'نقد بالخزينة', 'asset', false],
+        ['11101001', 'Main Cashier', 'الصندوق العام', 'asset', true],
+        ['11102', 'Banks', 'البنوك', 'asset', false],
+        ['11102001', 'Bank Account', 'حساب بنكي', 'asset', true],
+        ['112', 'Accounts Receivable', 'المدينون', 'asset', false],
+        ['11201', 'Trade Receivables — Tenants', 'ذمم العملاء (المستأجرون)', 'asset', false],
+        ['11201001', 'Tenant Receivables', 'عملاء تجاريون', 'asset', true],
+        ['11202', 'Other Receivables', 'ذمم مدينة أخرى', 'asset', false],
+        ['11202001', 'Other Debtors', 'مدينون متنوعون', 'asset', true],
+        ['12', 'Non-current Assets', 'الأصول غير المتداولة', 'asset', false],
+        ['121', 'Fixed Assets', 'الأصول الثابتة', 'asset', false],
+        ['12101', 'Furniture & Equipment', 'أثاث ومعدات', 'asset', false],
+        ['12101001', 'Furniture & Equipment', 'أثاث ومعدات', 'asset', true],
+        ['122', 'Accumulated Depreciation', 'مجمع الإهلاك', 'asset', false],
+        ['12201', 'Accumulated Depreciation', 'مجمع الإهلاك', 'asset', false],
+        ['12201001', 'Accumulated Depreciation — Fixed Assets', 'مجمع إهلاك الأصول الثابتة', 'asset', true],
+
+        // ===== 2 LIABILITIES — الخصوم =====
+        ['2', 'Liabilities', 'الخصوم', 'liability', false],
+        ['21', 'Current Liabilities', 'الخصوم المتداولة', 'liability', false],
+        ['211', 'Accounts Payable', 'الموردون والدائنون', 'liability', false],
+        ['21101', 'Trade Payables — Vendors', 'ذمم الموردين', 'liability', false],
+        ['21101001', 'Vendor Payables', 'موردون تجاريون', 'liability', true],
+        ['212', 'Tenant Deposits Held', 'التأمينات المحتجزة', 'liability', false],
+        ['21201', 'Tenant Deposits', 'تأمينات المستأجرين', 'liability', false],
+        ['21201001', 'Tenant Deposits Held', 'تأمينات محتجزة', 'liability', true],
+        ['213', 'Taxes Payable', 'الضرائب المستحقة', 'liability', false],
+        ['21301', 'VAT Payable', 'ضريبة القيمة المضافة المستحقة', 'liability', false],
+        ['21301001', 'VAT Payable', 'ض.ق.م مستحقة', 'liability', true],
+        ['214', 'Accrued Expenses', 'المصروفات المستحقة', 'liability', false],
+        ['21401', 'Accrued Expenses', 'مصروفات مستحقة', 'liability', false],
+        ['21401001', 'Accrued Expenses', 'مصروفات مستحقة الدفع', 'liability', true],
+        ['215', 'Unearned Revenue', 'الإيرادات المقدمة', 'liability', false],
+        ['21501', 'Customer Advances', 'دفعات مقدمة من العملاء', 'liability', false],
+        ['21501001', 'Unearned / Deferred Revenue', 'إيرادات غير مكتسبة', 'liability', true],
+        ['22', 'Non-current Liabilities', 'الخصوم غير المتداولة', 'liability', false],
+        ['221', 'Long-term Loans', 'قروض طويلة الأجل', 'liability', false],
+        ['22101', 'Long-term Loans', 'قروض طويلة الأجل', 'liability', false],
+        ['22101001', 'Long-term Loans', 'قروض طويلة الأجل', 'liability', true],
+
+        // ===== 3 EQUITY — حقوق الملكية =====
+        ['3', 'Equity', 'حقوق الملكية', 'equity', false],
+        ['31', 'Capital', 'رأس المال', 'equity', false],
+        ['31101', 'Capital', 'رأس المال', 'equity', false],
+        ['31101001', 'Owner Capital', 'رأس المال', 'equity', true],
+        ['32', 'Retained Earnings', 'الأرباح المحتجزة', 'equity', false],
+        ['32101', 'Retained Earnings', 'الأرباح المحتجزة', 'equity', false],
+        ['32101001', 'Retained Earnings', 'أرباح محتجزة', 'equity', true],
+        ['33', 'Current Year Result', 'نتيجة العام الحالي', 'equity', false],
+        ['33101', 'Current Year Result', 'نتيجة العام', 'equity', false],
+        ['33101001', 'Profit / Loss for the Year', 'أرباح / خسائر العام', 'equity', true],
+
+        // ===== 4 REVENUE — الإيرادات =====
+        ['4', 'Revenue', 'الإيرادات', 'revenue', false],
+        ['41', 'Operating Revenue', 'إيرادات التشغيل', 'revenue', false],
+        ['411', 'Property Revenue', 'إيرادات العقار', 'revenue', false],
+        ['41101', 'Rent Revenue', 'إيرادات الإيجار', 'revenue', false],
+        ['41101001', 'Base Rent Revenue', 'إيرادات الإيجار الأساسي', 'revenue', true],
+        ['41102', 'Service Charge Revenue', 'إيرادات الخدمات', 'revenue', false],
+        ['41102001', 'Service Charge Revenue', 'إيرادات خدمات', 'revenue', true],
+        ['41103', 'CAM Recovery Revenue', 'إيرادات استرداد الصيانة', 'revenue', false],
+        ['41103001', 'CAM Recovery Revenue', 'إيرادات استرداد المصروفات المشتركة', 'revenue', true],
+        ['41104', 'Utility Revenue', 'إيرادات المرافق', 'revenue', false],
+        ['41104001', 'Utility Revenue', 'إيرادات مرافق', 'revenue', true],
+        ['41105', 'Percentage Rent Revenue', 'إيرادات الإيجار النسبي', 'revenue', false],
+        ['41105001', 'Percentage Rent Revenue', 'إيرادات إيجار نسبي', 'revenue', true],
+        ['41106', 'Marketing Levy Revenue', 'إيرادات رسوم التسويق', 'revenue', false],
+        ['41106001', 'Marketing Levy Revenue', 'إيرادات رسوم تسويق', 'revenue', true],
+        ['41107', 'Late Fee Income', 'إيرادات غرامات التأخير', 'revenue', false],
+        ['41107001', 'Late Fee Income', 'إيرادات غرامات تأخير', 'revenue', true],
+        ['42', 'Other Income', 'إيرادات أخرى', 'revenue', false],
+        ['42101', 'Miscellaneous Income', 'إيرادات متنوعة', 'revenue', false],
+        ['42101001', 'Miscellaneous Income', 'إيرادات متنوعة', 'revenue', true],
+        ['43', 'Sales Returns & Allowances', 'مردودات ومسموحات المبيعات', 'revenue', false],
+        ['43101', 'Sales Returns & Allowances', 'مردودات ومسموحات المبيعات', 'revenue', false],
+        ['43101001', 'Sales Returns & Allowances', 'مردودات ومسموحات المبيعات', 'revenue', true],
+
+        // ===== 5 EXPENSES — المصروفات =====
+        ['5', 'Expenses', 'المصروفات', 'expense', false],
+        ['51', 'Operating Expenses', 'مصروفات التشغيل', 'expense', false],
+        ['51101', 'Salaries & Wages', 'رواتب وأجور', 'expense', false],
+        ['51101001', 'Salaries & Wages', 'رواتب وأجور', 'expense', true],
+        ['51102', 'Repairs & Maintenance', 'صيانة وإصلاحات', 'expense', false],
+        ['51102001', 'Repairs & Maintenance', 'صيانة وإصلاحات', 'expense', true],
+        ['51103', 'Utilities Expense', 'مصروف المرافق', 'expense', false],
+        ['51103001', 'Utilities Expense', 'مصروف مرافق', 'expense', true],
+        ['51104', 'Cleaning & Security', 'نظافة وأمن', 'expense', false],
+        ['51104001', 'Cleaning & Security', 'نظافة وأمن', 'expense', true],
+        ['51105', 'Marketing Expense', 'مصروف التسويق', 'expense', false],
+        ['51105001', 'Marketing & Advertising', 'مصروف تسويق ودعاية', 'expense', true],
+        ['51106', 'General & Admin', 'مصروفات إدارية وعمومية', 'expense', false],
+        ['51106001', 'General & Admin Expense', 'مصروفات إدارية وعمومية', 'expense', true],
+        ['51107', 'Depreciation Expense', 'مصروف الإهلاك', 'expense', false],
+        ['51107001', 'Depreciation Expense', 'مصروف إهلاك', 'expense', true],
+        ['52', 'Other Expenses', 'مصروفات أخرى', 'expense', false],
+        ['52101', 'Bank Charges', 'مصروفات بنكية', 'expense', false],
+        ['52101001', 'Bank Charges', 'مصروفات بنكية', 'expense', true],
+    ];
+
+    public function run(): void
+    {
+        $idByCode = [];
+
+        // ACCOUNTS is authored parent-before-child, but sort by code anyway so a
+        // proper prefix (an ancestor) is always processed before its descendants.
+        $accounts = self::ACCOUNTS;
+        usort($accounts, fn ($a, $b) => strcmp($a[0], $b[0]));
+
+        foreach ($accounts as [$code, $nameEn, $nameAr, $type, $isPostable]) {
+            $parentId = $this->resolveParentId($code, $idByCode);
+
+            $account = LedgerAccount::updateOrCreate(
+                ['code' => $code],
+                [
+                    'parent_id' => $parentId,
+                    'name_en' => $nameEn,
+                    'name_ar' => $nameAr,
+                    'type' => $type,
+                    'is_postable' => $isPostable,
+                    'is_active' => true,
+                ],
+            );
+
+            $idByCode[$code] = $account->id;
+        }
+    }
+
+    /** Parent = the longest already-created code that is a strict prefix of $code. */
+    private function resolveParentId(string $code, array $idByCode): ?int
+    {
+        for ($len = strlen($code) - 1; $len >= 1; $len--) {
+            $prefix = substr($code, 0, $len);
+            if (isset($idByCode[$prefix])) {
+                return $idByCode[$prefix];
+            }
+        }
+
+        return null;
+    }
+}

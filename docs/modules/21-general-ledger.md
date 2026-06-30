@@ -1,0 +1,359 @@
+# Module 21 — General Ledger & Accounting Core (المحاسبة العامة / دفتر الأستاذ العام)
+
+> **Status:** Phase 0 (the core) — being built. Phases 1–4 are the roadmap at the
+> bottom. Read [docs/OVERVIEW.md](../OVERVIEW.md) and [docs/MONEY-PATHS.md](../MONEY-PATHS.md)
+> first — this module sits *underneath* every money path already documented there.
+
+This module adds a **double-entry general ledger** (نظام القيد المزدوج) beneath the
+existing business documents (invoices, payments, credit notes, CAM …). Those documents
+are the **sub-ledgers** (الأستاذ المساعد); the general ledger is the **company's books**
+(الدفاتر). Every money event posts a **balanced journal entry** (قيد يومية متوازن) into
+the ledger, and the ledger is the source of every financial report.
+
+---
+
+## 0. Why this exists / business context (السياق)
+
+Before this module the system was **single-entry, accounts-receivable only**: it knew
+*who owes rent* but never kept *the company's books*. An accountant (المحاسب) could not
+produce a **trial balance** (ميزان المراجعة), an **income statement** (قائمة الدخل), or
+a **balance sheet** (قائمة المركز المالي).
+
+The general ledger fixes that without rebuilding billing. The design rule:
+
+> **The general ledger never trusts the sub-ledgers' stored totals — it re-derives
+> every figure from balanced journal entries.** Debits always equal credits, so the
+> books cannot silently drift. This is what makes the reports trustworthy enough to
+> be the *official* books (الدفاتر الرسمية).
+
+### The one rule of double-entry
+Every event touches at least two accounts, and for every entry:
+
+```
+Σ debit (مدين)  =  Σ credit (دائن)
+```
+
+Money is never created or destroyed — it *moves* from one account to another. An
+unbalanced entry cannot be saved (enforced in `JournalPostingService`).
+
+### The five account natures (طبيعة الحساب)
+Every account is exactly one of these. They map directly to the two main reports.
+
+| # | English | Arabic | Normal balance (الرصيد الطبيعي) | Goes on |
+|---|---------|--------|---------------------------------|---------|
+| 1 | Asset | الأصول | Debit (مدين) | Balance sheet |
+| 2 | Liability | الخصوم / الالتزامات | Credit (دائن) | Balance sheet |
+| 3 | Equity | حقوق الملكية | Credit (دائن) | Balance sheet |
+| 4 | Revenue | الإيرادات | Credit (دائن) | Income statement |
+| 5 | Expense | المصروفات | Debit (مدين) | Income statement |
+
+`Asset + Expense` increase on the **debit** side; `Liability + Equity + Revenue`
+increase on the **credit** side. The model derives `normal_balance` from `type`.
+
+---
+
+## 1. Domain model (نموذج البيانات)
+
+Six tables. All money columns are `decimal(14,2)`; all user-facing names are bilingual
+(`*_en` / `*_ar`) so the accountant reads them natively.
+
+### `ledger_accounts` — دليل الحسابات (Chart of Accounts)
+The master list of accounts, as a tree (the accountant's Excel turned into a table).
+
+| Column | Type | Meaning (Arabic) |
+|--------|------|------------------|
+| `code` | string, unique | رقم الحساب — hierarchical, e.g. `11201001` |
+| `parent_id` | FK self, null | الحساب الأب — builds the tree |
+| `name_en` / `name_ar` | string | اسم الحساب |
+| `type` | enum: asset/liability/equity/revenue/expense | طبيعة الحساب |
+| `normal_balance` | enum: debit/credit | الرصيد الطبيعي (derived from `type`) |
+| `is_postable` | bool | حساب ترحيل (leaf) vs تجميعي (rollup). **Only `is_postable` accounts may appear on a journal line.** |
+| `is_active` | bool | نشط |
+| `description` | text, null | بيان |
+
+**Hierarchy convention** (mirrors the accountant's sheet): `1` → `11` → `111` →
+`11101` → `11101001`. Parents are *summary* accounts (no postings); the deepest
+leaves are *posting* accounts.
+
+### `fiscal_years` — السنة المالية
+| Column | Meaning |
+|--------|---------|
+| `year` (int, unique) · `starts_on` · `ends_on` | the financial year window |
+| `status` | `open` / `closed` (مفتوحة / مقفلة) |
+
+### `accounting_periods` — الفترة المحاسبية
+Months inside a fiscal year. Closing a period blocks backdated entries.
+
+| Column | Meaning |
+|--------|---------|
+| `fiscal_year_id` · `period_no` (1–12) · `starts_on` · `ends_on` | the month |
+| `status` | `open` / `closed` (مفتوحة / مقفلة) |
+
+### `journal_entries` — قيد يومية (header)
+| Column | Meaning |
+|--------|---------|
+| `number` | رقم القيد — `JE-YYYYMM-NNNN`, unique |
+| `entry_date` | تاريخ القيد |
+| `accounting_period_id` | the period it falls in |
+| `description_en` / `description_ar` | البيان |
+| `source_type` / `source_id` | nullable polymorphic link to the Invoice/Payment/… that generated it (null = manual) |
+| `is_manual` | bool — accountant-written vs auto-posted |
+| `status` | `draft` / `posted` / `void` (مسودة / مرحّل / ملغى) |
+| `asset_id` | nullable FK — which property's books (dimension) |
+| `posted_by_user_id` · `posted_at` · `voided_at` | audit |
+| `reversal_of_id` | nullable self-FK — links a reversing entry to the entry it cancels |
+
+### `journal_lines` — أطراف القيد (the debit/credit lines)
+| Column | Meaning |
+|--------|---------|
+| `journal_entry_id` | parent |
+| `ledger_account_id` | الحساب (must be `is_postable`) |
+| `debit` / `credit` | مدين / دائن — exactly one is > 0, the other 0 |
+| `description` | بيان السطر (null) |
+| `asset_id` · `tenant_id` · `lease_id` | nullable **analytical dimensions** (الأبعاد التحليلية) for filtered reports |
+
+### `account_mappings` — ربط الحسابات (semantic role → account)
+So code never hard-codes an account number. Code posts to a *role*
+(`accounts_receivable`); this table resolves the role to the accountant's chosen
+account. Optional per-property override.
+
+| Column | Meaning |
+|--------|---------|
+| `key` | semantic role, e.g. `accounts_receivable`, `vat_payable`, `rent_revenue` |
+| `ledger_account_id` | the postable account it resolves to |
+| `asset_id` | nullable — a per-property override; null = global default |
+
+---
+
+## 2. The posting recipes (قواعد الترحيل) — how money becomes journal entries
+
+Each business event maps to a fixed balanced entry. These recipes are wired in
+**Phase 1** via small "journalizer" classes (see §4); they are listed here so the
+accountant can verify the accounting treatment. `[role]` resolves via `account_mappings`.
+
+| Event (الحدث) | Debit (مدين) | Credit (دائن) |
+|---------------|--------------|----------------|
+| **Issue invoice** إصدار فاتورة | `accounts_receivable` (total) | `rent_revenue`, `service_charge_revenue`, `utility_revenue`, `percentage_rent_revenue`, `marketing_revenue`, `vat_payable` — one credit line per item kind |
+| **Capture payment** تحصيل دفعة | `bank` or `cash` (amount) | `accounts_receivable` (amount) |
+| **Apply credit note** تطبيق إشعار خصم | `sales_returns`, `vat_payable` | `accounts_receivable` (total) |
+| **Late fee** غرامة تأخير | `accounts_receivable` | `late_fee_income` |
+| **Security deposit received** استلام تأمين | `bank` | `deposits_held` (a *liability*) |
+| **CAM positive true-up** تسوية صيانة موجبة | `accounts_receivable` | `cam_recovery_revenue` (+ `vat_payable` if taxed) |
+| *(Phase 3)* **Vendor bill** فاتورة مورد | `*_expense` | `accounts_payable` |
+| *(Phase 3)* **Pay vendor** سداد مورد | `accounts_payable` | `bank` |
+| *(Phase 3)* **Payroll** رواتب | `salaries_expense` | `bank` |
+
+> **Tie-out invariant:** after Phase 1, the balance of `accounts_receivable` in the
+> ledger must equal `Σ Invoice.balance` for live invoices. The reconciliation harness
+> (`billing:reconcile`) gains a GL tie-out check.
+
+---
+
+## 3. Business rules & invariants (القواعد والثوابت)
+
+1. **Debits = credits, always.** `JournalPostingService::post()` rejects an unbalanced
+   payload before writing anything (rounded to 2dp).
+2. **Only postable leaf accounts** may appear on a journal line; summary accounts are
+   rejected.
+3. **A line is one-sided:** exactly one of `debit`/`credit` is > 0.
+4. **No posting into a closed period** (الفترة المقفلة). `entry_date` must fall in an
+   `open` `accounting_period`; otherwise the post is refused.
+5. **Posted entries are immutable.** You don't edit a posted entry — you **void** it
+   (which creates a balanced *reversing* entry, قيد عكسي) or post an adjusting entry.
+   Mirrors the project's "terminal records are immutable" invariant.
+6. **Property is a dimension, not a separate ledger.** One shared chart; every entry/
+   line can carry `asset_id`. Per-property books = filter by `asset_id`; consolidated =
+   no filter. This reuses `TenantScope` exactly like every other module.
+7. **The ledger is derived truth.** Reports re-aggregate `journal_lines`; nothing
+   caches account balances. (A materialized balance table is a future optimization, not
+   a source of truth.)
+8. **Money is 2dp everywhere**, `round($x, 2)` on every amount — same as the rest of
+   the money model.
+
+---
+
+## 4. Services & extensibility (الخدمات وقابلية التوسعة)
+
+`app/Services/Accounting/`:
+
+- **`AccountResolver`** — `account(string $key, ?int $assetId = null): LedgerAccount`.
+  Resolves a semantic role via `account_mappings` (per-asset override → global default).
+  Throws if a mapping is missing, so a mis-wired posting fails loudly.
+- **`JournalPostingService`** — the engine.
+  - `post(JournalEntryData): JournalEntry` — validates (balanced, postable, open period,
+    one-sided lines), generates the number, writes header + lines atomically, marks
+    `posted`. Idempotent per source document (one posted entry per `source_type+source_id`).
+  - `void(JournalEntry, reason): JournalEntry` — posts a balanced reversing entry and
+    links it via `reversal_of_id`.
+- **`LedgerReportService`** — read-only aggregation for the reports: `trialBalance()`,
+  `accountLedger()`, and (Phase 2) `incomeStatement()`, `balanceSheet()`. Accepts
+  `asset_id` (per-property) or null (consolidated) + a date range.
+
+### How a NEW module plugs into accounting (the extensibility contract)
+This is the whole point of the design. To make any future module post to the ledger:
+
+1. Write **one journalizer class** that turns the document into a balanced set of lines
+   using `AccountResolver` for the accounts. (Phase 1 ships journalizers for invoice/
+   payment/credit-note/CAM/late-fee/deposit as the reference implementations.)
+2. Fire it from the document's existing service hook (e.g. after `recomputeTotals`, or
+   on payment capture) — exactly where the sub-ledger already mutates.
+3. Add any new semantic roles to `account_mappings` (+ seeder) and point them at chart
+   accounts.
+
+The general-ledger engine itself **never changes** when a module is added. New module →
+new journalizer + new mappings. That is the "accounting works with any future module"
+guarantee.
+
+---
+
+## 5. Filament surfaces (الواجهات)
+
+All under the **Accounting** navigation group (`admin.groups.accounting`), gated by
+`RoleGatedActions` on the permissions in §7, property-scoped via `asset_id`.
+
+- **`LedgerAccountResource`** — دليل الحسابات. Browse/manage the chart (tree by code),
+  toggle active, mark postable. Seeded with the standard starter chart.
+- **`JournalEntryResource`** — قيود اليومية. Create a **manual** journal entry with a
+  balanced lines repeater (live debit/credit totals); list + view auto-posted entries;
+  a **Post** action and a **Void** (reverse) action. Editing is blocked once `posted`.
+- **`TrialBalance` page** — ميزان المراجعة. Every account with total debit / total
+  credit / closing balance; proves `Σ debit = Σ credit`. Filter by property + period.
+- **`GeneralLedger` page** — دفتر الأستاذ. Per-account running statement (كشف حساب).
+
+Income statement & balance sheet pages land in **Phase 2**.
+
+---
+
+## 6. Seeders (البيانات الأولية)
+
+- **`ChartOfAccountsSeeder`** — the **standard starter chart** (bilingual), covering all
+  five natures and every account the existing money paths need (cash, banks, tenant
+  receivables, VAT payable, deposits held, the revenue families, the expense families,
+  capital, retained earnings, sales returns). The accountant can rename/extend freely.
+- **`AccountMappingSeeder`** — default `account_mappings` for every semantic role used by
+  the Phase-1 posting recipes.
+- Current **fiscal year + 12 periods** are opened so manual entries work immediately.
+
+Wired into `DatabaseSeeder` *before* `DemoSeeder` (reference data, all environments).
+
+---
+
+## 7. RBAC (الصل"احيات)
+
+New permission modules in `RolesPermissionsSeeder::PERMISSIONS`:
+
+| Module | Actions |
+|--------|---------|
+| `ledger_accounts` | view, create, edit, delete |
+| `journal_entries` | view, create, edit, delete, post, void |
+| `accounting_periods` | view, manage (open/close) |
+| `general_ledger` | view (trial balance, ledger, statements) |
+
+- **super_admin / manager / viewer / owner** inherit automatically (all-perms / non-delete /
+  all-`.view` / all-`.view`).
+- The **`accounting`** department role is granted the full set explicitly (incl. post/void
+  and period management).
+- These modules are **core** (not in `Modules::KEYS`) → always on.
+
+---
+
+## 8. Reports (التقارير)
+
+| Report | Arabic | Definition |
+|--------|--------|------------|
+| Trial Balance | ميزان المراجعة | per account: Σ debit, Σ credit, balance — must net to zero overall |
+| General Ledger / account statement | دفتر الأستاذ / كشف حساب | per account: every line, running balance |
+| Income Statement (P&L) | قائمة الدخل | Σ revenue − Σ expense (Phase 2) |
+| Balance Sheet | قائمة المركز المالي | assets = liabilities + equity (Phase 2) |
+
+Each runs **per property** (filter `asset_id`) or **consolidated** (no filter), over a
+date range.
+
+---
+
+## 9. Gotchas & edge cases (محاذير)
+
+- **Posting to a summary account** — refused; only `is_postable` leaves accept lines.
+- **Backdated entry into a closed period** — refused; reopen the period or post into the
+  current one.
+- **Editing a posted entry** — not allowed; void (reverse) and re-post.
+- **A voided entry stays on the books.** Reports count both `posted` AND `void` entries:
+  a voided original is offset by its (posted) reversing entry, so the two net to zero.
+  Dropping the original from reports would leave the reversal as a phantom balance —
+  never hard-delete a posted entry. `void()` only acts on a `posted` entry (a draft can't
+  be voided).
+- **Reversal period** — `void()` posts the reversal into the original entry's period if
+  it is still open (keeps that period self-consistent), else into the current open period;
+  if neither is open the void is refused rather than silently shifting the books.
+- **Report scoping** — the trial balance / general ledger are scoped to the current user's
+  visible properties via `TenantScope::reportAssetIds()`. A property-restricted user cannot
+  read another property's books by tampering the picker; "consolidated" for them means
+  across their assigned set only. Pass `null` (all) only for portfolio-wide users.
+- **NOT-NULL amounts** — `journal_lines.debit`/`credit` are NOT-NULL (default 0); the model
+  coerces a blank/cleared field to 0 (the `meter_readings.cost` bug class).
+- **Rounding** — validate balance on 2dp-rounded sums; a 1-cent rounding line may be
+  needed on machine-generated entries (handled in the journalizers, Phase 1).
+- **Deleting a chart account that has postings** — blocked (FK `restrictOnDelete`); mark
+  it inactive instead.
+- **Changing a mapping mid-life** — only affects *future* postings; historical entries
+  keep their original accounts (correct — never rewrite history).
+- **Phase-1 note (re-post after void):** posting is idempotent per source only while a
+  `draft`/`posted` entry exists; a *voided* source-entry lets the same source post again
+  (intended "correct and re-post" flow). When wiring auto-posting, ensure a re-run after a
+  void is the deliberate path, not an accidental double-book.
+
+---
+
+## 10. Tests & related modules
+
+Tests (`tests/Feature/`):
+- `Services/JournalPostingServiceTest` — balanced enforced, unbalanced rejected, closed
+  period rejected, non-postable account rejected, one-sided lines, negatives rejected,
+  number generation, idempotent per source, `void` creates a balanced reversal, and
+  `postDraft` posts/rejects a saved draft (balance is enforced at **post**, not at
+  draft-save — a draft may be unbalanced while being built).
+- `Scenarios/GeneralLedgerScenarioTest` — trial balance ties out across entries; per-
+  property scoping vs consolidated; account ledger running balance.
+- `Models/LedgerAccountTest` — tree, `normal_balance` derivation, `postable`/`active` scopes.
+- `Resources/JournalEntryResourceTest` — the accounting screens render; full UI flow of
+  creating a draft entry and posting it.
+
+**Related modules:** 05 Billing, 06 Payments, 07 Credit Notes, 08 CAM, 13 Marketing,
+12 Vendors (Phase 3 AP), 17 Reports, 18 RBAC, 12-reconciliation-harness.
+
+---
+
+## Roadmap (خارطة الطريق)
+
+| Phase | Arabic | Scope |
+|-------|--------|-------|
+| **0 — Foundation** ✅ this doc | الأساس | Chart of accounts, fiscal years/periods, journal entries, posting service, account mappings, manual-entry UI, trial balance + general ledger, RBAC, bilingual labels, tests |
+| **1 — Auto-posting** | الترحيل الآلي | Journalizers for invoice/payment/credit-note/CAM/late-fee/deposit; fire from existing service hooks; backfill all historical documents; GL↔AR tie-out in `billing:reconcile` |
+| **2 — Financial statements** | القوائم المالية | Income statement + balance sheet pages, per-property & consolidated; export PDF |
+| **3 — Expenses & payables** | المصروفات والموردون | Accounts payable (vendor bills), expense/petty-cash entry, payroll posting — "everything runs through accounting" |
+| **4 — Close & compliance** | الإقفال والامتثال | Period/year-end closing entries (قيود الإقفال), optional ETA/EAS statutory report formatting |
+
+---
+
+## Bilingual glossary (مصطلحات)
+
+| English | Arabic |
+|---------|--------|
+| Chart of Accounts | دليل الحسابات |
+| General Ledger | دفتر الأستاذ العام |
+| Journal / Journal Entry | دفتر اليومية / قيد يومية |
+| Debit / Credit | مدين / دائن |
+| Trial Balance | ميزان المراجعة |
+| Income Statement (P&L) | قائمة الدخل |
+| Balance Sheet | قائمة المركز المالي / الميزانية العمومية |
+| Accounts Receivable | المدينون / ذمم مدينة |
+| Accounts Payable | الموردون / الدائنون |
+| VAT Payable | ضريبة القيمة المضافة المستحقة |
+| Deposits Held | تأمينات محتجزة |
+| Fiscal Year / Period | السنة المالية / الفترة المحاسبية |
+| Posting | الترحيل |
+| Reversing entry | قيد عكسي |
+| Closing entries | قيود الإقفال |
+| Opening balances | أرصدة افتتاحية |
+</content>
+</invoke>

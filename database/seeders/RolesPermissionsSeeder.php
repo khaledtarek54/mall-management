@@ -120,6 +120,27 @@ class RolesPermissionsSeeder extends Seeder
             'cam.bill_allocation'      => 'Bill a CAM allocation (creates a true-up charge)',
             'cam.mark_reconciled'      => 'Close a pool as fully reconciled',
         ],
+        'ledger_accounts' => [
+            'ledger_accounts.view'   => 'View the chart of accounts',
+            'ledger_accounts.create' => 'Create ledger accounts',
+            'ledger_accounts.edit'   => 'Edit ledger accounts',
+            'ledger_accounts.delete' => 'Delete ledger accounts',
+        ],
+        'journal_entries' => [
+            'journal_entries.view'   => 'View journal entries',
+            'journal_entries.create' => 'Create manual journal entries',
+            'journal_entries.edit'   => 'Edit draft journal entries',
+            'journal_entries.delete' => 'Delete journal entries',
+            'journal_entries.post'   => 'Post a journal entry to the ledger',
+            'journal_entries.void'   => 'Void (reverse) a posted journal entry',
+        ],
+        'accounting_periods' => [
+            'accounting_periods.view'   => 'View fiscal years and accounting periods',
+            'accounting_periods.manage' => 'Open / close accounting periods',
+        ],
+        'general_ledger' => [
+            'general_ledger.view' => 'View the trial balance, general ledger, and financial statements',
+        ],
         'utility_meters' => [
             'utility_meters.view'   => 'View utility meters',
             'utility_meters.create' => 'Create utility meters',
@@ -265,6 +286,11 @@ class RolesPermissionsSeeder extends Seeder
             'credit_notes.issue', 'credit_notes.apply', 'credit_notes.void',
             'cam.view', 'cam.create', 'cam.edit',
             'cam.generate_allocations', 'cam.bill_allocation', 'cam.mark_reconciled',
+            'ledger_accounts.view', 'ledger_accounts.create', 'ledger_accounts.edit',
+            'journal_entries.view', 'journal_entries.create', 'journal_entries.edit',
+            'journal_entries.post', 'journal_entries.void',
+            'accounting_periods.view', 'accounting_periods.manage',
+            'general_ledger.view',
             'reports.view', 'reports.download',
         ]);
 
