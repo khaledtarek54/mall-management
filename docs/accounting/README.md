@@ -5,6 +5,11 @@
 > accounting knowledge needed. The deep technical reference lives in
 > [docs/modules/21-general-ledger.md](../modules/21-general-ledger.md); this page
 > is the "you are here" overview so you never have to hold the whole thing in your head.
+>
+> **Presenting to the accountant?** Use [WALKTHROUGH.md](WALKTHROUGH.md) — a full
+> bilingual (Arabic) tour: the concepts, the chart of accounts, every money flow with
+> its exact journal entry, the screens, the reports, a demo script, and the questions
+> to ask him.
 
 ---
 
