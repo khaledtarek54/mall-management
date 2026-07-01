@@ -3,8 +3,10 @@
 namespace App\Filament\Admin\Pages;
 
 use App\Filament\Admin\Pages\Concerns\ScopesLedgerReport;
+use App\Services\Accounting\LedgerReportPdfService;
 use App\Services\Accounting\LedgerReportService;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Carbon;
@@ -28,6 +30,34 @@ class IncomeStatement extends Page
     public function getTitle(): string
     {
         return __('admin.reports.income_statement_title');
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('download_pdf')
+                ->label(__('admin.actions.download_pdf'))
+                ->icon('heroicon-o-document-arrow-down')
+                ->color('gray')
+                ->visible(fn () => $this->canViewReports())
+                ->authorize(fn () => $this->canViewReports())
+                ->action(function () {
+                    $svc = app(LedgerReportPdfService::class);
+                    $pdf = $svc->incomeStatement(
+                        $this->scopedAssetIds(),
+                        Carbon::create($this->year, 1, 1)->startOfDay(),
+                        Carbon::create($this->year, 12, 31)->endOfDay(),
+                        $this->propertyLabel(),
+                        $this->year,
+                    );
+
+                    return response()->streamDownload(
+                        fn () => print($pdf),
+                        $svc->filename('income-statement', $this->year),
+                        ['Content-Type' => 'application/pdf'],
+                    );
+                }),
+        ];
     }
 
     public static function getNavigationLabel(): string

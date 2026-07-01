@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages\Concerns;
 
+use App\Models\Asset;
 use App\Models\FiscalYear;
 use App\Support\TenantScope;
 use Illuminate\Support\Facades\Auth;
@@ -38,6 +39,28 @@ trait ScopesLedgerReport
     protected function scopedAssetIds(): ?array
     {
         return TenantScope::reportAssetIds($this->assetId ?: null);
+    }
+
+    /**
+     * Human label for the report's scope — used in PDF headers. Derived from the
+     * CLAMPED asset-id set (scopedAssetIds), never the raw client-bound assetId, so
+     * the header can't name a property the user isn't allowed to see and always
+     * matches the PDF body. A single allowed property → its name; else Consolidated.
+     */
+    protected function propertyLabel(): string
+    {
+        $ids = $this->scopedAssetIds();
+
+        if (is_array($ids) && count($ids) === 1) {
+            return Asset::find($ids[0])?->name ?? __('admin.fields.property_consolidated');
+        }
+
+        return __('admin.fields.property_consolidated');
+    }
+
+    protected function canViewReports(): bool
+    {
+        return Auth::user()?->can('general_ledger.view') ?? false;
     }
 
     /** Filter view-data every report blade needs (year list, property picker, locale). */

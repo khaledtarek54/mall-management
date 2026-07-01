@@ -11,6 +11,25 @@ beforeEach(function () {
     Filament::setTenant(null, isQuiet: true);
 });
 
+// PDF-export review fix: the report PDF header label must derive from the CLAMPED
+// scope, never the raw client-bound assetId — else a restricted user tampering the
+// picker would leak another property's name in the header.
+it('clamps the report PDF header label to the visible property (no name leak)', function () {
+    $a = makeAsset();
+    $b = makeAsset();
+    $this->actingAs(makeUser('accounting', [$a->id])); // visible: A only
+
+    $page = new \App\Filament\Admin\Pages\TrialBalance();
+    $page->assetId = $b->id; // tamper to a property they cannot see
+
+    $method = new ReflectionMethod($page, 'propertyLabel');
+    $method->setAccessible(true);
+    $label = $method->invoke($page);
+
+    expect($label)->toBe($a->name);       // clamped to their own property
+    expect($label)->not->toBe($b->name);  // does NOT leak B's name
+});
+
 it('clamps a property-restricted user to their assigned properties', function () {
     $a = makeAsset();
     $b = makeAsset();

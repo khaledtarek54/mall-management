@@ -39,6 +39,12 @@ it('renders the accounting screens', function () {
     Livewire::test(BalanceSheet::class)->assertOk();
 });
 
+it('downloads the financial statements as PDF from the report pages', function () {
+    Livewire::test(TrialBalance::class)->callAction('download_pdf')->assertHasNoActionErrors();
+    Livewire::test(IncomeStatement::class)->callAction('download_pdf')->assertHasNoActionErrors();
+    Livewire::test(BalanceSheet::class)->callAction('download_pdf')->assertHasNoActionErrors();
+});
+
 it('creates a draft journal entry and posts it through the UI', function () {
     $ar = app(AccountResolver::class);
 
