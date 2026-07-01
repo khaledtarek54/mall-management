@@ -162,6 +162,12 @@ class RolesPermissionsSeeder extends Seeder
             'payrolls.delete'  => 'Delete payroll runs',
             'payrolls.approve' => 'Approve a payroll run (makes it postable)',
         ],
+        'deposit_transactions' => [
+            'deposit_transactions.view'   => 'View security-deposit transactions',
+            'deposit_transactions.create' => 'Record security-deposit transactions',
+            'deposit_transactions.edit'   => 'Edit security-deposit transactions',
+            'deposit_transactions.delete' => 'Delete security-deposit transactions',
+        ],
         'utility_meters' => [
             'utility_meters.view'   => 'View utility meters',
             'utility_meters.create' => 'Create utility meters',
@@ -316,6 +322,7 @@ class RolesPermissionsSeeder extends Seeder
             'vendor_bills.approve', 'vendor_bills.pay',
             'expenses.view', 'expenses.create', 'expenses.edit',
             'payrolls.view', 'payrolls.create', 'payrolls.edit', 'payrolls.approve',
+            'deposit_transactions.view', 'deposit_transactions.create', 'deposit_transactions.edit',
             'reports.view', 'reports.download',
         ]);
 

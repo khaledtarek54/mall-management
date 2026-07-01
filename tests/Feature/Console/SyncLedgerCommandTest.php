@@ -111,6 +111,19 @@ it('backfills approved payroll runs', function () {
     expect(app(LedgerReportService::class)->trialBalance()['balanced'])->toBeTrue();
 });
 
+it('backfills security-deposit transactions', function () {
+    $lease = makeLease(makeUnit(makeAsset()));
+    $deposit = \App\Models\DepositTransaction::create([
+        'lease_id' => $lease->id, 'type' => 'receipt', 'amount' => 5000,
+        'transaction_date' => now()->toDateString(), 'method' => 'bank', 'status' => 'recorded',
+    ]);
+
+    $this->artisan('accounting:sync-ledger --all')->assertSuccessful();
+
+    expect(JournalEntry::where('source_type', $deposit->getMorphClass())->count())->toBe(1);
+    expect(app(LedgerReportService::class)->trialBalance()['balanced'])->toBeTrue();
+});
+
 it('is idempotent — a second backfill posts nothing new', function () {
     syncInvoice();
     $this->artisan('accounting:sync-ledger --all')->assertSuccessful();

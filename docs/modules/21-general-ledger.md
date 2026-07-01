@@ -137,7 +137,9 @@ accountant can verify the accounting treatment. `[role]` resolves via `account_m
 | **Capture payment** تحصيل دفعة | `bank` or `cash` (amount) | `accounts_receivable` (amount) |
 | **Apply credit note** تطبيق إشعار خصم | `sales_returns`, `vat_payable` | `accounts_receivable` (total) |
 | **Late fee** غرامة تأخير | `accounts_receivable` | `late_fee_income` |
-| **Security deposit received** استلام تأمين | `bank` | `deposits_held` (a *liability*) |
+| **Security deposit — receipt** استلام تأمين | `bank`/`cash` | `deposits_held` (a *liability*) |
+| **Security deposit — refund** استرداد تأمين | `deposits_held` | `bank`/`cash` |
+| **Security deposit — forfeit** مصادرة تأمين | `deposits_held` | `misc_income` |
 | **CAM positive true-up** تسوية صيانة موجبة | `accounts_receivable` | `cam_recovery_revenue` (+ `vat_payable` if taxed) |
 | **Vendor bill** فاتورة مورد | `*_expense` (net, by category) + `vat_recoverable` (input VAT) | `accounts_payable` (total) |
 | **Pay vendor** سداد مورد | `accounts_payable` | `bank` / `cash` |
@@ -381,11 +383,13 @@ document orphans its journal entry (the sweep no longer sees the trashed source,
 never voids it). Prefer cancel over delete for posted documents; a future enhancement is
 a void-on-delete hook (or a sweep that scans trashed sources with live entries).
 
+**Security deposits (تأمينات) — done:** `DepositTransaction` records receipt / refund /
+forfeit against a lease, each posting its own entry — receipt Dr Bank\|Cash / Cr Deposits
+Held; refund Dr Deposits Held / Cr Bank\|Cash; forfeit Dr Deposits Held / Cr Misc Income.
+Swept by `accounting:sync-ledger`; `DepositTransactionResource` gated by
+`deposit_transactions.*`. The GL Deposits-Held balance = Σ receipts − Σ refunds − forfeits.
+
 **Deferred follow-ups (not yet built):**
-- **Security deposits (تأمينات):** the user confirmed deposits are real cash receipts
-  (Dr Bank / Cr Deposits Held), but there is no *deposit-receipt* record in the data
-  model yet (deposits live only as a number on the lease). Posting needs a deposit
-  receipt — a small, focused addition.
 - **CAM revenue classification:** CAM-recovery items use `type='other'` and currently
   post to `misc_income`. A dedicated *CAM Recovery Revenue* line needs a distinct `cam`
   item type on the recovery charge (a small module-08 change).

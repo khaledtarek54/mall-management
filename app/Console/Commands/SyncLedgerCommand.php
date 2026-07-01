@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\CreditNote;
+use App\Models\DepositTransaction;
 use App\Models\Expense;
 use App\Models\Invoice;
 use App\Models\Payment;
@@ -50,6 +51,7 @@ class SyncLedgerCommand extends Command
         $this->syncModel(VendorBillPayment::query(), 'updated_at', $since, $poster, $counts);
         $this->syncModel(Expense::query(), 'updated_at', $since, $poster, $counts);
         $this->syncModel(Payroll::query(), 'updated_at', $since, $poster, $counts);
+        $this->syncModel(DepositTransaction::query(), 'updated_at', $since, $poster, $counts);
 
         $this->newLine();
         $this->table(['result', 'count'], collect($counts)->map(fn ($v, $k) => [$k, $v])->values()->all());
@@ -89,6 +91,7 @@ class SyncLedgerCommand extends Command
             VendorBillPayment::min('payment_date'), VendorBillPayment::max('payment_date'),
             Expense::min('expense_date'), Expense::max('expense_date'),
             Payroll::min('period_month'), Payroll::max('period_month'),
+            DepositTransaction::min('transaction_date'), DepositTransaction::max('transaction_date'),
         ]);
 
         $years = collect($dates)->map(fn ($d) => (int) Carbon::parse($d)->year);
