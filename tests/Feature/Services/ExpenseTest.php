@@ -5,8 +5,10 @@ use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\LedgerPoster;
 use App\Services\Accounting\LedgerReportService;
+use App\Services\ExpenseService;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
+use Illuminate\Support\Facades\Log;
 
 beforeEach(function () {
     $this->seed(ChartOfAccountsSeeder::class);
@@ -73,4 +75,26 @@ it('keeps the trial balance balanced after posting an expense', function () {
     $this->poster->post(makeExpense());
 
     expect(app(LedgerReportService::class)->trialBalance()['balanced'])->toBeTrue();
+});
+
+it('books each category to its expense account, and an unmapped one to admin with a warning', function () {
+    // A mapped category → its dedicated expense account.
+    $marketing = $this->poster->post(makeExpense(['category' => 'marketing'])->fresh());
+    expect($marketing->lines->keyBy('ledger_account_id')->has($this->accounts->id('marketing_expense')))->toBeTrue();
+
+    // An unmapped category → admin_expense + a warning (MapsExpenseCategory trait).
+    Log::spy();
+    $unmapped = $this->poster->post(makeExpense(['category' => 'insurance'])->fresh());
+    expect($unmapped->lines->keyBy('ledger_account_id')->has($this->accounts->id('admin_expense')))->toBeTrue();
+    Log::shouldHaveReceived('warning')->atLeast()->once();
+});
+
+it('cancels a recorded expense (idempotent) via the service', function () {
+    $expense = makeExpense();
+
+    app(ExpenseService::class)->cancel($expense);
+    expect($expense->fresh()->status)->toBe('cancelled');
+
+    app(ExpenseService::class)->cancel($expense->fresh()); // idempotent, no throw
+    expect($expense->fresh()->status)->toBe('cancelled');
 });

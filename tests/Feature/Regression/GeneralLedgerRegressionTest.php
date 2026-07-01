@@ -137,6 +137,35 @@ it('posts a balanced pure-VAT expense with no zero-amount line', function () {
     expect((float) $byAccount[$this->accounts->id('cash')]->credit)->toEqualWithDelta(140.0, 0.001);
 });
 
+it('posts a balanced pure-VAT credit note with no zero-amount line', function () {
+    $lease = makeLease(makeUnit(makeAsset()));
+    $note = \App\Models\CreditNote::create([
+        'tenant_id' => $lease->tenant_id, 'lease_id' => $lease->id, 'status' => 'issued',
+        'issue_date' => now()->toDateString(), 'reason' => 'adjustment',
+        'subtotal' => 0, 'vat_amount' => 140, 'total' => 140, // net 0
+        'applied_amount' => 0, 'balance' => 140, 'currency' => 'EGP',
+    ]);
+
+    $entry = $this->poster->post($note);
+
+    expect($entry)->not->toBeNull();
+    expect($entry->isBalanced())->toBeTrue();
+    expect($entry->lines)->toHaveCount(2); // VAT + AR, no zero sales-returns line
+});
+
+it('skips a malformed credit note whose VAT exceeds total (no unbalanced entry)', function () {
+    $lease = makeLease(makeUnit(makeAsset()));
+    $note = \App\Models\CreditNote::create([
+        'tenant_id' => $lease->tenant_id, 'lease_id' => $lease->id, 'status' => 'issued',
+        'issue_date' => now()->toDateString(), 'reason' => 'adjustment',
+        'subtotal' => 0, 'vat_amount' => 150, 'total' => 100, // vat > total → net < 0
+        'applied_amount' => 0, 'balance' => 100, 'currency' => 'EGP',
+    ]);
+
+    // Malformed → skipped (logged), NOT an unbalanced entry that throws mid-sweep.
+    expect($this->poster->post($note))->toBeNull();
+});
+
 it('posts a balanced pure-VAT vendor bill with no zero-amount line', function () {
     $bill = \App\Models\VendorBill::create([
         'vendor_id' => \App\Models\Vendor::factory()->create()->id,

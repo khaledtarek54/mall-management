@@ -366,6 +366,13 @@ view). Splitting one cash receipt cleanly across properties needs inter-property
 due-to/due-from accounts — deferred to Phase 3. Single-property payments (the norm) are
 unaffected.
 
+**Known limitation — deleting a posted document:** the sweep reconciles the GL from
+*live* documents, so **cancelling** a document (invoice / vendor bill / expense) is the
+safe reversal — the next sweep voids its entry. **Soft-deleting** an already-posted
+document orphans its journal entry (the sweep no longer sees the trashed source, so it
+never voids it). Prefer cancel over delete for posted documents; a future enhancement is
+a void-on-delete hook (or a sweep that scans trashed sources with live entries).
+
 **Deferred follow-ups (not yet built):**
 - **Security deposits (تأمينات):** the user confirmed deposits are real cash receipts
   (Dr Bank / Cr Deposits Held), but there is no *deposit-receipt* record in the data

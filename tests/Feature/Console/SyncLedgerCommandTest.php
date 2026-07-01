@@ -81,6 +81,22 @@ it('backfills direct expenses', function () {
     expect(app(LedgerReportService::class)->trialBalance()['balanced'])->toBeTrue();
 });
 
+it('voids the entry when an expense is later cancelled', function () {
+    $expense = \App\Models\Expense::create([
+        'asset_id' => makeAsset()->id, 'category' => 'admin',
+        'amount' => 500, 'vat_amount' => 0, 'total' => 500,
+        'paid_from' => 'cash', 'expense_date' => now()->toDateString(), 'status' => 'recorded',
+    ]);
+    $this->artisan('accounting:sync-ledger --all')->assertSuccessful();
+
+    $expense->update(['status' => 'cancelled']);
+    $this->artisan('accounting:sync-ledger --all')->assertSuccessful();
+
+    $entries = JournalEntry::where('source_type', $expense->getMorphClass())->where('source_id', $expense->id)->get();
+    expect($entries->where('status', 'void')->count())->toBe(1);
+    expect(app(LedgerReportService::class)->trialBalance()['total_debit'])->toEqualWithDelta(0.0, 0.001);
+});
+
 it('is idempotent — a second backfill posts nothing new', function () {
     syncInvoice();
     $this->artisan('accounting:sync-ledger --all')->assertSuccessful();

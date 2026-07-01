@@ -40,6 +40,17 @@ class CreditNoteJournalizer implements Journalizer
             return null;
         }
 
+        // Malformed data (VAT exceeds total → negative net). Unlike VendorBill/Expense,
+        // CreditNote has no total = net + VAT model invariant (it's item-derived), so
+        // skip + flag rather than emit an unbalanced entry.
+        if ($netReturn < 0) {
+            \Illuminate\Support\Facades\Log::warning(
+                "CreditNoteJournalizer: note {$note->number} has VAT ({$vat}) exceeding total ({$total}); skipping ledger post."
+            );
+
+            return null;
+        }
+
         $lines = [];
         // Guard net > 0 — a pure-VAT credit note (net 0) would otherwise emit a
         // debit-0/credit-0 line that the posting engine rejects.
