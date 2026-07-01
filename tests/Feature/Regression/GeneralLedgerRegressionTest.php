@@ -96,6 +96,48 @@ it('balance-sheet net income equals income-statement net profit', function () {
     expect($netIncome)->toBe($netProfit);
 });
 
+// Phase 3 review fix: cancelling a bill zeroes its balance via recompute(), and a
+// later recompute() must NOT resurrect the payable (balance stays 0).
+it('keeps a cancelled vendor bill at zero balance across recompute', function () {
+    $bill = \App\Models\VendorBill::create([
+        'vendor_id' => \App\Models\Vendor::factory()->create()->id,
+        'asset_id' => makeAsset()->id,
+        'category' => 'admin',
+        'status' => 'approved',
+        'bill_date' => now()->toDateString(),
+        'subtotal' => 5000, 'vat_amount' => 0, 'total' => 5000, 'balance' => 5000,
+    ]);
+
+    app(\App\Services\VendorBillService::class)->cancel($bill);
+    expect((float) $bill->fresh()->balance)->toEqualWithDelta(0.0, 0.001);
+
+    $bill->fresh()->recompute(); // must not restore balance = total
+    expect((float) $bill->fresh()->balance)->toEqualWithDelta(0.0, 0.001);
+    expect($bill->fresh()->status)->toBe('cancelled');
+});
+
+// Phase 3 fix: a vendor bill whose stored subtotal drifts from total − vat must
+// still post a balanced entry (the expense is derived from total − VAT).
+it('derives a balanced vendor-bill entry when subtotal drifts from total minus vat', function () {
+    $bill = \App\Models\VendorBill::create([
+        'vendor_id' => \App\Models\Vendor::factory()->create()->id,
+        'asset_id' => makeAsset()->id,
+        'category' => 'maintenance',
+        'status' => 'approved',
+        'bill_date' => now()->toDateString(),
+        'subtotal' => 900, 'vat_amount' => 140, 'total' => 1140, // intentionally inconsistent
+        'balance' => 1140,
+    ]);
+
+    $entry = $this->poster->post($bill);
+
+    expect($entry->isBalanced())->toBeTrue();
+    $byAccount = $entry->lines->keyBy('ledger_account_id');
+    expect((float) $byAccount[$this->accounts->id('maintenance_expense')]->debit)->toEqualWithDelta(1000.0, 0.001); // total − vat
+    expect((float) $byAccount[$this->accounts->id('vat_recoverable')]->debit)->toEqualWithDelta(140.0, 0.001);
+    expect((float) $byAccount[$this->accounts->id('accounts_payable')]->credit)->toEqualWithDelta(1140.0, 0.001);
+});
+
 // Phase 1 review fix: a credit note whose stored subtotal drifts from total − vat
 // must still post a balanced entry (sales_returns is derived from total − vat).
 it('derives a balanced credit-note entry when subtotal drifts from total minus vat', function () {

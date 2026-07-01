@@ -141,6 +141,10 @@ return [
             'description' => 'Issue credit notes to settle disputes, refund returns, or adjust an invoice.',
             'cta' => 'Issue a credit note',
         ],
+        'vendor_bills' => [
+            'heading' => 'No vendor bills yet',
+            'description' => 'Record a vendor bill to track and pay it through accounting.',
+        ],
         'vendors' => [
             'heading' => 'No vendors yet',
             'description' => 'Add contractors and suppliers to route maintenance requests externally and track service contracts.',
@@ -269,6 +273,7 @@ return [
         'invoices' => 'Invoices',
         'payments' => 'Payments',
         'credit_notes' => 'Credit Notes',
+        'vendor_bills' => 'Vendor Bills',
         'vendors' => 'Vendors',
         'roles' => 'Roles & Permissions',
         'settings' => 'Settings',
@@ -291,6 +296,7 @@ return [
         'invoice' => ['singular' => 'Invoice', 'plural' => 'Invoices'],
         'payment' => ['singular' => 'Payment', 'plural' => 'Payments'],
         'credit_note' => ['singular' => 'Credit Note', 'plural' => 'Credit Notes'],
+        'vendor_bill' => ['singular' => 'Vendor Bill', 'plural' => 'Vendor Bills'],
         'vendor' => ['singular' => 'Vendor', 'plural' => 'Vendors'],
         'department' => ['singular' => 'Department', 'plural' => 'Departments'],
         'marketing_budget' => ['singular' => 'Marketing Budget', 'plural' => 'Marketing Budgets'],
@@ -478,6 +484,9 @@ return [
         'journal_entry' => [
             'number' => 'Entry no.',
             'manual' => 'Manual',
+        ],
+        'vendor_bill' => [
+            'number' => 'Bill no.',
         ],
         'common' => [
             'tenant' => 'Tenant',
@@ -824,6 +833,9 @@ return [
         'apply_amount_helper' => 'Maximum applicable: EGP :max',
         'void_credit_note' => 'Void',
         'void_credit_note_confirm' => 'Voiding stops this credit note from being applied. Already-applied credits cannot be voided — issue an offsetting note instead.',
+        'approve_bill' => 'Approve',
+        'record_payment' => 'Record payment',
+        'cancel_bill' => 'Cancel',
         'add_contact' => 'Add Contact',
         'add_contract' => 'Add Contract',
         'add_reading' => 'Log Reading',
@@ -893,6 +905,9 @@ return [
         'credit_note_applied_body' => 'EGP :amount applied to invoice :invoice.',
         'credit_note_apply_failed' => 'No credit could be applied (note voided or no balance).',
         'credit_note_voided' => 'Credit note voided',
+        'vendor_bill_approved' => 'Bill approved',
+        'vendor_bill_paid' => 'Payment recorded',
+        'vendor_bill_cancelled' => 'Bill cancelled',
         'vendor_created' => 'Vendor saved',
         'maintenance_assigned_vendor' => 'Assigned to vendor :vendor.',
         // Paymob
@@ -998,6 +1013,12 @@ return [
         'total' => 'Total',
         'balance' => 'Balance',
         'paid' => 'Paid',
+        'paid_amount' => 'Paid',
+        'vendor' => 'Vendor',
+        'bill_number' => 'Bill no.',
+        'bill_date' => 'Bill date',
+        'vendor_reference' => 'Vendor reference',
+        'bill_description' => 'Description',
         'issue_date' => 'Issue Date',
         'due_date' => 'Due Date',
         'period_start' => 'Period Start',
@@ -1154,6 +1175,7 @@ return [
         'cam_notes' => 'Notes',
         'utility_meter' => 'Meter Details',
         'credit_note_details' => 'Credit Note',
+        'vendor_bill_details' => 'Bill details',
         'vendor_details' => 'Vendor',
         'vendor_contracts' => 'Contracts',
         'vendor_contacts' => 'Contacts',
@@ -1175,6 +1197,7 @@ return [
         'invoices' => 'Invoices',
         'payments' => 'Payments',
         'credit_notes' => 'Credit Notes',
+        'vendor_bills' => 'Vendor Bills (AP)',
         'maintenance' => 'Requests',
         'tenant_sales' => 'Tenant Sales',
         'cam' => 'CAM Reconciliation',
@@ -1280,6 +1303,13 @@ return [
             'applied' => 'Applied',
             'void' => 'Void',
         ],
+        'vendor_bill' => [
+            'draft' => 'Draft',
+            'approved' => 'Approved',
+            'partially_paid' => 'Partially paid',
+            'paid' => 'Paid',
+            'cancelled' => 'Cancelled',
+        ],
         'vendor' => [
             'active' => 'Active',
             'inactive' => 'Inactive',
@@ -1360,6 +1390,21 @@ return [
             'consultant' => 'Consultant',
             'other' => 'Other',
         ],
+        'vendor_bill_category' => [
+            'maintenance' => 'Maintenance',
+            'utilities' => 'Utilities',
+            'cleaning_security' => 'Cleaning & Security',
+            'marketing' => 'Marketing',
+            'admin' => 'Administrative',
+            'other' => 'Other',
+        ],
+        'vendor_bill_payment_method' => [
+            'cash' => 'Cash',
+            'bank_transfer' => 'Bank transfer',
+            'cheque' => 'Cheque',
+            'card' => 'Card',
+            'other' => 'Other',
+        ],
         'maintenance_priority' => [
             'low' => 'Low',
             'medium' => 'Medium',
@@ -1435,6 +1480,7 @@ return [
     'relation_managers' => [
         'notes' => 'Communications',
         'meter_readings' => 'Monthly Readings',
+        'vendor_bill_payments' => 'Payments',
     ],
 
     'users' => [

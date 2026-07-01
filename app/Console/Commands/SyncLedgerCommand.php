@@ -5,6 +5,8 @@ namespace App\Console\Commands;
 use App\Models\CreditNote;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\VendorBill;
+use App\Models\VendorBillPayment;
 use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\LedgerReportService;
@@ -42,6 +44,8 @@ class SyncLedgerCommand extends Command
         $this->syncModel(Invoice::query(), 'updated_at', $since, $poster, $counts);
         $this->syncModel(Payment::query(), 'updated_at', $since, $poster, $counts);
         $this->syncModel(CreditNote::query(), 'updated_at', $since, $poster, $counts);
+        $this->syncModel(VendorBill::query(), 'updated_at', $since, $poster, $counts);
+        $this->syncModel(VendorBillPayment::query(), 'updated_at', $since, $poster, $counts);
 
         $this->newLine();
         $this->table(['result', 'count'], collect($counts)->map(fn ($v, $k) => [$k, $v])->values()->all());
@@ -77,6 +81,8 @@ class SyncLedgerCommand extends Command
             Invoice::min('issue_date'), Invoice::max('issue_date'),
             Payment::min('payment_date'), Payment::max('payment_date'),
             CreditNote::min('issue_date'), CreditNote::max('issue_date'),
+            VendorBill::min('bill_date'), VendorBill::max('bill_date'),
+            VendorBillPayment::min('payment_date'), VendorBillPayment::max('payment_date'),
         ]);
 
         $years = collect($dates)->map(fn ($d) => (int) Carbon::parse($d)->year);
@@ -147,6 +153,27 @@ class SyncLedgerCommand extends Command
             $this->info('✓ GL ties to AR.');
         } else {
             $this->warn('⚠ GL ↔ AR delta: '.number_format($delta, 2).' — run billing:reconcile to investigate.');
+        }
+
+        // Accounts Payable tie-out: GL payables should equal outstanding vendor-bill balances.
+        try {
+            $ap = $accounts->account('accounts_payable');
+        } catch (\DomainException) {
+            return;
+        }
+
+        $glAp = round($reports->accountLedger($ap)['closing'], 2);
+        $billBalances = round((float) VendorBill::whereNotIn('status', ['cancelled', 'draft'])->sum('balance'), 2);
+        $apDelta = round($glAp - $billBalances, 2);
+
+        $this->newLine();
+        $this->line('GL payables (دفتر الأستاذ):       '.number_format($glAp, 2));
+        $this->line('Vendor-bill balances:             '.number_format($billBalances, 2));
+
+        if (abs($apDelta) < 0.01) {
+            $this->info('✓ GL ties to AP.');
+        } else {
+            $this->warn('⚠ GL ↔ AP delta: '.number_format($apDelta, 2).' — investigate.');
         }
     }
 }

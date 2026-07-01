@@ -141,6 +141,10 @@ return [
             'description' => 'أصدر إشعارات خصم لتسوية النزاعات أو رد المرتجعات أو تعديل الفواتير.',
             'cta' => 'أصدر إشعار خصم',
         ],
+        'vendor_bills' => [
+            'heading' => 'لا توجد فواتير موردين',
+            'description' => 'سجّل فاتورة مورد لتتبعها وسدادها عبر المحاسبة.',
+        ],
         'vendors' => [
             'heading' => 'لا يوجد موردون بعد',
             'description' => 'أضف المقاولين والموردين لتوجيه طلبات الصيانة الخارجية وتتبع عقود الخدمة.',
@@ -269,6 +273,7 @@ return [
         'invoices' => 'الفواتير',
         'payments' => 'المدفوعات',
         'credit_notes' => 'إشعارات الخصم',
+        'vendor_bills' => 'فواتير الموردين',
         'vendors' => 'الموردون',
         'roles' => 'الأدوار والصلاحيات',
         'settings' => 'الإعدادات',
@@ -291,6 +296,7 @@ return [
         'invoice' => ['singular' => 'فاتورة', 'plural' => 'الفواتير'],
         'payment' => ['singular' => 'دفعة', 'plural' => 'المدفوعات'],
         'credit_note' => ['singular' => 'إشعار خصم', 'plural' => 'إشعارات الخصم'],
+        'vendor_bill' => ['singular' => 'فاتورة مورد', 'plural' => 'فواتير الموردين'],
         'vendor' => ['singular' => 'مورد', 'plural' => 'الموردون'],
         'department' => ['singular' => 'قسم', 'plural' => 'الأقسام'],
         'marketing_budget' => ['singular' => 'ميزانية تسويق', 'plural' => 'ميزانيات التسويق'],
@@ -478,6 +484,9 @@ return [
         'journal_entry' => [
             'number' => 'رقم القيد',
             'manual' => 'يدوي',
+        ],
+        'vendor_bill' => [
+            'number' => 'رقم الفاتورة',
         ],
         'common' => [
             'tenant' => 'المستأجر',
@@ -827,6 +836,9 @@ return [
         'apply_amount_helper' => 'الحد الأقصى المتاح: :max جنيه',
         'void_credit_note' => 'إلغاء',
         'void_credit_note_confirm' => 'الإلغاء يوقف استخدام إشعار الخصم. لا يمكن إلغاء إشعار تم تطبيقه — أصدر إشعارًا معاكسًا بدلًا من ذلك.',
+        'approve_bill' => 'اعتماد',
+        'record_payment' => 'تسجيل دفعة',
+        'cancel_bill' => 'إلغاء',
         'add_contact' => 'إضافة جهة اتصال',
         'add_contract' => 'إضافة عقد',
         'add_reading' => 'تسجيل قراءة',
@@ -893,6 +905,9 @@ return [
         'credit_note_applied_body' => 'تم تطبيق :amount جنيه على الفاتورة :invoice.',
         'credit_note_apply_failed' => 'لا يوجد رصيد قابل للتطبيق.',
         'credit_note_voided' => 'تم إلغاء إشعار الخصم',
+        'vendor_bill_approved' => 'تم اعتماد الفاتورة',
+        'vendor_bill_paid' => 'تم تسجيل الدفعة',
+        'vendor_bill_cancelled' => 'تم إلغاء الفاتورة',
         'vendor_created' => 'تم حفظ المورد',
         'maintenance_assigned_vendor' => 'تم الإسناد إلى المورد :vendor.',
         // Paymob
@@ -998,6 +1013,12 @@ return [
         'total' => 'الإجمالي',
         'balance' => 'الرصيد',
         'paid' => 'المدفوع',
+        'paid_amount' => 'المدفوع',
+        'vendor' => 'المورد',
+        'bill_number' => 'رقم الفاتورة',
+        'bill_date' => 'تاريخ الفاتورة',
+        'vendor_reference' => 'مرجع المورد',
+        'bill_description' => 'بيان',
         'issue_date' => 'تاريخ الإصدار',
         'due_date' => 'تاريخ الاستحقاق',
         'period_start' => 'بداية الفترة',
@@ -1150,6 +1171,7 @@ return [
         'tenant_sales_submit' => 'تقديم مبيعات الشهر',
         'tenant_sales_submit_description' => 'أقرّ بإجمالي مبيعاتك للشهر الماضي. عند تثبيت الإدارة للإقرار، تُحتسب نسبة الإيجار تلقائيًا.',
         'credit_note_details' => 'إشعار الخصم',
+        'vendor_bill_details' => 'بيانات الفاتورة',
         'vendor_details' => 'المورد',
         'vendor_contracts' => 'العقود',
         'vendor_contacts' => 'جهات الاتصال',
@@ -1175,6 +1197,7 @@ return [
         'invoices' => 'الفواتير',
         'payments' => 'المدفوعات',
         'credit_notes' => 'إشعارات الخصم',
+        'vendor_bills' => 'فواتير الموردين',
         'maintenance' => 'الطلبات',
         'tenant_sales' => 'مبيعات المستأجرين',
         'cam' => 'تسوية المصروفات المشتركة',
@@ -1280,6 +1303,13 @@ return [
             'applied' => 'مُطبَّق',
             'void' => 'ملغي',
         ],
+        'vendor_bill' => [
+            'draft' => 'مسودة',
+            'approved' => 'معتمدة',
+            'partially_paid' => 'مدفوعة جزئيًا',
+            'paid' => 'مدفوعة',
+            'cancelled' => 'ملغاة',
+        ],
         'vendor' => [
             'active' => 'نشط',
             'inactive' => 'غير نشط',
@@ -1360,6 +1390,21 @@ return [
             'consultant' => 'استشاري',
             'other' => 'أخرى',
         ],
+        'vendor_bill_category' => [
+            'maintenance' => 'صيانة',
+            'utilities' => 'مرافق',
+            'cleaning_security' => 'نظافة وأمن',
+            'marketing' => 'تسويق',
+            'admin' => 'إداري',
+            'other' => 'أخرى',
+        ],
+        'vendor_bill_payment_method' => [
+            'cash' => 'نقدي',
+            'bank_transfer' => 'تحويل بنكي',
+            'cheque' => 'شيك',
+            'card' => 'بطاقة',
+            'other' => 'أخرى',
+        ],
         'maintenance_priority' => [
             'low' => 'منخفضة',
             'medium' => 'متوسطة',
@@ -1435,6 +1480,7 @@ return [
     'relation_managers' => [
         'notes' => 'سجل التواصل',
         'meter_readings' => 'القراءات الشهرية',
+        'vendor_bill_payments' => 'الدفعات',
     ],
 
     'users' => [

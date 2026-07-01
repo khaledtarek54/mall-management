@@ -49,6 +49,24 @@ it('backfills journal entries for invoices, payments, and credit notes', functio
     expect(app(LedgerReportService::class)->trialBalance()['balanced'])->toBeTrue();
 });
 
+it('backfills vendor bills and their payments (AP)', function () {
+    $bill = \App\Models\VendorBill::create([
+        'vendor_id' => \App\Models\Vendor::factory()->create()->id,
+        'asset_id' => makeAsset()->id,
+        'category' => 'utilities',
+        'status' => 'approved',
+        'bill_date' => now()->toDateString(),
+        'subtotal' => 2000, 'vat_amount' => 280, 'total' => 2280, 'balance' => 2280,
+    ]);
+    app(\App\Services\VendorBillService::class)->recordPayment($bill, 1000, 'bank_transfer');
+
+    $this->artisan('accounting:sync-ledger --all')->assertSuccessful();
+
+    // one entry for the bill + one for its payment
+    expect(JournalEntry::where('source_type', $bill->getMorphClass())->count())->toBe(1);
+    expect(app(LedgerReportService::class)->trialBalance()['balanced'])->toBeTrue();
+});
+
 it('is idempotent — a second backfill posts nothing new', function () {
     syncInvoice();
     $this->artisan('accounting:sync-ledger --all')->assertSuccessful();

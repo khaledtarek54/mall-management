@@ -6,10 +6,14 @@ use App\Models\CreditNote;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\Payment;
+use App\Models\VendorBill;
+use App\Models\VendorBillPayment;
 use App\Services\Accounting\Journalizers\CreditNoteJournalizer;
 use App\Services\Accounting\Journalizers\InvoiceJournalizer;
 use App\Services\Accounting\Journalizers\Journalizer;
 use App\Services\Accounting\Journalizers\PaymentJournalizer;
+use App\Services\Accounting\Journalizers\VendorBillJournalizer;
+use App\Services\Accounting\Journalizers\VendorBillPaymentJournalizer;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
@@ -136,6 +140,8 @@ class LedgerPoster
             Invoice::class => new InvoiceJournalizer($this->accounts),
             Payment::class => new PaymentJournalizer($this->accounts),
             CreditNote::class => new CreditNoteJournalizer($this->accounts),
+            VendorBill::class => new VendorBillJournalizer($this->accounts),
+            VendorBillPayment::class => new VendorBillPaymentJournalizer($this->accounts),
             default => null,
         };
     }

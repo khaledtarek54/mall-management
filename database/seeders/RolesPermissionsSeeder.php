@@ -141,6 +141,14 @@ class RolesPermissionsSeeder extends Seeder
         'general_ledger' => [
             'general_ledger.view' => 'View the trial balance, general ledger, and financial statements',
         ],
+        'vendor_bills' => [
+            'vendor_bills.view'    => 'View vendor bills (accounts payable)',
+            'vendor_bills.create'  => 'Create vendor bills',
+            'vendor_bills.edit'    => 'Edit vendor bills',
+            'vendor_bills.delete'  => 'Delete vendor bills',
+            'vendor_bills.approve' => 'Approve a vendor bill (makes it postable)',
+            'vendor_bills.pay'     => 'Record a payment against a vendor bill',
+        ],
         'utility_meters' => [
             'utility_meters.view'   => 'View utility meters',
             'utility_meters.create' => 'Create utility meters',
@@ -291,6 +299,8 @@ class RolesPermissionsSeeder extends Seeder
             'journal_entries.post', 'journal_entries.void',
             'accounting_periods.view', 'accounting_periods.manage',
             'general_ledger.view',
+            'vendor_bills.view', 'vendor_bills.create', 'vendor_bills.edit',
+            'vendor_bills.approve', 'vendor_bills.pay',
             'reports.view', 'reports.download',
         ]);
 
