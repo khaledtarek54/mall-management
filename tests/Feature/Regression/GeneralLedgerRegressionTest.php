@@ -116,26 +116,46 @@ it('keeps a cancelled vendor bill at zero balance across recompute', function ()
     expect($bill->fresh()->status)->toBe('cancelled');
 });
 
-// Phase 3 fix: a vendor bill whose stored subtotal drifts from total − vat must
-// still post a balanced entry (the expense is derived from total − VAT).
-it('derives a balanced vendor-bill entry when subtotal drifts from total minus vat', function () {
+// Phase 3 review fix: total = subtotal + VAT is enforced by the MODEL on every
+// write path (not just the form). A programmatic create with NO total must derive
+// it (not persist 0, which the journalizer would silently skip), and post balanced.
+it('enforces total = subtotal + vat on write and posts a balanced bill', function () {
     $bill = \App\Models\VendorBill::create([
         'vendor_id' => \App\Models\Vendor::factory()->create()->id,
         'asset_id' => makeAsset()->id,
         'category' => 'maintenance',
         'status' => 'approved',
         'bill_date' => now()->toDateString(),
-        'subtotal' => 900, 'vat_amount' => 140, 'total' => 1140, // intentionally inconsistent
-        'balance' => 1140,
+        'subtotal' => 1000, 'vat_amount' => 140, // NO total → must be derived
     ]);
 
-    $entry = $this->poster->post($bill);
+    expect((float) $bill->fresh()->total)->toEqualWithDelta(1140.0, 0.001);
 
+    $entry = $this->poster->post($bill->fresh());
+
+    expect($entry)->not->toBeNull();
     expect($entry->isBalanced())->toBeTrue();
     $byAccount = $entry->lines->keyBy('ledger_account_id');
-    expect((float) $byAccount[$this->accounts->id('maintenance_expense')]->debit)->toEqualWithDelta(1000.0, 0.001); // total − vat
+    expect((float) $byAccount[$this->accounts->id('maintenance_expense')]->debit)->toEqualWithDelta(1000.0, 0.001);
     expect((float) $byAccount[$this->accounts->id('vat_recoverable')]->debit)->toEqualWithDelta(140.0, 0.001);
     expect((float) $byAccount[$this->accounts->id('accounts_payable')]->credit)->toEqualWithDelta(1140.0, 0.001);
+});
+
+// Phase 3 review fix: the blank-money coercion must read the RAW attribute — a
+// decimal:2 cast throws MathException when '' is read through the getter, which
+// would crash the import/API path the coercion exists to protect.
+it('coerces blank money strings on a vendor bill without crashing', function () {
+    $bill = \App\Models\VendorBill::create([
+        'vendor_id' => \App\Models\Vendor::factory()->create()->id,
+        'asset_id' => makeAsset()->id,
+        'category' => 'other',
+        'status' => 'draft',
+        'bill_date' => now()->toDateString(),
+        'subtotal' => '', 'vat_amount' => '', // blank strings, e.g. from a CSV import
+    ]);
+
+    expect((float) $bill->fresh()->subtotal)->toEqualWithDelta(0.0, 0.001);
+    expect((float) $bill->fresh()->total)->toEqualWithDelta(0.0, 0.001);
 });
 
 // Phase 1 review fix: a credit note whose stored subtotal drifts from total − vat

@@ -42,9 +42,11 @@ class VendorBillPayment extends Model
     protected static function booted(): void
     {
         // Coerce a blank amount to 0 (NOT-NULL column) and keep the parent bill's
-        // derived totals in lockstep with its payments.
+        // derived totals in lockstep with its payments. Read the RAW attribute — a
+        // decimal:2 cast throws MathException if '' is read through the getter.
         static::saving(function (self $payment) {
-            if ($payment->amount === null || $payment->amount === '') {
+            $raw = $payment->getAttributes()['amount'] ?? null;
+            if ($raw === null || $raw === '') {
                 $payment->amount = 0;
             }
         });

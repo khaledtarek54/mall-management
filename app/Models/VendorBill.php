@@ -135,15 +135,23 @@ class VendorBill extends Model
 
     protected static function booted(): void
     {
-        // NOT-NULL money columns: coerce a blank/cleared field to 0 so a save that
-        // bypasses the form (service / API / import) never violates the constraint
-        // (the meter_readings.cost bug class).
         static::saving(function (self $bill) {
-            foreach (['subtotal', 'vat_amount', 'total'] as $column) {
-                if ($bill->{$column} === null || $bill->{$column} === '') {
+            // Coerce blank NOT-NULL money inputs to 0. Read the RAW attribute — a
+            // decimal:2 cast throws MathException if you read '' through the getter,
+            // so `$bill->subtotal === ''` would crash the very import/API path this
+            // guards (the meter_readings.cost bug class).
+            foreach (['subtotal', 'vat_amount'] as $column) {
+                $raw = $bill->getAttributes()[$column] ?? null;
+                if ($raw === null || $raw === '') {
                     $bill->{$column} = 0;
                 }
             }
+
+            // Total is derived (subtotal + VAT), enforced on EVERY write path — not
+            // just the form. Prevents a programmatic create from persisting total=0
+            // (which the journalizer would silently skip) or vat>total (negative
+            // expense). The single source of truth for the bill total.
+            $bill->total = round((float) $bill->subtotal + (float) $bill->vat_amount, 2);
         });
 
         static::creating(function (self $bill) {
