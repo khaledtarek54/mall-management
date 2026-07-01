@@ -287,6 +287,7 @@ return [
         'cam' => 'تسوية المصروفات المشتركة',
         'cam_allocations' => 'مصاريف المناطق المشتركة',
         'energy' => 'الطاقة والمرافق',
+        'accounting_periods' => 'الفترات المحاسبية',
         'users' => 'المستخدمون',
     ],
 
@@ -315,6 +316,7 @@ return [
         'cam_pool' => ['singular' => 'مجمع مصروفات', 'plural' => 'تسوية المصروفات المشتركة'],
         'cam_allocation' => ['singular' => 'تخصيص نفقات مشتركة', 'plural' => 'مصاريف المناطق المشتركة'],
         'utility_meter' => ['singular' => 'عداد مرافق', 'plural' => 'الطاقة والمرافق'],
+        'accounting_period' => ['singular' => 'فترة محاسبية', 'plural' => 'الفترات المحاسبية'],
     ],
 
     'widgets' => [
@@ -726,6 +728,11 @@ return [
         'post_journal_entry_confirm' => 'الترحيل يتحقق من توازن القيد ويقفله. هل تريد المتابعة؟',
         'void_journal_entry' => 'إلغاء (عكسي)',
         'void_journal_entry_confirm' => 'سيتم ترحيل قيد عكسي متوازن. يبقى القيد الأصلي بالدفاتر بحالة ملغى. هل تريد المتابعة؟',
+        'close_period' => 'إقفال',
+        'reopen_period' => 'إعادة فتح',
+        'year_end_close' => 'إقفال سنوي',
+        'year_end_close_confirm' => 'سيتم ترحيل قيد الإقفال السنوي (ترحيل الإيرادات والمصروفات إلى الأرباح المحتجزة) ثم إقفال فترات السنة. هل تريد المتابعة؟',
+        'year_end_reopen' => 'إعادة فتح السنة',
         'edit' => 'تعديل',
         'view' => 'عرض',
         'delete' => 'حذف',
@@ -857,6 +864,11 @@ return [
         'journal_entry_post_failed' => 'تعذّر ترحيل القيد',
         'journal_entry_voided' => 'تم إلغاء القيد',
         'journal_entry_voided_body' => 'تم إنشاء القيد العكسي :number.',
+        'period_closed' => 'تم إقفال الفترة',
+        'period_reopened' => 'تم إعادة فتح الفترة',
+        'year_end_closed' => 'تم إقفال السنة',
+        'year_end_reopened' => 'تم إعادة فتح السنة',
+        'year_end_nothing' => 'لا يوجد ما يُقفل لتلك السنة',
         'marked_read' => 'تم تعليم الإشعار كمقروء.',
         // Tenant-facing
         'invoice_issued_subject' => 'فاتورة جديدة :number من أتريوم',
@@ -1036,6 +1048,7 @@ return [
         'period_start' => 'بداية الفترة',
         'period_end' => 'نهاية الفترة',
         'period' => 'الفترة',
+        'fiscal_year' => 'السنة المالية',
         'method' => 'طريقة الدفع',
         'payment_date' => 'تاريخ الدفع',
         'gateway' => 'بوابة الدفع',
@@ -1231,6 +1244,10 @@ return [
             'draft' => 'مسودة',
             'posted' => 'مرحّل',
             'void' => 'ملغى',
+        ],
+        'period' => [
+            'open' => 'مفتوحة',
+            'closed' => 'مقفلة',
         ],
         'lease' => [
             'draft' => 'مسودة',

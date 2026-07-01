@@ -332,7 +332,7 @@ Tests (`tests/Feature/`):
 | **1 — Auto-posting** ✅ | الترحيل الآلي | **1a:** journalizer engine (`Journalizer` contract + `LedgerPoster` registry) + Invoice/Payment/CreditNote journalizers. **1b:** `LedgerPoster::sync()` reconciling upsert + `accounting:sync-ledger` command (one-time `--all` backfill + scheduled recent-window sweep) + GL↔AR tie-out report. Invoice journalizer covers CAM-recovery + late-fee items automatically; ties out exactly on the demo books. |
 | **2 — Financial statements** ✅ | القوائم المالية | **Income Statement (قائمة الدخل)** + **Balance Sheet (قائمة المركز المالي)** pages, per-property & consolidated. `LedgerReportService::incomeStatement()` (revenue − expense = net profit; contra-revenue nets correctly) and `balanceSheet()` (Assets ≡ Liabilities + Equity + net income, since the trial balance always balances). Gated by `general_ledger.view`. PDF export is a later add. |
 | **3 — Expenses & payables** 🟡 | المصروفات والموردون | **Accounts Payable done:** `VendorBill` (فاتورة مورد) + `VendorBillPayment` with a draft→approved→paid lifecycle; journalizers post Dr expense (by category) + Dr **VAT Recoverable** (input VAT) / Cr Payables, and payments Dr Payables / Cr Bank; swept + backfilled by `accounting:sync-ledger` with a GL↔AP tie-out; `VendorBillResource` under Accounting, gated by `vendor_bills.*`. **Direct expenses done:** `Expense` (مصروف مباشر / petty cash) posts Dr expense (by category) + Dr VAT Recoverable / Cr cash|bank immediately (no payable stage); `ExpenseResource` gated by `expenses.*`; swept by `accounting:sync-ledger`. **Still to do:** payroll posting. |
-| **4 — Close & compliance** | الإقفال والامتثال | Period/year-end closing entries (قيود الإقفال), optional ETA/EAS statutory report formatting |
+| **4 — Close & compliance** 🟡 | الإقفال والامتثال | **Period close done:** `PeriodService` closes/reopens accounting periods + fiscal years (a closed period refuses postings); `YearEndCloseService` posts the year-end closing entry (قيد الإقفال) that zeros revenue/expense into retained earnings (idempotent, reopenable). Closing entries are flagged `is_closing` → excluded from the income statement (shows actual P&L) but included in the trial balance + balance sheet (P&L reads zero post-close; profit sits in equity). `AccountingPeriodResource` gated by `accounting_periods.*`. **Still to do:** optional ETA/EAS statutory report formatting. |
 
 ---
 
@@ -365,6 +365,14 @@ per-property report (that property's receivables read high until the next consol
 view). Splitting one cash receipt cleanly across properties needs inter-property
 due-to/due-from accounts — deferred to Phase 3. Single-property payments (the norm) are
 unaffected.
+
+**Close workflow (order matters):** "Year-end close" posts the closing entry *while the
+periods are open*, then locks the year's periods — "Reopen year" unlocks the periods
+*first*, then voids the closing entry (so the reversal posts back inside the same year).
+Both are bundled in the Fiscal Periods actions so the order can't be got wrong. Close
+fiscal years **in sequence** (2025 before 2026): the balance sheet rolls only closed
+years' profit into retained earnings, so an out-of-order close leaves a prior year's P&L
+as an un-rolled `net_income` residual.
 
 **Known limitation — deleting a posted document:** the sweep reconciles the GL from
 *live* documents, so **cancelling** a document (invoice / vendor bill / expense) is the

@@ -30,6 +30,7 @@ class JournalEntry extends Model
         'source_type',
         'source_id',
         'is_manual',
+        'is_closing',
         'status',
         'asset_id',
         'posted_by_user_id',
@@ -41,6 +42,7 @@ class JournalEntry extends Model
     protected $casts = [
         'entry_date' => 'date',
         'is_manual' => 'boolean',
+        'is_closing' => 'boolean',
         'posted_at' => 'datetime',
         'voided_at' => 'datetime',
     ];

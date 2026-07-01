@@ -81,6 +81,7 @@ class JournalPostingService
                 'description_ar' => $payload['description_ar'] ?? null,
                 'source_type' => $source instanceof Model ? $source->getMorphClass() : null,
                 'source_id' => $source instanceof Model ? $source->getKey() : null,
+                'is_closing' => $payload['is_closing'] ?? false,
                 'status' => $status,
                 'asset_id' => $assetId,
                 'posted_by_user_id' => $status === 'posted' ? Auth::id() : null,
@@ -173,6 +174,9 @@ class JournalPostingService
                 'accounting_period_id' => $period->id,
                 'description_en' => 'Reversal of '.$entry->number.($reason ? ' — '.$reason : ''),
                 'description_ar' => 'قيد عكسي للقيد '.$entry->number.($reason ? ' — '.$reason : ''),
+                // A reversal inherits the original's closing flag — reversing a
+                // year-end closing entry must also stay out of the income statement.
+                'is_closing' => $entry->is_closing,
                 'status' => 'posted',
                 'asset_id' => $entry->asset_id,
                 'posted_by_user_id' => Auth::id(),

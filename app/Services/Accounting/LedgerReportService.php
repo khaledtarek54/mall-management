@@ -140,7 +140,9 @@ class LedgerReportService
      */
     public function incomeStatement(?array $assetIds = null, ?CarbonInterface $from = null, ?CarbonInterface $to = null): array
     {
-        $rows = $this->aggregate($assetIds, $from, $to);
+        // Exclude year-end closing entries — the P&L must show the period's ACTUAL
+        // revenue/expense, not the zeroing entries that roll them to retained earnings.
+        $rows = $this->aggregate($assetIds, $from, $to, excludeClosing: true);
 
         $revenue = collect();
         $expense = collect();
@@ -220,6 +222,27 @@ class LedgerReportService
         ];
     }
 
+    /**
+     * Per-account net for revenue + expense accounts (net_credit = credit − debit),
+     * excluding prior closing entries. Used by the year-end close to zero each P&L
+     * account. Only accounts with movement are returned.
+     *
+     * @return Collection<int, array{account_id:int, code:string, type:string, net_credit:float}>
+     */
+    public function profitLossBalances(?array $assetIds, CarbonInterface $from, CarbonInterface $to): Collection
+    {
+        return $this->aggregate($assetIds, $from, $to, excludeClosing: true)
+            ->filter(fn ($r) => in_array($r->type, ['revenue', 'expense'], true))
+            ->map(fn ($r) => [
+                'account_id' => (int) $r->id,
+                'code' => $r->code,
+                'type' => $r->type,
+                'net_credit' => round((float) $r->credit_total - (float) $r->debit_total, 2),
+            ])
+            ->filter(fn ($r) => abs($r['net_credit']) >= 0.005)
+            ->values();
+    }
+
     /** @return array<string, mixed> */
     private function statementRow(object $row, float $amount): array
     {
@@ -235,13 +258,14 @@ class LedgerReportService
     /**
      * Aggregate posted debit/credit per postable account with movement.
      */
-    protected function aggregate(?array $assetIds, ?CarbonInterface $from, ?CarbonInterface $to): Collection
+    protected function aggregate(?array $assetIds, ?CarbonInterface $from, ?CarbonInterface $to, bool $excludeClosing = false): Collection
     {
         return DB::table('journal_lines as jl')
             ->join('journal_entries as je', 'je.id', '=', 'jl.journal_entry_id')
             ->join('ledger_accounts as la', 'la.id', '=', 'jl.ledger_account_id')
             ->whereIn('je.status', self::REPORTABLE)
             ->whereNull('je.deleted_at')
+            ->when($excludeClosing, fn ($q) => $q->where('je.is_closing', false))
             ->when($assetIds !== null, fn ($q) => $q->whereIn('je.asset_id', $assetIds))
             ->when($from, fn ($q) => $q->whereDate('je.entry_date', '>=', $from->toDateString()))
             ->when($to, fn ($q) => $q->whereDate('je.entry_date', '<=', $to->toDateString()))

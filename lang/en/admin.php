@@ -287,6 +287,7 @@ return [
         'cam' => 'CAM Reconciliation',
         'cam_allocations' => 'Common Area Charges',
         'energy' => 'Energy & Utilities',
+        'accounting_periods' => 'Accounting Periods',
         'users' => 'Users',
     ],
 
@@ -315,6 +316,7 @@ return [
         'cam_pool' => ['singular' => 'CAM Pool', 'plural' => 'CAM Reconciliation'],
         'cam_allocation' => ['singular' => 'CAM Allocation', 'plural' => 'Common Area Charges'],
         'utility_meter' => ['singular' => 'Utility Meter', 'plural' => 'Energy & Utilities'],
+        'accounting_period' => ['singular' => 'Accounting Period', 'plural' => 'Accounting Periods'],
     ],
 
     'widgets' => [
@@ -726,6 +728,11 @@ return [
         'post_journal_entry_confirm' => 'Posting validates the entry balances and locks it. Continue?',
         'void_journal_entry' => 'Void (reverse)',
         'void_journal_entry_confirm' => 'This posts a balanced reversing entry. The original stays on the books, marked void. Continue?',
+        'close_period' => 'Close',
+        'reopen_period' => 'Reopen',
+        'year_end_close' => 'Year-end close',
+        'year_end_close_confirm' => 'This posts the year-end closing entry (rolls revenue/expense into retained earnings) and then locks the year\'s periods. Continue?',
+        'year_end_reopen' => 'Reopen year',
         'edit' => 'Edit',
         'view' => 'View',
         'delete' => 'Delete',
@@ -857,6 +864,11 @@ return [
         'journal_entry_post_failed' => 'Could not post the entry',
         'journal_entry_voided' => 'Journal entry voided',
         'journal_entry_voided_body' => 'Reversing entry :number created.',
+        'period_closed' => 'Period closed',
+        'period_reopened' => 'Period reopened',
+        'year_end_closed' => 'Year closed',
+        'year_end_reopened' => 'Year reopened',
+        'year_end_nothing' => 'Nothing to close for that year',
         'marked_read' => 'Notification marked as read.',
         // Tenant-facing
         'invoice_issued_subject' => 'New invoice :number from Atriom',
@@ -1036,6 +1048,7 @@ return [
         'period_start' => 'Period Start',
         'period_end' => 'Period End',
         'period' => 'Period',
+        'fiscal_year' => 'Fiscal year',
         'method' => 'Method',
         'payment_date' => 'Payment Date',
         'gateway' => 'Gateway',
@@ -1231,6 +1244,10 @@ return [
             'draft' => 'Draft',
             'posted' => 'Posted',
             'void' => 'Void',
+        ],
+        'period' => [
+            'open' => 'Open',
+            'closed' => 'Closed',
         ],
         'lease' => [
             'draft' => 'Draft',
