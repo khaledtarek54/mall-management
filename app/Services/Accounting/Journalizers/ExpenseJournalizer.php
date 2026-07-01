@@ -2,19 +2,19 @@
 
 namespace App\Services\Accounting\Journalizers;
 
-use App\Models\VendorBill;
+use App\Models\Expense;
 use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\Journalizers\Concerns\MapsExpenseCategory;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Vendor bill (فاتورة مورد) — recognise the expense + the payable:
+ * Direct / petty-cash expense (مصروف مباشر) — paid immediately from cash/bank:
  *   Dr Expense (net, by category)  +  Dr VAT Recoverable (input VAT)
- *   Cr Accounts Payable (total)
+ *   Cr Cash / Bank (total)
  *
- * Posts once the bill is past draft (approved+); drafts/cancelled are skipped.
+ * Posts a `recorded` expense; a cancelled one is skipped (sync voids any entry).
  */
-class VendorBillJournalizer implements Journalizer
+class ExpenseJournalizer implements Journalizer
 {
     use MapsExpenseCategory;
 
@@ -22,28 +22,28 @@ class VendorBillJournalizer implements Journalizer
 
     public function payload(Model $source): ?array
     {
-        /** @var VendorBill $bill */
-        $bill = $source;
+        /** @var Expense $expense */
+        $expense = $source;
 
-        if (! $bill->isPostable()) {
+        if (! $expense->isPostable()) {
             return null;
         }
 
-        $assetId = $bill->asset_id;
-        $vat = round((float) $bill->vat_amount, 2);
-        $total = round((float) $bill->total, 2);
-        // Derive the net expense from total − VAT so the entry always balances to
-        // the payable, even if a stored subtotal drifts from total − vat.
+        $assetId = $expense->asset_id;
+        $vat = round((float) $expense->vat_amount, 2);
+        $total = round((float) $expense->total, 2);
         $net = round($total - $vat, 2);
 
         if ($total <= 0) {
             return null;
         }
 
-        $expenseRole = $this->expenseRoleFor($bill->category, "bill {$bill->number}");
+        $expenseRole = $this->expenseRoleFor($expense->category, "expense {$expense->number}");
+
+        $cashRole = $expense->paid_from === 'bank' ? 'bank' : 'cash';
 
         $lines = [];
-        // Guard net > 0 — a pure-VAT bill (net 0) would otherwise emit a
+        // Guard net > 0 — a pure-VAT expense (net 0) would otherwise emit a
         // debit-0/credit-0 line that the posting engine rejects.
         if ($net > 0) {
             $lines[] = [
@@ -64,16 +64,16 @@ class VendorBillJournalizer implements Journalizer
         }
 
         $lines[] = [
-            'ledger_account_id' => $this->accounts->id('accounts_payable', $assetId),
+            'ledger_account_id' => $this->accounts->id($cashRole, $assetId),
             'debit' => 0,
             'credit' => $total,
             'asset_id' => $assetId,
         ];
 
         return [
-            'entry_date' => $bill->bill_date,
-            'description_en' => 'Vendor bill '.$bill->number,
-            'description_ar' => 'فاتورة مورد '.$bill->number,
+            'entry_date' => $expense->expense_date,
+            'description_en' => 'Expense '.$expense->number,
+            'description_ar' => 'مصروف '.$expense->number,
             'asset_id' => $assetId,
             'lines' => $lines,
         ];

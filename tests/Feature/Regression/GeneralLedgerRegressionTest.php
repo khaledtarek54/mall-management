@@ -116,6 +116,43 @@ it('keeps a cancelled vendor bill at zero balance across recompute', function ()
     expect($bill->fresh()->status)->toBe('cancelled');
 });
 
+// Expense-phase review fix: a pure-VAT document (net 0) must NOT emit a
+// debit-0/credit-0 expense line (which the posting engine rejects, silently
+// dropping the document). The net line is guarded; only VAT + cash/AP post.
+it('posts a balanced pure-VAT expense with no zero-amount line', function () {
+    $expense = \App\Models\Expense::create([
+        'asset_id' => makeAsset()->id,
+        'category' => 'utilities',
+        'amount' => 0, 'vat_amount' => 140, // net 0
+        'paid_from' => 'cash', 'expense_date' => now()->toDateString(), 'status' => 'recorded',
+    ]);
+
+    $entry = $this->poster->post($expense->fresh());
+
+    expect($entry)->not->toBeNull();
+    expect($entry->isBalanced())->toBeTrue();
+    expect($entry->lines)->toHaveCount(2); // VAT recoverable + cash, no zero expense line
+    $byAccount = $entry->lines->keyBy('ledger_account_id');
+    expect((float) $byAccount[$this->accounts->id('vat_recoverable')]->debit)->toEqualWithDelta(140.0, 0.001);
+    expect((float) $byAccount[$this->accounts->id('cash')]->credit)->toEqualWithDelta(140.0, 0.001);
+});
+
+it('posts a balanced pure-VAT vendor bill with no zero-amount line', function () {
+    $bill = \App\Models\VendorBill::create([
+        'vendor_id' => \App\Models\Vendor::factory()->create()->id,
+        'asset_id' => makeAsset()->id,
+        'category' => 'maintenance', 'status' => 'approved',
+        'bill_date' => now()->toDateString(),
+        'amount' => 0, 'vat_amount' => 140, // net 0 (subtotal ignored; total enforced = 140)
+    ]);
+
+    $entry = $this->poster->post($bill->fresh());
+
+    expect($entry)->not->toBeNull();
+    expect($entry->isBalanced())->toBeTrue();
+    expect($entry->lines)->toHaveCount(2); // VAT recoverable + payables, no zero expense line
+});
+
 // Phase 3 review fix: total = subtotal + VAT is enforced by the MODEL on every
 // write path (not just the form). A programmatic create with NO total must derive
 // it (not persist 0, which the journalizer would silently skip), and post balanced.

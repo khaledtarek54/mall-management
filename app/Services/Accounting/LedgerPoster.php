@@ -3,12 +3,14 @@
 namespace App\Services\Accounting;
 
 use App\Models\CreditNote;
+use App\Models\Expense;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\Payment;
 use App\Models\VendorBill;
 use App\Models\VendorBillPayment;
 use App\Services\Accounting\Journalizers\CreditNoteJournalizer;
+use App\Services\Accounting\Journalizers\ExpenseJournalizer;
 use App\Services\Accounting\Journalizers\InvoiceJournalizer;
 use App\Services\Accounting\Journalizers\Journalizer;
 use App\Services\Accounting\Journalizers\PaymentJournalizer;
@@ -142,6 +144,7 @@ class LedgerPoster
             CreditNote::class => new CreditNoteJournalizer($this->accounts),
             VendorBill::class => new VendorBillJournalizer($this->accounts),
             VendorBillPayment::class => new VendorBillPaymentJournalizer($this->accounts),
+            Expense::class => new ExpenseJournalizer($this->accounts),
             default => null,
         };
     }

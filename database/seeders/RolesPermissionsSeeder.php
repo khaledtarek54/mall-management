@@ -149,6 +149,12 @@ class RolesPermissionsSeeder extends Seeder
             'vendor_bills.approve' => 'Approve a vendor bill (makes it postable)',
             'vendor_bills.pay'     => 'Record a payment against a vendor bill',
         ],
+        'expenses' => [
+            'expenses.view'   => 'View direct / petty-cash expenses',
+            'expenses.create' => 'Record direct expenses',
+            'expenses.edit'   => 'Edit direct expenses',
+            'expenses.delete' => 'Delete direct expenses',
+        ],
         'utility_meters' => [
             'utility_meters.view'   => 'View utility meters',
             'utility_meters.create' => 'Create utility meters',
@@ -301,6 +307,7 @@ class RolesPermissionsSeeder extends Seeder
             'general_ledger.view',
             'vendor_bills.view', 'vendor_bills.create', 'vendor_bills.edit',
             'vendor_bills.approve', 'vendor_bills.pay',
+            'expenses.view', 'expenses.create', 'expenses.edit',
             'reports.view', 'reports.download',
         ]);
 

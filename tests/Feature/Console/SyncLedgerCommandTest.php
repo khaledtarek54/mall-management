@@ -67,6 +67,20 @@ it('backfills vendor bills and their payments (AP)', function () {
     expect(app(LedgerReportService::class)->trialBalance()['balanced'])->toBeTrue();
 });
 
+it('backfills direct expenses', function () {
+    $expense = \App\Models\Expense::create([
+        'asset_id' => makeAsset()->id,
+        'category' => 'admin',
+        'amount' => 500, 'vat_amount' => 0, 'total' => 500,
+        'paid_from' => 'cash', 'expense_date' => now()->toDateString(), 'status' => 'recorded',
+    ]);
+
+    $this->artisan('accounting:sync-ledger --all')->assertSuccessful();
+
+    expect(JournalEntry::where('source_type', $expense->getMorphClass())->count())->toBe(1);
+    expect(app(LedgerReportService::class)->trialBalance()['balanced'])->toBeTrue();
+});
+
 it('is idempotent — a second backfill posts nothing new', function () {
     syncInvoice();
     $this->artisan('accounting:sync-ledger --all')->assertSuccessful();

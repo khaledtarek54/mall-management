@@ -141,6 +141,7 @@ accountant can verify the accounting treatment. `[role]` resolves via `account_m
 | **CAM positive true-up** تسوية صيانة موجبة | `accounts_receivable` | `cam_recovery_revenue` (+ `vat_payable` if taxed) |
 | **Vendor bill** فاتورة مورد | `*_expense` (net, by category) + `vat_recoverable` (input VAT) | `accounts_payable` (total) |
 | **Pay vendor** سداد مورد | `accounts_payable` | `bank` / `cash` |
+| **Direct / petty-cash expense** مصروف مباشر | `*_expense` (net) + `vat_recoverable` (input VAT) | `cash` / `bank` (total) |
 | *(Phase 3)* **Payroll** رواتب | `salaries_expense` | `bank` |
 
 > **Tie-out invariant:** after Phase 1, the balance of `accounts_receivable` in the
@@ -330,7 +331,7 @@ Tests (`tests/Feature/`):
 | **0 — Foundation** ✅ this doc | الأساس | Chart of accounts, fiscal years/periods, journal entries, posting service, account mappings, manual-entry UI, trial balance + general ledger, RBAC, bilingual labels, tests |
 | **1 — Auto-posting** ✅ | الترحيل الآلي | **1a:** journalizer engine (`Journalizer` contract + `LedgerPoster` registry) + Invoice/Payment/CreditNote journalizers. **1b:** `LedgerPoster::sync()` reconciling upsert + `accounting:sync-ledger` command (one-time `--all` backfill + scheduled recent-window sweep) + GL↔AR tie-out report. Invoice journalizer covers CAM-recovery + late-fee items automatically; ties out exactly on the demo books. |
 | **2 — Financial statements** ✅ | القوائم المالية | **Income Statement (قائمة الدخل)** + **Balance Sheet (قائمة المركز المالي)** pages, per-property & consolidated. `LedgerReportService::incomeStatement()` (revenue − expense = net profit; contra-revenue nets correctly) and `balanceSheet()` (Assets ≡ Liabilities + Equity + net income, since the trial balance always balances). Gated by `general_ledger.view`. PDF export is a later add. |
-| **3 — Expenses & payables** 🟡 | المصروفات والموردون | **Accounts Payable done:** `VendorBill` (فاتورة مورد) + `VendorBillPayment` with a draft→approved→paid lifecycle; journalizers post Dr expense (by category) + Dr **VAT Recoverable** (input VAT) / Cr Payables, and payments Dr Payables / Cr Bank; swept + backfilled by `accounting:sync-ledger` with a GL↔AP tie-out; `VendorBillResource` under Accounting, gated by `vendor_bills.*`. **Still to do:** expense/petty-cash direct entry, payroll posting. |
+| **3 — Expenses & payables** 🟡 | المصروفات والموردون | **Accounts Payable done:** `VendorBill` (فاتورة مورد) + `VendorBillPayment` with a draft→approved→paid lifecycle; journalizers post Dr expense (by category) + Dr **VAT Recoverable** (input VAT) / Cr Payables, and payments Dr Payables / Cr Bank; swept + backfilled by `accounting:sync-ledger` with a GL↔AP tie-out; `VendorBillResource` under Accounting, gated by `vendor_bills.*`. **Direct expenses done:** `Expense` (مصروف مباشر / petty cash) posts Dr expense (by category) + Dr VAT Recoverable / Cr cash|bank immediately (no payable stage); `ExpenseResource` gated by `expenses.*`; swept by `accounting:sync-ledger`. **Still to do:** payroll posting. |
 | **4 — Close & compliance** | الإقفال والامتثال | Period/year-end closing entries (قيود الإقفال), optional ETA/EAS statutory report formatting |
 
 ---

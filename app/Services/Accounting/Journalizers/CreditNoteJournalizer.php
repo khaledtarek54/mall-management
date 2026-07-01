@@ -40,12 +40,17 @@ class CreditNoteJournalizer implements Journalizer
             return null;
         }
 
-        $lines = [[
-            'ledger_account_id' => $this->accounts->id('sales_returns', $assetId),
-            'debit' => $netReturn,
-            'credit' => 0,
-            'tenant_id' => $note->tenant_id,
-        ]];
+        $lines = [];
+        // Guard net > 0 — a pure-VAT credit note (net 0) would otherwise emit a
+        // debit-0/credit-0 line that the posting engine rejects.
+        if ($netReturn > 0) {
+            $lines[] = [
+                'ledger_account_id' => $this->accounts->id('sales_returns', $assetId),
+                'debit' => $netReturn,
+                'credit' => 0,
+                'tenant_id' => $note->tenant_id,
+            ];
+        }
 
         if ($vat > 0) {
             $lines[] = [
