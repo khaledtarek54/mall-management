@@ -1,8 +1,14 @@
 # Module 21 — General Ledger & Accounting Core (المحاسبة العامة / دفتر الأستاذ العام)
 
-> **Status:** Phase 0 (the core) — being built. Phases 1–4 are the roadmap at the
-> bottom. Read [docs/OVERVIEW.md](../OVERVIEW.md) and [docs/MONEY-PATHS.md](../MONEY-PATHS.md)
-> first — this module sits *underneath* every money path already documented there.
+> **Status:** Phases 0–4 shipped (foundation, auto-posting, financial statements,
+> expenses/payables/payroll, close) + security deposits. Remaining follow-ups are in
+> the roadmap at the bottom. Read [docs/OVERVIEW.md](../OVERVIEW.md) and
+> [docs/MONEY-PATHS.md](../MONEY-PATHS.md) first — this module sits *underneath* every
+> money path already documented there.
+>
+> **New to this module?** Start with the plain-language overview for non-accountants:
+> [docs/accounting/README.md](../accounting/README.md) — what's built, what's next, and
+> the mental model — then come back here for the technical detail.
 
 This module adds a **double-entry general ledger** (نظام القيد المزدوج) beneath the
 existing business documents (invoices, payments, credit notes, CAM …). Those documents
