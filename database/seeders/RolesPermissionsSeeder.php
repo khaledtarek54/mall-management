@@ -155,6 +155,13 @@ class RolesPermissionsSeeder extends Seeder
             'expenses.edit'   => 'Edit direct expenses',
             'expenses.delete' => 'Delete direct expenses',
         ],
+        'payrolls' => [
+            'payrolls.view'    => 'View payroll runs',
+            'payrolls.create'  => 'Create payroll runs',
+            'payrolls.edit'    => 'Edit payroll runs',
+            'payrolls.delete'  => 'Delete payroll runs',
+            'payrolls.approve' => 'Approve a payroll run (makes it postable)',
+        ],
         'utility_meters' => [
             'utility_meters.view'   => 'View utility meters',
             'utility_meters.create' => 'Create utility meters',
@@ -308,6 +315,7 @@ class RolesPermissionsSeeder extends Seeder
             'vendor_bills.view', 'vendor_bills.create', 'vendor_bills.edit',
             'vendor_bills.approve', 'vendor_bills.pay',
             'expenses.view', 'expenses.create', 'expenses.edit',
+            'payrolls.view', 'payrolls.create', 'payrolls.edit', 'payrolls.approve',
             'reports.view', 'reports.download',
         ]);
 

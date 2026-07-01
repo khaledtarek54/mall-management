@@ -24,6 +24,8 @@ class AccountMappingSeeder extends Seeder
         'vat_payable' => '21301001',
         'vat_recoverable' => '11401001',
         'accrued_expenses' => '21401001',
+        'salary_tax_payable' => '21302001',
+        'social_insurance_payable' => '21601001',
         'unearned_revenue' => '21501001',
         'capital' => '31101001',
         'retained_earnings' => '32101001',

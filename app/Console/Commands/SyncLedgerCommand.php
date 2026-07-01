@@ -6,6 +6,7 @@ use App\Models\CreditNote;
 use App\Models\Expense;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\Payroll;
 use App\Models\VendorBill;
 use App\Models\VendorBillPayment;
 use App\Services\Accounting\AccountResolver;
@@ -48,6 +49,7 @@ class SyncLedgerCommand extends Command
         $this->syncModel(VendorBill::query(), 'updated_at', $since, $poster, $counts);
         $this->syncModel(VendorBillPayment::query(), 'updated_at', $since, $poster, $counts);
         $this->syncModel(Expense::query(), 'updated_at', $since, $poster, $counts);
+        $this->syncModel(Payroll::query(), 'updated_at', $since, $poster, $counts);
 
         $this->newLine();
         $this->table(['result', 'count'], collect($counts)->map(fn ($v, $k) => [$k, $v])->values()->all());
@@ -86,6 +88,7 @@ class SyncLedgerCommand extends Command
             VendorBill::min('bill_date'), VendorBill::max('bill_date'),
             VendorBillPayment::min('payment_date'), VendorBillPayment::max('payment_date'),
             Expense::min('expense_date'), Expense::max('expense_date'),
+            Payroll::min('period_month'), Payroll::max('period_month'),
         ]);
 
         $years = collect($dates)->map(fn ($d) => (int) Carbon::parse($d)->year);

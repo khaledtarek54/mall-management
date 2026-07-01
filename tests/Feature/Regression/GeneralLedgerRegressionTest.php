@@ -96,6 +96,35 @@ it('balance-sheet net income equals income-statement net profit', function () {
     expect($netIncome)->toBe($netProfit);
 });
 
+// Payroll-phase review fix: an all-deduction run (net 0) posts a balanced 2-line
+// entry (Dr salaries / Cr deduction), no zero bank line.
+it('posts a balanced payroll with net 0 and no zero bank line', function () {
+    $payroll = \App\Models\Payroll::create([
+        'asset_id' => makeAsset()->id, 'period_month' => now()->startOfMonth()->toDateString(),
+        'gross_salaries' => 1000, 'salary_tax' => 1000, 'social_insurance' => 0,
+        'paid_from' => 'bank', 'status' => 'approved',
+    ]);
+
+    $entry = $this->poster->post($payroll->fresh());
+
+    expect($entry)->not->toBeNull();
+    expect($entry->isBalanced())->toBeTrue();
+    expect($entry->lines)->toHaveCount(2); // Dr salaries + Cr salary-tax, no zero bank line
+});
+
+// Payroll-phase review fix: a run whose deductions exceed gross (net < 0) is rejected
+// at approval (else it would approve fine but silently never post).
+it('refuses to approve a payroll whose deductions exceed gross', function () {
+    $payroll = \App\Models\Payroll::create([
+        'asset_id' => makeAsset()->id, 'period_month' => now()->startOfMonth()->toDateString(),
+        'gross_salaries' => 1000, 'salary_tax' => 1200, 'social_insurance' => 0, // net −200
+        'paid_from' => 'bank', 'status' => 'draft',
+    ]);
+
+    expect(fn () => app(\App\Services\PayrollService::class)->approve($payroll))->toThrow(DomainException::class);
+    expect($payroll->fresh()->status)->toBe('draft');
+});
+
 // Phase 3 review fix: cancelling a bill zeroes its balance via recompute(), and a
 // later recompute() must NOT resurrect the payable (balance stays 0).
 it('keeps a cancelled vendor bill at zero balance across recompute', function () {

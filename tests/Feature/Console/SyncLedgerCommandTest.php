@@ -97,6 +97,20 @@ it('voids the entry when an expense is later cancelled', function () {
     expect(app(LedgerReportService::class)->trialBalance()['total_debit'])->toEqualWithDelta(0.0, 0.001);
 });
 
+it('backfills approved payroll runs', function () {
+    $payroll = \App\Models\Payroll::create([
+        'asset_id' => makeAsset()->id,
+        'period_month' => now()->startOfMonth()->toDateString(),
+        'gross_salaries' => 20000, 'salary_tax' => 2000, 'social_insurance' => 1500,
+        'paid_from' => 'bank', 'status' => 'approved',
+    ]);
+
+    $this->artisan('accounting:sync-ledger --all')->assertSuccessful();
+
+    expect(JournalEntry::where('source_type', $payroll->getMorphClass())->count())->toBe(1);
+    expect(app(LedgerReportService::class)->trialBalance()['balanced'])->toBeTrue();
+});
+
 it('is idempotent — a second backfill posts nothing new', function () {
     syncInvoice();
     $this->artisan('accounting:sync-ledger --all')->assertSuccessful();
