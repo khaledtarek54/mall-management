@@ -38,12 +38,12 @@ Legend: ✅ done · 🟡 partial · ❌ missing · ⏭️ likely N/A for a singl
 | General ledger / account statement | ✅ | Running balance per account |
 | Audit trail | ✅ | Spatie activity log on every accounting model |
 
-### Financial statements — 🟡 (2 of 3 core statements)
+### Financial statements — ✅ (all 3 core statements)
 | Capability | Status | Notes |
 |---|---|---|
 | Income statement (قائمة الدخل) | ✅ | + bilingual PDF |
 | Balance sheet (قائمة المركز المالي) | ✅ | + bilingual PDF |
-| **Cash-flow statement (قائمة التدفقات النقدية)** | ❌ | The 3rd core statement — not built |
+| Cash-flow statement (قائمة التدفقات النقدية) | ✅ | Indirect method, reconcile-by-construction, + bilingual PDF |
 | Comparative / period-over-period | ❌ | Single-period only today |
 
 ### Sub-ledgers & operations — ✅ strong
@@ -147,7 +147,7 @@ Ranked by value-for-effort for *this* business. "Needs accountant" = decide at t
 | ~~1~~ | ~~**Chart-of-accounts guardrails** (§3)~~ | ✅ **Shipped** — auto-parent + leading-digit↔type guard | — | — |
 | 2 | **Opening balances tool** | Load the current position at go-live | S–M | Yes (if migrating) |
 | 3 | **Fixed assets + depreciation** (recurring journal) | Property owner has real assets; monthly الإهلاك | M | Yes (policy/rates) |
-| 4 | **Cash-flow statement** | The 3rd core financial statement | M | Light |
+| ~~4~~ | ~~**Cash-flow statement**~~ | ✅ **Shipped** — indirect method, reconciles to actual cash | — | — |
 | 5 | **VAT return / ETA e-invoicing** | Statutory filing | L | Yes |
 | 6 | **Per-employee payslips** | Staff-facing | M | Yes |
 | 7 | **Bank reconciliation** | Match bank statement to ledger | M–L | Yes (bank feed?) |

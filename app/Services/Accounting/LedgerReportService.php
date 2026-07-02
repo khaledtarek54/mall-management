@@ -223,6 +223,102 @@ class LedgerReportService
     }
 
     /**
+     * قائمة التدفقات النقدية — Cash-Flow Statement (indirect method) for a date range.
+     *
+     * Reconcile-by-construction: by double-entry, the change in cash over a period
+     * equals the negated sum of every NON-cash account's movement. So we classify each
+     * non-cash account into Operating / Investing / Financing (by the Egyptian code
+     * ranges: 111 = cash & banks · 121 = gross non-current assets → investing · 122 =
+     * accumulated depreciation → operating add-back · 22 = non-current liabilities &
+     * equity → financing · everything else → operating working capital), negate its
+     * movement into that section, and the three sections sum to the actual cash movement.
+     * `reconciled` asserts that double-entry identity — an integrity/regression guard on
+     * this classification code; for balanced books it holds (it is not a data-error check).
+     *
+     * Year-end closing entries are excluded (they only move between non-cash P&L/equity
+     * accounts — no cash effect — but would distort the net-income vs retained-earnings
+     * split).
+     *
+     * @return array{net_income:float, adjustments:Collection, operating_total:float,
+     *     investing:Collection, investing_total:float, financing:Collection,
+     *     financing_total:float, net_change:float, cash_opening:float,
+     *     cash_closing:float, cash_movement:float, reconciled:bool}
+     */
+    public function cashFlow(?array $assetIds = null, ?CarbonInterface $from = null, ?CarbonInterface $to = null): array
+    {
+        $rows = $this->aggregate($assetIds, $from, $to, excludeClosing: true);
+
+        $netIncome = 0.0;
+        $adjustments = collect();
+        $investing = collect();
+        $financing = collect();
+        $cashMovement = 0.0;
+
+        foreach ($rows as $row) {
+            $movement = round((float) $row->debit_total - (float) $row->credit_total, 2); // net debit
+            $cashImpact = round(-$movement, 2); // this account's contribution to the change in cash
+
+            // Cash & bank branch (111…) — the balance being explained, not a section.
+            if (str_starts_with((string) $row->code, '111')) {
+                $cashMovement = round($cashMovement + $movement, 2); // asset: net debit = cash in
+                continue;
+            }
+
+            if ($cashImpact === 0.0) {
+                continue;
+            }
+
+            if (in_array($row->type, ['revenue', 'expense'], true)) {
+                $netIncome = round($netIncome + $cashImpact, 2); // Σ(credit−debit) = revenue − expense
+            } elseif ($row->type === 'equity' || str_starts_with((string) $row->code, '22')) {
+                $financing->push($this->statementRow($row, $cashImpact));
+            } elseif (str_starts_with((string) $row->code, '122')) {
+                // Accumulated depreciation (122…) is the non-cash counterpart of depreciation
+                // expense — an OPERATING add-back, not an investing flow. Investing is only the
+                // gross non-current assets (121…) that move on actual cash purchases/disposals.
+                $adjustments->push($this->statementRow($row, $cashImpact));
+            } elseif (str_starts_with((string) $row->code, '12')) {
+                $investing->push($this->statementRow($row, $cashImpact));
+            } else {
+                // current assets (non-cash) + current liabilities + any custom account.
+                $adjustments->push($this->statementRow($row, $cashImpact));
+            }
+        }
+
+        $operatingTotal = round($netIncome + $adjustments->sum('amount'), 2);
+        $investingTotal = round($investing->sum('amount'), 2);
+        $financingTotal = round($financing->sum('amount'), 2);
+        $netChange = round($operatingTotal + $investingTotal + $financingTotal, 2);
+
+        // Opening cash = cumulative cash-branch balance strictly before `from`.
+        $cashOpening = 0.0;
+        if ($from) {
+            $cashOpening = round(
+                $this->aggregate($assetIds, null, $from->copy()->subDay())
+                    ->filter(fn ($r) => str_starts_with((string) $r->code, '111'))
+                    ->sum(fn ($r) => (float) $r->debit_total - (float) $r->credit_total),
+                2
+            );
+        }
+
+        return [
+            'net_income' => $netIncome,
+            'adjustments' => $adjustments->values(),
+            'operating_total' => $operatingTotal,
+            'investing' => $investing->values(),
+            'investing_total' => $investingTotal,
+            'financing' => $financing->values(),
+            'financing_total' => $financingTotal,
+            'net_change' => $netChange,
+            'cash_opening' => $cashOpening,
+            'cash_closing' => round($cashOpening + $cashMovement, 2),
+            'cash_movement' => round($cashMovement, 2),
+            // The three sections must explain the actual cash movement (double-entry).
+            'reconciled' => abs($netChange - $cashMovement) < 0.01,
+        ];
+    }
+
+    /**
      * Per-account net for revenue + expense accounts (net_credit = credit − debit),
      * excluding prior closing entries. Used by the year-end close to zero each P&L
      * account. Only accounts with movement are returned.

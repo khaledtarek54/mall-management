@@ -40,6 +40,14 @@ class LedgerReportPdfService
         ]);
     }
 
+    public function cashFlow(?array $assetIds, CarbonInterface $from, CarbonInterface $to, string $property, int $year): string
+    {
+        return $this->render('accounting.pdf.cash-flow', [
+            'report' => $this->reports->cashFlow($assetIds, $from, $to),
+            'meta' => $this->meta($property, (string) $year),
+        ]);
+    }
+
     public function filename(string $report, int $year): string
     {
         return $report.'-'.$year.'-'.now()->format('Ymd').'.pdf';

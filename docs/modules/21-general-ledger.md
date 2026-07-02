@@ -286,9 +286,10 @@ New permission modules in `RolesPermissionsSeeder::PERMISSIONS`:
 | General Ledger / account statement | دفتر الأستاذ / كشف حساب | per account: every line, running balance |
 | Income Statement (P&L) | قائمة الدخل | Σ revenue − Σ expense = net profit (contra-revenue nets in) |
 | Balance Sheet | قائمة المركز المالي | Assets = Liabilities + Equity + net-income-for-period (until year-end close, Phase 4) |
+| Cash-Flow Statement | قائمة التدفقات النقدية | Indirect method: net income ± working-capital changes (operating) + investing + financing. **Reconcile-by-construction:** by double-entry, ΔCash ≡ −Σ(non-cash account movements), so the three sections are classified by code range (111 = cash · 121 = gross non-current assets → investing · 122 = accumulated depreciation → operating add-back · 22 + equity → financing · else operating) and sum to the actual cash movement (`reconciled` = a double-entry integrity guard). Closing entries excluded. |
 
 Each runs **per property** (filter `asset_id`) or **consolidated** (no filter), over a
-date range.
+date range. All four export to bilingual, RTL-aware **PDF**.
 
 ---
 
