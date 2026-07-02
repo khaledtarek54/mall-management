@@ -42,6 +42,22 @@ it('exits 0 and reports the books tie out on clean data', function () {
         ->assertExitCode(0);
 });
 
+it('gates the close when the general ledger has drifted from the source', function () {
+    $this->seed(\Database\Seeders\ChartOfAccountsSeeder::class);
+    $this->seed(\Database\Seeders\AccountMappingSeeder::class);
+    app(\App\Services\Accounting\FiscalCalendar::class)->ensureYear((int) now()->year);
+
+    $invoice = makeInvoice(makeLease(makeUnit(makeAsset())));
+    app(\App\Services\Accounting\LedgerPoster::class)->sync($invoice->fresh()); // GL AR = total
+
+    // Cancel the invoice but leave the GL un-synced → the ledger overstates AR.
+    $invoice->update(['status' => 'cancelled']);
+
+    $this->artisan('billing:reconcile')
+        ->expectsOutputToContain('do NOT tie out')
+        ->assertExitCode(1);
+});
+
 it('surfaces the period and control totals an accountant reconciles against', function () {
     $invoice = makeInvoice(makeLease(makeUnit(makeAsset())));
     captureReconcilePayment($invoice, 5000);

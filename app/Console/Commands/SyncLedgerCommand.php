@@ -10,10 +10,9 @@ use App\Models\Payment;
 use App\Models\Payroll;
 use App\Models\VendorBill;
 use App\Models\VendorBillPayment;
-use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\FiscalCalendar;
-use App\Services\Accounting\LedgerReportService;
 use App\Services\Accounting\LedgerPoster;
+use App\Services\Reconciliation\BooksReconciliationService;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
@@ -34,7 +33,7 @@ class SyncLedgerCommand extends Command
 
     protected $description = 'Post / reconcile general-ledger entries for invoices, payments, and credit notes (idempotent).';
 
-    public function handle(LedgerPoster $poster, FiscalCalendar $calendar, LedgerReportService $reports, AccountResolver $accounts): int
+    public function handle(LedgerPoster $poster, FiscalCalendar $calendar, BooksReconciliationService $recon): int
     {
         $since = $this->resolveSince();
 
@@ -56,7 +55,7 @@ class SyncLedgerCommand extends Command
         $this->newLine();
         $this->table(['result', 'count'], collect($counts)->map(fn ($v, $k) => [$k, $v])->values()->all());
 
-        $this->tieOut($reports, $accounts);
+        $this->tieOut($recon);
 
         // The scheduled (windowed) run is best-effort and idempotent — a single
         // un-postable legacy doc shouldn't red-flag the nightly task forever.
@@ -139,57 +138,32 @@ class SyncLedgerCommand extends Command
     }
 
     /**
-     * Informational tie-out: GL receivables should equal outstanding invoice
-     * balances minus tenant credits the system hasn't applied yet.
+     * Informational tie-out printout, using the SAME computation the reconcile
+     * harness asserts (BooksReconciliationService::glTieOut) so the two never drift.
      */
-    private function tieOut(LedgerReportService $reports, AccountResolver $accounts): void
+    private function tieOut(BooksReconciliationService $recon): void
     {
-        // Resolve AR through the mapping layer (never a hard-coded code) so the
-        // tie-out follows the same account the journalizers post to.
-        try {
-            $ar = $accounts->account('accounts_receivable');
-        } catch (\DomainException) {
-            return;
+        $gl = $recon->glTieOut();
+        if (! ($gl['configured'] ?? false)) {
+            return; // GL not configured/populated yet — nothing to tie out.
         }
 
-        $glAr = round($reports->accountLedger($ar)['closing'], 2);
-        // Net AR excludes cancelled AND credited invoices (the money model keeps both
-        // on the books but out of net receivables — credited ones are reversed by
-        // their credit notes on the GL side, so excluding them keeps both sides symmetric).
-        $invoiceBalances = round((float) Invoice::whereNotIn('status', ['cancelled', 'credited'])->sum('balance'), 2);
-        $outstandingCredits = round((float) CreditNote::whereIn('status', ['issued', 'applied'])->sum('balance'), 2);
-        $expected = round($invoiceBalances - $outstandingCredits, 2);
-        $delta = round($glAr - $expected, 2);
-
         $this->newLine();
-        $this->line('GL receivables (دفتر الأستاذ):     '.number_format($glAr, 2));
-        $this->line('Invoice balances − open credits:  '.number_format($expected, 2));
-
-        if (abs($delta) < 0.01) {
+        $this->line('GL receivables (دفتر الأستاذ):     '.number_format($gl['ar']['gl'], 2));
+        $this->line('Invoice balances − open credits:  '.number_format($gl['ar']['expected'], 2));
+        if (abs($gl['ar']['delta']) < 0.01) {
             $this->info('✓ GL ties to AR.');
         } else {
-            $this->warn('⚠ GL ↔ AR delta: '.number_format($delta, 2).' — run billing:reconcile to investigate.');
+            $this->warn('⚠ GL ↔ AR delta: '.number_format($gl['ar']['delta'], 2).' — run billing:reconcile to investigate.');
         }
-
-        // Accounts Payable tie-out: GL payables should equal outstanding vendor-bill balances.
-        try {
-            $ap = $accounts->account('accounts_payable');
-        } catch (\DomainException) {
-            return;
-        }
-
-        $glAp = round($reports->accountLedger($ap)['closing'], 2);
-        $billBalances = round((float) VendorBill::whereNotIn('status', ['cancelled', 'draft'])->sum('balance'), 2);
-        $apDelta = round($glAp - $billBalances, 2);
 
         $this->newLine();
-        $this->line('GL payables (دفتر الأستاذ):       '.number_format($glAp, 2));
-        $this->line('Vendor-bill balances:             '.number_format($billBalances, 2));
-
-        if (abs($apDelta) < 0.01) {
+        $this->line('GL payables (دفتر الأستاذ):       '.number_format($gl['ap']['gl'], 2));
+        $this->line('Vendor-bill balances:             '.number_format($gl['ap']['expected'], 2));
+        if (abs($gl['ap']['delta']) < 0.01) {
             $this->info('✓ GL ties to AP.');
         } else {
-            $this->warn('⚠ GL ↔ AP delta: '.number_format($apDelta, 2).' — investigate.');
+            $this->warn('⚠ GL ↔ AP delta: '.number_format($gl['ap']['delta'], 2).' — investigate.');
         }
     }
 }

@@ -2,8 +2,13 @@
 
 namespace App\Services\Reconciliation;
 
+use App\Models\CreditNote;
 use App\Models\Invoice;
+use App\Models\JournalEntry;
 use App\Models\Payment;
+use App\Models\VendorBill;
+use App\Services\Accounting\AccountResolver;
+use App\Services\Accounting\LedgerReportService;
 
 /**
  * Independently re-derives the accounts-receivable books from SOURCE records
@@ -20,6 +25,11 @@ class BooksReconciliationService
 {
     /** Money tolerance — one piastre. */
     private const EPS = 0.01;
+
+    public function __construct(
+        private LedgerReportService $reports,
+        private AccountResolver $accounts,
+    ) {}
 
     /**
      * @param  string|null  $month  Optional 'YYYY-MM' filter on issue_date; null = all invoices.
@@ -151,6 +161,24 @@ class BooksReconciliationService
         }
         $checks[] = $this->check('cam_allocations', 'CAM allocations tie to the pool + billed ones have a charge or credit note', $d);
 
+        // 7. GL tie-out: the general ledger's AR/AP control accounts must equal the
+        //    source-derived receivables/payables. GL balances are CUMULATIVE, so this
+        //    only makes sense all-time — skip it for a month-scoped run. Skipped
+        //    entirely when the GL isn't configured/populated (nothing to tie out).
+        if ($month === null) {
+            $gl = $this->glTieOut();
+            if (($gl['configured'] ?? false) === true) {
+                $d = [];
+                if (abs($gl['ar']['delta']) > self::EPS) {
+                    $d[] = ['ref' => 'Accounts Receivable', 'detail' => "GL {$gl['ar']['gl']} ≠ source AR {$gl['ar']['expected']} (delta {$gl['ar']['delta']})"];
+                }
+                if (abs($gl['ap']['delta']) > self::EPS) {
+                    $d[] = ['ref' => 'Accounts Payable', 'detail' => "GL {$gl['ap']['gl']} ≠ source AP {$gl['ap']['expected']} (delta {$gl['ap']['delta']})"];
+                }
+                $checks[] = $this->check('gl_tie_out', 'General ledger AR/AP ties to source documents', $d);
+            }
+        }
+
         // Control totals — the figures an accountant reconciles against their own books.
         $controlTotals = [
             'invoiceCount'  => $invoices->count(),
@@ -181,6 +209,48 @@ class BooksReconciliationService
             'ok' => collect($checks)->every(fn ($c) => $c['passed']),
             'checks' => $checks,
             'controlTotals' => $controlTotals,
+        ];
+    }
+
+    /**
+     * The single source of truth for the GL↔AR/AP tie-out: the general ledger's
+     * control-account balances vs. the receivables/payables the source documents
+     * imply (all-time / cumulative). Consumed by both the reconcile check above and
+     * the `accounting:sync-ledger` printout, so the two can never disagree.
+     *
+     * @return array{configured:bool, ar?:array{gl:float,expected:float,delta:float}, ap?:array{gl:float,expected:float,delta:float}}
+     */
+    public function glTieOut(): array
+    {
+        // Nothing to tie out until the GL is both configured (roles mapped) AND
+        // populated (something posted) — else skip rather than raise a false failure.
+        if (! JournalEntry::where('status', 'posted')->exists()) {
+            return ['configured' => false];
+        }
+
+        try {
+            $arAccount = $this->accounts->account('accounts_receivable');
+            $apAccount = $this->accounts->account('accounts_payable');
+        } catch (\DomainException) {
+            return ['configured' => false];
+        }
+
+        // Net AR = open invoice balances − standing (unapplied) credit notes; credited
+        // invoices are excluded because their credit note reverses them on the GL side.
+        // Round each sum before subtracting (matches the sync-command's original math).
+        $glAr = round($this->reports->accountLedger($arAccount)['closing'], 2);
+        $invoiceBalances = round((float) Invoice::whereNotIn('status', ['cancelled', 'credited'])->sum('balance'), 2);
+        $outstandingCredits = round((float) CreditNote::whereIn('status', ['issued', 'applied'])->sum('balance'), 2);
+        $expectedAr = round($invoiceBalances - $outstandingCredits, 2);
+
+        // AP = outstanding vendor-bill balances (excludes draft + cancelled).
+        $glAp = round($this->reports->accountLedger($apAccount)['closing'], 2);
+        $expectedAp = round((float) VendorBill::whereNotIn('status', ['cancelled', 'draft'])->sum('balance'), 2);
+
+        return [
+            'configured' => true,
+            'ar' => ['gl' => $glAr, 'expected' => $expectedAr, 'delta' => round($glAr - $expectedAr, 2)],
+            'ap' => ['gl' => $glAp, 'expected' => $expectedAp, 'delta' => round($glAp - $expectedAp, 2)],
         ];
     }
 

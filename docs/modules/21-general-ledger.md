@@ -420,9 +420,16 @@ fresh reseed regenerates them with the new type, and reclassifying already-bille
 historical recoveries would be a separate one-off data step. The linked `Charge` stays
 `type='other'` (a non-billed, non-journalized traceability anchor).
 
+**GL↔AR/AP tie-out in the reconcile harness — done:** `BooksReconciliationService`
+now includes a `gl_tie_out` check (surfaced by `billing:reconcile`, which gates a
+monthly close / tax filing with a non-zero exit) asserting the GL's AR/AP control
+accounts equal the source-derived receivables/payables. The computation lives in one
+place — `BooksReconciliationService::glTieOut()` — and is reused by the
+`accounting:sync-ledger` printout, so the two can never disagree. The check is all-time
+(GL balances are cumulative, so it's skipped for a `--month` run) and self-skips when the
+GL isn't configured/populated.
+
 **Deferred follow-ups (not yet built):**
-- **`billing:reconcile` GL check:** the tie-out is reported by `accounting:sync-ledger`
-  today; folding a formal GL↔AR check into the reconciliation harness is a follow-up.
 - **Real-time posting:** the daily sweep is the mechanism; near-real-time observers can
   be added later if needed.
 
