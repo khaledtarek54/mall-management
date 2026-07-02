@@ -79,9 +79,19 @@ class LedgerPoster
         // --all backfill can run alongside the scheduled sweep), and re-read the
         // existing entry under the lock so two runs can't both post.
         return DB::transaction(function () use ($source, $journalizer) {
-            $source->newQuery()->whereKey($source->getKey())->lockForUpdate()->first();
+            // Lock the source row — include trashed rows so a soft-deleted document
+            // can still be locked + reconciled (voided) here.
+            $lock = $source->newQuery();
+            if (method_exists($source, 'trashed')) {
+                $lock->withTrashed();
+            }
+            $lock->whereKey($source->getKey())->lockForUpdate()->first();
 
-            $payload = $journalizer->payload($source);
+            // A soft-deleted document has no ledger effect — its entry must be voided,
+            // exactly like a cancelled one. The sweep visits trashed sources
+            // (withTrashed) so a deleted-but-posted document self-heals to void.
+            $trashed = method_exists($source, 'trashed') && $source->trashed();
+            $payload = $trashed ? null : $journalizer->payload($source);
 
             $existing = JournalEntry::query()
                 ->where('source_type', $source->getMorphClass())

@@ -147,6 +147,20 @@ it('voids the entry when an invoice is later cancelled', function () {
     expect(app(LedgerReportService::class)->trialBalance()['total_debit'])->toEqualWithDelta(0.0, 0.001);
 });
 
+it('voids the entry when an invoice is later soft-deleted', function () {
+    $invoice = syncInvoice();
+    $this->artisan('accounting:sync-ledger --all')->assertSuccessful();
+
+    $invoice->delete(); // soft-delete a posted document
+
+    $this->artisan('accounting:sync-ledger --all')->assertSuccessful();
+
+    // The sweep visits the trashed doc (withTrashed) and voids its now-effectless entry.
+    $entries = JournalEntry::where('source_type', $invoice->getMorphClass())->where('source_id', $invoice->id)->get();
+    expect($entries->where('status', 'void')->count())->toBe(1);
+    expect(app(LedgerReportService::class)->trialBalance()['total_debit'])->toEqualWithDelta(0.0, 0.001);
+});
+
 it('re-derives the entry when an invoice total changes (e.g. a late fee)', function () {
     $invoice = syncInvoice();
     $this->artisan('accounting:sync-ledger --all')->assertSuccessful();

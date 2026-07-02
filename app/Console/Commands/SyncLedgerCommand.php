@@ -105,6 +105,13 @@ class SyncLedgerCommand extends Command
 
     private function syncModel($query, string $tsColumn, ?Carbon $since, LedgerPoster $poster, array &$counts): void
     {
+        // Include soft-deleted documents so their posted entry gets voided (a deleted
+        // document has no ledger effect). Soft-delete bumps updated_at, so the windowed
+        // run picks up freshly-deleted docs too; --all self-heals any older orphans.
+        if (method_exists($query->getModel(), 'trashed')) {
+            $query->withTrashed();
+        }
+
         $query->when($since, fn ($q) => $q->where($tsColumn, '>=', $since))
             ->chunkById(200, function ($models) use ($poster, &$counts) {
                 foreach ($models as $model) {

@@ -382,12 +382,25 @@ fiscal years **in sequence** (2025 before 2026): the balance sheet rolls only cl
 years' profit into retained earnings, so an out-of-order close leaves a prior year's P&L
 as an un-rolled `net_income` residual.
 
-**Known limitation — deleting a posted document:** the sweep reconciles the GL from
-*live* documents, so **cancelling** a document (invoice / vendor bill / expense) is the
-safe reversal — the next sweep voids its entry. **Soft-deleting** an already-posted
-document orphans its journal entry (the sweep no longer sees the trashed source, so it
-never voids it). Prefer cancel over delete for posted documents; a future enhancement is
-a void-on-delete hook (or a sweep that scans trashed sources with live entries).
+**Deleting a posted document — handled by the sweep:** both **cancelling** and
+**soft-deleting** a posted document (invoice / vendor bill / expense / …) are now safe
+reversals. `LedgerPoster::sync()` treats a **trashed** source as having no ledger effect
+and **voids** its entry, exactly like a cancelled document; the sweep visits trashed rows
+(`withTrashed()`), and because a soft-delete bumps `updated_at`, the windowed scheduled
+run catches freshly-deleted docs (and `--all` self-heals any older orphans). So a deleted
+posted document's entry is voided on the next sweep — the GL no longer overstates AR/
+revenue. (Immediacy note: voiding happens on the next sweep, not the instant of deletion —
+consistent with the whole sweep-based design. `VendorBillPayment` has no soft-delete, so
+only its hard-delete would orphan an entry — not a normal path.)
+
+**Open-period caveat (same rule as cancel):** the void is a real reversing entry, so it
+needs an open period — it posts into the original entry's period if still open, else into
+today's open period. If a document from a **closed** period is deleted **and** the current
+period is also closed, the void cannot post: the sweep logs it as a failure and the entry
+stays until a period is reopened (`accounting:sync-ledger --all` then exits non-zero so it
+isn't missed). In normal operation the current period is open (the sweep opens the current
+fiscal year first), so a closed-period delete reverses cleanly into today. To reverse
+inside closed books specifically, reopen the period first — same as the close workflow above.
 
 **Security deposits (تأمينات) — done:** `DepositTransaction` records receipt / refund /
 forfeit against a lease, each posting its own entry — receipt Dr Bank\|Cash / Cr Deposits
