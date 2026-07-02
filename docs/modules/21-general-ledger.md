@@ -77,6 +77,18 @@ The master list of accounts, as a tree (the accountant's Excel turned into a tab
 | `is_active` | bool | نشط |
 | `description` | text, null | بيان |
 
+**Chart guardrails (so a hand-entered code can't corrupt the chart):**
+- **`parent_id` is derived from the code**, never picked by hand — `LedgerAccount`'s
+  saving hook sets it to the deepest existing account whose code is a strict prefix
+  (mirrors the seeder). So the tree can never contradict the code (the form has no manual
+  parent field).
+- **Leading-digit ↔ type guard:** a code in a *defined* range (1 asset · 2 liability ·
+  3 equity · 4 revenue · 5 expense) must carry the matching `type`; the model throws and
+  the form shows an inline error (`App\Rules\AccountCodeMatchesType`) otherwise. Custom
+  ranges (6-9/0) are unconstrained. `normal_balance` is always derived from `type`.
+- **Re-coding is safe:** journal lines FK to the account's `id`, not its `code`, so
+  editing a code never breaks existing postings (it just re-derives the parent).
+
 **Hierarchy convention** (mirrors the accountant's sheet): `1` → `11` → `111` →
 `11101` → `11101001`. Parents are *summary* accounts (no postings); the deepest
 leaves are *posting* accounts.

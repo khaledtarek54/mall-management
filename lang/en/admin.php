@@ -1157,6 +1157,7 @@ return [
 
     'helpers' => [
         'account_type' => 'Asset / Liability / Equity / Revenue / Expense — sets the debit/credit side.',
+        'account_code' => 'Digits only. The parent is set automatically from the code (e.g. 41102 sits under 411). Leading digit: 1 assets · 2 liabilities · 3 equity · 4 revenue · 5 expenses.',
         'parent_account' => 'Optional — groups this account under a summary account.',
         'is_postable' => 'Only postable (leaf) accounts can be used on journal entries.',
         'journal_property' => 'Leave empty for a consolidated, company-level entry.',
@@ -1763,6 +1764,7 @@ return [
         'invoice_due_after_issue' => 'The due date must be after the issue date.',
         'maintenance_resolution_after_creation' => 'The resolution date cannot be earlier than the request creation date.',
         'unit_has_active_lease' => 'This unit already has an active lease. Terminate it first or pick another unit.',
+        'account_code_type_mismatch' => 'A code starting with :digit belongs to :expected accounts — change the code or the account nature to match.',
     ],
 
 ];

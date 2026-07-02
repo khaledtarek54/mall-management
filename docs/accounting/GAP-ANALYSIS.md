@@ -123,17 +123,18 @@ lines (enforced at the posting engine); delete is super-admin-only.
   (rename freely; re-code as a controlled action).
 - **Deactivate, don't delete**, accounts with history.
 
-**Recommended hardening for Atriom (small, high-value — the "chart guardrails" phase):**
-1. **Auto-derive `parent_id` from the code** on save (reuse the seeder's longest-prefix
-   logic in the model) — the tree can no longer drift from the code; the manual parent
-   pick becomes an optional override or goes away.
-2. **Validate leading-digit ↔ type** (1 asset / 2 liability / 3 equity / 4 revenue /
-   5 expense) with a clear bilingual error — kills the worst mistake (misclassification).
-3. *(Optional)* enforce child type = parent type; warn when editing a code that already
-   has posted lines; add a "suggest next code under this group" helper.
+**Chart guardrails — ✅ SHIPPED.** The two high-value guardrails are now in place:
+1. **`parent_id` is auto-derived from the code** on save (deepest existing prefix,
+   mirroring the seeder) — the tree can no longer drift from the code; the manual parent
+   field was removed from the form.
+2. **Leading-digit ↔ type is validated** (1 asset / 2 liability / 3 equity / 4 revenue /
+   5 expense) — a mismatch throws in the model and shows an inline form error
+   (`App\Rules\AccountCodeMatchesType`); custom ranges (6-9/0) stay unconstrained.
 
-Net: the accountant keeps full control of his chart, but the system stops the handful of
-mistakes that would make the reports look wrong.
+Net: the accountant keeps full control of his chart, but the system stops the mistakes
+that would make the reports look wrong. *(Still optional, not built: a "suggest next code
+under a group" helper, and a guard on re-coding an account that already has posted lines —
+low value since lines FK to the account id, not the code.)*
 
 ---
 
@@ -143,7 +144,7 @@ Ranked by value-for-effort for *this* business. "Needs accountant" = decide at t
 
 | # | Enhancement | Why it matters | Effort | Needs accountant? |
 |---|-------------|----------------|--------|-------------------|
-| 1 | **Chart-of-accounts guardrails** (§3) | Protects the foundation he'll edit | S | No |
+| ~~1~~ | ~~**Chart-of-accounts guardrails** (§3)~~ | ✅ **Shipped** — auto-parent + leading-digit↔type guard | — | — |
 | 2 | **Opening balances tool** | Load the current position at go-live | S–M | Yes (if migrating) |
 | 3 | **Fixed assets + depreciation** (recurring journal) | Property owner has real assets; monthly الإهلاك | M | Yes (policy/rates) |
 | 4 | **Cash-flow statement** | The 3rd core financial statement | M | Light |

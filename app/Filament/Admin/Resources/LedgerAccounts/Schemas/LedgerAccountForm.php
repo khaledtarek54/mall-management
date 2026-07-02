@@ -2,12 +2,13 @@
 
 namespace App\Filament\Admin\Resources\LedgerAccounts\Schemas;
 
-use App\Models\LedgerAccount;
+use App\Rules\AccountCodeMatchesType;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 
 class LedgerAccountForm
@@ -23,7 +24,9 @@ class LedgerAccountForm
                         ->required()
                         ->maxLength(20)
                         ->unique(ignoreRecord: true)
-                        ->rule('regex:/^[0-9]+$/'),
+                        ->rule('regex:/^[0-9]+$/')
+                        ->rule(fn (Get $get) => new AccountCodeMatchesType($get('type')))
+                        ->helperText(__('admin.helpers.account_code')),
 
                     Select::make('type')
                         ->label(__('admin.fields.account_type'))
@@ -41,19 +44,6 @@ class LedgerAccountForm
                         ->label(__('admin.fields.account_name_en'))
                         ->required()
                         ->maxLength(255),
-
-                    Select::make('parent_id')
-                        ->label(__('admin.fields.parent_account'))
-                        ->options(fn (?LedgerAccount $record) => LedgerAccount::query()
-                            ->where('is_postable', false)
-                            ->when($record, fn ($q) => $q->whereKeyNot($record->getKey()))
-                            ->orderBy('code')
-                            ->get()
-                            ->mapWithKeys(fn ($a) => [$a->id => $a->code.' — '.$a->displayName()])
-                            ->all())
-                        ->searchable()
-                        ->preload()
-                        ->helperText(__('admin.helpers.parent_account')),
 
                     Toggle::make('is_postable')
                         ->label(__('admin.fields.is_postable'))
