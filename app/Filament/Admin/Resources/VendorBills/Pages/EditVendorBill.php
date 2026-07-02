@@ -28,6 +28,7 @@ class EditVendorBill extends EditRecord
                 ->color('success')
                 ->visible(fn () => $this->record->status === 'draft'
                     && Auth::user()?->can('vendor_bills.approve'))
+                ->authorize(fn () => Auth::user()?->can('vendor_bills.approve') ?? false)
                 ->requiresConfirmation()
                 ->action(function (): void {
                     app(VendorBillService::class)->approve($this->record);
@@ -46,6 +47,7 @@ class EditVendorBill extends EditRecord
                 ->visible(fn () => $this->record->isPostable()
                     && (float) $this->record->balance > 0
                     && Auth::user()?->can('vendor_bills.pay'))
+                ->authorize(fn () => Auth::user()?->can('vendor_bills.pay') ?? false)
                 ->schema([
                     TextInput::make('amount')
                         ->label(__('admin.fields.amount'))
@@ -107,6 +109,7 @@ class EditVendorBill extends EditRecord
                 ->visible(fn () => in_array($this->record->status, ['draft', 'approved'], true)
                     && (float) $this->record->paid_amount <= 0
                     && Auth::user()?->can('vendor_bills.edit'))
+                ->authorize(fn () => Auth::user()?->can('vendor_bills.edit') ?? false)
                 ->requiresConfirmation()
                 ->action(function (): void {
                     try {

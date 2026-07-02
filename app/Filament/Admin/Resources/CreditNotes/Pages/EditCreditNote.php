@@ -11,6 +11,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Support\Facades\Auth;
 
 class EditCreditNote extends EditRecord
 {
@@ -23,7 +24,9 @@ class EditCreditNote extends EditRecord
                 ->label(__('admin.actions.issue_credit_note'))
                 ->icon('heroicon-o-check-circle')
                 ->color('success')
-                ->visible(fn () => $this->record->status === 'draft')
+                ->visible(fn () => $this->record->status === 'draft'
+                    && Auth::user()?->can('credit_notes.issue'))
+                ->authorize(fn () => Auth::user()?->can('credit_notes.issue') ?? false)
                 ->requiresConfirmation()
                 ->action(function (): void {
                     app(CreditNoteService::class)->issue($this->record);
@@ -39,7 +42,9 @@ class EditCreditNote extends EditRecord
                 ->label(__('admin.actions.apply_to_invoice'))
                 ->icon('heroicon-o-arrow-right-circle')
                 ->color('primary')
-                ->visible(fn () => $this->record->hasBalance() && $this->record->status !== 'void')
+                ->visible(fn () => $this->record->hasBalance() && $this->record->status !== 'void'
+                    && Auth::user()?->can('credit_notes.apply'))
+                ->authorize(fn () => Auth::user()?->can('credit_notes.apply') ?? false)
                 ->schema([
                     Select::make('invoice_id')
                         ->label(__('admin.fields.invoice'))
@@ -91,7 +96,9 @@ class EditCreditNote extends EditRecord
                 ->label(__('admin.actions.void_credit_note'))
                 ->icon('heroicon-o-x-circle')
                 ->color('danger')
-                ->visible(fn () => in_array($this->record->status, ['draft', 'issued']) && (float) $this->record->applied_amount <= 0)
+                ->visible(fn () => in_array($this->record->status, ['draft', 'issued']) && (float) $this->record->applied_amount <= 0
+                    && Auth::user()?->can('credit_notes.void'))
+                ->authorize(fn () => Auth::user()?->can('credit_notes.void') ?? false)
                 ->requiresConfirmation()
                 ->modalDescription(__('admin.actions.void_credit_note_confirm'))
                 ->action(function (): void {

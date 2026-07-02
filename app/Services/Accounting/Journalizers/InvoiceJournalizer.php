@@ -34,7 +34,10 @@ class InvoiceJournalizer implements Journalizer
         /** @var Invoice $invoice */
         $invoice = $source;
 
-        if ($invoice->status === 'cancelled') {
+        // Revenue is recognized at ISSUE — a draft (the default status) or a cancelled
+        // invoice has no GL effect. All other statuses (issued/partially_paid/paid/
+        // overdue/disputed/credited) keep their AR+revenue posting.
+        if (in_array($invoice->status, ['draft', 'cancelled'], true)) {
             return null;
         }
 

@@ -201,3 +201,24 @@ it('ties the GL receivables balance to the invoice balance after payment', funct
     // GL receivables closing should equal the invoice's own outstanding balance.
     expect($statement['closing'])->toEqualWithDelta((float) $invoice->fresh()->balance, 0.001);
 });
+
+it('skips a draft invoice — revenue is recognized only at issue', function () {
+    $invoice = glInvoice(glLease());
+    // Force a persisted draft (the model's auto-status hook would otherwise flip it).
+    \Illuminate\Support\Facades\DB::table('invoices')->where('id', $invoice->id)->update(['status' => 'draft']);
+
+    expect($this->poster->post($invoice->fresh()))->toBeNull();
+});
+
+it('skips a vendor-bill payment whose bill is not postable (draft/cancelled)', function () {
+    $bill = \App\Models\VendorBill::create([
+        'vendor_id' => \App\Models\Vendor::factory()->create()->id, 'asset_id' => makeAsset()->id,
+        'category' => 'utilities', 'status' => 'draft', 'bill_date' => now()->toDateString(),
+        'subtotal' => 1000, 'vat_amount' => 0, 'total' => 1000, 'balance' => 1000,
+    ]);
+    $payment = \App\Models\VendorBillPayment::create([
+        'vendor_bill_id' => $bill->id, 'amount' => 500, 'method' => 'bank_transfer', 'payment_date' => now()->toDateString(),
+    ]);
+
+    expect($this->poster->post($payment->fresh()))->toBeNull();
+});

@@ -26,7 +26,15 @@ class VendorBillPaymentJournalizer implements Journalizer
         }
 
         $payment->loadMissing('bill');
-        $assetId = $payment->bill?->asset_id;
+
+        // A payment only has a GL effect while its parent bill is postable — a payment
+        // against a draft/cancelled bill (import/backfill edge) is skipped, so the sweep
+        // voids it if the bill is later cancelled. Mirrors every other journalizer's guard.
+        if (! $payment->bill?->isPostable()) {
+            return null;
+        }
+
+        $assetId = $payment->bill->asset_id;
 
         $cashRole = $payment->method === 'cash' ? 'cash' : 'bank';
 

@@ -23,6 +23,7 @@ class EditExpense extends EditRecord
                 ->color('danger')
                 ->visible(fn () => $this->record->status === 'recorded'
                     && Auth::user()?->can('expenses.edit'))
+                ->authorize(fn () => Auth::user()?->can('expenses.edit') ?? false)
                 ->requiresConfirmation()
                 ->modalDescription(__('admin.actions.cancel_expense_confirm'))
                 ->action(function (): void {

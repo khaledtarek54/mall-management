@@ -24,6 +24,7 @@ class EditJournalEntry extends EditRecord
                 ->color('success')
                 ->visible(fn () => $this->record->status === 'draft'
                     && Auth::user()?->can('journal_entries.post'))
+                ->authorize(fn () => Auth::user()?->can('journal_entries.post') ?? false)
                 ->requiresConfirmation()
                 ->modalDescription(__('admin.actions.post_journal_entry_confirm'))
                 ->action(function (): void {
@@ -54,6 +55,7 @@ class EditJournalEntry extends EditRecord
                 ->color('danger')
                 ->visible(fn () => $this->record->status === 'posted'
                     && Auth::user()?->can('journal_entries.void'))
+                ->authorize(fn () => Auth::user()?->can('journal_entries.void') ?? false)
                 ->requiresConfirmation()
                 ->modalDescription(__('admin.actions.void_journal_entry_confirm'))
                 ->schema([
