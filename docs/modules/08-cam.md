@@ -77,7 +77,7 @@ true_up_amount      = allocated_amount - estimated_paid
 - Once billed, `bill()` becomes idempotent — re-calling it returns the same allocation and its backing record, never a second one.
 
 ### Positive true-up → charge; negative true-up → credit note
-- A **positive** true-up (tenant under-paid) creates a one-off `Charge` on the lease (`billed_charge_id`).
+- A **positive** true-up (tenant under-paid) creates a one-off `Charge` on the lease (`billed_charge_id`) and settles it immediately on a dedicated recovery invoice. That invoice's line item is typed **`cam_recovery`**, so the General Ledger books it to **CAM Recovery Revenue** (`cam_recovery_revenue`, إيرادات استرداد المصروفات المشتركة) rather than generic misc income. (The `Charge` itself stays `type='other'` — it is a non-billed, non-journalized traceability anchor; see [module 21](21-general-ledger.md).)
 - A **negative** true-up (tenant over-paid) creates an **issued `CreditNote`** on the tenant's account (`billed_credit_note_id`) — *not* a negative charge. A negative charge could drive a January invoice total negative, which `Invoice::recomputeTotals()` floors to 0, silently losing the credit. The credit note preserves it and settles future AR via the normal credit-apply flow.
 - The books reconciliation (`BooksReconciliationService`, CAM check) accepts a billed allocation backed by **either** a charge or a credit note.
 

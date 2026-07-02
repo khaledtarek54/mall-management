@@ -285,7 +285,9 @@ class CamReconciliationService
             'invoice_id' => $invoice->id,
             'charge_id' => $charge->id,
             'description' => $name,
-            'type' => 'other',
+            // 'cam_recovery' routes this to the dedicated CAM Recovery Revenue account
+            // (إيرادات استرداد المصروفات المشتركة) in the GL, not generic misc income.
+            'type' => 'cam_recovery',
             'amount' => $amount,
             'vat_rate' => 0,
             'vat_amount' => 0,

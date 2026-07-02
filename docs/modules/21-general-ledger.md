@@ -395,10 +395,19 @@ Held; refund Dr Deposits Held / Cr Bank\|Cash; forfeit Dr Deposits Held / Cr Mis
 Swept by `accounting:sync-ledger`; `DepositTransactionResource` gated by
 `deposit_transactions.*`. The GL Deposits-Held balance = Σ receipts − Σ refunds − forfeits.
 
+**CAM recovery revenue (إيرادات استرداد المصروفات المشتركة) — done:** the positive
+true-up recovery invoice item is typed `cam_recovery` (in `CamReconciliationService`), and
+`InvoiceJournalizer` maps that type to the `cam_recovery_revenue` role (account 41103001)
+— so year-end CAM recoveries now show on their own Income-Statement line instead of
+`misc_income`. `cam_recovery` is registered in `App\Enums\InvoiceItemType` (the
+single-source-of-truth for item types → validation, Filament options, translation keys).
+Forward-only: pre-existing recovery items keep `type='other'` (the `accounting:sync-ledger`
+backfill re-derives from the *stored* item type, so it leaves them in `misc_income`); a
+fresh reseed regenerates them with the new type, and reclassifying already-billed
+historical recoveries would be a separate one-off data step. The linked `Charge` stays
+`type='other'` (a non-billed, non-journalized traceability anchor).
+
 **Deferred follow-ups (not yet built):**
-- **CAM revenue classification:** CAM-recovery items use `type='other'` and currently
-  post to `misc_income`. A dedicated *CAM Recovery Revenue* line needs a distinct `cam`
-  item type on the recovery charge (a small module-08 change).
 - **`billing:reconcile` GL check:** the tie-out is reported by `accounting:sync-ledger`
   today; folding a formal GL↔AR check into the reconciliation harness is a follow-up.
 - **Real-time posting:** the daily sweep is the mechanism; near-real-time observers can

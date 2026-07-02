@@ -21,13 +21,14 @@ return new class extends Migration
 
     public function down(): void
     {
-        // Include 'marketing' in the restored enum: up() allowed it (string), so
-        // marketing invoice items exist by now — omitting it would make down()
-        // fail under MySQL strict mode (or lose those rows) on rollback/refresh.
+        // Include every value up() allowed as a string (e.g. 'marketing',
+        // 'cam_recovery') in the restored enum: such invoice items exist by now, so
+        // omitting one would make down() fail under MySQL strict mode (or lose those
+        // rows) on rollback/refresh.
         Schema::table('invoice_items', function (Blueprint $table) {
             $table->enum('type', [
                 'base_rent', 'service_charge', 'utility', 'parking',
-                'percentage_rent', 'marketing', 'late_fee', 'other',
+                'percentage_rent', 'marketing', 'late_fee', 'cam_recovery', 'other',
             ])->change();
         });
     }

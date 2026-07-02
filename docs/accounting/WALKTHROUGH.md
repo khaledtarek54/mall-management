@@ -357,8 +357,9 @@ Bring these written down — his answers become our roadmap.
 
 **Posting treatments (المعالجات المحاسبية)**
 - Is revenue-at-issue (accrual) how you want it, or do you book on cash collection?
-- Should CAM (service-charge) year-end recoveries have their **own revenue line**
-  (إيرادات استرداد المصروفات المشتركة) instead of "misc income"?
+- CAM (service-charge) year-end recoveries now post to their **own revenue line**
+  (إيرادات استرداد المصروفات المشتركة) — confirm that's how you want them presented, and
+  whether they should carry VAT.
 - Are the payroll withholdings (salary tax + social insurance) split the way you need?
   Do you also need the **employer's** share of social insurance recorded?
 

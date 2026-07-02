@@ -1449,6 +1449,7 @@ return [
             'percentage_rent' => 'إيجار نسبي من المبيعات',
             'marketing' => 'رسوم التسويق',
             'late_fee' => 'غرامة تأخير',
+            'cam_recovery' => 'استرداد مصروفات مشتركة',
             'other' => 'أخرى',
         ],
         'credit_note_reason' => [

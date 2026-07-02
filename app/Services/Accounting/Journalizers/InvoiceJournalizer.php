@@ -24,6 +24,7 @@ class InvoiceJournalizer implements Journalizer
         'percentage_rent' => 'percentage_rent_revenue',
         'marketing' => 'marketing_revenue',
         'late_fee' => 'late_fee_income',
+        'cam_recovery' => 'cam_recovery_revenue',
     ];
 
     public function __construct(private AccountResolver $accounts) {}

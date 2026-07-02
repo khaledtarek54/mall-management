@@ -58,6 +58,21 @@ it('journalizes an invoice as Dr AR / Cr revenue + VAT', function () {
     expect((float) $byAccount[$this->accounts->id('vat_payable')]->credit)->toEqualWithDelta(140.0, 0.001);
 });
 
+it('routes a CAM-recovery item to the dedicated CAM Recovery Revenue account', function () {
+    $invoice = makeInvoice(glLease(), [
+        'issue_date' => now()->toDateString(),
+        'subtotal' => 3000, 'vat_amount' => 0, 'total' => 3000, 'balance' => 3000,
+    ]);
+    $invoice->items()->create(['type' => 'cam_recovery', 'description' => 'CAM Reconciliation — 2025', 'amount' => 3000, 'vat_rate' => 0, 'vat_amount' => 0, 'total' => 3000]);
+
+    $entry = $this->poster->post($invoice);
+
+    $byAccount = $entry->lines->keyBy('ledger_account_id');
+    expect((float) $byAccount[$this->accounts->id('cam_recovery_revenue')]->credit)->toEqualWithDelta(3000.0, 0.001);
+    // …and NOT lumped into generic misc income.
+    expect($byAccount->has($this->accounts->id('misc_income')))->toBeFalse();
+});
+
 it('falls back to the invoice header when there are no line items', function () {
     // Header-only invoice (no items) — must still post a balanced entry.
     $invoice = makeInvoice(glLease(), [

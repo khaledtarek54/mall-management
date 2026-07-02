@@ -1449,6 +1449,7 @@ return [
             'percentage_rent' => 'Percentage Rent',
             'marketing' => 'Marketing Levy',
             'late_fee' => 'Late Fee',
+            'cam_recovery' => 'CAM Recovery',
             'other' => 'Other',
         ],
         'credit_note_reason' => [
