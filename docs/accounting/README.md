@@ -10,6 +10,10 @@
 > bilingual (Arabic) tour: the concepts, the chart of accounts, every money flow with
 > its exact journal entry, the screens, the reports, a demo script, and the questions
 > to ask him.
+>
+> **Where do we stand vs. a full accounting system?** See
+> [GAP-ANALYSIS.md](GAP-ANALYSIS.md) — capability matrix, the chart-of-accounts
+> code-entry hardening, the prioritized backlog, and the stability verdict.
 
 ---
 
