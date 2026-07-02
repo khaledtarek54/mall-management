@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Filament\Admin\Concerns\PostsToLedger;
 use App\Filament\Admin\Pages\Concerns\ScopesLedgerReport;
 use App\Services\Accounting\LedgerReportPdfService;
 use App\Services\Accounting\LedgerReportService;
@@ -17,6 +18,7 @@ use Illuminate\Support\Carbon;
  */
 class TrialBalance extends Page
 {
+    use PostsToLedger;
     use ScopesLedgerReport;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedScale;
@@ -35,6 +37,7 @@ class TrialBalance extends Page
     protected function getHeaderActions(): array
     {
         return [
+            $this->postToLedgerAction(),
             Action::make('download_pdf')
                 ->label(__('admin.actions.download_pdf'))
                 ->icon('heroicon-o-document-arrow-down')
@@ -58,6 +61,11 @@ class TrialBalance extends Page
                     );
                 }),
         ];
+    }
+
+    public function getSubheading(): ?string
+    {
+        return $this->ledgerLastSyncedSubheading();
     }
 
     public static function getNavigationLabel(): string

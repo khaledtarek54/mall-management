@@ -197,6 +197,8 @@ return [
     ],
 
     'reports' => [
+        'ledger_last_synced' => 'Ledger last synced :time',
+        'ledger_never_synced' => 'Ledger not yet synced — click “Post to GL now”.',
         'trial_balance_title' => 'Trial Balance',
         'general_ledger_title' => 'General Ledger',
         'fiscal_year' => 'Fiscal year',
@@ -753,6 +755,8 @@ return [
         'save' => 'Save',
         'pdf' => 'PDF',
         'download_pdf' => 'Download PDF',
+        'post_to_ledger' => 'Post to GL now',
+        'post_to_ledger_confirm' => 'This posts recent invoices, payments, and other documents to the general ledger. It runs automatically every day; running it now just makes the books current immediately. Safe to run anytime.',
         'export' => 'Export',
         'import' => 'Import CSV',
         'import_heading' => 'Import from CSV',
@@ -879,6 +883,8 @@ return [
     'notifications' => [
         'journal_entry_posted' => 'Journal entry posted',
         'journal_entry_post_failed' => 'Could not post the entry',
+        'ledger_posted' => 'Posted to the general ledger — the books are now up to date.',
+        'ledger_posted_with_issues' => 'Ledger updated, but some documents could not be posted. Run the reconciliation check (billing:reconcile) or contact support.',
         'journal_entry_voided' => 'Journal entry voided',
         'journal_entry_voided_body' => 'Reversing entry :number created.',
         'period_closed' => 'Period closed',

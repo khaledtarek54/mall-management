@@ -8,6 +8,7 @@ use App\Models\Expense;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\Payroll;
+use App\Models\SystemSetting;
 use App\Models\VendorBill;
 use App\Models\VendorBillPayment;
 use App\Services\Accounting\FiscalCalendar;
@@ -56,6 +57,10 @@ class SyncLedgerCommand extends Command
         $this->table(['result', 'count'], collect($counts)->map(fn ($v, $k) => [$k, $v])->values()->all());
 
         $this->tieOut($recon);
+
+        // Record when the sweep last ran so the accounting screens can show a
+        // trustworthy "Ledger last synced" indicator (survives cache clears).
+        SystemSetting::put('ledger_last_synced_at', now()->toIso8601String());
 
         // The scheduled (windowed) run is best-effort and idempotent — a single
         // un-postable legacy doc shouldn't red-flag the nightly task forever.

@@ -197,6 +197,8 @@ return [
     ],
 
     'reports' => [
+        'ledger_last_synced' => 'آخر ترحيل للأستاذ :time',
+        'ledger_never_synced' => 'لم يتم الترحيل بعد — اضغط «ترحيل للأستاذ الآن».',
         'trial_balance_title' => 'ميزان المراجعة',
         'general_ledger_title' => 'دفتر الأستاذ',
         'fiscal_year' => 'السنة المالية',
@@ -753,6 +755,8 @@ return [
         'save' => 'حفظ',
         'pdf' => 'PDF',
         'download_pdf' => 'تحميل PDF',
+        'post_to_ledger' => 'ترحيل للأستاذ الآن',
+        'post_to_ledger_confirm' => 'سيتم ترحيل الفواتير والمدفوعات والمستندات الأخيرة إلى دفتر الأستاذ العام. يتم ذلك تلقائيًا كل يوم، والتنفيذ الآن يجعل الدفاتر محدَّثة فورًا. آمن في أي وقت.',
         'export' => 'تصدير',
         'import' => 'استيراد CSV',
         'import_heading' => 'استيراد من ملف CSV',
@@ -879,6 +883,8 @@ return [
     'notifications' => [
         'journal_entry_posted' => 'تم ترحيل القيد',
         'journal_entry_post_failed' => 'تعذّر ترحيل القيد',
+        'ledger_posted' => 'تم الترحيل إلى دفتر الأستاذ العام — الدفاتر محدَّثة الآن.',
+        'ledger_posted_with_issues' => 'تم تحديث الأستاذ، لكن تعذّر ترحيل بعض المستندات. شغّل فحص المطابقة (billing:reconcile) أو تواصل مع الدعم.',
         'journal_entry_voided' => 'تم إلغاء القيد',
         'journal_entry_voided_body' => 'تم إنشاء القيد العكسي :number.',
         'period_closed' => 'تم إقفال الفترة',

@@ -322,6 +322,12 @@ confirms the ledger's receivables equal the actual unpaid invoices (and payables
 unpaid vendor bills). The whole module is covered by an automated test suite
 (1,400+ tests) and each change is peer-reviewed before it ships.
 
+**Freshness (مدى حداثة الدفاتر):** the sweep runs automatically every day, so you never
+run anything by hand. The Journal Entries and Trial Balance screens show a **"Ledger last
+synced …" (آخر ترحيل للأستاذ)** line, and a **"Post to GL now" (ترحيل للأستاذ الآن)**
+button lets you make the books current on the spot (e.g. right after entering documents)
+— safe to press anytime.
+
 ---
 
 ## Part 9 — Demo script for the meeting (خطوات العرض)

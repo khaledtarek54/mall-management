@@ -354,6 +354,13 @@ state (post / re-derive / void), and is idempotent + self-healing. It runs via:
 - **`accounting:sync-ledger`** (scheduled daily 05:00) — recent-window sweep that keeps
   the books current. Late fees and CAM-recovery invoices are picked up automatically
   (the invoice journalizer re-derives from the invoice's items / header).
+- **"Post to GL now" button** (UI, on-demand) — a header action on the Journal Entries
+  list + Trial Balance pages (`App\Filament\Admin\Concerns\PostsToLedger`) runs the
+  windowed sweep on demand so a non-technical accountant never touches the CLI; gated by
+  `journal_entries.post`. Each run stamps `ledger_last_synced_at` (via
+  `SystemSetting::put` in the command), which those pages read (`SystemSetting::get`) and
+  show as a **"Ledger last synced …"** subheading so the freshness of the books is always
+  visible.
 
 **Robustness (from review):** `sync()` is lock-safe (runs in a transaction, locks the
 source row + existing entry) so a manual `--all` backfill and the scheduled sweep can't
@@ -430,8 +437,9 @@ place — `BooksReconciliationService::glTieOut()` — and is reused by the
 GL isn't configured/populated.
 
 **Deferred follow-ups (not yet built):**
-- **Real-time posting:** the daily sweep is the mechanism; near-real-time observers can
-  be added later if needed.
+- **Real-time posting:** the daily sweep + the on-demand "Post to GL now" button are the
+  mechanism; true synchronous (per-save) posting could be added later if ever needed, but
+  the button already gives immediate freshness without coupling to the money machinery.
 
 ## Bilingual glossary (مصطلحات)
 

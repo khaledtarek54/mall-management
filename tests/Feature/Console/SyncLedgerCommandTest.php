@@ -4,6 +4,7 @@ use App\Models\CreditNote;
 use App\Models\JournalEntry;
 use App\Models\LedgerAccount;
 use App\Models\Payment;
+use App\Models\SystemSetting;
 use App\Services\Accounting\LedgerReportService;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
@@ -122,6 +123,14 @@ it('backfills security-deposit transactions', function () {
 
     expect(JournalEntry::where('source_type', $deposit->getMorphClass())->count())->toBe(1);
     expect(app(LedgerReportService::class)->trialBalance()['balanced'])->toBeTrue();
+});
+
+it('records when the ledger was last synced', function () {
+    expect(SystemSetting::get('ledger_last_synced_at'))->toBeNull();
+
+    $this->artisan('accounting:sync-ledger --all')->assertSuccessful();
+
+    expect(SystemSetting::get('ledger_last_synced_at'))->not->toBeNull();
 });
 
 it('is idempotent — a second backfill posts nothing new', function () {
