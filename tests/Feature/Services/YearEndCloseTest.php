@@ -163,3 +163,13 @@ it('closes a loss year: debits retained earnings (equity down)', function () {
     // Post-close income statement still shows the actual loss (closing entries excluded).
     expect($this->reports->incomeStatement(null, $this->from, $this->to)['net_profit'])->toEqualWithDelta(-1500.0, 0.001);
 });
+
+it('close() is self-sufficient — ensures the fiscal year row so its lock binds', function () {
+    // A year never opened: close() must still create the fiscal-year row (so the
+    // double-close lock has a row to hold) and return null when there is nothing to close.
+    expect(\App\Models\FiscalYear::where('year', 2035)->exists())->toBeFalse();
+
+    expect(app(YearEndCloseService::class)->close(2035))->toBeNull();
+
+    expect(\App\Models\FiscalYear::where('year', 2035)->exists())->toBeTrue();
+});

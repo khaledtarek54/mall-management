@@ -74,6 +74,27 @@ class JournalPostingService
         }
 
         return DB::transaction(function () use ($payload, $status, $entryDate, $assetId, $source, $lines, $period) {
+            // Lock-safe idempotency: serialize concurrent posts of the SAME source and
+            // re-check under the lock, so two racing posts can't both insert (the check
+            // above is only a fast path outside the transaction).
+            if ($source instanceof Model && $source->exists) {
+                $lock = $source->newQuery();
+                if (method_exists($source, 'trashed')) {
+                    $lock->withTrashed();
+                }
+                $lock->whereKey($source->getKey())->lockForUpdate()->first();
+
+                $existing = JournalEntry::query()
+                    ->where('source_type', $source->getMorphClass())
+                    ->where('source_id', $source->getKey())
+                    ->whereIn('status', ['draft', 'posted'])
+                    ->lockForUpdate()
+                    ->first();
+                if ($existing) {
+                    return $existing;
+                }
+            }
+
             $entry = JournalEntry::create([
                 'entry_date' => $entryDate->toDateString(),
                 'accounting_period_id' => $period?->id,

@@ -25,6 +25,7 @@ class YearEndCloseService
         private AccountResolver $accounts,
         private JournalPostingService $posting,
         private PeriodService $periods,
+        private FiscalCalendar $calendar,
     ) {}
 
     /** The posted closing entry for a year, if one exists. */
@@ -45,6 +46,11 @@ class YearEndCloseService
      */
     public function close(int $year): ?JournalEntry
     {
+        // Guarantee the fiscal-year row exists so the lockForUpdate below actually binds
+        // a row (otherwise a year never opened would lock nothing → the double-close guard
+        // is a no-op).
+        $this->calendar->ensureYear($year);
+
         // Lock-safe: serialize concurrent closes of the same year (double-click / two
         // accountants) on the fiscal-year row and re-check inside, so the closing
         // entry can never be posted twice (doubling the roll to retained earnings).
