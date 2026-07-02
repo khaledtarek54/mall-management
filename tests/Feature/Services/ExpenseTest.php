@@ -98,3 +98,11 @@ it('cancels a recorded expense (idempotent) via the service', function () {
     app(ExpenseService::class)->cancel($expense->fresh()); // idempotent, no throw
     expect($expense->fresh()->status)->toBe('cancelled');
 });
+
+it('omits the VAT-recoverable line for a VAT-free expense', function () {
+    $entry = $this->poster->post(makeExpense(['amount' => 1000, 'vat_amount' => 0, 'total' => 1000])->fresh());
+    $byAccount = $entry->lines->keyBy('ledger_account_id');
+
+    expect($entry->isBalanced())->toBeTrue();
+    expect($byAccount->has($this->accounts->id('vat_recoverable')))->toBeFalse();
+});

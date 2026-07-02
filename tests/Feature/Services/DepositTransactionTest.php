@@ -81,3 +81,12 @@ it('cancels a deposit transaction (idempotent) via the service', function () {
     app(DepositService::class)->cancel($deposit->fresh());
     expect($deposit->fresh()->status)->toBe('cancelled');
 });
+
+it('skips a deposit of an unknown type (journalizer match default → null)', function () {
+    // The DB enum can't hold an unknown value, so exercise the defensive `default => null`
+    // arm with an in-memory type (not persisted).
+    $deposit = makeDeposit($this->lease, ['type' => 'receipt'])->fresh();
+    $deposit->type = 'transfer';
+
+    expect($this->poster->post($deposit))->toBeNull();
+});

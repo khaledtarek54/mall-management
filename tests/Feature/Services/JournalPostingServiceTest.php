@@ -139,3 +139,41 @@ it('postDraft rejects an unbalanced saved draft', function () {
     expect(fn () => $this->post->postDraft($je->fresh()))->toThrow(DomainException::class);
     expect($je->fresh()->status)->toBe('draft'); // unchanged
 });
+
+it('void() refuses and creates no reversal when no open period exists', function () {
+    $je = $this->post->post(invoicePayload($this->r));
+    app(\App\Services\Accounting\PeriodService::class)->closePeriod(AccountingPeriod::forDate(now()));
+
+    $before = JournalEntry::count();
+    expect(fn () => $this->post->void($je->fresh()))->toThrow(\DomainException::class);
+    expect(JournalEntry::count())->toBe($before);
+    expect($je->fresh()->status)->toBe('posted');
+});
+
+it('postDraft() no-ops a posted entry and refuses a voided one', function () {
+    $posted = $this->post->post(invoicePayload($this->r));
+    expect($this->post->postDraft($posted->fresh())->id)->toBe($posted->id); // already posted → no-op
+
+    $this->post->void($posted->fresh());
+    expect(fn () => $this->post->postDraft($posted->fresh()))->toThrow(\DomainException::class);
+});
+
+it('rejects a single-line payload', function () {
+    expect(fn () => $this->post->post([
+        'entry_date' => now()->toDateString(),
+        'lines' => [['ledger_account_id' => $this->r->id('accounts_receivable'), 'debit' => 100, 'credit' => 0]],
+    ]))->toThrow(\DomainException::class);
+});
+
+it('rejects a line referencing an inactive account', function () {
+    \App\Models\LedgerAccount::where('code', '41101001')->update(['is_active' => false]);
+    $inactive = \App\Models\LedgerAccount::where('code', '41101001')->value('id');
+
+    expect(fn () => $this->post->post([
+        'entry_date' => now()->toDateString(),
+        'lines' => [
+            ['ledger_account_id' => $this->r->id('accounts_receivable'), 'debit' => 1000, 'credit' => 0],
+            ['ledger_account_id' => $inactive, 'debit' => 0, 'credit' => 1000],
+        ],
+    ]))->toThrow(\DomainException::class);
+});

@@ -117,3 +117,44 @@ it('carries the opening cash balance from a prior period', function () {
     expect($cf['cash_closing'])->toEqualWithDelta(5000.0, 0.001); // no movement this year
     expect($cf['reconciled'])->toBeTrue();
 });
+
+it('scopes cash flow to a single property and handles a net loss', function () {
+    $posting = app(JournalPostingService::class);
+    $acct = fn (string $c) => LedgerAccount::where('code', $c)->value('id');
+    $assetA = makeAsset();
+    $assetB = makeAsset();
+
+    // Asset A — an admin expense paid in cash (a loss, cash out).
+    $posting->post(['entry_date' => now(), 'asset_id' => $assetA->id, 'description_en' => 'exp', 'description_ar' => 'م', 'lines' => [
+        ['ledger_account_id' => $acct('51106001'), 'debit' => 3000, 'credit' => 0],
+        ['ledger_account_id' => $acct('11101001'), 'debit' => 0, 'credit' => 3000],
+    ]]);
+    // Asset B — unrelated bank revenue (must NOT bleed into A's statement).
+    $posting->post(['entry_date' => now(), 'asset_id' => $assetB->id, 'description_en' => 'rev', 'description_ar' => 'إ', 'lines' => [
+        ['ledger_account_id' => $acct('11102001'), 'debit' => 5000, 'credit' => 0],
+        ['ledger_account_id' => $acct('41101001'), 'debit' => 0, 'credit' => 5000],
+    ]]);
+
+    [$from, $to] = cfYear();
+    $cf = $this->reports->cashFlow([$assetA->id], $from, $to);
+
+    expect($cf['reconciled'])->toBeTrue();
+    expect($cf['net_income'])->toEqualWithDelta(-3000.0, 0.001); // loss, isolated to A
+    expect($cf['cash_movement'])->toEqualWithDelta(-3000.0, 0.001);
+});
+
+it('accountLedger opening balance reflects movement before the from-date', function () {
+    $posting = app(JournalPostingService::class);
+    $acct = fn (string $c) => LedgerAccount::where('code', $c)->value('id');
+    $y = (int) now()->year;
+
+    $posting->post(['entry_date' => CarbonImmutable::create($y, 1, 15), 'description_en' => 'jan', 'description_ar' => 'ي', 'lines' => [
+        ['ledger_account_id' => $acct('11102001'), 'debit' => 1000, 'credit' => 0],
+        ['ledger_account_id' => $acct('31101001'), 'debit' => 0, 'credit' => 1000],
+    ]]);
+
+    $bank = LedgerAccount::where('code', '11102001')->first();
+    $st = $this->reports->accountLedger($bank, null, CarbonImmutable::create($y, 3, 1), CarbonImmutable::create($y, 3, 31));
+
+    expect($st['opening'])->toEqualWithDelta(1000.0, 0.001); // January movement is March's opening
+});

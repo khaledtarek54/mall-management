@@ -95,3 +95,16 @@ it('cancels a run (idempotent)', function () {
     $this->svc->cancel($p->fresh());
     expect($p->fresh()->status)->toBe('cancelled');
 });
+
+it('omits the cash line when net pay is zero (all gross withheld)', function () {
+    $entry = $this->poster->post(makePayroll([
+        'gross_salaries' => 10000, 'salary_tax' => 6000, 'social_insurance' => 4000, 'status' => 'approved',
+    ])->fresh());
+    $byAccount = $entry->lines->keyBy('ledger_account_id');
+
+    expect($entry->isBalanced())->toBeTrue();
+    expect((float) $byAccount[$this->accounts->id('salaries_expense')]->debit)->toEqualWithDelta(10000.0, 0.001);
+    expect((float) $byAccount[$this->accounts->id('salary_tax_payable')]->credit)->toEqualWithDelta(6000.0, 0.001);
+    expect((float) $byAccount[$this->accounts->id('social_insurance_payable')]->credit)->toEqualWithDelta(4000.0, 0.001);
+    expect($byAccount->has($this->accounts->id('bank')))->toBeFalse(); // net 0 → no cash line
+});

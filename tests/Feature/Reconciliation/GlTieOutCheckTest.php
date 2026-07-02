@@ -80,3 +80,22 @@ it('skips the GL check for a month-scoped run (GL balances are cumulative)', fun
 
     expect(glCheck($report))->toBeNull();
 });
+
+it('catches a GL that has drifted from the source AP (bill cancelled, not re-synced)', function () {
+    $this->seed(ChartOfAccountsSeeder::class);
+    $this->seed(AccountMappingSeeder::class);
+    app(FiscalCalendar::class)->ensureYear((int) now()->year);
+
+    $bill = \App\Models\VendorBill::create([
+        'vendor_id' => \App\Models\Vendor::factory()->create()->id, 'asset_id' => makeAsset()->id,
+        'category' => 'utilities', 'status' => 'approved', 'bill_date' => now()->toDateString(),
+        'subtotal' => 2000, 'vat_amount' => 0, 'total' => 2000, 'balance' => 2000,
+    ]);
+    app(LedgerPoster::class)->sync($bill->fresh()); // GL AP = 2000
+
+    $bill->update(['status' => 'cancelled']); // source AP → 0, GL not re-synced
+
+    $gl = glCheck(glReconcile());
+    expect($gl['passed'])->toBeFalse();
+    expect(collect($gl['discrepancies'])->pluck('ref'))->toContain('Accounts Payable');
+});

@@ -222,3 +222,36 @@ it('skips a vendor-bill payment whose bill is not postable (draft/cancelled)', f
 
     expect($this->poster->post($payment->fresh()))->toBeNull();
 });
+
+it('books a payment overpayment to unearned revenue', function () {
+    $invoice = glInvoice(glLease()); // total 11140
+    $payment = Payment::create([
+        'reference' => 'PAY-OVER', 'tenant_id' => $invoice->tenant_id, 'amount' => 12000,
+        'method' => 'bank_transfer', 'status' => 'captured', 'payment_date' => now()->toDateString(),
+    ]);
+    $payment->invoices()->attach($invoice->id, ['allocated_amount' => 11140]);
+
+    $entry = $this->poster->post($payment->refresh());
+    $byAccount = $entry->lines->keyBy('ledger_account_id');
+
+    expect($entry->isBalanced())->toBeTrue();
+    expect((float) $byAccount[$this->accounts->id('bank')]->debit)->toEqualWithDelta(12000.0, 0.001);
+    expect((float) $byAccount[$this->accounts->id('accounts_receivable')]->credit)->toEqualWithDelta(11140.0, 0.001);
+    expect((float) $byAccount[$this->accounts->id('unearned_revenue')]->credit)->toEqualWithDelta(860.0, 0.001);
+});
+
+it('omits the sales-returns line on a pure-VAT credit note', function () {
+    $lease = glLease();
+    $note = CreditNote::create([
+        'tenant_id' => $lease->tenant_id, 'lease_id' => $lease->id, 'status' => 'issued',
+        'issue_date' => now()->toDateString(), 'reason' => 'adjustment',
+        'subtotal' => 0, 'vat_amount' => 70, 'total' => 70, 'applied_amount' => 0, 'balance' => 70, 'currency' => 'EGP',
+    ]);
+
+    $entry = $this->poster->post($note);
+    $byAccount = $entry->lines->keyBy('ledger_account_id');
+
+    expect($entry->isBalanced())->toBeTrue();
+    expect($byAccount->has($this->accounts->id('sales_returns')))->toBeFalse(); // net return 0 → no line
+    expect((float) $byAccount[$this->accounts->id('vat_payable')]->debit)->toEqualWithDelta(70.0, 0.001);
+});

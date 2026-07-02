@@ -141,3 +141,25 @@ it('closing a period blocks posting into it', function () {
     ]]);
     expect($entry->status)->toBe('posted');
 });
+
+it('closes a loss year: debits retained earnings (equity down)', function () {
+    // revenue 500, expense 2000 → net loss 1500
+    $this->post->post(['entry_date' => '2026-04-01', 'lines' => [
+        ['ledger_account_id' => $this->r->id('accounts_receivable'), 'debit' => 500, 'credit' => 0],
+        ['ledger_account_id' => $this->r->id('rent_revenue'), 'debit' => 0, 'credit' => 500],
+    ]]);
+    $this->post->post(['entry_date' => '2026-04-02', 'lines' => [
+        ['ledger_account_id' => $this->r->id('salaries_expense'), 'debit' => 2000, 'credit' => 0],
+        ['ledger_account_id' => $this->r->id('bank'), 'debit' => 0, 'credit' => 2000],
+    ]]);
+
+    app(YearEndCloseService::class)->close(2026);
+
+    // Retained earnings (equity, credit-normal) is DEBITED by the loss → net debit → closing -1500.
+    $re = LedgerAccount::where('code', '32101001')->first();
+    $st = $this->reports->accountLedger($re, null, $this->from, $this->to);
+    expect($st['closing'])->toEqualWithDelta(-1500.0, 0.001);
+
+    // Post-close income statement still shows the actual loss (closing entries excluded).
+    expect($this->reports->incomeStatement(null, $this->from, $this->to)['net_profit'])->toEqualWithDelta(-1500.0, 0.001);
+});

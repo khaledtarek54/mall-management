@@ -51,3 +51,22 @@ it('lets an unrestricted user pick any property or truly consolidate', function 
     expect(TenantScope::reportAssetIds($b->id))->toBe([$b->id]);
     expect(TenantScope::reportAssetIds(null))->toBeNull(); // null = all properties
 });
+
+it('clamps the PDF header label on every report page, not just Trial Balance', function () {
+    $a = makeAsset();
+    $b = makeAsset();
+    $this->actingAs(makeUser('accounting', [$a->id])); // visible: A only
+
+    foreach ([
+        \App\Filament\Admin\Pages\IncomeStatement::class,
+        \App\Filament\Admin\Pages\BalanceSheet::class,
+        \App\Filament\Admin\Pages\CashFlow::class,
+        \App\Filament\Admin\Pages\GeneralLedger::class,
+    ] as $pageClass) {
+        $page = new $pageClass();
+        $page->assetId = $b->id; // tamper to a property they cannot see
+        $m = new ReflectionMethod($page, 'propertyLabel');
+        $m->setAccessible(true);
+        expect($m->invoke($page))->toBe($a->name); // clamped — no leak of B
+    }
+});
