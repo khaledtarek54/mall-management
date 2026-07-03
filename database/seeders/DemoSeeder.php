@@ -1567,6 +1567,7 @@ class DemoSeeder extends Seeder
                     'category' => $s['category'],
                     'description' => $s['description'],
                     'amount' => $amount,
+                    'paid_from' => 'cash',
                     'spent_on' => now()->subDays(($i + 1) * 10),
                     'created_by_user_id' => $marketingLead?->id,
                 ]);

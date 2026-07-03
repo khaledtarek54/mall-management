@@ -3,6 +3,7 @@
 use App\Models\CreditNote;
 use App\Models\JournalEntry;
 use App\Models\LedgerAccount;
+use App\Models\MarketingBudget;
 use App\Models\Payment;
 use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\FiscalCalendar;
@@ -238,6 +239,83 @@ it('books a payment overpayment to unearned revenue', function () {
     expect((float) $byAccount[$this->accounts->id('bank')]->debit)->toEqualWithDelta(12000.0, 0.001);
     expect((float) $byAccount[$this->accounts->id('accounts_receivable')]->credit)->toEqualWithDelta(11140.0, 0.001);
     expect((float) $byAccount[$this->accounts->id('unearned_revenue')]->credit)->toEqualWithDelta(860.0, 0.001);
+});
+
+/** A marketing spend against a fresh property's marketing budget. */
+function glMarketingSpend(array $attrs = []): \App\Models\MarketingSpend
+{
+    $budget = MarketingBudget::create([
+        'asset_id' => makeAsset()->id,
+        'period_year' => (int) now()->year,
+        'accrued_amount' => 5000,
+        'spent_amount' => 0,
+        'status' => 'open',
+    ]);
+
+    return $budget->spends()->create(array_merge([
+        'category' => 'promotion',
+        'description' => 'Ramadan promo',
+        'amount' => 1200,
+        'paid_from' => 'cash',
+        'spent_on' => now()->toDateString(),
+    ], $attrs));
+}
+
+it('journalizes a marketing spend as Dr marketing expense / Cr cash', function () {
+    $spend = glMarketingSpend(['amount' => 1200, 'paid_from' => 'cash']);
+
+    $entry = $this->poster->post($spend->fresh());
+
+    expect($entry)->not->toBeNull();
+    expect($entry->isBalanced())->toBeTrue();
+    $byAccount = $entry->lines->keyBy('ledger_account_id');
+    expect((float) $byAccount[$this->accounts->id('marketing_expense')]->debit)->toEqualWithDelta(1200.0, 0.001);
+    expect((float) $byAccount[$this->accounts->id('cash')]->credit)->toEqualWithDelta(1200.0, 0.001);
+});
+
+it('credits the bank when a marketing spend is paid from bank', function () {
+    $spend = glMarketingSpend(['paid_from' => 'bank']);
+
+    $entry = $this->poster->post($spend->fresh());
+
+    $byAccount = $entry->lines->keyBy('ledger_account_id');
+    expect($byAccount->has($this->accounts->id('bank')))->toBeTrue();
+    expect($byAccount->has($this->accounts->id('cash')))->toBeFalse();
+});
+
+it('skips a zero-amount marketing spend (no GL effect)', function () {
+    $spend = glMarketingSpend(['amount' => 0]);
+
+    expect($this->poster->post($spend->fresh()))->toBeNull();
+});
+
+it('keeps a marketing spend on the books when its budget is soft-deleted', function () {
+    $spend = glMarketingSpend(['amount' => 800]);
+    expect($this->poster->post($spend->fresh()))->not->toBeNull();
+
+    // Archiving the budget must NOT void a real spend's expense — only the spend's
+    // own deletion does. The journalizer resolves the property withTrashed.
+    $spend->budget->delete(); // soft-delete the budget (spend stays alive)
+
+    $entry = $this->poster->sync($spend->fresh());
+
+    expect($entry)->not->toBeNull();
+    $byAccount = $entry->lines->keyBy('ledger_account_id');
+    expect((float) $byAccount[$this->accounts->id('marketing_expense')]->debit)->toEqualWithDelta(800.0, 0.001);
+});
+
+it('voids a marketing spend entry when the spend is soft-deleted', function () {
+    $spend = glMarketingSpend(['amount' => 1000]);
+    expect($this->poster->sync($spend->fresh()))->not->toBeNull();
+
+    $spend->delete(); // soft-delete → no ledger effect
+
+    expect($this->poster->sync($spend->fresh()))->toBeNull();
+
+    // The original posting is offset by its reversal → marketing expense nets to zero.
+    $marketingExpense = LedgerAccount::where('code', '51105001')->first();
+    $statement = app(LedgerReportService::class)->accountLedger($marketingExpense);
+    expect($statement['closing'])->toEqualWithDelta(0.0, 0.001);
 });
 
 it('omits the sales-returns line on a pure-VAT credit note', function () {

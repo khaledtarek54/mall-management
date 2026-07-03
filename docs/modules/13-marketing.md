@@ -11,7 +11,7 @@ The marketing module captures an operator's promotional/marketing expenditure an
 | Table | Model | Key Columns (type/constraints/default) | Meaning |
 |-------|-------|-------|---------|
 | `marketing_budgets` | `MarketingBudget` | `id` (PK); `asset_id` (FK, cascadeOnDelete); `period_year` (unsignedSmallInteger); `accrued_amount` (decimal:2, default 0); `spent_amount` (decimal:2, default 0); `status` (enum:'open'/'closed', default 'open'); `notes` (text, nullable); `created_at`, `updated_at`, `deleted_at` | One row per property per year. Accrued levies accumulate here; spends are derived from related MarketingSpend records. Soft-deletes supported. **Unique constraint**: `(asset_id, period_year)`. |
-| `marketing_spends` | `MarketingSpend` | `id` (PK); `marketing_budget_id` (FK, cascadeOnDelete); `category` (enum:'offer'/'promotion'/'event'/'printed_work'/'other', default 'other'); `description` (string); `amount` (decimal:2); `spent_on` (date); `receipt_reference` (string, nullable); `created_by_user_id` (FK, nullOnDelete); `created_at`, `updated_at`, `deleted_at` | Each line-item spend against a budget. Indexed by `marketing_budget_id` and `category`. Soft-deletes supported. |
+| `marketing_spends` | `MarketingSpend` | `id` (PK); `marketing_budget_id` (FK, cascadeOnDelete); `category` (enum:'offer'/'promotion'/'event'/'printed_work'/'other', default 'other'); `description` (string); `amount` (decimal:2); `paid_from` (string, default 'cash' — `cash`/`bank`, drives the GL credit account, coerced non-null in the model); `spent_on` (date); `receipt_reference` (string, nullable); `created_by_user_id` (FK, nullOnDelete); `created_at`, `updated_at`, `deleted_at` | Each line-item spend against a budget. Indexed by `marketing_budget_id` and `category`. Soft-deletes supported. **Posts to the GL** (see § 7). |
 | `charges` | `Charge` | `type` enum includes `'marketing'` (FR MKT-2) | The marketing levy is modeled as a recurring monthly charge on the lease. `vat_applicable = false`, `vat_rate = 0`, `frequency = 'monthly'`. The amount is captured at charge creation and never changes even if the levy rate changes (rate versioning via per-charge capture). |
 
 **Relationships:**
@@ -209,6 +209,7 @@ MarketingBudget has two statuses: `open` and `closed`. No enforced transitions; 
 |-------|------|-----------|-------|
 | `category` | Select | Required | Enum of 5 categories. Defaults to 'other'. Native false (full dropdown). |
 | `amount` | TextInput (numeric) | Required, `minValue(0)` | Rejects negative/zero at form layer. Helper text warns of overspend risk. |
+| `paid_from` | Select ('cash'/'bank') | Required | Defaults to 'cash'. Determines the GL credit account (Cr Cash \| Bank). Reuses `admin.enums.expense_paid_from`. |
 | `spent_on` | DatePicker | Required | Defaults to today. Native false (calendar widget). |
 | `receipt_reference` | TextInput | Optional | Max 255 chars. Link to accounting invoice/receipt. |
 | `description` | TextInput | Required | Max 255 chars. Spans full width. |
@@ -230,8 +231,21 @@ MarketingBudget has two statuses: `open` and `closed`. No enforced transitions; 
 - Title: `admin.tables.marketing_spend.overspend_title`.
 - Body: `admin.tables.marketing_spend.overspend_body` (includes the overspend amount).
 
-**External integrations:**
-- None currently. Receipt references are manual data entry points for integration with Accounting systems (not automated).
+**General Ledger integration (shipped 2026-07-03):**
+- Each marketing spend **posts to the double-entry GL** via `MarketingSpendJournalizer`
+  (registered in `LedgerPoster`): **Dr Marketing Expense (`51105001`) / Cr Cash \| Bank**
+  (per `paid_from`), scoped to the budget's property (`asset_id`).
+- Posting is the same **reconciling sweep** used by every other money source:
+  `accounting:sync-ledger` (scheduled + `--all` backfill + on-demand "Post to GL now")
+  posts new spends, re-derives edited ones, and **voids** the entry when a spend is
+  soft-deleted — idempotent and self-healing (see [module 21](21-general-ledger.md)).
+- This closes the loop: the marketing **levy** is already recognised as revenue on the
+  tenant invoice (`marketing_revenue`), so the fund's **net P&L position** (levy − spend)
+  is now fully on the books.
+- **No VAT split** on the spend today — the model carries a single gross `amount`, so the
+  full amount is expensed (input VAT on marketing spend is a future enhancement; add a
+  `vat_amount` column + a VAT-recoverable line to the journalizer, mirroring `Expense`).
+- `receipt_reference` remains a free-text pointer to the source receipt for audit.
 
 **Activity logging:**
 - `MarketingBudget` logs changes to: `accrued_amount`, `spent_amount`, `status` (via Spatie ActivityLog).
@@ -366,7 +380,8 @@ When a MarketingBudget is manually created (via the form), it defaults to `accru
 - **Assets/Properties** (`docs/modules/[assets doc]`): Budgets are scoped to each property.
 - **Invoicing** (`docs/modules/[invoicing doc]`): MonthlyBillingService calls `accrueMarketingLevy()` after creating invoice items.
 - **RBAC & Roles** (`docs/modules/[permissions doc]`): The `marketing` permission gates resource access.
+- **General Ledger** ([module 21](21-general-ledger.md)): the levy posts as revenue via the invoice journalizer; **marketing spend posts as expense** via `MarketingSpendJournalizer` (Dr Marketing Expense / Cr Cash|Bank), swept by `accounting:sync-ledger`.
 
 ---
 
-**Document version:** 2026-06-27 | **Tested on:** Laravel 13 + Filament 4 | **1043 tests passing**
+**Document version:** 2026-07-03 | **Tested on:** Laravel 13 + Filament 4 | Marketing spend → GL shipped

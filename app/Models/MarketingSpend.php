@@ -21,7 +21,7 @@ class MarketingSpend extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['marketing_budget_id', 'category', 'amount', 'receipt_reference'])
+            ->logOnly(['marketing_budget_id', 'category', 'amount', 'paid_from', 'receipt_reference'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('marketing_spend');
@@ -32,6 +32,7 @@ class MarketingSpend extends Model
         'category',
         'description',
         'amount',
+        'paid_from',
         'spent_on',
         'receipt_reference',
         'created_by_user_id',
@@ -54,6 +55,15 @@ class MarketingSpend extends Model
 
     protected static function booted(): void
     {
+        // NOT-NULL guard: a blank/cleared paid_from must never persist as null into
+        // the NOT-NULL column (the meter_readings.cost / leases.has_percentage_rent
+        // bug class). Default to cash so the GL journalizer always resolves an account.
+        static::saving(function (self $spend) {
+            if (blank($spend->paid_from)) {
+                $spend->paid_from = 'cash';
+            }
+        });
+
         // Keep the parent budget's spent_amount derived on every change.
         $sync = fn (self $spend) => $spend->budget?->recomputeSpent();
 

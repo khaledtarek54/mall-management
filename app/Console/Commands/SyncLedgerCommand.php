@@ -6,6 +6,7 @@ use App\Models\CreditNote;
 use App\Models\DepositTransaction;
 use App\Models\Expense;
 use App\Models\Invoice;
+use App\Models\MarketingSpend;
 use App\Models\Payment;
 use App\Models\Payroll;
 use App\Models\SystemSetting;
@@ -52,6 +53,7 @@ class SyncLedgerCommand extends Command
         $this->syncModel(Expense::query(), 'updated_at', $since, $poster, $counts);
         $this->syncModel(Payroll::query(), 'updated_at', $since, $poster, $counts);
         $this->syncModel(DepositTransaction::query(), 'updated_at', $since, $poster, $counts);
+        $this->syncModel(MarketingSpend::query(), 'updated_at', $since, $poster, $counts);
 
         $this->newLine();
         $this->table(['result', 'count'], collect($counts)->map(fn ($v, $k) => [$k, $v])->values()->all());
@@ -96,6 +98,7 @@ class SyncLedgerCommand extends Command
             Expense::min('expense_date'), Expense::max('expense_date'),
             Payroll::min('period_month'), Payroll::max('period_month'),
             DepositTransaction::min('transaction_date'), DepositTransaction::max('transaction_date'),
+            MarketingSpend::min('spent_on'), MarketingSpend::max('spent_on'),
         ]);
 
         $years = collect($dates)->map(fn ($d) => (int) Carbon::parse($d)->year);

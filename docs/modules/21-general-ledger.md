@@ -162,6 +162,7 @@ accountant can verify the accounting treatment. `[role]` resolves via `account_m
 | **Vendor bill** فاتورة مورد | `*_expense` (net, by category) + `vat_recoverable` (input VAT) | `accounts_payable` (total) |
 | **Pay vendor** سداد مورد | `accounts_payable` | `bank` / `cash` |
 | **Direct / petty-cash expense** مصروف مباشر | `*_expense` (net) + `vat_recoverable` (input VAT) | `cash` / `bank` (total) |
+| **Marketing spend** مصروف تسويق | `marketing_expense` (amount) | `cash` / `bank` (amount) — per `paid_from` |
 | **Payroll run** مسير رواتب | `salaries_expense` (gross) | `salary_tax_payable` + `social_insurance_payable` (withheld) + `bank`/`cash` (net) |
 
 > **Tie-out invariant:** after Phase 1, the balance of `accounts_receivable` in the
@@ -340,7 +341,8 @@ Tests (`tests/Feature/`):
 - `Resources/JournalEntryResourceTest` — the accounting screens render; full UI flow of
   creating a draft entry and posting it.
 
-**Related modules:** 05 Billing, 06 Payments, 07 Credit Notes, 08 CAM, 13 Marketing,
+**Related modules:** 05 Billing, 06 Payments, 07 Credit Notes, 08 CAM, 13 Marketing
+(levy → revenue via the invoice journalizer; **spend → expense** via `MarketingSpendJournalizer`),
 12 Vendors (Phase 3 AP), 17 Reports, 18 RBAC, 12-reconciliation-harness.
 
 ---
@@ -427,6 +429,15 @@ forfeit against a lease, each posting its own entry — receipt Dr Bank\|Cash / 
 Held; refund Dr Deposits Held / Cr Bank\|Cash; forfeit Dr Deposits Held / Cr Misc Income.
 Swept by `accounting:sync-ledger`; `DepositTransactionResource` gated by
 `deposit_transactions.*`. The GL Deposits-Held balance = Σ receipts − Σ refunds − forfeits.
+
+**Marketing spend (مصروف تسويق) — done (2026-07-03):** `MarketingSpend` posts its own
+entry via `MarketingSpendJournalizer` — **Dr Marketing Expense (`51105001`) / Cr Cash|Bank**
+(per the new `marketing_spends.paid_from`), scoped to the budget's `asset_id`. Swept by
+`accounting:sync-ledger` (registered in `LedgerPoster`, added to the command's model list +
+fiscal-year span); a soft-deleted spend voids its entry like any other document. This books
+the **spend side** of the marketing fund — the levy is already recognised as revenue on the
+tenant invoice (`marketing_revenue`), so the fund's net P&L position is now complete. No VAT
+split yet (the spend carries a single gross amount; see [module 13](13-marketing.md) § 7).
 
 **CAM recovery revenue (إيرادات استرداد المصروفات المشتركة) — done:** the positive
 true-up recovery invoice item is typed `cam_recovery` (in `CamReconciliationService`), and

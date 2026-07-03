@@ -7,6 +7,7 @@ use App\Models\DepositTransaction;
 use App\Models\Expense;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
+use App\Models\MarketingSpend;
 use App\Models\Payment;
 use App\Models\Payroll;
 use App\Models\VendorBill;
@@ -16,6 +17,7 @@ use App\Services\Accounting\Journalizers\DepositTransactionJournalizer;
 use App\Services\Accounting\Journalizers\ExpenseJournalizer;
 use App\Services\Accounting\Journalizers\InvoiceJournalizer;
 use App\Services\Accounting\Journalizers\Journalizer;
+use App\Services\Accounting\Journalizers\MarketingSpendJournalizer;
 use App\Services\Accounting\Journalizers\PaymentJournalizer;
 use App\Services\Accounting\Journalizers\PayrollJournalizer;
 use App\Services\Accounting\Journalizers\VendorBillJournalizer;
@@ -161,6 +163,7 @@ class LedgerPoster
             Expense::class => new ExpenseJournalizer($this->accounts),
             Payroll::class => new PayrollJournalizer($this->accounts),
             DepositTransaction::class => new DepositTransactionJournalizer($this->accounts),
+            MarketingSpend::class => new MarketingSpendJournalizer($this->accounts),
             default => null,
         };
     }

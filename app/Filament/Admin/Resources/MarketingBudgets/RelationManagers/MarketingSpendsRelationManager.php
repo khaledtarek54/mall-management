@@ -61,6 +61,12 @@ class MarketingSpendsRelationManager extends RelationManager
                 ->minValue(0)
                 ->required()
                 ->helperText(__('admin.tables.marketing_spend.overspend_hint')),
+            Select::make('paid_from')
+                ->label(__('admin.fields.paid_from'))
+                ->options(fn () => __('admin.enums.expense_paid_from'))
+                ->default('cash')
+                ->required()
+                ->native(false),
             DatePicker::make('spent_on')
                 ->label(__('admin.tables.marketing_spend.spent_on'))
                 ->default(now())
@@ -98,6 +104,10 @@ class MarketingSpendsRelationManager extends RelationManager
                     ->label(__('admin.tables.marketing_spend.amount'))
                     ->money('EGP')
                     ->weight('bold'),
+                TextColumn::make('paid_from')
+                    ->label(__('admin.fields.paid_from'))
+                    ->formatStateUsing(fn (?string $state) => $state ? __("admin.enums.expense_paid_from.{$state}") : '—')
+                    ->toggleable(),
                 TextColumn::make('receipt_reference')
                     ->label(__('admin.tables.marketing_spend.receipt'))
                     ->placeholder('—'),
