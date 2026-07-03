@@ -1,5 +1,12 @@
 # ETA E-Invoicing
 
+> **⏸️ POSTPONED (2026-07-03): the `eta` module is DISABLED by default.** ETA is not
+> certified/live, so the module flag now defaults **off** (`ModulesSettings::$eta = false`
+> + a settings migration turns it off for existing installs). This hides the
+> Submit-to-ETA single/bulk actions, the ETA invoice filters/column, and the
+> `EtaCompliance` dashboard widget. The code below is complete and tested — re-enable
+> from **/admin/settings → Modules**, or flip the default, when ETA go-live is scheduled.
+
 > Submits B2B invoices to the Egyptian Tax Authority (ETA) preproduction e-invoicing API, capturing acceptance/rejection status and integrating with the Filament admin dashboard for compliance visibility.
 
 ## 1. Purpose & business context

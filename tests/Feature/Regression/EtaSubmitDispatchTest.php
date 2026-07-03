@@ -15,6 +15,11 @@ use Livewire\Livewire;
 beforeEach(function () {
     $this->seed(RolesPermissionsSeeder::class);
     ensureAllPropertiesAsset();
+    // ETA is postponed/off by default — this suite exercises the feature, so
+    // enable the module for these tests.
+    $settings = app(\App\Settings\ModulesSettings::class);
+    $settings->eta = true;
+    $settings->save();
 });
 
 it('queues the ETA submission instead of submitting synchronously (single action)', function () {

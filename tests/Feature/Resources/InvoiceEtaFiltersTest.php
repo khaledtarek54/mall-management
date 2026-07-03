@@ -7,6 +7,11 @@ use Livewire\Livewire;
 beforeEach(function () {
     $this->seed(RolesPermissionsSeeder::class);
     ensureAllPropertiesAsset();
+    // ETA is postponed/off by default — these filters are module-gated, so enable
+    // the module to exercise them.
+    $settings = app(\App\Settings\ModulesSettings::class);
+    $settings->eta = true;
+    $settings->save();
     $this->asset = makeAsset();
     $this->tenant = makeTenant();
     $this->unit = makeUnit($this->asset);

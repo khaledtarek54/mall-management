@@ -31,7 +31,9 @@ class ModulesSettings extends Settings
     public bool $notes = true;
     public bool $reports = true;
     public bool $activity_log = true;
-    public bool $eta = true;
+    // ETA e-invoicing is postponed — disabled by default (not certified/live).
+    // Re-enable from /admin/settings → Modules, or flip this default, when ready.
+    public bool $eta = false;
 
     public static function group(): string
     {
