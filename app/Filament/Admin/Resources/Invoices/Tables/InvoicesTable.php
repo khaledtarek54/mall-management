@@ -6,7 +6,6 @@ use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Exports\InvoiceExporter;
 use App\Models\Invoice;
 use App\Models\Unit;
-use App\Services\Eta\EtaSubmissionService;
 use App\Services\InvoicePdfService;
 use App\Services\MonthlyBillingService;
 use Filament\Actions\Action;
@@ -269,14 +268,13 @@ class InvoicesTable
                         ? __('admin.actions.submit_to_eta_modal_mock')
                         : __('admin.actions.submit_to_eta_modal_live'))
                     ->action(function (Invoice $record): void {
-                        $updated = app(EtaSubmissionService::class)->submit($record);
+                        // Queue the submission — the ETA gateway can be slow when live,
+                        // so never block the request on it. The job retries with backoff
+                        // and surfaces exhaustion (see App\Jobs\SubmitInvoiceToEta).
+                        \App\Jobs\SubmitInvoiceToEta::dispatch($record);
                         Notification::make()
-                            ->title(__('admin.notifications.eta_submitted'))
-                            ->body(__('admin.notifications.eta_submitted_body', [
-                                'status' => __("admin.statuses.eta.{$updated->eta_status}"),
-                                'id' => $updated->eta_submission_id ?? '—',
-                            ]))
-                            ->color($updated->eta_status === 'valid' ? 'success' : 'warning')
+                            ->title(__('admin.notifications.eta_queued'))
+                            ->body(__('admin.notifications.eta_queued_body', ['number' => $record->number]))
                             ->success()
                             ->send();
                     }),
@@ -311,22 +309,23 @@ class InvoicesTable
                             ? __('admin.actions.submit_to_eta_modal_mock')
                             : __('admin.actions.submit_to_eta_modal_live'))
                         ->action(function ($records) {
-                            $svc = app(EtaSubmissionService::class);
-                            $submitted = 0;
+                            // Queue each submission — a bulk of 20+ must never block the
+                            // request (or time out) on a slow ETA gateway.
+                            $queued = 0;
                             $skipped = 0;
                             foreach ($records as $invoice) {
                                 if ($invoice->eta_status === 'valid') {
                                     $skipped++;
                                     continue;
                                 }
-                                $svc->submit($invoice);
-                                $submitted++;
+                                \App\Jobs\SubmitInvoiceToEta::dispatch($invoice);
+                                $queued++;
                             }
                             Notification::make()
                                 ->success()
-                                ->title(__('admin.notifications.bulk_eta_complete'))
-                                ->body(__('admin.notifications.bulk_eta_complete_body', [
-                                    'submitted' => $submitted,
+                                ->title(__('admin.notifications.bulk_eta_queued'))
+                                ->body(__('admin.notifications.bulk_eta_queued_body', [
+                                    'queued' => $queued,
                                     'skipped' => $skipped,
                                 ]))
                                 ->send();
