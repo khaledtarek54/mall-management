@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\VendorContract;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 
 class ExpireVendorContractsCommand extends Command
 {
@@ -43,7 +44,25 @@ class ExpireVendorContractsCommand extends Command
             return self::SUCCESS;
         }
 
-        $updated = $candidates->update(['status' => 'expired']);
+        // Lock-safe + idempotent (project invariant for scheduled scans): lock each
+        // row and re-check the condition inside its own transaction, so two
+        // overlapping runs can't both act on the same contract. Using the model's
+        // update() (not a mass update) also fires the activity-log trail for the
+        // auto-expiry — a mass update would bypass model events entirely.
+        $updated = 0;
+        foreach ($candidates->select('id')->get() as $row) {
+            DB::transaction(function () use ($row, &$updated) {
+                $contract = VendorContract::whereKey($row->id)->lockForUpdate()->first();
+
+                if ($contract
+                    && $contract->status === 'active'
+                    && $contract->end_date
+                    && $contract->end_date->isBefore(today())) {
+                    $contract->update(['status' => 'expired']);
+                    $updated++;
+                }
+            });
+        }
 
         $this->info("Expired {$updated} vendor contract(s).");
 
