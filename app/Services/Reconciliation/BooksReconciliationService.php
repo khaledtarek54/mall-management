@@ -128,7 +128,33 @@ class BooksReconciliationService
         //    (within rounding), and every BILLED allocation is backed by a charge
         //    (catches the "billed without/lost charge" + double-bill drift class).
         $d = [];
-        foreach (\App\Models\CamExpensePool::query()->with('allocations')->get() as $pool) {
+        $pools = \App\Models\CamExpensePool::query()->with('allocations')->get();
+
+        // Batch the per-billed-allocation backing lookups (charge exists / credit
+        // note exists / charge reached a non-cancelled invoice) into three set
+        // queries — instead of ~3 queries PER billed allocation (an N+1 that grows
+        // with the number of billed CAM allocations across every pool).
+        $billed = $pools->flatMap(fn ($pool) => $pool->allocations->where('status', 'billed'));
+        $chargeIds = $billed->pluck('billed_charge_id')->filter()->unique()->values();
+        $creditIds = $billed->pluck('billed_credit_note_id')->filter()->unique()->values();
+
+        $existingCharges = $chargeIds->isEmpty()
+            ? collect()
+            : \App\Models\Charge::whereIn('id', $chargeIds)->pluck('id')->flip();
+        $existingCredits = $creditIds->isEmpty()
+            ? collect()
+            : \App\Models\CreditNote::whereIn('id', $creditIds)->pluck('id')->flip();
+        // charge_ids that reached a non-cancelled invoice (the lost-revenue guard).
+        $reachedCharges = $chargeIds->isEmpty()
+            ? collect()
+            : \App\Models\InvoiceItem::query()
+                ->whereIn('charge_id', $chargeIds)
+                ->whereHas('invoice', fn ($q) => $q->where('status', '!=', 'cancelled'))
+                ->distinct()
+                ->pluck('charge_id')
+                ->flip();
+
+        foreach ($pools as $pool) {
             if ($pool->allocations->isEmpty()) {
                 continue;
             }
@@ -141,8 +167,8 @@ class BooksReconciliationService
                 /** @var \App\Models\CamAllocation $alloc */
                 // A billed allocation must be backed by EITHER a charge (positive
                 // true-up) OR a credit note (negative true-up = credit owed).
-                $hasCharge = $alloc->billed_charge_id && \App\Models\Charge::whereKey($alloc->billed_charge_id)->exists();
-                $hasCredit = $alloc->billed_credit_note_id && \App\Models\CreditNote::whereKey($alloc->billed_credit_note_id)->exists();
+                $hasCharge = $alloc->billed_charge_id && $existingCharges->has($alloc->billed_charge_id);
+                $hasCredit = $alloc->billed_credit_note_id && $existingCredits->has($alloc->billed_credit_note_id);
                 if (! $hasCharge && ! $hasCredit) {
                     $d[] = ['ref' => "pool #{$pool->id} alloc #{$alloc->id}", 'detail' => "billed but no backing charge/credit-note (charge={$alloc->billed_charge_id}, credit={$alloc->billed_credit_note_id})"];
                 } elseif ($hasCharge) {
@@ -150,10 +176,7 @@ class BooksReconciliationService
                     // non-cancelled invoice (it's settled on a recovery invoice at
                     // bill() time). Catches the "billed but never invoiced" lost-
                     // revenue class instead of masking it.
-                    $reached = \App\Models\InvoiceItem::where('charge_id', $alloc->billed_charge_id)
-                        ->whereHas('invoice', fn ($q) => $q->where('status', '!=', 'cancelled'))
-                        ->exists();
-                    if (! $reached) {
+                    if (! $reachedCharges->has($alloc->billed_charge_id)) {
                         $d[] = ['ref' => "pool #{$pool->id} alloc #{$alloc->id}", 'detail' => "billed true-up charge {$alloc->billed_charge_id} never reached a non-cancelled invoice (lost revenue)"];
                     }
                 }
