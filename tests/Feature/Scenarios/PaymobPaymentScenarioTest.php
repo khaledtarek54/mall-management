@@ -235,6 +235,73 @@ it('acks 200 already_processed for a callback on an already-terminal (refunded) 
 });
 
 // ============================================================
+// OVER-ALLOCATION — a credit applied after session init must not
+// over-allocate the invoice when the (already-collected) card payment captures
+// ============================================================
+
+it('clamps a Paymob capture to the invoice balance when a credit was applied after session init', function () {
+    Notification::fake();
+
+    // Invoice 1200 → the initiated Paymob session allocates the full 1200.
+    $payment = scnInitiatedPayment($this->invoice, orderId: 9401);
+    expect((float) $payment->invoices()->first()->pivot->allocated_amount)->toBe(1200.0);
+
+    // A 400 credit note is applied to the invoice BEFORE the callback arrives,
+    // dropping the real balance to 800 (the card was already charged 1200).
+    $note = \App\Models\CreditNote::create([
+        'tenant_id' => $this->tenant->id,
+        'lease_id' => $this->lease->id,
+        'status' => 'issued',
+        'issue_date' => now()->toDateString(),
+        'reason' => 'adjustment',
+        'subtotal' => 400, 'vat_amount' => 0, 'total' => 400,
+        'applied_amount' => 0, 'balance' => 400, 'currency' => 'EGP',
+    ]);
+    app(\App\Services\CreditNoteService::class)->applyToInvoice($note, $this->invoice, 400);
+    expect((float) $this->invoice->fresh()->balance)->toBe(800.0);
+
+    // The S2S callback captures the already-collected 1200.
+    scnPostCallback(scnCallbackPayload(orderId: 9401, txnId: 700009))
+        ->assertOk()
+        ->assertJson(['status' => 'captured']);
+
+    $this->invoice->refresh();
+    // Settled EXACTLY — paid_amount must not exceed total (no over-allocation).
+    expect((float) $this->invoice->paid_amount)->toBe(1200.0);
+    expect((float) $this->invoice->balance)->toBe(0.0);
+    expect($this->invoice->status)->toBe('paid');
+
+    // The allocation was clamped to what fit (800); the 400 excess stays unallocated
+    // (a genuine overpayment → unearned), never over-allocating the invoice.
+    expect((float) $payment->fresh()->invoices()->first()->pivot->allocated_amount)->toBe(800.0);
+    expect(fn () => $payment->fresh()->assertInvoicesNotOverAllocated([$this->invoice->id]))
+        ->not->toThrow(\DomainException::class);
+});
+
+it('allocates nothing when the invoice was cancelled after session init', function () {
+    Notification::fake();
+
+    $payment = scnInitiatedPayment($this->invoice, orderId: 9402); // allocated 1200
+    expect((float) $payment->invoices()->first()->pivot->allocated_amount)->toBe(1200.0);
+
+    // The invoice is cancelled before the (already-collected) card payment captures.
+    $this->invoice->update(['status' => 'cancelled']);
+    $this->invoice->recomputeTotals();
+
+    scnPostCallback(scnCallbackPayload(orderId: 9402, txnId: 700010))
+        ->assertOk()
+        ->assertJson(['status' => 'captured']);
+
+    // A cancelled invoice holds no AR: the allocation is clamped to 0 (the whole
+    // payment is a tenant overpayment → unearned), and the invoice stays at zero.
+    expect((float) $payment->fresh()->invoices()->first()->pivot->allocated_amount)->toBe(0.0);
+    $this->invoice->refresh();
+    expect((float) $this->invoice->paid_amount)->toBe(0.0);
+    expect((float) $this->invoice->balance)->toBe(0.0);
+    expect($this->invoice->status)->toBe('cancelled');
+});
+
+// ============================================================
 // PERSISTENCE — capture promotes the txn id + stores the obj
 // ============================================================
 

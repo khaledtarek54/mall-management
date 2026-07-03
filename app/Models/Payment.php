@@ -165,6 +165,46 @@ class Payment extends Model
     }
 
     /**
+     * Re-fit this payment's invoice allocations so none exceeds the invoice's
+     * currently-fittable amount (total − applied credits − OTHER captured
+     * allocations). Any excess stays UNALLOCATED on the payment, which the
+     * journalizer books to unearned revenue.
+     *
+     * Used by the GATEWAY capture path (Paymob callback): the card money is
+     * already collected, so — unlike the form guard, which throws — we accept the
+     * payment and clamp the allocation. This prevents a credit applied to the
+     * invoice between session-init and the callback from over-allocating it.
+     *
+     * Call INSIDE the capture transaction, BEFORE flipping status to captured
+     * (so this payment is still excluded from the "captured" sum).
+     */
+    public function refitAllocationsToBalance(): void
+    {
+        foreach ($this->invoices()->lockForUpdate()->get() as $invoice) {
+            if ($invoice->status === 'cancelled') {
+                // A cancelled invoice has left the books and can hold no receivable —
+                // the whole payment becomes a tenant overpayment (unearned), never AR
+                // against a cancelled invoice.
+                $fittable = 0.0;
+            } else {
+                $otherCaptured = (float) $invoice->payments()
+                    ->where('payments.status', 'captured')
+                    ->where('payments.id', '!=', $this->getKey())
+                    ->sum('invoice_payment.allocated_amount');
+
+                $fittable = max(0.0, round(
+                    (float) $invoice->total - (float) $invoice->credit_applied_amount - $otherCaptured,
+                    2,
+                ));
+            }
+
+            if (round((float) $invoice->pivot->allocated_amount, 2) > $fittable) {
+                $this->invoices()->updateExistingPivot($invoice->getKey(), ['allocated_amount' => $fittable]);
+            }
+        }
+    }
+
+    /**
      * Throw if any of the given invoice IDs belongs to a tenant different
      * from this payment. Used by the admin Create/Edit pages before they
      * sync the invoice_payment pivot — the form's tenant filter already

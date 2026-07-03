@@ -86,6 +86,17 @@ class CallbackController
         DB::transaction(function () use ($payment, $obj, $txnId, $orderId, $isCapture) {
             $payment->gateway_transaction_id = "paymob:txn:{$txnId}:order:{$orderId}";
             $payment->gateway_response = $obj;
+
+            if ($isCapture) {
+                // A credit applied to the invoice since session-init can shrink its
+                // balance below the amount the card was charged. The money is already
+                // collected, so accept the payment but clamp its allocation to what
+                // still fits — the excess stays unallocated (unearned), never
+                // over-allocating the invoice. Runs while status is still 'initiated'
+                // so this payment is excluded from the captured-allocation sum.
+                $payment->refitAllocationsToBalance();
+            }
+
             $payment->status = $isCapture ? 'captured' : 'failed';
             $payment->save();
             // Payment::saved hook recomputes invoice totals + fires
