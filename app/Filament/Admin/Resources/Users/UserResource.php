@@ -79,10 +79,11 @@ class UserResource extends Resource
         return Auth::user()?->hasRole('super_admin') && Auth::id() !== $record->id;
     }
 
-    // Force-delete + restore must never be more permissive than delete.
+    // Force-delete + restore must never be more permissive than delete —
+    // including the self-delete guard (you cannot force-delete your own account).
     public static function canForceDelete($record): bool
     {
-        return Auth::user()?->hasRole('super_admin') ?? false;
+        return (Auth::user()?->hasRole('super_admin') ?? false) && Auth::id() !== $record->id;
     }
 
     public static function canRestore($record): bool

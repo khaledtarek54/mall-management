@@ -9,6 +9,7 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\RestoreAction;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Support\Facades\Auth;
 
 class EditInvoice extends EditRecord
 {
@@ -21,6 +22,7 @@ class EditInvoice extends EditRecord
                 ->label(__('admin.actions.download_pdf'))
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('gray')
+                ->authorize(fn () => Auth::user()?->can('invoices.view') ?? false)
                 ->action(function () {
                     $svc = app(InvoicePdfService::class);
                     $pdf = $svc->build($this->record);
@@ -34,6 +36,7 @@ class EditInvoice extends EditRecord
                 ->label(__('admin.actions.payment_link'))
                 ->icon('heroicon-o-link')
                 ->color('gray')
+                ->authorize(fn () => Auth::user()?->can('invoices.view') ?? false)
                 ->visible(fn () => config('integrations.paymob.enabled') && $this->record->isPayable())
                 ->modalHeading(fn () => __('admin.actions.payment_link').' · '.$this->record->number)
                 ->modalSubmitAction(false)

@@ -48,14 +48,25 @@ class EditCreditNote extends EditRecord
                 ->schema([
                     Select::make('invoice_id')
                         ->label(__('admin.fields.invoice'))
-                        ->options(fn () => Invoice::query()
-                            ->where('tenant_id', $this->record->tenant_id)
-                            ->where('balance', '>', 0)
-                            ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
-                            ->orderByDesc('issue_date')
-                            ->get()
-                            ->mapWithKeys(fn ($i) => [$i->id => $i->number . ' — EGP ' . number_format((float) $i->balance, 2) . ' ' . __('admin.tables.invoice.balance')])
-                            ->all())
+                        ->options(function () {
+                            // Property-scope: never offer an invoice from a property the
+                            // current user cannot see (a shared tenant may have invoices
+                            // across properties). null = unrestricted (super_admin/portfolio).
+                            $visibleAssetIds = \App\Support\TenantScope::visibleAssetIds();
+
+                            return Invoice::query()
+                                ->where('tenant_id', $this->record->tenant_id)
+                                ->where('balance', '>', 0)
+                                ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
+                                ->when($visibleAssetIds !== null, fn ($q) => $q->whereHas(
+                                    'lease.unit',
+                                    fn ($u) => $u->whereIn('asset_id', $visibleAssetIds),
+                                ))
+                                ->orderByDesc('issue_date')
+                                ->get()
+                                ->mapWithKeys(fn ($i) => [$i->id => $i->number . ' — EGP ' . number_format((float) $i->balance, 2) . ' ' . __('admin.tables.invoice.balance')])
+                                ->all();
+                        })
                         ->required()
                         ->searchable(),
                     TextInput::make('amount')
@@ -69,6 +80,16 @@ class EditCreditNote extends EditRecord
                 ])
                 ->action(function (array $data): void {
                     $invoice = Invoice::findOrFail($data['invoice_id']);
+
+                    // Defense-in-depth against form tampering: never apply a credit to an
+                    // invoice in a property the current user cannot see (the picker is
+                    // scoped, but the submitted id must be re-validated server-side).
+                    $visibleAssetIds = \App\Support\TenantScope::visibleAssetIds();
+                    if ($visibleAssetIds !== null
+                        && ! in_array($invoice->lease?->unit?->asset_id, $visibleAssetIds, true)) {
+                        abort(403);
+                    }
+
                     $applied = app(CreditNoteService::class)
                         ->applyToInvoice($this->record, $invoice, (float) $data['amount']);
 

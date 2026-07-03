@@ -57,6 +57,9 @@ class EditLease extends EditRecord
             ->icon('heroicon-o-document-plus')
             ->color('primary')
             ->visible(fn (Lease $record) => $record->status === 'active')
+            // Generating an invoice is a distinct, billing-sensitive permission —
+            // gate it server-side (visible() only hides the button; authorize() enforces).
+            ->authorize(fn () => auth()->user()?->can('leases.generate_invoice') ?? false)
             ->modalHeading(fn (Lease $record) => __('admin.actions.generate_invoice_for', ['ref' => $record->reference]))
             ->modalDescription(__('admin.actions.generate_invoice_description'))
             ->modalSubmitActionLabel(__('admin.actions.generate'))

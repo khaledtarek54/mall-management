@@ -79,6 +79,11 @@ class AssetStaffRelationManager extends RelationManager
             ])
             ->headerActions([
                 AttachAction::make()
+                    // Attaching a user as staff GRANTS them access to this property
+                    // (the asset_user pivot scopes visibility), so managing staff
+                    // requires role-management authority (roles.edit = super_admin),
+                    // not merely assets.edit — mirrors DepartmentMembersRelationManager.
+                    ->visible(fn () => auth()->user()?->can('roles.edit') ?? false)
                     ->preloadRecordSelect()
                     ->recordSelect(
                         fn (Select $select) => $select
@@ -105,8 +110,12 @@ class AssetStaffRelationManager extends RelationManager
                     ]),
             ])
             ->recordActions([
-                EditAction::make(),
-                DetachAction::make(),
+                EditAction::make()
+                    ->visible(fn () => auth()->user()?->can('roles.edit') ?? false),
+                DetachAction::make()
+                    // Detaching REVOKES the user's access to this property — same
+                    // role-management gate as attaching.
+                    ->visible(fn () => auth()->user()?->can('roles.edit') ?? false),
             ])
             ->defaultSort('pivot_assigned_at', 'desc');
     }

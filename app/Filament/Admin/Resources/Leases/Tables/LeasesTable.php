@@ -336,6 +336,7 @@ class LeasesTable
                     ->icon('heroicon-o-arrow-path')
                     ->color('success')
                     ->visible(fn ($record) => $record->status === 'active' && LeaseResource::canEdit($record) && auth()->user()?->can('leases.renew'))
+                    ->authorize(fn () => auth()->user()?->can('leases.renew') ?? false)
                     ->modalHeading(fn (Lease $record) => __('admin.actions.renew_modal_heading', ['ref' => $record->reference]))
                     ->modalDescription(fn (Lease $record) => __('admin.actions.renew_modal_description', ['ends' => $record->expiry_date->format('d/m/Y')]))
                     ->fillForm(fn (Lease $record) => [
@@ -384,6 +385,7 @@ class LeasesTable
                     ->icon('heroicon-o-currency-dollar')
                     ->color('warning')
                     ->visible(fn (Lease $record) => in_array($record->status, ['active', 'pending_approval'], true) && LeaseResource::canEdit($record))
+                    ->authorize(fn () => auth()->user()?->can('leases.edit') ?? false)
                     ->modalHeading(fn (Lease $record) => __('admin.actions.change_rent_modal_heading', ['ref' => $record->reference]))
                     ->modalDescription(__('admin.actions.change_rent_modal_description'))
                     ->fillForm(fn (Lease $record) => [
@@ -426,6 +428,7 @@ class LeasesTable
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
                     ->visible(fn (Lease $record) => in_array($record->status, ['active', 'pending_approval'], true) && LeaseResource::canEdit($record) && auth()->user()?->can('leases.terminate'))
+                    ->authorize(fn () => auth()->user()?->can('leases.terminate') ?? false)
                     ->modalHeading(fn (Lease $record) => __('admin.actions.terminate_modal_heading', ['ref' => $record->reference]))
                     ->modalDescription(fn (Lease $record) => __('admin.actions.terminate_modal_description', ['unit' => $record->unit?->code ?? '—']))
                     ->modalSubmitActionLabel(__('admin.actions.terminate_submit'))

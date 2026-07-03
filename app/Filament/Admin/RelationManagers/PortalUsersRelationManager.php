@@ -55,7 +55,12 @@ class PortalUsersRelationManager extends RelationManager
                 ->maxLength(255),
             Toggle::make('is_admin')
                 ->label(__('admin.fields.portal_admin'))
-                ->helperText(__('admin.helpers.portal_admin')),
+                ->helperText(__('admin.helpers.portal_admin'))
+                // Portal admins can write in the portal (submit/pay), so granting
+                // that flag is a super_admin-only act — mirrors the Delete gate below.
+                // A non-super_admin editing a portal user keeps the current value.
+                ->visible(fn () => Auth::user()?->hasRole('super_admin') ?? false)
+                ->dehydrated(fn () => Auth::user()?->hasRole('super_admin') ?? false),
         ]);
     }
 

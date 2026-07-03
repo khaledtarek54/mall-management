@@ -64,6 +64,8 @@ class EditTenant extends EditRecord
                 ->label(__('admin.statement.action_label'))
                 ->icon('heroicon-o-document-arrow-down')
                 ->color('gray')
+                // Statement is tenant financial data — gate server-side (was ungated).
+                ->authorize(fn () => Auth::user()?->can('tenants.view') ?? false)
                 ->action(function () {
                     $svc = app(TenantStatementPdfService::class);
                     $pdf = $svc->build($this->record);

@@ -18,7 +18,16 @@ class UnitForm
                 ->components([
                     Select::make('asset_id')
                         ->label(__('admin.tables.unit.asset'))
-                        ->relationship('asset', 'name')
+                        // Scope to the user's visible properties so an "All Properties"
+                        // user cannot create a unit under a property outside their set
+                        // (null = unrestricted: super_admin / portfolio roles).
+                        ->relationship('asset', 'name', modifyQueryUsing: function ($query) {
+                            $visibleAssetIds = \App\Support\TenantScope::visibleAssetIds();
+
+                            return $visibleAssetIds !== null
+                                ? $query->whereIn('id', $visibleAssetIds)
+                                : $query;
+                        })
                         ->required()
                         ->native(false)
                         ->default(fn () => \App\Support\TenantScope::currentAssetId())
