@@ -1786,4 +1786,25 @@ return [
         'account_code_type_mismatch' => 'الكود الذي يبدأ بالرقم :digit يخص حسابات :expected — غيّر الكود أو طبيعة الحساب ليتطابقا.',
     ],
 
+    'inventory' => [
+        'group' => 'المخزون',
+        'warehouse' => ['singular' => 'مخزن', 'plural' => 'المخازن'],
+        'item' => ['singular' => 'صنف', 'plural' => 'أصناف المخزون'],
+        'movement' => ['singular' => 'حركة مخزون', 'plural' => 'حركات المخزون'],
+        'fields' => [
+            'name' => 'الاسم', 'code' => 'الكود', 'category' => 'الفئة', 'notes' => 'ملاحظات',
+            'active' => 'نشط', 'property' => 'العقار', 'sku' => 'رمز الصنف', 'unit' => 'الوحدة',
+            'unit_cost' => 'تكلفة الوحدة', 'reorder_level' => 'حد إعادة الطلب', 'on_hand' => 'المتوفر',
+            'warehouse' => 'المخزن', 'item' => 'الصنف', 'type' => 'النوع', 'quantity' => 'الكمية',
+            'reference' => 'المرجع', 'moved_on' => 'التاريخ', 'moved_by' => 'بواسطة',
+        ],
+        'types' => [
+            'receipt' => 'استلام', 'consumption' => 'صرف', 'adjustment' => 'تسوية',
+            'transfer_in' => 'تحويل وارد', 'transfer_out' => 'تحويل صادر',
+        ],
+        'actions' => ['receive' => 'استلام مخزون', 'adjust' => 'تسوية المخزون'],
+        'received' => 'تم استلام المخزون',
+        'adjusted' => 'تمت تسوية المخزون',
+    ],
+
 ];

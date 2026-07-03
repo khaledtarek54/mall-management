@@ -1,9 +1,10 @@
 # Module 22 — Inventory & Stock (المخزون)
 
-> **Status: Phase 1a shipped (data foundation).** Warehouses, item catalog, and the
-> append-only stock ledger + `StockMovementService` with derived on-hand, covered by
-> tests. Filament/RBAC (1b), maintenance-ticket consumption (2), and GL costing (3)
-> are the remaining phases (see the roadmap). The FRD greenlit this as the
+> **Status: Phases 1a + 1b shipped.** Data foundation (1a) + admin surfaces & RBAC
+> (1b): Filament resources for Warehouses, Items (with derived on-hand), and the Stock
+> ledger with **Receive / Adjust** actions, gated by the `inventory` module +
+> `inventory.*` permissions, property-scoped. Maintenance-ticket consumption (2) and
+> GL costing (3) are the remaining phases. The FRD greenlit this as the
 > highest-priority net-new build (D-3, "full inventory + consumption costing").
 
 Operations (Eltizam) run stores of spare parts, deep-clean machines, and daily
@@ -90,7 +91,7 @@ changing this API.
 | Phase | Scope | Status |
 |-------|-------|--------|
 | **1a — Data foundation** | warehouses + item catalog + stock ledger + `StockMovementService` (receipts/adjustments, derived on-hand) + tests | ✅ shipped |
-| **1b — Admin surfaces** | Filament resources (Warehouses, Items, Stock Movements) property-scoped + `inventory.*` RBAC + `inventory` module flag (`Modules::KEYS` / `ModulesSettings`) + receive/adjust actions | ⏳ next |
+| **1b — Admin surfaces** | Filament resources (Warehouses, Items, Stock Movements) property-scoped + `inventory.*` RBAC + `inventory` module flag (`Modules::KEYS` / `ModulesSettings`) + receive/adjust actions | ✅ shipped |
 | **2 — Consumption on tickets** | log items consumed on a maintenance ticket (`TenantRequest`) → `consumption` movements linked via `source`; captures who/what; low-stock warnings | ⏳ |
 | **3 — GL costing** | `InventoryMovementJournalizer`: receipt → Dr Inventory (asset) / Cr Cash\|Payable; consumption → Dr Operating/Maintenance Expense / Cr Inventory. New `inventory` chart account + mappings. Recognises cost as materials are used (COST-1). | ⏳ |
 
@@ -101,6 +102,19 @@ changing this API.
 `tests/Feature/Services/StockMovementServiceTest.php` — derived on-hand, sign-by-type,
 signed adjustments, per-warehouse vs total, invalid-type/zero-qty rejection, NOT-NULL
 coercion, movement value.
+
+## 6. Gotchas / hardening backlog
+
+- **Receive/Adjust are property-tamper-guarded.** The warehouse picker is scoped AND
+  the action re-validates the submitted `warehouse_id` against the user's visible
+  properties server-side (`abort(403)` on a foreign warehouse) — mirrors the
+  credit-note apply guard.
+- **FK cascade on hard-delete** (Phase-2 hardening): `stock_movements.inventory_item_id`
+  / `warehouse_id` are `cascadeOnDelete`, so **force-deleting** an item/warehouse would
+  erase its ledger history. Delete is super-admin-only and models soft-delete (which
+  does NOT cascade), so it's a rare path — but consider switching these FKs to
+  `restrictOnDelete` (force soft-delete + `is_active=false` instead) to protect the
+  ledger, alongside the GL costing work.
 
 **Related:** 11 Maintenance (Phase 2 consumption), 12 Vendors (Phase 3 receipts),
 21 General Ledger (Phase 3 costing), 18 RBAC (Phase 1b), 01 Properties (asset scope).

@@ -223,6 +223,12 @@ class RolesPermissionsSeeder extends Seeder
         'activity_log' => [
             'activity_log.view' => 'View the activity log',
         ],
+        'inventory' => [
+            'inventory.view'   => 'View warehouses, items & stock movements',
+            'inventory.create' => 'Create warehouses / items & receive stock',
+            'inventory.edit'   => 'Edit warehouses / items & record stock movements',
+            'inventory.delete' => 'Delete inventory records',
+        ],
         'settings' => [
             'settings.view'   => 'View settings',
             'settings.manage' => 'Edit system settings (billing rules, SLA, integrations)',
@@ -295,12 +301,13 @@ class RolesPermissionsSeeder extends Seeder
             'notes.view', 'notes.create',
         ]);
 
-        // operations: Maintenance, Vendors, Utility Meters.
+        // operations: Maintenance, Vendors, Utility Meters, Inventory.
         Role::findByName('operations', 'web')->syncPermissions([
             'maintenance.view', 'maintenance.create', 'maintenance.edit',
             'maintenance.assign', 'maintenance.change_status',
             'vendors.view', 'vendors.create', 'vendors.edit',
             'utility_meters.view', 'utility_meters.create', 'utility_meters.edit',
+            'inventory.view', 'inventory.create', 'inventory.edit',
             'notes.view', 'notes.create',
         ]);
 

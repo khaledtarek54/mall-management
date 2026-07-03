@@ -1786,4 +1786,25 @@ return [
         'account_code_type_mismatch' => 'A code starting with :digit belongs to :expected accounts — change the code or the account nature to match.',
     ],
 
+    'inventory' => [
+        'group' => 'Inventory',
+        'warehouse' => ['singular' => 'Warehouse', 'plural' => 'Warehouses'],
+        'item' => ['singular' => 'Inventory Item', 'plural' => 'Inventory Items'],
+        'movement' => ['singular' => 'Stock Movement', 'plural' => 'Stock Movements'],
+        'fields' => [
+            'name' => 'Name', 'code' => 'Code', 'category' => 'Category', 'notes' => 'Notes',
+            'active' => 'Active', 'property' => 'Property', 'sku' => 'SKU', 'unit' => 'Unit',
+            'unit_cost' => 'Unit cost', 'reorder_level' => 'Reorder level', 'on_hand' => 'On hand',
+            'warehouse' => 'Warehouse', 'item' => 'Item', 'type' => 'Type', 'quantity' => 'Quantity',
+            'reference' => 'Reference', 'moved_on' => 'Date', 'moved_by' => 'By',
+        ],
+        'types' => [
+            'receipt' => 'Receipt', 'consumption' => 'Consumption', 'adjustment' => 'Adjustment',
+            'transfer_in' => 'Transfer in', 'transfer_out' => 'Transfer out',
+        ],
+        'actions' => ['receive' => 'Receive stock', 'adjust' => 'Adjust stock'],
+        'received' => 'Stock received',
+        'adjusted' => 'Stock adjusted',
+    ],
+
 ];

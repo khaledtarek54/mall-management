@@ -31,6 +31,7 @@ class Modules
         'reports',
         'activity_log',
         'eta',
+        'inventory',
     ];
 
     public static function enabled(string $module): bool

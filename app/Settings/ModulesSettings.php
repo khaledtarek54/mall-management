@@ -34,6 +34,7 @@ class ModulesSettings extends Settings
     // ETA e-invoicing is postponed — disabled by default (not certified/live).
     // Re-enable from /admin/settings → Modules, or flip this default, when ready.
     public bool $eta = false;
+    public bool $inventory = true;
 
     public static function group(): string
     {
