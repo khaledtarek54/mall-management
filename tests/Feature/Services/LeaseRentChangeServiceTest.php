@@ -45,6 +45,28 @@ beforeEach(function () {
     ]);
 });
 
+it('dates a newly-created base_rent charge to the lease commencement (missing-charge edge)', function () {
+    // A lease whose base_rent Charge is absent — the edge the service recreates.
+    $lease = makeLease(makeUnit($this->asset), $this->tenant, [
+        'status' => 'active',
+        'commencement_date' => '2026-03-01',
+        'base_rent_monthly' => 40000,
+    ]);
+    expect(Charge::where('lease_id', $lease->id)->where('type', 'base_rent')->exists())->toBeFalse();
+
+    app(LeaseRentChangeService::class)->apply($lease, ['base_rent_monthly' => 45000]);
+
+    $charge = Charge::where('lease_id', $lease->id)
+        ->where('type', 'base_rent')
+        ->where('is_active', true)
+        ->latest('id')
+        ->first();
+
+    expect($charge)->not->toBeNull();
+    // Commencement date, not now() — consistent with lease creation/renewal.
+    expect($charge->start_date->toDateString())->toBe('2026-03-01');
+});
+
 it('updates lease columns AND the matching base_rent + service_charge Charge rows', function () {
     app(LeaseRentChangeService::class)->apply($this->lease, [
         'base_rent_monthly' => 60000,

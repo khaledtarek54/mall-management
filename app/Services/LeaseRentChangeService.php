@@ -133,7 +133,11 @@ class LeaseRentChangeService
             'frequency' => 'monthly',
             'vat_applicable' => $vatApplicable,
             'vat_rate' => $vatRate,
-            'start_date' => now()->startOfMonth(),
+            // Date the (edge-case) newly-created charge to the lease commencement —
+            // consistent with LeaseCreationService/LeaseRenewalService, so a missing
+            // charge recreated here bills the lease's term correctly rather than only
+            // from the current month.
+            'start_date' => $lease->commencement_date,
             'is_active' => true,
         ]);
     }
