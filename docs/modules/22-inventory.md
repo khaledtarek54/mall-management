@@ -1,10 +1,10 @@
 # Module 22 — Inventory & Stock (المخزون)
 
-> **Status: Phases 1a + 1b shipped.** Data foundation (1a) + admin surfaces & RBAC
-> (1b): Filament resources for Warehouses, Items (with derived on-hand), and the Stock
-> ledger with **Receive / Adjust** actions, gated by the `inventory` module +
-> `inventory.*` permissions, property-scoped. Maintenance-ticket consumption (2) and
-> GL costing (3) are the remaining phases. The FRD greenlit this as the
+> **Status: Phases 1a + 1b + 2 shipped.** Data foundation (1a), admin surfaces & RBAC
+> (1b), and maintenance-ticket **consumption** (2): a "Consumed materials" panel on
+> each maintenance request with a **Log consumed item** action that records a
+> `consumption` movement linked to the ticket (decrements stock, costs at the item's
+> standard cost). GL costing (3) is the remaining phase. The FRD greenlit this as the
 > highest-priority net-new build (D-3, "full inventory + consumption costing").
 
 Operations (Eltizam) run stores of spare parts, deep-clean machines, and daily
@@ -92,7 +92,7 @@ changing this API.
 |-------|-------|--------|
 | **1a — Data foundation** | warehouses + item catalog + stock ledger + `StockMovementService` (receipts/adjustments, derived on-hand) + tests | ✅ shipped |
 | **1b — Admin surfaces** | Filament resources (Warehouses, Items, Stock Movements) property-scoped + `inventory.*` RBAC + `inventory` module flag (`Modules::KEYS` / `ModulesSettings`) + receive/adjust actions | ✅ shipped |
-| **2 — Consumption on tickets** | log items consumed on a maintenance ticket (`TenantRequest`) → `consumption` movements linked via `source`; captures who/what; low-stock warnings | ⏳ |
+| **2 — Consumption on tickets** | "Consumed materials" relation manager on the maintenance request: **Log consumed item** → `consumption` movement linked via `source`, decrements stock, costs at item standard cost, captures who/what. Property-tamper-guarded + gated on the inventory module. | ✅ shipped |
 | **3 — GL costing** | `InventoryMovementJournalizer`: receipt → Dr Inventory (asset) / Cr Cash\|Payable; consumption → Dr Operating/Maintenance Expense / Cr Inventory. New `inventory` chart account + mappings. Recognises cost as materials are used (COST-1). | ⏳ |
 
 ---

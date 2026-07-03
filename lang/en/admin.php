@@ -1796,15 +1796,17 @@ return [
             'active' => 'Active', 'property' => 'Property', 'sku' => 'SKU', 'unit' => 'Unit',
             'unit_cost' => 'Unit cost', 'reorder_level' => 'Reorder level', 'on_hand' => 'On hand',
             'warehouse' => 'Warehouse', 'item' => 'Item', 'type' => 'Type', 'quantity' => 'Quantity',
-            'reference' => 'Reference', 'moved_on' => 'Date', 'moved_by' => 'By',
+            'reference' => 'Reference', 'moved_on' => 'Date', 'moved_by' => 'By', 'value' => 'Value',
         ],
         'types' => [
             'receipt' => 'Receipt', 'consumption' => 'Consumption', 'adjustment' => 'Adjustment',
             'transfer_in' => 'Transfer in', 'transfer_out' => 'Transfer out',
         ],
-        'actions' => ['receive' => 'Receive stock', 'adjust' => 'Adjust stock'],
+        'actions' => ['receive' => 'Receive stock', 'adjust' => 'Adjust stock', 'consume' => 'Log consumed item'],
         'received' => 'Stock received',
         'adjusted' => 'Stock adjusted',
+        'consumed' => 'Consumption recorded',
+        'consumption' => 'Consumed materials',
     ],
 
 ];

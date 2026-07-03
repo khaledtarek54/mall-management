@@ -114,6 +114,7 @@ class MaintenanceRequestResource extends Resource
     {
         return [
             \App\Filament\Admin\RelationManagers\MaintenanceCommentsRelationManager::class,
+            \App\Filament\Admin\RelationManagers\StockConsumptionRelationManager::class,
             \App\Filament\Admin\RelationManagers\ActivitiesRelationManager::class,
         ];
     }

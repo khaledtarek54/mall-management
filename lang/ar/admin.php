@@ -1796,15 +1796,17 @@ return [
             'active' => 'نشط', 'property' => 'العقار', 'sku' => 'رمز الصنف', 'unit' => 'الوحدة',
             'unit_cost' => 'تكلفة الوحدة', 'reorder_level' => 'حد إعادة الطلب', 'on_hand' => 'المتوفر',
             'warehouse' => 'المخزن', 'item' => 'الصنف', 'type' => 'النوع', 'quantity' => 'الكمية',
-            'reference' => 'المرجع', 'moved_on' => 'التاريخ', 'moved_by' => 'بواسطة',
+            'reference' => 'المرجع', 'moved_on' => 'التاريخ', 'moved_by' => 'بواسطة', 'value' => 'القيمة',
         ],
         'types' => [
             'receipt' => 'استلام', 'consumption' => 'صرف', 'adjustment' => 'تسوية',
             'transfer_in' => 'تحويل وارد', 'transfer_out' => 'تحويل صادر',
         ],
-        'actions' => ['receive' => 'استلام مخزون', 'adjust' => 'تسوية المخزون'],
+        'actions' => ['receive' => 'استلام مخزون', 'adjust' => 'تسوية المخزون', 'consume' => 'تسجيل صنف مستهلَك'],
         'received' => 'تم استلام المخزون',
         'adjusted' => 'تمت تسوية المخزون',
+        'consumed' => 'تم تسجيل الصرف',
+        'consumption' => 'المواد المستهلَكة',
     ],
 
 ];

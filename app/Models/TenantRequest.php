@@ -126,6 +126,14 @@ class TenantRequest extends Model implements HasMedia
         return $this->hasMany(TenantRequestComment::class)->orderBy('created_at');
     }
 
+    /** Stock consumed against this request (inventory module 22, Phase 2). */
+    public function stockConsumptions(): \Illuminate\Database\Eloquent\Relations\MorphMany
+    {
+        return $this->morphMany(\App\Models\StockMovement::class, 'source')
+            ->where('type', 'consumption')
+            ->latest('moved_on');
+    }
+
     /**
      * Attachments live on a PRIVATE disk (not web-accessible). They're tenant
      * photos/documents and must never be reachable via a guessable public URL —
