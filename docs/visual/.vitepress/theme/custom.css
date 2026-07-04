@@ -1,0 +1,216 @@
+/* =========================================================================
+   Atriom Visual Handbook — theme
+   Warm sand / teal identity + the "picture" components. The component classes
+   (.flow, .track/.pill, .tcard) mirror the approved sample so pages render the
+   same in-repo as they did in the preview.
+   ========================================================================= */
+
+:root {
+  /* Brand → teal */
+  --vp-c-brand-1: #0b6b62;
+  --vp-c-brand-2: #0f766e;
+  --vp-c-brand-3: #12887d;
+  --vp-c-brand-soft: rgba(15, 118, 110, 0.14);
+
+  /* Warm grounds instead of clinical white/grey */
+  --vp-c-bg: #fcfbf7;
+  --vp-c-bg-alt: #f4efe7;
+  --vp-c-bg-soft: #f7f2ea;
+  --vp-c-bg-elv: #fffdf9;
+  --vp-c-divider: #e6dfd3;
+  --vp-c-gutter: #e6dfd3;
+  --vp-c-border: #e0d8ca;
+
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+
+  /* component palette */
+  --ink: #14181b;
+  --teal: #0f766e;
+  --teal-deep: #0b544e;
+  --taupe: #8c8478;
+  --taupe-dk: #6b6459;
+  --hair: #e6dfd3;
+  --paper: #fffdf9;
+  --grey: #9a9384;   --grey-bg: #efece5;
+  --amber: #b4770f;  --amber-bg: #f6ecd7;
+  --green: #2f7d5b;  --green-bg: #e5f0e8;
+  --red:   #a8503f;  --red-bg:   #f3e2dd;
+  --teal-bg: #e6f1ef;
+  --hl-bg: #f0f7f5;  --hl-border: #bcdcd5;
+  --rule-bg: #edf6f2;
+  --code-chip: rgba(255, 255, 255, 0.7);
+}
+
+/* -----------------------------------------------------------------------
+   Dark mode — a warm charcoal, not clinical black. Every component colour
+   is remapped so nothing relies on a light-mode default (that was leaving
+   pale text on pale callouts). Elevation: page < card(--paper).
+   ----------------------------------------------------------------------- */
+.dark {
+  --vp-c-bg: #1a1611;
+  --vp-c-bg-alt: #211c15;
+  --vp-c-bg-soft: #242019;
+  --vp-c-bg-elv: #262019;
+  --vp-c-divider: #342f28;
+  --vp-c-gutter: #201c15;
+  --vp-c-border: #38322a;
+
+  /* brand a touch brighter so links/accents read on dark */
+  --vp-c-brand-1: #56c3b4;
+  --vp-c-brand-2: #46b3a5;
+  --vp-c-brand-3: #3a9d90;
+  --vp-c-brand-soft: rgba(70, 179, 165, 0.16);
+
+  --ink: #ece6db;
+  --teal: #4bb9ab;
+  --teal-deep: #63cdbe;
+  --taupe: #9c9384;
+  --taupe-dk: #b7ae9f;
+  --hair: #342f28;
+  --paper: #262019;
+  --grey: #8c8477;   --grey-bg: #2a251d;
+  --amber: #d6a24d;  --amber-bg: #2f2413;
+  --green: #6cbf90;  --green-bg: #17281d;
+  --red:   #db8d78;  --red-bg:   #301b16;
+  --teal-bg: #152c28;
+  --hl-bg: #16261f;  --hl-border: #2b463f;
+  --rule-bg: #17271f;
+  --code-chip: rgba(255, 255, 255, 0.09);
+}
+/* pill label colours need to lighten in dark (their backgrounds went dark) */
+.dark .vp-doc .p-grey  { color: #d0c8b7; }
+.dark .vp-doc .p-amber { color: #e4b869; }
+.dark .vp-doc .p-teal  { color: #71d2c2; }
+.dark .vp-doc .p-green { color: #87d1a5; }
+.dark .vp-doc .p-red   { color: #e4a08b; }
+.dark .vp-doc .rel.has { color: #e4b869; }
+
+/* Serif display for headings — warm, editorial */
+.vp-doc h1, .vp-doc h2, .vp-doc h3,
+.VPHero .name, .VPHero .text {
+  font-family: var(--serif);
+  letter-spacing: 0.005em;
+}
+.vp-doc h1 { font-size: 2.1rem; }
+.vp-doc h2 { margin-top: 2.4rem; }
+
+/* -------------------------------------------------------------------------
+   Shared bits
+   ------------------------------------------------------------------------- */
+.vp-doc .eyebrow {
+  font-family: var(--vp-font-family-mono);
+  font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--teal-deep); font-weight: 600; margin: 0 0 2px;
+}
+.vp-doc .sub {
+  color: var(--taupe-dk); font-family: var(--serif); font-style: italic;
+  font-size: 1.05rem; margin: 0 0 1.1rem;
+}
+.vp-doc .plain {
+  background: var(--paper); border: 1px solid var(--hair);
+  border-left: 3px solid var(--teal); border-radius: 8px;
+  padding: 12px 16px; font-size: 0.95rem; margin: 18px 0;
+}
+.vp-doc .plain b, .vp-doc .plain strong { color: var(--teal-deep); }
+
+/* -------------------------------------------------------------------------
+   Money-spine flow
+   ------------------------------------------------------------------------- */
+.vp-doc .flow {
+  display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; margin: 18px 0;
+}
+.vp-doc .flow .step {
+  flex: 1 1 88px; min-width: 88px; background: var(--paper);
+  border: 1px solid var(--hair); border-radius: 9px; padding: 12px 11px;
+  display: flex; flex-direction: column; gap: 5px;
+}
+.vp-doc .flow .step .n { font-family: var(--vp-font-family-mono); font-size: 11px; color: var(--taupe); letter-spacing: 0.08em; }
+.vp-doc .flow .step .t { font-family: var(--serif); font-size: 1.05rem; font-weight: 600; color: var(--ink); }
+.vp-doc .flow .step .d { font-size: 0.8rem; color: var(--taupe-dk); line-height: 1.4; }
+.vp-doc .flow .step.hl { background: var(--hl-bg); border-color: var(--hl-border); }
+.vp-doc .flow .arrow { align-self: center; color: var(--teal); font-size: 16px; flex: 0 0 auto; line-height: 1; }
+@media (max-width: 620px) {
+  .vp-doc .flow .arrow { transform: rotate(90deg); }
+  .vp-doc .flow .step { flex-basis: 100%; }
+}
+
+/* -------------------------------------------------------------------------
+   Lifecycle: state pills
+   ------------------------------------------------------------------------- */
+.vp-doc .track { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 18px 0 4px; }
+.vp-doc .pill {
+  display: inline-flex; flex-direction: column; gap: 1px; border-radius: 8px;
+  padding: 9px 14px; border: 1.5px solid; font-weight: 600; min-width: 92px; text-align: center;
+}
+.vp-doc .pill small { font-weight: 400; font-size: 11.5px; opacity: 0.82; font-family: var(--vp-font-family-mono); }
+.vp-doc .p-grey  { background: var(--grey-bg); border-color: var(--grey);  color: #5f584c; }
+.vp-doc .p-amber { background: var(--amber-bg); border-color: var(--amber); color: #7d520a; }
+.vp-doc .p-teal  { background: var(--teal-bg);  border-color: var(--teal);  color: var(--teal-deep); }
+.vp-doc .p-green { background: var(--green-bg); border-color: var(--green); color: #1f5a3f; }
+.vp-doc .p-red   { background: var(--red-bg);   border-color: var(--red);   color: #7f3a2c; }
+.vp-doc .conn { color: var(--taupe); font-size: 18px; }
+.vp-doc .branch {
+  margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--hair);
+  display: flex; flex-direction: column; gap: 12px; font-size: 0.9rem; color: var(--taupe-dk);
+}
+.vp-doc .branch .row { display: flex; align-items: center; gap: 10px; }
+.vp-doc .branch .pill { min-width: 0; padding: 6px 12px; flex: 0 0 auto; }
+
+/* -------------------------------------------------------------------------
+   The books: T-account cards
+   ------------------------------------------------------------------------- */
+.vp-doc .books { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 18px 0; }
+@media (max-width: 720px) { .vp-doc .books { grid-template-columns: 1fr; } }
+.vp-doc .tcard {
+  background: var(--paper); border: 1px solid var(--hair); border-radius: 10px; padding: 15px 16px 17px;
+}
+.vp-doc .tcard .cap {
+  font-family: var(--vp-font-family-mono); font-size: 12px; letter-spacing: 0.05em;
+  color: var(--teal-deep); text-transform: uppercase; font-weight: 600; margin-bottom: 2px;
+}
+.vp-doc .tcard .say { font-size: 0.85rem; color: var(--taupe-dk); margin: 0 0 13px; line-height: 1.4; }
+
+/* Reset VitePress's default table chrome for our T-accounts */
+.vp-doc .tcard table.t { width: 100%; border-collapse: collapse; font-size: 0.9rem; margin: 0; display: table; }
+.vp-doc .tcard table.t tr { background: transparent !important; border: 0; }
+.vp-doc .tcard table.t th {
+  font-family: var(--vp-font-family-mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--taupe); font-weight: 600; text-align: left; padding: 0 0 6px; border: 0; border-bottom: 2px solid var(--ink);
+}
+.vp-doc .tcard table.t th.cr { text-align: right; }
+.vp-doc .tcard table.t td { padding: 7px 0; vertical-align: top; border: 0; border-bottom: 1px solid var(--hair); }
+.vp-doc .tcard table.t td.amt { text-align: right; font-family: var(--vp-font-family-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.vp-doc .tcard .acc { font-size: 0.84rem; }
+.vp-doc .tcard .acc small { color: var(--taupe); font-family: var(--vp-font-family-mono); font-size: 11px; }
+.vp-doc .dr  { color: var(--teal-deep); }
+.vp-doc .crc { color: var(--amber); }
+.vp-doc .legend { display: flex; gap: 18px; margin-top: 14px; font-size: 0.84rem; color: var(--taupe-dk); flex-wrap: wrap; }
+.vp-doc .legend b { font-family: var(--vp-font-family-mono); font-size: 12px; }
+
+/* -------------------------------------------------------------------------
+   Entity / relationship map
+   ------------------------------------------------------------------------- */
+.vp-doc .emap { display: flex; flex-direction: column; gap: 10px; margin: 18px 0; }
+.vp-doc .enode {
+  background: var(--paper); border: 1px solid var(--hair); border-radius: 9px;
+  padding: 11px 14px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px;
+}
+.vp-doc .enode .name { font-family: var(--serif); font-size: 1.02rem; font-weight: 600; color: var(--ink); min-width: 8.5rem; }
+.vp-doc .enode .role { font-size: 0.8rem; color: var(--taupe-dk); flex: 1 1 12rem; }
+.vp-doc .enode .rels { display: flex; flex-wrap: wrap; gap: 6px; }
+.vp-doc .rel {
+  font-family: var(--vp-font-family-mono); font-size: 11px; padding: 2px 8px; border-radius: 20px;
+  background: var(--teal-bg); color: var(--teal-deep); white-space: nowrap;
+}
+.vp-doc .rel.has { background: var(--amber-bg); color: #7d520a; }
+
+/* invariant / key-rule callout */
+.vp-doc .rule {
+  background: var(--rule-bg); border: 1px solid var(--hl-border);
+  border-radius: 10px; padding: 16px 18px; margin: 20px 0;
+}
+.vp-doc .rule .lbl {
+  font-family: var(--vp-font-family-mono); font-size: 11px; letter-spacing: 0.13em;
+  text-transform: uppercase; color: var(--teal-deep); font-weight: 600; display: block; margin-bottom: 4px;
+}
+.vp-doc .rule code { background: var(--code-chip); }
