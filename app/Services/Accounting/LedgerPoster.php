@@ -5,6 +5,8 @@ namespace App\Services\Accounting;
 use App\Models\CreditNote;
 use App\Models\DepositTransaction;
 use App\Models\DepreciationEntry;
+use App\Models\EmployeeAdvance;
+use App\Models\EmployeeAdvanceRepayment;
 use App\Models\Expense;
 use App\Models\FixedAsset;
 use App\Models\FixedAssetDisposal;
@@ -19,6 +21,8 @@ use App\Models\VendorBillPayment;
 use App\Services\Accounting\Journalizers\CreditNoteJournalizer;
 use App\Services\Accounting\Journalizers\DepositTransactionJournalizer;
 use App\Services\Accounting\Journalizers\DepreciationEntryJournalizer;
+use App\Services\Accounting\Journalizers\EmployeeAdvanceJournalizer;
+use App\Services\Accounting\Journalizers\EmployeeAdvanceRepaymentJournalizer;
 use App\Services\Accounting\Journalizers\ExpenseJournalizer;
 use App\Services\Accounting\Journalizers\FixedAssetAcquisitionJournalizer;
 use App\Services\Accounting\Journalizers\FixedAssetDisposalJournalizer;
@@ -176,6 +180,8 @@ class LedgerPoster
             FixedAsset::class => new FixedAssetAcquisitionJournalizer($this->accounts),
             DepreciationEntry::class => new DepreciationEntryJournalizer($this->accounts),
             FixedAssetDisposal::class => new FixedAssetDisposalJournalizer($this->accounts),
+            EmployeeAdvance::class => new EmployeeAdvanceJournalizer($this->accounts),
+            EmployeeAdvanceRepayment::class => new EmployeeAdvanceRepaymentJournalizer($this->accounts),
             default => null,
         };
     }

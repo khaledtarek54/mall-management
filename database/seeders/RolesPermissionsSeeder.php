@@ -163,10 +163,12 @@ class RolesPermissionsSeeder extends Seeder
             'payrolls.approve' => 'Approve a payroll run (makes it postable)',
         ],
         'employees' => [
-            'employees.view'   => 'View employees',
-            'employees.create' => 'Add employees',
-            'employees.edit'   => 'Edit employees',
-            'employees.delete' => 'Delete employees',
+            'employees.view'             => 'View employees',
+            'employees.create'           => 'Add employees',
+            'employees.edit'             => 'Edit employees',
+            'employees.delete'           => 'Delete employees',
+            'employees.grant_advance'    => 'Grant an advance / loan to an employee',
+            'employees.record_repayment' => 'Record a repayment of an employee advance',
         ],
         'deposit_transactions' => [
             'deposit_transactions.view'   => 'View security-deposit transactions',
@@ -343,7 +345,7 @@ class RolesPermissionsSeeder extends Seeder
             'payrolls.view', 'payrolls.create', 'payrolls.edit', 'payrolls.approve',
             'deposit_transactions.view', 'deposit_transactions.create', 'deposit_transactions.edit',
             'fixed_assets.view', 'fixed_assets.create', 'fixed_assets.edit',
-            'employees.view',
+            'employees.view', 'employees.grant_advance', 'employees.record_repayment',
             'reports.view', 'reports.download',
         ]);
 
@@ -358,6 +360,7 @@ class RolesPermissionsSeeder extends Seeder
             'roles.view',
             'departments.view',
             'employees.view', 'employees.create', 'employees.edit',
+            'employees.grant_advance', 'employees.record_repayment',
         ]);
     }
 

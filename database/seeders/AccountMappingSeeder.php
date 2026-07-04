@@ -19,6 +19,8 @@ class AccountMappingSeeder extends Seeder
         'cash' => '11101001',
         'bank' => '11102001',
         'accounts_receivable' => '11201001',
+        // Employee advances/loans (module 24, Phase 2) — a receivable (money owed BY staff).
+        'employee_advances' => '11203001',
         'accounts_payable' => '21101001',
         'deposits_held' => '21201001',
         'vat_payable' => '21301001',

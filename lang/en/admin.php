@@ -1842,8 +1842,17 @@ return [
         ],
         'statuses' => ['active' => 'Active', 'terminated' => 'Terminated'],
         'methods' => ['cash' => 'Cash', 'bank' => 'Bank'],
-        'actions' => ['terminate' => 'Terminate'],
+        'actions' => ['terminate' => 'Terminate', 'grant_advance' => 'Grant advance', 'record_repayment' => 'Record repayment'],
         'terminated' => 'Employee terminated',
+        'advances' => 'Advances & loans',
+        'advance_fields' => [
+            'type' => 'Type', 'amount' => 'Amount', 'advance_date' => 'Date', 'paid_from' => 'Paid from',
+            'repaid' => 'Repaid', 'outstanding' => 'Outstanding', 'repaid_on' => 'Repaid on', 'method' => 'Method',
+            'granted_by' => 'Granted by',
+        ],
+        'types' => ['advance' => 'Advance', 'loan' => 'Loan'],
+        'granted' => 'Advance granted',
+        'repaid_notice' => 'Repayment recorded',
     ],
 
 ];

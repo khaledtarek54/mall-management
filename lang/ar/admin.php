@@ -1842,8 +1842,17 @@ return [
         ],
         'statuses' => ['active' => 'نشط', 'terminated' => 'منتهي الخدمة'],
         'methods' => ['cash' => 'نقدًا', 'bank' => 'بنك'],
-        'actions' => ['terminate' => 'إنهاء الخدمة'],
+        'actions' => ['terminate' => 'إنهاء الخدمة', 'grant_advance' => 'صرف سلفة', 'record_repayment' => 'تسجيل سداد'],
         'terminated' => 'تم إنهاء خدمة الموظف',
+        'advances' => 'السلف والقروض',
+        'advance_fields' => [
+            'type' => 'النوع', 'amount' => 'المبلغ', 'advance_date' => 'التاريخ', 'paid_from' => 'مصروف من',
+            'repaid' => 'المسدَّد', 'outstanding' => 'المتبقّي', 'repaid_on' => 'تاريخ السداد', 'method' => 'الطريقة',
+            'granted_by' => 'صرفها',
+        ],
+        'types' => ['advance' => 'سلفة', 'loan' => 'قرض'],
+        'granted' => 'تم صرف السلفة',
+        'repaid_notice' => 'تم تسجيل السداد',
     ],
 
 ];

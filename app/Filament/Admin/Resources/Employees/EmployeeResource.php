@@ -72,6 +72,13 @@ class EmployeeResource extends Resource
         return EmployeesTable::configure($table);
     }
 
+    public static function getRelations(): array
+    {
+        return [
+            \App\Filament\Admin\RelationManagers\EmployeeAdvancesRelationManager::class,
+        ];
+    }
+
     public static function getPages(): array
     {
         return [
