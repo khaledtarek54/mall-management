@@ -14,12 +14,23 @@ export default defineConfig({
   themeConfig: {
     nav: [
       { text: 'Start here', link: '/' },
+      { text: 'Leasing', link: '/leasing/' },
       { text: 'Money & AR', link: '/money/' },
     ],
     sidebar: [
       {
         text: 'Start here',
         items: [{ text: 'What this is', link: '/' }],
+      },
+      {
+        text: 'Leasing — where the money starts',
+        collapsed: false,
+        items: [
+          { text: 'From empty unit to rent', link: '/leasing/' },
+          { text: 'Life of a lease', link: '/leasing/lease-lifecycle' },
+          { text: 'Units & tenants', link: '/leasing/unit-and-tenant' },
+          { text: 'Deposits in the books', link: '/leasing/deposits-in-the-books' },
+        ],
       },
       {
         text: 'Money & Accounts Receivable',
@@ -34,7 +45,7 @@ export default defineConfig({
       {
         text: 'Coming next',
         items: [
-          { text: 'Leasing · Operations · People · Accounting', link: '/#the-plan' },
+          { text: 'Operations · People · Accounting', link: '/#the-plan' },
         ],
       },
     ],

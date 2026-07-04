@@ -33,10 +33,10 @@ Because these pictures live **inside the code repository**, they can't quietly g
 
 ## The plan {#the-plan}
 
-The **Money & Accounts Receivable** section is built first and complete — it's the spine, so it's where understanding pays off most. If it lands well, the rest of the business follows the same template:
+The **money spine** and the **leasing** that feeds it are built and complete — start there. The rest of the business follows the same template:
 
+- **Leasing** — properties, units, tenants, leases, and the charges that seed every invoice _(ready now)_
 - **Money & AR** — the money spine, invoice + credit-note lifecycles, the books _(ready now)_
-- **Leasing** — properties, units, tenants, leases, the charges that seed every invoice
 - **Operations** — maintenance, CAM, meters, inventory, preventive upkeep
 - **People & money-out** — payroll, advances, custody, vendor bills
 - **Accounting & close** — the ledger, reconciliation, month-end, the owner's view
