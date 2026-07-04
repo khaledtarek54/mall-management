@@ -98,6 +98,9 @@ class PayrollLinesRelationManager extends RelationManager
 
                         /** @var Payroll $run */
                         $run = $this->getOwnerRecord();
+                        // One line per employee per run — reject a duplicate before the DB
+                        // unique index would throw a raw 500 (the picker also hides them).
+                        abort_if($run->lines()->where('employee_id', $employee->id)->exists(), 422);
                         $run->lines()->create([
                             'employee_id' => $employee->id,
                             'gross' => (float) $data['gross'],
@@ -159,7 +162,12 @@ class PayrollLinesRelationManager extends RelationManager
     /** @return array<int, string> */
     private function employeeOptions(): array
     {
-        return $this->employeeQuery()->orderBy('name')->pluck('name', 'id')->all();
+        // Exclude employees already on a line for this run (one line per employee).
+        $taken = $this->getOwnerRecord()->lines()->pluck('employee_id')->all();
+
+        return $this->employeeQuery()
+            ->when($taken, fn ($q) => $q->whereNotIn('id', $taken))
+            ->orderBy('name')->pluck('name', 'id')->all();
     }
 
     /** Re-validate the submitted employee against the run's scope (form-tamper guard). */

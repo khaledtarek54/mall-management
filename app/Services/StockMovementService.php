@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\InventoryItem;
 use App\Models\StockMovement;
 use App\Models\Warehouse;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 /**
@@ -43,19 +44,45 @@ class StockMovementService
             $quantity = -abs($quantity);
         }
 
-        return StockMovement::create([
+        // Consumption + adjustments are valued at the item's standard cost when the
+        // caller supplies none (receipts must carry their own purchase cost) — so a
+        // shrinkage write-off or a ticket consumption always hits the GL for its value.
+        $unitCost = round((float) ($data['unit_cost'] ?? 0), 2);
+        if ($unitCost <= 0 && in_array($type, ['consumption', 'adjustment'], true)) {
+            $unitCost = round((float) (InventoryItem::find($data['inventory_item_id'])?->unit_cost ?? 0), 2);
+        }
+
+        $attributes = [
             'warehouse_id' => $data['warehouse_id'],
             'inventory_item_id' => $data['inventory_item_id'],
             'type' => $type,
             'quantity' => $quantity,
-            'unit_cost' => round((float) ($data['unit_cost'] ?? 0), 2),
+            'unit_cost' => $unitCost,
             'reference' => $data['reference'] ?? null,
             'source_type' => $data['source_type'] ?? null,
             'source_id' => $data['source_id'] ?? null,
             'moved_by_user_id' => $data['moved_by_user_id'] ?? auth()->id(),
             'moved_on' => $data['moved_on'] ?? today(),
             'notes' => $data['notes'] ?? null,
-        ]);
+        ];
+
+        // Consumption must never drive on-hand negative. Serialize concurrent
+        // consumption of this item (lockForUpdate) and re-check availability inside
+        // the transaction, so two tickets can't both consume the last of the stock.
+        if ($type === 'consumption') {
+            return DB::transaction(function () use ($attributes, $quantity) {
+                InventoryItem::whereKey($attributes['inventory_item_id'])->lockForUpdate()->first();
+                $onHand = round((float) StockMovement::query()
+                    ->where('inventory_item_id', $attributes['inventory_item_id'])
+                    ->where('warehouse_id', $attributes['warehouse_id'])
+                    ->sum('quantity'), 3);
+                abort_unless($onHand >= abs($quantity) - 0.0001, 422); // insufficient stock
+
+                return StockMovement::create($attributes);
+            });
+        }
+
+        return StockMovement::create($attributes);
     }
 
     /** Receive stock into a warehouse (positive movement). */

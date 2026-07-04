@@ -16,4 +16,12 @@ class EditWarehouse extends EditRecord
             DeleteAction::make(),
         ];
     }
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        // Can't re-home a warehouse into a property the user can't see (tamper guard).
+        WarehouseResource::assertAssetInScope($data['asset_id'] ?? $this->getRecord()->asset_id);
+
+        return $data;
+    }
 }

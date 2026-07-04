@@ -63,7 +63,10 @@ class StockMovement extends Model
 
     public function warehouse(): BelongsTo
     {
-        return $this->belongsTo(Warehouse::class);
+        // withTrashed so a live movement stays GL-attributable (asset_id resolves)
+        // after its warehouse is soft-deleted — else its journal entry would be voided
+        // by the sweep while on-hand still counts it. (Matches Custody/PayrollLine::employee.)
+        return $this->belongsTo(Warehouse::class)->withTrashed();
     }
 
     public function item(): BelongsTo

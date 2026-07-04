@@ -10,6 +10,7 @@ use App\Filament\Admin\Resources\Warehouses\Pages\ListWarehouses;
 use App\Filament\Admin\Resources\Warehouses\Schemas\WarehouseForm;
 use App\Filament\Admin\Resources\Warehouses\Tables\WarehousesTable;
 use App\Models\Warehouse;
+use App\Support\TenantScope;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -82,5 +83,19 @@ class WarehouseResource extends Resource
     public static function getGloballySearchableAttributes(): array
     {
         return ['name', 'code'];
+    }
+
+    /**
+     * Server-side guard against a tampered `asset_id` on create/edit — in
+     * "All Properties" mode the Select is enabled and its value is client-supplied,
+     * so re-validate that the target property is within the user's visible set
+     * (null = portfolio user, sees all). Matches the other property-scoped resources.
+     */
+    public static function assertAssetInScope(mixed $assetId): void
+    {
+        $visible = TenantScope::visibleAssetIds();
+        if ($visible !== null && ! in_array((int) $assetId, $visible, true)) {
+            abort(403);
+        }
     }
 }

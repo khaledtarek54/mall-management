@@ -345,6 +345,7 @@ it('journalizes a stock receipt as Dr Inventory / Cr GRNI (not the AP control)',
 
 it('journalizes stock consumption as Dr Maintenance Expense / Cr Inventory', function () {
     [, $w, $i] = glInventory();
+    app(\App\Services\StockMovementService::class)->receive($w, $i, 10, 25); // stock to consume from
     $movement = app(\App\Services\StockMovementService::class)->record([
         'warehouse_id' => $w->id, 'inventory_item_id' => $i->id, 'type' => 'consumption', 'quantity' => 4, 'unit_cost' => 25,
     ]); // value 100

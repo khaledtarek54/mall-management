@@ -60,7 +60,10 @@ class DepreciationService
         $month = ($period ? CarbonImmutable::instance($period) : CarbonImmutable::now())->startOfMonth();
         $created = 0;
 
-        $query = FixedAsset::active()->select('id');
+        // whereHas('asset') excludes fixed assets whose PROPERTY was soft-deleted — a
+        // soft-delete doesn't fire the FK cascade, so without this the portfolio run
+        // would keep charging (and posting GL for) a deleted mall forever.
+        $query = FixedAsset::active()->whereHas('asset')->select('id');
         if ($assetIds !== null) {
             $query->whereIn('asset_id', $assetIds);
         }

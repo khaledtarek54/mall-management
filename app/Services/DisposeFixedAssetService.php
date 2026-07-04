@@ -19,7 +19,12 @@ class DisposeFixedAssetService
      */
     public function dispose(FixedAsset $asset, array $data): FixedAssetDisposal
     {
-        return DB::transaction(function () use ($asset, $data) {
+        // Proceeds can't be negative — a tampered negative would inflate the loss and
+        // yield an unbalanced (unpostable) disposal entry. (minValue is client-side only.)
+        $proceeds = round((float) ($data['proceeds'] ?? 0), 2);
+        abort_unless($proceeds >= 0, 422);
+
+        return DB::transaction(function () use ($asset, $data, $proceeds) {
             // Lock + re-check inside the transaction (no double-dispose under a race).
             $locked = FixedAsset::whereKey($asset->getKey())->lockForUpdate()->firstOrFail();
             abort_unless($locked->status === 'active', 422);
@@ -31,7 +36,7 @@ class DisposeFixedAssetService
 
             return $locked->disposal()->create([
                 'disposed_on' => $data['disposed_on'],
-                'proceeds' => $data['proceeds'] ?? 0,
+                'proceeds' => $proceeds,
                 'proceeds_account' => ($data['proceeds_account'] ?? 'cash') === 'bank' ? 'bank' : 'cash',
                 'notes' => $data['notes'] ?? null,
                 'created_by_user_id' => auth()->id(),

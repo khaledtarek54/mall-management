@@ -42,11 +42,13 @@ class ListStockMovements extends ListRecords
                     ->numeric()
                     ->minValue(0.001)
                     ->required(),
+                // Required + prefilled from the item — a 0-cost receipt would add stock
+                // but post nothing to the GL (Inventory + GRNI would silently stay flat).
                 TextInput::make('unit_cost')
                     ->label(__('admin.inventory.fields.unit_cost'))
                     ->numeric()
-                    ->minValue(0)
-                    ->default(0)
+                    ->minValue(0.01)
+                    ->required()
                     ->prefix('EGP'),
                 ...$this->metaFields(),
             ])
@@ -139,7 +141,10 @@ class ListStockMovements extends ListRecords
                 ->options(fn () => InventoryItem::query()->where('is_active', true)->orderBy('name')->pluck('name', 'id')->all())
                 ->required()
                 ->searchable()
-                ->native(false),
+                ->native(false)
+                ->live()
+                // Prefill the receipt cost from the item's standard cost (editable).
+                ->afterStateUpdated(fn (\Filament\Schemas\Components\Utilities\Set $set, $state) => $set('unit_cost', (float) (InventoryItem::find($state)?->unit_cost ?? 0))),
         ];
     }
 

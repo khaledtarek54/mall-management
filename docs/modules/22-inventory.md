@@ -75,6 +75,23 @@ Three tables. Money is `decimal(14,2)`; quantities are `decimal(14,3)` (fraction
 4. **NOT-NULL money/quantity** — blank `quantity`/`unit_cost`/`reorder_level` coerce to 0
    in the model (the `meter_readings.cost` bug class).
 5. **Value of a movement** = `|quantity| × unit_cost` (always non-negative).
+6. **Consumption can't overdraw stock** (QA-hardened) — `record()` locks the item and
+   re-checks on-hand inside a transaction, so a ticket can never consume more than is on
+   hand (no negative stock / phantom COGS); concurrent consumptions serialise.
+7. **Every movement carries a value** — a receipt's `unit_cost` is **required** (prefilled
+   from the item; a 0-cost receipt would silently post nothing to the GL); consumption and
+   adjustments default their `unit_cost` to the item's **standard cost** when the caller
+   supplies none, so a shrinkage write-off always hits Inventory Adjustment.
+8. **Warehouse soft-delete is GL-safe** — `StockMovement::warehouse()` is `withTrashed`, so
+   a live movement stays attributable (its journal entry isn't voided) after its warehouse
+   is archived.
+
+> **Known limitation — standard costing, no variance layer.** Receipts load Inventory at
+> their entered purchase cost; consumption/adjustments relieve it at the item's *current*
+> `unit_cost`. If an item's `unit_cost` is edited between receipt and consumption, the
+> perpetual Inventory account drifts from receipt-loaded value (no purchase-price-variance /
+> FIFO / weighted-average layer). A proper costing layer is a future enhancement; for now,
+> keep `unit_cost` stable or reconcile Inventory periodically.
 
 ---
 
@@ -94,7 +111,7 @@ changing this API.
 | **1a — Data foundation** | warehouses + item catalog + stock ledger + `StockMovementService` (receipts/adjustments, derived on-hand) + tests | ✅ shipped |
 | **1b — Admin surfaces** | Filament resources (Warehouses, Items, Stock Movements) property-scoped + `inventory.*` RBAC + `inventory` module flag (`Modules::KEYS` / `ModulesSettings`) + receive/adjust actions | ✅ shipped |
 | **2 — Consumption on tickets** | "Consumed materials" relation manager on the maintenance request: **Log consumed item** → `consumption` movement linked via `source`, decrements stock, costs at item standard cost, captures who/what. Property-tamper-guarded + gated on the inventory module. | ✅ shipped |
-| **3 — GL costing** | `InventoryMovementJournalizer`: receipt → Dr Inventory (11301001) / Cr Accounts Payable; consumption → Dr Repairs&Maintenance / Cr Inventory; adjustment ↔ `inventory_adjustment` (51108001) per sign; transfers post nothing. Value = \|qty\| × unit_cost, dimensioned to the warehouse's property; swept by `accounting:sync-ledger`; soft-delete voids. Recognises cost as materials are used (COST-1). See [module 21](21-general-ledger.md). | ✅ shipped |
+| **3 — GL costing** | `InventoryMovementJournalizer`: receipt → Dr Inventory (11301001) / Cr **GRNI (21701001)** — a dedicated clearing liability, NOT the AP control (keeps the AP tie-out intact); consumption → Dr Repairs&Maintenance / Cr Inventory; adjustment ↔ `inventory_adjustment` (51108001) per sign; transfers post nothing. Value = \|qty\| × unit_cost, dimensioned to the warehouse's property; swept by `accounting:sync-ledger`; soft-delete voids. Recognises cost as materials are used (COST-1). See [module 21](21-general-ledger.md). | ✅ shipped |
 
 ---
 

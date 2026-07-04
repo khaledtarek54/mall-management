@@ -109,6 +109,7 @@ it('coerces blank money/quantity to 0 without crashing (NOT-NULL guard)', functi
 it('computes a non-negative money value for a movement', function () {
     $w = warehouse();
     $i = invItem();
+    $this->svc->receive($w, $i, 10, 25); // stock on hand to consume from
     $consume = $this->svc->record(['warehouse_id' => $w->id, 'inventory_item_id' => $i->id, 'type' => 'consumption', 'quantity' => 4, 'unit_cost' => 25]);
 
     // quantity is −4 but the value is |qty| × cost = 100.
