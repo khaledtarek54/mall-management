@@ -43,6 +43,13 @@ Schedule::command('cam:reconcile')
     ->name('atriom-cam-reconcile')
     ->withoutOverlapping();
 
+// Monthly straight-line depreciation for the fixed-asset register (module 23).
+// Idempotent (one charge per asset+month), so a re-run is harmless.
+Schedule::command('accounting:post-depreciation')
+    ->monthlyOn(28, '03:30')
+    ->name('atriom-post-depreciation')
+    ->withoutOverlapping();
+
 // Daily housekeeping. Vendor contracts past their end_date get auto-
 // expired so the nav-badge "expiring soon" alert stays meaningful
 // (audit M15 F-58 / D-43).

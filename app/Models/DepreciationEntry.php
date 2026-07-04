@@ -1,0 +1,47 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\Activitylog\Support\LogOptions;
+
+/**
+ * One month's depreciation charge for a fixed asset (module 23). The monthly run
+ * (DepreciationService::run / accounting:post-depreciation) creates exactly one per
+ * (asset, month); accumulated depreciation = SUM(amount). Each entry posts to the
+ * GL as Dr Depreciation Expense / Cr Accumulated Depreciation (Phase 2).
+ */
+class DepreciationEntry extends Model
+{
+    use HasFactory, LogsActivity, SoftDeletes;
+
+    protected $fillable = [
+        'fixed_asset_id',
+        'period_month',
+        'amount',
+        'created_by_user_id',
+    ];
+
+    protected $casts = [
+        'period_month' => 'date',
+        'amount' => 'decimal:2',
+    ];
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(['fixed_asset_id', 'period_month', 'amount'])
+            ->logOnlyDirty()
+            ->dontLogEmptyChanges()
+            ->useLogName('depreciation_entry');
+    }
+
+    public function fixedAsset(): BelongsTo
+    {
+        return $this->belongsTo(FixedAsset::class);
+    }
+}
