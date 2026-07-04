@@ -130,6 +130,9 @@ These four decisions steer the FRs below:
    of advances deferred to a future Phase 3b.)
 3. ✅ **Fixed-asset register + depreciation** (FA-1) — register + straight-line depreciation
    + full GL posting (acquisition, depreciation, disposal write-off). Module 23, complete.
+5. ✅ **Preventive-maintenance / facility checklist** (MNT-1/2) — recurring plans that
+   auto-raise work orders with checklists (daily scan), completion tracking. Module 26,
+   Phase 1. ⏳ Facility work-log **report (RPT-1)** remains (Phase 2).
 
 **Partially shipped:**
 
@@ -138,7 +141,6 @@ These four decisions steer the FRs below:
    and **multi-currency (TREAS-2)** — blocked on **Q-F** (is anything billed in USD/EUR?).
 
 **Still open / lower priority (not yet decided to build):**
-5. **Preventive-maintenance / facility checklist** (MNT-1/2) + facility work-log report (RPT-1).
 6. **Marketing campaign/event management** (MKT-1) — spend→GL posting (MKT-3) shipped 2026-07-03.
 7. **Owner-private notes/documents** (ACCESS-1); department→accounting approval routing (ACCT-2).
 8. **Typed ID-card document** on tenant (TEN-1); **service chargeable/expense toggle + annual
