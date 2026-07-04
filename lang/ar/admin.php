@@ -1898,4 +1898,29 @@ return [
         'returned' => 'تم تسجيل رد العهدة',
     ],
 
+    'preventive_maintenance' => [
+        'group' => 'المرافق',
+        'plan' => ['singular' => 'خطة صيانة', 'plural' => 'خطط الصيانة'],
+        'order' => ['singular' => 'أمر شغل', 'plural' => 'أوامر الشغل'],
+        'fields' => [
+            'property' => 'العقار', 'unit' => 'الوحدة', 'title' => 'العنوان', 'category' => 'الفئة',
+            'description' => 'الوصف', 'frequency' => 'كل', 'frequency_unit' => 'الوحدة',
+            'frequency_value' => 'الفترة', 'checklist' => 'قائمة الفحص', 'department' => 'الإدارة',
+            'vendor' => 'المورد', 'next_due' => 'الاستحقاق التالي', 'last_generated' => 'آخر إصدار', 'active' => 'نشط',
+            'reference' => 'المرجع', 'status' => 'الحالة', 'scheduled_for' => 'مجدول', 'completed_at' => 'أُنجز',
+            'completed_by' => 'أنجزه', 'plan' => 'الخطة', 'notes' => 'ملاحظات', 'label' => 'البند', 'done' => 'تم',
+            'progress' => 'التقدّم',
+        ],
+        'frequency_units' => ['days' => 'يوم', 'weeks' => 'أسبوع', 'months' => 'شهر'],
+        'categories' => [
+            'electrical' => 'كهرباء', 'plumbing' => 'سباكة', 'hvac' => 'تكييف',
+            'structural' => 'إنشائي', 'cleaning' => 'نظافة', 'safety' => 'سلامة', 'other' => 'أخرى',
+        ],
+        'statuses' => ['open' => 'مفتوح', 'in_progress' => 'قيد التنفيذ', 'done' => 'منجز', 'cancelled' => 'ملغى'],
+        'actions' => ['start' => 'بدء', 'complete' => 'إنهاء', 'cancel' => 'إلغاء'],
+        'checklist_title' => 'قائمة الفحص',
+        'completed_notice' => 'تم إنجاز أمر الشغل',
+        'cancelled_notice' => 'تم إلغاء أمر الشغل',
+    ],
+
 ];

@@ -177,6 +177,13 @@ class RolesPermissionsSeeder extends Seeder
             'custodies.delete' => 'Delete a custody',
             'custodies.settle' => 'Settle a custody (record an expense / return)',
         ],
+        'preventive_maintenance' => [
+            'preventive_maintenance.view'     => 'View preventive-maintenance plans & work orders',
+            'preventive_maintenance.create'   => 'Create preventive-maintenance plans / work orders',
+            'preventive_maintenance.edit'     => 'Edit preventive-maintenance plans / work orders',
+            'preventive_maintenance.delete'   => 'Delete preventive-maintenance plans / work orders',
+            'preventive_maintenance.complete' => 'Complete a work order (tick checklist items, mark done)',
+        ],
         'deposit_transactions' => [
             'deposit_transactions.view'   => 'View security-deposit transactions',
             'deposit_transactions.create' => 'Record security-deposit transactions',
@@ -326,6 +333,8 @@ class RolesPermissionsSeeder extends Seeder
         Role::findByName('operations', 'web')->syncPermissions([
             'maintenance.view', 'maintenance.create', 'maintenance.edit',
             'maintenance.assign', 'maintenance.change_status',
+            'preventive_maintenance.view', 'preventive_maintenance.create',
+            'preventive_maintenance.edit', 'preventive_maintenance.complete',
             'vendors.view', 'vendors.create', 'vendors.edit',
             'utility_meters.view', 'utility_meters.create', 'utility_meters.edit',
             'inventory.view', 'inventory.create', 'inventory.edit',

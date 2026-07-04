@@ -75,6 +75,13 @@ Schedule::command('maintenance:auto-close')
     ->name('atriom-auto-close-maintenance')
     ->withoutOverlapping();
 
+// Daily scan raising preventive-maintenance work orders for plans that are due.
+// Idempotent + lock-safe (advances next_due_date), so a re-run is harmless.
+Schedule::command('maintenance:generate-preventive')
+    ->dailyAt('02:30')
+    ->name('atriom-generate-preventive-maintenance')
+    ->withoutOverlapping();
+
 // Hourly scan for open requests past their target_resolution_at. Alerts
 // managers + maintenance_managers on the asset (or super_admins as
 // fallback) via the bell. Idempotent through sla_breach_notified_at, so

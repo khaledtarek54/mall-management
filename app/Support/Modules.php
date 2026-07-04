@@ -35,6 +35,7 @@ class Modules
         'fixed_assets',
         'employees',
         'custodies',
+        'preventive_maintenance',
     ];
 
     public static function enabled(string $module): bool

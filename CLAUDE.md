@@ -28,7 +28,7 @@ php artisan migrate:fresh --seed         # reset local demo data
 vendor/bin/pest --parallel               # test suite (1043+)
 npx playwright test --project=chromium   # E2E (against Herd mall-management.test)
 ```
-Scheduled (`routes/console.php`): `maintenance:scan-sla-breaches` · `billing:scan-overdue-invoices` · `billing:apply-late-fees` · `maintenance:auto-close` · `vendors:expire-contracts` · `cam:reconcile`.
+Scheduled (`routes/console.php`): `maintenance:scan-sla-breaches` · `billing:scan-overdue-invoices` · `billing:apply-late-fees` · `maintenance:auto-close` · `maintenance:generate-preventive` · `vendors:expire-contracts` · `cam:reconcile` · `accounting:sync-ledger` · `accounting:post-depreciation`.
 
 ## Skills (`.claude/skills/`)
 - **`/new-module`** — scaffold a module the Atriom way (model+migration, service, RBAC + property-scoped Filament resource, permissions, doc, tests).

@@ -1898,4 +1898,29 @@ return [
         'returned' => 'Custody return recorded',
     ],
 
+    'preventive_maintenance' => [
+        'group' => 'Facility',
+        'plan' => ['singular' => 'Maintenance Plan', 'plural' => 'Maintenance Plans'],
+        'order' => ['singular' => 'Work Order', 'plural' => 'Work Orders'],
+        'fields' => [
+            'property' => 'Property', 'unit' => 'Unit', 'title' => 'Title', 'category' => 'Category',
+            'description' => 'Description', 'frequency' => 'Every', 'frequency_unit' => 'Unit',
+            'frequency_value' => 'Interval', 'checklist' => 'Checklist', 'department' => 'Department',
+            'vendor' => 'Vendor', 'next_due' => 'Next due', 'last_generated' => 'Last raised', 'active' => 'Active',
+            'reference' => 'Ref.', 'status' => 'Status', 'scheduled_for' => 'Scheduled', 'completed_at' => 'Completed',
+            'completed_by' => 'Completed by', 'plan' => 'Plan', 'notes' => 'Notes', 'label' => 'Item', 'done' => 'Done',
+            'progress' => 'Progress',
+        ],
+        'frequency_units' => ['days' => 'day(s)', 'weeks' => 'week(s)', 'months' => 'month(s)'],
+        'categories' => [
+            'electrical' => 'Electrical', 'plumbing' => 'Plumbing', 'hvac' => 'HVAC',
+            'structural' => 'Structural', 'cleaning' => 'Cleaning', 'safety' => 'Safety', 'other' => 'Other',
+        ],
+        'statuses' => ['open' => 'Open', 'in_progress' => 'In progress', 'done' => 'Done', 'cancelled' => 'Cancelled'],
+        'actions' => ['start' => 'Start', 'complete' => 'Mark done', 'cancel' => 'Cancel'],
+        'checklist_title' => 'Checklist',
+        'completed_notice' => 'Work order completed',
+        'cancelled_notice' => 'Work order cancelled',
+    ],
+
 ];
