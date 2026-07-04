@@ -81,6 +81,35 @@ it('skips the GL check for a month-scoped run (GL balances are cumulative)', fun
     expect(glCheck($report))->toBeNull();
 });
 
+it('keeps the GL↔AP tie-out balanced after an inventory receipt (credits GRNI, not AP)', function () {
+    $this->seed(ChartOfAccountsSeeder::class);
+    $this->seed(AccountMappingSeeder::class);
+    app(FiscalCalendar::class)->ensureYear((int) now()->year);
+
+    // A real vendor bill sets the AP baseline...
+    $bill = \App\Models\VendorBill::create([
+        'vendor_id' => \App\Models\Vendor::factory()->create()->id, 'asset_id' => makeAsset()->id,
+        'category' => 'utilities', 'status' => 'approved', 'bill_date' => now()->toDateString(),
+        'subtotal' => 2000, 'vat_amount' => 0, 'total' => 2000, 'balance' => 2000,
+    ]);
+    app(LedgerPoster::class)->sync($bill->fresh()); // GL AP = 2000
+
+    // ...and an inventory receipt posts (Dr Inventory / Cr GRNI) — it must NOT inflate
+    // the AP control, or the monthly reconcile would falsely fail on an AP mismatch.
+    $asset = makeAsset();
+    $warehouse = \App\Models\Warehouse::create(['asset_id' => $asset->id, 'name' => 'Store', 'code' => 'S1']);
+    $item = \App\Models\InventoryItem::create(['sku' => 'SKU-GRNI', 'name' => 'Seal', 'unit' => 'each', 'unit_cost' => 25]);
+    $receipt = app(\App\Services\StockMovementService::class)->receive($warehouse, $item, 40, 25); // value 1000
+    app(LedgerPoster::class)->sync($receipt->fresh());
+
+    expect(glCheck(glReconcile())['passed'])->toBeTrue();
+
+    // AP still ties to just the vendor bill — the 1000 receipt landed in GRNI.
+    $tie = app(BooksReconciliationService::class)->glTieOut();
+    expect($tie['ap']['delta'])->toBe(0.0);
+    expect($tie['ap']['gl'])->toBe(2000.0);
+});
+
 it('catches a GL that has drifted from the source AP (bill cancelled, not re-synced)', function () {
     $this->seed(ChartOfAccountsSeeder::class);
     $this->seed(AccountMappingSeeder::class);

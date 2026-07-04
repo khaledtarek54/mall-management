@@ -318,6 +318,78 @@ it('voids a marketing spend entry when the spend is soft-deleted', function () {
     expect($statement['closing'])->toEqualWithDelta(0.0, 0.001);
 });
 
+/** A warehouse + catalog item for inventory GL tests. */
+function glInventory(): array
+{
+    $asset = makeAsset();
+    $warehouse = \App\Models\Warehouse::create(['asset_id' => $asset->id, 'name' => 'Store', 'code' => 'S1']);
+    $item = \App\Models\InventoryItem::create(['sku' => 'SKU-' . uniqid(), 'name' => 'Seal', 'unit' => 'each', 'unit_cost' => 25]);
+
+    return [$asset, $warehouse, $item];
+}
+
+it('journalizes a stock receipt as Dr Inventory / Cr GRNI (not the AP control)', function () {
+    [$asset, $w, $i] = glInventory();
+    $movement = app(\App\Services\StockMovementService::class)->receive($w, $i, 10, 25); // value 250
+
+    $entry = $this->poster->post($movement->fresh());
+
+    expect($entry->isBalanced())->toBeTrue();
+    $byAccount = $entry->lines->keyBy('ledger_account_id');
+    expect((float) $byAccount[$this->accounts->id('inventory')]->debit)->toEqualWithDelta(250.0, 0.001);
+    expect((float) $byAccount[$this->accounts->id('inventory_grni')]->credit)->toEqualWithDelta(250.0, 0.001);
+    // Must NOT touch the AP control account (that would break the GL↔AP tie-out).
+    expect($byAccount->has($this->accounts->id('accounts_payable')))->toBeFalse();
+    expect((int) $entry->asset_id)->toBe($asset->id); // dimensioned to the warehouse's property
+});
+
+it('journalizes stock consumption as Dr Maintenance Expense / Cr Inventory', function () {
+    [, $w, $i] = glInventory();
+    $movement = app(\App\Services\StockMovementService::class)->record([
+        'warehouse_id' => $w->id, 'inventory_item_id' => $i->id, 'type' => 'consumption', 'quantity' => 4, 'unit_cost' => 25,
+    ]); // value 100
+
+    $entry = $this->poster->post($movement->fresh());
+
+    expect($entry->isBalanced())->toBeTrue();
+    $byAccount = $entry->lines->keyBy('ledger_account_id');
+    expect((float) $byAccount[$this->accounts->id('maintenance_expense')]->debit)->toEqualWithDelta(100.0, 0.001);
+    expect((float) $byAccount[$this->accounts->id('inventory')]->credit)->toEqualWithDelta(100.0, 0.001);
+});
+
+it('journalizes a shrinkage adjustment as Dr Inventory Adjustment / Cr Inventory', function () {
+    [, $w, $i] = glInventory();
+    $movement = app(\App\Services\StockMovementService::class)->adjust($w, $i, -2, ['unit_cost' => 25]); // value 50
+
+    $entry = $this->poster->post($movement->fresh());
+
+    $byAccount = $entry->lines->keyBy('ledger_account_id');
+    expect((float) $byAccount[$this->accounts->id('inventory_adjustment')]->debit)->toEqualWithDelta(50.0, 0.001);
+    expect((float) $byAccount[$this->accounts->id('inventory')]->credit)->toEqualWithDelta(50.0, 0.001);
+});
+
+it('does not post a stock transfer to the GL (intra-company move)', function () {
+    [, $w, $i] = glInventory();
+    $movement = app(\App\Services\StockMovementService::class)->record([
+        'warehouse_id' => $w->id, 'inventory_item_id' => $i->id, 'type' => 'transfer_out', 'quantity' => 3, 'unit_cost' => 25,
+    ]);
+
+    expect($this->poster->post($movement->fresh()))->toBeNull();
+});
+
+it('voids a stock movement entry when the movement is soft-deleted', function () {
+    [, $w, $i] = glInventory();
+    $movement = app(\App\Services\StockMovementService::class)->receive($w, $i, 10, 25);
+    expect($this->poster->sync($movement->fresh()))->not->toBeNull();
+
+    $movement->delete();
+
+    expect($this->poster->sync($movement->fresh()))->toBeNull();
+    $inventory = LedgerAccount::where('code', '11301001')->first();
+    $statement = app(LedgerReportService::class)->accountLedger($inventory);
+    expect($statement['closing'])->toEqualWithDelta(0.0, 0.001);
+});
+
 it('omits the sales-returns line on a pure-VAT credit note', function () {
     $lease = glLease();
     $note = CreditNote::create([

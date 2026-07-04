@@ -1,11 +1,12 @@
 # Module 22 — Inventory & Stock (المخزون)
 
-> **Status: Phases 1a + 1b + 2 shipped.** Data foundation (1a), admin surfaces & RBAC
-> (1b), and maintenance-ticket **consumption** (2): a "Consumed materials" panel on
-> each maintenance request with a **Log consumed item** action that records a
-> `consumption` movement linked to the ticket (decrements stock, costs at the item's
-> standard cost). GL costing (3) is the remaining phase. The FRD greenlit this as the
-> highest-priority net-new build (D-3, "full inventory + consumption costing").
+> **Status: COMPLETE (Phases 1a + 1b + 2 + 3).** Data foundation (1a), admin surfaces
+> & RBAC (1b), maintenance-ticket **consumption** (2), and **GL costing** (3): every
+> stock movement posts to the double-entry ledger via `InventoryMovementJournalizer`
+> (receipt → Dr Inventory / Cr Payables; consumption → Dr Maintenance Expense / Cr
+> Inventory), so material cost is recognised as it's used and inventory is reconcilable
+> with the books. Delivers the FRD's highest-priority net-new build (D-3, "full
+> inventory + consumption costing").
 
 Operations (Eltizam) run stores of spare parts, deep-clean machines, and daily
 consumables per mall. This module tracks **what's in stock, where, and what it's
@@ -93,7 +94,7 @@ changing this API.
 | **1a — Data foundation** | warehouses + item catalog + stock ledger + `StockMovementService` (receipts/adjustments, derived on-hand) + tests | ✅ shipped |
 | **1b — Admin surfaces** | Filament resources (Warehouses, Items, Stock Movements) property-scoped + `inventory.*` RBAC + `inventory` module flag (`Modules::KEYS` / `ModulesSettings`) + receive/adjust actions | ✅ shipped |
 | **2 — Consumption on tickets** | "Consumed materials" relation manager on the maintenance request: **Log consumed item** → `consumption` movement linked via `source`, decrements stock, costs at item standard cost, captures who/what. Property-tamper-guarded + gated on the inventory module. | ✅ shipped |
-| **3 — GL costing** | `InventoryMovementJournalizer`: receipt → Dr Inventory (asset) / Cr Cash\|Payable; consumption → Dr Operating/Maintenance Expense / Cr Inventory. New `inventory` chart account + mappings. Recognises cost as materials are used (COST-1). | ⏳ |
+| **3 — GL costing** | `InventoryMovementJournalizer`: receipt → Dr Inventory (11301001) / Cr Accounts Payable; consumption → Dr Repairs&Maintenance / Cr Inventory; adjustment ↔ `inventory_adjustment` (51108001) per sign; transfers post nothing. Value = \|qty\| × unit_cost, dimensioned to the warehouse's property; swept by `accounting:sync-ledger`; soft-delete voids. Recognises cost as materials are used (COST-1). See [module 21](21-general-ledger.md). | ✅ shipped |
 
 ---
 

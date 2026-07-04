@@ -45,6 +45,11 @@ class AccountMappingSeeder extends Seeder
         'marketing_expense' => '51105001',
         'admin_expense' => '51106001',
         'depreciation_expense' => '51107001',
+        'inventory' => '11301001',
+        'inventory_adjustment' => '51108001',
+        // Receipts credit a dedicated clearing liability (NOT the AP control that the
+        // reconcile harness ties out to vendor bills) — goods received, not yet invoiced.
+        'inventory_grni' => '21701001',
         'bank_charges' => '52101001',
     ];
 

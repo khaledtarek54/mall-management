@@ -163,6 +163,9 @@ accountant can verify the accounting treatment. `[role]` resolves via `account_m
 | **Pay vendor** سداد مورد | `accounts_payable` | `bank` / `cash` |
 | **Direct / petty-cash expense** مصروف مباشر | `*_expense` (net) + `vat_recoverable` (input VAT) | `cash` / `bank` (total) |
 | **Marketing spend** مصروف تسويق | `marketing_expense` (amount) | `cash` / `bank` (amount) — per `paid_from` |
+| **Stock receipt** استلام مخزون | `inventory` (value) | `accounts_payable` |
+| **Stock consumption** صرف مخزون | `maintenance_expense` (value) | `inventory` |
+| **Stock adjustment** تسوية مخزون | `inventory` (found) / `inventory_adjustment` (shrinkage) | the other side (per sign) |
 | **Payroll run** مسير رواتب | `salaries_expense` (gross) | `salary_tax_payable` + `social_insurance_payable` (withheld) + `bank`/`cash` (net) |
 
 > **Tie-out invariant:** after Phase 1, the balance of `accounts_receivable` in the
@@ -429,6 +432,17 @@ forfeit against a lease, each posting its own entry — receipt Dr Bank\|Cash / 
 Held; refund Dr Deposits Held / Cr Bank\|Cash; forfeit Dr Deposits Held / Cr Misc Income.
 Swept by `accounting:sync-ledger`; `DepositTransactionResource` gated by
 `deposit_transactions.*`. The GL Deposits-Held balance = Σ receipts − Σ refunds − forfeits.
+
+**Inventory stock movements (حركات المخزون) — done (Phase 3, module 22):**
+`StockMovement` posts via `InventoryMovementJournalizer` (registered in
+`LedgerPoster`, swept by `accounting:sync-ledger`) — perpetual inventory: receipt
+Dr `inventory` (11301001) / Cr `accounts_payable`; consumption Dr
+`maintenance_expense` / Cr `inventory`; adjustment moves value between `inventory`
+and `inventory_adjustment` (51108001) per sign; transfers post nothing (intra-company
+location move). Value = |quantity| × unit_cost, dimensioned to the warehouse's
+`asset_id`. Soft-delete voids the entry. **Caveat:** a receipt credits Accounts
+Payable, so record the goods receipt OR a vendor bill for those goods — not both
+(receipt↔vendor-bill linking, which would clear the payable, is a future enhancement).
 
 **Marketing spend (مصروف تسويق) — done (2026-07-03):** `MarketingSpend` posts its own
 entry via `MarketingSpendJournalizer` — **Dr Marketing Expense (`51105001`) / Cr Cash|Bank**
