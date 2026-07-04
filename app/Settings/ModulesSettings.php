@@ -36,6 +36,7 @@ class ModulesSettings extends Settings
     public bool $eta = false;
     public bool $inventory = true;
     public bool $fixed_assets = true;
+    public bool $employees = true;
 
     public static function group(): string
     {

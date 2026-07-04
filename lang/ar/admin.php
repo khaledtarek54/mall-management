@@ -1830,4 +1830,20 @@ return [
         'depreciation_posted_body' => 'تم إهلاك :count أصل.',
     ],
 
+    'employees' => [
+        'group' => 'الموارد البشرية',
+        'singular' => 'موظف',
+        'plural' => 'الموظفون',
+        'fields' => [
+            'code' => 'رقم الموظف', 'name' => 'الاسم', 'national_id' => 'الرقم القومي', 'position' => 'الوظيفة',
+            'property' => 'العقار', 'department' => 'الإدارة', 'hire_date' => 'تاريخ التعيين', 'base_salary' => 'الراتب الأساسي',
+            'payment_method' => 'يُصرف عبر', 'phone' => 'الهاتف', 'status' => 'الحالة', 'terminated_on' => 'تاريخ إنهاء الخدمة',
+            'notes' => 'ملاحظات',
+        ],
+        'statuses' => ['active' => 'نشط', 'terminated' => 'منتهي الخدمة'],
+        'methods' => ['cash' => 'نقدًا', 'bank' => 'بنك'],
+        'actions' => ['terminate' => 'إنهاء الخدمة'],
+        'terminated' => 'تم إنهاء خدمة الموظف',
+    ],
+
 ];

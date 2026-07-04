@@ -1830,4 +1830,20 @@ return [
         'depreciation_posted_body' => 'Charged :count fixed asset(s).',
     ],
 
+    'employees' => [
+        'group' => 'HR',
+        'singular' => 'Employee',
+        'plural' => 'Employees',
+        'fields' => [
+            'code' => 'Staff no.', 'name' => 'Name', 'national_id' => 'National ID', 'position' => 'Position',
+            'property' => 'Property', 'department' => 'Department', 'hire_date' => 'Hired', 'base_salary' => 'Base salary',
+            'payment_method' => 'Paid via', 'phone' => 'Phone', 'status' => 'Status', 'terminated_on' => 'Terminated on',
+            'notes' => 'Notes',
+        ],
+        'statuses' => ['active' => 'Active', 'terminated' => 'Terminated'],
+        'methods' => ['cash' => 'Cash', 'bank' => 'Bank'],
+        'actions' => ['terminate' => 'Terminate'],
+        'terminated' => 'Employee terminated',
+    ],
+
 ];

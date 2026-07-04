@@ -33,6 +33,7 @@ class Modules
         'eta',
         'inventory',
         'fixed_assets',
+        'employees',
     ];
 
     public static function enabled(string $module): bool

@@ -162,6 +162,12 @@ class RolesPermissionsSeeder extends Seeder
             'payrolls.delete'  => 'Delete payroll runs',
             'payrolls.approve' => 'Approve a payroll run (makes it postable)',
         ],
+        'employees' => [
+            'employees.view'   => 'View employees',
+            'employees.create' => 'Add employees',
+            'employees.edit'   => 'Edit employees',
+            'employees.delete' => 'Delete employees',
+        ],
         'deposit_transactions' => [
             'deposit_transactions.view'   => 'View security-deposit transactions',
             'deposit_transactions.create' => 'Record security-deposit transactions',
@@ -337,6 +343,7 @@ class RolesPermissionsSeeder extends Seeder
             'payrolls.view', 'payrolls.create', 'payrolls.edit', 'payrolls.approve',
             'deposit_transactions.view', 'deposit_transactions.create', 'deposit_transactions.edit',
             'fixed_assets.view', 'fixed_assets.create', 'fixed_assets.edit',
+            'employees.view',
             'reports.view', 'reports.download',
         ]);
 
@@ -345,11 +352,12 @@ class RolesPermissionsSeeder extends Seeder
             'marketing.view', 'marketing.create', 'marketing.edit',
         ]);
 
-        // hr: Users, Roles, Departments.
+        // hr: Users, Roles, Departments, Employees.
         Role::findByName('hr', 'web')->syncPermissions([
             'users.view', 'users.create', 'users.edit',
             'roles.view',
             'departments.view',
+            'employees.view', 'employees.create', 'employees.edit',
         ]);
     }
 

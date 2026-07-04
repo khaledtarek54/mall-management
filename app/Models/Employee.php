@@ -1,0 +1,79 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\Activitylog\Support\LogOptions;
+
+/**
+ * An employee on the operator's payroll (module 24 — HR), scoped to one property.
+ * The register of real staff — distinct from `users` (admin logins) and
+ * `tenant_users` (retailer portal). Base salary drives future per-employee payslips
+ * (Phase 3); advances/loans (Phase 2) attach to it.
+ */
+class Employee extends Model
+{
+    use HasFactory, LogsActivity, SoftDeletes;
+
+    protected $fillable = [
+        'asset_id',
+        'department_id',
+        'code',
+        'name',
+        'national_id',
+        'position',
+        'hire_date',
+        'base_salary',
+        'payment_method',
+        'phone',
+        'status',
+        'terminated_on',
+        'notes',
+    ];
+
+    protected $casts = [
+        'hire_date' => 'date',
+        'terminated_on' => 'date',
+        'base_salary' => 'decimal:2',
+    ];
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(['asset_id', 'department_id', 'code', 'name', 'position', 'base_salary', 'payment_method', 'status'])
+            ->logOnlyDirty()
+            ->dontLogEmptyChanges()
+            ->useLogName('employee');
+    }
+
+    public function asset(): BelongsTo
+    {
+        return $this->belongsTo(Asset::class);
+    }
+
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(Department::class);
+    }
+
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->where('status', 'active');
+    }
+
+    protected static function booted(): void
+    {
+        // NOT-NULL guard for base_salary (blank form field must not send null).
+        static::saving(function (self $employee) {
+            $raw = $employee->getAttributes()['base_salary'] ?? null;
+            if ($raw === null || $raw === '') {
+                $employee->base_salary = 0;
+            }
+        });
+    }
+}

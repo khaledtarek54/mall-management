@@ -73,7 +73,8 @@ purpose, domain model, business rules, lifecycle/state-machine, services, Filame
 | 20 | [Mobile API (v1)](modules/20-mobile-api.md) | Sanctum endpoints, Paymob webhook |
 | 21 | [General Ledger & Accounting Core](modules/21-general-ledger.md) | Double-entry ledger: chart of accounts (دليل الحسابات), journal entries (قيود اليومية), fiscal periods, trial balance (ميزان المراجعة), general ledger (دفتر الأستاذ) — Phase 0 |
 | 22 | [Inventory & Stock](modules/22-inventory.md) | Per-property warehouses, item catalog, stock ledger, maintenance-ticket consumption, GL costing — **complete** |
-| 23 | [Fixed Assets & Depreciation](modules/23-fixed-assets.md) | Fixed-asset register + straight-line depreciation engine (monthly `accounting:post-depreciation`) — **Phase 1a**; admin surfaces + GL posting on the roadmap |
+| 23 | [Fixed Assets & Depreciation](modules/23-fixed-assets.md) | Fixed-asset register + straight-line depreciation + full GL posting (acquisition, depreciation, disposal write-off with gain/loss) — **complete** |
+| 24 | [HR / Employees](modules/24-hr-employees.md) | Employee master (per-property staff register), extends the GL-posting payroll — **Phase 1** (advances/loans + per-employee payslips on the roadmap) |
 
 ---
 
