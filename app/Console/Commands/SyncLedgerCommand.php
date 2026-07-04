@@ -3,6 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Models\CreditNote;
+use App\Models\Custody;
+use App\Models\CustodyTransaction;
 use App\Models\DepositTransaction;
 use App\Models\DepreciationEntry;
 use App\Models\EmployeeAdvance;
@@ -66,6 +68,8 @@ class SyncLedgerCommand extends Command
         $this->syncModel(FixedAssetDisposal::query()->with('fixedAsset'), 'updated_at', $since, $poster, $counts);
         $this->syncModel(EmployeeAdvance::query(), 'updated_at', $since, $poster, $counts);
         $this->syncModel(EmployeeAdvanceRepayment::query(), 'updated_at', $since, $poster, $counts);
+        $this->syncModel(Custody::query(), 'updated_at', $since, $poster, $counts);
+        $this->syncModel(CustodyTransaction::query(), 'updated_at', $since, $poster, $counts);
 
         $this->newLine();
         $this->table(['result', 'count'], collect($counts)->map(fn ($v, $k) => [$k, $v])->values()->all());
@@ -117,6 +121,8 @@ class SyncLedgerCommand extends Command
             FixedAssetDisposal::min('disposed_on'), FixedAssetDisposal::max('disposed_on'),
             EmployeeAdvance::min('advance_date'), EmployeeAdvance::max('advance_date'),
             EmployeeAdvanceRepayment::min('repaid_on'), EmployeeAdvanceRepayment::max('repaid_on'),
+            Custody::min('custody_date'), Custody::max('custody_date'),
+            CustodyTransaction::min('transaction_date'), CustodyTransaction::max('transaction_date'),
         ]);
 
         $years = collect($dates)->map(fn ($d) => (int) Carbon::parse($d)->year);

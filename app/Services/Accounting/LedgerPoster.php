@@ -3,6 +3,8 @@
 namespace App\Services\Accounting;
 
 use App\Models\CreditNote;
+use App\Models\Custody;
+use App\Models\CustodyTransaction;
 use App\Models\DepositTransaction;
 use App\Models\DepreciationEntry;
 use App\Models\EmployeeAdvance;
@@ -19,6 +21,8 @@ use App\Models\StockMovement;
 use App\Models\VendorBill;
 use App\Models\VendorBillPayment;
 use App\Services\Accounting\Journalizers\CreditNoteJournalizer;
+use App\Services\Accounting\Journalizers\CustodyJournalizer;
+use App\Services\Accounting\Journalizers\CustodyTransactionJournalizer;
 use App\Services\Accounting\Journalizers\DepositTransactionJournalizer;
 use App\Services\Accounting\Journalizers\DepreciationEntryJournalizer;
 use App\Services\Accounting\Journalizers\EmployeeAdvanceJournalizer;
@@ -182,6 +186,8 @@ class LedgerPoster
             FixedAssetDisposal::class => new FixedAssetDisposalJournalizer($this->accounts),
             EmployeeAdvance::class => new EmployeeAdvanceJournalizer($this->accounts),
             EmployeeAdvanceRepayment::class => new EmployeeAdvanceRepaymentJournalizer($this->accounts),
+            Custody::class => new CustodyJournalizer($this->accounts),
+            CustodyTransaction::class => new CustodyTransactionJournalizer($this->accounts),
             default => null,
         };
     }

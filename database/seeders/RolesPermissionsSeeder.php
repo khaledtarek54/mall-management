@@ -170,6 +170,13 @@ class RolesPermissionsSeeder extends Seeder
             'employees.grant_advance'    => 'Grant an advance / loan to an employee',
             'employees.record_repayment' => 'Record a repayment of an employee advance',
         ],
+        'custodies' => [
+            'custodies.view'   => 'View custodies (عهدة)',
+            'custodies.create' => 'Grant a custody',
+            'custodies.edit'   => 'Edit a custody',
+            'custodies.delete' => 'Delete a custody',
+            'custodies.settle' => 'Settle a custody (record an expense / return)',
+        ],
         'deposit_transactions' => [
             'deposit_transactions.view'   => 'View security-deposit transactions',
             'deposit_transactions.create' => 'Record security-deposit transactions',
@@ -346,6 +353,7 @@ class RolesPermissionsSeeder extends Seeder
             'deposit_transactions.view', 'deposit_transactions.create', 'deposit_transactions.edit',
             'fixed_assets.view', 'fixed_assets.create', 'fixed_assets.edit',
             'employees.view', 'employees.grant_advance', 'employees.record_repayment',
+            'custodies.view', 'custodies.create', 'custodies.edit', 'custodies.settle',
             'reports.view', 'reports.download',
         ]);
 

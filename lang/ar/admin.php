@@ -1878,4 +1878,24 @@ return [
         'footer' => 'هذه القسيمة صادرة آليًا ولا تحتاج إلى توقيع.',
     ],
 
+    'custodies' => [
+        'group' => 'الخزينة',
+        'singular' => 'عهدة',
+        'plural' => 'العُهد',
+        'fields' => [
+            'custodian' => 'أمين العهدة', 'reference' => 'المرجع', 'amount' => 'المبلغ',
+            'custody_date' => 'التاريخ', 'paid_from' => 'مصروف من', 'property' => 'العقار',
+            'purpose' => 'الغرض', 'settled' => 'المسوّى', 'outstanding' => 'المتبقّي',
+        ],
+        'settlements' => 'التسويات',
+        'txn_fields' => [
+            'date' => 'التاريخ', 'type' => 'النوع', 'category' => 'الفئة', 'method' => 'الطريقة',
+            'amount' => 'المبلغ', 'by' => 'سجّلها',
+        ],
+        'types' => ['expense' => 'مصروف', 'return' => 'رد'],
+        'actions' => ['record_expense' => 'تسجيل مصروف', 'record_return' => 'رد نقدية'],
+        'expensed' => 'تم تسجيل مصروف العهدة',
+        'returned' => 'تم تسجيل رد العهدة',
+    ],
+
 ];

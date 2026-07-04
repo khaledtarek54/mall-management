@@ -73,6 +73,11 @@ class Employee extends Model
         return $this->hasMany(EmployeeAdvance::class);
     }
 
+    public function custodies(): HasMany
+    {
+        return $this->hasMany(Custody::class);
+    }
+
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('status', 'active');

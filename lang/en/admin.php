@@ -1878,4 +1878,24 @@ return [
         'footer' => 'This payslip is computer-generated and does not require a signature.',
     ],
 
+    'custodies' => [
+        'group' => 'Treasury',
+        'singular' => 'Custody',
+        'plural' => 'Custodies',
+        'fields' => [
+            'custodian' => 'Custodian', 'reference' => 'Reference', 'amount' => 'Amount',
+            'custody_date' => 'Date', 'paid_from' => 'Paid from', 'property' => 'Property',
+            'purpose' => 'Purpose', 'settled' => 'Settled', 'outstanding' => 'Outstanding',
+        ],
+        'settlements' => 'Settlements',
+        'txn_fields' => [
+            'date' => 'Date', 'type' => 'Type', 'category' => 'Category', 'method' => 'Method',
+            'amount' => 'Amount', 'by' => 'Recorded by',
+        ],
+        'types' => ['expense' => 'Expense', 'return' => 'Return'],
+        'actions' => ['record_expense' => 'Record expense', 'record_return' => 'Return cash'],
+        'expensed' => 'Custody expense recorded',
+        'returned' => 'Custody return recorded',
+    ],
+
 ];

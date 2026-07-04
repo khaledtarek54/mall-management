@@ -75,6 +75,7 @@ purpose, domain model, business rules, lifecycle/state-machine, services, Filame
 | 22 | [Inventory & Stock](modules/22-inventory.md) | Per-property warehouses, item catalog, stock ledger, maintenance-ticket consumption, GL costing — **complete** |
 | 23 | [Fixed Assets & Depreciation](modules/23-fixed-assets.md) | Fixed-asset register + straight-line depreciation + full GL posting (acquisition, depreciation, disposal write-off with gain/loss) — **complete** |
 | 24 | [HR / Employees](modules/24-hr-employees.md) | Employee master + advances/loans (سلف) posting to the GL + per-employee payroll lines & bilingual payslip PDFs — **complete** |
+| 25 | [Treasury / Custody](modules/25-treasury-custody.md) | Custodies (عهدة) — cash in a custodian's hands, settled by categorised expenses or returns, posting to the GL — **Phase 1** (multi-treasury / multi-currency on the roadmap) |
 
 ---
 

@@ -34,6 +34,7 @@ class Modules
         'inventory',
         'fixed_assets',
         'employees',
+        'custodies',
     ];
 
     public static function enabled(string $module): bool

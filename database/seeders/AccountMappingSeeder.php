@@ -21,6 +21,9 @@ class AccountMappingSeeder extends Seeder
         'accounts_receivable' => '11201001',
         // Employee advances/loans (module 24, Phase 2) — a receivable (money owed BY staff).
         'employee_advances' => '11203001',
+        // Custodies (عهدة — module 25) — money in a custodian's hands (an asset), settled
+        // by expenses (with receipts) or returned as cash.
+        'custody' => '11204001',
         'accounts_payable' => '21101001',
         'deposits_held' => '21201001',
         'vat_payable' => '21301001',

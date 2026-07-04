@@ -33,6 +33,8 @@ class ChartOfAccountsSeeder extends Seeder
         ['11202001', 'Other Debtors', 'مدينون متنوعون', 'asset', true],
         ['11203', 'Employee Advances', 'سلف العاملين', 'asset', false],
         ['11203001', 'Employee Advances & Loans', 'سلف وقروض العاملين', 'asset', true],
+        ['11204', 'Custodies', 'العُهد', 'asset', false],
+        ['11204001', 'Custodies (Imprest)', 'عُهد نقدية', 'asset', true],
         ['113', 'Inventory', 'المخزون', 'asset', false],
         ['11301', 'Inventory / Stock', 'المخزون', 'asset', false],
         ['11301001', 'Inventory / Stock', 'مخزون', 'asset', true],
