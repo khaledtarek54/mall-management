@@ -54,9 +54,19 @@ export default defineConfig({
         ],
       },
       {
+        text: 'People & money-out',
+        collapsed: false,
+        items: [
+          { text: 'Where cash leaves', link: '/people/' },
+          { text: 'Payroll', link: '/people/payroll' },
+          { text: 'Advances & custody', link: '/people/advances-and-custody' },
+          { text: 'Vendor bills & expenses', link: '/people/vendor-bills-and-expenses' },
+        ],
+      },
+      {
         text: 'Coming next',
         items: [
-          { text: 'People · Accounting', link: '/#the-plan' },
+          { text: 'Accounting & close', link: '/#the-plan' },
         ],
       },
       {
