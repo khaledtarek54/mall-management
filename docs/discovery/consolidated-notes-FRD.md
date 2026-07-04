@@ -130,9 +130,9 @@ These four decisions steer the FRs below:
    of advances deferred to a future Phase 3b.)
 3. ✅ **Fixed-asset register + depreciation** (FA-1) — register + straight-line depreciation
    + full GL posting (acquisition, depreciation, disposal write-off). Module 23, complete.
-5. ✅ **Preventive-maintenance / facility checklist** (MNT-1/2) — recurring plans that
-   auto-raise work orders with checklists (daily scan), completion tracking. Module 26,
-   Phase 1. ⏳ Facility work-log **report (RPT-1)** remains (Phase 2).
+5. ✅ **Preventive-maintenance / facility checklist** (MNT-1/2) + **facility work-log
+   report (RPT-1)** — recurring plans auto-raise work orders with checklists (daily scan),
+   completion tracking, and a bilingual work-log PDF. Module 26, **complete**.
 
 **Partially shipped:**
 

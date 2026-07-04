@@ -1921,6 +1921,21 @@ return [
         'checklist_title' => 'Checklist',
         'completed_notice' => 'Work order completed',
         'cancelled_notice' => 'Work order cancelled',
+        'report' => [
+            'action' => 'Work log (PDF)',
+            'title' => 'Facility Work Log',
+            'period' => 'Period',
+            'from' => 'From',
+            'to' => 'To',
+            'all_properties' => 'All properties',
+            'summary' => 'Summary',
+            'total' => 'Total work orders',
+            'done' => 'Completed',
+            'by_category' => 'By category',
+            'by_status' => 'By status',
+            'empty' => 'No work orders in this period.',
+            'footer' => 'Preventive-maintenance work log — computer-generated.',
+        ],
     ],
 
 ];

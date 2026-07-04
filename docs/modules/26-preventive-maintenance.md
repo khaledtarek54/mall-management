@@ -1,12 +1,14 @@
 # Module 26 — Preventive Maintenance (الصيانة الوقائية)
 
-> **Status: Phase 1 shipped.** Recurring facility-maintenance **plans** that auto-raise
-> **work orders** (with checklists) when due, via the daily `maintenance:generate-preventive`
-> scan. Two property-scoped Filament resources (plans + work orders), a checklist relation
-> manager (tick items done), status transitions (start / complete / cancel), the
-> `preventive_maintenance.*` RBAC (operations) + module flag. Delivers discovery backlog
-> items **MNT-1/2**. Distinct from tenant-facing maintenance **requests** (module 11) — this
-> is internal/facility upkeep (common areas, no tenant), so it has its own models.
+> **Status: COMPLETE (Phase 2 shipped — facility work-log report).** Recurring
+> facility-maintenance **plans** that auto-raise **work orders** (with checklists) when
+> due, via the daily `maintenance:generate-preventive` scan; two property-scoped Filament
+> resources (plans + work orders), a checklist relation manager (tick items done), status
+> transitions (start / complete / cancel), the `preventive_maintenance.*` RBAC (operations)
+> + module flag, and a **bilingual facility work-log PDF report** (RPT-1). Delivers
+> discovery backlog items **MNT-1/2 + RPT-1**. Distinct from tenant-facing maintenance
+> **requests** (module 11) — this is internal/facility upkeep (common areas, no tenant),
+> so it has its own models.
 
 An operator maintains the building itself — HVAC filters, lift servicing, fire-safety
 checks, generator runs — on a recurring schedule, not in response to a tenant. This module
@@ -77,7 +79,7 @@ engineers complete.
 | Phase | Scope | Status |
 |-------|-------|--------|
 | **1 — Plans + work orders + checklists** | `MaintenancePlan` + `MaintenanceWorkOrder` + items, the daily generation scan (idempotent/lock-safe), two property-scoped resources, checklist relation manager, status transitions, RBAC + module flag, tests | ✅ shipped |
-| **2 — Facility work-log report (RPT-1)** | a bilingual PDF/exportable report of completed facility work per property/period (reactive + preventive) | ⏳ next |
+| **2 — Facility work-log report (RPT-1)** | `FacilityWorkLogPdfService` — a bilingual PDF of work orders for a property over a date range (summary by status + category + the detail list), launched from a **"Work log (PDF)"** action on the work-order list, scoped to the user's visible properties | ✅ shipped |
 
 ---
 
@@ -92,6 +94,9 @@ RBAC gating, module-off hiding, property scoping, the complete/cancel actions (+
 role guard), terminal-order immutability (actions hidden), and the checklist add-item action
 (+ frozen on a terminal order). `tests/Feature/Resources/MaintenancePlanResourceTest.php` —
 plan RBAC + scoping + `assertAssetInScope` guard + the `frequency_value ≥ 1` coercion.
+
+`tests/Feature/Services/FacilityWorkLogTest.php` — the work-log PDF renders (with + without
+orders in range) and the export action streams a PDF for an authorised user.
 
 **Related:** 11 Maintenance (tenant-facing requests), 12 Vendors (assignees), 14 Departments,
 01 Properties (asset scope), 18 RBAC (operations), 19 Notifications & Scans (the daily scan).
