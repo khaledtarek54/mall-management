@@ -123,10 +123,16 @@ These four decisions steer the FRs below:
    **consumption logging** by the engineer, and **cost recognized as materials are used**
    (consumption → GL expense). Highest-priority net-new build (D-3).
 
+**Shipped since (2026-07-04):**
+
+2. ✅ **HR depth** (HR-2) — employee master + advances/loans (سلف, → GL) + per-employee
+   payroll lines & bilingual payslip PDFs. Module 24, complete. (Dues + payroll-deduction
+   of advances deferred to a future Phase 3b.)
+3. ✅ **Fixed-asset register + depreciation** (FA-1) — register + straight-line depreciation
+   + full GL posting (acquisition, depreciation, disposal write-off). Module 23, complete.
+
 **Still open / lower priority (not yet decided to build):**
 
-2. **HR depth** (HR-2) — employee master, advances/loans, dues, per-employee payslips.
-3. **Fixed-asset register + depreciation** (FA-1).
 4. **Treasury module** (TREAS-1/2) — petty cash, custodies (عهدة), multi-treasury, multi-currency.
 5. **Preventive-maintenance / facility checklist** (MNT-1/2) + facility work-log report (RPT-1).
 6. **Marketing campaign/event management** (MKT-1) — spend→GL posting (MKT-3) shipped 2026-07-03.
