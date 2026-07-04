@@ -131,9 +131,13 @@ These four decisions steer the FRs below:
 3. ✅ **Fixed-asset register + depreciation** (FA-1) — register + straight-line depreciation
    + full GL posting (acquisition, depreciation, disposal write-off). Module 23, complete.
 
-**Still open / lower priority (not yet decided to build):**
+**Partially shipped:**
 
-4. **Treasury module** (TREAS-1/2) — petty cash, custodies (عهدة), multi-treasury, multi-currency.
+4. 🟡 **Treasury** (TREAS-1/2) — ✅ **custodies (عهدة)** posting to the GL (grant + expense/
+   return settlements, module 25 Phase 1). ⏳ Still open: multi-treasury / petty-cash boxes,
+   and **multi-currency (TREAS-2)** — blocked on **Q-F** (is anything billed in USD/EUR?).
+
+**Still open / lower priority (not yet decided to build):**
 5. **Preventive-maintenance / facility checklist** (MNT-1/2) + facility work-log report (RPT-1).
 6. **Marketing campaign/event management** (MKT-1) — spend→GL posting (MKT-3) shipped 2026-07-03.
 7. **Owner-private notes/documents** (ACCESS-1); department→accounting approval routing (ACCT-2).
