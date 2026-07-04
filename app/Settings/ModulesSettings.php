@@ -35,6 +35,7 @@ class ModulesSettings extends Settings
     // Re-enable from /admin/settings → Modules, or flip this default, when ready.
     public bool $eta = false;
     public bool $inventory = true;
+    public bool $fixed_assets = true;
 
     public static function group(): string
     {

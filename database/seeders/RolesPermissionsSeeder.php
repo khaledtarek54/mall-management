@@ -229,6 +229,12 @@ class RolesPermissionsSeeder extends Seeder
             'inventory.edit'   => 'Edit warehouses / items & record stock movements',
             'inventory.delete' => 'Delete inventory records',
         ],
+        'fixed_assets' => [
+            'fixed_assets.view'   => 'View the fixed-asset register & depreciation',
+            'fixed_assets.create' => 'Register fixed assets',
+            'fixed_assets.edit'   => 'Edit fixed assets, dispose & post depreciation',
+            'fixed_assets.delete' => 'Delete fixed-asset records',
+        ],
         'settings' => [
             'settings.view'   => 'View settings',
             'settings.manage' => 'Edit system settings (billing rules, SLA, integrations)',
@@ -330,6 +336,7 @@ class RolesPermissionsSeeder extends Seeder
             'expenses.view', 'expenses.create', 'expenses.edit',
             'payrolls.view', 'payrolls.create', 'payrolls.edit', 'payrolls.approve',
             'deposit_transactions.view', 'deposit_transactions.create', 'deposit_transactions.edit',
+            'fixed_assets.view', 'fixed_assets.create', 'fixed_assets.edit',
             'reports.view', 'reports.download',
         ]);
 

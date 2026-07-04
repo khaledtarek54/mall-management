@@ -43,18 +43,29 @@ class DepreciationService
     }
 
     /**
-     * Post depreciation for a period (default: current month) across all ACTIVE fixed
+     * Post depreciation for a period (default: current month) across ACTIVE fixed
      * assets. Idempotent + lock-safe (one entry per asset+month; each row locked and
      * re-checked inside its own transaction). The LAST charge is clamped so accumulated
      * never exceeds the depreciable base. Skips assets not yet acquired by the period,
      * or already fully depreciated. Returns the number of entries created.
+     *
+     * @param  array<int>|null  $assetIds  Restrict to these properties (asset_id). Null =
+     *                                     portfolio-wide (the scheduled monthly run); the
+     *                                     admin "post this month" button passes the user's
+     *                                     visible-property set so a scoped user never posts
+     *                                     outside their authority.
      */
-    public function run(?CarbonInterface $period = null): int
+    public function run(?CarbonInterface $period = null, ?array $assetIds = null): int
     {
         $month = ($period ? CarbonImmutable::instance($period) : CarbonImmutable::now())->startOfMonth();
         $created = 0;
 
-        FixedAsset::active()->select('id')->get()->each(function ($row) use ($month, &$created) {
+        $query = FixedAsset::active()->select('id');
+        if ($assetIds !== null) {
+            $query->whereIn('asset_id', $assetIds);
+        }
+
+        $query->get()->each(function ($row) use ($month, &$created) {
             DB::transaction(function () use ($row, $month, &$created) {
                 /** @var FixedAsset|null $asset */
                 $asset = FixedAsset::whereKey($row->id)->lockForUpdate()->first();

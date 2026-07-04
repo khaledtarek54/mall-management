@@ -1,10 +1,12 @@
 # Module 23 — Fixed Assets & Depreciation (الأصول الثابتة والإهلاك)
 
-> **Status: Phase 1a shipped (depreciation engine).** Fixed-asset register +
+> **Status: Phase 1b shipped (admin surfaces + RBAC).** Fixed-asset register +
 > straight-line depreciation service + the monthly `accounting:post-depreciation`
-> run + tests. Admin surfaces & RBAC (1b) and GL posting (2) are the remaining
-> phases. Delivers the FRD/gap-analysis backlog item FA-1 — the chart already had
-> the accounts (furniture, accumulated depreciation, depreciation expense) but they
+> run + a property-scoped Filament `FixedAssetResource` (cost / monthly / accumulated /
+> NBV columns, dispose, read-only depreciation schedule, "post this month" action) +
+> `fixed_assets.*` RBAC + the `fixed_assets` module flag + tests. GL posting (2) is the
+> remaining phase. Delivers the FRD/gap-analysis backlog item FA-1 — the chart already
+> had the accounts (furniture, accumulated depreciation, depreciation expense) but they
 > were **dormant** (nothing posted). This makes them live.
 
 Property operators own real assets — furniture, HVAC, fit-out, IT, deep-clean
@@ -60,6 +62,13 @@ book value and the P&L carries the monthly depreciation charge.
    base, so accumulated tops out at `cost − salvage` (never beyond).
 5. **No charge before the acquisition month**, and **none once fully depreciated** or `disposed`.
 6. **NOT-NULL money** — blank `acquisition_cost`/`salvage_value` coerce to 0 in the model.
+7. **Posting respects property authority** — the scheduled `accounting:post-depreciation`
+   run is portfolio-wide, but the admin **"Post this month"** button passes the operator's
+   visible-property set (`TenantScope::visibleAssetIds()`), so a single-property accounting
+   user can never post another mall's depreciation. `run(?period, ?assetIds)` — `null` = all.
+8. **Property is scope-guarded on write** — create/edit re-validate the submitted `asset_id`
+   against `visibleAssetIds()` server-side (`FixedAssetResource::assertAssetInScope`), closing
+   the All-Properties-mode tamper hole even though the Select already scopes its options.
 
 ---
 
@@ -77,8 +86,8 @@ book value and the P&L carries the monthly depreciation charge.
 | Phase | Scope | Status |
 |-------|-------|--------|
 | **1a — Depreciation engine** | register + `DepreciationEntry` + `DepreciationService` (straight-line, derived accumulated/NBV, clamp) + `accounting:post-depreciation` + schedule + tests | ✅ shipped |
-| **1b — Admin surfaces** | Filament `FixedAssetResource` (register + schedule columns: cost / accumulated / NBV / monthly) property-scoped, `fixed_assets.*` RBAC, `fixed_assets` module flag, depreciation-history view, dispose action | ⏳ next |
-| **2 — GL posting** | acquisition → Dr Furniture & Equipment (12101001) / Cr Cash\|Bank (per `funded_from`); depreciation entry → Dr Depreciation Expense (51107001) / Cr Accumulated Depreciation (12201001). Journalizers + mappings + sweep + a tie-out-safe check. | ⏳ |
+| **1b — Admin surfaces** | Filament `FixedAssetResource` (register + schedule columns: cost / accumulated / NBV / monthly) property-scoped, `fixed_assets.*` RBAC (accounting role), `fixed_assets` module flag, read-only depreciation-history relation manager, dispose action, "post this month" list action | ✅ shipped |
+| **2 — GL posting** | acquisition → Dr Furniture & Equipment (12101001) / Cr Cash\|Bank (per `funded_from`); depreciation entry → Dr Depreciation Expense (51107001) / Cr Accumulated Depreciation (12201001). Journalizers + mappings + sweep + a tie-out-safe check. | ⏳ next |
 
 ---
 
@@ -88,6 +97,13 @@ book value and the P&L carries the monthly depreciation charge.
 one entry per asset per month, derived accumulated/NBV, idempotent re-run, no charge
 before acquisition, stops-at-base (never over-depreciates), disposed skipped, NOT-NULL
 coercion, the command.
+
+`tests/Feature/Resources/FixedAssetResourceTest.php` — `fixed_assets.*` RBAC gating,
+module-off hiding, property scoping, the derived accumulated/NBV columns, the dispose
+action (flips status + stops future depreciation) with an authz guard, the "post this
+month" list action with a read-only guard, that a scoped user posts **only** their
+visible properties (never portfolio-wide), and the `assertAssetInScope` write guard
+(rejects an out-of-scope `asset_id`, lets a portfolio user target any property).
 
 **Related:** 21 General Ledger (Phase 2 posting), 01 Properties (asset scope),
 22 Inventory (sibling module, same ledger patterns), 18 RBAC (Phase 1b).

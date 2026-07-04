@@ -1809,4 +1809,23 @@ return [
         'consumption' => 'Consumed materials',
     ],
 
+    'fixed_assets' => [
+        'group' => 'Fixed Assets',
+        'singular' => 'Fixed Asset',
+        'plural' => 'Fixed Assets',
+        'fields' => [
+            'name' => 'Name', 'tag' => 'Asset tag', 'category' => 'Category', 'property' => 'Property',
+            'acquisition_date' => 'Acquired', 'acquisition_cost' => 'Cost', 'salvage_value' => 'Salvage',
+            'useful_life' => 'Useful life (months)', 'funded_from' => 'Funded from', 'status' => 'Status',
+            'monthly' => 'Monthly deprec.', 'accumulated' => 'Accum. deprec.', 'net_book_value' => 'Net book value',
+            'period' => 'Month', 'amount' => 'Amount', 'notes' => 'Notes', 'posted_by' => 'Posted by',
+        ],
+        'statuses' => ['active' => 'Active', 'disposed' => 'Disposed'],
+        'actions' => ['dispose' => 'Dispose', 'post_depreciation' => 'Post this month'],
+        'history' => 'Depreciation schedule',
+        'disposed' => 'Fixed asset disposed',
+        'depreciation_posted' => 'Depreciation posted',
+        'depreciation_posted_body' => 'Charged :count fixed asset(s).',
+    ],
+
 ];

@@ -1809,4 +1809,23 @@ return [
         'consumption' => 'المواد المستهلَكة',
     ],
 
+    'fixed_assets' => [
+        'group' => 'الأصول الثابتة',
+        'singular' => 'أصل ثابت',
+        'plural' => 'الأصول الثابتة',
+        'fields' => [
+            'name' => 'الاسم', 'tag' => 'رقم الأصل', 'category' => 'الفئة', 'property' => 'العقار',
+            'acquisition_date' => 'تاريخ الشراء', 'acquisition_cost' => 'التكلفة', 'salvage_value' => 'القيمة التخريدية',
+            'useful_life' => 'العمر الإنتاجي (شهور)', 'funded_from' => 'ممول من', 'status' => 'الحالة',
+            'monthly' => 'إهلاك شهري', 'accumulated' => 'مجمع الإهلاك', 'net_book_value' => 'القيمة الدفترية',
+            'period' => 'الشهر', 'amount' => 'المبلغ', 'notes' => 'ملاحظات', 'posted_by' => 'رحّلها',
+        ],
+        'statuses' => ['active' => 'نشط', 'disposed' => 'مستبعَد'],
+        'actions' => ['dispose' => 'استبعاد', 'post_depreciation' => 'ترحيل الشهر'],
+        'history' => 'جدول الإهلاك',
+        'disposed' => 'تم استبعاد الأصل',
+        'depreciation_posted' => 'تم ترحيل الإهلاك',
+        'depreciation_posted_body' => 'تم إهلاك :count أصل.',
+    ],
+
 ];
