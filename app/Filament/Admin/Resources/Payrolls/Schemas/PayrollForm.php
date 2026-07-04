@@ -20,6 +20,10 @@ class PayrollForm
         // + money fields (only approval / cancellation change it after that).
         $locked = fn (?Payroll $record) => $record !== null && $record->status !== 'draft';
 
+        // When a run has per-employee lines, its amounts DERIVE from Σ lines — the
+        // header money fields are then read-only (edit the lines instead).
+        $amountLocked = fn (?Payroll $record) => $locked($record) || ($record?->lines()->exists() ?? false);
+
         return $schema->columns(1)->components([
             Section::make(__('admin.sections.payroll_details'))
                 ->columns(3)
@@ -73,7 +77,7 @@ class PayrollForm
                         ->default(0)
                         ->live(onBlur: true)
                         ->afterStateUpdated(fn (Set $set, Get $get) => self::syncNet($set, $get))
-                        ->disabled($locked),
+                        ->disabled($amountLocked),
 
                     TextInput::make('salary_tax')
                         ->label(__('admin.fields.salary_tax'))
@@ -84,7 +88,7 @@ class PayrollForm
                         ->default(0)
                         ->live(onBlur: true)
                         ->afterStateUpdated(fn (Set $set, Get $get) => self::syncNet($set, $get))
-                        ->disabled($locked),
+                        ->disabled($amountLocked),
 
                     TextInput::make('social_insurance')
                         ->label(__('admin.fields.social_insurance'))
@@ -95,7 +99,7 @@ class PayrollForm
                         ->default(0)
                         ->live(onBlur: true)
                         ->afterStateUpdated(fn (Set $set, Get $get) => self::syncNet($set, $get))
-                        ->disabled($locked),
+                        ->disabled($amountLocked),
 
                     // net_paid is derived (gross − tax − insurance) so it can never
                     // drift — the model re-enforces it on every write; this is a

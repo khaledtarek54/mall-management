@@ -68,6 +68,7 @@ class PayrollResource extends Resource
     public static function getRelations(): array
     {
         return [
+            \App\Filament\Admin\RelationManagers\PayrollLinesRelationManager::class,
             \App\Filament\Admin\RelationManagers\ActivitiesRelationManager::class,
         ];
     }

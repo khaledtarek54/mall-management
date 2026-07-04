@@ -1,0 +1,95 @@
+@php
+    $isRtl = app()->getLocale() === 'ar';
+    $money = fn ($v) => number_format((float) $v, 2).' '.__('admin.payslip.egp');
+@endphp
+<!DOCTYPE html>
+<html lang="{{ app()->getLocale() }}" dir="{{ $isRtl ? 'rtl' : 'ltr' }}">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ __('admin.payslip.title') }} — {{ $employee?->name }}</title>
+    <style>
+        @page { margin: 28px 32px; }
+        * { box-sizing: border-box; }
+        body { color: #0F1419; font-size: 10.5pt; line-height: 1.55; margin: 0; }
+        .header { border-bottom: 2px solid #0F766E; padding-bottom: 14px; margin-bottom: 20px; }
+        .header table { width: 100%; border-collapse: collapse; }
+        .brand-name { font-size: 20pt; font-weight: bold; color: #0F1419; }
+        .brand-sub { color: #8C8478; font-size: 9pt; }
+        .doc-title { font-size: 16pt; color: #0F766E; text-align: {{ $isRtl ? 'left' : 'right' }}; }
+        .doc-meta { text-align: {{ $isRtl ? 'left' : 'right' }}; font-size: 9pt; color: #6B6660; margin-top: 4px; }
+        .parties { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        .parties td { width: 50%; vertical-align: top; padding: 0; }
+        .label { font-size: 8pt; color: #8C8478; margin-bottom: 4px; }
+        .party-name { font-weight: bold; font-size: 11pt; margin-bottom: 2px; }
+        .party-line { color: #4A4A4A; font-size: 9.5pt; }
+        table.amounts { width: 100%; border-collapse: collapse; margin-top: 8px; }
+        table.amounts td { padding: 8px 10px; border-bottom: 1px solid #E7E1D6; }
+        table.amounts td.num { text-align: {{ $isRtl ? 'left' : 'right' }}; font-weight: bold; }
+        .earn { color: #0F766E; }
+        .ded { color: #B4341C; }
+        .net-row td { border-top: 2px solid #0F766E; border-bottom: none; font-size: 12pt; font-weight: bold; padding-top: 12px; }
+        .footer { margin-top: 28px; font-size: 8pt; color: #8C8478; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <table>
+            <tr>
+                <td>
+                    <div class="brand-name">Atriom</div>
+                    <div class="brand-sub">{{ $asset?->name ?? __('admin.fields.property_consolidated') }}</div>
+                </td>
+                <td>
+                    <div class="doc-title">{{ __('admin.payslip.title') }}</div>
+                    <div class="doc-meta">
+                        <strong>{{ $payroll?->number }}</strong><br>
+                        {{ __('admin.payslip.month') }}: {{ optional($payroll?->period_month)->format('m/Y') }}
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <table class="parties">
+        <tr>
+            <td>
+                <div class="label">{{ __('admin.payslip.employee') }}</div>
+                <div class="party-name">{{ $employee?->name }}</div>
+                <div class="party-line">{{ __('admin.employees.fields.code') }}: {{ $employee?->code }}</div>
+                @if ($employee?->position)
+                    <div class="party-line">{{ $employee->position }}</div>
+                @endif
+                @if ($employee?->department)
+                    <div class="party-line">{{ $employee->department->name }}</div>
+                @endif
+            </td>
+            <td>
+                <div class="label">{{ __('admin.payslip.details') }}</div>
+                <div class="party-line">{{ __('admin.employees.fields.hire_date') }}: {{ optional($employee?->hire_date)->format('d/m/Y') }}</div>
+                <div class="party-line">{{ __('admin.employees.fields.payment_method') }}: {{ __('admin.employees.methods.'.($employee?->payment_method ?? 'bank')) }}</div>
+            </td>
+        </tr>
+    </table>
+
+    <table class="amounts">
+        <tr>
+            <td class="earn">{{ __('admin.payslip.gross') }}</td>
+            <td class="num earn">{{ $money($line->gross) }}</td>
+        </tr>
+        <tr>
+            <td class="ded">{{ __('admin.payslip.salary_tax') }}</td>
+            <td class="num ded">− {{ $money($line->salary_tax) }}</td>
+        </tr>
+        <tr>
+            <td class="ded">{{ __('admin.payslip.social_insurance') }}</td>
+            <td class="num ded">− {{ $money($line->social_insurance) }}</td>
+        </tr>
+        <tr class="net-row">
+            <td>{{ __('admin.payslip.net') }}</td>
+            <td class="num">{{ $money($line->net) }}</td>
+        </tr>
+    </table>
+
+    <div class="footer">{{ __('admin.payslip.footer') }}</div>
+</body>
+</html>

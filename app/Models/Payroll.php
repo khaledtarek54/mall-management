@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
@@ -61,6 +62,40 @@ class Payroll extends Model
     public function approvedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by_user_id');
+    }
+
+    /** Per-employee breakdown (module 24, Phase 3) — the payslip lines. */
+    public function lines(): HasMany
+    {
+        return $this->hasMany(PayrollLine::class);
+    }
+
+    /**
+     * When a run has per-employee lines, its header aggregates DERIVE from Σ lines
+     * (so the header — and the GL entry that posts from it — always ties to the sum
+     * of the payslips). Called only from the PayrollLine save/delete hooks, so the
+     * no-lines branch means the LAST line was just removed → reset the header to zero
+     * (Σ of no lines = 0), never leave a stale line-derived total on the books. A pure
+     * lump-sum run (no lines, no hooks) never reaches here, so its manual amounts stand.
+     * saveQuietly + explicit net so it doesn't loop through the line hooks.
+     */
+    public function recomputeFromLines(): void
+    {
+        if (! $this->lines()->exists()) {
+            $this->gross_salaries = 0;
+            $this->salary_tax = 0;
+            $this->social_insurance = 0;
+            $this->net_paid = 0;
+            $this->saveQuietly();
+
+            return;
+        }
+
+        $this->gross_salaries = round((float) $this->lines()->sum('gross'), 2);
+        $this->salary_tax = round((float) $this->lines()->sum('salary_tax'), 2);
+        $this->social_insurance = round((float) $this->lines()->sum('social_insurance'), 2);
+        $this->net_paid = round($this->gross_salaries - $this->salary_tax - $this->social_insurance, 2);
+        $this->saveQuietly();
     }
 
     /** Recognised on the GL once approved (past draft, not cancelled). */

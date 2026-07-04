@@ -1,12 +1,13 @@
 # Module 24 — HR / Employees (الموارد البشرية)
 
-> **Status: Phase 2 shipped (advances/loans → GL).** A per-property employee register +
-> a property-scoped Filament `EmployeeResource` (terminate action) + `employees.*` RBAC +
-> the `employees` module flag, PLUS **employee advances & loans (سلف)** that post to the
-> double-entry ledger (grant Dr Employee Advances / Cr Cash|Bank; repayment reverses),
-> with derived outstanding + a lock-safe over-repayment guard. Builds on the existing
-> GL-posting **Payroll** (module 21). Per-employee payslips are the remaining phase.
-> Delivers the discovery backlog item **HR-2** (employee master + advances/loans + payslips).
+> **Status: COMPLETE (Phase 3 shipped — per-employee payslips).** A per-property employee
+> register + `EmployeeResource` (terminate) + `employees.*` RBAC + the `employees` module
+> flag; **advances & loans (سلف)** posting to the GL (grant Dr Employee Advances / Cr
+> Cash|Bank; repayment reverses) with derived outstanding + a lock-safe over-repayment
+> guard; and **per-employee payroll lines + bilingual payslip PDFs** that break the
+> existing lump-sum **Payroll** run (module 21) down by employee (the run header derives
+> from Σ lines; the payroll GL entry is unchanged). Fully delivers the discovery backlog
+> item **HR-2** (employee master + advances/loans + payslips).
 
 The operator (Eltizam) employs its own staff — managers, engineers, cleaners, security.
 This module keeps the **register** of those employees, scoped per property, as the
@@ -46,6 +47,17 @@ portal), and `departments` (org units). An employee is a *payroll subject*, not 
 
 Outstanding on an advance = `amount − Σ repayments` (DERIVED, never cached).
 
+### `payroll_lines` — per-employee breakdown of a payroll run (Phase 3)
+| Column | Meaning |
+|--------|---------|
+| `payroll_id` · `employee_id` | the run + employee (**unique per run**) |
+| `gross` · `salary_tax` · `social_insurance` | that employee's amounts |
+
+Net per line = `gross − tax − insurance` (accessor). When a run has lines, its **header
+aggregates DERIVE from Σ lines** (`Payroll::recomputeFromLines`); lines are pure detail —
+NOT a ledger source — so the existing payroll journalizer (which posts the header) is
+unchanged and the GL tie-out is untouched.
+
 ---
 
 ## 2. Business rules
@@ -62,7 +74,12 @@ Outstanding on an advance = `amount − Σ repayments` (DERIVED, never cached).
    terminated employee**; a **repayment can't exceed outstanding** (lock-safe re-check in
    `RecordAdvanceRepaymentService`, so concurrent repayments can't drive the receivable
    negative).
-6. **NOT-NULL money** — blank `base_salary` / advance `amount` coerce to 0 in the models.
+6. **NOT-NULL money** — blank `base_salary` / advance `amount` / line amounts coerce to 0.
+7. **Payslip lines are draft-only** (Phase 3) — lines may be added/edited/removed only
+   while the run is a **draft**; once approved the header (and its GL entry) is settled and
+   the lines are frozen (mutation actions hidden + server-side `abort_unless(runIsEditable)`).
+   Payslip PDFs download at any status. A line's employee is re-validated against the run's
+   property scope (form-tamper guard). Header money fields go read-only once lines exist.
 
 ---
 
@@ -109,7 +126,12 @@ AR tie-out that gates monthly close is unaffected.
 |-------|-------|--------|
 | **1 — Employee master** | `Employee` model + migration, property-scoped `EmployeeResource` (form + table + terminate), `employees.*` RBAC, module flag, tests | ✅ shipped |
 | **2 — Advances / loans (سلف)** | `EmployeeAdvance` + `EmployeeAdvanceRepayment` posting to the GL (Dr Employee Advances `11203001` / Cr Cash\|Bank on grant; reverse on repayment), grant + repayment services (lock-safe over-repayment guard), the advances relation manager, chart account + mapping + 2 journalizers + sweep, tests | ✅ shipped |
-| **3 — Per-employee payslips** | `PayrollLine` (per-employee breakdown of a payroll run: gross / allowances / deductions / advance repayment / net; run total = Σ lines) + bilingual payslip PDF | ⏳ next |
+| **3 — Per-employee payslips** | `PayrollLine` (per-employee gross / tax / insurance / net; run header derives from Σ lines, GL unchanged) + `PayslipPdfService` (bilingual payslip PDF, mpdf) + the payroll-lines relation manager (draft-only add/edit/remove, property-scoped employee, payslip download) | ✅ shipped |
+
+**Future (Phase 3b, not built):** richer payslip components — allowances (بدلات) / generic
+deductions and **advance repayment via payroll deduction** — need the payroll journalizer to
+expand (e.g. Cr Employee Advances within the payroll entry), so they're deferred to keep
+Phase 3 additive and the GL/tie-out untouched.
 
 ---
 
@@ -127,6 +149,12 @@ netting to zero after full repayment, and the cascade void-on-delete through the
 sweep**. `tests/Feature/Resources/EmployeeAdvancesRelationManagerTest.php` — the grant +
 repayment actions, RBAC gating, the maxValue over-repay guard, and the terminated-employee
 grant lock-out.
+
+`tests/Feature/Services/PayrollLineTest.php` — the run header deriving from Σ lines (add +
+delete), the line net accessor, the line-driven header posting the (unchanged) aggregate GL
+entry on approval, and the payslip PDF rendering. `tests/Feature/Resources/PayrollLinesRelationManagerTest.php`
+— add-line + header recompute, lines frozen once approved, the out-of-property employee
+tamper guard, `payrolls.edit` gating, and payslip download visibility.
 
 **Related:** 21 General Ledger (payroll posting + advances GL), 14 Departments
 (org units), 18 RBAC (the `hr` role), 01 Properties (asset scope).

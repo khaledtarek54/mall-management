@@ -1855,4 +1855,27 @@ return [
         'repaid_notice' => 'Repayment recorded',
     ],
 
+    'payroll_lines' => [
+        'title' => 'Employee lines',
+        'add_line' => 'Add employee',
+        'payslip' => 'Payslip',
+        'fields' => [
+            'employee' => 'Employee', 'gross' => 'Gross', 'salary_tax' => 'Salary tax',
+            'social_insurance' => 'Social insurance', 'net' => 'Net',
+        ],
+    ],
+
+    'payslip' => [
+        'title' => 'Payslip',
+        'month' => 'Month',
+        'employee' => 'Employee',
+        'details' => 'Details',
+        'gross' => 'Gross salary',
+        'salary_tax' => 'Salary tax',
+        'social_insurance' => 'Social insurance',
+        'net' => 'Net pay',
+        'egp' => 'EGP',
+        'footer' => 'This payslip is computer-generated and does not require a signature.',
+    ],
+
 ];
