@@ -31,14 +31,16 @@ It layers on top of what you already have. Your detailed module docs in `docs/mo
 
 Because these pictures live **inside the code repository**, they can't quietly go stale: when the logic changes, the picture changes in the same commit — the same rule your team already follows for the written docs. And it's built to be edited: [**Adding to this handbook**](/contributing) is a copy-paste guide to every component, so anyone on the team can extend it.
 
-## The plan {#the-plan}
+## The whole business, drawn {#the-plan}
 
-The **money spine** and the **leasing** that feeds it are built and complete — start there. The rest of the business follows the same template:
+The full system is mapped — five subsystems, following the money from the deal all the way to the owner's equity:
 
-- **Leasing** — properties, units, tenants, leases, and the charges that seed every invoice _(ready now)_
-- **Money & AR** — the money spine, invoice + credit-note lifecycles, the books _(ready now)_
-- **Operations** — maintenance, CAM, meters, inventory, preventive upkeep
-- **People & money-out** — payroll, advances, custody, vendor bills
-- **Accounting & close** — the ledger, reconciliation, month-end, the owner's view
+- **[Leasing](/leasing/)** — properties, units, tenants, leases, and the charges that seed every invoice
+- **[Money &amp; AR](/money/)** — the money spine, invoice + credit-note lifecycles, the books
+- **[Operations](/operations/)** — requests, CAM, meters, inventory, preventive upkeep, vendors
+- **[People &amp; money-out](/people/)** — payroll, advances, custody, vendor bills, marketing
+- **[Accounting &amp; close](/accounting/)** — the ledger, fixed assets, reconciliation, month/year-end, the owner's view
+
+Each subsystem opens with a **flow** and an **entity map**, then draws its **lifecycles** and its **ledger entries** as pictures. To extend it, see **[Adding to this handbook](/contributing)**.
 
 _Run `npm run docs:dev` to browse this locally._

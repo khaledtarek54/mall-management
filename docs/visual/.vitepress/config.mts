@@ -16,6 +16,9 @@ export default defineConfig({
       { text: 'Start here', link: '/' },
       { text: 'Leasing', link: '/leasing/' },
       { text: 'Money & AR', link: '/money/' },
+      { text: 'Operations', link: '/operations/' },
+      { text: 'People', link: '/people/' },
+      { text: 'Accounting', link: '/accounting/' },
     ],
     sidebar: [
       {
@@ -64,9 +67,13 @@ export default defineConfig({
         ],
       },
       {
-        text: 'Coming next',
+        text: 'Accounting & close',
+        collapsed: false,
         items: [
-          { text: 'Accounting & close', link: '/#the-plan' },
+          { text: 'Where everything converges', link: '/accounting/' },
+          { text: 'The ledger & the rules', link: '/accounting/the-ledger' },
+          { text: 'Fixed assets & depreciation', link: '/accounting/fixed-assets' },
+          { text: 'Close & reconcile', link: '/accounting/close-and-reconcile' },
         ],
       },
       {
