@@ -45,6 +45,11 @@ class AccountMappingSeeder extends Seeder
         'marketing_expense' => '51105001',
         'admin_expense' => '51106001',
         'depreciation_expense' => '51107001',
+        // Fixed assets (module 23, Phase 2): acquisition Dr Furniture & Equipment /
+        // Cr Cash|Bank; monthly charge Dr Depreciation Expense / Cr Accumulated
+        // Depreciation (a contra-asset). Neither touches AR/AP — tie-out-safe.
+        'furniture_equipment' => '12101001',
+        'accumulated_depreciation' => '12201001',
         'inventory' => '11301001',
         'inventory_adjustment' => '51108001',
         // Receipts credit a dedicated clearing liability (NOT the AP control that the

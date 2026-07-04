@@ -4,7 +4,9 @@ namespace App\Services\Accounting;
 
 use App\Models\CreditNote;
 use App\Models\DepositTransaction;
+use App\Models\DepreciationEntry;
 use App\Models\Expense;
+use App\Models\FixedAsset;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\MarketingSpend;
@@ -15,7 +17,9 @@ use App\Models\VendorBill;
 use App\Models\VendorBillPayment;
 use App\Services\Accounting\Journalizers\CreditNoteJournalizer;
 use App\Services\Accounting\Journalizers\DepositTransactionJournalizer;
+use App\Services\Accounting\Journalizers\DepreciationEntryJournalizer;
 use App\Services\Accounting\Journalizers\ExpenseJournalizer;
+use App\Services\Accounting\Journalizers\FixedAssetAcquisitionJournalizer;
 use App\Services\Accounting\Journalizers\InvoiceJournalizer;
 use App\Services\Accounting\Journalizers\InventoryMovementJournalizer;
 use App\Services\Accounting\Journalizers\Journalizer;
@@ -167,6 +171,8 @@ class LedgerPoster
             DepositTransaction::class => new DepositTransactionJournalizer($this->accounts),
             MarketingSpend::class => new MarketingSpendJournalizer($this->accounts),
             StockMovement::class => new InventoryMovementJournalizer($this->accounts),
+            FixedAsset::class => new FixedAssetAcquisitionJournalizer($this->accounts),
+            DepreciationEntry::class => new DepreciationEntryJournalizer($this->accounts),
             default => null,
         };
     }
