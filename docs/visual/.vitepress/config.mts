@@ -43,9 +43,20 @@ export default defineConfig({
         ],
       },
       {
+        text: 'Operations — the engine room',
+        collapsed: false,
+        items: [
+          { text: 'Keeping the mall running', link: '/operations/' },
+          { text: 'Life of a request', link: '/operations/request-lifecycle' },
+          { text: 'CAM cost recovery', link: '/operations/cam-recovery' },
+          { text: 'Inventory in the books', link: '/operations/inventory-and-books' },
+          { text: 'Preventive & vendors', link: '/operations/preventive-and-vendors' },
+        ],
+      },
+      {
         text: 'Coming next',
         items: [
-          { text: 'Operations · People · Accounting', link: '/#the-plan' },
+          { text: 'People · Accounting', link: '/#the-plan' },
         ],
       },
       {
