@@ -48,6 +48,12 @@ export default defineConfig({
           { text: 'Operations · People · Accounting', link: '/#the-plan' },
         ],
       },
+      {
+        text: 'For the team',
+        items: [
+          { text: 'Adding to this handbook', link: '/contributing' },
+        ],
+      },
     ],
     outline: { level: [2, 3], label: 'On this page' },
     search: { provider: 'local' },

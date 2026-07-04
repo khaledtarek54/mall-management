@@ -29,7 +29,7 @@ Atriom has two kinds of guide, and they do different jobs.
 
 It layers on top of what you already have. Your detailed module docs in `docs/modules/*.md` stay the source of truth for every rule and edge case — this handbook draws the concepts over them so the whole team can see the shape before reading the detail.
 
-Because these pictures live **inside the code repository**, they can't quietly go stale: when the logic changes, the picture changes in the same commit — the same rule your team already follows for the written docs.
+Because these pictures live **inside the code repository**, they can't quietly go stale: when the logic changes, the picture changes in the same commit — the same rule your team already follows for the written docs. And it's built to be edited: [**Adding to this handbook**](/contributing) is a copy-paste guide to every component, so anyone on the team can extend it.
 
 ## The plan {#the-plan}
 
