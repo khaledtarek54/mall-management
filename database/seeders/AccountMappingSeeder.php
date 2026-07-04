@@ -50,6 +50,9 @@ class AccountMappingSeeder extends Seeder
         // Depreciation (a contra-asset). Neither touches AR/AP — tie-out-safe.
         'furniture_equipment' => '12101001',
         'accumulated_depreciation' => '12201001',
+        // Disposal write-off (Phase 2b): gain (other income) / loss (other expense).
+        'gain_on_disposal' => '42102001',
+        'loss_on_disposal' => '52102001',
         'inventory' => '11301001',
         'inventory_adjustment' => '51108001',
         // Receipts credit a dedicated clearing liability (NOT the AP control that the

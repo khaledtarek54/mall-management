@@ -5,9 +5,13 @@ namespace App\Filament\Admin\Resources\FixedAssets\Tables;
 use App\Filament\Admin\Resources\FixedAssets\FixedAssetResource;
 use App\Models\FixedAsset;
 use App\Services\DepreciationService;
+use App\Services\DisposeFixedAssetService;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -78,21 +82,37 @@ class FixedAssetsTable
                     ->authorize(fn (FixedAsset $record) => FixedAssetResource::canEdit($record))
                     ->schema([
                         DatePicker::make('disposed_on')
-                            ->label(__('admin.fixed_assets.fields.acquisition_date'))
+                            ->label(__('admin.fixed_assets.fields.disposed_on'))
                             ->default(now())
                             ->required()
                             ->native(false),
+                        TextInput::make('proceeds')
+                            ->label(__('admin.fixed_assets.fields.proceeds'))
+                            ->helperText(__('admin.fixed_assets.proceeds_hint'))
+                            ->numeric()
+                            ->minValue(0)
+                            ->default(0)
+                            ->prefix('EGP'),
+                        Select::make('proceeds_account')
+                            ->label(__('admin.fixed_assets.fields.proceeds_account'))
+                            ->options(['cash' => 'Cash', 'bank' => 'Bank'])
+                            ->default('cash')
+                            ->native(false)
+                            // Only matters when money actually came in.
+                            ->visible(fn (\Filament\Schemas\Components\Utilities\Get $get) => (float) $get('proceeds') > 0),
+                        Textarea::make('notes')
+                            ->label(__('admin.fixed_assets.fields.notes'))
+                            ->rows(2)
+                            ->columnSpanFull(),
                     ])
                     ->action(function (array $data, FixedAsset $record): void {
                         // Server-side re-check (authorize can't see form tampering of a terminal record).
                         abort_unless(FixedAssetResource::canEdit($record) && $record->status === 'active', 403);
-                        $record->update([
-                            'status' => 'disposed',
-                            'disposed_on' => $data['disposed_on'],
-                        ]);
+                        app(DisposeFixedAssetService::class)->dispose($record, $data);
                         Notification::make()->title(__('admin.fixed_assets.disposed'))->success()->send();
                     }),
-                EditAction::make()->visible(fn (FixedAsset $record) => FixedAssetResource::canEdit($record)),
+                // Disposed assets are terminal — read-only (no edit).
+                EditAction::make()->visible(fn (FixedAsset $record) => FixedAssetResource::canEdit($record) && $record->status === 'active'),
             ])
             ->defaultSort('name');
     }

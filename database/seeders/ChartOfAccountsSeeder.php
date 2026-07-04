@@ -109,6 +109,8 @@ class ChartOfAccountsSeeder extends Seeder
         ['42', 'Other Income', 'إيرادات أخرى', 'revenue', false],
         ['42101', 'Miscellaneous Income', 'إيرادات متنوعة', 'revenue', false],
         ['42101001', 'Miscellaneous Income', 'إيرادات متنوعة', 'revenue', true],
+        ['42102', 'Gain on Disposal of Assets', 'أرباح بيع أصول ثابتة', 'revenue', false],
+        ['42102001', 'Gain on Disposal of Assets', 'أرباح بيع أصول ثابتة', 'revenue', true],
         ['43', 'Sales Returns & Allowances', 'مردودات ومسموحات المبيعات', 'revenue', false],
         ['43101', 'Sales Returns & Allowances', 'مردودات ومسموحات المبيعات', 'revenue', false],
         ['43101001', 'Sales Returns & Allowances', 'مردودات ومسموحات المبيعات', 'revenue', true],
@@ -135,6 +137,8 @@ class ChartOfAccountsSeeder extends Seeder
         ['52', 'Other Expenses', 'مصروفات أخرى', 'expense', false],
         ['52101', 'Bank Charges', 'مصروفات بنكية', 'expense', false],
         ['52101001', 'Bank Charges', 'مصروفات بنكية', 'expense', true],
+        ['52102', 'Loss on Disposal of Assets', 'خسائر بيع أصول ثابتة', 'expense', false],
+        ['52102001', 'Loss on Disposal of Assets', 'خسائر بيع أصول ثابتة', 'expense', true],
     ];
 
     public function run(): void

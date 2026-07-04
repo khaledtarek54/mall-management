@@ -1,10 +1,12 @@
 <?php
 
 use App\Filament\Admin\Resources\FixedAssets\FixedAssetResource;
+use App\Filament\Admin\Resources\FixedAssets\Pages\EditFixedAsset;
 use App\Filament\Admin\Resources\FixedAssets\Pages\ListFixedAssets;
 use App\Models\DepreciationEntry;
 use App\Models\FixedAsset;
 use App\Services\DepreciationService;
+use App\Services\DisposeFixedAssetService;
 use Database\Seeders\RolesPermissionsSeeder;
 use Livewire\Livewire;
 
@@ -98,11 +100,14 @@ it('disposes an asset and stops future depreciation', function () {
 
     asTenant($asset, function () use ($fa) {
         Livewire::test(ListFixedAssets::class)
-            ->callTableAction('dispose', $fa, data: ['disposed_on' => now()->toDateString()])
+            ->callTableAction('dispose', $fa, data: ['disposed_on' => now()->toDateString(), 'proceeds' => 250])
             ->assertHasNoTableActionErrors();
     });
 
     expect($fa->fresh()->status)->toBe('disposed');
+    // The action records the disposal (the GL write-off source).
+    expect($fa->fresh()->disposal)->not->toBeNull();
+    expect((float) $fa->fresh()->disposal->proceeds)->toBe(250.0);
 
     // A disposed asset is skipped by the monthly run.
     expect(app(DepreciationService::class)->run(\Carbon\CarbonImmutable::parse('2026-08-01')))->toBe(0);
@@ -122,6 +127,30 @@ it('forbids disposing for a role without fixed_assets.edit', function () {
     });
 
     expect($fa->fresh()->status)->toBe('active');
+});
+
+it('makes a disposed asset terminal — hides edit + blocks the edit page (immutable)', function () {
+    $asset = makeAsset();
+    $fa = makeFixedAsset($asset->id);
+    $this->actingAs(makeUser('accounting', [$asset->id]));
+    app(DisposeFixedAssetService::class)->dispose($fa, ['disposed_on' => now()->toDateString()]);
+
+    asTenant($asset, function () use ($fa) {
+        // Edit action is hidden on a disposed (terminal) row.
+        Livewire::test(ListFixedAssets::class)->assertTableActionHidden('edit', $fa->fresh());
+
+        // Direct edit-page access is blocked server-side (403).
+        try {
+            Livewire::test(EditFixedAsset::class, ['record' => $fa->getKey()])
+                ->fillForm(['name' => 'Tampered'])
+                ->call('save');
+        } catch (\Throwable $e) {
+            // abort(403) may surface as an exception on the Livewire path.
+        }
+    });
+
+    // The disposed asset was not mutated.
+    expect($fa->fresh()->name)->not->toBe('Tampered');
 });
 
 /* ---- Post-depreciation header action ------------------------------------ */

@@ -7,6 +7,7 @@ use App\Models\DepositTransaction;
 use App\Models\DepreciationEntry;
 use App\Models\Expense;
 use App\Models\FixedAsset;
+use App\Models\FixedAssetDisposal;
 use App\Models\Invoice;
 use App\Models\MarketingSpend;
 use App\Models\Payment;
@@ -60,6 +61,7 @@ class SyncLedgerCommand extends Command
         $this->syncModel(StockMovement::query()->with('warehouse'), 'updated_at', $since, $poster, $counts);
         $this->syncModel(FixedAsset::query(), 'updated_at', $since, $poster, $counts);
         $this->syncModel(DepreciationEntry::query()->with('fixedAsset'), 'updated_at', $since, $poster, $counts);
+        $this->syncModel(FixedAssetDisposal::query()->with('fixedAsset'), 'updated_at', $since, $poster, $counts);
 
         $this->newLine();
         $this->table(['result', 'count'], collect($counts)->map(fn ($v, $k) => [$k, $v])->values()->all());
@@ -108,6 +110,7 @@ class SyncLedgerCommand extends Command
             StockMovement::min('moved_on'), StockMovement::max('moved_on'),
             FixedAsset::min('acquisition_date'), FixedAsset::max('acquisition_date'),
             DepreciationEntry::min('period_month'), DepreciationEntry::max('period_month'),
+            FixedAssetDisposal::min('disposed_on'), FixedAssetDisposal::max('disposed_on'),
         ]);
 
         $years = collect($dates)->map(fn ($d) => (int) Carbon::parse($d)->year);

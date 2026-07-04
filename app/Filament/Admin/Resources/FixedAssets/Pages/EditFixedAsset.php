@@ -19,6 +19,11 @@ class EditFixedAsset extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
+        // Terminal-record immutability: a disposed asset is written off — editing it
+        // (e.g. its acquisition_cost) would re-derive the acquisition entry but strand
+        // the disposal's offsetting Furniture credit. Block it (defence for a direct URL).
+        abort_unless($this->getRecord()->status === 'active', 403);
+
         // Re-validate the target property server-side (can't re-home into another mall).
         FixedAssetResource::assertAssetInScope($data['asset_id'] ?? $this->getRecord()->asset_id);
 

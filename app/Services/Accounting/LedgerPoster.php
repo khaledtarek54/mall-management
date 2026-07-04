@@ -7,6 +7,7 @@ use App\Models\DepositTransaction;
 use App\Models\DepreciationEntry;
 use App\Models\Expense;
 use App\Models\FixedAsset;
+use App\Models\FixedAssetDisposal;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\MarketingSpend;
@@ -20,6 +21,7 @@ use App\Services\Accounting\Journalizers\DepositTransactionJournalizer;
 use App\Services\Accounting\Journalizers\DepreciationEntryJournalizer;
 use App\Services\Accounting\Journalizers\ExpenseJournalizer;
 use App\Services\Accounting\Journalizers\FixedAssetAcquisitionJournalizer;
+use App\Services\Accounting\Journalizers\FixedAssetDisposalJournalizer;
 use App\Services\Accounting\Journalizers\InvoiceJournalizer;
 use App\Services\Accounting\Journalizers\InventoryMovementJournalizer;
 use App\Services\Accounting\Journalizers\Journalizer;
@@ -173,6 +175,7 @@ class LedgerPoster
             StockMovement::class => new InventoryMovementJournalizer($this->accounts),
             FixedAsset::class => new FixedAssetAcquisitionJournalizer($this->accounts),
             DepreciationEntry::class => new DepreciationEntryJournalizer($this->accounts),
+            FixedAssetDisposal::class => new FixedAssetDisposalJournalizer($this->accounts),
             default => null,
         };
     }

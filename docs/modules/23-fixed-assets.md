@@ -1,15 +1,14 @@
 # Module 23 — Fixed Assets & Depreciation (الأصول الثابتة والإهلاك)
 
-> **Status: Phase 2 shipped (GL posting).** Fixed-asset register + straight-line
-> depreciation service + the monthly `accounting:post-depreciation` run + a
-> property-scoped Filament `FixedAssetResource` (cost / monthly / accumulated / NBV
-> columns, dispose, read-only depreciation schedule, "post this month" action) +
-> `fixed_assets.*` RBAC + the `fixed_assets` module flag + **double-entry GL posting**
-> (acquisition + monthly depreciation, via the sweep) + tests. Delivers the
-> FRD/gap-analysis backlog item FA-1 — the chart already had the accounts (furniture,
-> accumulated depreciation, depreciation expense) but they were **dormant** (nothing
-> posted). This makes them **live**. The only remaining item is the disposal write-off
-> entry (Phase 2b — see roadmap).
+> **Status: COMPLETE (Phase 2b shipped — disposal write-off).** Fixed-asset register +
+> straight-line depreciation service + the monthly `accounting:post-depreciation` run +
+> a property-scoped Filament `FixedAssetResource` (cost / monthly / accumulated / NBV
+> columns, dispose-with-proceeds, read-only depreciation schedule, "post this month"
+> action) + `fixed_assets.*` RBAC + the `fixed_assets` module flag + **full double-entry
+> GL posting** (acquisition, monthly depreciation, and the disposal write-off with
+> gain/loss, all via the sweep) + tests. Delivers the FRD/gap-analysis backlog item
+> FA-1 — the chart's fixed-asset accounts (furniture, accumulated depreciation,
+> depreciation expense, plus new gain/loss on disposal) are now **live**.
 
 Property operators own real assets — furniture, HVAC, fit-out, IT, deep-clean
 machines. This module keeps the **register** of those assets and recognises their
@@ -51,6 +50,14 @@ book value and the P&L carries the monthly depreciation charge.
 | `amount` | that month's charge |
 | `created_by_user_id` | audit |
 
+### `fixed_asset_disposals` — the terminal write-off (one per asset)
+| Column | Meaning |
+|--------|---------|
+| `fixed_asset_id` | the asset (FK, cascade, **unique**) |
+| `disposed_on` | disposal date (the write-off entry date) |
+| `proceeds` · `proceeds_account` | sale proceeds (0 = scrapped) + where they landed (`cash`\|`bank`) |
+| `notes` · `created_by_user_id` | audit |
+
 ---
 
 ## 2. Business rules
@@ -71,6 +78,10 @@ book value and the P&L carries the monthly depreciation charge.
 8. **Property is scope-guarded on write** — create/edit re-validate the submitted `asset_id`
    against `visibleAssetIds()` server-side (`FixedAssetResource::assertAssetInScope`), closing
    the All-Properties-mode tamper hole even though the Select already scopes its options.
+9. **A disposed asset is terminal (immutable)** — once written off it can't be edited (the edit
+   action is hidden + the edit page aborts 403) nor re-disposed. Editing a disposed asset's cost
+   would strand its Furniture balance; as a model-level backstop, a change to `acquisition_cost`
+   (or `asset_id`) re-flows to the child sources' GL via the parent-lifecycle cascade.
 
 ---
 
@@ -81,40 +92,47 @@ book value and the P&L carries the monthly depreciation charge.
   `assetIds` scopes to a property set, `null` = portfolio-wide).
 - **`accounting:post-depreciation {--month=YYYY-MM}`** — runs the month's depreciation;
   scheduled monthly (28th 03:30). Idempotent, so a re-run is harmless.
+- **`DisposeFixedAssetService`** — the single-action disposal: lock-safe, flips the asset to
+  `disposed`, and records the terminal `FixedAssetDisposal` (with proceeds) that the disposal
+  journalizer writes off. Rejects a second disposal (422 — terminal).
 
 ---
 
-## 3.5 GL posting (Phase 2)
+## 3.5 GL posting (Phase 2 + 2b)
 
-Fixed assets post to the double-entry ledger through **two journalizers**, registered in
+Fixed assets post to the double-entry ledger through **three journalizers**, registered in
 `LedgerPoster` and reconciled by the `accounting:sync-ledger` sweep — the same
 self-healing, idempotent path inventory and marketing spend use (no entanglement with the
-write path). Both credit/debit only asset/expense accounts — **never AR or AP** — so the
-GL↔AR/AP tie-out that gates monthly close is unaffected (the GRNI lesson from module 22).
+write path). They credit/debit only asset/expense/income accounts — **never AR or AP** — so
+the GL↔AR/AP tie-out that gates monthly close is unaffected (the GRNI lesson from module 22).
 
 | Event | Source | Entry |
 |-------|--------|-------|
 | **Acquisition** | `FixedAsset` | Dr Furniture & Equipment `12101001` / Cr **Cash `11101001` \| Bank `11102001`** (per `funded_from`) |
 | **Monthly depreciation** | `DepreciationEntry` | Dr Depreciation Expense `51107001` / Cr Accumulated Depreciation `12201001` (contra-asset) |
+| **Disposal write-off** | `FixedAssetDisposal` | Dr Accumulated Depreciation (accumulated) + Dr Cash\|Bank (proceeds) + Dr **Loss `52102001`** / Cr Furniture & Equipment (cost) + Cr **Gain `42102001`** |
 
 - **Cash/Bank, not AP** — most fixed assets are paid on acquisition and a fixed asset has
   no vendor bill; crediting the AP control (which ties out to vendor bills) would falsely
   fail the reconcile. Same reasoning as inventory's GRNI clearing account.
-- **Mappings:** `furniture_equipment`, `accumulated_depreciation` (added to `AccountMappingSeeder`;
-  `depreciation_expense`, `cash`, `bank` already existed). Re-point from the UI without code.
+- **Disposal math** — net book value = cost − accumulated; gain/loss = proceeds − NBV. The
+  write-off + the (retained) acquisition + depreciation entries together net Furniture &
+  Equipment and Accumulated Depreciation back to zero for the disposed asset; the gain/loss
+  hits the P&L. Proceeds `0` = a pure scrap write-off (loss = remaining NBV).
+- **Mappings:** `furniture_equipment`, `accumulated_depreciation`, `gain_on_disposal`,
+  `loss_on_disposal` (added to `AccountMappingSeeder`; `depreciation_expense`, `cash`, `bank`
+  already existed). Re-point any role from the UI without code.
 - **Parent-lifecycle cascade (self-healing under the WINDOWED sweep):** each depreciation charge
-  is its own ledger source, but the sweep discovers sources by their own `updated_at`. So
-  `FixedAsset::booted()` cascades the parent's lifecycle to its charges — soft-delete
-  soft-deletes them (their entries void), restore restores them, and a property re-home touches
-  them (re-dimensions their entries) — bumping their `updated_at` so the daily sweep re-visits
-  them. Without this the charges would strand (phantom depreciation / wrong property) until a
-  manual `--all` backfill. A merely *disposed* asset keeps its history on the books. **Caveat:**
-  `forceDelete()` (out-of-band only — no admin/console path exposes it) physically removes the
-  child rows via the FK cascade and orphans their posted entries; use soft-delete to correct a
-  mistaken asset. This is a general property of force-deleting any GL source, not fixed-asset-specific.
-- **Not yet posted — disposal write-off (Phase 2b):** disposing an asset stops depreciation but
-  does not yet journalize the removal (Dr Accumulated Depreciation + Dr loss/Cr proceeds / Cr
-  Furniture). Until then a disposed asset's gross cost + accumulated stay on the balance sheet.
+  and the disposal are their OWN ledger sources, but the sweep discovers sources by their own
+  `updated_at`. So `FixedAsset::booted()` cascades the parent's lifecycle to **both** child
+  sources (`ledgerChildRelations()`) — soft-delete soft-deletes them (their entries void),
+  restore restores only the exact rows it trashed (matched on `deleted_at`), and a property
+  re-home touches them (re-dimensions their entries) — bumping their `updated_at` so the daily
+  sweep re-visits them. Without this they would strand (phantom GL / wrong property) until a
+  manual `--all` backfill. **Caveat:** `forceDelete()` (out-of-band only — no admin/console path
+  exposes it) physically removes the child rows via the FK cascade and orphans their posted
+  entries; use soft-delete to correct a mistaken asset. This is a general property of
+  force-deleting any GL source, not fixed-asset-specific.
 
 ---
 
@@ -125,7 +143,7 @@ GL↔AR/AP tie-out that gates monthly close is unaffected (the GRNI lesson from 
 | **1a — Depreciation engine** | register + `DepreciationEntry` + `DepreciationService` (straight-line, derived accumulated/NBV, clamp) + `accounting:post-depreciation` + schedule + tests | ✅ shipped |
 | **1b — Admin surfaces** | Filament `FixedAssetResource` (register + schedule columns: cost / accumulated / NBV / monthly) property-scoped, `fixed_assets.*` RBAC (accounting role), `fixed_assets` module flag, read-only depreciation-history relation manager, dispose action, "post this month" list action | ✅ shipped |
 | **2 — GL posting** | acquisition → Dr Furniture & Equipment (12101001) / Cr Cash\|Bank (per `funded_from`); depreciation entry → Dr Depreciation Expense (51107001) / Cr Accumulated Depreciation (12201001). Journalizers + mappings + sweep + a tie-out-safe check. | ✅ shipped |
-| **2b — Disposal write-off** | on dispose, journalize the removal (Dr Accumulated Depreciation + gain/loss / Cr Furniture & Equipment) so the balance sheet clears the disposed asset. | ⏳ next |
+| **2b — Disposal write-off** | `FixedAssetDisposal` source + `DisposeFixedAssetService` + journalizer: Dr Accumulated Depreciation + Dr Cash\|Bank (proceeds) + gain/loss / Cr Furniture & Equipment, so the balance sheet clears the disposed asset. New gain/loss-on-disposal accounts + mappings; dispose-with-proceeds form; parent-lifecycle cascade covers it. | ✅ shipped |
 
 ---
 
@@ -151,6 +169,10 @@ after posting fixed-asset entries (the GRNI-class regression), and the parent-li
 cascade exercised through the **actual windowed `accounting:sync-ledger` run**: an aged
 depreciation charge voids after soft-delete, charges restore on restore, and the entries
 re-dimension after a property re-home (the review-caught windowed-discovery regression).
+Disposal write-off: loss case (proceeds < NBV), gain case (sold above NBV, proceeds to
+bank), fully-depreciated scrap (no gain/loss), the whole footprint nets Furniture +
+Accumulated to zero after acquire→depreciate→dispose, the disposal entry voids through the
+windowed sweep on soft-delete, and the terminal-disposal guard (no second disposal).
 
 **Related:** 21 General Ledger (Phase 2 posting), 01 Properties (asset scope),
 22 Inventory (sibling module, same ledger patterns), 18 RBAC (Phase 1b).

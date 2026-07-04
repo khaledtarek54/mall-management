@@ -10,6 +10,7 @@ use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\LedgerPoster;
 use App\Services\Accounting\LedgerReportService;
 use App\Services\DepreciationService;
+use App\Services\DisposeFixedAssetService;
 use App\Services\Reconciliation\BooksReconciliationService;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
@@ -38,6 +39,14 @@ function faLedgerAsset(array $attrs = []): FixedAsset
         'method' => 'straight_line',
         'funded_from' => 'cash',
     ], $attrs));
+}
+
+/** Post depreciation for the first N months of the year (each = 1 charge/asset). */
+function faDepreciate(int $months): void
+{
+    for ($m = 0; $m < $months; $m++) {
+        app(DepreciationService::class)->run(now()->startOfYear()->addMonths($m));
+    }
 }
 
 /* ---- Acquisition --------------------------------------------------------- */
@@ -220,6 +229,146 @@ it('re-dimensions the depreciation entries when the asset is re-homed to another
     $chargeEntry = \App\Models\JournalEntry::where('source_type', $charge->getMorphClass())
         ->where('source_id', $charge->id)->where('status', 'posted')->latest('id')->first();
     expect((int) $chargeEntry->asset_id)->toBe($propB->id);
+});
+
+/* ---- Disposal write-off (Phase 2b) --------------------------------------- */
+
+it('journalizes a disposal write-off with a loss (proceeds below net book value)', function () {
+    $fa = faLedgerAsset(['acquisition_cost' => 12000, 'useful_life_months' => 12]);
+    faDepreciate(3); // accumulated 3000 → NBV 9000
+    $disposal = app(DisposeFixedAssetService::class)->dispose($fa, ['disposed_on' => now()->toDateString(), 'proceeds' => 0]);
+
+    $entry = $this->poster->post($disposal);
+
+    expect($entry)->not->toBeNull();
+    expect($entry->isBalanced())->toBeTrue();
+    expect((int) $entry->asset_id)->toBe($fa->asset_id);
+
+    $byAccount = $entry->lines->keyBy('ledger_account_id');
+    expect((float) $byAccount[$this->accounts->id('accumulated_depreciation')]->debit)->toEqualWithDelta(3000.0, 0.001);
+    expect((float) $byAccount[$this->accounts->id('furniture_equipment')]->credit)->toEqualWithDelta(12000.0, 0.001);
+    expect((float) $byAccount[$this->accounts->id('loss_on_disposal')]->debit)->toEqualWithDelta(9000.0, 0.001);
+    expect($byAccount->has($this->accounts->id('gain_on_disposal')))->toBeFalse();
+    expect($byAccount->has($this->accounts->id('cash')))->toBeFalse(); // no proceeds
+    // Tie-out-safe: never touches AR/AP.
+    expect($byAccount->has($this->accounts->id('accounts_receivable')))->toBeFalse();
+    expect($byAccount->has($this->accounts->id('accounts_payable')))->toBeFalse();
+});
+
+it('journalizes a disposal with proceeds and a gain (sold above net book value)', function () {
+    $fa = faLedgerAsset(['acquisition_cost' => 12000, 'useful_life_months' => 12]);
+    faDepreciate(2); // accumulated 2000 → NBV 10000
+    $disposal = app(DisposeFixedAssetService::class)->dispose($fa, [
+        'disposed_on' => now()->toDateString(), 'proceeds' => 12000, 'proceeds_account' => 'bank',
+    ]);
+
+    $entry = $this->poster->post($disposal);
+    expect($entry->isBalanced())->toBeTrue();
+
+    $byAccount = $entry->lines->keyBy('ledger_account_id');
+    expect((float) $byAccount[$this->accounts->id('accumulated_depreciation')]->debit)->toEqualWithDelta(2000.0, 0.001);
+    expect((float) $byAccount[$this->accounts->id('bank')]->debit)->toEqualWithDelta(12000.0, 0.001);
+    expect((float) $byAccount[$this->accounts->id('furniture_equipment')]->credit)->toEqualWithDelta(12000.0, 0.001);
+    expect((float) $byAccount[$this->accounts->id('gain_on_disposal')]->credit)->toEqualWithDelta(2000.0, 0.001); // 12000 − 10000
+    expect($byAccount->has($this->accounts->id('loss_on_disposal')))->toBeFalse();
+});
+
+it('writes off a fully depreciated asset with no gain or loss', function () {
+    $fa = faLedgerAsset(['acquisition_cost' => 12000, 'useful_life_months' => 1]);
+    faDepreciate(1); // accumulated 12000 → NBV 0
+    $disposal = app(DisposeFixedAssetService::class)->dispose($fa, ['disposed_on' => now()->toDateString(), 'proceeds' => 0]);
+
+    $entry = $this->poster->post($disposal);
+    expect($entry->isBalanced())->toBeTrue();
+
+    $byAccount = $entry->lines->keyBy('ledger_account_id');
+    expect((float) $byAccount[$this->accounts->id('accumulated_depreciation')]->debit)->toEqualWithDelta(12000.0, 0.001);
+    expect((float) $byAccount[$this->accounts->id('furniture_equipment')]->credit)->toEqualWithDelta(12000.0, 0.001);
+    expect($byAccount->has($this->accounts->id('gain_on_disposal')))->toBeFalse();
+    expect($byAccount->has($this->accounts->id('loss_on_disposal')))->toBeFalse();
+});
+
+it('respects salvage value on disposal (NBV floors at salvage)', function () {
+    // cost 12000, salvage 2000, life 10 → 1000/mo, accumulated caps at 10000 (cost − salvage).
+    $fa = faLedgerAsset(['acquisition_cost' => 12000, 'salvage_value' => 2000, 'useful_life_months' => 10]);
+    faDepreciate(10); // accumulated 10000 → NBV = 2000 (= salvage)
+    $disposal = app(DisposeFixedAssetService::class)->dispose($fa, ['disposed_on' => now()->toDateString(), 'proceeds' => 0]);
+
+    $entry = $this->poster->post($disposal);
+    expect($entry->isBalanced())->toBeTrue();
+
+    $byAccount = $entry->lines->keyBy('ledger_account_id');
+    expect((float) $byAccount[$this->accounts->id('accumulated_depreciation')]->debit)->toEqualWithDelta(10000.0, 0.001);
+    expect((float) $byAccount[$this->accounts->id('furniture_equipment')]->credit)->toEqualWithDelta(12000.0, 0.001);
+    expect((float) $byAccount[$this->accounts->id('loss_on_disposal')]->debit)->toEqualWithDelta(2000.0, 0.001); // the un-depreciated salvage
+});
+
+it('nets Furniture and Accumulated Depreciation to zero after acquire + depreciate + dispose', function () {
+    $fa = faLedgerAsset(['acquisition_cost' => 12000, 'useful_life_months' => 12]);
+    faDepreciate(3); // accumulated 3000
+    $this->poster->sync($fa->fresh()); // acquisition
+    DepreciationEntry::where('fixed_asset_id', $fa->id)->get()->each(fn ($c) => $this->poster->sync($c->fresh()));
+    $disposal = app(DisposeFixedAssetService::class)->dispose($fa, ['disposed_on' => now()->toDateString(), 'proceeds' => 0]);
+    $this->poster->sync($disposal->fresh());
+
+    // Furniture: +12000 −12000 = 0; Accumulated: −3000 +3000 = 0.
+    faExpectAllZero(['12101001', '12201001']);
+    // The loss (= NBV 9000) lands on the P&L; the depreciation expense 3000 stays (real).
+    $loss = LedgerAccount::where('code', '52102001')->first();
+    expect(app(LedgerReportService::class)->accountLedger($loss)['closing'])->toEqualWithDelta(9000.0, 0.001);
+});
+
+it('voids the disposal entry through the WINDOWED sweep when the asset is soft-deleted', function () {
+    $fa = faLedgerAsset(['acquisition_cost' => 12000, 'useful_life_months' => 12]);
+    faDepreciate(1);
+    $disposal = app(DisposeFixedAssetService::class)->dispose($fa, ['disposed_on' => now()->toDateString(), 'proceeds' => 0]);
+
+    $this->poster->sync($fa->fresh());
+    DepreciationEntry::where('fixed_asset_id', $fa->id)->get()->each(fn ($c) => $this->poster->sync($c->fresh()));
+    $this->poster->sync($disposal->fresh());
+    // Age the disposal outside the sweep window — the delete cascade must re-touch it.
+    DB::table('fixed_asset_disposals')->where('id', $disposal->id)->update(['updated_at' => now()->subDays(30)]);
+
+    $fa->delete();
+    $this->artisan('accounting:sync-ledger')->assertExitCode(0);
+
+    // The asset's entire GL footprint (acquisition, depreciation, disposal) nets to zero.
+    faExpectAllZero(['12101001', '11101001', '51107001', '12201001', '52102001', '42102001']);
+});
+
+it('does not strand Furniture when a disposed asset is re-costed (cascade covers the disposal)', function () {
+    // The register UI blocks editing a disposed asset (terminal); this proves the MODEL
+    // cascade keeps the GL consistent even if acquisition_cost changes by any path — the
+    // disposal's Furniture credit must re-derive alongside the acquisition debit.
+    $fa = faLedgerAsset(['acquisition_cost' => 12000, 'useful_life_months' => 12]);
+    faDepreciate(3);
+    $this->poster->sync($fa->fresh());
+    DepreciationEntry::where('fixed_asset_id', $fa->id)->get()->each(fn ($c) => $this->poster->sync($c->fresh()));
+    $disposal = app(DisposeFixedAssetService::class)->dispose($fa, ['disposed_on' => now()->toDateString(), 'proceeds' => 0]);
+    $this->poster->sync($disposal->fresh());
+
+    // Age the disposal outside the sweep window, then change the cost.
+    DB::table('fixed_asset_disposals')->where('id', $disposal->id)->update(['updated_at' => now()->subDays(30)]);
+    $fa->update(['acquisition_cost' => 20000]); // updated() hook must bump the disposal too
+
+    $this->artisan('accounting:sync-ledger')->assertExitCode(0);
+
+    // Acquisition Dr 20000 is offset by the re-derived disposal Cr 20000 → Furniture = 0.
+    faExpectAllZero(['12101001']);
+});
+
+it('marks the asset disposed, records the row, and rejects a second disposal (terminal)', function () {
+    $fa = faLedgerAsset();
+    $disposal = app(DisposeFixedAssetService::class)->dispose($fa, [
+        'disposed_on' => now()->toDateString(), 'proceeds' => 500, 'proceeds_account' => 'bank',
+    ]);
+
+    expect($fa->fresh()->status)->toBe('disposed');
+    expect((float) $disposal->proceeds)->toBe(500.0);
+    expect($disposal->proceeds_account)->toBe('bank');
+
+    expect(fn () => app(DisposeFixedAssetService::class)->dispose($fa->fresh(), ['disposed_on' => now()->toDateString()]))
+        ->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
 });
 
 /* ---- Tie-out safety (the GRNI-class regression) -------------------------- */
