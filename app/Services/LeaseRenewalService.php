@@ -72,6 +72,14 @@ class LeaseRenewalService
             }
 
             foreach ($original->charges as $charge) {
+                // Only carry RECURRING, ACTIVE charges into the renewal. A one_time charge
+                // (a locked percentage-rent, a CAM true-up already billed on the original)
+                // must not be re-dated + re-billed on the renewal, and a deactivated charge
+                // must not be silently resurrected (is_active forced true below).
+                if (! $charge->is_active || $charge->frequency === 'one_time') {
+                    continue;
+                }
+
                 $amount = match ($charge->type) {
                     'base_rent' => $newRent,
                     'service_charge' => $newServiceCharge,

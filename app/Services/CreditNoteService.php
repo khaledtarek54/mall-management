@@ -133,20 +133,28 @@ class CreditNoteService
             return $note;
         }
 
-        if ((float) $note->applied_amount > 0) {
-            throw new \DomainException('Cannot void a credit note that has already been applied. Issue an offsetting note instead.');
-        }
-
         return DB::transaction(function () use ($note, $reason) {
-            $note->status = 'void';
-            $note->voided_at = now();
-            if ($reason) {
-                $note->notes = trim(($note->notes ? $note->notes . "\n" : '') . "Voided: {$reason}");
+            // Lock + re-read the note INSIDE the txn so a concurrent applyToInvoice()
+            // (which also locks this row) can't slip an application in between the
+            // applied_amount guard and the void — which would strand applied credit
+            // against a now-void note and break the AR / GL tie-out.
+            $locked = CreditNote::query()->lockForUpdate()->find($note->id);
+            if (! $locked || $locked->status === 'void') {
+                return $locked ?? $note;
             }
-            $note->balance = 0;
-            $note->save();
+            if ((float) $locked->applied_amount > 0) {
+                throw new \DomainException('Cannot void a credit note that has already been applied. Issue an offsetting note instead.');
+            }
 
-            return $note->refresh();
+            $locked->status = 'void';
+            $locked->voided_at = now();
+            if ($reason) {
+                $locked->notes = trim(($locked->notes ? $locked->notes."\n" : '')."Voided: {$reason}");
+            }
+            $locked->balance = 0;
+            $locked->save();
+
+            return $locked->refresh();
         });
     }
 }

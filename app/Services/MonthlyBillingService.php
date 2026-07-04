@@ -71,10 +71,14 @@ class MonthlyBillingService
                     // Period-OVERLAP guard, not an exact month-start match: a
                     // prorated first-month invoice stores period_start = the
                     // mid-month commencement, so an exact "= month start" check
-                    // would miss it and bill the month a SECOND time (full).
+                    // would miss it and bill the month a SECOND time (full). The
+                    // period must also END within the month — else an ANNUAL invoice
+                    // (a CAM year-end recovery, period Jan 1–Dec 31) would satisfy this
+                    // guard for January and wrongly SKIP the lease's regular rent.
                     $alreadyBilled = Invoice::where('lease_id', $lease->id)
                         ->whereDate('period_start', '>=', $periodStart->toDateString())
                         ->whereDate('period_start', '<=', $periodEnd->toDateString())
+                        ->whereDate('period_end', '<=', $periodEnd->toDateString())
                         ->exists();
 
                     if ($alreadyBilled) {

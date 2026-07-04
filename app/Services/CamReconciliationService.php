@@ -27,11 +27,19 @@ class CamReconciliationService
      */
     public function generateAllocations(CamExpensePool $pool): int
     {
-        $leases = Lease::query()
-            ->whereHas('unit', fn ($q) => $q->where('asset_id', $pool->asset_id))
-            ->where('status', 'active')
-            ->with('unit')
-            ->get();
+        // On a RE-RUN, keep the ORIGINAL participant set (and therefore the sqm
+        // denominator) stable: a lease that became active after some allocations were
+        // billed was not part of the reconciled period, and adding it would recompute
+        // the remaining shares against an inflated head-count → over-recovering the pool.
+        $existingLeaseIds = $pool->allocations()->pluck('lease_id')->all();
+
+        $leases = empty($existingLeaseIds)
+            ? Lease::query()
+                ->whereHas('unit', fn ($q) => $q->where('asset_id', $pool->asset_id))
+                ->where('status', 'active')
+                ->with('unit')
+                ->get()
+            : Lease::query()->whereIn('id', $existingLeaseIds)->with('unit')->get();
 
         $totalSqm = (float) $leases->sum(fn (Lease $l) => (float) ($l->unit?->area_sqm ?? 0));
 

@@ -158,11 +158,14 @@ class InvoicesTable
                     ->label(__('admin.actions.pay_now'))
                     ->icon('heroicon-o-credit-card')
                     ->color('primary')
-                    ->visible(fn ($record) => \App\Support\Portal::isAdmin() && config('integrations.paymob.enabled') && $record->balance > 0)
+                    // isPayable() (not just balance>0) — never open a live checkout for a
+                    // cancelled/fully-credited invoice (matches the paymentLink action + every
+                    // other capture entry point).
+                    ->visible(fn ($record) => \App\Support\Portal::isAdmin() && config('integrations.paymob.enabled') && $record->isPayable())
                     ->requiresConfirmation()
                     ->modalHeading(fn ($record) => __('admin.actions.pay_now').' · '.$record->number)
                     ->action(function (Invoice $record) {
-                        abort_unless(\App\Support\Portal::isAdmin(), 403);
+                        abort_unless(\App\Support\Portal::isAdmin() && $record->isPayable(), 403);
                         try {
                             $session = app(PaymobPaymentInitiator::class)->start($record, \App\Models\Payment::CHANNEL_PORTAL);
 

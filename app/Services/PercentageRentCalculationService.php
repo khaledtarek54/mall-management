@@ -149,6 +149,12 @@ class PercentageRentCalculationService
 
     private function createPercentageRentCharge(TenantSalesDeclaration $declaration, float $amount): Charge
     {
+        // NOTE (QA-flagged, not auto-fixed): start_date is dated to the sales period_start,
+        // which is ALSO the identity key that voidLocked()/re-lock match on. A one_time
+        // charge is only billed when its start_date falls in the run's period, so if the
+        // sales period's monthly run has already happened the overage isn't picked up by
+        // the generic monthly run — percentage rent needs a dedicated billing path
+        // (immediate invoice, like CAM) decided alongside the void/re-lock identity logic.
         return Charge::create([
             'lease_id' => $declaration->lease_id,
             'name' => 'Percentage Rent — '.$declaration->periodLabel(),

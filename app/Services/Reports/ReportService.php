@@ -229,6 +229,16 @@ class ReportService
                   ->whereColumn('leases.id', 'invoices.lease_id')
                   ->where('units.asset_id', $assetId);
             });
+        } elseif (($ids = TenantScope::visibleAssetIds()) !== null) {
+            // "All Properties" for a RESTRICTED user — pin to their assigned set (else
+            // this leaked every mall's revenue; mirrors TenantScope::applyTo's fallback).
+            $query->whereExists(function ($q) use ($ids) {
+                $q->select(\DB::raw(1))
+                  ->from('leases')
+                  ->join('units', 'units.id', '=', 'leases.unit_id')
+                  ->whereColumn('leases.id', 'invoices.lease_id')
+                  ->whereIn('units.asset_id', $ids);
+            });
         }
 
         $rows = $query
@@ -256,6 +266,13 @@ class ReportService
             $query->where(function ($q) use ($assetId) {
                 $q->whereNull('lease_id')
                   ->orWhereHas('lease.unit', fn ($q2) => $q2->where('asset_id', $assetId));
+            });
+        } elseif (($ids = TenantScope::visibleAssetIds()) !== null) {
+            // "All Properties" for a RESTRICTED user — pin lease-linked notes to their
+            // assigned set (standalone notes stay portfolio-visible, per the resource).
+            $query->where(function ($q) use ($ids) {
+                $q->whereNull('lease_id')
+                  ->orWhereHas('lease.unit', fn ($q2) => $q2->whereIn('asset_id', $ids));
             });
         }
 

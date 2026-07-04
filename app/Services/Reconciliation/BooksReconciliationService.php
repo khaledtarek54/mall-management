@@ -262,7 +262,9 @@ class BooksReconciliationService
         // invoices are excluded because their credit note reverses them on the GL side.
         // Round each sum before subtracting (matches the sync-command's original math).
         $glAr = round($this->reports->accountLedger($arAccount)['closing'], 2);
-        $invoiceBalances = round((float) Invoice::whereNotIn('status', ['cancelled', 'credited'])->sum('balance'), 2);
+        // Exclude DRAFT invoices — the InvoiceJournalizer recognises revenue only at issue,
+        // so a draft's balance is not on the GL; counting it here would raise a false AR delta.
+        $invoiceBalances = round((float) Invoice::whereNotIn('status', ['cancelled', 'credited', 'draft'])->sum('balance'), 2);
         $outstandingCredits = round((float) CreditNote::whereIn('status', ['issued', 'applied'])->sum('balance'), 2);
         $expectedAr = round($invoiceBalances - $outstandingCredits, 2);
 
