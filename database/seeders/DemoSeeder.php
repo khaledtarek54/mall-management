@@ -8,27 +8,56 @@ use App\Models\CamExpensePool;
 use App\Models\Charge;
 use App\Models\CreditNote;
 use App\Models\CreditNoteItem;
+use App\Models\Department;
+use App\Models\DepositTransaction;
+use App\Models\Employee;
+use App\Models\Expense;
+use App\Models\FixedAsset;
+use App\Models\InventoryItem;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
+use App\Models\JournalEntry;
 use App\Models\Lease;
-use App\Models\TenantRequest;
-use App\Models\TenantRequestComment;
+use App\Models\MaintenancePlan;
+use App\Models\MaintenanceWorkOrder;
+use App\Models\MarketingBudget;
+use App\Models\MarketingSpend;
 use App\Models\MeterReading;
 use App\Models\Note;
 use App\Models\Payment;
+use App\Models\Payroll;
+use App\Models\PayrollLine;
 use App\Models\Tenant;
+use App\Models\TenantRequest;
+use App\Models\TenantRequestComment;
 use App\Models\TenantSalesDeclaration;
+use App\Models\TenantUser;
 use App\Models\Unit;
 use App\Models\User;
 use App\Models\UtilityMeter;
 use App\Models\Vendor;
+use App\Models\VendorBill;
 use App\Models\VendorContact;
 use App\Models\VendorContract;
+use App\Models\Warehouse;
 use App\Services\CamReconciliationService;
+use App\Services\CreditNoteService;
+use App\Services\DepreciationService;
+use App\Services\DisposeFixedAssetService;
 use App\Services\Eta\EtaSubmissionService;
+use App\Services\GeneratePreventiveWorkOrdersService;
+use App\Services\GrantCustodyService;
+use App\Services\GrantEmployeeAdvanceService;
+use App\Services\PayrollService;
 use App\Services\PercentageRentCalculationService;
+use App\Services\RecordAdvanceRepaymentService;
+use App\Services\SettleCustodyService;
+use App\Services\StockMovementService;
+use App\Services\VendorBillService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
@@ -188,7 +217,7 @@ class DemoSeeder extends Seeder
             // ADMIN TenantUser; tenant1 also gets a second, NON-admin (read-only)
             // user so the admin-can-write / others-read-only split is demoable.
             if ($i < 3) {
-                \App\Models\TenantUser::create([
+                TenantUser::create([
                     'tenant_id' => $tenant->id,
                     'name' => $tenantData['contact'] ?? 'Tenant Admin',
                     'email' => $portalEmail,
@@ -197,7 +226,7 @@ class DemoSeeder extends Seeder
                 ]);
 
                 if ($i === 0) {
-                    \App\Models\TenantUser::create([
+                    TenantUser::create([
                         'tenant_id' => $tenant->id,
                         'name' => 'Tenant Staff (read-only)',
                         'email' => 'staff1@atriomwalk.test',
@@ -303,10 +332,20 @@ class DemoSeeder extends Seeder
 
         // Auto-provision a budget for every property (current year), re-derive
         // them from billed levy items, then record a few demo spends.
-        \Illuminate\Support\Facades\Artisan::call('marketing:ensure-budgets');
-        \Illuminate\Support\Facades\Artisan::call('marketing:backfill-budgets');
+        Artisan::call('marketing:ensure-budgets');
+        Artisan::call('marketing:backfill-budgets');
         $this->seedMarketingSpends();
         $this->command->info('   Marketing budgets auto-provisioned + derived + demo spends');
+
+        // --- Operational + financial modules (22–26 + AP / expenses / deposits) ---
+        $employees = $this->seedHrEmployees($atriomWalk);
+        $this->seedTreasuryCustody($employees);
+        $this->seedInventory($atriomWalk);
+        $this->seedFixedAssets($atriomWalk);
+        $this->seedPreventiveMaintenance($atriomWalk);
+        $this->seedVendorBills($atriomWalk);
+        $this->seedExpenses($atriomWalk);
+        $this->seedSecurityDeposits();
 
         $plazaUnitCount = Unit::where('asset_id', $plazaAnnex->id)->count();
         $this->command->info("✅ Created Atriom Walk with {$occupiedCount} occupied, {$vacantCount} vacant units (+ {$plazaUnitCount} vacant units on Plaza Annex demo asset)");
@@ -317,6 +356,18 @@ class DemoSeeder extends Seeder
         $this->command->info('   Total leases: '.Lease::count());
         $this->command->info('   Total invoices: '.Invoice::count());
         $this->command->info('   Outstanding AR: EGP '.number_format(Invoice::whereIn('status', ['issued', 'partially_paid', 'overdue'])->sum('balance'), 2));
+
+        // General Ledger (module 21): post the double-entry journal from EVERY
+        // source document now that all of them exist. The sync sweep is windowed
+        // (only posts documents in the recent window by default); `--all`
+        // backfills the full history in one idempotent pass, so this must run
+        // LAST — after invoices, payments, credit notes, vendor bills, expenses,
+        // deposits, payroll, advances, custody, stock movements, and fixed-asset
+        // depreciation/disposals have all been seeded.
+        $this->command->newLine();
+        $this->command->info('📒 Posting General Ledger from all source documents (this may take a moment)...');
+        Artisan::call('accounting:sync-ledger', ['--all' => true]);
+        $this->command->info('   GL entries posted: '.JournalEntry::count().' journal entries');
     }
 
     /**
@@ -1461,7 +1512,7 @@ class DemoSeeder extends Seeder
             ->first();
         if ($applyTarget) {
             $partial = $this->makeCreditNote($applyTarget, 4000, 'return', 'Stock return processed for non-trading promotional fixture.');
-            $service = app(\App\Services\CreditNoteService::class);
+            $service = app(CreditNoteService::class);
             $service->issue($partial);
             $service->applyToInvoice($partial, $applyTarget, 2000);
         }
@@ -1556,13 +1607,13 @@ class DemoSeeder extends Seeder
             ['category' => 'printed_work', 'description' => 'Directory + signage reprint', 'frac' => 0.08],
         ];
 
-        foreach (\App\Models\MarketingBudget::all() as $budget) {
+        foreach (MarketingBudget::all() as $budget) {
             foreach ($samples as $i => $s) {
                 $amount = round((float) $budget->accrued_amount * $s['frac'], 2);
                 if ($amount <= 0) {
                     continue;
                 }
-                \App\Models\MarketingSpend::create([
+                MarketingSpend::create([
                     'marketing_budget_id' => $budget->id,
                     'category' => $s['category'],
                     'description' => $s['description'],
@@ -1573,5 +1624,478 @@ class DemoSeeder extends Seeder
                 ]);
             }
         }
+    }
+
+    /**
+     * HR / Employees (module 24): a small operator payroll for Atriom Walk —
+     * staff across departments, two advances (one part-repaid, one part-repaid),
+     * and two monthly payroll runs (last month approved + GL-postable, this month
+     * still draft). Advances/repayments/approval go through their single-action
+     * services so the invariants (active-only grant, no over-repay, positive net)
+     * hold exactly as they do in the UI. Returns the created employees so the
+     * treasury/custody seeder can grant custody to real holders.
+     */
+    private function seedHrEmployees(Asset $asset): Collection
+    {
+        $depts = Department::pluck('id', 'slug'); // slug => id
+
+        $roster = [
+            ['name' => 'Yasser Kamal',   'position' => 'Operations Manager',    'dept' => 'operations', 'salary' => 18000, 'pay' => 'bank'],
+            ['name' => 'Nourhan Adel',   'position' => 'Facilities Supervisor', 'dept' => 'operations', 'salary' => 11000, 'pay' => 'bank'],
+            ['name' => 'Mahmoud Fathy',  'position' => 'Maintenance Technician', 'dept' => 'operations', 'salary' => 6500,  'pay' => 'cash'],
+            ['name' => 'Sara Ibrahim',   'position' => 'Cleaning Team Lead',     'dept' => 'operations', 'salary' => 5200,  'pay' => 'cash'],
+            ['name' => 'Omar Sherif',    'position' => 'Security Shift Lead',    'dept' => 'operations', 'salary' => 5800,  'pay' => 'cash'],
+            ['name' => 'Dina Mostafa',   'position' => 'Accountant',            'dept' => 'accounting', 'salary' => 12000, 'pay' => 'bank'],
+            ['name' => 'Hana Youssef',   'position' => 'Leasing Coordinator',   'dept' => 'leasing',    'salary' => 9500,  'pay' => 'bank'],
+            ['name' => 'Karim Nabil',    'position' => 'Marketing Executive',   'dept' => 'marketing',  'salary' => 8800,  'pay' => 'bank'],
+            ['name' => 'Mona Saad',      'position' => 'HR Officer',            'dept' => 'hr',         'salary' => 9000,  'pay' => 'bank'],
+        ];
+
+        $employees = collect();
+        foreach ($roster as $i => $r) {
+            $employees->push(Employee::create([
+                'asset_id' => $asset->id,
+                'department_id' => $depts[$r['dept']] ?? null,
+                'code' => sprintf('EMP-%03d', $i + 1),
+                'name' => $r['name'],
+                'national_id' => '2'.rand(9000000000000, 9999999999999),
+                'position' => $r['position'],
+                'hire_date' => Carbon::now()->subMonths(rand(6, 36))->startOfMonth(),
+                'base_salary' => $r['salary'],
+                'payment_method' => $r['pay'],
+                'phone' => '+201'.rand(100000000, 999999999),
+                'status' => 'active',
+            ]));
+        }
+
+        // Advances (via services — active-only + no over-repay guards apply).
+        $grant = app(GrantEmployeeAdvanceService::class);
+        $repay = app(RecordAdvanceRepaymentService::class);
+
+        // Short salary advance — half repaid.
+        $adv1 = $grant->grant($employees[2], [
+            'amount' => 6000,
+            'advance_date' => Carbon::now()->subMonths(2)->toDateString(),
+            'type' => 'advance',
+            'paid_from' => 'cash',
+            'notes' => 'Salary advance.',
+        ]);
+        $repay->record($adv1, ['amount' => 3000, 'repaid_on' => Carbon::now()->subMonth()->toDateString(), 'method' => 'cash']);
+
+        // Staff loan — two instalments repaid, balance still outstanding.
+        $adv2 = $grant->grant($employees[1], [
+            'amount' => 20000,
+            'advance_date' => Carbon::now()->subMonths(3)->toDateString(),
+            'type' => 'loan',
+            'paid_from' => 'bank',
+            'notes' => 'Staff furniture loan (6-month instalments).',
+        ]);
+        $repay->record($adv2, ['amount' => 5000, 'repaid_on' => Carbon::now()->subMonths(2)->toDateString(), 'method' => 'bank']);
+        $repay->record($adv2, ['amount' => 5000, 'repaid_on' => Carbon::now()->subMonth()->toDateString(), 'method' => 'bank']);
+
+        // Payroll runs: last month approved (GL-postable), current month draft.
+        $payrollService = app(PayrollService::class);
+        foreach ([1 => 'approved', 0 => 'draft'] as $monthsBack => $finalState) {
+            $month = Carbon::now()->subMonths($monthsBack)->startOfMonth();
+            $payroll = Payroll::create([
+                'number' => Payroll::generateNumber($asset->code, $month),
+                'asset_id' => $asset->id,
+                'period_month' => $month,
+                'description' => 'Monthly payroll — '.$month->format('F Y'),
+                'paid_from' => 'bank',
+                'status' => 'draft',
+                'gross_salaries' => 0,
+                'salary_tax' => 0,
+                'social_insurance' => 0,
+                'net_paid' => 0,
+            ]);
+
+            // One line per employee; the run header derives from Σ lines on save.
+            foreach ($employees as $emp) {
+                $gross = (float) $emp->base_salary;
+                PayrollLine::create([
+                    'payroll_id' => $payroll->id,
+                    'employee_id' => $emp->id,
+                    'gross' => $gross,
+                    'salary_tax' => round($gross * 0.10, 2),
+                    'social_insurance' => round($gross * 0.11, 2),
+                ]);
+            }
+
+            if ($finalState === 'approved') {
+                $payrollService->approve($payroll->refresh());
+            }
+        }
+
+        $this->command->info("   Seeded {$employees->count()} employees, 2 advances (+repayments), 2 payroll runs (1 approved)");
+
+        return $employees;
+    }
+
+    /**
+     * Treasury / Custody (module 25): grant petty-cash custody to two holders via
+     * GrantCustodyService, then settle through SettleCustodyService — one custody
+     * fully settled (two expenses + a returned balance), one left partially
+     * outstanding. Both services enforce the balance invariant (no over-spend).
+     */
+    private function seedTreasuryCustody(Collection $employees): void
+    {
+        if ($employees->count() < 2) {
+            return;
+        }
+
+        $grant = app(GrantCustodyService::class);
+        $settle = app(SettleCustodyService::class);
+
+        // Custody #1 — operations manager, fully settled.
+        $c1 = $grant->grant($employees[0], [
+            'amount' => 8000,
+            'custody_date' => Carbon::now()->subDays(21)->toDateString(),
+            'paid_from' => 'cash',
+            'reference' => 'Petty cash — site supplies',
+            'purpose' => 'Common-area consumables and minor repairs.',
+        ]);
+        $settle->settle($c1, ['type' => 'expense', 'amount' => 3200, 'transaction_date' => Carbon::now()->subDays(16)->toDateString(), 'category' => 'maintenance', 'notes' => 'Plumbing fittings + sealant.']);
+        $settle->settle($c1, ['type' => 'expense', 'amount' => 4100, 'transaction_date' => Carbon::now()->subDays(9)->toDateString(), 'category' => 'cleaning_security', 'notes' => 'Cleaning materials restock.']);
+        $settle->settle($c1, ['type' => 'return', 'amount' => 700, 'transaction_date' => Carbon::now()->subDays(5)->toDateString(), 'method' => 'cash', 'notes' => 'Unspent balance returned.']);
+
+        // Custody #2 — facilities supervisor, partially outstanding.
+        $c2 = $grant->grant($employees[1], [
+            'amount' => 5000,
+            'custody_date' => Carbon::now()->subDays(10)->toDateString(),
+            'paid_from' => 'bank',
+            'reference' => 'Custody — HVAC spares',
+            'purpose' => 'Urgent HVAC spare parts.',
+        ]);
+        $settle->settle($c2, ['type' => 'expense', 'amount' => 2300, 'transaction_date' => Carbon::now()->subDays(4)->toDateString(), 'category' => 'maintenance', 'notes' => 'Compressor capacitor + belts.']);
+
+        $this->command->info('   Seeded 2 custodies (1 fully settled, 1 outstanding)');
+    }
+
+    /**
+     * Inventory (module 22): two warehouses for the asset, a shared catalog of
+     * spare parts + consumables, opening receipts (via StockMovementService so
+     * the GL posts the purchase value), a couple of consumptions issued against
+     * maintenance, and one shrinkage adjustment. On-hand stays comfortably above
+     * reorder levels so no urgent restock noise on first login.
+     */
+    private function seedInventory(Asset $asset): void
+    {
+        $svc = app(StockMovementService::class);
+
+        $parts = Warehouse::create(['asset_id' => $asset->id, 'name' => 'Parts Store', 'code' => 'PST', 'category' => 'spare parts', 'is_active' => true]);
+        $consum = Warehouse::create(['asset_id' => $asset->id, 'name' => 'Consumables Store', 'code' => 'CSM', 'category' => 'consumables', 'is_active' => true]);
+
+        $catalog = [
+            ['sku' => 'FLT-HVAC-STD', 'name' => 'HVAC air filter (standard)',   'category' => 'HVAC',        'unit' => 'each',  'cost' => 180, 'reorder' => 20,  'wh' => $parts,  'qty' => 60],
+            ['sku' => 'BELT-HVAC-A',  'name' => 'HVAC drive belt A-series',      'category' => 'HVAC',        'unit' => 'each',  'cost' => 95,  'reorder' => 10,  'wh' => $parts,  'qty' => 30],
+            ['sku' => 'LMP-LED-18W',  'name' => 'LED tube 18W',                  'category' => 'electrical',  'unit' => 'each',  'cost' => 65,  'reorder' => 40,  'wh' => $parts,  'qty' => 200],
+            ['sku' => 'CB-16A',       'name' => 'Circuit breaker 16A',           'category' => 'electrical',  'unit' => 'each',  'cost' => 140, 'reorder' => 15,  'wh' => $parts,  'qty' => 45],
+            ['sku' => 'PMP-SEAL-32',  'name' => 'Water pump seal 32mm',          'category' => 'plumbing',    'unit' => 'each',  'cost' => 220, 'reorder' => 8,   'wh' => $parts,  'qty' => 24],
+            ['sku' => 'TAP-MIX-CHR',  'name' => 'Mixer tap (chrome)',            'category' => 'plumbing',    'unit' => 'each',  'cost' => 480, 'reorder' => 6,   'wh' => $parts,  'qty' => 18],
+            ['sku' => 'EXT-CO2-5KG',  'name' => 'CO2 fire extinguisher 5kg',     'category' => 'fire-safety', 'unit' => 'each',  'cost' => 950, 'reorder' => 5,   'wh' => $parts,  'qty' => 15],
+            ['sku' => 'CLN-FLOOR-5L', 'name' => 'Floor cleaner concentrate 5L',  'category' => 'cleaning',    'unit' => 'litre', 'cost' => 240, 'reorder' => 30,  'wh' => $consum, 'qty' => 120],
+            ['sku' => 'CLN-GLASS-5L', 'name' => 'Glass cleaner 5L',              'category' => 'cleaning',    'unit' => 'litre', 'cost' => 190, 'reorder' => 20,  'wh' => $consum, 'qty' => 80],
+            ['sku' => 'BAG-TRASH-XL', 'name' => 'Heavy-duty trash bags (roll)',  'category' => 'cleaning',    'unit' => 'roll',  'cost' => 55,  'reorder' => 50,  'wh' => $consum, 'qty' => 400],
+            ['sku' => 'GLOVE-NITR-M', 'name' => 'Nitrile gloves (box of 100)',   'category' => 'cleaning',    'unit' => 'box',   'cost' => 120, 'reorder' => 25,  'wh' => $consum, 'qty' => 150],
+            ['sku' => 'PPR-TWL-ROLL', 'name' => 'Paper towel roll',              'category' => 'consumables', 'unit' => 'roll',  'cost' => 35,  'reorder' => 100, 'wh' => $consum, 'qty' => 600],
+        ];
+
+        $receiptDate = Carbon::now()->subDays(45);
+        foreach ($catalog as $c) {
+            $item = InventoryItem::create([
+                'sku' => $c['sku'],
+                'name' => $c['name'],
+                'category' => $c['category'],
+                'unit' => $c['unit'],
+                'unit_cost' => $c['cost'],
+                'reorder_level' => $c['reorder'],
+                'is_active' => true,
+            ]);
+
+            $svc->receive($c['wh'], $item, $c['qty'], $c['cost'], [
+                'moved_on' => $receiptDate->copy()->addDays(rand(0, 10)),
+                'reference' => 'PO-2026-'.str_pad((string) rand(1, 90), 4, '0', STR_PAD_LEFT),
+            ]);
+        }
+
+        // A couple of consumptions issued against maintenance + one shrinkage.
+        $filter = InventoryItem::where('sku', 'FLT-HVAC-STD')->first();
+        $cleaner = InventoryItem::where('sku', 'CLN-FLOOR-5L')->first();
+        $svc->record(['warehouse_id' => $parts->id, 'inventory_item_id' => $filter->id, 'type' => 'consumption', 'quantity' => 12, 'moved_on' => Carbon::now()->subDays(20), 'reference' => 'WO issue', 'notes' => 'Quarterly HVAC filter change.']);
+        $svc->record(['warehouse_id' => $consum->id, 'inventory_item_id' => $cleaner->id, 'type' => 'consumption', 'quantity' => 25, 'moved_on' => Carbon::now()->subDays(12), 'notes' => 'Monthly cleaning issue.']);
+        $svc->adjust($parts, $filter, -2, ['moved_on' => Carbon::now()->subDays(3), 'notes' => 'Stock-count correction (damaged units).']);
+
+        $this->command->info('   Seeded 2 warehouses, '.count($catalog).' inventory items with stock movements');
+    }
+
+    /**
+     * Fixed Assets (module 23): a small capital register for the property with
+     * back-dated acquisitions, straight-line monthly depreciation backfilled from
+     * each asset's acquisition month to the current month (via DepreciationService
+     * — idempotent, one entry per asset+month), and one terminal disposal.
+     */
+    private function seedFixedAssets(Asset $asset): void
+    {
+        $register = [
+            ['name' => 'Central HVAC chiller unit',      'tag' => 'FA-HVAC-01', 'category' => 'HVAC',      'cost' => 480000, 'salvage' => 30000, 'life' => 120, 'funded' => 'bank', 'age' => 30],
+            ['name' => 'Backup diesel generator 250kVA', 'tag' => 'FA-GEN-01',  'category' => 'generator', 'cost' => 620000, 'salvage' => 40000, 'life' => 180, 'funded' => 'bank', 'age' => 24],
+            ['name' => 'Passenger elevator (Zone C)',    'tag' => 'FA-ELV-01',  'category' => 'elevator',  'cost' => 850000, 'salvage' => 50000, 'life' => 240, 'funded' => 'bank', 'age' => 20],
+            ['name' => 'Management office furniture set', 'tag' => 'FA-FRN-01',  'category' => 'furniture', 'cost' => 90000,  'salvage' => 5000,  'life' => 60,  'funded' => 'cash', 'age' => 18],
+            ['name' => 'CCTV + access-control system',    'tag' => 'FA-SEC-01',  'category' => 'IT',        'cost' => 210000, 'salvage' => 10000, 'life' => 72,  'funded' => 'cash', 'age' => 15],
+            ['name' => 'Floor scrubber machine',          'tag' => 'FA-CLN-01',  'category' => 'equipment', 'cost' => 75000,  'salvage' => 5000,  'life' => 84,  'funded' => 'cash', 'age' => 28],
+        ];
+
+        $earliest = Carbon::now()->startOfMonth();
+        foreach ($register as $r) {
+            $acq = Carbon::now()->subMonths($r['age'])->startOfMonth();
+            if ($acq->lt($earliest)) {
+                $earliest = $acq->copy();
+            }
+            FixedAsset::create([
+                'asset_id' => $asset->id,
+                'name' => $r['name'],
+                'tag' => $r['tag'],
+                'category' => $r['category'],
+                'acquisition_date' => $acq,
+                'acquisition_cost' => $r['cost'],
+                'salvage_value' => $r['salvage'],
+                'useful_life_months' => $r['life'],
+                'method' => 'straight_line',
+                'funded_from' => $r['funded'],
+                'status' => 'active',
+            ]);
+        }
+
+        // Backfill monthly depreciation from the earliest acquisition to this month.
+        $depr = app(DepreciationService::class);
+        $posted = 0;
+        for ($m = $earliest->copy(); $m->lte(Carbon::now()->startOfMonth()); $m->addMonth()) {
+            $posted += $depr->run($m->copy(), [$asset->id]);
+        }
+
+        // Dispose the floor scrubber (replaced; sold for salvage) — terminal.
+        $scrubber = FixedAsset::where('tag', 'FA-CLN-01')->first();
+        if ($scrubber && $scrubber->status === 'active') {
+            app(DisposeFixedAssetService::class)->dispose($scrubber, [
+                'disposed_on' => Carbon::now()->subMonth()->toDateString(),
+                'proceeds' => 12000,
+                'proceeds_account' => 'bank',
+                'notes' => 'Replaced; sold to contractor for salvage.',
+            ]);
+        }
+
+        $this->command->info('   Seeded '.count($register)." fixed assets ({$posted} depreciation entries, 1 disposal)");
+    }
+
+    /**
+     * Preventive Maintenance (module 26): recurring plans (HVAC, fire-safety,
+     * elevator, generator) with past next-due dates so the generator raises work
+     * orders immediately, then one work order walked all the way to done with its
+     * checklist ticked — showing the full plan → work order → completion flow.
+     */
+    private function seedPreventiveMaintenance(Asset $asset): void
+    {
+        $ops = Department::where('slug', 'operations')->value('id');
+        $coolAir = Vendor::where('email', 'ops@cool-air.eg')->value('id');
+        $fireSafe = Vendor::where('email', 'audit@firesafe.eg')->value('id');
+        $brightSpark = Vendor::where('email', 'service@brightspark.eg')->value('id');
+
+        $plans = [
+            ['title' => 'HVAC filter & coil service',      'category' => 'hvac',        'unit' => 'weeks',  'freq' => 2, 'due' => -6,  'dept' => $ops, 'vendor' => $coolAir,
+                'checklist' => ['Inspect filter condition', 'Replace filter cartridge', 'Clean condenser coil', 'Check airflow pressure']],
+            ['title' => 'Monthly fire-safety inspection',  'category' => 'fire-safety', 'unit' => 'months', 'freq' => 1, 'due' => -3,  'dept' => $ops, 'vendor' => $fireSafe,
+                'checklist' => ['Inspect fire extinguishers', 'Test fire-alarm panel', 'Check emergency exits', 'Verify signage & lighting']],
+            ['title' => 'Elevator quarterly maintenance',  'category' => 'elevator',    'unit' => 'months', 'freq' => 3, 'due' => -10, 'dept' => $ops, 'vendor' => null,
+                'checklist' => ['Inspect cables & pulleys', 'Test brakes & governor', 'Check door mechanisms', 'Load test', 'Certify safety']],
+            ['title' => 'Generator monthly test-run',      'category' => 'generator',   'unit' => 'months', 'freq' => 1, 'due' => -2,  'dept' => $ops, 'vendor' => $brightSpark,
+                'checklist' => ['Check fuel & oil levels', 'Run under load 15 min', 'Inspect battery', 'Log readings']],
+        ];
+
+        foreach ($plans as $p) {
+            MaintenancePlan::create([
+                'asset_id' => $asset->id,
+                'unit_id' => null,
+                'title' => $p['title'],
+                'category' => $p['category'],
+                'description' => $p['title'].' — preventive schedule.',
+                'frequency_unit' => $p['unit'],
+                'frequency_value' => $p['freq'],
+                'checklist' => $p['checklist'],
+                'department_id' => $p['dept'],
+                'vendor_id' => $p['vendor'],
+                'next_due_date' => Carbon::now()->addDays($p['due'])->toDateString(),
+                'is_active' => true,
+            ]);
+        }
+
+        // Raise work orders for every due plan (idempotent).
+        $created = app(GeneratePreventiveWorkOrdersService::class)->run(Carbon::now()->toDateString());
+
+        // Complete the oldest open work order to show a full lifecycle.
+        $engineer = User::where('email', 'maintenance@mall.test')->first();
+        $wo = MaintenanceWorkOrder::where('status', 'open')->orderBy('scheduled_for')->first();
+        if ($wo && $engineer) {
+            $wo->update(['status' => 'in_progress']);
+            foreach ($wo->items as $item) {
+                $item->update(['is_done' => true, 'done_at' => Carbon::now()->subDay(), 'done_by_user_id' => $engineer->id]);
+            }
+            $wo->update(['status' => 'done', 'completed_at' => Carbon::now()->subDay(), 'completed_by_user_id' => $engineer->id]);
+        }
+
+        $this->command->info('   Seeded '.count($plans)." preventive plans, {$created} work orders generated (1 completed)");
+    }
+
+    /**
+     * Accounts Payable (module 21 source): vendor bills across the maintenance /
+     * cleaning-security / other categories in every lifecycle state (draft →
+     * approved → partially paid → paid). Approvals + payments go through
+     * VendorBillService so paid_amount / balance / status stay derived.
+     */
+    private function seedVendorBills(Asset $asset): void
+    {
+        $svc = app(VendorBillService::class);
+        $vendors = Vendor::whereIn('email', [
+            'ops@cool-air.eg', 'service@brightspark.eg', 'help@purewater.eg',
+            'contact@cleanfleet.eg', 'ops@secureguard.eg', 'support@peststop.eg',
+        ])->get()->keyBy('email');
+
+        $bills = [
+            ['email' => 'contact@cleanfleet.eg',  'category' => 'cleaning_security', 'subtotal' => 40000, 'days' => 55, 'state' => 'paid'],
+            ['email' => 'ops@secureguard.eg',     'category' => 'cleaning_security', 'subtotal' => 60000, 'days' => 50, 'state' => 'paid'],
+            ['email' => 'ops@cool-air.eg',        'category' => 'maintenance',       'subtotal' => 30000, 'days' => 40, 'state' => 'partially_paid'],
+            ['email' => 'service@brightspark.eg', 'category' => 'maintenance',       'subtotal' => 15000, 'days' => 30, 'state' => 'approved'],
+            ['email' => 'help@purewater.eg',      'category' => 'maintenance',       'subtotal' => 7500,  'days' => 20, 'state' => 'approved'],
+            ['email' => 'support@peststop.eg',    'category' => 'other',             'subtotal' => 5000,  'days' => 12, 'state' => 'draft'],
+            ['email' => 'contact@cleanfleet.eg',  'category' => 'cleaning_security', 'subtotal' => 40000, 'days' => 8,  'state' => 'draft'],
+        ];
+
+        $count = 0;
+        foreach ($bills as $b) {
+            $vendor = $vendors->get($b['email']);
+            if (! $vendor) {
+                continue;
+            }
+
+            $vat = round($b['subtotal'] * 0.14, 2);
+            $total = $b['subtotal'] + $vat;
+            $billDate = Carbon::now()->subDays($b['days']);
+
+            $bill = VendorBill::create([
+                'vendor_id' => $vendor->id,
+                'asset_id' => $asset->id,
+                'category' => $b['category'],
+                'bill_date' => $billDate->toDateString(),
+                'due_date' => $billDate->copy()->addDays(30)->toDateString(),
+                'reference' => 'INV-'.strtoupper(Str::random(6)),
+                'subtotal' => $b['subtotal'],
+                'vat_amount' => $vat,
+                'total' => $total,
+                'status' => 'draft',
+            ]);
+
+            if (in_array($b['state'], ['approved', 'partially_paid', 'paid'], true)) {
+                $svc->approve($bill);
+            }
+            if ($b['state'] === 'partially_paid') {
+                $svc->recordPayment($bill, round($total * 0.5, 2), 'bank_transfer', $billDate->copy()->addDays(10));
+            }
+            if ($b['state'] === 'paid') {
+                $svc->recordPayment($bill, (float) $total, 'bank_transfer', $billDate->copy()->addDays(15));
+            }
+
+            $count++;
+        }
+
+        $this->command->info("   Seeded {$count} vendor bills (draft / approved / partly-paid / paid)");
+    }
+
+    /**
+     * Direct operating expenses (module 21 source): a spread of recorded expenses
+     * across categories and cash/bank funding, some VAT-bearing, dated over the
+     * last ~2 months so the P&L and GL both have out-of-pocket cost data.
+     */
+    private function seedExpenses(Asset $asset): void
+    {
+        $samples = [
+            ['category' => 'utilities',         'desc' => 'Common-area electricity top-up',  'amount' => 8500, 'paid' => 'bank', 'days' => 50, 'vat' => true],
+            ['category' => 'utilities',         'desc' => 'Water authority bill',            'amount' => 3200, 'paid' => 'bank', 'days' => 44, 'vat' => false],
+            ['category' => 'maintenance',       'desc' => 'Emergency glass-door repair',     'amount' => 2400, 'paid' => 'cash', 'days' => 33, 'vat' => true],
+            ['category' => 'admin',             'desc' => 'Office stationery & printing',    'amount' => 1200, 'paid' => 'cash', 'days' => 28, 'vat' => true],
+            ['category' => 'marketing',         'desc' => 'Seasonal decoration materials',   'amount' => 6000, 'paid' => 'cash', 'days' => 20, 'vat' => true],
+            ['category' => 'cleaning_security', 'desc' => 'Extra weekend security shift',    'amount' => 3500, 'paid' => 'bank', 'days' => 14, 'vat' => false],
+            ['category' => 'other',             'desc' => 'Municipality permit renewal',     'amount' => 4500, 'paid' => 'bank', 'days' => 7,  'vat' => false],
+        ];
+
+        foreach ($samples as $s) {
+            $vat = $s['vat'] ? round($s['amount'] * 0.14, 2) : 0;
+            Expense::create([
+                'asset_id' => $asset->id,
+                'category' => $s['category'],
+                'description' => $s['desc'],
+                'amount' => $s['amount'],
+                'vat_amount' => $vat,
+                'total' => $s['amount'] + $vat,
+                'paid_from' => $s['paid'],
+                'expense_date' => Carbon::now()->subDays($s['days'])->toDateString(),
+                'status' => 'recorded',
+            ]);
+        }
+
+        $this->command->info('   Seeded '.count($samples).' direct expenses');
+    }
+
+    /**
+     * Security-deposit ledger (module 21 source): a deposit receipt at
+     * commencement for a spread of active leases, plus one partial refund and one
+     * forfeit for workflow variety. tenant_id / asset_id are derived from the
+     * lease by the model, so only lease_id is supplied.
+     */
+    private function seedSecurityDeposits(): void
+    {
+        $leases = Lease::where('status', 'active')
+            ->where('security_deposit', '>', 0)
+            ->orderByRaw('(id * 17) % 101')
+            ->limit(8)
+            ->get();
+
+        $count = 0;
+        foreach ($leases as $lease) {
+            DepositTransaction::create([
+                'lease_id' => $lease->id,
+                'type' => 'receipt',
+                'amount' => (float) $lease->security_deposit,
+                'transaction_date' => $lease->commencement_date,
+                'method' => 'bank',
+                'status' => 'recorded',
+                'notes' => 'Security deposit received on lease commencement.',
+            ]);
+            $count++;
+        }
+
+        // One partial refund and one forfeit for variety.
+        if ($leases->count() >= 2) {
+            DepositTransaction::create([
+                'lease_id' => $leases[0]->id,
+                'type' => 'refund',
+                'amount' => round((float) $leases[0]->security_deposit * 0.25, 2),
+                'transaction_date' => Carbon::now()->subDays(10),
+                'method' => 'bank',
+                'status' => 'recorded',
+                'notes' => 'Partial deposit refund after fit-out damage settlement.',
+            ]);
+            DepositTransaction::create([
+                'lease_id' => $leases[1]->id,
+                'type' => 'forfeit',
+                'amount' => round((float) $leases[1]->security_deposit * 0.10, 2),
+                'transaction_date' => Carbon::now()->subDays(6),
+                'method' => 'bank',
+                'status' => 'recorded',
+                'notes' => 'Portion forfeited against unpaid utilities on exit.',
+            ]);
+            $count += 2;
+        }
+
+        $this->command->info("   Seeded {$count} security-deposit transactions (receipts + refund + forfeit)");
     }
 }
