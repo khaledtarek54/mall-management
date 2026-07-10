@@ -8,6 +8,7 @@ use App\Filament\Admin\Resources\CreditNotes\Pages\ListCreditNotes;
 use App\Filament\Admin\Resources\CreditNotes\Schemas\CreditNoteForm;
 use App\Filament\Admin\Resources\CreditNotes\Tables\CreditNotesTable;
 use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
+use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Models\CreditNote;
 use BackedEnum;
@@ -22,6 +23,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 class CreditNoteResource extends Resource
 {
     use BypassesFilamentTenantAutoScope;
+    use GuardsAssetInScope;
     use RoleGatedActions;
 
     protected static ?string $model = CreditNote::class;

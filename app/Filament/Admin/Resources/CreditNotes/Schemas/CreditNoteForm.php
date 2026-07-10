@@ -52,10 +52,13 @@ class CreditNoteForm
                             if (! $tenantId) {
                                 return [];
                             }
-                            $assetId = \App\Support\TenantScope::currentAssetId();
+                            // Scope to the user's visible properties — in All-Properties
+                            // mode currentAssetId() is null, so fall back to the visible
+                            // set (a shared tenant may have invoices across properties).
+                            $visibleAssetIds = \App\Support\TenantScope::visibleAssetIds();
                             return Invoice::query()
                                 ->where('tenant_id', $tenantId)
-                                ->when($assetId, fn ($q) => $q->whereHas('lease.unit', fn ($u) => $u->where('asset_id', $assetId)))
+                                ->when($visibleAssetIds !== null, fn ($q) => $q->whereHas('lease.unit', fn ($u) => $u->whereIn('asset_id', $visibleAssetIds)))
                                 ->orderByDesc('issue_date')
                                 ->limit(50)
                                 ->get()
@@ -80,10 +83,16 @@ class CreditNoteForm
                         ->relationship(
                             'lease',
                             'reference',
-                            modifyQueryUsing: fn ($query) => $query->when(
-                                \App\Support\TenantScope::currentAssetId(),
-                                fn ($q, $assetId) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)),
-                            ),
+                            // Scope to the user's visible properties — in All-Properties
+                            // mode currentAssetId() is null, so without the visibleAssetIds()
+                            // fallback a restricted user could pick any property's lease and
+                            // credit another property's books (property isolation).
+                            modifyQueryUsing: function ($query) {
+                                $ids = \App\Support\TenantScope::visibleAssetIds();
+                                if ($ids !== null) {
+                                    $query->whereHas('unit', fn ($u) => $u->whereIn('asset_id', $ids));
+                                }
+                            },
                         )
                         ->searchable()
                         ->preload(),

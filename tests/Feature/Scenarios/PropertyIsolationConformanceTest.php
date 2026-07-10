@@ -86,17 +86,26 @@ if (! function_exists('propertyIsolationMustGuardResources')) {
     function propertyIsolationMustGuardResources(): array
     {
         return [
+            // Auto-stamped on create (isScopedToTenant=true) but asset_id is editable on
+            // EDIT in All-Properties mode (Filament does NOT re-stamp on update).
+            'Unit' => \App\Filament\Admin\Resources\Units\UnitResource::class,
+            'CamExpensePool' => \App\Filament\Admin\Resources\CamExpensePools\CamExpensePoolResource::class,
+            'UtilityMeter' => \App\Filament\Admin\Resources\UtilityMeters\UtilityMeterResource::class,
             'Employee' => \App\Filament\Admin\Resources\Employees\EmployeeResource::class,
             'FixedAsset' => \App\Filament\Admin\Resources\FixedAssets\FixedAssetResource::class,
             'Warehouse' => \App\Filament\Admin\Resources\Warehouses\WarehouseResource::class,
             'Custody' => \App\Filament\Admin\Resources\Custodies\CustodyResource::class,
             'MaintenanceWorkOrder' => \App\Filament\Admin\Resources\MaintenanceWorkOrders\MaintenanceWorkOrderResource::class,
             'MaintenancePlan' => \App\Filament\Admin\Resources\MaintenancePlans\MaintenancePlanResource::class,
+            // Not auto-stamped (isScopedToTenant=false): asset_id / lease is client-supplied.
             'Expense' => \App\Filament\Admin\Resources\Expenses\ExpenseResource::class,
             'VendorBill' => \App\Filament\Admin\Resources\VendorBills\VendorBillResource::class,
             'Payroll' => \App\Filament\Admin\Resources\Payrolls\PayrollResource::class,
             'JournalEntry' => \App\Filament\Admin\Resources\JournalEntries\JournalEntryResource::class,
+            'OwnerRequest' => \App\Filament\Admin\Resources\OwnerRequests\OwnerRequestResource::class,
+            // Asset derived from a client-supplied lease (guard validates the lease's property).
             'DepositTransaction' => \App\Filament\Admin\Resources\DepositTransactions\DepositTransactionResource::class,
+            'CreditNote' => \App\Filament\Admin\Resources\CreditNotes\CreditNoteResource::class,
         ];
     }
 }
@@ -184,3 +193,41 @@ it('wires the asset-scope write guard on every must-guard resource', function (s
         "{$resource} has create/edit pages but none call assertAssetInScope (property-isolation write guard)",
     );
 })->with(propertyIsolationMustGuardResources());
+
+// Self-enforcement: a NEW not-auto-stamped resource with a client-editable asset_id
+// must be registered as must-guard (and thus wired). Filament only stamps asset_id on
+// CREATE for isScopedToTenant=true resources, so isScopedToTenant=false + an asset_id
+// field means the property is fully client-supplied — the highest-risk write gap.
+it('registers every not-auto-stamped owned resource that exposes an editable asset_id', function () {
+    $mustGuard = array_values(propertyIsolationMustGuardResources());
+    $offenders = [];
+
+    foreach (propertyIsolationAdminResources() as $resource) {
+        $model = $resource::getModel();
+        if (! PropertyIsolation::isOwned($model)) {
+            continue;
+        }
+        if ($resource::isScopedToTenant()) {
+            continue; // Filament force-stamps asset_id on create → not client-supplied there
+        }
+
+        $hasAssetField = false;
+        foreach (glob(dirname((new ReflectionClass($resource))->getFileName()).'/Schemas/*Form.php') ?: [] as $formFile) {
+            if (str_contains((string) file_get_contents($formFile), "make('asset_id')")) {
+                $hasAssetField = true;
+                break;
+            }
+        }
+
+        if ($hasAssetField && ! in_array($resource, $mustGuard, true)) {
+            $offenders[] = $resource;
+        }
+    }
+
+    expect($offenders)->toBe(
+        [],
+        'Not-auto-stamped resources exposing an editable asset_id that are missing from the '
+            .'must-guard set (add to propertyIsolationMustGuardResources + wire assertAssetInScope): '
+            .implode(', ', $offenders),
+    );
+});

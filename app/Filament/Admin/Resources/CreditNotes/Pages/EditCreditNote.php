@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\CreditNotes\Pages;
 
 use App\Filament\Admin\Resources\CreditNotes\CreditNoteResource;
 use App\Models\Invoice;
+use App\Models\Lease;
 use App\Services\CreditNoteService;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
@@ -16,6 +17,18 @@ use Illuminate\Support\Facades\Auth;
 class EditCreditNote extends EditRecord
 {
     protected static string $resource = CreditNoteResource::class;
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        // Block re-homing via a tampered lease_id (property is derived from the lease).
+        if (! empty($data['lease_id'])) {
+            CreditNoteResource::assertAssetInScope(
+                Lease::with('unit')->find($data['lease_id'])?->unit?->asset_id
+            );
+        }
+
+        return $data;
+    }
 
     protected function getHeaderActions(): array
     {

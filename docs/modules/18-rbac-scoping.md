@@ -2,6 +2,12 @@
 
 Role-based access control (RBAC) + tenant-per-property isolation, ensuring staff see only their assigned properties while super_admin has unrestricted access.
 
+> **Total property isolation** (reads **and** writes) has a dedicated reference:
+> **[docs/PROPERTY-ISOLATION.md](../PROPERTY-ISOLATION.md)** — the shared-vs-isolated register
+> (`App\Support\PropertyIsolation`), the read-scoping traits, the `GuardsAssetInScope` write guard
+> (Filament stamps `asset_id` only on *create*, so an editable `asset_id` on *edit* needs a guard), and
+> the self-enforcing `PropertyIsolationConformanceTest`. Read it before adding a property-owned module.
+
 ## 1. Purpose & business context
 
 The platform is a multi-property ERP: a single operator runs multiple malls, and staff are assigned to specific properties or across all properties. Authorization must:

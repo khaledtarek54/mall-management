@@ -1,8 +1,10 @@
 <?php
 
+use App\Filament\Admin\Resources\CreditNotes\CreditNoteResource;
 use App\Filament\Admin\Resources\DepositTransactions\DepositTransactionResource;
 use App\Filament\Admin\Resources\Expenses\ExpenseResource;
 use App\Filament\Admin\Resources\JournalEntries\JournalEntryResource;
+use App\Filament\Admin\Resources\OwnerRequests\OwnerRequestResource;
 use App\Filament\Admin\Resources\Payrolls\PayrollResource;
 use App\Filament\Admin\Resources\VendorBills\VendorBillResource;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -25,6 +27,8 @@ $guarded = [
     'Payroll' => PayrollResource::class,
     'JournalEntry' => JournalEntryResource::class,
     'DepositTransaction' => DepositTransactionResource::class,
+    'OwnerRequest' => OwnerRequestResource::class,
+    'CreditNote' => CreditNoteResource::class,
 ];
 
 beforeEach(function () {

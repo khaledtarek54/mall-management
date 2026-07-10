@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\UtilityMeters;
 
 use App\Filament\Admin\Resources\Concerns\BypassesScopingOnAll;
+use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\UtilityMeters\Pages\CreateUtilityMeter;
 use App\Filament\Admin\Resources\UtilityMeters\Pages\EditUtilityMeter;
@@ -21,6 +22,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 class UtilityMeterResource extends Resource
 {
     use BypassesScopingOnAll;
+    use GuardsAssetInScope;
     use RoleGatedActions;
 
     protected static ?string $model = UtilityMeter::class;

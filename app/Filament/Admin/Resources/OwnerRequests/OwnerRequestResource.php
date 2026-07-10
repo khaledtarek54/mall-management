@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\OwnerRequests;
 
+use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\OwnerRequests\Pages\CreateOwnerRequest;
 use App\Filament\Admin\Resources\OwnerRequests\Pages\ListOwnerRequests;
@@ -18,6 +19,7 @@ use Illuminate\Support\Facades\Auth;
 
 class OwnerRequestResource extends Resource
 {
+    use GuardsAssetInScope;
     use RoleGatedActions;
 
     protected static ?string $model = OwnerRequest::class;

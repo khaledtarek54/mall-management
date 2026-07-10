@@ -8,6 +8,7 @@ use App\Filament\Admin\Resources\CamExpensePools\Pages\ListCamExpensePools;
 use App\Filament\Admin\Resources\CamExpensePools\Schemas\CamExpensePoolForm;
 use App\Filament\Admin\Resources\CamExpensePools\Tables\CamExpensePoolsTable;
 use App\Filament\Admin\Resources\Concerns\BypassesScopingOnAll;
+use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Models\CamExpensePool;
 use BackedEnum;
@@ -21,6 +22,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 class CamExpensePoolResource extends Resource
 {
     use BypassesScopingOnAll;
+    use GuardsAssetInScope;
     use RoleGatedActions;
 
     protected static function permissionModule(): string

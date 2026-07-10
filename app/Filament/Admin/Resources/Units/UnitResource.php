@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Units;
 
 use App\Filament\Admin\Resources\Concerns\BypassesScopingOnAll;
+use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Units\Pages\CreateUnit;
 use App\Filament\Admin\Resources\Units\Pages\EditUnit;
@@ -22,6 +23,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 class UnitResource extends Resource
 {
     use BypassesScopingOnAll;
+    use GuardsAssetInScope;
     use RoleGatedActions;
 
     protected static ?string $model = Unit::class;
