@@ -266,3 +266,30 @@ it('confirms no SHARED model carries an asset_id column (except acknowledged con
                 ."it is likely per-property and belongs in OWNED (else its resource escapes the scoping gate)");
     }
 });
+
+// A dashboard widget must scope by TenantScope::visibleAssetIds() (or applyTo), NOT
+// currentAssetId() — the latter is null in "All Properties" mode, so a restricted
+// multi-property user would see the whole portfolio's KPIs (the 2026-07 adversarial
+// sweep found five widgets doing exactly this). Comments mentioning currentAssetId()
+// are fine; a real call is not.
+it('confirms no dashboard widget scopes by currentAssetId()', function () {
+    $offenders = [];
+
+    foreach (glob(app_path('Filament/Admin/Widgets/*.php')) as $file) {
+        foreach (file($file) as $i => $line) {
+            $trimmed = ltrim($line);
+            if ($trimmed === '' || str_starts_with($trimmed, '//') || str_starts_with($trimmed, '*')) {
+                continue; // skip blank + comment lines
+            }
+            if (str_contains($line, 'currentAssetId(')) {
+                $offenders[] = basename($file).':'.($i + 1);
+            }
+        }
+    }
+
+    expect($offenders)->toBe(
+        [],
+        'Widgets scoping by currentAssetId() leak the whole portfolio to a restricted user in '
+            .'All-Properties mode — use TenantScope::visibleAssetIds(): '.implode(', ', $offenders),
+    );
+});
