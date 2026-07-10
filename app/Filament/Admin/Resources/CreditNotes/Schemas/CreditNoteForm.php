@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\CreditNotes\Schemas;
 
+use App\Models\CreditNote;
 use App\Models\Invoice;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
@@ -17,6 +18,13 @@ class CreditNoteForm
 {
     public static function configure(Schema $schema): Schema
     {
+        // A credit note is freely editable only while draft. Once issued it is a live
+        // AR/GL document (a sales-return posting) — its target, date and line items are
+        // frozen; a mistake is corrected by voiding it, not by a silent edit. Mirrors
+        // the invoice lock. Status stays open so the void transition still works.
+        // (GL integrity hardening — Phase 1.)
+        $locked = fn (?CreditNote $record) => $record !== null && $record->status !== 'draft';
+
         return $schema->columns(1)->components([
             Section::make(__('admin.sections.credit_note_details'))
                 ->columns(3)
@@ -30,6 +38,7 @@ class CreditNoteForm
                     Select::make('tenant_id')
                         ->label(__('admin.resources.tenant.singular'))
                         ->options(fn () => \App\Support\TenantScope::selectableTenantOptions())
+                        ->disabled($locked)
                         ->searchable()
                         ->preload()
                         ->required()
@@ -37,6 +46,7 @@ class CreditNoteForm
 
                     Select::make('invoice_id')
                         ->label(__('admin.fields.invoice'))
+                        ->disabled($locked)
                         ->options(function (Get $get) {
                             $tenantId = $get('tenant_id');
                             if (! $tenantId) {
@@ -66,6 +76,7 @@ class CreditNoteForm
 
                     Select::make('lease_id')
                         ->label(__('admin.fields.lease'))
+                        ->disabled($locked)
                         ->relationship(
                             'lease',
                             'reference',
@@ -87,12 +98,23 @@ class CreditNoteForm
                     DatePicker::make('issue_date')
                         ->label(__('admin.fields.issue_date'))
                         ->required()
+                        ->disabled($locked)
                         ->default(now())
                         ->native(false),
 
                     Select::make('status')
                         ->label(__('admin.tables.common.status'))
-                        ->options(fn () => __('admin.statuses.credit_note'))
+                        // 'draft' is not a selectable target once the note is finalized —
+                        // reverting would re-open the locked money fields (see the model
+                        // guard in CreditNote::booted).
+                        ->options(function (?CreditNote $record) {
+                            $options = __('admin.statuses.credit_note');
+                            if ($record && $record->status !== 'draft') {
+                                unset($options['draft']);
+                            }
+
+                            return $options;
+                        })
                         ->required()
                         ->default('draft')
                         ->native(false),
@@ -108,6 +130,9 @@ class CreditNoteForm
                         ->minItems(1)
                         ->addActionLabel(__('admin.actions.add_item'))
                         ->reorderable(false)
+                        // Freeze the credit-note lines once issued (its sales-return
+                        // breakdown in the GL). A disabled repeater shows them read-only.
+                        ->disabled($locked)
                         ->live()
                         ->afterStateUpdated(fn (Set $set, Get $get) => self::recomputeTotals($set, $get))
                         ->deleteAction(fn ($action) => $action->after(fn (Set $set, Get $get) => self::recomputeTotals($set, $get)))

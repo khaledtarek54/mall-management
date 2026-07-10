@@ -28,6 +28,12 @@ The system allows an operator to:
 
 ## 3. Business rules & invariants
 
+> **Finalized credit notes are immutable in the form (GL integrity, Phase 1).** A credit note is
+> freely editable only while `draft`; once issued, the admin form disables its items and the
+> tenant/invoice/lease/issue_date fields — a mistake is corrected by voiding it, not a silent edit
+> that would desync the sales-return posting. Reverting a finalized note to `draft` is refused (UI
+> options + a `CreditNote::updating` guard). See [module 21 §Document immutability](21-general-ledger.md).
+
 | Rule | Enforcement | Test coverage |
 |------|-------------|---------------|
 | **Initialization**: A new credit note defaults to `status='draft'`, `balance=total`, `applied_amount=0`, `currency='EGP'`, `applied_at=null`. | `CreditNote` boot hook (creating). | Implicit in setup. |

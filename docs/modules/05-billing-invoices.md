@@ -41,6 +41,14 @@ This is the core AR (accounts receivable) engine; all recurring revenue flows th
 
 ## 3. Business rules & invariants
 
+> **Finalized invoices are immutable in the form (GL integrity, Phase 1).** Once an invoice is
+> past `draft` (they're born `issued`), the admin form disables its line items and the
+> lease/tenant/issue_date selects — corrections go through a void / re-issue or a credit note, not a
+> silent edit that would desync the GL. `status` stays editable for forward transitions, but
+> reverting to `draft` is refused (UI options + an `Invoice::updating` guard) so the lock can't be
+> bypassed. System paths (LateFeeService, CAM) still mutate via the model. See
+> [module 21 §Document immutability](21-general-ledger.md).
+
 ### Money & VAT
 
 1. **VAT is 14% and only applies to service charges, utilities, and parking — NOT base rent or percentage rent.** This is controlled per charge:

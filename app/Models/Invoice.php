@@ -217,6 +217,28 @@ class Invoice extends Model
             }
         });
 
+        // Finalized (issued+) invoice immutability guard (GL integrity — Phase 1).
+        // A draft is freely editable; once issued the invoice is a live AR/GL document:
+        //   1. it cannot be reverted to draft (that would re-open the form-locked fields);
+        //   2. its GL-identity fields (issue_date = period, tenant/lease = AR dimension)
+        //      are immutable — no system path rewrites them (LateFeeService/CAM touch only
+        //      subtotal/total/items, which stay writable, and via saveQuietly so they skip
+        //      this event anyway).
+        // Defense-in-depth behind the form lock — closes the JS-tamper / API / tinker path.
+        static::updating(function (self $invoice) {
+            if ($invoice->getOriginal('status') === 'draft') {
+                return; // draft is freely editable (and draft→issued must be allowed)
+            }
+            if ($invoice->status === 'draft') {
+                throw new \DomainException('An issued invoice cannot be returned to draft — void it or issue a credit note instead.');
+            }
+            foreach (['issue_date', 'tenant_id', 'lease_id'] as $field) {
+                if ($invoice->isDirty($field)) {
+                    throw new \DomainException("A finalized invoice's {$field} is immutable — void and re-issue instead.");
+                }
+            }
+        });
+
         // Cancelling/un-cancelling an invoice changes whether its marketing levy
         // counts toward the fund (recomputeAccrued excludes cancelled). The item
         // hook doesn't fire on a status-only change, so re-derive here.

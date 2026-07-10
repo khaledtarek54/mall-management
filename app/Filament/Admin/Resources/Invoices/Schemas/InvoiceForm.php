@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Invoices\Schemas;
 
+use App\Models\Invoice;
 use App\Models\Lease;
 use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
@@ -18,6 +19,16 @@ class InvoiceForm
 {
     public static function configure(Schema $schema): Schema
     {
+        // Once an invoice is issued it is a live AR + GL document (and, once filed,
+        // an ETA tax invoice) — its money-affecting fields are immutable. Corrections
+        // go through a void / re-issue or a credit note, never a silent edit. Only a
+        // (vestigial) draft is freely editable. Mirrors the VendorBill/Expense $locked
+        // convention. The derived amounts (subtotal/vat/total/balance) are already
+        // read-only, so locking the ITEMS repeater + the GL-identity selects (lease /
+        // tenant / issue_date) is what freezes the numbers. Status stays open so
+        // dispute / cancel transitions still work. (GL integrity hardening — Phase 1.)
+        $locked = fn (?Invoice $record) => $record !== null && $record->status !== 'draft';
+
         return $schema->columns(1)->components([
             Section::make(__('admin.sections.invoice_details'))
                 ->columns(3)
@@ -28,6 +39,7 @@ class InvoiceForm
                         ->dehydrated(),
                     Select::make('lease_id')
                         ->label(__('admin.fields.lease'))
+                        ->disabled($locked)
                         ->relationship(
                             'lease',
                             'reference',
@@ -89,6 +101,7 @@ class InvoiceForm
                         ->required(),
                     Select::make('tenant_id')
                         ->label(__('admin.resources.tenant.singular'))
+                        ->disabled($locked)
                         ->relationship('tenant', 'name', modifyQueryUsing: function ($query) {
                             // Scope to tenants of the current property — a
                             // property-restricted user must not invoice another
@@ -105,12 +118,23 @@ class InvoiceForm
                         ->required(),
                     Select::make('status')
                         ->label(__('admin.tables.common.status'))
-                        ->options(fn () => __('admin.statuses.invoice'))
+                        // 'draft' is not a selectable target once the invoice is finalized —
+                        // reverting would re-open the locked money fields (see the model
+                        // guard in Invoice::booted). Forward transitions stay available.
+                        ->options(function (?Invoice $record) {
+                            $options = __('admin.statuses.invoice');
+                            if ($record && $record->status !== 'draft') {
+                                unset($options['draft']);
+                            }
+
+                            return $options;
+                        })
                         ->required()
                         ->native(false),
                     DatePicker::make('issue_date')
                         ->label(__('admin.fields.issue_date'))
                         ->required()
+                        ->disabled($locked)
                         ->live(onBlur: true)
                         ->native(false),
                     DatePicker::make('due_date')
@@ -148,6 +172,10 @@ class InvoiceForm
                         ->minItems(1)
                         ->addActionLabel(__('admin.actions.add_item'))
                         ->reorderable(false)
+                        // Freeze the line items once issued — they are the invoice's
+                        // revenue breakdown in the GL. A disabled relationship repeater
+                        // still shows the items read-only. (Phase 1.)
+                        ->disabled($locked)
                         ->live()
                         ->afterStateUpdated(fn (Set $set, Get $get) => self::recomputeInvoiceTotals($set, $get))
                         ->deleteAction(fn ($action) => $action->after(fn (Set $set, Get $get) => self::recomputeInvoiceTotals($set, $get)))

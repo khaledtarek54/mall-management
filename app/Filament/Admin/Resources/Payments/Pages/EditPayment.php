@@ -52,7 +52,10 @@ class EditPayment extends EditRecord
 
     protected function guardAllocationsTotal(array $data): void
     {
-        $amount = round((float) ($data['amount'] ?? 0), 2);
+        // The amount field is locked (disabled) on a finalized payment, so it isn't in
+        // the submitted data — fall back to the persisted amount so re-allocation (which
+        // stays allowed) still caps against the real receipt total instead of 0.
+        $amount = round((float) ($data['amount'] ?? $this->record?->amount ?? 0), 2);
         $allocated = 0.0;
         foreach ($data['allocations'] ?? [] as $row) {
             $allocated += (float) ($row['allocated_amount'] ?? 0);

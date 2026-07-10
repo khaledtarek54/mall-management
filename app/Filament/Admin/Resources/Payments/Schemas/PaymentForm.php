@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Payments\Schemas;
 
 use App\Models\Invoice;
+use App\Models\Payment;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -19,6 +20,14 @@ class PaymentForm
 {
     public static function configure(Schema $schema): Schema
     {
+        // A payment records a real cash receipt — once it exists, its amount / date /
+        // method / payer are frozen (a mistake is corrected by voiding + re-recording,
+        // not a silent edit that would desync the GL cash/AR movement). The allocations
+        // repeater and `status` stay open: re-allocating a receipt across invoices is a
+        // legitimate operation, and status still needs to move (initiated→captured,
+        // captured→failed chargeback). (GL integrity hardening — Phase 1.)
+        $locked = fn (?Payment $record) => $record !== null;
+
         return $schema->columns(1)->components([
             Section::make(__('admin.sections.payment'))
                 ->columns(3)
@@ -30,6 +39,7 @@ class PaymentForm
                         ->dehydrated(false),
                     Select::make('tenant_id')
                         ->label(__('admin.resources.tenant.singular'))
+                        ->disabled($locked)
                         ->relationship('tenant', 'name', modifyQueryUsing: function ($query) {
                             // Scope to tenants of the current property — a
                             // property-restricted user must not allocate a
@@ -51,6 +61,7 @@ class PaymentForm
                     DatePicker::make('payment_date')
                         ->label(__('admin.fields.payment_date'))
                         ->required()
+                        ->disabled($locked)
                         ->default(now())
                         ->native(false),
                     TextInput::make('amount')
@@ -59,6 +70,7 @@ class PaymentForm
                         ->numeric()
                         ->minValue(0)
                         ->required()
+                        ->disabled($locked)
                         ->live(onBlur: true)
                         ->afterStateUpdated(function (Set $set, Get $get) {
                             self::suggestAllocations($get('tenant_id'), $get, $set);
@@ -67,6 +79,7 @@ class PaymentForm
                         ->label(__('admin.fields.method'))
                         ->options(fn () => __('admin.enums.method'))
                         ->required()
+                        ->disabled($locked)
                         ->native(false),
                     Select::make('status')
                         ->label(__('admin.tables.common.status'))

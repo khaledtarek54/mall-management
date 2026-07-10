@@ -117,5 +117,27 @@ class CreditNote extends Model
                 $note->balance = (float) ($note->total ?? 0) - (float) ($note->applied_amount ?? 0);
             }
         });
+
+        // Finalized credit-note immutability guard (GL integrity — Phase 1). A note is
+        // freely editable while draft; once issued it is a live sales-return posting:
+        //   1. it cannot be reverted to draft (that would re-open the form-locked fields);
+        //   2. its target/date (issue_date, tenant, invoice, lease) are immutable — the
+        //      service only ever writes derived fields (applied_amount/balance/status).
+        // The amounts + line items are frozen by the form lock (the derived totals aren't
+        // guarded here to avoid float-round-trip false positives). Defense-in-depth behind
+        // the form lock — closes the JS-tamper / API / tinker path.
+        static::updating(function (self $note) {
+            if ($note->getOriginal('status') === 'draft') {
+                return; // draft is freely editable (and draft→issued must be allowed)
+            }
+            if ($note->status === 'draft') {
+                throw new \DomainException('A finalized credit note cannot be returned to draft — void it and issue a new one instead.');
+            }
+            foreach (['issue_date', 'tenant_id', 'invoice_id', 'lease_id'] as $field) {
+                if ($note->isDirty($field)) {
+                    throw new \DomainException("A finalized credit note's {$field} is immutable — void it and issue a new one.");
+                }
+            }
+        });
     }
 }

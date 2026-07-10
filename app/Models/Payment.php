@@ -245,6 +245,23 @@ class Payment extends Model
             }
         });
 
+        // A captured payment's cash movement is immutable — no system path rewrites its
+        // amount/date once captured (the gateway callback only flips status, and returns
+        // early on an already-captured payment). Guard on the ORIGINAL status so the
+        // initiated→captured capture is never blocked. Defense-in-depth behind the form
+        // lock — covers the API / tinker / bulk-edit paths a UI lock can't.
+        // (GL integrity hardening — Phase 1.)
+        static::updating(function (self $payment) {
+            if ($payment->getOriginal('status') !== 'captured') {
+                return;
+            }
+            foreach (['amount', 'payment_date'] as $field) {
+                if ($payment->isDirty($field)) {
+                    throw new \DomainException("A captured payment's {$field} is immutable — void and re-record instead.");
+                }
+            }
+        });
+
         static::saved(function (self $payment) {
             // Status change (e.g. captured ↔ failed) must roll forward to invoices.
             $payment->recomputeAllocatedInvoices();

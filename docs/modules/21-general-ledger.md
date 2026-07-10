@@ -415,6 +415,34 @@ the right row so the *daily* sweep re-derives them:
   stays best-effort (exit 0) and a legacy un-postable doc can't turn the cron red; a human
   operator's `--all` still exits non-zero to surface failures loudly.
 
+**Document immutability — finalized AR documents are locked (Phase 1 hardening):** a posted
+AR/GL document must not be silently rewritten — corrections go through a void / re-issue or a
+credit note. The admin forms lock the money-affecting fields once a document is finalized,
+matching the existing VendorBill/Expense `$locked` convention (UI `->disabled()`):
+- **Invoice** — once past `draft` (invoices are born `issued`), the `items` repeater and the
+  GL-identity selects (`lease`, `tenant`, `issue_date`) are disabled. `status`, `due_date`,
+  `notes` stay open.
+- **Payment** — once it exists, `amount`, `payment_date`, `method`, `tenant` are disabled; the
+  **allocations repeater stays open** (re-allocating a receipt across invoices is legitimate)
+  and `status` stays open (initiated→captured, captured→failed).
+- **Credit note** — once past `draft`, the items + `tenant`/`invoice`/`lease`/`issue_date` are
+  disabled.
+- **Lock-bypass guard:** `status` stays editable for legitimate transitions, but reverting a
+  finalized invoice/credit-note to `draft` (which would re-open the locked fields) is refused
+  at **both** layers — `draft` is dropped from the status options, and an `updating` model
+  guard throws on a non-draft→draft transition (closing the JS-tamper / API / tinker path).
+- **Model-layer field guards (defense-in-depth):** beyond the form lock, `updating` guards throw
+  if the truly-immutable fields change on an already-finalized record — invoice `issue_date`/
+  `tenant_id`/`lease_id`, captured-payment `amount`/`payment_date`, credit-note `issue_date`/
+  `tenant_id`/`invoice_id`/`lease_id`. Keyed on the *original* status so the transition *into*
+  finalized isn't blocked. `subtotal`/`total`/`items` are intentionally left to the UI lock only
+  (LateFeeService/CAM rewrite them on issued invoices via `saveQuietly`).
+- **Intentionally not locked:** MarketingSpend (edits fully reconcile via its budget + GL
+  cascade — locking would remove a valid correction) and FixedAsset (terminal immutability is
+  already enforced by `EditFixedAsset`'s `abort_unless(active)` + hidden edit action for
+  disposed). Also left open as metadata: invoice `period_start`/`period_end`/`due_date`,
+  payment gateway/cheque fields, credit-note `reason` (none change a booked amount).
+
 **Known limitation — cross-property payments in per-property reports:** reports scope by
 the *entry's* `asset_id`. A single payment that settles invoices across two properties is
 booked as a consolidated entry (`asset_id` = null) with per-asset receivable lines, so it

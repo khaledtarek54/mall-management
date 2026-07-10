@@ -143,17 +143,39 @@ Close the orphan + windowed-miss holes. Small, surgical, independently shippable
 - [ ] **F11 — Schedule a weekly `accounting:sync-ledger --all`** (defense-in-depth) so nothing the
   window misses can persist beyond a week. Keep the daily windowed run for freshness.
 
-### Phase 1 — Document immutability (the core of best-practice B)
-- [ ] **F2 — Extend the `$locked` pattern to AR forms.** Add
-  `$locked = fn ($r) => $r && ! in_array($r->status, ['draft'], true)` (invoice: lock once `issued`+;
-  payment: lock once `captured`; credit note: lock once `issued`/`applied`) and apply `->disabled($locked)`
-  to every money field + the items repeater. Also lock `MarketingSpend` and `FixedAsset` cost fields
-  after they've posted.
-- [ ] **Model-layer immutability guard (defense against UI bypass).** Add a `saving()` guard on each
-  finalized document (or a shared trait) that **throws** if a money-affecting attribute is dirty on a
-  record whose status is terminal/posted — Filament `->disabled()` is UI-only and bypassable via bulk
-  actions / API / tinker. This realizes the project's "terminal records are immutable" invariant for
-  money documents and satisfies ETA (an `eta_status='valid'` invoice must be frozen).
+### Phase 1 — Document immutability ✅ DONE (2026-07-10)
+- [x] **F2 — Extend the `$locked` pattern to AR forms.** `InvoiceForm`/`PaymentForm`/`CreditNoteForm`
+  now disable the money-affecting fields once finalized, matching the existing VendorBill/Expense
+  convention. Invoice: `status !== 'draft'` → lock items repeater + lease/tenant/issue_date. Payment:
+  `record !== null` → lock amount/date/method/tenant (allocations + status stay open). Credit note:
+  `status !== 'draft'` → lock items + tenant/invoice/lease/issue_date.
+- [x] **Lock-bypass guard (from review — was CRITICAL).** `status` stays editable for legitimate
+  transitions, but reverting a finalized invoice/credit-note to `draft` would re-open the locked
+  fields. Closed at **both** layers: `draft` dropped from the status options (UI + `in:` validation)
+  **and** a model `updating` guard throws on a non-draft→draft transition (covers JS-tamper / API /
+  tinker). `EditPayment::guardAllocationsTotal` also had to fall back to the persisted amount, since
+  the now-disabled `amount` field isn't in the submitted data.
+- [x] **Model-layer immutability guards (defense-in-depth, added at owner's request).** `updating`
+  guards on the fields that **no system path ever writes post-finalization** (verified via the
+  mutation-surface discovery), keyed on the record's *original* status so the transition *into*
+  finalized is never blocked:
+  - **Invoice** (was issued+): `issue_date` (period), `tenant_id`, `lease_id` (AR dimension) are immutable.
+  - **Payment** (was captured): `amount`, `payment_date` are immutable (the gateway callback only flips
+    status and returns early on an already-captured payment).
+  - **Credit note** (was issued+): `issue_date`, `tenant_id`, `invoice_id`, `lease_id` are immutable.
+  These cover the API / tinker / bulk-edit paths the UI lock can't. `subtotal`/`total`/`items` are
+  **deliberately NOT** model-guarded — LateFeeService/CAM legitimately rewrite them on issued invoices
+  (via `saveQuietly`, which skips the event anyway), and guarding derived floats risks round-trip false
+  positives; those stay UI-locked. All legitimate flows (late fee, CAM, capture, credit apply, every
+  forward status transition) still pass — full suite green.
+- **Deliberate scope calls** (backed by the discovery):
+  - **MarketingSpend NOT locked** — edits fully reconcile via its budget + GL cascade; locking removes a
+    valid correction with no integrity gain.
+  - **FixedAsset NOT locked** — terminal immutability is already enforced (`EditFixedAsset` `abort_unless(active)`
+    + hidden edit action for disposed); 'active' is the normal working state and cost edits cascade to the GL.
+- **Tests:** `tests/Feature/Regression/FinalizedDocumentLockTest.php` (10) — fields disabled when finalized /
+  enabled when draft, allocations stay open, both layers of the draft-revert guard, and each model guard
+  fires while its legitimate transitions/system writes still pass. Full suite **1702 green**.
 
 ### Phase 2 — Near-real-time posting + freshness everywhere
 - [ ] **`afterCommit` sync job.** On finalize/cancel/soft-delete of every posting source, dispatch a

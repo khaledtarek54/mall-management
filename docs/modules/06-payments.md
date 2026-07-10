@@ -30,6 +30,13 @@ The module ensures money math is exact, AR ageing is accurate, and every payment
 
 ## 3. Business rules & invariants
 
+> **A recorded payment's money fields are immutable in the form (GL integrity, Phase 1).** Once a
+> payment exists, the admin form disables `amount`, `payment_date`, `method`, and `tenant` — a
+> mistake is corrected by voiding + re-recording, not a silent edit that would desync the GL cash/AR
+> movement. The **allocations repeater stays editable** (re-allocating a receipt across invoices is
+> legitimate — it bumps the payment so the GL sweep re-derives the split) and `status` stays open
+> (initiated→captured, captured→failed). See [module 21 §Document immutability](21-general-ledger.md).
+
 ### AR Balance Computation (Invoice::recomputeTotals)
 The *single source of truth* for paid amount and balance:
 
