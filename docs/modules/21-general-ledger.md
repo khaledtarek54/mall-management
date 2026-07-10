@@ -561,6 +561,18 @@ the finalized-document locks, and a closed-period *delete* intentionally reverse
 current open period (above); *preventing* the trap (don't close a period with pending re-syncs)
 is the Phase-4 close gate.
 
+**Close gate + deep tie-out (Phase 4 hardening) — done:** `PeriodService::closePeriod` /
+`closeFiscalYear` refuse to close while any document whose posted entry lives in the period(s)
+is out of sync with its current state — a read-only dry-run (`LedgerPoster::wouldChange`) over
+those periods' entries. This **prevents the closed-period trap being created**: you can't close a
+period that still has a pending re-post/void, which would otherwise strand once the period locks.
+The message tells the accountant to "Post to GL now" first; the year-end action gates *before*
+posting the closing entry so a refusal leaves no orphan. Separately, **`billing:reconcile --deep`**
+adds a `gl_in_sync` check that dry-runs `wouldChange` over **every** posting document — catching
+drift the AR/AP control-account tie-out can't see (a mis-typed revenue split, wrong VAT, a stale
+cash/inventory/deposit/payroll posting). It's opt-in (re-derives every doc — can take minutes on a
+large database) for pre-filing audits; the default `billing:reconcile` stays fast.
+
 ## Bilingual glossary (مصطلحات)
 
 | English | Arabic |

@@ -906,6 +906,8 @@ return [
         'ledger_posted_with_issues' => 'Ledger updated, but some documents could not be posted. Run the reconciliation check (billing:reconcile) or contact support.',
         'ledger_sync_failed_title' => 'Ledger sync failed',
         'ledger_sync_failed_body' => ':count document(s) could not be posted to the general ledger — usually a closed accounting period. Reopen the period and re-sync (Post to GL now, or accounting:sync-ledger --all).',
+        'close_blocked_unsynced' => 'Cannot close: :count document(s) in this period are out of sync with the general ledger. Run “Post to GL now” (or accounting:sync-ledger --all), then close.',
+        'close_blocked_title' => 'Close blocked — ledger not in sync',
         'journal_entry_voided' => 'Journal entry voided',
         'journal_entry_voided_body' => 'Reversing entry :number created.',
         'period_closed' => 'Period closed',

@@ -228,16 +228,30 @@ Close the orphan + windowed-miss holes. Small, surgical, independently shippable
   de-dupes an unchanged count, shows the warning on a report subheading, a windowed run preserves an
   out-of-window warning, and a full `--all` clears it once everything posts.
 
-### Phase 4 — Trustworthy tie-out + close gate
-- [ ] **F6 — Expand the GL tie-out** in `BooksReconciliationService::glTieOut()` beyond AR/AP: add
-  cash/bank, VAT output/recoverable, deposits-held, inventory, and payroll-withholding control
-  accounts, plus a **universal check**: for every live source, its freshly re-derived payload must
-  equal its posted entry (catches F3-class misclassification the balance-only checks miss).
-- [ ] **Make `--month` runs include a GL freshness/tie-out check** (or clearly document that
-  pre-close checks must use the all-time run) so the pre-close gate doesn't skip the GL.
-- [ ] **F5 — Gate period/year close on a clean sync.** Before `closePeriod` / `YearEndClose`: run a
-  scoped sync of all documents in the period, then require the expanded tie-out to be green; **refuse
-  the close** otherwise with a clear message. Prevents closing stale books and manufacturing the F4 trap.
+### Phase 4 — Trustworthy tie-out + close gate ✅ DONE (2026-07-10)
+- [x] **F5 — Close gate (prevents the trap being created).** `PeriodService::closePeriod` /
+  `closeFiscalYear` now call `assertPeriodsReconciled()` before flipping status: for every posting
+  document whose *posted* entry lives in the period(s) being closed, a read-only dry-run
+  (`LedgerPoster::wouldChange`) checks it still matches its current state. If any is out of sync (an
+  edit/delete not yet re-synced), the close is **refused** with "N document(s) not yet posted — Post to
+  GL now, then close" — so closing can never strand a pending re-post/void in a newly-closed period (the
+  F4 trap). The year-end action gates **before** posting the closing entry (no orphan on refusal); both
+  Filament close actions catch the `DomainException` and show it as a notification.
+- [x] **F6 — Universal GL-in-sync check (expands the tie-out beyond AR/AP).** `billing:reconcile --deep`
+  adds a `gl_in_sync` check that dry-runs `wouldChange` over **every** posting document — catching drift
+  the AR/AP control-account tie-out can't see (a mis-typed revenue split, wrong VAT, a stale
+  cash/inventory/deposit/payroll posting). Opt-in (`--deep`) because it re-derives every doc; the default
+  run stays fast. This is the general form of "every source's re-derived payload equals its posted entry",
+  which subsumes per-account tie-outs. (The AR/AP balance tie-out remains all-time only, as before —
+  documented; the per-period pre-close guarantee is the close gate above.)
+- **Tests:** `tests/Feature/Regression/CloseGateTest.php` (3) — the gate refuses a period with an
+  out-of-sync doc and allows it once synced, and `--deep` catches a revenue-split drift that the shallow
+  AR tie-out passes (proving the added coverage). Full suite green.
+- **Review:** safe to commit, no critical/high (`wouldChange` verified to exactly mirror `sync()`).
+  Fixed the block-message wording (docs can be posted-but-stale/deleted, not only "not yet posted"), noted
+  `--deep` can take minutes on a large DB, and documented that `wouldChange` reads `posted` entries only.
+  Known follow-ups (non-blocking): `--deep` could chunk; the year-end double-gate has a narrow theoretical
+  race (`close()` is idempotent, so a retry recovers).
 
 ### Phase 5 — First-class void/cancel for AR documents (F10)
 - [ ] **"Void invoice" action** (super-admin / accounting): sets `status='cancelled'` with a reason +

@@ -48,10 +48,31 @@ class ListAccountingPeriods extends ListRecords
                 ->modalDescription(__('admin.actions.year_end_close_confirm'))
                 ->action(function (array $data): void {
                     $year = (int) $data['year'];
+                    $fiscalYear = FiscalYear::where('year', $year)->first();
+                    $entry = null;
 
-                    $entry = app(YearEndCloseService::class)->close($year);
-                    if ($fiscalYear = FiscalYear::where('year', $year)->first()) {
-                        app(PeriodService::class)->closeFiscalYear($fiscalYear);
+                    try {
+                        // Gate BEFORE posting the closing entry so a blocked close leaves no
+                        // orphaned closing entry behind (the entry posts only if the gate passes).
+                        if ($fiscalYear) {
+                            app(PeriodService::class)->assertPeriodsReconciled(
+                                $fiscalYear->periods()->pluck('id')->all(),
+                            );
+                        }
+
+                        $entry = app(YearEndCloseService::class)->close($year);
+                        if ($fiscalYear) {
+                            app(PeriodService::class)->closeFiscalYear($fiscalYear);
+                        }
+                    } catch (\DomainException $e) {
+                        Notification::make()
+                            ->title(__('admin.notifications.close_blocked_title'))
+                            ->body($e->getMessage())
+                            ->danger()
+                            ->persistent()
+                            ->send();
+
+                        return;
                     }
 
                     Notification::make()

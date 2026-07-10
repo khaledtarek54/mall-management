@@ -14,13 +14,15 @@ use Illuminate\Console\Command;
  */
 class ReconcileBooksCommand extends Command
 {
-    protected $signature = 'billing:reconcile {--month= : Optional YYYY-MM to scope to invoices issued that month}';
+    protected $signature = 'billing:reconcile
+        {--month= : Optional YYYY-MM to scope to invoices issued that month}
+        {--deep : Also verify every posting document ledger entry matches its current state (all-time; slower)}';
 
     protected $description = 'Independently re-derive the AR books and confirm stored totals tie out (read-only)';
 
     public function handle(BooksReconciliationService $service): int
     {
-        $report = $service->run($this->option('month'));
+        $report = $service->run($this->option('month'), (bool) $this->option('deep'));
 
         $this->newLine();
         $this->info("Books reconciliation — period: {$report['period']}");

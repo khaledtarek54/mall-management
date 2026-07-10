@@ -906,6 +906,8 @@ return [
         'ledger_posted_with_issues' => 'تم تحديث الأستاذ، لكن تعذّر ترحيل بعض المستندات. شغّل فحص المطابقة (billing:reconcile) أو تواصل مع الدعم.',
         'ledger_sync_failed_title' => 'فشل ترحيل الأستاذ',
         'ledger_sync_failed_body' => 'تعذّر ترحيل :count مستند إلى الأستاذ العام — غالبًا بسبب فترة محاسبية مقفلة. أعد فتح الفترة ثم أعد الترحيل (ترحيل للأستاذ الآن، أو accounting:sync-ledger --all).',
+        'close_blocked_unsynced' => 'تعذّر الإقفال: :count مستند في هذه الفترة غير متزامن مع الأستاذ العام. شغّل «ترحيل للأستاذ الآن» (أو accounting:sync-ledger --all) ثم أقفل.',
+        'close_blocked_title' => 'تعذّر الإقفال — الأستاذ غير متزامن',
         'journal_entry_voided' => 'تم إلغاء القيد',
         'journal_entry_voided_body' => 'تم إنشاء القيد العكسي :number.',
         'period_closed' => 'تم إقفال الفترة',

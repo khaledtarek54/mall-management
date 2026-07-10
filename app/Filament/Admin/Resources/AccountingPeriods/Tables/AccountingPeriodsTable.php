@@ -63,7 +63,19 @@ class AccountingPeriodsTable
                     ->authorize(fn () => auth()->user()?->can('accounting_periods.manage') ?? false)
                     ->requiresConfirmation()
                     ->action(function (AccountingPeriod $record): void {
-                        app(PeriodService::class)->closePeriod($record);
+                        try {
+                            app(PeriodService::class)->closePeriod($record);
+                        } catch (\DomainException $e) {
+                            // Close gate: documents in this period aren't synced to the GL yet.
+                            Notification::make()
+                                ->title(__('admin.notifications.close_blocked_title'))
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->persistent()
+                                ->send();
+
+                            return;
+                        }
                         Notification::make()
                             ->title(__('admin.notifications.period_closed'))
                             ->success()

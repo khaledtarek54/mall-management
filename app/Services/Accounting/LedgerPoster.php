@@ -140,6 +140,43 @@ class LedgerPoster
         });
     }
 
+    /**
+     * Dry-run of sync(): would a fresh sync of this source change the ledger? True when the
+     * source's posted entry is out of step with its CURRENT state — no entry but it has an
+     * effect (would post), an entry but no effect now / trashed (would void), or an entry that
+     * differs from the re-derived payload (would re-post). Read-only (no lock, no write) — used
+     * by the reconcile harness's GL-in-sync check and the period-close gate.
+     */
+    public function wouldChange(Model $source): bool
+    {
+        $journalizer = $this->journalizerFor($source);
+        if (! $journalizer) {
+            return false;
+        }
+
+        $trashed = method_exists($source, 'trashed') && $source->trashed();
+        $payload = $trashed ? null : $journalizer->payload($source);
+
+        // Only 'posted' entries, matching sync()'s void/re-post decision. (post()'s idempotency
+        // guard also considers 'draft' entries, but no code path ever keys a draft entry to a
+        // source — manual drafts have no source — so this can't diverge from sync() today.)
+        $existing = JournalEntry::query()
+            ->where('source_type', $source->getMorphClass())
+            ->where('source_id', $source->getKey())
+            ->where('status', 'posted')
+            ->latest('id')
+            ->first();
+
+        if ($payload === null) {
+            return $existing !== null; // effectless (cancelled/trashed) but still posted → would void
+        }
+        if ($existing === null) {
+            return true; // has an effect, nothing posted → would post
+        }
+
+        return ! $this->matches($existing, $payload); // differs → would re-post
+    }
+
     /** True when a posted entry's lines already equal the payload's (same accounts + amounts). */
     protected function matches(JournalEntry $entry, array $payload): bool
     {

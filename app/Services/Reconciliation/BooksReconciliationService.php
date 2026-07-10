@@ -8,7 +8,9 @@ use App\Models\JournalEntry;
 use App\Models\Payment;
 use App\Models\VendorBill;
 use App\Services\Accounting\AccountResolver;
+use App\Services\Accounting\LedgerPoster;
 use App\Services\Accounting\LedgerReportService;
+use App\Support\LedgerRealtimeSync;
 
 /**
  * Independently re-derives the accounts-receivable books from SOURCE records
@@ -33,9 +35,11 @@ class BooksReconciliationService
 
     /**
      * @param  string|null  $month  Optional 'YYYY-MM' filter on issue_date; null = all invoices.
+     * @param  bool  $deep  Also run the all-time GL-in-sync check (every posting document's entry
+     *                      matches its current state) — slower (re-derives every doc), for pre-filing audits.
      * @return array{period:string, ok:bool, checks:array<int,array>, controlTotals:array}
      */
-    public function run(?string $month = null): array
+    public function run(?string $month = null, bool $deep = false): array
     {
         $query = Invoice::query()
             ->where('status', '!=', 'cancelled')
@@ -199,6 +203,14 @@ class BooksReconciliationService
                     $d[] = ['ref' => 'Accounts Payable', 'detail' => "GL {$gl['ap']['gl']} ≠ source AP {$gl['ap']['expected']} (delta {$gl['ap']['delta']})"];
                 }
                 $checks[] = $this->check('gl_tie_out', 'General ledger AR/AP ties to source documents', $d);
+
+                // Deep, per-document check (opt-in via --deep): every posting document's entry
+                // must equal its current re-derived state. Catches drift the AR/AP control-account
+                // tie-out can't see — a mis-typed revenue split, wrong VAT, a stale cash/inventory/
+                // deposit/payroll posting — by dry-running sync() over every source. Slower.
+                if ($deep) {
+                    $checks[] = $this->check('gl_in_sync', 'Every posting document\'s ledger entry matches its current state', $this->glDriftDiscrepancies());
+                }
             }
         }
 
@@ -277,6 +289,40 @@ class BooksReconciliationService
             'ar' => ['gl' => $glAr, 'expected' => $expectedAr, 'delta' => round($glAr - $expectedAr, 2)],
             'ap' => ['gl' => $glAp, 'expected' => $expectedAp, 'delta' => round($glAp - $expectedAp, 2)],
         ];
+    }
+
+    /**
+     * The GL-in-sync check body: dry-run sync() over every posting document and collect the ones
+     * whose posted entry is out of step with their current state (would post / void / re-post).
+     * Read-only via LedgerPoster::wouldChange. Capped so a mass drift can't flood the output.
+     *
+     * @return array<int,array{ref:string,detail:string}>
+     */
+    public function glDriftDiscrepancies(): array
+    {
+        $poster = app(LedgerPoster::class);
+        $drifted = [];
+
+        foreach (LedgerRealtimeSync::SOURCES as $class) {
+            $query = $class::query();
+            if (method_exists(new $class, 'trashed')) {
+                $query->withTrashed();
+            }
+
+            foreach ($query->cursor() as $model) {
+                if ($poster->wouldChange($model)) {
+                    $drifted[] = [
+                        'ref' => class_basename($class).' #'.$model->getKey(),
+                        'detail' => 'ledger entry is out of sync with the document — run accounting:sync-ledger',
+                    ];
+                    if (count($drifted) >= 100) {
+                        return $drifted; // cap — the count is enough to fail the check
+                    }
+                }
+            }
+        }
+
+        return $drifted;
     }
 
     /** @param array<int,array{ref:string,detail:string}> $discrepancies */
