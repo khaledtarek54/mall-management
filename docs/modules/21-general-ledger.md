@@ -544,6 +544,23 @@ now appear on **all** statement pages (Trial Balance, Journal Entries, Income St
 Balance Sheet, General Ledger). Disabled under the test suite (`sync` queue would race the
 deterministic sync/sweep the tests drive).
 
+**Sweep-failure alerting (Phase 3 hardening) — done:** an un-postable document must never be
+silent. `SyncLedgerCommand` stamps `ledger_last_sync_failures` and, when that count newly
+appears or changes, sends a `LedgerSyncFailedNotification` (bell) to the GL managers
+(`permission('journal_entries.post')`) — de-duped so a persistent failure alerts once, not
+every night. The count also shows on **every** report page's "Ledger last synced" subheading
+(⚠ N documents could not be posted — reopen the period). A **windowed** run never *clears*
+the count (it lacks the scope to re-verify an old stranded doc — the trap doc is outside the
+2-day window); only a full `--all` run (manual, or the weekly backstop) resets it to 0, so the
+warning persists until the doc is actually posted (fails safe: over-warn, never false-clear).
+The scheduled run stays best-effort
+exit-0 (the cron isn't perpetually red), but the **closed-period reversal trap** — a document
+whose entry can't be voided/re-posted because its period (and the current period) is closed —
+is now loud instead of a silent log line. Note: closed-period *edits* are already blocked by
+the finalized-document locks, and a closed-period *delete* intentionally reverses into the
+current open period (above); *preventing* the trap (don't close a period with pending re-syncs)
+is the Phase-4 close gate.
+
 ## Bilingual glossary (مصطلحات)
 
 | English | Arabic |

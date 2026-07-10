@@ -199,6 +199,7 @@ return [
     'reports' => [
         'ledger_last_synced' => 'آخر ترحيل للأستاذ :time',
         'ledger_never_synced' => 'لم يتم الترحيل بعد — اضغط «ترحيل للأستاذ الآن».',
+        'ledger_sync_failures' => '⚠ تعذّر ترحيل :count مستند — أعد فتح الفترة المعنية ثم «ترحيل للأستاذ الآن».',
         'trial_balance_title' => 'ميزان المراجعة',
         'general_ledger_title' => 'دفتر الأستاذ',
         'cash_flow_title' => 'قائمة التدفقات النقدية',
@@ -903,6 +904,8 @@ return [
         'journal_entry_post_failed' => 'تعذّر ترحيل القيد',
         'ledger_posted' => 'تم الترحيل إلى دفتر الأستاذ العام — الدفاتر محدَّثة الآن.',
         'ledger_posted_with_issues' => 'تم تحديث الأستاذ، لكن تعذّر ترحيل بعض المستندات. شغّل فحص المطابقة (billing:reconcile) أو تواصل مع الدعم.',
+        'ledger_sync_failed_title' => 'فشل ترحيل الأستاذ',
+        'ledger_sync_failed_body' => 'تعذّر ترحيل :count مستند إلى الأستاذ العام — غالبًا بسبب فترة محاسبية مقفلة. أعد فتح الفترة ثم أعد الترحيل (ترحيل للأستاذ الآن، أو accounting:sync-ledger --all).',
         'journal_entry_voided' => 'تم إلغاء القيد',
         'journal_entry_voided_body' => 'تم إنشاء القيد العكسي :number.',
         'period_closed' => 'تم إقفال الفترة',

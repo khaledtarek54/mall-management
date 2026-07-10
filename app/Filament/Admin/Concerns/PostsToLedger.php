@@ -60,6 +60,15 @@ trait PostsToLedger
             return __('admin.reports.ledger_never_synced');
         }
 
-        return __('admin.reports.ledger_last_synced', ['time' => $when]);
+        $line = __('admin.reports.ledger_last_synced', ['time' => $when]);
+
+        // Surface un-postable documents from the last sync (the closed-period trap et al.)
+        // right on the report the accountant is reading, so a failure is never invisible.
+        $failed = (int) (SystemSetting::get('ledger_last_sync_failures') ?? 0);
+        if ($failed > 0) {
+            $line .= ' — '.__('admin.reports.ledger_sync_failures', ['count' => $failed]);
+        }
+
+        return $line;
     }
 }

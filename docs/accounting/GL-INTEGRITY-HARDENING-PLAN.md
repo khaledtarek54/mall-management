@@ -200,13 +200,33 @@ Close the orphan + windowed-miss holes. Small, surgical, independently shippable
   no-ops on a missing source, the dispatch is wired to every source, and all three statement pages expose
   the button + subheading. Full suite **1707 green**.
 
-### Phase 3 — Closed-period safety + alerting
-- [ ] **F4 — Block edit/delete of a document with a posted entry in a closed period.** A model-layer
-  guard (reuse Phase 1's guard) refuses the change with "reopen period YYYY-MM first". Removes the
-  silent-drift path entirely.
-- [ ] **Alert on sweep failures.** Add `->onFailure()` / a notification when `counts['failed'] > 0`
-  on the scheduled run (today it's `Log::warning` + exit 0). Optionally make the scheduled run also
-  exit non-zero when failures occur, so monitoring catches it.
+### Phase 3 — Sweep-failure alerting (F4 safety net) ✅ DONE (2026-07-10)
+- [x] **Alert on sweep failures.** `SyncLedgerCommand` now stamps `ledger_last_sync_failures` and sends
+  a `LedgerSyncFailedNotification` (bell, database channel) to the GL managers (`permission('journal_entries.post')`
+  → super_admin + accounting) whenever the failure count newly appears or changes — de-duped so a persistent
+  failure alerts once, not every night. The count is also surfaced on **every** report page's freshness
+  subheading (⚠ N documents could not be posted — reopen the period, then Post to GL now). The scheduled run
+  stays best-effort exit-0 (so the cron isn't perpetually red) but the failure is now **never silent** — which
+  is the actual fix for the closed-period reversal trap (a doc that can't be voided/re-posted because its
+  period is closed surfaces loudly).
+- **Reconsidered — no broad "block edit/delete of a closed-period document" guard.** The original sketch
+  wanted a model guard refusing any change to a doc with a closed-period entry. On inspection that's both
+  mostly-redundant and partly wrong:
+  - **Edits** of a finalized doc's GL fields are already blocked by Phase 1 (form locks + identity model
+    guards); the residual GL-changing path (a late fee added via `saveQuietly`) bypasses model events anyway,
+    so a guard wouldn't catch it — the sweep + this alert do.
+  - **Deletes** of a closed-period doc are **intentionally handled** by the existing design (the void reverses
+    into the current open period — documented in module 21); a blanket block would contradict that and risk
+    breaking legitimate system writes (e.g. ETA re-submission on an old invoice).
+  - **Preventing** the trap (don't close a period while docs are pending re-sync) is the right lever, and it
+    lives in **Phase 4's close-gate** (sync + clean tie-out before close). So Phase 3 makes the trap loud;
+    Phase 4 stops it being created.
+- **Review fixes:** a **windowed** run no longer false-clears the warning for an *old* stranded doc
+  (only a full `--all` run may reset the count to 0 — the trap doc is outside the 2-day window), and the
+  `Notification::send` is wrapped best-effort so a notification hiccup can't fail the exit-0 sweep.
+- **Tests:** `tests/Feature/Regression/LedgerSyncAlertTest.php` (5) — alerts the GL managers on a failure,
+  de-dupes an unchanged count, shows the warning on a report subheading, a windowed run preserves an
+  out-of-window warning, and a full `--all` clears it once everything posts.
 
 ### Phase 4 — Trustworthy tie-out + close gate
 - [ ] **F6 — Expand the GL tie-out** in `BooksReconciliationService::glTieOut()` beyond AR/AP: add

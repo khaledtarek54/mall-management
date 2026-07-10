@@ -18,8 +18,10 @@ use App\Models\Payment;
 use App\Models\Payroll;
 use App\Models\StockMovement;
 use App\Models\SystemSetting;
+use App\Models\User;
 use App\Models\VendorBill;
 use App\Models\VendorBillPayment;
+use App\Notifications\LedgerSyncFailedNotification;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\LedgerPoster;
 use App\Services\Reconciliation\BooksReconciliationService;
@@ -27,6 +29,7 @@ use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 
 /**
  * Reconcile the general ledger to the business documents — posts journal entries
@@ -80,6 +83,12 @@ class SyncLedgerCommand extends Command
         // Record when the sweep last ran so the accounting screens can show a
         // trustworthy "Ledger last synced" indicator (survives cache clears).
         SystemSetting::put('ledger_last_synced_at', now()->toIso8601String());
+
+        // Surface any un-postable documents (the closed-period reversal trap et al.)
+        // loudly — a bell alert to the GL managers + a failure count the report pages
+        // show — instead of only a log line. Best-effort exit-0 keeps the cron from
+        // going perpetually red, but the failure is never silent.
+        $this->recordAndAlertFailures($counts['failed']);
 
         // The scheduled (windowed) run is best-effort and idempotent — a single
         // un-postable legacy doc shouldn't red-flag the nightly task forever.
@@ -169,6 +178,46 @@ class SyncLedgerCommand extends Command
             $counts['failed']++;
             Log::warning('Ledger sync failed for '.$model::class.' #'.$model->getKey().': '.$e->getMessage());
             $this->warn('  ✗ '.class_basename($model).' #'.$model->getKey().': '.$e->getMessage());
+        }
+    }
+
+    /**
+     * Stamp the failure count (shown as a warning on the report pages via PostsToLedger)
+     * and alert the GL managers when it newly appears or changes — so an un-postable
+     * document (typically the closed-period reversal trap) is never silent. De-duped
+     * against the previous count so a persistent failure alerts once, not every run.
+     */
+    private function recordAndAlertFailures(int $failed): void
+    {
+        $previous = (int) (SystemSetting::get('ledger_last_sync_failures') ?? 0);
+
+        // A windowed run only visits the recent 2-day window, so it must NOT clear a
+        // warning for an OLD un-postable doc — the closed-period trap doc is by definition
+        // outside the window (its period closed in the past; it hasn't been touched). Only
+        // a full-scope run (--all, incl. the weekly backstop) has the scope to lower the
+        // count to 0. A windowed run may still RAISE it when it finds a fresh failure.
+        // (Fails safe: over-warn rather than false-clear.)
+        $fullScope = (bool) $this->option('all');
+        if ($failed === 0 && ! $fullScope) {
+            return; // keep the existing stamp; don't clear what this run couldn't re-verify
+        }
+
+        SystemSetting::put('ledger_last_sync_failures', (string) $failed);
+
+        if ($failed === 0 || $failed === $previous) {
+            return;
+        }
+
+        // Alert whoever manages the books (super_admin + accounting). All best-effort:
+        // guard the spatie permission lookup AND the send so a notification hiccup can
+        // never fail the (deliberately exit-0) sweep it is merely reporting on.
+        try {
+            $recipients = User::query()->permission('journal_entries.post')->get();
+            if ($recipients->isNotEmpty()) {
+                Notification::send($recipients, new LedgerSyncFailedNotification($failed));
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Ledger sync-failure alert could not be sent: '.$e->getMessage());
         }
     }
 

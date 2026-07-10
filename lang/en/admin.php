@@ -199,6 +199,7 @@ return [
     'reports' => [
         'ledger_last_synced' => 'Ledger last synced :time',
         'ledger_never_synced' => 'Ledger not yet synced — click “Post to GL now”.',
+        'ledger_sync_failures' => '⚠ :count document(s) could not be posted — reopen the affected period, then “Post to GL now”.',
         'trial_balance_title' => 'Trial Balance',
         'general_ledger_title' => 'General Ledger',
         'cash_flow_title' => 'Cash-Flow Statement',
@@ -903,6 +904,8 @@ return [
         'journal_entry_post_failed' => 'Could not post the entry',
         'ledger_posted' => 'Posted to the general ledger — the books are now up to date.',
         'ledger_posted_with_issues' => 'Ledger updated, but some documents could not be posted. Run the reconciliation check (billing:reconcile) or contact support.',
+        'ledger_sync_failed_title' => 'Ledger sync failed',
+        'ledger_sync_failed_body' => ':count document(s) could not be posted to the general ledger — usually a closed accounting period. Reopen the period and re-sync (Post to GL now, or accounting:sync-ledger --all).',
         'journal_entry_voided' => 'Journal entry voided',
         'journal_entry_voided_body' => 'Reversing entry :number created.',
         'period_closed' => 'Period closed',
