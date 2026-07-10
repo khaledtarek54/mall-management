@@ -562,10 +562,16 @@ current open period (above); *preventing* the trap (don't close a period with pe
 is the Phase-4 close gate.
 
 **Close gate + deep tie-out (Phase 4 hardening) — done:** `PeriodService::closePeriod` /
-`closeFiscalYear` refuse to close while any document whose posted entry lives in the period(s)
-is out of sync with its current state — a read-only dry-run (`LedgerPoster::wouldChange`) over
-those periods' entries. This **prevents the closed-period trap being created**: you can't close a
-period that still has a pending re-post/void, which would otherwise strand once the period locks.
+`closeFiscalYear` refuse to close while any document affecting the period(s) is out of sync — a
+read-only dry-run (`LedgerPoster::wouldChange`) over **both** (a) documents whose posted entry
+lives in the period (a pending re-post/void) **and** (b) documents *dated* in the period that
+aren't posted there yet (a fresh post that would land in it). Case (b) closes an adversarial-QA
+gap: a never-posted document (real-time off / queue backlogged / a best-effort sync job that
+failed once) has no entry for (a) to see, so without it the close would succeed and then strand
+that post forever (posting into a closed period throws). The date columns are
+`LedgerRealtimeSync::SOURCE_DATE_COLUMNS`; only the genuinely-unposted remainder reaches
+`wouldChange`, so the scan stays cheap. Together this **prevents the closed-period trap being
+created**: you can't close a period that still has a pending or never-posted document.
 The message tells the accountant to "Post to GL now" first; the year-end action gates *before*
 posting the closing entry so a refusal leaves no orphan. Separately, **`billing:reconcile --deep`**
 adds a `gl_in_sync` check that dry-runs `wouldChange` over **every** posting document — catching

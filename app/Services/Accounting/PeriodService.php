@@ -5,6 +5,7 @@ namespace App\Services\Accounting;
 use App\Models\AccountingPeriod;
 use App\Models\FiscalYear;
 use App\Models\JournalEntry;
+use App\Support\LedgerRealtimeSync;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
@@ -62,19 +63,52 @@ class PeriodService
             return;
         }
 
-        $sources = JournalEntry::query()
+        $poster = app(LedgerPoster::class);
+        $pending = 0;
+        $postedInPeriod = []; // source keys that already have a posted entry in these periods
+
+        // (a) Documents whose POSTED entry lives in these periods — an edit/delete not yet
+        //     re-synced would re-post/void into the period.
+        $entries = JournalEntry::query()
             ->whereIn('accounting_period_id', $periodIds)
             ->where('status', 'posted')
             ->whereNotNull('source_type')
-            ->get(['source_type', 'source_id'])
-            ->unique(fn ($e) => $e->source_type.':'.$e->source_id);
-
-        $poster = app(LedgerPoster::class);
-        $pending = 0;
-        foreach ($sources as $ref) {
+            ->get(['source_type', 'source_id']);
+        foreach ($entries as $ref) {
+            $key = $ref->source_type.':'.$ref->source_id;
+            if (isset($postedInPeriod[$key])) {
+                continue;
+            }
+            $postedInPeriod[$key] = true;
             $model = $this->resolveSource($ref->source_type, $ref->source_id);
             if ($model && $poster->wouldChange($model)) {
                 $pending++;
+            }
+        }
+
+        // (b) Documents DATED in these periods that are NOT yet posted here — a fresh post would
+        //     land IN the period, so closing it would strand that post forever (posting into a
+        //     closed period throws). The gate is otherwise blind to a never-posted document
+        //     (real-time off / queue backlogged / a best-effort sync job that failed once). Only
+        //     the genuinely-unposted remainder reaches wouldChange, so this stays cheap.
+        $periods = AccountingPeriod::whereIn('id', $periodIds)->get(['starts_on', 'ends_on']);
+        foreach (LedgerRealtimeSync::SOURCE_DATE_COLUMNS as $class => $dateColumn) {
+            foreach ($periods as $period) {
+                $query = $class::query();
+                if (method_exists(new $class, 'trashed')) {
+                    $query->withTrashed();
+                }
+                $query->whereBetween($dateColumn, [$period->starts_on, $period->ends_on])
+                    ->chunkById(500, function ($models) use ($poster, &$pending, $postedInPeriod) {
+                        foreach ($models as $model) {
+                            if (isset($postedInPeriod[$model->getMorphClass().':'.$model->getKey()])) {
+                                continue; // already checked in (a)
+                            }
+                            if ($poster->wouldChange($model)) {
+                                $pending++;
+                            }
+                        }
+                    });
             }
         }
 

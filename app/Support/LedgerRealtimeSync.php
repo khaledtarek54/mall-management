@@ -36,6 +36,33 @@ class LedgerRealtimeSync
         \App\Models\CustodyTransaction::class,
     ];
 
+    /**
+     * Each source → the date column that becomes its journal entry's `entry_date` (i.e. the
+     * period a fresh post would land in). MUST match each journalizer's entry_date. Used by
+     * the close gate to find documents DATED in a period being closed — including ones never
+     * posted yet — so the close can't strand their future post. Mirrors SyncLedgerCommand's
+     * per-source date columns.
+     */
+    public const SOURCE_DATE_COLUMNS = [
+        \App\Models\Invoice::class => 'issue_date',
+        \App\Models\Payment::class => 'payment_date',
+        \App\Models\CreditNote::class => 'issue_date',
+        \App\Models\VendorBill::class => 'bill_date',
+        \App\Models\VendorBillPayment::class => 'payment_date',
+        \App\Models\Expense::class => 'expense_date',
+        \App\Models\Payroll::class => 'period_month',
+        \App\Models\DepositTransaction::class => 'transaction_date',
+        \App\Models\MarketingSpend::class => 'spent_on',
+        \App\Models\StockMovement::class => 'moved_on',
+        \App\Models\FixedAsset::class => 'acquisition_date',
+        \App\Models\DepreciationEntry::class => 'period_month',
+        \App\Models\FixedAssetDisposal::class => 'disposed_on',
+        \App\Models\EmployeeAdvance::class => 'advance_date',
+        \App\Models\EmployeeAdvanceRepayment::class => 'repaid_on',
+        \App\Models\Custody::class => 'custody_date',
+        \App\Models\CustodyTransaction::class => 'transaction_date',
+    ];
+
     public static function register(): void
     {
         $dispatch = function ($model): void {

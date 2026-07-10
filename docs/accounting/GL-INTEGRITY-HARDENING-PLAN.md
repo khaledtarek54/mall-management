@@ -251,7 +251,11 @@ Close the orphan + windowed-miss holes. Small, surgical, independently shippable
   Fixed the block-message wording (docs can be posted-but-stale/deleted, not only "not yet posted"), noted
   `--deep` can take minutes on a large DB, and documented that `wouldChange` reads `posted` entries only.
   Follow-ups: `--deep` now uses `chunkById(500)` (bounded memory + short-lived queries for a large-DB
-  audit). Remaining (non-blocking): the year-end double-gate has a narrow theoretical race (`close()` is
+  audit). **Adversarial-QA fix (was CRITICAL):** the gate originally only checked documents with a *posted
+  entry* in the period — blind to a **never-posted** document dated in it (real-time off / queue down / a
+  failed best-effort job), which would then strand forever on close. It now also scans documents *dated* in
+  the period (`LedgerRealtimeSync::SOURCE_DATE_COLUMNS`) via `wouldChange`, so a never-posted doc blocks the
+  close too. Remaining (non-blocking): the year-end double-gate has a narrow theoretical race (`close()` is
   idempotent, so a retry recovers).
 
 ### Phase 5 — First-class void/cancel for AR documents ✅ DONE (2026-07-10)
