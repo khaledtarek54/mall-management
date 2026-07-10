@@ -17,6 +17,15 @@ class CreatePayment extends CreateRecord
     {
         $this->guardAllocationsTotal($data);
 
+        // Property isolation: every allocated invoice must be in the user's visible set.
+        // Guard BEFORE the payment row is created (the picker is scoped, but re-validate
+        // the submitted ids — a shared tenant may have invoices across properties).
+        foreach ($data['allocations'] ?? [] as $row) {
+            if (! empty($row['invoice_id'])) {
+                PaymentResource::assertInvoiceAssetInScope($row['invoice_id']);
+            }
+        }
+
         $this->allocations = $data['allocations'] ?? [];
         unset($data['allocations']);
 
@@ -63,11 +72,6 @@ class CreatePayment extends CreateRecord
 
         if (! empty($sync)) {
             try {
-                // Property isolation: every allocated invoice must be in the user's
-                // visible set — the picker is scoped, but re-validate the submitted ids.
-                foreach (array_keys($sync) as $invoiceId) {
-                    PaymentResource::assertInvoiceAssetInScope($invoiceId);
-                }
                 $payment->assertInvoicesShareTenant(array_keys($sync));
                 \Illuminate\Support\Facades\DB::transaction(function () use ($payment, $sync) {
                     $payment->invoices()->sync($sync);
