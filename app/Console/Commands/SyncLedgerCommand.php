@@ -39,7 +39,8 @@ class SyncLedgerCommand extends Command
 {
     protected $signature = 'accounting:sync-ledger
         {--all : Backfill every document (full history) instead of just the recent window}
-        {--since= : Only sync documents updated on/after this date (YYYY-MM-DD)}';
+        {--since= : Only sync documents updated on/after this date (YYYY-MM-DD)}
+        {--scheduled : Best-effort run — never exit non-zero on per-document failures (for the scheduler, not a human operator)}';
 
     protected $description = 'Post / reconcile general-ledger entries for invoices, payments, and credit notes (idempotent).';
 
@@ -83,8 +84,10 @@ class SyncLedgerCommand extends Command
         // The scheduled (windowed) run is best-effort and idempotent — a single
         // un-postable legacy doc shouldn't red-flag the nightly task forever.
         // An explicit operator backfill (--all / --since) surfaces failures via a
-        // non-zero exit so they don't go unnoticed.
-        $operatorRun = $this->option('all') || $this->option('since');
+        // non-zero exit so they don't go unnoticed — UNLESS --scheduled marks it as
+        // an automated self-healing sweep (e.g. the weekly full backstop), which stays
+        // best-effort so a legacy doc can't turn the cron perpetually red.
+        $operatorRun = ($this->option('all') || $this->option('since')) && ! $this->option('scheduled');
 
         return ($counts['failed'] > 0 && $operatorRun) ? self::FAILURE : self::SUCCESS;
     }

@@ -112,6 +112,13 @@ class EditPayment extends EditRecord
             $this->halt();
         }
 
+        // Re-allocating a payment across invoices (or to invoices on another property)
+        // changes its GL entry's AR/per-asset split, but a reallocation that leaves the
+        // payment's OWN columns unchanged never bumps its updated_at — so the windowed
+        // sync-ledger sweep would skip it and the GL would keep the stale split. Touch
+        // the payment so the sweep re-derives it on the next run. (Phase 0, F8.)
+        $payment->touch();
+
         // Allocations are now synced — deliver the receipt notification.
         $payment->notifyReceiptOnce();
     }

@@ -56,4 +56,28 @@ class Warehouse extends Model
     {
         return $query->where('is_active', true);
     }
+
+    protected static function booted(): void
+    {
+        // Re-home cascade: a warehouse's property (asset_id) is the books dimension of
+        // every stock movement it holds (InventoryMovementJournalizer reads
+        // warehouse->asset_id). Movements are their OWN ledger sources, discovered by
+        // the windowed `accounting:sync-ledger` sweep via their own updated_at — a
+        // change to the PARENT warehouse never bumps them, so a re-homed warehouse
+        // would strand every movement's GL on the old property until a manual --all.
+        // Bump them so the sweep re-derives their dimension on the next run.
+        // (GL integrity hardening — Phase 0, F9; mirrors FixedAsset's child cascade.)
+        //
+        // NOTE — deliberately NO soft-delete cascade here (unlike VendorBill→payments):
+        // a stock movement is a completed historical fact (inventory value already
+        // moved), so it must NOT unwind when its warehouse is soft-deleted. That intent
+        // is enforced on the other side too — `StockMovement::warehouse()` uses
+        // withTrashed() so a movement keeps resolving its asset (and its GL) after the
+        // warehouse is trashed. Only the re-home (dimension change) needs to propagate.
+        static::updated(function (self $warehouse) {
+            if ($warehouse->wasChanged('asset_id')) {
+                $warehouse->movements()->withTrashed()->update(['updated_at' => now()]);
+            }
+        });
+    }
 }

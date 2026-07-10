@@ -28,6 +28,18 @@ class InvoiceItem extends Model
         'total' => 'decimal:2',
     ];
 
+    /**
+     * Bump the parent invoice's updated_at on any item write. The invoice's GL entry
+     * is DERIVED from its items (InvoiceJournalizer splits revenue by item type), but
+     * the windowed `accounting:sync-ledger` sweep discovers sources by their OWN
+     * updated_at. A money-neutral item edit — e.g. re-typing base_rent→service_charge,
+     * which remaps the revenue account without changing the invoice total — would
+     * otherwise leave invoice.updated_at untouched, stranding the wrong revenue split
+     * in the GL until a manual --all backfill. Touching the invoice pulls it into the
+     * sweep's recent window so the entry re-derives. (GL integrity hardening — F3.)
+     */
+    protected $touches = ['invoice'];
+
     protected static function booted(): void
     {
         static::saving(function (self $item) {

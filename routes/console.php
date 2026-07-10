@@ -113,3 +113,14 @@ Schedule::command('accounting:sync-ledger')
     ->dailyAt('05:00')
     ->name('atriom-sync-ledger')
     ->withoutOverlapping();
+
+// Weekly FULL backfill (defense-in-depth). The daily run only sweeps the recent
+// 2-day updated_at window, so any document whose money-affecting input changed
+// WITHOUT bumping its own updated_at — a re-typed invoice item, a re-homed
+// warehouse/bill, an edit stranded by a closed period — would sit stale until a
+// manual `--all`. A weekly full reconcile self-heals those within 7 days. Runs
+// Friday (lowest-traffic day) ahead of the daily window run.
+Schedule::command('accounting:sync-ledger --all --scheduled')
+    ->weeklyOn(5, '03:00')
+    ->name('atriom-sync-ledger-full')
+    ->withoutOverlapping();

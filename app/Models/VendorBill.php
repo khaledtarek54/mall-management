@@ -83,6 +83,18 @@ class VendorBill extends Model
         return $this->belongsTo(User::class, 'approved_by_user_id');
     }
 
+    /**
+     * The child ledger sources whose GL follows this bill's lifecycle. A bill payment
+     * (Dr AP / Cr Cash) only makes sense while the bill (Cr AP) stands — so a bill's
+     * soft-delete / restore / re-home must flow to its payments, or the windowed
+     * sync-ledger sweep (which keys on each row's own updated_at) would strand them.
+     * Mirrors FixedAsset::ledgerChildRelations().
+     */
+    protected function ledgerChildRelations(): array
+    {
+        return [$this->payments()];
+    }
+
     /** Recognised on the GL once it's past draft (approved and beyond). */
     public function isPostable(): bool
     {
@@ -163,6 +175,46 @@ class VendorBill extends Model
             }
             if ($bill->balance === null) {
                 $bill->balance = (float) ($bill->total ?? 0) - (float) ($bill->paid_amount ?? 0);
+            }
+        });
+
+        // Keep the payments' ledger entries in lock-step with the bill (mirrors
+        // FixedAsset). Payments are their OWN ledger sources discovered by the windowed
+        // sync-ledger sweep via their own updated_at, so a change to the PARENT bill
+        // never reaches them without these hooks. (GL integrity hardening — Phase 0.)
+
+        // Soft-delete cascades to the payments, stamped with the bill's OWN deleted_at
+        // so a later restore targets exactly the rows THIS delete trashed. Without it,
+        // deleting a paid bill voids the bill entry (Cr AP) but leaves each payment's
+        // Dr AP / Cr Cash posted — an unbalanced, understated AP/cash until --all (F9/High).
+        // A force-delete lets the FK cascade physically remove the payments instead.
+        static::deleted(function (self $bill) {
+            if ($bill->isForceDeleting()) {
+                return;
+            }
+            foreach ($bill->ledgerChildRelations() as $relation) {
+                $relation->update(['deleted_at' => $bill->deleted_at, 'updated_at' => now()]);
+            }
+        });
+
+        // Restore ONLY the payments this bill's delete cascaded (matched on that exact
+        // deleted_at) so a payment removed for another reason stays removed.
+        static::restoring(function (self $bill) {
+            foreach ($bill->ledgerChildRelations() as $relation) {
+                $relation->onlyTrashed()
+                    ->where('deleted_at', $bill->deleted_at)
+                    ->update(['deleted_at' => null, 'updated_at' => now()]);
+            }
+        });
+
+        // Re-home: the bill's asset_id is the books dimension of its payments' GL
+        // (VendorBillPaymentJournalizer reads bill->asset_id). Bump the payments so the
+        // windowed sweep re-derives their dimension rather than stranding it (F9).
+        static::updated(function (self $bill) {
+            if ($bill->wasChanged('asset_id')) {
+                foreach ($bill->ledgerChildRelations() as $relation) {
+                    $relation->withTrashed()->update(['updated_at' => now()]);
+                }
             }
         });
     }

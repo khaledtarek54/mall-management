@@ -368,7 +368,9 @@ Tests (`tests/Feature/`):
 delicate `recomputeTotals`/`saveQuietly` money machinery, posting is a **reconciling
 sweep**. `LedgerPoster::sync($document)` makes the ledger match a document's current
 state (post / re-derive / void), and is idempotent + self-healing. It runs via:
-- **`php artisan accounting:sync-ledger --all`** — one-time historical backfill.
+- **`php artisan accounting:sync-ledger --all`** — historical backfill; also **scheduled
+  weekly (Friday 03:00)** as a defense-in-depth backstop that self-heals anything the
+  daily window missed (GL integrity hardening, Phase 0).
 - **`accounting:sync-ledger`** (scheduled daily 05:00) — recent-window sweep that keeps
   the books current. Late fees and CAM-recovery invoices are picked up automatically
   (the invoice journalizer re-derives from the invoice's items / header).
@@ -389,6 +391,29 @@ per-property). Credit-note `sales_returns` is derived as `total − VAT` so the 
 balances even if a stored subtotal drifts. The scheduled run is best-effort (a single
 un-postable legacy doc is logged, not a red nightly task); an operator `--all`/`--since`
 run exits non-zero on failures.
+
+**Windowed-sweep input-touch guarantees (Phase 0 hardening, 2026-07-10):** the daily run
+discovers work by each source's own `updated_at`, so a money-affecting edit that doesn't
+bump the swept row would strand its entry until the weekly `--all`. These paths now bump
+the right row so the *daily* sweep re-derives them:
+- **`InvoiceItem` `$touches = ['invoice']`** — a money-neutral line-item change (e.g.
+  re-typing `base_rent`→`service_charge`, which remaps the revenue account without moving
+  the total) bumps the invoice so the sweep re-splits revenue (F3).
+- **`VendorBill` full child cascade** — soft-delete / restore / re-home of a bill flows to
+  its payments (mirrors `FixedAsset::ledgerChildRelations`): deleting a paid bill voids the
+  bill entry **and** its payments' `Dr AP / Cr Cash` (so AP/cash aren't left understated);
+  re-homing bumps their dimension (F9). **`VendorBillPayment` now soft-deletes** so a
+  deleted payment self-heals to a voided entry instead of orphaning (F7).
+- **`Warehouse` re-home cascade only** — changing a warehouse's `asset_id` bumps its stock
+  movements' dimension. Deliberately **no** delete cascade: a movement is a completed
+  historical fact and `StockMovement::warehouse()` uses `withTrashed()` so its GL survives
+  the warehouse's soft-delete (F9).
+- **Payment reallocation** — `EditPayment` touches the payment after re-syncing its
+  allocations, so a reallocation that leaves the payment's own columns unchanged still
+  re-derives its AR/per-asset split (F8).
+- **Weekly `--all --scheduled`** — the automated full backstop uses `--scheduled` so it
+  stays best-effort (exit 0) and a legacy un-postable doc can't turn the cron red; a human
+  operator's `--all` still exits non-zero to surface failures loudly.
 
 **Known limitation — cross-property payments in per-property reports:** reports scope by
 the *entry's* `asset_id`. A single payment that settles invoices across two properties is

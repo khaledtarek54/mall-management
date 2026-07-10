@@ -1,0 +1,229 @@
+# GL Integrity Hardening Plan — "posted, then edited" & void coverage
+
+> **Purpose.** Answer two questions from the owner and turn the answer into an actionable plan:
+> 1. *An invoice is created → posted to the ledger → someone edits it later. The numbers are now wrong. What is the best practice?*
+> 2. *Do all modules that post to the GL have a "void" so the posted ledger entry is reversed?*
+>
+> **Scope.** Every document that posts into the double-entry General Ledger (module 21) via
+> `LedgerPoster` / `accounting:sync-ledger`. Audited 2026-07-10 across all 17 posting sources.
+> **Status of this doc:** plan / proposal — nothing here is implemented yet.
+
+---
+
+## 0. TL;DR — the verdict
+
+The accounting core itself is **strong**: balanced-or-reject posting, immutable journal entries,
+reverse-via-void, closed-period refusal, idempotent + lock-safe, and a **self-healing reconciling
+sweep** (`LedgerPoster::sync()`) that re-derives each entry from the document's *current* state.
+For a **money-amount edit**, the ledger is **not permanently wrong** — the next sweep voids the stale
+entry and re-posts the corrected one.
+
+But the current model has **four real weaknesses** for this market (live ERP, Egyptian ETA
+e-invoicing, external auditors):
+
+1. **Staleness window.** Posting is never synchronous — it only happens on a **daily 05:00 sweep**
+   (2-day window) or a manual "Post to GL now" button. Between an edit and the next sweep the Trial
+   Balance / Income Statement / Balance Sheet show **wrong numbers for up to ~24–29 h**, with no
+   "last-synced" indicator on the statement pages.
+2. **Posted documents are freely editable (AR side).** Invoices, payments and credit notes can be
+   edited *after* they carry a live GL entry — even after ETA filing. The **AP/expense side already
+   locks** money fields after `draft` (`$locked = status !== 'draft'`); the AR side never got the
+   same guard, and there is **no model-layer immutability guard anywhere**.
+3. **Silent-drift edits ("windowed-miss").** Some money-affecting edits don't bump the swept
+   document's `updated_at`, so the windowed sweep never revisits them and the GL stays wrong
+   **indefinitely** (no scheduled `--all`). Top case: **editing an invoice line-item's `type`**
+   (e.g. `base_rent`→`service_charge`) silently re-posts revenue to the wrong account, and the AR
+   tie-out stays green because the total is unchanged.
+4. **Closed-period trap + weak safety net.** Editing/deleting a document whose entry sits in a
+   **closed period** makes the reversal throw; the nightly sweep **swallows it (exit 0, log only)**.
+   The reconcile harness's GL tie-out covers **only AR + AP** (not revenue/VAT/cash/inventory/
+   deposits/payroll) and is **skipped entirely on `--month` runs** — the very run used before a close.
+   Period close is a **bare status flip** with no "is the GL fully synced?" gate, so a normal close
+   can *manufacture* the closed-period trap.
+
+**Answer to Q1 (best practice):** *Lock the document once it is posted/issued/filed; correct it
+only via a reversing document (void + re-issue, or a credit note); keep journal entries immutable
+and reversible; and post to the GL synchronously (near-real-time) with the sweep retained as a
+backstop.* Free-editing a posted financial document is not acceptable practice **regardless of how
+good the reconciliation is**, because it destroys the audit trail and breaks the filed-invoice ↔
+books correspondence that ETA and auditors depend on.
+
+**Answer to Q2 (void coverage):** *Effectively yes, but with holes.* 16 of 17 sources reverse
+correctly (soft-delete → the sweep voids the entry; the AP/expense/deposit/credit-note side also has
+explicit `cancel_*` actions whose journalizer returns "no effect"). **The holes:**
+`VendorBillPayment` has **no `SoftDeletes`** (a hard delete **orphans** its GL entry); the **AR
+documents have no proper user-facing "void/cancel" action** (only a super-admin delete); and every
+reversal **fails silently in a closed period**.
+
+---
+
+## 1. How posting works today (one paragraph)
+
+Business documents are the sub-ledgers; the GL is derived. `LedgerPoster::sync($doc)` (called only
+by `accounting:sync-ledger`) re-derives a balanced payload from the document's current state via its
+`Journalizer`, then: no entry + has effect → **post**; entry matches → **no-op**; entry differs →
+**void the stale one + re-post**; no effect now (cancelled / soft-deleted / draft) → **void**.
+Journal entries are immutable; `void()` posts a balanced **reversing entry** and needs an **open
+period**. The sweep runs **daily at 05:00** over a **2-day `updated_at` window** (`SyncLedgerCommand`),
+plus `--all`/`--since` backfills (not scheduled) and an on-demand **"Post to GL now"** button
+(`PostsToLedger`, 2-day window, only on the Trial Balance + Journal Entries pages).
+
+---
+
+## 2. Findings — ranked, with evidence
+
+| # | Severity | Finding | Evidence |
+|---|----------|---------|----------|
+| F1 | **High** | **Staleness window.** No synchronous posting; statements are stale up to ~24–29 h after an edit. Income Statement / Balance Sheet / General Ledger pages don't expose the "Post to GL now" button or a "last synced" note. | `routes/console.php:112` (05:00 daily); `SyncLedgerCommand.php:102` (2-day window); `PostsToLedger.php:20-46`; `TrialBalance.php` / `ListJournalEntries.php` use the trait, `IncomeStatement.php` / `BalanceSheet.php` don't. |
+| F2 | **High** | **Posted AR documents are freely editable.** Invoice/Payment/CreditNote money fields (amount, vat_rate, items, date) editable after the doc has a live GL entry — incl. ETA-`valid` invoices. AP side already locks after `draft`; AR side has no lock and no model-layer guard. | `InvoiceForm.php` (no `$locked`), `PaymentForm.php`, `CreditNoteForm.php` vs `VendorBillForm.php:22`, `ExpenseForm.php:19`, `PayrollForm.php:21`. |
+| F3 | **High** | **Windowed-miss: invoice item `type` edit.** Changing a line item's `type` remaps the revenue account (`REVENUE_ROLE`) but leaves `invoice.total` unchanged → `invoice.updated_at` doesn't bump (`InvoiceItem` has no `$touches`) → sweep never re-derives → revenue mis-posted **silently** (AR tie-out stays green). | `InvoiceJournalizer.php:20-28,50-51`; `InvoiceItem.php` (no `$touches`); probe: item-`type` edit did not bump `Invoice.updated_at`. |
+| F4 | **High** | **Closed-period reversal trap, swallowed.** Editing/deleting a doc whose entry is in a closed period → `void()`→`reversalPeriod()` throws → `SyncLedgerCommand::syncOne` catches, `counts['failed']++`, `Log::warning`, **exit 0** on the scheduled run. GL stays wrong; nobody is alerted. | `JournalPostingService.php:338-348`; `SyncLedgerCommand.php:154-170,87-89`; schedule has no `->onFailure()` (`routes/console.php:112-115`). |
+| F5 | **High** | **No close-time GL gate.** `PeriodService::closePeriod/closeFiscalYear` and `YearEndCloseService::close` are bare status flips — no "sync first / tie-out clean" check. A close can be done while edited-but-unswept docs are pending, then those hit F4. | `PeriodService.php:16-39`; `YearEndCloseService.php:47-66`. |
+| F6 | **Med** | **Tie-out covers only AR + AP**, and is **skipped on `--month`** (the pre-close run). Revenue, VAT output, cash/bank, inventory, deposits-held, payroll accruals are never reconciled to source, so F3-class drift is invisible to `billing:reconcile`. | `BooksReconciliationService.php:191,246-280`. |
+| F7 | **Med** | **`VendorBillPayment` has no `SoftDeletes`** → a hard delete orphans its GL entry (the sweep can't find a trashed row to void). Only structural orphan path in the system. | `VendorBillPayment.php` (no `use SoftDeletes`); all other 16 sources have it. |
+| F8 | **Med** | **Windowed-miss: payment reallocation.** Editing pivot `allocated_amount` re-buckets AR/per-asset credits but doesn't bump `Payment.updated_at`. | `PaymentJournalizer.php:41-96`; `EditPayment.php:97-101` recomputes invoices, not the payment. |
+| F9 | **Med** | **Windowed-miss: warehouse / vendor-bill asset re-point.** `Warehouse.asset_id` (unscoped users) and `VendorBill.asset_id` are editable with no cascade to their child movements/payments → GL asset dimension stranded. | `WarehouseForm.php:18-23`, no `Warehouse` cascade; `VendorBill.php:136-168`, no payment cascade. |
+| F10 | **Med** | **No proper "void" action on AR documents.** Invoices and payments can only be *deleted* (super-admin), not cancelled/voided with an audit reason. Reversal relies entirely on soft-delete → sweep. | `EditInvoice.php` (Delete/ForceDelete/Restore only); `Payment` (DeleteAction only). |
+| F11 | **Low** | **No scheduled `--all`.** Anything the 2-day window misses (F3/F4/F8/F9) stays wrong until a human runs `--all`. | `routes/console.php` (only the windowed run is scheduled). |
+| — | ✅ Good | **Correctly safe:** VendorBill, Expense, Payroll (line edits self-heal via `recomputeFromLines`→parent `saveQuietly`), DepositTransaction, FixedAsset acquisition/depreciation/disposal (module-23 child cascade + read-only depreciation), the four Advance/Custody journalizers (denormalized own-column `asset_id`), MarketingSpend (budget `asset_id` form-disabled). | per journalizer audit |
+
+---
+
+## 3. The design decision (the important part)
+
+Two philosophies are in tension:
+
+- **(A) Free-edit + self-heal** — today's model. Documents stay editable; the sweep keeps the GL
+  eventually-correct by re-deriving.
+- **(B) Lock-on-post + correct-by-reversal** — the ERP/accounting standard (SAP, Oracle, NetSuite,
+  QuickBooks) and what ETA compliance legally implies.
+
+**Recommendation: adopt (B) as the primary control, keep (A)'s sweep as the backstop.** Concretely:
+
+1. **A posted/issued/filed document is immutable** in its money fields. To change it you **reverse
+   and re-issue** (void the document, which the sweep reverses in the GL, then create a corrected
+   one) or issue an **offsetting document** (credit note / debit memo). This preserves the original,
+   keeps the books ↔ filed-invoice correspondence, and gives auditors a clean trail.
+2. **Post near-real-time.** Because `LedgerPoster::sync()` is already idempotent + lock-safe, fire it
+   from an **`afterCommit` queued job** on each finalize/cancel/delete. This gives immediate freshness
+   **without** touching the delicate `recomputeTotals`/`saveQuietly` machinery (the reason real-time
+   was originally deferred). The daily sweep + `--all` remain the self-healing net.
+3. **Period locks guard edits/deletes, not just new posts.** If a document has a posted entry in a
+   closed period, **block** editing/deleting it (reopen the period first). A silent GL drift becomes
+   an explicit, correct refusal.
+
+Lock-on-post is *not* a regression of the elegant sweep — it makes the sweep's job trivial (documents
+rarely change after posting) and removes every silent-drift path at the source.
+
+---
+
+## 4. Remediation plan (phased, priority-ordered)
+
+> Convention reminder: every fix ships with a **regression test in `tests/Feature/Regression/`** that
+> **exercises the real `accounting:sync-ledger` windowed path** (not `LedgerPoster::sync()` directly) —
+> per the "child-source windowed-sweep trap" lesson — plus a docs update to
+> `docs/modules/21-general-ledger.md` in the same commit.
+
+### Phase 0 — Structural / silent-drift fixes (fast, high value)
+Close the orphan + windowed-miss holes. Small, surgical, independently shippable.
+
+- [ ] **F7 — `VendorBillPayment` soft-deletes.** Add `use SoftDeletes` + `deleted_at` migration so a
+  deleted payment self-heals to a voided GL entry like every other source. Add it to any `withTrashed`
+  sweep query if needed.
+- [ ] **F3 — `InvoiceItem $touches`.** Add `protected $touches = ['invoice'];` so any item edit
+  (incl. `type`-only and direct/API/relation-manager edits) bumps `invoice.updated_at` and the
+  windowed sweep re-derives. (Mirrors the memory-note's own fix pattern.)
+- [ ] **F8 — Payment reallocation touch.** In `EditPayment::afterSave` (and any pivot-sync path) call
+  `$payment->touch()` after re-syncing allocations.
+- [ ] **F9 — Asset-repoint cascades.** Add a `FixedAsset`-style `updated` cascade to
+  `Warehouse::booted()` (bump `movements` when `asset_id` changes) and to `VendorBill::booted()`
+  (bump `payments` when `asset_id` changes). Consider a `Unit`→open-invoices cascade for the
+  invoice/credit-note asset-dimension vector (F-minor), or accept it as covered once posting is
+  near-real-time (Phase 2).
+- [ ] **F11 — Schedule a weekly `accounting:sync-ledger --all`** (defense-in-depth) so nothing the
+  window misses can persist beyond a week. Keep the daily windowed run for freshness.
+
+### Phase 1 — Document immutability (the core of best-practice B)
+- [ ] **F2 — Extend the `$locked` pattern to AR forms.** Add
+  `$locked = fn ($r) => $r && ! in_array($r->status, ['draft'], true)` (invoice: lock once `issued`+;
+  payment: lock once `captured`; credit note: lock once `issued`/`applied`) and apply `->disabled($locked)`
+  to every money field + the items repeater. Also lock `MarketingSpend` and `FixedAsset` cost fields
+  after they've posted.
+- [ ] **Model-layer immutability guard (defense against UI bypass).** Add a `saving()` guard on each
+  finalized document (or a shared trait) that **throws** if a money-affecting attribute is dirty on a
+  record whose status is terminal/posted — Filament `->disabled()` is UI-only and bypassable via bulk
+  actions / API / tinker. This realizes the project's "terminal records are immutable" invariant for
+  money documents and satisfies ETA (an `eta_status='valid'` invoice must be frozen).
+
+### Phase 2 — Near-real-time posting + freshness everywhere
+- [ ] **`afterCommit` sync job.** On finalize/cancel/soft-delete of every posting source, dispatch a
+  queued `SyncDocumentToLedger($doc)` job (`afterCommit`) that calls `LedgerPoster::sync($doc)`.
+  Idempotent, decoupled from `recomputeTotals`. Sweep + `--all` remain the backstop.
+- [ ] **Freshness indicator on all statement pages.** Add the `PostsToLedger` trait (button +
+  "Ledger last synced …" subheading) to the **Income Statement, Balance Sheet, and General Ledger**
+  pages — not just Trial Balance / Journal Entries — so no report can silently show stale numbers.
+
+### Phase 3 — Closed-period safety + alerting
+- [ ] **F4 — Block edit/delete of a document with a posted entry in a closed period.** A model-layer
+  guard (reuse Phase 1's guard) refuses the change with "reopen period YYYY-MM first". Removes the
+  silent-drift path entirely.
+- [ ] **Alert on sweep failures.** Add `->onFailure()` / a notification when `counts['failed'] > 0`
+  on the scheduled run (today it's `Log::warning` + exit 0). Optionally make the scheduled run also
+  exit non-zero when failures occur, so monitoring catches it.
+
+### Phase 4 — Trustworthy tie-out + close gate
+- [ ] **F6 — Expand the GL tie-out** in `BooksReconciliationService::glTieOut()` beyond AR/AP: add
+  cash/bank, VAT output/recoverable, deposits-held, inventory, and payroll-withholding control
+  accounts, plus a **universal check**: for every live source, its freshly re-derived payload must
+  equal its posted entry (catches F3-class misclassification the balance-only checks miss).
+- [ ] **Make `--month` runs include a GL freshness/tie-out check** (or clearly document that
+  pre-close checks must use the all-time run) so the pre-close gate doesn't skip the GL.
+- [ ] **F5 — Gate period/year close on a clean sync.** Before `closePeriod` / `YearEndClose`: run a
+  scoped sync of all documents in the period, then require the expanded tie-out to be green; **refuse
+  the close** otherwise with a clear message. Prevents closing stale books and manufacturing the F4 trap.
+
+### Phase 5 — First-class void/cancel for AR documents (F10)
+- [ ] **"Void invoice" action** (super-admin / accounting): sets `status='cancelled'` with a reason +
+  audit-log entry; the sweep voids the GL entry (journalizer already returns null for `cancelled`).
+  This is the *supported correction path* once Phase 1 locks editing.
+- [ ] **"Void / refund payment" action**: reverses the payment (status flip or a linked refund
+  record), recomputes invoice AR (`recomputeTotals`), and the sweep voids the GL leg. Gives a proper
+  reversal instead of a raw delete.
+
+---
+
+## 5. Effort / sequencing
+
+| Phase | Theme | Rough size | Ship independently? |
+|-------|-------|-----------|---------------------|
+| 0 | Structural / silent-drift | S (1–2 days) | Yes — do first |
+| 1 | Document immutability | M | Yes |
+| 2 | Near-real-time + freshness | M | Yes (needs a queue worker) |
+| 3 | Closed-period guard + alerting | S–M | Yes |
+| 4 | Tie-out + close gate | M | Yes |
+| 5 | AR void/cancel actions | S–M | Yes (best after Phase 1) |
+
+Phases 0, 1 and 3 remove the **silent-corruption** paths and are the highest priority for a live,
+audited, ETA-filing deployment. Phase 2 removes the staleness window. Phase 4 makes the safety net
+actually catch what it currently misses. Phase 5 is the ergonomic correction UX.
+
+---
+
+## 6. Test checklist (per fix)
+
+- Regression test drives the **real `accounting:sync-ledger`** command (windowed path), not
+  `LedgerPoster::sync()` directly.
+- Invoice item **`type`** edit → after a windowed sweep, revenue account is corrected (F3).
+- Payment reallocation → per-asset AR buckets corrected after a windowed sweep (F8).
+- Warehouse / vendor-bill `asset_id` re-point → movement/payment GL dimension corrected (F9).
+- `VendorBillPayment` delete → GL entry voided, no orphan (F7).
+- Editing a locked/posted invoice → refused at the model layer (F2/Phase 1).
+- Editing/deleting a closed-period document → refused with "reopen period" (F4/Phase 3).
+- Period close with a pending unswept edit → refused until synced + tie-out green (F5).
+- Expanded tie-out flags a deliberately mis-mapped revenue/VAT/cash posting (F6).
+
+---
+
+*Audited 2026-07-10. Sources: `LedgerPoster`, `JournalPostingService`, `SyncLedgerCommand`, all 17
+journalizers, `BooksReconciliationService`, `PeriodService`, `YearEndCloseService`, and the Filament
+resources/forms for every posting source.*

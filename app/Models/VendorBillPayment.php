@@ -5,14 +5,18 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * سداد فاتورة مورد — a payment against a vendor bill (money leaving cash/bank).
  * Saving/deleting one re-derives the parent bill's paid_amount/balance/status.
+ *
+ * Soft-deletes so a deleted payment self-heals its GL: the sync-ledger sweep voids
+ * a trashed source's journal entry, whereas a hard delete would orphan it (F7).
  */
 class VendorBillPayment extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'vendor_bill_id',
