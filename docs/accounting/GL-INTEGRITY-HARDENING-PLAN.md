@@ -177,13 +177,28 @@ Close the orphan + windowed-miss holes. Small, surgical, independently shippable
   enabled when draft, allocations stay open, both layers of the draft-revert guard, and each model guard
   fires while its legitimate transitions/system writes still pass. Full suite **1702 green**.
 
-### Phase 2 — Near-real-time posting + freshness everywhere
-- [ ] **`afterCommit` sync job.** On finalize/cancel/soft-delete of every posting source, dispatch a
-  queued `SyncDocumentToLedger($doc)` job (`afterCommit`) that calls `LedgerPoster::sync($doc)`.
-  Idempotent, decoupled from `recomputeTotals`. Sweep + `--all` remain the backstop.
-- [ ] **Freshness indicator on all statement pages.** Add the `PostsToLedger` trait (button +
-  "Ledger last synced …" subheading) to the **Income Statement, Balance Sheet, and General Ledger**
-  pages — not just Trial Balance / Journal Entries — so no report can silently show stale numbers.
+### Phase 2 — Near-real-time posting + freshness everywhere ✅ DONE (2026-07-10)
+- [x] **`afterCommit` sync job.** `App\Jobs\SyncDocumentToLedger` (queued, `ShouldBeUnique` per source)
+  re-runs the idempotent, lock-safe `LedgerPoster::sync()`. `App\Support\LedgerRealtimeSync::register()`
+  (called from `AppServiceProvider::boot`) wires it to every posting source's `saved`/`deleted`/`restored`
+  events with `->afterCommit()`, so a document's entry reconciles within seconds of a change instead of
+  waiting up to a day. It fires only on real model events, not on `saveQuietly` — a payment's
+  `recomputeTotals` re-derives only the GL-neutral `paid_amount`/`balance`, so it dispatches nothing. The
+  one `saveQuietly` path that *does* change the GL (a late-fee item add) intentionally defers to the daily
+  sweep (late fees are a scheduled batch, not time-critical). The daily sweep + weekly `--all` remain the backstop.
+  Carries the source's class+key (not the model) so a soft-deleted source still resolves (withTrashed) and
+  voids its entry; failures are logged best-effort (the sweep re-attempts).
+  - **Gated by `config('accounting.realtime_ledger_sync')`** (default on). Disabled in the test env
+    (`phpunit.xml`) because the `sync` queue driver runs the `afterCommit` job immediately and the 1707-test
+    suite drives sync/the sweep explicitly for deterministic posting — 12 GL tests double-booked with it on.
+    Production keeps a real queue worker, so the job runs async after the real commit.
+- [x] **Freshness indicator on all statement pages.** The `PostsToLedger` trait (the "Post to GL now"
+  button + "Ledger last synced …" subheading) is now on the **Income Statement, Balance Sheet, and General
+  Ledger** pages too (previously only Trial Balance + Journal Entries) — so no report can silently show
+  stale numbers without the accountant seeing the freshness and being able to force a sync.
+- **Tests:** `tests/Feature/Regression/RealtimeLedgerSyncTest.php` (5) — the job posts / voids a document,
+  no-ops on a missing source, the dispatch is wired to every source, and all three statement pages expose
+  the button + subheading. Full suite **1707 green**.
 
 ### Phase 3 — Closed-period safety + alerting
 - [ ] **F4 — Block edit/delete of a document with a posted entry in a closed period.** A model-layer

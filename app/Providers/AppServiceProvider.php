@@ -68,6 +68,17 @@ class AppServiceProvider extends ServiceProvider
 
         Lease::observe(LeaseObserver::class);
 
+        // Near-real-time GL posting (Phase 2). Every posting source dispatches a queued
+        // SyncDocumentToLedger job AFTER COMMIT whenever it is saved / deleted / restored,
+        // so its journal entry reconciles within seconds instead of waiting up to a day for
+        // the scheduled accounting:sync-ledger sweep. The job re-runs the idempotent,
+        // lock-safe LedgerPoster::sync, so it can't double-book and the daily sweep + weekly
+        // --all still backstop everything. Gated by config so the test suite (which drives
+        // sync/sweep explicitly for deterministic posting) isn't raced by the async job.
+        if (config('accounting.realtime_ledger_sync')) {
+            \App\Support\LedgerRealtimeSync::register();
+        }
+
         // Register the 'push' notification channel (FCM via the bound PushSender).
         // Always registered so a notification with 'push' in its via() resolves
         // even when push is disabled (the NullPushSender just no-ops).

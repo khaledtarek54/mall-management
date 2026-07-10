@@ -527,10 +527,22 @@ place — `BooksReconciliationService::glTieOut()` — and is reused by the
 (GL balances are cumulative, so it's skipped for a `--month` run) and self-skips when the
 GL isn't configured/populated.
 
-**Deferred follow-ups (not yet built):**
-- **Real-time posting:** the daily sweep + the on-demand "Post to GL now" button are the
-  mechanism; true synchronous (per-save) posting could be added later if ever needed, but
-  the button already gives immediate freshness without coupling to the money machinery.
+**Near-real-time posting (Phase 2 hardening) — done:** in addition to the daily sweep and
+the on-demand button, every posting source now dispatches a queued `SyncDocumentToLedger`
+job **after commit** on save/delete/restore (`App\Support\LedgerRealtimeSync`, wired in
+`AppServiceProvider::boot`, gated by `config('accounting.realtime_ledger_sync')`, default
+on). The job re-runs the idempotent `LedgerPoster::sync`, so it can't double-book and the
+sweep + weekly `--all` still backstop it. It fires only on real model events, not on
+`saveQuietly` — so a payment's `recomputeTotals` (which only re-derives the invoice's
+GL-neutral `paid_amount`/`balance`) dispatches nothing. The one `saveQuietly` path that
+*does* change the GL is a **late fee** (`LateFeeService` adds a `late_fee` item + bumps the
+total quietly): it deliberately has **no** real-time posting and waits for the daily sweep —
+acceptable because late fees are a scheduled batch, not a time-critical interactive change.
+For the interactive paths (issue invoice, capture payment, record expense, …) a document's
+entry is fresh within seconds of the change, not up to a day. The freshness button + "Ledger last synced" subheading
+now appear on **all** statement pages (Trial Balance, Journal Entries, Income Statement,
+Balance Sheet, General Ledger). Disabled under the test suite (`sync` queue would race the
+deterministic sync/sweep the tests drive).
 
 ## Bilingual glossary (مصطلحات)
 

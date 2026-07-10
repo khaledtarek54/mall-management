@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Filament\Admin\Concerns\PostsToLedger;
 use App\Filament\Admin\Pages\Concerns\ScopesLedgerReport;
 use App\Models\LedgerAccount;
 use App\Services\Accounting\LedgerReportService;
@@ -16,6 +17,7 @@ use Illuminate\Support\Carbon;
  */
 class GeneralLedger extends Page
 {
+    use PostsToLedger;
     use ScopesLedgerReport;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBookOpen;
@@ -31,6 +33,18 @@ class GeneralLedger extends Page
     public function getTitle(): string
     {
         return __('admin.reports.general_ledger_title');
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            $this->postToLedgerAction(),
+        ];
+    }
+
+    public function getSubheading(): ?string
+    {
+        return $this->ledgerLastSyncedSubheading();
     }
 
     public static function getNavigationLabel(): string
