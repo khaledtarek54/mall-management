@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Payrolls;
 
 use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
+use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Payrolls\Pages\CreatePayroll;
 use App\Filament\Admin\Resources\Payrolls\Pages\EditPayroll;
@@ -25,6 +26,7 @@ use Illuminate\Database\Eloquent\Builder;
 class PayrollResource extends Resource
 {
     use BypassesFilamentTenantAutoScope;
+    use GuardsAssetInScope;
     use RoleGatedActions;
 
     protected static ?string $model = Payroll::class;

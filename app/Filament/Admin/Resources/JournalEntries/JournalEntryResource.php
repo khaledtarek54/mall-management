@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\JournalEntries;
 
 use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
+use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\JournalEntries\Pages\CreateJournalEntry;
 use App\Filament\Admin\Resources\JournalEntries\Pages\EditJournalEntry;
@@ -25,6 +26,7 @@ use Illuminate\Database\Eloquent\Builder;
 class JournalEntryResource extends Resource
 {
     use BypassesFilamentTenantAutoScope;
+    use GuardsAssetInScope;
     use RoleGatedActions;
 
     protected static ?string $model = JournalEntry::class;

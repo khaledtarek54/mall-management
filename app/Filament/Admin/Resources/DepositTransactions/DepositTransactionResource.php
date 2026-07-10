@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\DepositTransactions;
 
 use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
+use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\DepositTransactions\Pages\CreateDepositTransaction;
 use App\Filament\Admin\Resources\DepositTransactions\Pages\EditDepositTransaction;
@@ -26,6 +27,7 @@ use Illuminate\Database\Eloquent\Builder;
 class DepositTransactionResource extends Resource
 {
     use BypassesFilamentTenantAutoScope;
+    use GuardsAssetInScope;
     use RoleGatedActions;
 
     protected static ?string $model = DepositTransaction::class;

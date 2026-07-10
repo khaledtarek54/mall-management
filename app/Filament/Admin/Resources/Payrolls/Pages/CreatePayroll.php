@@ -12,6 +12,10 @@ class CreatePayroll extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
+        // Re-validate the client-supplied property against the user's visible set —
+        // the asset_id Select is enabled in All-Properties mode (property isolation).
+        PayrollResource::assertAssetInScope($data['asset_id'] ?? null);
+
         // The UI always creates a DRAFT; the accountant reviews then Approves it.
         $data['created_by_user_id'] = Auth::id();
 

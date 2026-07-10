@@ -15,6 +15,14 @@ class EditJournalEntry extends EditRecord
 {
     protected static string $resource = JournalEntryResource::class;
 
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        // Block re-homing the draft into a property outside the user's visible set.
+        JournalEntryResource::assertAssetInScope($data['asset_id'] ?? $this->record->asset_id);
+
+        return $data;
+    }
+
     protected function getHeaderActions(): array
     {
         return [

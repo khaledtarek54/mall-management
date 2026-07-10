@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\VendorBills;
 
 use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
+use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\VendorBills\Pages\CreateVendorBill;
 use App\Filament\Admin\Resources\VendorBills\Pages\EditVendorBill;
@@ -26,6 +27,7 @@ use Illuminate\Database\Eloquent\Builder;
 class VendorBillResource extends Resource
 {
     use BypassesFilamentTenantAutoScope;
+    use GuardsAssetInScope;
     use RoleGatedActions;
 
     protected static ?string $model = VendorBill::class;

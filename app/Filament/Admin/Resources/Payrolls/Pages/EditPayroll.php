@@ -14,6 +14,14 @@ class EditPayroll extends EditRecord
 {
     protected static string $resource = PayrollResource::class;
 
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        // Block re-homing the record into a property outside the user's visible set.
+        PayrollResource::assertAssetInScope($data['asset_id'] ?? $this->record->asset_id);
+
+        return $data;
+    }
+
     protected function getHeaderActions(): array
     {
         return [

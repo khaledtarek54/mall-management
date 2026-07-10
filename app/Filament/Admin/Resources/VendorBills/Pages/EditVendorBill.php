@@ -19,6 +19,14 @@ class EditVendorBill extends EditRecord
 {
     protected static string $resource = VendorBillResource::class;
 
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        // Block re-homing the record into a property outside the user's visible set.
+        VendorBillResource::assertAssetInScope($data['asset_id'] ?? $this->record->asset_id);
+
+        return $data;
+    }
+
     protected function getHeaderActions(): array
     {
         return [

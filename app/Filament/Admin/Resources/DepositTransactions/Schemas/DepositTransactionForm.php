@@ -34,18 +34,24 @@ class DepositTransactionForm
                         ->required()
                         ->searchable()
                         // Tenant + asset are derived from the lease in the model, so
-                        // the picker is scoped to the current property's leases only.
-                        ->options(fn () => Lease::query()
-                            ->when(
-                                TenantScope::currentAssetId(),
-                                fn ($q, $id) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $id)),
-                            )
-                            ->with('unit', 'tenant')
-                            ->get()
-                            ->mapWithKeys(fn ($l) => [
-                                $l->id => ($l->reference ?? ('Lease #'.$l->id)).' — '.($l->tenant?->name ?? ''),
-                            ])
-                            ->all())
+                        // the picker must be scoped to the user's visible properties.
+                        // In All-Properties mode currentAssetId() is null, so without
+                        // the visibleAssetIds() fallback a restricted user would see
+                        // (and could pick) every property's leases (property isolation).
+                        ->options(function () {
+                            $query = Lease::query()->with('unit', 'tenant');
+                            if ($assetId = TenantScope::currentAssetId()) {
+                                $query->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId));
+                            } elseif (($ids = TenantScope::visibleAssetIds()) !== null) {
+                                $query->whereHas('unit', fn ($u) => $u->whereIn('asset_id', $ids));
+                            }
+
+                            return $query->get()
+                                ->mapWithKeys(fn ($l) => [
+                                    $l->id => ($l->reference ?? ('Lease #'.$l->id)).' — '.($l->tenant?->name ?? ''),
+                                ])
+                                ->all();
+                        })
                         ->disabled($locked),
 
                     Select::make('type')

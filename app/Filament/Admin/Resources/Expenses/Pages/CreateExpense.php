@@ -12,6 +12,10 @@ class CreateExpense extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
+        // Re-validate the client-supplied property against the user's visible set —
+        // the asset_id Select is enabled in All-Properties mode (property isolation).
+        ExpenseResource::assertAssetInScope($data['asset_id'] ?? null);
+
         // An expense is paid immediately — recorded on create, no approval stage.
         $data['created_by_user_id'] = Auth::id();
 

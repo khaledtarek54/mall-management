@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Expenses;
 
 use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
+use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Expenses\Pages\CreateExpense;
 use App\Filament\Admin\Resources\Expenses\Pages\EditExpense;
@@ -25,6 +26,7 @@ use Illuminate\Database\Eloquent\Builder;
 class ExpenseResource extends Resource
 {
     use BypassesFilamentTenantAutoScope;
+    use GuardsAssetInScope;
     use RoleGatedActions;
 
     protected static ?string $model = Expense::class;

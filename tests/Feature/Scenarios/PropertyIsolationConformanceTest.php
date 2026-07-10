@@ -1,0 +1,186 @@
+<?php
+
+use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
+use App\Filament\Admin\Resources\Concerns\BypassesScopingOnAll;
+use App\Filament\Admin\Resources\Concerns\ScopesViaProperty;
+use App\Support\PropertyIsolation;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Schema;
+
+/**
+ * The self-enforcing property-isolation gate. These are STRUCTURAL tests: they
+ * reflect over the codebase so that a future model or resource which ships
+ * unclassified, unscoped, or unguarded FAILS CI instead of silently leaking one
+ * property's data into another. See docs/PROPERTY-ISOLATION-PLAN.md §6 (Layer B).
+ */
+
+// ---- helpers ---------------------------------------------------------------
+
+if (! function_exists('propertyIsolationModels')) {
+    /** @return list<class-string> every concrete Eloquent model in app/Models */
+    function propertyIsolationModels(): array
+    {
+        return collect(glob(app_path('Models/*.php')))
+            ->map(fn ($f) => 'App\\Models\\'.basename($f, '.php'))
+            ->filter(fn ($c) => class_exists($c)
+                && is_subclass_of($c, Model::class)
+                && ! (new ReflectionClass($c))->isAbstract())
+            ->values()
+            ->all();
+    }
+}
+
+if (! function_exists('propertyIsolationAdminResources')) {
+    /** @return list<class-string> every Filament admin Resource */
+    function propertyIsolationAdminResources(): array
+    {
+        $base = app_path('Filament/Admin/Resources');
+
+        return collect(glob($base.'/*/*Resource.php'))
+            ->map(function ($f) use ($base) {
+                $rel = str_replace([$base.'/', '.php'], '', $f);
+
+                return 'App\\Filament\\Admin\\Resources\\'.str_replace('/', '\\', $rel);
+            })
+            ->filter(fn ($c) => class_exists($c)
+                && is_subclass_of($c, \Filament\Resources\Resource::class))
+            ->values()
+            ->all();
+    }
+}
+
+if (! function_exists('propertyIsolationResourceIsScoped')) {
+    /** True when a resource applies an EXPLICIT property scope to its table reads. */
+    function propertyIsolationResourceIsScoped(string $resource): bool
+    {
+        $uses = class_uses_recursive($resource);
+        if (array_intersect(
+            [ScopesViaProperty::class, BypassesScopingOnAll::class, BypassesFilamentTenantAutoScope::class],
+            $uses,
+        )) {
+            return true;
+        }
+
+        // A getEloquentQuery() override declared on the resource itself.
+        if ((new ReflectionMethod($resource, 'getEloquentQuery'))->getDeclaringClass()->getName() === $resource) {
+            return true;
+        }
+
+        // An explicit Filament tenant-ownership relationship (direct-FK auto tenancy).
+        $prop = (new ReflectionClass($resource))->getProperty('tenantOwnershipRelationshipName');
+        $prop->setAccessible(true);
+
+        return $prop->getValue() !== null;
+    }
+}
+
+if (! function_exists('propertyIsolationMustGuardResources')) {
+    /**
+     * Resources whose form lets a client supply the property (an editable
+     * asset_id Select in All-Properties mode, or a lease-derived asset). Each
+     * MUST re-validate on write via assertAssetInScope. Adding a new such
+     * resource here is the point of the gate.
+     *
+     * @return array<string, class-string>
+     */
+    function propertyIsolationMustGuardResources(): array
+    {
+        return [
+            'Employee' => \App\Filament\Admin\Resources\Employees\EmployeeResource::class,
+            'FixedAsset' => \App\Filament\Admin\Resources\FixedAssets\FixedAssetResource::class,
+            'Warehouse' => \App\Filament\Admin\Resources\Warehouses\WarehouseResource::class,
+            'Custody' => \App\Filament\Admin\Resources\Custodies\CustodyResource::class,
+            'MaintenanceWorkOrder' => \App\Filament\Admin\Resources\MaintenanceWorkOrders\MaintenanceWorkOrderResource::class,
+            'MaintenancePlan' => \App\Filament\Admin\Resources\MaintenancePlans\MaintenancePlanResource::class,
+            'Expense' => \App\Filament\Admin\Resources\Expenses\ExpenseResource::class,
+            'VendorBill' => \App\Filament\Admin\Resources\VendorBills\VendorBillResource::class,
+            'Payroll' => \App\Filament\Admin\Resources\Payrolls\PayrollResource::class,
+            'JournalEntry' => \App\Filament\Admin\Resources\JournalEntries\JournalEntryResource::class,
+            'DepositTransaction' => \App\Filament\Admin\Resources\DepositTransactions\DepositTransactionResource::class,
+        ];
+    }
+}
+
+// ---- Test A: every model is classified ------------------------------------
+
+it('classifies every Eloquent model as shared or property-owned', function () {
+    $unclassified = collect(propertyIsolationModels())
+        ->reject(fn ($m) => PropertyIsolation::isClassified($m))
+        ->values()
+        ->all();
+
+    expect($unclassified)->toBe(
+        [],
+        'Unclassified models — add each to App\\Support\\PropertyIsolation (SHARED or OWNED): '
+            .implode(', ', $unclassified),
+    );
+});
+
+it('confirms every direct property-owned model has an asset_id column', function () {
+    foreach (PropertyIsolation::ownedModels() as $model) {
+        if (! PropertyIsolation::isDirect($model)) {
+            continue;
+        }
+        $table = (new $model)->getTable();
+        expect(Schema::hasColumn($table, 'asset_id'))
+            ->toBeTrue("{$model} ({$table}) is registered as direct-FK but has no asset_id column");
+    }
+});
+
+it('confirms every indirect property-owned model exposes the first hop of its chain', function () {
+    foreach (PropertyIsolation::ownedModels() as $model) {
+        $chain = PropertyIsolation::linkageFor($model);
+        if ($chain === null) {
+            continue; // direct-FK
+        }
+        $firstHop = explode('.', $chain)[0];
+        expect(method_exists(new $model, $firstHop))
+            ->toBeTrue("{$model} is missing relation '{$firstHop}' for its asset chain '{$chain}'");
+    }
+});
+
+// ---- Test B: every property-owned resource scopes its table reads ----------
+
+it('scopes the table query of every property-owned admin resource', function () {
+    $failures = [];
+
+    foreach (propertyIsolationAdminResources() as $resource) {
+        $model = $resource::getModel();
+        if (! PropertyIsolation::isOwned($model)) {
+            continue; // shared/global resources are intentionally unscoped
+        }
+        if (! propertyIsolationResourceIsScoped($resource)) {
+            $failures[] = $resource;
+        }
+    }
+
+    expect($failures)->toBe(
+        [],
+        'Property-owned resources with UNSCOPED table reads (add a scoping trait or getEloquentQuery override): '
+            .implode(', ', $failures),
+    );
+});
+
+// ---- Test C: every must-guard resource wires the write guard ---------------
+
+it('wires the asset-scope write guard on every must-guard resource', function (string $resource) {
+    // The guard method must exist (from GuardsAssetInScope or a local copy)...
+    expect(method_exists($resource, 'assertAssetInScope'))
+        ->toBeTrue("{$resource} must expose assertAssetInScope()");
+
+    // ...and be invoked by its create/edit pages (the write attack surface).
+    $pagesDir = dirname((new ReflectionClass($resource))->getFileName()).'/Pages';
+    $pages = array_merge(
+        glob($pagesDir.'/Create*.php') ?: [],
+        glob($pagesDir.'/Edit*.php') ?: [],
+    );
+
+    $guardedPages = array_filter(
+        $pages,
+        fn ($file) => str_contains((string) file_get_contents($file), 'assertAssetInScope'),
+    );
+
+    expect($guardedPages)->not->toBeEmpty(
+        "{$resource} has create/edit pages but none call assertAssetInScope (property-isolation write guard)",
+    );
+})->with(propertyIsolationMustGuardResources());
