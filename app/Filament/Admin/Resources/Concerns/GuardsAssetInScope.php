@@ -45,9 +45,17 @@ trait GuardsAssetInScope
     /**
      * Guard a submitted `lease_id` by the property its unit belongs to. For
      * chain-derived resources (Invoice, TenantSalesDeclaration, CreditNote…)
-     * whose property is determined by a client-supplied lease. A null/unknown
-     * lease resolves to a null asset → 403 for a restricted user (they must not
-     * submit a lease outside their set).
+     * whose property is determined by a client-supplied lease.
+     *
+     * FAIL-CLOSED CONTRACT: a null (or unknown) lease resolves to a null asset →
+     * abort(403) for a property-restricted user, exactly like a consolidated
+     * `asset_id`. This is intentional — it stops a restricted user from creating a
+     * property-less (portfolio-level) row by nulling the FK. A resource that
+     * *legitimately* allows a null FK — a tenant-level CreditNote with no lease —
+     * must therefore SKIP the guard for the null case at the call site
+     * (`if (! empty($data['lease_id'])) { … }`, as CreditNote's pages do), never
+     * relax this method. Same contract for assertUnit/UnitsAssetInScope +
+     * assertInvoiceAssetInScope below.
      */
     public static function assertLeaseAssetInScope(mixed $leaseId): void
     {
