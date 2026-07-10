@@ -253,13 +253,29 @@ Close the orphan + windowed-miss holes. Small, surgical, independently shippable
   Known follow-ups (non-blocking): `--deep` could chunk; the year-end double-gate has a narrow theoretical
   race (`close()` is idempotent, so a retry recovers).
 
-### Phase 5 — First-class void/cancel for AR documents (F10)
-- [ ] **"Void invoice" action** (super-admin / accounting): sets `status='cancelled'` with a reason +
-  audit-log entry; the sweep voids the GL entry (journalizer already returns null for `cancelled`).
-  This is the *supported correction path* once Phase 1 locks editing.
-- [ ] **"Void / refund payment" action**: reverses the payment (status flip or a linked refund
-  record), recomputes invoice AR (`recomputeTotals`), and the sweep voids the GL leg. Gives a proper
-  reversal instead of a raw delete.
+### Phase 5 — First-class void/cancel for AR documents ✅ DONE (2026-07-10)
+- [x] **"Void invoice" action.** `VoidInvoiceService::void($invoice, $reason)` (single-action) sets
+  `status='cancelled'`: the `updated` hook returns any applied credit (offsetting credit note),
+  `recomputeTotals` zeros the balance, and the sync/sweep voids the GL entry (journalizer returns no
+  effect for cancelled). Captured **cash** payments block it ("refund the payment first"); applied
+  credit is fine. Exposed as a gated "Void invoice" header action on `EditInvoice` (visible for
+  issued/overdue with no captured cash, `invoices.edit`), with a required reason (appended to notes,
+  status change is activity-logged).
+- [x] **"Void / refund payment" action.** `VoidPaymentService::void($payment, $reason)` sets
+  `status='refunded'`: the `saved` hook recomputes the allocated invoices (AR re-opens, since
+  `recomputeTotals` counts only captured payments) and the sync/sweep voids the GL leg. Exposed as a
+  gated "Void / refund" header action on `EditPayment` (captured only, `payments.edit`), with a reason.
+  (Both consistent with the Phase-1 model guards, which allow the status transition but not money-field edits.)
+- **ETA guard (from review — was HIGH).** A tax invoice already filed with the Egyptian Tax Authority
+  (`eta_status='valid'`) **cannot** be voided internally (that would diverge the books from ETA) — the
+  service throws and the action hides it, steering to a credit note / ETA cancellation. The void **reason**
+  is also written to the immutable activity log (not only the mutable `notes`).
+- **Deferred (non-blocking):** a dedicated `invoices.void` / `payments.void` permission (currently gated on
+  `.edit`, which is reasonable now that editing is locked — the `.edit` audience is who corrects invoices).
+- **Tests:** `tests/Feature/Regression/VoidActionsTest.php` (6) — void an issued invoice (cancelled +
+  balance 0 + ledger reversed), block a void with captured payments, block a void of an ETA-filed invoice,
+  void a captured payment (AR re-opens), and both edit-page actions with a reason. Review verdict: core
+  mechanics sound (the credit-reversal + double-recompute verified correct). Full suite green.
 
 ---
 

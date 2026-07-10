@@ -4,11 +4,15 @@ namespace App\Filament\Admin\Resources\Payments\Pages;
 
 use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Models\Payment;
+use App\Services\VoidPaymentService;
+use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\RestoreAction;
+use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Support\Facades\Auth;
 
 class EditPayment extends EditRecord
 {
@@ -19,6 +23,36 @@ class EditPayment extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            // Void / refund a captured payment — the supported reversal now that the receipt's
+            // money fields are locked. Re-opens the allocated invoices' AR + voids the GL leg.
+            Action::make('void_payment')
+                ->label(__('admin.actions.void_payment'))
+                ->icon('heroicon-o-arrow-uturn-left')
+                ->color('danger')
+                ->visible(fn () => $this->record->status === 'captured'
+                    && (Auth::user()?->can('payments.edit') ?? false))
+                ->authorize(fn () => Auth::user()?->can('payments.edit') ?? false)
+                ->requiresConfirmation()
+                ->modalDescription(__('admin.actions.void_payment_confirm'))
+                ->schema([
+                    Textarea::make('reason')
+                        ->label(__('admin.fields.void_reason'))
+                        ->required()
+                        ->maxLength(500),
+                ])
+                ->action(function (array $data): void {
+                    try {
+                        app(VoidPaymentService::class)->void($this->record, $data['reason'] ?? null);
+                        $this->refreshFormData(['status']);
+                        Notification::make()->title(__('admin.notifications.payment_voided'))->success()->send();
+                    } catch (\DomainException $e) {
+                        Notification::make()
+                            ->title(__('admin.notifications.payment_void_failed'))
+                            ->body($e->getMessage())
+                            ->danger()
+                            ->send();
+                    }
+                }),
             DeleteAction::make(),
             ForceDeleteAction::make(),
             RestoreAction::make(),

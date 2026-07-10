@@ -48,6 +48,11 @@ This is the core AR (accounts receivable) engine; all recurring revenue flows th
 > reverting to `draft` is refused (UI options + an `Invoice::updating` guard) so the lock can't be
 > bypassed. System paths (LateFeeService, CAM) still mutate via the model. See
 > [module 21 §Document immutability](21-general-ledger.md).
+>
+> **Correcting a finalized invoice = void, not edit.** The "Void invoice" action
+> (`VoidInvoiceService`, gated `invoices.edit`, with a reason) sets `status='cancelled'` → returns any
+> applied credit, zeros the balance, and reverses the GL entry. Captured **cash** payments block it
+> (refund the payment first); then re-issue a corrected invoice.
 
 ### Money & VAT
 

@@ -36,6 +36,11 @@ The module ensures money math is exact, AR ageing is accurate, and every payment
 > movement. The **allocations repeater stays editable** (re-allocating a receipt across invoices is
 > legitimate — it bumps the payment so the GL sweep re-derives the split) and `status` stays open
 > (initiated→captured, captured→failed). See [module 21 §Document immutability](21-general-ledger.md).
+>
+> **Reversing a captured payment = void/refund, not edit.** The "Void / refund" action
+> (`VoidPaymentService`, gated `payments.edit`, with a reason) sets `status='refunded'` → the allocated
+> invoices' AR re-opens (only captured payments count toward `paid_amount`) and the GL leg is reversed.
+> Record the actual refund to the tenant separately.
 
 ### AR Balance Computation (Invoice::recomputeTotals)
 The *single source of truth* for paid amount and balance:
