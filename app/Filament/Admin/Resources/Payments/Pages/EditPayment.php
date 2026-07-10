@@ -30,8 +30,8 @@ class EditPayment extends EditRecord
                 ->icon('heroicon-o-arrow-uturn-left')
                 ->color('danger')
                 ->visible(fn () => $this->record->status === 'captured'
-                    && (Auth::user()?->can('payments.edit') ?? false))
-                ->authorize(fn () => Auth::user()?->can('payments.edit') ?? false)
+                    && (Auth::user()?->can('payments.void') ?? false))
+                ->authorize(fn () => Auth::user()?->can('payments.void') ?? false)
                 ->requiresConfirmation()
                 ->modalDescription(__('admin.actions.void_payment_confirm'))
                 ->schema([

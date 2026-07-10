@@ -309,16 +309,27 @@ class BooksReconciliationService
                 $query->withTrashed();
             }
 
-            foreach ($query->cursor() as $model) {
-                if ($poster->wouldChange($model)) {
-                    $drifted[] = [
-                        'ref' => class_basename($class).' #'.$model->getKey(),
-                        'detail' => 'ledger entry is out of sync with the document — run accounting:sync-ledger',
-                    ];
-                    if (count($drifted) >= 100) {
-                        return $drifted; // cap — the count is enough to fail the check
+            // chunkById (not cursor) so a full-history audit on a large MySQL DB uses bounded
+            // memory AND short-lived queries rather than one long-held streaming connection.
+            $capped = false;
+            $query->chunkById(500, function ($models) use ($poster, &$drifted, &$capped, $class) {
+                foreach ($models as $model) {
+                    if ($poster->wouldChange($model)) {
+                        $drifted[] = [
+                            'ref' => class_basename($class).' #'.$model->getKey(),
+                            'detail' => 'ledger entry is out of sync with the document — run accounting:sync-ledger',
+                        ];
+                        if (count($drifted) >= 100) { // cap — the count is enough to fail the check
+                            $capped = true;
+
+                            return false; // stop chunking this source
+                        }
                     }
                 }
+            });
+
+            if ($capped) {
+                return $drifted; // stop scanning further sources too
             }
         }
 

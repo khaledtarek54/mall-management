@@ -75,6 +75,7 @@ class RolesPermissionsSeeder extends Seeder
             'invoices.view'                => 'View invoices',
             'invoices.create'              => 'Create invoices',
             'invoices.edit'                => 'Edit invoices',
+            'invoices.void'                => 'Void (cancel) an issued invoice',
             'invoices.delete'              => 'Delete invoices',
             'invoices.run_monthly_billing' => 'Run monthly billing for all active leases',
             'invoices.submit_to_eta'       => 'Submit invoices to the Egyptian Tax Authority',
@@ -84,6 +85,7 @@ class RolesPermissionsSeeder extends Seeder
             'payments.view'   => 'View payments',
             'payments.create' => 'Record payments',
             'payments.edit'   => 'Edit payments',
+            'payments.void'   => 'Void / refund a captured payment',
             'payments.delete' => 'Delete payments',
         ],
         'credit_notes' => [
@@ -343,9 +345,9 @@ class RolesPermissionsSeeder extends Seeder
 
         // accounting: Invoices, Payments, Credit Notes, CAM, Reports.
         Role::findByName('accounting', 'web')->syncPermissions([
-            'invoices.view', 'invoices.create', 'invoices.edit',
+            'invoices.view', 'invoices.create', 'invoices.edit', 'invoices.void',
             'invoices.run_monthly_billing', 'invoices.submit_to_eta', 'invoices.send_whatsapp',
-            'payments.view', 'payments.create', 'payments.edit',
+            'payments.view', 'payments.create', 'payments.edit', 'payments.void',
             'credit_notes.view', 'credit_notes.create', 'credit_notes.edit',
             'credit_notes.issue', 'credit_notes.apply', 'credit_notes.void',
             'cam.view', 'cam.create', 'cam.edit',

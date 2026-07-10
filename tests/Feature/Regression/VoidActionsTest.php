@@ -108,3 +108,15 @@ it('voids a payment through the edit-page action with a reason', function () {
 
     expect($payment->fresh()->status)->toBe('refunded');
 });
+
+it('grants the dedicated void permissions to accounting + super_admin but not viewer', function () {
+    $this->seed(\Database\Seeders\RolesPermissionsSeeder::class);
+    $has = fn (string $role, string $perm) => \Spatie\Permission\Models\Role::findByName($role, 'web')->hasPermissionTo($perm);
+
+    expect($has('accounting', 'invoices.void'))->toBeTrue()
+        ->and($has('accounting', 'payments.void'))->toBeTrue()
+        ->and($has('super_admin', 'invoices.void'))->toBeTrue()
+        ->and($has('manager', 'invoices.void'))->toBeTrue()
+        ->and($has('viewer', 'invoices.void'))->toBeFalse()
+        ->and($has('viewer', 'payments.void'))->toBeFalse();
+});

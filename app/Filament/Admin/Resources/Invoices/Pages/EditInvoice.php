@@ -61,8 +61,8 @@ class EditInvoice extends EditRecord
                 ->visible(fn () => in_array($this->record->status, ['issued', 'overdue'], true)
                     && $this->record->eta_status !== 'valid' // a filed ETA tax invoice: use a credit note
                     && round((float) $this->record->paid_amount - (float) $this->record->credit_applied_amount, 2) <= 0
-                    && (Auth::user()?->can('invoices.edit') ?? false))
-                ->authorize(fn () => Auth::user()?->can('invoices.edit') ?? false)
+                    && (Auth::user()?->can('invoices.void') ?? false))
+                ->authorize(fn () => Auth::user()?->can('invoices.void') ?? false)
                 ->requiresConfirmation()
                 ->modalDescription(__('admin.actions.void_invoice_confirm'))
                 ->schema([

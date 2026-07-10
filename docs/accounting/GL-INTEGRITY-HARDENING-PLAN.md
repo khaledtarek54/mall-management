@@ -250,8 +250,9 @@ Close the orphan + windowed-miss holes. Small, surgical, independently shippable
 - **Review:** safe to commit, no critical/high (`wouldChange` verified to exactly mirror `sync()`).
   Fixed the block-message wording (docs can be posted-but-stale/deleted, not only "not yet posted"), noted
   `--deep` can take minutes on a large DB, and documented that `wouldChange` reads `posted` entries only.
-  Known follow-ups (non-blocking): `--deep` could chunk; the year-end double-gate has a narrow theoretical
-  race (`close()` is idempotent, so a retry recovers).
+  Follow-ups: `--deep` now uses `chunkById(500)` (bounded memory + short-lived queries for a large-DB
+  audit). Remaining (non-blocking): the year-end double-gate has a narrow theoretical race (`close()` is
+  idempotent, so a retry recovers).
 
 ### Phase 5 — First-class void/cancel for AR documents ✅ DONE (2026-07-10)
 - [x] **"Void invoice" action.** `VoidInvoiceService::void($invoice, $reason)` (single-action) sets
@@ -270,8 +271,10 @@ Close the orphan + windowed-miss holes. Small, surgical, independently shippable
   (`eta_status='valid'`) **cannot** be voided internally (that would diverge the books from ETA) — the
   service throws and the action hides it, steering to a credit note / ETA cancellation. The void **reason**
   is also written to the immutable activity log (not only the mutable `notes`).
-- **Deferred (non-blocking):** a dedicated `invoices.void` / `payments.void` permission (currently gated on
-  `.edit`, which is reasonable now that editing is locked — the `.edit` audience is who corrects invoices).
+- **Dedicated void permissions (done, follow-up):** `invoices.void` / `payments.void` are now their own
+  permissions (RolesPermissionsSeeder) granted to super_admin + manager + accounting; the edit-page void
+  actions gate on them instead of `.edit`. Least-privilege-ready (a role could have edit without void).
+  Existing deployments must re-run `db:seed --class=RolesPermissionsSeeder` to pick them up.
 - **Tests:** `tests/Feature/Regression/VoidActionsTest.php` (6) — void an issued invoice (cancelled +
   balance 0 + ledger reversed), block a void with captured payments, block a void of an ETA-filed invoice,
   void a captured payment (AR re-opens), and both edit-page actions with a reason. Review verdict: core
