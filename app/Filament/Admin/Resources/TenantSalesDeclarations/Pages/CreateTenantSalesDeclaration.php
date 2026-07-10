@@ -12,6 +12,10 @@ class CreateTenantSalesDeclaration extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
+        // The declaration's property comes from its lease — re-validate the
+        // submitted lease is within the user's visible set (property isolation).
+        TenantSalesDeclarationResource::assertLeaseAssetInScope($data['lease_id'] ?? null);
+
         $data['declared_at'] ??= now();
         $data['declared_by_type'] ??= \App\Models\User::class;
         $data['declared_by_id'] ??= auth()->id();

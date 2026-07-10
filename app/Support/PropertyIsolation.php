@@ -92,7 +92,6 @@ class PropertyIsolation
         AccountMapping::class,      // global posting-rule defaults + optional per-property override rows
         SystemSetting::class,       // system state / config
         Note::class,                // polymorphic note attached to various records
-        Department::class,          // org unit; optionally property-scoped (nullable asset_id) — handled by its own picker
     ];
 
     /**
@@ -126,6 +125,7 @@ class PropertyIsolation
         MaintenancePlan::class => null,
         MaintenanceWorkOrder::class => null,
         OwnerRequest::class => null,           // asset_id nullable (property-specific or cross-property)
+        Department::class => null,             // asset_id nullable: null = operator-wide (global), set = property-scoped (hybrid)
 
         // ---- Indirect (relation chain to asset_id) ----
         Lease::class => 'unit',

@@ -19,6 +19,15 @@ class EditLease extends EditRecord
 {
     protected static string $resource = LeaseResource::class;
 
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        // Block re-homing the lease (or attaching out-of-scope additional units).
+        LeaseResource::assertUnitAssetInScope($data['unit_id'] ?? $this->record->unit_id);
+        LeaseResource::assertUnitsAssetInScope($this->data['additional_unit_ids'] ?? []);
+
+        return $data;
+    }
+
     /** Pre-fill the additional-units selector from the lease's pivot (non-master units). */
     protected function mutateFormDataBeforeFill(array $data): array
     {

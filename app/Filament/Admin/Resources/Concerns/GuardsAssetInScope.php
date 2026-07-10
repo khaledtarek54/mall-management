@@ -2,6 +2,9 @@
 
 namespace App\Filament\Admin\Resources\Concerns;
 
+use App\Models\Invoice;
+use App\Models\Lease;
+use App\Models\Unit;
 use App\Support\TenantScope;
 
 /**
@@ -37,5 +40,43 @@ trait GuardsAssetInScope
         if ($visible !== null && ! in_array((int) $assetId, $visible, true)) {
             abort(403);
         }
+    }
+
+    /**
+     * Guard a submitted `lease_id` by the property its unit belongs to. For
+     * chain-derived resources (Invoice, TenantSalesDeclaration, CreditNote…)
+     * whose property is determined by a client-supplied lease. A null/unknown
+     * lease resolves to a null asset → 403 for a restricted user (they must not
+     * submit a lease outside their set).
+     */
+    public static function assertLeaseAssetInScope(mixed $leaseId): void
+    {
+        static::assertAssetInScope(
+            $leaseId === null ? null : Lease::query()->with('unit:id,asset_id')->find($leaseId)?->unit?->asset_id
+        );
+    }
+
+    /** Guard a submitted `unit_id` by its property (Lease master unit, MaintenanceRequest…). */
+    public static function assertUnitAssetInScope(mixed $unitId): void
+    {
+        static::assertAssetInScope(
+            $unitId === null ? null : Unit::query()->find($unitId)?->asset_id
+        );
+    }
+
+    /** Guard a list of submitted `unit_id`s (e.g. a lease's additional units). */
+    public static function assertUnitsAssetInScope(array $unitIds): void
+    {
+        foreach (array_filter($unitIds) as $unitId) {
+            static::assertUnitAssetInScope($unitId);
+        }
+    }
+
+    /** Guard a submitted `invoice_id` by its property (via lease → unit); used by Payment allocations. */
+    public static function assertInvoiceAssetInScope(mixed $invoiceId): void
+    {
+        static::assertAssetInScope(
+            $invoiceId === null ? null : Invoice::query()->with('lease.unit:id,asset_id')->find($invoiceId)?->lease?->unit?->asset_id
+        );
     }
 }

@@ -11,6 +11,16 @@ class CreateLease extends CreateRecord
 {
     protected static string $resource = LeaseResource::class;
 
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        // The lease's property is its master unit's; every additional unit must
+        // share it. Re-validate against the user's visible set (property isolation).
+        LeaseResource::assertUnitAssetInScope($data['unit_id'] ?? null);
+        LeaseResource::assertUnitsAssetInScope($this->data['additional_unit_ids'] ?? []);
+
+        return $data;
+    }
+
     /**
      * Standard Filament form creates the Lease row via Eloquent's default
      * flow. LeaseObserver handles the unit-status flip (active → occupied).

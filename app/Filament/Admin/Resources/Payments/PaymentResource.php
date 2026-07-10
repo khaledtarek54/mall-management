@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Payments;
 
+use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Concerns\ScopesViaProperty;
 use App\Filament\Admin\Resources\Payments\Pages\CreatePayment;
@@ -21,6 +22,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class PaymentResource extends Resource
 {
+    use GuardsAssetInScope;
     use RoleGatedActions;
     use ScopesViaProperty;
 

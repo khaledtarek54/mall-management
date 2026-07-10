@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\TenantSalesDeclarations;
 
+use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Concerns\ScopesViaProperty;
 use App\Filament\Admin\Resources\TenantSalesDeclarations\Pages\CreateTenantSalesDeclaration;
@@ -20,6 +21,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class TenantSalesDeclarationResource extends Resource
 {
+    use GuardsAssetInScope;
     use RoleGatedActions;
     use ScopesViaProperty;
 

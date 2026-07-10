@@ -25,10 +25,10 @@ class TenantSalesDeclarationForm
                     Select::make('lease_id')
                         ->label(__('admin.resources.lease.singular'))
                         ->options(function () {
-                            $assetId = \App\Support\TenantScope::currentAssetId();
+                            $assetIds = \App\Support\TenantScope::visibleAssetIds();
                             return Lease::with(['tenant', 'unit'])
                                 ->where('status', 'active')
-                                ->when($assetId, fn ($q) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)))
+                                ->when($assetIds, fn ($q) => $q->whereHas('unit', fn ($u) => $u->whereIn('asset_id', $assetIds)))
                                 ->get()
                                 ->mapWithKeys(fn (Lease $l) => [$l->id => sprintf('%s — %s (%s)', $l->reference, $l->tenant?->name, $l->unit?->code)]);
                         })

@@ -12,6 +12,14 @@ class EditMaintenanceRequest extends EditRecord
 {
     protected static string $resource = MaintenanceRequestResource::class;
 
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        // Block re-homing via a tampered unit (property is derived from the unit).
+        MaintenanceRequestResource::assertUnitAssetInScope($data['unit_id'] ?? $this->record->unit_id);
+
+        return $data;
+    }
+
     protected function getHeaderActions(): array
     {
         return [

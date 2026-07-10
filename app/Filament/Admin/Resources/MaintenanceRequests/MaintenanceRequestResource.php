@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\MaintenanceRequests;
 
+use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Concerns\ScopesViaProperty;
 use App\Filament\Admin\Resources\MaintenanceRequests\Pages\CreateMaintenanceRequest;
@@ -21,6 +22,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class MaintenanceRequestResource extends Resource
 {
+    use GuardsAssetInScope;
     use RoleGatedActions {
         canEdit as protected roleGatedCanEdit;
     }

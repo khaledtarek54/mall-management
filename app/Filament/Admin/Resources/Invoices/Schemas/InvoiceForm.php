@@ -46,8 +46,8 @@ class InvoiceForm
                             modifyQueryUsing: fn ($query) => $query
                                 ->with(['tenant:id,name', 'unit:id,code'])
                                 ->when(
-                                    TenantScope::currentAssetId(),
-                                    fn ($q, $assetId) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)),
+                                    TenantScope::visibleAssetIds(),
+                                    fn ($q, $assetIds) => $q->whereHas('unit', fn ($u) => $u->whereIn('asset_id', $assetIds)),
                                 ),
                         )
                         // Search columns are kept non-empty so Filament treats this as having
@@ -61,8 +61,8 @@ class InvoiceForm
                             return Lease::query()
                                 ->with(['tenant:id,name', 'unit:id,code'])
                                 ->when(
-                                    TenantScope::currentAssetId(),
-                                    fn ($q, $assetId) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)),
+                                    TenantScope::visibleAssetIds(),
+                                    fn ($q, $assetIds) => $q->whereHas('unit', fn ($u) => $u->whereIn('asset_id', $assetIds)),
                                 )
                                 ->where(fn ($q) => $q
                                     ->where('reference', 'like', $term)

@@ -106,6 +106,14 @@ if (! function_exists('propertyIsolationMustGuardResources')) {
             // Asset derived from a client-supplied lease (guard validates the lease's property).
             'DepositTransaction' => \App\Filament\Admin\Resources\DepositTransactions\DepositTransactionResource::class,
             'CreditNote' => \App\Filament\Admin\Resources\CreditNotes\CreditNoteResource::class,
+            // Chain-derived: the property comes from a client-supplied lease/unit/invoice FK.
+            'Invoice' => \App\Filament\Admin\Resources\Invoices\InvoiceResource::class,
+            'Lease' => \App\Filament\Admin\Resources\Leases\LeaseResource::class,
+            'TenantSalesDeclaration' => \App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource::class,
+            'MaintenanceRequest' => \App\Filament\Admin\Resources\MaintenanceRequests\MaintenanceRequestResource::class,
+            'Payment' => \App\Filament\Admin\Resources\Payments\PaymentResource::class,
+            // Hybrid (nullable asset_id): global rows visible to all; property-scoped ones guarded.
+            'Department' => \App\Filament\Admin\Resources\Departments\DepartmentResource::class,
         ];
     }
 }
@@ -184,13 +192,15 @@ it('wires the asset-scope write guard on every must-guard resource', function (s
         glob($pagesDir.'/Edit*.php') ?: [],
     );
 
+    // 'AssetInScope' matches assertAssetInScope AND the FK-derived helpers
+    // (assertLeaseAssetInScope / assertUnitAssetInScope / assertInvoiceAssetInScope).
     $guardedPages = array_filter(
         $pages,
-        fn ($file) => str_contains((string) file_get_contents($file), 'assertAssetInScope'),
+        fn ($file) => str_contains((string) file_get_contents($file), 'AssetInScope'),
     );
 
     expect($guardedPages)->not->toBeEmpty(
-        "{$resource} has create/edit pages but none call assertAssetInScope (property-isolation write guard)",
+        "{$resource} has create/edit pages but none call an *AssetInScope guard (property-isolation write guard)",
     );
 })->with(propertyIsolationMustGuardResources());
 
@@ -211,23 +221,48 @@ it('registers every not-auto-stamped owned resource that exposes an editable ass
             continue; // Filament force-stamps asset_id on create → not client-supplied there
         }
 
-        $hasAssetField = false;
+        // A client-supplied property = a direct asset_id field OR a property-determining
+        // FK picker (lease/unit/invoice). Both must be write-guarded.
+        $hasClientProperty = false;
         foreach (glob(dirname((new ReflectionClass($resource))->getFileName()).'/Schemas/*Form.php') ?: [] as $formFile) {
-            if (str_contains((string) file_get_contents($formFile), "make('asset_id')")) {
-                $hasAssetField = true;
-                break;
+            $src = (string) file_get_contents($formFile);
+            foreach (["make('asset_id')", "make('lease_id')", "make('unit_id')", "make('invoice_id')"] as $needle) {
+                if (str_contains($src, $needle)) {
+                    $hasClientProperty = true;
+                    break 2;
+                }
             }
         }
 
-        if ($hasAssetField && ! in_array($resource, $mustGuard, true)) {
+        if ($hasClientProperty && ! in_array($resource, $mustGuard, true)) {
             $offenders[] = $resource;
         }
     }
 
     expect($offenders)->toBe(
         [],
-        'Not-auto-stamped resources exposing an editable asset_id that are missing from the '
-            .'must-guard set (add to propertyIsolationMustGuardResources + wire assertAssetInScope): '
+        'Not-auto-stamped resources exposing a client-supplied property (asset_id or a '
+            .'lease/unit/invoice FK) that are missing from the must-guard set '
+            .'(add to propertyIsolationMustGuardResources + wire an *AssetInScope guard): '
             .implode(', ', $offenders),
     );
+});
+
+// A per-property model wrongly bucketed as SHARED would be exempted from the table-scoping
+// gate (Test B) — a silent read leak (this is exactly how the Department leak hid). Assert
+// no SHARED model carries an asset_id column, except acknowledged programmatic config.
+it('confirms no SHARED model carries an asset_id column (except acknowledged config)', function () {
+    // AccountMapping legitimately has a nullable per-property override column but is
+    // resolved programmatically with no list/write surface, so it stays SHARED.
+    $acknowledged = [\App\Models\AccountMapping::class];
+
+    foreach (PropertyIsolation::sharedModels() as $model) {
+        if (in_array($model, $acknowledged, true)) {
+            continue;
+        }
+        $table = (new $model)->getTable();
+        expect(Schema::hasColumn($table, 'asset_id'))
+            ->toBeFalse("{$model} ({$table}) is classified SHARED but has an asset_id column — "
+                ."it is likely per-property and belongs in OWNED (else its resource escapes the scoping gate)");
+    }
 });

@@ -13,6 +13,14 @@ class EditTenantSalesDeclaration extends EditRecord
 {
     protected static string $resource = TenantSalesDeclarationResource::class;
 
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        // Block re-homing via a tampered lease (property is derived from the lease).
+        TenantSalesDeclarationResource::assertLeaseAssetInScope($data['lease_id'] ?? $this->record->lease_id);
+
+        return $data;
+    }
+
     protected function getHeaderActions(): array
     {
         return [

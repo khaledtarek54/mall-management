@@ -22,7 +22,12 @@ The authoritative, testable source of truth is **[`App\Support\PropertyIsolation
 **SHARED across all properties** (operator-wide; no per-property row scoping):
 User/roles · **LedgerAccount** (one chart; property is a *dimension* on journal lines) · FiscalYear ·
 AccountingPeriod · AccountMapping (global default + optional per-property override) · SystemSetting ·
-**InventoryItem** (catalog) · **Vendor** (catalog) · **Tenant** / TenantUser / DeviceToken · Note · Department.
+**InventoryItem** (catalog) · **Vendor** (catalog) · **Tenant** / TenantUser / DeviceToken · Note.
+
+> **Department is NOT shared** — it is a *hybrid* per-property model (nullable `asset_id`: null = operator-wide,
+> a set value scopes it to one property). It lives in `OWNED`; its resource scopes reads to
+> "global OR your visible set" and guards its edit. (Misclassifying it SHARED was a real read leak — a
+> `SHARED`-model-has-no-`asset_id` test now guards against that class.)
 
 **The shared-catalog-with-per-property-use pattern** — how something is shared *without* leaking:
 
@@ -60,11 +65,22 @@ resources) — never on update. So:
 | `isScopedToTenant() === true` (auto-stamped) | Safe — Filament overwrites any tampered `asset_id` | **Needs a guard** if `asset_id` is editable (not re-stamped on update) |
 | `isScopedToTenant() === false` (opts out) | **Needs a guard** — `asset_id` is fully client-supplied | **Needs a guard** |
 
-The guard is **`App\Filament\Admin\Resources\Concerns\GuardsAssetInScope::assertAssetInScope($assetId)`**
-— it `abort(403)`s when a restricted user submits a property outside `visibleAssetIds()` and is a no-op
-for portfolio users. Wire it from the page's `mutateFormDataBeforeCreate` / `mutateFormDataBeforeSave`.
-For models whose `asset_id` is **derived from a relation** (DepositTransaction, CreditNote → lease),
-scope the relation picker to `visibleAssetIds()` **and** guard the derived asset via the selected record.
+The guard is **`App\Filament\Admin\Resources\Concerns\GuardsAssetInScope`**. It `abort(403)`s when a
+restricted user submits a property outside `visibleAssetIds()` and is a no-op for portfolio users. Wire it
+from the page's `mutateFormDataBeforeCreate` / `mutateFormDataBeforeSave`:
+
+- **Direct `asset_id`** (Expense, VendorBill, Payroll, JournalEntry, OwnerRequest, Unit, CamExpensePool,
+  UtilityMeter, Employee, …): `assertAssetInScope($data['asset_id'])`.
+- **Chain-derived** (Invoice/TenantSalesDeclaration/CreditNote/DepositTransaction ← lease;
+  Lease/MaintenanceRequest ← unit; Payment ← allocated invoices): the property comes from a client FK, so
+  the picker `->when(currentAssetId(), …)` is a **no-op in All-mode and leaks** — scope every such picker to
+  `visibleAssetIds()` **and** guard with the FK-resolving helpers `assertLeaseAssetInScope` /
+  `assertUnitAssetInScope` / `assertUnitsAssetInScope` / `assertInvoiceAssetInScope`.
+- **Relation managers** are outside the resource-page flow — guard a client-supplied `asset_id`/FK there
+  with a field `->rules([...])` closure (see `Vendors/RelationManagers/ContractsRelationManager`).
+
+**Filament stamps `asset_id` only on CREATE** (for `isScopedToTenant()===true` resources), never on
+update — so an editable `asset_id`/FK on the **edit** page always needs a guard.
 
 ## The self-enforcing gate
 

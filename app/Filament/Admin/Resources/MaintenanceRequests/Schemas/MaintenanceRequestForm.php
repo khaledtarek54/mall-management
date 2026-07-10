@@ -57,10 +57,10 @@ class MaintenanceRequestForm
                     Select::make('unit_id')
                         ->label(__('admin.fields.unit_label'))
                         ->options(function () {
-                            $assetId = TenantScope::currentAssetId();
+                            $assetIds = TenantScope::visibleAssetIds();
 
                             return Unit::with('asset')
-                                ->when($assetId, fn ($q) => $q->where('asset_id', $assetId))
+                                ->when($assetIds, fn ($q) => $q->whereIn('asset_id', $assetIds))
                                 ->orderBy('code')
                                 ->get()
                                 ->mapWithKeys(fn (Unit $u) => [$u->id => $u->fullName()]);

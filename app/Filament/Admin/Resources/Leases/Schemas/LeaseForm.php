@@ -37,8 +37,8 @@ class LeaseForm
                             'code',
                             modifyQueryUsing: function ($query, Get $get, ?Lease $record) {
                                 $query->when(
-                                    TenantScope::currentAssetId(),
-                                    fn ($q, $assetId) => $q->where('asset_id', $assetId),
+                                    TenantScope::visibleAssetIds(),
+                                    fn ($q, $assetIds) => $q->whereIn('asset_id', $assetIds),
                                 );
 
                                 if ($get('show_occupied_units')) {
@@ -89,11 +89,11 @@ class LeaseForm
                         ->preload()
                         ->dehydrated(false)
                         ->options(function (Get $get, ?Lease $record) {
-                            $assetId = TenantScope::currentAssetId();
+                            $assetIds = TenantScope::visibleAssetIds();
                             $master = $get('unit_id');
 
                             return Unit::query()
-                                ->when($assetId, fn ($q, $aid) => $q->where('asset_id', $aid))
+                                ->when($assetIds, fn ($q, $aids) => $q->whereIn('asset_id', $aids))
                                 ->where(function ($q) use ($record) {
                                     $q->whereNotIn('status', ['occupied', 'reserved', 'maintenance']);
                                     if ($record) {

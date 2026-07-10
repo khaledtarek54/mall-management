@@ -94,6 +94,10 @@ class EditPayment extends EditRecord
         }
 
         try {
+            // Property isolation: every allocated invoice must be in the user's visible set.
+            foreach (array_keys($sync) as $invoiceId) {
+                PaymentResource::assertInvoiceAssetInScope($invoiceId);
+            }
             $payment->assertInvoicesShareTenant(array_keys($sync));
 
             \Illuminate\Support\Facades\DB::transaction(function () use ($payment, $sync, $previouslyAttached) {

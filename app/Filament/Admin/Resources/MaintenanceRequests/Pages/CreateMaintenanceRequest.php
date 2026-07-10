@@ -14,6 +14,10 @@ class CreateMaintenanceRequest extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
+        // The request's property comes from its unit — re-validate the submitted
+        // unit is within the user's visible set (property isolation).
+        MaintenanceRequestResource::assertUnitAssetInScope($data['unit_id'] ?? null);
+
         $data['submitted_at'] ??= now();
 
         $type = TenantRequestType::tryFrom($data['request_type'] ?? '') ?? TenantRequestType::default();

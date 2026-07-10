@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Invoices;
 
+use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Concerns\ScopesViaProperty;
 use App\Filament\Admin\Resources\Invoices\Pages\CreateInvoice;
@@ -21,6 +22,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class InvoiceResource extends Resource
 {
+    use GuardsAssetInScope;
     use RoleGatedActions;
     use ScopesViaProperty;
 

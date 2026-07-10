@@ -15,6 +15,14 @@ class EditInvoice extends EditRecord
 {
     protected static string $resource = InvoiceResource::class;
 
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        // Block re-homing a draft invoice into another property via a tampered lease.
+        InvoiceResource::assertLeaseAssetInScope($data['lease_id'] ?? $this->record->lease_id);
+
+        return $data;
+    }
+
     protected function getHeaderActions(): array
     {
         return [

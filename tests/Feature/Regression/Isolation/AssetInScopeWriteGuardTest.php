@@ -3,8 +3,11 @@
 use App\Filament\Admin\Resources\CreditNotes\CreditNoteResource;
 use App\Filament\Admin\Resources\DepositTransactions\DepositTransactionResource;
 use App\Filament\Admin\Resources\Expenses\ExpenseResource;
+use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Admin\Resources\JournalEntries\JournalEntryResource;
+use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Filament\Admin\Resources\OwnerRequests\OwnerRequestResource;
+use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Filament\Admin\Resources\Payrolls\PayrollResource;
 use App\Filament\Admin\Resources\VendorBills\VendorBillResource;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -63,3 +66,34 @@ it('is a no-op for a portfolio user (super_admin)', function (string $resource) 
     $resource::assertAssetInScope(null);
     expect(true)->toBeTrue();
 })->with($guarded);
+
+/**
+ * Chain-derived resources (Invoice, Lease, TenantSalesDeclaration, MaintenanceRequest,
+ * Payment, CreditNote, DepositTransaction) determine their property from a client-supplied
+ * lease/unit/invoice FK — a security sweep found these unguarded. The FK-resolving guards
+ * must reject a foreign-property FK and allow an in-scope one.
+ */
+it('resolves and guards a chain-derived property (lease / unit / invoice)', function () {
+    $this->actingAs(makeUser('manager', [$this->assetA->id]));
+
+    $unitA = makeUnit($this->assetA);
+    $unitB = makeUnit($this->assetB);
+    $leaseA = makeLease($unitA);
+    $leaseB = makeLease($unitB);
+    $invoiceA = makeInvoice($leaseA);
+    $invoiceB = makeInvoice($leaseB);
+
+    // lease-derived (Invoice / TenantSalesDeclaration / CreditNote / DepositTransaction)
+    InvoiceResource::assertLeaseAssetInScope($leaseA->id);
+    expect(fn () => InvoiceResource::assertLeaseAssetInScope($leaseB->id))->toThrow(HttpException::class);
+
+    // unit-derived (Lease master + additional units / MaintenanceRequest)
+    LeaseResource::assertUnitAssetInScope($unitA->id);
+    expect(fn () => LeaseResource::assertUnitAssetInScope($unitB->id))->toThrow(HttpException::class);
+    LeaseResource::assertUnitsAssetInScope([$unitA->id]);
+    expect(fn () => LeaseResource::assertUnitsAssetInScope([$unitA->id, $unitB->id]))->toThrow(HttpException::class);
+
+    // invoice-derived (Payment allocations)
+    PaymentResource::assertInvoiceAssetInScope($invoiceA->id);
+    expect(fn () => PaymentResource::assertInvoiceAssetInScope($invoiceB->id))->toThrow(HttpException::class);
+});

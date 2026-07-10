@@ -46,7 +46,21 @@ class ContractsRelationManager extends RelationManager
                     ->placeholder('—')
                     ->default(fn () => \App\Support\TenantScope::currentAssetId())
                     ->disabled(fn () => \App\Support\TenantScope::currentAssetId() !== null)
-                    ->dehydrated(),
+                    ->dehydrated()
+                    // Server-side property-isolation guard: the field is enabled + dehydrated
+                    // in All-Properties mode, so re-validate a chosen property against the
+                    // user's visible set (null = portfolio-wide contract, allowed).
+                    ->rules([
+                        fn (): \Closure => function (string $attribute, $value, \Closure $fail): void {
+                            if ($value === null) {
+                                return;
+                            }
+                            $visible = \App\Support\TenantScope::visibleAssetIds();
+                            if ($visible !== null && ! in_array((int) $value, $visible, true)) {
+                                abort(403);
+                            }
+                        },
+                    ]),
                 DatePicker::make('start_date')->label(__('admin.fields.start_date') ?: 'Start')->required()->native(false),
                 DatePicker::make('end_date')->label(__('admin.fields.end_date') ?: 'End')->native(false)->afterOrEqual('start_date'),
                 TextInput::make('value')

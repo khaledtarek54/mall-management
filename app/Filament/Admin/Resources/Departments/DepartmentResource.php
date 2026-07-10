@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Departments;
 
 use App\Filament\Admin\RelationManagers\DepartmentMembersRelationManager;
+use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Departments\Pages\EditDepartment;
 use App\Filament\Admin\Resources\Departments\Pages\ListDepartments;
@@ -19,6 +20,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class DepartmentResource extends Resource
 {
+    use GuardsAssetInScope;
     use RoleGatedActions;
 
     protected static ?string $model = Department::class;
@@ -93,6 +95,22 @@ class DepartmentResource extends Resource
             'index' => ListDepartments::route('/'),
             'edit' => EditDepartment::route('/{record}/edit'),
         ];
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        // Hybrid scope: operator-wide (null asset_id) departments are visible to
+        // everyone; property-scoped ones only within the user's visible set. Mirrors
+        // Department::selectableOptions(). visibleAssetIds() = null for portfolio
+        // users (super_admin / owners), who then see all departments.
+        $ids = \App\Support\TenantScope::visibleAssetIds();
+        if ($ids !== null) {
+            $query->where(fn (Builder $q) => $q->whereNull('asset_id')->orWhereIn('asset_id', $ids));
+        }
+
+        return $query;
     }
 
     public static function getRecordRouteBindingEloquentQuery(): Builder
