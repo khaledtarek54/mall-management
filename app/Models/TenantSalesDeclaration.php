@@ -9,10 +9,15 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 
-class TenantSalesDeclaration extends Model
+class TenantSalesDeclaration extends Model implements HasMedia
 {
-    use HasFactory, LogsActivity, SoftDeletes;
+    use HasFactory, InteractsWithMedia, LogsActivity, SoftDeletes;
+
+    /** Media collection holding the tenant's uploaded sales-report file(s). */
+    public const REPORT_COLLECTION = 'sales_report';
 
     public const STATUSES = ['submitted', 'locked', 'disputed'];
 
@@ -47,6 +52,24 @@ class TenantSalesDeclaration extends Model
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('tenant_sales');
+    }
+
+    /**
+     * The tenant's uploaded sales report lives on a PRIVATE disk (not
+     * web-accessible) — it can contain commercial turnover figures and must
+     * never be reachable via a guessable public URL. It's streamed only through
+     * authenticated, tenant-scoped endpoints (the mobile API attachment
+     * controller) and the authed admin panel. Mirrors TenantRequest attachments.
+     */
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection(self::REPORT_COLLECTION)->useDisk('local');
+    }
+
+    /** Whether the tenant has attached at least one sales-report file. */
+    public function hasReport(): bool
+    {
+        return $this->getMedia(self::REPORT_COLLECTION)->isNotEmpty();
     }
 
     public function lease(): BelongsTo

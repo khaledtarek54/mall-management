@@ -34,6 +34,7 @@ use App\Http\Controllers\Api\V1\Profile\SummaryController;
 use App\Http\Controllers\Api\V1\Profile\UpdateProfileController;
 use App\Http\Controllers\Api\V1\SalesDeclarations\CreateSalesDeclarationController;
 use App\Http\Controllers\Api\V1\SalesDeclarations\ListSalesDeclarationsController;
+use App\Http\Controllers\Api\V1\SalesDeclarations\ShowSalesDeclarationAttachmentController;
 use App\Http\Controllers\Api\V1\SalesDeclarations\ShowSalesDeclarationController;
 use App\Http\Controllers\Api\V1\Tenant\DemoPayInvoiceController;
 use App\Http\Controllers\Api\V1\Tenant\InitiatePaymobSessionController;
@@ -135,6 +136,7 @@ Route::prefix('v1')->group(function () {
         Route::get('me/sales-declarations', ListSalesDeclarationsController::class)->name('api.v1.me.sales.index');
         Route::post('me/sales-declarations', CreateSalesDeclarationController::class)->name('api.v1.me.sales.store');
         Route::get('me/sales-declarations/{id}', ShowSalesDeclarationController::class)->whereNumber('id')->name('api.v1.me.sales.show');
+        Route::get('me/sales-declarations/{id}/attachments/{media}', ShowSalesDeclarationAttachmentController::class)->whereNumber('id')->whereNumber('media')->name('api.v1.me.sales.attachment');
 
         // --- Push device tokens ---
         Route::post('me/devices', RegisterDeviceController::class)->name('api.v1.me.devices.store');

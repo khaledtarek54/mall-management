@@ -4,28 +4,29 @@ namespace App\Actions\Api\V1\Sales;
 
 use App\Models\TenantSalesDeclaration;
 use App\Models\Tenant;
-use App\Services\PercentageRentCalculationService;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\ValidationException;
 
 /**
  * Submit a sales declaration for a percentage-rent lease.
  *
+ * The tenant no longer self-reports a figure — they attach their sales report
+ * file. The operator reviews the attachment in the admin panel, enters the
+ * sales figure, and locks the declaration to generate the percentage-rent
+ * charge. So this action does NOT calculate anything at submission time; it
+ * persists the declaration (figure null) plus the uploaded file(s).
+ *
  * Guards (all server-enforced — never trust the client):
  *  - the lease must belong to this tenant AND carry percentage-rent terms;
  *  - one declaration per (lease, period_start) — matches the DB unique key.
- *
- * On success it persists the declaration as the tenant (polymorphic author)
- * and runs the shared calculation service so calculated_percentage_rent is
- * populated immediately. It does NOT lock — locking is a staff action.
  */
 class CreateSalesDeclarationAction
 {
-    public function __construct(private PercentageRentCalculationService $service) {}
-
     /**
-     * @param  array<string,mixed>  $data  Keys: lease_id, period_start, period_end, declared_sales
+     * @param  array<string,mixed>  $data  Keys: lease_id, period_start, period_end
+     * @param  array<int, UploadedFile>  $attachments  The tenant's sales-report file(s).
      */
-    public function handle(Tenant $tenant, array $data): TenantSalesDeclaration
+    public function handle(Tenant $tenant, array $data, array $attachments = []): TenantSalesDeclaration
     {
         $lease = $tenant->leases()
             ->where('id', $data['lease_id'])
@@ -52,15 +53,22 @@ class CreateSalesDeclarationAction
             'lease_id' => $lease->id,
             'period_start' => $data['period_start'],
             'period_end' => $data['period_end'],
-            'declared_sales' => $data['declared_sales'],
+            // declared_sales stays null — the operator fills it after reviewing
+            // the attached report. calculated_percentage_rent stays at its 0
+            // default until then.
             'status' => 'submitted',
             'declared_at' => now(),
         ]);
         $declaration->declaredBy()->associate($tenant);
         $declaration->save();
 
-        // Populate calculated_percentage_rent right away so the app can show
-        // the tenant their estimated liability before staff lock it.
-        return $this->service->recalculate($declaration);
+        // Push the uploaded report into the Spatie `sales_report` collection.
+        // Done after the row saves (not in a DB transaction) because media
+        // moves files on disk — mirrors CreateMaintenanceRequestAction.
+        foreach ($attachments as $file) {
+            $declaration->addMedia($file)->toMediaCollection(TenantSalesDeclaration::REPORT_COLLECTION);
+        }
+
+        return $declaration->load('lease', 'media');
     }
 }

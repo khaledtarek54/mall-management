@@ -764,18 +764,29 @@ class DemoSeeder extends Seeder
                     default => 'submitted',
                 };
 
+                // File-first: a still-submitted declaration has no figure yet —
+                // the tenant uploaded their report and staff enter the number on
+                // review. Historic locked/disputed rows keep their reconciled
+                // figure (they were already processed).
+                $isPending = $status === 'submitted';
+
                 $declaration = TenantSalesDeclaration::create([
                     'lease_id' => $lease->id,
                     'period_start' => $periodStart,
                     'period_end' => $periodEnd,
-                    'declared_sales' => $sales,
+                    'declared_sales' => $isPending ? null : $sales,
                     'declared_at' => $periodEnd->copy()->addDays(3),
                     'declared_by_type' => Tenant::class,
                     'declared_by_id' => $lease->tenant_id,
                     'status' => 'submitted', // start as submitted; lock below if status === 'locked'
                 ]);
 
-                $service->recalculate($declaration);
+                // Every declaration carries the tenant's uploaded sales report.
+                $this->attachDemoSalesReport($declaration, $lease, $periodStart);
+
+                if (! $isPending) {
+                    $service->recalculate($declaration);
+                }
                 $created++;
 
                 if ($status === 'locked' && $superAdmin) {
@@ -791,6 +802,31 @@ class DemoSeeder extends Seeder
         }
 
         $this->command->info("   Seeded {$created} tenant sales declarations ({$locked} locked → percentage rent charges generated)");
+    }
+
+    /**
+     * Attach a small, openable PDF "sales report" to a demo declaration so the
+     * file-first flow is visible in the admin panel (paper-clip in the table,
+     * a downloadable file on the record). Built from a string — no fixture on
+     * disk — with a correctly-computed stream length so any viewer renders it.
+     */
+    private function attachDemoSalesReport(TenantSalesDeclaration $declaration, Lease $lease, Carbon $periodStart): void
+    {
+        $title = 'Sales Report - '.$periodStart->isoFormat('MMMM YYYY').' - '.$lease->reference;
+        $stream = "BT /F1 13 Tf 40 90 Td ({$title}) Tj ET";
+        $len = strlen($stream);
+
+        $pdf = "%PDF-1.4\n"
+            ."1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n"
+            ."2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n"
+            ."3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 520 150]/Resources<</Font<</F1 5 0 R>>>>/Contents 4 0 R>>endobj\n"
+            ."4 0 obj<</Length {$len}>>stream\n{$stream}\nendstream endobj\n"
+            ."5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\n"
+            ."trailer<</Root 1 0 R>>\n%%EOF";
+
+        $declaration->addMediaFromString($pdf)
+            ->usingFileName('sales-report-'.$periodStart->format('Y-m').'.pdf')
+            ->toMediaCollection(TenantSalesDeclaration::REPORT_COLLECTION);
     }
 
     /**

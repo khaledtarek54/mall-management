@@ -1,6 +1,8 @@
 # Tenant Sales Declarations & Percentage Rent
 
-> Tenants on percentage-rent leases submit periodic sales declarations; the system recalculates and locks them to generate billable percentage-rent charges.
+> Tenants on percentage-rent leases submit periodic sales declarations by **uploading their sales report file**; the operator reviews the file, enters the sales figure, and locks the declaration to generate billable percentage-rent charges.
+
+> **File-first submission (2026-07):** Tenants no longer type a sales figure. On both the mobile app and the web portal they **attach their sales report** (image/PDF). `declared_sales` is nullable and is **entered by staff** in the admin panel after reviewing the attachment, then Lock bills the percentage rent. The report file lives in the Spatie `sales_report` media collection on a **private** disk (it can carry commercial turnover figures) and is streamed only through authenticated, tenant-scoped endpoints.
 
 ## 1. Purpose & business context
 
@@ -22,8 +24,9 @@ This is critical to rental compliance and owner cash flow—tenants cannot skip 
 |-------|-------|-------------|---------|
 | `tenant_sales_declarations` | `TenantSalesDeclaration` | `lease_id` (FK Lease) | Which lease's rent is being reported |
 | | | `period_start` date, `period_end` date | Reporting period (e.g., Jan 1–31, 2026) |
-| | | `declared_sales` decimal(14,2) | Raw sales figure tenant reported, in EGP |
-| | | `calculated_percentage_rent` decimal(14,2) | Computed owed amount (default 0) |
+| | | `declared_sales` decimal(14,2) **nullable** | Sales figure — **null at submission**, entered by staff after reviewing the uploaded report, in EGP |
+| | | `calculated_percentage_rent` decimal(14,2) | Computed owed amount (default 0; stays 0 until staff enter `declared_sales`) |
+| | | *(Spatie media)* `sales_report` collection | The tenant's uploaded sales report file(s) (image/PDF), on the private `local` disk |
 | | | `status` enum('submitted','locked','disputed') | Workflow state |
 | | | `declared_at` timestamp | When tenant submitted |
 | | | `declared_by_type`, `declared_by_id` | Polymorphic author (Tenant or User) |
@@ -224,19 +227,19 @@ File: `app/Services/PercentageRentCalculationService.php`
 ### `CreateSalesDeclarationAction` (API)
 File: `app/Actions/Api/V1/Sales/CreateSalesDeclarationAction.php`
 
-**`handle(Tenant $tenant, array $data): TenantSalesDeclaration`**
-- Invoked by Portal form submission (API or Filament)
-- Input: `lease_id`, `period_start`, `period_end`, `declared_sales`
+**`handle(Tenant $tenant, array $data, array $attachments = []): TenantSalesDeclaration`**
+- Invoked by the mobile API `POST /me/sales-declarations` (multipart)
+- Input: `lease_id`, `period_start`, `period_end`, plus `attachments` (1–5 image/PDF files, required at the request layer)
 - Validation:
   - Lease must belong to the tenant
   - Lease must have `has_percentage_rent=true`
   - No duplicate (lease, period_start) pair
 - Steps:
-  1. Create the declaration with `status='submitted'`, `declared_at=now()`, `declared_by={Tenant}`
-  2. Recalculate to populate `calculated_percentage_rent` immediately (so the tenant sees their estimate)
-  3. Fire `SalesDeclarationSubmittedNotification` to all managers + leasing users on the asset (via `AssetStaffRecipients`)
-- Returns the saved, recalculated declaration
-- Does NOT lock (locking is always an admin action)
+  1. Create the declaration with `status='submitted'`, `declared_at=now()`, `declared_by={Tenant}`, **`declared_sales=null`**
+  2. Push each uploaded file into the `sales_report` media collection (after the row saves — media moves files on disk)
+- Returns the saved declaration with `lease` + `media` loaded
+- Does **not** calculate anything (no figure yet) and does **not** lock — the operator enters `declared_sales` and locks in the admin panel
+- Note: the mobile API path does not fan out the submitted-notification; the **Portal** create page (`CreateTenantSalesDeclaration`) fires `SalesDeclarationSubmittedNotification` to managers + leasing users on the asset
 
 ---
 
@@ -256,8 +259,9 @@ File: `app/Filament/Admin/Resources/TenantSalesDeclarations/TenantSalesDeclarati
 | `lease_id` | Select (searchable) | Required; filtered to `status='active'` leases on the asset | Yes (TenantScope) | Shows "reference — tenant (unit)" |
 | `period_start` | Date | Required; unique per lease | No | Defaults to first of previous month |
 | `period_end` | Date | Required | No | Defaults to last of previous month |
-| `declared_sales` | Decimal | Required, ≥0 | No | In EGP, step 0.01 |
-| `calculated_percentage_rent` | Decimal | Disabled (read-only) | No | Auto-calculated; shown for reference |
+| `sales_report` | SpatieMediaLibraryFileUpload | Optional (admin), image/PDF, ≤5 files | No | The tenant's uploaded report — review it, download/open, then enter the figure |
+| `declared_sales` | Decimal | **Optional**, ≥0 | No | In EGP, step 0.01. Staff read this off the uploaded report; Lock with no figure owes 0 |
+| `calculated_percentage_rent` | Decimal | Disabled (read-only) | No | Auto-calculated on save; shown for reference |
 | `status` | Select | Required, default 'submitted' | No | Options: submitted, locked, disputed |
 | `audit_notes` | Textarea (3 rows) | Optional | No | For admin reasoning |
 
@@ -325,7 +329,7 @@ File: `app/Filament/Portal/Resources/TenantSalesDeclarations/TenantSalesDeclarat
 | Period info | Placeholder | (informational) | Shows "MMMM YYYY" of previous month |
 | `period_start` | Date | Required; unique per lease | Defaults to first of previous month |
 | `period_end` | Date | Required | Defaults to last of previous month |
-| `declared_sales` | Decimal | Required, ≥0, full width | In EGP; helper text explains |
+| `sales_report` | SpatieMediaLibraryFileUpload | **Required**, image/PDF, ≤5 files, full width | The tenant uploads their sales report here instead of typing a figure |
 
 **View page (infolist):**
 - Lease reference, Unit code, Period, Declared Sales, Calculated Rent (color: green if >0), Status (badge), Declared At, Locked At
@@ -631,6 +635,6 @@ Test: `PercentageRentScenarioTest::fractional-rate rounding to 2dp`
 ---
 
 **Author:** Auto-generated documentation
-**Last updated:** 2026-06-27
-**Confidence:** High (1043 passing tests; code reviewed)
+**Last updated:** 2026-07-10 (file-first submission: tenants upload a sales report; staff enter the figure)
+**Confidence:** High (test suite green; code reviewed)
 

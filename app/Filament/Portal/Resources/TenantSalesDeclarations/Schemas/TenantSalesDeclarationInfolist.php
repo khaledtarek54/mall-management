@@ -24,7 +24,16 @@ class TenantSalesDeclarationInfolist
                         ->formatStateUsing(fn ($state) => $state->isoFormat('MMM YYYY')),
                     TextEntry::make('declared_sales')
                         ->label(__('admin.tables.tenant_sales.declared_sales'))
-                        ->money('EGP'),
+                        ->money('EGP')
+                        ->placeholder(__('admin.tables.tenant_sales.pending_review')),
+                    TextEntry::make('report_status')
+                        ->label(__('admin.fields.sales_report'))
+                        ->state(fn ($record) => $record->hasReport()
+                            ? trans_choice('admin.tables.tenant_sales.report_count', $record->getMedia(\App\Models\TenantSalesDeclaration::REPORT_COLLECTION)->count())
+                            : null)
+                        ->placeholder('—')
+                        ->badge()
+                        ->color('success'),
                     TextEntry::make('calculated_percentage_rent')
                         ->label(__('admin.tables.tenant_sales.percentage_rent'))
                         ->money('EGP')

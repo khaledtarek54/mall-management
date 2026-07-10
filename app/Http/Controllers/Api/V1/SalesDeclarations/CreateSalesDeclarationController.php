@@ -19,10 +19,14 @@ class CreateSalesDeclarationController extends ApiController
         CreateSalesDeclarationRequest $request,
         CreateSalesDeclarationAction $action
     ): JsonResponse {
-        $declaration = $action->handle($request->user(), $request->payload());
+        $declaration = $action->handle(
+            $request->user(),
+            $request->payload(),
+            $request->attachments(),
+        );
 
         return $this->ok(
-            new TenantSalesDeclarationResource($declaration->load('lease')),
+            new TenantSalesDeclarationResource($declaration->load('lease', 'media')),
             __('api.sales_declaration_created'),
             201,
         );

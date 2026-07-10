@@ -25,6 +25,7 @@ class TenantSalesDeclarationsTable
                 TextColumn::make('declared_sales')
                     ->label(__('admin.tables.tenant_sales.declared_sales'))
                     ->money('EGP', divideBy: 1)
+                    ->placeholder(__('admin.tables.tenant_sales.pending_review'))
                     ->weight('semibold'),
                 TextColumn::make('calculated_percentage_rent')
                     ->label(__('admin.tables.tenant_sales.percentage_rent'))

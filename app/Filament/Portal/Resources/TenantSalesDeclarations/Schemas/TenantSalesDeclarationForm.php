@@ -6,12 +6,11 @@ use App\Models\Lease;
 use App\Models\TenantSalesDeclaration;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Infolists\Components\TextEntry;
-use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rules\Unique;
 
 class TenantSalesDeclarationForm
@@ -56,15 +55,24 @@ class TenantSalesDeclarationForm
                         ->displayFormat('d/m/Y')
                         ->afterOrEqual('period_start')
                         ->default(now()->subMonth()->endOfMonth()),
-                    TextInput::make('declared_sales')
-                        ->label(__('admin.fields.declared_sales'))
-                        ->prefix('EGP')
+                    // Tenants upload their sales report instead of typing a
+                    // figure; the property team reads the number off it and
+                    // locks the declaration to bill any percentage rent.
+                    SpatieMediaLibraryFileUpload::make('sales_report')
+                        ->label(__('admin.fields.sales_report'))
+                        ->collection(TenantSalesDeclaration::REPORT_COLLECTION)
                         ->required()
-                        ->numeric()
-                        ->minValue(0)
-                        ->step('0.01')
+                        ->multiple()
+                        ->reorderable()
+                        ->appendFiles()
+                        ->downloadable()
+                        ->openable()
+                        ->preserveFilenames()
+                        ->acceptedFileTypes(['image/*', 'application/pdf'])
+                        ->maxSize(10240)
+                        ->maxFiles(5)
                         ->columnSpanFull()
-                        ->helperText(__('admin.fields.declared_sales_help')),
+                        ->helperText(__('admin.fields.sales_report_help')),
                 ]),
         ]);
     }

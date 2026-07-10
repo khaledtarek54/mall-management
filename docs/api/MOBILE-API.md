@@ -471,28 +471,46 @@ overwrites the previous score.
 Only relevant for leases where `has_percentage_rent = true`. For other tenants,
 hide this section of the app.
 
+The tenant **uploads their sales report file** (image/PDF) for the period rather
+than typing a figure; the property team reads the number off the report, enters
+it, and **locks** the declaration to bill any percentage rent. So `declaredSales`
+and `calculatedPercentageRent` are **`null`/`0` until staff review** — show
+"Pending review", not `0`.
+
 #### 🔒 `GET /me/sales-declarations` — paginated, newest period first
 Query: `status`, `page`, `per_page`.
 ```json
 { "data": [ { "id": 7, "periodStart": "2026-05-01", "periodEnd": "2026-05-31",
-  "periodLabel": "May 2026", "declaredSales": 200000.00,
-  "calculatedPercentageRent": 5000.00, "status": "submitted",
+  "periodLabel": "May 2026", "declaredSales": null,
+  "calculatedPercentageRent": 0, "status": "submitted",
   "isLocked": false, "declaredAt": "2026-06-01T08:00:00+00:00", "lockedAt": null,
+  "hasReport": true,
+  "attachments": [ { "id": 12, "name": "may-sales.pdf", "mimeType": "application/pdf",
+    "size": 84213, "url": "https://…/api/v1/me/sales-declarations/7/attachments/12" } ],
   "lease": { "id": 9, "reference": "LSE-HW-2026-0007" } } ],
   "meta": { ... }, "links": { ... } }
 ```
-`status` ∈ `submitted`, `locked`, `disputed`.
+`status` ∈ `submitted`, `locked`, `disputed`. Once staff lock it, `declaredSales`
+and `calculatedPercentageRent` are populated and `status` becomes `locked`.
 
-#### 🔒 `POST /me/sales-declarations` — submit
-```json
-{ "leaseId": 9, "periodStart": "2026-05-01", "periodEnd": "2026-05-31", "declaredSales": 200000 }
+#### 🔒 `POST /me/sales-declarations` — submit (multipart/form-data)
+Send as `multipart/form-data` — it carries file uploads:
+```
+leaseId=9
+periodStart=2026-05-01
+periodEnd=2026-05-31
+attachments[]=<file>            # required, 1–5 files, image/* or application/pdf, ≤10 MB each
 ```
 Server enforces: the lease is yours **and** has percentage-rent terms (`422` →
-`leaseId`), and one declaration per `(lease, periodStart)` (`422` →
-`periodStart`). On success it returns `201` with `calculatedPercentageRent`
-already computed so you can show the estimated liability. The figure is final
-only once staff **lock** it (which then creates the charge on next month's
-invoice).
+`leaseId`), one declaration per `(lease, periodStart)` (`422` → `periodStart`),
+and at least one valid report file (`422` → `attachments`). On success it returns
+`201`; the figure is entered and finalised only once staff **lock** it (which
+then creates the charge on next month's invoice).
+
+#### 🔒 `GET /me/sales-declarations/{id}/attachments/{media}` — stream a report file
+Streams the uploaded sales-report file inline from the private disk, scoped to
+your own declarations. A declaration id that isn't yours → `404` (no
+cross-tenant disclosure). Use the `url` returned in `attachments[]` above.
 
 ---
 
@@ -530,7 +548,7 @@ calling it again with a refreshed token replaces, never stacks. → `201`.
 | Statement | `GET /me/statement` |
 | Payments | `GET /me/payments`, `GET /me/payments/{id}` |
 | Maintenance | `GET/POST /me/maintenance-requests`, `GET /{id}`, `POST /{id}/comments`, `POST /{id}/cancel` |
-| Sales declarations | `GET/POST /me/sales-declarations`, `GET /{id}` |
+| Sales declarations | `GET/POST /me/sales-declarations`, `GET /{id}`, `GET /{id}/attachments/{media}` |
 | Profile / settings | `GET /me`, `PATCH /me`, `GET /me/leases` |
 | App launch (push) | `POST /me/devices`; on logout: `DELETE /me/devices/{id}` |
 

@@ -6,7 +6,9 @@ use App\Notifications\SalesDeclarationSubmittedNotification;
 use App\Services\TenantRequestService;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 
@@ -64,18 +66,19 @@ it('a super_admin always receives operator-side notifications, even when not ass
 
 it('a portal sales declaration submission notifies assigned managers + leasings', function () {
     Notification::fake();
+    Storage::fake('local');
     $leasingOnAsset = makeUser('leasing', [$this->asset->id]);
     $leasingOffAsset = makeUser('leasing');
 
     Filament::setCurrentPanel(Filament::getPanel('portal'));
-    $this->actingAs(makeTenantUser($this->tenant), 'portal');
+    $this->actingAs(makeTenantUser($this->tenant, isAdmin: true), 'portal');
 
     Livewire::test(CreateTenantSalesDeclaration::class)
         ->fillForm([
             'lease_id' => $this->lease->id,
             'period_start' => now()->startOfMonth()->subMonth()->toDateString(),
             'period_end' => now()->startOfMonth()->subDay()->toDateString(),
-            'declared_sales' => 150000,
+            'sales_report' => [UploadedFile::fake()->create('sales.pdf', 100, 'application/pdf')],
         ])
         ->call('create');
 

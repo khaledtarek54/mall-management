@@ -314,7 +314,7 @@
                 "requestBody": {
                     "required": true,
                     "content": {
-                        "application/json": {
+                        "multipart/form-data": {
                             "schema": {
                                 "$ref": "#/components/schemas/CreateSalesDeclarationRequest"
                             }
@@ -1749,6 +1749,50 @@
                 }
             }
         },
+        "/v1/me/sales-declarations/{id}/attachments/{media}": {
+            "get": {
+                "operationId": "v1.me.sales.attachment",
+                "tags": [
+                    "ShowSalesDeclarationAttachment"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "media",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
         "/v1/me/statement": {
             "get": {
                 "operationId": "v1.me.statement",
@@ -2075,16 +2119,24 @@
                         "type": "string",
                         "format": "date-time"
                     },
-                    "declaredSales": {
-                        "type": "number",
-                        "minimum": 0
+                    "attachments": {
+                        "type": "array",
+                        "description": "The tenant no longer types a figure \u2014 they attach their sales\nreport and staff read the number off it, then lock to bill the\npercentage rent. At least one file is required. Mirrors the\nmaintenance upload (images + PDF, \u226410 MB each, \u22645 files). Using\nmimetypes (not mimes) validates the real content type, so a\nrenamed .mp4 can't slip through as a .jpg.",
+                        "items": {
+                            "type": "string",
+                            "format": "binary",
+                            "contentMediaType": "application/octet-stream",
+                            "maxLength": 10240
+                        },
+                        "minItems": 1,
+                        "maxItems": 5
                     }
                 },
                 "required": [
                     "leaseId",
                     "periodStart",
                     "periodEnd",
-                    "declaredSales"
+                    "attachments"
                 ],
                 "title": "CreateSalesDeclarationRequest"
             },
@@ -3090,7 +3142,11 @@
                         "type": "string"
                     },
                     "declaredSales": {
-                        "type": "number"
+                        "type": [
+                            "number",
+                            "null"
+                        ],
+                        "description": "Null until staff review the attached report and enter the figure;\nthe app should show \"Pending review\" rather than 0."
                     },
                     "calculatedPercentageRent": {
                         "type": "number"
@@ -3121,6 +3177,41 @@
                             "id",
                             "reference"
                         ]
+                    },
+                    "attachments": {
+                        "type": "array",
+                        "description": "The tenant's uploaded sales report (Spatie `sales_report`\ncollection). Absolute, authenticated, tenant-scoped stream URLs \u2014\nNOT public (the file can carry commercial turnover figures).",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "string"
+                                },
+                                "name": {
+                                    "type": "string"
+                                },
+                                "mimeType": {
+                                    "type": "string"
+                                },
+                                "size": {
+                                    "type": "string"
+                                },
+                                "url": {
+                                    "type": "string",
+                                    "description": "Authenticated, tenant-scoped stream \u2014 NOT a public URL (H2)."
+                                }
+                            },
+                            "required": [
+                                "id",
+                                "name",
+                                "mimeType",
+                                "size",
+                                "url"
+                            ]
+                        }
+                    },
+                    "hasReport": {
+                        "type": "boolean"
                     }
                 },
                 "required": [

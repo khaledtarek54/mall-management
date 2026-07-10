@@ -6,6 +6,7 @@ use App\Models\Lease;
 use App\Models\TenantSalesDeclaration;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
@@ -52,13 +53,18 @@ class TenantSalesDeclarationForm
                         ->displayFormat('d/m/Y')
                         ->afterOrEqual('period_start')
                         ->default(now()->subMonth()->endOfMonth()),
+                    // The tenant no longer types a figure — they attach a sales
+                    // report (see the section below). Staff read the number off
+                    // it and enter it here, then Lock to bill the percentage
+                    // rent. Optional so a declaration can be saved mid-review
+                    // (the column is nullable); Lock with no figure owes 0.
                     TextInput::make('declared_sales')
                         ->label(__('admin.fields.declared_sales'))
                         ->prefix('EGP')
-                        ->required()
                         ->numeric()
                         ->minValue(0)
-                        ->step('0.01'),
+                        ->step('0.01')
+                        ->helperText(__('admin.fields.declared_sales_help')),
                     TextInput::make('calculated_percentage_rent')
                         ->label(__('admin.fields.calculated_percentage_rent'))
                         ->prefix('EGP')
@@ -77,6 +83,25 @@ class TenantSalesDeclarationForm
                         ->disabled()
                         ->dehydrated(false)
                         ->native(false),
+                ]),
+
+            Section::make(__('admin.sections.tenant_sales_report'))
+                ->description(__('admin.sections.tenant_sales_report_description'))
+                ->columns(1)
+                ->components([
+                    SpatieMediaLibraryFileUpload::make('sales_report')
+                        ->label(__('admin.fields.sales_report'))
+                        ->collection(TenantSalesDeclaration::REPORT_COLLECTION)
+                        ->multiple()
+                        ->downloadable()
+                        ->openable()
+                        ->preserveFilenames()
+                        // Images + PDF only — what the tenant app can upload and
+                        // the admin viewer can preview.
+                        ->acceptedFileTypes(['image/*', 'application/pdf'])
+                        ->maxSize(10240)
+                        ->maxFiles(5)
+                        ->columnSpanFull(),
                 ]),
 
             Section::make(__('admin.sections.tenant_sales_audit'))

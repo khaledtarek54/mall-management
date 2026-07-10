@@ -16,6 +16,7 @@ return [
 
     // Sales declarations
     'sales_declaration_created' => 'Sales declaration submitted.',
+    'sales_declaration_report_required' => 'Please attach your sales report file (image or PDF).',
     'sales_declaration_not_allowed' => 'This lease does not have percentage-rent terms, so sales declarations are not required.',
     'sales_declaration_duplicate' => 'A declaration already exists for this lease and period.',
     'sales_declaration_locked' => 'This declaration is locked and can no longer be edited.',

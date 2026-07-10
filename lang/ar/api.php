@@ -16,6 +16,7 @@ return [
 
     // Sales declarations
     'sales_declaration_created' => 'تم إرسال إقرار المبيعات.',
+    'sales_declaration_report_required' => 'يرجى إرفاق ملف تقرير المبيعات (صورة أو PDF).',
     'sales_declaration_not_allowed' => 'هذا العقد لا يتضمن إيجارًا نسبيًا، لذلك لا يلزم تقديم إقرارات المبيعات.',
     'sales_declaration_duplicate' => 'يوجد بالفعل إقرار لهذا العقد ولهذه الفترة.',
     'sales_declaration_locked' => 'هذا الإقرار مقفل ولا يمكن تعديله.',

@@ -35,7 +35,7 @@ All routes are versioned under `/api/v1` and are protected by the `auth:tenant-a
 | `assets` | `Asset` | `id`, `name` | Mall/building. Shown in mobile login (mall name). |
 | `maintenance_requests` | `MaintenanceRequest` | `id`, `reference`, `tenant_id`, `unit_id`, `status` enum, `priority`, `category`, `title`, `description`, `submitted_at`, `channel` ('portal'/etc), `deleted_at` (soft) | Tenant-reported issues. Accepted via `/maintenance-requests`. Attachments stored via Spatie Media. |
 | `maintenance_comments` | `MaintenanceComment` | `id`, `request_id`, `author_id`, `body`, `created_at` | Comments on requests (tenant + staff). |
-| `tenant_sales_declarations` | `TenantSalesDeclaration` | `id`, `lease_id`, `period_start`, `period_end`, `declared_sales`, `calculated_percentage_rent`, `status` enum(`submitted`/`approved`/`etc`), `declared_at` | Monthly sales for percentage-rent leases. Percentage rent = `(declared_sales - threshold) * rate` (if declared_sales > threshold, else 0). |
+| `tenant_sales_declarations` | `TenantSalesDeclaration` | `id`, `lease_id`, `period_start`, `period_end`, `declared_sales` (**nullable**), `calculated_percentage_rent`, `status` enum(`submitted`/`locked`/`disputed`), `declared_at` | Monthly sales for percentage-rent leases. Tenant uploads a **sales report file** (Spatie `sales_report` collection, private disk) — `declared_sales` is null at submission and entered by staff on review. Percentage rent = `(declared_sales - threshold) * rate` (if declared_sales > threshold, else 0). |
 | `device_tokens` | `DeviceToken` | `id`, `tenant_id`, `platform` (fcm/apns), `token`, `device_name`, `last_used_at` | Push token. Upserted on register (deduped by tenant + platform + device_name). |
 | `tenant_password_reset_tokens` | — | `email`, `token` (hashed), `created_at` | One-time reset tokens (separate table so tenant + user emails don't collide). Expires in 60 minutes. |
 
@@ -89,9 +89,11 @@ All routes are versioned under `/api/v1` and are protected by the `auth:tenant-a
 - Each request gets a unique `reference` (auto-generated) for tracking.
 
 **Sales Declarations:**
+- **File-first:** the tenant uploads their sales report (1–5 image/PDF files, ≤10 MB each) via `multipart/form-data`; they do **not** send a figure. At least one file is required (422 → `attachments`). Files land in the private `sales_report` media collection and are streamed via `GET /me/sales-declarations/{id}/attachments/{media}` (foreign id → 404, no cross-tenant disclosure).
+- `declared_sales` and `calculated_percentage_rent` are **null/0 at submission** — staff read the figure off the report, enter it in the admin panel, and lock. The app should show "Pending review", not 0.
 - Only valid for leases with `has_percentage_rent = true`. Posting to a lease without percentage rent returns 422.
 - Duplicate check: one declaration per lease per period (period_start + period_end). Re-declaring the same period is rejected (422).
-- Percentage rent is calculated as: `if (declared_sales > percentage_rent_threshold) then (declared_sales - threshold) * rate else 0`.
+- Percentage rent (computed on lock) is: `if (declared_sales > percentage_rent_threshold) then (declared_sales - threshold) * rate else 0`.
 - A tenant can only declare on their own leases; cross-tenant attempts return 422.
 
 **Account Balance & Delinquency:**
@@ -143,9 +145,9 @@ All routes are versioned under `/api/v1` and are protected by the `auth:tenant-a
 - Comments accumulate on the request. Tenant can view all comments (their own + staff responses).
 
 **Sales Declaration:**
-- Submitted by tenant: `status = submitted`.
-- Transitions: `submitted` → `approved` (admin), or `submitted` → `disputed`.
-- Once approved, a corresponding invoice line item may be generated (out-of-scope for mobile API).
+- Submitted by tenant (uploads a sales report file): `status = submitted`, `declared_sales = null`.
+- Transitions: `submitted` → `locked` (admin reviews the report, enters `declared_sales`, and locks — creating the percentage-rent charge), or `submitted` → `disputed`.
+- Once locked, the charge flows into the next monthly billing run (out-of-scope for the mobile API).
 
 ## 5. Services, jobs & scheduled commands
 
@@ -162,7 +164,7 @@ All routes are versioned under `/api/v1` and are protected by the `auth:tenant-a
 | `CreateMaintenanceRequestAction` | `handle(Tenant $tenant, array $payload, UploadedFile[] $attachments): MaintenanceRequest` | Creates request, stores attachments via Spatie Media, returns with media URLs. | DB transaction (request + media). | POST `/api/v1/me/maintenance-requests` |
 | `AddMaintenanceCommentAction` | `handle(MaintenanceRequest $req, Tenant $tenant, string $body): MaintenanceComment` | Adds comment from tenant, scoped to tenant's own request. | No transaction. | POST `/api/v1/me/maintenance-requests/{id}/comments` |
 | `CancelMaintenanceRequestAction` | `handle(MaintenanceRequest $req, Tenant $tenant): void` | Cancels request if in cancellable status, checks ownership. | No transaction. | POST `/api/v1/me/maintenance-requests/{id}/cancel` |
-| `CreateSalesDeclarationAction` | `handle(Tenant $tenant, array $payload): TenantSalesDeclaration` | Validates lease ownership + percentage-rent eligibility + no-duplicate-period, calculates percentage rent, creates declaration. | DB transaction. | POST `/api/v1/me/sales-declarations` |
+| `CreateSalesDeclarationAction` | `handle(Tenant $tenant, array $payload, UploadedFile[] $attachments): TenantSalesDeclaration` | Validates lease ownership + percentage-rent eligibility + no-duplicate-period, creates the declaration with `declared_sales=null`, then attaches the uploaded report file(s) to the `sales_report` collection. Does **not** calculate or lock (staff enter the figure later). | No transaction (media moves files on disk). | POST `/api/v1/me/sales-declarations` |
 | `RecordDemoPaymentAction` | `handle(Invoice $invoice): Payment` | Creates `initiated` Payment with full invoice balance, allocates, flips to `captured` (via Status cast triggers Payment::saved). Bypasses Paymob. | DB transaction (payment + allocation). | POST `/api/v1/me/invoices/{id}/pay-demo` |
 
 **PaymobPaymentInitiator** (in `app/Services/Paymob/`):
@@ -203,14 +205,14 @@ However, **key validation & business logic** is shared via:
   - `ResetPasswordRequest`: token, email, password, password_confirmation.
   - `RegisterDeviceRequest`: platform (enum: fcm/apns), token, device_name (optional).
   - `CreateMaintenanceRequestRequest`: title, description, category, priority, attachments (files, optional).
-  - `CreateSalesDeclarationRequest`: lease_id, period_start, period_end, declared_sales (numeric).
+  - `CreateSalesDeclarationRequest`: lease_id, period_start, period_end, attachments (required 1–5 image/PDF files). No `declared_sales` — staff enter it later.
 
 - **Resources** (in `app/Http/Resources/Api/V1/*`): Format response data.
   - `TenantResource`: id, name, legal_name, type, email, phone, whatsapp, contact_person, status, tax_id (re-exposed for ETA).
   - `InvoiceResource`: id, number, status, issue_date, due_date, period_start, period_end, subtotal, vat_amount, total, paid_amount, balance, currency, is_overdue, days_overdue, eta_status, eta_submission_id, items (when eager-loaded), lease (when eager-loaded).
   - `PaymentResource`: id, reference, amount, method, status, payment_date, allocations (pivot data with invoice numbers + amounts).
   - `MaintenanceRequestResource`: id, reference, status, priority, category, title, description, submitted_at, attachments (media URLs).
-  - `TenantSalesDeclarationResource`: id, lease_id, period_start, period_end, declared_sales, calculated_percentage_rent, status, declared_at.
+  - `TenantSalesDeclarationResource`: id, period_start, period_end, period_label, declared_sales (**null until reviewed**), calculated_percentage_rent, status, is_locked, declared_at, locked_at, `attachments` (streamed report URLs), `has_report`, lease (when loaded).
   - `PaymobSessionResource`: payment_token, iframe_url, order_id, payment_id, expires_at, reused, iframe_id.
   - `DeviceTokenResource`: id, platform, device_name, last_used_at.
   - `LoginLeaseResource`: id, name (contact_person | tenant name), shop (tenant name), mall (asset name), unit_number (unit code), start_date, end_date (ISO 8601 Zulu), is_active.

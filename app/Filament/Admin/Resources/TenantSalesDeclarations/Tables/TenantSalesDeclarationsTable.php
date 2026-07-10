@@ -10,6 +10,7 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
+use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -19,7 +20,7 @@ class TenantSalesDeclarationsTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['lease.tenant', 'lease.unit']))
+            ->modifyQueryUsing(fn ($query) => $query->with(['lease.tenant', 'lease.unit', 'media']))
             ->columns([
                 TextColumn::make('lease.tenant.name')
                     ->label(__('admin.tables.tenant_sales.tenant'))
@@ -33,9 +34,17 @@ class TenantSalesDeclarationsTable
                     ->label(__('admin.tables.tenant_sales.period'))
                     ->formatStateUsing(fn ($state) => $state->isoFormat('MMM YYYY'))
                     ->sortable(),
+                IconColumn::make('has_report')
+                    ->label(__('admin.tables.tenant_sales.report'))
+                    ->state(fn (TenantSalesDeclaration $record) => $record->hasReport())
+                    ->boolean()
+                    ->trueIcon('heroicon-o-paper-clip')
+                    ->falseIcon('heroicon-o-minus')
+                    ->falseColor('gray'),
                 TextColumn::make('declared_sales')
                     ->label(__('admin.tables.tenant_sales.declared_sales'))
                     ->money('EGP', divideBy: 1)
+                    ->placeholder(__('admin.tables.tenant_sales.pending_review'))
                     ->sortable()
                     ->weight('semibold'),
                 TextColumn::make('calculated_percentage_rent')
