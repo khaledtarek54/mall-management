@@ -41,6 +41,24 @@ class VoidInvoiceService
         }
 
         return DB::transaction(function () use ($invoice, $reason) {
+            // Lock + re-read INSIDE the txn so two concurrent voids can't BOTH fire the
+            // applied-credit reversal (the updated hook reads credit_applied_amount via a
+            // non-locking ->fresh(), so a stale REPEATABLE-READ snapshot could issue a
+            // second offsetting credit note = double refund). Mirrors the lock-safe
+            // CreditNoteService::applyToInvoice. The blocked second void then re-reads the
+            // committed 'cancelled' state and no-ops.
+            $invoice = Invoice::query()->lockForUpdate()->find($invoice->id);
+            if (! $invoice || in_array($invoice->status, ['cancelled', 'credited'], true)) {
+                return $invoice; // already voided by a racing request — nothing to do
+            }
+            // Re-check the terminal/blocking guards under the lock (state may have moved).
+            if ($invoice->eta_status === 'valid') {
+                throw new \DomainException('This invoice was filed with the Tax Authority (ETA) and cannot be voided internally — issue a credit note (and an ETA cancellation) instead.');
+            }
+            if (round((float) $invoice->paid_amount - (float) $invoice->credit_applied_amount, 2) > 0) {
+                throw new \DomainException('Cannot void an invoice with captured payments — void/refund the payment first, then void the invoice.');
+            }
+
             if ($reason) {
                 $invoice->notes = trim(($invoice->notes ? $invoice->notes."\n" : '').'[VOID] '.$reason);
             }

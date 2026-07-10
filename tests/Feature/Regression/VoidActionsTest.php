@@ -109,6 +109,28 @@ it('voids a payment through the edit-page action with a reason', function () {
     expect($payment->fresh()->status)->toBe('refunded');
 });
 
+it('voids a credit-applied invoice returning the credit as EXACTLY ONE offsetting note (lock-safe, idempotent)', function () {
+    $lease = makeLease(makeUnit(makeAsset()));
+    $invoice = makeInvoice($lease, ['total' => 5000, 'balance' => 5000]);
+    $note = \App\Models\CreditNote::create([
+        'tenant_id' => $lease->tenant_id, 'lease_id' => $lease->id, 'status' => 'issued',
+        'issue_date' => now()->toDateString(), 'reason' => 'adjustment',
+        'subtotal' => 2000, 'vat_amount' => 0, 'total' => 2000, 'applied_amount' => 0, 'balance' => 2000, 'currency' => 'EGP',
+    ]);
+    app(\App\Services\CreditNoteService::class)->applyToInvoice($note, $invoice, 2000);
+    expect((float) $invoice->fresh()->credit_applied_amount)->toBe(2000.0);
+
+    // Void, then re-void — the lock + re-read makes the second call a no-op (a racing
+    // second void would otherwise fire the credit reversal twice = double refund).
+    app(\App\Services\VoidInvoiceService::class)->void($invoice->fresh(), 'error');
+    app(\App\Services\VoidInvoiceService::class)->void($invoice->fresh(), 'again');
+
+    $offsetting = \App\Models\CreditNote::where('reason_notes', 'like', '%cancelled invoice '.$invoice->number.'%')->count();
+    expect($offsetting)->toBe(1) // exactly one credit returned, never two
+        ->and($invoice->fresh()->status)->toBe('cancelled')
+        ->and((float) $invoice->fresh()->credit_applied_amount)->toBe(0.0);
+});
+
 it('grants the dedicated void permissions to accounting + super_admin but not viewer', function () {
     $this->seed(\Database\Seeders\RolesPermissionsSeeder::class);
     $has = fn (string $role, string $perm) => \Spatie\Permission\Models\Role::findByName($role, 'web')->hasPermissionTo($perm);

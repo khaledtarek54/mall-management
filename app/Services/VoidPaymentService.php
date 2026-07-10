@@ -27,6 +27,13 @@ class VoidPaymentService
         }
 
         return DB::transaction(function () use ($payment, $reason) {
+            // Lock + re-read inside the txn so two concurrent refunds serialize (and the
+            // second no-ops), mirroring the void-invoice + apply-credit lock discipline.
+            $payment = Payment::query()->lockForUpdate()->find($payment->id);
+            if (! $payment || $payment->status !== 'captured') {
+                return $payment; // already reversed by a racing request
+            }
+
             if ($reason) {
                 $payment->notes = trim(($payment->notes ? $payment->notes."\n" : '').'[VOID] '.$reason);
             }
