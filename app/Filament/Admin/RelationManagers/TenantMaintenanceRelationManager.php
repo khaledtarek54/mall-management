@@ -23,7 +23,14 @@ class TenantMaintenanceRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['unit', 'assignee'])->latest('submitted_at'))
+            // Property isolation: only requests on units in the user's visible properties.
+            ->modifyQueryUsing(fn ($query) => $query
+                ->with(['unit', 'assignee'])
+                ->latest('submitted_at')
+                ->when(
+                    \App\Support\TenantScope::visibleAssetIds(),
+                    fn ($q, $ids) => $q->whereHas('unit', fn ($u) => $u->whereIn('asset_id', $ids)),
+                ))
             ->columns([
                 TextColumn::make('reference')
                     ->label(__('admin.tables.maintenance.reference'))

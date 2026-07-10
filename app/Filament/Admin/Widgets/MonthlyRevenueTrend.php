@@ -40,19 +40,21 @@ class MonthlyRevenueTrend extends ChartWidget
         $end = CarbonImmutable::now()->endOfMonth();
         $start = CarbonImmutable::now()->startOfMonth()->subMonths(11);
         $currentMonthKey = CarbonImmutable::now()->format('Y-m');
-        $assetId = \App\Support\TenantScope::currentAssetId();
+        // Property isolation: visibleAssetIds() keeps a restricted user pinned to their
+        // set in All-Properties mode (currentAssetId() is null there → portfolio leak).
+        $assetIds = \App\Support\TenantScope::visibleAssetIds();
         $monthExpr = fn (string $col): string => match (DB::connection()->getDriverName()) {
             'sqlite' => "strftime('%Y-%m', {$col})",
             'pgsql' => "to_char({$col}, 'YYYY-MM')",
             default => "DATE_FORMAT({$col}, '%Y-%m')",
         };
 
-        $invoiceBase = $assetId
-            ? Invoice::whereHas('lease.unit', fn ($q) => $q->where('asset_id', $assetId))
+        $invoiceBase = $assetIds !== null
+            ? Invoice::whereHas('lease.unit', fn ($q) => $q->whereIn('asset_id', $assetIds))
             : Invoice::query();
 
-        $paymentBase = $assetId
-            ? Payment::whereHas('invoices.lease.unit', fn ($q) => $q->where('asset_id', $assetId))
+        $paymentBase = $assetIds !== null
+            ? Payment::whereHas('invoices.lease.unit', fn ($q) => $q->whereIn('asset_id', $assetIds))
             : Payment::query();
 
         $billed = (clone $invoiceBase)
@@ -77,10 +79,10 @@ class MonthlyRevenueTrend extends ChartWidget
             ->whereBetween('invoices.period_start', [$start, $end])
             ->whereNotIn('invoices.status', ['cancelled', 'credited']);
 
-        if ($assetId) {
+        if ($assetIds !== null) {
             $paidPerMonthQuery->join('leases', 'leases.id', '=', 'invoices.lease_id')
                 ->join('units', 'units.id', '=', 'leases.unit_id')
-                ->where('units.asset_id', $assetId);
+                ->whereIn('units.asset_id', $assetIds);
         }
 
         $paidPerInvoiceMonth = $paidPerMonthQuery

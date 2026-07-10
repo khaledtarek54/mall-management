@@ -43,7 +43,9 @@ class TenantMix extends ChartWidget
 
     protected function getData(): array
     {
-        $assetId = \App\Support\TenantScope::currentAssetId();
+        // Property isolation: visibleAssetIds() keeps a restricted user pinned to their
+        // set in All-Properties mode (currentAssetId() is null there → portfolio leak).
+        $assetIds = \App\Support\TenantScope::visibleAssetIds();
 
         $query = Lease::query()
             ->where('leases.status', 'active')
@@ -52,8 +54,8 @@ class TenantMix extends ChartWidget
             ->groupBy('units.category')
             ->orderByDesc('cnt');
 
-        if ($assetId) {
-            $query->where('units.asset_id', $assetId);
+        if ($assetIds !== null) {
+            $query->whereIn('units.asset_id', $assetIds);
         }
 
         $counts = $query->pluck('cnt', 'category');

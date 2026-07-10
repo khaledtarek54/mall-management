@@ -10,6 +10,7 @@ use App\Models\Unit;
 use App\Services\LeaseCreationService;
 use App\Services\LeaseRenewalService;
 use App\Services\LeaseTerminationService;
+use App\Support\TenantScope;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -258,6 +259,12 @@ class LeasesTable
                                     Select::make('lease.unit_id')
                                         ->label(__('admin.fields.unit_label'))
                                         ->options(fn (Get $get) => Unit::with('asset')
+                                            // Property isolation: never offer a unit outside the
+                                            // user's visible set (null = super_admin/portfolio).
+                                            ->when(
+                                                TenantScope::visibleAssetIds(),
+                                                fn ($q, $ids) => $q->whereIn('asset_id', $ids),
+                                            )
                                             ->when(
                                                 ! $get('lease.show_occupied_units'),
                                                 fn ($q) => $q->where('status', 'vacant'),
@@ -314,6 +321,11 @@ class LeasesTable
                             ->columnSpanFull(),
                     ])
                     ->action(function (array $data) {
+                        // Server-side property-isolation guard — the picker is scoped, but
+                        // re-validate the submitted unit so a tampered id can't create a
+                        // lease (+ charges + tenant) in a property outside the user's set.
+                        LeaseResource::assertUnitAssetInScope($data['lease']['unit_id'] ?? null);
+
                         $lease = app(LeaseCreationService::class)->create($data);
 
                         Notification::make()

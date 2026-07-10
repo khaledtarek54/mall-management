@@ -35,22 +35,24 @@ class ActionRequired extends Widget
     public function getViewData(): array
     {
         $now = Carbon::now();
-        $assetId = \App\Support\TenantScope::currentAssetId();
+        // Property isolation: visibleAssetIds() keeps a restricted user pinned to their
+        // set in All-Properties mode (currentAssetId() is null there → portfolio leak).
+        $assetIds = \App\Support\TenantScope::visibleAssetIds();
 
-        $invoiceBase = fn () => $assetId
-            ? Invoice::whereHas('lease.unit', fn ($q) => $q->where('asset_id', $assetId))
+        $invoiceBase = fn () => $assetIds !== null
+            ? Invoice::whereHas('lease.unit', fn ($q) => $q->whereIn('asset_id', $assetIds))
             : Invoice::query();
 
-        $leaseBase = fn () => $assetId
-            ? Lease::whereHas('unit', fn ($q) => $q->where('asset_id', $assetId))
+        $leaseBase = fn () => $assetIds !== null
+            ? Lease::whereHas('unit', fn ($q) => $q->whereIn('asset_id', $assetIds))
             : Lease::query();
 
-        $unitBase = fn () => $assetId
-            ? Unit::where('asset_id', $assetId)
+        $unitBase = fn () => $assetIds !== null
+            ? Unit::whereIn('asset_id', $assetIds)
             : Unit::query();
 
-        $maintBase = fn () => $assetId
-            ? TenantRequest::whereHas('unit', fn ($q) => $q->where('asset_id', $assetId))
+        $maintBase = fn () => $assetIds !== null
+            ? TenantRequest::whereHas('unit', fn ($q) => $q->whereIn('asset_id', $assetIds))
             : TenantRequest::query();
 
         $overdueCount = $invoiceBase()->where('balance', '>', 0)->where('due_date', '<', $now)->count();

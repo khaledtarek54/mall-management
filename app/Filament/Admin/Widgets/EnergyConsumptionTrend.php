@@ -42,7 +42,9 @@ class EnergyConsumptionTrend extends ChartWidget
     {
         $end = CarbonImmutable::now()->endOfMonth();
         $start = CarbonImmutable::now()->startOfMonth()->subMonths(11);
-        $assetId = \App\Support\TenantScope::currentAssetId();
+        // Property isolation: visibleAssetIds() keeps a restricted user pinned to their
+        // set in All-Properties mode (currentAssetId() is null there → portfolio leak).
+        $assetIds = \App\Support\TenantScope::visibleAssetIds();
 
         $monthExpr = match (DB::connection()->getDriverName()) {
             'sqlite' => "strftime('%Y-%m', reading_date)",
@@ -56,8 +58,8 @@ class EnergyConsumptionTrend extends ChartWidget
             ->whereBetween('reading_date', [$start, $end])
             ->groupBy('ym', 'type');
 
-        if ($assetId) {
-            $query->where('utility_meters.asset_id', $assetId);
+        if ($assetIds !== null) {
+            $query->whereIn('utility_meters.asset_id', $assetIds);
         }
 
         // Sum consumption per (month, meter type) — gives us 3 series across 12 months.

@@ -30,25 +30,26 @@ class MallStats extends StatsOverviewWidget
 
     protected function getStats(): array
     {
-        $assetId = \App\Support\TenantScope::currentAssetId();
+        // Property isolation: scope by visibleAssetIds() (NOT currentAssetId()) so a
+        // RESTRICTED user in "All Properties" mode stays pinned to their assigned set —
+        // currentAssetId() is null there and would leak the whole portfolio's KPIs.
+        // null = super_admin / portfolio (genuinely platform-wide aggregates).
+        $assetIds = \App\Support\TenantScope::visibleAssetIds();
 
-        // Tenant context: scope all queries to current property. "All
-        // Properties" view returns currentAssetId() === null, so the
-        // helpers fall back to platform-wide aggregates.
-        $unitQuery = fn () => $assetId
-            ? \App\Models\Unit::where('asset_id', $assetId)
+        $unitQuery = fn () => $assetIds !== null
+            ? \App\Models\Unit::whereIn('asset_id', $assetIds)
             : \App\Models\Unit::query();
 
-        $leaseQuery = fn () => $assetId
-            ? Lease::whereHas('unit', fn ($q) => $q->where('asset_id', $assetId))
+        $leaseQuery = fn () => $assetIds !== null
+            ? Lease::whereHas('unit', fn ($q) => $q->whereIn('asset_id', $assetIds))
             : Lease::query();
 
-        $invoiceQuery = fn () => $assetId
-            ? Invoice::whereHas('lease.unit', fn ($q) => $q->where('asset_id', $assetId))
+        $invoiceQuery = fn () => $assetIds !== null
+            ? Invoice::whereHas('lease.unit', fn ($q) => $q->whereIn('asset_id', $assetIds))
             : Invoice::query();
 
-        $paymentQuery = fn () => $assetId
-            ? Payment::whereHas('invoices.lease.unit', fn ($q) => $q->where('asset_id', $assetId))
+        $paymentQuery = fn () => $assetIds !== null
+            ? Payment::whereHas('invoices.lease.unit', fn ($q) => $q->whereIn('asset_id', $assetIds))
             : Payment::query();
 
         $totalUnits = $unitQuery()->count();
@@ -89,7 +90,7 @@ class MallStats extends StatsOverviewWidget
         // Tenant satisfaction (CSAT) — average close-out rating across all
         // resolved/closed requests that were rated, property-scoped.
         $ratedQuery = fn () => \App\Models\TenantRequest::whereNotNull('csat_rating')
-            ->when($assetId, fn ($q) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)));
+            ->when($assetIds, fn ($q, $ids) => $q->whereHas('unit', fn ($u) => $u->whereIn('asset_id', $ids)));
         $ratedCount = $ratedQuery()->count();
         $avgCsat = $ratedCount > 0 ? round((float) $ratedQuery()->avg('csat_rating'), 1) : null;
 
@@ -99,7 +100,7 @@ class MallStats extends StatsOverviewWidget
 
         $collectedDelta = $this->percentDelta($collectedThisMonth, $collectedLastMonth);
 
-        $occupancySeries = $this->occupancyHistorySeries(6, $assetId);
+        $occupancySeries = $this->occupancyHistorySeries(6, $assetIds);
         $billedSeries = $this->monthlySeries(
             $invoiceQuery()->whereNotIn('status', ['cancelled', 'credited']),
             'period_start',
@@ -218,11 +219,11 @@ class MallStats extends StatsOverviewWidget
      * Approximate historical occupancy ratios for the last N months,
      * based on leases whose [commencement_date .. expiry_date] cover each month-end.
      */
-    protected function occupancyHistorySeries(int $months, ?int $assetId = null): array
+    protected function occupancyHistorySeries(int $months, ?array $assetIds = null): array
     {
         $unitCountQuery = DB::table('units')->whereNull('deleted_at');
-        if ($assetId) {
-            $unitCountQuery->where('asset_id', $assetId);
+        if ($assetIds !== null) {
+            $unitCountQuery->whereIn('asset_id', $assetIds);
         }
         $totalUnits = max(1, $unitCountQuery->count());
 
@@ -239,9 +240,9 @@ class MallStats extends StatsOverviewWidget
                     $q->whereNull('leases.expiry_date')->orWhere('leases.expiry_date', '>=', $monthEnd);
                 });
 
-            if ($assetId) {
+            if ($assetIds !== null) {
                 $occupiedQuery->join('units', 'units.id', '=', 'leases.unit_id')
-                    ->where('units.asset_id', $assetId);
+                    ->whereIn('units.asset_id', $assetIds);
             }
 
             $occupied = $occupiedQuery->distinct('leases.unit_id')->count('leases.unit_id');

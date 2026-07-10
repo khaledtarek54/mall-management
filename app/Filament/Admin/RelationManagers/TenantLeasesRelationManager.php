@@ -23,7 +23,14 @@ class TenantLeasesRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with('unit'))
+            // Property isolation: a tenant may lease in several malls — a restricted user
+            // must see only leases in their visible properties (null = portfolio/super_admin).
+            ->modifyQueryUsing(fn ($query) => $query
+                ->with('unit')
+                ->when(
+                    \App\Support\TenantScope::visibleAssetIds(),
+                    fn ($q, $ids) => $q->whereHas('unit', fn ($u) => $u->whereIn('asset_id', $ids)),
+                ))
             ->columns([
                 TextColumn::make('reference')
                     ->label(__('admin.tables.lease.reference'))

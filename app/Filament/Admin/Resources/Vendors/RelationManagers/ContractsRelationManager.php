@@ -85,6 +85,13 @@ class ContractsRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
+            // Property isolation: a shared vendor's contracts must not leak across malls —
+            // show portfolio-wide (null asset_id) contracts to everyone, property-scoped
+            // ones only within the user's visible set (null = super_admin/portfolio).
+            ->modifyQueryUsing(fn ($query) => $query->when(
+                \App\Support\TenantScope::visibleAssetIds(),
+                fn ($q, $ids) => $q->where(fn ($w) => $w->whereNull('asset_id')->orWhereIn('asset_id', $ids)),
+            ))
             ->columns([
                 TextColumn::make('reference')->fontFamily('mono')->size('xs')->placeholder('—'),
                 TextColumn::make('name')->weight('bold')->searchable(),
