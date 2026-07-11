@@ -1166,7 +1166,6 @@ return [
         'calculated_percentage_rent' => 'نسبة الإيجار المحسوبة',
         'calculated_percentage_rent_help' => 'تُحسب تلقائيًا من شروط نسبة الإيجار في العقد.',
         'audit_notes' => 'ملاحظات المراجعة',
-        'void_reason' => 'سبب إلغاء القفل',
         'reading_date' => 'تاريخ القراءة',
         'reading_value' => 'قراءة العداد',
         'consumption' => 'الاستهلاك',
