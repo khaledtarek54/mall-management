@@ -1,0 +1,560 @@
+{
+    "probes": {
+        "assets": "assets",
+        "units": "units",
+        "leases": "leases",
+        "invoices": "invoices",
+        "payments": "payments",
+        "credit_notes": "credit-notes",
+        "journal_entries": "journal-entries",
+        "ledger_accounts": "ledger-accounts",
+        "vendors": "vendors",
+        "maintenance": "maintenance-requests",
+        "tenant_sales": "tenant-sales-declarations",
+        "employees": "employees",
+        "marketing": "marketing-budgets",
+        "roles": "roles",
+        "utility_meters": "utility-meters"
+    },
+    "roles": {
+        "manager": {
+            "assets": {
+                "view": true,
+                "create": true,
+                "hasCreate": true
+            },
+            "units": {
+                "view": true,
+                "create": true,
+                "hasCreate": true
+            },
+            "leases": {
+                "view": true,
+                "create": true,
+                "hasCreate": true
+            },
+            "invoices": {
+                "view": true,
+                "create": true,
+                "hasCreate": true
+            },
+            "payments": {
+                "view": true,
+                "create": true,
+                "hasCreate": true
+            },
+            "credit-notes": {
+                "view": true,
+                "create": true,
+                "hasCreate": true
+            },
+            "journal-entries": {
+                "view": true,
+                "create": true,
+                "hasCreate": true
+            },
+            "ledger-accounts": {
+                "view": true,
+                "create": true,
+                "hasCreate": true
+            },
+            "vendors": {
+                "view": true,
+                "create": true,
+                "hasCreate": true
+            },
+            "maintenance-requests": {
+                "view": true,
+                "create": true,
+                "hasCreate": true
+            },
+            "tenant-sales-declarations": {
+                "view": true,
+                "create": true,
+                "hasCreate": true
+            },
+            "employees": {
+                "view": true,
+                "create": true,
+                "hasCreate": true
+            },
+            "marketing-budgets": {
+                "view": true,
+                "create": true,
+                "hasCreate": false
+            },
+            "roles": {
+                "view": true,
+                "create": false,
+                "hasCreate": true
+            },
+            "utility-meters": {
+                "view": true,
+                "create": true,
+                "hasCreate": true
+            }
+        },
+        "viewer": {
+            "assets": {
+                "view": true,
+                "create": false,
+                "hasCreate": true
+            },
+            "units": {
+                "view": true,
+                "create": false,
+                "hasCreate": true
+            },
+            "leases": {
+                "view": true,
+                "create": false,
+                "hasCreate": true
+            },
+            "invoices": {
+                "view": true,
+                "create": false,
+                "hasCreate": true
+            },
+            "payments": {
+                "view": true,
+                "create": false,
+                "hasCreate": true
+            },
+            "credit-notes": {
+                "view": true,
+                "create": false,
+                "hasCreate": true
+            },
+            "journal-entries": {
+                "view": true,
+                "create": false,
+                "hasCreate": true
+            },
+            "ledger-accounts": {
+                "view": true,
+                "create": false,
+                "hasCreate": true
+            },
+            "vendors": {
+                "view": true,
+                "create": false,
+                "hasCreate": true
+            },
+            "maintenance-requests": {
+                "view": true,
+                "create": false,
+                "hasCreate": true
+            },
+            "tenant-sales-declarations": {
+                "view": true,
+                "create": false,
+                "hasCreate": true
+            },
+            "employees": {
+                "view": true,
+                "create": false,
+                "hasCreate": true
+            },
+            "marketing-budgets": {
+                "view": true,
+                "create": false,
+                "hasCreate": false
+            },
+            "roles": {
+                "view": true,
+                "create": false,
+                "hasCreate": true
+            },
+            "utility-meters": {
+                "view": true,
+                "create": false,
+                "hasCreate": true
+            }
+        },
+        "leasing": {
+            "assets": {
+                "view": true,
+                "create": false,
+                "hasCreate": true
+            },
+            "units": {
+                "view": true,
+                "create": true,
+                "hasCreate": true
+            },
+            "leases": {
+                "view": true,
+                "create": true,
+                "hasCreate": true
+            },
+            "invoices": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "payments": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "credit-notes": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "journal-entries": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "ledger-accounts": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "vendors": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "maintenance-requests": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "tenant-sales-declarations": {
+                "view": true,
+                "create": false,
+                "hasCreate": true
+            },
+            "employees": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "marketing-budgets": {
+                "view": false,
+                "create": false,
+                "hasCreate": false
+            },
+            "roles": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "utility-meters": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            }
+        },
+        "operations": {
+            "assets": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "units": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "leases": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "invoices": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "payments": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "credit-notes": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "journal-entries": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "ledger-accounts": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "vendors": {
+                "view": true,
+                "create": true,
+                "hasCreate": true
+            },
+            "maintenance-requests": {
+                "view": true,
+                "create": true,
+                "hasCreate": true
+            },
+            "tenant-sales-declarations": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "employees": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "marketing-budgets": {
+                "view": false,
+                "create": false,
+                "hasCreate": false
+            },
+            "roles": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "utility-meters": {
+                "view": true,
+                "create": true,
+                "hasCreate": true
+            }
+        },
+        "accounting": {
+            "assets": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "units": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "leases": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "invoices": {
+                "view": true,
+                "create": true,
+                "hasCreate": true
+            },
+            "payments": {
+                "view": true,
+                "create": true,
+                "hasCreate": true
+            },
+            "credit-notes": {
+                "view": true,
+                "create": true,
+                "hasCreate": true
+            },
+            "journal-entries": {
+                "view": true,
+                "create": true,
+                "hasCreate": true
+            },
+            "ledger-accounts": {
+                "view": true,
+                "create": true,
+                "hasCreate": true
+            },
+            "vendors": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "maintenance-requests": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "tenant-sales-declarations": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "employees": {
+                "view": true,
+                "create": false,
+                "hasCreate": true
+            },
+            "marketing-budgets": {
+                "view": false,
+                "create": false,
+                "hasCreate": false
+            },
+            "roles": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "utility-meters": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            }
+        },
+        "marketing": {
+            "assets": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "units": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "leases": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "invoices": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "payments": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "credit-notes": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "journal-entries": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "ledger-accounts": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "vendors": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "maintenance-requests": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "tenant-sales-declarations": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "employees": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "marketing-budgets": {
+                "view": true,
+                "create": true,
+                "hasCreate": false
+            },
+            "roles": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "utility-meters": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            }
+        },
+        "hr": {
+            "assets": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "units": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "leases": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "invoices": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "payments": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "credit-notes": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "journal-entries": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "ledger-accounts": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "vendors": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "maintenance-requests": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "tenant-sales-declarations": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            },
+            "employees": {
+                "view": true,
+                "create": true,
+                "hasCreate": true
+            },
+            "marketing-budgets": {
+                "view": false,
+                "create": false,
+                "hasCreate": false
+            },
+            "roles": {
+                "view": true,
+                "create": false,
+                "hasCreate": true
+            },
+            "utility-meters": {
+                "view": false,
+                "create": false,
+                "hasCreate": true
+            }
+        }
+    }
+}
