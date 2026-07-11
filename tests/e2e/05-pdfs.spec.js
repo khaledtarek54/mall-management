@@ -84,7 +84,10 @@ test('Admin can download tenant statement PDF', async ({ page }) => {
   await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
 
   const downloadPromise = page.waitForEvent('download', { timeout: 30000 });
-  await page.locator('button, a').filter({ hasText: /Statement|كشف|بيان/i }).first().click();
+  // Target the header-action button precisely — a loose `button, a` + hasText
+  // filter also matches a non-interactive responsive duplicate, and `.first()`
+  // may click the wrong one (the action never dispatches → no download).
+  await page.getByRole('button', { name: /^\s*(Statement|كشف الحساب)\s*$/ }).first().click();
   const download = await downloadPromise;
   const path = await download.path();
   const buf = (await import('fs')).readFileSync(path);

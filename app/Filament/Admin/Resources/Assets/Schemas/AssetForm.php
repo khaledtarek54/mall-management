@@ -89,7 +89,6 @@ class AssetForm
                         ->helperText(__('admin.fields.brand_favicon_helper')),
                     ColorPicker::make('primary_color')
                         ->label(__('admin.fields.brand_primary_color'))
-                        ->maxLength(7)
                         ->helperText(__('admin.fields.brand_primary_color_helper')),
                 ]),
         ]);

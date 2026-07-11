@@ -10,60 +10,39 @@
  * catches it before the user does.
  */
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'fs';
 import { expectNoLaravelError } from './helpers.js';
 
 // ===== ADMIN PANEL =====
+//
+// Driven by tests/e2e/filament-admin-manifest.json — the authoritative list of
+// EVERY registered admin resource + custom page, generated from Filament itself.
+// A Pest gate (AdminSmokeManifestConformanceTest) fails if a new resource ships
+// without being added here, so this smoke can never silently miss a module.
+// Regenerate: php artisan atriom:dump-admin-manifest  (see that command).
+const MANIFEST = JSON.parse(
+  readFileSync(new URL('./filament-admin-manifest.json', import.meta.url), 'utf8'),
+);
 
+const TENANT = 'ALL'; // portfolio pseudo-tenant — super_admin sees every property
+
+// The dashboard lives at the tenant root, not /admin/ALL/dashboard.
 const ADMIN_LIST_PAGES = [
-  '/admin',                              // dashboard
-  '/admin/ALL/assets',
-  '/admin/ALL/units',
-  '/admin/ALL/tenants',
-  '/admin/ALL/leases',
-  '/admin/ALL/invoices',
-  '/admin/ALL/payments',
-  '/admin/ALL/credit-notes',
-  '/admin/ALL/maintenance-requests',
-  '/admin/ALL/tenant-sales-declarations',
-  '/admin/ALL/cam-expense-pools',
-  '/admin/ALL/utility-meters',
-  '/admin/ALL/vendors',
-  '/admin/ALL/users',
-  '/admin/ALL/occupancy-map',
-  '/admin/ALL/activity-log',
+  `/admin/${TENANT}`, // dashboard
+  ...MANIFEST.resources.map((r) => `/admin/${TENANT}/${r.slug}`),
+  ...MANIFEST.pages
+    .filter((p) => p.slug && p.slug !== 'dashboard')
+    .map((p) => `/admin/${TENANT}/${p.slug}`),
 ];
 
-const ADMIN_CREATE_PAGES = [
-  '/admin/ALL/assets/create',
-  '/admin/ALL/units/create',
-  '/admin/ALL/tenants/create',
-  '/admin/ALL/leases/create',
-  '/admin/ALL/invoices/create',
-  '/admin/ALL/payments/create',
-  '/admin/ALL/credit-notes/create',
-  '/admin/ALL/maintenance-requests/create',
-  '/admin/ALL/tenant-sales-declarations/create',
-  '/admin/ALL/cam-expense-pools/create',
-  '/admin/ALL/utility-meters/create',
-  '/admin/ALL/vendors/create',
-  '/admin/ALL/users/create',
-];
+const ADMIN_CREATE_PAGES = MANIFEST.resources
+  .filter((r) => r.hasCreate)
+  .map((r) => `/admin/${TENANT}/${r.slug}/create`);
 
 // Resources where we'll click into the first record's edit page.
-const ADMIN_EDIT_TARGETS = [
-  { list: '/admin/ALL/assets', editPattern: /\/admin\/assets\/\d+\/edit/ },
-  { list: '/admin/ALL/units', editPattern: /\/admin\/units\/\d+\/edit/ },
-  { list: '/admin/ALL/tenants', editPattern: /\/admin\/tenants\/\d+\/edit/ },
-  { list: '/admin/ALL/leases', editPattern: /\/admin\/leases\/\d+\/edit/ },
-  { list: '/admin/ALL/invoices', editPattern: /\/admin\/invoices\/\d+\/edit/ },
-  { list: '/admin/ALL/payments', editPattern: /\/admin\/payments\/\d+\/edit/ },
-  { list: '/admin/ALL/maintenance-requests', editPattern: /\/admin\/maintenance-requests\/\d+\/edit/ },
-  { list: '/admin/ALL/tenant-sales-declarations', editPattern: /\/admin\/tenant-sales-declarations\/\d+\/edit/ },
-  { list: '/admin/ALL/cam-expense-pools', editPattern: /\/admin\/cam-expense-pools\/\d+\/edit/ },
-  { list: '/admin/ALL/utility-meters', editPattern: /\/admin\/utility-meters\/\d+\/edit/ },
-  { list: '/admin/ALL/vendors', editPattern: /\/admin\/vendors\/\d+\/edit/ },
-  { list: '/admin/ALL/users', editPattern: /\/admin\/users\/\d+\/edit/ },
-];
+const ADMIN_EDIT_TARGETS = MANIFEST.resources
+  .filter((r) => r.hasEdit)
+  .map((r) => ({ list: `/admin/${TENANT}/${r.slug}` }));
 
 const PORTAL_PAGES = [
   '/portal',
@@ -161,7 +140,10 @@ test.describe('ADMIN panel — opening filter panel does not 500', () => {
 
   for (const path of filterablePages) {
     test(`filter form opens on ${path}`, async ({ page }) => {
-      const response = await page.goto(path, { waitUntil: 'networkidle' });
+      // `domcontentloaded` (not `networkidle`) — Livewire polls continuously, so
+      // networkidle can hang past the nav timeout under load. We only need the
+      // response status + a rendered page to open the filter panel.
+      const response = await page.goto(path, { waitUntil: 'domcontentloaded' });
       expect(response?.status()).toBeLessThan(500);
 
       const filterBtn = page.locator('button[aria-label*="filter" i], button:has-text("Filter")').first();

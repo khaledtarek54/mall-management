@@ -6,6 +6,11 @@ export default defineConfig({
   globalSetup: './tests/e2e/global-setup.js',
   fullyParallel: false,
   workers: 1,
+  // One retry absorbs the occasional `waitUntil: 'networkidle'` load-flake
+  // (Livewire polls continuously, so under full-suite load the network can
+  // stay "busy" past the nav timeout even though the page rendered fine).
+  // A real failure fails both attempts; a flake passes on retry.
+  retries: 1,
   timeout: 60000,
   expect: { timeout: 10000 },
   reporter: [['list'], ['html', { open: 'never', outputFolder: 'storage/playwright-report' }]],

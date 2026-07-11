@@ -1,0 +1,274 @@
+{
+    "resources": [
+        {
+            "class": "AccountingPeriodResource",
+            "slug": "accounting-periods",
+            "hasCreate": false,
+            "hasEdit": false,
+            "hasView": false
+        },
+        {
+            "class": "AssetResource",
+            "slug": "assets",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
+            "class": "CamExpensePoolResource",
+            "slug": "cam-expense-pools",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
+            "class": "CreditNoteResource",
+            "slug": "credit-notes",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
+            "class": "CustodyResource",
+            "slug": "custodies",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
+            "class": "DepartmentResource",
+            "slug": "departments",
+            "hasCreate": false,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
+            "class": "DepositTransactionResource",
+            "slug": "deposit-transactions",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
+            "class": "EmployeeResource",
+            "slug": "employees",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
+            "class": "ExpenseResource",
+            "slug": "expenses",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
+            "class": "FixedAssetResource",
+            "slug": "fixed-assets",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
+            "class": "InventoryItemResource",
+            "slug": "inventory-items",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
+            "class": "InvoiceResource",
+            "slug": "invoices",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
+            "class": "JournalEntryResource",
+            "slug": "journal-entries",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
+            "class": "LeaseResource",
+            "slug": "leases",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
+            "class": "LedgerAccountResource",
+            "slug": "ledger-accounts",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
+            "class": "MaintenancePlanResource",
+            "slug": "maintenance-plans",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
+            "class": "MaintenanceRequestResource",
+            "slug": "maintenance-requests",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
+            "class": "MaintenanceWorkOrderResource",
+            "slug": "maintenance-work-orders",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
+            "class": "MarketingBudgetResource",
+            "slug": "marketing-budgets",
+            "hasCreate": false,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
+            "class": "OwnerRequestResource",
+            "slug": "owner-requests",
+            "hasCreate": true,
+            "hasEdit": false,
+            "hasView": false
+        },
+        {
+            "class": "PaymentResource",
+            "slug": "payments",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
+            "class": "PayrollResource",
+            "slug": "payrolls",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
+            "class": "RoleResource",
+            "slug": "roles",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
+            "class": "StockMovementResource",
+            "slug": "stock-movements",
+            "hasCreate": false,
+            "hasEdit": false,
+            "hasView": false
+        },
+        {
+            "class": "TenantSalesDeclarationResource",
+            "slug": "tenant-sales-declarations",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
+            "class": "TenantResource",
+            "slug": "tenants",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
+            "class": "UnitResource",
+            "slug": "units",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
+            "class": "UserResource",
+            "slug": "users",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
+            "class": "UtilityMeterResource",
+            "slug": "utility-meters",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
+            "class": "VendorBillResource",
+            "slug": "vendor-bills",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
+            "class": "VendorResource",
+            "slug": "vendors",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
+            "class": "WarehouseResource",
+            "slug": "warehouses",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        }
+    ],
+    "pages": [
+        {
+            "class": "ActivityLog",
+            "slug": "activity-log"
+        },
+        {
+            "class": "ArAging",
+            "slug": "ar-aging"
+        },
+        {
+            "class": "BalanceSheet",
+            "slug": "balance-sheet"
+        },
+        {
+            "class": "CashFlow",
+            "slug": "cash-flow"
+        },
+        {
+            "class": "Dashboard",
+            "slug": "dashboard"
+        },
+        {
+            "class": "GeneralLedger",
+            "slug": "general-ledger"
+        },
+        {
+            "class": "IncomeStatement",
+            "slug": "income-statement"
+        },
+        {
+            "class": "OccupancyMap",
+            "slug": "occupancy-map"
+        },
+        {
+            "class": "Reports",
+            "slug": "reports"
+        },
+        {
+            "class": "Settings",
+            "slug": "settings"
+        },
+        {
+            "class": "TrialBalance",
+            "slug": "trial-balance"
+        }
+    ]
+}
