@@ -146,8 +146,21 @@ class TenantSalesDeclarationsTable
                     ])
                     ->visible(fn (TenantSalesDeclaration $record) => $record->status === 'locked' && auth()->user()?->can('tenant_sales.lock'))
                     ->action(function (TenantSalesDeclaration $record, array $data): void {
-                        app(\App\Services\PercentageRentCalculationService::class)
-                            ->voidLocked($record, auth()->user(), $data['reason']);
+                        try {
+                            app(\App\Services\PercentageRentCalculationService::class)
+                                ->voidLocked($record, auth()->user(), $data['reason']);
+                        } catch (\DomainException $e) {
+                            // The overage invoice was already PAID — VoidInvoiceService refuses,
+                            // the whole void transaction rolls back. Tell the operator to refund first.
+                            Notification::make()
+                                ->danger()
+                                ->title(__('admin.notifications.declaration_void_blocked'))
+                                ->body($e->getMessage())
+                                ->persistent()
+                                ->send();
+
+                            return;
+                        }
 
                         Notification::make()
                             ->warning()

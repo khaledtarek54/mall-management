@@ -962,9 +962,10 @@ return [
         'invoice_overdue_body' => 'Invoice :number is :days days overdue — EGP :amount unpaid.',
         // Admin / operator-facing (existing operator-initiated events)
         'declaration_locked' => 'Declaration locked',
-        'declaration_locked_body' => 'Percentage rent of EGP :amount queued for next billing run.',
+        'declaration_locked_body' => 'Percentage rent of EGP :amount invoiced immediately.',
         'declaration_disputed' => 'Declaration marked as disputed',
-        'declaration_voided' => 'Locked declaration voided · percentage-rent Charge deactivated',
+        'declaration_voided' => 'Locked declaration voided · overage invoice cancelled',
+        'declaration_void_blocked' => 'Cannot void this declaration',
         'allocations_generated' => 'Allocations generated',
         'allocations_generated_body' => ':count allocations created or updated based on pro-rata share by leased sqm.',
         'pool_reconciled' => 'CAM pool marked reconciled',

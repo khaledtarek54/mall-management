@@ -63,20 +63,22 @@ it('treats a locked declaration as immutable (canEdit is false)', function () {
     expect(TenantSalesDeclarationResource::canEdit($decl->fresh()))->toBeFalse();
 });
 
-it('never leaves two active percentage_rent charges when a declaration is re-locked', function () {
+it('never leaves two live overage invoices when a declaration is re-locked', function () {
     $svc = app(PercentageRentCalculationService::class);
     $decl = submittedDeclaration($this->asset, $this->tenant);
 
-    $svc->lock($decl, auth()->user()); // 1 active charge
+    $svc->lock($decl, auth()->user()); // bills overage invoice #1
 
     // Simulate the old bug path (raw status reset) then re-lock.
     $decl->forceFill(['status' => 'submitted'])->saveQuietly();
-    $svc->lock($decl->fresh(), auth()->user());
+    $svc->lock($decl->fresh(), auth()->user()); // reverses #1, bills a fresh #2
 
-    $active = Charge::where('lease_id', $decl->lease_id)
-        ->where('type', 'percentage_rent')
-        ->whereDate('start_date', '2026-01-01')
-        ->where('is_active', true)->count();
+    // The overage is billed as an immediate invoice, not an active monthly charge, so the
+    // double-bill guard is: exactly ONE live (non-cancelled) overage invoice survives a re-lock.
+    $live = \App\Models\Invoice::whereHas('items', fn ($q) => $q->where('type', 'percentage_rent'))
+        ->where('tenant_id', $decl->lease->tenant_id)
+        ->whereNotIn('status', ['cancelled', 'credited'])
+        ->count();
 
-    expect($active)->toBe(1);
+    expect($live)->toBe(1);
 });

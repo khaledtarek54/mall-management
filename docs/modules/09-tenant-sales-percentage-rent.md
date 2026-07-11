@@ -1,6 +1,6 @@
 # Tenant Sales Declarations & Percentage Rent
 
-> Tenants on percentage-rent leases submit periodic sales declarations by **uploading their sales report file**; the operator reviews the file, enters the sales figure, and locks the declaration to generate billable percentage-rent charges.
+> Tenants on percentage-rent leases submit periodic sales declarations by **uploading their sales report file**; the operator reviews the file, enters the sales figure, and locks the declaration — which **bills the percentage-rent overage immediately as its own invoice**.
 
 > **File-first submission (2026-07):** Tenants no longer type a sales figure. On both the mobile app and the web portal they **attach their sales report** (image/PDF). `declared_sales` is nullable and is **entered by staff** in the admin panel after reviewing the attachment, then Lock bills the percentage rent. The report file lives in the Spatie `sales_report` media collection on a **private** disk (it can carry commercial turnover figures) and is streamed only through authenticated, tenant-scoped endpoints.
 
@@ -14,7 +14,7 @@ Tenants must declare their **actual sales** for each period so the operator (Jaw
 - Lets tenants submit sales declarations via the **Portal**
 - Lets managers audit, lock (finalize), or dispute declarations via **Admin**
 - Automatically calculates the **percentage rent owed** using the lease's configured formula
-- Creates a **one-off billing Charge** when locked, so the monthly billing run picks it up
+- **Bills the overage immediately** when locked as its own issued invoice (see the billing-gap note below)
 
 This is critical to rental compliance and owner cash flow—tenants cannot skip reporting, and the operator has full audit trails (activity logs, audit notes, locked-by user stamps).
 
@@ -36,7 +36,7 @@ This is critical to rental compliance and owner cash flow—tenants cannot skip 
 
 **Related tables:**
 - `leases` — the source of truth for percentage-rent config (see below)
-- `charges` — one-off `type='percentage_rent'` row created per locked declaration with owed amount
+- `charges` — one-off `type='percentage_rent'` **inactive** anchor row created per locked declaration (traceability + the void/re-lock identity key); the money is billed on an immediately-issued `invoices` row linked via an `invoice_items` row of `type='percentage_rent'`
 
 **Lease percentage-rent columns:**
 | Column | Type | Meaning |
@@ -106,26 +106,31 @@ Test: `PercentageRentScenarioTest::defaults to the artificial formula when calcu
 
 ### Locked declarations are immutable
 Once `status='locked'`, the declaration cannot be edited via the normal edit form. Only two actions remain:
-- **Void** → flip to 'disputed', deactivate the charge
+- **Void** → flip to 'disputed', reverse the overage (deactivate the anchor charge + cancel its immediate invoice)
 - **Delete** (soft-delete only)
 
-### A locked declaration creates exactly one active charge
-When locked with `calculated_percentage_rent > 0`, a one-off Charge is created with:
-- `type = 'percentage_rent'`
-- `frequency = 'one_time'`
-- `vat_applicable = false`, `vat_rate = 0`
-- `is_active = true`
-- `start_date = declaration.period_start`, `end_date = declaration.period_end`
-- Amount equals the calculated figure (2dp)
+### The billing gap — why the overage is billed IMMEDIATELY (not via the monthly run)
+> **Invariant (hard-won — do not re-break).** Locking bills the overage as its **own immediately-issued invoice**, mirroring the CAM positive true-up (`billChargeImmediately`).
+>
+> The old design created an **active** one_time `percentage_rent` Charge dated to the (past) sales month and relied on the monthly billing run to pick it up. But the monthly engine only bills charges whose period **overlaps the run month**, so a charge dated to a bygone month was **never billed** — the locked overage silently vanished (revenue leak). The `start_date = period_start` (a past date) is exactly what strands it.
 
-If `calculated_percentage_rent == 0`, **no charge is created** (tenant was under-threshold).
+When locked with `calculated_percentage_rent > 0`, `lock()`:
+1. Creates an **inactive anchor** Charge (`type='percentage_rent'`, `frequency='one_time'`, `vat_applicable=false`, **`is_active=false`**, `start_date=period_start`, `end_date=period_end`, amount = the calculated figure). It is *never* billed by the monthly run — it's a traceability record + the void/re-lock identity key.
+2. Creates an **issued** `Invoice` for the same amount, `issue_date=now()`, with `period_start`/`period_end` = the **sales period** (the truthful period the overage covers).
+3. Links them with an `InvoiceItem` of `type='percentage_rent'` → the GL journalizer posts it as `percentage_rent_revenue`.
 
-Test: `PercentageRentScenarioTest::lock writes a one-off, VAT-free percentage_rent charge bounded to the declaration period`
+If `calculated_percentage_rent == 0`, **nothing is created** (no charge, no invoice — tenant was under-threshold).
 
-### Charge period scoping
-Each Charge's `start_date` and `end_date` are set to the declaration's period. When voiding, the service matches the charge by `(lease_id, type='percentage_rent', start_date=period_start)` to avoid accidentally deactivating a sibling-period charge.
+> **Monthly-run exclusion (the second half of the fix).** The overage invoice's period is a real single month, so — unlike the CAM annual recovery invoice — it *does* fall inside `MonthlyBillingService`'s "already billed" window. If left unguarded, a back-filled / late monthly run for that same month would see it, think the lease is already billed, and silently skip the base rent (a second revenue leak). So both idempotency probes in `MonthlyBillingService` (`runForPeriod` + `generateForLease`) now exclude pure percentage-rent overage invoices (`whereDoesntHave('items', type='percentage_rent')`). See module 05 § "Idempotency & lifecycle". Test: `PercentageRentImmediateBillingTest::the immediate overage invoice does not suppress that month's regular rent invoice`.
 
-Test: `PercentageRentScenarioTest::locks two periods independently, each charge bounded to its own period` and `PercentageRentVoidLockedTest::voidLocked only deactivates the period-specific Charge`
+> **Concurrency.** `lock()` and `voidLocked()` re-read the declaration with `lockForUpdate()` and re-check its status **inside** the transaction (mirroring `VoidInvoiceService` / `CamReconciliationService`). Without it, two racing locks (a double-clicked Filament action, two staff) would each bill their own overage invoice — a double-bill + double GL posting. Test: `PercentageRentImmediateBillingTest::does not re-bill or churn the overage on a stale-snapshot double-lock`.
+
+Test: `PercentageRentImmediateBillingTest::lock bills the overage as an immediate issued invoice`, `PercentageRentScenarioTest::lock writes a one-off, VAT-free percentage_rent charge bounded to the declaration period`
+
+### Charge period scoping (the void/re-lock identity key)
+Each anchor Charge's `start_date`/`end_date` are set to the declaration's period. Void and re-lock match the charge by `(lease_id, type='percentage_rent', start_date=period_start)` — so reversing one period never touches a sibling period's charge or its immediate invoice.
+
+Test: `PercentageRentScenarioTest::locks two periods independently, each charge bounded to its own period` and `PercentageRentVoidLockedTest::voidLocked only reverses the period-specific overage`
 
 ### Dispute workflow
 A submitted declaration can be **disputed** without locking (flips status to 'disputed', no charge created). This is used when the tenant figure is clearly wrong before audit.
@@ -139,22 +144,22 @@ submitted ──[lock]─→ locked ──[voidLocked]─→ disputed
   ↓                      ↓
   └─[dispute]──────────→ disputed
                             ↓ [re-lock]
-                           locked (new charge)
+                           locked (fresh overage invoice)
 ```
 
 | Status | Meaning | Transitions | Terminal? |
 |--------|---------|-------------|-----------|
 | `submitted` | Tenant or admin created; pending audit | → `locked` (lock action) or → `disputed` (dispute action) | No |
-| `locked` | Admin approved; Charge created if owed>0 | → `disputed` (voidLocked action) | No (can re-lock) |
-| `disputed` | Flagged for audit or voided; charge deactivated | → `locked` (re-lock action) | No |
+| `locked` | Admin approved; overage invoiced immediately if owed>0 | → `disputed` (voidLocked action) | No (can re-lock) |
+| `disputed` | Flagged for audit or voided; overage invoice cancelled | → `locked` (re-lock action) | No |
 
 ### State transitions
 
 **submitted → locked** (lock action)
 - Triggered by: Admin "Lock" button in Filament table
-- Guard: `status === 'submitted'`
-- Side effects: Recalculate, stamp `locked_at` and `locked_by_user_id`, create Charge if owed>0, fire `SalesDeclarationLockedNotification` to tenant
-- Idempotent: Calling lock on an already-locked declaration returns the same record (no re-charge)
+- Guard: `status === 'submitted'` (any non-`locked` status locks afresh — a `disputed` declaration can be re-locked)
+- Side effects: Recalculate, stamp `locked_at` and `locked_by_user_id`; reverse any prior overage for this lease+period (re-lock safety), then bill the overage immediately (anchor charge + issued invoice) if owed>0; fire `SalesDeclarationLockedNotification` to tenant
+- Idempotent: Calling lock on an already-`locked` declaration returns the same record (no re-bill)
 - Audit: Optional `audit_notes` parameter
 
 Test: `PercentageRentCalculationServiceTest::locks a declaration and creates the percentage-rent charge`, `PercentageRentCalculationServiceTest::locking is idempotent`
@@ -168,17 +173,18 @@ Test: `PercentageRentCalculationServiceTest::locks a declaration and creates the
 **locked → disputed** (voidLocked action)
 - Triggered by: Admin "Void Locked" button (after declaring locked declaration incorrect)
 - Guard: `status === 'locked'`
-- Side effects: Deactivate the period-matching Charge (set `is_active=false`, `end_date=now()`), flip status to 'disputed', append audit note with operator name + reason + date
+- Side effects: Reverse the overage — deactivate the period-matching anchor Charge (`is_active=false`, `end_date=now()`) **and cancel its immediate invoice** via `VoidInvoiceService` (so the GL entry is voided by the sweep) — then flip status to 'disputed' and append an audit note with operator + reason + date
+- **Refused if the overage invoice was already PAID**: `VoidInvoiceService` throws `DomainException`, the whole transaction rolls back, and the Filament action shows a persistent error telling the operator to refund the payment first
 - Idempotent: Calling voidLocked on a non-locked declaration is a no-op (belt-and-braces, though the UI gates it)
 
-Test: `PercentageRentVoidLockedTest::voidLocked deactivates the percentage_rent Charge and flips status to disputed`, `PercentageRentVoidLockedTest::voidLocked is a no-op on a non-locked declaration`
+Test: `PercentageRentVoidLockedTest::voidLocked cancels the immediate overage invoice and flips status to disputed`, `PercentageRentImmediateBillingTest::refuses to void when the overage invoice has been PAID`, `PercentageRentVoidLockedTest::voidLocked is a no-op on a non-locked declaration`
 
 **disputed → locked** (re-lock action)
 - A disputed declaration can be locked again (e.g., after audit correction)
-- Recalculates and creates a fresh Charge (the old one remains deactivated)
-- Result: Two historical Charge rows, but only ONE is active
+- Re-lock safety: `lock()` first reverses any prior overage for the lease+period (cancels the old invoice), then bills a fresh one — so a re-lock can **never double-bill**
+- Result: multiple historical anchor Charge rows (all inactive) + exactly ONE live (non-cancelled) overage invoice
 
-Test: `PercentageRentScenarioTest::re-locking a voided (disputed) declaration recreates exactly one active charge`
+Test: `PercentageRentScenarioTest::re-locking a voided declaration voids the old overage invoice and bills exactly one fresh one`, `SalesDeclarationLockGuardTest::never leaves two live overage invoices when a declaration is re-locked`
 
 ## 5. Services, jobs & scheduled commands
 
@@ -205,9 +211,10 @@ File: `app/Services/PercentageRentCalculationService.php`
 - Steps:
   1. Recalculate the owed amount
   2. Update: `status='locked'`, `locked_at=now()`, `locked_by_user_id`, `audit_notes`
-  3. If owed > 0, create the one-off Charge
-  4. Fire `SalesDeclarationLockedNotification` to the lease's tenant (wraps in try–catch; logs warning if it fails)
-  5. Refresh and return
+  3. Re-lock safety: `reverseOverage()` — reverse any prior overage for this lease+period (deactivate anchor + cancel its immediate invoice) before billing, so a re-lock can never double-bill
+  4. If owed > 0, `billOverageImmediately()` — create the inactive anchor Charge + the issued Invoice + the `percentage_rent` InvoiceItem
+  5. Fire `SalesDeclarationLockedNotification` to the lease's tenant (wraps in try–catch; logs warning if it fails)
+  6. Refresh and return
 - Notification: "Your sales declaration for [period] has been locked at [amount] EGP"
 
 **`voidLocked(TenantSalesDeclaration, User $voidedBy, string $reason): TenantSalesDeclaration`**
@@ -215,8 +222,8 @@ File: `app/Services/PercentageRentCalculationService.php`
 - Guard: Short-circuits if `status !== 'locked'`
 - Transaction: Wrapped in `DB::transaction()`
 - Steps:
-  1. Find the period-specific Charge: `where('type','percentage_rent') and whereDate('start_date', period_start)`
-  2. Deactivate it: `is_active=false`, `end_date=now()`
+  1. `reverseOverage()` — find the period-specific anchor Charge(s) `where('type','percentage_rent') and whereDate('start_date', period_start)`; deactivate each (`is_active=false`, `end_date=now()`) and cancel its immediate invoice via `VoidInvoiceService` (unless already cancelled/credited)
+  2. **A PAID overage invoice throws `DomainException`** — the transaction rolls back and the void is refused (refund the invoice first)
   3. Append audit note: "Voided on [date] by [user]: [reason]"
   4. Update: `status='disputed'`
   5. Refresh and return
@@ -284,10 +291,10 @@ File: `app/Filament/Admin/Resources/TenantSalesDeclarations/TenantSalesDeclarati
 
 - **Void Locked** (visible if `status='locked'`)
   - Heading: "Void locked declaration"
-  - Description: Warns this will deactivate the charge
+  - Description: Warns this will reverse the overage (cancel its invoice)
   - Required `reason` field
-  - Calls `PercentageRentCalculationService::voidLocked()`
-  - Warning notification on success
+  - Calls `PercentageRentCalculationService::voidLocked()`, wrapped in a `try/catch (DomainException)`
+  - Warning notification on success; **persistent danger notification** if the overage invoice was already paid (void refused — refund first)
   - Permission: `tenant_sales.lock` (implicit, same as lock)
 
 - **Edit** (if not locked)
@@ -465,32 +472,30 @@ File: `app/Notifications/SalesDeclarationLockedNotification.php`
 
 ---
 
-### Changing the charge creation logic
+### Changing the billing logic
 
 **To modify what gets billed (e.g., applying a discount, adding surcharges):**
 
 1. Do NOT mutate the declared amount itself—keep `declared_sales` immutable.
 
-2. Modify the Charge inside `PercentageRentCalculationService::createPercentageRentCharge()`:
+2. Modify the billing inside `PercentageRentCalculationService::billOverageImmediately()` — it creates the inactive anchor Charge, the issued Invoice, and the `percentage_rent` InvoiceItem:
    ```php
-   private function createPercentageRentCharge(TenantSalesDeclaration $declaration, float $amount): Charge
+   private function billOverageImmediately(TenantSalesDeclaration $declaration, float $amount): Charge
    {
        $finalAmount = $amount; // Apply discount/markup here if needed
-       return Charge::create([
-           'amount' => $finalAmount,
-           // ...
-       ]);
+       // ... anchor Charge (is_active=false) + Invoice(total=$finalAmount) + InvoiceItem
    }
    ```
 
-3. Update `calculate()` to return the **before-discount** figure (so admin sees the raw owed amount), then adjust in `createPercentageRentCharge()`.
+3. Update `calculate()` to return the **before-discount** figure (so admin sees the raw owed amount), then adjust in `billOverageImmediately()`.
 
-4. Add a test to verify the final billed amount matches your logic.
+4. Add a test to verify the final billed amount matches your logic (assert the **invoice** total, not a charge amount).
 
 5. Do NOT:
-   - Change the Charge's `type`, `frequency`, `vat_applicable`, or date bounds — these are fixed by spec
-   - Create multiple charges per declaration — exactly one active charge per locked declaration
-   - Forget to deactivate old charges if re-locking — `voidLocked()` handles this, but manual changes must respect the invariant
+   - Bill via an **active** monthly Charge — a one_time charge dated to the past sales month is never billed by the monthly run (the billing gap). Keep the immediate-invoice path; the anchor Charge must stay `is_active=false`.
+   - Change the anchor Charge's `type`, `frequency`, `vat_applicable`, or `start_date=period_start` — the last is the void/re-lock identity key
+   - Leave more than one **live** overage invoice per declaration — `reverseOverage()` (called by both `lock()` and `voidLocked()`) enforces this; manual changes must respect the invariant
+   - Bill VAT on the overage — percentage rent, like base rent, is VAT-exempt
 
 ---
 
@@ -512,6 +517,18 @@ Do NOT:
 ---
 
 ## 9. Gotchas, edge cases & recently-fixed bugs
+
+### The billing gap — locked overage was never billed (2026-07)
+
+**The bug:** `lock()` created an **active** one_time `percentage_rent` Charge dated to the (past) sales month and relied on the monthly billing run to bill it. But the monthly engine only bills charges whose period **overlaps the run month**, so a charge dated to a bygone month was silently skipped forever — the locked overage never reached an invoice (revenue leak).
+
+**The fix:** `lock()` now bills the overage **immediately** as its own issued invoice (mirroring the CAM positive true-up, `billChargeImmediately`). The Charge is kept only as an **inactive** anchor (`is_active=false`) for traceability + as the void/re-lock identity key; the money lives on the invoice. `voidLocked()`/re-lock reverse it by cancelling that invoice; a **paid** overage invoice blocks the void until refunded. See §3 "The billing gap" for the full invariant.
+
+**To avoid:** never bill a percentage-rent overage through the monthly run — its charge date is always in the past. Keep the anchor inactive and bill immediately.
+
+Tests: `PercentageRentImmediateBillingTest`, `PercentageRentScenarioTest`, `PercentageRentVoidLockedTest`.
+
+---
 
 ### Null `percentage_rent_calculation_type`
 

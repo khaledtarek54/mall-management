@@ -99,7 +99,8 @@ This is the core AR (accounts receivable) engine; all recurring revenue flows th
 
 7. **Invoice generation is idempotent per lease+period:** If an invoice already exists with the same period_start, the run skips it.
    - **Entry points:** `MonthlyBillingService::runForPeriod()` (batch all active leases) or `generateForLease()` (single lease, returns status array)
-   - **Test:** `BillingScenarioTest::test_skips_with_already_billed_when_an_invoice_already_covers_the_period` + `Services/MonthlyBillingServiceTest::test_is_idempotent_a_second_run_for_the_same_period_creates_no_duplicates`
+   - **Recovery invoices are excluded from the "already billed" probe.** Two invoice kinds are dated to a *past* period but are NOT the lease's regular monthly invoice: the annual **CAM year-end recovery** (excluded by the `period_end ≤ month-end` clause) and the immediate **percentage-rent overage** invoice (excluded by `whereDoesntHave('items', type='percentage_rent')`). Without these exclusions, a back-filled / late monthly run for that month would see the recovery invoice, think the lease is already billed, and silently skip the base rent (revenue leak). A regular monthly invoice never carries a `percentage_rent` line, so the exclusion only skips pure overages. See module 09 § "The billing gap".
+   - **Test:** `BillingScenarioTest::test_skips_with_already_billed_when_an_invoice_already_covers_the_period` + `Services/MonthlyBillingServiceTest::test_is_idempotent_a_second_run_for_the_same_period_creates_no_duplicates` + `PercentageRentImmediateBillingTest::the immediate overage invoice does not suppress that month's regular rent invoice`
 
 8. **Only active leases with overlapping commencement/expiry are billed by runForPeriod:**
    - Status = 'active' (not draft, terminated, etc.)

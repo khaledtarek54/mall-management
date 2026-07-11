@@ -962,9 +962,10 @@ return [
         'invoice_overdue_body' => 'الفاتورة :number متأخرة :days يوماً — :amount جنيه غير مدفوعة.',
         // Admin / operator-facing (existing operator-initiated events)
         'declaration_locked' => 'تم تثبيت الإقرار',
-        'declaration_locked_body' => 'تم إضافة نسبة الإيجار :amount جنيه إلى دورة الفوترة القادمة.',
+        'declaration_locked_body' => 'تم إصدار فاتورة نسبة الإيجار :amount جنيه فوراً.',
         'declaration_disputed' => 'تم تسجيل اعتراض على الإقرار',
-        'declaration_voided' => 'تم إلغاء قفل الإقرار · تم إيقاف تفعيل رسم النسبة من المبيعات',
+        'declaration_voided' => 'تم إلغاء قفل الإقرار · تم إلغاء فاتورة النسبة',
+        'declaration_void_blocked' => 'تعذّر إلغاء هذا الإقرار',
         'allocations_generated' => 'تم توليد التوزيعات',
         'allocations_generated_body' => 'تم إنشاء أو تحديث :count توزيع حسب نسبة المساحة المؤجَّرة.',
         'pool_reconciled' => 'تمت تسوية مجمع المصروفات',

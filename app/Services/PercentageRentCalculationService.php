@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\Charge;
+use App\Models\Invoice;
+use App\Models\InvoiceItem;
 use App\Models\Lease;
 use App\Models\TenantSalesDeclaration;
 use App\Models\User;
@@ -65,6 +67,18 @@ class PercentageRentCalculationService
         }
 
         return DB::transaction(function () use ($declaration, $lockedBy, $auditNotes) {
+            // Lock the row + re-check status INSIDE the txn so two concurrent locks (a
+            // double-clicked / retried Filament action, or two staff) can't BOTH bill the
+            // overage. Under MySQL REPEATABLE READ a non-locking read sees a stale
+            // pre-commit snapshot, so reverseOverage() wouldn't see the racing txn's anchor
+            // charge and both would reach billOverageImmediately() → two issued invoices +
+            // two GL postings for one declaration. Mirrors VoidInvoiceService /
+            // CamReconciliationService (the codebase's established lock-safe pattern).
+            $declaration = TenantSalesDeclaration::query()->lockForUpdate()->find($declaration->id);
+            if (! $declaration || $declaration->status === 'locked') {
+                return $declaration; // a racing request already locked it — nothing to do
+            }
+
             $owed = $this->calculate($declaration);
 
             $declaration->update([
@@ -75,18 +89,13 @@ class PercentageRentCalculationService
                 'audit_notes' => $auditNotes,
             ]);
 
-            // Defense-in-depth: deactivate any prior active percentage_rent charge
-            // for this lease+period so a re-lock can never leave two active charges
-            // (double-bill). voidLocked uses the same period-matching query.
-            Charge::query()
-                ->where('lease_id', $declaration->lease_id)
-                ->where('type', 'percentage_rent')
-                ->whereDate('start_date', $declaration->period_start)
-                ->where('is_active', true)
-                ->update(['is_active' => false]);
+            // Re-lock safety: reverse any prior overage for this lease+period (deactivate its
+            // anchor charge + void its immediate invoice) before billing the fresh one, so a
+            // re-lock can never double-bill.
+            $this->reverseOverage($declaration);
 
             if ($owed > 0) {
-                $this->createPercentageRentCharge($declaration, $owed);
+                $this->billOverageImmediately($declaration, $owed);
             }
 
             // Notify the lease's tenant. Even when owed is zero we tell them
@@ -111,9 +120,10 @@ class PercentageRentCalculationService
     }
 
     /**
-     * Void a previously-locked declaration: flip status to `disputed`,
-     * deactivate the percentage_rent Charge so the next monthly billing
-     * run skips it, and stamp audit_notes with the reason.
+     * Void a previously-locked declaration: flip status to `disputed`, reverse the overage
+     * (deactivate the anchor Charge AND cancel its immediate invoice, so the GL entry is
+     * voided by the sweep), and stamp audit_notes with the reason. A PAID overage invoice
+     * can't be voided — VoidInvoiceService throws, the txn rolls back, the void is refused.
      *
      * Idempotent: voiding a non-locked declaration is a no-op (the action
      * is UI-gated to status=locked, but we belt-and-braces in case a future
@@ -126,13 +136,17 @@ class PercentageRentCalculationService
         }
 
         return DB::transaction(function () use ($declaration, $voidedBy, $reason) {
-            // Find and deactivate the percentage_rent Charge created at lock
-            // time. Match by period_start so we don't accidentally void a
-            // sibling-period charge on the same lease.
-            Charge::where('lease_id', $declaration->lease_id)
-                ->where('type', 'percentage_rent')
-                ->whereDate('start_date', $declaration->period_start)
-                ->update(['is_active' => false, 'end_date' => now()]);
+            // Lock the row + re-check inside the txn (same rationale as lock()): two racing
+            // voids must not both run reverseOverage() and double-cancel / double-refund.
+            $declaration = TenantSalesDeclaration::query()->lockForUpdate()->find($declaration->id);
+            if (! $declaration || $declaration->status !== 'locked') {
+                return $declaration; // already voided by a racing request — nothing to do
+            }
+
+            // Reverse the overage: deactivate the anchor Charge AND void its immediate
+            // invoice (the overage was already billed at lock time). If that invoice has
+            // been PAID, VoidInvoiceService throws — the void is refused until it's refunded.
+            $this->reverseOverage($declaration);
 
             $existing = $declaration->audit_notes ? rtrim($declaration->audit_notes) . "\n\n" : '';
             $stamp = now()->format('Y-m-d');
@@ -147,17 +161,26 @@ class PercentageRentCalculationService
         });
     }
 
-    private function createPercentageRentCharge(TenantSalesDeclaration $declaration, float $amount): Charge
+    /**
+     * Bill the percentage-rent overage IMMEDIATELY as its own issued invoice. The monthly
+     * billing run can't reach a one_time charge dated to a past sales month, so — mirroring the
+     * CAM positive true-up (billChargeImmediately) — we invoice it now. The Charge is kept as an
+     * INACTIVE traceability anchor + the void/re-lock identity key (matched on
+     * start_date = period_start); the money lives on the invoice, posting to the GL as
+     * percentage_rent_revenue via the invoice item's `percentage_rent` type.
+     */
+    private function billOverageImmediately(TenantSalesDeclaration $declaration, float $amount): Charge
     {
-        // NOTE (QA-flagged, not auto-fixed): start_date is dated to the sales period_start,
-        // which is ALSO the identity key that voidLocked()/re-lock match on. A one_time
-        // charge is only billed when its start_date falls in the run's period, so if the
-        // sales period's monthly run has already happened the overage isn't picked up by
-        // the generic monthly run — percentage rent needs a dedicated billing path
-        // (immediate invoice, like CAM) decided alongside the void/re-lock identity logic.
-        return Charge::create([
-            'lease_id' => $declaration->lease_id,
-            'name' => 'Percentage Rent — '.$declaration->periodLabel(),
+        /** @var Lease $lease */
+        $lease = $declaration->lease;
+        $now = now();
+        $label = 'Percentage Rent — '.$declaration->periodLabel();
+
+        // Anchor: is_active=false so the monthly engine (which loads only active charges)
+        // never re-bills it; dated to the sales period so void/re-lock match it.
+        $charge = Charge::create([
+            'lease_id' => $lease->id,
+            'name' => $label,
             'type' => 'percentage_rent',
             'amount' => $amount,
             'currency' => 'EGP',
@@ -166,7 +189,65 @@ class PercentageRentCalculationService
             'vat_rate' => 0,
             'start_date' => $declaration->period_start,
             'end_date' => $declaration->period_end,
-            'is_active' => true,
+            'is_active' => false,
         ]);
+
+        // Invoice period = the SALES period (the truthful period the overage covers), NOT
+        // now(). That single-month span DOES fall inside MonthlyBillingService's "already
+        // billed" window, so both of its idempotency probes explicitly exclude pure
+        // percentage-rent overage invoices (whereDoesntHave items type=percentage_rent) —
+        // otherwise a back-filled monthly run for this month would skip the base rent.
+        $invoice = Invoice::create([
+            'lease_id' => $lease->id,
+            'tenant_id' => $lease->tenant_id,
+            'status' => 'issued',
+            'issue_date' => $now,
+            'due_date' => $now->copy()->addDays($lease->payment_terms_days ?? 7),
+            'period_start' => $declaration->period_start,
+            'period_end' => $declaration->period_end,
+            'subtotal' => $amount,
+            'vat_amount' => 0,
+            'total' => $amount,
+            'paid_amount' => 0,
+            'balance' => $amount,
+            'currency' => $lease->currency ?? 'EGP',
+        ]);
+
+        InvoiceItem::create([
+            'invoice_id' => $invoice->id,
+            'charge_id' => $charge->id,
+            'description' => $label,
+            'type' => 'percentage_rent', // → percentage_rent_revenue in the GL journalizer
+            'amount' => $amount,
+            'vat_rate' => 0,
+            'vat_amount' => 0,
+            'total' => $amount,
+        ]);
+
+        return $charge;
+    }
+
+    /**
+     * Reverse a period's overage (used by void AND re-lock): deactivate the anchor Charge(s)
+     * and void their immediate invoice. Matched by (lease, type, start_date = period_start) so
+     * a sibling period is never touched. A PAID overage invoice can't be voided —
+     * VoidInvoiceService throws, the caller's transaction rolls back, and the void/re-lock is
+     * refused (the invoice must be refunded first).
+     */
+    private function reverseOverage(TenantSalesDeclaration $declaration): void
+    {
+        $charges = Charge::where('lease_id', $declaration->lease_id)
+            ->where('type', 'percentage_rent')
+            ->whereDate('start_date', $declaration->period_start)
+            ->get();
+
+        foreach ($charges as $charge) {
+            $charge->update(['is_active' => false, 'end_date' => now()]);
+
+            $invoice = InvoiceItem::where('charge_id', $charge->id)->latest('id')->first()?->invoice;
+            if ($invoice && ! in_array($invoice->status, ['cancelled', 'credited'], true)) {
+                app(VoidInvoiceService::class)->void($invoice, 'Percentage-rent declaration voided / re-locked');
+            }
+        }
     }
 }

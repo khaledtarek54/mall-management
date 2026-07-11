@@ -5,11 +5,12 @@
 | Percentage Rent — NET-NEW scenarios
 |--------------------------------------------------------------------------
 | Sibling suites already cover: zero-when-no-pct-rent, the artificial /
-| natural formulae, floor-at-zero (artificial), basic lock+1-charge,
-| idempotent re-lock, skip-charge-when-zero, the void/dispute path, and the
-| lock notification firing. (tests/Feature/Services/PercentageRentCalculation
-| ServiceTest, PercentageRentVoidLockedTest, Notifications/MaintenanceAndSales
-| NotificationsTest.)
+| natural formulae, floor-at-zero (artificial), lock bills the overage as an
+| immediate invoice, idempotent re-lock, skip-when-zero, the void/dispute path
+| (invoice cancelled), the paid-overage void refusal, and the lock notification.
+| (tests/Feature/Services/PercentageRentCalculationServiceTest, PercentageRent
+| VoidLockedTest, tests/Feature/Regression/PercentageRentImmediateBillingTest,
+| Notifications/MaintenanceAndSalesNotificationsTest.)
 |
 | This file adds the angles those leave open, asserting the CHARGE AMOUNT and
 | the created Charge's attributes EXACTLY:
@@ -21,8 +22,8 @@
 |   - fractional-rate rounding to 2dp
 |   - recalculate() persists without locking and creates no charge (untested)
 |   - calculate() is a pure read (no mutation / no charge)
-|   - state-transition: re-lock after a void creates a fresh charge, leaving
-|     exactly one ACTIVE percentage-rent charge
+|   - state-transition: re-lock after a void reverses the old overage invoice
+|     and bills exactly one fresh one (no double-bill)
 */
 
 use App\Models\Charge;
@@ -149,8 +150,8 @@ it('defaults to the artificial formula when calculation_type is null', function 
 // STATE — the created Charge carries the exact billing-ready attribute set
 // ----------------------------------------------------------------------------
 
-it('lock writes a one-off, VAT-free percentage_rent charge bounded to the declaration period', function () {
-    // (90000 - 50000) * 0.05 = 2000
+it('lock bills the overage IMMEDIATELY as its own invoice (not a deferred, never-reached monthly charge)', function () {
+    // (90000 - 50000) * 0.05 = 2000, for a PAST sales month a monthly run can no longer reach.
     $decl = pctDeclaration(
         ['percentage_rent_threshold' => 50000, 'percentage_rent_rate' => 5],
         90000,
@@ -159,20 +160,26 @@ it('lock writes a one-off, VAT-free percentage_rent charge bounded to the declar
 
     $this->svc->lock($decl, $this->operator);
 
+    // The Charge is now an INACTIVE traceability anchor + the void/re-lock identity key —
+    // NOT something the monthly engine bills (it loads only active charges).
     $charge = $decl->lease->charges()->where('type', 'percentage_rent')->sole();
+    expect((float) $charge->amount)->toBe(2000.0)
+        ->and($charge->frequency)->toBe('one_time')
+        ->and((bool) $charge->vat_applicable)->toBeFalse()
+        ->and((bool) $charge->is_active)->toBeFalse() // inactive anchor, not billed by the monthly run
+        ->and($charge->start_date->toDateString())->toBe('2026-04-01')
+        ->and($charge->name)->toContain('Apr 2026');
 
-    expect((float) $charge->amount)->toBe(2000.0);
-    expect($charge->type)->toBe('percentage_rent');
-    expect($charge->frequency)->toBe('one_time');
-    expect((bool) $charge->vat_applicable)->toBeFalse();
-    expect((float) $charge->vat_rate)->toBe(0.0);
-    expect((bool) $charge->is_active)->toBeTrue();
-    expect($charge->currency)->toBe('EGP');
-    expect($charge->start_date->toDateString())->toBe('2026-04-01');
-    expect($charge->end_date->toDateString())->toBe('2026-04-30');
-    // Charge name carries the human period label so billing shows the source.
-    expect($charge->name)->toContain($decl->periodLabel());
-    expect($charge->name)->toContain('Apr 2026');
+    // The overage is billed NOW as its own issued invoice (mirrors the CAM true-up), routed to
+    // percentage_rent revenue in the GL, with the SALES period so it can't collide with a live run.
+    $item = \App\Models\InvoiceItem::where('charge_id', $charge->id)->sole();
+    expect($item->type)->toBe('percentage_rent')->and((float) $item->amount)->toBe(2000.0);
+    $invoice = $item->invoice;
+    expect($invoice->status)->toBe('issued')
+        ->and((float) $invoice->total)->toBe(2000.0)
+        ->and((float) $invoice->balance)->toBe(2000.0)
+        ->and((float) $invoice->vat_amount)->toBe(0.0)
+        ->and($invoice->period_start->toDateString())->toBe('2026-04-01');
 });
 
 // ----------------------------------------------------------------------------
@@ -272,33 +279,34 @@ it('calculate is a pure read and leaves the declaration and charges untouched', 
 });
 
 // ----------------------------------------------------------------------------
-// STATE-TRANSITION — re-lock after a void recreates a single ACTIVE charge
+// STATE-TRANSITION — re-lock after a void reverses the old overage + bills a fresh one
 // ----------------------------------------------------------------------------
 
-it('re-locking a voided (disputed) declaration recreates exactly one active charge', function () {
+it('re-locking a voided declaration voids the old overage invoice and bills exactly one fresh one', function () {
     // (100000 - 50000) * 0.05 = 2500
     $decl = pctDeclaration(['percentage_rent_threshold' => 50000, 'percentage_rent_rate' => 5], 100000);
 
-    // Lock -> 1 active charge.
-    $this->svc->lock($decl, $this->operator);
-    expect($decl->lease->charges()->where('type', 'percentage_rent')->where('is_active', true)->count())->toBe(1);
+    $liveOverage = fn () => \App\Models\Invoice::whereHas('items', fn ($q) => $q->where('type', 'percentage_rent'))
+        ->where('tenant_id', $decl->lease->tenant_id)
+        ->whereNotIn('status', ['cancelled', 'credited'])
+        ->get();
 
-    // Void -> status disputed, the charge is deactivated (0 active).
+    // Lock -> one issued overage invoice; the anchor charge is inactive (never billed by the run).
+    $this->svc->lock($decl, $this->operator);
+    expect($decl->lease->charges()->where('type', 'percentage_rent')->where('is_active', true)->count())->toBe(0);
+    expect($liveOverage())->toHaveCount(1);
+
+    // Void -> disputed, the overage invoice is reversed (no live overage remains).
     $this->svc->voidLocked($decl->fresh(), $this->operator, 'tenant disputed figure');
     expect($decl->fresh()->status)->toBe('disputed');
-    expect($decl->lease->charges()->where('type', 'percentage_rent')->where('is_active', true)->count())->toBe(0);
+    expect($liveOverage())->toHaveCount(0);
 
-    // Re-lock the disputed declaration: the status guard only short-circuits on
-    // 'locked', so a disputed declaration locks afresh and bills again.
+    // Re-lock the disputed declaration -> a single fresh issued overage invoice for the recalculated amount.
     $this->svc->lock($decl->fresh(), $this->operator);
-
     expect($decl->fresh()->status)->toBe('locked');
-    // Two rows exist historically (the voided one + the new one)...
-    expect($decl->lease->charges()->where('type', 'percentage_rent')->count())->toBe(2);
-    // ...but only ONE is active, and it carries the recalculated amount.
-    $active = $decl->lease->charges()->where('type', 'percentage_rent')->where('is_active', true)->get();
-    expect($active)->toHaveCount(1);
-    expect((float) $active->first()->amount)->toBe(2500.0);
+    $live = $liveOverage();
+    expect($live)->toHaveCount(1);
+    expect((float) $live->first()->total)->toBe(2500.0);
 });
 
 // ----------------------------------------------------------------------------

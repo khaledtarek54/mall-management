@@ -36,20 +36,27 @@ beforeEach(function () {
     $this->declaration->refresh();
 });
 
-it('voidLocked deactivates the percentage_rent Charge and flips status to disputed', function () {
+it('voidLocked cancels the immediate overage invoice and flips status to disputed', function () {
+    // The overage is billed at lock time as its own immediate invoice; the Charge is
+    // an INACTIVE traceability anchor, so the money signal lives on the invoice.
     $charge = Charge::where('lease_id', $this->lease->id)
         ->where('type', 'percentage_rent')
         ->first();
     expect($charge)->not->toBeNull();
-    expect((bool) $charge->is_active)->toBeTrue();
+    expect((bool) $charge->is_active)->toBeFalse();
     expect($this->declaration->status)->toBe('locked');
+
+    $invoice = \App\Models\InvoiceItem::where('charge_id', $charge->id)->latest('id')->first()?->invoice;
+    expect($invoice)->not->toBeNull();
+    expect($invoice->status)->toBe('issued');
 
     app(PercentageRentCalculationService::class)
         ->voidLocked($this->declaration, $this->operator, 'Tenant disputed sales figure');
 
     expect($this->declaration->fresh()->status)->toBe('disputed');
-    expect((bool) $charge->fresh()->is_active)->toBeFalse();
     expect($charge->fresh()->end_date)->not->toBeNull();
+    // The overage invoice is reversed (cancelled) so the GL entry is voided by the sweep.
+    expect($invoice->fresh()->status)->toBe('cancelled');
 });
 
 it('voidLocked appends an audit_notes line naming the operator and reason', function () {
@@ -79,8 +86,8 @@ it('voidLocked is a no-op on a non-locked declaration (idempotency guard)', func
     expect($sibling->fresh()->status)->toBe('submitted');
 });
 
-it('voidLocked only deactivates the period-specific Charge, leaving sibling-period charges alone', function () {
-    // Sibling period — its own locked declaration + charge.
+it('voidLocked only reverses the period-specific overage, leaving sibling-period invoices alone', function () {
+    // Sibling period — its own locked declaration + anchor charge + immediate invoice.
     $siblingDeclaration = TenantSalesDeclaration::create([
         'lease_id' => $this->lease->id,
         'period_start' => now()->startOfMonth()->subMonths(2),
@@ -97,9 +104,12 @@ it('voidLocked only deactivates the period-specific Charge, leaving sibling-peri
         ->whereDate('start_date', $siblingDeclaration->period_start)
         ->first();
     expect($siblingCharge)->not->toBeNull();
+    $siblingInvoice = \App\Models\InvoiceItem::where('charge_id', $siblingCharge->id)->latest('id')->first()?->invoice;
+    expect($siblingInvoice?->status)->toBe('issued');
 
     app(PercentageRentCalculationService::class)
         ->voidLocked($this->declaration, $this->operator, 'void only the original period');
 
-    expect((bool) $siblingCharge->fresh()->is_active)->toBeTrue();
+    // The sibling period's overage invoice is untouched — only the target period was reversed.
+    expect($siblingInvoice->fresh()->status)->toBe('issued');
 });
