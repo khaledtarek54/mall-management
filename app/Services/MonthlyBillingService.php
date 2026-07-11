@@ -149,6 +149,11 @@ class MonthlyBillingService
         $alreadyBilled = Invoice::where('lease_id', $lease->id)
             ->whereDate('period_start', '>=', $periodStart->toDateString())
             ->whereDate('period_start', '<=', $periodEnd->toDateString())
+            // Must also END within the month — mirrors billForPeriod's probe. Without
+            // this, an ANNUAL invoice whose period_start falls in this month (a CAM
+            // year-end recovery, period Jan 1–Dec 31) would satisfy the January guard
+            // and wrongly SKIP the lease's regular rent.
+            ->whereDate('period_end', '<=', $periodEnd->toDateString())
             // Exclude the immediate percentage-rent overage invoice (see runForPeriod) — it
             // is not this lease's regular monthly invoice, so a per-lease generate for that
             // month must still bill the base rent.

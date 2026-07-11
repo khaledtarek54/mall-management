@@ -282,6 +282,10 @@ class PaymentForm
 
         $invoices = Invoice::where('tenant_id', $tenantId)
             ->where('balance', '>', 0)
+            // Scope to the active property set, mirroring the invoice picker above —
+            // otherwise auto-suggest would pre-fill a shared tenant's out-of-scope
+            // (other-property) invoices for a restricted user in All-Properties mode.
+            ->when(\App\Support\TenantScope::visibleAssetIds(), fn ($q, $ids) => $q->whereHas('lease.unit', fn ($u) => $u->whereIn('asset_id', $ids)))
             ->orderBy('due_date')
             ->get();
 

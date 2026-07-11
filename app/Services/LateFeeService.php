@@ -68,7 +68,15 @@ class LateFeeService
             // "no late_fee yet" check and double-charge the same invoice.
             $locked = Invoice::query()->lockForUpdate()->find($invoice->id);
 
-            if (! $locked || $locked->items()->where('type', 'late_fee')->exists()) {
+            // Re-check the FULL precondition inside the lock, not just the late_fee
+            // idempotency stamp: the outer query snapshotted this invoice as overdue
+            // with balance > 0, but a payment captured between the snapshot and this
+            // lock may have settled it. Charging a late fee on a now-paid invoice
+            // would be wrong (and would still bill the minimum fee off a zero balance).
+            if (! $locked
+                || $locked->items()->where('type', 'late_fee')->exists()
+                || (float) $locked->balance <= 0
+                || ! in_array($locked->status, ['issued', 'partially_paid', 'overdue'], true)) {
                 return false;
             }
 

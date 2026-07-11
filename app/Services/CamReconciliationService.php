@@ -221,6 +221,15 @@ class CamReconciliationService
                 return $allocation->refresh();
             }
 
+            if (abs($amount) < 0.005) {
+                // Estimate exactly matched actual — nothing to recover or refund.
+                // Settle the allocation without emitting a phantom zero-amount
+                // charge (which would create a 0.00 recovery invoice / GL noise).
+                $allocation->update(['status' => 'billed']);
+
+                return $allocation->refresh();
+            }
+
             $charge = $this->billChargeImmediately($allocation, $amount, $year);
 
             $allocation->update([

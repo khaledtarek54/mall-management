@@ -33,6 +33,24 @@ class CamExpensePool extends Model
         'reconciled_at' => 'datetime',
     ];
 
+    protected static function booted(): void
+    {
+        // Freeze the recovery basis once billing has started. If the actual-expense
+        // or estimated-collected figure changes after ANY allocation is billed,
+        // generateAllocations recomputes only the still-pending allocations against
+        // the new figure while billed ones keep the old amount — silently over- or
+        // under-recovering the pool. Correcting a reconciled figure requires voiding
+        // the billed allocations first (docs/modules/08-cam.md §8).
+        static::updating(function (CamExpensePool $pool) {
+            if (($pool->isDirty('total_actual_expense') || $pool->isDirty('total_estimated_collected'))
+                && $pool->allocations()->where('status', '!=', 'pending')->exists()) {
+                throw new \DomainException(
+                    'Cannot change the CAM recovery basis once an allocation has been billed — void the billed allocations first.'
+                );
+            }
+        });
+    }
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()

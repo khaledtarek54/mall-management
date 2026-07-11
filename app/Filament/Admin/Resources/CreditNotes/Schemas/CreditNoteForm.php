@@ -24,6 +24,9 @@ class CreditNoteForm
         // the invoice lock. Status stays open so the void transition still works.
         // (GL integrity hardening — Phase 1.)
         $locked = fn (?CreditNote $record) => $record !== null && $record->status !== 'draft';
+        // Derived money fields (subtotal/vat/total/balance) persist only while draft —
+        // after finalization the persisted values are authoritative (see Amounts section).
+        $persistDerived = fn (?CreditNote $record) => $record === null || $record->status === 'draft';
 
         return $schema->columns(1)->components([
             Section::make(__('admin.sections.credit_note_details'))
@@ -186,10 +189,15 @@ class CreditNoteForm
             Section::make(__('admin.sections.amounts'))
                 ->columns(4)
                 ->components([
-                    TextInput::make('subtotal')->label(__('admin.fields.subtotal'))->prefix('EGP')->numeric()->default(0)->readOnly()->dehydrated(),
-                    TextInput::make('vat_amount')->label(__('admin.fields.vat_amount'))->prefix('EGP')->numeric()->default(0)->readOnly()->dehydrated(),
-                    TextInput::make('total')->label(__('admin.fields.total'))->prefix('EGP')->numeric()->default(0)->readOnly()->dehydrated(),
-                    TextInput::make('balance')->label(__('admin.fields.balance'))->prefix('EGP')->numeric()->default(0)->readOnly()->dehydrated(),
+                    // Persist the derived amounts only while the note is a draft. Once
+                    // finalized these are readOnly (not disabled), so without this a plain
+                    // Edit-save would dehydrate the STALE fill-time balance back over a
+                    // value that applyToInvoice() has since changed — breaking the
+                    // note's balance = total - applied_amount invariant (lost update).
+                    TextInput::make('subtotal')->label(__('admin.fields.subtotal'))->prefix('EGP')->numeric()->default(0)->readOnly()->dehydrated($persistDerived),
+                    TextInput::make('vat_amount')->label(__('admin.fields.vat_amount'))->prefix('EGP')->numeric()->default(0)->readOnly()->dehydrated($persistDerived),
+                    TextInput::make('total')->label(__('admin.fields.total'))->prefix('EGP')->numeric()->default(0)->readOnly()->dehydrated($persistDerived),
+                    TextInput::make('balance')->label(__('admin.fields.balance'))->prefix('EGP')->numeric()->default(0)->readOnly()->dehydrated($persistDerived),
                 ]),
 
             Section::make(__('admin.sections.notes'))

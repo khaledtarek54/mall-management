@@ -65,6 +65,11 @@ class LeaseTerminationService
                     ->whereIn('status', ['draft', 'issued', 'partially_paid', 'overdue'])
                     ->where('balance', '>', 0)
                     ->where('paid_amount', '=', 0)
+                    // Never silently cancel an invoice already filed with the tax authority
+                    // (eta_status = 'valid') — every other cancel path (VoidInvoiceService,
+                    // EditInvoice, InvoicesTable) refuses it; the operator must handle a
+                    // reported invoice through the proper ETA flow. Nulls stay cancellable.
+                    ->where(fn ($q) => $q->whereNull('eta_status')->orWhere('eta_status', '!=', 'valid'))
                     ->each(function (Invoice $invoice) {
                         $invoice->update([
                             'status' => 'cancelled',
