@@ -16,7 +16,11 @@ interface PushSender
      * triggered it (the DB notification + email already delivered).
      *
      * @param  array<int, string>  $tokens  device push tokens
-     * @param  array<string, mixed>  $data   deep-link payload (invoice_id, etc.) — coerced to strings
+     * @param  array<string, mixed>  $data  deep-link payload (invoice_id, etc.) — coerced to strings
+     * @return array<int, string> the subset of $tokens the provider reported as
+     *                            permanently invalid (uninstalled / expired) and
+     *                            therefore safe to delete. Transient failures
+     *                            (5xx, network, quota) are NOT included.
      */
-    public function send(array $tokens, string $title, string $body, array $data = []): void;
+    public function send(array $tokens, string $title, string $body, array $data = []): array;
 }

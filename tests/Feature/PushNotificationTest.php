@@ -15,9 +15,14 @@ class RecordingPushSender implements PushSender
     /** @var array<int, array<string, mixed>> */
     public array $calls = [];
 
-    public function send(array $tokens, string $title, string $body, array $data = []): void
+    /** @var array<int, string> tokens to report back as permanently dead. */
+    public array $dead = [];
+
+    public function send(array $tokens, string $title, string $body, array $data = []): array
     {
         $this->calls[] = compact('tokens', 'title', 'body', 'data');
+
+        return array_values(array_intersect($tokens, $this->dead));
     }
 }
 
@@ -37,14 +42,14 @@ class PushTestNotification extends Notification
 }
 
 it('fans a push notification out to the tenant\'s device tokens, reusing the bell payload', function () {
-    $fake = new RecordingPushSender();
+    $fake = new RecordingPushSender;
     $this->app->instance(PushSender::class, $fake);
 
     $tenant = makeTenant();
     $tenant->deviceTokens()->create(['platform' => 'android', 'token' => 'tok-A', 'device_name' => 'A']);
     $tenant->deviceTokens()->create(['platform' => 'ios', 'token' => 'tok-B', 'device_name' => 'B']);
 
-    $tenant->notify(new PushTestNotification());
+    $tenant->notify(new PushTestNotification);
 
     expect($fake->calls)->toHaveCount(1);
     $call = $fake->calls[0];
@@ -57,12 +62,26 @@ it('fans a push notification out to the tenant\'s device tokens, reusing the bel
 });
 
 it('does not push when the tenant has no registered devices', function () {
-    $fake = new RecordingPushSender();
+    $fake = new RecordingPushSender;
     $this->app->instance(PushSender::class, $fake);
 
-    makeTenant()->notify(new PushTestNotification());
+    makeTenant()->notify(new PushTestNotification);
 
     expect($fake->calls)->toBeEmpty();
+});
+
+it('prunes device tokens the provider reports as permanently dead, keeping live ones', function () {
+    $fake = new RecordingPushSender;
+    $fake->dead = ['tok-dead']; // provider says this one is gone (uninstalled/expired)
+    $this->app->instance(PushSender::class, $fake);
+
+    $tenant = makeTenant();
+    $tenant->deviceTokens()->create(['platform' => 'android', 'token' => 'tok-dead', 'device_name' => 'A']);
+    $tenant->deviceTokens()->create(['platform' => 'ios', 'token' => 'tok-live', 'device_name' => 'B']);
+
+    $tenant->notify(new PushTestNotification); // sync queue → SendPushNotification runs inline
+
+    expect($tenant->deviceTokens()->pluck('token')->all())->toBe(['tok-live']);
 });
 
 it('binds the no-op NullPushSender by default (push works with zero credentials)', function () {
@@ -70,13 +89,13 @@ it('binds the no-op NullPushSender by default (push works with zero credentials)
 
     $tenant = makeTenant();
     $tenant->deviceTokens()->create(['platform' => 'android', 'token' => 'x', 'device_name' => 'A']);
-    $tenant->notify(new PushTestNotification()); // must not throw
+    $tenant->notify(new PushTestNotification); // must not throw
 
     expect($tenant->deviceTokens()->count())->toBe(1);
 });
 
 it('routes the tenant-facing notifications through the push channel', function () {
-    $via = (new PaymentReceivedNotification(new Payment()))->via(makeTenant());
+    $via = (new PaymentReceivedNotification(new Payment))->via(makeTenant());
 
     expect($via)->toContain('push');
 });
@@ -106,6 +125,36 @@ it('FcmPushSender authenticates via service-account JWT and POSTs to FCM v1', fu
         && $req['message']['token'] === 'device-token-1'
         && $req['message']['notification']['title'] === 'Title'
         && $req['message']['data']['invoice_id'] === '7'); // coerced to string
+
+    @unlink($path);
+});
+
+it('FcmPushSender reports 404/UNREGISTERED tokens as dead (for pruning) but keeps transient failures', function () {
+    openssl_pkey_export(openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]), $pem);
+    $path = tempnam(sys_get_temp_dir(), 'fcm');
+    file_put_contents($path, json_encode([
+        'client_email' => 'svc@proj.iam.gserviceaccount.com',
+        'private_key' => $pem,
+        'token_uri' => 'https://oauth2.googleapis.com/token',
+        'project_id' => 'my-proj',
+    ]));
+    Cache::flush();
+
+    Http::fake([
+        'oauth2.googleapis.com/token' => Http::response(['access_token' => 'ya29.test', 'expires_in' => 3600]),
+        // Respond per-token off the request body (pool ordering is not guaranteed):
+        // dead → 404 UNREGISTERED, flaky → 503 (transient), live → 200.
+        'fcm.googleapis.com/*' => fn ($request) => match ($request['message']['token'] ?? null) {
+            't-dead' => Http::response(['error' => ['status' => 'UNREGISTERED', 'details' => [['errorCode' => 'UNREGISTERED']]]], 404),
+            't-flaky' => Http::response(['error' => ['status' => 'UNAVAILABLE']], 503),
+            default => Http::response(['name' => 'projects/my-proj/messages/1'], 200),
+        },
+    ]);
+
+    $dead = (new FcmPushSender($path, null))->send(['t-dead', 't-live', 't-flaky'], 'Title', 'Body');
+
+    // Only the permanently-gone token is returned; the 503 stays put for retry.
+    expect($dead)->toBe(['t-dead']);
 
     @unlink($path);
 });

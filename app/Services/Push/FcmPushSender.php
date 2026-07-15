@@ -3,6 +3,8 @@
 namespace App\Services\Push;
 
 use App\Support\OpsLog;
+use Illuminate\Http\Client\Pool;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
@@ -23,12 +25,12 @@ class FcmPushSender implements PushSender
         private ?string $projectId = null,
     ) {}
 
-    public function send(array $tokens, string $title, string $body, array $data = []): void
+    public function send(array $tokens, string $title, string $body, array $data = []): array
     {
         $tokens = array_values(array_filter(array_unique($tokens)));
 
         if ($tokens === []) {
-            return;
+            return [];
         }
 
         try {
@@ -39,13 +41,13 @@ class FcmPushSender implements PushSender
             if (! $projectId || ! $accessToken) {
                 OpsLog::warning('push.fcm_misconfigured', ['has_project' => (bool) $projectId]);
 
-                return;
+                return [];
             }
         } catch (\Throwable $e) {
             // Bad/missing creds must not break the triggering event.
             OpsLog::warning('push.fcm_auth_failed', ['error' => $e->getMessage()]);
 
-            return;
+            return [];
         }
 
         // FCM data values must all be strings.
@@ -55,26 +57,71 @@ class FcmPushSender implements PushSender
 
         $endpoint = "https://fcm.googleapis.com/v1/projects/{$projectId}/messages:send";
 
-        foreach ($tokens as $token) {
-            try {
-                $response = Http::withToken($accessToken)->asJson()->post($endpoint, [
+        // FCM HTTP v1 has no multicast, so it's one request per token — but fire
+        // them concurrently (a tenant may have several devices) and key each
+        // response by its token so we can map failures back for pruning.
+        $responses = Http::pool(fn (Pool $pool) => array_map(
+            fn (string $token) => $pool->as($token)
+                ->withToken($accessToken)
+                ->asJson()
+                ->post($endpoint, [
                     'message' => [
                         'token' => $token,
                         'notification' => ['title' => $title, 'body' => $body],
                         'data' => $stringData,
                     ],
+                ]),
+            $tokens,
+        ));
+
+        $dead = [];
+
+        foreach ($tokens as $token) {
+            $response = $responses[$token] ?? null;
+
+            // A transport-level failure (timeout, DNS) surfaces as a Throwable
+            // rather than a Response — transient, so keep the token.
+            if (! $response instanceof Response) {
+                OpsLog::warning('push.fcm_exception', [
+                    'error' => $response instanceof \Throwable ? $response->getMessage() : 'no_response',
                 ]);
 
-                if ($response->failed()) {
-                    OpsLog::warning('push.fcm_send_failed', [
-                        'status' => $response->status(),
-                        'error' => $response->json('error.status') ?? 'unknown',
-                    ]);
-                }
-            } catch (\Throwable $e) {
-                OpsLog::warning('push.fcm_exception', ['error' => $e->getMessage()]);
+                continue;
             }
+
+            if ($response->successful()) {
+                continue;
+            }
+
+            if ($this->tokenIsDead($response)) {
+                $dead[] = $token;
+
+                continue;
+            }
+
+            OpsLog::warning('push.fcm_send_failed', [
+                'status' => $response->status(),
+                'error' => $response->json('error.status') ?? 'unknown',
+            ]);
         }
+
+        return $dead;
+    }
+
+    /**
+     * True only for FCM's unambiguous "this token is permanently gone" signal, so
+     * a transient 5xx or a payload bug can never wipe a live token. FCM returns
+     * HTTP 404 with error.status NOT_FOUND / UNREGISTERED (errorCode UNREGISTERED
+     * in the details) once a token is uninstalled or has expired.
+     */
+    protected function tokenIsDead(Response $response): bool
+    {
+        if ($response->status() !== 404) {
+            return false;
+        }
+
+        return in_array($response->json('error.status'), ['UNREGISTERED', 'NOT_FOUND'], true)
+            || $response->json('error.details.0.errorCode') === 'UNREGISTERED';
     }
 
     /**

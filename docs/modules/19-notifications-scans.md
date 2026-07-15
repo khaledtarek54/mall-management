@@ -1,10 +1,12 @@
 # Notifications & Scheduled Scans
-> Multi-channel notification routing (email + database/bell) for tenant-facing events, plus hourly/daily scheduled scans that alert operators and owners when SLAs breach or invoices go overdue.
+> Multi-channel notification routing (email + database/bell + **mobile push via Firebase Cloud Messaging**) for tenant-facing events, plus hourly/daily scheduled scans that alert operators and owners when SLAs breach or invoices go overdue.
+>
+> **Mobile push setup + operations:** see [docs/PUSH-NOTIFICATIONS.md](../PUSH-NOTIFICATIONS.md) for the Firebase/APNs runbook, `.env` wiring, and the device-registration API contract. Push is a first-class notification channel — a notification opts in simply by adding `'push'` to its `via()`.
 
 ## 1. Purpose & business context
 This module delivers time-sensitive alerts to tenants, operators (Eltizam), and property owners (Jawad) across two channels:
 
-**Tenant-facing notifications** (email + mobile/web bell): Invoice issued, payment received, maintenance status change, comment on maintenance request, sales declaration locked.
+**Tenant-facing notifications** (email + web/portal bell + mobile push): Invoice issued, payment received, maintenance status change, comment on maintenance request, sales declaration locked. These carry `'push'` in their `via()`, so they also fan out to the tenant's registered mobile devices via FCM (when push is enabled — otherwise the no-op `NullPushSender` runs and only email + bell deliver).
 
 **Operator-side bell (database-only)**: Portal maintenance submitted, portal sales declaration submitted, maintenance SLA breach (scanned hourly), overdue invoice alert to owners (scanned daily).
 
@@ -168,15 +170,15 @@ Used by: ScanMaintenanceSlaBreachesCommand, ScanOverdueInvoicesCommand for overs
 
 | Notification | Channels | Recipients | Fired by | When |
 |--------------|----------|-----------|----------|------|
-| `InvoiceIssuedNotification` | mail, database | Tenant + portal logins | MonthlyBillingService::generateForLease() | Invoice created during monthly billing run |
-| `PaymentReceivedNotification` | mail, database | Tenant + portal logins | Payment observer (status: initiated → captured, with allocations) | Payment captured + allocated to invoices |
-| `MaintenanceStatusChangedNotification` | mail, database | Tenant + portal logins (except for cancelled transition) | MaintenanceRequestService::transition() | Any status change except cancelled |
-| `MaintenanceCommentAddedNotification` | mail + database (Tenant recipient) OR database-only (staff recipient) | Tenant (if staff commented) OR asset staff (if tenant commented) | MaintenanceRequestService::comment($isInternal=false) | Public comment added to maintenance request |
+| `InvoiceIssuedNotification` | mail, database, **push** | Tenant + portal logins | MonthlyBillingService::generateForLease() | Invoice created during monthly billing run |
+| `PaymentReceivedNotification` | mail, database, **push** | Tenant + portal logins | Payment observer (status: initiated → captured, with allocations) | Payment captured + allocated to invoices |
+| `MaintenanceStatusChangedNotification` | mail, database, **push** | Tenant + portal logins (except for cancelled transition) | MaintenanceRequestService::transition() | Any status change except cancelled |
+| `MaintenanceCommentAddedNotification` | mail + database + **push** (Tenant recipient) OR database-only (staff recipient) | Tenant (if staff commented) OR asset staff (if tenant commented) | MaintenanceRequestService::comment($isInternal=false) | Public comment added to maintenance request |
 | `PortalMaintenanceSubmittedNotification` | database | Asset managers + operations + super_admins | MaintenanceRequestService::create() | Tenant submits maintenance request via portal |
 | `MaintenanceSlaBreachedNotification` | database | Asset managers + operations + super_admins + owners | ScanMaintenanceSlaBreachesCommand (hourly) | Request still open past target_resolution_at (hourly scan) |
 | `InvoiceOverdueOwnerNotification` | database | Jawad owners of the property | ScanOverdueInvoicesCommand (daily) | Invoice past due_date with balance > 0 (daily scan) |
 | `SalesDeclarationSubmittedNotification` | database | Asset managers + leasing | PercentageRentCalculationService (on declaration submit) | Tenant submits sales declaration from portal |
-| `SalesDeclarationLockedNotification` | mail, database | Tenant + portal logins | PercentageRentCalculationService (on declaration lock) | Sales declaration locked (percentage rent calculated) |
+| `SalesDeclarationLockedNotification` | mail, database, **push** | Tenant + portal logins | PercentageRentCalculationService (on declaration lock) | Sales declaration locked (percentage rent calculated) |
 | `OwnerRequestNotification` | database | Asset managers + super_admins (submitted) OR Jawad owner (updated) | OwnerRequest model observer | Owner request submitted or status changed |
 | `DepartmentMessageNotification` | database | Assigned users + super_admins | DepartmentMessage model observer | Message created in a department |
 
@@ -201,8 +203,25 @@ Used by: ScanMaintenanceSlaBreachesCommand, ScanOverdueInvoicesCommand for overs
 - MaintenanceCommentAddedNotification: generic MailMessage with comment body
 - SalesDeclarationLockedNotification: generic MailMessage with period + amount
 
+### Mobile Push (Firebase Cloud Messaging)
+
+The `push` channel delivers tenant-facing notifications to the tenant mobile app. Full setup + API contract: [docs/PUSH-NOTIFICATIONS.md](../PUSH-NOTIFICATIONS.md). Key pieces:
+
+| Piece | File | Role |
+|---|---|---|
+| `push` channel | `app/Notifications/Channels/PushChannel.php` | Resolves the notifiable's device tokens + renders the payload (reuses `toDatabase()` title/body, strips bell render-hints, keeps id fields for deep-linking). Registered in `AppServiceProvider::boot()`. |
+| `SendPushNotification` job | `app/Jobs/SendPushNotification.php` | Queued delivery — the FCM round-trip runs off the request thread. Carries the **already-rendered** payload (no model to reload) so it's safe to dispatch inside the triggering DB transaction. Prunes dead tokens. |
+| `PushSender` (interface) | `app/Services/Push/PushSender.php` | Pluggable transport; `send()` returns the tokens the provider reported as permanently invalid. Bound to `FcmPushSender` when `integrations.push.enabled` + creds, else `NullPushSender` (no-op). |
+| `FcmPushSender` | `app/Services/Push/FcmPushSender.php` | FCM HTTP v1 (no SDK): mints a Google OAuth token from the service-account JSON (cached ~55 min), sends one concurrent request per token via `Http::pool()`, classifies HTTP 404 `UNREGISTERED`/`NOT_FOUND` as dead. |
+| `DeviceToken` | `app/Models/DeviceToken.php` | One row per (tenant, platform, device). Registered by the app via `POST /api/v1/me/devices`; unique on `(tenant_id, platform, device_name)`. |
+
+**Push routing rule:** only notifiables exposing a `deviceTokens()` relation receive push — the **Tenant** does; TenantUsers and admin Users don't (silently skipped). So `Tenant::notifyPortal()` delivers push once via the Tenant leg; the Tenant's own `database` notification is what the mobile inbox (`GET /api/v1/me/notifications`) reads.
+
+**Never-throw contract:** a push failure (bad creds, FCM 5xx, network) must never break the triggering event — the DB bell + email have already delivered. `FcmPushSender` catches everything and logs via `OpsLog`.
+
 **External Integrations**:
-- None directly in this module. Invoice PDF generation (InvoicePdfService) is called by InvoiceIssuedNotification but is defined elsewhere.
+- Firebase Cloud Messaging (mobile push) — see above + [docs/PUSH-NOTIFICATIONS.md](../PUSH-NOTIFICATIONS.md).
+- Invoice PDF generation (InvoicePdfService) is called by InvoiceIssuedNotification but is defined elsewhere.
 
 ---
 
@@ -352,6 +371,10 @@ Edit `config/billing.php`. The `LateFeeService::applyTo()` reads these at run-ti
 11. **Notification channel ordering matters for UI polish**  
     Notifications with `['mail', 'database']` send both. The mail sends immediately (or queues); the database entry is written synchronously. If mail fails, the database entry is still created (best-effort); the notification shows in the bell even if mail didn't send.  
     **Guard**: Use `Queueable` trait to avoid blocking the response; the queue can retry.
+
+12. **Push is delivered off-thread and prunes its own dead tokens**  
+    The `push` channel does NOT call FCM inline — it dispatches `SendPushNotification`, which runs on the queue (requires the worker, PRODUCTION-RUNBOOK §3). The payload is materialized before dispatch (title/body/data), so there's no lazy model to reload and it's safe even when the notification fires inside a DB transaction (on the `database` queue the job row commits with the transaction). When FCM reports a token as permanently gone (HTTP 404 `UNREGISTERED`), the job deletes that `DeviceToken` row — transient failures (5xx/network) are left alone.  
+    **Guard**: never make `PushSender::send()` throw, and never prune on anything but the 404/`UNREGISTERED` signal (a payload bug returns 400 — pruning on that would wipe live tokens). Covered by `PushNotificationTest`.
 
 ---
 

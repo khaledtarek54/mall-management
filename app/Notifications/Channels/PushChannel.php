@@ -2,7 +2,7 @@
 
 namespace App\Notifications\Channels;
 
-use App\Services\Push\PushSender;
+use App\Jobs\SendPushNotification;
 use Illuminate\Notifications\Notification;
 
 /**
@@ -12,11 +12,13 @@ use Illuminate\Notifications\Notification;
  * forwards its id fields as the deep-link data payload — so adding push to a
  * notification is just appending 'push' to its via(), no extra method needed.
  * A notification may define toPush() to override.
+ *
+ * The actual FCM delivery is handed to {@see SendPushNotification} so the network
+ * round-trip never blocks the triggering request; this channel only renders the
+ * payload and resolves the target tokens.
  */
 class PushChannel
 {
-    public function __construct(private PushSender $sender) {}
-
     public function send(object $notifiable, Notification $notification): void
     {
         // Only notifiables that register device tokens get push (Tenants do;
@@ -25,7 +27,8 @@ class PushChannel
             return;
         }
 
-        $tokens = $notifiable->deviceTokens()->pluck('token')->filter()->values()->all();
+        // id => token map so the delivery job can prune dead tokens by row id.
+        $tokens = $notifiable->deviceTokens()->pluck('token', 'id')->filter()->all();
 
         if ($tokens === []) {
             return;
@@ -37,7 +40,7 @@ class PushChannel
             return;
         }
 
-        $this->sender->send($tokens, $payload['title'], $payload['body'], $payload['data']);
+        SendPushNotification::dispatch($tokens, $payload['title'], $payload['body'], $payload['data']);
     }
 
     /**

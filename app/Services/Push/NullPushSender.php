@@ -9,8 +9,9 @@ namespace App\Services\Push;
  */
 class NullPushSender implements PushSender
 {
-    public function send(array $tokens, string $title, string $body, array $data = []): void
+    public function send(array $tokens, string $title, string $body, array $data = []): array
     {
-        // Intentionally no-op.
+        // Intentionally no-op — nothing sent, so nothing to prune.
+        return [];
     }
 }
