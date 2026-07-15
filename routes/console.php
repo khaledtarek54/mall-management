@@ -98,6 +98,14 @@ Schedule::command('billing:scan-overdue-invoices')
     ->name('atriom-scan-overdue-invoices')
     ->withoutOverlapping();
 
+// Daily reminder to tenants about their own overdue invoices (email + bell +
+// mobile push). Separate stamp (tenant_overdue_notified_at) so it fires once
+// per invoice, independently of the owner alert above.
+Schedule::command('billing:remind-overdue-tenants')
+    ->dailyAt('06:15')
+    ->name('atriom-remind-overdue-tenants')
+    ->withoutOverlapping();
+
 // Daily auto-provision of the current year's marketing budget for every
 // property (idempotent). Users never hand-create budgets — they appear here,
 // funded by the levy, and at year rollover the new year's budgets show up.

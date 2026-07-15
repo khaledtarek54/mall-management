@@ -4,9 +4,11 @@ namespace App\Services;
 
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
+use App\Models\Tenant;
+use App\Notifications\LateFeeAppliedNotification;
+use App\Support\OpsLog;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
-use App\Support\OpsLog;
 
 class LateFeeService
 {
@@ -99,6 +101,15 @@ class LateFeeService
             $locked->total = (float) $locked->total + $fee;
             $locked->status = 'overdue';
             $locked->recomputeTotals();
+
+            // Notify the tenant from INSIDE the transaction so the (queued) delivery
+            // commits atomically with the fee — a crash or rollback loses both, so
+            // the tenant can never be charged a late fee without being told. The
+            // notification is ShouldQueue on the database queue, so this only writes
+            // a job row here (no SMTP under the row lock).
+            /** @var Tenant|null $tenant */
+            $tenant = $locked->tenant;
+            $tenant?->notifyPortal(new LateFeeAppliedNotification($locked));
 
             return true;
         });

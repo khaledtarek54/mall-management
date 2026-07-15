@@ -27,6 +27,7 @@ The module enforces **idempotency** through two mechanisms:
 | `notifications` (Laravel default) | `id` (uuid), `type`, `notifiable_type`, `notifiable_id`, `data` (JSON), `read_at`, `created_at` | Stores all notifications sent to Users and TenantUsers. The `data` column holds `toDatabase()` payload: type, title, body, format ('filament' for bell-rendered), duration ('persistent' for no auto-close), icon, color. |
 | `MaintenanceRequest` | `sla_breach_notified_at` (timestamp, nullable) | Idempotency stamp: set when hourly scan fires the SLA breach alert; if not null, scan skips this request. |
 | `Invoice` | `owner_overdue_notified_at` (timestamp, nullable) | Idempotency stamp: set when daily scan fires the overdue alert to Jawad owners; if not null, scan skips this invoice. |
+| `Invoice` | `tenant_overdue_notified_at` (timestamp, nullable) | Separate idempotency stamp for the tenant-facing overdue reminder (`billing:remind-overdue-tenants`) — kept distinct from the owner stamp so tenant + owner alerts fire independently. |
 
 **Relationships**:
 - `Tenant` → (1:many) `TenantUser` (portal logins); `Tenant::notifyPortal($notification)` sends to both Tenant + all TenantUsers
@@ -119,6 +120,7 @@ billing:scan-overdue-invoices (daily @ 06:00)
 | `maintenance:scan-sla-breaches` | hourly | `--dry-run` | Find open maintenance requests past `target_resolution_at`, notify asset managers + owners if breach is new (sla_breach_notified_at=null), then stamp. Rolls up breach count + delivery success count. | sla_breach_notified_at | DB::transaction + lockForUpdate per request |
 | `maintenance:auto-close` | 03:00 daily | `--days=7 --dry-run` | Transition MaintenanceRequest rows from 'resolved' → 'closed' if resolved_at ≤ (today - --days). Uses MaintenanceRequestService::transition(). | resolved_at timestamp | none (service provides) |
 | `billing:scan-overdue-invoices` | 06:00 daily | `--dry-run` | Find invoices with balance > 0, due_date < today, status=[issued\|partially_paid\|overdue], alert Jawad owners, stamp owner_overdue_notified_at. | owner_overdue_notified_at | DB::transaction + lockForUpdate per invoice |
+| `billing:remind-overdue-tenants` | 06:15 daily | `--dry-run` | Same overdue set, but reminds the **tenant** (email + bell + mobile push) and stamps tenant_overdue_notified_at. Independent of owners — fires even when the property has no owner assigned. | tenant_overdue_notified_at | DB::transaction + lockForUpdate per invoice |
 | `vendors:expire-contracts` | 02:30 daily | `--dry-run` | Transition active VendorContract rows past end_date to status='expired' (housekeeping for nav badge). | none (direct update) | none |
 | `billing:apply-late-fees` | 04:00 daily | `--date=YYYY-MM-DD --queue` | Scans overdue invoices (due_date ≤ today - grace_days), adds `late_fee` line item if not already present. Idempotent via line item type check. | late_fee line item presence | DB::transaction + lockForUpdate per invoice |
 | `cam:reconcile` | Jan 15, 03:00 yearly | `--year=YYYY --auto-bill` | Generates CamAllocation rows for draft pools; optionally bills them. Review-only by default. | pool status (must be 'draft') | none |
@@ -177,6 +179,8 @@ Used by: ScanMaintenanceSlaBreachesCommand, ScanOverdueInvoicesCommand for overs
 | `PortalMaintenanceSubmittedNotification` | database | Asset managers + operations + super_admins | MaintenanceRequestService::create() | Tenant submits maintenance request via portal |
 | `MaintenanceSlaBreachedNotification` | database | Asset managers + operations + super_admins + owners | ScanMaintenanceSlaBreachesCommand (hourly) | Request still open past target_resolution_at (hourly scan) |
 | `InvoiceOverdueOwnerNotification` | database | Jawad owners of the property | ScanOverdueInvoicesCommand (daily) | Invoice past due_date with balance > 0 (daily scan) |
+| `InvoiceOverdueTenantNotification` | mail, database, **push** | Tenant + portal logins | RemindOverdueTenantsCommand (daily) | Invoice past due_date with balance > 0 — tenant reminder, idempotent via `tenant_overdue_notified_at` (separate stamp from the owner alert) |
+| `LateFeeAppliedNotification` | mail, database, **push** (ShouldQueue) | Tenant + portal logins | LateFeeService::applyTo() — inside the fee transaction | A late fee line item is added to an overdue invoice (once per invoice) |
 | `SalesDeclarationSubmittedNotification` | database | Asset managers + leasing | PercentageRentCalculationService (on declaration submit) | Tenant submits sales declaration from portal |
 | `SalesDeclarationLockedNotification` | mail, database, **push** | Tenant + portal logins | PercentageRentCalculationService (on declaration lock) | Sales declaration locked (percentage rent calculated) |
 | `OwnerRequestNotification` | database | Asset managers + super_admins (submitted) OR Jawad owner (updated) | OwnerRequest model observer | Owner request submitted or status changed |
@@ -375,6 +379,13 @@ Edit `config/billing.php`. The `LateFeeService::applyTo()` reads these at run-ti
 12. **Push is delivered off-thread and prunes its own dead tokens**  
     The `push` channel does NOT call FCM inline — it dispatches `SendPushNotification`, which runs on the queue (requires the worker, PRODUCTION-RUNBOOK §3). The payload is materialized before dispatch (title/body/data), so there's no lazy model to reload and it's safe even when the notification fires inside a DB transaction (on the `database` queue the job row commits with the transaction). When FCM reports a token as permanently gone (HTTP 404 `UNREGISTERED`), the job deletes that `DeviceToken` row — transient failures (5xx/network) are left alone.  
     **Guard**: never make `PushSender::send()` throw, and never prune on anything but the 404/`UNREGISTERED` signal (a payload bug returns 400 — pruning on that would wipe live tokens). Covered by `PushNotificationTest`.
+
+13. **Late-fee notice is dispatched atomically with the fee**  
+    `LateFeeAppliedNotification` is a `ShouldQueue` notification dispatched from *inside* `LateFeeService::applyTo()`'s transaction (not after it). On the database queue the notification's job row commits together with the `late_fee` line item, so the tenant can never be charged a late fee without a notice being enqueued — a crash/rollback drops both. Don't move this dispatch outside the transaction: `applyTo()` becomes a no-op re-run once the fee exists, so a lost notification would never be retried.  
+    **Assumes the database (transactional) queue** (`QUEUE_CONNECTION=database`, `after_commit=false`) so the job row is written inside the open transaction. On a `sync` connection delivery runs inline under the row lock (still correct, but does real send work in-transaction); the atomicity guarantee is specific to the DB-backed queue.
+
+14. **Tenant overdue reminder vs late-fee notice can overlap on first run**  
+    The overdue reminder (`tenant_overdue_notified_at`) fires at day-1-overdue; the late-fee notice fires when the fee applies (day 7 past grace). In steady state they don't collide — by day 7 the reminder stamp is already set. But a *first deployment* over a backlog of already-late invoices can fire both for the same invoice within the same morning (04:00 fee, 06:15 reminder). Accepted: they're distinct events, each fires once, and it self-corrects after the first run. Don't add cross-command suppression without a real complaint.
 
 ---
 

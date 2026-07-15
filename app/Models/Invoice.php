@@ -2,6 +2,11 @@
 
 namespace App\Models;
 
+use App\Services\CreditNoteService;
+use BaconQrCode\Renderer\Image\SvgImageBackEnd;
+use BaconQrCode\Renderer\ImageRenderer;
+use BaconQrCode\Renderer\RendererStyle\RendererStyle;
+use BaconQrCode\Writer;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -48,6 +54,7 @@ class Invoice extends Model
         'eta_long_id',
         'notes',
         'owner_overdue_notified_at',
+        'tenant_overdue_notified_at',
     ];
 
     protected $casts = [
@@ -57,6 +64,7 @@ class Invoice extends Model
         'period_end' => 'date',
         'eta_submitted_at' => 'datetime',
         'owner_overdue_notified_at' => 'datetime',
+        'tenant_overdue_notified_at' => 'datetime',
         'subtotal' => 'decimal:2',
         'vat_amount' => 'decimal:2',
         'total' => 'decimal:2',
@@ -97,7 +105,7 @@ class Invoice extends Model
     public function paymentLinkToken(): string
     {
         if (blank($this->payment_link_token)) {
-            $this->forceFill(['payment_link_token' => \Illuminate\Support\Str::random(48)])->save();
+            $this->forceFill(['payment_link_token' => Str::random(48)])->save();
         }
 
         return $this->payment_link_token;
@@ -112,12 +120,12 @@ class Invoice extends Model
     /** Inline SVG QR code of the pay link, for scan-to-pay (no GD/imagick needed). */
     public function paymentLinkQrSvg(int $size = 170): string
     {
-        $renderer = new \BaconQrCode\Renderer\ImageRenderer(
-            new \BaconQrCode\Renderer\RendererStyle\RendererStyle($size, 2),
-            new \BaconQrCode\Renderer\Image\SvgImageBackEnd(),
+        $renderer = new ImageRenderer(
+            new RendererStyle($size, 2),
+            new SvgImageBackEnd,
         );
 
-        $svg = (new \BaconQrCode\Writer($renderer))->writeString($this->paymentLinkUrl());
+        $svg = (new Writer($renderer))->writeString($this->paymentLinkUrl());
 
         // Strip the XML prolog so the SVG embeds cleanly inside HTML.
         return (string) preg_replace('/^<\?xml.*?\?>\s*/s', '', $svg);
@@ -213,7 +221,7 @@ class Invoice extends Model
             // Pre-generate the public pay-link token so the API/admin/portal never
             // write during a read. Existing invoices get one lazily (paymentLinkToken).
             if (blank($invoice->payment_link_token)) {
-                $invoice->payment_link_token = \Illuminate\Support\Str::random(48);
+                $invoice->payment_link_token = Str::random(48);
             }
         });
 
@@ -259,7 +267,7 @@ class Invoice extends Model
             if ($invoice->status === 'cancelled') {
                 $appliedCredit = (float) static::whereKey($invoice->id)->value('credit_applied_amount');
                 if ($appliedCredit > 0) {
-                    app(\App\Services\CreditNoteService::class)->reverseAppliedCredit($invoice->fresh());
+                    app(CreditNoteService::class)->reverseAppliedCredit($invoice->fresh());
                 }
             }
 
