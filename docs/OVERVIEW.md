@@ -126,6 +126,7 @@ Demo logins (password `password`): `admin@mall.test` (super_admin) · `manager@/
 | Doc | Purpose |
 |---|---|
 | [docs/BUSINESS-RULES.md](BUSINESS-RULES.md) | **Business-rules & assumptions register** — every encoded financial rule (VAT, levy, CAM, late fees, percentage rent…) for **operator/accountant sign-off before go-live**. Verified accurate against code 2026-06-27. |
+| [docs/CLIENT-QUESTIONS.md](CLIENT-QUESTIONS.md) | **The ask list for Eltizam** — every decision we could not make for them, grouped by who can answer it (accountant / operations lead) and by what breaks if the answer differs. Derived from BUSINESS-RULES + the FRD's own open items. **24 questions; 10 block go-live.** |
 | [docs/PRODUCTION-RUNBOOK.md](PRODUCTION-RUNBOOK.md) | **Go-live runbook** — env, deploy steps, queue worker, scheduler cron, backups, observability, and the pre-flight gates (integrations:check · billing:reconcile). |
 | [README.md](../README.md) | Repo entry — setup, panels, demo accounts |
 | [docs/FUNCTIONAL-REQUIREMENTS.md](FUNCTIONAL-REQUIREMENTS.md) | The FRD — requirements ↔ build status |
