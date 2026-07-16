@@ -360,6 +360,9 @@ it('journalizes stock consumption as Dr Maintenance Expense / Cr Inventory', fun
 
 it('journalizes a shrinkage adjustment as Dr Inventory Adjustment / Cr Inventory', function () {
     [, $w, $i] = glInventory();
+    // Stock it first — you cannot write off what was never received. The overdraw floor now
+    // keys on the sign, so a negative adjustment is checked against on-hand too (F-84).
+    app(\App\Services\StockMovementService::class)->receive($w, $i, 10, 25);
     $movement = app(\App\Services\StockMovementService::class)->adjust($w, $i, -2, ['unit_cost' => 25]); // value 50
 
     $entry = $this->poster->post($movement->fresh());
@@ -371,6 +374,11 @@ it('journalizes a shrinkage adjustment as Dr Inventory Adjustment / Cr Inventory
 
 it('does not post a stock transfer to the GL (intra-company move)', function () {
     [, $w, $i] = glInventory();
+    // `transfer_out` is in REMOVES_STOCK, so the sign-keyed floor applies to it as well —
+    // you cannot transfer out stock the warehouse doesn't hold. (Transfers are still unbuilt:
+    // nothing in the app creates one. When they are built they need a paired atomic out/in,
+    // and this floor is already the right guard for the out leg.)
+    app(\App\Services\StockMovementService::class)->receive($w, $i, 10, 25);
     $movement = app(\App\Services\StockMovementService::class)->record([
         'warehouse_id' => $w->id, 'inventory_item_id' => $i->id, 'type' => 'transfer_out', 'quantity' => 3, 'unit_cost' => 25,
     ]);

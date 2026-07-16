@@ -4,7 +4,7 @@
 > [../modules/22-inventory.md](../modules/22-inventory.md) · methodology: [000-plan.md](000-plan.md).
 > All findings below were **reproduced live** against the dev DB inside a rolled-back transaction.
 
-**Status: 🟡 Yellow** — F-83 fixed 2026-07-17; **F-84 remains open**. The ledger design,
+**Status: 🟢 Green** — F-83 + F-84 both fixed 2026-07-17; only F-85 (a too-coarse lock, performance only) remains. The ledger design,
 sign-normalisation, the consumption overdraw guard and the cross-property draw guard are genuinely
 well built. Both money bugs sat in the **unguarded siblings of paths that were hardened**: the
 receipt side got the 0-cost guard and the cost-out side didn't (F-83); `consumption` got the
@@ -58,7 +58,7 @@ Guard: `tests/Feature/Regression/ValuelessStockMovementTest.php` — 3 of 5 fail
 "still works" cases pass either way, proving the catalog-cost fallback and the note-adjustment are
 both intact. One change closed the GL non-relief **and** the tier_1 ladder collapse, as predicted.
 
-### 🔴 F-84. A negative `adjustment` has no floor — drives on-hand negative and puts a credit balance on an asset account
+### 🔴 F-84. A negative `adjustment` has no floor — drives on-hand negative and puts a credit balance on an asset account · **FIXED 2026-07-17**
 `app/Services/StockMovementService.php:72` (guard is `if ($type === 'consumption')` only) ·
 `ListStockMovements.php:82` (`->numeric()->required()`, no `minValue`, no on-hand check)
 
@@ -74,8 +74,16 @@ Inventory acct: +1000 received − 20000 relieved = -19000  ⇐ credit balance o
 consumption of that item/warehouse is **hard-blocked** by the overdraw guard until someone posts a
 compensating adjustment.
 
-**Suggested fix:** move the guard from `if ($type === 'consumption')` to **any stock-removing
-quantity**, inside the existing `record()` lock.
+**Fix (2026-07-17).** The floor is now keyed on the **sign, not the type**: `if ($quantity < 0)`
+runs the existing lock + on-hand re-check. `REMOVES_STOCK` types are forced negative and an
+`adjustment` keeps the caller's sign, so `< 0` is exactly "stock is leaving", whatever it's called
+— and it covers `transfer_out` for free, whenever transfers get built.
+
+Guard: `tests/Feature/Regression/StockFloorAndStrictestBandTest.php`. **Three existing tests had to
+be corrected, not weakened:** `QaNewModulesRegressionTest` and two in `LedgerPosterTest` wrote off
+stock that was never received (on-hand 0, adjust −3), i.e. their fixtures described the very state
+F-84 is about. They now `receive()` first — as the same file's `voids a stock movement entry` test
+already did.
 
 ### 🟡 F-85. Consumption serialises portfolio-wide on the shared catalog row
 `app/Services/StockMovementService.php:74` — `InventoryItem::whereKey(…)->lockForUpdate()` locks the
@@ -108,8 +116,7 @@ per-warehouse). Performance only.
 
 ## 3. Test gaps
 
-- `StockMovementServiceTest` proves the overdraw guard for `consumption` but **never for
-  `adjustment`** (F-84).
+- ~~`StockMovementServiceTest` proves the overdraw guard for `consumption` but never for `adjustment`~~ — ✅ covered by `StockFloorAndStrictestBandTest`.
 - ~~No test constructs an item at `unit_cost = 0`~~ — ✅ covered by `ValuelessStockMovementTest`.
 - Dispatch is genuinely proven — consumption posts through the real `approve()` → windowed sweep in
   `WorkOrderPartLedgerDispatchTest:66`, and receipts via `GlPostingSourcesScenarioTest:220`. **The
@@ -118,7 +125,6 @@ per-warehouse). Performance only.
 ## 4. Deferred
 
 - ~~**D-70**~~ — ✅ **F-83 fixed 2026-07-17.** One change, two bugs, as predicted.
-- **D-71 — now this module's priority.** F-84: floor any stock-removing quantity at on-hand,
-  inside the existing `record()` lock. Same shape as F-83: a guard the `consumption` path already
-  has, that `adjustment` never got.
+- ~~**D-71**~~ — ✅ **F-84 fixed 2026-07-17.** Same shape as F-83, as predicted: a guard the
+  `consumption` path already had, that `adjustment` never got.
 - **D-72** — F-85 narrow the consumption lock to the warehouse grain.

@@ -3,14 +3,14 @@
 > **Round 2**, audited 2026-07-16 — first ever gap analysis. Spec:
 > [../modules/28-approvals.md](../modules/28-approvals.md) · methodology: [000-plan.md](000-plan.md).
 
-**Status: 🟡 Yellow.** Fails closed exactly as documented on gaps, negatives and unknown permissions
-— **but fails *open* on an overlap.** That asymmetry is the whole finding.
+**Status: 🟢 Green** (F-99 fixed 2026-07-17). Fails closed on gaps, negatives, unknown permissions
+— and now on overlaps too. The asymmetry that was the whole finding is closed.
 
 ---
 
 ## 1. Findings
 
-### 🟡 F-99. `ApprovalPolicy` picks the *lowest* covering band, not the strictest — the one module whose job is to fail closed, failing open
+### 🟡 F-99. `ApprovalPolicy` picks the *lowest* covering band, not the strictest — the one module whose job is to fail closed, failing open · **FIXED 2026-07-17**
 `app/Support/ApprovalPolicy.php:41`
 
 `->orderBy('min_amount')` + `->first(fn => $rule->covers($amount))` returns the **first match in
@@ -23,13 +23,19 @@ path doesn't.
 first → resolves to **tier_2** → **a manager approves what policy reserves for tier_3**, and the
 resolved tier is frozen onto the part row as the tier that was "supposed" to sign it off.
 
-**Suggested fix:** mirror the gap path — among *covering* bands, take the **strictest**, not the
-first. Two lines, and it makes the match path consistent with the gap path that already gets this
-right.
+**Fix (2026-07-17).** The match path now mirrors the gap path: among *covering* bands, take the
+**strictest**. Guard: `tests/Feature/Regression/StockFloorAndStrictestBandTest.php` — the overlap
+case fails without it, and the clean seeded ladder plus the gap path are both pinned unchanged.
 
-> There is no admin UI for `approval_rules` (seeded/DB-only), so today this requires a DB edit —
-> which is also why it's 🟡 not 🔴. **The moment the ladder gets a UI (FRD phase 3/4), this becomes
-> reachable by an operator making a reasonable-looking edit.** Fix it before shipping that UI.
+**Urgency had already risen:** when the audit ran, `ApprovalPolicy` had ONE caller (stock draws).
+Procurement (FRD phase 4, shipped the same day) added `PurchaseRequestService` and
+`PurchaseRequestsTable` — so this governed purchase approvals before it was fixed. The "fix it
+before the ladder gets a UI" note was nearly overtaken by the ladder simply gaining more callers.
+
+> It was rated 🟡 rather than 🔴 because `approval_rules` has no admin UI (seeded/DB-only), so
+> reaching it needed a DB edit. That rating had a short shelf life: the ladder gained two more
+> callers the same day. **When the admin UI lands (D-89), an operator's reasonable-looking edit
+> would have reached it directly** — which is why this was worth closing first.
 
 ---
 
@@ -52,15 +58,19 @@ The fail-closed behaviour was attacked from every angle and **held on all of the
 
 ## 3. Test gaps
 
-- **No test for overlapping bands** (F-99) — every existing case has a clean, non-overlapping ladder,
-  which is exactly why the asymmetry survived.
-- The module has **one call site** (`WorkOrderPartsRelationManager.php:71`, inventory draws) despite
-  FR-PROC-02 implying procurement scope. Not a defect — but it means the policy is far less
-  exercised than its centrality suggests.
+- ~~No test for overlapping bands~~ — ✅ covered. Every prior case used a clean, non-overlapping
+  ladder, which is exactly why the asymmetry survived.
+- **Call sites tripled in a day.** At audit time there was one (`WorkOrderPartsRelationManager:71`,
+  inventory draws) and the doc noted the policy was "far less exercised than its centrality
+  suggests". Procurement then added `PurchaseRequestService` + `PurchaseRequestsTable` (FR-PROC-02).
+  Nothing about the policy is per-caller, so this raises exposure rather than coverage — worth
+  re-reading this doc's *Verified-correct* list against the procurement path specifically. → **D-90**
 
 ## 4. Deferred
 
-- **D-88** — **F-99: take the strictest covering band.** Do this *before* the approval-ladder admin
-  UI ships, not after.
-- **D-89** — an admin UI for `approval_rules` (ROADMAP §4 phase 3). When it lands, D-88 stops being
-  theoretical.
+- ~~**D-88**~~ — ✅ **F-99 fixed 2026-07-17**, before the admin UI shipped.
+- **D-89** — an admin UI for `approval_rules` (ROADMAP §4 phase 3). Note it is no longer the thing
+  that makes F-99 reachable; that was closed first, deliberately.
+- **D-90** — confirm the procurement caller honours the same two rules the inventory caller does:
+  check the base right *as well as* the tier, and block self-approval. Cheap, and the audit only
+  ever verified the inventory call site (module 29's own analysis should carry this).

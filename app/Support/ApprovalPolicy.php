@@ -38,7 +38,21 @@ class ApprovalPolicy
             return null;
         }
 
-        $match = $rules->first(fn (ApprovalRule $rule) => $rule->covers($amount));
+        // Among the bands that COVER this amount, take the strictest — the same rule the gap
+        // path below applies, and for the same reason.
+        //
+        // This was `->first(...)` on a list ordered by ascending min_amount, i.e. the LOWEST
+        // covering band. Bands are not guaranteed disjoint: an operator widening band 2 from
+        // "1000–10000 → tier_2" to "1000–∞ → tier_2" — meaning "everything over 1000 needs a
+        // manager" — leaves the existing "10000+ → tier_3" in place, because it reads as
+        // redundant rather than contradictory. A 50,000 draw then matched the 1000–∞ band
+        // first and resolved to tier_2: a manager approving what policy reserves for tier_3,
+        // frozen onto the record as the tier that was "supposed" to sign it off. The one
+        // mechanism whose whole job is to fail closed, failing OPEN (gap-analysis F-99).
+        $match = $rules
+            ->filter(fn (ApprovalRule $rule) => $rule->covers($amount))
+            ->sortByDesc(fn (ApprovalRule $r) => self::strictness($r->required_permission))
+            ->first();
 
         if ($match !== null) {
             return $match->required_permission;

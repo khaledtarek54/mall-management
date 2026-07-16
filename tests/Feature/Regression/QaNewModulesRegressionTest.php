@@ -47,6 +47,12 @@ it('values an adjustment at the item standard cost when the caller supplies none
     $w = Warehouse::create(['asset_id' => makeAsset()->id, 'name' => 'S', 'code' => 'S1']);
     $i = InventoryItem::create(['sku' => 'B', 'name' => 'Bolt', 'unit' => 'each', 'unit_cost' => 15]);
 
+    // Stock it first: this asserts COSTING, but a write-off still has to be possible, and you
+    // cannot write off bolts that were never received. The floor is now keyed on the sign, so
+    // any stock-removing quantity is checked against on-hand (gap-analysis F-84) — the fixture
+    // used to describe a warehouse holding −3 bolts.
+    $this->stock->receive($w, $i, 10, 15);
+
     $adjust = $this->stock->adjust($w, $i, -3); // no unit_cost supplied
 
     expect((float) $adjust->unit_cost)->toBe(15.0); // defaulted from the item → non-zero GL value

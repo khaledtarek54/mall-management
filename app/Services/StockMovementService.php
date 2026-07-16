@@ -91,10 +91,20 @@ class StockMovementService
             'notes' => $data['notes'] ?? null,
         ];
 
-        // Consumption must never drive on-hand negative. Serialize concurrent
-        // consumption of this item (lockForUpdate) and re-check availability inside
-        // the transaction, so two tickets can't both consume the last of the stock.
-        if ($type === 'consumption') {
+        // Nothing may drive on-hand negative. Serialize concurrent removals of this item
+        // (lockForUpdate) and re-check availability inside the transaction, so two tickets
+        // can't both consume the last of the stock.
+        //
+        // Keyed on the SIGN, not the type. This was `$type === 'consumption'`, so a negative
+        // `adjustment` — the shrinkage write-off — skipped the guard entirely: adjusting −100
+        // against 5 on hand was accepted, leaving on-hand at −95 and posting Dr Inventory
+        // Adjustment 20,000 / Cr Inventory 20,000, i.e. **a credit balance on an asset
+        // account** and 19,000 of phantom expense. It also hard-blocks every later consumption
+        // of that item/warehouse (this guard then refuses them) until someone posts a
+        // compensating adjustment (gap-analysis F-84). Sign is the right key: REMOVES_STOCK
+        // types are forced negative above, and an adjustment keeps the caller's sign — so
+        // `< 0` is exactly "stock is leaving", whatever it is called.
+        if ($quantity < 0) {
             return DB::transaction(function () use ($attributes, $quantity) {
                 InventoryItem::whereKey($attributes['inventory_item_id'])->lockForUpdate()->first();
                 $onHand = round((float) StockMovement::query()
