@@ -1991,7 +1991,12 @@ return [
             'vendor' => 'Vendor', 'next_due' => 'Next due', 'last_generated' => 'Last raised', 'active' => 'Active',
             'reference' => 'Ref.', 'status' => 'Status', 'scheduled_for' => 'Scheduled', 'completed_at' => 'Completed',
             'completed_by' => 'Completed by', 'plan' => 'Plan', 'notes' => 'Notes', 'label' => 'Item', 'done' => 'Done',
-            'progress' => 'Progress',
+            'progress' => 'Progress', 'result' => 'Result', 'marked_by' => 'Checked by',
+        ],
+        'results' => ['pending' => 'Not checked', 'pass' => 'Pass', 'fail' => 'Fail'],
+        'errors' => [
+            'checklist_incomplete' => 'Check every item first — :count still unchecked. Mark each pass or fail, then close the work order.',
+            'order_terminal' => 'This work order is closed — its checklist can no longer be changed.',
         ],
         'frequency_units' => ['days' => 'day(s)', 'weeks' => 'week(s)', 'months' => 'month(s)'],
         'categories' => [

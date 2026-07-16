@@ -20,6 +20,7 @@ use App\Models\JournalEntry;
 use App\Models\Lease;
 use App\Models\MaintenancePlan;
 use App\Models\MaintenanceWorkOrder;
+use App\Models\MaintenanceWorkOrderItem;
 use App\Models\MarketingBudget;
 use App\Models\MarketingSpend;
 use App\Models\MeterReading;
@@ -46,6 +47,7 @@ use App\Services\DepreciationService;
 use App\Services\DisposeFixedAssetService;
 use App\Services\Eta\EtaSubmissionService;
 use App\Services\GeneratePreventiveWorkOrdersService;
+use App\Services\MaintenanceWorkOrderService;
 use App\Services\GrantCustodyService;
 use App\Services\GrantEmployeeAdvanceService;
 use App\Services\PayrollService;
@@ -1968,15 +1970,29 @@ class DemoSeeder extends Seeder
         // Raise work orders for every due plan (idempotent).
         $created = app(GeneratePreventiveWorkOrdersService::class)->run(Carbon::now()->toDateString());
 
-        // Complete the oldest open work order to show a full lifecycle.
+        // Complete the oldest open work order to show a full lifecycle. Driven through
+        // the real service so the demo data can't encode a state the app would refuse.
         $engineer = User::where('email', 'maintenance@mall.test')->first();
         $wo = MaintenanceWorkOrder::where('status', 'open')->orderBy('scheduled_for')->first();
         if ($wo && $engineer) {
-            $wo->update(['status' => 'in_progress']);
-            foreach ($wo->items as $item) {
-                $item->update(['is_done' => true, 'done_at' => Carbon::now()->subDay(), 'done_by_user_id' => $engineer->id]);
+            $svc = app(MaintenanceWorkOrderService::class);
+            $svc->transition($wo, 'in_progress', $engineer->id);
+
+            // The last item fails — a PPM visit that finds a fault is the normal case,
+            // and it's what corrective maintenance gets raised from (FR-CM-01). A fail
+            // does not block closure; only an unchecked item does.
+            $items = $wo->items()->orderBy('id')->get();
+            foreach ($items as $i => $item) {
+                $svc->markItem(
+                    $item,
+                    $items->count() > 1 && $i === $items->count() - 1
+                        ? MaintenanceWorkOrderItem::RESULT_FAIL
+                        : MaintenanceWorkOrderItem::RESULT_PASS,
+                    $engineer->id,
+                );
             }
-            $wo->update(['status' => 'done', 'completed_at' => Carbon::now()->subDay(), 'completed_by_user_id' => $engineer->id]);
+
+            $svc->transition($wo, 'done', $engineer->id);
         }
 
         $this->command->info('   Seeded '.count($plans)." preventive plans, {$created} work orders generated (1 completed)");

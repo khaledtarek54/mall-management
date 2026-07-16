@@ -2,16 +2,19 @@
 
 use App\Models\MaintenancePlan;
 use App\Models\MaintenanceWorkOrder;
+use App\Models\MaintenanceWorkOrderItem;
 use App\Services\FacilityWorkLogPdfService;
 use App\Services\GeneratePreventiveWorkOrdersService;
+use App\Services\MaintenanceWorkOrderService;
 
 /**
  * End-to-end preventive maintenance: a recurring plan raises work orders (catching up
- * missed cycles one per run), an engineer completes the checklist, and the facility
+ * missed cycles one per run), an engineer works the checklist, and the facility
  * work-log report reflects the work.
  */
 beforeEach(function () {
     $this->gen = app(GeneratePreventiveWorkOrdersService::class);
+    $this->wos = app(MaintenanceWorkOrderService::class);
 });
 
 it('catches up missed cycles one work order per run, each with the checklist', function () {
@@ -45,12 +48,18 @@ it('an engineer completes the checklist + work order, and the work log reflects 
     ]);
     $this->gen->run('2026-07-04');
 
+    $engineer = makeUser('operations');
     $order = MaintenanceWorkOrder::first();
-    // Engineer ticks every item, then marks the order done.
-    $order->items()->update(['is_done' => true, 'done_at' => now()]);
-    $order->update(['status' => 'done', 'completed_at' => now()]);
 
-    expect($order->fresh()->items()->where('is_done', true)->count())->toBe(2);
+    // Drive the real path — the service, not raw model writes — so this exercises the
+    // FR-PPM-07 gate rather than a shortcut around it.
+    foreach ($order->items as $item) {
+        $this->wos->markItem($item, MaintenanceWorkOrderItem::RESULT_PASS, $engineer->id);
+    }
+    $this->wos->transition($order, 'done', $engineer->id);
+
+    expect($order->fresh()->items()->marked()->count())->toBe(2);
+    expect($order->fresh()->completed_by_user_id)->toBe($engineer->id);
 
     // The facility work-log report includes the completed order for the property + range.
     $log = app(FacilityWorkLogPdfService::class)->orders('2026-07-01', '2026-07-31', [$asset->id]);

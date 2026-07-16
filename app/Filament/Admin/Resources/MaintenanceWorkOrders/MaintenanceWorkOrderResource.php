@@ -91,11 +91,14 @@ class MaintenanceWorkOrderResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        // Derived checklist progress (total + done) in subqueries — no per-row N+1.
+        // Derived checklist progress (total + marked) in subqueries — no per-row N+1.
+        // "Marked" counts pass *and* fail: progress measures the visit's completeness,
+        // not its outcome (FR-PPM-07). Covered by mwoi_order_result_index.
         return parent::getEloquentQuery()
             ->withCount([
                 'items',
-                'items as done_items_count' => fn ($q) => $q->where('is_done', true),
+                'items as marked_items_count' => fn ($q) => $q->marked(),
+                'items as failed_items_count' => fn ($q) => $q->failed(),
             ]);
     }
 

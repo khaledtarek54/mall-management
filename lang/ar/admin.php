@@ -1991,7 +1991,12 @@ return [
             'vendor' => 'المورد', 'next_due' => 'الاستحقاق التالي', 'last_generated' => 'آخر إصدار', 'active' => 'نشط',
             'reference' => 'المرجع', 'status' => 'الحالة', 'scheduled_for' => 'مجدول', 'completed_at' => 'أُنجز',
             'completed_by' => 'أنجزه', 'plan' => 'الخطة', 'notes' => 'ملاحظات', 'label' => 'البند', 'done' => 'تم',
-            'progress' => 'التقدّم',
+            'progress' => 'التقدّم', 'result' => 'النتيجة', 'marked_by' => 'فحصه',
+        ],
+        'results' => ['pending' => 'لم يُفحص', 'pass' => 'مطابق', 'fail' => 'غير مطابق'],
+        'errors' => [
+            'checklist_incomplete' => 'افحص كل البنود أولاً — ما زال :count بند دون فحص. حدّد لكل بند مطابق أو غير مطابق ثم أغلق أمر الشغل.',
+            'order_terminal' => 'أمر الشغل مغلق — لا يمكن تعديل قائمة الفحص الخاصة به.',
         ],
         'frequency_units' => ['days' => 'يوم', 'weeks' => 'أسبوع', 'months' => 'شهر'],
         'categories' => [

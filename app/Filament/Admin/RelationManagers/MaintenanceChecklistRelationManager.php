@@ -4,21 +4,27 @@ namespace App\Filament\Admin\RelationManagers;
 
 use App\Models\MaintenanceWorkOrder;
 use App\Models\MaintenanceWorkOrderItem;
+use App\Services\MaintenanceWorkOrderService;
 use App\Support\Modules;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Tables\Columns\SelectColumn;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * The checklist on a preventive-maintenance work order (module 26). Engineers tick each
- * item done (captured with who/when); items can be added/removed while the order is
- * open. Ticking is gated on `preventive_maintenance.complete`; editing the list on
- * `preventive_maintenance.edit`. A terminal (done/cancelled) order's checklist is frozen.
+ * The checklist on a preventive-maintenance work order (module 26). Engineers record
+ * pass/fail per item (captured with who/when — FR-PPM-07); items can be added/removed
+ * while the order is open. Marking is gated on `preventive_maintenance.complete`;
+ * editing the list on `preventive_maintenance.edit`. A terminal (done/cancelled)
+ * order's checklist is frozen.
+ *
+ * Was a ToggleColumn over an `is_done` boolean, which could not express a failed
+ * inspection — the state a PPM visit exists to find.
  */
 class MaintenanceChecklistRelationManager extends RelationManager
 {
@@ -42,25 +48,27 @@ class MaintenanceChecklistRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with('doneBy'))
+            ->modifyQueryUsing(fn ($query) => $query->with('markedBy'))
             ->columns([
                 TextColumn::make('label')
                     ->label(__('admin.preventive_maintenance.fields.label'))
                     ->wrap(),
-                ToggleColumn::make('is_done')
-                    ->label(__('admin.preventive_maintenance.fields.done'))
-                    // Tickable only by a user who may complete work, on a non-terminal order.
+                SelectColumn::make('result')
+                    ->label(__('admin.preventive_maintenance.fields.result'))
+                    ->options(fn () => collect(MaintenanceWorkOrderItem::RESULTS)
+                        ->mapWithKeys(fn (string $r) => [$r => __("admin.preventive_maintenance.results.{$r}")])
+                        ->all())
+                    // `pending` stays selectable so a mis-click can be undone while the
+                    // order is open; the completion gate is what enforces the outcome.
+                    ->selectablePlaceholder(false)
+                    // Markable only by a user who may complete work, on a non-terminal order.
                     ->disabled(fn () => ! $this->orderEditable() || ! (auth()->user()?->can('preventive_maintenance.complete') ?? false))
-                    ->updateStateUsing(function (MaintenanceWorkOrderItem $record, bool $state): void {
+                    ->updateStateUsing(function (MaintenanceWorkOrderItem $record, string $state): void {
                         abort_unless((auth()->user()?->can('preventive_maintenance.complete') ?? false) && $this->orderEditable(), 403);
-                        $record->update([
-                            'is_done' => $state,
-                            'done_at' => $state ? now() : null,
-                            'done_by_user_id' => $state ? auth()->id() : null,
-                        ]);
+                        app(MaintenanceWorkOrderService::class)->markItem($record, $state);
                     }),
-                TextColumn::make('doneBy.name')
-                    ->label(__('admin.preventive_maintenance.fields.completed_by'))
+                TextColumn::make('markedBy.name')
+                    ->label(__('admin.preventive_maintenance.fields.marked_by'))
                     ->placeholder('—')
                     ->toggleable(),
             ])
@@ -73,17 +81,28 @@ class MaintenanceChecklistRelationManager extends RelationManager
                     ->schema([
                         TextInput::make('label')->label(__('admin.preventive_maintenance.fields.label'))->required()->maxLength(255),
                     ])
+                    // The service holds the order's row lock while inserting — a new item
+                    // is born `pending`, so appending one to an order that is mid-complete
+                    // must not slip past the FR-PPM-07 gate.
                     ->action(function (array $data): void {
-                        abort_unless((auth()->user()?->can('preventive_maintenance.edit') ?? false) && $this->orderEditable(), 403);
+                        abort_unless(auth()->user()?->can('preventive_maintenance.edit') ?? false, 403);
                         /** @var MaintenanceWorkOrder $order */
                         $order = $this->getOwnerRecord();
-                        $order->items()->create(['label' => $data['label']]);
+
+                        try {
+                            app(MaintenanceWorkOrderService::class)->addItem($order, $data['label']);
+                        } catch (\DomainException $e) {
+                            Notification::make()->title($e->getMessage())->danger()->send();
+                        }
                     }),
             ])
             ->recordActions([
                 DeleteAction::make()
                     ->visible(fn () => $this->orderEditable() && (auth()->user()?->can('preventive_maintenance.edit') ?? false))
-                    ->before(fn () => abort_unless((auth()->user()?->can('preventive_maintenance.edit') ?? false) && $this->orderEditable(), 403)),
+                    ->using(function (MaintenanceWorkOrderItem $record): void {
+                        abort_unless(auth()->user()?->can('preventive_maintenance.edit') ?? false, 403);
+                        app(MaintenanceWorkOrderService::class)->removeItem($record);
+                    }),
             ])
             ->defaultSort('id');
     }

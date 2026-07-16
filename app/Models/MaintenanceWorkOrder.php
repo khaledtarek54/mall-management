@@ -94,6 +94,21 @@ class MaintenanceWorkOrder extends Model
         return $this->hasMany(MaintenanceWorkOrderItem::class);
     }
 
+    /**
+     * Checklist items the engineer marked as failed. These are what FR-CM-01 raises
+     * corrective maintenance from — a failed PPM check is the canonical CM trigger.
+     */
+    public function failedItems(): HasMany
+    {
+        return $this->items()->failed();
+    }
+
+    /** FR-PPM-07 — does every checklist item carry an outcome yet? */
+    public function checklistIsComplete(): bool
+    {
+        return ! $this->items()->pending()->exists();
+    }
+
     public function isTerminal(): bool
     {
         return in_array($this->status, self::TERMINAL, true);
