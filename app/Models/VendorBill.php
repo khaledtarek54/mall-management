@@ -23,6 +23,7 @@ class VendorBill extends Model
     public const CATEGORIES = ['maintenance', 'utilities', 'cleaning_security', 'marketing', 'admin', 'other'];
 
     protected $fillable = [
+        'purchase_request_id',
         'number',
         'vendor_id',
         'asset_id',
@@ -70,6 +71,18 @@ class VendorBill extends Model
         return $this->belongsTo(Vendor::class);
     }
 
+    /**
+     * The purchase this bill pays for, if any (FR-PROC-04's other half).
+     *
+     * When set, this bill is the goods half of a purchase whose receipt already debited
+     * Inventory and credited GRNI — so it clears GRNI rather than charging the expense again.
+     * See VendorBillJournalizer.
+     */
+    public function purchaseRequest(): BelongsTo
+    {
+        return $this->belongsTo(PurchaseRequest::class);
+    }
+
     public function asset(): BelongsTo
     {
         return $this->belongsTo(Asset::class);
@@ -104,7 +117,7 @@ class VendorBill extends Model
     }
 
     /** FR-CM-08 — SLA penalties charged against this bill. */
-    public function penalties(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function penalties(): HasMany
     {
         return $this->hasMany(MaintenancePenalty::class, 'vendor_bill_id');
     }

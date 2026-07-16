@@ -95,15 +95,36 @@ enhancement".
 A receipt raised through a purchase request now carries its source, which is both what FR-WH-02 asks
 for and the precondition for ever clearing GRNI. Proven in `PurchaseReceiptLedgerTest`.
 
-> ⚠️ **Still open, and deliberately so.** Two things remain:
-> 1. **The ad-hoc receipt action still writes sourceless movements.** It has legitimate uses
->    (opening balances, found stock, a donation) that are not purchases, so it was not removed. But
->    a *purchase* received that way is still untraceable. The demo data still shows 166,120 EGP of
->    untraceable GRNI for exactly this reason — `DemoSeeder` uses the ad-hoc path.
-> 2. **Nothing yet clears GRNI.** That needs a vendor bill linked to the receipt (Dr GRNI / Cr AP),
->    which the FRD does not ask for and which overlaps BUSINESS-RULES open question 13. The link now
->    exists; the clearing does not. Do **not** clear GRNI by guessing which bill matches which
->    receipt.
+A bill for those goods now **clears** it. `vendor_bills.purchase_request_id` links the invoice to
+the purchase it pays for, and `VendorBillJournalizer` posts the goods portion to **Dr GRNI** instead
+of Dr Expense — so the purchase costs the company its money exactly once:
+
+```
+Receipt               Dr Inventory / Cr GRNI     "we have the goods, not yet the invoice"
+Bill for those goods  Dr GRNI      / Cr AP       the invoice — GRNI nets to zero
+Consumption           Dr Expense   / Cr Inventory the cost hits the P&L when it is USED
+```
+
+> ⚠️ **It was worse than an uncleared account.** Before this, buying 500 EGP of stock **once** left
+> `Inventory +500`, **`Expense +500`**, `GRNI −500` and **`AP −500`** — the same money recognised
+> twice (once as an asset, once in the P&L) and the liability recorded twice. Every stock purchase
+> whose supplier bill was entered overstated **both** the P&L and the balance sheet by its full
+> value. Proven, then fixed; pinned by `GrniClearingTest`.
+
+Three rules make the clearing honest, each pinned by a test that fails without it:
+- **Only RECEIVED, stockable lines clear.** A service line never touched stock; an unreceived line
+  has posted no GRNI credit yet. Read from the lines that actually produced a movement
+  (`stock_movement_id`), so it stays true for a partially-received purchase.
+- **Never clear more than the receipt credited** (`min($net, $goods)`). A bill larger than the goods
+  — freight, a price rise — must not manufacture a GRNI debit no receipt ever credited; that would
+  swing GRNI positive and hide a real discrepancy. The excess is an expense.
+- **A bill with no purchase behind it is unchanged**: all of net is expense. That is most bills.
+
+> **Still open:** the **ad-hoc receipt action** still writes sourceless movements, so a purchase
+> received that way remains unlinkable and its GRNI uncleared. It has legitimate non-purchase uses
+> (opening balances, found stock), so it was not removed — but the demo's 166,120 EGP is still
+> untraceable for exactly this reason: `DemoSeeder` uses that path. Route purchases through a
+> request.
 
 ---
 
@@ -125,7 +146,7 @@ for and the precondition for ever clearing GRNI. Proven in `PurchaseReceiptLedge
 | Phase | Scope | Status |
 |-------|-------|--------|
 | **1 — Request → Approve → Order → Receive** | `purchase_requests` + lines, the value-based approval ladder reusing [module 28](28-approvals.md), the transition matrix that makes FR-PROC-02 unrepresentable, receipt → stock with a **source link** (FR-WH-02), status history via the activity log, property-scoped resource + lines relation manager | ✅ shipped |
-| **2 — Clear GRNI against the vendor bill** | link a `VendorBill` to the receipt it pays for → **Dr GRNI / Cr AP**, closing the clearing account the receipt opened. Needs BUSINESS-RULES q13 answered first | ⬜ planned |
+| **2 — Clear GRNI against the vendor bill** | `vendor_bills.purchase_request_id` + the GRNI split in `VendorBillJournalizer`. Fixed a proven **double count**: a purchase was hitting Inventory *and* Expense, with GRNI and AP both carrying the liability. Only received stockable lines clear, capped at what the receipt credited | ✅ shipped |
 | **3 — Partial receipts** | receive some lines / some quantity now, the rest later. The line-level `stock_movement_id` is the seam; not built because the FRD does not ask and half-receiving is a real workflow decision | ⬜ deferred |
 
 ---

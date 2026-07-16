@@ -8,9 +8,23 @@ use App\Services\Accounting\Journalizers\Concerns\MapsExpenseCategory;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Vendor bill (فاتورة مورد) — recognise the expense + the payable:
- *   Dr Expense (net, by category)  +  Dr VAT Recoverable (input VAT)
+ * Vendor bill (فاتورة مورد) — recognise what we owe, and what for.
+ *
+ *   Dr GRNI (the part paying for goods already received)
+ *   Dr Expense (the rest of net, by category)
+ *   Dr VAT Recoverable (input VAT)
  *   Cr Accounts Payable (total)
+ *
+ * The GRNI line is the second half of a purchase. A goods receipt posts Dr Inventory / Cr GRNI
+ * — "we have the goods, not yet the invoice" — and this clears it: Dr GRNI / Cr AP. The expense
+ * hits the P&L later, when the stock is consumed (Dr R&M / Cr Inventory).
+ *
+ * Without it the same money was recognised twice: buying 500 EGP of stock once left Inventory
+ * +500, Expense +500, GRNI −500 and AP −500 — the P&L and the balance sheet each overstated by
+ * the full value of the purchase, and 166,120 EGP of GRNI on the demo books that could never be
+ * cleared because nothing linked a bill to the receipt it paid for.
+ *
+ * A bill with no `purchase_request_id` is unchanged: all of net is expense. That is most bills.
  *
  * Posts once the bill is past draft (approved+); drafts/cancelled are skipped.
  */
@@ -43,12 +57,39 @@ class VendorBillJournalizer implements Journalizer
         $expenseRole = $this->expenseRoleFor($bill->category, "bill {$bill->number}");
 
         $lines = [];
-        // Guard net > 0 — a pure-VAT bill (net 0) would otherwise emit a
+
+        // How much of this bill is paying for goods we have ALREADY taken into stock?
+        //
+        // That part must clear GRNI, not charge the expense: the receipt already debited
+        // Inventory and credited GRNI ("we have the goods, not yet the invoice"), so charging
+        // the expense here too would recognise the same money twice — once as an asset and once
+        // in the P&L — while GRNI sat uncleared forever. Proven before this: buying 500 EGP of
+        // stock once left Inventory +500, Expense +500, GRNI −500 AND AP −500.
+        //
+        // The expense hits the P&L later, when the stock is actually consumed
+        // (Dr Repairs & Maintenance / Cr Inventory) — which is the whole point of perpetual
+        // inventory.
+        $goods = min($net, $this->goodsAwaitingInvoice($bill));
+
+        if ($goods > 0) {
+            $lines[] = [
+                'ledger_account_id' => $this->accounts->id('inventory_grni', $assetId),
+                'debit' => $goods,
+                'credit' => 0,
+                'asset_id' => $assetId,
+            ];
+        }
+
+        // Whatever the bill covers beyond the goods is a genuine expense — the labour on the
+        // same invoice, a delivery charge, or the whole bill when no purchase is linked.
+        $expense = round($net - $goods, 2);
+
+        // Guard > 0 — a pure-VAT bill (net 0), or one entirely for goods, would otherwise emit a
         // debit-0/credit-0 line that the posting engine rejects.
-        if ($net > 0) {
+        if ($expense > 0) {
             $lines[] = [
                 'ledger_account_id' => $this->accounts->id($expenseRole, $assetId),
-                'debit' => $net,
+                'debit' => $expense,
                 'credit' => 0,
                 'asset_id' => $assetId,
             ];
@@ -77,5 +118,32 @@ class VendorBillJournalizer implements Journalizer
             'asset_id' => $assetId,
             'lines' => $lines,
         ];
+    }
+
+    /**
+     * The value of goods received against this bill's purchase that GRNI is still holding.
+     *
+     * Only RECEIVED, stockable lines: a service line never touched stock, and an unreceived line
+     * has posted nothing to GRNI yet, so neither has anything to clear. Reading it from the lines
+     * that actually produced a movement (`stock_movement_id`) rather than from the request's total
+     * keeps this true for a partially-received purchase, and means the figure can never claim to
+     * clear more than the receipt actually credited.
+     */
+    private function goodsAwaitingInvoice(VendorBill $bill): float
+    {
+        if ($bill->purchase_request_id === null) {
+            return 0.0;
+        }
+
+        $request = $bill->purchaseRequest;
+
+        if ($request === null) {
+            return 0.0;
+        }
+
+        return round((float) $request->lines()
+            ->whereNotNull('inventory_item_id')
+            ->whereNotNull('stock_movement_id')
+            ->sum('line_value'), 2);
     }
 }
