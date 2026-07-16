@@ -3,6 +3,8 @@
 namespace App\Support;
 
 use App\Jobs\SyncDocumentToLedger;
+use App\Services\Accounting\LedgerPoster;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * Wires near-real-time general-ledger posting: every posting source dispatches a queued
@@ -12,36 +14,23 @@ use App\Jobs\SyncDocumentToLedger;
  * `config('accounting.realtime_ledger_sync')` is on.
  *
  * Kept as a static helper (not inline in the provider) so the wiring is unit-testable.
+ *
+ * The source list itself lives on {@see LedgerPoster::JOURNALIZERS} — this class derives it
+ * rather than re-declaring it, because the hand-copied version drifted and stranded
+ * MaintenancePenalty's postings (2026-07-16).
  */
 class LedgerRealtimeSync
 {
-    /** The posting sources — MUST mirror LedgerPoster::journalizerFor (keep in sync). */
-    public const SOURCES = [
-        \App\Models\Invoice::class,
-        \App\Models\Payment::class,
-        \App\Models\CreditNote::class,
-        \App\Models\VendorBill::class,
-        \App\Models\VendorBillPayment::class,
-        \App\Models\Expense::class,
-        \App\Models\Payroll::class,
-        \App\Models\DepositTransaction::class,
-        \App\Models\MarketingSpend::class,
-        \App\Models\StockMovement::class,
-        \App\Models\FixedAsset::class,
-        \App\Models\DepreciationEntry::class,
-        \App\Models\FixedAssetDisposal::class,
-        \App\Models\EmployeeAdvance::class,
-        \App\Models\EmployeeAdvanceRepayment::class,
-        \App\Models\Custody::class,
-        \App\Models\CustodyTransaction::class,
-    ];
-
     /**
      * Each source → the date column that becomes its journal entry's `entry_date` (i.e. the
      * period a fresh post would land in). MUST match each journalizer's entry_date. Used by
      * the close gate to find documents DATED in a period being closed — including ones never
-     * posted yet — so the close can't strand their future post. Mirrors SyncLedgerCommand's
-     * per-source date columns.
+     * posted yet — so the close can't strand their future post, and by SyncLedgerCommand to
+     * open the fiscal years its documents span.
+     *
+     * Genuinely per-model data, so it can't be derived from the registry — but
+     * GlRegistryConformanceTest asserts its keys are exactly LedgerPoster::sources(), so a
+     * new journalizer cannot ship without its date column.
      */
     public const SOURCE_DATE_COLUMNS = [
         \App\Models\Invoice::class => 'issue_date',
@@ -61,6 +50,10 @@ class LedgerRealtimeSync
         \App\Models\EmployeeAdvanceRepayment::class => 'repaid_on',
         \App\Models\Custody::class => 'custody_date',
         \App\Models\CustodyTransaction::class => 'transaction_date',
+        // Mirrors MaintenancePenaltyJournalizer's `applied_at ?? created_at`. It only posts
+        // once APPLIED, and applying always stamps applied_at, so the fallback never decides
+        // the period of a real entry.
+        \App\Models\MaintenancePenalty::class => 'applied_at',
     ];
 
     public static function register(): void
@@ -69,10 +62,16 @@ class LedgerRealtimeSync
             SyncDocumentToLedger::dispatch($model::class, $model->getKey())->afterCommit();
         };
 
-        foreach (self::SOURCES as $source) {
+        foreach (LedgerPoster::sources() as $source) {
             $source::saved($dispatch);
             $source::deleted($dispatch);
-            $source::restored($dispatch); // every source soft-deletes; restore re-posts
+
+            // `restored` is declared by the SoftDeletes trait, so registering it on a
+            // hard-deleting source is a BadMethodCallException. Most sources soft-delete
+            // (restore must re-post); MaintenancePenalty does not.
+            if (in_array(SoftDeletes::class, class_uses_recursive($source), true)) {
+                $source::restored($dispatch);
+            }
         }
     }
 }

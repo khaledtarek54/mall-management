@@ -1,6 +1,6 @@
 # Module 26 — Preventive Maintenance (الصيانة الوقائية)
 
-> **Status: Phase 7 shipped — CM SLA + penalty assessment.** Recurring
+> **Status: Phase 7 shipped — CM SLA + penalty assessment + charging it to the vendor's bill.** Recurring
 > facility-maintenance **plans** that auto-raise **work orders** (with checklists) when
 > due, via the daily `maintenance:generate-preventive` scan; two property-scoped Filament
 > resources (plans + work orders), a checklist relation manager (**mark each item pass/fail**),
@@ -10,7 +10,8 @@
 > **corrective maintenance** raised from a failed check (or as a follow-up on a closed job),
 > and a **bilingual facility work-log PDF report** (RPT-1). Delivers discovery backlog items
 > **MNT-1/2 + RPT-1** and Eltizam FRD **FR-PPM-01..05 · 07** and **FR-CM-01..08 · 14 · 15**
-> (charging the penalty to the vendor's bill needs accountant sign-off; parts/cost still to come — see the roadmap).
+> (the penalty's Dr AP / Cr expense treatment is recorded in `docs/BUSINESS-RULES.md` for
+> accountant sign-off; parts/cost still to come — see the roadmap).
 > Distinct from tenant-facing maintenance **requests**
 > (module 11) — this is internal/facility upkeep (common areas, no tenant), so it has its
 > own models.
@@ -21,8 +22,17 @@
 > NOT NULL). Landed so far: the service + state machine + pass/fail gate, the equipment
 > register, equipment-anchored plans/work orders (routine vs fixed, yearly frequency), and the
 > **CM core** — raised from a failed check, internal/external, follow-up chains — plus per-property
-> SLA, breach detection and penalty assessment. Still to come: charging the penalty to the vendor's
-> bill (needs sign-off), and parts + fault attribution + tenant recharge.
+> SLA, breach detection, penalty assessment, and **charging the penalty to the vendor's bill**
+> (an AP offset that posts Dr Accounts Payable / Cr the expense the bill charged). Still to
+> come: parts + fault attribution + tenant recharge.
+>
+> **Gotcha, learned the hard way (2026-07-16).** `MaintenancePenalty` posts to the GL, so it
+> must be registered in `LedgerPoster::JOURNALIZERS` **and** carry an entry-date column — the
+> journalizer alone does nothing. It originally had the journalizer but no registration in any
+> dispatch path, so an applied penalty reduced the bill's AP balance while posting no entry,
+> and the GL overstated the payable. See
+> [module 21 — the registry gate](21-general-ledger.md#gl-registry-gate) before touching the
+> penalty's money path, and test through `accounting:sync-ledger`, never `LedgerPoster::post()`.
 
 An operator maintains the building itself — HVAC filters, lift servicing, fire-safety
 checks, generator runs — on a recurring schedule, not in response to a tenant. This module

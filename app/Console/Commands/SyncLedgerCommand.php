@@ -2,30 +2,19 @@
 
 namespace App\Console\Commands;
 
-use App\Models\CreditNote;
-use App\Models\Custody;
-use App\Models\CustodyTransaction;
-use App\Models\DepositTransaction;
 use App\Models\DepreciationEntry;
-use App\Models\EmployeeAdvance;
-use App\Models\EmployeeAdvanceRepayment;
-use App\Models\Expense;
-use App\Models\FixedAsset;
 use App\Models\FixedAssetDisposal;
-use App\Models\Invoice;
-use App\Models\MarketingSpend;
-use App\Models\Payment;
-use App\Models\Payroll;
+use App\Models\MaintenancePenalty;
 use App\Models\StockMovement;
 use App\Models\SystemSetting;
 use App\Models\User;
-use App\Models\VendorBill;
-use App\Models\VendorBillPayment;
 use App\Notifications\LedgerSyncFailedNotification;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\LedgerPoster;
 use App\Services\Reconciliation\BooksReconciliationService;
+use App\Support\LedgerRealtimeSync;
 use Illuminate\Console\Command;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
@@ -47,6 +36,20 @@ class SyncLedgerCommand extends Command
 
     protected $description = 'Post / reconcile general-ledger entries for invoices, payments, and credit notes (idempotent).';
 
+    /**
+     * Per-source eager loads — only for sources whose journalizer walks a relation to build
+     * its payload, so the sweep doesn't N+1 across a full backfill. Optional by design: a
+     * source absent from this map is swept without eager loading, never skipped.
+     *
+     * @var array<class-string<Model>, array<int, string>>
+     */
+    private const EAGER = [
+        StockMovement::class => ['warehouse'],
+        DepreciationEntry::class => ['fixedAsset'],
+        FixedAssetDisposal::class => ['fixedAsset'],
+        MaintenancePenalty::class => ['bill', 'workOrder'],
+    ];
+
     public function handle(LedgerPoster $poster, FiscalCalendar $calendar, BooksReconciliationService $recon): int
     {
         $since = $this->resolveSince();
@@ -57,23 +60,17 @@ class SyncLedgerCommand extends Command
 
         $this->line($since ? "Syncing documents updated since {$since->toDateString()}..." : 'Backfilling ALL documents...');
 
-        $this->syncModel(Invoice::query(), 'updated_at', $since, $poster, $counts);
-        $this->syncModel(Payment::query(), 'updated_at', $since, $poster, $counts);
-        $this->syncModel(CreditNote::query(), 'updated_at', $since, $poster, $counts);
-        $this->syncModel(VendorBill::query(), 'updated_at', $since, $poster, $counts);
-        $this->syncModel(VendorBillPayment::query(), 'updated_at', $since, $poster, $counts);
-        $this->syncModel(Expense::query(), 'updated_at', $since, $poster, $counts);
-        $this->syncModel(Payroll::query(), 'updated_at', $since, $poster, $counts);
-        $this->syncModel(DepositTransaction::query(), 'updated_at', $since, $poster, $counts);
-        $this->syncModel(MarketingSpend::query(), 'updated_at', $since, $poster, $counts);
-        $this->syncModel(StockMovement::query()->with('warehouse'), 'updated_at', $since, $poster, $counts);
-        $this->syncModel(FixedAsset::query(), 'updated_at', $since, $poster, $counts);
-        $this->syncModel(DepreciationEntry::query()->with('fixedAsset'), 'updated_at', $since, $poster, $counts);
-        $this->syncModel(FixedAssetDisposal::query()->with('fixedAsset'), 'updated_at', $since, $poster, $counts);
-        $this->syncModel(EmployeeAdvance::query(), 'updated_at', $since, $poster, $counts);
-        $this->syncModel(EmployeeAdvanceRepayment::query(), 'updated_at', $since, $poster, $counts);
-        $this->syncModel(Custody::query(), 'updated_at', $since, $poster, $counts);
-        $this->syncModel(CustodyTransaction::query(), 'updated_at', $since, $poster, $counts);
+        // Derived from the registry, never re-listed: a journalizer registered in
+        // LedgerPoster::JOURNALIZERS is swept here automatically. Hand-listing this is what
+        // stranded MaintenancePenalty's entries (2026-07-16) — the sweep couldn't self-heal
+        // a source it had never heard of.
+        foreach (LedgerPoster::sources() as $source) {
+            $query = $source::query();
+            if ($relations = self::EAGER[$source] ?? null) {
+                $query->with($relations);
+            }
+            $this->syncModel($query, 'updated_at', $since, $poster, $counts);
+        }
 
         $this->newLine();
         $this->table(['result', 'count'], collect($counts)->map(fn ($v, $k) => [$k, $v])->values()->all());
@@ -114,30 +111,20 @@ class SyncLedgerCommand extends Command
         return now()->subDays(2)->startOfDay();
     }
 
-    /** Open every fiscal year spanned by the documents so postings have an open period. */
+    /**
+     * Open every fiscal year spanned by the documents so postings have an open period.
+     * Walks the same per-source date columns the close gate uses, so a source can never be
+     * swept into a year this didn't open.
+     */
     private function ensureFiscalYears(FiscalCalendar $calendar): void
     {
-        $dates = array_filter([
-            Invoice::min('issue_date'), Invoice::max('issue_date'),
-            Payment::min('payment_date'), Payment::max('payment_date'),
-            CreditNote::min('issue_date'), CreditNote::max('issue_date'),
-            VendorBill::min('bill_date'), VendorBill::max('bill_date'),
-            VendorBillPayment::min('payment_date'), VendorBillPayment::max('payment_date'),
-            Expense::min('expense_date'), Expense::max('expense_date'),
-            Payroll::min('period_month'), Payroll::max('period_month'),
-            DepositTransaction::min('transaction_date'), DepositTransaction::max('transaction_date'),
-            MarketingSpend::min('spent_on'), MarketingSpend::max('spent_on'),
-            StockMovement::min('moved_on'), StockMovement::max('moved_on'),
-            FixedAsset::min('acquisition_date'), FixedAsset::max('acquisition_date'),
-            DepreciationEntry::min('period_month'), DepreciationEntry::max('period_month'),
-            FixedAssetDisposal::min('disposed_on'), FixedAssetDisposal::max('disposed_on'),
-            EmployeeAdvance::min('advance_date'), EmployeeAdvance::max('advance_date'),
-            EmployeeAdvanceRepayment::min('repaid_on'), EmployeeAdvanceRepayment::max('repaid_on'),
-            Custody::min('custody_date'), Custody::max('custody_date'),
-            CustodyTransaction::min('transaction_date'), CustodyTransaction::max('transaction_date'),
-        ]);
+        $dates = [];
+        foreach (LedgerRealtimeSync::SOURCE_DATE_COLUMNS as $class => $column) {
+            $dates[] = $class::min($column);
+            $dates[] = $class::max($column);
+        }
 
-        $years = collect($dates)->map(fn ($d) => (int) Carbon::parse($d)->year);
+        $years = collect(array_filter($dates))->map(fn ($d) => (int) Carbon::parse($d)->year);
         $min = $years->min() ?? (int) now()->year;
         $max = max($years->max() ?? (int) now()->year, (int) now()->year);
 
@@ -146,7 +133,7 @@ class SyncLedgerCommand extends Command
         }
     }
 
-    private function syncModel($query, string $tsColumn, ?Carbon $since, LedgerPoster $poster, array &$counts): void
+    private function syncModel(Builder $query, string $tsColumn, ?Carbon $since, LedgerPoster $poster, array &$counts): void
     {
         // Include soft-deleted documents so their posted entry gets voided (a deleted
         // document has no ledger effect). Soft-delete bumps updated_at, so the windowed

@@ -10,7 +10,6 @@ use App\Models\VendorBill;
 use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\LedgerPoster;
 use App\Services\Accounting\LedgerReportService;
-use App\Support\LedgerRealtimeSync;
 
 /**
  * Independently re-derives the accounts-receivable books from SOURCE records
@@ -303,7 +302,7 @@ class BooksReconciliationService
         $poster = app(LedgerPoster::class);
         $drifted = [];
 
-        foreach (LedgerRealtimeSync::SOURCES as $class) {
+        foreach (LedgerPoster::sources() as $class) {
             $query = $class::query();
             if (method_exists(new $class, 'trashed')) {
                 $query->withTrashed();

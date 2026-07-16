@@ -70,10 +70,15 @@ it('wires the saved/deleted/restored real-time dispatch on every posting source'
     // to prove the wiring attaches to every source LedgerPoster can journalize.
     \App\Support\LedgerRealtimeSync::register();
 
-    foreach (\App\Support\LedgerRealtimeSync::SOURCES as $model) {
+    foreach (LedgerPoster::sources() as $model) {
         expect($model::getEventDispatcher()->hasListeners('eloquent.saved: '.$model))->toBeTrue()
-            ->and($model::getEventDispatcher()->hasListeners('eloquent.deleted: '.$model))->toBeTrue()
-            ->and($model::getEventDispatcher()->hasListeners('eloquent.restored: '.$model))->toBeTrue();
+            ->and($model::getEventDispatcher()->hasListeners('eloquent.deleted: '.$model))->toBeTrue();
+
+        // `restored` only exists on a soft-deleting source — registering it on a
+        // hard-deleting one would throw, so the wiring skips it there.
+        if (in_array(\Illuminate\Database\Eloquent\SoftDeletes::class, class_uses_recursive($model), true)) {
+            expect($model::getEventDispatcher()->hasListeners('eloquent.restored: '.$model))->toBeTrue();
+        }
     }
 });
 

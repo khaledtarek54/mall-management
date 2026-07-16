@@ -49,15 +49,66 @@ use Illuminate\Support\Facades\DB;
  * (idempotently — JournalPostingService keys on source, so re-posting the same
  * document returns the existing entry instead of double-booking).
  *
- * Registering a new document type = add one line to the registry below. The GL
- * engine never changes.
+ * Registering a new document type = add one line to JOURNALIZERS. The GL engine
+ * never changes, and every dispatch path derives from that one line — see below.
  */
 class LedgerPoster
 {
+    /**
+     * **The** registry of what posts to the general ledger: source document ⇒ its journalizer.
+     * Every journalizer takes only an AccountResolver, so this map is enough to build one.
+     *
+     * This const is the single source of truth for "which models reach the GL", and all four
+     * dispatch paths derive from it via `sources()` rather than re-listing it:
+     *   1. `LedgerRealtimeSync::register()`  — the near-real-time post on save/delete/restore
+     *   2. `SyncLedgerCommand`               — the windowed + `--all` self-healing sweep
+     *   3. `PeriodService`                   — the close gate (via SOURCE_DATE_COLUMNS)
+     *   4. `BooksReconciliationService`      — the GL-drift check behind `billing:reconcile`
+     *
+     * Why it is a const and not a match(): those five lists were hand-maintained copies, and
+     * they drifted — `MaintenancePenalty` had a correct journalizer here while being absent
+     * from all of the others, so an applied SLA penalty cut the vendor bill's AP balance and
+     * posted nothing, and neither the sweep nor the drift check could see it (fixed 2026-07-16).
+     * A registry that can be enumerated can be conformance-gated; a match() cannot.
+     *
+     * @var array<class-string<Model>, class-string<Journalizer>>
+     */
+    public const JOURNALIZERS = [
+        Invoice::class => InvoiceJournalizer::class,
+        Payment::class => PaymentJournalizer::class,
+        CreditNote::class => CreditNoteJournalizer::class,
+        VendorBill::class => VendorBillJournalizer::class,
+        VendorBillPayment::class => VendorBillPaymentJournalizer::class,
+        MaintenancePenalty::class => MaintenancePenaltyJournalizer::class,
+        Expense::class => ExpenseJournalizer::class,
+        Payroll::class => PayrollJournalizer::class,
+        DepositTransaction::class => DepositTransactionJournalizer::class,
+        MarketingSpend::class => MarketingSpendJournalizer::class,
+        StockMovement::class => InventoryMovementJournalizer::class,
+        FixedAsset::class => FixedAssetAcquisitionJournalizer::class,
+        DepreciationEntry::class => DepreciationEntryJournalizer::class,
+        FixedAssetDisposal::class => FixedAssetDisposalJournalizer::class,
+        EmployeeAdvance::class => EmployeeAdvanceJournalizer::class,
+        EmployeeAdvanceRepayment::class => EmployeeAdvanceRepaymentJournalizer::class,
+        Custody::class => CustodyJournalizer::class,
+        CustodyTransaction::class => CustodyTransactionJournalizer::class,
+    ];
+
     public function __construct(
         private JournalPostingService $posting,
         private AccountResolver $accounts,
     ) {}
+
+    /**
+     * Every model that posts to the GL. The one list every dispatch path must walk —
+     * derive from this, never re-declare it.
+     *
+     * @return array<int, class-string<Model>>
+     */
+    public static function sources(): array
+    {
+        return array_keys(self::JOURNALIZERS);
+    }
 
     /** Post the ledger entry for a source document. Returns null if nothing was posted. */
     public function post(Model $source): ?JournalEntry
@@ -209,26 +260,8 @@ class LedgerPoster
 
     protected function journalizerFor(Model $source): ?Journalizer
     {
-        return match ($source::class) {
-            Invoice::class => new InvoiceJournalizer($this->accounts),
-            Payment::class => new PaymentJournalizer($this->accounts),
-            CreditNote::class => new CreditNoteJournalizer($this->accounts),
-            VendorBill::class => new VendorBillJournalizer($this->accounts),
-            VendorBillPayment::class => new VendorBillPaymentJournalizer($this->accounts),
-            MaintenancePenalty::class => new MaintenancePenaltyJournalizer($this->accounts),
-            Expense::class => new ExpenseJournalizer($this->accounts),
-            Payroll::class => new PayrollJournalizer($this->accounts),
-            DepositTransaction::class => new DepositTransactionJournalizer($this->accounts),
-            MarketingSpend::class => new MarketingSpendJournalizer($this->accounts),
-            StockMovement::class => new InventoryMovementJournalizer($this->accounts),
-            FixedAsset::class => new FixedAssetAcquisitionJournalizer($this->accounts),
-            DepreciationEntry::class => new DepreciationEntryJournalizer($this->accounts),
-            FixedAssetDisposal::class => new FixedAssetDisposalJournalizer($this->accounts),
-            EmployeeAdvance::class => new EmployeeAdvanceJournalizer($this->accounts),
-            EmployeeAdvanceRepayment::class => new EmployeeAdvanceRepaymentJournalizer($this->accounts),
-            Custody::class => new CustodyJournalizer($this->accounts),
-            CustodyTransaction::class => new CustodyTransactionJournalizer($this->accounts),
-            default => null,
-        };
+        $journalizer = self::JOURNALIZERS[$source::class] ?? null;
+
+        return $journalizer === null ? null : new $journalizer($this->accounts);
     }
 }

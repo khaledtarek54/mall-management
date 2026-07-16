@@ -236,14 +236,42 @@ This is the whole point of the design. To make any future module post to the led
 1. Write **one journalizer class** that turns the document into a balanced set of lines
    using `AccountResolver` for the accounts. (Phase 1 ships journalizers for invoice/
    payment/credit-note/CAM/late-fee/deposit as the reference implementations.)
-2. Fire it from the document's existing service hook (e.g. after `recomputeTotals`, or
-   on payment capture) — exactly where the sub-ledger already mutates.
-3. Add any new semantic roles to `account_mappings` (+ seeder) and point them at chart
+2. **Register it in `LedgerPoster::JOURNALIZERS`** — one line, `Model::class => Journalizer::class`.
+   This const is the single source of truth for what reaches the GL; **all four dispatch
+   paths derive from it** via `LedgerPoster::sources()` — the real-time hooks, the
+   `accounting:sync-ledger` sweep, the period-close gate, and `billing:reconcile`'s drift
+   check. You do **not** call `LedgerPoster` from your service.
+3. **Declare its entry-date column** in `LedgerRealtimeSync::SOURCE_DATE_COLUMNS` — the
+   column your journalizer uses for `entry_date`. The close gate needs it to spot documents
+   *dated* in a period being closed but not yet posted.
+4. If your journalizer's payload walks a relation, add it to `SyncLedgerCommand::EAGER` so a
+   full backfill doesn't N+1. Optional — an absent source is swept un-eager, never skipped.
+5. Add any new semantic roles to `account_mappings` (+ seeder) and point them at chart
    accounts.
 
 The general-ledger engine itself **never changes** when a module is added. New module →
 new journalizer + new mappings. That is the "accounting works with any future module"
 guarantee.
+
+<a id="gl-registry-gate"></a>
+> **⚠️ Never hand-copy the source list — and test through the real path.**
+> Steps 2–4 are enforced by `tests/Feature/Scenarios/GlRegistryConformanceTest.php`: a
+> journalizer without a date column fails CI, as does a date column for a model that can't
+> post, or a sweep that stops deriving from the registry.
+>
+> This gate exists because the lists drifted and cost real money. `MaintenancePenalty`
+> (module 26) had a correct, tested journalizer while being absent from *every* dispatch
+> list, so applying an SLA penalty **cut the vendor bill's AP balance and posted nothing** —
+> the GL overstated the payable, the sweep couldn't self-heal a source it had never heard
+> of, and `billing:reconcile` couldn't see the drift because it walked the same short list.
+> It shipped green because the scenario test called `LedgerPoster::post($penalty)` directly,
+> proving the journalizer while never exercising the dispatch (fixed 2026-07-16;
+> `tests/Feature/Regression/SlaPenaltyLedgerDispatchTest.php`).
+>
+> **So: a GL test that calls `LedgerPoster::post()`/`sync()` directly proves only that the
+> journalizer's arithmetic is right.** At least one test per source must drive the operator's
+> service and then `accounting:sync-ledger`, and assert the tie-out. See also the
+> child-source sweep trap in §"Gotchas".
 
 ---
 
