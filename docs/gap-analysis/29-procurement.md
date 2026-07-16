@@ -6,11 +6,11 @@
 > All findings **reproduced** against the real MySQL demo books, driven through the real services
 > and a real `accounting:sync-ledger`, inside rolled-back transactions.
 
-**Status: 🔴 Red → 🟡 Yellow** (F-100…F-103 fixed 2026-07-17). The module's own lifecycle is
+**Status: 🔴 Red → 🟡 Yellow** (F-100…F-104 fixed 2026-07-17). The module's own lifecycle is
 genuinely well built — locks, a service-side transition matrix, tier-on-current-total,
 source-linked receipts all hold up under attack. Its headline defect — **the GRNI clearing it
 exists to enable was unreachable from the product** — is closed, together with the aggregate cap
-that fixing it would otherwise have exposed. **F-104 and F-105 remain.**
+that fixing it would otherwise have exposed. **Only F-105 remains** (a soft-deleted warehouse null-deref).
 
 `pest --parallel --filter='Purchase|Procurement|Grni'` → **46 passed**. Conformance gates → 63 passed.
 
@@ -109,7 +109,7 @@ exactly whoever may approve it."* Base right only — the tier is never consulte
 manager placed the order on a 50,000 request they cannot approve. Same root and same one-line fix as
 F-102 — **the tier check is on 2 of the 4 `procurement.decide` paths.**
 
-### 🟡 F-104. The Filament create page never calls `PurchaseRequestService::request()`
+### 🟡 F-104. The Filament create page never calls `PurchaseRequestService::request()` · **FIXED 2026-07-17**
 `app/Filament/Admin/Resources/PurchaseRequests/Pages/CreatePurchaseRequest.php:9` — a plain
 `CreateRecord`. `request()` has **no production caller** (only tests).
 
@@ -128,6 +128,20 @@ page does:
 
 No money moves wrong — the gate is `canApprove()` on the *current* total, which is correct. This is
 the frozen-record/audit half, and FR-PROC-01.
+
+**Fix (2026-07-17) — and NOT the one suggested above.** "Route the create page through `request()`"
+cannot work: **the create form collects no lines**, so there is nothing to hand it. The header must
+exist before the relation manager can add lines. Fixed to fit the real shape:
+- **The tier is derived where the total already is** — `PurchaseRequest::recomputeTotal()`, which
+  the line's `saved()`/`deleted()` hooks already call. They answer the same question. It stops the
+  moment the request leaves `requested`: after a decision the tier is history, and `approve()`
+  judges the CURRENT total regardless.
+- **"Must have item(s)" is enforced at `approve()`** — the first moment the lines are settled,
+  which the create page by definition is not.
+
+Guard: `tests/Feature/Regression/PurchaseRequestTierFrozenTest.php` — 4 of 5 fail without it.
+*(This also corrected `ProcurementDecideTierTest`'s fixtures, which built 50,000 headers with no
+lines — a state the product cannot produce, and the same trap §5 describes.)*
 
 ### 🟡 F-105. `receive()` null-derefs a soft-deleted warehouse and misdiagnoses it
 `app/Services/PurchaseRequestService.php:213` — `(int) $locked->warehouse->asset_id`
@@ -223,8 +237,10 @@ correctly closed.
 
 - ~~**D-91**~~ — ✅ **F-100 + F-101 fixed together 2026-07-17**, as the sequencing demanded.
 - ~~**D-92**~~ — ✅ **F-102/F-103 fixed 2026-07-17.** Extracted rather than copied a third time.
-- **D-93 — now this module's priority.** F-104: route the create page through `PurchaseRequestService::request()`, so the tier
-  freezes and FR-PROC-01's "item(s)" is enforced.
-- **D-94** — F-105: `withTrashed()` on `PurchaseRequest::warehouse()`.
+- ~~**D-93**~~ — ✅ **F-104 fixed 2026-07-17**, though not as suggested: the create form has no lines
+  to give `request()`. The tier now derives in `recomputeTotal()`; FR-PROC-01 is enforced at
+  `approve()`.
+- **D-94 — now this module's last open finding.** F-105: `withTrashed()` on
+  `PurchaseRequest::warehouse()`.
 - **D-95** — `->authorize()` on the `EditAction`, matching its five siblings.
 - **D-96** — `PostingDate` on `VendorBill::bill_date` (outside this module; modules 15/21).
