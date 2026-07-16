@@ -52,6 +52,17 @@ So, for round 2:
   arithmetic** — not that production ever posts. An applied SLA penalty shipped green that way
   while cutting a vendor bill and posting nothing. Money paths must be driven through the real
   service + `accounting:sync-ledger`.
+- **…and driving the real service is necessary but NOT sufficient — the INPUTS must also be
+  reachable from the product.** `GrniClearingTest` dodged the trap above perfectly (real services,
+  real sweep, no `LedgerPoster`) and was still green over a bug: its helper set
+  `vendor_bills.purchase_request_id`, **a column no UI, service, seeder or route can write**. Nine
+  passing tests over dead code, while every real bill double-counted its cost (F-100). So ask of
+  every fixture: *could the product actually produce this state?* If the answer needs a `create()`
+  with a column no form offers, the test is proving the wrong thing. A Livewire test driving the
+  form would have failed instantly.
+- **When a finding is latent only because another bug blocks it, say so and fix them together.**
+  F-101 (two bills clear GRNI twice) is unreachable *because* F-100 blocks the link — so fixing
+  F-100 alone would ship the double-clear as its first act.
 - When a claim turns out false, **retire it with the reason** (see [ROADMAP §6](../ROADMAP.md))
   rather than deleting it, or the next audit re-derives it.
 

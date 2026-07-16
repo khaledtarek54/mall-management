@@ -3,11 +3,12 @@
 > Running log. One entry per module + pre-flight. Most recent at the bottom.
 > See [000-plan.md](000-plan.md) for the plan this log tracks.
 
-## Round 2 — modules 21–28 (2026-07-16)
+## Round 2 — modules 21–29 (2026-07-16 → 07-17)
 
-Round 1 (2026-05-31 → 06-25) covered **modules 01–20**. Modules **21–28** — the general ledger and
+Round 1 (2026-05-31 → 06-25) covered **modules 01–20**. Modules **21–29** — the general ledger and
 everything that posts money to it — were built afterwards and had **never been audited**. That blind
-spot was the single largest known risk in the project; this round closed it.
+spot was the single largest known risk in the project; this round closed it. **Every module now has
+an analysis.**
 
 **It found six 🔴 money bugs in modules nobody had ever looked at. All six are now fixed**
 (`GapAnalysisRound2FixesTest`, `PostingDateGuardTest`, `ValuelessStockMovementTest`,
@@ -24,6 +25,7 @@ findings are catalogued as F-85…F-99 / D-66…D-89 per the project's "fix smal
 | 26 | Facility Maintenance | 🔴 → 🟡 | [26-preventive-maintenance.md](26-preventive-maintenance.md) | **F-77 FIXED** a penalty could be charged to **another property's** vendor bill (wrong mall absorbs it; cross-property read leak in the picker). **F-78 FIXED** waiving an *applied* penalty never recomputed the bill → bills say 9,000, GL says 10,000, **AP tie-out breaks and the vendor is underpaid**. |
 | 27 | Announcements | 🟡 Yellow | [27-announcements.md](27-announcements.md) | **No defect found** — every leading hypothesis checked and disproved. The finding is coverage: 8 tests, and business rule 6 (partial-blast `sent_at`) has none. Compose-is-send: a wrong blast cannot be recalled. |
 | 28 | Approvals | 🟢 Green | [28-approvals.md](28-approvals.md) | **F-99 FIXED** the module whose job is to fail closed **failed open on an overlap** — it picked the *lowest* covering band, not the strictest, so a reasonable-looking ladder edit let tier_2 approve a tier_3 amount. Its blast radius doubled mid-audit when procurement became a second caller. |
+| 29 | **Procurement** | 🔴 **Red** | [29-procurement.md](29-procurement.md) | **F-100** the GRNI clearing shipped in `9ba4562` **has no production writer** — nothing in `app/` can set `vendor_bills.purchase_request_id`, so every stock purchase with a supplier bill still double-counts its cost. Correct journalizer; dead code. **F-101** two bills against one purchase clear GRNI twice — latent *only* because F-100 blocks the link, so it goes live the moment F-100 is fixed. **Fix them together.** Plus: `cancel()`/`order()` skip the tier check `approve()`/`reject()` enforce, and the create page bypasses the service (so `required_permission` is NULL on 100% of rows, and a request with no lines is approvable). |
 
 **The pattern across all eight:** every 🔴 is a *sibling of a guard that already exists elsewhere*.
 The cross-property penalty is the stock-draw guard, unwritten. The 0-cost consumption is the
