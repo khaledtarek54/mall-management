@@ -7,10 +7,7 @@
 > and a real `accounting:sync-ledger`, inside rolled-back transactions.
 
 **Status: 🔴 Red.** The module's own lifecycle is genuinely well built — locks, a service-side
-transition matrix, tier-on-current-total, source-linked receipts all hold up under attack. But
-**the GRNI clearing it exists to enable is unreachable from the product**: nothing in `app/` can set
-`vendor_bills.purchase_request_id`, so every stock purchase with a supplier bill still
-double-counts its cost — the exact bug `9ba4562` says it fixed.
+transition matrix, tier-on-current-total, source-linked receipts all hold up under attack. Its headline defect — **the GRNI clearing it exists to enable was unreachable from the product** — is closed, together with the aggregate cap it would otherwise have exposed.
 
 `pest --parallel --filter='Purchase|Procurement|Grni'` → **46 passed**. Conformance gates → 63 passed.
 
@@ -75,7 +72,7 @@ achieved with two bills instead of one big one. **The books still balance (Dr = 
 > moment F-100 is fixed** — which is the natural next commit. Fix them together, or the fix for the
 > double-count ships the double-clear.
 
-### 🟡 F-102. `cancel()` bypasses the approval ladder that `reject()` enforces
+### 🟡 F-102. `cancel()` bypasses the approval ladder that `reject()` enforces · **FIXED 2026-07-17**
 `app/Services/PurchaseRequestService.php:252` · `PurchaseRequestsTable.php:163`
 
 `reject()` carries the tier check with an explicit rationale (`:141` — *"whoever cannot approve a
@@ -92,7 +89,7 @@ cancel : ALLOWED → status 'cancelled', decided_by=2
 Also reproduced: that manager cancelled a 50,000 purchase **already approved and ordered by a
 tier_3 senior** — unwinding a commitment they may not authorise.
 
-### 🟡 F-103. `order()` has no tier check, contradicting the doc's stated reason for sharing the permission
+### 🟡 F-103. `order()` has no tier check, contradicting the doc's stated reason for sharing the permission · **FIXED 2026-07-17**
 `app/Services/PurchaseRequestService.php:164` · `PurchaseRequestsTable.php:117`
 
 Doc §4: *"Deciding and ordering share one permission on purpose … whoever may place the order is
@@ -215,7 +212,7 @@ correctly closed.
 - **D-91 — F-100 + F-101 TOGETHER.** The link on `VendorBillForm`, *and* the aggregate cap
   (subtract what prior bills cleared; consider `unique` on the FK if one-bill-per-purchase is the
   intent). **Never F-100 alone.**
-- **D-92** — F-102/F-103: the tier check on `cancel()` and `order()`. Two one-liners.
+- ~~**D-92**~~ — ✅ **F-102/F-103 fixed 2026-07-17.** Extracted rather than copied a third time.
 - **D-93** — F-104: route the create page through `PurchaseRequestService::request()`, so the tier
   freezes and FR-PROC-01's "item(s)" is enforced.
 - **D-94** — F-105: `withTrashed()` on `PurchaseRequest::warehouse()`.

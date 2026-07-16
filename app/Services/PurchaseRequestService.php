@@ -100,14 +100,8 @@ class PurchaseRequestService
             $this->assertTransition($locked, PurchaseRequest::STATUS_APPROVED);
 
             // Re-check against the value, not merely the permission: someone who may approve 500
-            // must not approve 50,000 by finding the button. Judged on the CURRENT total, not the
-            // frozen tier — if lines changed since, the tier that matters is the one for what is
-            // actually being approved.
-            if (! ApprovalPolicy::canApprove($approver, ApprovalRule::MODULE_PURCHASE_REQUEST, (float) $locked->total_value)) {
-                throw new DomainException(__('admin.procurement.errors.approval_tier', [
-                    'value' => number_format((float) $locked->total_value, 2),
-                ]));
-            }
+            // must not approve 50,000 by finding the button.
+            $this->assertMayDecideValue($approver, $locked);
 
             // Approving your own request is not approval. The control is a second pair of eyes —
             // the same reasoning as a spare-part draw (FR-CM-10).
@@ -138,11 +132,7 @@ class PurchaseRequestService
 
             // Refusing is as much an act of authority as approving: whoever cannot approve a
             // 50,000 request should not be able to block it either.
-            if (! ApprovalPolicy::canApprove($decider, ApprovalRule::MODULE_PURCHASE_REQUEST, (float) $locked->total_value)) {
-                throw new DomainException(__('admin.procurement.errors.approval_tier', [
-                    'value' => number_format((float) $locked->total_value, 2),
-                ]));
-            }
+            $this->assertMayDecideValue($decider, $locked);
 
             $locked->update([
                 'status' => PurchaseRequest::STATUS_REJECTED,
@@ -169,6 +159,12 @@ class PurchaseRequestService
             $locked = $this->lock($request);
             $this->assertCan($actor, self::DECIDE_PERMISSION);
             $this->assertTransition($locked, PurchaseRequest::STATUS_ORDERED);
+
+            // Placing the order is the act that commits the mall's money to the supplier — so
+            // the doc's reason for sharing one permission with approval ("whoever may place the
+            // order is exactly whoever may approve it") only holds if the ladder applies here
+            // too. It didn't: a manager who could not approve 50,000 could still order it.
+            $this->assertMayDecideValue($actor, $locked);
 
             $locked->update([
                 'status' => PurchaseRequest::STATUS_ORDERED,
@@ -258,6 +254,12 @@ class PurchaseRequestService
             $this->assertCan($actor, self::DECIDE_PERMISSION);
             $this->assertTransition($locked, PurchaseRequest::STATUS_CANCELLED);
 
+            // Cancelling is the other refusal path — same origin state as reject(), same terminal
+            // outcome — so it carries the same authority requirement, by reject()'s own rationale.
+            // Without this a manager could cancel a 50,000 purchase an authorised senior had
+            // already approved AND ordered, unwinding a commitment they could not have made.
+            $this->assertMayDecideValue($actor, $locked);
+
             $locked->update([
                 'status' => PurchaseRequest::STATUS_CANCELLED,
                 'decided_by_user_id' => $actor->id,
@@ -290,6 +292,29 @@ class PurchaseRequestService
     {
         if ($actor === null || ! $actor->can($permission)) {
             throw new DomainException(__('admin.procurement.errors.denied'));
+        }
+    }
+
+    /**
+     * The value half of `procurement.decide`: holding the permission says you may act on
+     * purchases; the ladder says on purchases of what SIZE. Judged on the CURRENT total, never
+     * the frozen `required_permission` — if the lines changed since, the tier that matters is
+     * the one for what is actually being decided.
+     *
+     * Extracted because it was duplicated verbatim in approve() and reject() and **absent from
+     * order() and cancel()** — the tier was on 2 of the 4 verbs the permission covers, so a
+     * manager who could not approve a 50,000 purchase could still cancel one a senior had
+     * approved, or place the order for it (gap-analysis F-102/F-103). One method, four callers:
+     * the duplication is what let them diverge.
+     *
+     * @throws DomainException
+     */
+    private function assertMayDecideValue(?User $actor, PurchaseRequest $request): void
+    {
+        if (! ApprovalPolicy::canApprove($actor, ApprovalRule::MODULE_PURCHASE_REQUEST, (float) $request->total_value)) {
+            throw new DomainException(__('admin.procurement.errors.approval_tier', [
+                'value' => number_format((float) $request->total_value, 2),
+            ]));
         }
     }
 }
