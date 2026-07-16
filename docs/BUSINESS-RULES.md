@@ -44,6 +44,8 @@ These are the ten highest-risk assumptions. If any answer is "no", stop and flag
 9. **Is the artificial-breakpoint formula the correct default for percentage rent** — `(sales − threshold) × rate`? Leases with no calculation type set will silently use this. If your leases use the natural breakpoint, percentage rent is wrong.
 10. **Is the default payment term 7 days** from invoice issue date, and is the ETA e-invoicing setup (tax IDs, item codes, issuer identity) ready — noting it currently runs in **test/mock mode** and is **not certified** (see next section)?
 11. **SLA penalties (FR-CM-08): are they a cost reduction, and does the benefit reach tenants?** See *Vendor SLA Penalties* below. Two questions in one, and the second decides **who gets the money**.
+12. **Approval thresholds (FR-CM-11): are 1,000 / 10,000 the right bands?** See *Approval Ladder* below. The FRD gives no numbers — these are our defaults, and they decide who may authorise a spend.
+13. **Externally-bought parts (FR-CM-09): must a vendor bill back the record?** See *Externally-bought spare parts* below. Until answered, a job's parts cost is an operational figure, not a GL one.
 
 ---
 
@@ -422,6 +424,26 @@ Confirm with the operator and the lease wording: **does an SLA penalty reduce th
 Eltizam's to keep?** If it should reduce CAM, the safe answer today is procedural (a documented step
 at reconciliation time); wiring the CAM pool to the GL is a larger change and is not in scope.
 
+
+---
+
+## Externally-bought spare parts (FR-CM-09) — **NEEDS OPERATOR CONFIRMATION**
+
+A part bought outside for a maintenance job is recorded on the work order (what, from whom, on
+which supplier invoice) and counts toward the job's parts cost. It posts **nothing** to the general
+ledger: it never touched our stock, so there is no inventory to relieve.
+
+The accounting document for that money is the **vendor bill**. Today nothing links the two, and
+nothing requires a bill to exist for a recorded external part — so a job's parts cost can exceed
+what the books know about it. The books stay balanced (the purchase is absent, not wrong).
+
+**Confirm with the operator/accountant:**
+1. Should recording an external part **require** a vendor bill (or an expense) before the job can
+   be closed — or is the WO record a memo, with the bill entered independently by accounting?
+2. If a bill is required, does it need to reference the work order (for job costing), or is the
+   property + category dimension enough?
+
+Until this is answered, treat `partsCost()` as an **operational** figure, not a GL one.
 
 ---
 

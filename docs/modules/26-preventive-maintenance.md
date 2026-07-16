@@ -428,6 +428,31 @@ Everything goes through `WorkOrderPartService`; the relation manager is a thin c
 - `MaintenanceWorkOrder::partsCost()` sums `approved` + `recorded` only: a rejected request cost
   the job nothing.
 
+### What reaches the general ledger (and what deliberately doesn't)
+
+| Thing | GL treatment |
+|-------|--------------|
+| An **approved internal draw** | posts via its `StockMovement` → `InventoryMovementJournalizer`: **Dr** repairs & maintenance / **Cr** inventory, dimensioned to the property that owns the stock. Stock becomes cost the moment it is issued. |
+| A **voided** draw's movement | the entry is voided and `counted()` stops charging the job — the cost comes back out with the stock. |
+| A **pending** or **rejected** draw | nothing. No stock moved, so there is nothing to recognise. |
+| A **recorded external purchase** | **nothing** — see below. |
+| An **applied SLA penalty** | posts via `MaintenancePenaltyJournalizer` (**Dr** AP / **Cr** the expense the bill charged). |
+
+`MaintenanceWorkOrderPart` is deliberately **not** a GL source: the `StockMovement` is the
+accounting event, and giving the part its own journalizer would post the same cost twice.
+
+> ⚠️ **The external-purchase seam — a known reporting gap.** A part bought outside never touched
+> our stock, so there is no inventory to relieve and no movement to post. Its accounting document
+> is the **vendor bill** (Dr expense / Cr AP), which posts through its own journalizer — but
+> nothing links the two, and nothing forces a bill to exist for a recorded external part. So
+> `partsCost()` can exceed what the GL knows about the job.
+>
+> This is a *reporting* gap, not a GL imbalance: an unrecorded purchase is **absent** from the
+> books rather than **wrong** in them, and `billing:reconcile` stays green (proven in
+> `WorkOrderPartLedgerDispatchTest`). Don't "fix" it by journalizing the part — that would
+> double-count the moment someone also enters the bill. The seam closes with procurement
+> (FR-PROC-\*), where the bill is raised against the request that caused it.
+
 ---
 
 ## 3. RBAC & module flag
@@ -577,6 +602,16 @@ service is (viewer, ladder-deleted viewer, under-tier supervisor, and the reques
 all offered no button), a draw from another mall's warehouse is **rejected on submit** rather than
 merely absent from the dropdown, and the table renders **with rows of every source × status** — the
 label/description/badge closures differ per shape, so a one-row table would prove almost nothing.
+
+`tests/Feature/Regression/WorkOrderPartLedgerDispatchTest.php` — the **money half**, and it never
+touches `LedgerPoster`: it drives the service and then the real `accounting:sync-ledger` sweep, so
+it fails if the dispatch wiring regresses. Proves an approved draw posts (balanced, expense-vs-
+inventory, property-dimensioned), doesn't double-post on re-run, reverses on void, and that the
+books tie out after each. This exists because the SLA penalty shipped green while posting nothing —
+its test called `LedgerPoster::post()` directly, proving the arithmetic and never the path — and
+parts shipped with no GL coverage at all while the demo data contains zero of them, so
+`billing:reconcile` was silent on them too. Verified load-bearing: a draw that posts nothing fails
+it.
 
 **Related:** 11 Maintenance (tenant-facing requests), 12 Vendors (assignees), 14 Departments,
 01 Properties (asset scope), 18 RBAC (operations), 19 Notifications & Scans (the daily scan),
