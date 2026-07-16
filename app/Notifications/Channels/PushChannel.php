@@ -3,6 +3,7 @@
 namespace App\Notifications\Channels;
 
 use App\Jobs\SendPushNotification;
+use App\Support\KeyCase;
 use Illuminate\Notifications\Notification;
 
 /**
@@ -50,26 +51,46 @@ class PushChannel
     {
         if (method_exists($notification, 'toPush')) {
             $p = $notification->toPush($notifiable);
-
-            return [
-                'title' => $p['title'] ?? (string) config('app.name'),
-                'body' => (string) ($p['body'] ?? ''),
-                'data' => $p['data'] ?? [],
-            ];
-        }
-
-        if (method_exists($notification, 'toDatabase')) {
+            $title = $p['title'] ?? (string) config('app.name');
+            $body = (string) ($p['body'] ?? '');
+            $data = $p['data'] ?? [];
+        } elseif (method_exists($notification, 'toDatabase')) {
             $d = $notification->toDatabase($notifiable);
-
-            return [
-                'title' => $d['title'] ?? (string) config('app.name'),
-                'body' => (string) ($d['body'] ?? ''),
-                // Drop the in-app bell render hints; keep the id/reference fields
-                // the app needs to deep-link on tap.
-                'data' => collect($d)->except(['title', 'body', 'icon', 'color', 'format', 'duration'])->all(),
-            ];
+            $title = $d['title'] ?? (string) config('app.name');
+            $body = (string) ($d['body'] ?? '');
+            // Drop the in-app bell render hints; keep the id/reference fields
+            // the app needs to deep-link on tap.
+            $data = collect($d)->except(['title', 'body', 'icon', 'color', 'format', 'duration'])->all();
+        } else {
+            return null;
         }
 
-        return null;
+        return [
+            'title' => $title,
+            'body' => $body,
+            'data' => $this->wireData($data, $notification),
+        ];
+    }
+
+    /**
+     * Shape the deep-link payload to the mobile app's wire contract
+     * (docs/api/MOBILE-API.md: "All JSON keys are camelCase in both directions").
+     *
+     * Push is an OUTBOUND call to FCM, so — unlike every /api/v1 response — it
+     * never passes through CamelCaseResponseKeys. Without re-casing here we'd ship
+     * `invoice_id` while the app reads `invoiceId`, and every push tap would
+     * deep-link to a null id (it resolves the target from these id fields).
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    protected function wireData(array $data, Notification $notification): array
+    {
+        // The app routes a push tap through the SAME mapper as an inbox tap, so
+        // `type` must speak the inbox's vocabulary — NotificationResource::type,
+        // i.e. the short class name — not toDatabase()'s internal bell slug.
+        $data['type'] = class_basename($notification);
+
+        return KeyCase::camelKeys($data);
     }
 }

@@ -121,11 +121,14 @@ FCM message shape the app receives:
 ```jsonc
 {
   "notification": { "title": "Invoice ATR-2026-0007", "body": "EGP 12,340.00 is due on 2026-08-01." },
-  "data": { "type": "invoice_issued", "invoice_id": "7", "invoice_number": "ATR-2026-0007", "due_date": "2026-08-01" }
+  "data": { "type": "InvoiceIssuedNotification", "invoiceId": "7", "invoiceNumber": "ATR-2026-0007", "dueDate": "2026-08-01" }
 }
 ```
-- **All `data` values are strings** (FCM requirement) — cast on the client (`Number(data.invoice_id)`).
-- `data.type` tells the app which screen to deep-link to on tap; the id fields (`invoice_id`, `request_id`, `payment_id`, …) tell it which record. Render hints used by the web bell (`icon`, `color`, `format`, `duration`) are stripped from push.
+- **camelCase keys, same as every `/api/v1` response.** Push is an *outbound* call to FCM, so it never passes through the `CamelCaseResponseKeys` middleware — `PushChannel::wireData()` re-cases it explicitly (via the same `KeyCase` helper) so the app can read `data.invoiceId` exactly as it does from the inbox. Don't remove that: the app resolves the deep-link target from these id fields, so snake_case here silently lands every tap on a null id.
+- **`data.type` is the short class name** (`InvoiceIssuedNotification`) — the *same* vocabulary `GET /me/notifications` returns in `NotificationResource::type`, **not** `toDatabase()`'s internal bell slug. The app deliberately routes a push tap through the same mapper as an inbox tap, so the two must match.
+- **All `data` values are strings** (FCM requirement) — cast on the client (`int.parse(data['invoiceId'])`).
+- The id fields (`invoiceId`, `paymentId`, `maintenanceId`, …) tell the app which record to open. Render hints used by the web bell (`icon`, `color`, `format`, `duration`) are stripped from push.
+- Both rules are pinned by a regression test in `tests/Feature/PushNotificationTest.php` ("ships the push payload in the app wire contract").
 - A deep-link scheme for the "Open the app" button on the public payment page is configurable via `APP_DEEP_LINK` (e.g. `atriom://invoices`).
 
 **Client responsibilities:** request notification permission; obtain the FCM token via the Firebase SDK; `POST /me/devices` on login and on the SDK's token-refresh callback; handle foreground messages (show an in-app toast) and background/tap (deep-link using `data`); `DELETE` on logout.

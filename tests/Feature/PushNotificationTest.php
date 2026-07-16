@@ -57,8 +57,30 @@ it('fans a push notification out to the tenant\'s device tokens, reusing the bel
         ->and($call['title'])->toBe('Hi there')
         ->and($call['body'])->toBe('Body text')
         // id fields carried for deep-linking; bell render-hints dropped.
-        ->and($call['data'])->toHaveKey('invoice_id')
+        ->and($call['data'])->toHaveKey('invoiceId')
         ->and($call['data'])->not->toHaveKeys(['icon', 'color', 'format', 'title', 'body']);
+});
+
+it('ships the push payload in the app wire contract: camelCase keys + the inbox type', function () {
+    // Push is an outbound FCM call, so it never passes through the
+    // CamelCaseResponseKeys middleware that every /api/v1 response does. If this
+    // regresses, the app reads data['invoiceId'] against our `invoice_id` and
+    // EVERY push tap deep-links to a null id (silently — nothing throws).
+    $fake = new RecordingPushSender;
+    $this->app->instance(PushSender::class, $fake);
+
+    $tenant = makeTenant();
+    $tenant->deviceTokens()->create(['platform' => 'android', 'token' => 'tok-A', 'device_name' => 'A']);
+
+    $tenant->notify(new PushTestNotification);
+
+    $data = $fake->calls[0]['data'];
+    expect($data)->toHaveKey('invoiceId')
+        ->and($data)->not->toHaveKey('invoice_id')
+        ->and($data['invoiceId'])->toBe(7)
+        // The app maps a push tap with the SAME mapper as an inbox tap, so `type`
+        // must match NotificationResource::type (class_basename), not a slug.
+        ->and($data['type'])->toBe('PushTestNotification');
 });
 
 it('does not push when the tenant has no registered devices', function () {
