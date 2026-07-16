@@ -9,14 +9,15 @@ Round 1 (2026-05-31 → 06-25) covered **modules 01–20**. Modules **21–28** 
 everything that posts money to it — were built afterwards and had **never been audited**. That blind
 spot was the single largest known risk in the project; this round closed it.
 
-**It found six 🔴 money bugs in modules nobody had ever looked at.** Four are now fixed
-(`GapAnalysisRound2FixesTest`, `PostingDateGuardTest` — each verified to fail without its fix); the
+**It found six 🔴 money bugs in modules nobody had ever looked at.** Five are now fixed
+(`GapAnalysisRound2FixesTest`, `PostingDateGuardTest`, `ValuelessStockMovementTest` — each verified
+to fail without its fix); the
 rest are catalogued as F-83…F-99 / D-66…D-89 per the project's "fix small, batch large" policy.
 
 | # | Module | Status | Doc | Headline |
 |---|---|---|---|---|
 | 21 | General Ledger | 🟡 Yellow | [21-general-ledger.md](21-general-ledger.md) | **F-79 FIXED** — `matches()` ignored `entry_date`, so a date-only edit stranded the entry in the wrong period, undetectably (the close gate and `--deep` reconcile were blind **by construction**, since `wouldChange()` reuses `matches()`). The sibling of the MaintenancePenalty bug that survived the registry fix: not a missing *source*, but a source **field the reconciler never compared**. |
-| 22 | Inventory & Stock | 🟡 Yellow | [22-inventory.md](22-inventory.md) | **F-83** a `unit_cost = 0` item consumes stock and posts **nothing** to the GL (Inventory inflates forever) *and* collapses the approval ladder to tier_1. **F-84** a negative `adjustment` has no floor → negative on-hand + a credit balance on an asset account. Both reproduced live. |
+| 22 | Inventory & Stock | 🟡 Yellow | [22-inventory.md](22-inventory.md) | **F-83 FIXED** — a `unit_cost = 0` item consumed stock and posted **nothing** to the GL (Inventory inflates forever) *and* collapsed the approval ladder to tier_1; one guard closed both. **F-84** a negative `adjustment` has no floor → negative on-hand + a credit balance on an asset account. Both reproduced live. |
 | 23 | Fixed Assets | 🟡 Yellow | [23-fixed-assets.md](23-fixed-assets.md) | **F-86** editing `acquisition_cost` below posted accumulated → **negative NBV, depreciation stops forever**. The clamp only protects the forward run, never a retroactive re-cost — which the model explicitly supports. |
 | 24 | HR / Payroll | 🟡 Yellow | [24-hr-employees.md](24-hr-employees.md) | **F-90b** a payroll *line*'s net can go negative (the guard checks only the header) → a payslip printing **Net −1,000** on a frozen run. **F-91** a mis-keyed repayment is permanently uncorrectable. |
 | 25 | Treasury / Custody | 🔴 → 🟡 | [25-treasury-custody.md](25-treasury-custody.md) | **F-93 FIXED** — a settlement dated into a closed period **silently diverged the GL from outstanding**, and back-dating across a close is a عهدة's *normal* workflow, not an edge case (the queued job swallows the throw; the operator is told it succeeded). Now refused by `App\Support\PostingDate`, which closes F-89 in module 24 too — one bug, two hats. **F-94** no correction path exists for any settlement — the only other money document in Atriom without one. |

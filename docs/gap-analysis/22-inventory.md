@@ -4,9 +4,11 @@
 > [../modules/22-inventory.md](../modules/22-inventory.md) · methodology: [000-plan.md](000-plan.md).
 > All findings below were **reproduced live** against the dev DB inside a rolled-back transaction.
 
-**Status: 🟡 Yellow.** The ledger design, sign-normalisation, the consumption overdraw guard and the
-cross-property draw guard are genuinely well built. Both money bugs sit in the **unguarded siblings
-of paths that were hardened** — the receipt side got the guard, the cost-out side didn't.
+**Status: 🟡 Yellow** — F-83 fixed 2026-07-17; **F-84 remains open**. The ledger design,
+sign-normalisation, the consumption overdraw guard and the cross-property draw guard are genuinely
+well built. Both money bugs sat in the **unguarded siblings of paths that were hardened**: the
+receipt side got the 0-cost guard and the cost-out side didn't (F-83); `consumption` got the
+overdraw floor and `adjustment` didn't (F-84).
 
 `pest --parallel --filter='Inventory|Stock'` → **green**.
 
@@ -14,7 +16,7 @@ of paths that were hardened** — the receipt side got the guard, the cost-out s
 
 ## 1. Findings
 
-### 🔴 F-83. A catalog item at `unit_cost = 0` silently never relieves Inventory — and collapses the approval ladder
+### 🔴 F-83. A catalog item at `unit_cost = 0` silently never relieves Inventory — and collapses the approval ladder · **FIXED 2026-07-17**
 `app/Services/StockMovementService.php:50` · `app/Filament/Admin/Resources/InventoryItems/Schemas/InventoryItemForm.php:32`
 
 `unit_cost` on the item form is **not `required()` and defaults to `0`**. The consumption/adjustment
@@ -39,9 +41,22 @@ internal draw, so `WorkOrderPartService::requestInternal` falls back to the cata
 comment says it fixed (*"a 500 EGP draw priced itself at 0.00 and asked for tier_1"*): `filled()`
 guards a blank *submitted* value, but not a catalog cost of 0.
 
-**Suggested fix:** require `unit_cost > 0` on `InventoryItemForm` (mirror the receipt's
-`minValue(0.01)->required()`), or fall back to last-receipt cost in `record()` — closes the GL
-non-relief **and** the ladder collapse in one change.
+**Fix (2026-07-17) — both layers, because the form is not a gate.**
+1. **`StockMovementService::record()` refuses a valueless movement**: `quantity != 0 && unitCost <= 0`
+   → throw. This is the real guard — the relation managers, the work-order parts draw, and every
+   console/API caller pass through it, and a **legacy item** created before the form was tightened
+   still resolves to 0.
+2. **`InventoryItemForm` requires `minValue(0.01)`**, mirroring the receipt's identical guard, so
+   the bad data can't be created in the first place.
+
+**Keyed on quantity, not type** — a zero-quantity `adjustment` is a deliberate no-op note (the
+service's own `$quantity == 0.0 && $type !== 'adjustment'` check, and the journalizer's *"a
+zero-value movement has no GL effect"*), and stays legal. What may never happen is stock physically
+moving without its value following.
+
+Guard: `tests/Feature/Regression/ValuelessStockMovementTest.php` — 3 of 5 fail without it; the two
+"still works" cases pass either way, proving the catalog-cost fallback and the note-adjustment are
+both intact. One change closed the GL non-relief **and** the tier_1 ladder collapse, as predicted.
 
 ### 🔴 F-84. A negative `adjustment` has no floor — drives on-hand negative and puts a credit balance on an asset account
 `app/Services/StockMovementService.php:72` (guard is `if ($type === 'consumption')` only) ·
@@ -95,14 +110,15 @@ per-warehouse). Performance only.
 
 - `StockMovementServiceTest` proves the overdraw guard for `consumption` but **never for
   `adjustment`** (F-84).
-- **No test constructs an item at `unit_cost = 0`** and asserts a consumption still posts (F-83).
+- ~~No test constructs an item at `unit_cost = 0`~~ — ✅ covered by `ValuelessStockMovementTest`.
 - Dispatch is genuinely proven — consumption posts through the real `approve()` → windowed sweep in
   `WorkOrderPartLedgerDispatchTest:66`, and receipts via `GlPostingSourcesScenarioTest:220`. **The
   SLA-penalty trap is not present here** (checked explicitly).
 
 ## 4. Deferred
 
-- **D-70** — F-83 require `unit_cost > 0` (or last-receipt fallback). Highest value: one change, two
-  bugs.
-- **D-71** — F-84 floor any stock-removing quantity at on-hand.
+- ~~**D-70**~~ — ✅ **F-83 fixed 2026-07-17.** One change, two bugs, as predicted.
+- **D-71 — now this module's priority.** F-84: floor any stock-removing quantity at on-hand,
+  inside the existing `record()` lock. Same shape as F-83: a guard the `consumption` path already
+  has, that `adjustment` never got.
 - **D-72** — F-85 narrow the consumption lock to the warehouse grain.

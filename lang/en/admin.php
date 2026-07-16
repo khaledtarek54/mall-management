@@ -1212,6 +1212,7 @@ return [
     ],
 
     'helpers' => [
+        'inventory_unit_cost' => 'The standard cost used to value every consumption and write-off of this item. It must be positive: at 0 the stock would leave the warehouse without posting anything to the ledger, and a part draw would ask the approval ladder for its lowest tier.',
         'account_type' => 'Asset / Liability / Equity / Revenue / Expense — sets the debit/credit side.',
         'account_code' => 'Digits only. The parent is set automatically from the code (e.g. 41102 sits under 411). Leading digit: 1 assets · 2 liabilities · 3 equity · 4 revenue · 5 expenses.',
         'parent_account' => 'Optional — groups this account under a summary account.',

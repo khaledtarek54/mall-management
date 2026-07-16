@@ -52,6 +52,31 @@ class StockMovementService
             $unitCost = round((float) (InventoryItem::find($data['inventory_item_id'])?->unit_cost ?? 0), 2);
         }
 
+        // ...but the sentence above was only TRUE if the catalog actually carries a cost, and
+        // `unit_cost` was optional on the item form (minValue(0), default 0). At cost 0 the
+        // fallback resolved to 0, InventoryMovementJournalizer returned null, and the stock
+        // left the warehouse having posted NOTHING: Inventory inflates forever, the expense is
+        // never charged, and doc rule 7 ("a write-off ALWAYS hits Inventory Adjustment") is
+        // quietly false. The receipt path had already reasoned this through and guarded it
+        // ("a 0-cost receipt would add stock but post nothing to the GL", minValue(0.01)
+        // ->required()) — the cost-out side just never got the same guard (gap-analysis F-83).
+        //
+        // Guarded HERE, not only on the form: the relation managers, the work-order parts draw
+        // and any console/API caller all pass through this method, and a legacy item created
+        // before the form was tightened still resolves to 0.
+        //
+        // Keyed on quantity, not type: a ZERO-quantity adjustment is a deliberate no-op note
+        // (see the `$quantity == 0.0 && $type !== 'adjustment'` guard above, and the
+        // journalizer's "a zero-value movement has no GL effect"), and must stay legal. What
+        // may never happen is stock physically moving without its value following.
+        if ($quantity != 0.0 && $unitCost <= 0) {
+            throw new InvalidArgumentException(
+                'Stock cannot move without a value: item #'.($data['inventory_item_id'] ?? '?')
+                .' has no unit cost, so this movement would post nothing to the general ledger. '
+                .'Set a unit cost on the item, or supply one with the movement.'
+            );
+        }
+
         $attributes = [
             'warehouse_id' => $data['warehouse_id'],
             'inventory_item_id' => $data['inventory_item_id'],
