@@ -50,6 +50,15 @@ return Application::configure(basePath: dirname(__DIR__))
     // Schedule::command(...) calls there for the monthly billing, daily late
     // fees, and annual CAM reconciliation cadences.
     ->withExceptions(function (Exceptions $exceptions): void {
+        // Report unhandled exceptions to Sentry. Until this existed, a 500 or an exhausted
+        // queue job surfaced only as a customer complaint — OpsLog covers the money paths it
+        // was told about, and nothing covered the ones nobody anticipated.
+        //
+        // No-ops without SENTRY_LARAVEL_DSN (the SDK's transport skips the send outright), so
+        // this is inert in dev and tests and turns on with one env var. PII is withheld by
+        // config/sentry.php — see send_default_pii + before_send there.
+        \Sentry\Laravel\Integration::handles($exceptions);
+
         // Mobile API error contract: every /api/* failure renders as
         // { "message": "...", "statusCode": <int> } (+ "errors" for validation).
         // Keys are camelCased here too, since exception responses unwind

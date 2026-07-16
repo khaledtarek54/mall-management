@@ -34,9 +34,11 @@ Two structural facts worth holding:
   per-feature analysis; the newer eight have docs only. Every module that posts money to the
   GL sits in that blind spot. See the census in [PROJECT-MAP.md](PROJECT-MAP.md).
 - **The self-enforcing gates are what keep this honest** — property isolation, the E2E
-  manifest, and (as of 2026-07-16) the GL registry. Where a gate exists, drift fails CI.
-  Where one doesn't, drift ships: that is precisely how an applied SLA penalty came to
-  reduce a vendor bill while posting nothing to the ledger.
+  manifest, media privacy, and (as of 2026-07-16) the GL registry. Where a gate exists, drift
+  fails the suite. Where one doesn't, drift ships: that is precisely how an applied SLA
+  penalty came to reduce a vendor bill while posting nothing to the ledger.
+  **⚠️ But CI auto-runs are off** (§2), so today those gates fail only when someone runs
+  `pest --parallel` locally — they cannot currently stop a bad change merging.
 
 ---
 
@@ -44,12 +46,14 @@ Two structural facts worth holding:
 
 | Item | What & why | Owner | Effort |
 | --- | --- | --- | --- |
+| **Decide: is CI a gate or a suggestion?** ⚠️ | `.github/workflows/ci.yml` has **auto-runs disabled** — no push/PR trigger, manual dispatch only. So PHPUnit, PHPStan, Playwright **and every conformance gate** (property isolation, GL registry, media privacy, E2E manifest) only run when someone remembers `pest --parallel`. Each of those gates exists because its bug class *already shipped once*; as configured they cannot stop the next one merging, and every doc claiming a violation "fails CI" is aspirational. Either re-enable the triggers (uncomment two blocks) or accept they're a local discipline — but decide, don't drift. | ⚙️ | S |
+| **Keep `composer audit` green** | Now a CI job. Its first run (2026-07-16) found **22 advisories across 12 packages**, incl. two HIGH: Filament **MFA recovery codes reusable via concurrent submission**, and a medialibrary **file-upload restriction bypass** — plus a Filament **scope-enforcement** CVE landing directly on this project's property-isolation invariant. All fixed inside existing constraints (Filament 4.11.3→4.11.8, Laravel 13.11.2→13.20.0, medialibrary 11.22.1→11.23.2); 2283 tests green. Nobody knew because nothing looked — and a CVE lands with no change to your code, so only a scheduled check finds it. **This is the row most likely to bite again if CI stays manual.** | ⚙️ | S |
 | **ETA live credentials + signing certificate** | Real `client_id`/`client_secret` from the operator's ETA taxpayer profile **and** a CAdES signing certificate. ETA production **rejects unsigned B2B documents**. The pluggable signer seam + refuse-to-submit guard are ready (`config/eta.php:70-74`, `signing.enabled` defaults false). | 🔑 | M |
 | **ETA EGS codes + issuer identity** | Register real EGS item codes (base_rent, service_charge, utility, parking, percentage_rent) + issuer TRN/legal name/address. Placeholders still ship (`config/eta.php:36-46` — issuer TRN `100000000`; `:55-62` — EGS `EG-6820-001`). Wrong codes ⇒ rejection. All env-driven, no code change. | 🔑 | S |
 | **Flip ETA out of mock mode** | `EtaSettings.php:16` `$mock = true` submits to a fake endpoint — no legally-binding invoices. One-line flip, gated on the two rows above. | 🧑‍💻 | S |
 | **Paymob live cutover (KYC + live creds)** | Sandbox fully integrated and certified; no code changes. Operator completes KYC, re-issues all 4 live credentials, re-registers callbacks on the prod domain, runs one small real charge (`PAYMOB-SETUP.md §6`). | 🔑 | S |
 | **Database backups** | Documented only (`docs/INFRASTRUCTURE.md:267-286`) — no `spatie/laravel-backup`, nothing in `scripts/`, and **no deploy workflow exists at all**: `.github/workflows/ci.yml:6-11` is the only one and its triggers are commented out. Catastrophic data-loss risk for an ERP holding money, tax and contracts. | ⚙️ | S |
-| **Error tracking + centralized logging** | No Sentry/Flare/APM in `composer.json`. The `ops` channel exists but `OPS_LOG_STACK=ops_daily` → **disk-only**; `slack`/`papertrail` stanzas are unconfigured boilerplate. **This is a multiplier:** failed-job alerting, ETA retry alerting and Paymob observability all terminate in a local file — every "we log it loudly" claim is true only for someone SSH'd into the box. `.env.example:82` documents the one-line fix (`OPS_LOG_STACK="ops_daily,slack"`). | ⚙️/🧑‍💻 | M |
+| **Turn on the alerting you already have** | Code is **done** (2026-07-16); this is now two env vars. **Sentry** is wired and inert until `SENTRY_LARAVEL_DSN` is set (PII withheld — `send_default_pii=false` + a `before_send` reusing OpsLog's redaction; self-hostable if the data must stay in-country). **Slack** alerting needs `OPS_LOG_STACK="ops_daily,slack"` + `LOG_SLACK_WEBHOOK_URL`; the threshold is now `LOG_SLACK_LEVEL` (default `error`), decoupled from `LOG_LEVEL` so it can't page on every routine warning. Until both are set, every money/integration failure is visible only to someone SSH'd into the box. | ⚙️/🔑 | S |
 | **Rotate the seeded demo password** | Parametrized (`DemoSeeder.php:91`) but the default is still `password` and `.env.example:14` ships it. Now a deploy action, not a build task — rotate/delete demo accounts before the URL is shareable. | ⚙️ | S |
 | **Email (SMTP) cutover** | `MAIL_MAILER=log` — invoice/payment/maintenance mail reaches nobody. Operator supplies SMTP host/creds/from-address + SPF/DKIM. | 🔑 | S |
 | **`integrations:check` preflight** | Run `php artisan integrations:check` after the live `.env` swap to validate Paymob + ETA creds before the first real charge. Command is built and exits non-zero on failure. | ⚙️ | S |
@@ -64,7 +68,6 @@ Ordered by real risk, not by age.
 | --- | --- | --- | --- |
 | **Failed-jobs + scheduler monitoring** | Prose only (`PRODUCTION-RUNBOOK.md:104`). No alert, dashboard, health script, or dead-cron detection. A silently-dead cron means tenants go unbilled and tax submissions are missed for days. Depends on the P0 logging row. | ⚙️ | S |
 | **Health check that checks something** | `bootstrap/app.php:13` `health: '/up'` is the stock default — no DB/queue/cache probe, no uptime monitor. A false 200 masks a DB outage. | ⚙️ | M |
-| **SLA scans emit nothing** | The other three batch runs log summaries (`MonthlyBillingService.php:120`, `LateFeeService.php:53`, `CamReconciliationService.php:167`); both SLA scans use `$this->info()` only (`ScanWorkOrderSlaBreachesCommand.php:76`, `ScanMaintenanceSlaBreachesCommand.php:87`) — under `schedule:run` that output goes nowhere. Now that penalties are real money, a silent scan is a money problem. | 🧑‍💻 | S |
 | **Enforce 2FA on write roles** | Mechanism built (`config/security.php:19-22`) but ships `SECURITY_FORCE_2FA_ROLES=super_admin` — manager/accounting/leasing/operations/hr handle payments and tenant changes without it. The decision was deferred to an env var nobody set. | ⚙️ | S |
 | **Production env defaults** | Keys + guidance present, dev defaults still ship: `APP_TIMEZONE=UTC` (schedules fire at the wrong wall-clock — must be `Africa/Cairo`), `LOG_LEVEL=debug` (leaks SQL/PII, fills disk). No logrotate guidance. | ⚙️ | S |
 | **App-level HTTPS forcing** | Headers are done and tested (`SecurityHeaders.php` — XFO/nosniff/Referrer-Policy/HSTS + a strict CSP on `/pay/*`). **Missing: no `forceScheme`/`forceHttps` anywhere** — HTTPS relies entirely on the proxy. | 🧑‍💻 | S |
@@ -205,6 +208,18 @@ Acting on the first one would actively reintroduce a bug.
 - ❌ **"`CreditNoteService` misses locked-declaration + resubmission edge cases"** — the
   locked-declaration path isn't on that service's surface (it's covered in
   `PercentageRentVoidLockedTest`), and "resubmission" has **zero hits** in `app/` or `tests/`.
+- ✅ **Fixed 2026-07-16 — SLA scans were silent.** Both scans reported only via
+  `$this->info()`/`$this->warn()`, and `routes/console.php` captures no console output, so under
+  `schedule:run` it was discarded. `maintenance:scan-wo-sla-breaches` runs **hourly** and
+  assesses money: a throw in `AssessSlaPenaltyService` meant **the vendor was never charged**
+  and nothing recorded it (per-row containment keeps the command green on purpose). Both now
+  emit an `OpsLog::error` per failed row, an `info` summary per run, and a `warning` when a run
+  had failures. Guarded by `SlaScanObservabilityTest`, which asserts on the ops channel rather
+  than the console — the console is what production throws away.
+- ✅ **Fixed 2026-07-16 — the Slack alert threshold was coupled to `LOG_LEVEL`.** The
+  "one env change" this roadmap used to recommend would have paged on every routine warning in
+  production (`LOG_LEVEL=warning`) and on everything in staging (`debug`). Now `LOG_SLACK_LEVEL`,
+  defaulting to `error`.
 - ✅ **Fixed 2026-07-16 — `Lease`/`Tenant` media on the `public` disk.** Both models
   implemented `HasMedia` but registered no collection, so `documents` inherited
   medialibrary's `env('MEDIA_DISK', 'public')` default and every signed contract and tax
@@ -236,19 +251,23 @@ Acting on the first one would actively reintroduce a bug.
 
 ---
 
-## 7. Recommended next three (code side)
+## 7. Recommended next
 
-1. **Wire centralized logging + error tracking** (P0). One env change plus a Sentry hook
-   retroactively upgrades failed-job alerting, ETA retry alerting and Paymob observability —
-   all of which currently log to a file nobody reads. Highest leverage remaining.
-2. **Audit role grants** (§3) — privilege escalation currently leaves no trail, which is a
-   compliance gap as much as a security one, and cheap to close.
-3. **FRD Phase 4 (procurement)** — the next FRD phase, and the seam that clears the GRNI
-   account that inventory receipts have been silently accumulating.
+**The code-side observability work is done** — what remains is four env vars an operator sets:
+`SENTRY_LARAVEL_DSN`, `OPS_LOG_STACK="ops_daily,slack"` + `LOG_SLACK_WEBHOOK_URL`, and
+`APP_TIMEZONE=Africa/Cairo`. Until they're set, every failure path is invisible off-box.
 
-**Then: gap-analyse modules 21–28.** It's the largest known blind spot (§1), it contains every
-GL-posting module, and the two afternoons spent looking at modules 21/26 so far produced a
-money bug and two exposures.
+1. **Gap-analyse modules 21–28** — the largest known blind spot (§1), containing every
+   GL-posting module. Two afternoons in it produced a money bug (SLA penalties never posting)
+   and two exposures (public-disk contracts, ungated portal writes). It is the highest
+   expected-value work left, and it is what the rest of this list is guessing at.
+2. **FRD Phase 4 (procurement)** — the next FRD phase, and the seam that clears the GRNI
+   account inventory receipts have been silently accumulating.
+3. **The remaining ⚙️ go-live rows** (§2) — backups and a deploy workflow. There is currently
+   **no deploy workflow at all**, which makes several other rows moot.
+
+> Before starting anything from §3, read the warning at the top of §6. Two of the first four
+> rows anyone verified were false.
 
 *Keep this file current: when something ships, move it to §6 rather than deleting it — the
 retired list is what stops the next person rebuilding a thing that already works.*

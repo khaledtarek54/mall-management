@@ -47,8 +47,18 @@ class OpsLog
         Log::channel('ops')->{$level}($event, self::scrub($context));
     }
 
-    /** @param array<string,mixed> $context @return array<string,mixed> */
-    private static function scrub(array $context): array
+    /**
+     * Redact secrets/card data from an arbitrary context array, recursively.
+     *
+     * Public because it is the project's ONE redaction policy and has a second consumer:
+     * `config/sentry.php`'s `before_send` runs every outbound error event's `extra` through
+     * it, so a key that is unsafe in ops.log is equally unsafe leaving the building. Keep it
+     * that way — a second list would drift, and the copy that drifts is the one that leaks.
+     *
+     * @param  array<string,mixed>  $context
+     * @return array<string,mixed>
+     */
+    public static function scrub(array $context): array
     {
         foreach ($context as $key => $value) {
             if (in_array(strtolower((string) $key), self::REDACT, true)) {

@@ -153,9 +153,10 @@ it('lets a manager revise a cause, and re-stamps who ruled', function () {
     // guess would make the record *less* true, so revision is allowed — provenance is what makes
     // that safe. The bearer must move with the cause, not stick at the first answer.
     //
-    // NB: provenance is asserted on the COLUMNS, not the activity log. The activity log is not a
-    // control here — every row in this project stores `properties = "[]"` (repo-wide; it records
-    // that something changed, never what). Asserting against it would be asserting a broken thing.
+    // Provenance is asserted on the COLUMNS because they are what this service owns. The activity
+    // log independently records the before/after diff in its `attribute_changes` column (spatie v5
+    // moved it there; `properties` is now only the custom-properties bucket, so it reads `[]` on
+    // every row and that is CORRECT, not a broken audit trail — I misread it once).
     $order = $this->svc->attribute(faultOrder(), MaintenanceWorkOrder::FAULT_TENANT, 'Looks like misuse.', null, $this->manager);
     expect($order->cost_bearer)->toBe(MaintenanceWorkOrder::BEARER_TENANT);
     $firstRuling = $order->fault_recorded_at;

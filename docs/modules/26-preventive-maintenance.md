@@ -491,9 +491,8 @@ must be answered first (BUSINESS-RULES open question 14). **Nothing in module 26
   there is no cost to apportion.
 - **Revisable, with provenance.** A cause is often revised once the engineer opens the machine;
   freezing the first guess would make the record *less* true. `fault_recorded_by_user_id` /
-  `fault_recorded_at` / `fault_notes` are the control — not immutability, and **not** the activity
-  log (which stores `properties = "[]"` on every row, repo-wide; it records *that* something changed,
-  never *what*).
+  `fault_recorded_at` / `fault_notes` are the control, rather than immutability. The activity log
+  additionally records the before/after diff of `fault_party` / `cost_bearer` / `fault_notes`.
 - **FR-CM-12's external-part scoping** — `MaintenanceWorkOrderPart::costBearer()` *reads* the job's
   attribution rather than storing its own copy, exactly as the FRD says ("as recorded on the work
   order"); a copy could disagree the moment someone revises the finding. Internal draws return null:

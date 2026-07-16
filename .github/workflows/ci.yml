@@ -1,8 +1,18 @@
 name: CI
 
-# Auto-runs are disabled — CI no longer runs on every push/PR. The workflow can
-# still be launched on demand from the Actions tab (Run workflow). To re-enable
-# automatic CI, uncomment the push / pull_request blocks below.
+# ⚠️ Auto-runs are disabled — CI does NOT run on push/PR. Launch it from the Actions
+# tab (Run workflow), or uncomment the blocks below to re-enable.
+#
+# KNOW WHAT THIS COSTS. The project's safety net is a set of self-enforcing conformance
+# gates — PropertyIsolationConformanceTest, GlRegistryConformanceTest,
+# MediaPrivacyConformanceTest, AdminSmokeManifestConformanceTest — whose whole design is
+# "a bad change cannot MERGE". With auto-runs off they are advisory: they only fire when
+# somebody remembers `vendor/bin/pest --parallel`. The docs that say a violation "fails CI"
+# are, as configured, aspirational. Every one of those gates exists because the class of bug
+# it catches already shipped once.
+#
+# Leaving it manual is a legitimate call (cost, noise) — but then the gates are a local
+# discipline, not a guarantee, and the docs should say so.
 on:
   workflow_dispatch:
   # push:
@@ -11,6 +21,33 @@ on:
   #   branches: [main, develop]
 
 jobs:
+  # Known-vulnerable dependencies. Cheap (no PHP deps needed beyond the lock file) and it
+  # catches the class of problem nothing else here can: a CVE published against a package
+  # you already have, without a single line of your code changing.
+  #
+  # This found 22 advisories the first time it was run (2026-07-16), incl. two HIGH — a
+  # Filament MFA recovery-code reuse and a medialibrary upload-restriction bypass — plus a
+  # Filament scope-enforcement CVE that lands squarely on this project's property-isolation
+  # invariant. All were fixable inside the existing composer.json constraints; nobody knew
+  # because nothing looked.
+  security-advisories:
+    name: Security advisories (composer audit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+          tools: composer:v2
+
+      # Audits composer.lock directly — no install needed.
+      - name: composer audit
+        run: composer audit --no-interaction
+
   phpunit:
     name: PHPUnit (services + math)
     runs-on: ubuntu-latest
