@@ -1,10 +1,12 @@
 <?php
 
+use App\Models\ApprovalRule;
 use App\Models\InventoryItem;
 use App\Models\PurchaseRequest;
 use App\Models\StockMovement;
 use App\Models\Warehouse;
 use App\Services\PurchaseRequestService;
+use App\Support\ApprovalPolicy;
 use Database\Seeders\ApprovalRulesSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
 use Spatie\Activitylog\Models\Activity;
@@ -125,7 +127,7 @@ it('refuses to let the requester approve their own purchase', function () {
     ], $selfServer);
 
     expect($selfServer->can(PurchaseRequestService::DECIDE_PERMISSION))->toBeTrue();
-    expect(App\Support\ApprovalPolicy::canApprove($selfServer, App\Models\ApprovalRule::MODULE_PURCHASE_REQUEST, 500.0))->toBeTrue();
+    expect(ApprovalPolicy::canApprove($selfServer, ApprovalRule::MODULE_PURCHASE_REQUEST, 500.0))->toBeTrue();
 
     expect(fn () => $this->svc->approve($r, null, $selfServer))->toThrow(DomainException::class);
     expect($r->fresh()->status)->toBe(PurchaseRequest::STATUS_REQUESTED);
@@ -289,6 +291,23 @@ it('refuses a line that is both a catalog item and free text, or neither', funct
         ->toThrow(InvalidArgumentException::class);
     expect(fn () => pr([], [['quantity' => 1, 'unit_cost' => 5]]))
         ->toThrow(InvalidArgumentException::class);
+});
+
+it('refuses a zero-cost catalog line at request time, not at receipt', function () {
+    // Stock that arrives at zero value posts NOTHING to the GL (the journalizer returns null for a
+    // zero-value movement), so inventory would inflate while the money never appears — which is why
+    // the receipt path has always required minValue(0.01). Caught HERE because allowing it let a
+    // request be raised, approved and ORDERED, and only then die at receipt, after the mall had
+    // committed to buy it.
+    expect(fn () => pr([], [['inventory_item_id' => $this->item->id, 'quantity' => 1, 'unit_cost' => 0]]))
+        ->toThrow(InvalidArgumentException::class);
+
+    // A SERVICE may legitimately be free — it never becomes stock, so there is nothing to value.
+    $free = pr([], [['description' => 'Warranty visit, no charge', 'quantity' => 1, 'unit_cost' => 0]]);
+    expect((float) $free->total_value)->toBe(0.0);
+    $this->svc->approve($free, null, $this->manager);
+    $this->svc->order($free->fresh(), null, 'PO-FREE', $this->manager);
+    expect($this->svc->receive($free->fresh(), $this->buyer)->status)->toBe(PurchaseRequest::STATUS_RECEIVED);
 });
 
 it('refuses a non-positive quantity or a negative cost', function () {

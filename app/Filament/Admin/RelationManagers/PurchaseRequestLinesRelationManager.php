@@ -82,7 +82,14 @@ class PurchaseRequestLinesRelationManager extends RelationManager
 
             TextInput::make('unit_cost')
                 ->label(__('admin.procurement.fields.unit_cost'))
-                ->prefix('EGP')->numeric()->minValue(0)->required(),
+                ->prefix('EGP')
+                ->numeric()
+                // A catalog line becomes stock on receipt, and stock that arrives at zero value
+                // posts nothing to the GL — so it needs a real cost, refused here rather than at
+                // receipt (after the mall has already committed to buy it). A service never
+                // becomes stock, so it may legitimately be free.
+                ->minValue(fn (callable $get) => filled($get('inventory_item_id')) ? 0.01 : 0)
+                ->required(),
         ]);
     }
 
