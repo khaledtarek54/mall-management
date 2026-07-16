@@ -3,10 +3,10 @@
 namespace App\Filament\Admin\Resources\MaintenancePlans\Schemas;
 
 use App\Models\Department;
-use App\Models\Equipment;
 use App\Models\MaintenancePlan;
 use App\Models\Unit;
 use App\Models\Vendor;
+use App\Support\EquipmentPicker;
 use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -19,47 +19,6 @@ use Filament\Schemas\Schema;
 
 class MaintenancePlanForm
 {
-    /**
-     * Selectable machines for the chosen property — **plus the record's own stored one**,
-     * even if since deactivated or soft-deleted.
-     *
-     * That last part is load-bearing, not politeness. Filament derives an `in:` rule from a
-     * Select's options and validates the CURRENT STORED VALUE against it
-     * (`Select::getInValidationRuleValues()` → blank label → `Rule::in([])`, which always
-     * fails). So filtering to `->active()` alone meant that the moment ops decommissioned a
-     * machine, its plan could never be saved again — not even to deactivate it. The one
-     * obvious escape was blocked too, so the record deadlocked with no UI way out while the
-     * nightly scan kept raising work orders for it.
-     *
-     * @return array<int,string>
-     */
-    private static function equipmentOptions(Get $get, ?int $currentId): array
-    {
-        $assetId = TenantScope::clampAssetId($get('asset_id'));
-
-        if ($assetId === null) {
-            return [];
-        }
-
-        $options = Equipment::query()
-            ->where('asset_id', $assetId)
-            ->active()
-            ->orderBy('code')
-            ->get();
-
-        if ($currentId !== null && ! $options->contains('id', $currentId)) {
-            // withTrashed: a soft-deleted machine is excluded by the default scope, and is
-            // exactly one of the states that used to deadlock the record.
-            $current = Equipment::withTrashed()->whereKey($currentId)->first();
-
-            if ($current !== null) {
-                $options->push($current);
-            }
-        }
-
-        return $options->mapWithKeys(fn (Equipment $e) => [$e->id => $e->label()])->all();
-    }
-
     public static function configure(Schema $schema): Schema
     {
         return $schema->columns(2)->components([
@@ -104,7 +63,7 @@ class MaintenancePlanForm
                 ->label(__('admin.preventive_maintenance.equipment.singular'))
                 ->helperText(__('admin.preventive_maintenance.equipment_hint'))
                 // The machine this plan services (FR-PPM-01/03). Same clamp as unit_id.
-                ->options(fn (Get $get, ?MaintenancePlan $record) => self::equipmentOptions($get, $record?->equipment_id))
+                ->options(fn (Get $get, ?MaintenancePlan $record) => EquipmentPicker::options($get('asset_id'), $record?->equipment_id))
                 // FR-PPM-01: Fixed maintenance is "per asset", so it must name the machine.
                 // The model enforces this too — the form only makes it visible.
                 ->required(fn (Get $get) => $get('maintenance_type') === MaintenancePlan::MAINTENANCE_TYPE_FIXED)

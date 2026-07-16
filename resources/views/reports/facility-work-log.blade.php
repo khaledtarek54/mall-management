@@ -62,7 +62,15 @@
                     <div class="k">{{ $t('report.done') }}</div>
                     <div class="v">{{ $summary['done'] }}</div>
                 </td>
-                <td class="chips" style="width:60%;">
+                <td class="chips" style="width:25%;">
+                    {{-- The log covers preventive AND corrective work; state the split
+                         rather than leave the reader to infer it from the references. --}}
+                    <div class="k">{{ $t('report.by_type') }}</div>
+                    @foreach ($summary['by_type'] as $type => $n)
+                        <span>{{ $t("work_order_types.$type") }}: {{ $n }}</span>
+                    @endforeach
+                </td>
+                <td class="chips" style="width:35%;">
                     <div class="k">{{ $t('report.by_category') }}</div>
                     @foreach ($summary['by_category'] as $cat => $n)
                         <span>{{ $t("categories.$cat") }}: {{ $n }}</span>
@@ -79,6 +87,7 @@
             <thead>
                 <tr>
                     <th>{{ $t('fields.reference') }}</th>
+                    <th>{{ $t('fields.work_order_type') }}</th>
                     <th>{{ $t('fields.scheduled_for') }}</th>
                     <th>{{ $t('fields.title') }}</th>
                     <th>{{ $t('fields.category') }}</th>
@@ -91,6 +100,7 @@
                 @foreach ($orders as $o)
                     <tr>
                         <td style="font-family:monospace;">{{ $o->reference }}</td>
+                        <td>{{ $t("work_order_types.{$o->work_order_type}") }}</td>
                         <td>{{ optional($o->scheduled_for)->format('d/m/Y') }}</td>
                         <td>{{ $o->title }}</td>
                         <td>{{ $t("categories.{$o->category}") }}</td>

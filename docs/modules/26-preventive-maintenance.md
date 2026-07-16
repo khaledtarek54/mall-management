@@ -1,14 +1,16 @@
 # Module 26 — Preventive Maintenance (الصيانة الوقائية)
 
-> **Status: COMPLETE (Phase 5 shipped — equipment-anchored PPM).** Recurring
+> **Status: Phase 6 shipped — the corrective-maintenance core.** Recurring
 > facility-maintenance **plans** that auto-raise **work orders** (with checklists) when
 > due, via the daily `maintenance:generate-preventive` scan; two property-scoped Filament
 > resources (plans + work orders), a checklist relation manager (**mark each item pass/fail**),
 > status transitions (start / complete / cancel) owned by `MaintenanceWorkOrderService`, the
 > `preventive_maintenance.*` RBAC (operations) + module flag, the **equipment register**
 > (maintainable-asset codes + sub-codes) with plans and work orders anchored to the machine,
+> **corrective maintenance** raised from a failed check (or as a follow-up on a closed job),
 > and a **bilingual facility work-log PDF report** (RPT-1). Delivers discovery backlog items
-> **MNT-1/2 + RPT-1** and Eltizam FRD **FR-PPM-01 · 02 · 03 · 04 · 05 · 07**.
+> **MNT-1/2 + RPT-1** and Eltizam FRD **FR-PPM-01..05 · 07** and **FR-CM-01 · 02 · 03 · 04 · 14 · 15**
+> (SLA/penalties + parts/cost still to come — see the roadmap).
 > Distinct from tenant-facing maintenance **requests**
 > (module 11) — this is internal/facility upkeep (common areas, no tenant), so it has its
 > own models.
@@ -17,9 +19,9 @@
 > — corrective maintenance (CM) will live here, not in module 11, because a CM raised from a
 > failed common-area check has no tenant and no unit (module 11's `tenant_id`/`unit_id` are
 > NOT NULL). Landed so far: the service + state machine + pass/fail gate, the equipment
-> register, and equipment-anchored plans/work orders (routine vs fixed, yearly frequency).
-> Still to come: per-property SLA + penalties, internal/external classification, parts +
-> fault attribution + tenant recharge, and follow-up work-order chains.
+> register, equipment-anchored plans/work orders (routine vs fixed, yearly frequency), and the
+> **CM core** — raised from a failed check, internal/external, follow-up chains. Still to come:
+> per-property SLA + vendor penalties, and parts + fault attribution + tenant recharge.
 
 An operator maintains the building itself — HVAC filters, lift servicing, fire-safety
 checks, generator runs — on a recurring schedule, not in response to a tenant. This module
@@ -76,13 +78,25 @@ discriminator, and that a `fixed` plan must name its equipment. **Both types sti
 one-time plan means deactivating it after its first run. Whether one-time needs first-class support
 is an **open client question** — don't guess it into the schema.
 
-### `maintenance_work_orders` — a raised job (from a plan or ad-hoc)
+### `maintenance_work_orders` — a raised job (preventive or corrective)
 | Column | Meaning |
 |--------|---------|
-| `maintenance_plan_id` | the source plan (null = ad-hoc) |
-| `asset_id` · `unit_id` · `reference` | scope + auto `WO-{asset}-{YYYYMM}-{n}` |
+| `maintenance_plan_id` | the source plan (null = ad-hoc or corrective) |
+| `work_order_type` | `ppm` (planned) \| `cm` (**corrective** — FR-CM-01) |
+| `execution_type` | **FR-CM-02** — `internal` (in-house) \| `external` (vendor). **CM only**; null on PPM |
+| `asset_id` · `unit_id` · `equipment_id` · `reference` | scope + auto `WO-{asset}-{YYYYMM}-{n}`, or **`CM-…`** for corrective |
 | `title` · `category` · `status` · `scheduled_for` | the job (`open`\|`in_progress`\|`done`\|`cancelled`) |
+| `description` | **FR-CM-04** — what is wrong. Required for CM; distinct from `notes`, which on a PPM order holds the plan's description |
+| `vendor_id` · `assigned_to_user_id` | **FR-CM-03** — the company **or** the technician, never both |
+| `source_item_id` | **FR-CM-01** — the failed check this CM came from |
+| `parent_work_order_id` | **FR-CM-14/15** — the order this one follows up on |
 | `completed_at` · `completed_by_user_id` | completion audit |
+
+**Why CM lives here and not in module 11.** A CM raised from a failed check on a common-area
+chiller has **no tenant and no unit** — and `tenant_requests.tenant_id`/`unit_id` are both NOT NULL.
+Module 11 stays tenant-facing. A CM is a work order with a discriminator rather than a new entity,
+so it inherits the state machine, the checklist, the FR-PPM-07 gate and the equipment link already
+built here.
 
 ### `maintenance_work_order_items` — the checklist (child of a work order)
 | Column | Meaning |
@@ -190,6 +204,28 @@ progress badge.
    business-rule refusals throw `DomainException`, which the Filament action catches and shows
    as a danger notification. `open → done` **is** legal (a short job done in one go); the
    checklist gate — not the path taken to `done` — is the invariant.
+7a. **Corrective maintenance is raised, never reopened** (`RaiseCorrectiveMaintenanceService`).
+   Two entry points, both producing a **linked** order rather than mutating an existing one:
+   - `fromFailedCheck()` — FR-CM-01. A PPM visit found a fault; the failed item stays linked as the
+     CM's provenance. **One CM per failed check** — the action sits on a table row, which is exactly
+     where a double-click lands, and without the guard one fault becomes two jobs and two engineers.
+     A fail still does **not** block the visit closing: finding the fault *is* the visit succeeding.
+   - `asFollowUp()` — FR-CM-14/15. Deliberately allowed on a **terminal** order, which is the whole
+     point: the client prefers a new linked job to reopening, so the original's SLA and closure
+     record survive for audit. It doesn't mutate the original, so terminal-immutability holds rather
+     than being bent. Chains to any depth — some faults take three visits.
+7b. **`execution_type` is a real XOR** (FR-CM-02/03): `internal` may not also name a vendor,
+   `external` may not also name a technician. Module 11 permits a request to carry **both** at once,
+   which is precisely why its assignment could never discriminate internal from external (see doc 11's
+   gotchas). Repeating that here would make `execution_type` decorative — the classification has to
+   constrain who is actually on the job. The service nulls the unused side so a caller passing both
+   gets the intended record rather than an exception it can't explain to the user.
+
+   > The CM guards run on every save, unlike the plan's (rule 2b) — and that is safe *because of
+   > their shape*: they throw only when the **wrong** side is set, never when the right side is
+   > missing. So deleting a technician or vendor (both `nullOnDelete`, which fires behind Eloquent's
+   > back) leaves the CM saveable. Verified by probe, since this module has twice shipped a guard
+   > that permanently froze a record.
 8. **The work order is the aggregate root for its checklist.** *Every* mutation of the order **or**
    its items (`transition` · `markItem` · `addItem` · `removeItem`) goes through
    `MaintenanceWorkOrderService::withOrderLock()`, which row-locks the `maintenance_work_orders`
@@ -231,7 +267,9 @@ progress badge.
 | **3 — Pass/fail checklist + completion gate (FR-PPM-07)** | `result` enum replaces `is_done`; `MaintenanceWorkOrderService` (the module's first service) owns the TRANSITIONS matrix, the row-locked completion gate, and `markItem()`; the Filament actions became thin callers; progress badge counts *marked* and warns amber on any fail | ✅ shipped |
 | **4 — Equipment register (FR-PPM-03/04/05)** | `Equipment`: per-property-unique `code` + `parent_id` sub-code tree (same-property + acyclicity guards), nullable `fixed_asset_id` link to the accounting register, `equipment_inventory_item` pivot for compatible spare parts, property-scoped resource under `preventive_maintenance.*` | ✅ shipped |
 | **5 — Equipment ↔ plans/work orders (FR-PPM-01/02/03)** | `equipment_id` on `maintenance_plans` + `maintenance_work_orders` (PPM per machine, carried onto the order so history survives the plan), `maintenance_type` routine/fixed, `years` frequency + `advanceDue()` throwing instead of silently meaning months, per-plan failure containment in the scan | ✅ shipped |
-| **6 — Corrective maintenance (FR-CM-01..15)** | CM raised from a failed checklist item, internal/external XOR, per-property SLA + priority tiers, vendor SLA penalties, parts + fault attribution + tenant recharge, follow-up work-order chains (`parent_work_order_id`) | ⬜ next |
+| **6 — Corrective maintenance core (FR-CM-01/02/03/04/14/15)** | `work_order_type` ppm\|cm, CM raised from a failed check (one per check), internal/external as a real XOR, technician-or-vendor assignment, required description, `CM-` references, follow-up chains that never reopen the original | ✅ shipped |
+| **7 — CM SLA + penalties (FR-CM-05..08)** | per-property SLA durations (today they're a global spatie-settings singleton with no `asset_id` dimension), Normal/Urgent tiers, the clock starting on **acceptance** rather than creation, breach detection → a vendor penalty deducted from their bill | ⬜ next |
+| **8 — CM parts + cost (FR-CM-09..13)** | parts from inventory vs bought outside + which, manager approval for an internal draw with the approver set by part value (needs the generic approval engine — nothing like it exists in the codebase), fault attribution → who bears the cost, mall-vs-tenant recharge to an invoice | ⬜ planned |
 
 ---
 
@@ -275,6 +313,13 @@ corrupt plan not stopping every other property's work orders**, routine-by-defau
 its machine, cross-property equipment refused, the machine reaching the work order and outliving the
 plan — and the two "plan silently stops generating forever" traps (machine hard-deleted; machine
 referenced by a plan refusing to move property).
+
+`tests/Feature/Scenarios/CorrectiveMaintenanceScenarioTest.php` — FR-CM-01/02/03/04/14/15: a CM
+raised from a failed check inheriting where the work is, refused from a passing check, refused twice
+for the same check, the PPM visit still closing afterwards, internal/external classification, the XOR
+refused from both directions (and the service nulling the unused side rather than erroring), the CM
+rules not leaking onto PPM orders, a follow-up linked to a closed order that stays closed, the chain
+readable from both ends and to any depth, and `WO-`/`CM-` reference prefixes.
 
 `tests/Feature/Regression/PpmRetiredEquipmentLockoutTest.php` — retiring a machine must not
 deadlock the records naming it. Filament derives an `in:` rule from a Select's options and

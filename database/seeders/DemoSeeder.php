@@ -49,6 +49,7 @@ use App\Services\DisposeFixedAssetService;
 use App\Services\Eta\EtaSubmissionService;
 use App\Services\GeneratePreventiveWorkOrdersService;
 use App\Services\MaintenanceWorkOrderService;
+use App\Services\RaiseCorrectiveMaintenanceService;
 use App\Services\GrantCustodyService;
 use App\Services\GrantEmployeeAdvanceService;
 use App\Services\PayrollService;
@@ -2008,7 +2009,31 @@ class DemoSeeder extends Seeder
                 );
             }
 
+            // The failed check raises corrective work (FR-CM-01) — the canonical flow: the
+            // visit found a fault, the visit still closes, and the fix becomes its own job.
+            $failed = $wo->items()->failed()->first();
+
+            if ($failed) {
+                app(RaiseCorrectiveMaintenanceService::class)->fromFailedCheck($failed, [
+                    'execution_type' => MaintenanceWorkOrder::EXECUTION_EXTERNAL,
+                    'vendor_id' => $coolAir,
+                    'description' => 'Found during the scheduled visit: '.$failed->label.' failed inspection and needs corrective work.',
+                    'scheduled_for' => Carbon::now()->addDays(2)->toDateString(),
+                ]);
+            }
+
             $svc->transition($wo, 'done', $engineer->id);
+        }
+
+        // A follow-up on the closed order (FR-CM-14/15) — the external company signed it off
+        // but the work wasn't finished. A NEW linked job, not a reopen.
+        if ($wo && $engineer) {
+            app(RaiseCorrectiveMaintenanceService::class)->asFollowUp($wo->fresh(), [
+                'execution_type' => MaintenanceWorkOrder::EXECUTION_INTERNAL,
+                'assigned_to_user_id' => $engineer->id,
+                'description' => 'Vendor closed the job but the fault recurred within a week — re-inspect and finish the fix.',
+                'scheduled_for' => Carbon::now()->addDays(3)->toDateString(),
+            ]);
         }
 
         $this->command->info('   Seeded '.count($plans)." preventive plans, {$created} work orders generated (1 completed)");

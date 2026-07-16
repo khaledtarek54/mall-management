@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * One checklist item on a preventive-maintenance work order (module 26). Copied from
@@ -56,6 +57,12 @@ class MaintenanceWorkOrderItem extends Model
     public function markedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'marked_by_user_id');
+    }
+
+    /** Corrective jobs raised because this check failed (FR-CM-01) — normally 0 or 1. */
+    public function correctiveWorkOrders(): HasMany
+    {
+        return $this->hasMany(MaintenanceWorkOrder::class, 'source_item_id');
     }
 
     /** Has the engineer recorded an outcome yet? Pass and fail both count. */

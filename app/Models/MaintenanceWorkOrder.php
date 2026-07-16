@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
+use InvalidArgumentException;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -25,8 +26,24 @@ class MaintenanceWorkOrder extends Model
 
     public const TERMINAL = ['done', 'cancelled'];
 
+    /** Planned/preventive vs corrective (FR-CM-01). */
+    public const TYPE_PPM = 'ppm';
+
+    public const TYPE_CM = 'cm';
+
+    public const TYPES = [self::TYPE_PPM, self::TYPE_CM];
+
+    /** FR-CM-02 — in-house staff vs a third-party company. CM only. */
+    public const EXECUTION_INTERNAL = 'internal';
+
+    public const EXECUTION_EXTERNAL = 'external';
+
+    public const EXECUTION_TYPES = [self::EXECUTION_INTERNAL, self::EXECUTION_EXTERNAL];
+
     protected $fillable = [
         'maintenance_plan_id',
+        'work_order_type',
+        'execution_type',
         'asset_id',
         'unit_id',
         'equipment_id',
@@ -39,7 +56,11 @@ class MaintenanceWorkOrder extends Model
         'completed_by_user_id',
         'department_id',
         'vendor_id',
+        'assigned_to_user_id',
         'notes',
+        'description',
+        'source_item_id',
+        'parent_work_order_id',
     ];
 
     protected $casts = [
@@ -49,12 +70,13 @@ class MaintenanceWorkOrder extends Model
 
     protected $attributes = [
         'status' => 'open',
+        'work_order_type' => self::TYPE_PPM,
     ];
 
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['maintenance_plan_id', 'asset_id', 'unit_id', 'equipment_id', 'title', 'category', 'status', 'scheduled_for', 'completed_at'])
+            ->logOnly(['maintenance_plan_id', 'work_order_type', 'execution_type', 'asset_id', 'unit_id', 'equipment_id', 'title', 'category', 'status', 'scheduled_for', 'completed_at', 'vendor_id', 'assigned_to_user_id', 'parent_work_order_id'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('maintenance_work_order');
@@ -100,6 +122,45 @@ class MaintenanceWorkOrder extends Model
         return $this->belongsTo(User::class, 'completed_by_user_id');
     }
 
+    /** FR-CM-03 — the in-house technician on the job (internal CM). */
+    public function assignee(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_to_user_id');
+    }
+
+    /** FR-CM-01 — the failed check that triggered this CM, if any. */
+    public function sourceItem(): BelongsTo
+    {
+        return $this->belongsTo(MaintenanceWorkOrderItem::class, 'source_item_id');
+    }
+
+    /** FR-CM-15 — the order this one follows up on (its fix was incomplete). */
+    public function parentWorkOrder(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_work_order_id');
+    }
+
+    /** FR-CM-15 — follow-ups raised because this order's fix was incomplete. */
+    public function followUps(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_work_order_id');
+    }
+
+    public function isCorrective(): bool
+    {
+        return $this->work_order_type === self::TYPE_CM;
+    }
+
+    public function scopeCorrective(Builder $query): Builder
+    {
+        return $query->where('work_order_type', self::TYPE_CM);
+    }
+
+    public function scopePreventive(Builder $query): Builder
+    {
+        return $query->where('work_order_type', self::TYPE_PPM);
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(MaintenanceWorkOrderItem::class);
@@ -130,10 +191,15 @@ class MaintenanceWorkOrder extends Model
         return $query->whereNotIn('status', self::TERMINAL);
     }
 
-    public static function generateReference(string $assetCode = 'GEN', ?\DateTimeInterface $date = null): string
+    /**
+     * `WO-{asset}-{YYYYMM}-{n}` for preventive, `CM-…` for corrective — an engineer can tell
+     * a scheduled visit from a fault report by the reference alone (mirrors module 11's
+     * per-type reference prefixes).
+     */
+    public static function generateReference(string $assetCode = 'GEN', ?\DateTimeInterface $date = null, string $type = self::TYPE_PPM): string
     {
         $date = $date ? Carbon::instance($date) : now();
-        $prefix = sprintf('WO-%s-%s-', $assetCode, $date->format('Ym'));
+        $prefix = sprintf('%s-%s-%s-', $type === self::TYPE_CM ? 'CM' : 'WO', $assetCode, $date->format('Ym'));
 
         $last = static::withTrashed()->where('reference', 'like', $prefix.'%')->orderByDesc('reference')->value('reference');
         $next = $last ? ((int) substr($last, strlen($prefix))) + 1 : 1;
@@ -152,7 +218,48 @@ class MaintenanceWorkOrder extends Model
     {
         static::creating(function (self $order) {
             if (empty($order->reference)) {
-                $order->reference = static::generateReference($order->asset?->code ?: 'GEN', $order->scheduled_for);
+                $order->reference = static::generateReference(
+                    $order->asset?->code ?: 'GEN',
+                    $order->scheduled_for,
+                    $order->work_order_type ?? self::TYPE_PPM,
+                );
+            }
+        });
+
+        static::saving(function (self $order) {
+            if (! in_array($order->work_order_type, self::TYPES, true)) {
+                throw new InvalidArgumentException(
+                    "Unknown work_order_type '{$order->work_order_type}'; expected one of: ".implode(', ', self::TYPES).'.'
+                );
+            }
+
+            if ($order->work_order_type !== self::TYPE_CM) {
+                return;
+            }
+
+            // ---- CM-only rules (FR-CM-02/03/04) ----------------------------------
+
+            if (! in_array($order->execution_type, self::EXECUTION_TYPES, true)) {
+                throw new InvalidArgumentException(
+                    "A corrective work order must be classified internal or external (FR-CM-02); got '{$order->execution_type}'."
+                );
+            }
+
+            if (blank($order->description)) {
+                throw new InvalidArgumentException('A corrective work order requires a description (FR-CM-04).');
+            }
+
+            // FR-CM-02/03 as a real XOR. Module 11 allows a request to carry BOTH a staff
+            // assignee and a vendor at once, which is exactly why its assignment could never
+            // serve as the internal-vs-external discriminator (doc 11 §"Gotchas" says so
+            // outright). Repeating that here would make execution_type decorative: the
+            // classification has to constrain who is actually on the job.
+            if ($order->execution_type === self::EXECUTION_INTERNAL && $order->vendor_id !== null) {
+                throw new InvalidArgumentException('An internal corrective work order is handled in-house; it cannot also name a vendor.');
+            }
+
+            if ($order->execution_type === self::EXECUTION_EXTERNAL && $order->assigned_to_user_id !== null) {
+                throw new InvalidArgumentException('An external corrective work order is handled by the vendor; it cannot also name an in-house technician.');
             }
         });
     }

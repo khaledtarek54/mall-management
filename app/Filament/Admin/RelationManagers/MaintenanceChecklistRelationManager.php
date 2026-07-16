@@ -2,9 +2,11 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
+use App\Filament\Admin\Resources\MaintenanceWorkOrders\Schemas\CorrectiveWorkOrderForm;
 use App\Models\MaintenanceWorkOrder;
 use App\Models\MaintenanceWorkOrderItem;
 use App\Services\MaintenanceWorkOrderService;
+use App\Services\RaiseCorrectiveMaintenanceService;
 use App\Support\Modules;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
@@ -97,6 +99,37 @@ class MaintenanceChecklistRelationManager extends RelationManager
                     }),
             ])
             ->recordActions([
+                // FR-CM-01 — a failed check is the canonical trigger for corrective work.
+                // Shown only on a failed, not-yet-actioned item; the CM it raises is a
+                // separate job, so the PPM visit still closes normally (a fail does not
+                // block the gate).
+                Action::make('raise_cm')
+                    ->label(__('admin.preventive_maintenance.cm.raise'))
+                    ->icon('heroicon-o-wrench-screwdriver')
+                    ->color('warning')
+                    ->modalDescription(__('admin.preventive_maintenance.cm.raise_hint'))
+                    ->visible(fn (MaintenanceWorkOrderItem $record) => $record->hasFailed()
+                        && ! $record->correctiveWorkOrders()->exists()
+                        && (auth()->user()?->can('preventive_maintenance.create') ?? false))
+                    ->authorize(fn () => auth()->user()?->can('preventive_maintenance.create') ?? false)
+                    ->schema(fn () => CorrectiveWorkOrderForm::fields($this->getOwnerRecord()->asset_id))
+                    ->action(function (MaintenanceWorkOrderItem $record, array $data): void {
+                        abort_unless(auth()->user()?->can('preventive_maintenance.create') ?? false, 403);
+
+                        try {
+                            $cm = app(RaiseCorrectiveMaintenanceService::class)->fromFailedCheck($record, $data);
+                        } catch (\DomainException $e) {
+                            Notification::make()->title($e->getMessage())->danger()->send();
+
+                            return;
+                        }
+
+                        Notification::make()
+                            ->title(__('admin.preventive_maintenance.cm.raised_notice'))
+                            ->body($cm->reference)
+                            ->success()
+                            ->send();
+                    }),
                 DeleteAction::make()
                     ->visible(fn () => $this->orderEditable() && (auth()->user()?->can('preventive_maintenance.edit') ?? false))
                     ->using(function (MaintenanceWorkOrderItem $record): void {

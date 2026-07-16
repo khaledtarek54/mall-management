@@ -47,6 +47,10 @@ class FacilityWorkLogPdfService
             'total' => $orders->count(),
             'by_status' => $orders->countBy('status'),
             'by_category' => $orders->countBy('category'),
+            // The log covers ALL facility work — corrective jobs are work orders too, and a
+            // work log that omitted the faults would be the less useful half. But the reader
+            // has to be able to tell them apart, so the split is stated rather than implied.
+            'by_type' => $orders->countBy('work_order_type'),
             'done' => $orders->where('status', 'done')->count(),
         ];
 
