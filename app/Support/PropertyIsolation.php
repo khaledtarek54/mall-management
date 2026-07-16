@@ -38,6 +38,8 @@ use App\Models\MaintenancePlan;
 use App\Models\MaintenanceWorkOrder;
 use App\Models\MaintenanceWorkOrderItem;
 use App\Models\MaintenanceWorkOrderPart;
+use App\Models\PurchaseRequest;
+use App\Models\PurchaseRequestLine;
 use App\Models\MarketingBudget;
 use App\Models\MarketingSpend;
 use App\Models\MeterReading;
@@ -158,6 +160,8 @@ class PropertyIsolation
         PayrollLine::class => 'payroll',
         MaintenanceWorkOrderItem::class => 'workOrder',
         MaintenanceWorkOrderPart::class => 'workOrder',
+        PurchaseRequest::class => null,
+        PurchaseRequestLine::class => 'request',
         StockMovement::class => 'warehouse',
         VendorBillPayment::class => 'bill',
     ];

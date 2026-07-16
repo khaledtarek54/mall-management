@@ -25,6 +25,13 @@ class ApprovalRulesSeeder extends Seeder
             [ApprovalRule::MODULE_INVENTORY_DRAW, 0, 1000, ApprovalRule::TIER_1],
             [ApprovalRule::MODULE_INVENTORY_DRAW, 1000, 10000, ApprovalRule::TIER_2],
             [ApprovalRule::MODULE_INVENTORY_DRAW, 10000, null, ApprovalRule::TIER_3],
+
+            // FR-PROC-02. Same bands as a stock draw: the client described exactly one hierarchy
+            // (FR-CM-11's price-based one) and never said procurement differs, so inventing a
+            // second ladder would be inventing policy. Their answer is a row change.
+            [ApprovalRule::MODULE_PURCHASE_REQUEST, 0, 1000, ApprovalRule::TIER_1],
+            [ApprovalRule::MODULE_PURCHASE_REQUEST, 1000, 10000, ApprovalRule::TIER_2],
+            [ApprovalRule::MODULE_PURCHASE_REQUEST, 10000, null, ApprovalRule::TIER_3],
         ];
 
         foreach ($bands as [$module, $min, $max, $permission]) {

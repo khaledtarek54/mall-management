@@ -188,6 +188,17 @@ class RolesPermissionsSeeder extends Seeder
             'approvals.tier_3' => 'Approve high-value requests (senior)',
             'approvals.manage_rules' => 'Configure the approval bands',
         ],
+        'procurement' => [
+            'procurement.view' => 'View procurement requests',
+            'procurement.create' => 'Raise a procurement request (FR-PROC-01)',
+            'procurement.edit' => 'Edit a draft procurement request',
+            'procurement.delete' => 'Delete a procurement request',
+            // Deciding and ordering are the same authority: FR-PROC-02 puts approval BEFORE order
+            // placement, so whoever may place the order is exactly whoever may approve it.
+            'procurement.decide' => 'Approve / reject / order / cancel a procurement request (FR-PROC-02)',
+            'procurement.receive' => 'Receive goods against a procurement request (FR-PROC-04)',
+        ],
+
         'preventive_maintenance' => [
             'preventive_maintenance.view' => 'View preventive-maintenance plans & work orders',
             'preventive_maintenance.create' => 'Create preventive-maintenance plans / work orders',
@@ -362,6 +373,9 @@ class RolesPermissionsSeeder extends Seeder
             'vendors.view', 'vendors.create', 'vendors.edit',
             'utility_meters.view', 'utility_meters.create', 'utility_meters.edit',
             'inventory.view', 'inventory.create', 'inventory.edit',
+            // Procurement: operations raises the need and receives the goods. Deciding it is
+            // withheld — manager inherits that via the blanket non-delete grant.
+            'procurement.view', 'procurement.create', 'procurement.edit', 'procurement.receive',
             // The bottom rung: a supervisor signs off routine, low-value part draws.
             'approvals.tier_1',
             'notes.view', 'notes.create',

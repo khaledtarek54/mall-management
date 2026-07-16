@@ -47,6 +47,7 @@ These are the ten highest-risk assumptions. If any answer is "no", stop and flag
 12. **Approval thresholds (FR-CM-11): are 1,000 / 10,000 the right bands?** See *Approval Ladder* below. The FRD gives no numbers — these are our defaults, and they decide who may authorise a spend.
 13. **Externally-bought parts (FR-CM-09): must a vendor bill back the record?** See *Externally-bought spare parts* below. Until answered, a job's parts cost is an operational figure, not a GL one.
 14. **Does the operator want to recharge tenant-caused repairs at all?** See *Recharging a repair to a tenant* below. We now record who is responsible; we deliberately do **not** bill them, because the FRD never asks us to.
+15. **Does procurement approval follow the same price bands as spare parts?** The FRD's own open item — see *Procurement approval hierarchy* below. We defaulted to yes; it is configuration either way.
 
 ---
 
@@ -469,6 +470,32 @@ the code:
    note, or a void?
 
 Until then, `cost_bearer` is a **record of responsibility, not an instruction to charge**.
+
+---
+
+## Procurement approval hierarchy (FR-PROC-02) — **THE FRD'S OWN OPEN ITEM**
+
+The FRD says: *"The client did not specify a formal approval hierarchy for procurement itself.
+Confirm whether procurement approval also follows a price-based manager hierarchy or a separate
+rule."*
+
+**We defaulted to price-based**, with the same bands as a spare-part draw:
+
+| Request value (EGP) | Needs |
+|---|---|
+| 0 – 999.99 | `approvals.tier_1` — a supervisor |
+| 1,000 – 9,999.99 | `approvals.tier_2` — a manager |
+| 10,000 and above | `approvals.tier_3` — senior approval |
+
+Why that default: it is the **only** hierarchy the client has ever described (FR-CM-11), and it is
+**data** (`approval_rules`), so a different answer is a row change rather than a rewrite.
+
+**Confirm with the operator:**
+1. Do procurement approvals follow the same price bands as spare-part draws, or different amounts?
+2. Is there a **separate rule** — e.g. by category, by supplier, or a fixed approver regardless of
+   value?
+3. Does a large purchase need **more than one** approver? (Today the ladder is a level lookup, not a
+   sequential chain — see [module 28](modules/28-approvals.md) for why.)
 
 ---
 

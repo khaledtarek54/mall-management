@@ -1,17 +1,59 @@
 # Atriom Module-by-Module Gap Analysis & Production-Readiness Plan
 
 > Goal: every module audited end-to-end, every test green, demo scripts runnable live, production checklist signed off.
-> Started: 2026-05-31
-> Owner: khaled + Claude (Opus 4.7)
+> Started: 2026-05-31 · **Round 2 opened 2026-07-16** for modules 21–28.
+> Owner: khaled + Claude
+
+> ### ⚠️ Round 1 covered modules 01–20 only (2026-05-31 → 06-25)
+> Modules **21–28** — the general ledger and everything that posts money to it — were built
+> afterwards and were never audited by this lens. Round 2 covers them. Findings continue the
+> shared numbering: round 1 ended at **F-76** / **D-65**, so round 2 starts at **F-77** / **D-66**.
+>
+> **The four truth sources named below no longer exist.** `FEATURES.md`, `DEMO.md`,
+> `DEMO-ELTIZAM.md` and `MASTER-PLAN.md` were all deleted after round 1. Use the current ones:
+
+| Truth source (2026-07-16) | What it settles |
+|---|---|
+| [docs/modules/NN-*.md](../modules/) | The module's own spec — business rules, extension points, gotchas |
+| [docs/BUSINESS-RULES.md](../BUSINESS-RULES.md) | Every encoded financial rule, for operator/accountant sign-off |
+| [docs/FUNCTIONAL-REQUIREMENTS.md](../FUNCTIONAL-REQUIREMENTS.md) | The FRD ↔ build-status map |
+| [docs/discovery/consolidated-notes-FRD.md](../discovery/consolidated-notes-FRD.md) + the Eltizam FRD | Requirements for modules 26/28 and the FM expansion |
+| [docs/PROJECT-MAP.md](../PROJECT-MAP.md) | The generated census — what exists, and what each gate covers |
 
 ## Decisions locked in at kickoff
 
 | Decision | Choice | Implication |
 |---|---|---|
-| Module order | **Demo-critical first** | Modules touched by [DEMO.md](../../DEMO.md) / [DEMO-ELTIZAM.md](../../DEMO-ELTIZAM.md) get audited first, in dependency order (Tenants before Leases, Leases before Invoices, etc.) |
+| Module order | Round 1: **demo-critical first**. Round 2: **money-first** — GL (21) and everything posting to it (22–26) before the rest | The blind spot is defined by "does it move money into the ledger" |
 | Mobile API `/api/v1` | **In scope — audit + design missing endpoints** | Treated as Module 19. Implementation depth decided per-endpoint; default is design-only unless trivial |
 | Fix policy | **Fix small, batch large** | Bugs ≤ ~30 min and missing test coverage fixed inline. Schema changes, feature gaps, design questions cataloged and flagged for explicit approval |
-| Truth source | **[FEATURES.md](../../FEATURES.md) + DEMO scripts** | Anything claimed there but not working = P0. MASTER-PLAN.md treated as strategy, not requirements |
+| Truth source | **The table above** | Anything a module doc claims but that doesn't work = P0 |
+
+## ⚠️ Round-2 methodology change — read before auditing anything
+
+Round 1 predates a lesson that cost two false priorities on 2026-07-16. Four "this is
+missing/unprotected" findings from a multi-agent audit were verified one by one; **two were
+false**, and both had the same shape: *"I grepped for mechanism M in file F, didn't find it,
+therefore it's missing."* Both times the codebase did it correctly in another layer, under
+another name (login throttling lives in Filament's Livewire component, not route middleware;
+role auditing lives in `App\Support\AccessControlAudit`, not on the model). The two findings
+that were **true** had the opposite shape — *"here is code doing the wrong thing"* — and both
+reproduced on the first try.
+
+So, for round 2:
+
+- **An absence claim is a hypothesis, never a finding.** Before writing "X is missing", search
+  the whole repo for the *capability*, not the spelling you expect, and say where you looked.
+  Check `composer.lock`, not just `composer.json` — transitive deps don't appear there.
+- **A finding needs a failure scenario**: concrete inputs/state → the wrong output. If you
+  can't construct one, you don't have a finding.
+- **Prove it by exploiting it, then prove the fix by reverting it** and watching the test fail.
+- **A GL test that calls `LedgerPoster::post()`/`sync()` directly proves only the journalizer's
+  arithmetic** — not that production ever posts. An applied SLA penalty shipped green that way
+  while cutting a vendor bill and posting nothing. Money paths must be driven through the real
+  service + `accounting:sync-ledger`.
+- When a claim turns out false, **retire it with the reason** (see [ROADMAP §6](../ROADMAP.md))
+  rather than deleting it, or the next audit re-derives it.
 
 ## Per-module workflow (applied to each)
 

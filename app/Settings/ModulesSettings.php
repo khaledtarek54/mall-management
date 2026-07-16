@@ -40,6 +40,8 @@ class ModulesSettings extends Settings
     public bool $custodies = true;
     public bool $preventive_maintenance = true;
 
+    public bool $procurement = true;
+
     public static function group(): string
     {
         return 'modules';

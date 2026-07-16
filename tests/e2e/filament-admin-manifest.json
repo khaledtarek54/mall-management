@@ -169,6 +169,13 @@
             "hasView": false
         },
         {
+            "class": "PurchaseRequestResource",
+            "slug": "purchase-requests",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
             "class": "RoleResource",
             "slug": "roles",
             "hasCreate": true,

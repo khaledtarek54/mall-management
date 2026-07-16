@@ -27,19 +27,19 @@ Sanctum (mobile API auth) · Spatie (permissions, media, activity-log, settings)
 
 | | | | |
 |---|---|---|---|
-| **61** models | **81** services | **36** admin resources | **5** portal resources |
+| **63** models | **82** services | **37** admin resources | **5** portal resources |
 | **39** API controllers | **13** dashboard widgets | **22** console commands | **6** queued jobs |
-| **18** notifications | **111** migrations | **28** module docs | **326** test files |
+| **18** notifications | **112** migrations | **28** module docs | **328** test files |
 
 ### Coverage — what the gates actually enforce
 
 | Dimension | State |
 |---|---|
-| **Property isolation** | 61 models classified — 46 property-owned, 14 shared, 1 self. Gated by `PropertyIsolationConformanceTest`. |
+| **Property isolation** | 63 models classified — 48 property-owned, 14 shared, 1 self. Gated by `PropertyIsolationConformanceTest`. |
 | **General ledger** | 18 posting sources, 18 journalizer classes — every one registered. One registry (`LedgerPoster::JOURNALIZERS`) that all four dispatch paths derive from; gated by `GlRegistryConformanceTest`. |
 | **E2E smoke** | Every admin resource + page, from `tests/e2e/filament-admin-manifest.json`; 22 specs. Gated by `AdminSmokeManifestConformanceTest`. |
-| **Tests** | 326 files — 66 scenario, 68 regression. |
-| **Module flags** | 15 toggleable modules (`App\Support\Modules`). |
+| **Tests** | 328 files — 67 scenario, 69 regression. |
+| **Module flags** | 16 toggleable modules (`App\Support\Modules`). |
 
 **Scheduled automation** — commands: `cam:reconcile` · `accounting:post-depreciation` · `vendors:expire-contracts` · `activitylog:clean` · `maintenance:auto-close` · `maintenance:generate-preventive` · `maintenance:scan-sla-breaches` · `maintenance:scan-wo-sla-breaches` · `billing:scan-overdue-invoices` · `billing:remind-overdue-tenants` · `leases:remind-expiring` · `marketing:ensure-budgets` · `accounting:sync-ledger` · `accounting:sync-ledger --all --scheduled`
 ; jobs: `RunMonthlyBilling` · `ApplyLateFees` (registered via `Schedule::job`, so they do **not** appear as scheduled commands).

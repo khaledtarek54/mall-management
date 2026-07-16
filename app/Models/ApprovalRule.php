@@ -23,7 +23,17 @@ class ApprovalRule extends Model
     /** Approvable modules. A new one is a row + a constant, never a migration. */
     public const MODULE_INVENTORY_DRAW = 'inventory_draw';
 
-    public const MODULES = [self::MODULE_INVENTORY_DRAW];
+    /**
+     * FR-PROC-02 — "route procurement requests through an approval workflow before order
+     * placement". The FRD's own note: "The client did not specify a formal approval hierarchy for
+     * procurement itself. Confirm whether procurement approval also follows a price-based manager
+     * hierarchy or a separate rule." We default to price-based, consistent with FR-CM-11, because
+     * that is the only hierarchy the client HAS described — and because it is configuration, so
+     * their answer is a row change rather than a rewrite. Flagged in BUSINESS-RULES.
+     */
+    public const MODULE_PURCHASE_REQUEST = 'purchase_request';
+
+    public const MODULES = [self::MODULE_INVENTORY_DRAW, self::MODULE_PURCHASE_REQUEST];
 
     /**
      * The approval ladder, as permissions. Tiers rather than named roles so the ladder
