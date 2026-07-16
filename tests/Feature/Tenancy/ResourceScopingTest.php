@@ -13,12 +13,20 @@ use App\Filament\Admin\Resources\UtilityMeters\UtilityMeterResource;
 use App\Models\Asset;
 use App\Models\CamExpensePool;
 use App\Models\CreditNote;
-use App\Models\TenantRequest;
 use App\Models\Payment;
+use App\Models\TenantRequest;
 use App\Models\TenantSalesDeclaration;
 use App\Models\UtilityMeter;
+use Database\Seeders\RolesPermissionsSeeder;
 
 beforeEach(function () {
+    // Roles must be real here. This file asserts PROPERTY scoping using a super_admin as the
+    // "unrestricted user" — but makeUser('super_admin') only creates the role; without the seeder
+    // it carries no permissions. That was harmless while scoping was purely structural, and became
+    // visible when FR-USR-04 put a permission check in the query layer (AssignmentScope restricts
+    // whoever lacks `*.view_all`, which fails closed — correctly — for a user holding nothing).
+    // Seeding makes the fixture mean what it says.
+    $this->seed(RolesPermissionsSeeder::class);
     ensureAllPropertiesAsset();
 
     $this->hw = makeAsset(['code' => 'HW']);

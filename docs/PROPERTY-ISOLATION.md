@@ -112,3 +112,47 @@ fails CI when a new model/resource ships unclassified, unscoped, or unguarded:
   asset-scoped: a retailer sees all their own data across every mall they lease in. Cross-tenant API
   returns **404**. This is intentional and unchanged.
 - **Scheduled scans** run in console context (no Filament tenant → portfolio-wide) by design.
+
+---
+
+## The second scoping primitive: assignment (FR-USR-04)
+
+`TenantScope` answers **"which properties may you see"**. `App\Support\AssignmentScope` answers
+**"which rows within them are yours"**. They are independent and both apply — being *assigned* a job
+never grants access to the mall it sits in.
+
+The FRD: *"Every user shall see only the requests/work orders assigned to them, **filtered by role
+and assignment**."* "Every user" is not literal — its own role table gives the Admin "full access for
+their assigned mall" and the Coordinator "oversight", while the **In-house Technician** "sees only
+work assigned to them". **The role decides whether the filter applies.**
+
+- Expressed as a permission (`{module}.view_all`), not a role list — holders oversee the module,
+  non-holders see their own work. Every pre-existing role was granted it, so nothing narrowed.
+- **Fails closed:** no user, or no permission, means restricted.
+- **A query constraint, never a filter.** A filter is a checkbox the user can clear; that is not
+  what "sees only work assigned to them" means. It also covers the record page for free, since
+  Filament resolves records through the same query.
+
+> ⚠️ **`ScopesViaProperty` IS `getEloquentQuery()`.** A resource using that trait (TenantRequest and
+> anything else scoped through a relation rather than its own `asset_id`) gets its property
+> isolation *entirely* from that method. Declaring `getEloquentQuery()` in the class **shadows the
+> trait** — a class method always beats a trait's — which silently deletes property isolation:
+> every restricted user reads every mall.
+>
+> This is not hypothetical; it happened while building FR-USR-04, and `ResourceScopingTest` +
+> `OpsIsolationScenarioTest` caught it. **Alias the trait and wrap it:**
+>
+> ```php
+> use ScopesViaProperty {
+>     ScopesViaProperty::getEloquentQuery as scopedViaPropertyQuery;
+> }
+>
+> public static function getEloquentQuery(): Builder
+> {
+>     return AssignmentScope::apply(static::scopedViaPropertyQuery(), 'maintenance', 'assigned_to');
+> }
+> ```
+
+**Note also:** FR-USR-04 puts a *permission check in the query layer*, which previously had none.
+A fixture that builds `makeUser('super_admin')` without seeding roles now sees nothing — correctly,
+since fail-closed — so any test asserting scoping must seed `RolesPermissionsSeeder`.

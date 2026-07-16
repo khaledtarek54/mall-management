@@ -2,6 +2,8 @@
 
 namespace App\Filament\Admin\Resources\MaintenanceWorkOrders;
 
+use App\Filament\Admin\RelationManagers\MaintenanceChecklistRelationManager;
+use App\Filament\Admin\RelationManagers\WorkOrderPartsRelationManager;
 use App\Filament\Admin\Resources\Concerns\BypassesScopingOnAll;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\MaintenanceWorkOrders\Pages\CreateMaintenanceWorkOrder;
@@ -10,6 +12,7 @@ use App\Filament\Admin\Resources\MaintenanceWorkOrders\Pages\ListMaintenanceWork
 use App\Filament\Admin\Resources\MaintenanceWorkOrders\Schemas\MaintenanceWorkOrderForm;
 use App\Filament\Admin\Resources\MaintenanceWorkOrders\Tables\MaintenanceWorkOrdersTable;
 use App\Models\MaintenanceWorkOrder;
+use App\Support\AssignmentScope;
 use App\Support\TenantScope;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -76,8 +79,8 @@ class MaintenanceWorkOrderResource extends Resource
     public static function getRelations(): array
     {
         return [
-            \App\Filament\Admin\RelationManagers\MaintenanceChecklistRelationManager::class,
-            \App\Filament\Admin\RelationManagers\WorkOrderPartsRelationManager::class,
+            MaintenanceChecklistRelationManager::class,
+            WorkOrderPartsRelationManager::class,
         ];
     }
 
@@ -95,12 +98,17 @@ class MaintenanceWorkOrderResource extends Resource
         // Derived checklist progress (total + marked) in subqueries — no per-row N+1.
         // "Marked" counts pass *and* fail: progress measures the visit's completeness,
         // not its outcome (FR-PPM-07). Covered by mwoi_order_result_index.
-        return parent::getEloquentQuery()
+        $query = parent::getEloquentQuery()
             ->withCount([
                 'items',
                 'items as marked_items_count' => fn ($q) => $q->marked(),
                 'items as failed_items_count' => fn ($q) => $q->failed(),
             ]);
+
+        // FR-USR-04 — a technician sees only the jobs assigned to them. Here, in the query, so it
+        // covers the record page too and cannot be cleared like a filter. Composes with the
+        // property scoping above rather than replacing it: both apply.
+        return AssignmentScope::apply($query, 'preventive_maintenance', 'assigned_to_user_id');
     }
 
     public static function getGloballySearchableAttributes(): array

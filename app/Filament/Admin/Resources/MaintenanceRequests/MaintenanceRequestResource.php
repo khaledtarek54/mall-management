@@ -2,6 +2,9 @@
 
 namespace App\Filament\Admin\Resources\MaintenanceRequests;
 
+use App\Filament\Admin\RelationManagers\ActivitiesRelationManager;
+use App\Filament\Admin\RelationManagers\MaintenanceCommentsRelationManager;
+use App\Filament\Admin\RelationManagers\StockConsumptionRelationManager;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Concerns\ScopesViaProperty;
@@ -11,6 +14,7 @@ use App\Filament\Admin\Resources\MaintenanceRequests\Pages\ListMaintenanceReques
 use App\Filament\Admin\Resources\MaintenanceRequests\Schemas\MaintenanceRequestForm;
 use App\Filament\Admin\Resources\MaintenanceRequests\Tables\MaintenanceRequestsTable;
 use App\Models\TenantRequest;
+use App\Support\AssignmentScope;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -18,7 +22,6 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class MaintenanceRequestResource extends Resource
 {
@@ -26,7 +29,9 @@ class MaintenanceRequestResource extends Resource
     use RoleGatedActions {
         canEdit as protected roleGatedCanEdit;
     }
-    use ScopesViaProperty;
+    use ScopesViaProperty {
+        ScopesViaProperty::getEloquentQuery as scopedViaPropertyQuery;
+    }
 
     protected static function tenantScopeRelation(): string
     {
@@ -115,10 +120,32 @@ class MaintenanceRequestResource extends Resource
     public static function getRelations(): array
     {
         return [
-            \App\Filament\Admin\RelationManagers\MaintenanceCommentsRelationManager::class,
-            \App\Filament\Admin\RelationManagers\StockConsumptionRelationManager::class,
-            \App\Filament\Admin\RelationManagers\ActivitiesRelationManager::class,
+            MaintenanceCommentsRelationManager::class,
+            StockConsumptionRelationManager::class,
+            ActivitiesRelationManager::class,
         ];
+    }
+
+    /**
+     * FR-USR-04 — a technician sees only the requests assigned to them.
+     *
+     * **`self::` here, not `parent::`.** This resource gets its property scoping from the
+     * `ScopesViaProperty` trait, and that trait's whole implementation IS `getEloquentQuery()` —
+     * TenantRequest has no `asset_id`, so it is scoped through `unit.asset_id` there. Declaring
+     * this method in the class SHADOWS the trait (a class method always beats a trait's), so
+     * calling `parent::` would skip it and silently delete property isolation: every restricted
+     * user would read every mall's requests. The isolation tests caught exactly that.
+     *
+     * The trait aliases its version to `scopedViaPropertyQuery()` so this can wrap rather than
+     * replace it. Both scopes then apply, which is the requirement: assignment narrows within the
+     * properties you may see, it never widens across them.
+     *
+     * NOTE the column: `tenant_requests.assigned_to`, where the work order uses
+     * `assigned_to_user_id`. The two tables disagree, which is why the rule lives in one primitive.
+     */
+    public static function getEloquentQuery(): Builder
+    {
+        return AssignmentScope::apply(static::scopedViaPropertyQuery(), 'maintenance', 'assigned_to');
     }
 
     public static function getPages(): array
@@ -130,7 +157,7 @@ class MaintenanceRequestResource extends Resource
         ];
     }
 
-public static function getGloballySearchableAttributes(): array
+    public static function getGloballySearchableAttributes(): array
     {
         return ['reference', 'title', 'tenant.name', 'unit.code'];
     }

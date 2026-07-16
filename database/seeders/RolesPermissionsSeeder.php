@@ -34,6 +34,10 @@ class RolesPermissionsSeeder extends Seeder
         'accounting' => 'Accounting department — invoices, payments, credit notes, CAM, reports.',
         'marketing' => 'Marketing department — the marketing budget + spend.',
         'hr' => 'HR department — staff accounts, roles, departments.',
+        // FR-USR-04 — the FRD's "In-house Technician: normal employee; sees only work assigned to
+        // them". The one role that deliberately LACKS `*.view_all`, which is what makes the
+        // assignment scope bite (App\Support\AssignmentScope).
+        'technician' => 'In-house technician — sees only the requests + work orders assigned to them.',
     ];
 
     /**
@@ -103,6 +107,11 @@ class RolesPermissionsSeeder extends Seeder
             'maintenance.edit' => 'Edit maintenance requests',
             'maintenance.delete' => 'Delete maintenance requests',
             'maintenance.assign' => 'Assign maintenance requests to staff or vendors',
+            // FR-USR-04 — "sees only work assigned to them". Holding this means you OVERSEE the
+            // module; lacking it means you see your own work. A permission rather than a role list
+            // so the operator can invent a role without a deploy. Granted to every existing role,
+            // so nothing that worked yesterday narrows today — only the new `technician` lacks it.
+            'maintenance.view_all' => 'See every request, not only your own assignments (FR-USR-04)',
             'maintenance.change_status' => 'Move requests across status transitions',
         ],
         'tenant_sales' => [
@@ -208,6 +217,7 @@ class RolesPermissionsSeeder extends Seeder
             // FR-CM-12/13. Deliberately NOT granted to operations: recording what you found is
             // engineering, but ruling that a TENANT is financially responsible is a commercial
             // claim. Manager inherits it via the blanket non-delete grant.
+            'preventive_maintenance.view_all' => 'See every work order, not only your own assignments (FR-USR-04)',
             'preventive_maintenance.attribute_fault' => 'Rule on who caused a failure and who bears the cost (FR-CM-12/13)',
         ],
         'deposit_transactions' => [
@@ -335,7 +345,11 @@ class RolesPermissionsSeeder extends Seeder
 
         // viewer: every .view + reports.download.
         $viewerPerms = collect($all)
-            ->filter(fn ($p) => str_ends_with($p, '.view') || $p === 'reports.download')
+            // `.view_all` as well as `.view` (FR-USR-04): these are OVERSIGHT roles — an auditor
+            // or an owner who saw "only work assigned to them" would see an empty screen, because
+            // nobody assigns work orders to auditors. AssignmentScope restricts whoever lacks
+            // `.view_all`, so omitting it here silently narrows them to nothing.
+            ->filter(fn ($p) => str_ends_with($p, '.view') || str_ends_with($p, '.view_all') || $p === 'reports.download')
             ->values()
             ->all();
         Role::findByName('viewer', 'web')->syncPermissions($viewerPerms);
@@ -344,7 +358,11 @@ class RolesPermissionsSeeder extends Seeder
         // but only for the properties they OWN (scoped via User::accessibleAssets),
         // plus the right to raise + track owner requests.
         $ownerPerms = collect($all)
-            ->filter(fn ($p) => str_ends_with($p, '.view') || $p === 'reports.download')
+            // `.view_all` as well as `.view` (FR-USR-04): these are OVERSIGHT roles — an auditor
+            // or an owner who saw "only work assigned to them" would see an empty screen, because
+            // nobody assigns work orders to auditors. AssignmentScope restricts whoever lacks
+            // `.view_all`, so omitting it here silently narrows them to nothing.
+            ->filter(fn ($p) => str_ends_with($p, '.view') || str_ends_with($p, '.view_all') || $p === 'reports.download')
             ->push('owner_requests.create')
             ->unique()
             ->values()
@@ -367,6 +385,8 @@ class RolesPermissionsSeeder extends Seeder
         // operations: Maintenance, Vendors, Utility Meters, Inventory.
         Role::findByName('operations', 'web')->syncPermissions([
             'maintenance.view', 'maintenance.create', 'maintenance.edit',
+            // Dispatch IS oversight — you cannot assign work you cannot see (FR-USR-04).
+            'maintenance.view_all', 'preventive_maintenance.view_all',
             'maintenance.assign', 'maintenance.change_status',
             'preventive_maintenance.view', 'preventive_maintenance.create',
             'preventive_maintenance.edit', 'preventive_maintenance.complete',
@@ -378,6 +398,18 @@ class RolesPermissionsSeeder extends Seeder
             'procurement.view', 'procurement.create', 'procurement.edit', 'procurement.receive',
             // The bottom rung: a supervisor signs off routine, low-value part draws.
             'approvals.tier_1',
+            'notes.view', 'notes.create',
+        ]);
+
+        // FR-USR-04 — the technician: does the work, sees only their own.
+        //
+        // Note what is ABSENT: `maintenance.view_all` and `preventive_maintenance.view_all`. That
+        // absence is the entire feature — AssignmentScope restricts anyone lacking them. They can
+        // complete the job they are holding and nothing else; assigning work is a coordinator's
+        // job, and `.assign` is withheld for the same reason.
+        Role::findByName('technician', 'web')->syncPermissions([
+            'maintenance.view', 'maintenance.change_status',
+            'preventive_maintenance.view', 'preventive_maintenance.complete',
             'notes.view', 'notes.create',
         ]);
 
