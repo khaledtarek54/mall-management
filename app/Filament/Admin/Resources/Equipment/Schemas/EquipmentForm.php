@@ -18,33 +18,15 @@ use Illuminate\Validation\Rules\Unique;
 class EquipmentForm
 {
     /**
-     * The selected property — but only if the user may actually see it.
+     * The selected property, clamped to what the user may actually see.
      *
-     * The dependent pickers below (parent / unit / fixed asset) are keyed on `asset_id`,
-     * which is **client-supplied**: it's `->live()`, and in All-Properties mode the Select
-     * is enabled. Keying the option queries on the raw value would let a crafted Livewire
-     * request set it to a property outside the user's set and enumerate that property's
-     * units, equipment codes and fixed assets — the option list is rendered long before
-     * `assertAssetInScope()` runs at save time, so the refusal comes too late to matter.
-     *
-     * Returns null (→ no options) when the value is blank or out of scope. null from
-     * `visibleAssetIds()` means unrestricted, per its contract.
+     * Every query below is keyed on `asset_id`, which is **client-supplied** (it's
+     * `->live()`, and the Select is enabled in All-Properties mode). See
+     * `TenantScope::clampAssetId()` for why the raw value is unsafe here.
      */
     private static function inScopeAssetId(Get $get): ?int
     {
-        $assetId = $get('asset_id');
-
-        if (blank($assetId)) {
-            return null;
-        }
-
-        $visible = TenantScope::visibleAssetIds();
-
-        if ($visible !== null && ! in_array((int) $assetId, $visible, true)) {
-            return null;
-        }
-
-        return (int) $assetId;
+        return TenantScope::clampAssetId($get('asset_id'));
     }
 
     public static function configure(Schema $schema): Schema

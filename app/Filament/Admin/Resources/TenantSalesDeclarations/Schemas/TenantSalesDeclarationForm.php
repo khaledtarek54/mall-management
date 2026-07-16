@@ -39,10 +39,14 @@ class TenantSalesDeclarationForm
                         ->required()
                         ->displayFormat('d/m/Y')
                         ->default(now()->startOfMonth()->subMonth())
+                        // Clamped: `lease_id` is client-supplied, and assertLeaseAssetInScope()
+                        // runs in a mutate hook — i.e. AFTER the validation pass — so keyed
+                        // raw this rule leaked whether a lease in an invisible property had
+                        // already declared a given month (TenantScope::clampLeaseId).
                         ->unique(
                             table: TenantSalesDeclaration::class,
                             ignoreRecord: true,
-                            modifyRuleUsing: fn (Unique $rule, Get $get) => $rule->where('lease_id', $get('lease_id')),
+                            modifyRuleUsing: fn (Unique $rule, Get $get) => $rule->where('lease_id', \App\Support\TenantScope::clampLeaseId($get('lease_id'))),
                         )
                         ->validationMessages([
                             'unique' => __('api.sales_declaration_duplicate'),

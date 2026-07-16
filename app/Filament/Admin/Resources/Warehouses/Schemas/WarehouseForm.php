@@ -32,7 +32,10 @@ class WarehouseForm
                 ->label(__('admin.inventory.fields.code'))
                 ->required()
                 ->maxLength(30)
-                ->unique(ignoreRecord: true, modifyRuleUsing: fn (\Illuminate\Validation\Rules\Unique $rule, Get $get) => $rule->where('asset_id', $get('asset_id'))),
+                // Clamped: `asset_id` is client-supplied, and a unique rule keyed on the
+                // raw value leaks whether a code exists in a property the user cannot see
+                // (TenantScope::clampAssetId).
+                ->unique(ignoreRecord: true, modifyRuleUsing: fn (\Illuminate\Validation\Rules\Unique $rule, Get $get) => $rule->where('asset_id', TenantScope::clampAssetId($get('asset_id')))),
             TextInput::make('category')
                 ->label(__('admin.inventory.fields.category'))
                 ->maxLength(255)

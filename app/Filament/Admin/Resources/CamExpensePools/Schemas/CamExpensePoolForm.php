@@ -32,7 +32,10 @@ class CamExpensePoolForm
                         ->numeric()
                         ->minValue(2020)
                         ->maxValue(2099)
-                        ->unique(ignoreRecord: true, modifyRuleUsing: fn (\Illuminate\Validation\Rules\Unique $rule, \Filament\Schemas\Components\Utilities\Get $get) => $rule->where('asset_id', $get('asset_id')))
+                        // Clamped: `asset_id` is client-supplied, and a unique rule keyed on
+                        // the raw value leaks whether a pool exists for a year in a property
+                        // the user cannot see (TenantScope::clampAssetId).
+                        ->unique(ignoreRecord: true, modifyRuleUsing: fn (\Illuminate\Validation\Rules\Unique $rule, \Filament\Schemas\Components\Utilities\Get $get) => $rule->where('asset_id', \App\Support\TenantScope::clampAssetId($get('asset_id'))))
                         ->default(fn () => now()->year),
                     Select::make('status')
                         ->label(__('admin.tables.common.status'))

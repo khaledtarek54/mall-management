@@ -33,7 +33,10 @@ class FixedAssetForm
                 ->required()
                 ->maxLength(40)
                 // Unique per property (matches the DB composite unique index).
-                ->unique(ignoreRecord: true, modifyRuleUsing: fn (\Illuminate\Validation\Rules\Unique $rule, Get $get) => $rule->where('asset_id', $get('asset_id'))),
+                // Clamped: `asset_id` is client-supplied, and a unique rule keyed on the
+                // raw value leaks whether a tag exists in a property the user cannot see
+                // (TenantScope::clampAssetId).
+                ->unique(ignoreRecord: true, modifyRuleUsing: fn (\Illuminate\Validation\Rules\Unique $rule, Get $get) => $rule->where('asset_id', TenantScope::clampAssetId($get('asset_id')))),
             TextInput::make('category')
                 ->label(__('admin.fixed_assets.fields.category'))
                 ->maxLength(255)

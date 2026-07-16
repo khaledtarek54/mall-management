@@ -37,7 +37,10 @@ class UnitForm
                         ->label(__('admin.tables.unit.code'))
                         ->required()
                         ->maxLength(20)
-                        ->unique(ignoreRecord: true, modifyRuleUsing: fn (\Illuminate\Validation\Rules\Unique $rule, \Filament\Schemas\Components\Utilities\Get $get) => $rule->where('asset_id', $get('asset_id')))
+                        // Clamped: `asset_id` is client-supplied, and a unique rule keyed on
+                        // the raw value leaks whether a unit code exists in a property the
+                        // user cannot see (TenantScope::clampAssetId).
+                        ->unique(ignoreRecord: true, modifyRuleUsing: fn (\Illuminate\Validation\Rules\Unique $rule, \Filament\Schemas\Components\Utilities\Get $get) => $rule->where('asset_id', \App\Support\TenantScope::clampAssetId($get('asset_id'))))
                         ->placeholder('A-01'),
                     TextInput::make('floor')
                         ->label(__('admin.pdf.floor'))

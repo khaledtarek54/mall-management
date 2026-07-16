@@ -42,9 +42,15 @@ class TenantSalesDeclarationForm
                         ->required()
                         ->displayFormat('d/m/Y')
                         ->default(now()->startOfMonth()->subMonth())
+                        // Clamped to this tenant's own leases. The Select's options scope
+                        // the rendering, not the payload — and Laravel runs every field
+                        // rule in one pass, so the `in` refusal on a foreign lease_id does
+                        // not stop this raw unique query from having already run. Keyed
+                        // raw it answered "has <lease> declared sales for <month>?" for
+                        // ANOTHER retailer's lease (Portal::clampLeaseId).
                         ->unique(
                             table: TenantSalesDeclaration::class,
-                            modifyRuleUsing: fn (Unique $rule, Get $get) => $rule->where('lease_id', $get('lease_id')),
+                            modifyRuleUsing: fn (Unique $rule, Get $get) => $rule->where('lease_id', \App\Support\Portal::clampLeaseId($get('lease_id'))),
                         )
                         ->validationMessages([
                             'unique' => __('api.sales_declaration_duplicate'),

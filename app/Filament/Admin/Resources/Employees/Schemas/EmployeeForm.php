@@ -36,7 +36,10 @@ class EmployeeForm
                 ->required()
                 ->maxLength(40)
                 // Unique per property (matches the DB composite unique index).
-                ->unique(ignoreRecord: true, modifyRuleUsing: fn (\Illuminate\Validation\Rules\Unique $rule, Get $get) => $rule->where('asset_id', $get('asset_id'))),
+                // Clamped: `asset_id` is client-supplied, and a unique rule keyed on the raw
+                // value leaks whether an employee code exists in a property the user cannot
+                // see — the most sensitive instance of this class (TenantScope::clampAssetId).
+                ->unique(ignoreRecord: true, modifyRuleUsing: fn (\Illuminate\Validation\Rules\Unique $rule, Get $get) => $rule->where('asset_id', TenantScope::clampAssetId($get('asset_id')))),
             TextInput::make('name')
                 ->label(__('admin.employees.fields.name'))
                 ->required()

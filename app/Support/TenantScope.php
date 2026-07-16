@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Asset;
+use App\Models\Lease;
 use App\Models\Tenant;
 use Filament\Facades\Filament;
 
@@ -133,6 +134,74 @@ class TenantScope
 
         // No pick, or a pick outside the allowed set → restrict to the allowed set.
         return $visible;
+    }
+
+    /**
+     * Clamp a single client-supplied asset id to what the current user may see.
+     * The single-value sibling of reportAssetIds(): the id when it is visible,
+     * null when it is blank or outside the user's set (null = unrestricted, per
+     * visibleAssetIds()'s contract).
+     *
+     * **Use this for any query keyed on a form's `asset_id`.** That value is
+     * client-supplied — the property Select is enabled in All-Properties mode — so a
+     * crafted Livewire request can point it anywhere. Two traps make the raw value
+     * unsafe even on forms that guard the write:
+     *
+     *  - Option lists render on `->live()` state, long before `assertAssetInScope()`
+     *    runs at save — a picker keyed on the raw value enumerates an invisible
+     *    property's records regardless of the refusal that follows.
+     *  - `Rule::unique` is worse: Laravel runs every field rule in ONE pass *before*
+     *    any mutate hook, and the rule compiles to a raw query that Filament's tenancy
+     *    global scope never touches. Keyed raw it answers "is this code taken in
+     *    <property>?" — the write is refused either way, but the field erroring (or
+     *    not) is a one-bit existence oracle over another property's natural keys.
+     *
+     * Returning null collapses both: no options, and a unique rule that matches nothing.
+     * `UniqueRuleScopeConformanceTest` fails CI if any Filament form keys a unique rule on
+     * a raw client-supplied scope. See also clampLeaseId() and Portal::clampLeaseId().
+     */
+    public static function clampAssetId(mixed $assetId): ?int
+    {
+        if (blank($assetId)) {
+            return null;
+        }
+
+        $visible = self::visibleAssetIds();
+
+        if ($visible !== null && ! in_array((int) $assetId, $visible, true)) {
+            return null;
+        }
+
+        return (int) $assetId;
+    }
+
+    /**
+     * Clamp a client-supplied lease id to the properties the current user may see.
+     * The lease's property is resolved through its unit (the chain PropertyIsolation
+     * registers for Lease). Returns null when blank or out of scope.
+     *
+     * Same contract and same reason as clampAssetId() — a form's `lease_id` is
+     * client-supplied, and `assertLeaseAssetInScope()` runs in a mutate hook, i.e. AFTER
+     * the validation pass. A unique rule keyed on the raw lease id therefore leaks
+     * whether a lease exists in an invisible property, and what it has already declared.
+     */
+    public static function clampLeaseId(mixed $leaseId): ?int
+    {
+        if (blank($leaseId)) {
+            return null;
+        }
+
+        $visible = self::visibleAssetIds();
+
+        if ($visible === null) {
+            return (int) $leaseId;
+        }
+
+        $inScope = Lease::whereKey($leaseId)
+            ->whereHas('unit', fn ($q) => $q->whereIn('asset_id', $visible))
+            ->exists();
+
+        return $inScope ? (int) $leaseId : null;
     }
 
     /**

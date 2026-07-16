@@ -110,9 +110,11 @@ progress badge.
    hook**, and `Rule::unique` compiles to a raw query Filament's tenancy scope never touches, so the
    guard fires too late. Keyed raw, it answered *"is this code taken in <property>?"* — the write
    was refused either way, but a `code` error appearing (or not) was a one-bit existence oracle.
-   ⚠️ **This raw-`$get('asset_id')` pattern in a `unique` rule is repo-wide** (`WarehouseForm`,
-   `FixedAssetForm`, `CamExpensePoolForm`, `UnitForm`, `EmployeeForm`) — same latent oracle, not yet
-   fixed there.
+   The clamp is `TenantScope::clampAssetId()`. **The whole class has since been swept** —
+   `WarehouseForm`, `FixedAssetForm`, `CamExpensePoolForm`, `UnitForm`, `EmployeeForm`, and the
+   Admin **and Portal** sales-declaration forms (which keyed on `lease_id`, making the Portal one
+   *cross-tenant*). `tests/Feature/Scenarios/UniqueRuleScopeConformanceTest.php` now fails CI for
+   any Filament form that keys a unique rule on a raw client-supplied scope.
 1b. **A sub-code's parent must be in the same property, and the tree must stay acyclic.** Both are
    enforced in `Equipment::booted()` (the model is the only writer; the DB can't express either).
    A cross-property parent would let Mall A's escalator own Mall B's motor and surface the child in
