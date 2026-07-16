@@ -6,8 +6,11 @@
 > All findings **reproduced** against the real MySQL demo books, driven through the real services
 > and a real `accounting:sync-ledger`, inside rolled-back transactions.
 
-**Status: 🔴 Red.** The module's own lifecycle is genuinely well built — locks, a service-side
-transition matrix, tier-on-current-total, source-linked receipts all hold up under attack. Its headline defect — **the GRNI clearing it exists to enable was unreachable from the product** — is closed, together with the aggregate cap it would otherwise have exposed.
+**Status: 🔴 Red → 🟡 Yellow** (F-100…F-103 fixed 2026-07-17). The module's own lifecycle is
+genuinely well built — locks, a service-side transition matrix, tier-on-current-total,
+source-linked receipts all hold up under attack. Its headline defect — **the GRNI clearing it
+exists to enable was unreachable from the product** — is closed, together with the aggregate cap
+that fixing it would otherwise have exposed. **F-104 and F-105 remain.**
 
 `pest --parallel --filter='Purchase|Procurement|Grni'` → **46 passed**. Conformance gates → 63 passed.
 
@@ -15,7 +18,7 @@ transition matrix, tier-on-current-total, source-linked receipts all hold up und
 
 ## 1. Findings
 
-### 🔴 F-100. The GRNI clearing has no production writer — every real bill still double-counts
+### 🔴 F-100. The GRNI clearing has no production writer — every real bill still double-counts · **FIXED 2026-07-17**
 `app/Filament/Admin/Resources/VendorBills/Schemas/VendorBillForm.php` (13 fields, none of them the
 link) · `app/Services/Accounting/Journalizers/VendorBillJournalizer.php:134`
 
@@ -42,10 +45,12 @@ doc all say is fixed. **The journalizer is correct; it is dead code.** The doc's
 goods now **clears** it"* is false in production, and the 166,120 EGP of uncleared GRNI has no path
 to shrink.
 
-**Fix:** give the form the link — a `purchase_request_id` Select scoped to that vendor's `received`
-requests at that property. **Do it together with F-101**, never alone (see below).
+**Fix (2026-07-17).** `VendorBillForm` now offers the link, scoped to the same vendor AND property
+AND to **received** purchases only — an unreceived purchase has credited nothing to GRNI. Shipped
+in one commit with F-101, never alone. Guard: `GrniReachableAndCappedTest`, which asserts the FORM
+offers the field rather than fabricating the column (see §5).
 
-### 🔴 F-101. Two bills against one purchase clear GRNI twice — latent *only* because F-100 blocks it
+### 🔴 F-101. Two bills against one purchase clear GRNI twice — latent *only* because F-100 blocks it · **FIXED 2026-07-17**
 `app/Services/Accounting/Journalizers/VendorBillJournalizer.php:72` ·
 `database/migrations/2026_07_17_100001_link_vendor_bills_to_purchase_requests.php:44`
 
@@ -68,9 +73,16 @@ debit no receipt ever credited — that would swing GRNI positive and hide a rea
 achieved with two bills instead of one big one. **The books still balance (Dr = Cr), so the
 `BooksReconciliationService` tie-out cannot catch it.**
 
-> ⚠️ **Sequencing.** F-101 is unreachable today *because* F-100 blocks the link. **It goes live the
-> moment F-100 is fixed** — which is the natural next commit. Fix them together, or the fix for the
-> double-count ships the double-clear.
+> ⚠️ **Sequencing — why one commit.** F-101 was unreachable *because* F-100 blocked the link, so
+> shipping the link alone would have made the double-clear its first act.
+>
+> **Fix (2026-07-17).** `goodsAwaitingInvoice()` now allocates the received value FIFO by
+> `(bill_date, id)` across the purchase's postable bills: each takes what is left after the ones
+> before it, and once it is used up later bills clear nothing and are pure expense. Deterministic,
+> and independent of which bill is being posted or re-posted — which is also the right accounting
+> answer, because the goods arrived once. `VendorBill::NON_POSTABLE_STATUSES` now backs both
+> `isPostable()` and a new `postable()` scope off one constant, so a draft bill cannot eat into
+> what a real one may clear.
 
 ### 🟡 F-102. `cancel()` bypasses the approval ladder that `reject()` enforces · **FIXED 2026-07-17**
 `app/Services/PurchaseRequestService.php:252` · `PurchaseRequestsTable.php:163`
@@ -209,11 +221,9 @@ correctly closed.
 
 ## 6. Deferred
 
-- **D-91 — F-100 + F-101 TOGETHER.** The link on `VendorBillForm`, *and* the aggregate cap
-  (subtract what prior bills cleared; consider `unique` on the FK if one-bill-per-purchase is the
-  intent). **Never F-100 alone.**
+- ~~**D-91**~~ — ✅ **F-100 + F-101 fixed together 2026-07-17**, as the sequencing demanded.
 - ~~**D-92**~~ — ✅ **F-102/F-103 fixed 2026-07-17.** Extracted rather than copied a third time.
-- **D-93** — F-104: route the create page through `PurchaseRequestService::request()`, so the tier
+- **D-93 — now this module's priority.** F-104: route the create page through `PurchaseRequestService::request()`, so the tier
   freezes and FR-PROC-01's "item(s)" is enforced.
 - **D-94** — F-105: `withTrashed()` on `PurchaseRequest::warehouse()`.
 - **D-95** — `->authorize()` on the `EditAction`, matching its five siblings.
