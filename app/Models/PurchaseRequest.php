@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ApprovalPolicy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -155,10 +156,36 @@ class PurchaseRequest extends Model
         return $this->lines()->whereNotNull('inventory_item_id');
     }
 
-    /** Recompute from the lines. The value the approval tier is judged on must never drift. */
+    /**
+     * Recompute from the lines. The value the approval tier is judged on must never drift.
+     *
+     * **`required_permission` follows the total**, while the request is still open to change.
+     * It is the frozen answer to "who was SUPPOSED to approve this" — the record's own audit of
+     * the policy in force when it was raised, kept so a later edit to the bands cannot rewrite
+     * history. But it was only ever written by `PurchaseRequestService::request()`, and the
+     * Filament create page doesn't call it: the form collects no lines (they are added afterwards
+     * through the relation manager), so the header is created first and the service's
+     * header-plus-lines shape never fitted the UI. Net effect: **NULL on 100% of production
+     * rows** — `pr_pending_queue_index` on `(status, required_permission)` indexed a permanently
+     * null column, and the list rendered its `unknown` fallback ("Needs a higher authority") on
+     * every request, including a 500 EGP one needing only a supervisor (gap-analysis F-104).
+     *
+     * Derived HERE, not on the create page, because this is where the total is derived and the
+     * two answer the same question. It stops the moment the request leaves `requested`: after a
+     * decision the tier is history, and `approve()` judges the CURRENT total anyway — which is
+     * the guard that keeps "approved at 500, quietly becomes 50,000" from working.
+     */
     public function recomputeTotal(): void
     {
         $this->total_value = round((float) $this->lines()->sum('line_value'), 2);
+
+        if ($this->status === self::STATUS_REQUESTED) {
+            $this->required_permission = ApprovalPolicy::permissionFor(
+                ApprovalRule::MODULE_PURCHASE_REQUEST,
+                (float) $this->total_value,
+            );
+        }
+
         $this->saveQuietly();
     }
 

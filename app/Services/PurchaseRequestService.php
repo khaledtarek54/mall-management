@@ -99,6 +99,16 @@ class PurchaseRequestService
             $this->assertCan($approver, self::DECIDE_PERMISSION);
             $this->assertTransition($locked, PurchaseRequest::STATUS_APPROVED);
 
+            // FR-PROC-01 — "raise a request for item(s)". `request()` refuses an empty request,
+            // but the Filament create page doesn't call it: the form collects no lines (they are
+            // added afterwards via the relation manager), so a header with NO lines was creatable
+            // — total 0, which lands in the tier_1 band and was duly approvable. Approving a
+            // request for nothing is the failure; enforced HERE because this is the first moment
+            // the lines are settled, which the create page cannot be (gap-analysis F-104).
+            if ($locked->lines()->doesntExist()) {
+                throw new DomainException(__('admin.procurement.errors.no_lines'));
+            }
+
             // Re-check against the value, not merely the permission: someone who may approve 500
             // must not approve 50,000 by finding the button.
             $this->assertMayDecideValue($approver, $locked);

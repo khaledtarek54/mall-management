@@ -42,17 +42,35 @@ beforeEach(function () {
     $this->buyer = makeUser('operations', [$this->asset->id]);
 });
 
-/** A 50,000 purchase — above the tier_2 band, so only a tier_3 holder may decide it. */
-function pdtBigRequest(string $status = PurchaseRequest::STATUS_REQUESTED): PurchaseRequest
+/**
+ * A 50,000 purchase — above the tier_2 band, so only a tier_3 holder may decide it.
+ *
+ * The line is not decoration: `total_value` is DERIVED from the lines by recomputeTotal(), and
+ * approve() refuses a request with none (FR-PROC-01). A header carrying 50,000 with no lines is a
+ * state the product cannot produce — the same fixture trap the F-84 tests had.
+ */
+function pdtRequestFor(float $value): PurchaseRequest
 {
-    return PurchaseRequest::create([
+    $request = PurchaseRequest::create([
         'asset_id' => test()->asset->id,
         'reference' => 'PR-PDT-'.uniqid(),
-        'status' => $status,
+        'status' => PurchaseRequest::STATUS_REQUESTED,
         'justification' => 'Chiller overhaul parts',
-        'total_value' => 50000,
         'requested_by_user_id' => test()->buyer->id, // a third party — self-approval is a separate rule
     ]);
+
+    $request->lines()->create([
+        'description' => 'Compressor assembly',
+        'quantity' => 1,
+        'unit_cost' => $value,
+    ]);
+
+    return $request->refresh(); // the line's saved() hook derived total_value + required_permission
+}
+
+function pdtBigRequest(): PurchaseRequest
+{
+    return pdtRequestFor(50000);
 }
 
 it('refuses a cancel by someone who could not approve the amount', function () {
@@ -102,14 +120,7 @@ it('still lets an authorised senior cancel and order', function () {
 it('still lets a manager decide an amount within their own tier', function () {
     // The ladder must not become "seniors only" — a manager's own band still works, on all
     // four verbs.
-    $small = PurchaseRequest::create([
-        'asset_id' => $this->asset->id,
-        'reference' => 'PR-PDT-SMALL-'.uniqid(),
-        'status' => PurchaseRequest::STATUS_REQUESTED,
-        'justification' => 'Box of filters',
-        'total_value' => 500, // tier_1 band
-        'requested_by_user_id' => $this->buyer->id,
-    ]);
+    $small = pdtRequestFor(500); // tier_1 band
 
     $this->svc->approve($small, null, $this->manager);
     $this->svc->order($small->fresh(), null, 'PO-4', $this->manager);
