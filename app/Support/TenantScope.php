@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Models\Asset;
 use App\Models\Lease;
 use App\Models\Tenant;
+use App\Models\Unit;
 use Filament\Facades\Filament;
 
 /**
@@ -173,6 +174,32 @@ class TenantScope
         }
 
         return (int) $assetId;
+    }
+
+    /**
+     * Clamp a client-supplied unit id to the properties the current user may see.
+     * Returns null when blank or out of scope.
+     *
+     * Same contract and reason as clampAssetId(). Note this class of leak is not only
+     * `Rule::unique`: any validation that *queries* on a client value leaks through its
+     * pass/fail — e.g. "does this unit already have an active lease?" answers "is that
+     * unit occupied?" for a property the user cannot see.
+     */
+    public static function clampUnitId(mixed $unitId): ?int
+    {
+        if (blank($unitId)) {
+            return null;
+        }
+
+        $visible = self::visibleAssetIds();
+
+        if ($visible === null) {
+            return (int) $unitId;
+        }
+
+        return Unit::whereKey($unitId)->whereIn('asset_id', $visible)->exists()
+            ? (int) $unitId
+            : null;
     }
 
     /**

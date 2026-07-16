@@ -121,6 +121,45 @@ function whereArgExpressions(string $src): array
     return $out;
 }
 
+/**
+ * The body of every Laravel custom-rule closure (`function (…, $value, Closure $fail)`),
+ * extracted with a brace-balanced scan so a guard elsewhere in the file cannot vouch for it.
+ *
+ * @return array<int,string>
+ */
+function ruleClosureBodies(string $src): array
+{
+    $out = [];
+    $len = strlen($src);
+    $offset = 0;
+
+    while (($pos = strpos($src, 'Closure $fail', $offset)) !== false) {
+        $open = strpos($src, '{', $pos);
+
+        if ($open === false) {
+            break;
+        }
+
+        $depth = 1;
+        $i = $open + 1;
+
+        while ($i < $len && $depth > 0) {
+            $ch = $src[$i];
+            if ($ch === '{') {
+                $depth++;
+            } elseif ($ch === '}') {
+                $depth--;
+            }
+            $i++;
+        }
+
+        $out[] = substr($src, $open, $i - $open);
+        $offset = max($i, $pos + 1);
+    }
+
+    return $out;
+}
+
 /** Does this `where()` argument list key an FK on unclamped, client-supplied state? */
 function whereLeaksClientScope(string $args): bool
 {
@@ -156,6 +195,47 @@ it('has no unique rule keyed on a raw client-supplied scope', function () {
         foreach (whereArgExpressions($src) as $args) {
             if (whereLeaksClientScope($args)) {
                 $offenders[] = str_replace(base_path().'/', '', $path)." — where({$args})";
+            }
+        }
+    }
+
+    expect($offenders)->toBe([]);
+});
+
+/* ---- structural: custom rule closures leak through pass/fail too ------- */
+
+it('has no custom rule closure querying on a raw client value', function () {
+    // `Rule::unique` is not the only shape. Any validation that QUERIES on a client value
+    // tells through its outcome — LeaseForm's "does this unit already have an active
+    // lease?" answered "is that unit occupied?" for an invisible property.
+    //
+    // Narrow by construction: the Laravel custom-rule signature (`Closure $fail`) appears
+    // in exactly two Filament files, so this stays high-signal rather than noisy.
+    $offenders = [];
+
+    foreach (filamentSources() as $path) {
+        $src = sourceWithoutComments($path);
+
+        if (! str_contains($src, 'Closure $fail')) {
+            continue;
+        }
+
+        // Check the CLOSURE BODY, not the file. A file-level str_contains would pass
+        // LeaseForm on the strength of an unrelated visibleAssetIds() in its options
+        // closure — the same vacuous-substring flaw that made the first gate green while
+        // the leak was live. (Caught by reverting the fix and watching this stay green.)
+        foreach (ruleClosureBodies($src) as $body) {
+            // ANY variable, not just $value: `$unitId = $value; where('unit_id', $unitId)`
+            // is the same leak one hop removed, and pinning `$value` missed it — the same
+            // indirection that defeated the first gate. Tracking dataflow properly is
+            // beyond a static check, so this errs toward flagging: a rule closure that
+            // queries an FK must visibly clamp or check visibility. Only two such closures
+            // exist in the whole panel, so the strictness costs nothing.
+            $queriesFk = (bool) preg_match('/where\(\s*[\'"]\w*_id[\'"]\s*,\s*\$\w+\s*[,)]/', $body);
+            $isGuarded = str_contains($body, 'clamp') || str_contains($body, 'visibleAssetIds');
+
+            if ($queriesFk && ! $isGuarded) {
+                $offenders[] = str_replace(base_path().'/', '', $path);
             }
         }
     }

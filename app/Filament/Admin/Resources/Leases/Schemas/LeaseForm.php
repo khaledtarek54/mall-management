@@ -71,7 +71,20 @@ class LeaseForm
                                     return;
                                 }
 
-                                $exists = Lease::where('unit_id', $value)
+                                // Clamp before querying. `$value` is a client-supplied unit_id,
+                                // and this rule's pass/fail answers "is that unit occupied?" —
+                                // so keyed raw it leaks occupancy for a property the user cannot
+                                // see. A `unique` rule is not the only shape of this leak: any
+                                // validation that queries on a client value tells through its
+                                // outcome. Out of scope → skip: the unit_id `in` rule and
+                                // LeaseResource::assertUnitAssetInScope() refuse the write anyway.
+                                $unitId = TenantScope::clampUnitId($value);
+
+                                if ($unitId === null) {
+                                    return;
+                                }
+
+                                $exists = Lease::where('unit_id', $unitId)
                                     ->where('status', 'active')
                                     ->when($record, fn ($q) => $q->where('id', '!=', $record->id))
                                     ->exists();
