@@ -92,12 +92,22 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // The alerting sink. Add it to OPS_LOG_STACK in production so money/integration
+        // failures reach a human instead of a file nobody reads:
+        //     OPS_LOG_STACK="ops_daily,slack"   LOG_SLACK_WEBHOOK_URL=https://hooks.slack…
+        //
+        // `level` is DELIBERATELY its own env var, not LOG_LEVEL. An alerting threshold and
+        // an app-log verbosity are different questions: production runs LOG_LEVEL=warning,
+        // and inheriting it here would page someone for every routine warning; staging runs
+        // LOG_LEVEL=debug, which would fire on literally everything. Default `error` — the
+        // level OpsLog uses for "money did not move" (a failed ETA submission, an unassessed
+        // SLA penalty) — so an operator only has to set the webhook to get useful alerts.
         'slack' => [
             'driver' => 'slack',
             'url' => env('LOG_SLACK_WEBHOOK_URL'),
             'username' => env('LOG_SLACK_USERNAME', env('APP_NAME', 'Laravel')),
             'emoji' => env('LOG_SLACK_EMOJI', ':boom:'),
-            'level' => env('LOG_LEVEL', 'critical'),
+            'level' => env('LOG_SLACK_LEVEL', 'error'),
             'replace_placeholders' => true,
         ],
 

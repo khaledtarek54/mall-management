@@ -62,7 +62,6 @@ Ordered by real risk, not by age.
 
 | Item | What & why | Owner | Effort |
 | --- | --- | --- | --- |
-| **Role grants are unaudited** ⚠️ | `User::getActivitylogOptions()` exists but `logOnly(['name','email','email_verified_at'])` is column-only — roles are a pivot write (`UserForm.php:43-45`) with no `activity()` call. **Privilege escalation leaves no trail.** | 🧑‍💻 | S |
 | **Failed-jobs + scheduler monitoring** | Prose only (`PRODUCTION-RUNBOOK.md:104`). No alert, dashboard, health script, or dead-cron detection. A silently-dead cron means tenants go unbilled and tax submissions are missed for days. Depends on the P0 logging row. | ⚙️ | S |
 | **Health check that checks something** | `bootstrap/app.php:13` `health: '/up'` is the stock default — no DB/queue/cache probe, no uptime monitor. A false 200 masks a DB outage. | ⚙️ | M |
 | **SLA scans emit nothing** | The other three batch runs log summaries (`MonthlyBillingService.php:120`, `LateFeeService.php:53`, `CamReconciliationService.php:167`); both SLA scans use `$this->info()` only (`ScanWorkOrderSlaBreachesCommand.php:76`, `ScanMaintenanceSlaBreachesCommand.php:87`) — under `schedule:run` that output goes nowhere. Now that penalties are real money, a silent scan is a money problem. | 🧑‍💻 | S |
@@ -153,6 +152,26 @@ additive items** — none of which make today's books wrong.
 Verified 2026-07-16. These were on the old roadmap and are **done, or were never true**.
 Acting on the first one would actively reintroduce a bug.
 
+> ### ⚠️ How to read a "this is missing" row — read this before acting on §3
+>
+> Of the first four rows anyone actually verified, **two were false**, and both had the same
+> shape: *"I grepped for mechanism M in file F, didn't find it, therefore it's missing."*
+> Both times the codebase solved the problem — correctly — somewhere else:
+>
+> | Claim | Reality |
+> |---|---|
+> | "`/admin` + `/portal` login are unthrottled" | Throttled in the **Livewire component**, not route middleware |
+> | "Role grants are unaudited" | Audited by `AccessControlAudit` in **`app/Support/`**, not on the model |
+>
+> The rows that proved **true** had the opposite shape — *"here is code doing the wrong
+> thing"* (media on the public disk; `visible()` used as a gate). Both were exploitable and
+> were exploited before being fixed.
+>
+> **So: absence-of-mechanism claims here are unreliable; presence-of-bad-code claims are
+> reliable.** Before building anything from §3, go find the mechanism first — it may already
+> exist under a different name, in a different layer. It cost two false priorities to learn
+> this; don't pay for it twice.
+
 - ❌ **"MallStats MRR relabel"** — **do not do this.** It was fixed by correcting the *data*
   (`MallStats.php:60-62` now sums contractual rent from active leases), so the "Monthly
   Recurring Revenue" label is accurate. Relabelling to "Billed this month" would restore the
@@ -164,6 +183,19 @@ Acting on the first one would actively reintroduce a bug.
   that reported it grepped the panels' **route middleware** for `throttle:` — but the throttle
   is in the Livewire component, not the route. Now pinned empirically by
   `tests/Feature/Regression/PanelLoginThrottleTest.php` so nobody re-derives the false version.
+- ❌ **"Role grants are unaudited / privilege escalation leaves no trail"** — **false, and it
+  was briefly a ⚠️ row in §3 (2026-07-16).** Role *and* permission grants/revokes have been
+  audited since **2026-06-28** (`2a27946` → `f244d87`, hardened again in `b165dde`) via
+  `App\Support\AccessControlAudit`, with **20 passing tests** in
+  `tests/Feature/AccessControlAuditTest.php` covering the User form, department membership,
+  relation-manager attach/detach, role deletion as a mass revoke, and correctly *not* logging
+  during seeding. The audit that reported it read `User::getActivitylogOptions()`, saw
+  `logOnly(['name','email',…])`, and stopped. `AccessControlAudit`'s own docblock explains why
+  it diffs at each UI mutation point instead: **Filament's roles Select saves through the raw
+  belongsToMany pivot, which fires no spatie event**, and spatie's events carry the full
+  requested set rather than the delta, so an event listener would log phantom grants on every
+  idempotent re-assign. The model-level approach the row implied would have been *worse* than
+  what exists.
 - ❌ **"`danharrin/livewire-rate-limiting` is in composer but unused"** — it *is* installed and
   *is* used (see above). It's a transitive dependency of Filament, so it appears in
   `composer.lock` but not in `composer.json`'s require block — which is what made two separate
