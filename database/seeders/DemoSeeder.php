@@ -12,6 +12,7 @@ use App\Models\Department;
 use App\Models\DepositTransaction;
 use App\Models\Employee;
 use App\Models\Expense;
+use App\Models\Equipment;
 use App\Models\FixedAsset;
 use App\Models\InventoryItem;
 use App\Models\Invoice;
@@ -1939,6 +1940,8 @@ class DemoSeeder extends Seeder
         $fireSafe = Vendor::where('email', 'audit@firesafe.eg')->value('id');
         $brightSpark = Vendor::where('email', 'service@brightspark.eg')->value('id');
 
+        $this->seedEquipment($asset);
+
         $plans = [
             ['title' => 'HVAC filter & coil service',      'category' => 'hvac',        'unit' => 'weeks',  'freq' => 2, 'due' => -6,  'dept' => $ops, 'vendor' => $coolAir,
                 'checklist' => ['Inspect filter condition', 'Replace filter cartridge', 'Clean condenser coil', 'Check airflow pressure']],
@@ -1996,6 +1999,83 @@ class DemoSeeder extends Seeder
         }
 
         $this->command->info('   Seeded '.count($plans)." preventive plans, {$created} work orders generated (1 completed)");
+    }
+
+    /**
+     * The maintainable-asset register (FR-PPM-03/04/05): the machines themselves, with a
+     * component sub-code tree, the accounting twin where the fixed-asset register happens
+     * to hold one, and the spare parts that fit each.
+     */
+    private function seedEquipment(Asset $asset): void
+    {
+        // [code, name_en, name_ar, category, location, fixed-asset tag, sub-codes]
+        $machines = [
+            ['ESC-01', 'Main escalator (ground → 1st)', 'السلم الكهربائي الرئيسي (أرضي ← أول)', 'elevator', 'Atrium, north side', null, [
+                ['ESC-01-MOT', 'Drive motor', 'محرك الإدارة'],
+                ['ESC-01-HND', 'Handrail assembly', 'مجموعة الدرابزين'],
+                ['ESC-01-STP', 'Step chain', 'سلسلة الدرجات'],
+            ]],
+            ['LFT-01', 'Passenger lift (Zone C)', 'مصعد الركاب (منطقة ج)', 'elevator', 'Core C', 'FA-ELV-01', [
+                ['LFT-01-CAB', 'Cabin & doors', 'الكابينة والأبواب'],
+                ['LFT-01-CBL', 'Hoist cables', 'كابلات الرفع'],
+            ]],
+            ['CH-01', 'Central chiller unit', 'وحدة التبريد المركزية', 'hvac', 'Roof, zone B', 'FA-HVAC-01', [
+                ['CH-01-PMP', 'Circulation pump', 'مضخة الدوران'],
+                ['CH-01-CMP', 'Compressor', 'الضاغط'],
+            ]],
+            ['AHU-01', 'Air handling unit — atrium', 'وحدة مناولة الهواء — البهو', 'hvac', 'Plant room 2', null, []],
+            ['GEN-01', 'Backup diesel generator 250kVA', 'مولد ديزل احتياطي ٢٥٠ ك.ف.أ', 'generator', 'Basement, plant room 1', 'FA-GEN-01', [
+                ['GEN-01-BAT', 'Starter battery bank', 'بنك بطاريات البدء'],
+            ]],
+            ['FP-01', 'Fire pump', 'مضخة الحريق', 'fire-safety', 'Basement, pump room', null, []],
+        ];
+
+        $partIds = InventoryItem::pluck('id', 'sku');
+        $fixedAssetIds = FixedAsset::where('asset_id', $asset->id)->pluck('id', 'tag');
+        $count = 0;
+
+        foreach ($machines as [$code, $nameEn, $nameAr, $category, $location, $faTag, $subs]) {
+            $parent = Equipment::create([
+                'asset_id' => $asset->id,
+                'code' => $code,
+                'name_en' => $nameEn,
+                'name_ar' => $nameAr,
+                'category' => $category,
+                'location' => $location,
+                'fixed_asset_id' => $faTag ? ($fixedAssetIds[$faTag] ?? null) : null,
+                'is_active' => true,
+            ]);
+            $count++;
+
+            foreach ($subs as [$subCode, $subEn, $subAr]) {
+                Equipment::create([
+                    'asset_id' => $asset->id,
+                    'parent_id' => $parent->id,
+                    'code' => $subCode,
+                    'name_en' => $subEn,
+                    'name_ar' => $subAr,
+                    'category' => $category,
+                    'location' => $location,
+                    'is_active' => true,
+                ]);
+                $count++;
+            }
+
+            // Compatible spare parts (FR-PPM-05) — drawn from the shared item catalog.
+            $fits = match ($category) {
+                'hvac' => ['FLT-HVAC-STD', 'BELT-HVAC-A'],
+                'fire-safety' => ['EXT-CO2-5KG'],
+                'elevator' => ['LMP-LED-18W'],
+                'generator' => ['CB-16A'],
+                default => [],
+            };
+            $ids = collect($fits)->map(fn ($sku) => $partIds[$sku] ?? null)->filter()->values()->all();
+            if ($ids !== []) {
+                $parent->inventoryItems()->sync($ids);
+            }
+        }
+
+        $this->command->info("   Seeded {$count} equipment records (sub-codes + compatible parts)");
     }
 
     /**

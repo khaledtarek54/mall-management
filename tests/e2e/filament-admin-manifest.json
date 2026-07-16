@@ -64,6 +64,13 @@
             "hasView": false
         },
         {
+            "class": "EquipmentResource",
+            "slug": "equipment",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
             "class": "ExpenseResource",
             "slug": "expenses",
             "hasCreate": true,

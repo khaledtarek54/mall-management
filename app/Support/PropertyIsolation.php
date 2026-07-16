@@ -18,6 +18,7 @@ use App\Models\DepositTransaction;
 use App\Models\DepreciationEntry;
 use App\Models\DeviceToken;
 use App\Models\Employee;
+use App\Models\Equipment;
 use App\Models\EmployeeAdvance;
 use App\Models\EmployeeAdvanceRepayment;
 use App\Models\Expense;
@@ -108,6 +109,7 @@ class PropertyIsolation
         // ---- Direct asset_id column ----
         Unit::class => null,
         Announcement::class => null,           // broadcast targeted at one property
+        Equipment::class => null,              // a machine stands in exactly one mall; code unique per property
         UtilityMeter::class => null,
         CamExpensePool::class => null,
         MarketingBudget::class => null,

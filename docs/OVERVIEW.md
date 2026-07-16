@@ -76,7 +76,7 @@ purpose, domain model, business rules, lifecycle/state-machine, services, Filame
 | 23 | [Fixed Assets & Depreciation](modules/23-fixed-assets.md) | Fixed-asset register + straight-line depreciation + full GL posting (acquisition, depreciation, disposal write-off with gain/loss) — **complete** |
 | 24 | [HR / Employees](modules/24-hr-employees.md) | Employee master + advances/loans (سلف) posting to the GL + per-employee payroll lines & bilingual payslip PDFs — **complete** |
 | 25 | [Treasury / Custody](modules/25-treasury-custody.md) | Custodies (عهدة) — cash in a custodian's hands, settled by categorised expenses or returns, posting to the GL — **Phase 1** (multi-treasury / multi-currency on the roadmap) |
-| 26 | [Preventive Maintenance](modules/26-preventive-maintenance.md) | Recurring facility-maintenance plans that auto-raise work orders with checklists (daily scan), completion tracking, + a bilingual facility work-log PDF report — **complete** |
+| 26 | [Preventive Maintenance](modules/26-preventive-maintenance.md) | Recurring facility-maintenance plans that auto-raise work orders with **pass/fail checklists** (daily scan), a lock-safe completion gate, the **equipment register** (maintainable-asset codes + sub-codes, FR-PPM-03/04/05), + a bilingual facility work-log PDF report. **Growing into the internal work-order system** — corrective maintenance lands here, not module 11 |
 | 27 | [Announcements](modules/27-announcements.md) | Operator broadcasts to a property's active tenants via in-app bell + mobile push (no email); compose-is-send, property-scoped, queued fan-out — **complete** |
 
 ---

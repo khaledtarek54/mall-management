@@ -10,6 +10,7 @@ use App\Filament\Admin\Resources\Custodies\CustodyResource;
 use App\Filament\Admin\Resources\Departments\DepartmentResource;
 use App\Filament\Admin\Resources\DepositTransactions\DepositTransactionResource;
 use App\Filament\Admin\Resources\Employees\EmployeeResource;
+use App\Filament\Admin\Resources\Equipment\EquipmentResource;
 use App\Filament\Admin\Resources\Expenses\ExpenseResource;
 use App\Filament\Admin\Resources\FixedAssets\FixedAssetResource;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
@@ -116,6 +117,7 @@ if (! function_exists('propertyIsolationMustGuardResources')) {
             'Unit' => UnitResource::class,
             'CamExpensePool' => CamExpensePoolResource::class,
             'UtilityMeter' => UtilityMeterResource::class,
+            'Equipment' => EquipmentResource::class,
             'Employee' => EmployeeResource::class,
             'FixedAsset' => FixedAssetResource::class,
             'Warehouse' => WarehouseResource::class,

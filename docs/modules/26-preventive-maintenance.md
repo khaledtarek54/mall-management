@@ -28,6 +28,34 @@ engineers complete.
 
 ## 1. Domain model
 
+### `equipment` — the maintainable-asset register (per property)
+| Column | Meaning |
+|--------|---------|
+| `asset_id` | the property the machine stands in |
+| `parent_id` | sub-codes (FR-PPM-04) — null = a top-level machine |
+| `code` | **unique per property** (FR-PPM-03): `ESC-01` · `ESC-01-MOT` |
+| `name_en` · `name_ar` · `category` | bilingual label + the module's category vocabulary |
+| `unit_id` · `location` | where it is — `unit_id` null = common area; `location` free text ("Roof, zone B") |
+| `fixed_asset_id` | optional link to its accounting twin |
+| `is_active` · `notes` | state |
+
+Plus `equipment_inventory_item` — the compatible-spare-parts pivot (FR-PPM-05), answering
+"which parts fit escalator ESC-01?".
+
+**Why this exists.** The FRD is asset-centric — every AC unit, escalator and pump carries a code,
+with sub-codes for components. Atriom had no such grain: `Asset` is the *mall*, `Unit` is a
+*storefront*, `FixedAsset` is a *depreciation record*. Nothing was "chiller CH-01".
+
+**Why not just extend `FixedAsset`.** It's an accounting object under `fixed_assets.*` RBAC — a
+maintenance engineer can't even see it — and it exists to be depreciated. Not every maintainable
+machine is capitalised (the fire pump isn't), and not every capitalised asset is maintainable
+(office furniture). `fixed_asset_id` links the two where they're the same object, so finance and
+maintenance keep separate registers, separate permissions, and no double data entry.
+
+**Why a pivot for parts, not a column.** `inventory_items` is deliberately **SHARED** and unscoped
+("a pump seal is the same item everywhere"), so it cannot carry a property-owned FK —
+`PropertyIsolationConformanceTest` enforces exactly that.
+
 ### `maintenance_plans` — the recurring schedule (per property)
 | Column | Meaning |
 |--------|---------|
@@ -66,9 +94,49 @@ progress badge.
 
 ## 2. Business rules
 
-1. **Property-scoped** (`asset_id`) — both resources use `BypassesScopingOnAll` +
+1. **Property-scoped** (`asset_id`) — all three resources use `BypassesScopingOnAll` +
    `tenantOwnershipRelationshipName='asset'`; create/edit re-validate the submitted `asset_id`
    against `visibleAssetIds()` (`assertAssetInScope`).
+1a. **Equipment codes are unique per property**, mirroring `warehouses.code` and
+   `fixed_assets.tag`. Two malls may each have an `ESC-01` — a portfolio-wide unique would force
+   a mall prefix into every code, which is what `asset_id` is already for.
+1a-i. **The equipment pickers clamp the property they key on.** `parent_id`, `unit_id`,
+   `fixed_asset_id` and the `code` uniqueness rule are all scoped by `asset_id` — which is
+   **client-supplied** (`->live()`, and the Select is enabled in All-Properties mode), so each goes
+   through `EquipmentForm::inScopeAssetId()` rather than the raw value. Without it a crafted
+   Livewire request pointed `asset_id` at an invisible property and the option lists enumerated its
+   units / equipment / fixed assets — rendered long before `assertAssetInScope()` runs at save.
+   The `code` rule is the subtle one: Laravel runs every field rule in **one pass before any mutate
+   hook**, and `Rule::unique` compiles to a raw query Filament's tenancy scope never touches, so the
+   guard fires too late. Keyed raw, it answered *"is this code taken in <property>?"* — the write
+   was refused either way, but a `code` error appearing (or not) was a one-bit existence oracle.
+   ⚠️ **This raw-`$get('asset_id')` pattern in a `unique` rule is repo-wide** (`WarehouseForm`,
+   `FixedAssetForm`, `CamExpensePoolForm`, `UnitForm`, `EmployeeForm`) — same latent oracle, not yet
+   fixed there.
+1b. **A sub-code's parent must be in the same property, and the tree must stay acyclic.** Both are
+   enforced in `Equipment::booted()` (the model is the only writer; the DB can't express either).
+   A cross-property parent would let Mall A's escalator own Mall B's motor and surface the child in
+   the wrong property's tree — a genuine isolation leak. Re-parenting a node under its own
+   descendant would detach the branch from every root. `parent_id` is **`nullOnDelete`, not
+   cascade**: deleting a parent promotes its components to roots rather than destroying their
+   maintenance history. `ancestorIds()`/`selfAndDescendantIds()` both carry a visited-set, so a
+   cycle introduced *outside* the model (a direct DB edit, an import) terminates instead of hanging
+   the request.
+1c. **A machine with sub-codes cannot move to another property** — move or detach the components
+   first. The same-property rule in 1b only fires on the *child's* save, so without this a parent
+   could walk to another mall and strand its components cross-property. **The check counts trashed
+   children** (`children()->withTrashed()`): `parent_id` is `nullOnDelete`, which fires only on a
+   *hard* delete, so a soft-deleted child keeps pointing at its parent — let the parent move and
+   that child becomes permanently unrestorable (restore → `saving` → the same-property rule throws
+   `InvalidArgumentException`, which Filament does not catch → 500, with no UI path to fix it).
+   Blocked rather than cascaded because Filament wraps neither create nor save in a transaction: a
+   cascade that hit `equipment_asset_code_unique` partway would commit the parent's move and strand
+   the children anyway.
+1d. **Equipment is deletable/restorable** (`EditEquipment` header actions, mirroring `EditUnit`;
+   delete stays super_admin-only). Not optional polish: the model soft-deletes and the table ships a
+   `TrashedFilter`, so without them the filter could never match a row and a typo'd code would be
+   burned forever — `equipment_asset_code_unique` counts trashed rows, so only a **force**-delete
+   frees a code.
 2. **`maintenance:generate-preventive`** (daily 02:30) raises a work order for every **due**
    active plan (`next_due_date ≤ today`), copies the checklist template into items, then
    advances `next_due_date` by the plan's frequency. **Idempotent + lock-safe**: the plan row
@@ -131,8 +199,9 @@ progress badge.
 | **1 — Plans + work orders + checklists** | `MaintenancePlan` + `MaintenanceWorkOrder` + items, the daily generation scan (idempotent/lock-safe), two property-scoped resources, checklist relation manager, status transitions, RBAC + module flag, tests | ✅ shipped |
 | **2 — Facility work-log report (RPT-1)** | `FacilityWorkLogPdfService` — a bilingual PDF of work orders for a property over a date range (summary by status + category + the detail list), launched from a **"Work log (PDF)"** action on the work-order list, scoped to the user's visible properties | ✅ shipped |
 | **3 — Pass/fail checklist + completion gate (FR-PPM-07)** | `result` enum replaces `is_done`; `MaintenanceWorkOrderService` (the module's first service) owns the TRANSITIONS matrix, the row-locked completion gate, and `markItem()`; the Filament actions became thin callers; progress badge counts *marked* and warns amber on any fail | ✅ shipped |
-| **4 — Equipment register (FR-PPM-03/04/05)** | `Equipment` model: `code` + `parent_id` sub-code tree (per-property unique, `LedgerAccount` is the reference pattern), nullable `fixed_asset_id` link to the accounting register, pivot to `InventoryItem` for compatible spare parts, `equipment_id` on plans + work orders | ⬜ next |
-| **5 — Corrective maintenance (FR-CM-01..15)** | `maintenance_type` routine/fixed, yearly frequency, CM raised from a failed checklist item, internal/external XOR, per-property SLA + priority tiers, vendor SLA penalties, parts + fault attribution + tenant recharge, follow-up work-order chains (`parent_work_order_id`) | ⬜ planned |
+| **4 — Equipment register (FR-PPM-03/04/05)** | `Equipment`: per-property-unique `code` + `parent_id` sub-code tree (same-property + acyclicity guards), nullable `fixed_asset_id` link to the accounting register, `equipment_inventory_item` pivot for compatible spare parts, property-scoped resource under `preventive_maintenance.*` | ✅ shipped |
+| **5 — Equipment ↔ plans/work orders** | `equipment_id` on `maintenance_plans` + `maintenance_work_orders` (PPM per machine), `maintenance_type` routine/fixed (FR-PPM-01), `years` frequency unit + fixing `advanceDue()`'s silent `default => addMonths()` arm (FR-PPM-02) | ⬜ next |
+| **6 — Corrective maintenance (FR-CM-01..15)** | CM raised from a failed checklist item, internal/external XOR, per-property SLA + priority tiers, vendor SLA penalties, parts + fault attribution + tenant recharge, follow-up work-order chains (`parent_work_order_id`) | ⬜ planned |
 
 ---
 
@@ -158,6 +227,23 @@ item still closes, a checklist-less order closes vacuously, un-marking an item *
 closure, an item added to a fully-marked checklist re-blocks it (the gate reads live rows, not a
 cached count), illegal hops throw, `open → done` is allowed, cancel bypasses the gate, and a
 terminal order's checklist is frozen.
+
+`tests/Feature/Scenarios/EquipmentScenarioTest.php` — the register: per-property code uniqueness
+(and two properties reusing `ESC-01`), sub-code trees + deeper nesting, children promoted to roots
+on parent delete, the cross-property-parent refusal, self-parent + parent-under-own-descendant
+refusals, a walk terminating on a cycle planted *outside* the model, the spare-parts pivot, the
+optional fixed-asset twin, the `is_active` default, RBAC + property scoping + `assertAssetInScope`.
+`tests/Feature/Resources/EquipmentResourceTest.php` — renders the table **with rows** (a parent, a
+sub-code, and a row with every optional column null — an empty table hides `$state`-closure bugs),
+create/edit through the form, duplicate-code + required-field validation, the out-of-scope create
+**and** edit guards, RBAC, and module-off hiding.
+
+`tests/Feature/Regression/EquipmentTreeIsolationTest.php` — the isolation holes an adversarial
+review found in the register's first cut, none of which the passing tests caught: a parent moving
+property and stranding its sub-codes (**incl. trashed ones**), the pickers enumerating an invisible
+property from a tampered `asset_id`, the `code` rule leaking a code's existence as a one-bit oracle,
+and the resource shipping no delete/restore at all (with force-delete proven to be what frees a
+burned code).
 
 `tests/Feature/Regression/PpmChecklistGateLockTest.php` — the gate's **lock-safety**. SQLite's
 `compileLock()` returns `''` (so `lockForUpdate` emits no SQL and the suite cannot prove the lock by

@@ -1,0 +1,81 @@
+<?php
+
+namespace App\Filament\Admin\Resources\Equipment\Tables;
+
+use App\Filament\Admin\Resources\Equipment\EquipmentResource;
+use App\Models\Equipment;
+use Filament\Actions\EditAction;
+use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
+use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Table;
+
+class EquipmentTable
+{
+    public static function configure(Table $table): Table
+    {
+        return $table
+            ->modifyQueryUsing(fn ($query) => $query->with(['asset', 'unit', 'parent'])->withCount('children'))
+            ->columns([
+                TextColumn::make('code')
+                    ->label(__('admin.preventive_maintenance.fields.code'))
+                    ->fontFamily('mono')
+                    ->weight('bold')
+                    // A sub-code is shown indented under its parent's code so the tree reads
+                    // at a glance without a nested table.
+                    ->formatStateUsing(fn (string $state, Equipment $record) => $record->parent_id ? '└─ '.$state : $state)
+                    ->description(fn (Equipment $record) => $record->parent?->code)
+                    ->searchable()
+                    ->sortable(),
+                TextColumn::make('name_en')
+                    ->label(__('admin.preventive_maintenance.fields.name'))
+                    ->description(fn (Equipment $record) => $record->name_ar)
+                    ->searchable(),
+                TextColumn::make('asset.name')
+                    ->label(__('admin.preventive_maintenance.fields.property'))
+                    ->badge()->color('gray')->toggleable(),
+                TextColumn::make('category')
+                    ->label(__('admin.preventive_maintenance.fields.category'))
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state) => $state ? __("admin.preventive_maintenance.categories.{$state}") : '—')
+                    ->toggleable(),
+                TextColumn::make('unit.code')
+                    ->label(__('admin.preventive_maintenance.fields.unit'))
+                    ->placeholder(__('admin.preventive_maintenance.equipment.common_area'))
+                    ->toggleable(),
+                TextColumn::make('location')
+                    ->label(__('admin.preventive_maintenance.fields.location'))
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('children_count')
+                    ->label(__('admin.preventive_maintenance.fields.sub_codes'))
+                    ->badge()
+                    ->color(fn (int $state) => $state > 0 ? 'info' : 'gray')
+                    ->toggleable(),
+                IconColumn::make('is_active')
+                    ->label(__('admin.preventive_maintenance.fields.active'))
+                    ->boolean()
+                    ->toggleable(),
+            ])
+            ->filters([
+                SelectFilter::make('category')
+                    ->label(__('admin.preventive_maintenance.fields.category'))
+                    ->options(fn () => collect(['electrical', 'plumbing', 'hvac', 'structural', 'cleaning', 'safety', 'elevator', 'fire-safety', 'generator', 'other'])
+                        ->mapWithKeys(fn (string $c) => [$c => __("admin.preventive_maintenance.categories.{$c}")])
+                        ->all()),
+                TernaryFilter::make('is_active')
+                    ->label(__('admin.preventive_maintenance.fields.active')),
+                Filter::make('roots')
+                    ->label(__('admin.preventive_maintenance.equipment.roots_only'))
+                    ->query(fn ($query) => $query->roots()),
+                TrashedFilter::make(),
+            ])
+            ->recordActions([
+                EditAction::make()->visible(fn (Equipment $record) => EquipmentResource::canEdit($record)),
+            ])
+            ->defaultSort('code');
+    }
+}
