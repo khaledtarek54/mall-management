@@ -1340,6 +1340,7 @@ return [
         'employees' => 'الموظفون',
         'custodies' => 'العهد',
         'preventive_maintenance' => 'الصيانة الوقائية',
+        'approvals' => 'الاعتمادات',
         'departments' => 'الأقسام',
         'marketing' => 'التسويق',
         'owner_requests' => 'طلبات المُلاك',

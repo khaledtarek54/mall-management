@@ -179,6 +179,15 @@ class RolesPermissionsSeeder extends Seeder
             'custodies.delete' => 'Delete a custody',
             'custodies.settle' => 'Settle a custody (record an expense / return)',
         ],
+        // FR-CM-11 / FR-PROC-02 — the approval ladder. Tiers rather than named roles, so
+        // authority composes with the existing RBAC instead of a parallel one. Which amount
+        // needs which tier is DATA (approval_rules), not code.
+        'approvals' => [
+            'approvals.tier_1' => 'Approve low-value requests (supervisor)',
+            'approvals.tier_2' => 'Approve mid-value requests (manager)',
+            'approvals.tier_3' => 'Approve high-value requests (senior)',
+            'approvals.manage_rules' => 'Configure the approval bands',
+        ],
         'preventive_maintenance' => [
             'preventive_maintenance.view' => 'View preventive-maintenance plans & work orders',
             'preventive_maintenance.create' => 'Create preventive-maintenance plans / work orders',
@@ -297,9 +306,14 @@ class RolesPermissionsSeeder extends Seeder
         Role::findByName('super_admin', 'web')->syncPermissions($all);
 
         // manager: every view/create/edit + workflow actions; no delete; no settings.manage; no roles edit.
+        // approvals.tier_3 is withheld deliberately: with the blanket grant a manager would
+        // hold every tier, and a ladder whose top rung everyone can reach isn't a ladder.
+        // Large spend escalates — which is the whole point of FR-CM-11. Configuring the
+        // bands themselves is likewise a policy act, not a management one.
         $managerPerms = collect($all)
             ->reject(fn ($p) => str_ends_with($p, '.delete'))
             ->reject(fn ($p) => in_array($p, ['settings.manage', 'roles.create', 'roles.edit', 'roles.delete']))
+            ->reject(fn ($p) => in_array($p, ['approvals.tier_3', 'approvals.manage_rules']))
             ->values()
             ->all();
         Role::findByName('manager', 'web')->syncPermissions($managerPerms);
@@ -344,6 +358,8 @@ class RolesPermissionsSeeder extends Seeder
             'vendors.view', 'vendors.create', 'vendors.edit',
             'utility_meters.view', 'utility_meters.create', 'utility_meters.edit',
             'inventory.view', 'inventory.create', 'inventory.edit',
+            // The bottom rung: a supervisor signs off routine, low-value part draws.
+            'approvals.tier_1',
             'notes.view', 'notes.create',
         ]);
 

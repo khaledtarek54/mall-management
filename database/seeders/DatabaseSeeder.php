@@ -10,6 +10,8 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             RolesPermissionsSeeder::class,
+            // After roles: the bands reference permissions those roles are granted.
+            ApprovalRulesSeeder::class,
             DepartmentSeeder::class,
             AccountingSeeder::class,
             DemoSeeder::class,

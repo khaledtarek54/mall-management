@@ -1340,6 +1340,7 @@ return [
         'employees' => 'Employees',
         'custodies' => 'Custodies',
         'preventive_maintenance' => 'Preventive Maintenance',
+        'approvals' => 'Approvals',
         'departments' => 'Departments',
         'marketing' => 'Marketing',
         'owner_requests' => 'Owner Requests',

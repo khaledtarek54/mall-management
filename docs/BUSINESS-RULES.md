@@ -421,3 +421,34 @@ what tenants are recharged.
 Confirm with the operator and the lease wording: **does an SLA penalty reduce the CAM pool, or is it
 Eltizam's to keep?** If it should reduce CAM, the safe answer today is procedural (a documented step
 at reconciliation time); wiring the CAM pool to the GL is a larger change and is not in scope.
+
+
+---
+
+## Approval Ladder (FR-CM-11) — **NEEDS OPERATOR SIGN-OFF**
+
+"Higher-value parts require higher-level approval" is all the FRD says. **It gives no
+amounts.** These are business-policy defaults we chose, not documented figures — confirm them.
+
+| Amount (EGP) | Needs | Seeded roles that qualify |
+|---|---|---|
+| 0 – 999.99 | `approvals.tier_1` | operations (supervisor), manager, super_admin |
+| 1,000 – 9,999.99 | `approvals.tier_2` | manager, super_admin |
+| 10,000 and above | `approvals.tier_3` | **super_admin only** |
+
+- **The bands are data** (`approval_rules`), so changing an amount is configuration, not a
+  release. The tiers are spatie permissions, so re-pointing a tier at a different role is a
+  permission change.
+- **Authority is cumulative**: a manager can approve a small draw a supervisor could have
+  handled. The ladder gates the *ceiling*, not the floor.
+- **A manager cannot approve ≥ 10,000.** This is deliberate: `manager` otherwise receives
+  every non-delete permission by blanket grant, and a ladder whose top rung everyone reaches
+  is not a ladder. Large spend escalates — which is the point of FR-CM-11. **Confirm this is
+  the intended escalation**, and who at Eltizam should hold tier 3 in practice.
+- **A gap in the ladder fails closed** — an amount matching no band requires the **strictest
+  tier configured for that module**, never none. Note "strictest", not "the top band": nothing
+  forces a band's tier to rise with its amount, so a ladder edited out of order would otherwise
+  hand a gap the *weakest* tier. Misconfiguration makes spending harder, not easier.
+
+🔴 **Confirm:** are 1,000 and 10,000 the right thresholds, and is super_admin-only correct for
+the top band — or should a mall manager be able to approve larger draws?

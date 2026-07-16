@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Models\AccountingPeriod;
 use App\Models\AccountMapping;
 use App\Models\Announcement;
+use App\Models\ApprovalRule;
 use App\Models\Asset;
 use App\Models\CamAllocation;
 use App\Models\CamExpensePool;
@@ -94,6 +95,7 @@ class PropertyIsolation
         FiscalYear::class,          // one operator fiscal calendar
         AccountingPeriod::class,    // one operator period calendar
         AccountMapping::class,      // global posting-rule defaults + optional per-property override rows
+        ApprovalRule::class,        // operator-wide approval policy (FR-CM-11) — authority is a company rule, not a per-mall one
         SystemSetting::class,       // system state / config
         Note::class,                // polymorphic note attached to various records
     ];
