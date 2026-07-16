@@ -37,6 +37,7 @@ use App\Models\MaintenancePenalty;
 use App\Models\MaintenancePlan;
 use App\Models\MaintenanceWorkOrder;
 use App\Models\MaintenanceWorkOrderItem;
+use App\Models\MaintenanceWorkOrderPart;
 use App\Models\MarketingBudget;
 use App\Models\MarketingSpend;
 use App\Models\MeterReading;
@@ -156,6 +157,7 @@ class PropertyIsolation
         JournalLine::class => 'entry',
         PayrollLine::class => 'payroll',
         MaintenanceWorkOrderItem::class => 'workOrder',
+        MaintenanceWorkOrderPart::class => 'workOrder',
         StockMovement::class => 'warehouse',
         VendorBillPayment::class => 'bill',
     ];

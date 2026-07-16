@@ -77,6 +77,7 @@ class MaintenanceWorkOrderResource extends Resource
     {
         return [
             \App\Filament\Admin\RelationManagers\MaintenanceChecklistRelationManager::class,
+            \App\Filament\Admin\RelationManagers\WorkOrderPartsRelationManager::class,
         ];
     }
 

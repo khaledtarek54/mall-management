@@ -157,6 +157,18 @@ class MaintenanceWorkOrder extends Model
         return $this->belongsTo(self::class, 'parent_work_order_id');
     }
 
+    /** FR-CM-09/10/11 — spare parts on this job, internal draws and outside purchases. */
+    public function parts(): HasMany
+    {
+        return $this->hasMany(MaintenanceWorkOrderPart::class);
+    }
+
+    /** What the parts actually cost this job — a rejected draw cost nothing. */
+    public function partsCost(): float
+    {
+        return round((float) $this->parts()->counted()->sum('value'), 2);
+    }
+
     /** FR-CM-08 — the SLA penalty assessed against the vendor, if any. */
     public function penalty(): \Illuminate\Database\Eloquent\Relations\HasOne
     {

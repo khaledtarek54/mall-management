@@ -148,6 +148,28 @@ back-compat accessor (`result !== 'pending'`); write `result`. `done_at`/`done_b
 work order's own `completed_at`. Indexed `(maintenance_work_order_id, result)` for the gate + the
 progress badge.
 
+### `maintenance_work_order_parts` — spare parts on a job (FR-CM-09/10/11, FR-INV-04)
+| Column | Meaning |
+|--------|---------|
+| `maintenance_work_order_id` · `source` (`internal`\|`external`) | the job, and where the part came from |
+| `inventory_item_id` · `warehouse_id` | **internal only** — the SKU and the shelf it leaves |
+| `description` · `vendor_id` · `reference` | **external only** — what was bought, from whom, on which supplier invoice |
+| `quantity` · `unit_cost` · `value` | `value` is always derived (`qty × cost`) on every write path |
+| `status` (`pending`\|`approved`\|`rejected`\|`recorded`) | `recorded` = an external purchase: nothing to approve |
+| `required_permission` | the tier this draw needed **at request time** — frozen |
+| `requested_by_user_id` · `decided_by_user_id` · `decided_at` · `decision_notes` | who asked, who ruled, why |
+| `stock_movement_id` | the movement approval created — null until then |
+
+**Why this is its own table and not a `pending` StockMovement.** `stock_movements` is the stock
+*ledger*: a row there means stock actually moved, and every on-hand figure in the system is its
+`SUM(quantity)`. A pending row would understate on-hand everywhere — the reorder colour, the
+low-stock scan, the GL — to represent a draw that hasn't happened. A request is not a movement; it
+becomes one on approval, and `stock_movement_id` is the link.
+
+`source` is the fact the system previously could not express (FR-INV-04): an internal draw was
+merely *implied* by a StockMovement existing, and a part bought outside was invisible rather than
+recorded. "What did we buy outside this month, and from whom?" now has an answer.
+
 ---
 
 ## 2. Business rules
@@ -345,6 +367,40 @@ progress badge.
    > violation baked in. Post-fix the same probe has T2 block on the order lock until T1 commits,
    > then refuse (terminal).
 
+### Spare parts on a job (FR-CM-09/10/11, FR-INV-04)
+
+Everything goes through `WorkOrderPartService`; the relation manager is a thin caller.
+
+- **A draw is requested, not taken.** `requestInternal()` writes a `pending` row and moves **no**
+  stock. `approve()` is the only path that calls `StockMovementService::record()` — which re-checks
+  on-hand under its own lock, so an approval racing the last unit still can't drive stock negative.
+  `reject()` is terminal: a refusal is a decision, not a draft, so the engineer raises a new request
+  rather than editing the refusal away.
+- **Which approver depends on the value** (FR-CM-11) — resolved by `ApprovalPolicy` against
+  `approval_rules`, and **frozen onto the row** at request time (`required_permission`). Re-reading
+  the ladder at approval would let an edit to the bands rewrite history about who was supposed to
+  sign off. `unit_cost` is frozen for the same reason: re-reading the catalog would restate the
+  value a manager was asked to approve — and the value is what picks the manager.
+- **Two questions, both required, to decide a draw.** The tier from `ApprovalPolicy`, **and** the
+  base inventory right (`WorkOrderPartService::DECIDE_PERMISSION` = `inventory.create`).
+  `ApprovalPolicy` answers *"which manager"*, never *"may this person touch inventory at all"* —
+  with no bands configured `canApprove()` returns true for **any** signed-in user (its own docblock
+  says so, and the first cut of this service ignored it). Checking it alone made deleting the bands
+  an open door: **proven** — a read-only `viewer` approved a 50,000 EGP draw and moved the stock.
+  Both the service and the action's `visible()`/`authorize()` check both.
+- **You cannot approve your own draw.** The FRD asks for a *manager's* sign-off; the control is a
+  second pair of eyes. Without it an engineer holding `tier_1` self-serves every low-value part.
+- **An outside purchase is recorded, not approved.** FR-CM-10 scopes approval to parts drawn *from
+  internal inventory*. Gating an external buy would gate a purchase that has already happened, and
+  procurement (FR-PROC-\*) is where that control belongs.
+- **You draw from your own mall's shelf.** The warehouse options clamp to the job's `asset_id` via
+  `TenantScope::clampAssetId()`, and Filament's derived `in:` rule makes that a server-side
+  rejection, not merely a shorter dropdown. The item catalog is deliberately **not** filtered —
+  `inventory_items` is a SHARED register ("a pump seal is the same part everywhere").
+- **No parts on a terminal order** — consistent with the module's other writers.
+- `MaintenanceWorkOrder::partsCost()` sums `approved` + `recorded` only: a rejected request cost
+  the job nothing.
+
 ---
 
 ## 3. RBAC & module flag
@@ -371,7 +427,8 @@ progress badge.
 | **7 — CM SLA + breach detection (FR-CM-05/06/07 + FR-CM-08 detection)** | `sla_policies` per property × priority with a settings/config fallback chain, 4 priority tiers, the clock starting on **acceptance**, the hourly breach scan + bell alert, an SLA-target column and breached filter on the list | ✅ shipped |
 | **7b — SLA penalty assessment (FR-CM-08)** | penalty terms per vendor contract (**all three bases** — flat, per-day accrual, %-of-job-value — so the client's answer is configuration rather than a rewrite), one re-assessed penalty row per job, freeze on closure, waive with a reason, `job_value` for the percent basis, penalty column + waive action | ✅ shipped |
 | **7c — Charging the penalty to the vendor (FR-CM-08 money)** | `vendor_bills.penalty_applied_amount` folded into `VendorBill::recompute()` (the AP single-source-of-truth, exactly as `credit_applied_amount` works on the tenant side), an apply/detach service with a cap so AP never goes negative, `MaintenancePenaltyJournalizer` posting **Dr AP / Cr the same expense the bill charged**, and a "charge to a bill" action that only offers bills able to absorb it. AP tie-out proven to stay balanced. ⚠️ The **treatment** (cost reduction, no VAT) and the **CAM consequence** are recorded in `docs/BUSINESS-RULES.md` and still need accountant sign-off | ✅ shipped, pending sign-off |
-| **8 — CM parts + cost (FR-CM-09..13)** | parts from inventory vs bought outside + which, manager approval for an internal draw with the approver set by part value (needs the generic approval engine — nothing like it exists in the codebase), fault attribution → who bears the cost, mall-vs-tenant recharge to an invoice | ⬜ planned |
+| **8 — CM parts + approval (FR-CM-09/10/11, FR-INV-04)** | `maintenance_work_order_parts`: an internal draw is **requested** and moves stock only on approval (its own table, *not* a pending StockMovement — see the domain model), the approver resolved by part value through the generic `ApprovalPolicy` ladder and frozen onto the row, self-approval refused, external purchases recorded with vendor + invoice ref, parts relation manager on the work order | ✅ shipped |
+| **9 — Fault attribution + recharge (FR-CM-12/13)** | who caused the failure → who bears the cost, mall-vs-tenant recharge to an `Invoice` via `Charge`/`InvoiceItem` (respecting `recomputeTotals()` as the AR single source of truth) | ⬜ planned |
 
 ---
 
@@ -473,5 +530,21 @@ the suite runs against MySQL (skipped on SQLite).
 `tests/Feature/Scenarios/PreventiveMaintenanceScenarioTest.php` drives the **real service**, not raw
 model writes — otherwise it would pass straight through the gate it is supposed to prove.
 
+`tests/Feature/Scenarios/WorkOrderPartsScenarioTest.php` — the parts rules through the **service**:
+a request moves no stock, approval does (and links the movement back to the job), rejection doesn't;
+the tier rises with the value and refuses a supervisor above their band (asserted with on-hand
+deliberately *short*, proving the authority gate fires **before** the stock check, so the user is
+told why rather than "not enough stock"); refusing needs the same authority as approving;
+self-approval refused; the tier and the unit cost are frozen against later edits; **a read-only
+viewer is refused even with the ladder deleted** (regression — see the business rules); internal vs
+external shape guards; no parts on a terminal order.
+
+`tests/Feature/Resources/WorkOrderPartsRelationManagerTest.php` — the UI is gated the same way the
+service is (viewer, ladder-deleted viewer, under-tier supervisor, and the requester themselves are
+all offered no button), a draw from another mall's warehouse is **rejected on submit** rather than
+merely absent from the dropdown, and the table renders **with rows of every source × status** — the
+label/description/badge closures differ per shape, so a one-row table would prove almost nothing.
+
 **Related:** 11 Maintenance (tenant-facing requests), 12 Vendors (assignees), 14 Departments,
-01 Properties (asset scope), 18 RBAC (operations), 19 Notifications & Scans (the daily scan).
+01 Properties (asset scope), 18 RBAC (operations), 19 Notifications & Scans (the daily scan),
+22 Inventory (the stock a draw comes out of), 28 Approvals (the value → approver ladder).
