@@ -18,7 +18,10 @@ class ListTenants extends ListRecords
             ImportAction::make()
                 ->importer(TenantImporter::class)
                 ->label(__('admin.actions.import'))
-                ->icon('heroicon-o-arrow-up-tray'),
+                ->icon('heroicon-o-arrow-up-tray')
+                // Bulk import writes tenant records — gate server-side (was ungated).
+                ->visible(fn () => TenantResource::canCreate())
+                ->authorize(fn () => TenantResource::canCreate()),
             CreateAction::make(),
         ];
     }

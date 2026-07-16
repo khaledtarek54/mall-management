@@ -19,7 +19,8 @@ class ListUnits extends ListRecords
                 ->importer(UnitImporter::class)
                 ->label(__('admin.actions.import'))
                 ->icon('heroicon-o-arrow-up-tray')
-                ->visible(fn () => UnitResource::canCreate()),
+                ->visible(fn () => UnitResource::canCreate())
+                ->authorize(fn () => UnitResource::canCreate()),
             CreateAction::make(),
         ];
     }

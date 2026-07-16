@@ -18,7 +18,10 @@ class ListLeases extends ListRecords
             ImportAction::make()
                 ->importer(LeaseImporter::class)
                 ->label(__('admin.actions.import'))
-                ->icon('heroicon-o-arrow-up-tray'),
+                ->icon('heroicon-o-arrow-up-tray')
+                // Bulk import writes lease records — gate server-side (was ungated).
+                ->visible(fn () => LeaseResource::canCreate())
+                ->authorize(fn () => LeaseResource::canCreate()),
             CreateAction::make(),
         ];
     }
