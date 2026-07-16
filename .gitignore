@@ -42,3 +42,7 @@ Thumbs.db
 /mall_management
 *.sqlite
 !database/database.sqlite
+/storage/certs
+
+
+ca.pem

@@ -3,7 +3,8 @@
 The end-to-end path to running Atriom in production with **real money + real tax**.
 The application code is ready; what remains is **config + ops**. Work top to bottom.
 
-> Companion docs: [ETA-PAYMOB-CERTIFICATION.md](ETA-PAYMOB-CERTIFICATION.md) (integration cutover),
+> Companion docs: [INFRASTRUCTURE.md](INFRASTRUCTURE.md) (**server topology + provisioning** — the box, Cloudflare Tunnel, managed MySQL, backups; overrides some env defaults below),
+> [ETA-PAYMOB-CERTIFICATION.md](ETA-PAYMOB-CERTIFICATION.md) (integration cutover),
 > [PAYMENT-LINK-APPLEPAY.md](PAYMENT-LINK-APPLEPAY.md), [gap-analysis/999-production-checklist.md](gap-analysis/999-production-checklist.md), [ROADMAP.md](ROADMAP.md).
 
 ---
@@ -23,9 +24,9 @@ OPS_LOG_STACK=ops_daily,slack   # money/integration events → file + Slack aler
 OPS_LOG_LEVEL=info
 
 DB_CONNECTION=mysql             # + DB_HOST/PORT/DATABASE/USERNAME/PASSWORD
-SESSION_DRIVER=database
+SESSION_DRIVER=database          # → redis on the managed-DB topology (INFRASTRUCTURE.md §5)
 SESSION_ENCRYPT=true            # encrypt session payloads at rest
-QUEUE_CONNECTION=database       # requires the worker in §3
+QUEUE_CONNECTION=database        # → redis on the managed-DB topology (INFRASTRUCTURE.md §5)
 EXPORT_QUEUE_CONNECTION=database # large exports queue instead of timing out
 
 DEMO_USER_PASSWORD=<rotated>    # rotate or delete demo accounts before exposing the URL
