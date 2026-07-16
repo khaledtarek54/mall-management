@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Custody;
 use App\Models\CustodyTransaction;
+use App\Support\PostingDate;
+use DomainException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -28,13 +30,34 @@ class SettleCustodyService
             // Re-check outstanding UNDER the lock — no over-settlement under a race.
             abort_unless($amount <= $locked->outstanding() + 0.001, 422);
 
+            // The date decides which period the GL entry lands in, so it must be able to
+            // carry one. Without this the row committed, outstanding dropped, and the
+            // posting failed inside the best-effort queued job — leaving the operator told
+            // it worked while the GL still showed the full custody outstanding and no
+            // expense (gap-analysis F-93). Refuse here rather than in the form: the form is
+            // UX, and the service is the only thing the API and console also pass through.
+            $transactionDate = PostingDate::assertNotFuture(
+                $data['transaction_date'] ?? null,
+                __('admin.custodies.txn_fields.date'),
+            );
+
+            // A settlement cannot predate the cash it settles. Otherwise the Cr Custodies
+            // lands in an earlier period than the Dr grant, and that month's trial balance
+            // shows a CREDIT balance on an asset account.
+            if ($transactionDate->startOfDay()->isBefore($locked->custody_date->startOfDay())) {
+                throw new DomainException(__('admin.custodies.errors.settlement_before_grant', [
+                    'granted' => $locked->custody_date->toDateString(),
+                ]));
+            }
+
             $type = ($data['type'] ?? 'expense') === 'return' ? 'return' : 'expense';
 
             return $locked->transactions()->create([
                 'asset_id' => $locked->asset_id, // denormalised — the books dimension
                 'type' => $type,
                 'amount' => $amount,
-                'transaction_date' => $data['transaction_date'],
+                // The validated, normalised date — not the raw input.
+                'transaction_date' => $transactionDate->toDateString(),
                 // Category only for expenses; method (cash|bank) only for returns.
                 'category' => $type === 'expense' ? ($data['category'] ?? 'other') : null,
                 'method' => $type === 'return' ? (($data['method'] ?? 'cash') === 'bank' ? 'bank' : 'cash') : null,

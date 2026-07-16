@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\EmployeeAdvance;
 use App\Models\EmployeeAdvanceRepayment;
+use App\Support\PostingDate;
+use DomainException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -28,10 +30,27 @@ class RecordAdvanceRepaymentService
             // Re-check outstanding UNDER the lock — no over-repayment under a race.
             abort_unless($amount <= $locked->outstanding() + 0.001, 422);
 
+            // Same guard, same reason as SettleCustodyService — see App\Support\PostingDate.
+            // Without it the repayment committed, outstanding dropped, and the GL posting
+            // died in the best-effort queue: Employee Advances stayed at the full amount and
+            // the cash was never recorded, while the accountant saw "Recorded ✓"
+            // (gap-analysis F-89).
+            $repaidOn = PostingDate::assertNotFuture(
+                $data['repaid_on'] ?? null,
+                __('admin.employees.advance_fields.repaid_on'),
+            );
+
+            // A repayment cannot predate the advance it repays.
+            if ($repaidOn->startOfDay()->isBefore($locked->advance_date->startOfDay())) {
+                throw new DomainException(__('admin.employees.errors.repayment_before_advance', [
+                    'granted' => $locked->advance_date->toDateString(),
+                ]));
+            }
+
             return $locked->repayments()->create([
                 'asset_id' => $locked->asset_id, // denormalised — the books dimension
                 'amount' => $amount,
-                'repaid_on' => $data['repaid_on'],
+                'repaid_on' => $repaidOn->toDateString(),
                 'method' => ($data['method'] ?? 'cash') === 'bank' ? 'bank' : 'cash',
                 'notes' => $data['notes'] ?? null,
                 'created_by_user_id' => auth()->id(),

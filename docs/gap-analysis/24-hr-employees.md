@@ -13,7 +13,7 @@ correction path for a mis-keyed repayment.
 
 ## 1. Findings
 
-### 🟡 F-89. A repayment can be dated into a closed period → outstanding drops, the GL never records it
+### 🟡 F-89. A repayment can be dated into a closed period → outstanding drops, the GL never records it · **FIXED 2026-07-17**
 `app/Services/RecordAdvanceRepaymentService.php:34` · `EmployeeAdvancesRelationManager.php:137`
 
 `repaid_on` is passed straight through — no `minDate`, no `maxDate`, no open-period check (the only
@@ -27,8 +27,9 @@ accountant sees "Repayment recorded ✓". Outstanding now reads 6,000; the GL st
 Advances at 10,000 and never sees the cash. Surfaces only later, to a different role, as an opaque
 `ledger_last_sync_failures` count.
 
-> Same family as **[F-90 in module 25](25-treasury-custody.md)**, which is 🔴 because back-dating
-> across a close is a custody's *normal* workflow rather than an edge case.
+> Same family as **[F-93 in module 25](25-treasury-custody.md)**, which is 🔴 because back-dating
+> across a close is a custody's *normal* workflow rather than an edge case. **One `App\Support\PostingDate`
+> guard closed both.**
 
 ### 🟡 F-90b. A payroll line's net can go negative — the guard only checks the header
 `app/Services/PayrollService.php:25` (guards the header) · `PayrollLine.php:50` (accessor, no guard)
@@ -96,7 +97,8 @@ asserting the filter should exist.
 ## 4. Deferred
 
 - **D-76** — prove payroll's GL post through the real sweep, not a direct poster call.
-- **D-77** — F-89 open-period + date-range validation on `repaid_on` (do with D-78).
+- ~~**D-77**~~ — ✅ **F-89 fixed 2026-07-17** via `App\Support\PostingDate`, together with
+  [D-80](25-treasury-custody.md). Guard: `PostingDateGuardTest`.
 - **D-78** — F-90b cross-field net guard per payroll line.
 - **D-79** — F-91 a correction path for repayments (edit/void), mirroring credit-note/void patterns
   elsewhere.

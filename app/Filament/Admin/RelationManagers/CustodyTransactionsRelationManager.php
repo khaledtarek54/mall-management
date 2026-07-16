@@ -88,6 +88,11 @@ class CustodyTransactionsRelationManager extends RelationManager
                             ->default('other')->required()->native(false),
                         DatePicker::make('transaction_date')
                             ->label(__('admin.custodies.txn_fields.date'))
+                            // UX only — SettleCustodyService is the gate (it also refuses a
+                            // date whose accounting period is closed, which a picker can't
+                            // express). Stops the common mistakes before they're submitted.
+                            ->minDate(fn () => $this->getOwnerRecord()->custody_date)
+                            ->maxDate(now())
                             ->default(now())->required()->native(false),
                         Textarea::make('notes')->label(__('admin.custodies.fields.purpose'))->rows(2)->columnSpanFull(),
                     ])
@@ -95,7 +100,17 @@ class CustodyTransactionsRelationManager extends RelationManager
                         abort_unless(auth()->user()?->can('custodies.settle') ?? false, 403);
                         /** @var Custody $custody */
                         $custody = $this->getOwnerRecord();
-                        app(SettleCustodyService::class)->settle($custody, array_merge($data, ['type' => 'expense']));
+
+                        try {
+                            app(SettleCustodyService::class)->settle($custody, array_merge($data, ['type' => 'expense']));
+                        } catch (\DomainException $e) {
+                            // A refused date (closed period / before the grant / future) is an
+                            // expected outcome, not a fault — show it, don't 500.
+                            Notification::make()->title($e->getMessage())->danger()->send();
+
+                            return;
+                        }
+
                         Notification::make()->title(__('admin.custodies.expensed'))->success()->send();
                     }),
                 Action::make('record_return')
@@ -117,6 +132,11 @@ class CustodyTransactionsRelationManager extends RelationManager
                             ->default('cash')->required()->native(false),
                         DatePicker::make('transaction_date')
                             ->label(__('admin.custodies.txn_fields.date'))
+                            // UX only — SettleCustodyService is the gate (it also refuses a
+                            // date whose accounting period is closed, which a picker can't
+                            // express). Stops the common mistakes before they're submitted.
+                            ->minDate(fn () => $this->getOwnerRecord()->custody_date)
+                            ->maxDate(now())
                             ->default(now())->required()->native(false),
                         Textarea::make('notes')->label(__('admin.custodies.fields.purpose'))->rows(2)->columnSpanFull(),
                     ])
@@ -124,7 +144,15 @@ class CustodyTransactionsRelationManager extends RelationManager
                         abort_unless(auth()->user()?->can('custodies.settle') ?? false, 403);
                         /** @var Custody $custody */
                         $custody = $this->getOwnerRecord();
-                        app(SettleCustodyService::class)->settle($custody, array_merge($data, ['type' => 'return']));
+
+                        try {
+                            app(SettleCustodyService::class)->settle($custody, array_merge($data, ['type' => 'return']));
+                        } catch (\DomainException $e) {
+                            Notification::make()->title($e->getMessage())->danger()->send();
+
+                            return;
+                        }
+
                         Notification::make()->title(__('admin.custodies.returned'))->success()->send();
                     }),
             ])

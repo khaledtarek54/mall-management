@@ -3,9 +3,10 @@
 > **Round 2**, audited 2026-07-16 — first ever gap analysis. Spec:
 > [../modules/25-treasury-custody.md](../modules/25-treasury-custody.md) · methodology: [000-plan.md](000-plan.md).
 
-**Status: 🔴 Red.** The lock-safe over-settle guard and property scoping are correct — but a
-custody's **defining workflow** (receipts arriving after the fact) routinely posts into a closed
-period and silently diverges the GL from outstanding, and **no settlement can ever be corrected**.
+**Status: 🔴 Red → 🟡 Yellow** (F-93 fixed 2026-07-17). The lock-safe over-settle guard and
+property scoping are correct. The headline defect — a custody's **defining workflow** (receipts
+arriving after the fact) silently diverging the GL from outstanding — is closed. What remains is
+that **no settlement can ever be corrected** (F-94).
 
 `pest --filter='Custody|Treasury'` → green. The module has **~5 test files** despite posting money
 to the ledger via two journalizers.
@@ -14,7 +15,7 @@ to the ledger via two journalizers.
 
 ## 1. Findings
 
-### 🔴 F-93. A settlement dated before its period closed silently diverges the GL from outstanding — and this is the *normal* workflow, not a typo
+### 🔴 F-93. A settlement dated before its period closed silently diverges the GL from outstanding — and this is the *normal* workflow, not a typo · **FIXED 2026-07-17**
 `app/Services/SettleCustodyService.php:37` · `CustodyTransactionsRelationManager.php:89,118`
 
 `transaction_date` is passed straight through. **No `minDate` (not even ≥ `custody_date`), no
@@ -38,6 +39,27 @@ account.** Nothing anywhere forbids `transaction_date < custody_date`.
 
 **Why 🔴 and not 🟡:** a عهدة exists *because* receipts arrive late. Back-dating a settlement across
 a month-end close isn't operator error — **it's the module's reason for existing.**
+
+**Fix (2026-07-17).** `SettleCustodyService` now refuses via `App\Support\PostingDate`: the date
+must not sit in a **closed** period, must not be in the future, and must not predate the grant.
+
+> **A missing period is deliberately NOT refused — only a closed one.** The first cut threw on
+> both, which looked defensible and was wrong: *closed* means the GL is live and has sealed that
+> date (the divergence this guards), while *no period* just means accounting isn't configured for
+> it — nothing can diverge from books that aren't keeping score, and `ensureFiscalYears()` opens
+> the year on the next sweep anyway. Throwing on both refused legitimate settlements on any
+> install without a chart of accounts; **the full suite caught it via three tests that seed only
+> roles.** Worth remembering: the new tests all passed while the guard was broken.
+
+Refusing rather
+than silently re-dating is deliberate — a real ERP separates *document date* from *posting date* and
+posts the correction into the next open period; Atriom has no such concept, and inventing one here
+would quietly file the money in a month the operator didn't choose. **If refusing proves too blunt
+in practice, the answer is a posting-date concept, not a looser guard.** The guard is in the
+**service**, not the form: the DatePicker's `minDate`/`maxDate` is UX, and the API and console never
+see it. Guard: `tests/Feature/Regression/PostingDateGuardTest.php` — 4 of 6 fail without it. The
+same guard closes [F-89](24-hr-employees.md) on advance repayments; they were one bug wearing two
+hats.
 
 ### 🟡 F-94. One mis-keyed settlement permanently bricks the custody — no correction path for the role that owns the module
 `CustodyTransactionsRelationManager.php:72` (headerActions only — **no `recordActions` block at
@@ -101,9 +123,9 @@ impact (`ensureFiscalYears` opens the year). Recorded for completeness.
 
 ## 4. Deferred
 
-- **D-80** — **F-93, the priority for this module.** Validate `transaction_date`: ≥ `custody_date`,
-  ≤ today, and in an OPEN period — refuse at the service, not the form. Same fix shape as
-  [D-77](24-hr-employees.md); do them together.
-- **D-81** — F-94 a correction path for custody settlements (void/reverse, mirroring credit notes).
+- ~~**D-80**~~ — ✅ **F-93 fixed 2026-07-17** via `App\Support\PostingDate`, together with
+  [D-77](24-hr-employees.md) as predicted (one bug, two hats).
+- **D-81 — now this module's priority.** F-94: a correction path for custody settlements
+  (void/reverse, mirroring credit notes). Every other money document in Atriom has one.
 - **D-82** — F-95 `maxDate` on `custody_date`.
 - **D-83** — a custody/advance outstanding-exposure report, so divergence has somewhere to surface.

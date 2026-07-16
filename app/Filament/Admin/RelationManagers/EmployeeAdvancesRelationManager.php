@@ -136,6 +136,11 @@ class EmployeeAdvancesRelationManager extends RelationManager
                             ->prefix('EGP'),
                         DatePicker::make('repaid_on')
                             ->label(__('admin.employees.advance_fields.repaid_on'))
+                            // UX only — RecordAdvanceRepaymentService is the gate (it also
+                            // refuses a date in a closed accounting period, which a picker
+                            // cannot express).
+                            ->minDate(fn (EmployeeAdvance $record) => $record->advance_date)
+                            ->maxDate(now())
                             ->default(now())
                             ->required()
                             ->native(false),
@@ -149,8 +154,19 @@ class EmployeeAdvancesRelationManager extends RelationManager
                     ])
                     ->action(function (array $data, EmployeeAdvance $record): void {
                         abort_unless(auth()->user()?->can('employees.record_repayment') ?? false, 403);
-                        // The service re-checks outstanding under a lock (over-repayment → 422).
-                        app(RecordAdvanceRepaymentService::class)->record($record, $data);
+
+                        try {
+                            // The service re-checks outstanding under a lock (over-repayment → 422)
+                            // and refuses a date that cannot carry a GL posting.
+                            app(RecordAdvanceRepaymentService::class)->record($record, $data);
+                        } catch (\DomainException $e) {
+                            // A refused date (closed period / before the advance / future) is an
+                            // expected outcome, not a fault — show it, don't 500.
+                            Notification::make()->title($e->getMessage())->danger()->send();
+
+                            return;
+                        }
+
                         Notification::make()->title(__('admin.employees.repaid_notice'))->success()->send();
                     }),
             ])
