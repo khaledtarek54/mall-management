@@ -14,16 +14,20 @@ export default defineConfig({
   themeConfig: {
     nav: [
       { text: 'Start here', link: '/' },
-      { text: 'Leasing', link: '/leasing/' },
+      { text: 'The map', link: '/map' },
+      { text: 'Scenarios', link: '/scenarios' },
       { text: 'Money & AR', link: '/money/' },
       { text: 'Operations', link: '/operations/' },
-      { text: 'People', link: '/people/' },
       { text: 'Accounting', link: '/accounting/' },
     ],
     sidebar: [
       {
         text: 'Start here',
-        items: [{ text: 'What this is', link: '/' }],
+        items: [
+          { text: 'What this is', link: '/' },
+          { text: 'The whole system, one page', link: '/map' },
+          { text: 'A month in the life', link: '/scenarios' },
+        ],
       },
       {
         text: 'Leasing — where the money starts',

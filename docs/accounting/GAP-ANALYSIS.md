@@ -5,6 +5,11 @@
 > system, what's solid, what's missing, and what to build next. Companion to
 > [README.md](README.md) (status), [WALKTHROUGH.md](WALKTHROUGH.md) (the tour), and
 > [../modules/21-general-ledger.md](../modules/21-general-ledger.md) (technical spec).
+>
+> **Last verified against code: 2026-07-16.** This doc had drifted — it listed fixed
+> assets, depreciation and payslips as missing months after they shipped, which is how
+> "accounting feels incomplete" became a belief. Re-verify the ❌/🟡 rows against the
+> code before trusting them; each now cites the class that would prove it wrong.
 
 ---
 
@@ -54,13 +59,14 @@ Legend: ✅ done · 🟡 partial · ❌ missing · ⏭️ likely N/A for a singl
 | Revenue recognition (accrual) | ✅ | At issue; deferred/unearned handled |
 | Cash & bank movements | ✅ | Via payments / expenses |
 | Security deposits (liability) | ✅ | Receipt / refund / forfeit |
-| Payroll | 🟡 | Batch per-run; **no per-employee payslips** |
+| Payroll | ✅ | Batch per-run **+ per-employee payroll lines & bilingual payslip PDFs** (`PayslipPdfService`, `resources/views/payslips/`) — module 24 |
 
 ### Tax & compliance — 🟡 (accountant-driven)
 | Capability | Status | Notes |
 |---|---|---|
 | VAT tracked (output + input/recoverable) | ✅ | 14% service charge; input VAT recoverable |
-| **VAT return / ETA e-invoicing (منظومة الفاتورة)** | ❌ | Statutory output not built (confirm cadence with accountant) |
+| **ETA e-invoicing (منظومة الفاتورة)** | ✅ code / 🔑 creds | Built and covered — `app/Services/Eta/` (client, JSON builder, submission service, CAdES signer seam) + `SubmitInvoiceToEta` job, module 16. **Runs in mock mode** (`EtaSettings.mock=true`); needs live credentials + a signing certificate to submit legally-binding documents. See the roadmap's go-live block. |
+| **VAT return (الإقرار الضريبي)** | ❌ | The *periodic filing report* is genuinely not built — distinct from ETA submission above (confirm cadence + format with the accountant). |
 | **Withholding tax on vendor payments (خصم من المنبع)** | ❌ | Confirm if required |
 
 ### Controls & integrity — ✅ strong
@@ -73,10 +79,10 @@ Legend: ✅ done · 🟡 partial · ❌ missing · ⏭️ likely N/A for a singl
 ### Advanced / enterprise
 | Capability | Status | Notes |
 |---|---|---|
-| **Fixed-asset register + depreciation (الإهلاك)** | ❌ | Accounts exist (furniture, accum. deprec., deprec. expense) but **no schedule/run** — real for a property owner |
-| **Bank reconciliation (مطابقة البنك)** | ❌ | No statement-import/matching |
+| **Fixed-asset register + depreciation (الإهلاك)** | ✅ | **Shipped** — module 23: register + straight-line `DepreciationService`, `accounting:post-depreciation` scheduled monthly (`routes/console.php:48`), full GL posting incl. disposal write-off with gain/loss |
+| **Bank reconciliation (مطابقة البنك)** | ❌ | No statement-import/matching — verified absent 2026-07-16 |
 | **Opening balances tool (أرصدة افتتاحية)** | 🟡 | Manual journal works; no guided importer — matters at go-live |
-| **Recurring / accrual journals** | ❌ | e.g. monthly depreciation, prepaid amortization |
+| **Recurring / accrual journals** | 🟡 | Depreciation is automated on a monthly schedule (module 23); there is **no generic recurring-journal engine** for prepaid amortization and friends |
 | Cost centers / dimensions | 🟡 | Property (`asset_id`) is a dimension; no free-form cost centers |
 | Budget vs. actual (GL-wide) | 🟡 | Marketing budget only |
 | Multi-currency / FX revaluation | ⏭️ | EGP throughout; unlikely needed |
@@ -146,12 +152,18 @@ Ranked by value-for-effort for *this* business. "Needs accountant" = decide at t
 |---|-------------|----------------|--------|-------------------|
 | ~~1~~ | ~~**Chart-of-accounts guardrails** (§3)~~ | ✅ **Shipped** — auto-parent + leading-digit↔type guard | — | — |
 | 2 | **Opening balances tool** | Load the current position at go-live | S–M | Yes (if migrating) |
-| 3 | **Fixed assets + depreciation** (recurring journal) | Property owner has real assets; monthly الإهلاك | M | Yes (policy/rates) |
+| ~~3~~ | ~~**Fixed assets + depreciation**~~ | ✅ **Shipped** — module 23, monthly scheduled posting | — | — |
 | ~~4~~ | ~~**Cash-flow statement**~~ | ✅ **Shipped** — indirect method, reconciles to actual cash | — | — |
-| 5 | **VAT return / ETA e-invoicing** | Statutory filing | L | Yes |
-| 6 | **Per-employee payslips** | Staff-facing | M | Yes |
+| 5 | **VAT return** | Statutory periodic filing (ETA submission itself is built — see §2) | M | Yes |
+| ~~6~~ | ~~**Per-employee payslips**~~ | ✅ **Shipped** — module 24, bilingual payslip PDFs | — | — |
 | 7 | **Bank reconciliation** | Match bank statement to ledger | M–L | Yes (bank feed?) |
 | 8 | **Inter-property accounts** | Exact per-property split of shared payments | M | No |
+| 9 | **Comparative / period-over-period statements** | Every statement is single-period; owners expect vs-last-year | S–M | No |
+
+**The real remaining set is four items:** opening balances, VAT return, bank reconciliation,
+and comparative statements (+ inter-property accounts if shared payments get common). That's
+the honest answer to *"is accounting missing something?"* — yes, four additive things, none
+of which make today's books wrong.
 
 ---
 

@@ -6,11 +6,11 @@ hero:
   tagline: Pictures first, words second — a browsable reference for how money moves, how each record lives, and what lands in the books. Start with the money.
   actions:
     - theme: brand
-      text: Start with the money spine
-      link: /money/
+      text: See the whole system
+      link: /map
     - theme: alt
-      text: What this is
-      link: '#what-this-is'
+      text: A month in the life
+      link: /scenarios
 features:
   - title: Flows
     details: How a lease turns into rent, into a bill, into cash. The one path everything else hangs off.
@@ -30,6 +30,11 @@ Atriom has two kinds of guide, and they do different jobs.
 It layers on top of what you already have. Your detailed module docs in `docs/modules/*.md` stay the source of truth for every rule and edge case — this handbook draws the concepts over them so the whole team can see the shape before reading the detail.
 
 Because these pictures live **inside the code repository**, they can't quietly go stale: when the logic changes, the picture changes in the same commit — the same rule your team already follows for the written docs. And it's built to be edited: [**Adding to this handbook**](/contributing) is a copy-paste guide to every component, so anyone on the team can extend it.
+
+Two pages orient you before anything else:
+
+- **[The whole system, one page →](/map)** — all 28 modules, the one spine they hang off, and what reaches the books. Start here if the project feels too big.
+- **[A month in the life →](/scenarios)** — the nine sequences the mall actually runs, in order, each naming the rule it must not break.
 
 ## The whole business, drawn {#the-plan}
 

@@ -2,7 +2,12 @@
 
 > **The single, current source-of-truth overview.** Start here, then drill into the
 > per-module docs in [`docs/modules/`](modules/) for business-logic detail.
-> Last consolidated 2026-06-27.
+> Last consolidated 2026-07-16.
+>
+> **New here, or feeling lost?** Read [PROJECT-MAP.md](PROJECT-MAP.md) for the generated
+> census (what exists, how much, what's covered) and the **[visual handbook](visual/)** —
+> [the whole system on one page](visual/map.md) and [a month in the life](visual/scenarios.md)
+> — before this file. Pictures first; this is the reference.
 
 ---
 
@@ -23,7 +28,7 @@ percentage-rent on tenant sales, maintenance, vendor management, marketing budge
 | **Tenants** | The **retailers / F&B / service shops** leasing units | Tenant portal `/portal` + mobile app |
 | **PropEzy** | A competitor (research kept in `docs/gap-analysis/`) | — |
 
-**Status:** all original requirements built + validated; **1075 passing Pest tests** + a Playwright E2E suite; production-ready, in a live pilot with Eltizam.
+**Status:** all original requirements built + validated; a large Pest suite (**2227 tests** as of 2026-07-16 — live counts in [PROJECT-MAP.md](PROJECT-MAP.md)) + a Playwright E2E suite; production-ready, in a live pilot with Eltizam. Being extended per the **Eltizam FRD** into facility management — see [ROADMAP.md](ROADMAP.md).
 
 ---
 
@@ -100,7 +105,8 @@ purpose, domain model, business rules, lifecycle/state-machine, services, Filame
 
 QA ran in layers — see [`docs/modules/`](modules/) gotchas sections and the regression suite:
 
-- **1075 Pest tests** (`vendor/bin/pest --parallel`; run with `--parallel` per project convention). `:memory:` sqlite.
+- **Pest tests** (`vendor/bin/pest --parallel`; run with `--parallel` per project convention). `:memory:` sqlite. Counts are generated into [PROJECT-MAP.md](PROJECT-MAP.md) — don't hand-type them here; that's how this file drifted.
+- **Self-enforcing conformance gates** — the load-bearing ones. `PropertyIsolationConformanceTest` (every model classified + scoped + guarded), `AdminSmokeManifestConformanceTest` (E2E covers every resource), and `GlRegistryConformanceTest` (every journalizer is actually dispatched). Where a gate exists, drift fails CI; where one doesn't, drift ships — see the SLA-penalty posting bug in [modules/21](modules/21-general-ledger.md#gl-registry-gate).
 - **Scenario suites** — `tests/Feature/Scenarios/` (RBAC matrix, scoping, every module's happy/negative/boundary/state cases).
 - **Regression suite** — `tests/Feature/Regression/` (one guard per fixed bug, each verified to fail without its fix), incl. `Regression/Validation/` — field-validation guards proving each form rule rejects bad input.
 - **Field-validation hardening (2026-06-27)** — every Filament resource was audited field-by-field against its column constraints; 26 fault-tolerance fixes applied (property-scoped tenant selects, non-negative money, unique constraints, date ordering, length caps) + 32 regression cases.

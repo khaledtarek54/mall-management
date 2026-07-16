@@ -1,95 +1,197 @@
-# Atriom — Production Roadmap
+# Atriom — Roadmap
 
-**Current state:** The app is feature-complete (1098 tests green, Paymob certified, deal closed with Eltizam). We are now *productionizing*: flipping integrations from mock/sandbox to live, hardening security, and standing up ops/observability for real money and Egyptian tax filings.
+> **The single prioritized view.** Go-live blockers, the Eltizam FRD expansion, the
+> accounting backlog, and known defects — in one place, because three lists in three
+> formats is how the last one drifted.
+>
+> **Re-baselined 2026-07-16**, every row verified against the code. The previous roadmap
+> was written 2026-06-28, before modules 21–28 existed; **19 of its 48 rows had already
+> shipped** and four rested on premises that are no longer true (see [§6](#6-retired-rows--do-not-rebuild)).
+> Read that section before picking up anything you remember from the old list.
 
-**How to read this:** Items are grouped by priority — **P0 blocks go-live** (real money / tax can't flow safely without it), **P1 is important soon** (first weeks of production), **P2 is later** (polish, scale, nice-to-haves). Overlapping audit findings across dimensions have been merged into one row. Owner badge: 🧑‍💻 code (we can build now) · 🔑 external (needs credentials/KYC/certs from operator or a third party) · ⚙️ ops (deployment/infra config).
+**How to read this.** 🔴 **P0** blocks go-live (real money / tax can't flow safely without
+it) · 🟠 **P1** important in the first weeks of production · 🟡 **P2** later.
+Owner: 🧑‍💻 code (buildable now) · 🔑 external (needs credentials/KYC/certs/a decision from
+the operator) · ⚙️ ops (deploy/infra).
+
+**Where the other lists live:** the FRD plan (`~/.claude/plans/happy-percolating-pearl.md`)
+keeps the per-phase implementation detail; [docs/accounting/GAP-ANALYSIS.md](accounting/GAP-ANALYSIS.md)
+keeps the accounting capability matrix. This file is the priority call across all of them.
 
 ---
 
-## ✅ Completed since this audit
+## 1. Where the project actually is
 
-- **Latin-digit lock** — all numbers render in Western digits even in the Arabic UI (`Number::useLocale('en')` + regression test).
-- **Security + env hardening bundle** — security headers on every response (X-Frame-Options, X-Content-Type-Options, Referrer-Policy, HSTS in prod) + a **strict CSP scoped to the public `/pay` pages**; **Sanctum token TTL** (30-day default, env-driven); **`APP_TIMEZONE`** env-driven (set Africa/Cairo in prod); prod guidance in `.env.example` for `APP_DEBUG`/`LOG_LEVEL`/`SESSION_ENCRYPT`; **2FA config-gated** for write roles (`SECURITY_FORCE_2FA_ROLES`). Confirmed already-covered: Filament throttles login (5/min), demo password is env-driven.
-- **Marketing loop rewired + reconcilable** — the 5% levy is now a tenant invoice line; `MarketingBudget.accrued_amount` is **derived** from billed levy items (auto-reverses on cancel), kept in lock-step with rent on rent-change/renewal; `invoice_items.type` moved to a model-level `App\Enums\InvoiceItemType`. `billing:reconcile` extended with **Marketing + CAM** integrity checks (6 checks total). Missing service tests added (CreditNote void edge cases, OwnerRequest). Demo showcases accrued − spent = balance.
-- **Observability + indexes** — `App\Support\OpsLog` helper + a dedicated, PII-scrubbed `ops` log channel instrumenting every money/integration path (Paymob client + callback, ETA submission + job retry-exhaustion, monthly-billing/late-fee/CAM run summaries, payment-link); **`payments.gateway_transaction_id` indexed** (the webhook hot path); the 5 exporters are now config-driven (`EXPORT_QUEUE_CONNECTION`) to queue in prod. *(The audit's other "missing index" claims — activity_log/notifications morphs, invoice_payment/cam/maintenance FKs — were already covered; verified via `SHOW INDEX`.)*
+Feature-complete against the original requirements and live in pilot with Eltizam.
+2227 Pest tests + a Playwright E2E suite; Paymob certified in sandbox. Since the last
+roadmap the system roughly doubled: the **general ledger** (module 21) and everything that
+posts to it — inventory, fixed assets, HR/payroll, treasury, facility maintenance,
+announcements, approvals (22–28) — plus airtight property isolation and manifest-driven E2E.
+
+Two structural facts worth holding:
+
+- **Modules 21–28 have never been gap-analysed.** The first twenty have a module doc *and* a
+  per-feature analysis; the newer eight have docs only. Every module that posts money to the
+  GL sits in that blind spot. See the census in [PROJECT-MAP.md](PROJECT-MAP.md).
+- **The self-enforcing gates are what keep this honest** — property isolation, the E2E
+  manifest, and (as of 2026-07-16) the GL registry. Where a gate exists, drift fails CI.
+  Where one doesn't, drift ships: that is precisely how an applied SLA penalty came to
+  reduce a vendor bill while posting nothing to the ledger.
 
 ---
 
-## 🔴 P0 — blocks go-live (real money / tax)
+## 2. 🔴 P0 — blocks go-live
 
 | Item | What & why | Owner | Effort |
 | --- | --- | --- | --- |
-| Flip ETA out of mock mode | `EtaSettings.mock=true` by default submits to a fake endpoint — no legally-binding invoices. Set `ETA_MOCK=false` once live creds + signing are in place (`app/Settings/EtaSettings.php:16`). | 🧑‍💻 | S |
-| ETA live credentials + signing certificate | External procurement: real `client_id/client_secret` from the operator's ETA taxpayer profile **and** a CAdES signing certificate (HSM/USB/cloud key vault). ETA production **rejects unsigned B2B documents**; code has the pluggable signer seam + refuse-to-submit guard ready (`docs/ETA-PAYMOB-CERTIFICATION.md §B`, `config/eta.php:63-74`). | 🔑 | M |
-| ETA EGS codes + issuer identity | Operator must register real EGS item codes (base_rent, service_charge, utility, parking, percentage_rent) and supply issuer TRN/legal name/address. All env-driven with placeholder defaults today — wrong codes ⇒ rejection (`config/eta.php:35-61`). | 🔑 | S |
-| Paymob live cutover (KYC + live creds) | Sandbox is fully integrated and certified; no code changes. External: operator completes Paymob KYC, re-issues all 4 live credentials, re-registers callback URLs on the prod domain, runs one small real charge (`PAYMOB-SETUP.md §6`). | 🔑 | S |
-| Database backups in the deploy workflow | Checklist requires daily backups, ≥7-day retention + a tested restore. No backup script, snapshot config, or restore procedure exists in INFRA.md. Catastrophic data-loss risk for an ERP holding money/tax/contracts (`999-production-checklist.md:32`). | ⚙️ | S |
-| Error tracking + centralized logging | No Sentry/Flare wired (zero APM packages in composer); logs are disk-only with no Logflare/Papertrail shipping. Queue/payment/ETA failures would surface only via customer complaints. Wire exception capture + log aggregation + alerting (`999-production-checklist.md:95-96`; `bootstrap/app.php` has no handler). | ⚙️/🧑‍💻 | M |
-| Sanctum tokens never expire | `config/sanctum.php` sets `expiration => null` — leaked mobile tokens are valid forever with no rotation. Set a finite TTL before mobile clients hold real tokens (`config/sanctum.php:53`). | 🧑‍💻 | S |
-| Rotate seeded demo password | Every seeded user (admin + 9 roles) shares hardcoded `password`; `.env.example` ships `DEMO_USER_PASSWORD=password`. Rotate/delete demo accounts before the URL is shareable (`DemoSeeder.php:56`, `.env.example:11`). | 🧑‍💻 | S |
-| Paymob + payment-link failure observability & tests | `PaymobClient`/`PaymobPaymentInitiator` have **zero** `Log::` calls — a Paymob outage is silent and transactions stick in `initiated`. Add instrumentation; add failure-path tests (invalid/expired token, failed callback, concurrent attempts) and an E2E payment-link spec — none exist today (`PaymentLinkFlowTest` is happy-path only; no `13-payment-link.spec.js`). This is the new public revenue surface. | 🧑‍💻 | M |
-| MallStats "MRR" relabel | The headline stat labelled "Monthly revenue" actually shows billed-this-month (dips in a partial month) — misleading in the Jawad/Eltizam demo. Relabel to "Billed this month" (`MallStats.php:120-132`). | 🧑‍💻 | S |
-
-*Verified-done (no action): tax-ID format validation (D-44), MeterReading UI (D-38), `/me/*` mobile API + password-reset wiring (D-56/57), Portal "Pay Now" → Paymob (D-33), vendor auto-expire + SLA scans (D-43), activity-log retention + maintenance auto-close (D-59/30).*
+| **ETA live credentials + signing certificate** | Real `client_id`/`client_secret` from the operator's ETA taxpayer profile **and** a CAdES signing certificate. ETA production **rejects unsigned B2B documents**. The pluggable signer seam + refuse-to-submit guard are ready (`config/eta.php:70-74`, `signing.enabled` defaults false). | 🔑 | M |
+| **ETA EGS codes + issuer identity** | Register real EGS item codes (base_rent, service_charge, utility, parking, percentage_rent) + issuer TRN/legal name/address. Placeholders still ship (`config/eta.php:36-46` — issuer TRN `100000000`; `:55-62` — EGS `EG-6820-001`). Wrong codes ⇒ rejection. All env-driven, no code change. | 🔑 | S |
+| **Flip ETA out of mock mode** | `EtaSettings.php:16` `$mock = true` submits to a fake endpoint — no legally-binding invoices. One-line flip, gated on the two rows above. | 🧑‍💻 | S |
+| **Paymob live cutover (KYC + live creds)** | Sandbox fully integrated and certified; no code changes. Operator completes KYC, re-issues all 4 live credentials, re-registers callbacks on the prod domain, runs one small real charge (`PAYMOB-SETUP.md §6`). | 🔑 | S |
+| **Database backups** | Documented only (`docs/INFRASTRUCTURE.md:267-286`) — no `spatie/laravel-backup`, nothing in `scripts/`, and **no deploy workflow exists at all**: `.github/workflows/ci.yml:6-11` is the only one and its triggers are commented out. Catastrophic data-loss risk for an ERP holding money, tax and contracts. | ⚙️ | S |
+| **Error tracking + centralized logging** | No Sentry/Flare/APM in `composer.json`. The `ops` channel exists but `OPS_LOG_STACK=ops_daily` → **disk-only**; `slack`/`papertrail` stanzas are unconfigured boilerplate. **This is a multiplier:** failed-job alerting, ETA retry alerting and Paymob observability all terminate in a local file — every "we log it loudly" claim is true only for someone SSH'd into the box. `.env.example:82` documents the one-line fix (`OPS_LOG_STACK="ops_daily,slack"`). | ⚙️/🧑‍💻 | M |
+| **Rotate the seeded demo password** | Parametrized (`DemoSeeder.php:91`) but the default is still `password` and `.env.example:14` ships it. Now a deploy action, not a build task — rotate/delete demo accounts before the URL is shareable. | ⚙️ | S |
+| **Email (SMTP) cutover** | `MAIL_MAILER=log` — invoice/payment/maintenance mail reaches nobody. Operator supplies SMTP host/creds/from-address + SPF/DKIM. | 🔑 | S |
+| **`integrations:check` preflight** | Run `php artisan integrations:check` after the live `.env` swap to validate Paymob + ETA creds before the first real charge. Command is built and exits non-zero on failure. | ⚙️ | S |
 
 ---
 
-## 🟠 P1 — important soon
+## 3. 🟠 P1 — security & operability
+
+Ordered by real risk, not by age.
 
 | Item | What & why | Owner | Effort |
 | --- | --- | --- | --- |
-| Queue worker + scheduler deployment | All money flows (monthly billing, late fees, ETA submission, exporters, housekeeping) depend on a long-lived `queue:work` and the `schedule:run` cron. INFRA.md has only a manual runbook — no systemd/supervisor template, provisioning script, restart-on-deploy step, or `storage:link` reminder (broken doc links without it). First deploy will silently not run jobs (`998-deferred-backlog.md:D-58/D-60`, `INFRA.md:21-49`). | ⚙️ | M |
-| Failed-jobs + scheduler monitoring & alerting | Checklist says "monitor `failed_jobs` row count" and verify the cron, but no alert, dashboard, or health-check script exists. A failed ETA/payment job (or a silently-dead cron) goes unnoticed for days — tenants unbilled, tax submissions missed (`999-production-checklist.md:45-46`). | ⚙️ | S |
-| Health-check + uptime monitoring | `/up` exists but checks nothing meaningful (DB/queue/cache) and no uptime monitor (Pingdom/UptimeRobot) is configured. A false 200 masks a DB outage; downtime found via complaints (`bootstrap/app.php:13`, `999-production-checklist.md:97`). | ⚙️ | M |
-| Production env hardening | `.env.example` lacks `APP_TIMEZONE=Africa/Cairo` (schedules fire at wrong wall-clock on UTC), ships `LOG_LEVEL=debug` + `LOG_CHANNEL=stack` (leaks SQL/PII, fills disk), and has no logrotate/retention guidance. Enforce Cairo TZ, warning-level logs, daily channel + rotation (`.env.example:1-12,76`, `config/app.php:72`). | 🧑‍💻/⚙️ | S |
-| HTTPS / security headers (CSP, X-Frame-Options, HSTS) | No app-level HTTPS forcing, CSP, or X-Frame-Options. Public `/pay/{token}` is a custom route with no CSP → XSS/clickjacking risk on a real-money page; plaintext creds if the proxy is bypassed (`routes/web.php:42-46`, `999-production-checklist.md:85-86`). | 🧑‍💻 | M |
-| Rate-limit auth + admin/portal surfaces | Filament `/admin` and `/portal` logins have **no** route-level throttle (unlimited password guessing); admin Livewire/Filament forms and payment initiation are unthrottled (`web.php` only throttles password-reset). `danharrin/livewire-rate-limiting` is in composer but unused. Add per-IP/email throttles (`AdminPanelProvider.php:47`). | 🧑‍💻 | M |
-| Enforce 2FA for all write-capable admin roles | TOTP is forced only on `super_admin`; managers/accounting/leasing handle payments + tenant changes with optional 2FA. Make it mandatory for write roles (`AdminPanelProvider.php:74`). | 🧑‍💻 | M |
-| User-model activity logging | `User` uses `LogsActivity` but defines no `getActivitylogOptions()` — staff create/edit/delete, role grants, and password resets are **not** audited. Compliance + investigation gap (`app/Models/User.php`). | 🧑‍💻 | S |
-| Admin self-service profile + reset | Password-reset link works but no `EditProfile` action is configured, so operator staff can't update name/email without a super_admin. Portal already has this (`AdminPanelProvider.php:48-60`). | 🧑‍💻 | S |
-| Paymob credential vaulting + HMAC rotation | Live `PAYMOB_API_KEY/HMAC_SECRET` sit in plaintext `.env` with no rotation/versioning or secrets manager. A leaked HMAC lets an attacker forge "paid" callbacks. Move to a vault; document rotation (`config/integrations.php:16-42`). | ⚙️ | M |
-| Email (SMTP) cutover | `MAIL_MAILER=log` — invoice/payment/maintenance notifications reach nobody. Operator sets real SMTP host/creds/from-address + SPF/DKIM (`.env:52`, `999-production-checklist.md §7`). | 🔑 | S |
-| Async/scaled exporters | All 5 exporters use `getJobConnection()='sync'` — exporting a full year of invoices times out at 10K+ rows. Move to queued connection (D-54) (`InvoiceExporter.php:42-44`). | 🧑‍💻 | M |
-| DB indexes for scale | Missing indexes: `activity_log` & `notifications` polymorphic FKs, `invoice_payment` pivot FKs, `cam_allocations.lease_id`, `maintenance_requests` composite (status/unit) + comments. Full table scans as tables grow; blocks monthly close (`*activity_log*`, `*cam_allocations*`, `*maintenance_requests*` migrations). | 🧑‍💻 | S |
-| Batch-run logging + alerting (billing / late fees / CAM / scans) | `MonthlyBillingService`, `LateFeeService`, `CamReconciliationService`, and SLA scans return/track failure counts but emit no post-run summary log and no failure-rate alert. A partial monthly-billing failure (5 of 500 leases) is invisible until audit. Add structured summaries + threshold alerts + PII scrubbing in logs (`MonthlyBillingService.php:32-39`, `CamReconciliationService.php`). | 🧑‍💻 | M |
-| ETA retry-policy verification + failed-submission alerting | `SubmitInvoiceToEta` has `$tries=3` + backoff `[60,300,900]` (correct), but no logging/telemetry — exhausted retries land in `failed_jobs` and a missed tax submission goes unnoticed for weeks. Add logging + alerts grouped by failure reason; test under failure (`SubmitInvoiceToEta.php:24,34-36`). | 🧑‍💻 | S |
-| ETA receiver address per-tenant | `EtaJsonBuilder` hard-codes receiver governate/city to Giza / 6 October — wrong buyer address on real invoices. Small schema + form addition to capture each tenant's real address (`EtaJsonBuilder.php:43-50`). | 🧑‍💻 | M |
-| "Change rent" action that syncs Lease ↔ Charge | `base_rent_monthly` is editable on the lease edit form but doesn't update the linked `Charge::amount` → stale billing (under/over-charge). Add a guarded sync action (like the table's) (`LeaseForm.php`, D-13). | 🧑‍💻 | M |
-| Payment over-allocation hardening | Per-row allocation check uses a loose `0.005` tolerance and isn't concurrency-safe; parallel submits can over-allocate. Add a backend/DB-level guard + concurrency test (`PaymentForm.php:142-184`, D-18). | 🧑‍💻 | M |
-| Reports/AR-Aging RBAC consistency | `reports.view` gate is enforced on report pages but cosmetic on some dashboard widgets — viewers can glimpse AR data. Apply the gate consistently (`ArAging.php`, `Reports.php`, D-53). | 🧑‍💻 | S |
-| Multi-channel notification fallback | Operator-to-operator alerts (SLA breach, overdue-owner, department messages) are bell-only; missed unless staff log in daily. No SMS/push fallback to mail (`app/Notifications/`, `modules/19`). | 🧑‍💻 | M |
-| Mobile (Flutter) app v1 + unified password reset | API is complete but the Flutter app repo doesn't exist; design approval needed on the v1 endpoint shortlist, and portal lacks self-service password reset to unify with the API flow. Critical for the mobile-first positioning (`MOBILE-APP-BRIEF.md`, D-56/D-57/D-6). | 🔑/🧑‍💻 | L |
-| `integrations:check` preflight in cutover | Run `php artisan integrations:check` after the live `.env` swap to validate Paymob + ETA creds/connectivity before the first real charge/submission (`CheckIntegrationsCommand.php`). | ⚙️ | S |
+| **Throttle `/admin` + `/portal` login** ⚠️ | **The sharpest live gap.** Neither panel stack has any `throttle:` (`AdminPanelProvider.php:122-133`, `PortalPanelProvider.php:59-70`) — unlimited password guessing against every staff and tenant account. `/pay/*` and the API *are* throttled, which creates a convincing illusion of coverage. Note `danharrin/livewire-rate-limiting` is **not** in `composer.json` (the old roadmap wrongly assumed it was installed). | 🧑‍💻 | M |
+| **Lease/Tenant media land on the `public` disk** ⚠️ | `Lease` and `Tenant` are `HasMedia` but register **no collection**, so uploads fall back to the medialibrary default disk `public` (no `config/media-library.php`, no `MEDIA_DISK`). **Signed contracts and tenant tax IDs sit at guessable, unauthenticated URLs** — directly contradicting the project's own rule at `TenantRequest.php:138-142`, which correctly pins `useDisk('local')`. | 🧑‍💻 | S |
+| **Ungated portal write actions** ⚠️ | `Portal/.../ViewMaintenanceRequest.php:29-58` (addComment) and `:60-76` (cancel) have **no `isAdmin()` check at all**; `ViewInvoice.php:35-87` (payNow/payDemo) are `visible()`-only, which is **not** a dispatch gate in Filament v4. Read-only `TenantUser`s can drive writes. `TenantUserGatingTest` only asserts `canCreate()` return values and never dispatches. Blast radius is within-tenant. | 🧑‍💻 | M |
+| **Role grants are unaudited** | `User::getActivitylogOptions()` exists but `logOnly(['name','email','email_verified_at'])` is column-only — roles are a pivot write (`UserForm.php:43-45`) with no `activity()` call. **Privilege escalation leaves no trail.** | 🧑‍💻 | S |
+| **Failed-jobs + scheduler monitoring** | Prose only (`PRODUCTION-RUNBOOK.md:104`). No alert, dashboard, health script, or dead-cron detection. A silently-dead cron means tenants go unbilled and tax submissions are missed for days. Depends on the P0 logging row. | ⚙️ | S |
+| **Health check that checks something** | `bootstrap/app.php:13` `health: '/up'` is the stock default — no DB/queue/cache probe, no uptime monitor. A false 200 masks a DB outage. | ⚙️ | M |
+| **SLA scans emit nothing** | The other three batch runs log summaries (`MonthlyBillingService.php:120`, `LateFeeService.php:53`, `CamReconciliationService.php:167`); both SLA scans use `$this->info()` only (`ScanWorkOrderSlaBreachesCommand.php:76`, `ScanMaintenanceSlaBreachesCommand.php:87`) — under `schedule:run` that output goes nowhere. Now that penalties are real money, a silent scan is a money problem. | 🧑‍💻 | S |
+| **Enforce 2FA on write roles** | Mechanism built (`config/security.php:19-22`) but ships `SECURITY_FORCE_2FA_ROLES=super_admin` — manager/accounting/leasing/operations/hr handle payments and tenant changes without it. The decision was deferred to an env var nobody set. | ⚙️ | S |
+| **Production env defaults** | Keys + guidance present, dev defaults still ship: `APP_TIMEZONE=UTC` (schedules fire at the wrong wall-clock — must be `Africa/Cairo`), `LOG_LEVEL=debug` (leaks SQL/PII, fills disk). No logrotate guidance. | ⚙️ | S |
+| **App-level HTTPS forcing** | Headers are done and tested (`SecurityHeaders.php` — XFO/nosniff/Referrer-Policy/HSTS + a strict CSP on `/pay/*`). **Missing: no `forceScheme`/`forceHttps` anywhere** — HTTPS relies entirely on the proxy. | 🧑‍💻 | S |
+| **Paymob credential vaulting + HMAC rotation** | Live keys in plaintext `.env` (`config/integrations.php:29-32`), no vault, no rotation procedure. A leaked HMAC lets an attacker forge "paid" callbacks. | ⚙️ | M |
+| **ETA receiver address per tenant** | `EtaJsonBuilder.php:46-47` hardcodes governate/city to Giza / 6 October — wrong buyer address on real invoices. Blocked on schema: tenants have only a freeform `text('address')`. | 🧑‍💻 | M |
+| **ETA retry policy is untested** | `$tries=3` + backoff + `OpsLog::error('eta.job_exhausted')` are correct, but **no test asserts `$tries`/`backoff()`/`failed()`** — the policy protecting tax submissions is unverified. | 🧑‍💻 | S |
+| **`PaymobPaymentInitiator` has no logging** | `PaymobClient` and the callback controller now log; the initiator still has zero. Missing tests: expired-token, concurrent attempts, and **there is no payment-link E2E spec** (`tests/e2e/13-*` is `13-eta.spec.js`). This is the public revenue surface. | 🧑‍💻 | M |
+| **Ops alerts are bell-only** | Push exists and 8 notifications use mail+database+push, but 7 remain database-only — including exactly the ones you'd want off-app: `MaintenanceSlaBreached`, `WorkOrderSlaBreached`, `LedgerSyncFailed`. | 🧑‍💻 | M |
+| **Mobile (Flutter) app v1** | API complete and the password-reset flow is now unified across admin/portal/API. The app repo itself is external. | 🔑 | L |
 
 ---
 
-## 🟡 P2 — later
+## 4. 🟠 P1 — Eltizam FRD expansion (facility management)
 
-| Item | What & why | Owner | Effort |
-| --- | --- | --- | --- |
-| Portal/Owner financial transparency (CAM + credit notes) | Tenants/owners see only consolidated invoice lines — no CAM allocation breakdown (pro-rata %, pool) and no credit-note resource, despite both affecting AR. Drives disputes + manual operator explanations (D-22/D-32/D-42). | 🧑‍💻 | M |
-| Owner portal: enable + per-property dashboard + nav badges | Owner portal is feature-flagged off; if shipped, it needs a per-property KPI dashboard (occupancy/collections/AR/maintenance) instead of a single portfolio roll-up, plus nav-badge counts. Product decision: ship pre- or post-pilot (`config/features.php:19`, D-22/D-31/D-32). | 🔑/🧑‍💻 | M |
-| Dashboard + ETA-compliance drilldowns | AR-aging buckets, tenant-mix, top-tenants, and ETA pending/rejected tiles aren't clickable — operators can't drill from a number to the underlying list (D-24/D-26). | 🧑‍💻 | M |
-| Tenant self-service profile | Tenants can't update their own contact/phone/email/bank details — stale data hurts collections (D-7). | 🧑‍💻 | S |
-| Document attachments (maintenance + leases) | medialibrary is installed but unwired — no before/after photos, inspection reports, or signed lease PDFs. Audit trail lacks artifacts (`MaintenanceRequest`/`Lease` have no `HasMedia`). | 🧑‍💻 | M |
-| Bulk actions + period-level report exports | No bulk status/assignment (reassign 10 tickets, cancel drafts) and no monthly/quarterly CSV/Excel export for the accountant — manual one-by-one + copy-paste (`Reports.php` PDF-only). | 🧑‍💻 | M |
-| Global / cross-entity search | Only column-level `.searchable()`; no single entry point to find a tenant with their invoices + maintenance + CAM. Collections teams hop between tables. | 🧑‍💻 | M |
-| Report/query caching + widget N+1 fixes | `ReportService` re-aggregates every load (D-55); `TopTenants` runs an N+1 on sales density; portal/owner tables miss `with()` eager loads. Defer until first scale event. | 🧑‍💻 | M |
-| CAM `--auto-bill` decision | Annual `cam:reconcile` runs review-only by default; operator must decide whether to trust `--auto-bill` or keep manual review (D-23-bis). | 🔑 | S |
-| Sales-declaration lock notification | Locking a tenant's sales declaration is silent — tenant learns only on revisit; bundle with notification-design work (D-34). | 🧑‍💻 | M |
-| Invoice PDF attachment on email | `InvoiceIssued` mail has no PDF attachment; tenants must log in to download (D-16). | 🧑‍💻 | S |
-| Tighten secondary rate limits + entropy | Forgot-password throttle (3/min) and public `/pay/*` read throttle (30/min) allow email/token probing; payment-link token uses base-36 (~253 bits). Tighten reads, raise entropy to 256-bit. | 🧑‍💻 | S |
-| Session encryption + explicit CORS | `SESSION_ENCRYPT=false` (plaintext sessions in DB); no explicit CORS config for `/api/v1`. Defense-in-depth (`.env.example:87`). | ⚙️/🧑‍💻 | S |
-| Portal write-restriction enforcement at action level | Read-only TenantUser write block is UI-level (hidden buttons) only — re-validate at action/save dispatch (`OVERVIEW.md:86`). | 🧑‍💻 | M |
-| Apple Pay + WhatsApp | Apple Pay scaffolded but needs a separate Paymob integration + domain-association file (external); WhatsApp is a disabled stub awaiting a Business API client (high-value in Egypt, post-v1). | 🔑/🧑‍💻 | S–L |
-| Service test-coverage gaps | No dedicated tests for `OwnerRequestService`, `MarketingLevyService`; `CreditNoteService` misses void/locked-declaration + resubmission edge cases. AR-critical logic. | 🧑‍💻 | M |
+The FRD turns Atriom from a leasing/billing ERP into a facility-management system.
+~60 requirements: 12 existed, 15 partial, 33 missing — clustering into four architectural
+holes rather than scattered features. Full detail + the decisions taken:
+`~/.claude/plans/happy-percolating-pearl.md`.
+
+| Phase | Scope | State |
+| --- | --- | --- |
+| 0 | Security fixes found during exploration (ungated `ImportAction` on Tenants/Leases) | 🟡 partly folded into §3 |
+| 1 | **Equipment register** — `parent_id` sub-code tree, per-property unique codes | ✅ shipped |
+| 2 | **Module 26 becomes the internal work-order system** — service + state machine, pass/fail checklist gate, plans (routine/fixed), CM internal-vs-external, per-property SLA, SLA clock on acceptance, follow-up chains | ✅ shipped |
+| 3 | **Approval engine** — single approver resolved by amount (module 28) | 🟡 shipped for inventory draws only; **no admin UI to edit the ladder**, and one call site (`WorkOrderPartsRelationManager.php:71`) despite FR-PROC-02 implying procurement scope |
+| 7 | **SLA penalties** → vendor bill deduction → GL | ✅ shipped; the GL half was **broken and is now fixed + gated** (2026-07-16) |
+| 4 | **Procurement** — purchase requests → approval → order → goods receipt → stock-in | ⬜ next. Also the seam that fixes a **pre-existing GL defect**: receipts pass only a free-text reference, so GRNI `21701001` accumulates and is never cleared (`InventoryMovementJournalizer.php:22-24`) |
+| 5 | **Inventory & warehousing** — per-mall low-stock (the portfolio-wide on-hand sum currently shows green for a mall that is out of a part), bins, transfers, `part_source` | ⬜ **transfers are a trap:** `transfer_in`/`transfer_out` exist as enum values, constants, sign-normalisation and translations — but **nothing creates them**. Dead code that looks shipped. |
+| 6 | **Fault attribution & recharge** — `fault_party`/`cost_bearer` → tenant recharge | ⬜ **largest commercial exposure in the FRD.** No `Invoice`/`InvoiceItem` references any request; consumed parts are GL cost only and are never rechargeable to the tenant who caused the damage. Must respect `Invoice::recomputeTotals()`. |
+| 8 | **Roles & record-level scoping** — `mall_admin`/`coordinator`/`technician`/`customer_service`; per-user record filtering (a new primitive — scoping is property-level only today); export gating; evidence-before-completion | ⬜ Includes the real dashboard bug: **`accounting` sees an empty dashboard** — the role owning invoices, payments, AR and the GL is in no widget's `allowedRoles()`, contradicting FR-DASH-02 |
+| 9 | **Intake, areas, permits, violations** — unknown-caller intake, area↔supervisor routing, fit-out permits, violation fines | ⬜ |
+| 10 | **POS seam & reporting** — POS adapter + CSV, declared-vs-POS variance, weekly report, workflow visualization | ⬜ Sales are 100% manual twice over today |
+
+**Deferred — needs a finance workshop first:** FR-FIN-06..09, the Jawad/Eltizam revenue
+split. It needs legal entities, issuer-vs-payer separation, effective-dated split rules, a
+remittance ledger and per-entity VAT; it touches every journalizer and ETA's **single
+hardcoded issuer TRN**, which cannot express two entities. It also constrains ETA go-live.
+
+**Eight client questions** are open at the end of the plan file. The one that can't be
+inferred at all: **FR-REQ-01 "delegation (from/to)"** — no such concept exists anywhere.
 
 ---
 
-## Recommended next 3 (code side)
+## 5. 🟡 P2 — accounting, product polish, scale
 
-These are the highest-leverage things I can build right now without waiting on external credentials, KYC, or certificates:
+### Accounting (detail in [accounting/GAP-ANALYSIS.md](accounting/GAP-ANALYSIS.md))
 
-1. **Security + env hardening bundle** — set Sanctum token TTL, rotate/parametrize the demo password, enforce `APP_TIMEZONE=Africa/Cairo` + production log level, add HTTPS/CSP/X-Frame-Options + admin/portal/Filament login throttles, and force 2FA on all write roles. (Knocks out several P0/P1 security rows in one pass; no external deps.)
-2. **Money-path observability + tests** — add structured logging to `PaymobClient`/`PaymobPaymentInitiator`, ETA submission, and the billing/late-fee/CAM batch runs (with PII scrubbing + failure-rate summaries), and write the missing payment-link failure-path + E2E specs. (Makes real-money flows debuggable before go-live.)
-3. **Performance indexes + async exporters** — add the missing DB indexes (`activity_log`/`notifications` morphs, `invoice_payment` pivot, `cam_allocations.lease_id`, maintenance composites) and move the 5 exporters off `sync`. (Pure code; prevents monthly-close slowdowns and export timeouts at production scale.)
+The core is production-grade: document → balanced entry → trial balance → statements →
+close, self-healing, tie-out gated, audit-logged. **The honest remaining set is four
+additive items** — none of which make today's books wrong.
+
+| Item | Why | Needs accountant? |
+| --- | --- | --- |
+| **Opening balances tool** | Load the current position at go-live. Manual journals work; no guided importer. | Yes, if migrating |
+| **VAT return (الإقرار الضريبي)** | The periodic *filing report* — distinct from ETA submission, which is built | Yes |
+| **Bank reconciliation** | No statement import/matching exists | Yes (bank feed?) |
+| **Comparative statements** | Every statement is single-period; owners expect vs-last-year | No |
+| Inter-property due-to/due-from | Exact per-property split of shared payments | No |
+
+### Product
+
+| Item | What & why |
+| --- | --- |
+| **Owner portal is off** | `config/features.php:19` is `false`, absent from `.env`, and forced `true` only in `phpunit.xml:52` — **the Owner panel executes only under test**, so its green tests prove nothing about the shipped default. Needs a product call, a per-property dashboard (today: portfolio roll-up only), and global search (Owner has none, so its search box returns nothing, ever). |
+| **Credit notes absent from the portal** | Admin-only (`CreditNoteResource.php:23`) though the API already exposes them per-tenant — a missing resource, not missing data. CAM breakdown *has* shipped on both panels. |
+| **Tenant self-service profile** | Portal profile is stock `TenantUser` name/email/password. Nothing writes to `Tenant` (phone/whatsapp/address are fillable with no surface). **Bank details aren't in the schema at all.** |
+| **Dashboard drilldowns** | ETA tiles are all clickable; AR-aging/tenant-mix/top-tenants are static. `ReportService::arAgingDrilldown()` already works but is orphaned from the chart. |
+| **AR-aging widget vs page RBAC** | The pages gate on `reports.view`; the widget gates on *roles* — revoking `reports.view` closes the page but leaves the dashboard chart visible. |
+| **Period exports for the accountant** | Reports are PDF-only and monthly-only; no CSV/Excel, no quarterly. |
+| **Bulk actions** | Only `bulkSubmitToEta` exists; maintenance bulk is delete/restore only. |
+| **WhatsApp** | A stub that flashes a toast. High-value in Egypt; needs a Business API client. Apple Pay is more built than the old roadmap claimed — only provisioning is outstanding. |
+| **Session encryption + explicit CORS** | `SESSION_ENCRYPT=false`; **no `config/cors.php`** → framework default `allowed_origins: ['*']` on `/api/*`. |
+
+### Scale
+
+| Item | What & why |
+| --- | --- |
+| **Report caching + widget N+1** | Zero caching in `ReportService`; `Pages/Reports.php:78-88` recomputes per render on a live model. `TopTenants` N+1s on sales density; `Owner/PropertiesTable` runs ~6 COUNTs per row. Defer until the first scale event. |
+| **Gap-analyse modules 21–28** | The blind spot named in §1. Every GL-posting module is in it. |
+
+---
+
+## 6. Retired rows — do not rebuild
+
+Verified 2026-07-16. These were on the old roadmap and are **done, or were never true**.
+Acting on the first one would actively reintroduce a bug.
+
+- ❌ **"MallStats MRR relabel"** — **do not do this.** It was fixed by correcting the *data*
+  (`MallStats.php:60-62` now sums contractual rent from active leases), so the "Monthly
+  Recurring Revenue" label is accurate. Relabelling to "Billed this month" would restore the
+  bug it was meant to fix.
+- ❌ **"`danharrin/livewire-rate-limiting` is in composer but unused"** — it was never in
+  `composer.json`. The throttling work in §3 starts from zero.
+- ❌ **"`PaymentLinkFlowTest` is happy-path only"** — it already covers unknown-token,
+  settled, and gateway-down.
+- ❌ **"`CreditNoteService` misses locked-declaration + resubmission edge cases"** — the
+  locked-declaration path isn't on that service's surface (it's covered in
+  `PercentageRentVoidLockedTest`), and "resubmission" has **zero hits** in `app/` or `tests/`.
+- ✅ **Shipped:** Sanctum token TTL · admin self-service profile + password reset · async
+  exporters (all 5 config-driven) · every "missing" DB index · the Lease↔Charge rent-change
+  sync (guarded action + service + tests) · payment over-allocation row-locked backstop +
+  concurrency test · queue worker + scheduler deploy docs · `integrations:check` ·
+  sales-declaration lock notification · invoice PDF attached to email · rate-limit
+  tightening + token entropy (`Str::random(48)` ≈286 bits) · `OwnerRequestService` /
+  `MarketingLevyService` / `CreditNote` void-edge-case tests · document attachments ·
+  CAM `--auto-bill` (code; the decision is the operator's) · security headers + `/pay` CSP.
+
+> **Trap for the unwary:** `app/Mail/InvoiceIssued.php` has no PDF attachment but is **dead
+> code** — the live path is `InvoiceIssuedNotification.php:34-37`, which does attach. Grepping
+> the mailable gives a false negative.
+
+---
+
+## 7. Recommended next three (code side)
+
+1. **Close the three ⚠️ security rows in §3** — login throttling, the `public`-disk media
+   fallback, and the ungated portal actions. All are live, all are code-only, and the media
+   one exposes signed contracts at unauthenticated URLs today.
+2. **Wire centralized logging + error tracking** (P0). One env change plus a Sentry hook
+   retroactively upgrades failed-job alerting, ETA retry alerting and Paymob observability —
+   all of which currently log to a file nobody reads.
+3. **FRD Phase 4 (procurement)** — the next FRD phase, and the seam that clears the GRNI
+   account that inventory receipts have been silently accumulating.
+
+*Keep this file current: when something ships, move it to §6 rather than deleting it — the
+retired list is what stops the next person rebuilding a thing that already works.*
