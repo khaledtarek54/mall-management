@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\AccountingPeriod;
 use App\Models\AccountMapping;
+use App\Models\Announcement;
 use App\Models\Asset;
 use App\Models\CamAllocation;
 use App\Models\CamExpensePool;
@@ -106,6 +107,7 @@ class PropertyIsolation
     public const OWNED = [
         // ---- Direct asset_id column ----
         Unit::class => null,
+        Announcement::class => null,           // broadcast targeted at one property
         UtilityMeter::class => null,
         CamExpensePool::class => null,
         MarketingBudget::class => null,

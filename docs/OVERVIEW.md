@@ -77,6 +77,7 @@ purpose, domain model, business rules, lifecycle/state-machine, services, Filame
 | 24 | [HR / Employees](modules/24-hr-employees.md) | Employee master + advances/loans (سلف) posting to the GL + per-employee payroll lines & bilingual payslip PDFs — **complete** |
 | 25 | [Treasury / Custody](modules/25-treasury-custody.md) | Custodies (عهدة) — cash in a custodian's hands, settled by categorised expenses or returns, posting to the GL — **Phase 1** (multi-treasury / multi-currency on the roadmap) |
 | 26 | [Preventive Maintenance](modules/26-preventive-maintenance.md) | Recurring facility-maintenance plans that auto-raise work orders with checklists (daily scan), completion tracking, + a bilingual facility work-log PDF report — **complete** |
+| 27 | [Announcements](modules/27-announcements.md) | Operator broadcasts to a property's active tenants via in-app bell + mobile push (no email); compose-is-send, property-scoped, queued fan-out — **complete** |
 
 ---
 

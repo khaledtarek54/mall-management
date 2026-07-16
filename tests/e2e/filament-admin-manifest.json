@@ -8,6 +8,13 @@
             "hasView": false
         },
         {
+            "class": "AnnouncementResource",
+            "slug": "announcements",
+            "hasCreate": true,
+            "hasEdit": false,
+            "hasView": false
+        },
+        {
             "class": "AssetResource",
             "slug": "assets",
             "hasCreate": true,

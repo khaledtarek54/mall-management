@@ -1,9 +1,34 @@
 <?php
 
+use App\Filament\Admin\Resources\Announcements\AnnouncementResource;
+use App\Filament\Admin\Resources\CamExpensePools\CamExpensePoolResource;
 use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
 use App\Filament\Admin\Resources\Concerns\BypassesScopingOnAll;
 use App\Filament\Admin\Resources\Concerns\ScopesViaProperty;
+use App\Filament\Admin\Resources\CreditNotes\CreditNoteResource;
+use App\Filament\Admin\Resources\Custodies\CustodyResource;
+use App\Filament\Admin\Resources\Departments\DepartmentResource;
+use App\Filament\Admin\Resources\DepositTransactions\DepositTransactionResource;
+use App\Filament\Admin\Resources\Employees\EmployeeResource;
+use App\Filament\Admin\Resources\Expenses\ExpenseResource;
+use App\Filament\Admin\Resources\FixedAssets\FixedAssetResource;
+use App\Filament\Admin\Resources\Invoices\InvoiceResource;
+use App\Filament\Admin\Resources\JournalEntries\JournalEntryResource;
+use App\Filament\Admin\Resources\Leases\LeaseResource;
+use App\Filament\Admin\Resources\MaintenancePlans\MaintenancePlanResource;
+use App\Filament\Admin\Resources\MaintenanceRequests\MaintenanceRequestResource;
+use App\Filament\Admin\Resources\MaintenanceWorkOrders\MaintenanceWorkOrderResource;
+use App\Filament\Admin\Resources\OwnerRequests\OwnerRequestResource;
+use App\Filament\Admin\Resources\Payments\PaymentResource;
+use App\Filament\Admin\Resources\Payrolls\PayrollResource;
+use App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
+use App\Filament\Admin\Resources\Units\UnitResource;
+use App\Filament\Admin\Resources\UtilityMeters\UtilityMeterResource;
+use App\Filament\Admin\Resources\VendorBills\VendorBillResource;
+use App\Filament\Admin\Resources\Warehouses\WarehouseResource;
+use App\Models\AccountMapping;
 use App\Support\PropertyIsolation;
+use Filament\Resources\Resource;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
 
@@ -43,7 +68,7 @@ if (! function_exists('propertyIsolationAdminResources')) {
                 return 'App\\Filament\\Admin\\Resources\\'.str_replace('/', '\\', $rel);
             })
             ->filter(fn ($c) => class_exists($c)
-                && is_subclass_of($c, \Filament\Resources\Resource::class))
+                && is_subclass_of($c, Filament\Resources\Resource::class))
             ->values()
             ->all();
     }
@@ -88,32 +113,35 @@ if (! function_exists('propertyIsolationMustGuardResources')) {
         return [
             // Auto-stamped on create (isScopedToTenant=true) but asset_id is editable on
             // EDIT in All-Properties mode (Filament does NOT re-stamp on update).
-            'Unit' => \App\Filament\Admin\Resources\Units\UnitResource::class,
-            'CamExpensePool' => \App\Filament\Admin\Resources\CamExpensePools\CamExpensePoolResource::class,
-            'UtilityMeter' => \App\Filament\Admin\Resources\UtilityMeters\UtilityMeterResource::class,
-            'Employee' => \App\Filament\Admin\Resources\Employees\EmployeeResource::class,
-            'FixedAsset' => \App\Filament\Admin\Resources\FixedAssets\FixedAssetResource::class,
-            'Warehouse' => \App\Filament\Admin\Resources\Warehouses\WarehouseResource::class,
-            'Custody' => \App\Filament\Admin\Resources\Custodies\CustodyResource::class,
-            'MaintenanceWorkOrder' => \App\Filament\Admin\Resources\MaintenanceWorkOrders\MaintenanceWorkOrderResource::class,
-            'MaintenancePlan' => \App\Filament\Admin\Resources\MaintenancePlans\MaintenancePlanResource::class,
+            'Unit' => UnitResource::class,
+            'CamExpensePool' => CamExpensePoolResource::class,
+            'UtilityMeter' => UtilityMeterResource::class,
+            'Employee' => EmployeeResource::class,
+            'FixedAsset' => FixedAssetResource::class,
+            'Warehouse' => WarehouseResource::class,
+            'Custody' => CustodyResource::class,
+            'MaintenanceWorkOrder' => MaintenanceWorkOrderResource::class,
+            'MaintenancePlan' => MaintenancePlanResource::class,
+            // Create-only (immutable after broadcast); the property Select is
+            // client-supplied in All-Properties mode, so the create page guards it.
+            'Announcement' => AnnouncementResource::class,
             // Not auto-stamped (isScopedToTenant=false): asset_id / lease is client-supplied.
-            'Expense' => \App\Filament\Admin\Resources\Expenses\ExpenseResource::class,
-            'VendorBill' => \App\Filament\Admin\Resources\VendorBills\VendorBillResource::class,
-            'Payroll' => \App\Filament\Admin\Resources\Payrolls\PayrollResource::class,
-            'JournalEntry' => \App\Filament\Admin\Resources\JournalEntries\JournalEntryResource::class,
-            'OwnerRequest' => \App\Filament\Admin\Resources\OwnerRequests\OwnerRequestResource::class,
+            'Expense' => ExpenseResource::class,
+            'VendorBill' => VendorBillResource::class,
+            'Payroll' => PayrollResource::class,
+            'JournalEntry' => JournalEntryResource::class,
+            'OwnerRequest' => OwnerRequestResource::class,
             // Asset derived from a client-supplied lease (guard validates the lease's property).
-            'DepositTransaction' => \App\Filament\Admin\Resources\DepositTransactions\DepositTransactionResource::class,
-            'CreditNote' => \App\Filament\Admin\Resources\CreditNotes\CreditNoteResource::class,
+            'DepositTransaction' => DepositTransactionResource::class,
+            'CreditNote' => CreditNoteResource::class,
             // Chain-derived: the property comes from a client-supplied lease/unit/invoice FK.
-            'Invoice' => \App\Filament\Admin\Resources\Invoices\InvoiceResource::class,
-            'Lease' => \App\Filament\Admin\Resources\Leases\LeaseResource::class,
-            'TenantSalesDeclaration' => \App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource::class,
-            'MaintenanceRequest' => \App\Filament\Admin\Resources\MaintenanceRequests\MaintenanceRequestResource::class,
-            'Payment' => \App\Filament\Admin\Resources\Payments\PaymentResource::class,
+            'Invoice' => InvoiceResource::class,
+            'Lease' => LeaseResource::class,
+            'TenantSalesDeclaration' => TenantSalesDeclarationResource::class,
+            'MaintenanceRequest' => MaintenanceRequestResource::class,
+            'Payment' => PaymentResource::class,
             // Hybrid (nullable asset_id): global rows visible to all; property-scoped ones guarded.
-            'Department' => \App\Filament\Admin\Resources\Departments\DepartmentResource::class,
+            'Department' => DepartmentResource::class,
         ];
     }
 }
@@ -254,7 +282,7 @@ it('registers every not-auto-stamped owned resource that exposes an editable ass
 it('confirms no SHARED model carries an asset_id column (except acknowledged config)', function () {
     // AccountMapping legitimately has a nullable per-property override column but is
     // resolved programmatically with no list/write surface, so it stays SHARED.
-    $acknowledged = [\App\Models\AccountMapping::class];
+    $acknowledged = [AccountMapping::class];
 
     foreach (PropertyIsolation::sharedModels() as $model) {
         if (in_array($model, $acknowledged, true)) {
@@ -263,7 +291,7 @@ it('confirms no SHARED model carries an asset_id column (except acknowledged con
         $table = (new $model)->getTable();
         expect(Schema::hasColumn($table, 'asset_id'))
             ->toBeFalse("{$model} ({$table}) is classified SHARED but has an asset_id column — "
-                ."it is likely per-property and belongs in OWNED (else its resource escapes the scoping gate)");
+                .'it is likely per-property and belongs in OWNED (else its resource escapes the scoping gate)');
     }
 });
 

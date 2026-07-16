@@ -1330,6 +1330,7 @@ return [
         'activity_log' => 'Activity Log',
         'settings' => 'Settings',
         'eta' => 'ETA e-Invoicing',
+        'announcements' => 'Announcements',
         'inventory' => 'Inventory',
         'fixed_assets' => 'Fixed Assets',
         'employees' => 'Employees',
@@ -1851,6 +1852,22 @@ return [
         'account_code_type_mismatch' => 'A code starting with :digit belongs to :expected accounts — change the code or the account nature to match.',
     ],
 
+    'announcements' => [
+        'group' => 'Communications',
+        'singular' => 'Announcement',
+        'plural' => 'Announcements',
+        'compose' => 'Compose announcement',
+        'pending' => 'Sending…',
+        'fields' => [
+            'property' => 'Property',
+            'property_hint' => 'Every active tenant of this property will be notified (in-app + push).',
+            'title' => 'Title',
+            'body' => 'Message',
+            'recipients' => 'Recipients',
+            'sent_at' => 'Sent',
+            'created_by' => 'By',
+        ],
+    ],
     'inventory' => [
         'group' => 'Inventory',
         'warehouse' => ['singular' => 'Warehouse', 'plural' => 'Warehouses'],

@@ -159,9 +159,7 @@ FCM message shape the app receives:
 
 ## 7. Event coverage
 
-Events that currently push (all tenant-facing): **Invoice issued**, **Payment received**, **Maintenance status changed**, **Maintenance comment added**, **Sales declaration locked**, **Overdue-invoice reminder** (`billing:remind-overdue-tenants`), **Late fee applied**, **Lease-expiry reminder** (`leases:remind-expiring`). See [modules/19-notifications-scans.md](modules/19-notifications-scans.md) §7 for the authoritative table.
-
-Planned additions (each its own slice): **operator broadcast announcements**.
+Events that currently push (all tenant-facing): **Invoice issued**, **Payment received**, **Maintenance status changed**, **Maintenance comment added**, **Sales declaration locked**, **Overdue-invoice reminder** (`billing:remind-overdue-tenants`), **Late fee applied**, **Lease-expiry reminder** (`leases:remind-expiring`), **Operator announcements** (broadcast to a property's active tenants — see [modules/27-announcements.md](modules/27-announcements.md)). See [modules/19-notifications-scans.md](modules/19-notifications-scans.md) §7 for the authoritative table.
 
 ---
 

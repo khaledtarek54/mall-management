@@ -1330,6 +1330,7 @@ return [
         'activity_log' => 'سجل النشاط',
         'settings' => 'الإعدادات',
         'eta' => 'الفوترة الإلكترونية ETA',
+        'announcements' => 'الإعلانات',
         'inventory' => 'المخزون',
         'fixed_assets' => 'الأصول الثابتة',
         'employees' => 'الموظفون',
@@ -1851,6 +1852,22 @@ return [
         'account_code_type_mismatch' => 'الكود الذي يبدأ بالرقم :digit يخص حسابات :expected — غيّر الكود أو طبيعة الحساب ليتطابقا.',
     ],
 
+    'announcements' => [
+        'group' => 'التواصل',
+        'singular' => 'إعلان',
+        'plural' => 'الإعلانات',
+        'compose' => 'إنشاء إعلان',
+        'pending' => 'جارٍ الإرسال…',
+        'fields' => [
+            'property' => 'العقار',
+            'property_hint' => 'سيتم إخطار كل مستأجر نشط في هذا العقار (داخل التطبيق + إشعار).',
+            'title' => 'العنوان',
+            'body' => 'الرسالة',
+            'recipients' => 'المستلمون',
+            'sent_at' => 'أُرسل',
+            'created_by' => 'بواسطة',
+        ],
+    ],
     'inventory' => [
         'group' => 'المخزون',
         'warehouse' => ['singular' => 'مخزن', 'plural' => 'المخازن'],
