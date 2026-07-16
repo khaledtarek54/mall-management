@@ -14,7 +14,7 @@ class MaintenancePlansTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['asset', 'unit']))
+            ->modifyQueryUsing(fn ($query) => $query->with(['asset', 'unit', 'equipment']))
             ->columns([
                 TextColumn::make('title')
                     ->label(__('admin.preventive_maintenance.fields.title'))
@@ -24,6 +24,17 @@ class MaintenancePlansTable
                 TextColumn::make('asset.name')
                     ->label(__('admin.preventive_maintenance.fields.property'))
                     ->badge()->color('gray')->toggleable(),
+                TextColumn::make('maintenance_type')
+                    ->label(__('admin.preventive_maintenance.fields.maintenance_type'))
+                    ->badge()
+                    ->formatStateUsing(fn (string $state) => __("admin.preventive_maintenance.maintenance_types.{$state}"))
+                    ->color(fn (string $state) => $state === MaintenancePlan::MAINTENANCE_TYPE_FIXED ? 'info' : 'gray')
+                    ->toggleable(),
+                TextColumn::make('equipment.code')
+                    ->label(__('admin.preventive_maintenance.equipment.singular'))
+                    ->fontFamily('mono')
+                    ->placeholder('—')
+                    ->toggleable(),
                 TextColumn::make('unit.code')
                     ->label(__('admin.preventive_maintenance.fields.unit'))
                     ->placeholder('—'),

@@ -29,6 +29,7 @@ class MaintenanceWorkOrder extends Model
         'maintenance_plan_id',
         'asset_id',
         'unit_id',
+        'equipment_id',
         'reference',
         'title',
         'category',
@@ -53,7 +54,7 @@ class MaintenanceWorkOrder extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['maintenance_plan_id', 'asset_id', 'unit_id', 'title', 'category', 'status', 'scheduled_for', 'completed_at'])
+            ->logOnly(['maintenance_plan_id', 'asset_id', 'unit_id', 'equipment_id', 'title', 'category', 'status', 'scheduled_for', 'completed_at'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('maintenance_work_order');
@@ -72,6 +73,16 @@ class MaintenanceWorkOrder extends Model
     public function unit(): BelongsTo
     {
         return $this->belongsTo(Unit::class);
+    }
+
+    /**
+     * The machine this job is against (FR-PPM-03) — copied from the plan when raised, or
+     * set directly on an ad-hoc order. Carried here rather than read through the plan
+     * because an order outlives its plan (nullOnDelete) and ad-hoc orders have none.
+     */
+    public function equipment(): BelongsTo
+    {
+        return $this->belongsTo(Equipment::class);
     }
 
     public function department(): BelongsTo

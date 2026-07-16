@@ -1,23 +1,25 @@
 # Module 26 — Preventive Maintenance (الصيانة الوقائية)
 
-> **Status: COMPLETE (Phase 3 shipped — pass/fail checklist + completion gate).** Recurring
+> **Status: COMPLETE (Phase 5 shipped — equipment-anchored PPM).** Recurring
 > facility-maintenance **plans** that auto-raise **work orders** (with checklists) when
 > due, via the daily `maintenance:generate-preventive` scan; two property-scoped Filament
 > resources (plans + work orders), a checklist relation manager (**mark each item pass/fail**),
 > status transitions (start / complete / cancel) owned by `MaintenanceWorkOrderService`, the
-> `preventive_maintenance.*` RBAC (operations) + module flag, and a **bilingual facility
-> work-log PDF report** (RPT-1). Delivers discovery backlog items **MNT-1/2 + RPT-1** and
-> **FR-PPM-07** of the Eltizam FRD. Distinct from tenant-facing maintenance **requests**
+> `preventive_maintenance.*` RBAC (operations) + module flag, the **equipment register**
+> (maintainable-asset codes + sub-codes) with plans and work orders anchored to the machine,
+> and a **bilingual facility work-log PDF report** (RPT-1). Delivers discovery backlog items
+> **MNT-1/2 + RPT-1** and Eltizam FRD **FR-PPM-01 · 02 · 03 · 04 · 05 · 07**.
+> Distinct from tenant-facing maintenance **requests**
 > (module 11) — this is internal/facility upkeep (common areas, no tenant), so it has its
 > own models.
 >
 > **Eltizam FRD roadmap.** This module is being grown into the **internal work-order system**
 > — corrective maintenance (CM) will live here, not in module 11, because a CM raised from a
 > failed common-area check has no tenant and no unit (module 11's `tenant_id`/`unit_id` are
-> NOT NULL). Landed so far: the service + state machine + pass/fail gate. Still to come:
-> an `Equipment` register (asset codes + sub-codes), `maintenance_type` routine/fixed,
-> yearly frequency, per-property SLA + penalties, internal/external classification,
-> parts + fault attribution, and follow-up work-order chains.
+> NOT NULL). Landed so far: the service + state machine + pass/fail gate, the equipment
+> register, and equipment-anchored plans/work orders (routine vs fixed, yearly frequency).
+> Still to come: per-property SLA + penalties, internal/external classification, parts +
+> fault attribution + tenant recharge, and follow-up work-order chains.
 
 An operator maintains the building itself — HVAC filters, lift servicing, fire-safety
 checks, generator runs — on a recurring schedule, not in response to a tenant. This module
@@ -60,11 +62,19 @@ maintenance keep separate registers, separate permissions, and no double data en
 | Column | Meaning |
 |--------|---------|
 | `asset_id` · `unit_id` | property + optional unit (null = common / asset-wide) |
+| `equipment_id` | the **machine** this plan services (FR-PPM-03); null = property/unit-wide |
+| `maintenance_type` | **FR-PPM-01** — `routine` (recurring schedule) \| `fixed` (per machine) |
 | `title` · `category` · `description` | what to do |
-| `frequency_unit` · `frequency_value` | how often (`days`\|`weeks`\|`months` × N) |
+| `frequency_unit` · `frequency_value` | how often (`days`\|`weeks`\|`months`\|**`years`** × N) |
 | `checklist` (json) | the template check items |
 | `department_id` · `vendor_id` | default assignee |
 | `next_due_date` · `last_generated_at` · `is_active` | scheduling state |
+
+⚠️ **FR-PPM-01 is only half-encoded, deliberately.** The FRD defines Fixed as *"performed on a
+defined one-time **or periodic** basis per asset"* — two different things. Encoded: the
+discriminator, and that a `fixed` plan must name its equipment. **Both types still recur**; a
+one-time plan means deactivating it after its first run. Whether one-time needs first-class support
+is an **open client question** — don't guess it into the schema.
 
 ### `maintenance_work_orders` — a raised job (from a plan or ad-hoc)
 | Column | Meaning |
@@ -144,6 +154,24 @@ progress badge.
    advances `next_due_date` by the plan's frequency. **Idempotent + lock-safe**: the plan row
    is locked + re-checked inside its transaction, and advancing `next_due` is the idempotency
    key (plus a per-cycle duplicate backstop). A long-dormant plan catches up one cycle per run.
+2a. **An unknown `frequency_unit` throws — it is never guessed.** `advanceDue()` used to end in
+   `default => addMonths()`, so an unrecognised unit was silently treated as MONTHS: a plan set to
+   **"every 1 year" would have fired twelve times a year**. Every unit is now matched explicitly
+   (`days|weeks|months|years` — FR-PPM-02) and anything else throws. The model refuses to *write* a
+   bad unit, so the throw is a backstop for a direct DB edit or an import.
+
+   > The throw is only safe because `GeneratePreventiveWorkOrdersService` contains failures **per
+   > plan** (mirroring `ScanMaintenanceSlaBreachesCommand`) — otherwise one corrupt row would abort
+   > the nightly run and every property would silently stop getting work orders. The command reports
+   > `$service->failures` and exits non-zero, so a skipped plan is visible rather than lost.
+2b. **The equipment rules are write-time validation and run only on change** (`isDirty`). Running
+   them on every save was a trap: the scan calls `$plan->save()` after `advanceDue()`, so a plan
+   whose machine had since moved property — or been hard-deleted, since `nullOnDelete` nulls
+   `equipment_id` at the DB behind Eloquent's back, leaving a `fixed` plan with no machine — threw
+   on every later save and **raised zero work orders from then on**. A fire pump that silently stops
+   being inspected is far worse than a stale link. The move itself is blocked at the other end:
+   **`Equipment` refuses to change property while any plan or work order references it** (the same
+   principle as its sub-code rule).
 3. **`frequency_value ≥ 1`** — coerced in the model, so a plan always advances.
 4. **A done/cancelled work order is terminal** — read-only (edit + start/complete/cancel
    hidden, edit page aborts 403); its checklist is frozen (enforced in the service, not only
@@ -202,8 +230,8 @@ progress badge.
 | **2 — Facility work-log report (RPT-1)** | `FacilityWorkLogPdfService` — a bilingual PDF of work orders for a property over a date range (summary by status + category + the detail list), launched from a **"Work log (PDF)"** action on the work-order list, scoped to the user's visible properties | ✅ shipped |
 | **3 — Pass/fail checklist + completion gate (FR-PPM-07)** | `result` enum replaces `is_done`; `MaintenanceWorkOrderService` (the module's first service) owns the TRANSITIONS matrix, the row-locked completion gate, and `markItem()`; the Filament actions became thin callers; progress badge counts *marked* and warns amber on any fail | ✅ shipped |
 | **4 — Equipment register (FR-PPM-03/04/05)** | `Equipment`: per-property-unique `code` + `parent_id` sub-code tree (same-property + acyclicity guards), nullable `fixed_asset_id` link to the accounting register, `equipment_inventory_item` pivot for compatible spare parts, property-scoped resource under `preventive_maintenance.*` | ✅ shipped |
-| **5 — Equipment ↔ plans/work orders** | `equipment_id` on `maintenance_plans` + `maintenance_work_orders` (PPM per machine), `maintenance_type` routine/fixed (FR-PPM-01), `years` frequency unit + fixing `advanceDue()`'s silent `default => addMonths()` arm (FR-PPM-02) | ⬜ next |
-| **6 — Corrective maintenance (FR-CM-01..15)** | CM raised from a failed checklist item, internal/external XOR, per-property SLA + priority tiers, vendor SLA penalties, parts + fault attribution + tenant recharge, follow-up work-order chains (`parent_work_order_id`) | ⬜ planned |
+| **5 — Equipment ↔ plans/work orders (FR-PPM-01/02/03)** | `equipment_id` on `maintenance_plans` + `maintenance_work_orders` (PPM per machine, carried onto the order so history survives the plan), `maintenance_type` routine/fixed, `years` frequency + `advanceDue()` throwing instead of silently meaning months, per-plan failure containment in the scan | ✅ shipped |
+| **6 — Corrective maintenance (FR-CM-01..15)** | CM raised from a failed checklist item, internal/external XOR, per-property SLA + priority tiers, vendor SLA penalties, parts + fault attribution + tenant recharge, follow-up work-order chains (`parent_work_order_id`) | ⬜ next |
 
 ---
 
@@ -239,6 +267,22 @@ optional fixed-asset twin, the `is_active` default, RBAC + property scoping + `a
 sub-code, and a row with every optional column null — an empty table hides `$state`-closure bugs),
 create/edit through the form, duplicate-code + required-field validation, the out-of-scope create
 **and** edit guards, RBAC, and module-off hiding.
+
+`tests/Feature/Scenarios/MaintenancePlanEquipmentScenarioTest.php` — FR-PPM-01/02/03: a yearly plan
+advancing by a **year** (verified to fail if the old `default => addMonths` arm returns), the other
+units still correct, an unknown unit refused on write and throwing on corrupt stored data, **one
+corrupt plan not stopping every other property's work orders**, routine-by-default, fixed requiring
+its machine, cross-property equipment refused, the machine reaching the work order and outliving the
+plan — and the two "plan silently stops generating forever" traps (machine hard-deleted; machine
+referenced by a plan refusing to move property).
+
+`tests/Feature/Regression/PpmRetiredEquipmentLockoutTest.php` — retiring a machine must not
+deadlock the records naming it. Filament derives an `in:` rule from a Select's options and
+validates the **stored** value against it, so filtering the equipment picker to `->active()` alone
+meant that decommissioning a machine (`is_active=false` **or** a soft delete — both ordinary
+lifecycle events) made its plan permanently unsavable, *including the attempt to deactivate it*,
+while the scan kept raising work orders for it. Both forms therefore always include the record's own
+stored machine. Invisible from the model layer — only driving the real form finds it.
 
 `tests/Feature/Regression/EquipmentTreeIsolationTest.php` — the isolation holes an adversarial
 review found in the register's first cut, none of which the passing tests caught: a parent moving

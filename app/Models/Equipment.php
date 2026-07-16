@@ -97,6 +97,18 @@ class Equipment extends Model
         return $this->belongsToMany(InventoryItem::class, 'equipment_inventory_item')->withTimestamps();
     }
 
+    /** Preventive schedules servicing this machine (FR-PPM-01/03). */
+    public function maintenancePlans(): HasMany
+    {
+        return $this->hasMany(MaintenancePlan::class);
+    }
+
+    /** Jobs raised against this machine — its maintenance history. */
+    public function workOrders(): HasMany
+    {
+        return $this->hasMany(MaintenanceWorkOrder::class);
+    }
+
     public function scopeRoots(Builder $query): Builder
     {
         return $query->whereNull('parent_id');
@@ -173,10 +185,22 @@ class Equipment extends Model
             // transaction, so a cascade that hit the unique(asset_id, code) index partway
             // would commit the parent's move and strand the children — the very split this
             // guards against. Detaching the sub-codes first is explicit and cannot corrupt.
-            if ($equipment->exists && $equipment->isDirty('asset_id') && $equipment->children()->withTrashed()->exists()) {
-                throw new InvalidArgumentException(
-                    "Equipment #{$equipment->getKey()} has sub-codes; move or detach them before moving it to another property."
-                );
+            if ($equipment->exists && $equipment->isDirty('asset_id')) {
+                if ($equipment->children()->withTrashed()->exists()) {
+                    throw new InvalidArgumentException(
+                        "Equipment #{$equipment->getKey()} has sub-codes; move or detach them before moving it to another property."
+                    );
+                }
+
+                // Same principle, one level out: a machine may not walk away from the plans
+                // and jobs that reference it. A plan's equipment must live in the plan's own
+                // property, so a move would leave the plan permanently invalid — and the
+                // work-order history would claim a machine that was never in that mall.
+                if ($equipment->maintenancePlans()->withTrashed()->exists() || $equipment->workOrders()->withTrashed()->exists()) {
+                    throw new InvalidArgumentException(
+                        "Equipment #{$equipment->getKey()} is referenced by maintenance plans or work orders; it cannot be moved to another property."
+                    );
+                }
             }
 
             if ($equipment->parent_id === null) {

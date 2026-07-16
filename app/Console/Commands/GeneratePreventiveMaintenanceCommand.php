@@ -31,6 +31,20 @@ class GeneratePreventiveMaintenanceCommand extends Command
         $count = $service->run($date);
         $this->info("Raised {$count} preventive-maintenance work order(s).");
 
+        // The service contains a per-plan failure so the rest of the portfolio still gets
+        // its work orders — but a silently skipped plan is a plan nobody is maintaining.
+        // Report it, and exit non-zero so the scheduler's output is actionable.
+        if ($service->failures !== []) {
+            $this->newLine();
+            $this->error(count($service->failures).' plan(s) failed and raised nothing:');
+
+            foreach ($service->failures as $planId => $reason) {
+                $this->warn("  plan #{$planId}: {$reason}");
+            }
+
+            return self::FAILURE;
+        }
+
         return self::SUCCESS;
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\MaintenancePlans\Schemas;
 
 use App\Models\Department;
+use App\Models\Equipment;
 use App\Models\MaintenancePlan;
 use App\Models\Unit;
 use App\Models\Vendor;
@@ -18,6 +19,47 @@ use Filament\Schemas\Schema;
 
 class MaintenancePlanForm
 {
+    /**
+     * Selectable machines for the chosen property — **plus the record's own stored one**,
+     * even if since deactivated or soft-deleted.
+     *
+     * That last part is load-bearing, not politeness. Filament derives an `in:` rule from a
+     * Select's options and validates the CURRENT STORED VALUE against it
+     * (`Select::getInValidationRuleValues()` → blank label → `Rule::in([])`, which always
+     * fails). So filtering to `->active()` alone meant that the moment ops decommissioned a
+     * machine, its plan could never be saved again — not even to deactivate it. The one
+     * obvious escape was blocked too, so the record deadlocked with no UI way out while the
+     * nightly scan kept raising work orders for it.
+     *
+     * @return array<int,string>
+     */
+    private static function equipmentOptions(Get $get, ?int $currentId): array
+    {
+        $assetId = TenantScope::clampAssetId($get('asset_id'));
+
+        if ($assetId === null) {
+            return [];
+        }
+
+        $options = Equipment::query()
+            ->where('asset_id', $assetId)
+            ->active()
+            ->orderBy('code')
+            ->get();
+
+        if ($currentId !== null && ! $options->contains('id', $currentId)) {
+            // withTrashed: a soft-deleted machine is excluded by the default scope, and is
+            // exactly one of the states that used to deadlock the record.
+            $current = Equipment::withTrashed()->whereKey($currentId)->first();
+
+            if ($current !== null) {
+                $options->push($current);
+            }
+        }
+
+        return $options->mapWithKeys(fn (Equipment $e) => [$e->id => $e->label()])->all();
+    }
+
     public static function configure(Schema $schema): Schema
     {
         return $schema->columns(2)->components([
@@ -32,9 +74,11 @@ class MaintenancePlanForm
                 ->native(false),
             Select::make('unit_id')
                 ->label(__('admin.preventive_maintenance.fields.unit'))
-                // Units of the chosen property; blank = common / asset-wide.
-                ->options(fn (Get $get) => $get('asset_id')
-                    ? Unit::query()->where('asset_id', $get('asset_id'))->orderBy('code')->pluck('code', 'id')->all()
+                // Units of the chosen property; blank = common / asset-wide. Clamped:
+                // asset_id is ->live() and client-supplied, so keying the option query on
+                // the raw value would enumerate an invisible property's units.
+                ->options(fn (Get $get) => ($assetId = TenantScope::clampAssetId($get('asset_id'))) !== null
+                    ? Unit::query()->where('asset_id', $assetId)->orderBy('code')->pluck('code', 'id')->all()
                     : [])
                 ->searchable()
                 ->native(false),
@@ -47,6 +91,25 @@ class MaintenancePlanForm
                 ->options(fn () => __('admin.preventive_maintenance.categories'))
                 ->default('other')
                 ->required()
+                ->native(false),
+            Select::make('maintenance_type')
+                ->label(__('admin.preventive_maintenance.fields.maintenance_type'))
+                ->helperText(__('admin.preventive_maintenance.maintenance_type_hint'))
+                ->options(fn () => __('admin.preventive_maintenance.maintenance_types'))
+                ->default(MaintenancePlan::MAINTENANCE_TYPE_ROUTINE)
+                ->required()
+                ->live()
+                ->native(false),
+            Select::make('equipment_id')
+                ->label(__('admin.preventive_maintenance.equipment.singular'))
+                ->helperText(__('admin.preventive_maintenance.equipment_hint'))
+                // The machine this plan services (FR-PPM-01/03). Same clamp as unit_id.
+                ->options(fn (Get $get, ?MaintenancePlan $record) => self::equipmentOptions($get, $record?->equipment_id))
+                // FR-PPM-01: Fixed maintenance is "per asset", so it must name the machine.
+                // The model enforces this too — the form only makes it visible.
+                ->required(fn (Get $get) => $get('maintenance_type') === MaintenancePlan::MAINTENANCE_TYPE_FIXED)
+                ->searchable()
+                ->preload()
                 ->native(false),
             TextInput::make('frequency_value')
                 ->label(__('admin.preventive_maintenance.fields.frequency_value'))

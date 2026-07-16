@@ -1942,23 +1942,36 @@ class DemoSeeder extends Seeder
 
         $this->seedEquipment($asset);
 
+        // `equip` = the machine this plan services (FR-PPM-01/03). A plan naming one is
+        // `fixed` (per-asset) maintenance; the rest stay `routine` and property-wide.
         $plans = [
-            ['title' => 'HVAC filter & coil service',      'category' => 'hvac',        'unit' => 'weeks',  'freq' => 2, 'due' => -6,  'dept' => $ops, 'vendor' => $coolAir,
+            ['title' => 'HVAC filter & coil service',      'category' => 'hvac',        'unit' => 'weeks',  'freq' => 2, 'due' => -6,  'dept' => $ops, 'vendor' => $coolAir,     'equip' => 'AHU-01',
                 'checklist' => ['Inspect filter condition', 'Replace filter cartridge', 'Clean condenser coil', 'Check airflow pressure']],
-            ['title' => 'Monthly fire-safety inspection',  'category' => 'fire-safety', 'unit' => 'months', 'freq' => 1, 'due' => -3,  'dept' => $ops, 'vendor' => $fireSafe,
+            ['title' => 'Monthly fire-safety inspection',  'category' => 'fire-safety', 'unit' => 'months', 'freq' => 1, 'due' => -3,  'dept' => $ops, 'vendor' => $fireSafe,    'equip' => null,
                 'checklist' => ['Inspect fire extinguishers', 'Test fire-alarm panel', 'Check emergency exits', 'Verify signage & lighting']],
-            ['title' => 'Elevator quarterly maintenance',  'category' => 'elevator',    'unit' => 'months', 'freq' => 3, 'due' => -10, 'dept' => $ops, 'vendor' => null,
+            ['title' => 'Elevator quarterly maintenance',  'category' => 'elevator',    'unit' => 'months', 'freq' => 3, 'due' => -10, 'dept' => $ops, 'vendor' => null,         'equip' => 'LFT-01',
                 'checklist' => ['Inspect cables & pulleys', 'Test brakes & governor', 'Check door mechanisms', 'Load test', 'Certify safety']],
-            ['title' => 'Generator monthly test-run',      'category' => 'generator',   'unit' => 'months', 'freq' => 1, 'due' => -2,  'dept' => $ops, 'vendor' => $brightSpark,
+            ['title' => 'Generator monthly test-run',      'category' => 'generator',   'unit' => 'months', 'freq' => 1, 'due' => -2,  'dept' => $ops, 'vendor' => $brightSpark, 'equip' => 'GEN-01',
                 'checklist' => ['Check fuel & oil levels', 'Run under load 15 min', 'Inspect battery', 'Log readings']],
+            // Yearly (FR-PPM-02) — the unit that used to fire monthly.
+            ['title' => 'Chiller annual overhaul',         'category' => 'hvac',        'unit' => 'years',  'freq' => 1, 'due' => -1,  'dept' => $ops, 'vendor' => $coolAir,     'equip' => 'CH-01',
+                'checklist' => ['Strip & inspect compressor', 'Replace refrigerant', 'Pressure-test circuit', 'Recommission']],
         ];
 
+        $equipmentIds = Equipment::where('asset_id', $asset->id)->pluck('id', 'code');
+
         foreach ($plans as $p) {
+            $equipmentId = $p['equip'] ? ($equipmentIds[$p['equip']] ?? null) : null;
+
             MaintenancePlan::create([
                 'asset_id' => $asset->id,
                 'unit_id' => null,
+                'equipment_id' => $equipmentId,
                 'title' => $p['title'],
                 'category' => $p['category'],
+                'maintenance_type' => $equipmentId
+                    ? MaintenancePlan::MAINTENANCE_TYPE_FIXED
+                    : MaintenancePlan::MAINTENANCE_TYPE_ROUTINE,
                 'description' => $p['title'].' — preventive schedule.',
                 'frequency_unit' => $p['unit'],
                 'frequency_value' => $p['freq'],

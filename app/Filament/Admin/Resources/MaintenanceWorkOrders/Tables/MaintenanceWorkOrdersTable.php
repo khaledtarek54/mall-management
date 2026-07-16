@@ -21,7 +21,7 @@ class MaintenanceWorkOrdersTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['asset', 'unit']))
+            ->modifyQueryUsing(fn ($query) => $query->with(['asset', 'unit', 'equipment']))
             ->columns([
                 TextColumn::make('reference')
                     ->label(__('admin.preventive_maintenance.fields.reference'))
@@ -35,6 +35,12 @@ class MaintenanceWorkOrdersTable
                 TextColumn::make('asset.name')
                     ->label(__('admin.preventive_maintenance.fields.property'))
                     ->badge()->color('gray')->toggleable(),
+                TextColumn::make('equipment.code')
+                    ->label(__('admin.preventive_maintenance.equipment.singular'))
+                    ->fontFamily('mono')
+                    ->description(fn (MaintenanceWorkOrder $record) => $record->equipment?->name_en)
+                    ->placeholder('—')
+                    ->toggleable(),
                 TextColumn::make('scheduled_for')
                     ->label(__('admin.preventive_maintenance.fields.scheduled_for'))
                     ->date('d/m/Y')
