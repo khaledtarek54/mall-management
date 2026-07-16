@@ -71,6 +71,14 @@ class MaintenanceWorkOrderForm
                 ->required()
                 ->native(false)
                 ->disabled($locked),
+            TextInput::make('job_value')
+                ->label(__('admin.preventive_maintenance.penalty.job_value'))
+                ->helperText(__('admin.preventive_maintenance.penalty.job_value_hint'))
+                ->prefix('EGP')
+                ->numeric()
+                ->minValue(0)
+                ->visible(fn (?MaintenanceWorkOrder $record) => $record?->isCorrective() ?? false)
+                ->disabled($locked),
             Select::make('priority')
                 ->label(__('admin.preventive_maintenance.fields.priority'))
                 ->options(fn () => __('admin.preventive_maintenance.priorities'))

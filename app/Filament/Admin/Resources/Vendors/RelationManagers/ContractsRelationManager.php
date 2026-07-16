@@ -12,6 +12,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -74,6 +75,28 @@ class ContractsRelationManager extends RelationManager
                     ->default('EGP')
                     ->required()
                     ->native(false),
+                // FR-CM-08 — what this vendor owes when a corrective job misses its SLA.
+                // The FRD never says on what basis, so it is agreed per contract rather
+                // than guessed in code. `none` (the default) = no penalty negotiated.
+                Select::make('sla_penalty_basis')
+                    ->label(__('admin.preventive_maintenance.penalty.basis'))
+                    ->helperText(__('admin.preventive_maintenance.penalty.basis_hint'))
+                    ->options(fn () => __('admin.preventive_maintenance.penalty.bases'))
+                    ->default('none')
+                    ->required()
+                    ->live()
+                    ->native(false),
+                TextInput::make('sla_penalty_rate')
+                    ->label(__('admin.preventive_maintenance.penalty.rate'))
+                    ->helperText(__('admin.preventive_maintenance.penalty.rate_hint'))
+                    ->numeric()
+                    ->minValue(0)
+                    ->default(0)
+                    // A percentage is not money; a flat fee and a per-day rate are.
+                    ->prefix(fn (Get $get) => $get('sla_penalty_basis') === 'percent_of_value' ? null : 'EGP')
+                    ->suffix(fn (Get $get) => $get('sla_penalty_basis') === 'percent_of_value' ? '%' : null)
+                    ->visible(fn (Get $get) => $get('sla_penalty_basis') !== 'none')
+                    ->required(fn (Get $get) => $get('sla_penalty_basis') !== 'none'),
             ]),
             Section::make(__('admin.sections.notes'))->collapsed()->components([
                 Textarea::make('scope')->label(__('admin.fields.description'))->rows(3)->columnSpanFull(),

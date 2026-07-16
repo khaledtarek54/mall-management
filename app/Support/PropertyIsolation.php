@@ -32,6 +32,7 @@ use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Models\Lease;
 use App\Models\LedgerAccount;
+use App\Models\MaintenancePenalty;
 use App\Models\MaintenancePlan;
 use App\Models\MaintenanceWorkOrder;
 use App\Models\MaintenanceWorkOrderItem;
@@ -130,6 +131,7 @@ class PropertyIsolation
         VendorContract::class => null,
         MaintenancePlan::class => null,
         MaintenanceWorkOrder::class => null,
+        MaintenancePenalty::class => null,   // asset_id copied from the breaching work order
         OwnerRequest::class => null,           // asset_id nullable (property-specific or cross-property)
         Department::class => null,             // asset_id nullable: null = operator-wide (global), set = property-scoped (hybrid)
 

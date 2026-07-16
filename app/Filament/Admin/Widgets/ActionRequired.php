@@ -6,9 +6,11 @@ use App\Filament\Admin\Concerns\RoleScopedWidget;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Filament\Admin\Resources\MaintenanceRequests\MaintenanceRequestResource;
+use App\Filament\Admin\Resources\MaintenanceWorkOrders\MaintenanceWorkOrderResource;
 use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Models\Invoice;
 use App\Models\Lease;
+use App\Models\MaintenanceWorkOrder;
 use App\Models\TenantRequest;
 use App\Models\Unit;
 use Carbon\Carbon;
@@ -55,6 +57,11 @@ class ActionRequired extends Widget
             ? TenantRequest::whereHas('unit', fn ($q) => $q->whereIn('asset_id', $assetIds))
             : TenantRequest::query();
 
+        // Work orders carry asset_id directly (no unit hop) — a common-area job has no unit.
+        $workOrderBase = fn () => $assetIds !== null
+            ? MaintenanceWorkOrder::whereIn('asset_id', $assetIds)
+            : MaintenanceWorkOrder::query();
+
         $overdueCount = $invoiceBase()->where('balance', '>', 0)->where('due_date', '<', $now)->count();
         $overdueAmount = $invoiceBase()->where('balance', '>', 0)->where('due_date', '<', $now)->sum('balance');
 
@@ -77,6 +84,13 @@ class ActionRequired extends Widget
             ->where('target_resolution_at', '<', $now)
             ->count();
 
+        // FR-CM-08 — a breached corrective job rang the bell but stayed off the dashboard,
+        // while breached tenant requests were shown. Same urgency, same card.
+        $woSlaBreachedCount = $workOrderBase()->corrective()->open()
+            ->whereNotNull('target_resolution_at')
+            ->where('target_resolution_at', '<', $now)
+            ->count();
+
         $monthStart = (clone $now)->startOfMonth();
         $monthEnd = (clone $now)->endOfMonth();
         $unbilledLeasesCount = $leaseBase()->where('status', 'active')
@@ -87,6 +101,7 @@ class ActionRequired extends Widget
 
         $items = [];
         $maintenanceEnabled = \App\Support\Modules::enabled('maintenance');
+        $ppmEnabled = \App\Support\Modules::enabled('preventive_maintenance');
 
         // Each card pre-applies the right filter AND sorts the offending
         // rows to the top, so clicking lands the operator on the work
@@ -114,6 +129,20 @@ class ActionRequired extends Widget
                 'title' => trans_choice('admin.widgets.action_required.sla_breached', $slaBreachedCount, ['count' => $slaBreachedCount]),
                 'body' => __('admin.widgets.action_required.sla_breached_body'),
                 'url' => MaintenanceRequestResource::getUrl('index', [
+                    'filters' => ['sla_breached' => ['isActive' => true]],
+                    'sort' => 'target_resolution_at:asc',
+                ]),
+            ];
+        }
+
+        if ($ppmEnabled && $woSlaBreachedCount > 0) {
+            $items[] = [
+                'key' => 'wo_sla_breached',
+                'icon' => 'heroicon-o-clock',
+                'color' => 'danger',
+                'title' => trans_choice('admin.widgets.action_required.wo_sla_breached', $woSlaBreachedCount, ['count' => $woSlaBreachedCount]),
+                'body' => __('admin.widgets.action_required.wo_sla_breached_body'),
+                'url' => MaintenanceWorkOrderResource::getUrl('index', [
                     'filters' => ['sla_breached' => ['isActive' => true]],
                     'sort' => 'target_resolution_at:asc',
                 ]),

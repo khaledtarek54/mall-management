@@ -1,6 +1,6 @@
 # Module 26 — Preventive Maintenance (الصيانة الوقائية)
 
-> **Status: Phase 6 shipped — the corrective-maintenance core.** Recurring
+> **Status: Phase 7 shipped — CM SLA + penalty assessment.** Recurring
 > facility-maintenance **plans** that auto-raise **work orders** (with checklists) when
 > due, via the daily `maintenance:generate-preventive` scan; two property-scoped Filament
 > resources (plans + work orders), a checklist relation manager (**mark each item pass/fail**),
@@ -9,8 +9,8 @@
 > (maintainable-asset codes + sub-codes) with plans and work orders anchored to the machine,
 > **corrective maintenance** raised from a failed check (or as a follow-up on a closed job),
 > and a **bilingual facility work-log PDF report** (RPT-1). Delivers discovery backlog items
-> **MNT-1/2 + RPT-1** and Eltizam FRD **FR-PPM-01..05 · 07** and **FR-CM-01 · 02 · 03 · 04 · 14 · 15**
-> (SLA/penalties + parts/cost still to come — see the roadmap).
+> **MNT-1/2 + RPT-1** and Eltizam FRD **FR-PPM-01..05 · 07** and **FR-CM-01..08 · 14 · 15**
+> (charging the penalty to the vendor's bill needs accountant sign-off; parts/cost still to come — see the roadmap).
 > Distinct from tenant-facing maintenance **requests**
 > (module 11) — this is internal/facility upkeep (common areas, no tenant), so it has its
 > own models.
@@ -20,8 +20,9 @@
 > failed common-area check has no tenant and no unit (module 11's `tenant_id`/`unit_id` are
 > NOT NULL). Landed so far: the service + state machine + pass/fail gate, the equipment
 > register, equipment-anchored plans/work orders (routine vs fixed, yearly frequency), and the
-> **CM core** — raised from a failed check, internal/external, follow-up chains. Still to come:
-> per-property SLA + vendor penalties, and parts + fault attribution + tenant recharge.
+> **CM core** — raised from a failed check, internal/external, follow-up chains — plus per-property
+> SLA, breach detection and penalty assessment. Still to come: charging the penalty to the vendor's
+> bill (needs sign-off), and parts + fault attribution + tenant recharge.
 
 An operator maintains the building itself — HVAC filters, lift servicing, fire-safety
 checks, generator runs — on a recurring schedule, not in response to a tenant. This module
@@ -76,6 +77,19 @@ property. Deleting a row returns that property to the default. Resolution is
 > config in practice. The chain now has one documented winner — **settings** — with config as a
 > true cold-start default. Don't "fix" config to match: it is what a fresh install with no settings
 > row gets, and changing it would silently re-time every such install.
+
+### `maintenance_penalties` — what a vendor owes for missing an SLA (FR-CM-08)
+| Column | Meaning |
+|--------|---------|
+| `maintenance_work_order_id` | **unique** — one penalty per job |
+| `vendor_id` · `vendor_contract_id` | who owes it, and under which contract |
+| `basis` · `rate` · `hours_over_sla` · `amount` | the terms **as applied**, frozen onto the row |
+| `status` | `pending` (accruing) \| `final` (frozen, chargeable) \| `waived` |
+| `waived_at` · `waived_by_user_id` · `waive_reason` | the operator's decision not to charge |
+
+Terms live on `vendor_contracts.sla_penalty_basis` + `sla_penalty_rate` (`none` by default —
+penalties are opt-in per contract, since most won't have one negotiated), and `job_value` on the
+work order carries the vendor's quote for the `percent_of_value` basis.
 
 ### `maintenance_plans` — the recurring schedule (per property)
 | Column | Meaning |
@@ -259,12 +273,42 @@ progress badge.
    Idempotent via `sla_breach_notified_at`, re-checked under a row lock inside the transaction, and
    contained per row. The stamp is written **even when the property has no staff to alert**, or a
    mall with nobody assigned would re-alert on every run forever.
-7e. **Two known gaps, deliberately not closed here.** (a) The `ActionRequired` dashboard widget
-   counts SLA-breached *tenant requests* (module 11) but not breached work orders — so a breached CM
-   alerts the bell yet stays off the dashboard. (b) Deleting an `SlaPolicy` is how a property returns
-   to the operator default, and delete is **super_admin-only** project-wide, so a manager can set an
-   override but not remove one. Both are consequences of existing rules rather than bugs; raise them
-   with the operator before "fixing" either.
+7e. **Returning a property to the default is a deactivation, not a delete.** `sla_policies.is_active`
+   exists because delete is **super_admin-only project-wide** — without it a manager could set an
+   override but never remove one. Deactivating is an EDIT, so it respects that invariant instead of
+   routing around it with a "reset" action that would be delete by another name. It also beats the
+   workaround of retyping the default into the override: a pinned copy silently stops tracking the
+   default the moment the default changes, whereas an inactive row genuinely falls back.
+7f. **The penalty basis is configuration, not a decision in code** (FR-CM-08). The FRD says only
+   *"automatically flag and calculate a penalty when a CM request exceeds its configured SLA
+   duration"* — never on what basis. The three plausible readings (a flat fee, a per-day accrual, a
+   share of the job's value) behave differently enough that guessing one and being wrong is a
+   rewrite, not a tweak — so all three are supported and the contract picks.
+7g. **A penalty is re-assessed, not computed once.** A per-day penalty grows while the job stays
+   late. The obvious key — `sla_breach_notified_at` — is a *once-per-record* stamp for the alert,
+   and would either charge an accruing penalty once or re-charge it hourly. So there is **one
+   penalty row per work order** (a DB unique) and each scan **updates** it; the amount freezes
+   (`final`) when the job reaches a terminal state. Re-running the scan is therefore free.
+   - Lateness stops at completion, not at "now" — otherwise a closed job's overrun would keep
+     growing in the archive and quietly bill more every day.
+   - Assessed on closure too, since the scan only looks at OPEN orders: a job that breached and
+     closed between two runs would otherwise escape entirely.
+   - Part of a day counts as a whole day. Charging 0.4 of a day for a nine-hour overrun invites an
+     argument nobody wants.
+   - **Only external jobs.** FR-CM-08 is a contractual remedy against the company that missed its
+     SLA; an in-house job running late is a management problem, not a billable one.
+   - A `percent_of_value` contract with no `job_value` captured assesses **nothing** rather than
+     zero — "we don't know yet" must not read as "assessed, owes nothing".
+   - The terms are copied onto the row as applied. Re-deriving from the contract at read time would
+     silently restate history the moment someone renegotiates the rate. For the same reason the
+     governing contract is the one **in force when the job was scheduled**, not the latest.
+   - The governing contract may be **portfolio-wide** (`vendor_contracts.asset_id` is nullable and
+     the UI offers exactly that); a property-specific contract outranks it. `draft` and `terminated`
+     contracts levy nothing — one was never in force, the other no longer is. **`expired` still
+     levies**: `vendors:expire-contracts` flips that status once `end_date` passes, so excluding it
+     would retroactively erase the penalty on a job that ran while the contract was live. The date
+     window judges history; the status only rules out agreements that never applied.
+   - **Waiving is terminal** — the hourly scan must never revive an operator's decision.
 8. **The work order is the aggregate root for its checklist.** *Every* mutation of the order **or**
    its items (`transition` · `markItem` · `addItem` · `removeItem`) goes through
    `MaintenanceWorkOrderService::withOrderLock()`, which row-locks the `maintenance_work_orders`
@@ -308,7 +352,8 @@ progress badge.
 | **5 — Equipment ↔ plans/work orders (FR-PPM-01/02/03)** | `equipment_id` on `maintenance_plans` + `maintenance_work_orders` (PPM per machine, carried onto the order so history survives the plan), `maintenance_type` routine/fixed, `years` frequency + `advanceDue()` throwing instead of silently meaning months, per-plan failure containment in the scan | ✅ shipped |
 | **6 — Corrective maintenance core (FR-CM-01/02/03/04/14/15)** | `work_order_type` ppm\|cm, CM raised from a failed check (one per check), internal/external as a real XOR, technician-or-vendor assignment, required description, `CM-` references, follow-up chains that never reopen the original | ✅ shipped |
 | **7 — CM SLA + breach detection (FR-CM-05/06/07 + FR-CM-08 detection)** | `sla_policies` per property × priority with a settings/config fallback chain, 4 priority tiers, the clock starting on **acceptance**, the hourly breach scan + bell alert, an SLA-target column and breached filter on the list | ✅ shipped |
-| **7b — SLA penalties (FR-CM-08 money)** | a penalty rate on the vendor contract → a penalty record on the breaching order → a deduction line on the VendorBill → GL. **Blocked on a client answer**: flat vs per-day accrual vs %-of-value. Accrual can't use the once-per-record `sla_breach_notified_at` stamp, so the basis decides the scan's design — see the open questions | ⬜ blocked |
+| **7b — SLA penalty assessment (FR-CM-08)** | penalty terms per vendor contract (**all three bases** — flat, per-day accrual, %-of-job-value — so the client's answer is configuration rather than a rewrite), one re-assessed penalty row per job, freeze on closure, waive with a reason, `job_value` for the percent basis, penalty column + waive action | ✅ shipped |
+| **7c — Charging the penalty to the vendor** | applying a `final` penalty against the vendor's bill (an AP reduction) + GL. **Deliberately not built yet**: `vendor_bills` has no line items and `balance` is derived as `total − paid_amount`, so this is a money-invariant change of the same weight as `Invoice::recomputeTotals`, and it needs an account-mapping decision (is a penalty income, or a cost reduction?) that belongs in `docs/BUSINESS-RULES.md` with accountant sign-off — not a guess | ⬜ needs sign-off |
 | **8 — CM parts + cost (FR-CM-09..13)** | parts from inventory vs bought outside + which, manager approval for an internal draw with the approver set by part value (needs the generic approval engine — nothing like it exists in the codebase), fault attribution → who bears the cost, mall-vs-tenant recharge to an invoice | ⬜ planned |
 
 ---
@@ -353,6 +398,21 @@ corrupt plan not stopping every other property's work orders**, routine-by-defau
 its machine, cross-property equipment refused, the machine reaching the work order and outliving the
 plan — and the two "plan silently stops generating forever" traps (machine hard-deleted; machine
 referenced by a plan refusing to move property).
+
+`tests/Feature/Scenarios/SlaPenaltyScenarioTest.php` — FR-CM-08: each basis (flat charged once
+however late; per-day accruing 200→400→600 as the job stays late; percent of job value), part of a
+day counting as a day, a percent contract with no job value assessing nothing rather than zero, no
+penalty for an in-house job or a contract with no terms or a job still inside its SLA, the contract
+**in force when scheduled** governing, exactly one penalty however often the scan runs, the amount
+freezing on closure and not growing afterwards, assessment on closure even if the scan never saw
+the job, waiving with a reason that the scan never revives, and the terms surviving a later
+renegotiation of the contract.
+
+`tests/Feature/Regression/SlaGapsTest.php` — the two gaps the SLA slice shipped with: deactivating
+an override returns a property to the default (an EDIT, so it respects the super_admin-only delete
+invariant rather than routing around it) while keeping the row for reference, and a breached
+corrective job now reaches the action-required dashboard — scoped, so it doesn't leak another
+property's jobs.
 
 `tests/Feature/Scenarios/WorkOrderSlaScenarioTest.php` — FR-CM-05/06/07/08: the fallback to the
 operator default, a property override winning, each property on its own clock, an override touching

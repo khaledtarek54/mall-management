@@ -74,6 +74,17 @@ class CorrectiveWorkOrderForm
                 ->default(now())
                 ->native(false),
 
+            // FR-CM-08 — only the percent_of_value penalty basis needs this, so it is shown
+            // for vendor jobs and left optional. Without it, a percent contract cannot
+            // assess a penalty at all (the service returns null rather than charging 0).
+            TextInput::make('job_value')
+                ->label(__('admin.preventive_maintenance.penalty.job_value'))
+                ->helperText(__('admin.preventive_maintenance.penalty.job_value_hint'))
+                ->prefix('EGP')
+                ->numeric()
+                ->minValue(0)
+                ->visible(fn (Get $get) => $get('execution_type') === MaintenanceWorkOrder::EXECUTION_EXTERNAL),
+
             // FR-CM-04 — what is wrong. Required here and in the model.
             Textarea::make('description')
                 ->label(__('admin.preventive_maintenance.fields.description'))

@@ -5,10 +5,12 @@ namespace App\Filament\Admin\Resources\MaintenanceWorkOrders\Tables;
 use App\Filament\Admin\Resources\MaintenanceWorkOrders\MaintenanceWorkOrderResource;
 use App\Filament\Admin\Resources\MaintenanceWorkOrders\Schemas\CorrectiveWorkOrderForm;
 use App\Models\MaintenanceWorkOrder;
+use App\Services\AssessSlaPenaltyService;
 use App\Services\MaintenanceWorkOrderService;
 use App\Services\RaiseCorrectiveMaintenanceService;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -30,7 +32,7 @@ class MaintenanceWorkOrdersTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['asset', 'unit', 'equipment', 'parentWorkOrder', 'sourceItem']))
+            ->modifyQueryUsing(fn ($query) => $query->with(['asset', 'unit', 'equipment', 'parentWorkOrder', 'sourceItem', 'penalty']))
             ->columns([
                 TextColumn::make('reference')
                     ->label(__('admin.preventive_maintenance.fields.reference'))
@@ -104,6 +106,21 @@ class MaintenanceWorkOrdersTable
                     ->description(fn (MaintenanceWorkOrder $record) => $record->isOverdue()
                         ? __('admin.preventive_maintenance.sla.overdue').' · '.$record->hoursOverSla().'h'
                         : null)
+                    ->toggleable(),
+                TextColumn::make('penalty.amount')
+                    ->label(__('admin.preventive_maintenance.penalty.label'))
+                    ->money('EGP')
+                    ->placeholder('—')
+                    ->description(fn (MaintenanceWorkOrder $record) => $record->penalty
+                        ? __("admin.preventive_maintenance.penalty.statuses.{$record->penalty->status}")
+                        : null)
+                    // Grey once waived: the number stays visible for audit, but it is not owed.
+                    ->color(fn (MaintenanceWorkOrder $record) => match ($record->penalty?->status) {
+                        'final' => 'danger',
+                        'pending' => 'warning',
+                        'waived' => 'gray',
+                        default => null,
+                    })
                     ->toggleable(),
                 TextColumn::make('status')
                     ->label(__('admin.preventive_maintenance.fields.status'))
@@ -208,6 +225,42 @@ class MaintenanceWorkOrdersTable
                             ->body($followUp->reference)
                             ->success()
                             ->send();
+                    }),
+                // FR-CM-08 — an operator decides not to charge it (the vendor called ahead,
+                // the part was on back-order, the breach was the mall's fault). Deliberately
+                // available on a TERMINAL order: the penalty outlives the job, and the
+                // decision is usually made after the fact.
+                Action::make('waive_penalty')
+                    ->label(__('admin.preventive_maintenance.penalty.waive'))
+                    ->icon('heroicon-o-receipt-refund')
+                    ->color('gray')
+                    ->modalDescription(__('admin.preventive_maintenance.penalty.waive_hint'))
+                    ->visible(fn (MaintenanceWorkOrder $record) => $record->penalty !== null
+                        && ! $record->penalty->isWaived()
+                        && MaintenanceWorkOrderResource::canEdit($record))
+                    ->authorize(fn (MaintenanceWorkOrder $record) => MaintenanceWorkOrderResource::canEdit($record))
+                    ->schema([
+                        Textarea::make('waive_reason')
+                            ->label(__('admin.preventive_maintenance.penalty.waive_reason'))
+                            ->required()
+                            ->rows(3),
+                    ])
+                    ->action(function (MaintenanceWorkOrder $record, array $data): void {
+                        abort_unless(MaintenanceWorkOrderResource::canEdit($record), 403);
+
+                        if ($record->penalty === null) {
+                            return;
+                        }
+
+                        try {
+                            app(AssessSlaPenaltyService::class)->waive($record->penalty, $data['waive_reason']);
+                        } catch (\DomainException $e) {
+                            Notification::make()->title($e->getMessage())->danger()->send();
+
+                            return;
+                        }
+
+                        Notification::make()->title(__('admin.preventive_maintenance.penalty.waived_notice'))->success()->send();
                     }),
                 EditAction::make()->visible(fn (MaintenanceWorkOrder $record) => ! $record->isTerminal() && MaintenanceWorkOrderResource::canEdit($record)),
             ])

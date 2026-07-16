@@ -1402,7 +1402,7 @@ class DemoSeeder extends Seeder
                 'phone' => '+201112223344',
                 'city' => 'Cairo',
                 'contact' => ['name' => 'Ahmed Saleh', 'role' => 'Operations Lead', 'phone' => '+201112223344'],
-                'contract' => ['name' => 'HVAC maintenance — annual', 'value' => 360000, 'start' => '2026-01-01', 'end' => '2026-12-31'],
+                'contract' => ['name' => 'HVAC maintenance — annual', 'value' => 360000, 'start' => '2026-01-01', 'end' => '2026-12-31', 'penalty_basis' => 'per_day', 'penalty_rate' => 500],
             ],
             [
                 'name' => 'BrightSpark Electrical',
@@ -1421,7 +1421,7 @@ class DemoSeeder extends Seeder
                 'phone' => '+201556677889',
                 'city' => 'Cairo',
                 'contact' => ['name' => 'Karim El-Gohary', 'role' => 'Owner', 'phone' => '+201556677889'],
-                'contract' => ['name' => 'On-call plumbing — SLA', 'value' => 90000, 'start' => '2026-01-01', 'end' => '2026-12-31'],
+                'contract' => ['name' => 'On-call plumbing — SLA', 'value' => 90000, 'start' => '2026-01-01', 'end' => '2026-12-31', 'penalty_basis' => 'flat', 'penalty_rate' => 1500],
             ],
             [
                 'name' => 'CleanFleet Janitorial',
@@ -1505,6 +1505,11 @@ class DemoSeeder extends Seeder
                         'end_date' => $v['contract']['end'],
                         'value' => $v['contract']['value'],
                         'currency' => 'EGP',
+                        // FR-CM-08 — SLA penalty terms, if this contract negotiated any.
+                        // Per-day is the accruing basis, and the reason the penalty is
+                        // re-assessed on every scan rather than computed once.
+                        'sla_penalty_basis' => $v['contract']['penalty_basis'] ?? 'none',
+                        'sla_penalty_rate' => $v['contract']['penalty_rate'] ?? 0,
                     ],
                 );
             }

@@ -30,12 +30,15 @@ class VendorContract extends Model
         'start_date',
         'end_date',
         'value',
+        'sla_penalty_basis',
+        'sla_penalty_rate',
         'currency',
         'scope',
         'notes',
     ];
 
     protected $casts = [
+        'sla_penalty_rate' => 'decimal:2',
         'start_date' => 'date',
         'end_date' => 'date',
         'value' => 'decimal:2',

@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\MaintenanceWorkOrder;
 use App\Notifications\WorkOrderSlaBreachedNotification;
+use App\Services\AssessSlaPenaltyService;
 use App\Services\AssetStaffRecipients;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -25,14 +26,24 @@ class ScanWorkOrderSlaBreachesCommand extends Command
 
     public function handle(): int
     {
-        $breached = MaintenanceWorkOrder::query()
+        // Two different jobs, two different queries, deliberately.
+        //
+        // The ALERT is once per order — `sla_breach_notified_at` is its key.
+        // The PENALTY may ACCRUE, so it must be re-assessed on every run for as long as the
+        // job stays late. Driving both off the alert stamp would either charge a per-day
+        // penalty once, or re-charge it hourly. AssessSlaPenaltyService keeps one row per
+        // order and updates it, so re-running is free.
+        $overdue = MaintenanceWorkOrder::query()
             ->corrective()
             ->open()
             ->whereNotNull('target_resolution_at')
             ->where('target_resolution_at', '<', now())
-            ->whereNull('sla_breach_notified_at')
             ->with(['asset', 'equipment', 'vendor'])
             ->get();
+
+        $this->assessPenalties($overdue);
+
+        $breached = $overdue->whereNull('sla_breach_notified_at');
 
         if ($breached->isEmpty()) {
             $this->info('No new SLA breaches.');
@@ -65,6 +76,26 @@ class ScanWorkOrderSlaBreachesCommand extends Command
         $this->info("Alerted {$alerted} SLA breach(es).");
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Re-assess every overdue job's penalty (FR-CM-08). Contained per row: a penalty that
+     * can't be computed must not stop the breach ALERTS going out — the alert is the part
+     * an engineer acts on.
+     *
+     * @param  \Illuminate\Support\Collection<int, MaintenanceWorkOrder>  $overdue
+     */
+    private function assessPenalties($overdue): void
+    {
+        $service = app(AssessSlaPenaltyService::class);
+
+        foreach ($overdue as $order) {
+            try {
+                $service->assess($order);
+            } catch (\Throwable $e) {
+                $this->warn("  penalty assessment failed on #{$order->id}: {$e->getMessage()}");
+            }
+        }
     }
 
     /** Named alertBreach(), not alert(): Command::alert() already exists as a public banner helper. */

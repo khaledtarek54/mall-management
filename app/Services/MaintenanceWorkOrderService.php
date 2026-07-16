@@ -91,8 +91,16 @@ class MaintenanceWorkOrderService
             }
 
             $locked->update($payload);
+            $locked->refresh();
 
-            return $locked->refresh();
+            // FR-CM-08 — the job stopped running late, so an accruing penalty must stop
+            // growing. Assessed here rather than waiting for the next hourly scan, which
+            // filters to OPEN orders and would never look at this one again.
+            if (in_array($next, MaintenanceWorkOrder::TERMINAL, true) && $locked->isCorrective()) {
+                app(AssessSlaPenaltyService::class)->assess($locked);
+            }
+
+            return $locked;
         });
     }
 

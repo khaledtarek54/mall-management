@@ -9,7 +9,7 @@ use App\Settings\MaintenanceSettings;
  * How many hours a job of a given priority has, at a given property (FR-CM-05/06).
  *
  * Resolution order, most specific first:
- *   1. `sla_policies` for that property + priority  — the FR-CM-05 per-mall override
+ *   1. an ACTIVE `sla_policies` row for that property + priority — the FR-CM-05 per-mall override
  *   2. `MaintenanceSettings` — the operator-wide singleton, tunable in /admin/settings
  *   3. `config/maintenance.php` — the shipped default, for a fresh install with no settings row
  *
@@ -28,7 +28,10 @@ class SlaResolver
     public static function hoursFor(?int $assetId, string $priority): int
     {
         if ($assetId !== null) {
+            // active() only: deactivating an override is how a manager returns a property
+            // to the default, since deleting the row is super_admin-only project-wide.
             $override = SlaPolicy::query()
+                ->active()
                 ->where('asset_id', $assetId)
                 ->where('priority', $priority)
                 ->value('resolve_hours');

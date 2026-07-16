@@ -29,16 +29,23 @@ class SlaPolicy extends Model
         'asset_id',
         'priority',
         'resolve_hours',
+        'is_active',
     ];
 
     protected $casts = [
         'resolve_hours' => 'integer',
+        'is_active' => 'boolean',
+    ];
+
+    /** NOT-NULL — never let a blank toggle send null. */
+    protected $attributes = [
+        'is_active' => true,
     ];
 
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['asset_id', 'priority', 'resolve_hours'])
+            ->logOnly(['asset_id', 'priority', 'resolve_hours', 'is_active'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('sla_policy');
@@ -47,6 +54,11 @@ class SlaPolicy extends Model
     public function asset(): BelongsTo
     {
         return $this->belongsTo(Asset::class);
+    }
+
+    public function scopeActive(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query->where('is_active', true);
     }
 
     protected static function booted(): void

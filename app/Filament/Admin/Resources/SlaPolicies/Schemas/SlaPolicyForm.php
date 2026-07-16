@@ -7,6 +7,7 @@ use App\Support\SlaResolver;
 use App\Support\TenantScope;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Illuminate\Validation\Rules\Unique;
@@ -50,6 +51,11 @@ class SlaPolicyForm
                     ? SlaResolver::globalHoursFor($get('priority')).' ('.__('admin.preventive_maintenance.sla.global_default').')'
                     : null)
                 ->default(fn (Get $get) => filled($get('priority')) ? SlaResolver::globalHoursFor($get('priority')) : null),
+
+            Toggle::make('is_active')
+                ->label(__('admin.preventive_maintenance.fields.active'))
+                ->helperText(__('admin.preventive_maintenance.sla.active_hint'))
+                ->default(true),
         ]);
     }
 }

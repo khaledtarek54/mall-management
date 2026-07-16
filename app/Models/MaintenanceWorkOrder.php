@@ -70,6 +70,7 @@ class MaintenanceWorkOrder extends Model
         'assigned_to_user_id',
         'notes',
         'description',
+        'job_value',
         'source_item_id',
         'parent_work_order_id',
     ];
@@ -80,6 +81,7 @@ class MaintenanceWorkOrder extends Model
         'target_resolution_at' => 'datetime',
         'sla_breach_notified_at' => 'datetime',
         'completed_at' => 'datetime',
+        'job_value' => 'decimal:2',
     ];
 
     protected $attributes = [
@@ -155,6 +157,12 @@ class MaintenanceWorkOrder extends Model
         return $this->belongsTo(self::class, 'parent_work_order_id');
     }
 
+    /** FR-CM-08 — the SLA penalty assessed against the vendor, if any. */
+    public function penalty(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(MaintenancePenalty::class);
+    }
+
     /** FR-CM-15 — follow-ups raised because this order's fix was incomplete. */
     public function followUps(): HasMany
     {
@@ -212,14 +220,27 @@ class MaintenanceWorkOrder extends Model
             && $this->target_resolution_at->isPast();
     }
 
-    /** Whole hours past the SLA target; 0 when not overdue. */
+    /**
+     * Whole hours past the SLA target; 0 when never late.
+     *
+     * Lateness stops at completion, not at "now". Measuring to now would keep a finished
+     * job's overrun growing forever — and since this is what an accruing penalty is
+     * computed from, a job closed two hours late would quietly bill more every day it sat
+     * in the archive.
+     */
     public function hoursOverSla(): int
     {
-        if ($this->target_resolution_at === null || ! $this->target_resolution_at->isPast()) {
+        if ($this->target_resolution_at === null) {
             return 0;
         }
 
-        return (int) abs($this->target_resolution_at->diffInHours(now()));
+        $end = $this->completed_at ?? now();
+
+        if ($end->lessThanOrEqualTo($this->target_resolution_at)) {
+            return 0;
+        }
+
+        return (int) abs($this->target_resolution_at->diffInHours($end));
     }
 
     public function scopeOpen(Builder $query): Builder

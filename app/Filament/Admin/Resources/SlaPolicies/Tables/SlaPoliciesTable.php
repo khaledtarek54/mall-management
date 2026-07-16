@@ -6,7 +6,9 @@ use App\Filament\Admin\Resources\SlaPolicies\SlaPolicyResource;
 use App\Models\SlaPolicy;
 use App\Support\SlaResolver;
 use Filament\Actions\EditAction;
+use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 
 class SlaPoliciesTable
@@ -35,9 +37,18 @@ class SlaPoliciesTable
                     ->label(__('admin.preventive_maintenance.sla.hours'))
                     // Against the operator-wide default, so the point of the override reads
                     // at a glance instead of needing the settings page open alongside.
-                    ->description(fn (SlaPolicy $record) => __('admin.preventive_maintenance.sla.global_default')
-                        .': '.SlaResolver::globalHoursFor($record->priority).'h')
+                    ->description(fn (SlaPolicy $record) => $record->is_active
+                        ? __('admin.preventive_maintenance.sla.global_default').': '.SlaResolver::globalHoursFor($record->priority).'h'
+                        : __('admin.preventive_maintenance.sla.inactive_note'))
+                    ->color(fn (SlaPolicy $record) => $record->is_active ? null : 'gray')
                     ->sortable(),
+                IconColumn::make('is_active')
+                    ->label(__('admin.preventive_maintenance.fields.active'))
+                    ->boolean(),
+            ])
+            ->filters([
+                TernaryFilter::make('is_active')
+                    ->label(__('admin.preventive_maintenance.fields.active')),
             ])
             ->recordActions([
                 EditAction::make()->visible(fn (SlaPolicy $record) => SlaPolicyResource::canEdit($record)),
