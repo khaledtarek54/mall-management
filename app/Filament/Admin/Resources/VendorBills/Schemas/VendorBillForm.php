@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\VendorBills\Schemas;
 
+use App\Models\PurchaseRequest;
 use App\Models\Vendor;
 use App\Models\VendorBill;
 use Filament\Forms\Components\DatePicker;
@@ -36,6 +37,7 @@ class VendorBillForm
                         ->options(fn () => Vendor::query()->orderBy('name')->pluck('name', 'id'))
                         ->searchable()
                         ->required()
+                        ->live() // the purchase picker below narrows to this vendor
                         ->disabled($locked),
 
                     Select::make('asset_id')
@@ -44,7 +46,46 @@ class VendorBillForm
                         ->default(fn () => \App\Support\TenantScope::currentAssetId())
                         ->searchable()
                         ->preload()
+                        ->live()
                         ->placeholder(__('admin.fields.property_consolidated'))
+                        ->disabled($locked),
+
+                    // FR-PROC-04's other half — and until now, the missing half.
+                    //
+                    // VendorBillJournalizer clears GRNI instead of charging the expense when a
+                    // bill names the purchase it pays for. That code was correct and completely
+                    // unreachable: nothing in the application could set `purchase_request_id`, so
+                    // every stock purchase with a supplier bill double-counted its cost —
+                    // Inventory +500 AND Expense +500, with GRNI stuck at −500 forever. The only
+                    // writer of the column was a test (gap-analysis F-100).
+                    //
+                    // Scoped to the same vendor AND the same property, and to purchases that have
+                    // actually been RECEIVED — an unreceived purchase has credited nothing to
+                    // GRNI, so there is nothing for a bill to clear.
+                    Select::make('purchase_request_id')
+                        ->label(__('admin.fields.purchase_request'))
+                        ->helperText(__('admin.helpers.bill_purchase_request'))
+                        ->options(function (Get $get) {
+                            $vendorId = $get('vendor_id');
+                            $assetId = $get('asset_id');
+
+                            if (! $vendorId || ! $assetId) {
+                                return [];
+                            }
+
+                            return PurchaseRequest::query()
+                                ->where('vendor_id', $vendorId)
+                                ->where('asset_id', $assetId)
+                                ->where('status', PurchaseRequest::STATUS_RECEIVED)
+                                ->orderByDesc('id')
+                                ->get()
+                                ->mapWithKeys(fn (PurchaseRequest $r) => [
+                                    $r->id => $r->reference.' — '.number_format((float) $r->total_value, 2).' EGP',
+                                ])
+                                ->all();
+                        })
+                        ->searchable()
+                        ->placeholder(__('admin.fields.purchase_request_none'))
                         ->disabled($locked),
 
                     Select::make('category')

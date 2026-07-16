@@ -113,6 +113,17 @@ class PurchaseRequest extends Model
         return $this->hasMany(PurchaseRequestLine::class);
     }
 
+    /**
+     * The supplier invoices billed against this purchase. Usually one, but a split delivery or a
+     * deposit-plus-balance legitimately produces several — which is exactly why
+     * VendorBillJournalizer shares the received value across them FIFO rather than letting each
+     * one clear the full amount (gap-analysis F-101).
+     */
+    public function bills(): HasMany
+    {
+        return $this->hasMany(VendorBill::class);
+    }
+
     public function requestedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'requested_by_user_id');

@@ -1019,6 +1019,8 @@ return [
     ],
 
     'fields' => [
+        'purchase_request' => 'Purchase (clears GRNI)',
+        'purchase_request_none' => 'None — a general expense',
         'account_code' => 'Account code',
         'account_type' => 'Account nature',
         'account_name_ar' => 'Name (Arabic)',
@@ -1212,6 +1214,7 @@ return [
     ],
 
     'helpers' => [
+        'bill_purchase_request' => 'Link this bill to the purchase it pays for, and its goods clear Goods Received Not Invoiced instead of charging the expense a second time — the receipt already took the stock into Inventory. Leave empty for a general expense. Only received purchases from the same vendor and property are listed.',
         'inventory_unit_cost' => 'The standard cost used to value every consumption and write-off of this item. It must be positive: at 0 the stock would leave the warehouse without posting anything to the ledger, and a part draw would ask the approval ladder for its lowest tier.',
         'account_type' => 'Asset / Liability / Equity / Revenue / Expense — sets the debit/credit side.',
         'account_code' => 'Digits only. The parent is set automatically from the code (e.g. 41102 sits under 411). Leading digit: 1 assets · 2 liabilities · 3 equity · 4 revenue · 5 expenses.',

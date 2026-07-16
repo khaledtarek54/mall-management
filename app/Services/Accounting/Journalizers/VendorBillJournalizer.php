@@ -141,9 +141,52 @@ class VendorBillJournalizer implements Journalizer
             return 0.0;
         }
 
-        return round((float) $request->lines()
+        $received = round((float) $request->lines()
             ->whereNotNull('inventory_item_id')
             ->whereNotNull('stock_movement_id')
             ->sum('line_value'), 2);
+
+        if ($received <= 0) {
+            return 0.0;
+        }
+
+        // ...and share it across EVERY bill on this purchase, oldest first.
+        //
+        // The `min($net, …)` at the call site caps ONE bill at what the receipt credited. It does
+        // not cap the AGGREGATE: this used to return the full received value to every bill, so a
+        // split delivery, a deposit + balance, or simply a duplicate entry cleared GRNI twice —
+        // 500 received, two 500 bills, GRNI ends at +500 (a clearing liability holding a DEBIT
+        // balance) and 500 of cost vanishes from the P&L. The books still balance, so the AP/AR
+        // tie-out cannot see it (gap-analysis F-101).
+        //
+        // FIFO by (bill_date, id) so the answer is deterministic and independent of which bill is
+        // being posted or re-posted: each bill takes what is left after the ones before it, and
+        // once the received value is used up later bills clear nothing and are pure expense. That
+        // is also the right accounting answer — the goods were only received once.
+        $remaining = $received;
+
+        foreach ($request->bills()->postable()->orderBy('bill_date')->orderBy('id')->get() as $sibling) {
+            $take = min($this->netOf($sibling), $remaining);
+
+            if ((int) $sibling->getKey() === (int) $bill->getKey()) {
+                return round(max(0.0, $take), 2);
+            }
+
+            $remaining = round($remaining - $take, 2);
+
+            if ($remaining <= 0) {
+                break;
+            }
+        }
+
+        // Not among the postable siblings (e.g. this bill is draft/cancelled, so it clears
+        // nothing), or the received value was exhausted before reaching it.
+        return 0.0;
+    }
+
+    /** The net (ex-VAT) a bill would charge — derived the same way payload() derives it. */
+    private function netOf(VendorBill $bill): float
+    {
+        return round(round((float) $bill->total, 2) - round((float) $bill->vat_amount, 2), 2);
     }
 }

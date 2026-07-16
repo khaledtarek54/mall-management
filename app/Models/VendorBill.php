@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -110,10 +111,23 @@ class VendorBill extends Model
         return [$this->payments()];
     }
 
+    /** The statuses that have no GL effect — the single definition {@see isPostable} and {@see scopePostable} share. */
+    public const NON_POSTABLE_STATUSES = ['draft', 'cancelled'];
+
     /** Recognised on the GL once it's past draft (approved and beyond). */
     public function isPostable(): bool
     {
-        return ! in_array($this->status, ['draft', 'cancelled'], true);
+        return ! in_array($this->status, self::NON_POSTABLE_STATUSES, true);
+    }
+
+    /**
+     * The query-side twin of {@see isPostable}, off the same constant so the two cannot drift.
+     * Used by VendorBillJournalizer to share a purchase's received value across its bills — a
+     * draft or cancelled bill must not consume any of it.
+     */
+    public function scopePostable(Builder $query): Builder
+    {
+        return $query->whereNotIn('status', self::NON_POSTABLE_STATUSES);
     }
 
     /** FR-CM-08 — SLA penalties charged against this bill. */
