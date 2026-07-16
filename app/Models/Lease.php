@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -35,6 +34,7 @@ class Lease extends Model implements HasMedia
         'status',
         'commencement_date',
         'expiry_date',
+        'expiry_reminder_notified_at',
         'term_months',
         'base_rent_monthly',
         'service_charge_monthly',
@@ -65,6 +65,7 @@ class Lease extends Model implements HasMedia
     protected $casts = [
         'commencement_date' => 'date',
         'expiry_date' => 'date',
+        'expiry_reminder_notified_at' => 'datetime',
         'next_escalation_date' => 'date',
         'billing_day' => 'date',
         'base_rent_monthly' => 'decimal:2',
@@ -195,6 +196,7 @@ class Lease extends Model implements HasMedia
         if (! $this->expiry_date) {
             return false;
         }
+
         return $this->expiry_date->isBetween(now(), now()->addDays($days));
     }
 
@@ -209,6 +211,7 @@ class Lease extends Model implements HasMedia
     {
         $year = now()->format('Y');
         $count = static::whereYear('created_at', $year)->count() + 1;
+
         return sprintf('LSE-%s-%s-%04d', $assetCode, $year, $count);
     }
 }

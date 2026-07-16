@@ -958,6 +958,11 @@ return [
         'invoice_overdue_reminder_title' => 'فاتورة متأخرة',
         'invoice_overdue_reminder_body' => 'الفاتورة :number متأخرة :days يوماً — :amount جنيه ما زالت مستحقة.',
         'invoice_overdue_reminder_mail' => 'تذكير بأن الفاتورة :number متأخرة :days يوماً. :amount جنيه ما زالت غير مدفوعة.',
+        'lease_expiry_subject' => 'عقد إيجارك :reference يقترب من الانتهاء',
+        'lease_expiry_title' => 'عقد الإيجار يقترب من الانتهاء',
+        'lease_expiry_body' => 'ينتهي عقد إيجارك للوحدة :unit خلال :days يوماً.',
+        'lease_expiry_mail' => 'ينتهي عقد إيجارك للوحدة :unit خلال :days يوماً، بتاريخ :date.',
+        'lease_expiry_hint' => 'يرجى التواصل مع فريق العقار لمناقشة التجديد.',
         // Admin / operator-facing (incoming triage events)
         'portal_maintenance_submitted_title' => 'طلب :type جديد',
         'portal_maintenance_submitted_body' => ':tenant (وحدة :unit) قدّم: ":title" · أولوية :priority',

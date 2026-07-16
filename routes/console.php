@@ -106,6 +106,14 @@ Schedule::command('billing:remind-overdue-tenants')
     ->name('atriom-remind-overdue-tenants')
     ->withoutOverlapping();
 
+// Daily reminder to tenants whose active lease is approaching expiry (email +
+// bell + mobile push), nudging renewal. Idempotent via
+// leases.expiry_reminder_notified_at — each lease reminds once.
+Schedule::command('leases:remind-expiring')
+    ->dailyAt('07:00')
+    ->name('atriom-remind-expiring-leases')
+    ->withoutOverlapping();
+
 // Daily auto-provision of the current year's marketing budget for every
 // property (idempotent). Users never hand-create budgets — they appear here,
 // funded by the levy, and at year rollover the new year's budgets show up.

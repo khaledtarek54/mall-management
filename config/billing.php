@@ -35,4 +35,14 @@ return [
     'cam_reconciliation_month' => env('CAM_RECONCILIATION_MONTH', 1),
     'cam_reconciliation_day' => env('CAM_RECONCILIATION_DAY', 15),
     'cam_reconciliation_time' => env('CAM_RECONCILIATION_TIME', '03:00'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Lease-expiry reminder window
+    |--------------------------------------------------------------------------
+    | How many days before a lease's expiry_date the tenant gets a renewal
+    | reminder (leases:remind-expiring). Matches the admin "expiring soon"
+    | widget window. Each lease reminds once (expiry_reminder_notified_at).
+    */
+    'lease_expiry_reminder_days' => env('LEASE_EXPIRY_REMINDER_DAYS', 90),
 ];

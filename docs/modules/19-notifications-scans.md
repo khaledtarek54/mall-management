@@ -28,6 +28,7 @@ The module enforces **idempotency** through two mechanisms:
 | `MaintenanceRequest` | `sla_breach_notified_at` (timestamp, nullable) | Idempotency stamp: set when hourly scan fires the SLA breach alert; if not null, scan skips this request. |
 | `Invoice` | `owner_overdue_notified_at` (timestamp, nullable) | Idempotency stamp: set when daily scan fires the overdue alert to Jawad owners; if not null, scan skips this invoice. |
 | `Invoice` | `tenant_overdue_notified_at` (timestamp, nullable) | Separate idempotency stamp for the tenant-facing overdue reminder (`billing:remind-overdue-tenants`) — kept distinct from the owner stamp so tenant + owner alerts fire independently. |
+| `Lease` | `expiry_reminder_notified_at` (timestamp, nullable) | Idempotency stamp for the tenant lease-expiry reminder (`leases:remind-expiring`). A renewal is a new lease row (`previous_lease_id`), so each lease reminds once for its own expiry. |
 
 **Relationships**:
 - `Tenant` → (1:many) `TenantUser` (portal logins); `Tenant::notifyPortal($notification)` sends to both Tenant + all TenantUsers
@@ -121,6 +122,7 @@ billing:scan-overdue-invoices (daily @ 06:00)
 | `maintenance:auto-close` | 03:00 daily | `--days=7 --dry-run` | Transition MaintenanceRequest rows from 'resolved' → 'closed' if resolved_at ≤ (today - --days). Uses MaintenanceRequestService::transition(). | resolved_at timestamp | none (service provides) |
 | `billing:scan-overdue-invoices` | 06:00 daily | `--dry-run` | Find invoices with balance > 0, due_date < today, status=[issued\|partially_paid\|overdue], alert Jawad owners, stamp owner_overdue_notified_at. | owner_overdue_notified_at | DB::transaction + lockForUpdate per invoice |
 | `billing:remind-overdue-tenants` | 06:15 daily | `--dry-run` | Same overdue set, but reminds the **tenant** (email + bell + mobile push) and stamps tenant_overdue_notified_at. Independent of owners — fires even when the property has no owner assigned. | tenant_overdue_notified_at | DB::transaction + lockForUpdate per invoice |
+| `leases:remind-expiring` | 07:00 daily | `--dry-run` | Remind tenants whose **active** lease expires within `billing.lease_expiry_reminder_days` (default 90) — email + bell + mobile push — nudging renewal, then stamp expiry_reminder_notified_at. Mirrors the admin "expiring soon" widget window. | expiry_reminder_notified_at | DB::transaction + lockForUpdate per lease |
 | `vendors:expire-contracts` | 02:30 daily | `--dry-run` | Transition active VendorContract rows past end_date to status='expired' (housekeeping for nav badge). | none (direct update) | none |
 | `billing:apply-late-fees` | 04:00 daily | `--date=YYYY-MM-DD --queue` | Scans overdue invoices (due_date ≤ today - grace_days), adds `late_fee` line item if not already present. Idempotent via line item type check. | late_fee line item presence | DB::transaction + lockForUpdate per invoice |
 | `cam:reconcile` | Jan 15, 03:00 yearly | `--year=YYYY --auto-bill` | Generates CamAllocation rows for draft pools; optionally bills them. Review-only by default. | pool status (must be 'draft') | none |
@@ -181,6 +183,7 @@ Used by: ScanMaintenanceSlaBreachesCommand, ScanOverdueInvoicesCommand for overs
 | `InvoiceOverdueOwnerNotification` | database | Jawad owners of the property | ScanOverdueInvoicesCommand (daily) | Invoice past due_date with balance > 0 (daily scan) |
 | `InvoiceOverdueTenantNotification` | mail, database, **push** | Tenant + portal logins | RemindOverdueTenantsCommand (daily) | Invoice past due_date with balance > 0 — tenant reminder, idempotent via `tenant_overdue_notified_at` (separate stamp from the owner alert) |
 | `LateFeeAppliedNotification` | mail, database, **push** (ShouldQueue) | Tenant + portal logins | LateFeeService::applyTo() — inside the fee transaction | A late fee line item is added to an overdue invoice (once per invoice) |
+| `LeaseExpiryApproachingNotification` | mail, database, **push** (ShouldQueue) | Tenant + portal logins | RemindExpiringLeasesCommand (daily) | Active lease whose expiry_date falls within the reminder window (default 90 days), once per lease via `expiry_reminder_notified_at` |
 | `SalesDeclarationSubmittedNotification` | database | Asset managers + leasing | PercentageRentCalculationService (on declaration submit) | Tenant submits sales declaration from portal |
 | `SalesDeclarationLockedNotification` | mail, database, **push** | Tenant + portal logins | PercentageRentCalculationService (on declaration lock) | Sales declaration locked (percentage rent calculated) |
 | `OwnerRequestNotification` | database | Asset managers + super_admins (submitted) OR Jawad owner (updated) | OwnerRequest model observer | Owner request submitted or status changed |

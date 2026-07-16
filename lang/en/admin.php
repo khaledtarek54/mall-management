@@ -958,6 +958,11 @@ return [
         'invoice_overdue_reminder_title' => 'Invoice overdue',
         'invoice_overdue_reminder_body' => 'Invoice :number is :days days overdue — EGP :amount still due.',
         'invoice_overdue_reminder_mail' => 'A reminder that invoice :number is :days days overdue. EGP :amount is still outstanding.',
+        'lease_expiry_subject' => 'Your lease :reference is approaching expiry',
+        'lease_expiry_title' => 'Lease expiring soon',
+        'lease_expiry_body' => 'Your lease for unit :unit expires in :days days.',
+        'lease_expiry_mail' => 'Your lease for unit :unit expires in :days days, on :date.',
+        'lease_expiry_hint' => 'Please contact the property team to discuss renewal.',
         // Admin / operator-facing (incoming triage events)
         'portal_maintenance_submitted_title' => 'New :type request',
         'portal_maintenance_submitted_body' => ':tenant (unit :unit) submitted: ":title" · priority :priority',

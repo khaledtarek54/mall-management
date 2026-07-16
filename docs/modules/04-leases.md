@@ -17,6 +17,7 @@ Leases model the core revenue instrument of Egyptian mall operations. They bind 
 | | | `status` (enum) | One of: `draft`, `pending_approval`, `active`, `expired`, `renewed`, `terminated`, `cancelled`. Default `draft`. Drives unit occupancy projection (see § 4). |
 | | | `commencement_date` (date) | Start of lease term. |
 | | | `expiry_date` (date) | End of lease term (inclusive). Calculated on creation: `commencement + term_months - 1 day`. |
+| | | `expiry_reminder_notified_at` (timestamp, nullable) | Idempotency stamp for the tenant lease-expiry reminder (`leases:remind-expiring`); NULL until the tenant has been reminded once for this lease's expiry. |
 | | | `term_months` (unsigned small int) | Contract duration in months (1–120). |
 | | | `base_rent_monthly` (decimal 12,2) | Monthly rent amount (EGP), before VAT. Core revenue stream. Read-only on edit; changed via `LeaseRentChangeService::apply()` to keep `Charge.amount` synchronized. |
 | | | `service_charge_monthly` (decimal 12,2) | Monthly service charge (EGP), VAT-applicable (14% in Egypt). Default 0. |
@@ -196,6 +197,10 @@ foreach lease in unit.allLeases():
 - **updated():** If status or unit_id changed, calls `ensureMasterPivot()` and `recomputeUnits()`. No-op if only other fields changed.
 
 **Idempotent:** Yes; re-applying the same projection is safe.
+
+### Scheduled: lease-expiry reminder (`leases:remind-expiring`)
+
+Daily command (07:00) that reminds the tenant when an **active** lease's `expiry_date` falls within `billing.lease_expiry_reminder_days` (default 90) — email + in-app bell + mobile push, nudging renewal. Idempotent via `leases.expiry_reminder_notified_at` (one reminder per lease; a renewal is a new lease row, so it reminds for its own expiry). Same lock+re-check pattern as the overdue scans. See [19-notifications-scans.md](19-notifications-scans.md) for the notification + `LeaseExpiryApproachingNotification`.
 
 ---
 
