@@ -96,17 +96,20 @@ class WorkOrderPartsRelationManager extends RelationManager
                     ->label(__('admin.preventive_maintenance.fields.status'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.preventive_maintenance.parts.statuses.{$state}"))
-                    ->color(fn (string $state) => match ($state) {
-                        'approved', 'recorded' => 'success',
-                        'rejected' => 'danger',
+                    ->color(fn (string $state, MaintenanceWorkOrderPart $record) => match (true) {
+                        $record->movementWasVoided() => 'gray',
+                        in_array($state, ['approved', 'recorded'], true) => 'success',
+                        $state === 'rejected' => 'danger',
                         default => 'warning',
                     })
                     // Says WHO is needed while it waits, so the request doesn't sit unseen
                     // because nobody knew it was theirs to action (FR-CM-11).
                     ->description(fn (MaintenanceWorkOrderPart $record) => match (true) {
-                        $record->isPending() && $record->required_permission !== null => __('admin.preventive_maintenance.parts.awaiting', [
-                            'tier' => __("admin.preventive_maintenance.parts.tiers.{$record->required_permission}"),
+                        $record->awaitingTierLabel() !== null => __('admin.preventive_maintenance.parts.awaiting', [
+                            'tier' => $record->awaitingTierLabel(),
                         ]),
+                        // The stock came back; saying "Issued" and nothing else would be a lie.
+                        $record->movementWasVoided() => __('admin.preventive_maintenance.parts.movement_voided'),
                         $record->decidedBy !== null => $record->decidedBy->name,
                         default => null,
                     }),
@@ -136,10 +139,12 @@ class WorkOrderPartsRelationManager extends RelationManager
                             ->label(__('admin.preventive_maintenance.parts.item'))
                             // The catalog is deliberately SHARED ("a pump seal is the same
                             // item everywhere"), so it is not property-filtered.
+                            // Only the three columns the label needs — hydrating whole models
+                            // just to concatenate two strings scales badly with the catalog.
                             ->options(fn () => InventoryItem::query()
                                 ->where('is_active', true)
                                 ->orderBy('sku')
-                                ->get()
+                                ->get(['id', 'sku', 'name'])
                                 ->mapWithKeys(fn (InventoryItem $i) => [$i->id => $i->sku.' — '.$i->name])
                                 ->all())
                             ->required()
@@ -165,8 +170,8 @@ class WorkOrderPartsRelationManager extends RelationManager
 
                         Notification::make()
                             ->title(__('admin.preventive_maintenance.parts.requested_notice'))
-                            ->body(__('admin.preventive_maintenance.parts.awaiting', [
-                                'tier' => __("admin.preventive_maintenance.parts.tiers.{$part->required_permission}"),
+                            ->body($part->awaitingTierLabel() === null ? null : __('admin.preventive_maintenance.parts.awaiting', [
+                                'tier' => $part->awaitingTierLabel(),
                             ]))
                             ->success()
                             ->send();
@@ -237,6 +242,33 @@ class WorkOrderPartsRelationManager extends RelationManager
                         }
 
                         Notification::make()->title(__('admin.preventive_maintenance.parts.approved_notice'))->success()->send();
+                    }),
+                // A typo correction on an external record — see WorkOrderPartService::remove().
+                Action::make('remove')
+                    ->label(__('admin.preventive_maintenance.parts.remove'))
+                    ->icon('heroicon-o-trash')
+                    ->color('danger')
+                    ->modalDescription(__('admin.preventive_maintenance.parts.remove_hint'))
+                    ->visible(fn (MaintenanceWorkOrderPart $record) => ! $record->isInternal()
+                        && $this->orderOpen()
+                        && (auth()->user()?->can(WorkOrderPartService::DECIDE_PERMISSION) ?? false))
+                    ->authorize(fn () => auth()->user()?->can(WorkOrderPartService::DECIDE_PERMISSION) ?? false)
+                    ->schema([
+                        Textarea::make('reason')
+                            ->label(__('admin.preventive_maintenance.parts.remove_reason'))
+                            ->required()
+                            ->rows(2),
+                    ])
+                    ->action(function (MaintenanceWorkOrderPart $record, array $data): void {
+                        try {
+                            app(WorkOrderPartService::class)->remove($record, $data['reason']);
+                        } catch (\DomainException $e) {
+                            Notification::make()->title($e->getMessage())->danger()->send();
+
+                            return;
+                        }
+
+                        Notification::make()->title(__('admin.preventive_maintenance.parts.removed_notice'))->success()->send();
                     }),
                 Action::make('reject')
                     ->label(__('admin.preventive_maintenance.parts.reject'))

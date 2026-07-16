@@ -403,10 +403,27 @@ Everything goes through `WorkOrderPartService`; the relation manager is a thin c
 - **An outside purchase is recorded, not approved.** FR-CM-10 scopes approval to parts drawn *from
   internal inventory*. Gating an external buy would gate a purchase that has already happened, and
   procurement (FR-PROC-\*) is where that control belongs.
-- **You draw from your own mall's shelf.** The warehouse options clamp to the job's `asset_id` via
-  `TenantScope::clampAssetId()`, and Filament's derived `in:` rule makes that a server-side
-  rejection, not merely a shorter dropdown. The item catalog is deliberately **not** filtered —
-  `inventory_items` is a SHARED register ("a pump seal is the same part everywhere").
+- **You draw from your own mall's shelf** — enforced in the **service**
+  (`assertWarehouseServesOrder()`), not the form. The Filament options clamp too, but that only
+  protects the one caller that goes through the form; a review probe proved a job on mall AAA could
+  consume BBB's stock via the service, dropping BBB's on-hand and posting the cost to BBB's GL
+  dimension. The *order's* property is the reference, not `visibleAssetIds()`: an All-Properties
+  user may see both malls and still must not cross stock between them. The item catalog is
+  deliberately **not** filtered — `inventory_items` is a SHARED register.
+- **Money rules live at the write boundary, not on the form.** `unit_cost` uses `filled()`, not
+  `??` — a blank `''` is not an absent value, and `?? ` lets `(float) '' === 0.0` price a part at
+  zero and drop it to the lowest tier (an approval-ladder bypass by empty string; the
+  `meter_readings.cost` trap again). Negative costs are refused in the model's `saving` hook, where
+  every path passes, rather than by the form's `minValue(0)`.
+- **An approved draw counts only while its movement is live.** Voiding the movement puts the stock
+  back, so `counted()` follows the stock ledger (`whereHas('movement')`) rather than a status that
+  nothing updates — otherwise the job stays charged for parts sitting back on the shelf (proven:
+  on-hand 45 → 50 while `partsCost()` still said 500). `movementWasVoided()` surfaces it in the UI
+  so the row doesn't just read "Issued".
+- **An external record can be removed; an internal draw cannot.** External is the one path with no
+  approval step to catch a fat-finger — it is typed in and counts immediately — so
+  `remove()` soft-deletes it with a reason. An internal draw has its own undo paths (reject while
+  pending, void the movement once issued); deleting one would strand the movement it made.
 - **No parts on a terminal order** — consistent with the module's other writers.
 - `MaintenanceWorkOrder::partsCost()` sums `approved` + `recorded` only: a rejected request cost
   the job nothing.
@@ -548,6 +565,12 @@ told why rather than "not enough stock"); refusing needs the same authority as a
 self-approval refused; the tier and the unit cost are frozen against later edits; **a read-only
 viewer is refused even with the ladder deleted** (regression — see the business rules); internal vs
 external shape guards; no parts on a terminal order.
+
+`tests/Feature/Regression/WorkOrderPartGuardsTest.php` — the review findings, each proven before
+its fix and each verified to fail without it: the cross-property draw, the blank-cost ladder bypass,
+the voided-movement overcharge, negative costs, removing an external record (and refusing to remove
+an internal one), the read-only viewer with the ladder deleted, and the two i18n bugs (a tier label
+that rendered a raw translation key on every pending row, and a missing activity-log subject).
 
 `tests/Feature/Resources/WorkOrderPartsRelationManagerTest.php` — the UI is gated the same way the
 service is (viewer, ladder-deleted viewer, under-tier supervisor, and the requester themselves are

@@ -7,6 +7,7 @@ use App\Models\InventoryItem;
 use App\Models\MaintenanceWorkOrder;
 use App\Models\MaintenanceWorkOrderPart;
 use App\Models\User;
+use App\Models\Warehouse;
 use App\Support\ApprovalPolicy;
 use DomainException;
 use Illuminate\Support\Facades\DB;
@@ -53,12 +54,20 @@ class WorkOrderPartService
             $locked = MaintenanceWorkOrder::whereKey($order->getKey())->lockForUpdate()->firstOrFail();
 
             $this->assertOrderOpen($locked);
+            $this->assertWarehouseServesOrder($locked, (int) $data['warehouse_id']);
 
             $quantity = round((float) $data['quantity'], 3);
             // Frozen at request time. Re-reading the catalog at approval would restate the
             // value a manager is being asked to sign off — and it is the value that decides
             // which manager (FR-CM-11).
-            $unitCost = round((float) ($data['unit_cost'] ?? InventoryItem::find($data['inventory_item_id'])?->unit_cost ?? 0), 2);
+            //
+            // `filled()`, not `??`: a blank '' is not an absent value, and `?? ` waves it
+            // straight through to `(float) '' === 0.0` — pricing the part at zero and dropping
+            // it to the lowest tier. Proven before this guard: a 500 EGP draw priced itself at
+            // 0.00 and asked for tier_1. The same trap as `meter_readings.cost`.
+            $unitCost = filled($data['unit_cost'] ?? null)
+                ? round((float) $data['unit_cost'], 2)
+                : round((float) (InventoryItem::find($data['inventory_item_id'])?->unit_cost ?? 0), 2);
             $value = round($quantity * $unitCost, 2);
 
             return MaintenanceWorkOrderPart::create([
@@ -138,7 +147,7 @@ class WorkOrderPartService
             // Requesting your own draw and approving it is not approval. The FRD asks for a
             // MANAGER's sign-off — the control is a second pair of eyes, and without this
             // an engineer with tier_1 could self-serve every low-value part.
-            if ($approver !== null && (int) $locked->requested_by_user_id === (int) $approver->id) {
+            if ((int) $locked->requested_by_user_id === (int) $approver->id) {
                 throw new DomainException(__('admin.preventive_maintenance.errors.part_self_approval'));
             }
 
@@ -152,13 +161,13 @@ class WorkOrderPartService
                 'unit_cost' => (float) $locked->unit_cost,
                 'source_type' => MaintenanceWorkOrder::class,
                 'source_id' => $locked->maintenance_work_order_id,
-                'moved_by_user_id' => $approver?->id,
+                'moved_by_user_id' => $approver->id,
                 'reference' => $locked->workOrder?->reference,
             ]);
 
             $locked->update([
                 'status' => MaintenanceWorkOrderPart::STATUS_APPROVED,
-                'decided_by_user_id' => $approver?->id,
+                'decided_by_user_id' => $approver->id,
                 'decided_at' => now(),
                 'stock_movement_id' => $movement->id,
             ]);
@@ -194,13 +203,75 @@ class WorkOrderPartService
 
             $locked->update([
                 'status' => MaintenanceWorkOrderPart::STATUS_REJECTED,
-                'decided_by_user_id' => $decider?->id,
+                'decided_by_user_id' => $decider->id,
                 'decided_at' => now(),
                 'decision_notes' => $reason,
             ]);
 
             return $locked->refresh();
         });
+    }
+
+    /**
+     * Remove a recorded external purchase (FR-CM-09) — a typo correction, not a decision.
+     *
+     * External-only, and deliberately so. An external record is the one path with no approval
+     * step to catch a fat-finger: it is typed in and it counts against the job immediately, so
+     * a mistyped 99,999 EGP gasket had no way back. An *internal* draw doesn't need this — a
+     * pending one is `reject()`ed, and an approved one is undone by voiding its stock movement
+     * (which un-counts the part, since `counted()` follows the ledger).
+     *
+     * Soft-deleted, not erased: what someone typed and withdrew is history worth keeping.
+     *
+     * @throws DomainException if the part isn't an external record, or the order is terminal
+     */
+    public function remove(MaintenanceWorkOrderPart $part, string $reason, ?User $actor = null): void
+    {
+        $actor ??= auth()->user();
+
+        DB::transaction(function () use ($part, $reason, $actor) {
+            /** @var MaintenanceWorkOrderPart $locked */
+            $locked = MaintenanceWorkOrderPart::whereKey($part->getKey())->lockForUpdate()->firstOrFail();
+
+            $this->assertMayDecide($actor);
+            $this->assertOrderOpen($locked->workOrder);
+
+            if ($locked->isInternal()) {
+                throw new DomainException(__('admin.preventive_maintenance.errors.part_remove_internal'));
+            }
+
+            $locked->update([
+                'decision_notes' => $reason,
+                'decided_by_user_id' => $actor->id,
+                'decided_at' => now(),
+            ]);
+
+            $locked->delete();
+        });
+    }
+
+    /**
+     * You draw from your own mall's shelf (property isolation, on a write).
+     *
+     * Here rather than in the form: the Filament option list is scoped, and its derived `in:`
+     * rule does reject a foreign id — but that only protects the one caller that goes through
+     * that form. The rule belongs at the write boundary, where the mobile API and procurement
+     * arrive too. Proven before this guard: a job on mall AAA consumed BBB's stock, decrementing
+     * BBB's on-hand and posting the cost to BBB's GL dimension. The sibling path already knew
+     * this (`StockConsumptionRelationManager::authorizedWarehouse()`) — it just lived in the UI.
+     *
+     * The order's own property is the reference, not `visibleAssetIds()`: an All-Properties user
+     * may see both malls and still must not cross the stock between them.
+     *
+     * @throws DomainException
+     */
+    private function assertWarehouseServesOrder(MaintenanceWorkOrder $order, int $warehouseId): void
+    {
+        $warehouse = Warehouse::find($warehouseId);
+
+        if ($warehouse === null || (int) $warehouse->asset_id !== (int) $order->asset_id) {
+            throw new DomainException(__('admin.preventive_maintenance.errors.part_warehouse_scope'));
+        }
     }
 
     /**

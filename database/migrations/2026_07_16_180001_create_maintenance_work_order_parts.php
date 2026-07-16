@@ -65,8 +65,13 @@ return new class extends Migration
             $table->dateTime('decided_at')->nullable();
             $table->text('decision_notes')->nullable();
 
-            // The movement this draw produced, once approved. nullOnDelete so voiding a
-            // movement leaves the request visible rather than deleting the history of it.
+            // The movement this draw produced, once approved.
+            //
+            // nullOnDelete covers a hard delete only — voiding a movement is a SOFT delete, so
+            // this FK keeps pointing at the trashed row and the part still reads "approved".
+            // That is deliberate (the history of what was issued survives), but it means the
+            // *cost* must not trust the status: MaintenanceWorkOrderPart::scopeCounted() checks
+            // the movement is still live. Don't reintroduce a status-only cost sum.
             $table->foreignId('stock_movement_id')->nullable()->constrained('stock_movements')->nullOnDelete();
 
             $table->timestamps();

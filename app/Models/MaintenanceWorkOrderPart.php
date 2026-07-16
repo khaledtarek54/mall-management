@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use InvalidArgumentException;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
@@ -19,7 +20,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class MaintenanceWorkOrderPart extends Model
 {
-    use HasFactory, LogsActivity;
+    use HasFactory, LogsActivity, SoftDeletes;
 
     public const SOURCE_INTERNAL = 'internal';
 
@@ -122,10 +123,57 @@ class MaintenanceWorkOrderPart extends Model
         return $query->where('status', self::STATUS_PENDING);
     }
 
-    /** What the part actually cost the job — a rejected request cost nothing. */
+    /**
+     * What the part actually cost the job — a rejected request cost nothing.
+     *
+     * An approved draw counts **only while its movement is live**. Voiding the movement puts
+     * the stock back on the shelf, so continuing to charge the job for it would overstate the
+     * cost against stock that was returned (proven: on-hand went 45 → 50 while `partsCost()`
+     * still reported 500). The stock ledger is the authority on whether stock moved; this
+     * scope defers to it rather than trusting a status that nothing updates.
+     */
     public function scopeCounted(Builder $query): Builder
     {
-        return $query->whereIn('status', [self::STATUS_APPROVED, self::STATUS_RECORDED]);
+        return $query->where(fn (Builder $q) => $q
+            ->where(fn (Builder $internal) => $internal
+                ->where('status', self::STATUS_APPROVED)
+                ->whereHas('movement'))
+            ->orWhere('status', self::STATUS_RECORDED));
+    }
+
+    /**
+     * An approved draw whose movement was voided: the stock came back, but the row still says
+     * "issued". Surfaced so the UI doesn't quietly lie about it.
+     */
+    public function movementWasVoided(): bool
+    {
+        return $this->status === self::STATUS_APPROVED
+            && $this->stock_movement_id !== null
+            && $this->movement === null;
+    }
+
+    /**
+     * Who this draw is waiting on, in words ("a supervisor") — or null if nothing is pending.
+     *
+     * The tier is stored as a permission (`approvals.tier_1`), and a translation key cannot
+     * carry it verbatim: `__()` reads dots as nesting, so `parts.tiers.approvals.tier_1` looks
+     * for a `tiers → approvals → tier_1` that does not exist and hands back the raw key. It did
+     * exactly that on every pending row until this mapped to the bare tier. An unrecognised
+     * permission falls back to a vague-but-true label rather than leaking a key into the UI.
+     */
+    public function awaitingTierLabel(): ?string
+    {
+        if (! $this->isPending() || $this->required_permission === null) {
+            return null;
+        }
+
+        $tier = str_replace('approvals.', '', $this->required_permission);
+
+        if (! in_array($this->required_permission, ApprovalRule::TIERS, true)) {
+            $tier = 'unknown';
+        }
+
+        return __("admin.preventive_maintenance.parts.tiers.{$tier}");
     }
 
     /** A label that works for both sources: a SKU, or the free-text description. */
@@ -149,6 +197,13 @@ class MaintenanceWorkOrderPart extends Model
             // the GL rejects.
             if ((float) $part->quantity <= 0) {
                 throw new InvalidArgumentException('A part quantity must be greater than zero.');
+            }
+
+            // A negative cost would make a part *reduce* the job's materials cost. The form
+            // says minValue(0), but the form is one caller — the rule belongs where every
+            // write passes.
+            if ((float) $part->unit_cost < 0) {
+                throw new InvalidArgumentException('A part unit cost cannot be negative.');
             }
 
             if ($part->isInternal()) {

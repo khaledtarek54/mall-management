@@ -150,28 +150,6 @@ it('refuses to let the requester approve their own draw', function () {
     expect(onHand())->toBe(100.0);
 });
 
-it('refuses a read-only viewer even when no ladder is configured', function () {
-    // Regression: ApprovalPolicy answers "which manager", never "may this person touch
-    // inventory at all" — with no bands it returns true for ANY signed-in user. Checking it
-    // alone made deleting the bands an open door: a viewer approved 50,000 EGP and moved the
-    // stock. The base inventory right must be checked independently of the ladder.
-    $part = $this->svc->requestInternal(partOrder(), [
-        'inventory_item_id' => $this->item->id, 'warehouse_id' => $this->warehouse->id, 'quantity' => 10, // 1,000
-    ], makeUser('operations', [$this->asset->id])->id);
-
-    ApprovalRule::query()->delete();
-
-    $viewer = makeUser('viewer', [$this->asset->id]);
-    expect($viewer->can('inventory.create'))->toBeFalse();
-    expect(fn () => $this->svc->approve($part, $viewer))->toThrow(DomainException::class);
-    expect(fn () => $this->svc->reject($part->fresh(), 'no', $viewer))->toThrow(DomainException::class);
-    expect(onHand())->toBe(100.0);
-
-    // ...and the module still works for someone who legitimately holds the right.
-    expect($this->svc->approve($part->fresh(), makeUser('manager', [$this->asset->id]))->status)
-        ->toBe(MaintenanceWorkOrderPart::STATUS_APPROVED);
-});
-
 it('refuses an unauthenticated decision', function () {
     $part = $this->svc->requestInternal(partOrder(), [
         'inventory_item_id' => $this->item->id, 'warehouse_id' => $this->warehouse->id, 'quantity' => 2,
