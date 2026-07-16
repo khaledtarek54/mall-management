@@ -43,6 +43,7 @@ use App\Models\OwnerRequest;
 use App\Models\Payment;
 use App\Models\Payroll;
 use App\Models\PayrollLine;
+use App\Models\SlaPolicy;
 use App\Models\StockMovement;
 use App\Models\SystemSetting;
 use App\Models\Tenant;
@@ -110,6 +111,7 @@ class PropertyIsolation
         Unit::class => null,
         Announcement::class => null,           // broadcast targeted at one property
         Equipment::class => null,              // a machine stands in exactly one mall; code unique per property
+        SlaPolicy::class => null,              // per-property SLA override (FR-CM-05); absent = operator default
         UtilityMeter::class => null,
         CamExpensePool::class => null,
         MarketingBudget::class => null,

@@ -29,6 +29,7 @@ use App\Models\Note;
 use App\Models\Payment;
 use App\Models\Payroll;
 use App\Models\PayrollLine;
+use App\Models\SlaPolicy;
 use App\Models\Tenant;
 use App\Models\TenantRequest;
 use App\Models\TenantRequestComment;
@@ -1943,6 +1944,17 @@ class DemoSeeder extends Seeder
 
         $this->seedEquipment($asset);
 
+        // Per-property SLA (FR-CM-05): this mall has a 24/7 engineering team, so it runs a
+        // tighter clock than the operator default (urgent 4h, high 24h). Only the
+        // priorities that actually differ are recorded — the rest fall back, which is the
+        // point of a policy row being an override rather than a requirement.
+        foreach (['urgent' => 2, 'high' => 12] as $priority => $hours) {
+            SlaPolicy::updateOrCreate(
+                ['asset_id' => $asset->id, 'priority' => $priority],
+                ['resolve_hours' => $hours],
+            );
+        }
+
         // `equip` = the machine this plan services (FR-PPM-01/03). A plan naming one is
         // `fixed` (per-asset) maintenance; the rest stay `routine` and property-wide.
         $plans = [
@@ -2017,6 +2029,7 @@ class DemoSeeder extends Seeder
                 app(RaiseCorrectiveMaintenanceService::class)->fromFailedCheck($failed, [
                     'execution_type' => MaintenanceWorkOrder::EXECUTION_EXTERNAL,
                     'vendor_id' => $coolAir,
+                    'priority' => 'urgent',
                     'description' => 'Found during the scheduled visit: '.$failed->label.' failed inspection and needs corrective work.',
                     'scheduled_for' => Carbon::now()->addDays(2)->toDateString(),
                 ]);

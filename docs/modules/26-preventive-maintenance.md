@@ -60,6 +60,23 @@ maintenance keep separate registers, separate permissions, and no double data en
 ("a pump seal is the same item everywhere"), so it cannot carry a property-owned FK —
 `PropertyIsolationConformanceTest` enforces exactly that.
 
+### `sla_policies` — how long a job may take, per property (FR-CM-05)
+| Column | Meaning |
+|--------|---------|
+| `asset_id` · `priority` | unique together — one row per property × priority |
+| `resolve_hours` | hours from **acceptance**; must be ≥ 1 |
+
+**A row is an override, not a requirement.** Absent, the operator-wide default applies, so an
+operator records only the malls that genuinely differ instead of restating four numbers per
+property. Deleting a row returns that property to the default. Resolution is
+`App\Support\SlaResolver`: **property policy → `MaintenanceSettings` → `config/maintenance.php`**.
+
+> ⚠️ Tiers 2 and 3 **disagree** and did so long before this table existed: settings say
+> urgent=4h/medium=72h, config says urgent=24h/medium=168h. Harmless only because nothing read
+> config in practice. The chain now has one documented winner — **settings** — with config as a
+> true cold-start default. Don't "fix" config to match: it is what a fresh install with no settings
+> row gets, and changing it would silently re-time every such install.
+
 ### `maintenance_plans` — the recurring schedule (per property)
 | Column | Meaning |
 |--------|---------|
@@ -86,6 +103,9 @@ is an **open client question** — don't guess it into the schema.
 | `execution_type` | **FR-CM-02** — `internal` (in-house) \| `external` (vendor). **CM only**; null on PPM |
 | `asset_id` · `unit_id` · `equipment_id` · `reference` | scope + auto `WO-{asset}-{YYYYMM}-{n}`, or **`CM-…`** for corrective |
 | `title` · `category` · `status` · `scheduled_for` | the job (`open`\|`in_progress`\|`done`\|`cancelled`) |
+| `priority` | **FR-CM-06** — `low`\|`medium`\|`high`\|`urgent`. Normal ≈ `medium`; decides the SLA |
+| `acknowledged_at` · `target_resolution_at` | **FR-CM-07** — both stamped on **acceptance**, not creation |
+| `sla_breach_notified_at` | idempotency stamp for the hourly breach scan |
 | `description` | **FR-CM-04** — what is wrong. Required for CM; distinct from `notes`, which on a PPM order holds the plan's description |
 | `vendor_id` · `assigned_to_user_id` | **FR-CM-03** — the company **or** the technician, never both |
 | `source_item_id` | **FR-CM-01** — the failed check this CM came from |
@@ -226,6 +246,25 @@ progress badge.
    > missing. So deleting a technician or vendor (both `nullOnDelete`, which fires behind Eloquent's
    > back) leaves the CM saveable. Verified by probe, since this module has twice shipped a guard
    > that permanently froze a record.
+7c. **The SLA clock starts on ACCEPTANCE** (FR-CM-07), not on creation, and only for CM.
+   Module 11 does the opposite — it stamps `target_resolution_at` at create-time — so a request
+   nobody picks up for three days has already burned its whole SLA before an engineer sees it, and
+   the breach then measures the queue rather than the work. Accepting a CM (`open → in_progress`) is
+   the moment the operator takes it on. The stamp is written **once**; a preventive order never gets
+   a clock at all, because a scheduled visit's date is the plan's, not a response deadline.
+   Consequence worth knowing: **an unaccepted CM never breaches.** That is deliberate — but it means
+   "nobody accepted it" is a queue problem the SLA is not designed to catch.
+7d. **Breaches are detected hourly** by `maintenance:scan-wo-sla-breaches` (separate from module
+   11's `maintenance:scan-sla-breaches` — different subject, different table, its own stamp).
+   Idempotent via `sla_breach_notified_at`, re-checked under a row lock inside the transaction, and
+   contained per row. The stamp is written **even when the property has no staff to alert**, or a
+   mall with nobody assigned would re-alert on every run forever.
+7e. **Two known gaps, deliberately not closed here.** (a) The `ActionRequired` dashboard widget
+   counts SLA-breached *tenant requests* (module 11) but not breached work orders — so a breached CM
+   alerts the bell yet stays off the dashboard. (b) Deleting an `SlaPolicy` is how a property returns
+   to the operator default, and delete is **super_admin-only** project-wide, so a manager can set an
+   override but not remove one. Both are consequences of existing rules rather than bugs; raise them
+   with the operator before "fixing" either.
 8. **The work order is the aggregate root for its checklist.** *Every* mutation of the order **or**
    its items (`transition` · `markItem` · `addItem` · `removeItem`) goes through
    `MaintenanceWorkOrderService::withOrderLock()`, which row-locks the `maintenance_work_orders`
@@ -268,7 +307,8 @@ progress badge.
 | **4 — Equipment register (FR-PPM-03/04/05)** | `Equipment`: per-property-unique `code` + `parent_id` sub-code tree (same-property + acyclicity guards), nullable `fixed_asset_id` link to the accounting register, `equipment_inventory_item` pivot for compatible spare parts, property-scoped resource under `preventive_maintenance.*` | ✅ shipped |
 | **5 — Equipment ↔ plans/work orders (FR-PPM-01/02/03)** | `equipment_id` on `maintenance_plans` + `maintenance_work_orders` (PPM per machine, carried onto the order so history survives the plan), `maintenance_type` routine/fixed, `years` frequency + `advanceDue()` throwing instead of silently meaning months, per-plan failure containment in the scan | ✅ shipped |
 | **6 — Corrective maintenance core (FR-CM-01/02/03/04/14/15)** | `work_order_type` ppm\|cm, CM raised from a failed check (one per check), internal/external as a real XOR, technician-or-vendor assignment, required description, `CM-` references, follow-up chains that never reopen the original | ✅ shipped |
-| **7 — CM SLA + penalties (FR-CM-05..08)** | per-property SLA durations (today they're a global spatie-settings singleton with no `asset_id` dimension), Normal/Urgent tiers, the clock starting on **acceptance** rather than creation, breach detection → a vendor penalty deducted from their bill | ⬜ next |
+| **7 — CM SLA + breach detection (FR-CM-05/06/07 + FR-CM-08 detection)** | `sla_policies` per property × priority with a settings/config fallback chain, 4 priority tiers, the clock starting on **acceptance**, the hourly breach scan + bell alert, an SLA-target column and breached filter on the list | ✅ shipped |
+| **7b — SLA penalties (FR-CM-08 money)** | a penalty rate on the vendor contract → a penalty record on the breaching order → a deduction line on the VendorBill → GL. **Blocked on a client answer**: flat vs per-day accrual vs %-of-value. Accrual can't use the once-per-record `sla_breach_notified_at` stamp, so the basis decides the scan's design — see the open questions | ⬜ blocked |
 | **8 — CM parts + cost (FR-CM-09..13)** | parts from inventory vs bought outside + which, manager approval for an internal draw with the approver set by part value (needs the generic approval engine — nothing like it exists in the codebase), fault attribution → who bears the cost, mall-vs-tenant recharge to an invoice | ⬜ planned |
 
 ---
@@ -313,6 +353,13 @@ corrupt plan not stopping every other property's work orders**, routine-by-defau
 its machine, cross-property equipment refused, the machine reaching the work order and outliving the
 plan — and the two "plan silently stops generating forever" traps (machine hard-deleted; machine
 referenced by a plan refusing to move property).
+
+`tests/Feature/Scenarios/WorkOrderSlaScenarioTest.php` — FR-CM-05/06/07/08: the fallback to the
+operator default, a property override winning, each property on its own clock, an override touching
+only the priority it names, one policy per property × priority, a zero-hour SLA refused, the clock
+NOT starting at raise and starting on acceptance, an unaccepted job never breaching, a preventive
+order never getting a clock, and the scan alerting once, never twice, never early, never after
+completion, never on PPM — and stamping even when nobody is assigned to the property.
 
 `tests/Feature/Scenarios/CorrectiveMaintenanceScenarioTest.php` — FR-CM-01/02/03/04/14/15: a CM
 raised from a failed check inheriting where the work is, refused from a passing check, refused twice

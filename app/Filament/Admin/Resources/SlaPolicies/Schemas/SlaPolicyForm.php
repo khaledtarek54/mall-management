@@ -1,0 +1,55 @@
+<?php
+
+namespace App\Filament\Admin\Resources\SlaPolicies\Schemas;
+
+use App\Models\SlaPolicy;
+use App\Support\SlaResolver;
+use App\Support\TenantScope;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Schema;
+use Illuminate\Validation\Rules\Unique;
+
+class SlaPolicyForm
+{
+    public static function configure(Schema $schema): Schema
+    {
+        return $schema->columns(2)->components([
+            Select::make('asset_id')
+                ->label(__('admin.preventive_maintenance.fields.property'))
+                ->options(fn () => TenantScope::selectableAssetOptions())
+                ->default(fn () => TenantScope::currentAssetId())
+                ->disabled(fn () => TenantScope::currentAssetId() !== null)
+                ->dehydrated()
+                ->required()
+                ->live()
+                ->native(false),
+
+            Select::make('priority')
+                ->label(__('admin.preventive_maintenance.fields.priority'))
+                ->helperText(__('admin.preventive_maintenance.sla.priority_hint'))
+                ->options(fn () => __('admin.preventive_maintenance.priorities'))
+                ->required()
+                ->live()
+                // One row per property × priority, matching sla_policy_asset_priority_unique.
+                // Clamped: asset_id is client-supplied, and a unique rule keyed on the raw
+                // value leaks which properties have a policy (TenantScope::clampAssetId).
+                ->unique(ignoreRecord: true, modifyRuleUsing: fn (Unique $rule, Get $get) => $rule->where('asset_id', TenantScope::clampAssetId($get('asset_id'))))
+                ->native(false),
+
+            TextInput::make('resolve_hours')
+                ->label(__('admin.preventive_maintenance.sla.hours'))
+                ->helperText(__('admin.preventive_maintenance.sla.hours_hint'))
+                ->numeric()
+                ->minValue(1)
+                ->required()
+                // Show what this property gets today, so an operator overriding a value can
+                // see what they are changing away from rather than guessing.
+                ->placeholder(fn (Get $get) => filled($get('priority'))
+                    ? SlaResolver::globalHoursFor($get('priority')).' ('.__('admin.preventive_maintenance.sla.global_default').')'
+                    : null)
+                ->default(fn (Get $get) => filled($get('priority')) ? SlaResolver::globalHoursFor($get('priority')) : null),
+        ]);
+    }
+}

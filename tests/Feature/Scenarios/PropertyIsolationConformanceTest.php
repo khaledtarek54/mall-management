@@ -22,6 +22,7 @@ use App\Filament\Admin\Resources\MaintenanceWorkOrders\MaintenanceWorkOrderResou
 use App\Filament\Admin\Resources\OwnerRequests\OwnerRequestResource;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Filament\Admin\Resources\Payrolls\PayrollResource;
+use App\Filament\Admin\Resources\SlaPolicies\SlaPolicyResource;
 use App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
 use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Filament\Admin\Resources\UtilityMeters\UtilityMeterResource;
@@ -118,6 +119,7 @@ if (! function_exists('propertyIsolationMustGuardResources')) {
             'CamExpensePool' => CamExpensePoolResource::class,
             'UtilityMeter' => UtilityMeterResource::class,
             'Equipment' => EquipmentResource::class,
+            'SlaPolicy' => SlaPolicyResource::class,
             'Employee' => EmployeeResource::class,
             'FixedAsset' => FixedAssetResource::class,
             'Warehouse' => WarehouseResource::class,

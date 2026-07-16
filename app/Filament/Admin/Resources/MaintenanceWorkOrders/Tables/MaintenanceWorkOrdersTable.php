@@ -11,6 +11,7 @@ use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
@@ -82,6 +83,28 @@ class MaintenanceWorkOrdersTable
                             ? 'success'
                             : 'gray';
                     }),
+                TextColumn::make('priority')
+                    ->label(__('admin.preventive_maintenance.fields.priority'))
+                    ->badge()
+                    ->formatStateUsing(fn (string $state) => __("admin.preventive_maintenance.priorities.{$state}"))
+                    ->color(fn (string $state) => match ($state) {
+                        'urgent' => 'danger',
+                        'high' => 'warning',
+                        'low' => 'gray',
+                        default => 'info',
+                    })
+                    ->toggleable(),
+                TextColumn::make('target_resolution_at')
+                    ->label(__('admin.preventive_maintenance.sla.target'))
+                    ->dateTime('d/m/Y H:i')
+                    ->placeholder('—')
+                    // Red once the deadline has passed and the job is still open — the
+                    // whole point of the clock is that it is visible before someone asks.
+                    ->color(fn (MaintenanceWorkOrder $record) => $record->isOverdue() ? 'danger' : null)
+                    ->description(fn (MaintenanceWorkOrder $record) => $record->isOverdue()
+                        ? __('admin.preventive_maintenance.sla.overdue').' · '.$record->hoursOverSla().'h'
+                        : null)
+                    ->toggleable(),
                 TextColumn::make('status')
                     ->label(__('admin.preventive_maintenance.fields.status'))
                     ->badge()
@@ -105,6 +128,15 @@ class MaintenanceWorkOrdersTable
                 SelectFilter::make('status')
                     ->label(__('admin.preventive_maintenance.fields.status'))
                     ->options(fn () => __('admin.preventive_maintenance.statuses')),
+                SelectFilter::make('priority')
+                    ->label(__('admin.preventive_maintenance.fields.priority'))
+                    ->options(fn () => __('admin.preventive_maintenance.priorities')),
+                Filter::make('sla_breached')
+                    ->label(__('admin.preventive_maintenance.sla.breached_filter'))
+                    ->query(fn ($query) => $query
+                        ->whereNotNull('target_resolution_at')
+                        ->where('target_resolution_at', '<', now())
+                        ->whereNotIn('status', MaintenanceWorkOrder::TERMINAL)),
             ])
             ->recordActions([
                 Action::make('start')

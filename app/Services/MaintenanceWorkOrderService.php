@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\MaintenanceWorkOrder;
 use App\Models\MaintenanceWorkOrderItem;
+use App\Support\SlaResolver;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -64,6 +65,23 @@ class MaintenanceWorkOrderService
             }
 
             $payload = ['status' => $next];
+
+            // FR-CM-07 — the SLA clock starts on ACCEPTANCE, not on creation. Module 11
+            // gets this wrong: it stamps target_resolution_at at create-time, so a request
+            // nobody picks up for three days has already burned its entire SLA before an
+            // engineer sees it, and the breach says more about the queue than the work.
+            // Accepting a CM (open → in_progress) is the moment the operator takes it on.
+            // Stamped once. Unreachable today — the matrix has no path back into
+            // in_progress — but the check is what keeps that true if a state like
+            // "awaiting parts" is added later (module 11 already has awaiting_tenant →
+            // in_progress). Without it, such a hop would silently reset the deadline and
+            // erase the elapsed time, which is how an SLA quietly stops meaning anything.
+            if ($next === 'in_progress' && $locked->isCorrective() && $locked->acknowledged_at === null) {
+                $payload['acknowledged_at'] = now();
+                $payload['target_resolution_at'] = now()->addHours(
+                    SlaResolver::hoursFor($locked->asset_id, $locked->priority)
+                );
+            }
 
             if ($next === 'done') {
                 $this->assertChecklistComplete($locked);

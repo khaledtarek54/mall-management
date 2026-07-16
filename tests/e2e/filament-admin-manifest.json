@@ -176,6 +176,13 @@
             "hasView": false
         },
         {
+            "class": "SlaPolicyResource",
+            "slug": "sla-policies",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
             "class": "StockMovementResource",
             "slug": "stock-movements",
             "hasCreate": false,

@@ -40,6 +40,13 @@ class MaintenanceWorkOrder extends Model
 
     public const EXECUTION_TYPES = [self::EXECUTION_INTERNAL, self::EXECUTION_EXTERNAL];
 
+    /**
+     * FR-CM-06 asks for at least Normal + Urgent. This is the 4-tier superset module 11
+     * already speaks (Normal ≈ medium), so the two halves of maintenance don't end up
+     * disagreeing about what "urgent" means.
+     */
+    public const PRIORITIES = ['low', 'medium', 'high', 'urgent'];
+
     protected $fillable = [
         'maintenance_plan_id',
         'work_order_type',
@@ -51,7 +58,11 @@ class MaintenanceWorkOrder extends Model
         'title',
         'category',
         'status',
+        'priority',
         'scheduled_for',
+        'acknowledged_at',
+        'target_resolution_at',
+        'sla_breach_notified_at',
         'completed_at',
         'completed_by_user_id',
         'department_id',
@@ -65,18 +76,22 @@ class MaintenanceWorkOrder extends Model
 
     protected $casts = [
         'scheduled_for' => 'date',
+        'acknowledged_at' => 'datetime',
+        'target_resolution_at' => 'datetime',
+        'sla_breach_notified_at' => 'datetime',
         'completed_at' => 'datetime',
     ];
 
     protected $attributes = [
         'status' => 'open',
         'work_order_type' => self::TYPE_PPM,
+        'priority' => 'medium',
     ];
 
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['maintenance_plan_id', 'work_order_type', 'execution_type', 'asset_id', 'unit_id', 'equipment_id', 'title', 'category', 'status', 'scheduled_for', 'completed_at', 'vendor_id', 'assigned_to_user_id', 'parent_work_order_id'])
+            ->logOnly(['maintenance_plan_id', 'work_order_type', 'execution_type', 'asset_id', 'unit_id', 'equipment_id', 'title', 'category', 'status', 'priority', 'scheduled_for', 'acknowledged_at', 'target_resolution_at', 'completed_at', 'vendor_id', 'assigned_to_user_id', 'parent_work_order_id'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('maintenance_work_order');
@@ -184,6 +199,27 @@ class MaintenanceWorkOrder extends Model
     public function isTerminal(): bool
     {
         return in_array($this->status, self::TERMINAL, true);
+    }
+
+    /**
+     * Past its SLA target and still open (FR-CM-08). Derived, not stored — an order with no
+     * target (never accepted, or preventive) is never overdue.
+     */
+    public function isOverdue(): bool
+    {
+        return $this->target_resolution_at !== null
+            && ! $this->isTerminal()
+            && $this->target_resolution_at->isPast();
+    }
+
+    /** Whole hours past the SLA target; 0 when not overdue. */
+    public function hoursOverSla(): int
+    {
+        if ($this->target_resolution_at === null || ! $this->target_resolution_at->isPast()) {
+            return 0;
+        }
+
+        return (int) abs($this->target_resolution_at->diffInHours(now()));
     }
 
     public function scopeOpen(Builder $query): Builder

@@ -33,6 +33,14 @@ class CorrectiveWorkOrderForm
                 ->label(__('admin.preventive_maintenance.fields.title'))
                 ->maxLength(255),
 
+            // FR-CM-06 — the tier that decides the SLA once the job is accepted.
+            Select::make('priority')
+                ->label(__('admin.preventive_maintenance.fields.priority'))
+                ->options(fn () => __('admin.preventive_maintenance.priorities'))
+                ->default('medium')
+                ->required()
+                ->native(false),
+
             // FR-CM-02. Live, because it decides which assignee field applies — the model
             // enforces the XOR, and a form that offered both would just produce an error
             // the user can't act on.

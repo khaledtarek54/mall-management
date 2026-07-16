@@ -71,7 +71,7 @@ class RaiseCorrectiveMaintenanceService
      * stays closed and immutable, and the new order carries the remaining work. It is also
      * allowed on a PPM order, since an incomplete preventive visit needs the same recourse.
      *
-     * @param  array{execution_type:string, description:string, title?:string,
+     * @param  array{execution_type:string, description:string, title?:string, priority?:string,
      *               vendor_id?:int|null, assigned_to_user_id?:int|null, scheduled_for?:string|null}  $data
      */
     public function asFollowUp(MaintenanceWorkOrder $original, array $data): MaintenanceWorkOrder
@@ -108,6 +108,9 @@ class RaiseCorrectiveMaintenanceService
             'category' => $origin->category,
             'department_id' => $origin->department_id,
             'status' => 'open',
+            // FR-CM-06 — the tier that decides the SLA once the job is accepted. filled(),
+            // like title: a blank select would otherwise write '' into a NOT-NULL enum.
+            'priority' => filled($data['priority'] ?? null) ? $data['priority'] : 'medium',
             // filled(), for the same reason as title: a cleared DatePicker sends '', and
             // Carbon::parse('') resolves to *now* — so `??` would have silently produced
             // "today" while looking like it honoured the field.

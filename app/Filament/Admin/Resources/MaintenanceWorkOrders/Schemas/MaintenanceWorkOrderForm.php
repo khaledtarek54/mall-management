@@ -71,6 +71,13 @@ class MaintenanceWorkOrderForm
                 ->required()
                 ->native(false)
                 ->disabled($locked),
+            Select::make('priority')
+                ->label(__('admin.preventive_maintenance.fields.priority'))
+                ->options(fn () => __('admin.preventive_maintenance.priorities'))
+                ->default('medium')
+                ->required()
+                ->native(false)
+                ->disabled($locked),
             DatePicker::make('scheduled_for')
                 ->label(__('admin.preventive_maintenance.fields.scheduled_for'))
                 ->default(now())

@@ -91,6 +91,13 @@ Schedule::command('maintenance:scan-sla-breaches')
     ->name('atriom-scan-sla-breaches')
     ->withoutOverlapping();
 
+// Corrective work orders past their SLA (FR-CM-08). Separate from the tenant-request scan
+// above: different subject, different table, its own idempotency stamp.
+Schedule::command('maintenance:scan-wo-sla-breaches')
+    ->hourly()
+    ->name('atriom-scan-wo-sla-breaches')
+    ->withoutOverlapping();
+
 // Daily scan for overdue (late-paid) invoices. Alerts the property's Jawad
 // owners via the bell. Idempotent through owner_overdue_notified_at.
 Schedule::command('billing:scan-overdue-invoices')
