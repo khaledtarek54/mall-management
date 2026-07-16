@@ -105,6 +105,11 @@ Schedule::command('billing:scan-overdue-invoices')
     ->name('atriom-scan-overdue-invoices')
     ->withoutOverlapping();
 
+// FR-INV-03 — each mall's own shortages, once per shortage rather than once per run.
+// Daily, not hourly: a reorder level is a restocking hint, not a deadline, and an alert that
+// repeats faster than anyone can act on it is an alert people learn to ignore.
+Schedule::command('inventory:scan-low-stock')->dailyAt('07:30');
+
 // Daily reminder to tenants about their own overdue invoices (email + bell +
 // mobile push). Separate stamp (tenant_overdue_notified_at) so it fires once
 // per invoice, independently of the owner alert above.

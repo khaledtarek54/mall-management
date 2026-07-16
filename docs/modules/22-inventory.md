@@ -115,6 +115,42 @@ become under-reporting — a portfolio question deserves a portfolio answer).
 
 ---
 
+### Low-stock alerts (FR-INV-03)
+
+> The FRD hedges this one: *"minimum-stock thresholds and low-stock alerts (**recommended addition
+> — confirm with client if desired**)"*. It is the FRD's own suggestion, not a confirmed need — so
+> it sits behind the `inventory` module flag and **only ever notifies**. An alert cannot move stock
+> or money, which is why it was safe to build ahead of the confirmation. BUSINESS-RULES q16.
+
+`inventory:scan-low-stock`, daily at 07:30 (`routes/console.php`).
+
+- **Per property, never portfolio-wide.** FR-INV-01 tracks stock "per mall/location" and the catalog
+  is SHARED, so "are we low on filters?" is only answerable one mall at a time. This is the same
+  trap the on-hand column fell into — a portfolio sum stays *silent about the mall that is out*
+  while another mall sits on a pile. That fix had to land first, and did.
+- **A reorder level of 0 means "not tracked", not "alert at zero"** — otherwise every item every
+  mall has never stocked would alert forever.
+- **A mall holding none of a tracked item IS short.** That is the definition of needing some.
+- **Fires at the level, not below it** — at the minimum you are already meant to reorder.
+- **One row per (item, property)** in `low_stock_alerts`, reused for the life of the shortage. Every
+  other scan here stamps its "already alerted" flag on the row it alerted about
+  (`invoices.owner_overdue_notified_at`); a low-stock alert has no such row — its subject is a
+  *pair*, and stamping the SHARED item would silence the alert for every other mall. So the pair
+  gets a row: `notified_at` when it fires, `resolved_at` when stock returns.
+- **Once per shortage, not once per run.** Idempotent + lock-safe like every other scan: the alert
+  row is locked and its stamp re-checked *inside* the transaction. A restock-then-dip alerts again,
+  because that is a new shortage.
+- **Bell only, no email.** An internal restocking nudge is not a deadline; the modules that email
+  (overdue invoices, SLA breaches, lease expiry) all involve an outside party or a clock. Emailing
+  every storeman about every filter is how people learn to ignore alerts.
+- Notifies the short mall's `manager` + `operations` via `AssetStaffRecipients` — nobody else's.
+
+**Gotcha found by mutation testing:** asserting "the All-Properties pseudo-asset never alerts" on the
+default state proves nothing — it owns no warehouse, so the no-warehouse guard already skips it. The
+test builds a *stray warehouse* on the pseudo-asset, which is the misconfiguration the exclusion
+actually defends against.
+
+
 ## 3. Services
 
 `app/Services/StockMovementService.php` — the single write path to the ledger:

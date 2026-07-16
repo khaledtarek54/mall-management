@@ -48,6 +48,7 @@ These are the ten highest-risk assumptions. If any answer is "no", stop and flag
 13. **Externally-bought parts (FR-CM-09): must a vendor bill back the record?** See *Externally-bought spare parts* below. Until answered, a job's parts cost is an operational figure, not a GL one.
 14. **Does the operator want to recharge tenant-caused repairs at all?** See *Recharging a repair to a tenant* below. We now record who is responsible; we deliberately do **not** bill them, because the FRD never asks us to.
 15. **Does procurement approval follow the same price bands as spare parts?** The FRD's own open item — see *Procurement approval hierarchy* below. We defaulted to yes; it is configuration either way.
+16. **Are low-stock alerts wanted at all, and is one reorder level per item enough?** FR-INV-03 is the FRD's own *recommended addition — confirm with client if desired*. Built (bell-only, behind the module flag) because an alert cannot do harm. But the threshold is **one number per item, applied per mall** — if a flagship mall should carry more than a small one, the level needs a property dimension, which is a migration.
 
 ---
 

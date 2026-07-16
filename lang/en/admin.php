@@ -1878,6 +1878,10 @@ return [
         ],
     ],
     'inventory' => [
+        'low_stock' => [
+            'title' => 'Low stock',
+            'body' => ':item is down to :on_hand :unit at :asset (reorder at :reorder_level).',
+        ],
         'group' => 'Inventory',
         'warehouse' => ['singular' => 'Warehouse', 'plural' => 'Warehouses'],
         'item' => ['singular' => 'Inventory Item', 'plural' => 'Inventory Items'],
@@ -1922,6 +1926,9 @@ return [
     ],
 
     'employees' => [
+        'errors' => [
+            'repayment_before_advance' => 'A repayment cannot be dated before the advance was granted (:granted).',
+        ],
         'group' => 'HR',
         'singular' => 'Employee',
         'plural' => 'Employees',
@@ -1969,8 +1976,21 @@ return [
         'footer' => 'This payslip is computer-generated and does not require a signature.',
     ],
 
+    // Shared guard for any user-supplied date a GL entry is dated from — App\Support\PostingDate.
+    'posting' => [
+        'errors' => [
+            'date_missing' => 'A :field is required — it decides which accounting period this lands in.',
+            'no_period' => 'No accounting period is defined for :date, so this cannot reach the ledger.',
+            'period_closed' => 'Accounting period :month is closed, so this cannot be posted to the ledger. Reopen it, or use a date in an open period.',
+            'future' => 'The date cannot be in the future — money that has not moved yet cannot be recorded as having moved.',
+        ],
+    ],
+
     'custodies' => [
         'group' => 'Treasury',
+        'errors' => [
+            'settlement_before_grant' => 'A settlement cannot be dated before the custody was granted (:granted).',
+        ],
         'singular' => 'Custody',
         'plural' => 'Custodies',
         'fields' => [
