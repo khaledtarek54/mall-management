@@ -8,6 +8,7 @@ use App\Models\MaintenanceWorkOrder;
 use App\Models\VendorBill;
 use App\Services\ApplySlaPenaltyService;
 use App\Services\AssessSlaPenaltyService;
+use App\Services\AttributeWorkOrderFaultService;
 use App\Services\MaintenanceWorkOrderService;
 use App\Services\RaiseCorrectiveMaintenanceService;
 use Filament\Actions\Action;
@@ -125,6 +126,17 @@ class MaintenanceWorkOrdersTable
                         default => null,
                     })
                     ->toggleable(),
+                // FR-CM-13 — the answer the operator actually wants out of this: which jobs are
+                // the tenants' fault, and which are ours.
+                TextColumn::make('cost_bearer')
+                    ->label(__('admin.preventive_maintenance.fault.column'))
+                    ->badge()
+                    ->placeholder(__('admin.preventive_maintenance.fault.not_attributed'))
+                    ->formatStateUsing(fn (?string $state) => $state === null ? null : __("admin.preventive_maintenance.fault.bearers.{$state}"))
+                    ->color(fn (?string $state) => $state === MaintenanceWorkOrder::BEARER_TENANT ? 'warning' : 'gray')
+                    ->description(fn (MaintenanceWorkOrder $record) => $record->fault_party === null ? null
+                        : __("admin.preventive_maintenance.fault.parties.{$record->fault_party}"))
+                    ->toggleable(),
                 TextColumn::make('status')
                     ->label(__('admin.preventive_maintenance.fields.status'))
                     ->badge()
@@ -233,6 +245,62 @@ class MaintenanceWorkOrdersTable
                 // Only offers bills that can actually absorb it: same vendor, postable, and
                 // a balance at least the penalty, so the service's guards are a backstop
                 // rather than the way the user finds out.
+                // FR-CM-12/13 — rule on the cause, and thereby on who bears the cost.
+                //
+                // Available on a DONE order on purpose: the cause is usually only known once the
+                // machine is open, and FR-CM-12 wants it "as recorded on the work order". Terminal
+                // immutability protects the record of the WORK; this is the commercial finding
+                // about it, and refusing it after closure would mean it could never be recorded.
+                // Not available on a cancelled job — that work never happened, so there is no cost.
+                Action::make('attribute_fault')
+                    ->label(__('admin.preventive_maintenance.fault.action'))
+                    ->icon('heroicon-o-scale')
+                    ->color('warning')
+                    ->modalDescription(__('admin.preventive_maintenance.fault.hint'))
+                    ->visible(fn (MaintenanceWorkOrder $record) => $record->status !== 'cancelled'
+                        && (auth()->user()?->can(AttributeWorkOrderFaultService::PERMISSION) ?? false))
+                    ->authorize(fn () => auth()->user()?->can(AttributeWorkOrderFaultService::PERMISSION) ?? false)
+                    ->fillForm(fn (MaintenanceWorkOrder $record) => [
+                        'fault_party' => $record->fault_party,
+                        'fault_notes' => $record->fault_notes,
+                    ])
+                    ->schema([
+                        Select::make('fault_party')
+                            ->label(__('admin.preventive_maintenance.fault.party'))
+                            ->options(fn () => collect(MaintenanceWorkOrder::FAULT_PARTIES)
+                                ->mapWithKeys(fn (string $p) => [$p => __("admin.preventive_maintenance.fault.parties.{$p}")])
+                                ->all())
+                            ->required()
+                            ->native(false)
+                            ->live()
+                            // FR-CM-13 in the open: the bearer follows the cause, so show the
+                            // consequence before it is committed rather than after.
+                            ->helperText(fn (?string $state) => $state === null ? null : __('admin.preventive_maintenance.fault.derives', [
+                                'bearer' => __('admin.preventive_maintenance.fault.bearers.'.MaintenanceWorkOrder::bearerFor($state)),
+                            ])),
+                        Textarea::make('fault_notes')
+                            ->label(__('admin.preventive_maintenance.fault.notes'))
+                            ->helperText(__('admin.preventive_maintenance.fault.notes_hint'))
+                            ->rows(2),
+                    ])
+                    ->action(function (MaintenanceWorkOrder $record, array $data): void {
+                        try {
+                            $updated = app(AttributeWorkOrderFaultService::class)
+                                ->attribute($record, $data['fault_party'], $data['fault_notes'] ?? null);
+                        } catch (\DomainException|\InvalidArgumentException $e) {
+                            Notification::make()->title($e->getMessage())->danger()->send();
+
+                            return;
+                        }
+
+                        Notification::make()
+                            ->title(__('admin.preventive_maintenance.fault.recorded_notice'))
+                            ->body(__('admin.preventive_maintenance.fault.derives', [
+                                'bearer' => __('admin.preventive_maintenance.fault.bearers.'.$updated->cost_bearer),
+                            ]))
+                            ->success()
+                            ->send();
+                    }),
                 Action::make('charge_penalty')
                     ->label(__('admin.preventive_maintenance.penalty.charge'))
                     ->icon('heroicon-o-banknotes')

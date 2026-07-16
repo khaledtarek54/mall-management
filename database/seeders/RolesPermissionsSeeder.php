@@ -194,6 +194,10 @@ class RolesPermissionsSeeder extends Seeder
             'preventive_maintenance.edit' => 'Edit preventive-maintenance plans / work orders',
             'preventive_maintenance.delete' => 'Delete preventive-maintenance plans / work orders',
             'preventive_maintenance.complete' => 'Complete a work order (tick checklist items, mark done)',
+            // FR-CM-12/13. Deliberately NOT granted to operations: recording what you found is
+            // engineering, but ruling that a TENANT is financially responsible is a commercial
+            // claim. Manager inherits it via the blanket non-delete grant.
+            'preventive_maintenance.attribute_fault' => 'Rule on who caused a failure and who bears the cost (FR-CM-12/13)',
         ],
         'deposit_transactions' => [
             'deposit_transactions.view' => 'View security-deposit transactions',

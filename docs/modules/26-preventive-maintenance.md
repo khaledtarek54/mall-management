@@ -453,6 +453,52 @@ accounting event, and giving the part its own journalizer would post the same co
 > double-count the moment someone also enters the bill. The seam closes with procurement
 > (FR-PROC-\*), where the bill is raised against the request that caused it.
 
+### Fault attribution & cost bearer (FR-CM-12, FR-CM-13)
+
+**Read the FRD's verbs before changing this.** Verbatim:
+> FR-CM-12 — "For parts sourced from outside, the system shall **determine responsibility** (and who
+> bears the cost) based on **who caused the part to fail, as recorded on the work order**."
+> FR-CM-13 — "The system shall **record** whether the mall or the tenant is financially responsible
+> for a repair, based on who caused the damage."
+
+*Determine* and *record*. **No requirement anywhere in the FRD asks the system to invoice, bill, or
+recharge a tenant**, and its own *Open Items* list never raises it. This module therefore records the
+finding and derives the bearer — and stops. Khaled confirmed record-only (2026-07-16). The recharge
+seam is documented-but-unbuilt in `AttributeWorkOrderFaultService`'s footer, with the questions that
+must be answered first (BUSINESS-RULES open question 14). **Nothing in module 26 can bill anyone.**
+
+- **The bearer is derived, not typed in** (`MaintenanceWorkOrder::bearerFor()`), because FR-CM-13
+  says "based on who caused the damage". Only `fault_party = tenant` lands on the tenant.
+- **Vendor fault maps to the mall on purpose.** Reading "the vendor broke it" as "the vendor pays"
+  is the obvious mistake: FR-CM-13 offers only mall|tenant, and recovering from a contractor is a
+  different mechanism (the SLA penalty against their bill, FR-CM-08). Encoding `vendor` as a bearer
+  would quietly answer a question the FRD never asked.
+- **`undetermined` lands on the mall** — you cannot bill someone on a shrug. The burden of proof is
+  on the party making the claim.
+- **A manager rules, not the engineer** (`preventive_maintenance.attribute_fault`, withheld from
+  `operations`). Recording what you found is engineering; asserting that a *tenant* is financially
+  responsible is a commercial claim — the same second-pair-of-eyes principle as FR-CM-10.
+- **You cannot blame a tenant who does not exist.** A work order carries a NULLABLE `unit_id` — a
+  common-area chiller has no occupier — so the service refuses `bearer = tenant` when
+  `bearingTenant()` is null (no unit, or a vacant one). This is the case that would otherwise
+  produce a claim addressed to nobody. The tenant is resolved live through the unit's active lease,
+  never stored: the answer must be "who occupies that unit", not "who occupied it when someone
+  clicked".
+- **Allowed on a `done` order, refused on a `cancelled` one.** The cause is usually only known once
+  the machine is open, and FR-CM-12 wants it "as recorded on the work order" — refusing it after
+  closure would mean the finding could never be recorded at all. Terminal immutability protects the
+  record of the *work*; this is the commercial finding about it. A cancelled job never happened, so
+  there is no cost to apportion.
+- **Revisable, with provenance.** A cause is often revised once the engineer opens the machine;
+  freezing the first guess would make the record *less* true. `fault_recorded_by_user_id` /
+  `fault_recorded_at` / `fault_notes` are the control — not immutability, and **not** the activity
+  log (which stores `properties = "[]"` on every row, repo-wide; it records *that* something changed,
+  never *what*).
+- **FR-CM-12's external-part scoping** — `MaintenanceWorkOrderPart::costBearer()` *reads* the job's
+  attribution rather than storing its own copy, exactly as the FRD says ("as recorded on the work
+  order"); a copy could disagree the moment someone revises the finding. Internal draws return null:
+  FR-CM-12 is scoped to parts "sourced from outside", and our own stock is our own cost.
+
 ---
 
 ## 3. RBAC & module flag
@@ -461,6 +507,9 @@ accounting event, and giving the part its own journalizer would post the same co
   `preventive_maintenance.complete` (tick items, mark done). Granted to the **operations**
   role (maintenance/dispatch); **manager** (all non-delete) + **viewer** (all `.view`) inherit
   via the flat list.
+- `preventive_maintenance.attribute_fault` (FR-CM-12/13) is **deliberately withheld from
+  `operations`** — it is the one permission in this module that is a commercial judgement rather
+  than an operational one. manager + super_admin only.
 - Module flag **`preventive_maintenance`** (`Modules::KEYS` + `ModulesSettings`), on by default.
 - Both the plan + work-order resources share `permissionModule()='preventive_maintenance'`.
 
@@ -480,7 +529,7 @@ accounting event, and giving the part its own journalizer would post the same co
 | **7b — SLA penalty assessment (FR-CM-08)** | penalty terms per vendor contract (**all three bases** — flat, per-day accrual, %-of-job-value — so the client's answer is configuration rather than a rewrite), one re-assessed penalty row per job, freeze on closure, waive with a reason, `job_value` for the percent basis, penalty column + waive action | ✅ shipped |
 | **7c — Charging the penalty to the vendor (FR-CM-08 money)** | `vendor_bills.penalty_applied_amount` folded into `VendorBill::recompute()` (the AP single-source-of-truth, exactly as `credit_applied_amount` works on the tenant side), an apply/detach service with a cap so AP never goes negative, `MaintenancePenaltyJournalizer` posting **Dr AP / Cr the same expense the bill charged**, and a "charge to a bill" action that only offers bills able to absorb it. AP tie-out proven to stay balanced. ⚠️ The **treatment** (cost reduction, no VAT) and the **CAM consequence** are recorded in `docs/BUSINESS-RULES.md` and still need accountant sign-off | ✅ shipped, pending sign-off |
 | **8 — CM parts + approval (FR-CM-09/10/11, FR-INV-04)** | `maintenance_work_order_parts`: an internal draw is **requested** and moves stock only on approval (its own table, *not* a pending StockMovement — see the domain model), the approver resolved by part value through the generic `ApprovalPolicy` ladder and frozen onto the row, self-approval refused, external purchases recorded with vendor + invoice ref, parts relation manager on the work order | ✅ shipped |
-| **9 — Fault attribution + recharge (FR-CM-12/13)** | who caused the failure → who bears the cost, mall-vs-tenant recharge to an `Invoice` via `Charge`/`InvoiceItem` (respecting `recomputeTotals()` as the AR single source of truth) | ⬜ planned |
+| **9 — Fault attribution + cost bearer (FR-CM-12/13)** | `fault_party` + derived `cost_bearer` on the work order with provenance, a manager-only ruling, a guard against blaming a tenant who doesn't exist, and `costBearer()` on outside-sourced parts reading the job's finding. **Record-only — the FRD says *determine* and *record*, never *bill*** (scope corrected 2026-07-16 by reading the source .docx; the earlier roadmap entry here promised a recharge the FRD never asked for). The recharge seam is designed, documented, and deliberately unbuilt. | ✅ shipped |
 
 ---
 
@@ -612,6 +661,13 @@ its test called `LedgerPoster::post()` directly, proving the arithmetic and neve
 parts shipped with no GL coverage at all while the demo data contains zero of them, so
 `billing:reconcile` was silent on them too. Verified load-bearing: a draw that posts nothing fails
 it.
+
+`tests/Feature/Scenarios/FaultAttributionScenarioTest.php` — FR-CM-12/13: the bearer derives from
+the cause and *only* `tenant` lands on the tenant (vendor fault included, explicitly); an engineer
+cannot rule that a tenant is liable; a common-area job and a vacant unit both refuse a tenant bearer
+(and write nothing); a `done` job can still be attributed but a `cancelled` one cannot; revision
+re-stamps who ruled; an override needs a reason; an external part reads the job's finding and moves
+with it, while an internal draw has none. All five guards verified load-bearing by mutation.
 
 **Related:** 11 Maintenance (tenant-facing requests), 12 Vendors (assignees), 14 Departments,
 01 Properties (asset scope), 18 RBAC (operations), 19 Notifications & Scans (the daily scan),

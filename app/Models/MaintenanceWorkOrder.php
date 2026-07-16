@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 use InvalidArgumentException;
@@ -47,6 +48,61 @@ class MaintenanceWorkOrder extends Model
      */
     public const PRIORITIES = ['low', 'medium', 'high', 'urgent'];
 
+    /**
+     * FR-CM-12/13 — who caused the failure. The finding, recorded on the work order.
+     *
+     * Deliberately a short, closed vocabulary: it feeds a derivation (`bearerFor()`), and free
+     * text cannot be derived from. `undetermined` is a real answer, not a missing one — "we looked
+     * and we cannot tell" is different from nobody having looked yet (which is `fault_party` null).
+     */
+    public const FAULT_TENANT = 'tenant';           // the occupier caused it — misuse, neglect, their fit-out
+
+    public const FAULT_WEAR = 'wear_and_tear';      // nobody caused it; things age
+
+    public const FAULT_VENDOR = 'vendor';           // the contractor who last worked on it caused it
+
+    public const FAULT_THIRD_PARTY = 'third_party'; // a visitor, a neighbour, someone we don't bill
+
+    public const FAULT_FORCE_MAJEURE = 'force_majeure'; // flood, power surge, act of God
+
+    public const FAULT_UNDETERMINED = 'undetermined';
+
+    public const FAULT_PARTIES = [
+        self::FAULT_TENANT,
+        self::FAULT_WEAR,
+        self::FAULT_VENDOR,
+        self::FAULT_THIRD_PARTY,
+        self::FAULT_FORCE_MAJEURE,
+        self::FAULT_UNDETERMINED,
+    ];
+
+    /** FR-CM-13 — "whether the mall or the tenant is financially responsible". Exactly two. */
+    public const BEARER_MALL = 'mall';
+
+    public const BEARER_TENANT = 'tenant';
+
+    public const COST_BEARERS = [self::BEARER_MALL, self::BEARER_TENANT];
+
+    /**
+     * FR-CM-13: the bearer is decided "based on who caused the damage" — so it is *derived*, not
+     * typed in independently. Only the tenant causing it makes the tenant liable; everything else
+     * lands on the mall.
+     *
+     * **Vendor fault maps to the mall on purpose.** It is tempting to read "the vendor broke it"
+     * as "the vendor pays", but FR-CM-13 offers only mall|tenant — recovering from a vendor is a
+     * different mechanism entirely (the SLA penalty against their bill, FR-CM-08). Between the two
+     * parties this field is about, a vendor's mistake is the mall's problem, and the mall pursues
+     * its contractor separately. Encoding "vendor" here would quietly answer a question the FRD
+     * did not ask.
+     *
+     * `undetermined` lands on the mall because you cannot bill someone on a shrug — the burden of
+     * proof sits with the party making the claim.
+     */
+    public static function bearerFor(string $faultParty): string
+    {
+        return $faultParty === self::FAULT_TENANT ? self::BEARER_TENANT : self::BEARER_MALL;
+    }
+
     protected $fillable = [
         'maintenance_plan_id',
         'work_order_type',
@@ -73,6 +129,11 @@ class MaintenanceWorkOrder extends Model
         'job_value',
         'source_item_id',
         'parent_work_order_id',
+        'fault_party',
+        'cost_bearer',
+        'fault_notes',
+        'fault_recorded_by_user_id',
+        'fault_recorded_at',
     ];
 
     protected $casts = [
@@ -82,6 +143,7 @@ class MaintenanceWorkOrder extends Model
         'sla_breach_notified_at' => 'datetime',
         'completed_at' => 'datetime',
         'job_value' => 'decimal:2',
+        'fault_recorded_at' => 'datetime',
     ];
 
     protected $attributes = [
@@ -93,7 +155,7 @@ class MaintenanceWorkOrder extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['maintenance_plan_id', 'work_order_type', 'execution_type', 'asset_id', 'unit_id', 'equipment_id', 'title', 'category', 'status', 'priority', 'scheduled_for', 'acknowledged_at', 'target_resolution_at', 'completed_at', 'vendor_id', 'assigned_to_user_id', 'parent_work_order_id'])
+            ->logOnly(['maintenance_plan_id', 'work_order_type', 'execution_type', 'asset_id', 'unit_id', 'equipment_id', 'title', 'category', 'status', 'priority', 'scheduled_for', 'acknowledged_at', 'target_resolution_at', 'completed_at', 'vendor_id', 'assigned_to_user_id', 'parent_work_order_id', 'fault_party', 'cost_bearer', 'fault_notes'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('maintenance_work_order');
@@ -170,7 +232,7 @@ class MaintenanceWorkOrder extends Model
     }
 
     /** FR-CM-08 — the SLA penalty assessed against the vendor, if any. */
-    public function penalty(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function penalty(): HasOne
     {
         return $this->hasOne(MaintenancePenalty::class);
     }
@@ -179,6 +241,38 @@ class MaintenanceWorkOrder extends Model
     public function followUps(): HasMany
     {
         return $this->hasMany(self::class, 'parent_work_order_id');
+    }
+
+    /** FR-CM-12/13 — who ruled on the cause. A claim needs a name against it. */
+    public function faultRecordedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'fault_recorded_by_user_id');
+    }
+
+    /** Has anyone ruled on what caused this yet? */
+    public function faultIsAttributed(): bool
+    {
+        return $this->fault_party !== null;
+    }
+
+    /** FR-CM-13 — is the tenant on the hook for this repair? */
+    public function tenantBearsCost(): bool
+    {
+        return $this->cost_bearer === self::BEARER_TENANT;
+    }
+
+    /**
+     * The tenant who would bear the cost, if any (FR-CM-13).
+     *
+     * A work order carries `asset_id` + a NULLABLE `unit_id` and **no tenant_id** — a common-area
+     * chiller has no occupier, which is exactly why CM lives here and not in module 11. So the
+     * tenant is resolved through the unit's active lease, and a job with no unit can never have
+     * one. Resolved live rather than stored: the answer must be "who occupies that unit", not
+     * "who occupied it when someone happened to click".
+     */
+    public function bearingTenant(): ?Tenant
+    {
+        return $this->unit?->currentTenant();
     }
 
     public function isCorrective(): bool

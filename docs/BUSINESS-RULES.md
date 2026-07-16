@@ -46,6 +46,7 @@ These are the ten highest-risk assumptions. If any answer is "no", stop and flag
 11. **SLA penalties (FR-CM-08): are they a cost reduction, and does the benefit reach tenants?** See *Vendor SLA Penalties* below. Two questions in one, and the second decides **who gets the money**.
 12. **Approval thresholds (FR-CM-11): are 1,000 / 10,000 the right bands?** See *Approval Ladder* below. The FRD gives no numbers — these are our defaults, and they decide who may authorise a spend.
 13. **Externally-bought parts (FR-CM-09): must a vendor bill back the record?** See *Externally-bought spare parts* below. Until answered, a job's parts cost is an operational figure, not a GL one.
+14. **Does the operator want to recharge tenant-caused repairs at all?** See *Recharging a repair to a tenant* below. We now record who is responsible; we deliberately do **not** bill them, because the FRD never asks us to.
 
 ---
 
@@ -444,6 +445,30 @@ what the books know about it. The books stay balanced (the purchase is absent, n
    property + category dimension enough?
 
 Until this is answered, treat `partsCost()` as an **operational** figure, not a GL one.
+
+---
+
+## Recharging a repair to a tenant — **NOT BUILT; NEEDS THE CLIENT**
+
+The system now **records** who caused a failure and whether the mall or the tenant is financially
+responsible (FR-CM-12/13). It does **not** bill the tenant, because the FRD never asks it to: both
+requirements say *determine* and *record*, and no requirement in the document asks the system to
+invoice a tenant for a repair. Khaled confirmed record-only (2026-07-16).
+
+If the client wants the recharge, these must be answered **before** it is built — each one changes
+the code:
+1. **Is a recharge VATable** (14%, as a service), or is it a cost recovery outside VAT?
+2. **What is recoverable** — parts only, or parts + labour + the vendor's invoice?
+3. **What amount, given the external-part seam?** `partsCost()` can already exceed what the GL knows
+   about a job, because an externally-bought part posts nothing (its accounting document is the
+   vendor bill — see open question 13). Billing a tenant off `partsCost()` would bill them for money
+   the books never saw.
+4. **What happens when the cost changes after the recharge?** A part draw voided or an external
+   record removed leaves a tenant billed for something that did not happen.
+5. **Can the tenant dispute it**, and what does a successful dispute do to the invoice — a credit
+   note, or a void?
+
+Until then, `cost_bearer` is a **record of responsibility, not an instruction to charge**.
 
 ---
 

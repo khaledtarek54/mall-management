@@ -176,6 +176,27 @@ class MaintenanceWorkOrderPart extends Model
         return __("admin.preventive_maintenance.parts.tiers.{$tier}");
     }
 
+    /**
+     * FR-CM-12 — "For parts sourced from outside, the system shall determine responsibility (and
+     * who bears the cost) based on who caused the part to fail, **as recorded on the work order**."
+     *
+     * So: the answer is not stored here, it is *read from the job's attribution*. The FRD points at
+     * the work order as the place the cause is recorded, and duplicating the bearer onto every part
+     * would let the two disagree the moment someone revises the finding.
+     *
+     * Null when nobody has ruled yet. Internal draws return null too — FR-CM-12 is explicitly
+     * scoped to parts "sourced from outside"; our own stock is our own cost, and the question of
+     * who pays for it is FR-CM-13's job at the repair level, not this part's.
+     */
+    public function costBearer(): ?string
+    {
+        if ($this->isInternal()) {
+            return null;
+        }
+
+        return $this->workOrder?->cost_bearer;
+    }
+
     /** A label that works for both sources: a SKU, or the free-text description. */
     public function label(): string
     {
