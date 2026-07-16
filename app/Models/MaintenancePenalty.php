@@ -42,6 +42,9 @@ class MaintenancePenalty extends Model
 
     public const STATUS_FINAL = 'final';
 
+    /** Charged to a vendor bill — distinct from `final` (assessed and owed, not yet deducted). */
+    public const STATUS_APPLIED = 'applied';
+
     public const STATUS_WAIVED = 'waived';
 
     protected $fillable = [
@@ -49,6 +52,7 @@ class MaintenancePenalty extends Model
         'asset_id',
         'vendor_id',
         'vendor_contract_id',
+        'vendor_bill_id',
         'basis',
         'rate',
         'hours_over_sla',
@@ -56,6 +60,7 @@ class MaintenancePenalty extends Model
         'currency',
         'status',
         'finalised_at',
+        'applied_at',
         'waived_at',
         'waived_by_user_id',
         'waive_reason',
@@ -66,6 +71,7 @@ class MaintenancePenalty extends Model
         'amount' => 'decimal:2',
         'hours_over_sla' => 'integer',
         'finalised_at' => 'datetime',
+        'applied_at' => 'datetime',
         'waived_at' => 'datetime',
     ];
 
@@ -77,7 +83,7 @@ class MaintenancePenalty extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['basis', 'rate', 'hours_over_sla', 'amount', 'status', 'waive_reason'])
+            ->logOnly(['basis', 'rate', 'hours_over_sla', 'amount', 'status', 'vendor_bill_id', 'waive_reason'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('maintenance_penalty');
@@ -103,6 +109,11 @@ class MaintenancePenalty extends Model
         return $this->belongsTo(VendorContract::class, 'vendor_contract_id');
     }
 
+    public function bill(): BelongsTo
+    {
+        return $this->belongsTo(VendorBill::class, 'vendor_bill_id');
+    }
+
     public function waivedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'waived_by_user_id');
@@ -119,10 +130,15 @@ class MaintenancePenalty extends Model
         return $this->status === self::STATUS_WAIVED;
     }
 
-    /** Chargeable to the vendor: assessed, frozen, and not waived. */
+    /** Chargeable to the vendor: assessed, frozen, not waived, not yet charged. */
     public function isChargeable(): bool
     {
         return $this->status === self::STATUS_FINAL;
+    }
+
+    public function isApplied(): bool
+    {
+        return $this->status === self::STATUS_APPLIED;
     }
 
     public function scopeChargeable(Builder $query): Builder

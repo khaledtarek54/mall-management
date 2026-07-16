@@ -43,6 +43,7 @@ These are the ten highest-risk assumptions. If any answer is "no", stop and flag
 8. **Default security deposit = 3 months' rent** and **default annual escalation = 7%** — are these your real contract defaults? Both are *unverified assumptions* baked into new leases.
 9. **Is the artificial-breakpoint formula the correct default for percentage rent** — `(sales − threshold) × rate`? Leases with no calculation type set will silently use this. If your leases use the natural breakpoint, percentage rent is wrong.
 10. **Is the default payment term 7 days** from invoice issue date, and is the ETA e-invoicing setup (tax IDs, item codes, issuer identity) ready — noting it currently runs in **test/mock mode** and is **not certified** (see next section)?
+11. **SLA penalties (FR-CM-08): are they a cost reduction, and does the benefit reach tenants?** See *Vendor SLA Penalties* below. Two questions in one, and the second decides **who gets the money**.
 
 ---
 
@@ -377,3 +378,46 @@ _(Use this space to list any rules marked ✏️ Change and the agreed correct v
 ---
 
 *Generated for Atriom (Egyptian mall-management ERP). This register reflects the system's behaviour as built; it is not legal or tax advice. Values cited as "unverified" require confirmation against your lease contracts and current Egyptian tax law before go-live.*
+
+
+---
+
+## Vendor SLA Penalties (FR-CM-08) — **NEEDS ACCOUNTANT SIGN-OFF**
+
+When an external maintenance company misses the SLA on a corrective job, the system assesses a
+penalty and (once charged) deducts it from what that vendor is owed.
+
+| Rule | What the system does | Status |
+|---|---|---|
+| **Basis** | The **contract** decides: a flat fee, an amount **per day late**, or a **% of the job's value**. Nothing is assumed — `none` is the default, so a contract with no negotiated penalty charges nothing. | ✅ configurable |
+| **Who pays** | Only **external** (vendor) jobs. An in-house job that runs late is flagged, not billed. | ⚠️ assumption |
+| **Part days** | Part of a day counts as **a whole day** on the per-day basis. | ⚠️ assumption |
+| **Accounting treatment** | **Dr Accounts Payable / Cr the same expense the bill charged** — i.e. a **cost reduction**, not other income. | 🔴 **confirm** |
+| **VAT** | **No VAT adjustment.** Treated as compensation (liquidated damages), which is outside the scope of VAT — so the input VAT the original bill recovered is untouched. | 🔴 **confirm** |
+| **Cap** | A penalty can never exceed what the bill still owes (AP is never pushed negative). Larger penalties must be split across bills. | ⚠️ assumption |
+
+### Why the treatment matters — and the CAM catch
+
+The accounting question is not cosmetic. Money received from a supplier is normally an adjustment to
+the price you paid them rather than new revenue, unless it buys a distinct good or service. An SLA
+penalty is a price adjustment on the maintenance service, so the system **credits the same expense
+the bill debited** — the penalty follows the cost. The alternative (crediting *other income*) would
+overstate both maintenance cost and income.
+
+**🔴 The consequence to decide: does the benefit reach tenants?**
+
+Maintenance is a CAM-recoverable cost. If a penalty reduces maintenance expense, the tenants who
+funded that cost through CAM should logically get the benefit of the reduction.
+
+**Atriom does not do this automatically.** `CamExpensePool.total_actual_expense` is **typed in by an
+operator** — it is not derived from the GL. So reducing the expense in the ledger does **not** reduce
+what tenants are recharged.
+
+> **Therefore:** whoever records the year's actual CAM spend must use the maintenance figure **net of
+> SLA penalties**. Otherwise tenants over-pay CAM while the operator keeps the vendor's penalty —
+> which is both a reconciliation error and, depending on the lease wording, arguably a recovery the
+> tenants are entitled to.
+
+Confirm with the operator and the lease wording: **does an SLA penalty reduce the CAM pool, or is it
+Eltizam's to keep?** If it should reduce CAM, the safe answer today is procedural (a documented step
+at reconciliation time); wiring the CAM pool to the GL is a larger change and is not in scope.

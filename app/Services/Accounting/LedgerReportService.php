@@ -229,8 +229,9 @@ class LedgerReportService
      * equals the negated sum of every NON-cash account's movement. So we classify each
      * non-cash account into Operating / Investing / Financing (by the Egyptian code
      * ranges: 111 = cash & banks · 121 = gross non-current assets → investing · 122 =
-     * accumulated depreciation → operating add-back · 22 = non-current liabilities &
-     * equity → financing · everything else → operating working capital), negate its
+     * accumulated depreciation → operating add-back · 222 = provisions → operating
+     * add-back · 22 = non-current liabilities & equity → financing · everything else →
+     * operating working capital), negate its
      * movement into that section, and the three sections sum to the actual cash movement.
      * `reconciled` asserts that double-entry identity — an integrity/regression guard on
      * this classification code; for balanced books it holds (it is not a data-error check).
@@ -270,6 +271,11 @@ class LedgerReportService
 
             if (in_array($row->type, ['revenue', 'expense'], true)) {
                 $netIncome = round($netIncome + $cashImpact, 2); // Σ(credit−debit) = revenue − expense
+            } elseif (str_starts_with((string) $row->code, '222')) {
+                // Provisions (222…) are non-cash accruals (end-of-service, staff leave) —
+                // an OPERATING add-back, not a financing flow. Financing under 22… is only
+                // real funding movement (221 long-term loans). Must precede the 22 branch.
+                $adjustments->push($this->statementRow($row, $cashImpact));
             } elseif ($row->type === 'equity' || str_starts_with((string) $row->code, '22')) {
                 $financing->push($this->statementRow($row, $cashImpact));
             } elseif (str_starts_with((string) $row->code, '122')) {

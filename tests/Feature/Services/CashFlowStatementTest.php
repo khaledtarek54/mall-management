@@ -98,6 +98,49 @@ it('treats depreciation as an operating add-back, not a phantom investing flow',
     expect($cf['reconciled'])->toBeTrue();
 });
 
+it('treats a provision as an operating add-back, not a financing inflow', function () {
+    $posting = app(JournalPostingService::class);
+    $acct = fn (string $code) => LedgerAccount::where('code', $code)->value('id');
+
+    // Accrue end-of-service: Dr Salaries & Wages / Cr Provision — EOS. The provision sits
+    // at 22201001, inside the 22… range the financing branch claims — the 222 carve-out is
+    // what keeps a non-cash accrual out of financing.
+    $posting->post(['entry_date' => now(), 'description_en' => 'EOS provision', 'description_ar' => 'مخصص ترك الخدمة', 'lines' => [
+        ['ledger_account_id' => $acct('51101001'), 'debit' => 3000, 'credit' => 0],
+        ['ledger_account_id' => $acct('22201001'), 'debit' => 0, 'credit' => 3000],
+    ]]);
+
+    [$from, $to] = cfYear();
+    $cf = $this->reports->cashFlow(null, $from, $to);
+
+    expect($cf['net_income'])->toEqualWithDelta(-3000.0, 0.001);     // the accrual hits the P&L
+    expect($cf['financing_total'])->toEqualWithDelta(0.0, 0.001);    // NOT a +3000 financing inflow
+    expect($cf['operating_total'])->toEqualWithDelta(0.0, 0.001);    // −3000 expense + 3000 add-back
+    expect($cf['cash_movement'])->toEqualWithDelta(0.0, 0.001);      // a provision moves no cash
+    expect($cf['reconciled'])->toBeTrue();
+});
+
+it('treats a doubtful-debt allowance as an operating add-back', function () {
+    $posting = app(JournalPostingService::class);
+    $acct = fn (string $code) => LedgerAccount::where('code', $code)->value('id');
+
+    // Dr Bad Debt Expense / Cr Allowance for Doubtful Debts — a contra-asset under the AR
+    // branch (11206001), carrying a credit balance the way accumulated depreciation does.
+    $posting->post(['entry_date' => now(), 'description_en' => 'Doubtful debts', 'description_ar' => 'ديون مشكوك فيها', 'lines' => [
+        ['ledger_account_id' => $acct('51109001'), 'debit' => 2000, 'credit' => 0],
+        ['ledger_account_id' => $acct('11206001'), 'debit' => 0, 'credit' => 2000],
+    ]]);
+
+    [$from, $to] = cfYear();
+    $cf = $this->reports->cashFlow(null, $from, $to);
+
+    expect($cf['net_income'])->toEqualWithDelta(-2000.0, 0.001);
+    expect($cf['investing_total'])->toEqualWithDelta(0.0, 0.001);    // an AR contra is not investing
+    expect($cf['operating_total'])->toEqualWithDelta(0.0, 0.001);    // −2000 expense + 2000 add-back
+    expect($cf['cash_movement'])->toEqualWithDelta(0.0, 0.001);
+    expect($cf['reconciled'])->toBeTrue();
+});
+
 it('carries the opening cash balance from a prior period', function () {
     $posting = app(JournalPostingService::class);
     $acct = fn (string $code) => LedgerAccount::where('code', $code)->value('id');

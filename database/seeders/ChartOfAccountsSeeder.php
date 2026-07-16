@@ -35,12 +35,27 @@ class ChartOfAccountsSeeder extends Seeder
         ['11203001', 'Employee Advances & Loans', 'سلف وقروض العاملين', 'asset', true],
         ['11204', 'Custodies', 'العُهد', 'asset', false],
         ['11204001', 'Custodies (Imprest)', 'عُهد نقدية', 'asset', true],
+        // Post-dated cheques (شيكات آجلة) are how Egyptian tenants commonly settle a
+        // lease — a note received sits here until it clears into the bank.
+        ['11205', 'Notes Receivable', 'أوراق القبض', 'asset', false],
+        ['11205001', 'Notes Receivable (Post-dated Cheques)', 'أوراق قبض (شيكات آجلة)', 'asset', true],
+        // Contra-asset: carries a CREDIT balance against tenant AR, exactly like
+        // accumulated depreciation (12201001) does against fixed assets.
+        ['11206', 'Allowance for Doubtful Debts', 'مخصص الديون المشكوك فيها', 'asset', false],
+        ['11206001', 'Allowance for Doubtful Debts', 'مخصص ديون مشكوك فيها', 'asset', true],
         ['113', 'Inventory', 'المخزون', 'asset', false],
         ['11301', 'Inventory / Stock', 'المخزون', 'asset', false],
         ['11301001', 'Inventory / Stock', 'مخزون', 'asset', true],
         ['114', 'Tax Receivables', 'ضرائب مدينة', 'asset', false],
         ['11401', 'VAT Recoverable (input)', 'ض.ق.م قابلة للخصم', 'asset', false],
         ['11401001', 'VAT Recoverable', 'ض.ق.م مدخلات', 'asset', true],
+        ['115', 'Prepaid Expenses', 'المصروفات المدفوعة مقدماً', 'asset', false],
+        ['11501', 'Prepaid Expenses', 'مصروفات مدفوعة مقدماً', 'asset', false],
+        ['11501001', 'Prepaid Expenses', 'مصروفات مدفوعة مقدماً', 'asset', true],
+        // Eltizam (operator) ↔ Jawad (owner) and any affiliate settlements.
+        ['116', 'Due from Related Parties', 'المستحق من أطراف ذات علاقة', 'asset', false],
+        ['11601', 'Due from Related Parties', 'المستحق من أطراف ذات علاقة', 'asset', false],
+        ['11601001', 'Due from Related Parties', 'المستحق من أطراف ذات علاقة', 'asset', true],
         ['12', 'Non-current Assets', 'الأصول غير المتداولة', 'asset', false],
         ['121', 'Fixed Assets', 'الأصول الثابتة', 'asset', false],
         ['12101', 'Furniture & Equipment', 'أثاث ومعدات', 'asset', false],
@@ -55,6 +70,9 @@ class ChartOfAccountsSeeder extends Seeder
         ['211', 'Accounts Payable', 'الموردون والدائنون', 'liability', false],
         ['21101', 'Trade Payables — Vendors', 'ذمم الموردين', 'liability', false],
         ['21101001', 'Vendor Payables', 'موردون تجاريون', 'liability', true],
+        // The payable mirror of 11205 — a cheque issued to a vendor, not yet cleared.
+        ['21102', 'Notes Payable', 'أوراق الدفع', 'liability', false],
+        ['21102001', 'Notes Payable (Post-dated Cheques)', 'أوراق دفع (شيكات آجلة)', 'liability', true],
         ['212', 'Tenant Deposits Held', 'التأمينات المحتجزة', 'liability', false],
         ['21201', 'Tenant Deposits', 'تأمينات المستأجرين', 'liability', false],
         ['21201001', 'Tenant Deposits Held', 'تأمينات محتجزة', 'liability', true],
@@ -75,10 +93,20 @@ class ChartOfAccountsSeeder extends Seeder
         ['217', 'Inventory Received (Clearing)', 'مخزون وارد (تسوية)', 'liability', false],
         ['21701', 'Goods Received Not Invoiced', 'بضاعة واردة غير مفوترة', 'liability', false],
         ['21701001', 'Goods Received Not Invoiced (GRNI)', 'بضاعة واردة غير مفوترة', 'liability', true],
+        ['218', 'Due to Related Parties', 'المستحق لأطراف ذات علاقة', 'liability', false],
+        ['21801', 'Due to Related Parties', 'المستحق لأطراف ذات علاقة', 'liability', false],
+        ['21801001', 'Due to Related Parties', 'المستحق لأطراف ذات علاقة', 'liability', true],
         ['22', 'Non-current Liabilities', 'الخصوم غير المتداولة', 'liability', false],
         ['221', 'Long-term Loans', 'قروض طويلة الأجل', 'liability', false],
         ['22101', 'Long-term Loans', 'قروض طويلة الأجل', 'liability', false],
         ['22101001', 'Long-term Loans', 'قروض طويلة الأجل', 'liability', true],
+        // Provisions (222…) are NON-CASH accruals, so the cash-flow statement carves the
+        // 222 branch out of the "22 → financing" rule and treats it as an operating
+        // add-back (see LedgerReportService::cashFlow). Keep new provisions under 222.
+        ['222', 'Provisions', 'المخصصات', 'liability', false],
+        ['22201', 'Provisions', 'المخصصات', 'liability', false],
+        ['22201001', 'Provision — End of Service', 'مخصص ترك الخدمة', 'liability', true],
+        ['22201002', 'Provision — Staff Leave', 'مخصص إجازات', 'liability', true],
 
         // ===== 3 EQUITY — حقوق الملكية =====
         ['3', 'Equity', 'حقوق الملكية', 'equity', false],
@@ -138,11 +166,20 @@ class ChartOfAccountsSeeder extends Seeder
         ['51107001', 'Depreciation Expense', 'مصروف إهلاك', 'expense', true],
         ['51108', 'Inventory Adjustment', 'تسويات المخزون', 'expense', false],
         ['51108001', 'Inventory Adjustment', 'تسوية مخزون (عجز/زيادة)', 'expense', true],
+        // The P&L counterpart of the 11206001 allowance (Dr Bad Debt / Cr Allowance).
+        ['51109', 'Bad Debt Expense', 'مصروف الديون المشكوك فيها', 'expense', false],
+        ['51109001', 'Bad Debt Expense', 'مصروف ديون مشكوك فيها', 'expense', true],
         ['52', 'Other Expenses', 'مصروفات أخرى', 'expense', false],
         ['52101', 'Bank Charges', 'مصروفات بنكية', 'expense', false],
         ['52101001', 'Bank Charges', 'مصروفات بنكية', 'expense', true],
         ['52102', 'Loss on Disposal of Assets', 'خسائر بيع أصول ثابتة', 'expense', false],
         ['52102001', 'Loss on Disposal of Assets', 'خسائر بيع أصول ثابتة', 'expense', true],
+        // Split out from 52101 so the accountant can read a bank statement line-for-line:
+        // fees vs commission vs the interest cost of borrowing.
+        ['52103', 'Bank Commission', 'العمولات البنكية', 'expense', false],
+        ['52103001', 'Bank Commission', 'عمولات بنكية', 'expense', true],
+        ['52104', 'Interest Expense', 'الفوائد البنكية', 'expense', false],
+        ['52104001', 'Interest Expense', 'فوائد بنكية', 'expense', true],
     ];
 
     public function run(): void

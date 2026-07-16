@@ -83,21 +83,33 @@ entries) — the parents are just totalling headers.
 | 11102001 | Bank Account | حساب بنكي |
 | 11201001 | Tenant Receivables | عملاء تجاريون (المدينون) |
 | 11202001 | Other Debtors | مدينون متنوعون |
+| 11205001 | Notes Receivable (post-dated cheques) | أوراق قبض (شيكات آجلة) |
+| 11206001 | Allowance for Doubtful Debts | مخصص ديون مشكوك فيها |
 | 11401001 | VAT Recoverable (input) | ض.ق.م مدخلات (قابلة للخصم) |
+| 11501001 | Prepaid Expenses | مصروفات مدفوعة مقدماً |
+| 11601001 | Due from Related Parties | المستحق من أطراف ذات علاقة |
 | 12101001 | Furniture & Equipment | أثاث ومعدات |
 | 12201001 | Accumulated Depreciation | مجمع إهلاك الأصول الثابتة |
+
+> **11206001 (مخصص ديون مشكوك فيها)** is a *contra* account: it lives under the receivables
+> branch and carries a **credit** balance that nets down tenant AR, the same way 12201001
+> nets down fixed assets. Booked as Dr 51109001 / Cr 11206001.
 
 ### 2.2 Liabilities — الخصوم (2)
 | Code | English | العربية |
 |---|---|---|
 | 21101001 | Vendor Payables | موردون تجاريون (الدائنون) |
+| 21102001 | Notes Payable (post-dated cheques) | أوراق دفع (شيكات آجلة) |
 | 21201001 | Tenant Deposits Held | تأمينات محتجزة |
 | 21301001 | VAT Payable (output) | ض.ق.م مستحقة |
 | 21302001 | Salary Tax Payable | ضريبة كسب العمل مستحقة |
 | 21601001 | Social Insurance Payable | تأمينات اجتماعية مستحقة |
 | 21401001 | Accrued Expenses | مصروفات مستحقة الدفع |
 | 21501001 | Unearned / Deferred Revenue | إيرادات غير مكتسبة |
+| 21801001 | Due to Related Parties | المستحق لأطراف ذات علاقة |
 | 22101001 | Long-term Loans | قروض طويلة الأجل |
+| 22201001 | Provision — End of Service | مخصص ترك الخدمة |
+| 22201002 | Provision — Staff Leave | مخصص إجازات |
 
 ### 2.3 Equity — حقوق الملكية (3)
 | Code | English | العربية |
@@ -129,7 +141,10 @@ entries) — the parents are just totalling headers.
 | 51105001 | Marketing & Advertising | مصروف تسويق ودعاية |
 | 51106001 | General & Admin Expense | مصروفات إدارية وعمومية |
 | 51107001 | Depreciation Expense | مصروف إهلاك |
+| 51109001 | Bad Debt Expense | مصروف ديون مشكوك فيها |
 | 52101001 | Bank Charges | مصروفات بنكية |
+| 52103001 | Bank Commission | عمولات بنكية |
+| 52104001 | Interest Expense | فوائد بنكية |
 
 ---
 

@@ -5,11 +5,14 @@ namespace App\Filament\Admin\Resources\MaintenanceWorkOrders\Tables;
 use App\Filament\Admin\Resources\MaintenanceWorkOrders\MaintenanceWorkOrderResource;
 use App\Filament\Admin\Resources\MaintenanceWorkOrders\Schemas\CorrectiveWorkOrderForm;
 use App\Models\MaintenanceWorkOrder;
+use App\Models\VendorBill;
+use App\Services\ApplySlaPenaltyService;
 use App\Services\AssessSlaPenaltyService;
 use App\Services\MaintenanceWorkOrderService;
 use App\Services\RaiseCorrectiveMaintenanceService;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
@@ -225,6 +228,55 @@ class MaintenanceWorkOrdersTable
                             ->body($followUp->reference)
                             ->success()
                             ->send();
+                    }),
+                // FR-CM-08 (money) — deduct the penalty from what the vendor is owed.
+                // Only offers bills that can actually absorb it: same vendor, postable, and
+                // a balance at least the penalty, so the service's guards are a backstop
+                // rather than the way the user finds out.
+                Action::make('charge_penalty')
+                    ->label(__('admin.preventive_maintenance.penalty.charge'))
+                    ->icon('heroicon-o-banknotes')
+                    ->color('danger')
+                    ->modalDescription(__('admin.preventive_maintenance.penalty.charge_hint'))
+                    ->visible(fn (MaintenanceWorkOrder $record) => $record->penalty?->isChargeable() === true
+                        && MaintenanceWorkOrderResource::canEdit($record))
+                    ->authorize(fn (MaintenanceWorkOrder $record) => MaintenanceWorkOrderResource::canEdit($record))
+                    ->schema(fn (MaintenanceWorkOrder $record) => [
+                        Select::make('vendor_bill_id')
+                            ->label(__('admin.preventive_maintenance.penalty.bill'))
+                            ->options(fn () => VendorBill::query()
+                                ->where('vendor_id', $record->vendor_id)
+                                ->whereNotIn('status', ['draft', 'cancelled'])
+                                ->where('balance', '>=', $record->penalty?->amount ?? 0)
+                                ->orderByDesc('bill_date')
+                                ->get()
+                                ->mapWithKeys(fn (VendorBill $b) => [
+                                    $b->id => $b->number.' — '.number_format((float) $b->balance, 2).' EGP',
+                                ])
+                                ->all())
+                            ->placeholder(__('admin.preventive_maintenance.penalty.no_eligible_bill'))
+                            ->required()
+                            ->searchable()
+                            ->native(false),
+                    ])
+                    ->action(function (MaintenanceWorkOrder $record, array $data): void {
+                        abort_unless(MaintenanceWorkOrderResource::canEdit($record), 403);
+
+                        $bill = VendorBill::find($data['vendor_bill_id']);
+
+                        if ($record->penalty === null || $bill === null) {
+                            return;
+                        }
+
+                        try {
+                            app(ApplySlaPenaltyService::class)->toBill($record->penalty, $bill);
+                        } catch (\DomainException $e) {
+                            Notification::make()->title($e->getMessage())->danger()->send();
+
+                            return;
+                        }
+
+                        Notification::make()->title(__('admin.preventive_maintenance.penalty.charged_notice'))->success()->send();
                     }),
                 // FR-CM-08 — an operator decides not to charge it (the vendor called ahead,
                 // the part was on back-order, the breach was the mall's fault). Deliberately

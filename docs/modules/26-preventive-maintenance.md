@@ -284,6 +284,23 @@ progress badge.
    duration"* — never on what basis. The three plausible readings (a flat fee, a per-day accrual, a
    share of the job's value) behave differently enough that guessing one and being wrong is a
    rewrite, not a tweak — so all three are supported and the contract picks.
+7h. **A charged penalty is an AP offset, not a line on the bill** (FR-CM-08, money half).
+   `vendor_bills` has no line items and `balance` is DERIVED by `VendorBill::recompute()` — the
+   single source of truth for AP settlement, mirroring the Invoice AR invariant. So a penalty is a
+   second offset that recompute() folds in, exactly as `credit_applied_amount` does for tenants.
+   Nothing else writes `balance`. Only `applied` counts: `final` is assessed-and-owed, not deducted.
+   - A penalty may **never exceed what the bill still owes** — AP would go negative, which is a
+     receivable wearing a payable's clothes. Split it across bills instead.
+   - **GL: `Dr Accounts Payable / Cr the same expense the bill debited`** — a cost reduction, not
+     income, because money from a supplier adjusts the price paid to them unless it buys something
+     distinct. The penalty follows the cost. **No VAT line**: liquidated damages are compensation,
+     not a supply. Both are ⚠️ recorded in `docs/BUSINESS-RULES.md` for accountant sign-off.
+   - ⚠️ **CAM does not follow automatically.** `CamExpensePool.total_actual_expense` is typed in by
+     an operator, not derived from the GL — so whoever records the year's actual CAM spend must use
+     the figure **net of penalties**, or tenants over-pay CAM while the operator keeps the penalty.
+   - The AP **tie-out stays balanced**: the harness re-derives AP as the sum of bill balances, and
+     both that and the GL's payable move by the same amount. Proven in the scenario test, because a
+     phantom discrepancy at every monthly close would be worse than the feature.
 7g. **A penalty is re-assessed, not computed once.** A per-day penalty grows while the job stays
    late. The obvious key — `sla_breach_notified_at` — is a *once-per-record* stamp for the alert,
    and would either charge an accruing penalty once or re-charge it hourly. So there is **one
@@ -353,7 +370,7 @@ progress badge.
 | **6 — Corrective maintenance core (FR-CM-01/02/03/04/14/15)** | `work_order_type` ppm\|cm, CM raised from a failed check (one per check), internal/external as a real XOR, technician-or-vendor assignment, required description, `CM-` references, follow-up chains that never reopen the original | ✅ shipped |
 | **7 — CM SLA + breach detection (FR-CM-05/06/07 + FR-CM-08 detection)** | `sla_policies` per property × priority with a settings/config fallback chain, 4 priority tiers, the clock starting on **acceptance**, the hourly breach scan + bell alert, an SLA-target column and breached filter on the list | ✅ shipped |
 | **7b — SLA penalty assessment (FR-CM-08)** | penalty terms per vendor contract (**all three bases** — flat, per-day accrual, %-of-job-value — so the client's answer is configuration rather than a rewrite), one re-assessed penalty row per job, freeze on closure, waive with a reason, `job_value` for the percent basis, penalty column + waive action | ✅ shipped |
-| **7c — Charging the penalty to the vendor** | applying a `final` penalty against the vendor's bill (an AP reduction) + GL. **Deliberately not built yet**: `vendor_bills` has no line items and `balance` is derived as `total − paid_amount`, so this is a money-invariant change of the same weight as `Invoice::recomputeTotals`, and it needs an account-mapping decision (is a penalty income, or a cost reduction?) that belongs in `docs/BUSINESS-RULES.md` with accountant sign-off — not a guess | ⬜ needs sign-off |
+| **7c — Charging the penalty to the vendor (FR-CM-08 money)** | `vendor_bills.penalty_applied_amount` folded into `VendorBill::recompute()` (the AP single-source-of-truth, exactly as `credit_applied_amount` works on the tenant side), an apply/detach service with a cap so AP never goes negative, `MaintenancePenaltyJournalizer` posting **Dr AP / Cr the same expense the bill charged**, and a "charge to a bill" action that only offers bills able to absorb it. AP tie-out proven to stay balanced. ⚠️ The **treatment** (cost reduction, no VAT) and the **CAM consequence** are recorded in `docs/BUSINESS-RULES.md` and still need accountant sign-off | ✅ shipped, pending sign-off |
 | **8 — CM parts + cost (FR-CM-09..13)** | parts from inventory vs bought outside + which, manager approval for an internal draw with the approver set by part value (needs the generic approval engine — nothing like it exists in the codebase), fault attribution → who bears the cost, mall-vs-tenant recharge to an invoice | ⬜ planned |
 
 ---

@@ -93,6 +93,22 @@ The master list of accounts, as a tree (the accountant's Excel turned into a tab
 `11101` → `11101001`. Parents are *summary* accounts (no postings); the deepest
 leaves are *posting* accounts.
 
+**Adding accounts — the two traps.** The chart is a flat list in the seeder whose tree
+and type are *derived*, so a hand-added row can go wrong quietly. Both are covered by
+`tests/Feature/Accounting/ChartOfAccountsConformanceTest.php`:
+1. **The cash-flow statement classifies by code range**, so *where you number an account
+   decides which section it lands in* — see §8. A non-cash accrual numbered under `22…`
+   would be reported as a financing inflow. Check the ranges below before picking a code.
+2. **`AccountMappingSeeder` silently skips** a role whose account code doesn't exist
+   (rather than seeding a dangling mapping), so a typo'd code turns into a posting recipe
+   that fails at *runtime*, not at seed time.
+
+**Contra accounts** carry the type of what they offset, not their balance's side — the
+allowance for doubtful debts (`11206001`) is typed `asset` and sits under the AR branch
+carrying a credit balance, exactly as accumulated depreciation (`12201001`) does under
+fixed assets. `normal_balance` stays derived from `type`; it does not describe the balance
+a contra account actually holds.
+
 ### `fiscal_years` — السنة المالية
 | Column | Meaning |
 |--------|---------|
@@ -255,8 +271,17 @@ Income statement & balance sheet pages land in **Phase 2**.
   five natures and every account the existing money paths need (cash, banks, tenant
   receivables, VAT payable, deposits held, the revenue families, the expense families,
   capital, retained earnings, sales returns). The accountant can rename/extend freely.
+  Accounts the *accountant* posts by hand (no automated recipe, so deliberately **no**
+  mapping role): notes receivable/payable — post-dated cheques, `11205001` / `21102001`
+  (شيكات آجلة — how Egyptian tenants commonly settle) · prepaid expenses `11501001` ·
+  due from/to related parties `11601001` / `21801001` (Eltizam ↔ Jawad) · allowance for
+  doubtful debts `11206001` + bad debt expense `51109001` · provisions `22201001`
+  (end-of-service) / `22201002` (staff leave), charged to salaries `51101001` · bank
+  commission `52103001` and interest `52104001`, split out from bank charges `52101001`.
 - **`AccountMappingSeeder`** — default `account_mappings` for every semantic role used by
-  the Phase-1 posting recipes.
+  the Phase-1 posting recipes. A role is only worth adding once a recipe *consumes* it —
+  `AccountResolver` throws on a missing role, so an unused role is dead config that
+  cannot fail loudly.
 - Current **fiscal year + 12 periods** are opened so manual entries work immediately.
 
 Wired into `DatabaseSeeder` *before* `DemoSeeder` (reference data, all environments).
@@ -290,7 +315,7 @@ New permission modules in `RolesPermissionsSeeder::PERMISSIONS`:
 | General Ledger / account statement | دفتر الأستاذ / كشف حساب | per account: every line, running balance |
 | Income Statement (P&L) | قائمة الدخل | Σ revenue − Σ expense = net profit (contra-revenue nets in) |
 | Balance Sheet | قائمة المركز المالي | Assets = Liabilities + Equity + net-income-for-period (until year-end close, Phase 4) |
-| Cash-Flow Statement | قائمة التدفقات النقدية | Indirect method: net income ± working-capital changes (operating) + investing + financing. **Reconcile-by-construction:** by double-entry, ΔCash ≡ −Σ(non-cash account movements), so the three sections are classified by code range (111 = cash · 121 = gross non-current assets → investing · 122 = accumulated depreciation → operating add-back · 22 + equity → financing · else operating) and sum to the actual cash movement (`reconciled` = a double-entry integrity guard). Closing entries excluded. |
+| Cash-Flow Statement | قائمة التدفقات النقدية | Indirect method: net income ± working-capital changes (operating) + investing + financing. **Reconcile-by-construction:** by double-entry, ΔCash ≡ −Σ(non-cash account movements), so the three sections are classified by code range (111 = cash · 121 = gross non-current assets → investing · 122 = accumulated depreciation → operating add-back · **222 = provisions → operating add-back** · 22 + equity → financing · else operating) and sum to the actual cash movement (`reconciled` = a double-entry integrity guard). Closing entries excluded. |
 
 Each runs **per property** (filter `asset_id`) or **consolidated** (no filter), over a
 date range. All four export to bilingual, RTL-aware **PDF**.
@@ -319,6 +344,14 @@ date range. All four export to bilingual, RTL-aware **PDF**.
   coerces a blank/cleared field to 0 (the `meter_readings.cost` bug class).
 - **Rounding** — validate balance on 2dp-rounded sums; a 1-cent rounding line may be
   needed on machine-generated entries (handled in the journalizers, Phase 1).
+- **A new account's CODE decides its cash-flow section.** `cashFlow()` classifies by code
+  prefix, not by any per-account flag, so numbering an account into the wrong range
+  silently mis-states the statement — and `reconciled` will still be **true**, because it
+  only asserts the double-entry identity (the three sections summing to ΔCash), never that
+  a given account landed in the right section. The two carve-outs exist for exactly this:
+  accumulated depreciation (`122…`) and provisions (`222…`) are non-cash, so both are
+  operating add-backs rather than, respectively, an investing flow and a financing inflow.
+  Number new non-cash accruals under `222…`; real funding movement (loans) stays at `221…`.
 - **Deleting a chart account that has postings** — blocked (FK `restrictOnDelete`); mark
   it inactive instead.
 - **Changing a mapping mid-life** — only affects *future* postings; historical entries
@@ -333,6 +366,11 @@ date range. All four export to bilingual, RTL-aware **PDF**.
 ## 10. Tests & related modules
 
 Tests (`tests/Feature/`):
+- `Accounting/ChartOfAccountsConformanceTest` — the gate on the starter chart: every
+  non-root account parents to a real prefix of its own code (catches an orphaning typo),
+  types match leading digits and `normal_balance` follows `type`, no summary account is
+  postable, reseeding is idempotent, and **every** `AccountMappingSeeder` role resolves to
+  a postable+active account (catches the silent-skip → runtime-failure class).
 - `Services/JournalPostingServiceTest` — balanced enforced, unbalanced rejected, closed
   period rejected, non-postable account rejected, one-sided lines, negatives rejected,
   number generation, idempotent per source, `void` creates a balanced reversal, and

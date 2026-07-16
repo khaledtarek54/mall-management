@@ -13,6 +13,7 @@ use App\Models\Expense;
 use App\Models\FixedAsset;
 use App\Models\FixedAssetDisposal;
 use App\Models\Invoice;
+use App\Models\MaintenancePenalty;
 use App\Models\JournalEntry;
 use App\Models\MarketingSpend;
 use App\Models\Payment;
@@ -31,6 +32,7 @@ use App\Services\Accounting\Journalizers\ExpenseJournalizer;
 use App\Services\Accounting\Journalizers\FixedAssetAcquisitionJournalizer;
 use App\Services\Accounting\Journalizers\FixedAssetDisposalJournalizer;
 use App\Services\Accounting\Journalizers\InvoiceJournalizer;
+use App\Services\Accounting\Journalizers\MaintenancePenaltyJournalizer;
 use App\Services\Accounting\Journalizers\InventoryMovementJournalizer;
 use App\Services\Accounting\Journalizers\Journalizer;
 use App\Services\Accounting\Journalizers\MarketingSpendJournalizer;
@@ -213,6 +215,7 @@ class LedgerPoster
             CreditNote::class => new CreditNoteJournalizer($this->accounts),
             VendorBill::class => new VendorBillJournalizer($this->accounts),
             VendorBillPayment::class => new VendorBillPaymentJournalizer($this->accounts),
+            MaintenancePenalty::class => new MaintenancePenaltyJournalizer($this->accounts),
             Expense::class => new ExpenseJournalizer($this->accounts),
             Payroll::class => new PayrollJournalizer($this->accounts),
             DepositTransaction::class => new DepositTransactionJournalizer($this->accounts),

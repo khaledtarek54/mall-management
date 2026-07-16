@@ -36,6 +36,7 @@ class VendorBill extends Model
         'vat_amount',
         'total',
         'paid_amount',
+        'penalty_applied_amount',
         'balance',
         'currency',
         'approved_by_user_id',
@@ -51,13 +52,14 @@ class VendorBill extends Model
         'vat_amount' => 'decimal:2',
         'total' => 'decimal:2',
         'paid_amount' => 'decimal:2',
+        'penalty_applied_amount' => 'decimal:2',
         'balance' => 'decimal:2',
     ];
 
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['number', 'status', 'vendor_id', 'asset_id', 'category', 'total', 'paid_amount', 'balance'])
+            ->logOnly(['number', 'status', 'vendor_id', 'asset_id', 'category', 'total', 'paid_amount', 'penalty_applied_amount', 'balance'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('vendor_bill');
@@ -101,8 +103,15 @@ class VendorBill extends Model
         return ! in_array($this->status, ['draft', 'cancelled'], true);
     }
 
+    /** FR-CM-08 — SLA penalties charged against this bill. */
+    public function penalties(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(MaintenancePenalty::class, 'vendor_bill_id');
+    }
+
     /**
-     * Re-derive paid_amount / balance / status from the bill's payments. The
+     * Re-derive paid_amount / penalty_applied_amount / balance / status from the bill's
+     * payments and applied penalties. The
      * single source of truth for AP settlement — nothing else writes these.
      */
     public function recompute(): void
@@ -110,17 +119,28 @@ class VendorBill extends Model
         $paid = round((float) $this->payments()->sum('amount'), 2);
         $this->paid_amount = $paid;
 
+        // FR-CM-08 — an SLA penalty reduces what is payable, exactly as a credit note does
+        // on the tenant side. It cannot be a line on the bill (there are none), so it is a
+        // second derived offset, recomputed here rather than written anywhere else.
+        // Only `applied` counts: `final` is assessed-and-owed, not yet deducted.
+        $penalties = round((float) $this->penalties()->where('status', 'applied')->sum('amount'), 2);
+        $this->penalty_applied_amount = $penalties;
+
         if ($this->status === 'cancelled') {
             // A cancelled bill owes nothing — zero it HERE (the single source of
             // truth) so a later recompute can never resurrect a phantom payable.
             $this->balance = 0;
         } else {
-            $this->balance = max(0, round((float) $this->total - $paid, 2));
+            $this->balance = max(0, round((float) $this->total - $paid - $penalties, 2));
 
             // Never override the manual draft state.
             if ($this->status !== 'draft') {
                 $this->status = match (true) {
-                    $this->balance <= 0 && $paid > 0 => 'paid',
+                    // A penalty can settle a bill on its own — the payable is extinguished
+                    // even though no cash moved, so `paid` (nothing further owed) is the
+                    // honest state. `$paid > 0` alone would leave it stuck on `approved`
+                    // with a zero balance.
+                    $this->balance <= 0 && ($paid > 0 || $penalties > 0) => 'paid',
                     $paid > 0 => 'partially_paid',
                     default => 'approved',
                 };
