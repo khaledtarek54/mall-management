@@ -100,22 +100,47 @@ class AssessSlaPenaltyService
      * An operator decides not to charge it — the vendor called ahead, the part was on
      * back-order, the breach was the mall's fault. Terminal: the scan never revives it.
      *
+     * **Waiving an APPLIED penalty must un-deduct it first.** Waiving is "we are not charging
+     * this after all", so the vendor's bill has to go back to owing the full amount. This
+     * used to only flip the status: `vendor_bill_id` stayed set and the bill was never
+     * recomputed, so its balance kept the deduction — while the real-time GL sync saw the
+     * journalizer return null (it only posts an APPLIED penalty) and correctly VOIDED the
+     * entry, restoring AP. The bill said 9,000 and the ledger said 10,000: the AP tie-out
+     * broke by exactly the penalty and the vendor was underpaid. `detach()` had it right all
+     * along — this is the path that forgot (fixed 2026-07-16).
+     *
      * @throws DomainException if already waived
      */
     public function waive(MaintenancePenalty $penalty, string $reason, ?int $actorId = null): MaintenancePenalty
     {
-        if ($penalty->isWaived()) {
-            throw new DomainException(__('admin.preventive_maintenance.errors.penalty_already_waived'));
-        }
+        return DB::transaction(function () use ($penalty, $reason, $actorId) {
+            /** @var MaintenancePenalty $locked */
+            $locked = MaintenancePenalty::whereKey($penalty->getKey())->lockForUpdate()->firstOrFail();
 
-        $penalty->update([
-            'status' => MaintenancePenalty::STATUS_WAIVED,
-            'waived_at' => now(),
-            'waived_by_user_id' => $actorId ?? auth()->id(),
-            'waive_reason' => $reason,
-        ]);
+            if ($locked->isWaived()) {
+                throw new DomainException(__('admin.preventive_maintenance.errors.penalty_already_waived'));
+            }
 
-        return $penalty->refresh();
+            // Captured before the update, because clearing vendor_bill_id loses the link.
+            $bill = $locked->isApplied() ? $locked->bill : null;
+
+            $locked->update([
+                'status' => MaintenancePenalty::STATUS_WAIVED,
+                // Release the bill: a waived penalty is not deducted from anything, and
+                // leaving the FK set would keep it in VendorBill::recompute()'s sum.
+                'vendor_bill_id' => null,
+                'applied_at' => null,
+                'waived_at' => now(),
+                'waived_by_user_id' => $actorId ?? auth()->id(),
+                'waive_reason' => $reason,
+            ]);
+
+            // recompute() is the ONLY thing allowed to write a bill's balance — mirrors
+            // detach(). Restores the amount the waiver just gave back to the vendor.
+            $bill?->refresh()->recompute();
+
+            return $locked->refresh();
+        });
     }
 
     /**

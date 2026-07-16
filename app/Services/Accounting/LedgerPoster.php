@@ -41,6 +41,7 @@ use App\Services\Accounting\Journalizers\PayrollJournalizer;
 use App\Services\Accounting\Journalizers\VendorBillJournalizer;
 use App\Services\Accounting\Journalizers\VendorBillPaymentJournalizer;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -255,7 +256,32 @@ class LedgerPoster
             return false;
         }
 
+        // So is the entry DATE — it decides which accounting period the entry lands in,
+        // which is the whole point of a period. Without this, a date-only correction (an
+        // operator fixing a typo'd MarketingSpend.spent_on or FixedAsset.acquisition_date —
+        // both deliberately left editable) produced an identical line signature, matched
+        // stale, and no-op'd: the entry kept the WRONG period forever. One month's P&L
+        // overstates and another understates, by construction, with no control account
+        // moving — so AR/AP tie-out cannot see it, and because wouldChange() reuses this
+        // method, neither the close gate nor `billing:reconcile --deep` could either.
+        // Normalised on both sides: journalizers emit either a Carbon or a Y-m-d string.
+        if (self::dateKey($entry->entry_date) !== self::dateKey($payload['entry_date'] ?? null)) {
+            return false;
+        }
+
         return $signature($existing) === $signature($payload['lines']);
+    }
+
+    /** Normalise a Carbon|string|null date to a comparable Y-m-d, so the source's spelling can't matter. */
+    private static function dateKey(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        return $value instanceof \DateTimeInterface
+            ? $value->format('Y-m-d')
+            : Carbon::parse((string) $value)->format('Y-m-d');
     }
 
     protected function journalizerFor(Model $source): ?Journalizer

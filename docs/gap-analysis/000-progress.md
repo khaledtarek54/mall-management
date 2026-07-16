@@ -3,7 +3,36 @@
 > Running log. One entry per module + pre-flight. Most recent at the bottom.
 > See [000-plan.md](000-plan.md) for the plan this log tracks.
 
-## Status snapshot
+## Round 2 — modules 21–28 (2026-07-16)
+
+Round 1 (2026-05-31 → 06-25) covered **modules 01–20**. Modules **21–28** — the general ledger and
+everything that posts money to it — were built afterwards and had **never been audited**. That blind
+spot was the single largest known risk in the project; this round closed it.
+
+**It found six 🔴 money bugs in modules nobody had ever looked at.** Three are fixed
+(`GapAnalysisRound2FixesTest`, each verified to fail without its fix); the rest are catalogued as
+F-83…F-99 / D-66…D-89 per the project's "fix small, batch large" policy.
+
+| # | Module | Status | Doc | Headline |
+|---|---|---|---|---|
+| 21 | General Ledger | 🟡 Yellow | [21-general-ledger.md](21-general-ledger.md) | **F-79 FIXED** — `matches()` ignored `entry_date`, so a date-only edit stranded the entry in the wrong period, undetectably (the close gate and `--deep` reconcile were blind **by construction**, since `wouldChange()` reuses `matches()`). The sibling of the MaintenancePenalty bug that survived the registry fix: not a missing *source*, but a source **field the reconciler never compared**. |
+| 22 | Inventory & Stock | 🟡 Yellow | [22-inventory.md](22-inventory.md) | **F-83** a `unit_cost = 0` item consumes stock and posts **nothing** to the GL (Inventory inflates forever) *and* collapses the approval ladder to tier_1. **F-84** a negative `adjustment` has no floor → negative on-hand + a credit balance on an asset account. Both reproduced live. |
+| 23 | Fixed Assets | 🟡 Yellow | [23-fixed-assets.md](23-fixed-assets.md) | **F-86** editing `acquisition_cost` below posted accumulated → **negative NBV, depreciation stops forever**. The clamp only protects the forward run, never a retroactive re-cost — which the model explicitly supports. |
+| 24 | HR / Payroll | 🟡 Yellow | [24-hr-employees.md](24-hr-employees.md) | **F-90b** a payroll *line*'s net can go negative (the guard checks only the header) → a payslip printing **Net −1,000** on a frozen run. **F-91** a mis-keyed repayment is permanently uncorrectable. |
+| 25 | Treasury / Custody | 🔴 **Red** | [25-treasury-custody.md](25-treasury-custody.md) | **F-93** a settlement dated into a closed period **silently diverges the GL from outstanding** — and back-dating across a close is a عهدة's *normal* workflow, not an edge case. The queued job swallows the throw; the operator is told it succeeded. **F-94** no correction path exists for any settlement — the only other money document in Atriom without one. |
+| 26 | Facility Maintenance | 🔴 → 🟡 | [26-preventive-maintenance.md](26-preventive-maintenance.md) | **F-77 FIXED** a penalty could be charged to **another property's** vendor bill (wrong mall absorbs it; cross-property read leak in the picker). **F-78 FIXED** waiving an *applied* penalty never recomputed the bill → bills say 9,000, GL says 10,000, **AP tie-out breaks and the vendor is underpaid**. |
+| 27 | Announcements | 🟡 Yellow | [27-announcements.md](27-announcements.md) | **No defect found** — every leading hypothesis checked and disproved. The finding is coverage: 8 tests, and business rule 6 (partial-blast `sent_at`) has none. Compose-is-send: a wrong blast cannot be recalled. |
+| 28 | Approvals | 🟡 Yellow | [28-approvals.md](28-approvals.md) | **F-99** the module whose job is to fail closed **fails open on an overlap** — it picks the *lowest* covering band, not the strictest, so a reasonable-looking ladder edit lets tier_2 approve a tier_3 amount. Fix before the ladder gets an admin UI. |
+
+**The pattern across all eight:** every 🔴 is a *sibling of a guard that already exists elsewhere*.
+The cross-property penalty is the stock-draw guard, unwritten. The 0-cost consumption is the
+0-cost receipt guard, unwritten. `waive()` is `detach()`, minus the recompute. The lesson is less
+"these modules are bad" than **"a guard written once tends not to get written twice"** — which is an
+argument for conformance gates over vigilance.
+
+---
+
+## Status snapshot — round 1 (modules 01–20)
 
 | # | Module | Status | Doc | Notes |
 |---|---|---|---|---|

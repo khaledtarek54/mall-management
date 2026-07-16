@@ -10,6 +10,8 @@ use App\Filament\Admin\Resources\InventoryItems\Pages\ListInventoryItems;
 use App\Filament\Admin\Resources\InventoryItems\Schemas\InventoryItemForm;
 use App\Filament\Admin\Resources\InventoryItems\Tables\InventoryItemsTable;
 use App\Models\InventoryItem;
+use App\Models\Warehouse;
+use App\Support\TenantScope;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -80,10 +82,38 @@ class InventoryItemResource extends Resource
         ];
     }
 
+    /**
+     * The properties this view is about — the selected one, or every one the user may see.
+     * `null` means genuinely unrestricted (a portfolio role in All-Properties mode).
+     *
+     * @return array<int>|null
+     */
+    public static function scopedAssetIds(): ?array
+    {
+        return TenantScope::reportAssetIds(TenantScope::currentAssetId());
+    }
+
     public static function getEloquentQuery(): Builder
     {
-        // Derived on-hand (across all warehouses) in one subquery — no per-row N+1.
-        return parent::getEloquentQuery()->withSum('movements as on_hand', 'quantity');
+        // Derived on-hand in one subquery — no per-row N+1.
+        //
+        // Scoped to the properties in view. `inventory_items` is a deliberately SHARED catalog
+        // (a pump seal is the same part everywhere), so an unscoped sum answers the wrong
+        // question: "how much exists anywhere", when FR-INV-01 asks to "track spare parts stock
+        // levels **per mall/location**".
+        //
+        // It was unscoped, and it was a property leak as well as a wrong number — proven: a
+        // manager restricted to mall A saw on_hand = 100 for an item mall A had NONE of, because
+        // mall B held 100, and the reorder colour therefore painted it green ("well stocked") for
+        // the one mall that was actually out. Any low-stock alert built on that figure would have
+        // inherited the lie (FR-INV-03).
+        $assetIds = static::scopedAssetIds();
+
+        return parent::getEloquentQuery()->withSum([
+            'movements as on_hand' => fn ($query) => $assetIds === null
+                ? $query
+                : $query->whereIn('warehouse_id', Warehouse::query()->whereIn('asset_id', $assetIds)->select('id')),
+        ], 'quantity');
     }
 
     public static function getGloballySearchableAttributes(): array

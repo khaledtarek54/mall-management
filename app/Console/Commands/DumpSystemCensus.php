@@ -230,11 +230,14 @@ class DumpSystemCensus extends Command
         $lines[] = '';
         $lines[] = '### Gap-analysis coverage';
         $lines[] = '';
-        $lines[] = "**{$m['gap_analysed']} of {$m['documented']}** modules have ever been gap-analysed. `docs/gap-analysis/` was written 2026-06-25 and stops at module 20, so everything built since — including every module that posts to the general ledger — has a module doc but has never been audited by that lens.";
+        $lines[] = "**{$m['gap_analysed']} of {$m['documented']}** modules have ever been gap-analysed (`docs/gap-analysis/NN-*.md`). A module with a doc but no gap analysis has been *described*, never *audited* — and round 2 found six 🔴 money bugs in the eight modules that were in exactly that state.";
 
         if ($m['never_gap_analysed']) {
             $lines[] = '';
-            $lines[] = '**Never gap-analysed:** '.implode(' · ', $m['never_gap_analysed']);
+            $lines[] = '**Never gap-analysed:** '.implode(' · ', $m['never_gap_analysed']).' — see [gap-analysis/000-progress.md](gap-analysis/000-progress.md).';
+        } else {
+            $lines[] = '';
+            $lines[] = '**Every module has been audited at least once.**';
         }
 
         return implode("\n", $lines)."\n";

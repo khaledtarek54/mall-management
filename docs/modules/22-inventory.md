@@ -61,6 +61,26 @@ Three tables. Money is `decimal(14,2)`; quantities are `decimal(14,3)` (fraction
 
 ---
 
+### On-hand is scoped to the properties in view (FR-INV-01)
+
+FR-INV-01 asks the system to "track spare parts stock levels **per mall/location**". The item
+catalog is deliberately SHARED — a pump seal is the same part everywhere — so nothing scopes it by
+default, and the derived `on_hand` column summed **every warehouse in the portfolio**.
+
+That was a property **leak** and a **wrong number** at once. Proven: a manager restricted to mall A
+read `on_hand = 100` for an item mall A had *none* of, because mall B held 100 — and the reorder
+colour therefore painted it **green, "well stocked", for the one mall that had run out**.
+
+`InventoryItemResource::getEloquentQuery()` now constrains the sum to
+`TenantScope::reportAssetIds(TenantScope::currentAssetId())`: the selected property, or the user's
+visible set, or genuinely everything for a portfolio role in All-Properties mode (scoping must not
+become under-reporting — a portfolio question deserves a portfolio answer).
+
+> ⚠️ **This had to land before FR-INV-03's low-stock alerts, not after.** An alert built on the old
+> figure inherits the lie exactly where it hurts: the mall that is out is the one it stays quiet
+> about. Pinned by `tests/Feature/Regression/InventoryOnHandScopeTest.php`; reverting the scope
+> fails three of its five tests.
+
 ## 2. Business rules & invariants
 
 1. **On-hand is derived, never cached.** On-hand = `SUM(quantity)` of an item's

@@ -312,8 +312,15 @@ class MaintenanceWorkOrdersTable
                     ->schema(fn (MaintenanceWorkOrder $record) => [
                         Select::make('vendor_bill_id')
                             ->label(__('admin.preventive_maintenance.penalty.bill'))
+                            // Scoped to the work order's OWN property, not just the vendor.
+                            // A vendor serves several malls, so without this the dropdown
+                            // both leaked other properties' bill numbers + balances to a
+                            // user scoped to this one, and let a penalty earned here be
+                            // charged there (ApplySlaPenaltyService re-checks server-side —
+                            // this list is UX, that is the gate).
                             ->options(fn () => VendorBill::query()
                                 ->where('vendor_id', $record->vendor_id)
+                                ->where('asset_id', $record->asset_id)
                                 ->whereNotIn('status', ['draft', 'cancelled'])
                                 ->where('balance', '>=', $record->penalty?->amount ?? 0)
                                 ->orderByDesc('bill_date')

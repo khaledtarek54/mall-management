@@ -13,17 +13,10 @@
         "migrations": 112
     },
     "modules": {
-        "documented": 28,
-        "gap_analysed": 20,
+        "documented": 29,
+        "gap_analysed": 28,
         "never_gap_analysed": [
-            "21 — General Ledger",
-            "22 — Inventory",
-            "23 — Fixed Assets",
-            "24 — Hr Employees",
-            "25 — Treasury Custody",
-            "26 — Preventive Maintenance",
-            "27 — Announcements",
-            "28 — Approvals"
+            "29 — Procurement"
         ],
         "list": [
             {
@@ -171,55 +164,62 @@
                 "slug": "general-ledger",
                 "title": "General Ledger",
                 "doc": "docs/modules/21-general-ledger.md",
-                "gap_analysed": false
+                "gap_analysed": true
             },
             {
                 "number": 22,
                 "slug": "inventory",
                 "title": "Inventory",
                 "doc": "docs/modules/22-inventory.md",
-                "gap_analysed": false
+                "gap_analysed": true
             },
             {
                 "number": 23,
                 "slug": "fixed-assets",
                 "title": "Fixed Assets",
                 "doc": "docs/modules/23-fixed-assets.md",
-                "gap_analysed": false
+                "gap_analysed": true
             },
             {
                 "number": 24,
                 "slug": "hr-employees",
                 "title": "Hr Employees",
                 "doc": "docs/modules/24-hr-employees.md",
-                "gap_analysed": false
+                "gap_analysed": true
             },
             {
                 "number": 25,
                 "slug": "treasury-custody",
                 "title": "Treasury Custody",
                 "doc": "docs/modules/25-treasury-custody.md",
-                "gap_analysed": false
+                "gap_analysed": true
             },
             {
                 "number": 26,
                 "slug": "preventive-maintenance",
                 "title": "Preventive Maintenance",
                 "doc": "docs/modules/26-preventive-maintenance.md",
-                "gap_analysed": false
+                "gap_analysed": true
             },
             {
                 "number": 27,
                 "slug": "announcements",
                 "title": "Announcements",
                 "doc": "docs/modules/27-announcements.md",
-                "gap_analysed": false
+                "gap_analysed": true
             },
             {
                 "number": 28,
                 "slug": "approvals",
                 "title": "Approvals",
                 "doc": "docs/modules/28-approvals.md",
+                "gap_analysed": true
+            },
+            {
+                "number": 29,
+                "slug": "procurement",
+                "title": "Procurement",
+                "doc": "docs/modules/29-procurement.md",
                 "gap_analysed": false
             }
         ]
@@ -257,9 +257,9 @@
         }
     },
     "tests": {
-        "files": 328,
+        "files": 330,
         "e2e_specs": 22,
         "scenarios": 67,
-        "regressions": 69
+        "regressions": 71
     }
 }

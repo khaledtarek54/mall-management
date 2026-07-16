@@ -104,6 +104,17 @@ class ApplySlaPenaltyService
             throw new DomainException(__('admin.preventive_maintenance.errors.penalty_wrong_vendor'));
         }
 
+        // ...nor from another PROPERTY's bill. A vendor commonly serves several malls, so
+        // vendor_id alone is not the same question as asset_id — that is exactly why this
+        // was missed. MaintenancePenaltyJournalizer dimensions the entry to `$bill->asset_id`
+        // ("the two must land in the same books to net off"), which is only true when the two
+        // properties agree: charging AAA's penalty to BBB's bill makes BBB absorb a recovery
+        // it never earned, and AAA never sees it. The exact sibling of the cross-property
+        // stock draw that WorkOrderPartService::assertWarehouseServesOrder() already blocks.
+        if ((int) $bill->asset_id !== (int) $penalty->asset_id) {
+            throw new DomainException(__('admin.preventive_maintenance.errors.penalty_wrong_property'));
+        }
+
         // A draft bill isn't on the books yet and a cancelled one owes nothing — deducting
         // from either would post a GL entry against a payable that does not exist.
         if (! $bill->isPostable()) {
