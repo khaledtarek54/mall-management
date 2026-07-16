@@ -62,10 +62,7 @@ Ordered by real risk, not by age.
 
 | Item | What & why | Owner | Effort |
 | --- | --- | --- | --- |
-| **Throttle `/admin` + `/portal` login** ⚠️ | **The sharpest live gap.** Neither panel stack has any `throttle:` (`AdminPanelProvider.php:122-133`, `PortalPanelProvider.php:59-70`) — unlimited password guessing against every staff and tenant account. `/pay/*` and the API *are* throttled, which creates a convincing illusion of coverage. Note `danharrin/livewire-rate-limiting` is **not** in `composer.json` (the old roadmap wrongly assumed it was installed). | 🧑‍💻 | M |
-| **Lease/Tenant media land on the `public` disk** ⚠️ | `Lease` and `Tenant` are `HasMedia` but register **no collection**, so uploads fall back to the medialibrary default disk `public` (no `config/media-library.php`, no `MEDIA_DISK`). **Signed contracts and tenant tax IDs sit at guessable, unauthenticated URLs** — directly contradicting the project's own rule at `TenantRequest.php:138-142`, which correctly pins `useDisk('local')`. | 🧑‍💻 | S |
-| **Ungated portal write actions** ⚠️ | `Portal/.../ViewMaintenanceRequest.php:29-58` (addComment) and `:60-76` (cancel) have **no `isAdmin()` check at all**; `ViewInvoice.php:35-87` (payNow/payDemo) are `visible()`-only, which is **not** a dispatch gate in Filament v4. Read-only `TenantUser`s can drive writes. `TenantUserGatingTest` only asserts `canCreate()` return values and never dispatches. Blast radius is within-tenant. | 🧑‍💻 | M |
-| **Role grants are unaudited** | `User::getActivitylogOptions()` exists but `logOnly(['name','email','email_verified_at'])` is column-only — roles are a pivot write (`UserForm.php:43-45`) with no `activity()` call. **Privilege escalation leaves no trail.** | 🧑‍💻 | S |
+| **Role grants are unaudited** ⚠️ | `User::getActivitylogOptions()` exists but `logOnly(['name','email','email_verified_at'])` is column-only — roles are a pivot write (`UserForm.php:43-45`) with no `activity()` call. **Privilege escalation leaves no trail.** | 🧑‍💻 | S |
 | **Failed-jobs + scheduler monitoring** | Prose only (`PRODUCTION-RUNBOOK.md:104`). No alert, dashboard, health script, or dead-cron detection. A silently-dead cron means tenants go unbilled and tax submissions are missed for days. Depends on the P0 logging row. | ⚙️ | S |
 | **Health check that checks something** | `bootstrap/app.php:13` `health: '/up'` is the stock default — no DB/queue/cache probe, no uptime monitor. A false 200 masks a DB outage. | ⚙️ | M |
 | **SLA scans emit nothing** | The other three batch runs log summaries (`MonthlyBillingService.php:120`, `LateFeeService.php:53`, `CamReconciliationService.php:167`); both SLA scans use `$this->info()` only (`ScanWorkOrderSlaBreachesCommand.php:76`, `ScanMaintenanceSlaBreachesCommand.php:87`) — under `schedule:run` that output goes nowhere. Now that penalties are real money, a silent scan is a money problem. | 🧑‍💻 | S |
@@ -160,13 +157,38 @@ Acting on the first one would actively reintroduce a bug.
   (`MallStats.php:60-62` now sums contractual rent from active leases), so the "Monthly
   Recurring Revenue" label is accurate. Relabelling to "Billed this month" would restore the
   bug it was meant to fix.
-- ❌ **"`danharrin/livewire-rate-limiting` is in composer but unused"** — it was never in
-  `composer.json`. The throttling work in §3 starts from zero.
+- ❌ **"`/admin` + `/portal` login are unthrottled"** — **false, and it was briefly the top row
+  of this file (2026-07-16).** Both panels throttle at **5 attempts / 60s per IP**:
+  `Filament\Auth\Pages\Login` uses `WithRateLimiting` and calls `rateLimit(5)` as the first
+  statement of `authenticate()`, and both panels use that page via `->login()`. The audit
+  that reported it grepped the panels' **route middleware** for `throttle:` — but the throttle
+  is in the Livewire component, not the route. Now pinned empirically by
+  `tests/Feature/Regression/PanelLoginThrottleTest.php` so nobody re-derives the false version.
+- ❌ **"`danharrin/livewire-rate-limiting` is in composer but unused"** — it *is* installed and
+  *is* used (see above). It's a transitive dependency of Filament, so it appears in
+  `composer.lock` but not in `composer.json`'s require block — which is what made two separate
+  audits, in opposite directions, both get this wrong.
 - ❌ **"`PaymentLinkFlowTest` is happy-path only"** — it already covers unknown-token,
   settled, and gateway-down.
 - ❌ **"`CreditNoteService` misses locked-declaration + resubmission edge cases"** — the
   locked-declaration path isn't on that service's surface (it's covered in
   `PercentageRentVoidLockedTest`), and "resubmission" has **zero hits** in `app/` or `tests/`.
+- ✅ **Fixed 2026-07-16 — `Lease`/`Tenant` media on the `public` disk.** Both models
+  implemented `HasMedia` but registered no collection, so `documents` inherited
+  medialibrary's `env('MEDIA_DISK', 'public')` default and every signed contract and tax
+  card was written to the webroot. Both now pin `useDisk('local')`; `Asset`'s logo/favicon
+  state `useDisk('public')` explicitly rather than relying on the same fail-open default.
+  Gated by `MediaPrivacyConformanceTest` (every collection must declare a disk; private
+  unless allowlisted as branding) + `PrivateDocumentStorageTest`.
+- ✅ **Fixed 2026-07-16 — ungated portal write actions.** `visible()` is **not** an
+  authorization gate: Filament's `mountAction()` checks `isDisabled()` and never
+  `isVisible()`, so a hidden action stays dispatchable. A read-only `TenantUser` could
+  cancel and comment on their company's requests (demonstrated, then fixed).
+  `addComment`/`cancel`/`payNow`/`payDemo`/`rate` now gate in **both** `visible()` and
+  `action()` via `abort_unless(Portal::isAdmin(), 403)` — the pattern `InvoicesTable`
+  already used. Guarded by `PortalReadOnlyDispatchGuardTest`, which dispatches through
+  `mountAction` because `->callAction()` asserts visibility first and would report the bug
+  as fixed while it was still exploitable.
 - ✅ **Shipped:** Sanctum token TTL · admin self-service profile + password reset · async
   exporters (all 5 config-driven) · every "missing" DB index · the Lease↔Charge rent-change
   sync (guarded action + service + tests) · payment over-allocation row-locked backstop +
@@ -184,14 +206,17 @@ Acting on the first one would actively reintroduce a bug.
 
 ## 7. Recommended next three (code side)
 
-1. **Close the three ⚠️ security rows in §3** — login throttling, the `public`-disk media
-   fallback, and the ungated portal actions. All are live, all are code-only, and the media
-   one exposes signed contracts at unauthenticated URLs today.
-2. **Wire centralized logging + error tracking** (P0). One env change plus a Sentry hook
+1. **Wire centralized logging + error tracking** (P0). One env change plus a Sentry hook
    retroactively upgrades failed-job alerting, ETA retry alerting and Paymob observability —
-   all of which currently log to a file nobody reads.
+   all of which currently log to a file nobody reads. Highest leverage remaining.
+2. **Audit role grants** (§3) — privilege escalation currently leaves no trail, which is a
+   compliance gap as much as a security one, and cheap to close.
 3. **FRD Phase 4 (procurement)** — the next FRD phase, and the seam that clears the GRNI
    account that inventory receipts have been silently accumulating.
+
+**Then: gap-analyse modules 21–28.** It's the largest known blind spot (§1), it contains every
+GL-posting module, and the two afternoons spent looking at modules 21/26 so far produced a
+money bug and two exposures.
 
 *Keep this file current: when something ships, move it to §6 rather than deleting it — the
 retired list is what stops the next person rebuilding a thing that already works.*

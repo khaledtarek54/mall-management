@@ -24,6 +24,23 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
 {
     use CanResetPassword, HasApiTokens, HasFactory, InteractsWithMedia, LogsActivity, Notifiable, SoftDeletes;
 
+    /** Identity paperwork — commercial register, tax card, trade licence. */
+    public const DOCUMENTS_COLLECTION = 'documents';
+
+    /**
+     * Tenant documents live on a PRIVATE disk (not web-accessible). These are the
+     * retailer's identity papers — commercial register (سجل تجاري), tax card (بطاقة
+     * ضريبية) — and leaking them is a data-protection incident, not just a bug.
+     *
+     * **This was a live exposure until 2026-07-16** — see the note on
+     * {@see Lease::registerMediaCollections()}. Declare the disk explicitly; never inherit
+     * medialibrary's `public` default (MediaPrivacyConformanceTest enforces it).
+     */
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection(self::DOCUMENTS_COLLECTION)->useDisk('local');
+    }
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()

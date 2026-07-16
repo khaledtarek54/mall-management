@@ -67,10 +67,21 @@ class Asset extends Model implements HasMedia
      * MediaLibrary collections — `logo` (top-nav brand) and `favicon`
      * (browser tab icon). Single-file each: re-uploading replaces.
      */
+    /**
+     * Branding — the only media in the system that is DELIBERATELY public. A property's
+     * logo/favicon are rendered as plain URLs by the panel (see `logoUrl()`), so they must
+     * be web-reachable; there is nothing confidential in a mall's logo.
+     *
+     * `useDisk('public')` is stated rather than inherited on purpose. Every other
+     * collection is private, and the default these would otherwise fall back to is
+     * `env('MEDIA_DISK', 'public')` — a fail-OPEN default that silently exposed lease and
+     * tenant documents until 2026-07-16. Making the public choice explicit is what lets
+     * MediaPrivacyConformanceTest treat "no explicit disk" as a bug rather than a maybe.
+     */
     public function registerMediaCollections(): void
     {
-        $this->addMediaCollection('logo')->singleFile();
-        $this->addMediaCollection('favicon')->singleFile();
+        $this->addMediaCollection('logo')->useDisk('public')->singleFile();
+        $this->addMediaCollection('favicon')->useDisk('public')->singleFile();
     }
 
     /**

@@ -17,6 +17,26 @@ class Lease extends Model implements HasMedia
 {
     use HasFactory, InteractsWithMedia, LogsActivity, SoftDeletes;
 
+    /** The signed contract + supporting paperwork. */
+    public const DOCUMENTS_COLLECTION = 'documents';
+
+    /**
+     * Lease documents live on a PRIVATE disk (not web-accessible). A signed contract is
+     * the most confidential artifact in the system — it carries both parties' identities
+     * and the commercial terms — and must never be reachable via a guessable public URL.
+     * They're served only through the authenticated admin panel.
+     *
+     * **This was a live exposure until 2026-07-16.** The model implemented HasMedia but
+     * registered no collection, so `documents` silently inherited medialibrary's default
+     * disk — `env('MEDIA_DISK', 'public')`, and neither the env var nor a config override
+     * existed. Every uploaded contract landed in the webroot. Never rely on the default:
+     * declare the disk explicitly (MediaPrivacyConformanceTest enforces it).
+     */
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection(self::DOCUMENTS_COLLECTION)->useDisk('local');
+    }
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()

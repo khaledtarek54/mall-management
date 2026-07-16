@@ -6,6 +6,7 @@ use App\Actions\Api\V1\Payments\RecordDemoPaymentAction;
 use App\Filament\Portal\Resources\Invoices\InvoiceResource;
 use App\Services\InvoicePdfService;
 use App\Services\Paymob\PaymobPaymentInitiator;
+use App\Support\Portal;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
@@ -36,10 +37,15 @@ class ViewInvoice extends ViewRecord
                 ->label(__('admin.actions.pay_now'))
                 ->icon('heroicon-o-credit-card')
                 ->color('primary')
-                ->visible(fn () => \App\Support\Portal::isAdmin() && config('integrations.paymob.enabled') && $this->record->balance > 0)
+                ->visible(fn () => $this->canPayNow())
                 ->requiresConfirmation()
                 ->modalHeading(fn () => __('admin.actions.pay_now').' · '.$this->record->number)
                 ->action(function () {
+                    // visible() styles the page; it does NOT gate dispatch — Filament's
+                    // mountAction() checks isDisabled(), never isVisible(). Without this a
+                    // read-only TenantUser could start a real card payment.
+                    abort_unless($this->canPayNow(), 403);
+
                     try {
                         $session = app(PaymobPaymentInitiator::class)->start($this->record, \App\Models\Payment::CHANNEL_PORTAL);
 
@@ -64,10 +70,7 @@ class ViewInvoice extends ViewRecord
                 ->label(__('admin.actions.pay_now'))
                 ->icon('heroicon-o-credit-card')
                 ->color('primary')
-                ->visible(fn () => \App\Support\Portal::isAdmin()
-                    && ! config('integrations.paymob.enabled')
-                    && (float) $this->record->balance > 0
-                    && ! in_array($this->record->status, ['cancelled', 'credited'], true))
+                ->visible(fn () => $this->canPayDemo())
                 ->requiresConfirmation()
                 ->modalHeading(fn () => __('admin.actions.pay_now').' · '.$this->record->number)
                 ->modalDescription(fn () => __('admin.actions.pay_demo_modal_body', [
@@ -75,6 +78,9 @@ class ViewInvoice extends ViewRecord
                 ]))
                 ->modalSubmitActionLabel(__('admin.actions.pay_now'))
                 ->action(function () {
+                    // See canPayNow() — visible() is not a dispatch gate.
+                    abort_unless($this->canPayDemo(), 403);
+
                     app(RecordDemoPaymentAction::class)->handle($this->record);
 
                     $this->record->refresh();
@@ -86,5 +92,27 @@ class ViewInvoice extends ViewRecord
                         ->send();
                 }),
         ];
+    }
+
+    /**
+     * Only an admin TenantUser may pay, and only a live gateway can take the money.
+     * Stated once so the button's visibility and its authorization guard cannot drift —
+     * they are the same question, and `visible()` alone never answers it (see the
+     * abort_unless calls above).
+     */
+    private function canPayNow(): bool
+    {
+        return Portal::isAdmin()
+            && config('integrations.paymob.enabled')
+            && (float) $this->record->balance > 0;
+    }
+
+    /** The demo counterpart — shown only while Paymob is disabled. */
+    private function canPayDemo(): bool
+    {
+        return Portal::isAdmin()
+            && ! config('integrations.paymob.enabled')
+            && (float) $this->record->balance > 0
+            && ! in_array($this->record->status, ['cancelled', 'credited'], true);
     }
 }

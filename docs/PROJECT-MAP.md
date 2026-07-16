@@ -29,7 +29,7 @@ Sanctum (mobile API auth) · Spatie (permissions, media, activity-log, settings)
 |---|---|---|---|
 | **61** models | **80** services | **36** admin resources | **5** portal resources |
 | **39** API controllers | **13** dashboard widgets | **22** console commands | **6** queued jobs |
-| **18** notifications | **110** migrations | **28** module docs | **317** test files |
+| **18** notifications | **110** migrations | **28** module docs | **322** test files |
 
 ### Coverage — what the gates actually enforce
 
@@ -38,7 +38,7 @@ Sanctum (mobile API auth) · Spatie (permissions, media, activity-log, settings)
 | **Property isolation** | 61 models classified — 46 property-owned, 14 shared, 1 self. Gated by `PropertyIsolationConformanceTest`. |
 | **General ledger** | 18 posting sources, 18 journalizer classes — every one registered. One registry (`LedgerPoster::JOURNALIZERS`) that all four dispatch paths derive from; gated by `GlRegistryConformanceTest`. |
 | **E2E smoke** | Every admin resource + page, from `tests/e2e/filament-admin-manifest.json`; 22 specs. Gated by `AdminSmokeManifestConformanceTest`. |
-| **Tests** | 317 files — 64 scenario, 61 regression. |
+| **Tests** | 322 files — 65 scenario, 65 regression. |
 | **Module flags** | 15 toggleable modules (`App\Support\Modules`). |
 
 **Scheduled automation** — commands: `cam:reconcile` · `accounting:post-depreciation` · `vendors:expire-contracts` · `activitylog:clean` · `maintenance:auto-close` · `maintenance:generate-preventive` · `maintenance:scan-sla-breaches` · `maintenance:scan-wo-sla-breaches` · `billing:scan-overdue-invoices` · `billing:remind-overdue-tenants` · `leases:remind-expiring` · `marketing:ensure-budgets` · `accounting:sync-ledger` · `accounting:sync-ledger --all --scheduled`

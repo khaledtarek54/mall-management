@@ -97,6 +97,10 @@ class MaintenanceRequestsTable
                     // Tenant-admins only (read-only portal users can't write), and
                     // only once the request is resolved/closed. Re-opening the
                     // form lets them update an earlier rating.
+                    //
+                    // ⚠️ visible() hides the button; it does NOT stop the action being
+                    // dispatched — Filament's mountAction() checks isDisabled(), never
+                    // isVisible(). The abort_unless() in ->action() is the actual gate.
                     ->visible(fn (TenantRequest $record) => Portal::isAdmin()
                         && in_array($record->status, TenantRequestService::RATEABLE, true))
                     ->fillForm(fn (TenantRequest $record) => [
@@ -115,6 +119,11 @@ class MaintenanceRequestsTable
                             ->maxLength(1000),
                     ])
                     ->action(function (TenantRequest $record, array $data) {
+                        abort_unless(
+                            Portal::isAdmin() && in_array($record->status, TenantRequestService::RATEABLE, true),
+                            403,
+                        );
+
                         app(TenantRequestService::class)
                             ->rate($record, (int) $data['csat_rating'], $data['csat_comment'] ?? null);
 
