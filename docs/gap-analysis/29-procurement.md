@@ -6,11 +6,12 @@
 > All findings **reproduced** against the real MySQL demo books, driven through the real services
 > and a real `accounting:sync-ledger`, inside rolled-back transactions.
 
-**Status: 🔴 Red → 🟡 Yellow** (F-100…F-104 fixed 2026-07-17). The module's own lifecycle is
+**Status: 🔴 Red → 🟢 Green** (F-100…F-105 all fixed 2026-07-17). The module's own lifecycle is
 genuinely well built — locks, a service-side transition matrix, tier-on-current-total,
 source-linked receipts all hold up under attack. Its headline defect — **the GRNI clearing it
 exists to enable was unreachable from the product** — is closed, together with the aggregate cap
-that fixing it would otherwise have exposed. **Only F-105 remains** (a soft-deleted warehouse null-deref).
+that fixing it would otherwise have exposed. **All six findings are fixed**; only the cross-cutting
+deferrals (D-95 `EditAction` authorize, D-96 `PostingDate` on `bill_date`) remain.
 
 `pest --parallel --filter='Purchase|Procurement|Grni'` → **46 passed**. Conformance gates → 63 passed.
 
@@ -143,7 +144,7 @@ Guard: `tests/Feature/Regression/PurchaseRequestTierFrozenTest.php` — 4 of 5 f
 *(This also corrected `ProcurementDecideTierTest`'s fixtures, which built 50,000 headers with no
 lines — a state the product cannot produce, and the same trap §5 describes.)*
 
-### 🟡 F-105. `receive()` null-derefs a soft-deleted warehouse and misdiagnoses it
+### 🟡 F-105. `receive()` null-derefs a soft-deleted warehouse and misdiagnoses it · **FIXED 2026-07-17**
 `app/Services/PurchaseRequestService.php:213` — `(int) $locked->warehouse->asset_id`
 
 `Warehouse` uses `SoftDeletes`, so the FK's `nullOnDelete` never fires and `warehouse_id` keeps
@@ -155,8 +156,15 @@ is stuck in `ordered` forever — `warehouse_id` is only editable while `request
 
 *Reasoned, not reproduced:* under Laravel's HTTP `HandleExceptions` the same warning becomes an
 `ErrorException`, which `PurchaseRequestsTable` (catching `\DomainException` only) would not handle
-→ **a 500**. Tinker's own error handler is why the probe saw a warning instead. Fix is the
-registry's known pattern: `withTrashed()` on the relation.
+→ **a 500**. Tinker's own error handler is why the probe saw a warning instead.
+
+**Fix (2026-07-17).** `withTrashed()` on `PurchaseRequest::warehouse()` — the pattern three sibling
+models already carry. `StockMovement::warehouse()` has it with a comment naming this exact hazard,
+and that comment says it *"matches Custody/PayrollLine::employee"*: three models had the guard, and
+this was the fourth that needed it. Guard:
+`tests/Feature/Regression/PurchaseReceiveTrashedWarehouseTest.php` — 2 of 3 fail without it, and the
+third pins that a genuinely cross-property warehouse is **still** refused, so the fix didn't blunt
+the guard whose message this was borrowing.
 
 ---
 
@@ -240,7 +248,7 @@ correctly closed.
 - ~~**D-93**~~ — ✅ **F-104 fixed 2026-07-17**, though not as suggested: the create form has no lines
   to give `request()`. The tier now derives in `recomputeTotal()`; FR-PROC-01 is enforced at
   `approve()`.
-- **D-94 — now this module's last open finding.** F-105: `withTrashed()` on
-  `PurchaseRequest::warehouse()`.
+- ~~**D-94**~~ — ✅ **F-105 fixed 2026-07-17.** Every finding in this module's analysis is closed;
+  what remains are the cross-cutting ones (D-95, D-96).
 - **D-95** — `->authorize()` on the `EditAction`, matching its five siblings.
 - **D-96** — `PostingDate` on `VendorBill::bill_date` (outside this module; modules 15/21).

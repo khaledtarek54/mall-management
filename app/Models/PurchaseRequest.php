@@ -99,9 +99,24 @@ class PurchaseRequest extends Model
         return $this->belongsTo(Asset::class);
     }
 
+    /**
+     * withTrashed for the same reason `StockMovement::warehouse()` and `Custody`/
+     * `PayrollLine::employee()` do it: `Warehouse` soft-deletes, so the FK's `nullOnDelete`
+     * never fires and `warehouse_id` keeps pointing at the archived row. Without this the
+     * `belongsTo` resolved to NULL and slipped past `receive()`'s `warehouse_id === null`
+     * guard — then `(int) null->asset_id` = 0 ≠ asset_id, so it landed in the CROSS-PROPERTY
+     * branch and told the operator the warehouse "belongs to another property". Isolation still
+     * held (it refused), but the diagnosis was false and the request was stuck in `ordered`
+     * forever, because `warehouse_id` is only editable while `requested`. Under HTTP the same
+     * null-deref is an ErrorException, which the table (catching DomainException only) would
+     * not handle — a 500 (gap-analysis F-105).
+     *
+     * Retiring a storeroom while its order is in transit is ordinary; the goods still have to
+     * land somewhere, and the request must still say where they were going.
+     */
     public function warehouse(): BelongsTo
     {
-        return $this->belongsTo(Warehouse::class);
+        return $this->belongsTo(Warehouse::class)->withTrashed();
     }
 
     public function vendor(): BelongsTo
