@@ -4,7 +4,7 @@
 > [../modules/23-fixed-assets.md](../modules/23-fixed-assets.md) · methodology: [000-plan.md](000-plan.md).
 > Findings **reproduced live** against the dev DB inside a rolled-back transaction.
 
-**Status: 🟡 Yellow.** Depreciation math, the idempotent lock-safe run, the terminal-disposal guard
+**Status: 🟡 Yellow** — F-86 fixed 2026-07-17; F-87/F-88 (period/classification, no lost money) remain. Depreciation math, the idempotent lock-safe run, the terminal-disposal guard
 and the disposal double-entry are all correct (disposal balance checked algebraically in every
 branch: loss → Dr = Cr = cost; gain → Dr = Cr = proceeds + accumulated). **One real defect, and it's
 in the *edit* path, not the engine.**
@@ -15,7 +15,7 @@ in the *edit* path, not the engine.**
 
 ## 1. Findings
 
-### 🔴 F-86. Editing an active asset's `acquisition_cost` after charges have posted → accumulated exceeds the base, NBV goes negative, depreciation stops forever
+### 🔴 F-86. Editing an active asset's `acquisition_cost` after charges have posted → accumulated exceeds the base, NBV goes negative, depreciation stops forever · **FIXED 2026-07-17**
 `app/Filament/Admin/Resources/FixedAssets/Pages/EditFixedAsset.php:22` (blocks only **disposed**
 assets) · `app/Services/DepreciationService.php:90`
 
@@ -38,8 +38,14 @@ clamp only protects the **forward** run, never a retroactive cost change. Reacha
 `fixed_assets.edit`, and the model's own `updated` hook explicitly anticipates re-costing
 (`FixedAsset.php:134`) — so this is a **supported operation with an unguarded outcome**.
 
-**Suggested fix:** reject an `acquisition_cost`/`salvage_value` edit that would put the new base
-below posted accumulated depreciation (or require void/re-create), restoring doc rule 4.
+**Fix (2026-07-17).** `DepreciationService::assertRecostValid()` refuses a cost/salvage pair whose
+base (cost − salvage) would fall below accumulated depreciation — the single source of truth on the
+math. Called server-side from `EditFixedAsset` (thrown as a `ValidationException` so it renders on
+the field, never a 500) and mirrored as an inline form `rule()` so the operator sees it before
+submit. The boundary (base = accumulated) is allowed — the asset is simply fully depreciated.
+Guard: `tests/Feature/Regression/FixedAssetRecostGuardTest.php` + an edit-page case in
+`FixedAssetResourceTest` (5 + 1); all fail without the guard, and the legitimate downward
+correction is proven still to work and leave depreciation running.
 
 > Note the interaction with **[F-79](21-general-ledger.md)**: `acquisition_date` is likewise
 > editable on an active asset, and until F-79 was fixed a date change silently kept the entry in the
@@ -84,8 +90,8 @@ it — leaving 2020–2025 balance sheets showing negative Furniture while the a
 
 ## 3. Test gaps
 
-- **No `FixedAssetLedgerTest` case edits `acquisition_cost` below posted accumulated depreciation**
-  (F-86) — the existing re-cost test only checks the disposal cascade doesn't strand Furniture.
+- ~~No test edits `acquisition_cost` below posted accumulated depreciation~~ — ✅ covered by
+  `FixedAssetRecostGuardTest` + the edit-page case in `FixedAssetResourceTest`.
 - Dispatch is genuinely proven — acquisition via `GlPostingSourcesScenarioTest:240`; depreciation +
   disposal via real services and a real `--all` sweep in `CrossModuleGlScenarioTest`. The direct
   `poster->post()` calls in `FixedAssetLedgerTest` are used for **arithmetic**, with reachability
@@ -94,7 +100,7 @@ it — leaving 2020–2025 balance sheets showing negative Furniture while the a
 
 ## 4. Deferred
 
-- **D-73** — F-86 guard a cost/salvage edit against posted accumulated depreciation.
+- ~~**D-73**~~ — ✅ **F-86 fixed 2026-07-17.**
 - **D-74** — F-87 catch-up for a missed depreciation month (+ alert), and decide the
   disposal-month convention.
 - **D-75** — F-88 `minDate` on `disposed_on`.

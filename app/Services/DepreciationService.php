@@ -43,6 +43,34 @@ class DepreciationService
     }
 
     /**
+     * Refuse a re-cost that would put the depreciable base BELOW what has already been
+     * depreciated. The `min(monthly, remaining)` clamp in run() only protects the FORWARD
+     * charge; nothing stopped an operator editing `acquisition_cost` (or `salvage_value`)
+     * downward after charges had posted. Drop cost 120,000 → 30,000 on an asset that has
+     * already accumulated 60,000 and: accumulated (60,000) now exceeds the new base (30,000),
+     * so NBV is −30,000, `remaining` is negative, and depreciation stops forever — while the
+     * ledger carries −30,000 of net fixed assets. Doc rules 2 and 4 ("accumulated tops out at
+     * cost − salvage, NEVER beyond") are about exactly this (gap-analysis F-86).
+     *
+     * The proposed cost/salvage are checked as a pair (the base is cost − salvage). Called
+     * server-side from EditFixedAsset — the form cannot know accumulated depreciation.
+     *
+     * @throws \DomainException when the new base would be below posted accumulated depreciation
+     */
+    public function assertRecostValid(FixedAsset $asset, float $newCost, float $newSalvage): void
+    {
+        $newBase = round(max(0, $newCost - $newSalvage), 2);
+        $accumulated = $this->accumulatedFor($asset);
+
+        if ($newBase < $accumulated) {
+            throw new \DomainException(__('admin.fixed_assets.errors.recost_below_accumulated', [
+                'base' => number_format($newBase, 2),
+                'accumulated' => number_format($accumulated, 2),
+            ]));
+        }
+    }
+
+    /**
      * Post depreciation for a period (default: current month) across ACTIVE fixed
      * assets. Idempotent + lock-safe (one entry per asset+month; each row locked and
      * re-checked inside its own transaction). The LAST charge is clamped so accumulated

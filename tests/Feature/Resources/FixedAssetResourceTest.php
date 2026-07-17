@@ -153,6 +153,37 @@ it('makes a disposed asset terminal — hides edit + blocks the edit page (immut
     expect($fa->fresh()->name)->not->toBe('Tampered');
 });
 
+it('rejects re-costing an active asset below its accumulated depreciation, on the edit form', function () {
+    // F-86, through the real edit page: the form must refuse the exact edit the audit made —
+    // 120,000 → 30,000 after 60,000 has been depreciated — rather than push NBV negative and
+    // stall depreciation forever. This is the UI half of FixedAssetRecostGuardTest.
+    $asset = makeAsset();
+    $fa = makeFixedAsset($asset->id, ['acquisition_date' => '2026-01-01', 'acquisition_cost' => 120000, 'useful_life_months' => 12]);
+
+    $svc = app(DepreciationService::class);
+    for ($i = 0; $i < 6; $i++) {
+        $svc->run(\Carbon\CarbonImmutable::parse('2026-01-01')->addMonths($i), [$asset->id]);
+    }
+    expect($svc->accumulatedFor($fa->fresh()))->toBe(60000.0);
+
+    $this->actingAs(makeUser('accounting', [$asset->id]));
+
+    asTenant($asset, function () use ($fa) {
+        Livewire::test(EditFixedAsset::class, ['record' => $fa->getKey()])
+            ->fillForm(['acquisition_cost' => 30000])
+            ->call('save')
+            ->assertHasFormErrors(['acquisition_cost']); // inline, not a 500
+
+        // A legitimate downward correction that stays above accumulated is accepted.
+        Livewire::test(EditFixedAsset::class, ['record' => $fa->getKey()])
+            ->fillForm(['acquisition_cost' => 90000])
+            ->call('save')
+            ->assertHasNoFormErrors();
+    });
+
+    expect((float) $fa->fresh()->acquisition_cost)->toBe(90000.0);
+});
+
 /* ---- Post-depreciation header action ------------------------------------ */
 
 it('posts this month\'s depreciation from the list action', function () {

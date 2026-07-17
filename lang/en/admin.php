@@ -1910,6 +1910,9 @@ return [
     ],
 
     'fixed_assets' => [
+        'errors' => [
+            'recost_below_accumulated' => 'The new depreciable base (:base) is below the :accumulated already depreciated. Lowering it would push the net book value negative and halt depreciation. Dispose the asset or create a corrected one instead.',
+        ],
         'group' => 'Fixed Assets',
         'singular' => 'Fixed Asset',
         'plural' => 'Fixed Assets',
@@ -2119,6 +2122,7 @@ return [
             'part_decide_denied' => 'You do not have the inventory rights to decide a spare-part request.',
             'part_warehouse_scope' => 'That warehouse belongs to another property — a job draws parts from its own mall\'s stock.',
             'part_remove_internal' => 'A part from stock is not removed this way — refuse it while it is pending, or void its stock movement once issued.',
+            'wo_needs_unit' => 'This request has no unit, so there is no property to raise the work order against.',
             'fault_denied' => 'Ruling that a tenant is financially responsible needs a manager.',
             'fault_cancelled' => 'This job was cancelled, so it cost nothing to apportion.',
             'fault_no_tenant' => 'There is no tenant to hold responsible — this job is not against an occupied unit.',
@@ -2227,6 +2231,8 @@ return [
         'cm' => [
             'raise' => 'Raise corrective job',
             'raise_hint' => 'This check failed. Raise a corrective job to fix it — the visit itself still closes normally.',
+            'from_request' => 'Raise work order',
+            'from_request_hint' => 'Create a corrective work order to fix this reported fault. It carries the tenant\'s location and links back to their request.',
             'follow_up' => 'Raise follow-up',
             'follow_up_hint' => 'The fix was incomplete. This raises a NEW linked job; the closed order stays closed so its record survives.',
             'raised_notice' => 'Corrective work order raised',

@@ -51,7 +51,26 @@ class FixedAssetForm
                 ->numeric()
                 ->minValue(0)
                 ->required()
-                ->prefix('EGP'),
+                ->prefix('EGP')
+                // On EDIT, the base (cost − salvage) can't drop below what has already been
+                // depreciated — else NBV goes negative and depreciation stops forever (F-86).
+                // Inline so the operator sees it before submit; EditFixedAsset re-checks server
+                // side. `$get` reads the sibling salvage field so the pair is judged together.
+                ->rule(fn (Get $get, ?\App\Models\FixedAsset $record) => function (string $attr, $value, \Closure $fail) use ($get, $record) {
+                    if ($record === null) {
+                        return; // create: nothing depreciated yet
+                    }
+
+                    try {
+                        app(\App\Services\DepreciationService::class)->assertRecostValid(
+                            $record,
+                            (float) $value,
+                            (float) ($get('salvage_value') ?? 0),
+                        );
+                    } catch (\DomainException $e) {
+                        $fail($e->getMessage());
+                    }
+                }),
             TextInput::make('salvage_value')
                 ->label(__('admin.fixed_assets.fields.salvage_value'))
                 ->numeric()
