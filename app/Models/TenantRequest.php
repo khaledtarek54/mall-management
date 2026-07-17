@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
@@ -101,6 +102,23 @@ class TenantRequest extends Model implements HasMedia
         return $this->belongsTo(Unit::class);
     }
 
+    /**
+     * FR-USR-06 — the facility work orders raised to fix this request (module 26).
+     *
+     * A request can spawn more than one (a flood needs plumbing AND electrical). The existence of
+     * any one is the "linked work order" that satisfies FR-USR-06's completion evidence.
+     */
+    public function workOrders(): HasMany
+    {
+        return $this->hasMany(MaintenanceWorkOrder::class, 'tenant_request_id');
+    }
+
+    /** Is there facility work on record for this request? (FR-USR-06 evidence.) */
+    public function hasLinkedWorkOrder(): bool
+    {
+        return $this->workOrders()->exists();
+    }
+
     public function lease(): BelongsTo
     {
         return $this->belongsTo(Lease::class);
@@ -127,9 +145,9 @@ class TenantRequest extends Model implements HasMedia
     }
 
     /** Stock consumed against this request (inventory module 22, Phase 2). */
-    public function stockConsumptions(): \Illuminate\Database\Eloquent\Relations\MorphMany
+    public function stockConsumptions(): MorphMany
     {
-        return $this->morphMany(\App\Models\StockMovement::class, 'source')
+        return $this->morphMany(StockMovement::class, 'source')
             ->where('type', 'consumption')
             ->latest('moved_on');
     }

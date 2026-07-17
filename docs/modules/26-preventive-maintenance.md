@@ -453,6 +453,28 @@ accounting event, and giving the part its own journalizer would post the same co
 > double-count the moment someone also enters the bill. The seam closes with procurement
 > (FR-PROC-\*), where the bill is raised against the request that caused it.
 
+### Raised from a tenant's report (module 11 → 26)
+
+A tenant reports a fault (a `TenantRequest`, module 11); staff raise a corrective work order to fix
+it. `RaiseCorrectiveMaintenanceService::fromTenantRequest()` builds the work order and links it back
+via `maintenance_work_orders.tenant_request_id`.
+
+- **The link did not exist in either direction.** The closest was `source_item_id` — a CM off a
+  *failed PPM check*, a different origin. A tenant-reported fault had no path to a work order at all.
+- **The request supplies WHERE the work is** — its unit (and thereby property), category and
+  department are facts about the fault. Its title/description/priority pre-fill the form so an
+  engineer isn't retyping the tenant's complaint.
+- **One request → many work orders** (a flood needs plumbing AND electrical); a work order services
+  at most one request, so the FK is on the work order.
+- **`nullOnDelete`, never cascade.** The facility work is a real event with its own cost and GL
+  trail; deleting the tenant's ticket must not erase it. The link is provenance, not ownership.
+- Gated on `preventive_maintenance.create` (the action creates a work order), not on the request's
+  own permissions — triaging a ticket and raising facility work are different rights.
+- **This is what FR-USR-06's evidence clause stands on:** a request may later be completed with "an
+  uploaded image **or a linked work order**". The gate itself is a separate change.
+
+---
+
 ### Fault attribution & cost bearer (FR-CM-12, FR-CM-13)
 
 **Read the FRD's verbs before changing this.** Verbatim:

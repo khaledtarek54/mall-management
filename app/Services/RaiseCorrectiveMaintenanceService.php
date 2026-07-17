@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\MaintenanceWorkOrder;
 use App\Models\MaintenanceWorkOrderItem;
+use App\Models\TenantRequest;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 
@@ -83,6 +84,60 @@ class RaiseCorrectiveMaintenanceService
             return $this->create($locked, $data, [
                 'parent_work_order_id' => $locked->getKey(),
                 'title' => filled($data['title'] ?? null) ? $data['title'] : $locked->title,
+            ]);
+        });
+    }
+
+    /**
+     * Raise a CM from a tenant's reported fault (module 11 → 26 seam).
+     *
+     * The request supplies WHERE the work is — its unit (and thereby its property), category and
+     * department are facts about the fault, not the engineer's choices — and the work order links
+     * back to it. That link is what lets the request later be evidenced by "a linked work order"
+     * (FR-USR-06), and what lets an operator trace a facility job to the tenant who reported it.
+     *
+     * A tenant request always has a unit (it is tenant-facing), so the property is never
+     * ambiguous — unlike a common-area CM, which is exactly why work orders carry their own
+     * asset_id rather than reading it through a request.
+     *
+     * @param  array{execution_type:string, description?:string, title?:string, priority?:string,
+     *               vendor_id?:int|null, assigned_to_user_id?:int|null, scheduled_for?:string|null}  $data
+     *
+     * @throws DomainException if the request has no unit to locate the work against
+     */
+    public function fromTenantRequest(TenantRequest $request, array $data): MaintenanceWorkOrder
+    {
+        return DB::transaction(function () use ($request, $data) {
+            /** @var TenantRequest $locked */
+            $locked = TenantRequest::whereKey($request->getKey())->lockForUpdate()->firstOrFail();
+            $locked->loadMissing('unit');
+
+            // A request with no unit has no property to raise the work against. Tenant-facing
+            // requests always have one; this guards the staff-channel case the schema now allows.
+            if ($locked->unit === null) {
+                throw new DomainException(__('admin.preventive_maintenance.errors.wo_needs_unit'));
+            }
+
+            $executionType = $data['execution_type'] ?? null;
+
+            return MaintenanceWorkOrder::create([
+                'work_order_type' => MaintenanceWorkOrder::TYPE_CM,
+                'execution_type' => $executionType,
+                'tenant_request_id' => $locked->getKey(),
+                'asset_id' => $locked->unit->asset_id,
+                'unit_id' => $locked->unit_id,
+                'category' => $locked->category,
+                'department_id' => $locked->department_id,
+                'status' => 'open',
+                // filled(), not ??, throughout — a cleared field sends '' which `??` waves past
+                // into a NOT-NULL column (title/priority) or into Carbon::parse('') === now()
+                // (scheduled_for). The description defaults to the tenant's own words.
+                'title' => filled($data['title'] ?? null) ? $data['title'] : $locked->title,
+                'priority' => filled($data['priority'] ?? null) ? $data['priority'] : ($locked->priority ?: 'medium'),
+                'scheduled_for' => filled($data['scheduled_for'] ?? null) ? $data['scheduled_for'] : now()->toDateString(),
+                'description' => filled($data['description'] ?? null) ? $data['description'] : $locked->description,
+                'vendor_id' => $executionType === MaintenanceWorkOrder::EXECUTION_EXTERNAL ? ($data['vendor_id'] ?? null) : null,
+                'assigned_to_user_id' => $executionType === MaintenanceWorkOrder::EXECUTION_INTERNAL ? ($data['assigned_to_user_id'] ?? null) : null,
             ]);
         });
     }
