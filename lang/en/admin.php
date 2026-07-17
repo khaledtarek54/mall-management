@@ -1821,6 +1821,9 @@ return [
         'portal_create_description' => 'Tell us what you need. Pick a request type, add the details, and the property team will be notified and respond as soon as possible.',
         'urgent_warning' => 'Pick Urgent only for genuine emergencies (safety, flooding, electrical).',
         'attachments_helper' => 'Photos help us understand the problem faster. Max 5 files, up to 10 MB each.',
+        'errors' => [
+            'resolution_needs_evidence' => 'Attach a photo of the completed work, or raise a work order for it, before marking this resolved.',
+        ],
     ],
 
     'pdf' => [
@@ -1911,6 +1914,7 @@ return [
 
     'fixed_assets' => [
         'errors' => [
+            'resolution_needs_evidence' => 'Attach a photo of the completed work, or raise a work order for it, before marking this resolved.',
             'recost_below_accumulated' => 'The new depreciable base (:base) is below the :accumulated already depreciated. Lowering it would push the net book value negative and halt depreciation. Dispose the asset or create a corrected one instead.',
         ],
         'group' => 'Fixed Assets',

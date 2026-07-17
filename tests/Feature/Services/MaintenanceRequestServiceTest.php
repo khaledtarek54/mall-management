@@ -42,6 +42,11 @@ it('walks the happy path: submitted → acknowledged → in_progress → resolve
     expect($request->fresh()->acknowledged_at)->not->toBeNull();
 
     $svc->transition($request, 'in_progress');
+
+    // FR-USR-06 — evidence before resolution. A photo of the completed work is one of the two
+    // accepted forms (a linked work order is the other).
+    $request->addMediaFromString('proof')->usingFileName('done.jpg')->toMediaCollection('attachments');
+
     $svc->transition($request, 'resolved', ['resolution_notes' => 'Fixed.']);
     expect($request->fresh()->resolved_at)->not->toBeNull();
     expect($request->fresh()->resolution_notes)->toBe('Fixed.');

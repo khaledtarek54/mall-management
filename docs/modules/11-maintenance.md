@@ -6,6 +6,28 @@
 >
 > ⚠️ **Reading this doc:** wherever the text below says `MaintenanceRequest` for the *model* or *service*, read `TenantRequest` / `TenantRequestService` — those classes no longer exist. `Maintenance*` **is** still correct for the Filament resource classes and the `maintenance.*` permissions. (This banner previously claimed the rename was "not yet done"; corrected 2026-07-16.)
 
+
+### Evidence before resolution (FR-USR-06)
+
+A request cannot be marked **resolved** without evidence the work happened — either **an uploaded
+image** (the `attachments` media collection) **or a linked work order** (the module 11 → 26 link).
+Both are proof; either satisfies.
+
+- Enforced in `TenantRequestService::transition()`, the single gate for **admin + portal + mobile
+  API** — a rule enforced in one UI is a rule the other channels skip.
+- On **resolving**, not closing: resolving is the act of saying "done"; closing is the
+  administrative follow-up, and a resolved request already cleared the gate.
+- The linked work order's *status* is irrelevant — that facility work exists on record is the
+  evidence, whether the job is open or done.
+
+> **The work-order side of FR-USR-06 is deferred, on purpose.** The FR reads "a request/work order",
+> but a work order already gates completion on its **checklist** (FR-PPM-07), and "a linked work
+> order" cannot evidence a work order completing itself. So requiring a photo on *every* work-order
+> completion — including routine PPM sweeps — is a real operator decision, not an obvious one. It is
+> **client question 24** in [CLIENT-QUESTIONS.md](../CLIENT-QUESTIONS.md); the request side, which is
+> unambiguous and commercially meaningful, ships now.
+
+
 ## 1. Purpose & business context
 
 The module handles the full lifecycle of a tenant request. Tenants (via the portal or the mobile app) or admin staff create requests across the mall's units. The system **types** each request (maintenance, complaint, inquiry, access, billing, document, other), auto-routes it to that type's default department, tracks progress through a state machine (submitted → acknowledged → in_progress → resolved → closed), enforces SLA targets by priority **for the types that have an SLA** (maintenance/complaint/access; inquiry/billing/document carry none), scans for breaches daily, and prevents changes to terminal (closed/cancelled) requests. A scheduled work window (scheduled_from/to) is independent of the SLA deadline (target_resolution_at) — the work may happen weeks after the deadline is set, e.g. for planned preventative maintenance.

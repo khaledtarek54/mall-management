@@ -3,15 +3,17 @@
 namespace App\Services;
 
 use App\Enums\TenantRequestType;
+use App\Models\Department;
+use App\Models\Tenant;
 use App\Models\TenantRequest;
 use App\Models\TenantRequestComment;
-use App\Models\Tenant;
 use App\Models\User;
 use App\Notifications\MaintenanceCommentAddedNotification;
 use App\Notifications\MaintenanceStatusChangedNotification;
 use App\Notifications\PortalMaintenanceSubmittedNotification;
 use App\Settings\MaintenanceSettings;
 use Carbon\Carbon;
+use DomainException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -91,7 +93,7 @@ class TenantRequestService
             return null;
         }
 
-        return \App\Models\Department::query()->where('slug', $slug)->value('id');
+        return Department::query()->where('slug', $slug)->value('id');
     }
 
     /**
@@ -171,6 +173,22 @@ class TenantRequestService
             throw new InvalidArgumentException(
                 "Illegal transition: {$current} → {$next}"
             );
+        }
+
+        // FR-USR-06 — evidence before you can call a tenant's problem fixed.
+        //
+        // "The system shall require evidence (an uploaded image OR a linked work order) before a
+        // request ... can be marked complete." Both are proof the work happened: a photo of the
+        // fix, or the facility work order raised to do it (the module 11 → 26 link). This is the
+        // single gate for admin + portal + API, since every channel resolves through here — a rule
+        // enforced in the UI only is a rule the mobile client skips.
+        //
+        // `resolved`, not `closed`: resolving is the act of saying "done"; closing is the
+        // administrative follow-up, and a resolved request already cleared this.
+        if ($next === 'resolved'
+            && ! $request->hasLinkedWorkOrder()
+            && ! $request->hasMedia('attachments')) {
+            throw new DomainException(__('admin.maintenance.errors.resolution_needs_evidence'));
         }
 
         $payload = ['status' => $next];

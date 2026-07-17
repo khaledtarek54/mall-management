@@ -2,6 +2,7 @@
 
 use App\Filament\Admin\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use App\Models\Department;
+use App\Models\TenantRequest;
 use App\Notifications\MaintenanceSlaBreachedNotification;
 use App\Services\TenantRequestService;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -37,6 +38,9 @@ it('walks every legal hop submitted → acknowledged → in_progress → resolve
 
     svc()->transition($req, 'in_progress');
     expect($req->fresh()->status)->toBe('in_progress');
+
+    // FR-USR-06 — evidence before resolution (a photo here; a linked work order is the alternative).
+    $req->addMediaFromString('proof')->usingFileName('done.jpg')->toMediaCollection('attachments');
 
     svc()->transition($req, 'resolved', ['resolution_notes' => 'Done.']);
     expect($req->fresh()->status)->toBe('resolved');
@@ -154,7 +158,7 @@ it('forbids ANY status move out of a terminal state via the service', function (
     $req = makeMaintenanceRequest(['status' => $terminal]);
 
     // Every other status must be rejected — terminal has no legal successors.
-    foreach (\App\Models\TenantRequest::STATUSES as $target) {
+    foreach (TenantRequest::STATUSES as $target) {
         if ($target === $terminal) {
             continue;
         }

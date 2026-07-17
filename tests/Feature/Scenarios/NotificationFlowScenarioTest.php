@@ -27,8 +27,9 @@
 */
 
 use App\Models\Charge;
-use App\Models\TenantRequest;
+use App\Models\Lease;
 use App\Models\Payment;
+use App\Models\TenantRequest;
 use App\Models\TenantSalesDeclaration;
 use App\Models\TenantUser;
 use App\Notifications\InvoiceIssuedNotification;
@@ -36,9 +37,9 @@ use App\Notifications\MaintenanceCommentAddedNotification;
 use App\Notifications\MaintenanceStatusChangedNotification;
 use App\Notifications\PaymentReceivedNotification;
 use App\Notifications\SalesDeclarationLockedNotification;
-use App\Services\TenantRequestService;
 use App\Services\MonthlyBillingService;
 use App\Services\PercentageRentCalculationService;
+use App\Services\TenantRequestService;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Support\Facades\Notification;
@@ -63,7 +64,7 @@ beforeEach(function () {
 });
 
 /** A billable active lease + a single active base-rent charge for $this->tenant. */
-function notifLease(): \App\Models\Lease
+function notifLease(): Lease
 {
     $lease = makeLease(test()->unit, test()->tenant, [
         'status' => 'active',
@@ -156,7 +157,7 @@ it('routes the invoice-issued notification over both the mail and database chann
 // ============================================================================
 
 /** Capture a payment fully allocated to a fresh issued invoice on $this->tenant. */
-function notifCapturePayment(\App\Models\Lease $lease, float $amount): Payment
+function notifCapturePayment(Lease $lease, float $amount): Payment
 {
     $invoice = makeInvoice($lease, [
         'status' => 'issued',
@@ -226,7 +227,7 @@ it('the payment-received toDatabase payload carries the success-tagged bell entr
 function notifMaintenanceRequest(array $attrs = []): TenantRequest
 {
     return TenantRequest::create(array_merge([
-        'reference' => 'MR-' . uniqid(),
+        'reference' => 'MR-'.uniqid(),
         'tenant_id' => test()->tenant->id,
         'unit_id' => test()->unit->id,
         'title' => 'AC not cooling',
@@ -288,6 +289,9 @@ it('the maintenance status body humanises the new status label', function () {
 it('a resolved transition payload flips to the success colour + check icon', function () {
     // submitted → in_progress → resolved is the legal route to resolved.
     $request = notifMaintenanceRequest(['status' => 'in_progress']);
+
+    // FR-USR-06 — evidence before resolution.
+    $request->addMediaFromString('proof')->usingFileName('done.jpg')->toMediaCollection('attachments');
 
     app(TenantRequestService::class)
         ->transition($request, 'resolved', ['resolution_notes' => 'Compressor replaced']);
@@ -467,7 +471,7 @@ it('notifyPortal reaches the Tenant once plus exactly one notification per porta
     $portalC = TenantUser::create([
         'tenant_id' => $this->tenant->id,
         'name' => 'Third login',
-        'email' => 'third-' . uniqid() . '@test.local',
+        'email' => 'third-'.uniqid().'@test.local',
         'password' => bcrypt('password'),
         'is_admin' => false,
     ]);

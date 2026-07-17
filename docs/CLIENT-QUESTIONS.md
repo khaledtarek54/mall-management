@@ -148,7 +148,8 @@ Raised by the FRD itself, still unanswered.
 | 21 | **FR-REQ-01 "delegation (from/to)"** — what does this mean? | No such concept exists anywhere in the system or the rest of the FRD, and we cannot infer it. One sentence from you unblocks it. |
 | 22 | **FR-PPM-01 "Fixed maintenance"** — one-time, or periodic-per-asset? | The FRD says **both**, in different sentences. We support periodic; one-time is a different shape. |
 | 23 | **FR-USR-01 "Admin (per mall) — full access"** — does "full access" include **deleting records**? | The row's only distinguishing note is import/upload. Deletion is restricted to the system owner by design; confirm you don't mean to change that. |
-| 24 | **FR-PROC-05 status history** — is who/when/from→to enough, or do you need **per-step comments and attachments**? | We record who/when/from→to for every step. Comments/attachments are a bigger build. |
+| 24 | **FR-USR-06: must completing a WORK ORDER require a photo?** A tenant *request* now needs evidence to resolve (an image or a linked work order — shipped). A work order already gates completion on its **checklist**; requiring a photo on top, on every routine PPM sweep, is a heavier call. Applies to all work orders, only technician-completed corrective ones, or none? | 🟠 request side shipped; WO side deferred |
+| 25 | **FR-PROC-05 status history** — is who/when/from→to enough, or do you need **per-step comments and attachments**? | We record who/when/from→to for every step. Comments/attachments are a bigger build. |
 
 ---
 
