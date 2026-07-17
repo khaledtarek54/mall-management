@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\Tenants\Pages;
 
 use App\Filament\Admin\Resources\Tenants\TenantResource;
 use App\Filament\Imports\TenantImporter;
+use App\Support\Imports;
 use Filament\Actions\CreateAction;
 use Filament\Actions\ImportAction;
 use Filament\Resources\Pages\ListRecords;
@@ -20,8 +21,8 @@ class ListTenants extends ListRecords
                 ->label(__('admin.actions.import'))
                 ->icon('heroicon-o-arrow-up-tray')
                 // Bulk import writes tenant records — gate server-side (was ungated).
-                ->visible(fn () => TenantResource::canCreate())
-                ->authorize(fn () => TenantResource::canCreate()),
+                ->visible(fn () => Imports::allowed())
+                ->authorize(fn () => Imports::allowed()),
             CreateAction::make(),
         ];
     }

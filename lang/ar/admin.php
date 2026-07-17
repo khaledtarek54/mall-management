@@ -1343,6 +1343,7 @@ return [
         'fixed_assets' => 'الأصول الثابتة',
         'employees' => 'الموظفون',
         'custodies' => 'العهد',
+        'imports' => 'استيراد البيانات',
         'preventive_maintenance' => 'الصيانة الوقائية',
         'procurement' => 'المشتريات',
         'approvals' => 'الاعتمادات',

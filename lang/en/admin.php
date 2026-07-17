@@ -1343,6 +1343,7 @@ return [
         'fixed_assets' => 'Fixed Assets',
         'employees' => 'Employees',
         'custodies' => 'Custodies',
+        'imports' => 'Data Import',
         'preventive_maintenance' => 'Preventive Maintenance',
         'procurement' => 'Procurement',
         'approvals' => 'Approvals',

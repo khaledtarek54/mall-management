@@ -79,6 +79,38 @@ Implemented via Spatie Laravel Permission (roles × permissions), Filament per-p
 
 **Self-delete guard**: `UserResource::canDelete($user)` denies super_admin deletion of their own account (no other role can delete at all).
 
+### FR-USR roles & rights (the Eltizam FRD)
+
+| Role | What the FRD says | How it's built |
+|---|---|---|
+| **`mall_admin`** | *"Admin (per mall): full access for their assigned mall; **the only role that can import/upload data**"* (FR-USR-01/02) | a `manager` plus `imports.execute`, scoped to their properties by the same `AssignedAssets` mechanism as everyone else. **Not** given delete — the FRD's "full access" is ambiguous and delete is super_admin-only project-wide (client question 23) |
+| **`technician`** | *"In-house Technician: normal employee; **sees only work assigned to them**"* (FR-USR-04) | the one role deliberately lacking `{module}.view_all`, which is what makes `AssignmentScope` bite |
+
+#### Import is not a flavour of create (FR-USR-02)
+
+> *"The system shall restrict data import/upload functionality to **Admin users only**; all other
+> roles may export/download but not import."*
+
+Every `ImportAction` was gated on `canCreate()`, so every manager and the whole leasing team could
+import. Creating a tenant is one considered row; **one wrong CSV column rewrites hundreds at once,
+and the damage surfaces later — in the billing.** That is why the FRD singles it out.
+
+`App\Support\Imports::allowed()` is the single gate, and
+`ImportIsAdminOnlyTest` carries a **reflective conformance gate** that walks `app/Filament` and fails
+the build if any `ImportAction::make` is not gated on it. A fourth import button cannot ship the way
+the first three did.
+
+`imports.execute` is explicitly rejected from the manager blanket grant — it is not a `.delete`, so
+the "everything except delete" filter would otherwise hand it straight back to every manager and
+quietly undo the requirement.
+
+#### Assignment scoping (FR-USR-04)
+
+See [PROPERTY-ISOLATION.md](../PROPERTY-ISOLATION.md#the-second-scoping-primitive-assignment-fr-usr-04)
+— `AssignmentScope` is the system's second scoping primitive and composes with `TenantScope`. Note
+its trap: `ScopesViaProperty` **is** `getEloquentQuery()`, so declaring that method in a resource
+shadows the trait and silently deletes property isolation.
+
 ## 4. Lifecycle / state machine
 
 No state machine per se. User authorization is static post-login:

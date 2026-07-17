@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\Units\Pages;
 
 use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Filament\Imports\UnitImporter;
+use App\Support\Imports;
 use Filament\Actions\CreateAction;
 use Filament\Actions\ImportAction;
 use Filament\Resources\Pages\ListRecords;
@@ -19,8 +20,8 @@ class ListUnits extends ListRecords
                 ->importer(UnitImporter::class)
                 ->label(__('admin.actions.import'))
                 ->icon('heroicon-o-arrow-up-tray')
-                ->visible(fn () => UnitResource::canCreate())
-                ->authorize(fn () => UnitResource::canCreate()),
+                ->visible(fn () => Imports::allowed())
+                ->authorize(fn () => Imports::allowed()),
             CreateAction::make(),
         ];
     }

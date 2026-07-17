@@ -38,6 +38,14 @@ class RolesPermissionsSeeder extends Seeder
         // them". The one role that deliberately LACKS `*.view_all`, which is what makes the
         // assignment scope bite (App\Support\AssignmentScope).
         'technician' => 'In-house technician — sees only the requests + work orders assigned to them.',
+        // FR-USR-01 — the FRD's "Admin (per mall): full access for their assigned mall; the only
+        // role that can import/upload data". Property scoping already delivers "their assigned
+        // mall" (AssignedAssets); what distinguishes this role from `manager` is `imports.execute`
+        // — the FRD's own table gives no other difference.
+        //
+        // NOT given delete: the FRD's "full access" is ambiguous and deletion is super_admin-only
+        // project-wide. Raised as client question 23 rather than assumed away.
+        'mall_admin' => 'Mall admin — a manager for their assigned properties, plus the right to import data.',
     ];
 
     /**
@@ -208,6 +216,14 @@ class RolesPermissionsSeeder extends Seeder
             'procurement.receive' => 'Receive goods against a procurement request (FR-PROC-04)',
         ],
 
+        // FR-USR-02 — "restrict data import/upload functionality to Admin users only; all other
+        // roles may export/download but not import". Import is not just another create: one bad CSV
+        // rewrites hundreds of rows at once, which is why the FRD singles it out. Gating the
+        // ImportActions on canCreate() made every manager and the whole leasing team an importer.
+        'imports' => [
+            'imports.execute' => 'Import/upload data from a CSV (FR-USR-02 — admins only)',
+        ],
+
         'preventive_maintenance' => [
             'preventive_maintenance.view' => 'View preventive-maintenance plans & work orders',
             'preventive_maintenance.create' => 'Create preventive-maintenance plans / work orders',
@@ -339,9 +355,20 @@ class RolesPermissionsSeeder extends Seeder
             ->reject(fn ($p) => str_ends_with($p, '.delete'))
             ->reject(fn ($p) => in_array($p, ['settings.manage', 'roles.create', 'roles.edit', 'roles.delete']))
             ->reject(fn ($p) => in_array($p, ['approvals.tier_3', 'approvals.manage_rules']))
+            // FR-USR-02: import is an ADMIN right. A manager may create records one at a time;
+            // rewriting hundreds from a CSV is the thing the FRD reserves for admins.
+            ->reject(fn ($p) => $p === 'imports.execute')
             ->values()
             ->all();
         Role::findByName('manager', 'web')->syncPermissions($managerPerms);
+
+        // FR-USR-01/02 — mall_admin is a manager PLUS the import right, scoped to their properties
+        // by the same AssignedAssets mechanism as every other role. `imports.execute` is withheld
+        // from $managerPerms above (it is not a `.delete`, so the blanket grant would otherwise
+        // hand it to every manager and defeat FR-USR-02's whole point).
+        Role::findByName('mall_admin', 'web')->syncPermissions(
+            collect($managerPerms)->push('imports.execute')->unique()->values()->all()
+        );
 
         // viewer: every .view + reports.download.
         $viewerPerms = collect($all)

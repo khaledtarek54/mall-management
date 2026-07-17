@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\Leases\Pages;
 
 use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Filament\Imports\LeaseImporter;
+use App\Support\Imports;
 use Filament\Actions\CreateAction;
 use Filament\Actions\ImportAction;
 use Filament\Resources\Pages\ListRecords;
@@ -20,8 +21,8 @@ class ListLeases extends ListRecords
                 ->label(__('admin.actions.import'))
                 ->icon('heroicon-o-arrow-up-tray')
                 // Bulk import writes lease records — gate server-side (was ungated).
-                ->visible(fn () => LeaseResource::canCreate())
-                ->authorize(fn () => LeaseResource::canCreate()),
+                ->visible(fn () => Imports::allowed())
+                ->authorize(fn () => Imports::allowed()),
             CreateAction::make(),
         ];
     }
