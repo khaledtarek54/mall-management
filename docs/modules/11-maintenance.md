@@ -24,7 +24,7 @@ Both are proof; either satisfies.
 > but a work order already gates completion on its **checklist** (FR-PPM-07), and "a linked work
 > order" cannot evidence a work order completing itself. So requiring a photo on *every* work-order
 > completion — including routine PPM sweeps — is a real operator decision, not an obvious one. It is
-> **client question 24** in [CLIENT-QUESTIONS.md](../CLIENT-QUESTIONS.md); the request side, which is
+> **question E.4** in [OPEN-QUESTIONS.md](../OPEN-QUESTIONS.md); the request side, which is
 > unambiguous and commercially meaningful, ships now.
 
 

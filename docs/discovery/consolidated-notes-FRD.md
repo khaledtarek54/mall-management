@@ -4,9 +4,8 @@
 > Accountant · Eltizam Operations · General Questionnaire). This file turns those raw
 > notes into traceable functional requirements (FRs) tagged against the **current build**.
 >
-> Companion to the meeting agendas in this folder
-> ([accountant](accountant-meeting-questions.md) · [eltizam](eltizam-meeting-questions.md) ·
-> [answers collected](client-discovery-questionnaire.md)). Reconciled against `app/Models`,
+> Companion to [answers collected](client-discovery-questionnaire.md); all open questions are in the
+> single hand-out [../OPEN-QUESTIONS.md](../OPEN-QUESTIONS.md). Reconciled against `app/Models`,
 > `database/migrations`, `app/Services`, `app/Filament`, and `docs/modules/*` on 2026-07-03.
 >
 > _Created: 2026-07-03._
@@ -159,16 +158,12 @@ These four decisions steer the FRs below:
 
 ## 5. Open questions still needing client input
 
-| # | Question | Blocks |
-|---|---|---|
-| Q-A | Can Mr. Ibrahim provide his chart-of-accounts file? Replace the seeded chart, or reconcile against it? | FIN-2 |
-| Q-B | "Personal accounts" (محسوبات شخصية) — who exactly (staff? related parties?) and what are they used for? | PA-1 |
-| Q-C | What is the **3rd** warehouse/inventory category? (Only "daily consumables" and "main / spare parts + machines" are named.) | INV-4 |
-| Q-D | For each service: is it billed out (chargeable) or absorbed as a unit expense? Confirm the annual-report format wanted either way. | SVC-1 |
-| Q-E | Exact approval chain for department requests/payments routed through Accounting. | ACCT-2 |
-| Q-F | Any leases billed in **USD/EUR**, or is everything EGP? (Determines whether multi-currency is ever needed.) | TREAS-2 |
-| Q-G | On the %-split contract, are **"owner" and "Jawad" two different parties** on one lease, or the same owner? (Affects the future owner-money data model.) | REV-3/LEASE-2 (deferred) |
-| Q-H | Do tenants use **post-dated cheques (PDCs)**? (Common in Egyptian leasing; no cheque register today — surfaced in the accountant agenda, not in these notes.) | New (cheque register) |
+These (Q-A chart of accounts, Q-B personal accounts, Q-C 3rd warehouse category, Q-D service
+chargeable toggle, Q-E accounting approval chain, Q-F multi-currency, Q-G owner/Jawad parties, Q-H
+post-dated cheques) are consolidated into the single hand-out, mapped to the answering department:
+
+> ➡️ **[../OPEN-QUESTIONS.md](../OPEN-QUESTIONS.md)** (see sections A4, C3.7, C3.3, C3.8, C3.6, A7.4,
+> B.3, A7.1 respectively).
 
 ---
 

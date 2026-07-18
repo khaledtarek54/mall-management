@@ -1,13 +1,11 @@
 # Atriom — Client Discovery (Val Plaza / Eltizam)
 
 > **This file = the record of answers already collected (Part 1).**
-> The **new questions** are split into two meeting-specific agendas:
+> The **open questions** are consolidated into one hand-out:
+> ➡️ [**docs/OPEN-QUESTIONS.md**](../OPEN-QUESTIONS.md) (grouped by who answers).
 >
-> - 🧮 [**Accountant meeting**](accountant-meeting-questions.md) — money, tax, accounting.
-> - 🏢 [**Eltizam (operations) meeting**](eltizam-meeting-questions.md) — operating model, leasing, maintenance, workflows, go-live.
->
-> Fill answers during each meeting in those two files; keep this file as the canonical
-> record of what the client has already told us.
+> Keep this file as the canonical record of what the client has already told us; as questions in
+> OPEN-QUESTIONS get answered, fold them back here.
 >
 > _Last updated: 2026-06-29._
 
@@ -233,15 +231,16 @@
 
 ---
 
-# PART 2 — New questions (split into two meetings)
+# PART 2 — New questions
 
-The new discovery questions live in two focused agendas so each meeting stays on-topic:
+All open questions now live in **one** hand-out, grouped by who can answer them:
 
-| Meeting | File | Covers |
-|---|---|---|
-| 🧮 **Accountant** | [accountant-meeting-questions.md](accountant-meeting-questions.md) | Operator↔owner money flow (fees, disbursements, owner statements), GL & period close, Egyptian tax (VAT/ETA/WHT/stamp/property tax), deposits & cheque accounting, lease/CAM financial rules, financial reporting & balance migration |
-| 🏢 **Eltizam (operations)** | [eltizam-meeting-questions.md](eltizam-meeting-questions.md) | Operating model & owner relationship, properties/units/tenant ops, lease operations (sales reporting, renewals, terminations, cheques, deposits, escalation), CAM/utilities ops, maintenance/vendors/approvals, reporting/notifications/go-live |
+> ➡️ **[docs/OPEN-QUESTIONS.md](../OPEN-QUESTIONS.md)** — Accountant/Finance · Owner (Jawad) ·
+> Eltizam operations · ETA/IT · requirement clarifications. (This replaces the earlier two
+> meeting-specific agendas, which have been folded in.)
 
-A few **foundational items** (e.g., the legal operator↔owner relationship, whether post-dated cheques are used, deposit terms) appear in **both** agendas, marked _“confirm in both”_, because each side will have a different angle on them.
+A few **foundational items** (the legal operator↔owner relationship, whether post-dated cheques are
+used, deposit terms) matter to both the accountant and operations — each side has a different angle.
 
-> **⭐ Do-not-leave-without** across the two meetings: the **operator↔owner money flow** (accountant) and the **real tax rules + ETA go-live status** (accountant) — these decide the biggest remaining build.
+> **⭐ Do-not-leave-without:** the **operator↔owner money flow** and the **real tax rules + ETA
+> go-live status** — these decide the biggest remaining build.
