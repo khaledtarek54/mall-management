@@ -31,7 +31,7 @@ test.describe('ADMIN — row + bulk actions render without crashing', () => {
         if (resp.status() >= 500) serverErrors.push(`${resp.status()} ${resp.url()}`);
       });
 
-      await page.goto(`/admin/ALL/${r.slug}`, { waitUntil: 'domcontentloaded' });
+      await page.goto(`/admin/AW/${r.slug}`, { waitUntil: 'domcontentloaded' });
       await page.waitForTimeout(1500);
       await expectNoLaravelError(page);
 

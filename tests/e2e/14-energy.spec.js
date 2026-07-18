@@ -10,7 +10,7 @@ test.describe('Energy & Utilities', () => {
   });
 
   test('Energy meters resource page loads', async ({ page }) => {
-    const response = await page.goto('/admin/ALL/utility-meters');
+    const response = await page.goto('/admin/AW/utility-meters');
     expect(response.status()).toBeLessThan(400);
     await expectNoLaravelError(page);
     await expect(page.getByRole('heading', { name: 'Energy & Utilities' })).toBeVisible({ timeout: 15000 });

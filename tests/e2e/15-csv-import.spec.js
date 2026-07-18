@@ -4,7 +4,7 @@ import { expectNoLaravelError } from './helpers.js';
 test.use({ storageState: 'storage/playwright-state/admin.json' });
 
 test.describe('CSV import header actions', () => {
-  for (const path of ['/admin/ALL/tenants', '/admin/ALL/units', '/admin/ALL/leases']) {
+  for (const path of ['/admin/AW/tenants', '/admin/AW/units', '/admin/AW/leases']) {
     test(`import action visible on ${path}`, async ({ page }) => {
       await page.goto(path, { waitUntil: 'networkidle' });
       await expectNoLaravelError(page);

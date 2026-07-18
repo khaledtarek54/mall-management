@@ -5,7 +5,7 @@ test.use({ storageState: 'storage/playwright-state/admin.json' });
 
 test.describe('Reports module', () => {
   test('Reports page loads with KPI cards', async ({ page }) => {
-    const response = await page.goto('/admin/ALL/reports', { waitUntil: 'networkidle' });
+    const response = await page.goto('/admin/AW/reports', { waitUntil: 'networkidle' });
     expect(response?.status()).toBeLessThan(500);
     await expectNoLaravelError(page);
     await expect(page.locator('body')).toContainText(/Invoices Issued|الفواتير الصادرة/);
@@ -13,7 +13,7 @@ test.describe('Reports module', () => {
   });
 
   test('Monthly Close PDF download works', async ({ page }) => {
-    await page.goto('/admin/ALL/reports', { waitUntil: 'networkidle' });
+    await page.goto('/admin/AW/reports', { waitUntil: 'networkidle' });
     const downloadPromise = page.waitForEvent('download', { timeout: 30000 });
     await page.locator('button:visible').filter({ hasText: /Download Monthly Close PDF|تحميل تقرير الإقفال/ }).first().click();
     const download = await downloadPromise;
@@ -21,16 +21,16 @@ test.describe('Reports module', () => {
   });
 
   test('AR Aging detail page loads and lists invoices', async ({ page }) => {
-    const response = await page.goto('/admin/ALL/ar-aging?bucket=d_1_30', { waitUntil: 'networkidle' });
+    const response = await page.goto('/admin/AW/ar-aging?bucket=d_1_30', { waitUntil: 'networkidle' });
     expect(response?.status()).toBeLessThan(500);
     await expectNoLaravelError(page);
     await expect(page.locator('body')).toContainText(/AR Aging|أعمار الذمم/);
   });
 
   test('AR Aging buckets are clickable from Reports page', async ({ page }) => {
-    await page.goto('/admin/ALL/reports', { waitUntil: 'networkidle' });
+    await page.goto('/admin/AW/reports', { waitUntil: 'networkidle' });
     // Click a bucket link to drill in
-    const bucketLink = page.locator('a[href*="/admin/ALL/ar-aging"]').first();
+    const bucketLink = page.locator('a[href*="/admin/AW/ar-aging"]').first();
     await expect(bucketLink).toBeVisible();
     await bucketLink.click();
     await page.waitForURL(/\/admin\/[A-Z0-9_-]+\/ar-aging/, { timeout: 10000 });

@@ -24,9 +24,11 @@ const MANIFEST = JSON.parse(
   readFileSync(new URL('./filament-admin-manifest.json', import.meta.url), 'utf8'),
 );
 
-const TENANT = 'ALL'; // portfolio pseudo-tenant — super_admin sees every property
+const TENANT = 'AW'; // primary demo mall (Atriom Walk) — "All Properties" was removed, so every
+// page is smoked inside one real property (AW holds all the isolated demo data; shared resources
+// list operator-wide regardless of the active mall). super_admin is used, so nothing is 403'd by scope.
 
-// The dashboard lives at the tenant root, not /admin/ALL/dashboard.
+// The dashboard lives at the tenant root, not /admin/AW/dashboard.
 const ADMIN_LIST_PAGES = [
   `/admin/${TENANT}`, // dashboard
   ...MANIFEST.resources.map((r) => `/admin/${TENANT}/${r.slug}`),
@@ -127,15 +129,15 @@ test.describe('ADMIN panel — opening filter panel does not 500', () => {
   // evaluate getModel() and modifyQueryUsing closures, where most
   // closure-injection bugs surface.
   const filterablePages = [
-    '/admin/ALL/invoices',
-    '/admin/ALL/payments',
-    '/admin/ALL/credit-notes',
-    '/admin/ALL/leases',
-    '/admin/ALL/maintenance-requests',
-    '/admin/ALL/tenant-sales-declarations',
-    '/admin/ALL/vendors',
-    '/admin/ALL/units',
-    '/admin/ALL/tenants',
+    '/admin/AW/invoices',
+    '/admin/AW/payments',
+    '/admin/AW/credit-notes',
+    '/admin/AW/leases',
+    '/admin/AW/maintenance-requests',
+    '/admin/AW/tenant-sales-declarations',
+    '/admin/AW/vendors',
+    '/admin/AW/units',
+    '/admin/AW/tenants',
   ];
 
   for (const path of filterablePages) {
@@ -235,11 +237,11 @@ test.describe('ARABIC locale — critical admin pages render', () => {
 
   const arabicCheckPages = [
     '/admin',
-    '/admin/ALL/invoices',
-    '/admin/ALL/credit-notes',
-    '/admin/ALL/vendors',
-    '/admin/ALL/maintenance-requests',
-    '/admin/ALL/users',
+    '/admin/AW/invoices',
+    '/admin/AW/credit-notes',
+    '/admin/AW/vendors',
+    '/admin/AW/maintenance-requests',
+    '/admin/AW/users',
   ];
 
   for (const path of arabicCheckPages) {

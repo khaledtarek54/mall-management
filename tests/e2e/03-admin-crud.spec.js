@@ -4,12 +4,12 @@ import { expectNoLaravelError, captureConsoleErrors } from './helpers.js';
 test.use({ storageState: 'storage/playwright-state/admin.json' });
 
 const PARENT_INDEX_FOR_EDIT = [
-  { name: 'Asset', list: '/admin/ALL/assets', editPath: 'edit' },
-  { name: 'Unit', list: '/admin/ALL/units', editPath: 'edit' },
-  { name: 'Tenant', list: '/admin/ALL/tenants', editPath: 'edit' },
-  { name: 'Lease', list: '/admin/ALL/leases', editPath: 'edit' },
-  { name: 'Invoice', list: '/admin/ALL/invoices', editPath: 'edit' },
-  { name: 'Payment', list: '/admin/ALL/payments', editPath: 'edit' },
+  { name: 'Asset', list: '/admin/AW/assets', editPath: 'edit' },
+  { name: 'Unit', list: '/admin/AW/units', editPath: 'edit' },
+  { name: 'Tenant', list: '/admin/AW/tenants', editPath: 'edit' },
+  { name: 'Lease', list: '/admin/AW/leases', editPath: 'edit' },
+  { name: 'Invoice', list: '/admin/AW/invoices', editPath: 'edit' },
+  { name: 'Payment', list: '/admin/AW/payments', editPath: 'edit' },
 ];
 
 for (const r of PARENT_INDEX_FOR_EDIT) {
@@ -36,7 +36,7 @@ for (const r of PARENT_INDEX_FOR_EDIT) {
 }
 
 test('Invoice edit page exposes PDF download action', async ({ page }) => {
-  await page.goto('/admin/ALL/invoices');
+  await page.goto('/admin/AW/invoices');
   await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
   const firstEditLink = page.locator('a[href*="/edit"]').first();
   await firstEditLink.click();
@@ -49,7 +49,7 @@ test('Invoice edit page exposes PDF download action', async ({ page }) => {
 });
 
 test('Tenant edit page exposes statement download action', async ({ page }) => {
-  await page.goto('/admin/ALL/tenants');
+  await page.goto('/admin/AW/tenants');
   await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
   const firstEditLink = page.locator('a[href*="/edit"]').first();
   await firstEditLink.click();

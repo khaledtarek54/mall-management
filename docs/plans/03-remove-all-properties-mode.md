@@ -46,6 +46,26 @@
 >
 > Net: property-first isolation on create/edit is **complete**; the only remaining work is the Phase B
 > consolidation surface (below), needed before a second mall is onboarded.
+>
+> ## Manual / E2E verification — one real regression caught + fixed
+> A full manual drive of the live app (property switcher, `/admin/ALL` → 404, create-form pin) plus a
+> run of the Playwright suite surfaced things the Pest suite could not (Pest force-sets the tenant; it
+> never hits real `/admin/ALL` URLs or exercises `canCreate()` under a real tenant):
+> - **REGRESSION (fixed): you could no longer create a property.** `AssetResource::canCreate()` returned
+>   `false` whenever `currentAssetId() !== null` — it only ever allowed creation from the All-Properties
+>   view. With that view removed, onboarding a new mall became impossible. Fixed: creation now follows the
+>   `assets.create` permission alone, and `AssetResource::getEloquentQuery()` lists the user's whole
+>   portfolio (assigned set; all real properties for super_admin) rather than only the active mall — the
+>   Properties resource sits ABOVE the per-property context, so a newly-created mall stays visible/editable.
+>   `AssetResourceTest` updated. **Lesson:** the risky pattern is not only `isAllProperties()` but any
+>   `currentAssetId() === null` used as an *All-mode proxy*. A sweep of all `can*` authorization methods
+>   confirmed `canCreate` was the only such gate (the 13 form `->disabled(fn () => currentAssetId() !== null)`
+>   pickers are correct — they just become permanently read-only, which is the intended step-3 behavior).
+> - **E2E specs: `/admin/ALL/…` → `/admin/AW/…`.** 16 Playwright specs (~91 URLs) used the ALL pseudo-tenant
+>   as a "see everything" slug; those now 404. Swapped to the primary demo mall `AW` (Atriom Walk), which
+>   holds all the isolated demo data (PA/Plaza Annex is near-empty), so the swap is data-transparent.
+> - **Not our bug:** `21-rbac-smoke` failed on stale cached Playwright sessions (`role-*.json` expired after
+>   7 days; `SESSION_LIFETIME=120`) — regenerating them fixes it; unrelated to this change.
 
 ---
 

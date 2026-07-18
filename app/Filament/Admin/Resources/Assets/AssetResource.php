@@ -99,17 +99,14 @@ class AssetResource extends Resource
             // not a real property.
             ->where('assets.code', '!=', Asset::ALL_PROPERTIES_CODE);
 
-        // When inside a specific property context (not the All Properties
-        // view), restrict the list to that property only — the operator
-        // can edit only the property they currently have active.
-        if ($assetId = \App\Support\TenantScope::currentAssetId()) {
-            $query->where('assets.id', $assetId);
-
-            return $query;
-        }
-
-        // All Properties view (or no tenant): fall back to the
-        // user's assigned set.
+        // The Properties resource sits ABOVE the per-property context (it
+        // manages the tenants themselves), so it lists the user's whole
+        // portfolio — their assigned set, or every real property for
+        // super_admin — regardless of which mall is currently active. This is
+        // what lets a super_admin manage/edit any property, and keeps a
+        // newly-created property visible/editable (a new mall is never the
+        // active tenant). Before the "All Properties" removal this was
+        // restricted to `currentAssetId()`; property-first drops that.
         $ids = \App\Support\AssignedAssets::idsForCurrentUser();
         if ($ids !== null) {
             $query->whereIn('assets.id', $ids);
@@ -119,16 +116,17 @@ class AssetResource extends Resource
     }
 
     /**
-     * Creating a new property is only allowed from the "All Properties"
-     * view (or when no tenant is set). Inside a specific property's
-     * context, the user can only edit that property.
+     * Creating a new property is a portfolio-level action — the Properties
+     * resource sits ABOVE the per-property context, so it follows the
+     * `assets.create` permission alone. It used to be gated to the "All
+     * Properties" view (`currentAssetId() === null`); with that view removed the
+     * operator always works inside one mall, so that gate would make onboarding
+     * a new mall impossible. A new Asset is not tenant-scoped
+     * (`$isScopedToTenant = false`), so it is created standalone regardless of
+     * the active mall.
      */
     public static function canCreate(): bool
     {
-        if (\App\Support\TenantScope::currentAssetId() !== null) {
-            return false;
-        }
-
         return static::hasPermission('create');
     }
 

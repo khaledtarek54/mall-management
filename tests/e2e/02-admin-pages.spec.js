@@ -4,21 +4,21 @@ import { expectNoLaravelError, captureConsoleErrors } from './helpers.js';
 test.use({ storageState: 'storage/playwright-state/admin.json' });
 
 const RESOURCE_PAGES = [
-  { name: 'Dashboard', url: '/admin/ALL' },
-  { name: 'Activity Log', url: '/admin/ALL/activity-log' },
-  { name: 'Assets index', url: '/admin/ALL/assets' },
-  { name: 'Assets create', url: '/admin/ALL/assets/create' },
-  { name: 'Units index', url: '/admin/ALL/units' },
-  { name: 'Units create', url: '/admin/ALL/units/create' },
-  { name: 'Tenants index', url: '/admin/ALL/tenants' },
-  { name: 'Tenants create', url: '/admin/ALL/tenants/create' },
-  { name: 'Leases index', url: '/admin/ALL/leases' },
-  { name: 'Leases create', url: '/admin/ALL/leases/create' },
-  { name: 'Invoices index', url: '/admin/ALL/invoices' },
-  { name: 'Invoices create', url: '/admin/ALL/invoices/create' },
-  { name: 'Payments index', url: '/admin/ALL/payments' },
-  { name: 'Payments create', url: '/admin/ALL/payments/create' },
-  { name: 'Users index', url: '/admin/ALL/users' },
+  { name: 'Dashboard', url: '/admin/AW' },
+  { name: 'Activity Log', url: '/admin/AW/activity-log' },
+  { name: 'Assets index', url: '/admin/AW/assets' },
+  { name: 'Assets create', url: '/admin/AW/assets/create' },
+  { name: 'Units index', url: '/admin/AW/units' },
+  { name: 'Units create', url: '/admin/AW/units/create' },
+  { name: 'Tenants index', url: '/admin/AW/tenants' },
+  { name: 'Tenants create', url: '/admin/AW/tenants/create' },
+  { name: 'Leases index', url: '/admin/AW/leases' },
+  { name: 'Leases create', url: '/admin/AW/leases/create' },
+  { name: 'Invoices index', url: '/admin/AW/invoices' },
+  { name: 'Invoices create', url: '/admin/AW/invoices/create' },
+  { name: 'Payments index', url: '/admin/AW/payments' },
+  { name: 'Payments create', url: '/admin/AW/payments/create' },
+  { name: 'Users index', url: '/admin/AW/users' },
 ];
 
 test.describe('Admin pages load without errors', () => {

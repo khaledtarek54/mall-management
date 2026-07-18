@@ -34,7 +34,7 @@ test.describe('Authentication', () => {
   });
 
   test('protected admin routes redirect to login when unauthenticated', async ({ page }) => {
-    await page.goto('/admin/ALL/invoices');
+    await page.goto('/admin/AW/invoices');
     await expect(page).toHaveURL(/\/admin\/login/);
   });
 

@@ -33,7 +33,7 @@ test.describe('ADMIN: invoice actions', () => {
   test.use({ storageState: 'storage/playwright-state/admin.json' });
 
   test('Run Monthly Billing modal opens', async ({ page }) => {
-    await page.goto('/admin/ALL/invoices', { waitUntil: 'networkidle' });
+    await page.goto('/admin/AW/invoices', { waitUntil: 'networkidle' });
     await clickAction(page, 'Run Monthly Billing');
     await expectModalWithText(page, /generate invoices/i);
     // Cancel out
@@ -41,7 +41,7 @@ test.describe('ADMIN: invoice actions', () => {
   });
 
   test('Download PDF starts a file download', async ({ page }) => {
-    await page.goto('/admin/ALL/invoices', { waitUntil: 'networkidle' });
+    await page.goto('/admin/AW/invoices', { waitUntil: 'networkidle' });
     const downloadPromise = page.waitForEvent('download', { timeout: 15000 });
     await page.locator('button:visible, a:visible').filter({ hasText: /^\s*PDF\s*$/ }).first().click();
     const download = await downloadPromise;
@@ -50,7 +50,7 @@ test.describe('ADMIN: invoice actions', () => {
   });
 
   test('Submit to ETA action is wired when the ETA module is enabled', async ({ page }) => {
-    await page.goto('/admin/ALL/invoices', { waitUntil: 'networkidle' });
+    await page.goto('/admin/AW/invoices', { waitUntil: 'networkidle' });
     await expectNoLaravelError(page);
     // The ETA row + bulk actions are gated on Modules::enabled('eta'), which is
     // OFF by default (feature not yet certified for production). When it's off,
@@ -74,8 +74,8 @@ test.describe('ADMIN: lease actions', () => {
   test.use({ storageState: 'storage/playwright-state/admin.json' });
 
   test('Generate Invoice header action wired on lease edit', async ({ page }) => {
-    await page.goto('/admin/ALL/leases', { waitUntil: 'networkidle' });
-    const editLink = page.locator('a[href*="/admin/ALL/leases/"][href$="/edit"]').first();
+    await page.goto('/admin/AW/leases', { waitUntil: 'networkidle' });
+    const editLink = page.locator('a[href*="/admin/AW/leases/"][href$="/edit"]').first();
     const href = await editLink.getAttribute('href');
     await page.goto(href, { waitUntil: 'networkidle' });
     const html = await page.content();
@@ -83,7 +83,7 @@ test.describe('ADMIN: lease actions', () => {
   });
 
   test('Renew lease modal opens', async ({ page }) => {
-    await page.goto('/admin/ALL/leases', { waitUntil: 'networkidle' });
+    await page.goto('/admin/AW/leases', { waitUntil: 'networkidle' });
     const btn = page.locator('button:visible, a:visible').filter({ hasText: /^\s*Renew\s*$/i }).first();
     if (await btn.isVisible({ timeout: 2000 }).catch(() => false)) {
       await btn.click();
@@ -107,8 +107,8 @@ test.describe('ADMIN: credit note workflow', () => {
 
   test('issue action button exists on a draft credit note', async ({ page }) => {
     // First make sure we can reach a credit note (create one if none exist)
-    await page.goto('/admin/ALL/credit-notes', { waitUntil: 'networkidle' });
-    const firstEdit = page.locator('a[href*="/admin/ALL/credit-notes/"][href$="/edit"]').first();
+    await page.goto('/admin/AW/credit-notes', { waitUntil: 'networkidle' });
+    const firstEdit = page.locator('a[href*="/admin/AW/credit-notes/"][href$="/edit"]').first();
     if (!(await firstEdit.isVisible({ timeout: 2000 }).catch(() => false))) {
       // No credit notes seeded — skip. Direct end-to-end create is a separate test.
       test.skip(true, 'No credit notes — create flow covered separately');
@@ -129,7 +129,7 @@ test.describe('ADMIN: vendor creation end-to-end', () => {
 
   test('can create a vendor end-to-end (form submit → edit page)', async ({ page }) => {
     const vendorName = `Test Vendor ${Date.now()}`;
-    await page.goto('/admin/ALL/vendors/create', { waitUntil: 'networkidle' });
+    await page.goto('/admin/AW/vendors/create', { waitUntil: 'networkidle' });
     await expectNoLaravelError(page);
 
     await page.locator('input[wire\\:model="data.name"], input[id*="data.name"]').first().fill(vendorName);
@@ -152,7 +152,7 @@ test.describe('ADMIN: maintenance actions', () => {
   test.use({ storageState: 'storage/playwright-state/admin.json' });
 
   test('Change Status modal opens', async ({ page }) => {
-    await page.goto('/admin/ALL/maintenance-requests', { waitUntil: 'networkidle' });
+    await page.goto('/admin/AW/maintenance-requests', { waitUntil: 'networkidle' });
     const btn = page.locator('button:visible, a:visible').filter({ hasText: /Change Status/i }).first();
     if (await btn.isVisible({ timeout: 2000 }).catch(() => false)) {
       await btn.click();
@@ -167,8 +167,8 @@ test.describe('ADMIN: maintenance actions', () => {
   });
 
   test('maintenance edit page loads with vendor select', async ({ page }) => {
-    await page.goto('/admin/ALL/maintenance-requests', { waitUntil: 'networkidle' });
-    const editLink = page.locator('a[href*="/admin/ALL/maintenance-requests/"][href$="/edit"]').first();
+    await page.goto('/admin/AW/maintenance-requests', { waitUntil: 'networkidle' });
+    const editLink = page.locator('a[href*="/admin/AW/maintenance-requests/"][href$="/edit"]').first();
     await editLink.click();
     await page.waitForLoadState('networkidle');
     await expectNoLaravelError(page);
@@ -185,7 +185,7 @@ test.describe('ADMIN: tenant sales actions', () => {
   test.use({ storageState: 'storage/playwright-state/admin.json' });
 
   test('Lock action modal opens on a submitted declaration', async ({ page }) => {
-    await page.goto('/admin/ALL/tenant-sales-declarations', { waitUntil: 'networkidle' });
+    await page.goto('/admin/AW/tenant-sales-declarations', { waitUntil: 'networkidle' });
     const btn = page.locator('button:visible, a:visible').filter({ hasText: /^\s*Lock\s*$/ }).first();
     if (await btn.isVisible({ timeout: 2000 }).catch(() => false)) {
       await btn.click();
@@ -208,9 +208,9 @@ test.describe('ADMIN: CAM actions', () => {
   test.use({ storageState: 'storage/playwright-state/admin.json' });
 
   test('Generate Allocations action available on a draft pool', async ({ page }) => {
-    await page.goto('/admin/ALL/cam-expense-pools', { waitUntil: 'networkidle' });
+    await page.goto('/admin/AW/cam-expense-pools', { waitUntil: 'networkidle' });
     // Find a draft pool — typically the most recent year
-    const firstEdit = page.locator('a[href*="/admin/ALL/cam-expense-pools/"][href$="/edit"]').first();
+    const firstEdit = page.locator('a[href*="/admin/AW/cam-expense-pools/"][href$="/edit"]').first();
     if (!(await firstEdit.isVisible({ timeout: 2000 }).catch(() => false))) {
       test.skip(true, 'No CAM pools');
       return;
@@ -231,7 +231,7 @@ test.describe('ADMIN: bulk actions', () => {
   test.use({ storageState: 'storage/playwright-state/admin.json' });
 
   test('selecting invoices enables bulk action toolbar', async ({ page }) => {
-    await page.goto('/admin/ALL/invoices', { waitUntil: 'networkidle' });
+    await page.goto('/admin/AW/invoices', { waitUntil: 'networkidle' });
 
     // Check first 2 row checkboxes (skip the "select all" header one)
     const rowCheckboxes = page.locator('table input[type="checkbox"]:visible');

@@ -10,7 +10,7 @@
  * that a mount-only smoke can't catch.
  *
  * Driven by the same manifest as the smoke, so every create-capable resource is
- * covered. Runs as super_admin on the ALL pseudo-tenant.
+ * covered. Runs as super_admin inside the primary demo mall (AW / Atriom Walk).
  */
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'fs';
@@ -60,7 +60,7 @@ test.describe('ADMIN — every create form submits without a server error', () =
         if (resp.status() >= 500) serverErrors.push(`${resp.status()} ${resp.url()}`);
       });
 
-      const createResp = await page.goto(`/admin/ALL/${r.slug}/create`, { waitUntil: 'domcontentloaded' });
+      const createResp = await page.goto(`/admin/AW/${r.slug}/create`, { waitUntil: 'domcontentloaded' });
       expect(createResp?.status(), `${r.slug} create page returned ${createResp?.status()}`).toBeLessThan(500);
       await page.locator('form').first().waitFor({ timeout: 10000 }).catch(() => {});
       await fillForm(page, r.slug);
