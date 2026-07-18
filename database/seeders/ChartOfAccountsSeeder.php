@@ -96,6 +96,11 @@ class ChartOfAccountsSeeder extends Seeder
         ['218', 'Due to Related Parties', 'المستحق لأطراف ذات علاقة', 'liability', false],
         ['21801', 'Due to Related Parties', 'المستحق لأطراف ذات علاقة', 'liability', false],
         ['21801001', 'Due to Related Parties', 'المستحق لأطراف ذات علاقة', 'liability', true],
+        // What the property owes each owner between finalising their statement and paying
+        // the disbursement (module 27). A disbursement clears this against Bank; it nets to
+        // zero once every owner is fully paid. Owners are related parties, hence under 218.
+        ['21802', 'Distributions Payable to Owners', 'توزيعات مستحقة للملاك', 'liability', false],
+        ['21802001', 'Distributions Payable to Owners', 'توزيعات مستحقة للملاك', 'liability', true],
         ['22', 'Non-current Liabilities', 'الخصوم غير المتداولة', 'liability', false],
         ['221', 'Long-term Loans', 'قروض طويلة الأجل', 'liability', false],
         ['22101', 'Long-term Loans', 'قروض طويلة الأجل', 'liability', false],
@@ -119,6 +124,14 @@ class ChartOfAccountsSeeder extends Seeder
         ['33', 'Current Year Result', 'نتيجة العام الحالي', 'equity', false],
         ['33101', 'Current Year Result', 'نتيجة العام', 'equity', false],
         ['33101001', 'Profit / Loss for the Year', 'أرباح / خسائر العام', 'equity', true],
+        // Owner distributions (module 27) — a contra-equity draw. Finalising an owner
+        // statement debits this (Cr Distributions Payable 21802001); the debit balance
+        // correctly REDUCES equity via the balance sheet's credit−debit math. `type` is
+        // equity so `normal_balance` is credit (derived + gate-enforced) — the account is
+        // "credit-normal" yet carries a debit balance, exactly like a dividends account.
+        ['34', 'Owner Distributions', 'توزيعات الملاك', 'equity', false],
+        ['34101', 'Owner Distributions', 'توزيعات الملاك', 'equity', false],
+        ['34101001', 'Owner Distributions', 'توزيعات الملاك', 'equity', true],
 
         // ===== 4 REVENUE — الإيرادات =====
         ['4', 'Revenue', 'الإيرادات', 'revenue', false],

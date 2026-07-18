@@ -34,6 +34,11 @@ class AccountMappingSeeder extends Seeder
         'unearned_revenue' => '21501001',
         'capital' => '31101001',
         'retained_earnings' => '32101001',
+        // Owner statements + disbursements (module 27). `owner_distributions` is the
+        // contra-equity draw debited when a statement is finalised; `due_to_owner` is the
+        // liability it credits, cleared Dr due_to_owner / Cr bank when the owner is paid.
+        'owner_distributions' => '34101001',
+        'due_to_owner' => '21802001',
         'rent_revenue' => '41101001',
         'service_charge_revenue' => '41102001',
         'cam_recovery_revenue' => '41103001',

@@ -134,17 +134,19 @@ only two:**
 
 | Key | Account | COA action |
 |---|---|---|
-| `owner_distributions` | `32201001` "Owner Distributions / توزيعات الملاك" (equity contra, debit-normal) | new COA row (verify free) |
-| `due_to_owner` | `21802001` "Distributions Payable to Owners / توزيعات مستحقة للملاك" (liability, credit-normal) | new COA row (verify free) |
+| `owner_distributions` | **`34101001`** "Owner Distributions / توزيعات الملاك" (its own equity branch `34`, contra-draw) | ✅ shipped (slice 1) |
+| `due_to_owner` | `21802001` "Distributions Payable to Owners / توزيعات مستحقة للملاك" (liability under `218`) | ✅ shipped (slice 1) |
 
 *(Deferred with the fee: `management_fee_expense`, `due_to_operator` = `21801001`, `vat_recoverable` =
 `11401001` — add when the fee slice ships.)*
 
-> **Chart hazard:** `updateOrCreate(['code'=>…])` means a colliding code corrupts an existing account.
-> `51109001` (Bad Debt) and `33101001` (Current Year Result) are taken. **Verify `32201001`/`21802001` are
-> free against `ChartOfAccountsSeeder` before seeding**; confirm `ChartOfAccountsConformanceTest` doesn't
-> force `normal_balance='credit'` on every equity leaf (if it does, seed `owner_distributions` credit and
-> rely on the balance-sheet `credit − debit` math — a debit balance correctly reduces equity either way).
+> **Resolved chart facts (slice 1):** `normal_balance` is **derived from `type`** in `LedgerAccount::booted()`
+> (`equity → credit`) and the conformance gate enforces the lockstep — so a contra-equity account is typed
+> `equity`/credit-normal and simply carries a **debit balance** that reduces equity via the balance-sheet
+> `credit − debit` math (dividends-account pattern). The `saving()` hook also enforces leading-digit → type,
+> so the codes had to be `3…`/`2…`. Owner Distributions went to its **own equity branch `34`** (not `322`)
+> to avoid nesting under "Retained Earnings" (32) and mismatching that parent's name. `34*`/`21802*` were
+> verified free. Pinned by `tests/Feature/Regression/OwnerDistributionAccountsTest.php`.
 
 **Journalizer #1 — `OwnerStatementRunJournalizer`** (`payload()` = `null` unless `finalised`;
 `entry_date = posting_date`, reads own-row `net_distributable` only) — **v1 two-line accrual:**
