@@ -37,8 +37,8 @@ Two structural facts worth holding:
   manifest, media privacy, and (as of 2026-07-16) the GL registry. Where a gate exists, drift
   fails the suite. Where one doesn't, drift ships: that is precisely how an applied SLA
   penalty came to reduce a vendor bill while posting nothing to the ledger.
-  **⚠️ But CI auto-runs are off** (§2), so today those gates fail only when someone runs
-  `pest --parallel` locally — they cannot currently stop a bad change merging.
+  **CI auto-runs are ON** (§2, re-enabled 2026-07-18), so those gates now fail the check and
+  block a merge — not only when someone runs `pest --parallel` locally.
 
 ---
 
@@ -46,7 +46,7 @@ Two structural facts worth holding:
 
 | Item | What & why | Owner | Effort |
 | --- | --- | --- | --- |
-| **Decide: is CI a gate or a suggestion?** ⚠️ | `.github/workflows/ci.yml` has **auto-runs disabled** — no push/PR trigger, manual dispatch only. So PHPUnit, PHPStan, Playwright **and every conformance gate** (property isolation, GL registry, media privacy, E2E manifest) only run when someone remembers `pest --parallel`. Each of those gates exists because its bug class *already shipped once*; as configured they cannot stop the next one merging, and every doc claiming a violation "fails CI" is aspirational. Either re-enable the triggers (uncomment two blocks) or accept they're a local discipline — but decide, don't drift. | ⚙️ | S |
+| ~~Decide: is CI a gate or a suggestion?~~ | ✅ **Decided 2026-07-18 — CI is a gate.** Push/PR triggers re-enabled in `.github/workflows/ci.yml`, so PHPUnit, PHPStan, Playwright and every conformance gate now block a merge. Enabling it surfaced that PHPStan had drifted **~208 errors above baseline** while auto-runs were off (219 → 427) — proof the gate had rotted precisely because it wasn't enforced. ~200 are the irreducible Filament `getOwnerRecord(): Model` false-positive class + nullsafe noise; the ~13 "always-true/false" logic smells were each reviewed (VendorBill's blank-money guard, an exhaustive `match` arm, a `getKey()` ternary — all `treatPhpDocTypesAsCertain` artifacts, no real bug). Baseline regenerated per the project's burn-down policy; two genuine ones in this session's own code fixed. **You cannot turn on a gate that is already red.** | ⚙️ | — |
 | **Keep `composer audit` green** | Now a CI job. Its first run (2026-07-16) found **22 advisories across 12 packages**, incl. two HIGH: Filament **MFA recovery codes reusable via concurrent submission**, and a medialibrary **file-upload restriction bypass** — plus a Filament **scope-enforcement** CVE landing directly on this project's property-isolation invariant. All fixed inside existing constraints (Filament 4.11.3→4.11.8, Laravel 13.11.2→13.20.0, medialibrary 11.22.1→11.23.2); 2283 tests green. Nobody knew because nothing looked — and a CVE lands with no change to your code, so only a scheduled check finds it. **This is the row most likely to bite again if CI stays manual.** | ⚙️ | S |
 | **ETA live credentials + signing certificate** | Real `client_id`/`client_secret` from the operator's ETA taxpayer profile **and** a CAdES signing certificate. ETA production **rejects unsigned B2B documents**. The pluggable signer seam + refuse-to-submit guard are ready (`config/eta.php:70-74`, `signing.enabled` defaults false). | 🔑 | M |
 | **ETA EGS codes + issuer identity** | Register real EGS item codes (base_rent, service_charge, utility, parking, percentage_rent) + issuer TRN/legal name/address. Placeholders still ship (`config/eta.php:36-46` — issuer TRN `100000000`; `:55-62` — EGS `EG-6820-001`). Wrong codes ⇒ rejection. All env-driven, no code change. | 🔑 | S |

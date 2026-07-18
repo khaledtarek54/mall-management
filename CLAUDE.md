@@ -9,7 +9,7 @@ Operator **Eltizam** runs malls for owners (**Jawad**); **tenants** are the reta
 
 ## Conventions — do these
 - **Tests:** `vendor/bin/pest --parallel` (Pest 4). Keep it green. Add a regression test for every bug fix in `tests/Feature/Regression/`; scenario tests live in `tests/Feature/Scenarios/`.
-- **⚠️ "fails CI" in these docs currently means "fails `pest --parallel`, if you run it."** `.github/workflows/ci.yml` has **auto-runs disabled** (manual dispatch only), so the conformance gates cannot actually block a merge — running the suite locally is the only thing enforcing them. Also run `composer audit` (a CI job now): its first-ever run found 22 advisories incl. 2 HIGH, because a CVE lands without your code changing.
+- **CI auto-runs are ON** (re-enabled 2026-07-18): every push to main/develop and every PR runs PHPUnit, PHPStan (no new errors above `phpstan-baseline.neon`), Playwright, and `composer audit`. So "fails CI" in these docs is now literal — the conformance gates block a merge. Keep `pest --parallel` green locally; a red push is a red check. `composer audit` is a gate too (a CVE lands without your code changing — its first run found 22 advisories, 2 HIGH).
 - **Business logic** goes in single-action services (`app/Services`); keep controllers + Filament pages thin.
 - **Docs are part of "done":** changing a module's logic → update its `docs/modules/NN-*.md` (+ `docs/OVERVIEW.md` if cross-cutting) **in the same commit**.
 - **Local DB:** MySQL; reseed with `php artisan migrate:fresh --seed` after a feature (`DemoSeeder` = canonical demo data).

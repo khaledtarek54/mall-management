@@ -188,9 +188,10 @@ class DumpSystemCensus extends Command
         preg_match_all("/Schedule::command\(\s*'([^']+)'/", $source, $commands);
         preg_match_all('/Schedule::job\(\s*new\s+([A-Za-z0-9_\\\\]+)/', $source, $jobs);
 
+        // preg_match_all always populates capture-group offset 1 (empty on no match), so no `??`.
         return [
-            'commands' => array_values(array_unique($commands[1] ?? [])),
-            'jobs' => array_values(array_unique(array_map('class_basename', $jobs[1] ?? []))),
+            'commands' => array_values(array_unique($commands[1])),
+            'jobs' => array_values(array_unique(array_map('class_basename', $jobs[1]))),
         ];
     }
 

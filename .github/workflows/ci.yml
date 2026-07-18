@@ -1,24 +1,21 @@
 name: CI
 
-# ⚠️ Auto-runs are disabled — CI does NOT run on push/PR. Launch it from the Actions
-# tab (Run workflow), or uncomment the blocks below to re-enable.
+# Auto-runs are ON (re-enabled 2026-07-18). CI runs on every push to main/develop and on
+# every PR into them, so the self-enforcing conformance gates —
+# PropertyIsolationConformanceTest, GlRegistryConformanceTest, MediaPrivacyConformanceTest,
+# GlRegistry/AdminSmokeManifestConformanceTest — actually block a bad change from merging
+# rather than only firing when someone remembers `pest --parallel`. Every one of those gates
+# exists because the class of bug it catches already shipped once; "fails CI" in the docs is
+# now literal.
 #
-# KNOW WHAT THIS COSTS. The project's safety net is a set of self-enforcing conformance
-# gates — PropertyIsolationConformanceTest, GlRegistryConformanceTest,
-# MediaPrivacyConformanceTest, AdminSmokeManifestConformanceTest — whose whole design is
-# "a bad change cannot MERGE". With auto-runs off they are advisory: they only fire when
-# somebody remembers `vendor/bin/pest --parallel`. The docs that say a violation "fails CI"
-# are, as configured, aspirational. Every one of those gates exists because the class of bug
-# it catches already shipped once.
-#
-# Leaving it manual is a legitimate call (cost, noise) — but then the gates are a local
-# discipline, not a guarantee, and the docs should say so.
+# To pause auto-runs again (cost/noise), comment the push/pull_request blocks and leave
+# workflow_dispatch — but then say so in the docs, because the gates become advisory again.
 on:
   workflow_dispatch:
-  # push:
-  #   branches: [main, develop]
-  # pull_request:
-  #   branches: [main, develop]
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
 
 jobs:
   # Known-vulnerable dependencies. Cheap (no PHP deps needed beyond the lock file) and it

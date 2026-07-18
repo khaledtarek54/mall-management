@@ -139,7 +139,9 @@ class SyncLedgerCommand extends Command
         // document has no ledger effect). Soft-delete bumps updated_at, so the windowed
         // run picks up freshly-deleted docs too; --all self-heals any older orphans.
         if (method_exists($query->getModel(), 'trashed')) {
-            $query->withTrashed();
+            // withTrashed() comes from the SoftDeletes global scope, not the base Builder — the
+            // guard above proves it's there, but PHPStan can't follow a trait-provided macro.
+            $query->withTrashed(); // @phpstan-ignore method.notFound
         }
 
         $query->when($since, fn ($q) => $q->where($tsColumn, '>=', $since))
