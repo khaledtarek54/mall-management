@@ -144,11 +144,27 @@ class TenantRequest extends Model implements HasMedia
         // directly). Kept cheap — a single-column lookup, only when area_id is null. (unit_id is
         // NOT NULL, so the lookup always has a key; a unit with no zone just yields null.)
         static::creating(function (self $request) {
-            if ($request->area_id !== null) {
-                return;
+            // Derive the zone from the unit if it wasn't set explicitly.
+            if ($request->area_id === null) {
+                $request->area_id = Unit::whereKey($request->unit_id)->value('area_id');
             }
 
-            $request->area_id = Unit::whereKey($request->unit_id)->value('area_id');
+            // FR-REQ-08 automatic assignment: route the request to its zone's supervisor — but ONLY
+            // when the zone has EXACTLY ONE supervisor, which is the unambiguous "designated
+            // supervisor" the FRD means ("each area has a designated supervisor"). A zone with
+            // several supervisors stays unassigned: they're all notified on `created` and a
+            // coordinator picks the owner (manual assignment, FR-REQ-07). Never overrides an
+            // explicit assignee. Enforced in the model, so admin + portal + API all inherit it.
+            if ($request->assigned_to === null && $request->area_id !== null) {
+                /** @var \App\Models\Area|null $area */
+                $area = \App\Models\Area::find($request->area_id);
+                if ($area !== null) {
+                    $supervisorIds = $area->supervisors()->pluck('users.id')->all();
+                    if (count($supervisorIds) === 1) {
+                        $request->assigned_to = (int) $supervisorIds[0];
+                    }
+                }
+            }
         });
 
         // Notify the zone's supervisors that a request landed in their area (routing, not
