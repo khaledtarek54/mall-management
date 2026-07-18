@@ -4,9 +4,12 @@ namespace App\Filament\Admin\Resources\OwnerStatementRuns\Tables;
 
 use App\Filament\Admin\Resources\OwnerStatementRuns\OwnerStatementRunResource;
 use App\Models\Disbursement;
+use App\Models\OwnerStatement;
 use App\Models\OwnerStatementRun;
+use App\Notifications\OwnerStatementSentNotification;
 use App\Services\OwnerAccounting\DisbursementService;
 use App\Services\OwnerAccounting\FinaliseOwnerStatementRunService;
+use App\Services\OwnerAccounting\OwnerStatementPdfService;
 use App\Services\OwnerAccounting\ReviseOwnerStatementRunService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
@@ -140,6 +143,49 @@ class OwnerStatementRunsTable
                             return;
                         }
                         Notification::make()->title(__('admin.disbursements.notices.scheduled'))->success()->send();
+                    }),
+
+                // Download the owner's statement PDF (operator or the owner themselves).
+                Action::make('download_pdf')
+                    ->label(__('admin.owner_statements.actions.download_pdf'))
+                    ->icon('heroicon-o-document-arrow-down')->color('gray')
+                    ->visible(fn (OwnerStatementRun $r) => $r->statements->first() !== null && OwnerStatementRunResource::canViewStatements())
+                    ->authorize(fn (OwnerStatementRun $r) => OwnerStatementRunResource::canViewStatements())
+                    ->action(function (OwnerStatementRun $record) {
+                        abort_unless(OwnerStatementRunResource::canViewStatements(), 403);
+                        $statement = $record->statements()->first();
+                        abort_unless($statement !== null, 404);
+                        $svc = app(OwnerStatementPdfService::class);
+                        $pdf = $svc->build($statement);
+
+                        return response()->streamDownload(
+                            fn () => print ($pdf),
+                            $svc->filename($statement),
+                            ['Content-Type' => 'application/pdf'],
+                        );
+                    }),
+
+                // Send the finalised statement to the owner (marks it sent + bells the owner).
+                Action::make('send')
+                    ->label(__('admin.owner_statements.actions.send'))
+                    ->icon('heroicon-o-paper-airplane')->color('info')
+                    ->requiresConfirmation()
+                    ->visible(fn (OwnerStatementRun $r) => $r->isFinalised()
+                        && ($s = $r->statements->first()) !== null
+                        && $s->status !== OwnerStatement::STATUS_SENT
+                        && OwnerStatementRunResource::canSend())
+                    ->authorize(fn (OwnerStatementRun $r) => OwnerStatementRunResource::canSend())
+                    ->action(function (OwnerStatementRun $record): void {
+                        abort_unless(OwnerStatementRunResource::canSend(), 403);
+                        $statement = $record->statements()->first();
+                        if (! $statement) {
+                            static::notifyFailure(new \DomainException(__('admin.owner_statements.statements')));
+
+                            return;
+                        }
+                        $statement->update(['status' => OwnerStatement::STATUS_SENT, 'sent_at' => now()]);
+                        $statement->owner?->notify(new OwnerStatementSentNotification($statement));
+                        Notification::make()->title(__('admin.owner_statements.notices.sent'))->success()->send();
                     }),
             ]);
     }

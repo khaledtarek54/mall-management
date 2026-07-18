@@ -83,6 +83,16 @@ class OwnerStatementRunResource extends Resource
         return auth()->user()?->can('disbursements.schedule') ?? false;
     }
 
+    public static function canSend(): bool
+    {
+        return auth()->user()?->can('owner_statements.send') ?? false;
+    }
+
+    public static function canViewStatements(): bool
+    {
+        return auth()->user()?->can('owner_statements.view') ?? false;
+    }
+
     /** Property-scope the list ourselves (Filament auto-tenancy is off). */
     public static function getEloquentQuery(): Builder
     {

@@ -1978,6 +1978,13 @@ return [
             'revised' => 'Statement revised — a new version was finalised',
             'sent' => 'Statement sent to the owner',
         ],
+        'pdf' => [
+            'note' => 'Prepared by Eltizam as operator on behalf of the property owner. Figures are drawn from the property ledger for the period shown.',
+        ],
+        'notification' => [
+            'sent_title' => 'A statement is ready for you',
+            'sent_body' => 'Your statement :reference for :property is available.',
+        ],
     ],
 
     'disbursements' => [

@@ -11,6 +11,7 @@ use App\Services\Accounting\JournalPostingService;
 use App\Services\OwnerAccounting\DisbursementService;
 use App\Services\OwnerAccounting\FinaliseOwnerStatementRunService;
 use App\Services\OwnerAccounting\GenerateOwnerStatementRunService;
+use App\Services\OwnerAccounting\OwnerStatementPdfService;
 use Carbon\CarbonImmutable;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
@@ -100,4 +101,32 @@ it('hides the Generate action from a user without owner_statements.generate', fu
             ->assertSuccessful()
             ->assertActionHidden('generate');
     });
+});
+
+it('renders the owner statement as a valid PDF', function () {
+    $run = app(FinaliseOwnerStatementRunService::class)->finalise(
+        app(GenerateOwnerStatementRunService::class)->generate($this->asset, $this->march),
+        $this->owner,
+    );
+
+    $pdf = app(OwnerStatementPdfService::class)->build($run->statements->first());
+
+    expect($pdf)->toStartWith('%PDF')
+        ->and(strlen($pdf))->toBeGreaterThan(1000);
+});
+
+it('sends a finalised statement to the owner (marks it sent + bells the owner)', function () {
+    $run = app(FinaliseOwnerStatementRunService::class)->finalise(
+        app(GenerateOwnerStatementRunService::class)->generate($this->asset, $this->march),
+        $this->owner,
+    );
+
+    $this->actingAs(makeUser('manager', [$this->asset->id]));
+
+    asTenant($this->asset, function () use ($run) {
+        Livewire::test(ListOwnerStatementRuns::class)->callTableAction('send', $run);
+    });
+
+    expect($run->statements->first()->fresh()->status)->toBe('sent')
+        ->and($this->owner->notifications()->count())->toBe(1);
 });

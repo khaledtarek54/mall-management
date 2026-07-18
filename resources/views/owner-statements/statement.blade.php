@@ -1,0 +1,108 @@
+@php
+    $isRtl = app()->getLocale() === 'ar';
+    $fmt = fn ($v) => number_format((float) $v, 2).' '.($asset->currency ?? 'EGP');
+    $align = $isRtl ? 'left' : 'right';
+@endphp
+<!DOCTYPE html>
+<html lang="{{ app()->getLocale() }}" dir="{{ $isRtl ? 'rtl' : 'ltr' }}">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ __('admin.owner_statements.singular') }} — {{ $statement->reference }}</title>
+    <style>
+        @page { margin: 32px 36px; }
+        * { box-sizing: border-box; }
+        body { color: #0F1419; font-size: 10pt; line-height: 1.5; margin: 0; }
+        .header { border-bottom: 2px solid #0F766E; padding-bottom: 14px; margin-bottom: 20px; }
+        .header table { width: 100%; border-collapse: collapse; }
+        .brand-name { font-size: 20pt; font-weight: bold; color: #0F1419; }
+        .brand-sub { color: #8C8478; font-size: 9pt; }
+        .doc-title { font-size: 15pt; color: #0F766E; text-align: {{ $align }}; text-transform: {{ $isRtl ? 'none' : 'uppercase' }}; letter-spacing: {{ $isRtl ? '0' : '2px' }}; }
+        .doc-meta { text-align: {{ $align }}; font-size: 9pt; color: #6B6660; margin-top: 4px; }
+        .doc-meta strong { color: #0F1419; }
+        .parties { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        .parties td { width: 50%; vertical-align: top; padding: 0 6px; }
+        .label { font-size: 8pt; color: #8C8478; text-transform: {{ $isRtl ? 'none' : 'uppercase' }}; letter-spacing: {{ $isRtl ? '0' : '1.2px' }}; margin-bottom: 3px; }
+        .party-name { font-weight: bold; font-size: 11pt; margin-bottom: 2px; }
+        .party-line { color: #4A4A4A; font-size: 9.5pt; }
+        table.figures { width: 100%; border-collapse: collapse; margin-top: 8px; }
+        table.figures td { padding: 8px 10px; border-bottom: 1px solid #E7E1D6; }
+        table.figures td.amt { text-align: {{ $align }}; white-space: nowrap; }
+        tr.net td { border-top: 2px solid #0F766E; border-bottom: none; font-weight: bold; font-size: 11.5pt; background: #F5F0E8; }
+        tr.sub td { color: #6B6660; }
+        .footnote { margin-top: 22px; font-size: 8.5pt; color: #8C8478; border-top: 1px solid #E7E1D6; padding-top: 8px; }
+        .status { display: inline-block; padding: 1px 8px; border-radius: 8px; font-size: 8pt; background: #0F766E; color: #fff; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <table>
+            <tr>
+                <td>
+                    <div class="brand-name">Atriom</div>
+                    <div class="brand-sub">{{ __('admin.owner_statements.plural') }}</div>
+                </td>
+                <td>
+                    <div class="doc-title">{{ __('admin.owner_statements.singular') }}</div>
+                    <div class="doc-meta">
+                        <strong>{{ $statement->reference }}</strong><br>
+                        {{ __('admin.owner_statements.fields.period') }}:
+                        <strong>{{ \Illuminate\Support\Carbon::parse($run->period_start)->format('d M Y') }}
+                            – {{ \Illuminate\Support\Carbon::parse($run->period_end)->format('d M Y') }}</strong><br>
+                        <span class="status">{{ __('admin.owner_statements.statuses.'.$statement->status) }}</span>
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <table class="parties">
+        <tr>
+            <td>
+                <div class="label">{{ __('admin.owner_statements.fields.owner') }}</div>
+                <div class="party-name">{{ $owner?->name ?? '—' }}</div>
+                <div class="party-line">{{ __('admin.owner_statements.fields.ownership_percentage') }}:
+                    {{ number_format((float) $statement->ownership_percentage, 2) }}%</div>
+            </td>
+            <td>
+                <div class="label">{{ __('admin.owner_statements.fields.property') }}</div>
+                <div class="party-name">{{ $asset->name }}</div>
+                <div class="party-line">{{ $asset->city }}</div>
+            </td>
+        </tr>
+    </table>
+
+    <table class="figures">
+        <tr>
+            <td>{{ __('admin.owner_statements.fields.total_revenue') }}</td>
+            <td class="amt">{{ $fmt($run->total_revenue) }}</td>
+        </tr>
+        <tr>
+            <td>{{ __('admin.owner_statements.fields.total_expense') }}</td>
+            <td class="amt">({{ $fmt($run->total_expense) }})</td>
+        </tr>
+        <tr class="net">
+            <td>{{ __('admin.owner_statements.fields.net_operating_income') }}</td>
+            <td class="amt">{{ $fmt($run->net_operating_income) }}</td>
+        </tr>
+        @if ((float) $statement->weight < 0.999999)
+            <tr class="sub">
+                <td>{{ __('admin.owner_statements.fields.owner_share') }}
+                    ({{ number_format((float) $statement->weight * 100, 2) }}%)</td>
+                <td class="amt">{{ $fmt($statement->owner_share) }}</td>
+            </tr>
+        @endif
+        <tr class="sub">
+            <td>{{ __('admin.owner_statements.fields.paid_to_date') }}</td>
+            <td class="amt">({{ $fmt($statement->paid_to_date) }})</td>
+        </tr>
+        <tr class="net">
+            <td>{{ __('admin.owner_statements.fields.outstanding') }}</td>
+            <td class="amt">{{ $fmt($statement->outstanding()) }}</td>
+        </tr>
+    </table>
+
+    <div class="footnote">
+        {{ __('admin.owner_statements.pdf.note') }}
+    </div>
+</body>
+</html>
