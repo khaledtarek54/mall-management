@@ -968,6 +968,8 @@ return [
         'lease_expiry_body' => 'ينتهي عقد إيجارك للوحدة :unit خلال :days يوماً.',
         'lease_expiry_mail' => 'ينتهي عقد إيجارك للوحدة :unit خلال :days يوماً، بتاريخ :date.',
         'lease_expiry_hint' => 'يرجى التواصل مع فريق العقار لمناقشة التجديد.',
+        'violation_notice_title' => 'إشعار مخالفة',
+        'violation_notice_body' => 'تم تسجيل مخالفة (:reference) على حسابك: :description',
         // Admin / operator-facing (incoming triage events)
         'portal_maintenance_submitted_title' => 'طلب :type جديد',
         'portal_maintenance_submitted_body' => ':tenant (وحدة :unit) قدّم: ":title" · أولوية :priority',
@@ -1357,6 +1359,7 @@ return [
         'imports' => 'استيراد البيانات',
         'preventive_maintenance' => 'الصيانة الوقائية',
         'areas' => 'المناطق',
+        'violations' => 'المخالفات',
         'procurement' => 'المشتريات',
         'approvals' => 'الاعتمادات',
         'departments' => 'الأقسام',
@@ -1427,6 +1430,10 @@ return [
             'submitted' => 'مُقدَّم',
             'locked' => 'مُثبَّت',
             'disputed' => 'معترض عليه',
+        ],
+        'violation' => [
+            'open' => 'مفتوحة',
+            'resolved' => 'مُغلقة',
         ],
         'eta' => [
             'pending' => 'بانتظار الإرسال',
@@ -1769,6 +1776,7 @@ return [
             'maintenance_work_order' => 'أمر شغل',
             'equipment' => 'معدة',
             'area' => 'منطقة',
+            'violation' => 'مخالفة',
         ],
         'events' => [
             'created' => 'إنشاء',
@@ -2142,6 +2150,29 @@ return [
             'supervisors' => 'المشرفون',
             'supervisor_count' => 'المشرفون',
             'notes' => 'ملاحظات',
+        ],
+    ],
+    'violations' => [
+        'singular' => 'مخالفة',
+        'plural' => 'المخالفات',
+        'fine_amount_hint' => 'اختياري. الغرامة المقدَّرة لهذه المخالفة — تُسجَّل فقط ولا تُحتسب على الفاتورة.',
+        'not_notified' => 'لم يُرسل',
+        'notice_sent' => 'تم إرسال إشعار المخالفة إلى المستأجر.',
+        'notice_failed' => 'تعذّر إرسال إشعار المخالفة. تم تسجيل ذلك؛ يرجى إعادة المحاولة.',
+        'send_notice_confirm' => 'إرسال إشعار بهذه المخالفة إلى المستأجر؟',
+        'fields' => [
+            'reference' => 'المرجع',
+            'property' => 'العقار',
+            'tenant' => 'المستأجر',
+            'description' => 'الوصف',
+            'fine_amount' => 'الغرامة',
+            'violation_date' => 'التاريخ',
+            'status' => 'الحالة',
+            'notified_at' => 'تاريخ الإشعار',
+            'notes' => 'ملاحظات',
+        ],
+        'actions' => [
+            'send_notice' => 'إرسال إشعار',
         ],
     ],
     'preventive_maintenance' => [

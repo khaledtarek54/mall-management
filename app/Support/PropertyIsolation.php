@@ -66,6 +66,7 @@ use App\Models\VendorBill;
 use App\Models\VendorBillPayment;
 use App\Models\VendorContact;
 use App\Models\VendorContract;
+use App\Models\Violation;
 use App\Models\Warehouse;
 
 /**
@@ -120,6 +121,7 @@ class PropertyIsolation
         Announcement::class => null,           // broadcast targeted at one property
         Equipment::class => null,              // a machine stands in exactly one mall; code unique per property
         Area::class => null,                   // a facility zone stands in exactly one mall; code unique per property
+        Violation::class => null,              // a tenant violation is pinned to the mall where it occurred (module 31)
         SlaPolicy::class => null,              // per-property SLA override (FR-CM-05); absent = operator default
         UtilityMeter::class => null,
         CamExpensePool::class => null,

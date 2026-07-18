@@ -253,6 +253,13 @@
             "hasView": false
         },
         {
+            "class": "ViolationResource",
+            "slug": "violations",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
             "class": "WarehouseResource",
             "slug": "warehouses",
             "hasCreate": true,

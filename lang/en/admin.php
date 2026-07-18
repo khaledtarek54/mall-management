@@ -968,6 +968,8 @@ return [
         'lease_expiry_body' => 'Your lease for unit :unit expires in :days days.',
         'lease_expiry_mail' => 'Your lease for unit :unit expires in :days days, on :date.',
         'lease_expiry_hint' => 'Please contact the property team to discuss renewal.',
+        'violation_notice_title' => 'Violation notice',
+        'violation_notice_body' => 'A violation (:reference) has been recorded against your account: :description',
         // Admin / operator-facing (incoming triage events)
         'portal_maintenance_submitted_title' => 'New :type request',
         'portal_maintenance_submitted_body' => ':tenant (unit :unit) submitted: ":title" · priority :priority',
@@ -1357,6 +1359,7 @@ return [
         'imports' => 'Data Import',
         'preventive_maintenance' => 'Preventive Maintenance',
         'areas' => 'Areas',
+        'violations' => 'Violations',
         'procurement' => 'Procurement',
         'approvals' => 'Approvals',
         'departments' => 'Departments',
@@ -1427,6 +1430,10 @@ return [
             'submitted' => 'Submitted',
             'locked' => 'Locked',
             'disputed' => 'Disputed',
+        ],
+        'violation' => [
+            'open' => 'Open',
+            'resolved' => 'Resolved',
         ],
         'eta' => [
             'pending' => 'Pending',
@@ -1769,6 +1776,7 @@ return [
             'maintenance_work_order' => 'Work Order',
             'equipment' => 'Equipment',
             'area' => 'Area',
+            'violation' => 'Violation',
         ],
         'events' => [
             'created' => 'Created',
@@ -2142,6 +2150,29 @@ return [
             'supervisors' => 'Supervisors',
             'supervisor_count' => 'Supervisors',
             'notes' => 'Notes',
+        ],
+    ],
+    'violations' => [
+        'singular' => 'Violation',
+        'plural' => 'Violations',
+        'fine_amount_hint' => 'Optional. The fine assessed for this violation — recorded only, not billed.',
+        'not_notified' => 'Not sent',
+        'notice_sent' => 'Violation notice sent to the tenant.',
+        'notice_failed' => 'The violation notice could not be sent. It has been logged; please retry.',
+        'send_notice_confirm' => 'Send a notice of this violation to the tenant?',
+        'fields' => [
+            'reference' => 'Reference',
+            'property' => 'Property',
+            'tenant' => 'Tenant',
+            'description' => 'Description',
+            'fine_amount' => 'Fine',
+            'violation_date' => 'Date',
+            'status' => 'Status',
+            'notified_at' => 'Notice sent',
+            'notes' => 'Notes',
+        ],
+        'actions' => [
+            'send_notice' => 'Send notice',
         ],
     ],
     'preventive_maintenance' => [

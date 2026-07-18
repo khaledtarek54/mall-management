@@ -28,6 +28,7 @@ use App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationR
 use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Filament\Admin\Resources\UtilityMeters\UtilityMeterResource;
 use App\Filament\Admin\Resources\VendorBills\VendorBillResource;
+use App\Filament\Admin\Resources\Violations\ViolationResource;
 use App\Filament\Admin\Resources\Warehouses\WarehouseResource;
 use App\Models\AccountMapping;
 use App\Support\PropertyIsolation;
@@ -121,6 +122,7 @@ if (! function_exists('propertyIsolationMustGuardResources')) {
             'UtilityMeter' => UtilityMeterResource::class,
             'Equipment' => EquipmentResource::class,
             'Area' => AreaResource::class,
+            'Violation' => ViolationResource::class,
             'SlaPolicy' => SlaPolicyResource::class,
             'Employee' => EmployeeResource::class,
             'FixedAsset' => FixedAssetResource::class,

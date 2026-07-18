@@ -239,6 +239,17 @@ class RolesPermissionsSeeder extends Seeder
             'areas.edit' => 'Edit facility zones + assign supervisors',
             'areas.delete' => 'Delete facility zones',
         ],
+        // FR-REQ-15/16/17 — tenant violations register. `notify` is a dedicated
+        // permission (not `.edit`): sending the tenant a formal notice is a distinct
+        // authority from editing the record. Managers inherit it via the blanket
+        // non-delete grant; viewer/owner get only `.view` (no notify).
+        'violations' => [
+            'violations.view' => 'View tenant violations',
+            'violations.create' => 'Record tenant violations',
+            'violations.edit' => 'Edit tenant violations',
+            'violations.delete' => 'Delete tenant violations',
+            'violations.notify' => 'Send a violation notice to the tenant (FR-REQ-17)',
+        ],
         'preventive_maintenance' => [
             'preventive_maintenance.view' => 'View preventive-maintenance plans & work orders',
             'preventive_maintenance.create' => 'Create preventive-maintenance plans / work orders',
@@ -434,6 +445,8 @@ class RolesPermissionsSeeder extends Seeder
             'preventive_maintenance.edit', 'preventive_maintenance.complete',
             // Facility zones — operations owns the mall's operational layout.
             'areas.view', 'areas.create', 'areas.edit',
+            // Tenant violations (FR-REQ-15/16/17) — operations records + notices them.
+            'violations.view', 'violations.create', 'violations.edit', 'violations.notify',
             'vendors.view', 'vendors.create', 'vendors.edit',
             'utility_meters.view', 'utility_meters.create', 'utility_meters.edit',
             'inventory.view', 'inventory.create', 'inventory.edit',
@@ -468,6 +481,8 @@ class RolesPermissionsSeeder extends Seeder
             'preventive_maintenance.create', 'preventive_maintenance.edit', 'preventive_maintenance.complete',
             // Facility zones — the coordinator routes work by zone (FR routing, later slice).
             'areas.view', 'areas.create', 'areas.edit',
+            // Tenant violations (FR-REQ-15/16/17) — the coordinator records + notices them.
+            'violations.view', 'violations.create', 'violations.edit', 'violations.notify',
             'vendors.view',
             'notes.view', 'notes.create',
         ]);
