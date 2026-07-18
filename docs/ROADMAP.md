@@ -135,6 +135,43 @@ automation. The **⏭️ declined** set (multi-currency, consolidation, drop-shi
 salary-rule engine) is Odoo *breadth* that's either N/A to a single-entity EGP operator or
 Enterprise-gated — don't mistake it for a backlog.
 
+### Property + Facility depth — the moat (from the [competitive gap analysis](gap-analysis/competitors/README.md))
+
+A 2026-07-18 comparison of Atriom's *property* and *facility* modules against the software a
+mall operator actually shortlists (**Yardi Voyager, Re-Leased, AppFolio** on the property side;
+**Facilio, ServiceChannel, IBM Maximo, Fiix, MaintainX/Limble** on facility) found the moat
+**real but lopsided**: Atriom is at or above the field on billing correctness, the double-entry
+GL *under* the property engine, per-property isolation, the SLA-penalty-to-AP move, and Egyptian
+VAT/ETA fit — and genuinely behind on lease-admin *breadth*, the *owner deliverable*, and the
+field-tech/vendor edge. Reviewed with the operator 2026-07-18; the strengthen list below is the
+decision, ordered.
+
+| # | Strengthen | Why it's real for this operator | Domain | Effort |
+| --- | --- | --- | --- | --- |
+| **1** | **Owner statements + disbursements** | **The single highest-value gap.** Eltizam runs malls *for* Jawad; the periodic owner statement (income − expenses − management fee = net) and the payout cycle *is* the relationship's deliverable, and Atriom ships none of it. The `/owner` KPI widget even ignores `ownership_percentage` (a 50% co-owner sees 100% of the numbers). Compounded by [F-80](gap-analysis/21-general-ledger.md). | [03](gap-analysis/competitors/03-deposits-utilities-portal-owner.md) | L |
+| **2** | **CAM recovery-clause engine** | Caps, the routine 10–15% CAM **admin fee** (real bookable landlord revenue Atriom can't charge), gross-up-to-occupancy, pool exclusions, configurable basis. `cap_amount`/`exclusions` sit on `CamAllocation` unread; basis is hard-coded to occupied leased area. Yardi's crown jewel. | [02](gap-analysis/competitors/02-cam-turnover-rent.md) | L |
+| **3** | **Automated rent escalation (stepped + CPI)** | Fields exist (`escalation_rate`/`escalation_type`/`next_escalation_date`); nothing applies them. A `next_escalation_date ≤ now` sweep over the existing `LeaseRentChangeService` — low-risk, stops revenue leaking every missed anniversary. | [01](gap-analysis/competitors/01-lease-billing.md) | M |
+| **4** | **PDC (post-dated cheque) register + lifecycle** | The Egyptian norm — a tenant lodges a year of PDCs up front. Atriom captures one cheque number on a *received* payment; no forward register, maturity schedule, or bounce lifecycle. **None** of the Western benchmarks fill this — differentiation, not just parity (OPEN-QUESTIONS A7.1). | [03](gap-analysis/competitors/03-deposits-utilities-portal-owner.md) | M |
+| **5** | **Vendor compliance / COI gate** | A mall is legally on the hook for the contractors it lets touch fire systems, lifts, electrical. Atriom stores only `tax_id`/`legal_name` and will **assign a blacklisted vendor**. Track insurance/COI/license + expiry (reuse `vendors:expire-contracts`) and **block non-compliant dispatch**. ServiceChannel's flagship; a real liability exposure. | [06](gap-analysis/competitors/06-vendors-areas-permits-violations.md) | M |
+
+**The 🟡 tail from the same analysis** (real, lower): meter/usage-based PM triggers, vendor
+scorecards, asset criticality (one field, high leverage), fit-out-permit approval workflow,
+reorder-driven auto-purchase, bill-the-violation-fine-to-AR, utility tariff/recharge automation,
+lease document generation + e-sign, first-class rent-free/stepped schedules, annual/YTD turnover
+breakpoints, the deposit-balance/reconciliation layer. **The field-technician mobile app** is a
+real facility gap but sits with the external mobile-app work (§3, 🔑 L).
+
+**⏭️ Declined — explicitly, so nobody mistakes the specialists' breadth for a backlog:**
+IoT/BMS + predictive maintenance, automated POS feeds, a vendor marketplace/network, the full
+Maximo-grade reliability-analytics suite, office-lease base-year CAM, interest-bearing/trust-segregated
+deposit accounts, skills/geo load-balanced dispatch, multi-currency/consolidation. Same discipline
+as the Odoo verdict: **keep layering depth onto the property + facility + Egyptian-books spine; do
+not grow sideways toward every-industry breadth.**
+
+**De-risking (not features), belongs near the top regardless of band:** certify ETA + Paymob out
+of mock/sandbox (§2 already tracks these) and close the blacklisted-vendor dispatch gate (row 5).
+They make a moat that *already exists* actually usable/safe.
+
 ### Accounting (detail in [accounting/GAP-ANALYSIS.md](accounting/GAP-ANALYSIS.md))
 
 The core is production-grade: document → balanced entry → trial balance → statements →
