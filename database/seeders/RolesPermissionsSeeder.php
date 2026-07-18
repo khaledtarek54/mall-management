@@ -176,6 +176,21 @@ class RolesPermissionsSeeder extends Seeder
         'general_ledger' => [
             'general_ledger.view' => 'View the trial balance, general ledger, and financial statements',
         ],
+        'owner_statements' => [
+            'owner_statements.view' => 'View owner statements & runs (operator)',
+            'owner_statements.generate' => 'Generate an owner statement run',
+            'owner_statements.finalise' => 'Finalise an owner statement run (posts the distribution accrual)',
+            'owner_statements.revise' => 'Revise a finalised owner statement run',
+            'owner_statements.send' => 'Send a finalised statement to its owner',
+            'owner_statements.view_own' => 'An owner views their own statements',
+        ],
+        'disbursements' => [
+            'disbursements.view' => 'View owner disbursements',
+            'disbursements.schedule' => 'Schedule an owner disbursement (payout)',
+            'disbursements.approve' => 'Approve a scheduled disbursement',
+            'disbursements.pay' => 'Mark a disbursement paid (clears Due to Owner)',
+            'disbursements.cancel' => 'Cancel a not-yet-paid disbursement',
+        ],
         'vendor_bills' => [
             'vendor_bills.view' => 'View vendor bills (accounts payable)',
             'vendor_bills.create' => 'Create vendor bills',
@@ -424,6 +439,10 @@ class RolesPermissionsSeeder extends Seeder
             // `.view_all`, so omitting it here silently narrows them to nothing.
             ->filter(fn ($p) => str_ends_with($p, '.view') || str_ends_with($p, '.view_all') || $p === 'reports.download')
             ->push('owner_requests.create')
+            // The owner deliverable: see their OWN statements (`.view_own` isn't caught by the
+            // `.view` filter above). They already get `owner_statements.view`/`disbursements.view`
+            // read-only via the filter; view_own is what the owner-facing page gates on.
+            ->push('owner_statements.view_own')
             ->unique()
             ->values()
             ->all();
@@ -544,6 +563,11 @@ class RolesPermissionsSeeder extends Seeder
             'fixed_assets.view', 'fixed_assets.create', 'fixed_assets.edit',
             'employees.view', 'employees.grant_advance', 'employees.record_repayment',
             'custodies.view', 'custodies.create', 'custodies.edit', 'custodies.settle',
+            // Owner statements + disbursements (module 27) — accounting runs the operator side.
+            'owner_statements.view', 'owner_statements.generate', 'owner_statements.finalise',
+            'owner_statements.revise', 'owner_statements.send',
+            'disbursements.view', 'disbursements.schedule', 'disbursements.approve',
+            'disbursements.pay', 'disbursements.cancel',
             'reports.view', 'reports.download',
         ]);
 

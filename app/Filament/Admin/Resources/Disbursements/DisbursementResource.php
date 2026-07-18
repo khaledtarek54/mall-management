@@ -1,0 +1,99 @@
+<?php
+
+namespace App\Filament\Admin\Resources\Disbursements;
+
+use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
+use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
+use App\Filament\Admin\Resources\Disbursements\Pages\ListDisbursements;
+use App\Filament\Admin\Resources\Disbursements\Tables\DisbursementsTable;
+use App\Models\Disbursement;
+use App\Support\TenantScope;
+use BackedEnum;
+use Filament\Resources\Resource;
+use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+
+/**
+ * Owner disbursements (module 27) — the payout board. Approve, pay, or cancel the payouts
+ * scheduled against finalised owner statements; paying clears the Due-to-Owner liability.
+ * Property-scoped on the denormalized `asset_id`; gated on `disbursements.*`.
+ */
+class DisbursementResource extends Resource
+{
+    use BypassesFilamentTenantAutoScope;
+    use RoleGatedActions;
+
+    protected static ?string $model = Disbursement::class;
+
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBanknotes;
+
+    protected static ?int $navigationSort = 46;
+
+    protected static ?string $recordTitleAttribute = 'reference';
+
+    protected static function permissionModule(): string
+    {
+        return 'disbursements';
+    }
+
+    public static function getNavigationGroup(): ?string
+    {
+        return __('admin.groups.accounting');
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return __('admin.disbursements.plural');
+    }
+
+    public static function getModelLabel(): string
+    {
+        return __('admin.disbursements.singular');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('admin.disbursements.plural');
+    }
+
+    public static function canApprove(): bool
+    {
+        return auth()->user()?->can('disbursements.approve') ?? false;
+    }
+
+    public static function canPay(): bool
+    {
+        return auth()->user()?->can('disbursements.pay') ?? false;
+    }
+
+    public static function canCancel(): bool
+    {
+        return auth()->user()?->can('disbursements.cancel') ?? false;
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        if ($assetId = TenantScope::currentAssetId()) {
+            $query->where('asset_id', $assetId);
+        } elseif (($ids = TenantScope::visibleAssetIds()) !== null) {
+            $query->whereIn('asset_id', $ids);
+        }
+
+        return $query;
+    }
+
+    public static function table(Table $table): Table
+    {
+        return DisbursementsTable::configure($table);
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index' => ListDisbursements::route('/'),
+        ];
+    }
+}

@@ -64,6 +64,13 @@
             "hasView": false
         },
         {
+            "class": "DisbursementResource",
+            "slug": "disbursements",
+            "hasCreate": false,
+            "hasEdit": false,
+            "hasView": false
+        },
+        {
             "class": "EmployeeResource",
             "slug": "employees",
             "hasCreate": true,
@@ -151,6 +158,13 @@
             "class": "OwnerRequestResource",
             "slug": "owner-requests",
             "hasCreate": true,
+            "hasEdit": false,
+            "hasView": false
+        },
+        {
+            "class": "OwnerStatementRunResource",
+            "slug": "owner-statement-runs",
+            "hasCreate": false,
             "hasEdit": false,
             "hasView": false
         },
