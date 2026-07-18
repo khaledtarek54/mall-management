@@ -1940,6 +1940,7 @@ return [
     'employees' => [
         'errors' => [
             'repayment_before_advance' => 'A repayment cannot be dated before the advance was granted (:granted).',
+            'repayment_already_reversed' => 'This repayment has already been reversed.',
         ],
         'group' => 'HR',
         'singular' => 'Employee',
@@ -1952,7 +1953,7 @@ return [
         ],
         'statuses' => ['active' => 'Active', 'terminated' => 'Terminated'],
         'methods' => ['cash' => 'Cash', 'bank' => 'Bank'],
-        'actions' => ['terminate' => 'Terminate', 'grant_advance' => 'Grant advance', 'record_repayment' => 'Record repayment'],
+        'actions' => ['terminate' => 'Terminate', 'grant_advance' => 'Grant advance', 'record_repayment' => 'Record repayment', 'reverse_repayment' => 'Reverse a repayment'],
         'terminated' => 'Employee terminated',
         'advances' => 'Advances & loans',
         'advance_fields' => [
@@ -1963,6 +1964,10 @@ return [
         'types' => ['advance' => 'Advance', 'loan' => 'Loan'],
         'granted' => 'Advance granted',
         'repaid_notice' => 'Repayment recorded',
+        'reverse_repayment_modal_description' => 'Reversing voids the repayment and puts the amount back on the outstanding balance. The record is kept for audit.',
+        'reverse_which_repayment' => 'Which repayment',
+        'reverse_reason' => 'Reason',
+        'repayment_reversed' => 'Repayment reversed',
     ],
 
     'payroll_lines' => [
@@ -1972,6 +1977,9 @@ return [
         'fields' => [
             'employee' => 'Employee', 'gross' => 'Gross', 'salary_tax' => 'Salary tax',
             'social_insurance' => 'Social insurance', 'net' => 'Net',
+        ],
+        'errors' => [
+            'net_negative' => 'Deductions exceed gross — net pay would be negative.',
         ],
     ],
 

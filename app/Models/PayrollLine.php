@@ -13,6 +13,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * derivation. Saving/deleting a line re-derives the parent run's aggregates from Σ
  * lines (Payroll::recomputeFromLines), so the header — and the GL it posts — always
  * ties to the sum of the lines.
+ *
+ * @property-read float $net Gross − salary tax − social insurance (accessor).
  */
 class PayrollLine extends Model
 {
@@ -63,6 +65,16 @@ class PayrollLine extends Model
                 if ($raw === null || $raw === '') {
                     $line->{$column} = 0;
                 }
+            }
+
+            // A LINE's net must not go negative. The run header already refuses a net-negative
+            // TOTAL (PayrollService::approve), but that's an aggregate: one employee's
+            // deductions can exceed their gross while the run sums positive, and the payslip
+            // then prints "Net −1,000" on a frozen run that can't be corrected (gap-analysis
+            // F-90b). The relation-manager form validates this inline; this is the invariant
+            // backstop for any other write path.
+            if ($line->net < 0) {
+                throw new \DomainException(__('admin.payroll_lines.errors.net_negative'));
             }
         });
 

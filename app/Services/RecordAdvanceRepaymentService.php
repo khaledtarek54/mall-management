@@ -57,4 +57,48 @@ class RecordAdvanceRepaymentService
             ]);
         });
     }
+
+    /**
+     * Reverse a mis-keyed repayment (gap-analysis F-91). Every other money document in Atriom
+     * can be corrected; a repayment could not — a 5,000 typed for 500 left outstanding wrong
+     * and cash overstated, unfixable short of super_admin deleting the WHOLE advance (which
+     * cascades and voids the correct grant entry too).
+     *
+     * The soft-delete IS the void: `EmployeeAdvance::repaid()` sums the soft-delete-aware
+     * `repayments()` relation (so outstanding goes straight back up), and
+     * `EmployeeAdvanceRepayment` is a registered GL source whose real-time sync fires on
+     * `deleted` (so `LedgerPoster::sync()` sees a trashed source and voids its entry). The row
+     * is retained for audit with an explicit `reversed` activity capturing who + why.
+     *
+     * Lock-safe: the advance is locked so a reverse can't race a concurrent repayment, and the
+     * repayment is re-read under the lock so it can't be reversed twice.
+     *
+     * @throws DomainException if it is already reversed
+     */
+    public function reverse(EmployeeAdvanceRepayment $repayment, string $reason, ?int $actorId = null): EmployeeAdvanceRepayment
+    {
+        return DB::transaction(function () use ($repayment, $reason, $actorId) {
+            // Lock the parent advance to serialise against a concurrent repayment/reverse.
+            EmployeeAdvance::whereKey($repayment->employee_advance_id)->lockForUpdate()->firstOrFail();
+
+            /** @var EmployeeAdvanceRepayment|null $locked */
+            $locked = EmployeeAdvanceRepayment::whereKey($repayment->getKey())->lockForUpdate()->first();
+
+            if ($locked === null) {
+                throw new DomainException(__('admin.employees.errors.repayment_already_reversed'));
+            }
+
+            // Capture who/why BEFORE the soft-delete, so the reason survives on a retained row.
+            activity('employee_advance_repayment')
+                ->performedOn($locked)
+                ->causedBy($actorId ? \App\Models\User::find($actorId) : auth()->user())
+                ->event('reversed')
+                ->withProperties(['reason' => $reason, 'amount' => (float) $locked->amount])
+                ->log('reversed');
+
+            $locked->delete();
+
+            return $locked;
+        });
+    }
 }

@@ -1940,6 +1940,7 @@ return [
     'employees' => [
         'errors' => [
             'repayment_before_advance' => 'لا يمكن تأريخ السداد قبل تاريخ صرف السلفة (:granted).',
+            'repayment_already_reversed' => 'تم عكس هذا السداد بالفعل.',
         ],
         'group' => 'الموارد البشرية',
         'singular' => 'موظف',
@@ -1952,7 +1953,7 @@ return [
         ],
         'statuses' => ['active' => 'نشط', 'terminated' => 'منتهي الخدمة'],
         'methods' => ['cash' => 'نقدًا', 'bank' => 'بنك'],
-        'actions' => ['terminate' => 'إنهاء الخدمة', 'grant_advance' => 'صرف سلفة', 'record_repayment' => 'تسجيل سداد'],
+        'actions' => ['terminate' => 'إنهاء الخدمة', 'grant_advance' => 'صرف سلفة', 'record_repayment' => 'تسجيل سداد', 'reverse_repayment' => 'عكس سداد'],
         'terminated' => 'تم إنهاء خدمة الموظف',
         'advances' => 'السلف والقروض',
         'advance_fields' => [
@@ -1963,6 +1964,10 @@ return [
         'types' => ['advance' => 'سلفة', 'loan' => 'قرض'],
         'granted' => 'تم صرف السلفة',
         'repaid_notice' => 'تم تسجيل السداد',
+        'reverse_repayment_modal_description' => 'عكس السداد يلغي القيد ويعيد المبلغ إلى الرصيد المتبقّي. يُحتفظ بالسجل للمراجعة.',
+        'reverse_which_repayment' => 'أي سداد',
+        'reverse_reason' => 'السبب',
+        'repayment_reversed' => 'تم عكس السداد',
     ],
 
     'payroll_lines' => [
@@ -1972,6 +1977,9 @@ return [
         'fields' => [
             'employee' => 'الموظف', 'gross' => 'الإجمالي', 'salary_tax' => 'ضريبة كسب العمل',
             'social_insurance' => 'التأمينات الاجتماعية', 'net' => 'الصافي',
+        ],
+        'errors' => [
+            'net_negative' => 'الاستقطاعات تتجاوز الإجمالي — سيصبح صافي الراتب بالسالب.',
         ],
     ],
 

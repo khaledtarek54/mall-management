@@ -90,3 +90,45 @@ it('hides the grant action for a terminated employee', function () {
 
     advancesRM($this->employee->fresh())->assertTableActionHidden('grant_advance');
 });
+
+it('reverses a mis-keyed repayment via the relation manager (F-91)', function () {
+    $this->actingAs(makeUser('hr', [$this->asset->id]));
+    $advance = $this->employee->advances()->create([
+        'asset_id' => $this->asset->id, 'amount' => 10000, 'advance_date' => now()->toDateString(), 'paid_from' => 'cash',
+    ]);
+    $repayment = $advance->repayments()->create([
+        'asset_id' => $this->asset->id, 'amount' => 5000, 'repaid_on' => now()->toDateString(), 'method' => 'cash',
+    ]);
+    expect($advance->fresh()->outstanding())->toBe(5000.0);
+
+    advancesRM($this->employee)
+        ->callTableAction('reverse_repayment', $advance, data: [
+            'repayment_id' => $repayment->id, 'reason' => 'Typo — should have been 500',
+        ])
+        ->assertHasNoTableActionErrors();
+
+    expect($advance->fresh()->outstanding())->toBe(10000.0)
+        ->and(EmployeeAdvanceRepayment::withTrashed()->find($repayment->id)->trashed())->toBeTrue();
+});
+
+it('hides the reverse action when the advance has no repayments', function () {
+    $this->actingAs(makeUser('hr', [$this->asset->id]));
+    $advance = $this->employee->advances()->create([
+        'asset_id' => $this->asset->id, 'amount' => 3000, 'advance_date' => now()->toDateString(), 'paid_from' => 'cash',
+    ]);
+
+    advancesRM($this->employee)->assertTableActionHidden('reverse_repayment', $advance);
+});
+
+it('hides the reverse action from a role without employees.record_repayment', function () {
+    // viewer has employees.view but not record_repayment.
+    $this->actingAs(makeUser('viewer', [$this->asset->id]));
+    $advance = $this->employee->advances()->create([
+        'asset_id' => $this->asset->id, 'amount' => 3000, 'advance_date' => now()->toDateString(), 'paid_from' => 'cash',
+    ]);
+    $advance->repayments()->create([
+        'asset_id' => $this->asset->id, 'amount' => 1000, 'repaid_on' => now()->toDateString(), 'method' => 'cash',
+    ]);
+
+    advancesRM($this->employee)->assertTableActionHidden('reverse_repayment', $advance);
+});

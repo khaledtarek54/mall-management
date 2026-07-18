@@ -4,6 +4,7 @@ namespace App\Filament\Admin\RelationManagers;
 
 use App\Models\Employee;
 use App\Models\EmployeeAdvance;
+use App\Models\EmployeeAdvanceRepayment;
 use App\Services\GrantEmployeeAdvanceService;
 use App\Services\RecordAdvanceRepaymentService;
 use App\Support\Modules;
@@ -168,6 +169,64 @@ class EmployeeAdvancesRelationManager extends RelationManager
                         }
 
                         Notification::make()->title(__('admin.employees.repaid_notice'))->success()->send();
+                    }),
+
+                // The correction path repayments were missing (gap-analysis F-91). A mis-keyed
+                // repayment (5,000 for 500) left outstanding wrong and cash overstated, unfixable
+                // short of deleting the whole advance. Reversing soft-deletes the chosen
+                // repayment: outstanding recomputes and its GL entry voids, reason kept on the
+                // retained row. Gated in BOTH visible() and action() — visible() is not a
+                // dispatch gate (mountAction checks isDisabled(), never isVisible()). Whoever may
+                // record a repayment may correct one.
+                Action::make('reverse_repayment')
+                    ->label(__('admin.employees.actions.reverse_repayment'))
+                    ->icon('heroicon-o-arrow-uturn-left')
+                    ->color('danger')
+                    ->visible(fn (EmployeeAdvance $record) => (auth()->user()?->can('employees.record_repayment') ?? false)
+                        && $record->repayments()->exists())
+                    ->authorize(fn () => auth()->user()?->can('employees.record_repayment') ?? false)
+                    ->requiresConfirmation()
+                    ->modalHeading(__('admin.employees.actions.reverse_repayment'))
+                    ->modalDescription(__('admin.employees.reverse_repayment_modal_description'))
+                    ->schema([
+                        Select::make('repayment_id')
+                            ->label(__('admin.employees.reverse_which_repayment'))
+                            ->options(fn (EmployeeAdvance $record) => EmployeeAdvanceRepayment::query()
+                                ->where('employee_advance_id', $record->getKey()) // SoftDeletes excludes reversed
+                                ->orderByDesc('repaid_on')->orderByDesc('id')->get()
+                                ->mapWithKeys(fn (EmployeeAdvanceRepayment $r) => [$r->id => $r->repaid_on->format('d/m/Y')
+                                    .' — EGP '.number_format((float) $r->amount, 2)
+                                    .' ('.__("admin.employees.methods.{$r->method}").')'])
+                                ->all())
+                            ->required()
+                            ->native(false),
+                        Textarea::make('reason')
+                            ->label(__('admin.employees.reverse_reason'))
+                            ->required()
+                            ->rows(2)
+                            ->columnSpanFull(),
+                    ])
+                    ->action(function (EmployeeAdvance $record, array $data): void {
+                        abort_unless(auth()->user()?->can('employees.record_repayment') ?? false, 403);
+
+                        // Resolve the chosen repayment scoped to THIS advance (form-tamper guard).
+                        /** @var EmployeeAdvanceRepayment|null $repayment */
+                        $repayment = $record->repayments()->whereKey($data['repayment_id'])->first();
+                        if ($repayment === null) {
+                            Notification::make()->title(__('admin.employees.errors.repayment_already_reversed'))->danger()->send();
+
+                            return;
+                        }
+
+                        try {
+                            app(RecordAdvanceRepaymentService::class)->reverse($repayment, $data['reason']);
+                        } catch (\DomainException $e) {
+                            Notification::make()->title($e->getMessage())->danger()->send();
+
+                            return;
+                        }
+
+                        Notification::make()->title(__('admin.employees.repayment_reversed'))->success()->send();
                     }),
             ])
             ->defaultSort('advance_date', 'desc');

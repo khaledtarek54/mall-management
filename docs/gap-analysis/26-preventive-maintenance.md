@@ -63,7 +63,7 @@ forgot.**
 **Fix:** `waive()` is now lock-safe, releases `vendor_bill_id`/`applied_at`, and recomputes the bill.
 Guard: `GapAnalysisRound2FixesTest`, verified to fail without it.
 
-### 🟡 F-96. `--dry-run` writes
+### ✅ F-96. `--dry-run` writes — **FIXED 2026-07-18**
 `app/Console/Commands/ScanWorkOrderSlaBreachesCommand.php:53`
 
 `assessPenalties($overdue)` runs **before** the dry-run check. So
@@ -71,6 +71,10 @@ Guard: `GapAnalysisRound2FixesTest`, verified to fail without it.
 **without writing**"* — creates/updates real `maintenance_penalties` rows. Impact is bounded (the
 hourly run would create them anyway), but an operator previewing impact on a fresh install gets live
 financial records.
+
+**Fix:** `--dry-run` now previews (both what would be alerted and that penalties would run) and
+returns **before** both writes — `assessPenalties()` and the alert loop. A real (non-dry) run still
+assesses on every pass, so accrual is unchanged. Guard: `WorkOrderSlaDryRunTest`.
 
 ---
 
@@ -107,6 +111,7 @@ financial records.
 
 ## 4. Deferred
 
-- **D-84** — F-96 move `assessPenalties()` after the dry-run check.
+- ~~**D-84**~~ — ✅ **F-96 fixed 2026-07-18**: `--dry-run` returns before `assessPenalties()` and the
+  alert loop (previewing both, writing neither). Guard: `WorkOrderSlaDryRunTest`.
 - **D-85** — harden `SlaPenaltyChargeScenarioTest` to drive the real sweep, or fold its assertions
   into `SlaPenaltyLedgerDispatchTest`.

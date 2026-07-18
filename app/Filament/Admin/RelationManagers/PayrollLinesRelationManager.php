@@ -11,6 +11,7 @@ use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
@@ -86,9 +87,7 @@ class PayrollLinesRelationManager extends RelationManager
                             ->required()
                             ->searchable()
                             ->native(false),
-                        TextInput::make('gross')->label(__('admin.payroll_lines.fields.gross'))->numeric()->minValue(0)->required()->prefix('EGP'),
-                        TextInput::make('salary_tax')->label(__('admin.payroll_lines.fields.salary_tax'))->numeric()->minValue(0)->default(0)->prefix('EGP'),
-                        TextInput::make('social_insurance')->label(__('admin.payroll_lines.fields.social_insurance'))->numeric()->minValue(0)->default(0)->prefix('EGP'),
+                        ...$this->moneyFields(),
                     ])
                     ->action(function (array $data): void {
                         // Server-side re-checks: run still a draft, permission, and the
@@ -114,11 +113,7 @@ class PayrollLinesRelationManager extends RelationManager
                 EditAction::make()
                     ->visible(fn () => $this->runIsEditable())
                     ->authorize(fn () => auth()->user()?->can('payrolls.edit') ?? false)
-                    ->schema([
-                        TextInput::make('gross')->label(__('admin.payroll_lines.fields.gross'))->numeric()->minValue(0)->required()->prefix('EGP'),
-                        TextInput::make('salary_tax')->label(__('admin.payroll_lines.fields.salary_tax'))->numeric()->minValue(0)->default(0)->prefix('EGP'),
-                        TextInput::make('social_insurance')->label(__('admin.payroll_lines.fields.social_insurance'))->numeric()->minValue(0)->default(0)->prefix('EGP'),
-                    ])
+                    ->schema($this->moneyFields())
                     ->before(fn () => abort_unless($this->runIsEditable(), 403)),
                 DeleteAction::make()
                     ->visible(fn () => $this->runIsEditable())
@@ -141,6 +136,30 @@ class PayrollLinesRelationManager extends RelationManager
                     }),
             ])
             ->defaultSort('id');
+    }
+
+    /**
+     * The three money inputs shared by add + edit. `social_insurance` carries the cross-field
+     * guard: gross − tax − insurance must stay ≥ 0, so a line can't be saved with a negative
+     * net (a payslip printing "Net −1,000"). The model enforces the same invariant as a
+     * backstop; this validates it inline so the operator sees it on the field, not a 500.
+     *
+     * @return array<int, TextInput>
+     */
+    private function moneyFields(): array
+    {
+        return [
+            TextInput::make('gross')->label(__('admin.payroll_lines.fields.gross'))->numeric()->minValue(0)->required()->prefix('EGP'),
+            TextInput::make('salary_tax')->label(__('admin.payroll_lines.fields.salary_tax'))->numeric()->minValue(0)->default(0)->prefix('EGP'),
+            TextInput::make('social_insurance')->label(__('admin.payroll_lines.fields.social_insurance'))->numeric()->minValue(0)->default(0)->prefix('EGP')
+                ->rule(function (Get $get) {
+                    return function (string $attribute, $value, $fail) use ($get) {
+                        if ((float) $get('gross') - (float) $get('salary_tax') - (float) $value < 0) {
+                            $fail(__('admin.payroll_lines.errors.net_negative'));
+                        }
+                    };
+                }),
+        ];
     }
 
     /** Employees selectable for this run: its property (or the user's visible set if consolidated). */

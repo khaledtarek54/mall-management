@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\VendorBills\Pages;
 
 use App\Filament\Admin\Resources\VendorBills\VendorBillResource;
 use App\Services\VendorBillService;
+use App\Support\PostingDate;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\DatePicker;
@@ -14,6 +15,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 
 class EditVendorBill extends EditRecord
 {
@@ -23,6 +25,21 @@ class EditVendorBill extends EditRecord
     {
         // Block re-homing the record into a property outside the user's visible set.
         VendorBillResource::assertAssetInScope($data['asset_id'] ?? $this->record->asset_id);
+
+        // Guard a CHANGED bill_date the same way create does (F-89/F-93 class: a closed-period
+        // date commits the row but its GL post silently fails). An UNCHANGED date is skipped —
+        // a bill legitimately posted before a month closed must stay editable for its other
+        // fields without re-validating the now-sealed period. (When the bill is locked the
+        // field is disabled and never submitted, so this only fires on a real edit.)
+        $submitted = $data['bill_date'] ?? null;
+        if ($submitted !== null
+            && Carbon::parse($submitted)->toDateString() !== $this->record->bill_date?->toDateString()) {
+            try {
+                PostingDate::assertOpen($submitted, __('admin.fields.bill_date'));
+            } catch (\DomainException $e) {
+                throw ValidationException::withMessages(['data.bill_date' => $e->getMessage()]);
+            }
+        }
 
         return $data;
     }

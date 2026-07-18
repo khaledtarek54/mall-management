@@ -50,6 +50,21 @@ class ScanWorkOrderSlaBreachesCommand extends Command
             ->with(['asset', 'equipment', 'vendor'])
             ->get();
 
+        // --dry-run is documented as "print what would be alerted WITHOUT writing", so it must
+        // return before BOTH writes — the alerts AND the penalty assessment. assessPenalties()
+        // creates/updates real maintenance_penalties (financial) rows, so it cannot run in a
+        // preview (gap-analysis F-96). Preview first, then return.
+        if ($this->option('dry-run')) {
+            $breached = $overdue->whereNull('sla_breach_notified_at');
+            foreach ($breached as $order) {
+                $this->line("  would alert: {$order->reference} ({$order->hoursOverSla()}h over)");
+            }
+
+            $this->info("{$breached->count()} breach(es) would be alerted; {$overdue->count()} penalty assessment(s) would run.");
+
+            return self::SUCCESS;
+        }
+
         $assessFailures = $this->assessPenalties($overdue);
 
         $breached = $overdue->whereNull('sla_breach_notified_at');
@@ -57,16 +72,6 @@ class ScanWorkOrderSlaBreachesCommand extends Command
         if ($breached->isEmpty()) {
             $this->info('No new SLA breaches.');
             $this->summarise($overdue->count(), $assessFailures, alerted: 0, alertFailures: 0);
-
-            return self::SUCCESS;
-        }
-
-        if ($this->option('dry-run')) {
-            foreach ($breached as $order) {
-                $this->line("  would alert: {$order->reference} ({$order->hoursOverSla()}h over)");
-            }
-
-            $this->info("{$breached->count()} breach(es) would be alerted.");
 
             return self::SUCCESS;
         }

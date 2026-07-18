@@ -10,8 +10,8 @@
 genuinely well built — locks, a service-side transition matrix, tier-on-current-total,
 source-linked receipts all hold up under attack. Its headline defect — **the GRNI clearing it
 exists to enable was unreachable from the product** — is closed, together with the aggregate cap
-that fixing it would otherwise have exposed. **All six findings are fixed**; only the cross-cutting
-deferrals (D-95 `EditAction` authorize, D-96 `PostingDate` on `bill_date`) remain.
+that fixing it would otherwise have exposed. **All six findings are fixed**, and the two cross-cutting
+deferrals (D-95 `EditAction` authorize, D-96 `PostingDate` on `bill_date`) were **closed 2026-07-18**.
 
 `pest --parallel --filter='Purchase|Procurement|Grni'` → **46 passed**. Conformance gates → 63 passed.
 
@@ -250,5 +250,9 @@ correctly closed.
   `approve()`.
 - ~~**D-94**~~ — ✅ **F-105 fixed 2026-07-17.** Every finding in this module's analysis is closed;
   what remains are the cross-cutting ones (D-95, D-96).
-- **D-95** — `->authorize()` on the `EditAction`, matching its five siblings.
-- **D-96** — `PostingDate` on `VendorBill::bill_date` (outside this module; modules 15/21).
+- ~~**D-95**~~ — ✅ **fixed 2026-07-18**: `->authorize()` added on the `EditAction`, matching its five
+  siblings. Note: in this Filament build a hidden table action already refuses to mount, so this is
+  defence-in-depth + consistency rather than a live-exploit fix (verified with a mount probe). Guard:
+  `PurchaseRequestEditGateTest` (characterisation — pins the invariant, not fails-without-fix).
+- ~~**D-96**~~ — ✅ **fixed 2026-07-18**: `App\Support\PostingDate` guard on `VendorBill::bill_date` at
+  the create + edit boundary (edit only when the date changes). Guard: `VendorBillClosedPeriodTest`.

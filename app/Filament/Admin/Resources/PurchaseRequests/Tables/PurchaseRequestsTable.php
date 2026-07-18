@@ -175,8 +175,20 @@ class PurchaseRequestsTable
                         Notification::make()->title(__('admin.procurement.notices.cancelled'))->success()->send();
                     }),
 
-                EditAction::make()->visible(fn (PurchaseRequest $r) => $r->status === PurchaseRequest::STATUS_REQUESTED
-                    && PurchaseRequestResource::canEdit($r)),
+                // authorize(), not just visible(): visible() is a display gate, not a dispatch
+                // gate (mountAction checks isDisabled(), never isVisible()), so without this the
+                // status/permission gate is bypassable via mountAction('edit', $id). Mirrors the
+                // five sibling actions above (D-95).
+                // authorize() mirrors visible() to match the five sibling actions above (D-95).
+                // In this Filament build visible() already refuses the mount (a hidden table
+                // action does not mount), so this is defence-in-depth + consistency rather than a
+                // live-exploit fix: it keeps the gate holding if a future Filament decouples mount
+                // from visibility (the framework's documented `mountAction` checks isDisabled()).
+                EditAction::make()
+                    ->visible(fn (PurchaseRequest $r) => $r->status === PurchaseRequest::STATUS_REQUESTED
+                        && PurchaseRequestResource::canEdit($r))
+                    ->authorize(fn (PurchaseRequest $r) => $r->status === PurchaseRequest::STATUS_REQUESTED
+                        && PurchaseRequestResource::canEdit($r)),
             ])
             ->defaultSort('id', 'desc');
     }

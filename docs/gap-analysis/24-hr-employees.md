@@ -31,9 +31,13 @@ Advances at 10,000 and never sees the cash. Surfaces only later, to a different 
 > across a close is a custody's *normal* workflow rather than an edge case. **One `App\Support\PostingDate`
 > guard closed both.**
 
-### 🟡 F-90b. A payroll line's net can go negative — the guard only checks the header
+### ✅ F-90b. A payroll line's net can go negative — the guard only checks the header — **FIXED 2026-07-18**
 `app/Services/PayrollService.php:25` (guards the header) · `PayrollLine.php:50` (accessor, no guard)
 · `PayrollLinesRelationManager.php:89` (per-field `minValue(0)`, no cross-field check)
+
+**Fix:** `PayrollLine::booted()` now refuses a line whose net (gross − tax − insurance) is below
+zero — the invariant backstop; the relation-manager form validates the same cross-field rule inline
+so the operator sees it on the field rather than a 500. Guard: `PayrollLineNetGuardTest`.
 
 **Scenario:** Line A: Sara, gross 50,000 / tax 0 / ins 0. Line B: Ahmed, gross 5,000 / tax 0 / ins
 **6,000** (meant 600). Header Σ = gross 55,000, ins 6,000, net **49,000** → `approve()`'s
@@ -42,7 +46,7 @@ Advances at 10,000 and never sees the cash. Surfaces only later, to a different 
 the line can never be corrected; the whole run must be cancelled and re-keyed. Insurance liability
 overstated by 5,400.
 
-### 🟡 F-91. A mis-keyed repayment is permanently uncorrectable
+### ✅ F-91. A mis-keyed repayment is permanently uncorrectable — **FIXED 2026-07-18**
 `EmployeeAdvancesRelationManager.php:119`
 
 Searched all of `app/` for `EmployeeAdvanceRepayment`: only the model, `PropertyIsolation`,
@@ -54,6 +58,13 @@ Employee Advances 5,000. Outstanding shows 5,000 (real: 9,500); cash overstated 
 edit, can't delete, and a compensating negative is blocked by `abort_unless($amount > 0)`. Only
 escape = super_admin soft-deletes the **whole advance**, which cascades and voids the correct grant
 entry too.
+
+**Fix:** `RecordAdvanceRepaymentService::reverse()` soft-deletes the chosen repayment — the void:
+`repaid()` sums the soft-delete-aware `repayments()` relation (outstanding recovers) and the
+repayment is a registered GL source whose real-time sync fires on `deleted` (its entry voids). A
+Reverse action on the advances relation manager picks the repayment and captures a reason; the row
+is retained for audit with a `reversed` activity. Directly mirrors the custody F-94 correction path.
+Guards: `AdvanceRepaymentReversalTest`, `EmployeeAdvancesRelationManagerTest`.
 
 ### 🟢 F-92. The payroll-line employee picker offers terminated staff
 `PayrollLinesRelationManager.php:147` — `Employee::query()` with no `->active()`, unlike
@@ -89,7 +100,7 @@ asserting the filter should exist.
   entry exists.** The approve test only checks status. Structurally covered by
   `GlRegistryConformanceTest`; behaviourally unproven. → **D-76**
 - **No test dates a repayment into a closed period** (F-89) — one test would catch it.
-- **No test asserts a per-line net stays ≥ 0** (F-90b) — nothing would catch a negative payslip today.
+- ~~**No test asserts a per-line net stays ≥ 0**~~ (F-90b) — ✅ closed 2026-07-18, `PayrollLineNetGuardTest`.
 - **No concurrency test** for `RecordAdvanceRepaymentService`'s lock. It looks correct by inspection,
   but the `lockForUpdate` → separate `SUM()` pattern depends on InnoDB read-view semantics that
   sqlite `:memory:` **cannot exercise at all**.
@@ -99,6 +110,8 @@ asserting the filter should exist.
 - **D-76** — prove payroll's GL post through the real sweep, not a direct poster call.
 - ~~**D-77**~~ — ✅ **F-89 fixed 2026-07-17** via `App\Support\PostingDate`, together with
   [D-80](25-treasury-custody.md). Guard: `PostingDateGuardTest`.
-- **D-78** — F-90b cross-field net guard per payroll line.
-- **D-79** — F-91 a correction path for repayments (edit/void), mirroring credit-note/void patterns
-  elsewhere.
+- ~~**D-78**~~ — ✅ **F-90b fixed 2026-07-18**: cross-field net guard per payroll line (model backstop
+  + inline form rule). Guard: `PayrollLineNetGuardTest`.
+- ~~**D-79**~~ — ✅ **F-91 fixed 2026-07-18**: `RecordAdvanceRepaymentService::reverse()` + a Reverse
+  action, mirroring the custody F-94 void pattern. Guards: `AdvanceRepaymentReversalTest`,
+  `EmployeeAdvancesRelationManagerTest`.
