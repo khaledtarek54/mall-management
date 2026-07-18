@@ -8,7 +8,7 @@ use Database\Seeders\RolesPermissionsSeeder;
  */
 beforeEach(fn () => $this->seed(RolesPermissionsSeeder::class));
 
-it('makes the vendor role view-only on the maintenance surface, plus CSV upload', function () {
+it('makes the vendor role view-only on the maintenance surface', function () {
     $vendor = makeUser('vendor');
 
     // View-only on the work a contractor does (view_all so it sees the board of its malls).
@@ -16,8 +16,10 @@ it('makes the vendor role view-only on the maintenance surface, plus CSV upload'
         ->and($vendor->can('maintenance.view_all'))->toBeTrue()
         ->and($vendor->can('preventive_maintenance.view'))->toBeTrue()
         ->and($vendor->can('notes.view'))->toBeTrue()
-        // The ONE exception (FR-USR-03): CSV upload.
-        ->and($vendor->can('imports.execute'))->toBeTrue();
+        // FR-USR-03's "CSV upload" exception is DEFERRED — deliberately NOT the blanket admin
+        // `imports.execute` (that is tenants/leases/units import, which widens the import-admins-only
+        // gate FR-USR-02 / ImportIsAdminOnlyTest enforces). A vendor upload needs its own surface.
+        ->and($vendor->can('imports.execute'))->toBeFalse();
 });
 
 it('gives the vendor role no write authority of any kind', function () {

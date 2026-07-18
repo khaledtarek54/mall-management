@@ -504,17 +504,22 @@ class RolesPermissionsSeeder extends Seeder
             'notes.view', 'notes.create',
         ]);
 
-        // FR-USR-03 — the external vendor/contractor: VIEW-ONLY on the maintenance work it does,
-        // plus the one exception, CSV upload (imports.execute — FR-USR-02's admins-only rule names
-        // the vendor as the exception). view_all so it can see the board of its assigned malls
-        // (the finer "only my own jobs" filter needs a vendor-user→company link that doesn't exist
-        // yet). Deliberately NO create/edit/delete/change_status, and NO tenants/leases/financials/
-        // HR/GL — it must not read another party's commercial data.
+        // FR-USR-03 — the external vendor/contractor: VIEW-ONLY on the maintenance work it does.
+        // view_all so it can see the board of its assigned malls (the finer "only my own jobs"
+        // filter needs a vendor-user→company link that doesn't exist yet). NO create/edit/delete/
+        // change_status, and NO tenants/leases/financials/HR/GL — it must not read another party's
+        // commercial data.
+        //
+        // The FRD's "specific exception — CSV upload" is DEFERRED, deliberately NOT `imports.execute`:
+        // that permission is ADMIN data import (tenants/leases/units — surfaces a vendor can't even
+        // reach, having no view on them), and granting an external party the blanket admin-import
+        // right widens a tightly-held gate (ImportIsAdminOnlyTest / FR-USR-02) for no function. A
+        // real vendor CSV upload needs its OWN vendor-facing import surface + permission — a
+        // follow-up, not the admin import right.
         Role::findByName('vendor', 'web')->syncPermissions([
             'maintenance.view', 'maintenance.view_all',
             'preventive_maintenance.view', 'preventive_maintenance.view_all',
             'notes.view',
-            'imports.execute',
         ]);
 
         // accounting: Invoices, Payments, Credit Notes, CAM, Reports.
