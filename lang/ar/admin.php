@@ -595,6 +595,9 @@ return [
             'asset' => 'العقار',
             'category' => 'الفئة',
             'area' => 'المساحة',
+            'area_zone' => 'المنطقة',
+            'area_zone_hint' => 'المنطقة التشغيلية التي تقع بها هذه الوحدة — تُعرض مناطق هذا العقار النشطة فقط.',
+            'no_area_zone' => 'بدون منطقة',
             'tenant' => 'المستأجر',
             'rent' => 'الإيجار',
             'floor' => 'الطابق',
@@ -968,6 +971,8 @@ return [
         // Admin / operator-facing (incoming triage events)
         'portal_maintenance_submitted_title' => 'طلب :type جديد',
         'portal_maintenance_submitted_body' => ':tenant (وحدة :unit) قدّم: ":title" · أولوية :priority',
+        'area_request_raised_title' => 'طلب جديد في :area',
+        'area_request_raised_body' => 'طلب :type في منطقتك: ":title" (وحدة :unit) · أولوية :priority',
         'maintenance_comment_staff_title' => 'تعليق جديد من المستأجر',
         'maintenance_comment_staff_body' => ':tenant علّق على :reference (":title"): :comment',
         'sales_submitted_title' => 'إقرار مبيعات جديد',
@@ -1019,6 +1024,8 @@ return [
     ],
 
     'fields' => [
+        'area' => 'المنطقة',
+        'area_auto' => 'موروثة من الوحدة',
         'purchase_request' => 'أمر الشراء (يُقفل بضاعة لم تُفوتر)',
         'purchase_request_none' => 'لا يوجد — مصروف عام',
         'account_code' => 'رقم الحساب',

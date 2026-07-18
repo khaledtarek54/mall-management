@@ -64,6 +64,7 @@ Each type carries its own intake config (model-level, not a DB enum — `request
 | assigned_to | bigint | FK→User, nullable | Internal staff member responsible (staff role) |
 | assigned_to_vendor_id | bigint | FK→Vendor, nullable | External vendor contractor assigned (coexists with assigned_to) |
 | department_id | bigint | FK→Department, nullable | Which operator department owns triage/execution. Auto-set from the type's default department on intake; still re-routable. |
+| area_id | bigint | FK→Area, nullable, `nullOnDelete` | Which facility **zone** (module 30) the request sits in. **Inherited from the unit** on intake (`unit.area_id`) unless set explicitly — derived in `TenantRequest::creating`, so admin + portal + API all inherit it. Drives the supervisor fan-out (see §7). Retiring a zone nulls the link, never strands the request. |
 | status | enum | One of STATUSES | Current lifecycle state (see §4) |
 | priority | enum | low, medium, high, urgent | SLA tier; drives target_resolution_at calculation (for types with an SLA) |
 | category | string | nullable | The type's **sub-category** (electrical, parking, lease_copy, …). Was a maintenance-only DB enum; now a free-form string whose valid values come from `TenantRequestType::subcategories()`. Null for types with none. |
@@ -407,6 +408,19 @@ cancelled        → (terminal, no successors)
 - Channel: database only (bell icon, persistent).
 - Recipients: managers + operations + asset owners.
 - Payload: priority, reference, hours_over_sla, icon='heroicon-o-clock', color='danger'.
+
+**AreaRequestRaisedNotification** (area routing, module 30 → 11)
+- Triggered on **request creation** via the `TenantRequest::created` model event — the single
+  hook every create path (admin Filament, portal, mobile API) passes through — dispatched by
+  `NotifyAreaSupervisorsService`.
+- Channels: **database + push, no mail** (a bell/app signal, matching the SLA-breach choice).
+  Push is a no-op for admin Users today (they register no device tokens) but is declared so the
+  routing reaches the mobile app the moment supervisors become push-capable.
+- Recipients: the request's zone **supervisors** (`Area::supervisors`). **Notify, not assign** —
+  assignment stays the coordinator's job.
+- Runs **alongside** department routing, not instead of it: the department fan-out
+  (`notifyOperators`) and the zone fan-out both fire. No zone / no supervisors ⇒ safe no-op;
+  failures are contained so a bad recipient never breaks request creation.
 
 ## 8. Extension points — how to change/extend SAFELY
 

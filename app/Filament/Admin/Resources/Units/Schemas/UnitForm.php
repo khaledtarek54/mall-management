@@ -2,11 +2,16 @@
 
 namespace App\Filament\Admin\Resources\Units\Schemas;
 
+use App\Models\Area;
+use App\Support\TenantScope;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use App\Models\Unit;
 
 class UnitForm
 {
@@ -32,7 +37,11 @@ class UnitForm
                         ->native(false)
                         ->default(fn () => \App\Support\TenantScope::currentAssetId())
                         ->disabled(fn () => \App\Support\TenantScope::currentAssetId() !== null)
-                        ->dehydrated(),
+                        ->dehydrated()
+                        // Drives the zone picker below (a unit may only sit in its own mall's
+                        // zones); clear a now-cross-property zone if the property changes.
+                        ->live()
+                        ->afterStateUpdated(fn (Set $set) => $set('area_id', null)),
                     TextInput::make('code')
                         ->label(__('admin.tables.unit.code'))
                         ->required()
@@ -50,6 +59,35 @@ class UnitForm
                         ->options(fn () => __('admin.enums.category'))
                         ->required()
                         ->native(false),
+                    Select::make('area_id')
+                        ->label(__('admin.tables.unit.area_zone'))
+                        ->helperText(__('admin.tables.unit.area_zone_hint'))
+                        // Only this unit's OWN property's active zones — `asset_id` is
+                        // client-supplied (enabled in All-Properties mode), so it's clamped
+                        // through TenantScope::clampAssetId(); out of scope ⇒ no options, never
+                        // another mall's zones. The record's current zone stays selectable even if
+                        // retired, so an edit doesn't silently drop it.
+                        ->options(function (Get $get, ?Unit $record) {
+                            $assetId = TenantScope::clampAssetId($get('asset_id'));
+                            if ($assetId === null) {
+                                return [];
+                            }
+
+                            return Area::query()
+                                ->where('asset_id', $assetId)
+                                ->where(function ($q) use ($record) {
+                                    $q->active();
+                                    if ($record?->area_id) {
+                                        $q->orWhere('id', $record->area_id);
+                                    }
+                                })
+                                ->orderBy('code')
+                                ->pluck('name', 'id')
+                                ->all();
+                        })
+                        ->searchable()
+                        ->native(false)
+                        ->placeholder(__('admin.tables.unit.no_area_zone')),
                     TextInput::make('area_sqm')
                         ->label(__('admin.tables.unit.area'))
                         ->numeric()

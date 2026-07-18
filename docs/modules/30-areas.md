@@ -1,10 +1,11 @@
 # 30 · Areas (facility zones)
 
 > A facility zone within a mall — Ground Floor, Food Court, Parking, Roof Plant.
-> The building block for **routing**: in a later slice, incoming requests / work
-> orders are dispatched to the zone's supervisor(s). This slice ships the register
-> and the supervisor assignment; it does **not** yet wire routing into
-> units/requests/work orders (that is a separate follow-up).
+> The building block for **routing**: a unit belongs to a zone, and a tenant
+> request **inherits its unit's zone** on intake, then notifies the zone's
+> **supervisor(s)**. This slice ships the register + the supervisor assignment;
+> the **request routing** (units → zones → requests → supervisors) is now wired
+> (see §7). Work-order routing to zones is still a separate follow-up.
 
 ---
 
@@ -67,10 +68,15 @@ routing target once routing lands.
 
 ## 5. Services & commands
 
-None. This is a straight CRUD register — the business logic is entirely the property
-isolation + uniqueness rules enforced by the model, migration, and Filament form. When
-routing is added, a single-action dispatch service will read `Area::supervisors()`; there
-is deliberately no service yet (nothing routes).
+**`App\Services\NotifyAreaSupervisorsService`** — the routing dispatch (added with the
+routing slice). Given a freshly-created `TenantRequest`, it notifies the request's zone
+supervisors (`Area::supervisors`). Idempotent + fail-safe: no zone, a trashed zone, or no
+supervisors is a no-op, and every failure is contained (a bad recipient never breaks
+request creation). It runs **alongside** the request's department routing, not instead of
+it — both fan-outs can fire. See §7.
+
+The CRUD register itself has no service; its business logic is the property isolation +
+uniqueness rules enforced by the model, migration, and Filament form.
 
 ## 6. Filament fields & validation
 
@@ -92,17 +98,41 @@ is deliberately no service yet (nothing routes).
 **Table:** code (mono/bold), name, property badge, supervisors (badge list) + supervisor
 count, `is_active` icon; filters for active + trashed; Edit action gated on `canEdit`.
 
-## 7. Notifications / integrations
+## 7. Notifications / integrations — the routing (module 30 → 11)
 
-None in this slice. (Routing — the eventual consumer — will notify supervisors; that is a
-follow-up.)
+The zone is the **routing target** for tenant requests. Three pieces wire it:
+
+1. **A unit belongs to a zone.** `units.area_id` (nullable FK → `areas`, `nullOnDelete`).
+   The `UnitForm` picker offers **only the unit's own property's active zones**
+   (`asset_id` clamped through `TenantScope::clampAssetId`; out of scope ⇒ nothing), so a
+   mall-A unit can never be tagged with a mall-B zone.
+2. **A request inherits its unit's zone.** `tenant_requests.area_id` (nullable FK,
+   `nullOnDelete`). Derived in `TenantRequest::creating` — so **admin, portal and API all
+   inherit it** — when `area_id` is null: `area_id = unit.area_id`. An explicitly-set
+   `area_id` is never overridden; a unit with no zone just yields null.
+3. **Supervisors are notified.** `TenantRequest::created` fires
+   `NotifyAreaSupervisorsService`, which sends `AreaRequestRaisedNotification` (database +
+   push, **no mail** — a bell/app signal, matching the SLA-breach channel choice) to the
+   zone's supervisors. **Notify, not assign** — assignment stays the coordinator's job.
+
+Reconciled with department routing: **both apply** — the type's default department gets its
+notification (`TenantRequestService::notifyOperators`), the zone's supervisors get theirs.
+
+The `created` model event is the single hook every create path passes through (admin
+Filament never touches `TenantRequestService`), so no channel can skip the routing.
 
 ## 8. Extension points (how to change safely)
 
-- **Adding routing** (the planned follow-up): add `area_id` to `units` and/or the request /
-  work-order tables, backfill, then a `RouteRequestToArea` single-action service reading
-  `Area::active()->...->supervisors()`. Keep `area_id` a nullable FK (`nullOnDelete`) so a
-  retired zone never strands a historical request.
+- **Request routing is wired** (§7): `units.area_id` + `tenant_requests.area_id`, model-level
+  derivation, and `NotifyAreaSupervisorsService`. **Extending to work orders**: add `area_id`
+  to `maintenance_work_orders`, derive it the same way (from the linked request or the
+  equipment/unit), and reuse `NotifyAreaSupervisorsService` (or a peer). Keep `area_id` a
+  nullable FK (`nullOnDelete`) so a retired zone never strands a historical record.
+- **The supervisor scope is one predicate** — `AreaForm::applySupervisorScope()` (property's
+  own staff OR property-less). The picker, the post-save re-validation
+  (`AreaResource::assertSupervisorsInScope`) and its regression test all derive from it; do
+  not re-inline the grouped `whereHas()->orWhereDoesntHave()` (the OR must stay grouped or it
+  escapes the outer scope).
 - **More zone attributes** (floor, GIS polygon, capacity): add nullable columns + form
   fields; the isolation plumbing is unaffected.
 - **Do not** give `area_user` a model unless a pivot needs its own behaviour — if you do,
@@ -132,6 +162,13 @@ supervisor assignment (many-to-many + pivot uniqueness + a supervisor across man
 RBAC (operations/coordinator create; viewer view-only; leasing none; delete = super_admin),
 property scoping (read scope via `scopedResourceQuery`, write guard rejects an out-of-scope
 `asset_id`), and the table rendering with rows.
+
+`tests/Feature/Scenarios/AreaRoutingScenarioTest.php` — the routing slice: a request inherits
+its unit's zone (direct + via `TenantRequestService`), an explicit zone is never overridden,
+a caller-only / zone-less request stays zone-less, supervisors are notified on creation
+(asserted via `Notification::fake()`), no-zone / no-supervisor creations are safe no-ops, the
+supervisor picker offers only the property's own (or property-less) staff, and the post-save
+re-validation strips + 403s an out-of-scope attach.
 
 Plus the standing gates: `PropertyIsolationConformanceTest` (classification + scope + guard),
 `AdminSmokeManifestConformanceTest` (regenerate with `php artisan atriom:dump-admin-manifest`),

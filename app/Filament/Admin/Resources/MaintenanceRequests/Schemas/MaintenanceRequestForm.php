@@ -151,6 +151,16 @@ class MaintenanceRequestForm
                         ->searchable()
                         ->placeholder(__('admin.fields.unassigned'))
                         ->native(false),
+                    // The facility zone this request sits in — inherited from the unit on intake
+                    // (TenantRequest::creating), so it's shown read-only here. Disabled +
+                    // non-dehydrated: the derivation owns the value, the form only surfaces it.
+                    Select::make('area_id')
+                        ->label(__('admin.fields.area'))
+                        ->relationship('area', 'name')
+                        ->disabled()
+                        ->dehydrated(false)
+                        ->native(false)
+                        ->placeholder(__('admin.fields.area_auto')),
                     Select::make('assigned_to')
                         ->label(__('admin.fields.assigned_to'))
                         ->options(fn () => User::orderBy('name')->pluck('name', 'id'))

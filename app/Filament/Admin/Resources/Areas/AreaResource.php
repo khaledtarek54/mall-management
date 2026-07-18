@@ -11,6 +11,7 @@ use App\Filament\Admin\Resources\Concerns\BypassesScopingOnAll;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Models\Area;
+use App\Models\User;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -86,5 +87,38 @@ class AreaResource extends Resource
     public static function getGloballySearchableAttributes(): array
     {
         return ['name', 'code'];
+    }
+
+    /**
+     * Server-side re-validation of the zone's supervisors (a review follow-up).
+     *
+     * The supervisors Select is a Filament *relationship* field — it syncs from the component's
+     * own state AFTER the model saves, so it never passes through the page's mutate hooks. A
+     * crafted Livewire request can therefore attach a staff member the property-scoped picker
+     * would never have offered (another mall's roster). So we re-validate AFTER the sync, from the
+     * Create/Edit page's afterCreate/afterSave, against the same predicate the picker uses
+     * (AreaForm::applySupervisorScope): assigned to this property, or property-less.
+     *
+     * Out-of-scope attaches are stripped (the DB is left clean) and the write is rejected with a
+     * 403 — a restricted user must not attach staff who can't service the zone. Never a silent 500.
+     */
+    public static function assertSupervisorsInScope(Area $area): void
+    {
+        $attached = $area->supervisors()->pluck('users.id')->all();
+
+        if ($attached === []) {
+            return;
+        }
+
+        $inScope = AreaForm::applySupervisorScope(User::query()->whereKey($attached), $area->asset_id)
+            ->pluck('id')
+            ->all();
+
+        $outOfScope = array_values(array_diff($attached, $inScope));
+
+        if ($outOfScope !== []) {
+            $area->supervisors()->detach($outOfScope);
+            abort(403);
+        }
     }
 }

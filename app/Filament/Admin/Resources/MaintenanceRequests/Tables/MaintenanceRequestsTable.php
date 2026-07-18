@@ -34,7 +34,7 @@ class MaintenanceRequestsTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['tenant', 'unit', 'assignee', 'department']))
+            ->modifyQueryUsing(fn ($query) => $query->with(['tenant', 'unit', 'area', 'assignee', 'department']))
             ->columns([
                 TextColumn::make('reference')
                     ->label(__('admin.tables.maintenance.reference'))
@@ -116,6 +116,12 @@ class MaintenanceRequestsTable
                     }),
                 TextColumn::make('department.name')
                     ->label(__('admin.resources.department.singular'))
+                    ->badge()
+                    ->color('gray')
+                    ->placeholder('—')
+                    ->toggleable(),
+                TextColumn::make('area.name')
+                    ->label(__('admin.fields.area'))
                     ->badge()
                     ->color('gray')
                     ->placeholder('—')

@@ -16,6 +16,7 @@ class Unit extends Model
 
     protected $fillable = [
         'asset_id',
+        'area_id',
         'code',
         'floor',
         'category',
@@ -33,6 +34,12 @@ class Unit extends Model
     public function asset(): BelongsTo
     {
         return $this->belongsTo(Asset::class);
+    }
+
+    /** The facility zone this unit sits in (module 30) — nullable; a unit may have no zone. */
+    public function area(): BelongsTo
+    {
+        return $this->belongsTo(Area::class);
     }
 
     public function leases(): HasMany

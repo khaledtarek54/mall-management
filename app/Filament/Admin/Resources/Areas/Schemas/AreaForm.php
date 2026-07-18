@@ -28,6 +28,27 @@ class AreaForm
         return TenantScope::clampAssetId($get('asset_id'));
     }
 
+    /**
+     * The zone-supervisor scope: staff who can service a property's zones are those assigned to
+     * that property, plus property-less users (super_admin / single-mall back-compat) — never
+     * another mall's roster. A null property (none chosen / out of scope) offers nothing.
+     *
+     * The OR is deliberately grouped: an ungrouped whereHas()->orWhereDoesntHave() would let the OR
+     * escape once the relationship's outer scope is applied, handing every property's roster to the
+     * picker. Single source of truth for the picker, the post-save re-validation guard
+     * (AreaResource::assertSupervisorsInScope) and its regression test.
+     */
+    public static function applySupervisorScope(Builder $query, ?int $assetId): Builder
+    {
+        if ($assetId === null) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(fn (Builder $q) => $q
+            ->whereHas('assignedAssets', fn (Builder $a) => $a->where('assets.id', $assetId))
+            ->orWhereDoesntHave('assignedAssets'));
+    }
+
     public static function configure(Schema $schema): Schema
     {
         return $schema->columns(2)->components([
@@ -71,17 +92,7 @@ class AreaForm
                 // single-mall back-compat). Grouped deliberately — an ungrouped
                 // whereHas()->orWhereDoesntHave() would let the OR escape once the outer
                 // asset scope is applied, handing every property's roster to the picker.
-                ->relationship('supervisors', 'name', modifyQueryUsing: function (Builder $query, Get $get) {
-                    $assetId = self::inScopeAssetId($get);
-                    if ($assetId === null) {
-                        // No property chosen (or out of scope): offer no cross-property staff.
-                        return $query->whereRaw('1 = 0');
-                    }
-
-                    return $query->where(fn (Builder $q) => $q
-                        ->whereHas('assignedAssets', fn (Builder $a) => $a->where('assets.id', $assetId))
-                        ->orWhereDoesntHave('assignedAssets'));
-                })
+                ->relationship('supervisors', 'name', modifyQueryUsing: fn (Builder $query, Get $get) => self::applySupervisorScope($query, self::inScopeAssetId($get)))
                 ->multiple()
                 ->searchable()
                 ->preload()

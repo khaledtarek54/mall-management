@@ -595,6 +595,9 @@ return [
             'asset' => 'Property',
             'category' => 'Category',
             'area' => 'Area',
+            'area_zone' => 'Zone',
+            'area_zone_hint' => 'The facility zone this unit sits in — only this property\'s active zones are offered.',
+            'no_area_zone' => 'No zone',
             'tenant' => 'Tenant',
             'rent' => 'Rent',
             'floor' => 'Floor',
@@ -968,6 +971,8 @@ return [
         // Admin / operator-facing (incoming triage events)
         'portal_maintenance_submitted_title' => 'New :type request',
         'portal_maintenance_submitted_body' => ':tenant (unit :unit) submitted: ":title" · priority :priority',
+        'area_request_raised_title' => 'New request in :area',
+        'area_request_raised_body' => ':type request in your zone: ":title" (unit :unit) · priority :priority',
         'maintenance_comment_staff_title' => 'New tenant comment',
         'maintenance_comment_staff_body' => ':tenant commented on :reference (":title"): :comment',
         'sales_submitted_title' => 'New sales declaration',
@@ -1019,6 +1024,8 @@ return [
     ],
 
     'fields' => [
+        'area' => 'Area',
+        'area_auto' => 'Inherited from the unit',
         'purchase_request' => 'Purchase (clears GRNI)',
         'purchase_request_none' => 'None — a general expense',
         'account_code' => 'Account code',

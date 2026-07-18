@@ -23,7 +23,7 @@ class UnitsTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['asset', 'activeLease.tenant']))
+            ->modifyQueryUsing(fn ($query) => $query->with(['asset', 'area', 'activeLease.tenant']))
             ->columns([
                 TextColumn::make('code')
                     ->label(__('admin.tables.unit.code'))
@@ -52,6 +52,12 @@ class UnitsTable
                     ->numeric(decimalPlaces: 0)
                     ->sortable()
                     ->alignRight(),
+                TextColumn::make('area.name')
+                    ->label(__('admin.tables.unit.area_zone'))
+                    ->badge()
+                    ->color('gray')
+                    ->placeholder('—')
+                    ->toggleable(),
                 TextColumn::make('activeLease.tenant.name')
                     ->label(__('admin.tables.unit.tenant'))
                     ->searchable()

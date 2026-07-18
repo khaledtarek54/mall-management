@@ -45,7 +45,7 @@ class TenantRequest extends Model implements HasMedia
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['request_type', 'status', 'priority', 'category', 'assigned_to', 'assigned_to_vendor_id', 'department_id', 'target_resolution_at', 'resolution_notes', 'csat_rating'])
+            ->logOnly(['request_type', 'status', 'priority', 'category', 'assigned_to', 'assigned_to_vendor_id', 'department_id', 'area_id', 'target_resolution_at', 'resolution_notes', 'csat_rating'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('maintenance_request');
@@ -55,6 +55,7 @@ class TenantRequest extends Model implements HasMedia
         'reference',
         'tenant_id',
         'unit_id',
+        'area_id',
         'caller_name',
         'caller_phone',
         'caller_notes',
@@ -117,6 +118,27 @@ class TenantRequest extends Model implements HasMedia
                 throw new \DomainException(__('admin.maintenance.errors.caller_or_tenant_required'));
             }
         });
+
+        // Area routing (module 30 → 11), derived in the model so admin + portal + API all inherit
+        // it. A request lives in its unit's facility zone: if no area was set explicitly, inherit
+        // the unit's. An explicitly-set area_id is never overridden (a caller may target a zone
+        // directly). Kept cheap — a single-column lookup, only when area_id is null. (unit_id is
+        // NOT NULL, so the lookup always has a key; a unit with no zone just yields null.)
+        static::creating(function (self $request) {
+            if ($request->area_id !== null) {
+                return;
+            }
+
+            $request->area_id = Unit::whereKey($request->unit_id)->value('area_id');
+        });
+
+        // Notify the zone's supervisors that a request landed in their area (routing, not
+        // assignment). Fires from the model `created` event — the single hook every create path
+        // (admin Filament, portal, mobile API) passes through — so no channel can skip it. A no-op
+        // when there's no area or no supervisors; failures are contained inside the service.
+        static::created(function (self $request) {
+            app(\App\Services\NotifyAreaSupervisorsService::class)->notify($request);
+        });
     }
 
     public function tenant(): BelongsTo
@@ -142,6 +164,36 @@ class TenantRequest extends Model implements HasMedia
     public function unit(): BelongsTo
     {
         return $this->belongsTo(Unit::class);
+    }
+
+    /** The unit's code, null-safe — for notification copy (Larastan mistypes the BelongsTo). */
+    public function unitCode(): ?string
+    {
+        /** @var Unit|null $unit */
+        $unit = $this->unit;
+
+        return $unit?->code;
+    }
+
+    /** The facility zone this request sits in (module 30) — inherited from the unit on intake. */
+    public function area(): BelongsTo
+    {
+        return $this->belongsTo(Area::class);
+    }
+
+    /** The zone's display name, null-safe — for the table/notification copy. */
+    public function areaName(): ?string
+    {
+        // Key off the FK: a set area_id guarantees a row, but the zone may be soft-deleted (the
+        // default relation excludes trashed), so the local $area can still be null.
+        if ($this->area_id === null) {
+            return null;
+        }
+
+        /** @var Area|null $area */
+        $area = $this->area;
+
+        return $area?->name;
     }
 
     /**
