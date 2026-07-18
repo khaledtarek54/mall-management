@@ -23,9 +23,17 @@ use App\Support\OpsLog;
  */
 class SendViolationNoticeAction
 {
-    /** @return bool whether the notice was actually sent. */
+    /** @return bool whether the notice is delivered (true = sent now OR already sent earlier). */
     public function handle(Violation $violation): bool
     {
+        // Idempotent: a violation already notified is NOT re-sent — a repeat click (or a crafted
+        // re-dispatch) is a no-op that reports success (the tenant already has the notice). A
+        // PARTIAL failure leaves `notified_at` null (stamped only on full success below), so a
+        // genuine retry after a failed send still runs.
+        if ($violation->notified_at !== null) {
+            return true;
+        }
+
         $tenant = $violation->tenant;
 
         // A missing/removed tenant (e.g. soft-deleted) is a safe no-op, not a crash —
