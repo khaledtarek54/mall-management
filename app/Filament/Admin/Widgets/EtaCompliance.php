@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Widgets;
 use App\Filament\Admin\Concerns\RoleScopedWidget;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Models\Invoice;
+use App\Support\TenantScope;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 
@@ -21,7 +22,7 @@ class EtaCompliance extends StatsOverviewWidget
     // Compliance posture is a finance/operations signal.
     protected static function allowedRoles(): array
     {
-        return ['manager', 'viewer'];
+        return ['manager', 'viewer', 'accounting'];
     }
 
     protected static function widgetModule(): ?string
@@ -35,7 +36,7 @@ class EtaCompliance extends StatsOverviewWidget
     {
         // We only count invoices that have actually been issued (or beyond).
         // Drafts and cancelled invoices aren't part of the compliance posture.
-        $base = \App\Support\TenantScope::applyTo(Invoice::query(), 'lease.unit')
+        $base = TenantScope::applyTo(Invoice::query(), 'lease.unit')
             ->whereIn('status', ['issued', 'partially_paid', 'paid', 'overdue']);
 
         $valid = (clone $base)->where('eta_status', 'valid')->count();
@@ -78,5 +79,4 @@ class EtaCompliance extends StatsOverviewWidget
                 ->url(InvoiceResource::getUrl('index', ['tableFilters' => ['eta_pending' => ['isActive' => true]]])),
         ];
     }
-
 }

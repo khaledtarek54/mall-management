@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Widgets;
 
 use App\Filament\Admin\Concerns\RoleScopedWidget;
 use App\Models\Invoice;
+use App\Support\TenantScope;
 use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
 
@@ -13,7 +14,7 @@ class ArAging extends ChartWidget
 
     protected static function allowedRoles(): array
     {
-        return ['manager', 'viewer'];
+        return ['manager', 'viewer', 'accounting'];
     }
 
     public function getHeading(): ?string
@@ -28,12 +29,11 @@ class ArAging extends ChartWidget
 
     protected static ?int $sort = 3;
 
-
     protected function getData(): array
     {
         // Canonical AR only — open + owed (matches ReportService / BooksReconciliation);
         // never count cancelled / credited / disputed / draft rows in the aging.
-        $base = fn () => \App\Support\TenantScope::applyTo(Invoice::query(), 'lease.unit')
+        $base = fn () => TenantScope::applyTo(Invoice::query(), 'lease.unit')
             ->whereIn('status', ['issued', 'partially_paid', 'overdue']);
 
         $buckets = [

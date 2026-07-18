@@ -6,6 +6,9 @@ use App\Filament\Admin\Concerns\RoleScopedWidget;
 use App\Models\Invoice;
 use App\Models\Lease;
 use App\Models\Payment;
+use App\Models\TenantRequest;
+use App\Models\Unit;
+use App\Support\TenantScope;
 use Carbon\CarbonImmutable;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -18,7 +21,7 @@ class MallStats extends StatsOverviewWidget
     // Headline KPIs — everyone with admin access sees these.
     protected static function allowedRoles(): array
     {
-        return ['manager', 'viewer', 'leasing', 'operations'];
+        return ['manager', 'viewer', 'leasing', 'operations', 'accounting'];
     }
 
     // Dashboard order: SetupGuide(-1) → ActionRequired(0) → MallStats(1)
@@ -34,11 +37,11 @@ class MallStats extends StatsOverviewWidget
         // RESTRICTED user in "All Properties" mode stays pinned to their assigned set —
         // currentAssetId() is null there and would leak the whole portfolio's KPIs.
         // null = super_admin / portfolio (genuinely platform-wide aggregates).
-        $assetIds = \App\Support\TenantScope::visibleAssetIds();
+        $assetIds = TenantScope::visibleAssetIds();
 
         $unitQuery = fn () => $assetIds !== null
-            ? \App\Models\Unit::whereIn('asset_id', $assetIds)
-            : \App\Models\Unit::query();
+            ? Unit::whereIn('asset_id', $assetIds)
+            : Unit::query();
 
         $leaseQuery = fn () => $assetIds !== null
             ? Lease::whereHas('unit', fn ($q) => $q->whereIn('asset_id', $assetIds))
@@ -89,7 +92,7 @@ class MallStats extends StatsOverviewWidget
 
         // Tenant satisfaction (CSAT) — average close-out rating across all
         // resolved/closed requests that were rated, property-scoped.
-        $ratedQuery = fn () => \App\Models\TenantRequest::whereNotNull('csat_rating')
+        $ratedQuery = fn () => TenantRequest::whereNotNull('csat_rating')
             ->when($assetIds, fn ($q, $ids) => $q->whereHas('unit', fn ($u) => $u->whereIn('asset_id', $ids)));
         $ratedCount = $ratedQuery()->count();
         $avgCsat = $ratedCount > 0 ? round((float) $ratedQuery()->avg('csat_rating'), 1) : null;

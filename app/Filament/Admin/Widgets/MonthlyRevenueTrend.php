@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Widgets;
 use App\Filament\Admin\Concerns\RoleScopedWidget;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Support\TenantScope;
 use Carbon\CarbonImmutable;
 use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
@@ -16,7 +17,7 @@ class MonthlyRevenueTrend extends ChartWidget
 
     protected static function allowedRoles(): array
     {
-        return ['manager', 'viewer'];
+        return ['manager', 'viewer', 'accounting'];
     }
 
     public function getHeading(): ?string
@@ -42,7 +43,7 @@ class MonthlyRevenueTrend extends ChartWidget
         $currentMonthKey = CarbonImmutable::now()->format('Y-m');
         // Property isolation: visibleAssetIds() keeps a restricted user pinned to their
         // set in All-Properties mode (currentAssetId() is null there → portfolio leak).
-        $assetIds = \App\Support\TenantScope::visibleAssetIds();
+        $assetIds = TenantScope::visibleAssetIds();
         $monthExpr = fn (string $col): string => match (DB::connection()->getDriverName()) {
             'sqlite' => "strftime('%Y-%m', {$col})",
             'pgsql' => "to_char({$col}, 'YYYY-MM')",
@@ -58,14 +59,14 @@ class MonthlyRevenueTrend extends ChartWidget
             : Payment::query();
 
         $billed = (clone $invoiceBase)
-            ->selectRaw("" . $monthExpr('period_start') . " as ym, SUM(total) as amount")
+            ->selectRaw(''.$monthExpr('period_start').' as ym, SUM(total) as amount')
             ->whereBetween('period_start', [$start, $end])
             ->whereNotIn('status', ['cancelled', 'credited'])
             ->groupBy('ym')
             ->pluck('amount', 'ym');
 
         $collected = (clone $paymentBase)
-            ->selectRaw("" . $monthExpr('payment_date') . " as ym, SUM(amount) as amount")
+            ->selectRaw(''.$monthExpr('payment_date').' as ym, SUM(amount) as amount')
             ->whereBetween('payment_date', [$start, $end])
             ->where('status', 'captured')
             ->groupBy('ym')
@@ -86,7 +87,7 @@ class MonthlyRevenueTrend extends ChartWidget
         }
 
         $paidPerInvoiceMonth = $paidPerMonthQuery
-            ->selectRaw("" . $monthExpr('invoices.period_start') . " as ym, SUM(invoice_payment.allocated_amount) as amount")
+            ->selectRaw(''.$monthExpr('invoices.period_start').' as ym, SUM(invoice_payment.allocated_amount) as amount')
             ->groupBy('ym')
             ->pluck('amount', 'ym');
 
