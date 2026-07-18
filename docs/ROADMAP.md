@@ -198,6 +198,7 @@ additive items** — none of which make today's books wrong.
 | **Period exports for the accountant** | Reports are PDF-only and monthly-only; no CSV/Excel, no quarterly. |
 | **Bulk actions** | Only `bulkSubmitToEta` exists; maintenance bulk is delete/restore only. |
 | **WhatsApp** | A stub that flashes a toast. High-value in Egypt; needs a Business API client. Apple Pay is more built than the old roadmap claimed — only provisioning is outstanding. |
+| **Settings-driven Egyptian tax catalog** | Operator request (2026-07-18): make **all** Egyptian taxes configurable as settings/dropdown selections rather than hardcoded (today VAT 14% + marketing levy 5% are constants). A tax-rate catalog (name, rate, applies-to, effective dates) selected on charges/fees, so a rate change or a new tax is a setting, not a code change. Confirm the tax model with the operator's accountant first. Unblocks the deferred **owner-statement management fee** (its VAT-on-fee toggle would draw from this). |
 | **Session encryption + explicit CORS** | `SESSION_ENCRYPT=false`; **no `config/cors.php`** → framework default `allowed_origins: ['*']` on `/api/*`. |
 
 ### Scale

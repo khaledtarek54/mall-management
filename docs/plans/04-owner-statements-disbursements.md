@@ -1,6 +1,20 @@
 # Plan — Owner Statements + Disbursements (the operator-for-owner deliverable)
 
-> **Status:** design complete, awaiting one operator decision (management-fee basis/rate).
+> **Status:** design complete; operator decisions taken 2026-07-18 → **management fee DEFERRED** to a
+> future slice (v1 statement = income − expenses = net, no fee line), **taxes to become settings-driven**
+> (see §0). Building.
+>
+> ## 0. Scope decision (2026-07-18) — fee deferred, taxes settings-driven
+> The operator's call: *"this system shouldn't care about how Eltizam charges Jawad for now — make it a
+> future plan"* and *"taxes settings-based / dropdown selection, I'll confirm with the accountant."* So **v1
+> drops the management fee entirely**: the statement is **income − expenses = net distributable**, split by
+> `ownership_percentage`. This removes `management_fee_terms`, the fee/VAT GL lines, `due_to_operator`,
+> `management_fee_expense`, `vat_recoverable`, and the VAT-on-fee question from v1. The GL accrual at finalise
+> simplifies to **Dr `owner_distributions` / Cr `due_to_owner`** (two new keys only). Everything else in this
+> plan stands. **Future slices (roadmap):** (a) the management-fee engine (`management_fee_terms` + fee/VAT
+> lines + a statement fee row — the deferred §2.2/§9.1); (b) a **settings-driven Egyptian tax catalog**
+> (configurable tax rates as dropdown selections, replacing hardcoded 14%/5% — a cross-cutting feature the
+> operator asked for, tracked separately in ROADMAP).
 > **Why #1:** the competitive gap analysis ([competitors/README.md](../gap-analysis/competitors/README.md))
 > named this the single highest-value gap — Eltizam runs malls *for* Jawad, and the periodic owner
 > statement (income − expenses − management fee = net) plus the payout cycle *is* that relationship's
@@ -115,32 +129,33 @@ finalise.
 
 ## 4. GL design
 
-**New `AccountMapping` keys** (resolve via `AccountResolver::id($key, $assetId)`):
+**New `AccountMapping` keys** (resolve via `AccountResolver::id($key, $assetId)`) — **v1 (fee deferred) needs
+only two:**
 
 | Key | Account | COA action |
 |---|---|---|
-| `management_fee_expense` | new expense leaf, "Property Management Fee / أتعاب إدارة العقار", debit-normal | **verify the next free code** — `51109001` is Bad Debt, do NOT reuse (candidate `51110001`, confirm) |
-| `due_to_operator` | `21801001` "Due to Related Parties" (existing) | **map key only** — fee is an intercompany payable to Eltizam, not property income |
-| `owner_distributions` | `32201001` "Owner Distributions / توزيعات الملاك" (equity contra, debit-normal) | new COA row (verified free) |
-| `due_to_owner` | `21802001` "Distributions Payable to Owners" (liability, credit-normal) | new COA row (verified free) |
-| `vat_recoverable` | `11401001` (existing) | conditional fee-VAT line |
+| `owner_distributions` | `32201001` "Owner Distributions / توزيعات الملاك" (equity contra, debit-normal) | new COA row (verify free) |
+| `due_to_owner` | `21802001` "Distributions Payable to Owners / توزيعات مستحقة للملاك" (liability, credit-normal) | new COA row (verify free) |
+
+*(Deferred with the fee: `management_fee_expense`, `due_to_operator` = `21801001`, `vat_recoverable` =
+`11401001` — add when the fee slice ships.)*
 
 > **Chart hazard:** `updateOrCreate(['code'=>…])` means a colliding code corrupts an existing account.
-> `51109001` (Bad Debt) and `33101001` (Current Year Result) are taken. Confirm the fee-expense leaf is
-> free before seeding; confirm `ChartOfAccountsConformanceTest` doesn't force `normal_balance='credit'`
-> on every equity leaf (if it does, seed `owner_distributions` credit and rely on `credit − debit`).
+> `51109001` (Bad Debt) and `33101001` (Current Year Result) are taken. **Verify `32201001`/`21802001` are
+> free against `ChartOfAccountsSeeder` before seeding**; confirm `ChartOfAccountsConformanceTest` doesn't
+> force `normal_balance='credit'` on every equity leaf (if it does, seed `owner_distributions` credit and
+> rely on the balance-sheet `credit − debit` math — a debit balance correctly reduces equity either way).
 
 **Journalizer #1 — `OwnerStatementRunJournalizer`** (`payload()` = `null` unless `finalised`;
-`entry_date = posting_date`, reads own-row `net_distributable` only):
+`entry_date = posting_date`, reads own-row `net_distributable` only) — **v1 two-line accrual:**
 ```
-Dr  management_fee_expense   F                       (asset)
-Dr  vat_recoverable          V   (if vat_on_fee)     (asset)
-Cr  due_to_operator          F + V                    (asset)
-Dr  owner_distributions      D  (= net_distributable) (asset)
-Cr  due_to_owner             D                        (asset)
+Dr  owner_distributions   D  (= net_distributable)   (asset)   // contra-equity draw
+Cr  due_to_owner          D                            (asset)   // liability: property owes the owner
 ```
-Fee = P&L expense (reduces net income by F); distribution = contra-equity draw (does not touch P&L); VAT
-input-recoverable (doesn't cut owner net).
+The distribution is a contra-equity draw (does **not** touch P&L). With no fee in v1, `net_distributable`
+for a single 100% full-tenure owner **is exactly** `incomeStatement()->net_profit` — the signature tie-out.
+*(When the fee ships: prepend `Dr management_fee_expense F` / `Dr vat_recoverable V` / `Cr due_to_operator
+F+V`, and `net_distributable` becomes `net_profit − F`.)*
 
 **Journalizer #2 — `DisbursementJournalizer`** (`null` unless `paid`; `entry_date = paid_on`, own-row
 `asset_id` — no child-source windowed-sweep trap):
@@ -212,23 +227,22 @@ default + 14% VAT-on-fee sign-off + operator-residual disclosure), `docs/account
 
 ## 8. Build sequence (each green before the next)
 
-1. **Chart + mappings** — three new COA rows (verified-free codes) + four map keys; `ChartOfAccountsConformanceTest` green.
+1. **Chart + mappings** — two new COA rows (`owner_distributions`, `due_to_owner`; verified-free codes) + two map keys; `ChartOfAccountsConformanceTest` green.
 2. **F-80 fix** — dimension the year-end retained-earnings roll by `asset_id` + per-property tie-out. (Before any distribution posting exists.)
 3. **Ownership foundation** — `AssetOwner` pivot cast + tenure segments + `currentOwnership()` + `PortfolioStats` fix + weighting regression.
-4. **`management_fee_terms`** — config table, resolver, `ManagementFeeService`, isolation classification.
-5. **Runs (read + draft)** — `owner_statement_runs` + `owner_statements`, `Generate` service, resource + relation manager, weighting + penny reconciliation. No GL yet.
-6. **Run journalizer + finalise** — registry line #1 + `SOURCE_DATE_COLUMNS`, `Finalise`/`Revise`, afterCommit hook, GL tie-out driving the sweep, `GlRegistryConformanceTest` green.
-7. **Disbursements** — registry line #2, `DisbursementService` lifecycle + `ApprovalPolicy` `MODULE_DISBURSEMENT`, resource, cap + frozen-permission, disbursement tie-out.
-8. **Deliverable polish** — private snapshot PDF, `MyOwnerStatements` page (triple-scope, both gate methods), notifications, carry-forward; regenerate census + manifest; docs.
-9. **Later slices** (post-v1): OwnerRequest tie-back, sub-period weighting refinement, VAT-exempt-owner cost treatment.
+4. **Runs (read + draft)** — `owner_statement_runs` + `owner_statements`, `Generate` service (income − expenses = net, no fee), resource + relation manager, weighting + penny reconciliation. No GL yet.
+5. **Run journalizer + finalise** — registry line #1 + `SOURCE_DATE_COLUMNS`, `Finalise`/`Revise`, afterCommit hook, GL tie-out driving the sweep, `GlRegistryConformanceTest` green.
+6. **Disbursements** — registry line #2, `DisbursementService` lifecycle + `ApprovalPolicy` `MODULE_DISBURSEMENT`, resource, cap + frozen-permission, disbursement tie-out.
+7. **Deliverable polish** — private snapshot PDF, `MyOwnerStatements` page (triple-scope, both gate methods), notifications, carry-forward; regenerate census + manifest; docs.
+8. **Future slices** (deferred): the **management-fee engine** (`management_fee_terms` + fee/VAT GL lines + statement fee row); the **settings-driven Egyptian tax catalog**; OwnerRequest tie-back; sub-period weighting refinement.
 
 ## 9. Decisions
 
-| # | Decision | Recommended default | Status |
+| # | Decision | Outcome | Status |
 |---|---|---|---|
-| 1 | **Management-fee basis + rate** | **% of NOI**, per-property override over a global default, frozen per run | ⏳ **operator — commercial term of the Eltizam↔Jawad contract** |
+| 1 | **Management-fee basis + rate** | **DEFERRED** to a future slice — v1 has no fee (statement = income − expenses = net). Operator: *"system shouldn't care how Eltizam charges Jawad for now."* | ✅ decided (deferred) |
 | 2 | Statement basis | **Accrual** headline (ties to GL) + supplementary cash "distributable now" view | ✅ take default |
-| 3 | Fee posts to GL? + VAT | **Yes** (Dr Mgmt-Fee Expense / Cr *Due to Operator*) + **14% VAT** (input-recoverable, toggle) | ✅ take default (VAT = confirm) |
+| 3 | Fee posts to GL? + VAT | **Moot in v1** (no fee). Broader: operator wants a **settings-driven Egyptian tax catalog** (dropdowns), confirmed with the accountant later — tracked in ROADMAP, not this build | ✅ decided (deferred) |
 | 4 | Disbursement posts / approval / partials | **Yes / Yes / Yes** — accrue *Due to Owner* at finalise, clear at payment; ladder frozen at schedule; partials capped | ✅ take default |
 | 5 | Ownership weighting | **Time-weighted** (`net × pct/100 × tenure_days/period_days`), penny-reconciled, effective-dated segments | ✅ take default |
 | 6 | F-80 | **Fix now**, sequenced before the distribution-posting slice | ✅ take default |
