@@ -112,7 +112,8 @@ class Asset extends Model implements HasMedia
     public function owners(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'asset_owner')
-            ->withPivot(['ownership_percentage', 'started_at', 'ended_at'])
+            ->using(AssetOwner::class)
+            ->withPivot(['id', 'ownership_percentage', 'started_at', 'ended_at'])
             ->withTimestamps();
     }
 
