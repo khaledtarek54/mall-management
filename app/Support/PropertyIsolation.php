@@ -8,6 +8,7 @@ use App\Models\Announcement;
 use App\Models\ApprovalRule;
 use App\Models\Area;
 use App\Models\Asset;
+use App\Models\AssetOwner;
 use App\Models\CamAllocation;
 use App\Models\CamExpensePool;
 use App\Models\Charge;
@@ -144,6 +145,7 @@ class PropertyIsolation
         MaintenancePenalty::class => null,   // asset_id copied from the breaching work order
         OwnerRequest::class => null,           // asset_id nullable (property-specific or cross-property)
         Department::class => null,             // asset_id nullable: null = operator-wide (global), set = property-scoped (hybrid)
+        AssetOwner::class => null,             // the asset_owner ownership pivot — one row = one owner's stake in one mall; no Filament resource (managed via User/Asset relations), like LowStockAlert
 
         // ---- Indirect (relation chain to asset_id) ----
         Lease::class => 'unit',

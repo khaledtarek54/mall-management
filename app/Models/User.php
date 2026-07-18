@@ -135,8 +135,36 @@ class User extends Authenticatable implements FilamentUser, HasTenants
     public function ownedAssets(): BelongsToMany
     {
         return $this->belongsToMany(Asset::class, 'asset_owner')
-            ->withPivot(['ownership_percentage', 'started_at', 'ended_at'])
+            ->using(AssetOwner::class)
+            ->withPivot(['id', 'ownership_percentage', 'started_at', 'ended_at'])
             ->withTimestamps();
+    }
+
+    /**
+     * Owned properties whose ownership tenure is in effect on $onDate (default today).
+     * A null started_at/ended_at is unbounded on that side. This is the set the owner
+     * statements + the portfolio widget weight by `ownership_percentage` — so a 50%
+     * co-owner sees their share, not the whole property.
+     */
+    public function currentOwnedAssets(?string $onDate = null): BelongsToMany
+    {
+        $on = $onDate ?? now()->toDateString();
+
+        return $this->ownedAssets()
+            ->where(fn ($q) => $q->whereNull('asset_owner.started_at')->orWhere('asset_owner.started_at', '<=', $on))
+            ->where(fn ($q) => $q->whereNull('asset_owner.ended_at')->orWhere('asset_owner.ended_at', '>=', $on));
+    }
+
+    /**
+     * Current ownership share per owned property: [asset_id => percentage (0–100)].
+     * Keyed by asset, so a consumer can weight any per-property figure by the owner's stake.
+     *
+     * @return \Illuminate\Support\Collection<int, float>
+     */
+    public function currentOwnershipShares(?string $onDate = null): \Illuminate\Support\Collection
+    {
+        return $this->currentOwnedAssets($onDate)->get()
+            ->mapWithKeys(fn (Asset $a) => [$a->id => (float) $a->pivot->ownership_percentage]);
     }
 
     /**

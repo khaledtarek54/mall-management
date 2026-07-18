@@ -236,7 +236,15 @@ default + 14% VAT-on-fee sign-off + operator-residual disclosure), `docs/account
 5. **Run journalizer + finalise** — registry line #1 + `SOURCE_DATE_COLUMNS`, `Finalise`/`Revise`, afterCommit hook, GL tie-out driving the sweep, `GlRegistryConformanceTest` green.
 6. **Disbursements** — registry line #2, `DisbursementService` lifecycle + `ApprovalPolicy` `MODULE_DISBURSEMENT`, resource, cap + frozen-permission, disbursement tie-out.
 7. **Deliverable polish** — private snapshot PDF, `MyOwnerStatements` page (triple-scope, both gate methods), notifications, carry-forward; regenerate census + manifest; docs.
-8. **Future slices** (deferred): the **management-fee engine** (`management_fee_terms` + fee/VAT GL lines + statement fee row); the **settings-driven Egyptian tax catalog**; OwnerRequest tie-back; sub-period weighting refinement.
+8. **Future slices** (deferred): the **management-fee engine** (`management_fee_terms` + fee/VAT GL lines + statement fee row); the **settings-driven Egyptian tax catalog**; **mid-period ownership-percentage segments** (relax the `asset_owner` unique to `(user_id, asset_id, started_at)` — see the slice-3 note below); OwnerRequest tie-back.
+
+> **Slice-3 scope decision (shipped):** kept `unique(user_id, asset_id)` (one ownership row per
+> owner-property) rather than relaxing to tenure *segments*. Relaxing it risks an ambiguity — MySQL
+> treats a `NULL` `started_at` as distinct, so two un-dated rows could silently double a share. The
+> single row's `started_at`/`ended_at` already handle a mid-period **sale** (tenure fraction in the
+> weighting math); only a mid-period **percentage change** needs multiple segments, which the operator
+> hasn't asked for. `AssetOwner` pivot casts dates→Carbon + `coversDate()`; `User::currentOwnedAssets()`
+> / `currentOwnershipShares()` are tenure-aware; `PortfolioStats` now weights MRR/AR by the share.
 
 ## 9. Decisions
 
