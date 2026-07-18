@@ -87,6 +87,7 @@ Implemented via Spatie Laravel Permission (roles × permissions), Filament per-p
 | **`technician`** | *"In-house Technician: normal employee; **sees only work assigned to them**"* (FR-USR-04) | the one role deliberately lacking `{module}.view_all`, which is what makes `AssignmentScope` bite |
 | **`coordinator`** | *"Coordinator: manages assignment and oversight of requests/work orders"* | holds `maintenance`/`preventive_maintenance` `.view_all` (so `AssignmentScope` does **not** restrict it) plus `maintenance.assign` — assignment is oversight, you cannot hand out work you cannot see. Narrower than `operations`: no meters/inventory/procurement |
 | **`customer_service`** | *"Customer Service"* — the front-desk/intake role | may **log** a request and see **every** request (`maintenance.view_all`, so it can answer "what's the status of mine?") but has **no work authority** — no `assign`, `change_status`, `complete` or `edit`; `tenants.view` to identify the caller |
+| **`vendor`** | *"View-only access; can upload CSV files … but cannot otherwise import/edit"* (FR-USR-03) | an external contractor login: `.view`/`.view_all` on the **maintenance** surface only + `imports.execute` (the FR-USR-02 admins-only-import exception). **No** create/edit/delete/status-change, and **no** tenants/leases/financials/HR/GL — it must not read another party's commercial data. Property-scoped like every role. *(Finer "only my own jobs" scoping needs a vendor-user→company link that doesn't exist yet.)* |
 
 #### Import is not a flavour of create (FR-USR-02)
 

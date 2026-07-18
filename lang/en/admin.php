@@ -1699,6 +1699,7 @@ return [
             'technician' => 'Technician',
             'coordinator' => 'Coordinator',
             'customer_service' => 'Customer Service',
+            'vendor' => 'Vendor',
         ],
     ],
 

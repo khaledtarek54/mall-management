@@ -47,6 +47,13 @@ class RolesPermissionsSeeder extends Seeder
         // fields any tenant's call, so it sees every request (`view_all`) but has no work authority
         // (no assign / change_status / complete). It hands the request to a coordinator.
         'customer_service' => 'Customer service — logs and tracks tenant requests at the front desk; no work authority.',
+        // FR-USR-03 — the FRD's external "Vendor": a maintenance-contractor login that is VIEW-ONLY
+        // on the work it does, with ONE exception — CSV upload. FR-USR-02 restricts import to admins;
+        // the vendor is the documented exception. No create/edit/delete/status-change, and no access
+        // to tenant financials / leases / HR / GL (an external party). Scoped to its assigned malls
+        // like every role. (Finer "only my own jobs" scoping needs a vendor-user→company link that
+        // does not exist yet — today it sees its assigned malls' maintenance board, via view_all.)
+        'vendor' => 'External vendor — view-only on maintenance work, plus CSV upload; no other edits.',
         // FR-USR-01 — the FRD's "Admin (per mall): full access for their assigned mall; the only
         // role that can import/upload data". Property scoping already delivers "their assigned
         // mall" (AssignedAssets); what distinguishes this role from `manager` is `imports.execute`
@@ -495,6 +502,19 @@ class RolesPermissionsSeeder extends Seeder
             'maintenance.view', 'maintenance.create', 'maintenance.view_all',
             'tenants.view',
             'notes.view', 'notes.create',
+        ]);
+
+        // FR-USR-03 — the external vendor/contractor: VIEW-ONLY on the maintenance work it does,
+        // plus the one exception, CSV upload (imports.execute — FR-USR-02's admins-only rule names
+        // the vendor as the exception). view_all so it can see the board of its assigned malls
+        // (the finer "only my own jobs" filter needs a vendor-user→company link that doesn't exist
+        // yet). Deliberately NO create/edit/delete/change_status, and NO tenants/leases/financials/
+        // HR/GL — it must not read another party's commercial data.
+        Role::findByName('vendor', 'web')->syncPermissions([
+            'maintenance.view', 'maintenance.view_all',
+            'preventive_maintenance.view', 'preventive_maintenance.view_all',
+            'notes.view',
+            'imports.execute',
         ]);
 
         // accounting: Invoices, Payments, Credit Notes, CAM, Reports.

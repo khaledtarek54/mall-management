@@ -1699,6 +1699,7 @@ return [
             'technician' => 'فني',
             'coordinator' => 'منسق',
             'customer_service' => 'خدمة العملاء',
+            'vendor' => 'مورّد',
         ],
     ],
 
