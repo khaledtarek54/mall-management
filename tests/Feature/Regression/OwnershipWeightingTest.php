@@ -6,12 +6,14 @@ use Illuminate\Support\Carbon;
 use Livewire\Livewire;
 
 /**
- * Slice 3 of the owner-statements module (docs/plans/04-owner-statements-disbursements.md):
- * `ownership_percentage` was recorded but ignored everywhere, so a 50% co-owner saw 100% of a
- * property's numbers. These pin the tenure-aware share helpers on User + the PortfolioStats
- * weighting fix (the visible bug) so it can't silently regress.
+ * Slice 3 of the owner-statements module (docs/plans/04-owner-statements-disbursements.md),
+ * as revised by the operator's "one owner per mall, gets 100%" decision (2026-07-19):
+ *   - the ownership pivot is cast at source (AssetOwner) and tenure-aware, so a sold-off stake
+ *     drops out — this infrastructure is RETAINED for a future multi-owner build;
+ *   - but the ownership-% split is NOT applied to money for now: the single owner sees the FULL
+ *     property figures. These pin both halves so neither silently regresses.
  */
-it('reports the current ownership share per owned property', function () {
+it('reports the current ownership share per owned property (infrastructure, retained for later)', function () {
     $owner = makeUser('owner');
     $a = makeAsset();
     $b = makeAsset();
@@ -43,7 +45,7 @@ it('casts the ownership pivot via AssetOwner (dates → Carbon) and answers cove
         ->and($pivot->coversDate('2025-12-31'))->toBeFalse();
 });
 
-it('excludes ended and not-yet-started ownership from the current shares', function () {
+it('excludes ended and not-yet-started ownership from the current set', function () {
     $owner = makeUser('owner');
     $ended = makeAsset();
     $future = makeAsset();
@@ -60,19 +62,36 @@ it('excludes ended and not-yet-started ownership from the current shares', funct
         ->and($shares->has($future->id))->toBeFalse();
 });
 
-it('weights the portfolio widget MRR + AR by the ownership share (was: showed 100%)', function () {
+it('shows the owner the FULL money of a currently-owned property (no % split for now)', function () {
     $owner = makeUser('owner');
     $asset = makeAsset();
     $unit = makeUnit($asset, ['status' => 'occupied']);
-    $lease = makeLease($unit, null, ['base_rent_monthly' => 10000, 'service_charge_monthly' => 2000]); // asset MRR 12,000
-    makeInvoice($lease, ['balance' => 8000, 'status' => 'issued']); // asset AR 8,000
+    $lease = makeLease($unit, null, ['base_rent_monthly' => 10000, 'service_charge_monthly' => 2000]); // MRR 12,000
+    makeInvoice($lease, ['balance' => 8000, 'status' => 'issued']); // AR 8,000
+    // Even with a co-owner % recorded on the pivot, the owner sees the FULL property money —
+    // the operator's model is one owner = 100%, and the % split is deferred.
     $owner->ownedAssets()->attach($asset->id, ['ownership_percentage' => 50]);
 
     $this->actingAs($owner);
 
     Livewire::test(PortfolioStats::class)
-        ->assertSee('EGP 6,000')       // MRR 12,000 × 50%
-        ->assertSee('EGP 4,000')       // AR 8,000 × 50%
-        ->assertDontSee('EGP 12,000')  // the un-weighted (old, buggy) MRR
-        ->assertDontSee('EGP 8,000');  // the un-weighted (old, buggy) AR
+        ->assertSee('EGP 12,000')  // full MRR, NOT weighted down to 6,000
+        ->assertSee('EGP 8,000')   // full AR, NOT weighted down to 4,000
+        ->assertDontSee('EGP 6,000');
+});
+
+it('drops a sold-off (ended-tenure) property from the owner widget', function () {
+    $owner = makeUser('owner');
+    $current = makeAsset();
+    $sold = makeAsset();
+    makeLease(makeUnit($current, ['status' => 'occupied']), null, ['base_rent_monthly' => 5000, 'service_charge_monthly' => 0]);
+    makeLease(makeUnit($sold, ['status' => 'occupied']), null, ['base_rent_monthly' => 9999, 'service_charge_monthly' => 0]);
+    $owner->ownedAssets()->attach($current->id, ['ownership_percentage' => 100]);
+    $owner->ownedAssets()->attach($sold->id, ['ownership_percentage' => 100, 'ended_at' => now()->subDay()->toDateString()]);
+
+    $this->actingAs($owner);
+
+    Livewire::test(PortfolioStats::class)
+        ->assertSee('EGP 5,000')     // the currently-owned mall's MRR
+        ->assertDontSee('9,999');    // the sold mall is excluded
 });

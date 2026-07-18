@@ -14,10 +14,11 @@ class PortfolioStats extends BaseWidget
     protected function getStats(): array
     {
         $user = Auth::user();
-        // Current ownership share per property [asset_id => %], tenure-aware — so a 50%
-        // co-owner sees HALF the property's money, not all of it (the bug this fixes).
-        $shares = $user?->currentOwnershipShares() ?? collect();
-        $assetIds = $shares->keys();
+        // Properties the owner CURRENTLY owns (tenure-aware — a sold-off stake drops out).
+        // The operator model is one owner per mall who receives 100% of its money, so the
+        // owner sees the FULL property figures (no ownership-% split — that stays available
+        // via currentOwnershipShares() for a future multi-owner build, but isn't applied).
+        $assetIds = $user?->currentOwnedAssets()->pluck('assets.id') ?? collect();
 
         if ($assetIds->isEmpty()) {
             return [];
@@ -27,37 +28,27 @@ class PortfolioStats extends BaseWidget
             ->withCount('units')
             ->get();
 
-        // Physical metrics describe the property itself, so they stay portfolio-wide
-        // (an owner of a mall sees the whole mall's area/occupancy); the FINANCIAL
-        // metrics below are what get weighted by the ownership share.
         $totalLeasableArea = (float) $assets->sum('leasable_area_sqm');
         $assetCount = $assets->count();
 
         $totalUnits = 0;
         $occupiedUnits = 0;
-        $mrr = 0.0;
-        $outstandingAr = 0.0;
         foreach ($assets as $asset) {
             $totalUnits += (int) $asset->units_count;
             $occupiedUnits += $asset->units()->where('status', 'occupied')->count();
-
-            $share = ((float) ($shares[$asset->id] ?? 0)) / 100;
-
-            // MRR = sum(base_rent + service_charge) across this property's active leases,
-            // times the owner's share. Per-asset (not one whereIn) so the share applies.
-            $mrr += $share * (float) Lease::query()
-                ->whereHas('unit', fn ($q) => $q->where('asset_id', $asset->id))
-                ->where('status', 'active')
-                ->sum(\DB::raw('base_rent_monthly + service_charge_monthly'));
-
-            $outstandingAr += $share * (float) Invoice::query()
-                ->whereHas('lease.unit', fn ($q) => $q->where('asset_id', $asset->id))
-                ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
-                ->sum('balance');
         }
         $occupancyPct = $totalUnits > 0 ? round(($occupiedUnits / $totalUnits) * 100, 1) : 0;
-        $mrr = round($mrr, 2);
-        $outstandingAr = round($outstandingAr, 2);
+
+        // MRR = sum(base_rent + service_charge) across active leases on the owned malls.
+        $mrr = (float) Lease::query()
+            ->whereHas('unit', fn ($q) => $q->whereIn('asset_id', $assetIds))
+            ->where('status', 'active')
+            ->sum(\DB::raw('base_rent_monthly + service_charge_monthly'));
+
+        $outstandingAr = (float) Invoice::query()
+            ->whereHas('lease.unit', fn ($q) => $q->whereIn('asset_id', $assetIds))
+            ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
+            ->sum('balance');
 
         return [
             Stat::make(__('admin.widgets.portfolio.assets'), $assetCount)
