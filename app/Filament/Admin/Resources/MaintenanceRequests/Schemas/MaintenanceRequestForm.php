@@ -53,7 +53,28 @@ class MaintenanceRequestForm
                         ->options(fn () => TenantScope::selectableTenantOptions())
                         ->searchable()
                         ->preload()
-                        ->required(),
+                        ->live()
+                        // Required for a portal request (always a known tenant), or whenever no
+                        // caller name is given — a request must record who reported it (the same
+                        // invariant TenantRequest::booted enforces server-side).
+                        ->required(fn (Get $get) => $get('channel') === TenantRequest::SELF_SERVICE_CHANNEL || blank($get('caller_name'))),
+                    // Intake for someone who is NOT a registered tenant — only on a staff channel.
+                    TextInput::make('caller_name')
+                        ->label(__('admin.maintenance.caller.name'))
+                        ->maxLength(255)
+                        ->live()
+                        ->helperText(__('admin.maintenance.caller.section_hint'))
+                        ->visible(fn (Get $get) => $get('channel') !== TenantRequest::SELF_SERVICE_CHANNEL)
+                        ->required(fn (Get $get) => $get('channel') !== TenantRequest::SELF_SERVICE_CHANNEL && blank($get('tenant_id'))),
+                    TextInput::make('caller_phone')
+                        ->label(__('admin.maintenance.caller.phone'))
+                        ->tel()
+                        ->maxLength(50)
+                        ->visible(fn (Get $get) => $get('channel') !== TenantRequest::SELF_SERVICE_CHANNEL),
+                    Textarea::make('caller_notes')
+                        ->label(__('admin.maintenance.caller.notes'))
+                        ->rows(2)
+                        ->visible(fn (Get $get) => $get('channel') !== TenantRequest::SELF_SERVICE_CHANNEL),
                     Select::make('unit_id')
                         ->label(__('admin.fields.unit_label'))
                         ->options(function () {
@@ -91,6 +112,7 @@ class MaintenanceRequestForm
                         ->default('portal')
                         ->required()
                         ->native(false)
+                        ->live() // drives the caller-intake fields + tenant requiredness
                         ->helperText(__('admin.fields.channel_helper')),
                     Select::make('status')
                         ->label(__('admin.tables.common.status'))

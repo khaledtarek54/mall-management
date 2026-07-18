@@ -54,7 +54,10 @@ Each type carries its own intake config (model-level, not a DB enum — `request
 |--------|------|-----------|---------|
 | id | bigint | PK | Auto-increment ID |
 | reference | string | UNIQUE | Human-readable code: `{prefix}-{asset_code}-{year}-{seq}`, e.g. `MR-AW-2026-0001`. Prefix is per request type (MR/CR/IQ/AR/BQ/DR/REQ). |
-| tenant_id | bigint | FK→Tenant | Who submitted or is affected by the request |
+| tenant_id | bigint | FK→Tenant, **nullable** | Who submitted or is affected. Null **only** for a staff-channel intake from an unregistered caller (see `caller_*`) — enforced in `TenantRequest::booted`. |
+| caller_name | string | nullable | FR-REQ intake — who reported it when they are not a registered tenant. **Required when `tenant_id` is null.** |
+| caller_phone | string | nullable, indexed | The caller's contact number (for a walk-in / phone report). |
+| caller_notes | text | nullable | Free-text intake notes about the caller / report. |
 | unit_id | bigint | FK→Unit | Which unit (storefront/space) the request concerns |
 | lease_id | bigint | FK→Lease, nullable | The lease in effect (may be null if no active lease) |
 | request_type | string | NOT NULL, default `maintenance`, indexed | The request type (`TenantRequestType`). Backfilled to `maintenance` for all legacy rows. |
@@ -105,6 +108,17 @@ Each type carries its own intake config (model-level, not a DB enum — `request
 | updated_at | timestamp | - |
 
 ## 3. Business rules & invariants
+
+**Caller intake (FR-REQ, Phase 9a).** A request usually carries its `tenant_id`. A **staff channel**
+(anything but `portal`) may instead log a call from an **unregistered caller**: `tenant_id` is left
+null and `caller_name` (plus optional `caller_phone`/`caller_notes`) records who reported it. The
+invariant is enforced in `TenantRequest::booted` — so admin, portal and API all inherit it:
+- `tenant_id` null **requires** a `caller_name` (a request must say who reported it), and
+- a `portal` request can **never** be tenant-less (the portal always acts as a known, authenticated
+  tenant — `SELF_SERVICE_CHANNEL`).
+
+`unit_id` stays required: a request is still about a unit. Unit-less common-area work is a **work
+order** (module 26), which carries its own `asset_id`.
 
 **SLA Targets** (config/maintenance.php + MaintenanceSettings):
 - urgent: 4 hours (default config: 24h; Settings SLA: 4h)

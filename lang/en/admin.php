@@ -1827,6 +1827,15 @@ return [
         'attachments_helper' => 'Photos help us understand the problem faster. Max 5 files, up to 10 MB each.',
         'errors' => [
             'resolution_needs_evidence' => 'Attach a photo of the completed work, or raise a work order for it, before marking this resolved.',
+            'portal_needs_tenant' => 'A portal request must have a tenant. For a walk-in or phone call from someone who is not a registered tenant, pick a staff channel instead.',
+            'caller_or_tenant_required' => 'Select the tenant, or record the caller\'s name — a request must say who reported it.',
+        ],
+        'caller' => [
+            'section' => 'Caller (walk-in / not a registered tenant)',
+            'section_hint' => 'For a phone, email or walk-in request from someone who is not a registered tenant.',
+            'name' => 'Caller name',
+            'phone' => 'Caller phone',
+            'notes' => 'Caller notes',
         ],
     ],
 

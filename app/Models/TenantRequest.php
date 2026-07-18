@@ -55,6 +55,9 @@ class TenantRequest extends Model implements HasMedia
         'reference',
         'tenant_id',
         'unit_id',
+        'caller_name',
+        'caller_phone',
+        'caller_notes',
         'lease_id',
         'request_type',
         'assigned_to',
@@ -91,6 +94,30 @@ class TenantRequest extends Model implements HasMedia
         'scheduled_to' => 'datetime',
         'sla_breach_notified_at' => 'datetime',
     ];
+
+    /** The only channel a tenant raises for themselves; every other channel is staff-logged intake. */
+    public const SELF_SERVICE_CHANNEL = 'portal';
+
+    protected static function booted(): void
+    {
+        // FR-REQ intake invariant (Phase 9a), enforced in the model so admin + portal + API all
+        // inherit it. A request may omit its tenant ONLY when a staff channel logged it for an
+        // unregistered caller — and even then it must record WHO reported it. A tenant-less portal
+        // request is a contradiction (the portal always acts as a known, authenticated tenant).
+        static::saving(function (self $request) {
+            if ($request->tenant_id !== null) {
+                return;
+            }
+
+            if ($request->channel === self::SELF_SERVICE_CHANNEL) {
+                throw new \DomainException(__('admin.maintenance.errors.portal_needs_tenant'));
+            }
+
+            if (blank($request->caller_name)) {
+                throw new \DomainException(__('admin.maintenance.errors.caller_or_tenant_required'));
+            }
+        });
+    }
 
     public function tenant(): BelongsTo
     {
