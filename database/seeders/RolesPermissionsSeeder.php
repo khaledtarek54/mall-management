@@ -38,6 +38,15 @@ class RolesPermissionsSeeder extends Seeder
         // them". The one role that deliberately LACKS `*.view_all`, which is what makes the
         // assignment scope bite (App\Support\AssignmentScope).
         'technician' => 'In-house technician — sees only the requests + work orders assigned to them.',
+        // FR-USR — the FRD's "Coordinator: manages assignment and oversight of requests/work
+        // orders". Holds `*.view_all` (sees the whole board, unlike the technician) plus
+        // `maintenance.assign` — you cannot hand out work you cannot see. The maintenance-queue
+        // supervisor; deliberately narrower than `operations` (no meters/inventory/procurement).
+        'coordinator' => 'Maintenance coordinator — sees the whole request/work-order board and assigns technicians.',
+        // FR-USR — the FRD's front-desk "Customer Service": logs incoming requests (intake) and
+        // fields any tenant's call, so it sees every request (`view_all`) but has no work authority
+        // (no assign / change_status / complete). It hands the request to a coordinator.
+        'customer_service' => 'Customer service — logs and tracks tenant requests at the front desk; no work authority.',
         // FR-USR-01 — the FRD's "Admin (per mall): full access for their assigned mall; the only
         // role that can import/upload data". Property scoping already delivers "their assigned
         // mall" (AssignedAssets); what distinguishes this role from `manager` is `imports.execute`
@@ -437,6 +446,29 @@ class RolesPermissionsSeeder extends Seeder
         Role::findByName('technician', 'web')->syncPermissions([
             'maintenance.view', 'maintenance.change_status',
             'preventive_maintenance.view', 'preventive_maintenance.complete',
+            'notes.view', 'notes.create',
+        ]);
+
+        // FR-USR — the coordinator: the maintenance-queue supervisor. Sees the whole board
+        // (`*.view_all`, so AssignmentScope does NOT restrict them) and assigns technicians
+        // (`maintenance.assign`) — assignment IS oversight, you cannot hand out work you cannot
+        // see. Narrower than `operations`: no meters, inventory or procurement.
+        Role::findByName('coordinator', 'web')->syncPermissions([
+            'maintenance.view', 'maintenance.create', 'maintenance.edit',
+            'maintenance.view_all', 'maintenance.assign', 'maintenance.change_status',
+            'preventive_maintenance.view', 'preventive_maintenance.view_all',
+            'preventive_maintenance.create', 'preventive_maintenance.edit', 'preventive_maintenance.complete',
+            'vendors.view',
+            'notes.view', 'notes.create',
+        ]);
+
+        // FR-USR — customer service (front desk / intake): logs requests and fields any tenant's
+        // call, so it sees EVERY request (`maintenance.view_all`) but has NO work authority — no
+        // assign, no change_status, no complete, no edit. It captures the request and hands it to
+        // a coordinator. `tenants.view` to identify the caller.
+        Role::findByName('customer_service', 'web')->syncPermissions([
+            'maintenance.view', 'maintenance.create', 'maintenance.view_all',
+            'tenants.view',
             'notes.view', 'notes.create',
         ]);
 

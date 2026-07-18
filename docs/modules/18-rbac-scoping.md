@@ -85,6 +85,8 @@ Implemented via Spatie Laravel Permission (roles × permissions), Filament per-p
 |---|---|---|
 | **`mall_admin`** | *"Admin (per mall): full access for their assigned mall; **the only role that can import/upload data**"* (FR-USR-01/02) | a `manager` plus `imports.execute`, scoped to their properties by the same `AssignedAssets` mechanism as everyone else. **Not** given delete — the FRD's "full access" is ambiguous and delete is super_admin-only project-wide (client question 23) |
 | **`technician`** | *"In-house Technician: normal employee; **sees only work assigned to them**"* (FR-USR-04) | the one role deliberately lacking `{module}.view_all`, which is what makes `AssignmentScope` bite |
+| **`coordinator`** | *"Coordinator: manages assignment and oversight of requests/work orders"* | holds `maintenance`/`preventive_maintenance` `.view_all` (so `AssignmentScope` does **not** restrict it) plus `maintenance.assign` — assignment is oversight, you cannot hand out work you cannot see. Narrower than `operations`: no meters/inventory/procurement |
+| **`customer_service`** | *"Customer Service"* — the front-desk/intake role | may **log** a request and see **every** request (`maintenance.view_all`, so it can answer "what's the status of mine?") but has **no work authority** — no `assign`, `change_status`, `complete` or `edit`; `tenants.view` to identify the caller |
 
 #### Import is not a flavour of create (FR-USR-02)
 

@@ -161,3 +161,35 @@ it('leaves the query untouched for someone who oversees the module', function ()
     expect(AssignmentScope::isRestricted($this->coordinator, 'preventive_maintenance'))->toBeFalse();
     expect(AssignmentScope::isRestricted($this->tech, 'preventive_maintenance'))->toBeTrue();
 });
+
+/* ---- the FRD's named roles: coordinator + customer service -------------- */
+
+it('the coordinator role oversees the whole board and may assign', function () {
+    // Now a real seeded role (the beforeEach `$this->coordinator` is an `operations` stand-in
+    // that predates it). "Manages assignment and oversight" = holds `*.view_all` (not restricted)
+    // AND `maintenance.assign` — the authority the technician deliberately lacks.
+    $coordinator = makeUser('coordinator', [$this->asset->id]);
+
+    expect(AssignmentScope::isRestricted($coordinator, 'maintenance'))->toBeFalse()
+        ->and(AssignmentScope::isRestricted($coordinator, 'preventive_maintenance'))->toBeFalse()
+        ->and($coordinator->can('maintenance.assign'))->toBeTrue()
+        ->and($coordinator->can('maintenance.change_status'))->toBeTrue();
+
+    // Sees every work order — assigned to anyone or to no one — so it can hand them out.
+    $a = assignableWorkOrder(['assigned_to_user_id' => $this->tech->id]);
+    $b = assignableWorkOrder(['assigned_to_user_id' => null]);
+    $this->actingAs($coordinator);
+    expect(visibleWorkOrderIds())->toBe(collect([$a->id, $b->id])->sort()->values()->all());
+});
+
+it('customer service fields any call but has no work authority', function () {
+    // Intake desk: sees EVERY request (`view_all`, so it can answer "what's the status of mine?")
+    // but may only LOG one — no assign, no status moves, no completing a work order.
+    $cs = makeUser('customer_service', [$this->asset->id]);
+
+    expect(AssignmentScope::isRestricted($cs, 'maintenance'))->toBeFalse()
+        ->and($cs->can('maintenance.create'))->toBeTrue()
+        ->and($cs->can('maintenance.assign'))->toBeFalse()
+        ->and($cs->can('maintenance.change_status'))->toBeFalse()
+        ->and($cs->can('preventive_maintenance.complete'))->toBeFalse();
+});
