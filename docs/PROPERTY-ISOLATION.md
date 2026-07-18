@@ -15,6 +15,19 @@ Isolation is **soft, row-level**: one shared MySQL database; every property-owne
 database per property — the operator's shared chart of accounts, cross-mall tenants, and portfolio
 consolidation all depend on one shared store.
 
+> **Property-first UX — "All Properties" is no longer a selectable operational tenant** (see
+> [plans/03-remove-all-properties-mode.md](plans/03-remove-all-properties-mode.md)). The operator always
+> works **inside one real mall**: the switcher offers only real properties (`User::getTenants()`), and the
+> ALL pseudo-asset is refused by `canAccessTenant()` — a crafted `/admin/ALL` URL 404s. Consequences you
+> can rely on **on operational screens**: `currentAssetId()` is always a real mall (never null from
+> All-mode), and `visibleAssetIds()` returns `[currentId]`. The ALL pseudo-asset row,
+> `Asset::ALL_PROPERTIES_CODE`, `isAllProperties()`, `TenantScope`'s pseudo-asset handling, and **every
+> guard described below stay in place** — as internal plumbing for a future read-only *consolidation*
+> surface (Phase B) and as defense-in-depth. The guards are still load-bearing: the conformance gate and
+> the clobber tests exercise them by **force-setting** the pseudo-asset tenant (`Filament::setTenant`),
+> which bypasses `canAccessTenant()` on purpose. Do not "simplify" them away on the theory that All-mode
+> is gone — it is gone from the *switcher*, not from the plumbing.
+
 ## Shared vs. isolated — the register
 
 The authoritative, testable source of truth is **[`App\Support\PropertyIsolation`](../app/Support/PropertyIsolation.php)**.

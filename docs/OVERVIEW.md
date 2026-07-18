@@ -43,7 +43,7 @@ Three authenticated surfaces over one MySQL source-of-truth:
 | **Mobile API** | `/api/v1/*` | `tenant-api` (Sanctum) | `Tenant` (company login) |
 
 - **Stack:** Laravel 13 · PHP 8.4 · Filament 4 · MySQL (prod/local) / SQLite `:memory:` (tests) · Pest 4 + ParaTest. Packages: spatie **permission / settings / activitylog / medialibrary**, Laravel **Sanctum**, **Paymob** (card payments), **ETA** (e-invoicing).
-- **Multi-property tenancy:** the admin panel's Filament "tenant" is an **`Asset` (property)**; resource *tables* auto-scope to the selected property via `App\Support\TenantScope`. An **"All Properties"** pseudo-asset (`Asset::ALL_PROPERTIES_CODE`) shows the portfolio. See [`18-rbac-scoping`](modules/18-rbac-scoping.md).
+- **Multi-property tenancy (property-first):** the admin panel's Filament "tenant" is an **`Asset` (property)**; resource *tables* auto-scope to the selected property via `App\Support\TenantScope`. The operator always works **inside one real mall** — the switcher no longer offers the "All Properties" pseudo-asset, and `/admin/ALL` 404s (see [`plans/03-remove-all-properties-mode.md`](plans/03-remove-all-properties-mode.md)). The `Asset::ALL_PROPERTIES_CODE` pseudo-asset + its consolidation plumbing are **kept** for a future read-only portfolio surface. See [`18-rbac-scoping`](modules/18-rbac-scoping.md).
 - **Single-action services** hold business logic; controllers/Filament pages stay thin.
 
 ---

@@ -6,7 +6,7 @@ beforeEach(function () {
     ensureAllPropertiesAsset();
 });
 
-it('super_admin sees every property as a tenant', function () {
+it('super_admin sees every real property as a tenant — never All Properties', function () {
     makeAsset(['code' => 'AAA']);
     makeAsset(['code' => 'BBB']);
     makeAsset(['code' => 'CCC']);
@@ -14,11 +14,14 @@ it('super_admin sees every property as a tenant', function () {
     $admin = makeUser('super_admin');
     $tenants = $admin->getTenants(filament()->getPanel('admin'));
 
+    // Property-first UX: the synthetic "All Properties" pseudo-asset is never
+    // offered in the switcher.
     expect($tenants->pluck('code')->all())
-        ->toEqualCanonicalizing(['ALL', 'AAA', 'BBB', 'CCC']);
+        ->toEqualCanonicalizing(['AAA', 'BBB', 'CCC'])
+        ->not->toContain('ALL');
 });
 
-it('manager sees only assigned properties', function () {
+it('manager sees only assigned properties — never All Properties', function () {
     $a = makeAsset(['code' => 'AAA']);
     makeAsset(['code' => 'BBB']);
     $c = makeAsset(['code' => 'CCC']);
@@ -27,10 +30,11 @@ it('manager sees only assigned properties', function () {
     $tenants = $user->getTenants(filament()->getPanel('admin'));
 
     expect($tenants->pluck('code')->all())
-        ->toEqualCanonicalizing(['ALL', 'AAA', 'CCC']);
+        ->toEqualCanonicalizing(['AAA', 'CCC'])
+        ->not->toContain('ALL');
 });
 
-it('omits the All Properties option for users with a single property', function () {
+it('a single-property user sees only their one property', function () {
     $a = makeAsset(['code' => 'AAA']);
     $user = makeUser('manager', [$a->id]);
     $tenants = $user->getTenants(filament()->getPanel('admin'));
@@ -38,12 +42,11 @@ it('omits the All Properties option for users with a single property', function 
     expect($tenants->pluck('code')->all())->toEqual(['AAA']);
 });
 
-it('canAccessTenant lets super_admin into every property', function () {
+it('canAccessTenant lets super_admin into every real property', function () {
     $a = makeAsset(['code' => 'AAA']);
     $admin = makeUser('super_admin');
 
     expect($admin->canAccessTenant($a))->toBeTrue();
-    expect($admin->canAccessTenant(Asset::where('code', 'ALL')->first()))->toBeTrue();
 });
 
 it('canAccessTenant blocks unassigned properties for non-super-admin', function () {
@@ -56,14 +59,18 @@ it('canAccessTenant blocks unassigned properties for non-super-admin', function 
     expect($user->canAccessTenant($b))->toBeFalse();
 });
 
-it('canAccessTenant only lets the user into All Properties when they have multiple', function () {
+it('canAccessTenant rejects the All Properties pseudo-asset for everyone', function () {
     $a = makeAsset(['code' => 'AAA']);
     $b = makeAsset(['code' => 'BBB']);
     $all = Asset::where('code', 'ALL')->first();
 
+    $superAdmin = makeUser('super_admin');
     $singleProp = makeUser('manager', [$a->id]);
     $multiProp = makeUser('manager', [$a->id, $b->id]);
 
+    // No role, and no matter how many properties, "All Properties" is never a
+    // selectable operational tenant — a crafted /admin/ALL/... URL 403s.
+    expect($superAdmin->canAccessTenant($all))->toBeFalse();
     expect($singleProp->canAccessTenant($all))->toBeFalse();
-    expect($multiProp->canAccessTenant($all))->toBeTrue();
+    expect($multiProp->canAccessTenant($all))->toBeFalse();
 });

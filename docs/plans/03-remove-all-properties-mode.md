@@ -1,11 +1,35 @@
 # Plan — remove / demote the "All Properties" mode (property-first UX)
 
-> **Status:** planning only — no code changed. To be executed in a dedicated session.
+> **Status:** **Phase A executed** (property-first operational removal). Phase B (a dedicated read-only
+> consolidation surface) is **deferred** until mall #2 is onboarded — the operator starts with one mall.
 > **Why now:** the All-Properties view is confusing for day-to-day work, adds no value when you
 > operate one mall, and was the root cause of the "create clobber" bug class (see
 > [memory: all-mode create clobber] / `docs/PROPERTY-ISOLATION.md` "Test D"). The operator wants a
 > **property-first** app: always work inside one specific mall; property selection is the primary,
 > unavoidable choice.
+>
+> **Decision taken (§1):** Eltizam manages many malls but **starts with one**, may later host other
+> developers' malls, and treats per-mall **isolation** as paramount → the operational-side removal
+> (Phase A) is correct regardless of eventual mall count; the consolidation plumbing is **kept, not
+> deleted**, so Phase B can build a read-only "Portfolio/Consolidated" surface later without re-plumbing.
+>
+> ## What Phase A shipped
+> - `User::getTenants()` no longer prepends the ALL pseudo-asset — the switcher offers **only real malls**.
+> - `User::canAccessTenant()` **refuses** the ALL pseudo-asset for everyone (incl. super_admin), so a
+>   crafted `/admin/ALL` URL now **404s** (Filament's no-enumeration abort) instead of entering All-mode.
+> - **Kept intact** (consolidation plumbing / defense-in-depth): `Asset::ALL_PROPERTIES_CODE` + the seeded
+>   pseudo-asset row, `Asset::isAllProperties()`, all of `TenantScope` (incl. pseudo-asset handling),
+>   `AssignedAssets`, `BypassesScopingOnAll`, the `AdminPanelProvider` branding fallbacks (they render the
+>   pseudo-asset as "Atriom" if it is ever force-set), and the `AllPropertiesCreatePinsAsset` / conformance
+>   "Test D" clobber gates (they force-set the tenant via `Filament::setTenant`, which is unaffected).
+> - Tests updated: `UserTenantsTest`, `UserPropertyAssignmentTest`, `AdminPanelBrandingHttpTest`
+>   (now asserts `/admin/ALL` → 404), `ScopingScenarioTest` (title accuracy). Full suite green.
+> - **Not yet done — Phase A step 3** (drop / auto-stamp the `asset_id` picker on the 13 direct-FK forms):
+>   deferred as a separate increment because it cascades into `AllPropertiesCreatePinsAssetTest` and the
+>   form-level tests, and the read-only-vs-auto-stamp-vs-keep choice is its own design decision. With
+>   All-mode already unreachable, the clobber can no longer occur via the UI; this step is hardening
+>   (making a *within-visible-set* wrong-mall pick on multi-mall accounts structurally impossible), not a
+>   correctness fix.
 
 ---
 

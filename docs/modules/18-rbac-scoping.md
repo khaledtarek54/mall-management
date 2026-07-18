@@ -73,7 +73,7 @@ Implemented via Spatie Laravel Permission (roles × permissions), Filament per-p
 
 **Deletion rule**: Only `super_admin` can delete any record, single or bulk (enforced in `RoleGatedActions::canDelete()` / `canDeleteAny()` regardless of any `{module}.delete` permission in the roles table). Bulk delete is additionally disabled project-wide via `$bulkDeletable = false` on all resources.
 
-**Property scoping**: A user assigned to properties A and B sees only A/B data across all modules. The "ALL Properties" pseudo-tenant (code='ALL') is shown in the property switcher when a user has >1 accessible property; in ALL mode, restricted users still see only their assigned set via `TenantScope::visibleAssetIds()`.
+**Property scoping**: A user assigned to properties A and B sees only A/B data across all modules, and works inside one of them at a time — the switcher offers only real malls (the "ALL Properties" pseudo-tenant is no longer selectable; see the "All Properties pseudo-tenant" gotcha below). The pseudo-asset's scoping plumbing (restricted users pinned to their assigned set via `TenantScope::visibleAssetIds()` when it is force-set) is retained for a future consolidation surface.
 
 **Feature-gated permissions**: `RoleGatedActions::hasPermission()` requires both the permission AND the module feature flag (`Modules::enabled($module)`) to be true. Disabling a module overrides the permission grant.
 
@@ -332,11 +332,10 @@ Scoping is **not** "only when a single property is selected". In **All-Propertie
 
 ## 9. Gotchas, edge cases & recently-fixed bugs
 
-### "All Properties" pseudo-tenant
-- The synthetic Asset with `code='ALL'` is a real DB row used so Filament can resolve it from URL slugs.
-- When a user switches to "ALL", `TenantScope::currentAssetId()` returns null (meaning "do not filter by asset_id").
-- Restricted users still see only their assigned properties in "ALL" mode via `visibleAssetIds()` — queries use `whereIn('asset_id', [...])` instead of a single asset_id filter.
-- The "ALL" asset never appears in property-picker dropdowns (`selectableAssetOptions()` explicitly excludes it).
+### "All Properties" pseudo-tenant — no longer selectable (property-first UX)
+- **As of the property-first change** ([plans/03-remove-all-properties-mode.md](../plans/03-remove-all-properties-mode.md)), "All Properties" is **not offered in the switcher** (`User::getTenants()` returns only real malls) and is **not an accessible tenant** — `canAccessTenant()` refuses the pseudo-asset for everyone, so `/admin/ALL` **404s**. The operator always works inside one real mall.
+- The synthetic Asset with `code='ALL'` is still a real DB row (seeded by migration) — **kept** as internal plumbing for a future read-only consolidation surface (Phase B) and as a defensive sentinel. It never appears in property-picker dropdowns (`selectableAssetOptions()` excludes it).
+- The **All-mode scoping plumbing below still exists and is still tested** by force-setting the pseudo-asset tenant (`Filament::setTenant`, which bypasses `canAccessTenant()`): when the pseudo-asset is the active tenant, `TenantScope::currentAssetId()` returns null and restricted users are pinned to their assigned set via `visibleAssetIds()` (`whereIn('asset_id', [...])`). On **operational** screens this path is now unreachable — `currentAssetId()` is always a real mall — but keep deriving scope from `visibleAssetIds()` (never `currentAssetId()` alone) so the consolidation surface stays leak-proof when it lands.
 
 ### Soft-deleted assets
 - Trashed assets are excluded from the property switcher (`User::getTenants()` queries untrashed assets).

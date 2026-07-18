@@ -66,7 +66,7 @@ function scopingFixtures(): array
  ========================================================================= */
 
 describe('manager assigned only to property A', function () {
-    it('cannot access property B as a Filament tenant, only A and the ALL view', function () {
+    it('can access only property A as a Filament tenant — never B, never the ALL pseudo-asset', function () {
         $f = scopingFixtures();
         $user = makeUser('manager', [$f['a']->id]);
 

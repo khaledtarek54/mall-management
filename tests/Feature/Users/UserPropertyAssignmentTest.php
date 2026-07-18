@@ -84,8 +84,11 @@ it('a user with property restrictions only sees those in getTenants()', function
     expect($tenants)->toEqual(['HW']);
 });
 
-it('a user with every property assigned sees the ALL pseudo-tenant in their switcher', function () {
+it('a user with every property assigned sees only the real malls — never the ALL pseudo-tenant', function () {
     $user = makeUser('manager', [$this->hw->id, $this->pa->id, $this->bw->id]);
     $tenants = $user->getTenants(filament()->getPanel('admin'))->pluck('code')->all();
-    expect($tenants)->toEqualCanonicalizing(['ALL', 'HW', 'PA', 'BW']);
+
+    // Property-first UX: the switcher never offers "All Properties".
+    expect($tenants)->toEqualCanonicalizing(['HW', 'PA', 'BW'])
+        ->not->toContain('ALL');
 });

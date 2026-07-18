@@ -33,15 +33,14 @@ it('renders the tenant brand name + theme override in the panel HTML', function 
     expect($html)->toContain('--primary-500: #0F766E');
 });
 
-it('falls back to Atriom branding for the All-Properties pseudo-tenant', function () {
+it('does not expose the All-Properties pseudo-tenant as a reachable panel URL', function () {
+    // Property-first UX: "All Properties" is no longer a selectable/accessible
+    // operational tenant, so a crafted /admin/ALL URL 404s (Filament's
+    // no-enumeration behavior when canAccessTenant() is false) rather than
+    // dropping the user into the removed portfolio context. The Atriom-branding
+    // fallback for the pseudo-asset stays in AdminPanelProvider as a defensive
+    // guard, but is no longer reachable over HTTP.
     $admin = makeUser('super_admin');
 
-    $response = $this->actingAs($admin)->get('/admin/ALL');
-
-    $response->assertOk();
-    $html = $response->getContent();
-
-    expect($html)->toContain('Atriom');
-    // No CSS override on the synthetic tenant
-    expect($html)->not->toContain('--primary-500: ');
+    $this->actingAs($admin)->get('/admin/ALL')->assertNotFound();
 });

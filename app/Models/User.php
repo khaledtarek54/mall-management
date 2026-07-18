@@ -64,24 +64,18 @@ class User extends Authenticatable implements FilamentUser, HasTenants
 
     public function getTenants(Panel $panel): Collection
     {
-        // Soft-deleted assets are intentionally excluded from the tenant
-        // switcher — selecting one would land the user in a property that
-        // no longer exists.
-        $assets = $this->hasRole('super_admin')
+        // Property-first UX: the switcher offers ONLY real malls — never the
+        // synthetic "All Properties" pseudo-asset. The operator always works
+        // inside one specific property; portfolio/consolidation is a Phase-B
+        // read-only surface, not a selectable operational tenant. This is also
+        // what makes the All-mode "create clobber" bug class structurally
+        // impossible (see docs/plans/03-remove-all-properties-mode.md).
+        //
+        // Soft-deleted assets are intentionally excluded — selecting one would
+        // land the user in a property that no longer exists.
+        return $this->hasRole('super_admin')
             ? Asset::query()->where('code', '!=', Asset::ALL_PROPERTIES_CODE)->get()
             : $this->accessibleAssets();
-
-        // Prepend the "All Properties" pseudo-tenant whenever the user has
-        // more than one property — it's the portfolio view across their
-        // accessible set (or every property, for super_admin).
-        if ($assets->count() > 1) {
-            $all = Asset::where('code', Asset::ALL_PROPERTIES_CODE)->first();
-            if ($all) {
-                $assets = $assets->prepend($all);
-            }
-        }
-
-        return $assets;
     }
 
     public function canAccessTenant(Model $tenant): bool
@@ -97,14 +91,17 @@ class User extends Authenticatable implements FilamentUser, HasTenants
             return false;
         }
 
-        if ($this->hasRole('super_admin')) {
-            return true;
+        // The synthetic "All Properties" pseudo-asset is never a selectable
+        // operational tenant (property-first UX). Reject it before the
+        // super_admin allowance so a crafted /admin/ALL/... URL 404s (Filament's
+        // IdentifyTenant aborts 404 — no existence enumeration) rather than
+        // dropping anyone into the removed portfolio-create context.
+        if ($tenant->isAllProperties()) {
+            return false;
         }
 
-        // "All Properties" is accessible whenever the user has more than
-        // one accessible property — same gate as getTenants().
-        if ($tenant->isAllProperties()) {
-            return $this->accessibleAssets()->count() > 1;
+        if ($this->hasRole('super_admin')) {
+            return true;
         }
 
         // Staff assignment (asset_user) OR legal ownership (asset_owner).
