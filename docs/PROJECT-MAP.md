@@ -27,18 +27,18 @@ Sanctum (mobile API auth) · Spatie (permissions, media, activity-log, settings)
 
 | | | | |
 |---|---|---|---|
-| **64** models | **82** services | **37** admin resources | **5** portal resources |
+| **66** models | **84** services | **39** admin resources | **5** portal resources |
 | **39** API controllers | **13** dashboard widgets | **23** console commands | **6** queued jobs |
-| **19** notifications | **115** migrations | **29** module docs | **345** test files |
+| **21** notifications | **120** migrations | **31** module docs | **362** test files |
 
 ### Coverage — what the gates actually enforce
 
 | Dimension | State |
 |---|---|
-| **Property isolation** | 64 models classified — 49 property-owned, 14 shared, 1 self. Gated by `PropertyIsolationConformanceTest`. |
+| **Property isolation** | 66 models classified — 51 property-owned, 14 shared, 1 self. Gated by `PropertyIsolationConformanceTest`. |
 | **General ledger** | 18 posting sources, 18 journalizer classes — every one registered. One registry (`LedgerPoster::JOURNALIZERS`) that all four dispatch paths derive from; gated by `GlRegistryConformanceTest`. |
 | **E2E smoke** | Every admin resource + page, from `tests/e2e/filament-admin-manifest.json`; 22 specs. Gated by `AdminSmokeManifestConformanceTest`. |
-| **Tests** | 345 files — 71 scenario, 81 regression. |
+| **Tests** | 362 files — 77 scenario, 89 regression. |
 | **Module flags** | 16 toggleable modules (`App\Support\Modules`). |
 
 **Scheduled automation** — commands: `cam:reconcile` · `accounting:post-depreciation` · `vendors:expire-contracts` · `activitylog:clean` · `maintenance:auto-close` · `maintenance:generate-preventive` · `maintenance:scan-sla-breaches` · `maintenance:scan-wo-sla-breaches` · `billing:scan-overdue-invoices` · `inventory:scan-low-stock` · `billing:remind-overdue-tenants` · `leases:remind-expiring` · `marketing:ensure-budgets` · `accounting:sync-ledger` · `accounting:sync-ledger --all --scheduled`
@@ -46,9 +46,9 @@ Sanctum (mobile API auth) · Spatie (permissions, media, activity-log, settings)
 
 ### Gap-analysis coverage
 
-**29 of 29** modules have ever been gap-analysed (`docs/gap-analysis/NN-*.md`). A module with a doc but no gap analysis has been *described*, never *audited* — and round 2 found six 🔴 money bugs in the eight modules that were in exactly that state.
+**29 of 31** modules have ever been gap-analysed (`docs/gap-analysis/NN-*.md`). A module with a doc but no gap analysis has been *described*, never *audited* — and round 2 found six 🔴 money bugs in the eight modules that were in exactly that state.
 
-**Every module has been audited at least once.**
+**Never gap-analysed:** 30 — Areas · 31 — Violations — see [gap-analysis/000-progress.md](gap-analysis/000-progress.md).
 
 <!-- census:end -->
 
