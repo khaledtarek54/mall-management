@@ -15,6 +15,13 @@
             "hasView": false
         },
         {
+            "class": "AreaResource",
+            "slug": "areas",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
             "class": "AssetResource",
             "slug": "assets",
             "hasCreate": true,

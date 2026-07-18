@@ -337,6 +337,18 @@ parameters:
 			path: app/Filament/Admin/Resources/Equipment/EquipmentResource.php
 
 		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Admin/Resources/Areas/AreaResource.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Admin/Resources/Areas/AreaResource.php
+
+		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
 			identifier: property.notFound
 			count: 1

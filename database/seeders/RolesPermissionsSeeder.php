@@ -233,6 +233,12 @@ class RolesPermissionsSeeder extends Seeder
             'imports.execute' => 'Import/upload data from a CSV (FR-USR-02 — admins only)',
         ],
 
+        'areas' => [
+            'areas.view' => 'View facility zones (areas)',
+            'areas.create' => 'Create facility zones',
+            'areas.edit' => 'Edit facility zones + assign supervisors',
+            'areas.delete' => 'Delete facility zones',
+        ],
         'preventive_maintenance' => [
             'preventive_maintenance.view' => 'View preventive-maintenance plans & work orders',
             'preventive_maintenance.create' => 'Create preventive-maintenance plans / work orders',
@@ -426,6 +432,8 @@ class RolesPermissionsSeeder extends Seeder
             'maintenance.assign', 'maintenance.change_status',
             'preventive_maintenance.view', 'preventive_maintenance.create',
             'preventive_maintenance.edit', 'preventive_maintenance.complete',
+            // Facility zones — operations owns the mall's operational layout.
+            'areas.view', 'areas.create', 'areas.edit',
             'vendors.view', 'vendors.create', 'vendors.edit',
             'utility_meters.view', 'utility_meters.create', 'utility_meters.edit',
             'inventory.view', 'inventory.create', 'inventory.edit',
@@ -458,6 +466,8 @@ class RolesPermissionsSeeder extends Seeder
             'maintenance.view_all', 'maintenance.assign', 'maintenance.change_status',
             'preventive_maintenance.view', 'preventive_maintenance.view_all',
             'preventive_maintenance.create', 'preventive_maintenance.edit', 'preventive_maintenance.complete',
+            // Facility zones — the coordinator routes work by zone (FR routing, later slice).
+            'areas.view', 'areas.create', 'areas.edit',
             'vendors.view',
             'notes.view', 'notes.create',
         ]);

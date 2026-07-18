@@ -6,6 +6,7 @@ use App\Models\AccountingPeriod;
 use App\Models\AccountMapping;
 use App\Models\Announcement;
 use App\Models\ApprovalRule;
+use App\Models\Area;
 use App\Models\Asset;
 use App\Models\CamAllocation;
 use App\Models\CamExpensePool;
@@ -118,6 +119,7 @@ class PropertyIsolation
         Unit::class => null,
         Announcement::class => null,           // broadcast targeted at one property
         Equipment::class => null,              // a machine stands in exactly one mall; code unique per property
+        Area::class => null,                   // a facility zone stands in exactly one mall; code unique per property
         SlaPolicy::class => null,              // per-property SLA override (FR-CM-05); absent = operator default
         UtilityMeter::class => null,
         CamExpensePool::class => null,

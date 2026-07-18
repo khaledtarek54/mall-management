@@ -1345,6 +1345,7 @@ return [
         'custodies' => 'Custodies',
         'imports' => 'Data Import',
         'preventive_maintenance' => 'Preventive Maintenance',
+        'areas' => 'Areas',
         'procurement' => 'Procurement',
         'approvals' => 'Approvals',
         'departments' => 'Departments',
@@ -1752,6 +1753,7 @@ return [
             'purchase_request' => 'Procurement Request',
             'maintenance_work_order' => 'Work Order',
             'equipment' => 'Equipment',
+            'area' => 'Area',
         ],
         'events' => [
             'created' => 'Created',
@@ -2109,6 +2111,21 @@ return [
             'approval_tier' => 'This request is worth :value EGP — approving it needs a higher authorisation level than yours.',
             'self_approval' => 'You raised this request. Approving a purchase needs a second pair of eyes.',
             'bad_transition' => 'A :from request cannot become :to.',
+        ],
+    ],
+    'areas' => [
+        'singular' => 'Area',
+        'plural' => 'Areas',
+        'code_hint' => 'Unique within this property, e.g. GF, FC, PKG.',
+        'supervisors_hint' => 'Staff responsible for this zone. Only the selected property\'s staff are offered.',
+        'fields' => [
+            'property' => 'Property',
+            'code' => 'Code',
+            'name' => 'Name',
+            'active' => 'Active',
+            'supervisors' => 'Supervisors',
+            'supervisor_count' => 'Supervisors',
+            'notes' => 'Notes',
         ],
     ],
     'preventive_maintenance' => [

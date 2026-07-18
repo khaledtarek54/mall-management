@@ -1345,6 +1345,7 @@ return [
         'custodies' => 'العهد',
         'imports' => 'استيراد البيانات',
         'preventive_maintenance' => 'الصيانة الوقائية',
+        'areas' => 'المناطق',
         'procurement' => 'المشتريات',
         'approvals' => 'الاعتمادات',
         'departments' => 'الأقسام',
@@ -1752,6 +1753,7 @@ return [
             'purchase_request' => 'طلب شراء',
             'maintenance_work_order' => 'أمر شغل',
             'equipment' => 'معدة',
+            'area' => 'منطقة',
         ],
         'events' => [
             'created' => 'إنشاء',
@@ -2109,6 +2111,21 @@ return [
             'approval_tier' => 'قيمة هذا الطلب :value ج.م — اعتماده يتطلّب صلاحية أعلى من صلاحيتك.',
             'self_approval' => 'أنت مقدّم هذا الطلب. اعتماد الشراء يتطلّب مراجعة من شخص آخر.',
             'bad_transition' => 'لا يمكن تحويل طلب :from إلى :to.',
+        ],
+    ],
+    'areas' => [
+        'singular' => 'منطقة',
+        'plural' => 'المناطق',
+        'code_hint' => 'فريد داخل هذا العقار، مثل GF أو FC أو PKG.',
+        'supervisors_hint' => 'الموظفون المسؤولون عن هذه المنطقة. تُعرض فقط طواقم العقار المحدد.',
+        'fields' => [
+            'property' => 'العقار',
+            'code' => 'الكود',
+            'name' => 'الاسم',
+            'active' => 'مفعّل',
+            'supervisors' => 'المشرفون',
+            'supervisor_count' => 'المشرفون',
+            'notes' => 'ملاحظات',
         ],
     ],
     'preventive_maintenance' => [

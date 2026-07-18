@@ -1,6 +1,7 @@
 <?php
 
 use App\Filament\Admin\Resources\Announcements\AnnouncementResource;
+use App\Filament\Admin\Resources\Areas\AreaResource;
 use App\Filament\Admin\Resources\CamExpensePools\CamExpensePoolResource;
 use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
 use App\Filament\Admin\Resources\Concerns\BypassesScopingOnAll;
@@ -119,6 +120,7 @@ if (! function_exists('propertyIsolationMustGuardResources')) {
             'CamExpensePool' => CamExpensePoolResource::class,
             'UtilityMeter' => UtilityMeterResource::class,
             'Equipment' => EquipmentResource::class,
+            'Area' => AreaResource::class,
             'SlaPolicy' => SlaPolicyResource::class,
             'Employee' => EmployeeResource::class,
             'FixedAsset' => FixedAssetResource::class,
