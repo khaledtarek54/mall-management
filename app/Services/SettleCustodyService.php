@@ -66,4 +66,56 @@ class SettleCustodyService
             ]);
         });
     }
+
+    /**
+     * Reverse a settlement — the correction path custody was missing (gap-analysis F-94).
+     *
+     * Every other money document in Atriom can be corrected (invoice → credit note, journal
+     * entry → void, vendor bill → void, payroll → cancel); a mis-keyed custody settlement could
+     * not, so a single typo left `outstanding` wrong and the GL overstating/understating an
+     * expense with no way back short of super_admin deleting the WHOLE custody — which cascades
+     * and voids the correct grant entry too.
+     *
+     * A soft-delete IS the void here, and cleanly: `Custody::settled()` sums the soft-delete-aware
+     * `transactions()` relation, so the amount drops straight back out of `outstanding`; and
+     * `CustodyTransaction` is a registered GL source whose real-time sync fires on `deleted`,
+     * so `LedgerPoster::sync()` sees a trashed source and voids its journal entry. The row is
+     * retained (withTrashed) for the audit trail, and this stamps an explicit `reversed` activity
+     * with the causer + reason so the books answer who/when/why — the row alone would only say
+     * "deleted". If this was the custody's only settlement, `transactions()->exists()` is now
+     * false, so the amount unlocks on the form, exactly as it was before the first settlement.
+     *
+     * Lock-safe: the custody is locked so a reverse can't race a concurrent settlement, and the
+     * transaction is re-read under the lock so it can't be reversed twice.
+     *
+     * @throws DomainException if it is already reversed
+     */
+    public function reverse(CustodyTransaction $transaction, string $reason, ?int $actorId = null): CustodyTransaction
+    {
+        return DB::transaction(function () use ($transaction, $reason, $actorId) {
+            // Lock the parent to serialise against a concurrent settle/reverse on the same custody.
+            Custody::whereKey($transaction->custody_id)->lockForUpdate()->firstOrFail();
+
+            /** @var CustodyTransaction|null $locked */
+            $locked = CustodyTransaction::whereKey($transaction->getKey())->lockForUpdate()->first();
+
+            if ($locked === null) {
+                throw new DomainException(__('admin.custodies.errors.settlement_already_reversed'));
+            }
+
+            // Capture who/why BEFORE the soft-delete, so the reason survives on a retained row.
+            activity('custody_transaction')
+                ->performedOn($locked)
+                ->causedBy($actorId ? \App\Models\User::find($actorId) : auth()->user())
+                ->event('reversed')
+                ->withProperties(['reason' => $reason, 'amount' => (float) $locked->amount])
+                ->log('reversed');
+
+            // The soft-delete is the void: outstanding recomputes (settled() excludes trashed),
+            // and the real-time GL sync voids the entry.
+            $locked->delete();
+
+            return $locked;
+        });
+    }
 }

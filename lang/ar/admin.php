@@ -2000,6 +2000,7 @@ return [
     'custodies' => [
         'errors' => [
             'settlement_before_grant' => 'لا يمكن تأريخ التسوية قبل تاريخ صرف العهدة (:granted).',
+            'settlement_already_reversed' => 'تم عكس هذه التسوية بالفعل.',
         ],
         'group' => 'الخزينة',
         'singular' => 'عهدة',
@@ -2015,9 +2016,12 @@ return [
             'amount' => 'المبلغ', 'by' => 'سجّلها',
         ],
         'types' => ['expense' => 'مصروف', 'return' => 'رد'],
-        'actions' => ['record_expense' => 'تسجيل مصروف', 'record_return' => 'رد نقدية'],
+        'actions' => ['record_expense' => 'تسجيل مصروف', 'record_return' => 'رد نقدية', 'reverse' => 'عكس'],
         'expensed' => 'تم تسجيل مصروف العهدة',
         'returned' => 'تم تسجيل رد العهدة',
+        'reversed' => 'تم عكس التسوية',
+        'reverse_reason' => 'السبب',
+        'reverse_modal_description' => 'يعكس هذا التسوية: يعود المتبقي من العهدة للارتفاع ويُلغى قيدها في الأستاذ. يُحتفظ بالسجل لأثر المراجعة. اذكر السبب.',
     ],
 
     'procurement' => [

@@ -3,10 +3,9 @@
 > **Round 2**, audited 2026-07-16 — first ever gap analysis. Spec:
 > [../modules/25-treasury-custody.md](../modules/25-treasury-custody.md) · methodology: [000-plan.md](000-plan.md).
 
-**Status: 🔴 Red → 🟡 Yellow** (F-93 fixed 2026-07-17). The lock-safe over-settle guard and
-property scoping are correct. The headline defect — a custody's **defining workflow** (receipts
-arriving after the fact) silently diverging the GL from outstanding — is closed. What remains is
-that **no settlement can ever be corrected** (F-94).
+**Status: 🔴 Red → 🟢 Green** (F-93 fixed 2026-07-17, F-94 fixed 2026-07-18). The lock-safe
+over-settle guard and property scoping are correct; the closed-period divergence and the missing
+correction path are both resolved. F-95 (future `custody_date`, 🟢) is cosmetic.
 
 `pest --filter='Custody|Treasury'` → green. The module has **~5 test files** despite posting money
 to the ledger via two journalizers.
@@ -61,7 +60,7 @@ see it. Guard: `tests/Feature/Regression/PostingDateGuardTest.php` — 4 of 6 fa
 same guard closes [F-89](24-hr-employees.md) on advance repayments; they were one bug wearing two
 hats.
 
-### 🟡 F-94. One mis-keyed settlement permanently bricks the custody — no correction path for the role that owns the module
+### 🟡 F-94. One mis-keyed settlement permanently bricks the custody — no correction path for the role that owns the module · **FIXED 2026-07-18**
 `CustodyTransactionsRelationManager.php:72` (headerActions only — **no `recordActions` block at
 all**) · `CustodyForm.php:42` · `SettleCustodyService.php:27`
 
@@ -77,6 +76,17 @@ entry too** and destroying the audit trail.
 
 > Every other money document in Atriom has a correction path: invoice → credit note, journal entry →
 > void, payroll → cancel, vendor bill → void. **Custody settlements have none.**
+
+**Fix (2026-07-18).** `SettleCustodyService::reverse()` + a **Reverse** record action on the
+settlements relation manager (the `recordActions` block the finding noted was entirely absent).
+Soft-delete IS the void here: `settled()` sums the soft-delete-aware `transactions()` relation (so
+`outstanding` goes back up) and `CustodyTransaction`'s real-time GL sync voids the entry on delete.
+The row is retained (withTrashed) for audit, with an explicit `reversed` activity capturing the
+causer + reason. Lock-safe, refuses a double-reverse, and re-derives the "locked once settled" state
+(reversing the only settlement unlocks the amount). Gated on `custodies.settle` in **both**
+`visible()` and `action()` (the dispatch-gate rule). Guard:
+`tests/Feature/Regression/CustodySettlementReversalTest.php` (6) — outstanding restored, GL voided
+through the real sweep, reason logged, unlock, no double-reverse, other settlements untouched.
 
 ### 🟢 F-95. A custody can be granted with a future `custody_date`
 `CustodyForm.php:43` — no `maxDate`. Same family as F-93; posts the grant into a future period. Low
@@ -125,7 +135,7 @@ impact (`ensureFiscalYears` opens the year). Recorded for completeness.
 
 - ~~**D-80**~~ — ✅ **F-93 fixed 2026-07-17** via `App\Support\PostingDate`, together with
   [D-77](24-hr-employees.md) as predicted (one bug, two hats).
-- **D-81 — now this module's priority.** F-94: a correction path for custody settlements
-  (void/reverse, mirroring credit notes). Every other money document in Atriom has one.
+- ~~**D-81**~~ — ✅ **F-94 fixed 2026-07-18.** A Reverse action (soft-delete = void), mirroring the
+  correction paths every other money document already had.
 - **D-82** — F-95 `maxDate` on `custody_date`.
 - **D-83** — a custody/advance outstanding-exposure report, so divergence has somewhere to surface.

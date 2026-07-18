@@ -2001,6 +2001,7 @@ return [
         'group' => 'Treasury',
         'errors' => [
             'settlement_before_grant' => 'A settlement cannot be dated before the custody was granted (:granted).',
+            'settlement_already_reversed' => 'That settlement has already been reversed.',
         ],
         'singular' => 'Custody',
         'plural' => 'Custodies',
@@ -2015,9 +2016,12 @@ return [
             'amount' => 'Amount', 'by' => 'Recorded by',
         ],
         'types' => ['expense' => 'Expense', 'return' => 'Return'],
-        'actions' => ['record_expense' => 'Record expense', 'record_return' => 'Return cash'],
+        'actions' => ['record_expense' => 'Record expense', 'record_return' => 'Return cash', 'reverse' => 'Reverse'],
         'expensed' => 'Custody expense recorded',
         'returned' => 'Custody return recorded',
+        'reversed' => 'Settlement reversed',
+        'reverse_reason' => 'Reason',
+        'reverse_modal_description' => 'This reverses the settlement: the custody\'s outstanding goes back up and its ledger entry is voided. The record is kept for the audit trail. Give a reason.',
     ],
 
     'procurement' => [

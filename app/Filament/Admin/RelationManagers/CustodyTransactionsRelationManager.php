@@ -156,6 +156,45 @@ class CustodyTransactionsRelationManager extends RelationManager
                         Notification::make()->title(__('admin.custodies.returned'))->success()->send();
                     }),
             ])
+            ->recordActions([
+                // The correction path custody was missing (gap-analysis F-94). Every other money
+                // document can be corrected; a mis-keyed settlement could not, short of deleting
+                // the whole custody. Reversing soft-deletes the settlement: outstanding recomputes
+                // and the GL entry voids, with the reason kept on the retained row.
+                //
+                // Gated in BOTH visible() and action() — visible() is not a dispatch gate
+                // (mountAction checks isDisabled(), never isVisible()), so abort_unless is the
+                // real guard. Whoever may settle may correct a settlement.
+                Action::make('reverse')
+                    ->label(__('admin.custodies.actions.reverse'))
+                    ->icon('heroicon-o-arrow-uturn-left')
+                    ->color('danger')
+                    ->visible(fn () => auth()->user()?->can('custodies.settle') ?? false)
+                    ->authorize(fn () => auth()->user()?->can('custodies.settle') ?? false)
+                    ->requiresConfirmation()
+                    ->modalHeading(__('admin.custodies.actions.reverse'))
+                    ->modalDescription(__('admin.custodies.reverse_modal_description'))
+                    ->schema([
+                        Textarea::make('reason')
+                            ->label(__('admin.custodies.reverse_reason'))
+                            ->required()
+                            ->rows(2)
+                            ->columnSpanFull(),
+                    ])
+                    ->action(function (CustodyTransaction $record, array $data): void {
+                        abort_unless(auth()->user()?->can('custodies.settle') ?? false, 403);
+
+                        try {
+                            app(SettleCustodyService::class)->reverse($record, $data['reason']);
+                        } catch (\DomainException $e) {
+                            Notification::make()->title($e->getMessage())->danger()->send();
+
+                            return;
+                        }
+
+                        Notification::make()->title(__('admin.custodies.reversed'))->success()->send();
+                    }),
+            ])
             ->defaultSort('transaction_date', 'desc');
     }
 }
