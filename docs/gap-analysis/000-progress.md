@@ -2,6 +2,13 @@
 
 > Running log. One entry per module + pre-flight. Most recent at the bottom.
 > See [000-plan.md](000-plan.md) for the plan this log tracks.
+>
+> **External benchmark:** [odoo/](odoo/README.md) — Atriom's generic modules vs Odoo
+> Community + Enterprise (accounting, inventory, purchase, fixed assets, HR/payroll,
+> treasury). The internal audit below asks "did we build it right"; that one asks "what does
+> a mature generic ERP have that we don't" — and finds the honest gaps are a short cluster
+> (bank reconciliation, Egyptian tax depreciation, employer-SI/gratuity), while Atriom
+> matches Odoo *Enterprise* on several property-fit capabilities Community lacks.
 
 ## Round 2 — modules 21–29 (2026-07-16 → 07-17)
 

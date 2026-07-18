@@ -113,6 +113,28 @@ inferred at all: **FR-REQ-01 "delegation (from/to)"** — no such concept exists
 
 ## 5. 🟡 P2 — accounting, product polish, scale
 
+### Generic-ERP parity — the Egyptian statutory floor (from the [Odoo gap analysis](gap-analysis/odoo/README.md))
+
+A 2026-07-18 comparison of Atriom's generic modules against Odoo Community + Enterprise
+found that Atriom **matches or exceeds Odoo on the property-fit modules** (it ships
+Enterprise-tier capabilities — depreciation, payslips+GL, perpetual costing, GRNI — that
+Odoo Community lacks, plus عهدة, which Odoo doesn't model at all). The genuine gaps cluster
+into **three that a mall operator's accountant/auditor will actually raise** — treat these
+as one workstream, separate from the FRD:
+
+| Gap | Why it matters | Domain |
+| --- | --- | --- |
+| **Bank reconciliation** | No statement import/matching *anywhere* — cash/bank GL is asserted, never verified against a bank statement. Surfaced in two domains independently; the #1 control gap. | [Accounting](gap-analysis/odoo/01-accounting.md) + [Treasury](gap-analysis/odoo/06-treasury.md) |
+| **Egyptian tax depreciation (declining-balance) + a second tax book** | Depreciation is straight-line only, but Egyptian income tax (Law 91/2005) is pool-based diminishing-value — so no tax-basis figure can be produced at all. | [Fixed Assets](gap-analysis/odoo/04-fixed-assets.md) |
+| **Employer social insurance + end-of-service gratuity** | *Correctness*, not features: payroll posts only the withheld employee side, so the employer contribution and accruing gratuity are never expensed/accrued — the books **understate labour cost and liabilities today**. | [HR/Payroll](gap-analysis/odoo/05-hr-payroll.md) |
+
+The 🟡 tail (worth doing, not urgent): per-property year-end close ([F-80](gap-analysis/21-general-ledger.md)),
+VAT-return report, comparative statements, weighted-average inventory costing, reorder
+auto-purchase, finishing the dead transfer stub, capex bid-comparison, statutory rate
+automation. The **⏭️ declined** set (multi-currency, consolidation, drop-ship, Odoo's full
+salary-rule engine) is Odoo *breadth* that's either N/A to a single-entity EGP operator or
+Enterprise-gated — don't mistake it for a backlog.
+
 ### Accounting (detail in [accounting/GAP-ANALYSIS.md](accounting/GAP-ANALYSIS.md))
 
 The core is production-grade: document → balanced entry → trial balance → statements →
