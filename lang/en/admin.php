@@ -1672,6 +1672,10 @@ return [
             'accounting' => 'Accounting',
             'marketing' => 'Marketing',
             'hr' => 'HR',
+            'mall_admin' => 'Mall Admin',
+            'technician' => 'Technician',
+            'coordinator' => 'Coordinator',
+            'customer_service' => 'Customer Service',
         ],
     ],
 

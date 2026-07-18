@@ -1672,6 +1672,10 @@ return [
             'accounting' => 'المحاسبة',
             'marketing' => 'التسويق',
             'hr' => 'الموارد البشرية',
+            'mall_admin' => 'مدير المول',
+            'technician' => 'فني',
+            'coordinator' => 'منسق',
+            'customer_service' => 'خدمة العملاء',
         ],
     ],
 

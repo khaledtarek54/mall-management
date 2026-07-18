@@ -17,7 +17,11 @@ class OpenMaintenanceRequests extends TableWidget
 
     protected static function allowedRoles(): array
     {
-        return ['manager', 'operations'];
+        // The open-request board IS the coordinator's and customer_service's job — without them
+        // the FR-USR roles whose whole scope is this queue would land on an empty dashboard (the
+        // same class as the accounting-empty-dashboard bug). Property scoping still applies via the
+        // query below.
+        return ['manager', 'operations', 'coordinator', 'customer_service'];
     }
 
     protected static function widgetModule(): ?string

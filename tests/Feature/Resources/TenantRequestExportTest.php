@@ -2,6 +2,8 @@
 
 use App\Filament\Admin\Resources\MaintenanceRequests\Pages\ListMaintenanceRequests;
 use Database\Seeders\RolesPermissionsSeeder;
+use Filament\Actions\Exports\Models\Export;
+use Filament\Actions\Testing\TestAction;
 use Livewire\Livewire;
 
 /**
@@ -39,4 +41,19 @@ it('hides the export from a technician (own work only, no view_all)', function (
     asTenant($this->asset, function () {
         Livewire::test(ListMaintenanceRequests::class)->assertTableActionHidden('export');
     });
+});
+
+it('a technician cannot dispatch the export by mounting it directly', function () {
+    // assertTableActionHidden proves only the DISPLAY gate. Dispatch through the unified
+    // mountAction (the visibility-bypassing path) and confirm the gate still holds — the action
+    // does not mount (authorize() feeds isDisabled()) and no export is produced.
+    $this->actingAs(makeUser('technician', [$this->asset->id]));
+
+    asTenant($this->asset, function () {
+        Livewire::test(ListMaintenanceRequests::class)
+            ->mountAction(TestAction::make('export')->table())
+            ->assertActionNotMounted('export');
+    });
+
+    expect(Export::count())->toBe(0);
 });
