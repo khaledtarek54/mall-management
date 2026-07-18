@@ -2,6 +2,7 @@
 
 use App\Filament\Admin\Resources\Areas\AreaResource;
 use App\Filament\Admin\Resources\Areas\Schemas\AreaForm;
+use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Models\Area;
 use App\Models\Tenant;
 use App\Models\TenantRequest;
@@ -186,4 +187,27 @@ it('accepts in-scope + property-less supervisors on save', function () {
 
     AreaResource::assertSupervisorsInScope($zone->fresh()); // no throw
     expect($zone->fresh()->supervisors()->count())->toBe(2);
+});
+
+/* ---- review finding: a unit's zone must belong to its own property (server guard) ------ */
+
+it('refuses to tag a unit with a zone from another property, even via a crafted request', function () {
+    // The UnitForm picker only OFFERS the unit's own property's zones, but that's UX — a crafted
+    // Livewire request can submit any area_id (Filament's Select adds no exists/in rule). The
+    // server-side guard is UnitResource::assertAreaInScope, wired on the create + edit pages.
+    // Without it, a mall-A unit tagged with a mall-B zone would leak mall-A request data to mall-B
+    // supervisors via the routing fan-out. (Adversarial-review finding on Phase 9b-2.)
+    $mallA = makeAsset(['code' => 'GRA']);
+    $mallB = makeAsset(['code' => 'GRB']);
+    $zoneB = Area::create(['asset_id' => $mallB->id, 'name' => 'B Zone', 'code' => 'BZ']);
+    $zoneA = Area::create(['asset_id' => $mallA->id, 'name' => 'A Zone', 'code' => 'AZ']);
+
+    // Cross-property zone → 403.
+    expect(fn () => UnitResource::assertAreaInScope($zoneB->id, $mallA->id))
+        ->toThrow(Symfony\Component\HttpKernel\Exception\HttpException::class);
+
+    // Same-property zone, and "no zone", both pass.
+    UnitResource::assertAreaInScope($zoneA->id, $mallA->id);
+    UnitResource::assertAreaInScope(null, $mallA->id);
+    expect(true)->toBeTrue();
 });

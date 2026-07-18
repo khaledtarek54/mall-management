@@ -16,7 +16,12 @@ class EditUnit extends EditRecord
     {
         // Block re-homing into a property outside the user's visible set — asset_id is
         // editable in All-Properties mode and is NOT re-stamped by Filament on update.
-        UnitResource::assertAssetInScope($data['asset_id'] ?? $this->record->asset_id);
+        $assetId = $data['asset_id'] ?? $this->record->asset_id;
+        UnitResource::assertAssetInScope($assetId);
+
+        // The facility zone must belong to this same property (checked against the FINAL
+        // asset_id, so it also catches an edit that re-homes the unit).
+        UnitResource::assertAreaInScope($data['area_id'] ?? null, $assetId);
 
         return $data;
     }

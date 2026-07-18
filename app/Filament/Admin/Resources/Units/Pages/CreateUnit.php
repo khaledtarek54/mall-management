@@ -15,6 +15,10 @@ class CreateUnit extends CreateRecord
         // client-supplied property against the user's visible set (property isolation).
         UnitResource::assertAssetInScope($data['asset_id'] ?? null);
 
+        // The facility zone must belong to this same property — option-scoping isn't a
+        // server-side guarantee (a crafted request can submit any area_id).
+        UnitResource::assertAreaInScope($data['area_id'] ?? null, $data['asset_id'] ?? null);
+
         return $data;
     }
 }

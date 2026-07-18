@@ -104,8 +104,12 @@ The zone is the **routing target** for tenant requests. Three pieces wire it:
 
 1. **A unit belongs to a zone.** `units.area_id` (nullable FK → `areas`, `nullOnDelete`).
    The `UnitForm` picker offers **only the unit's own property's active zones**
-   (`asset_id` clamped through `TenantScope::clampAssetId`; out of scope ⇒ nothing), so a
-   mall-A unit can never be tagged with a mall-B zone.
+   (`asset_id` clamped through `TenantScope::clampAssetId`; out of scope ⇒ nothing) — but that
+   is UX only. The server-side guarantee that a mall-A unit can never be tagged with a mall-B
+   zone is **`UnitResource::assertAreaInScope`** on the create + edit pages (a crafted Livewire
+   request can submit any id; Filament's `Select` adds no `exists`/`in` rule). Without it, the
+   cross-property `area_id` would leak that unit's request data to the wrong mall's supervisors
+   via the routing fan-out.
 2. **A request inherits its unit's zone.** `tenant_requests.area_id` (nullable FK,
    `nullOnDelete`). Derived in `TenantRequest::creating` — so **admin, portal and API all
    inherit it** — when `area_id` is null: `area_id = unit.area_id`. An explicitly-set

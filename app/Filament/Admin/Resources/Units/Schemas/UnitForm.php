@@ -64,9 +64,10 @@ class UnitForm
                         ->helperText(__('admin.tables.unit.area_zone_hint'))
                         // Only this unit's OWN property's active zones — `asset_id` is
                         // client-supplied (enabled in All-Properties mode), so it's clamped
-                        // through TenantScope::clampAssetId(); out of scope ⇒ no options, never
-                        // another mall's zones. The record's current zone stays selectable even if
-                        // retired, so an edit doesn't silently drop it.
+                        // through TenantScope::clampAssetId(); out of scope ⇒ no options. This is
+                        // UX only — the server-side guarantee is UnitResource::assertAreaInScope on
+                        // the create/edit pages (a crafted request can submit any id). The record's
+                        // current zone stays selectable even if retired, so an edit doesn't drop it.
                         ->options(function (Get $get, ?Unit $record) {
                             $assetId = TenantScope::clampAssetId($get('asset_id'));
                             if ($assetId === null) {

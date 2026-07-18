@@ -56,6 +56,26 @@ class UnitResource extends Resource
         return __('admin.groups.leasing');
     }
 
+    /**
+     * A unit's facility zone (`area_id`) must belong to the SAME property as the unit. The form
+     * only scopes the picker's OPTIONS; that is not a server-side guarantee (a crafted Livewire
+     * request can submit any id, and Filament's Select adds no implicit `exists`/`in` rule). Left
+     * unguarded, a restricted user could tag a mall-A unit with a mall-B zone — which then leaks
+     * mall-A request data to mall-B supervisors via the area-routing fan-out (module 30 → 11).
+     * Mirrors AreaResource::assertSupervisorsInScope on the sibling relation.
+     */
+    public static function assertAreaInScope(mixed $areaId, ?int $assetId): void
+    {
+        if ($areaId === null || $areaId === '') {
+            return;
+        }
+
+        abort_unless(
+            \App\Models\Area::whereKey($areaId)->where('asset_id', $assetId)->exists(),
+            403,
+        );
+    }
+
     public static function form(Schema $schema): Schema
     {
         return UnitForm::configure($schema);
