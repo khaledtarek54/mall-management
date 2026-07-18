@@ -124,6 +124,21 @@ class TenantRequest extends Model implements HasMedia
         return $this->belongsTo(Tenant::class);
     }
 
+    /** Who reported it: the registered tenant's name, or — for a caller-only intake — the caller. */
+    public function reportedByName(): ?string
+    {
+        // Key off tenant_id: the FK guarantees a tenant row whenever it is set; a caller-only row
+        // (tenant_id null) reads the caller name instead.
+        if ($this->tenant_id === null) {
+            return $this->caller_name;
+        }
+
+        /** @var Tenant $tenant */
+        $tenant = $this->tenant;
+
+        return $tenant->name;
+    }
+
     public function unit(): BelongsTo
     {
         return $this->belongsTo(Unit::class);

@@ -49,7 +49,17 @@ class MaintenanceRequestsTable
                     ->weight('medium'),
                 TextColumn::make('tenant.name')
                     ->label(__('admin.tables.maintenance.tenant'))
-                    ->searchable(),
+                    // A caller-only intake (no registered tenant) shows who reported it instead of a
+                    // blank cell — the whole point of the caller fields (FR-REQ intake).
+                    ->state(fn (TenantRequest $record) => $record->reportedByName())
+                    ->description(fn (TenantRequest $record) => $record->tenant_id === null && filled($record->caller_name)
+                        ? __('admin.maintenance.caller.section')
+                        : null)
+                    ->placeholder('—')
+                    ->searchable(query: fn (Builder $query, string $search) => $query->where(
+                        fn (Builder $q) => $q->whereHas('tenant', fn (Builder $t) => $t->where('name', 'like', "%{$search}%"))
+                            ->orWhere('caller_name', 'like', "%{$search}%")
+                    )),
                 TextColumn::make('unit.code')
                     ->label(__('admin.tables.maintenance.unit'))
                     ->badge()

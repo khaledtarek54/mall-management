@@ -63,6 +63,16 @@ it('still accepts a normal request that carries its tenant', function () {
     expect($r->tenant_id)->toBe($tenant->id);
 });
 
+it('surfaces who reported it — the caller name when there is no tenant', function () {
+    // The list + export show reportedByName() so a caller-only intake isn't a blank "who".
+    $caller = intakeRequest(['tenant_id' => null, 'channel' => 'phone', 'caller_name' => 'Nadia at the desk']);
+    $tenant = makeTenant(['name' => 'Acme Retail']);
+    $known = intakeRequest(['tenant_id' => $tenant->id, 'channel' => 'portal']);
+
+    expect($caller->reportedByName())->toBe('Nadia at the desk')
+        ->and($known->reportedByName())->toBe('Acme Retail');
+});
+
 /* ---- the intake form ---------------------------------------------------- */
 
 it('creates a caller-only request through the admin form', function () {

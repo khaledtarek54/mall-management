@@ -26,6 +26,9 @@ class TenantRequestExporter extends Exporter
             ExportColumn::make('request_type')->label(__('admin.fields.request_type')),
             ExportColumn::make('category')->label(__('admin.fields.subcategory')),
             ExportColumn::make('tenant.name')->label(__('admin.tables.maintenance.tenant')),
+            // Who reported it when there is no registered tenant (FR-REQ intake).
+            ExportColumn::make('caller_name')->label(__('admin.maintenance.caller.name')),
+            ExportColumn::make('caller_phone')->label(__('admin.maintenance.caller.phone')),
             ExportColumn::make('unit.code')->label(__('admin.tables.maintenance.unit')),
             ExportColumn::make('priority')->label(__('admin.tables.maintenance.priority')),
             ExportColumn::make('status')->label(__('admin.tables.common.status')),
