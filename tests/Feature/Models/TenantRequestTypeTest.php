@@ -8,9 +8,9 @@ use App\Models\TenantRequest;
  * maintenance request stays typed 'maintenance'; the enum carries the per-type
  * intake config that later phases (form/routing/SLA) consume.
  */
-it('exposes the seven request types with localized options', function () {
+it('exposes the request types with localized options', function () {
     expect(TenantRequestType::values())->toBe([
-        'maintenance', 'complaint', 'inquiry', 'access', 'billing', 'document', 'other',
+        'maintenance', 'complaint', 'inquiry', 'access', 'billing', 'document', 'permit', 'other',
     ]);
 
     expect(TenantRequestType::options())

@@ -42,9 +42,17 @@ Each type carries its own intake config (model-level, not a DB enum — `request
 | complaint | noise, cleanliness, conduct, other | yes (code map) | Operations | `CR` |
 | access | keys_cards, parking, after_hours, visitor, delivery | yes (code map) | Operations | `AR` |
 | document | lease_copy, renewal, termination_notice, noc_certificate | no | Leasing | `DR` |
+| permit | fit_out, temporary_installation, signage, other | no | Operations | `PM` |
 | billing | — | no | Accounting | `BQ` |
 | inquiry | — | no | (unassigned — triage) | `IQ` |
 | other | — | no | (unassigned — triage) | `REQ` |
+
+**Permits (FR-REQ-13 / FR-REQ-14).** A permit is simply a request of the `permit` type — for fit-out
+work or a temporary installation — that carries a **validity window** (`valid_from`/`valid_to`). It
+captures the FRD's four fields with columns the module already had: tenant name = `tenant_id`/caller,
+description of the item/work = `description`, request date = `submitted_at`, plus the new validity
+window. There is **NO approval / grant / reject step** — the FRD asks only for a form that captures
+these fields, so a permit is a typed request with a validity window and nothing more.
 
 ## 2. Domain model
 
@@ -79,6 +87,8 @@ Each type carries its own intake config (model-level, not a DB enum — `request
 | target_resolution_at | timestamp | nullable | SLA deadline calculated on create; passed to scan-sla-breaches |
 | scheduled_from | timestamp | nullable | Planned start of actual work window (decoupled from SLA target) |
 | scheduled_to | timestamp | nullable | Planned end of work window (must be ≥ scheduled_from if both set) |
+| valid_from | date | nullable | Permit validity window start (FR-REQ-14). Null for non-permit requests. |
+| valid_to | date | nullable | Permit validity window end (FR-REQ-14). Must be ≥ valid_from if both set (enforced in `TenantRequest::booted`). Null for non-permit requests. |
 | sla_breach_notified_at | timestamp | nullable | Stamped by scan-sla-breaches after firing alert (idempotency guard) |
 | csat_rating | tinyint | nullable | Close-out satisfaction score (1–5). Captured from the tenant once the request is resolved/closed — via the portal "Rate" action or `POST /me/maintenance-requests/{id}/rate`. Recorded by `MaintenanceRequestService::rate()` (resolved/closed guard, clamps 1–5, overwritable). Shown as a toggleable admin column. |
 | csat_comment | text | nullable | Optional free-text feedback accompanying the CSAT score |
@@ -151,6 +161,12 @@ On `create()`, the service calls `defaultTargetResolution($priority)` to compute
 - A request may have a SLA deadline in 2 days but scheduled work in 3 weeks (e.g. preventative maintenance).
 - Both are nullable; neither is required.
 - Form validation ensures `scheduled_from ≤ scheduled_to` if both are set (not hardcoded in model, but form rule).
+
+**Permit validity window** (FR-REQ-13 / FR-REQ-14):
+- A **permit** is a request of the `permit` type carrying a validity window: `valid_from`/`valid_to` (date columns).
+- The permit form (`request_type === 'permit'`) shows + **requires** both dates; they are hidden for every other type. The FRD's other three fields reuse existing columns (tenant = `tenant_id`/caller, item/work = `description`, request date = `submitted_at`).
+- The **model** enforces only the **ordering** invariant in `TenantRequest::booted`: if both dates are set, `valid_to` must be ≥ `valid_from` (else a `DomainException`). It does **not** hard-require the dates, so non-permit rows and partial data never blow up — the form owns the "required for a permit" rule; `->afterOrEqual('valid_from')` gives inline validation so the model guard is a backstop, not a 500.
+- There is **NO approval / grant / reject lifecycle** for permits (FR-REQ-13/14 ask only for a capture form). A permit flows through the same request state machine as any other request — no amount-based `ApprovalPolicy`, no approve step.
 
 **Reference generation**:
 - Pattern: `MR-{asset_code}-{year}-{seq}`.

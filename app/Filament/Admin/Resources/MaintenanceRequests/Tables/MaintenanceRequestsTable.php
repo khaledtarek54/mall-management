@@ -146,6 +146,19 @@ class MaintenanceRequestsTable
                     ->sortable()
                     ->color(fn ($record): ?string => $record->isOverdue() ? 'danger' : null)
                     ->toggleable(),
+                // FR-REQ-14 permit validity window — null for non-permit requests.
+                TextColumn::make('valid_from')
+                    ->label(__('admin.fields.valid_from'))
+                    ->date('d/m/Y')
+                    ->placeholder('—')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('valid_to')
+                    ->label(__('admin.fields.valid_to'))
+                    ->date('d/m/Y')
+                    ->placeholder('—')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('csat_rating')
                     ->label(__('admin.fields.csat'))
                     ->formatStateUsing(fn (?int $state) => $state ? str_repeat('★', $state).str_repeat('☆', 5 - $state) : null)

@@ -8,6 +8,7 @@ use App\Models\TenantRequest;
 use App\Models\Unit;
 use App\Models\User;
 use App\Support\TenantScope;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
@@ -140,6 +141,27 @@ class MaintenanceRequestForm
                         ->required()
                         ->rows(4)
                         ->columnSpanFull(),
+                ]),
+
+            // FR-REQ-13 / FR-REQ-14 — permit validity window. Shown + required only for the `permit`
+            // request type (driven by the ->live() request_type above), read-only/hidden otherwise.
+            // The model guards the ordering (valid_to >= valid_from) as a backstop; the inline
+            // afterOrEqual keeps a bad range from ever reaching it. NO approval step — a permit is a
+            // typed request that carries this window, nothing more.
+            Section::make(__('admin.sections.permit_validity'))
+                ->description(__('admin.sections.permit_validity_description'))
+                ->columns(2)
+                ->visible(fn (Get $get) => $get('request_type') === TenantRequestType::Permit->value)
+                ->components([
+                    DatePicker::make('valid_from')
+                        ->label(__('admin.fields.valid_from'))
+                        ->native(false)
+                        ->required(fn (Get $get) => $get('request_type') === TenantRequestType::Permit->value),
+                    DatePicker::make('valid_to')
+                        ->label(__('admin.fields.valid_to'))
+                        ->native(false)
+                        ->required(fn (Get $get) => $get('request_type') === TenantRequestType::Permit->value)
+                        ->afterOrEqual('valid_from'),
                 ]),
 
             Section::make(__('admin.sections.assignment'))

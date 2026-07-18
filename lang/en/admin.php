@@ -1182,6 +1182,8 @@ return [
         'target_resolution_at' => 'Target Resolution',
         'scheduled_from' => 'Scheduled from',
         'scheduled_to' => 'Scheduled to',
+        'valid_from' => 'Valid from',
+        'valid_to' => 'Valid to',
         'resolved_at' => 'Resolved At',
         'resolution_notes' => 'Resolution Notes',
         'new_status' => 'New Status',
@@ -1289,6 +1291,8 @@ return [
         'invoice' => 'Invoice',
         'maintenance_request' => 'Request',
         'maintenance_details' => 'Details',
+        'permit_validity' => 'Permit Validity',
+        'permit_validity_description' => 'The period this permit is valid for (fit-out work or a temporary installation).',
         'assignment' => 'Assignment',
         'resolution' => 'Resolution',
         'attachments' => 'Attachments',
@@ -1610,6 +1614,7 @@ return [
             'access' => 'Access / Security',
             'billing' => 'Billing Query',
             'document' => 'Document Request',
+            'permit' => 'Permit',
             'other' => 'Other',
         ],
         'tenant_request_subcategory' => [
@@ -1631,6 +1636,9 @@ return [
             'noise' => 'Noise',
             'cleanliness' => 'Cleanliness',
             'conduct' => 'Staff / Tenant Conduct',
+            'fit_out' => 'Fit-out Work',
+            'temporary_installation' => 'Temporary Installation',
+            'signage' => 'Signage',
             'other' => 'Other',
         ],
         'meter_type' => [
@@ -1838,6 +1846,7 @@ return [
             'resolution_needs_evidence' => 'Attach a photo of the completed work, or raise a work order for it, before marking this resolved.',
             'portal_needs_tenant' => 'A portal request must have a tenant. For a walk-in or phone call from someone who is not a registered tenant, pick a staff channel instead.',
             'caller_or_tenant_required' => 'Select the tenant, or record the caller\'s name — a request must say who reported it.',
+            'permit_validity_order' => 'The permit\'s valid-to date cannot be earlier than its valid-from date.',
         ],
         'caller' => [
             'section' => 'Caller (walk-in / not a registered tenant)',

@@ -1182,6 +1182,8 @@ return [
         'target_resolution_at' => 'مهلة الحل',
         'scheduled_from' => 'من تاريخ',
         'scheduled_to' => 'إلى تاريخ',
+        'valid_from' => 'صالح من',
+        'valid_to' => 'صالح حتى',
         'resolved_at' => 'تاريخ الحل',
         'resolution_notes' => 'ملاحظات الحل',
         'new_status' => 'الحالة الجديدة',
@@ -1289,6 +1291,8 @@ return [
         'invoice' => 'الفاتورة',
         'maintenance_request' => 'الطلب',
         'maintenance_details' => 'التفاصيل',
+        'permit_validity' => 'صلاحية التصريح',
+        'permit_validity_description' => 'الفترة التي يسري فيها هذا التصريح (أعمال التجهيز أو تركيب مؤقت).',
         'assignment' => 'الإسناد',
         'resolution' => 'الحل',
         'attachments' => 'المرفقات',
@@ -1610,6 +1614,7 @@ return [
             'access' => 'دخول / أمن',
             'billing' => 'استفسار فواتير',
             'document' => 'طلب مستند',
+            'permit' => 'تصريح',
             'other' => 'أخرى',
         ],
         'tenant_request_subcategory' => [
@@ -1631,6 +1636,9 @@ return [
             'noise' => 'إزعاج',
             'cleanliness' => 'نظافة',
             'conduct' => 'سلوك الموظفين / المستأجرين',
+            'fit_out' => 'أعمال التجهيز',
+            'temporary_installation' => 'تركيب مؤقت',
+            'signage' => 'لافتات',
             'other' => 'أخرى',
         ],
         'meter_type' => [
@@ -1838,6 +1846,7 @@ return [
             'resolution_needs_evidence' => 'أرفق صورة للعمل المنجز، أو أنشئ أمر عمل له، قبل تعليم الطلب كمُنجَز.',
             'portal_needs_tenant' => 'طلب البوابة يجب أن يرتبط بمستأجر. أما مكالمة أو زيارة من شخص غير مسجَّل كمستأجر، فاختر قناة موظف بدلاً من البوابة.',
             'caller_or_tenant_required' => 'اختر المستأجر، أو سجِّل اسم المتصل — يجب أن يوضّح الطلب من الذي أبلغ عنه.',
+            'permit_validity_order' => 'تاريخ انتهاء صلاحية التصريح لا يمكن أن يسبق تاريخ بدايته.',
         ],
         'caller' => [
             'section' => 'المتصل (زائر / غير مسجَّل كمستأجر)',

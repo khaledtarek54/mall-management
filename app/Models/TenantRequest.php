@@ -45,7 +45,7 @@ class TenantRequest extends Model implements HasMedia
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['request_type', 'status', 'priority', 'category', 'assigned_to', 'assigned_to_vendor_id', 'department_id', 'area_id', 'target_resolution_at', 'resolution_notes', 'csat_rating'])
+            ->logOnly(['request_type', 'status', 'priority', 'category', 'assigned_to', 'assigned_to_vendor_id', 'department_id', 'area_id', 'target_resolution_at', 'valid_from', 'valid_to', 'resolution_notes', 'csat_rating'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('maintenance_request');
@@ -78,6 +78,8 @@ class TenantRequest extends Model implements HasMedia
         'target_resolution_at',
         'scheduled_from',
         'scheduled_to',
+        'valid_from',
+        'valid_to',
         'sla_breach_notified_at',
         'csat_rating',
         'csat_comment',
@@ -93,6 +95,8 @@ class TenantRequest extends Model implements HasMedia
         'target_resolution_at' => 'datetime',
         'scheduled_from' => 'datetime',
         'scheduled_to' => 'datetime',
+        'valid_from' => 'date',
+        'valid_to' => 'date',
         'sla_breach_notified_at' => 'datetime',
     ];
 
@@ -116,6 +120,21 @@ class TenantRequest extends Model implements HasMedia
 
             if (blank($request->caller_name)) {
                 throw new \DomainException(__('admin.maintenance.errors.caller_or_tenant_required'));
+            }
+        });
+
+        // FR-REQ-14 permit validity window. A permit carries a validity period (valid_from/to);
+        // enforced in the model so admin + portal + API all inherit it. Only the ORDERING is an
+        // invariant here — if BOTH dates are set, valid_to must not predate valid_from. The dates
+        // are NOT hard-required at this layer (the permit form requires them for its type), so
+        // non-permit rows and partial data never blow up. There is NO approval step.
+        static::saving(function (self $request) {
+            if ($request->valid_from === null || $request->valid_to === null) {
+                return;
+            }
+
+            if ($request->valid_to->lt($request->valid_from)) {
+                throw new \DomainException(__('admin.maintenance.errors.permit_validity_order'));
             }
         });
 

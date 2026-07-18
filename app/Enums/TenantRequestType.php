@@ -24,6 +24,7 @@ enum TenantRequestType: string
     case Access = 'access';
     case Billing = 'billing';
     case Document = 'document';
+    case Permit = 'permit';
     case Other = 'other';
 
     /** The type a row falls back to (every legacy maintenance request is this). */
@@ -74,6 +75,7 @@ enum TenantRequestType: string
             self::Maintenance => ['electrical', 'plumbing', 'hvac', 'structural', 'cleaning', 'safety', 'other'],
             self::Access => ['keys_cards', 'parking', 'after_hours', 'visitor', 'delivery'],
             self::Document => ['lease_copy', 'renewal', 'termination_notice', 'noc_certificate'],
+            self::Permit => ['fit_out', 'temporary_installation', 'signage', 'other'],
             self::Complaint => ['noise', 'cleanliness', 'conduct', 'other'],
             default => [],
         };
@@ -124,7 +126,7 @@ enum TenantRequestType: string
     public function defaultDepartmentSlug(): ?string
     {
         return match ($this) {
-            self::Maintenance, self::Access => 'operations',
+            self::Maintenance, self::Access, self::Permit => 'operations',
             self::Billing => 'accounting',
             self::Document => 'leasing',
             default => null,
@@ -141,6 +143,7 @@ enum TenantRequestType: string
             self::Access => 'AR',
             self::Billing => 'BQ',
             self::Document => 'DR',
+            self::Permit => 'PM',
             self::Other => 'REQ',
         };
     }
