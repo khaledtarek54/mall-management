@@ -16,6 +16,7 @@ use App\Models\Invoice;
 use App\Models\MaintenancePenalty;
 use App\Models\JournalEntry;
 use App\Models\MarketingSpend;
+use App\Models\OwnerStatementRun;
 use App\Models\Payment;
 use App\Models\Payroll;
 use App\Models\StockMovement;
@@ -36,6 +37,7 @@ use App\Services\Accounting\Journalizers\MaintenancePenaltyJournalizer;
 use App\Services\Accounting\Journalizers\InventoryMovementJournalizer;
 use App\Services\Accounting\Journalizers\Journalizer;
 use App\Services\Accounting\Journalizers\MarketingSpendJournalizer;
+use App\Services\Accounting\Journalizers\OwnerStatementRunJournalizer;
 use App\Services\Accounting\Journalizers\PaymentJournalizer;
 use App\Services\Accounting\Journalizers\PayrollJournalizer;
 use App\Services\Accounting\Journalizers\VendorBillJournalizer;
@@ -93,6 +95,7 @@ class LedgerPoster
         EmployeeAdvanceRepayment::class => EmployeeAdvanceRepaymentJournalizer::class,
         Custody::class => CustodyJournalizer::class,
         CustodyTransaction::class => CustodyTransactionJournalizer::class,
+        OwnerStatementRun::class => OwnerStatementRunJournalizer::class,
     ];
 
     public function __construct(

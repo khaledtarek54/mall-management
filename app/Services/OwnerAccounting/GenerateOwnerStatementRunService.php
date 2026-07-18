@@ -33,19 +33,30 @@ class GenerateOwnerStatementRunService
         $periodEnd = Carbon::parse($period->ends_on)->startOfDay();
 
         return DB::transaction(function () use ($asset, $period, $basis, $periodStart, $periodEnd) {
-            // Serialize concurrent generates of the same (asset, period); re-check under the lock
-            // that no FINALISED run exists (a finalised run is corrected via Revise, not regenerate).
-            $run = OwnerStatementRun::where('asset_id', $asset->id)
+            // Serialize concurrent generates of the same (asset, period). Look at the LATEST
+            // version: a finalised run is corrected via Revise (refuse); a draft is regenerated
+            // in place; a superseded latest means Revise just retired it, so start a fresh version.
+            $latest = OwnerStatementRun::where('asset_id', $asset->id)
                 ->where('accounting_period_id', $period->id)
                 ->orderByDesc('version')
                 ->lockForUpdate()
                 ->first();
 
-            if ($run && $run->isFinalised()) {
+            if ($latest && $latest->isFinalised()) {
                 throw new \DomainException(
                     'A finalised statement already exists for this property and period — revise it instead of regenerating.'
                 );
             }
+
+            $run = ($latest && $latest->isDraft())
+                ? $latest
+                : new OwnerStatementRun([
+                    'reference' => OwnerStatementRun::generateReference(),
+                    'asset_id' => $asset->id,
+                    'accounting_period_id' => $period->id,
+                    'version' => $latest ? $latest->version + 1 : 1,
+                    'supersedes_id' => $latest?->id,
+                ]);
 
             // The property P&L for the period (accrual, GL-derived, closing-entry-excluded).
             $pl = $this->reports->incomeStatement([$asset->id], $periodStart, $periodEnd);
