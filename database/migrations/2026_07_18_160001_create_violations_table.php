@@ -31,7 +31,10 @@ return new class extends Migration
             // and tenant_id are both indexed for the scoped-list queries.
             $table->foreignId('asset_id')->constrained('assets')->cascadeOnDelete();
             // The tenant the violation is against (shared master; scoped-select at the form).
-            $table->foreignId('tenant_id')->constrained('tenants')->cascadeOnDelete();
+            // restrictOnDelete (NOT cascade) — matches every other tenant-anchored record
+            // (leases/invoices/payments/maintenance_requests): a violation register is an audit
+            // record, so a tenant force-delete must be blocked, never silently take the fines with it.
+            $table->foreignId('tenant_id')->constrained('tenants')->restrictOnDelete();
             $table->text('description');
             // The associated cost/fine (FR-REQ-15). Nullable — a violation may carry
             // no monetary penalty. Recorded only; never billed here.

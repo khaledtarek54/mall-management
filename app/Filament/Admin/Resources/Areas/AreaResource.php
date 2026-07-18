@@ -7,16 +7,18 @@ use App\Filament\Admin\Resources\Areas\Pages\EditArea;
 use App\Filament\Admin\Resources\Areas\Pages\ListAreas;
 use App\Filament\Admin\Resources\Areas\Schemas\AreaForm;
 use App\Filament\Admin\Resources\Areas\Tables\AreaTable;
-use App\Filament\Admin\Resources\Concerns\BypassesScopingOnAll;
+use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Models\Area;
 use App\Models\User;
+use App\Support\TenantScope;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * The facility-zone register (module 30) — scoped to the current property
@@ -26,7 +28,13 @@ use Filament\Tables\Table;
  */
 class AreaResource extends Resource
 {
-    use BypassesScopingOnAll;
+    // NOT Filament auto-tenancy: asset_id is CLIENT-supplied (the operator picks the mall, and
+    // that Select is enabled in All-Properties mode). Filament's ownership `creating` hook would
+    // force asset_id to the current tenant — and in All-mode the tenant is the ALL pseudo-asset,
+    // silently clobbering the chosen mall (the "Announcements tenancy trap").
+    // BypassesFilamentTenantAutoScope turns that hook off; reads are scoped in getEloquentQuery()
+    // below and the submitted asset_id is re-validated by assertAssetInScope().
+    use BypassesFilamentTenantAutoScope;
     use GuardsAssetInScope;
     use RoleGatedActions;
 
@@ -38,11 +46,24 @@ class AreaResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'name';
 
-    protected static ?string $tenantOwnershipRelationshipName = 'asset';
-
     protected static function permissionModule(): string
     {
         return 'areas';
+    }
+
+    /** Property-scope the list ourselves (Filament auto-tenancy is off — see the trait note above). */
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        if ($assetId = TenantScope::currentAssetId()) {
+            $query->where('asset_id', $assetId);
+        } elseif (($ids = TenantScope::visibleAssetIds()) !== null) {
+            // All-Properties mode: a restricted user still sees only their own malls.
+            $query->whereIn('asset_id', $ids);
+        }
+
+        return $query;
     }
 
     public static function getNavigationLabel(): string
