@@ -60,7 +60,7 @@ class ListAccountingPeriods extends ListRecords
                             );
                         }
 
-                        $entry = app(YearEndCloseService::class)->close($year);
+                        $entries = app(YearEndCloseService::class)->close($year);
                         if ($fiscalYear) {
                             app(PeriodService::class)->closeFiscalYear($fiscalYear);
                         }
@@ -77,7 +77,10 @@ class ListAccountingPeriods extends ListRecords
 
                     Notification::make()
                         ->title(__('admin.notifications.year_end_closed'))
-                        ->body($entry?->number ?? __('admin.notifications.year_end_nothing'))
+                        // One closing entry per property now (F-80 fix) — list their numbers.
+                        ->body($entries->isEmpty()
+                            ? __('admin.notifications.year_end_nothing')
+                            : $entries->pluck('number')->filter()->implode('، '))
                         ->success()
                         ->send();
                 }),

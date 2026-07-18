@@ -345,6 +345,51 @@ class LedgerReportService
             ->values();
     }
 
+    /**
+     * P&L per (asset_id, account) for the range, excluding prior closing entries — the
+     * per-property split the year-end close needs so each property's revenue/expense is
+     * zeroed into ITS OWN retained earnings. Fixes F-80: a single consolidated close
+     * posted with a null asset_id, and `aggregate()` filters on `je.asset_id`, so every
+     * per-property balance sheet read retained earnings 0 forever. Rows whose entry has a
+     * null asset_id are returned under `asset_id => null` and closed as a consolidated
+     * bucket, so no P&L is ever stranded and the buckets sum to the consolidated net.
+     * Only (asset, account) pairs with movement are returned.
+     *
+     * @return Collection<int, array{asset_id:int|null, account_id:int, code:string, type:string, net_credit:float}>
+     */
+    public function profitLossBalancesByAsset(CarbonInterface $from, CarbonInterface $to): Collection
+    {
+        return DB::table('journal_lines as jl')
+            ->join('journal_entries as je', 'je.id', '=', 'jl.journal_entry_id')
+            ->join('ledger_accounts as la', 'la.id', '=', 'jl.ledger_account_id')
+            ->whereIn('je.status', self::REPORTABLE)
+            ->whereNull('je.deleted_at')
+            ->where('je.is_closing', false)
+            ->whereIn('la.type', ['revenue', 'expense'])
+            ->whereDate('je.entry_date', '>=', $from->toDateString())
+            ->whereDate('je.entry_date', '<=', $to->toDateString())
+            ->groupBy('je.asset_id', 'la.id', 'la.code', 'la.type')
+            ->orderBy('je.asset_id')
+            ->orderBy('la.code')
+            ->get([
+                'je.asset_id',
+                'la.id',
+                'la.code',
+                'la.type',
+                DB::raw('COALESCE(SUM(jl.debit),0) as debit_total'),
+                DB::raw('COALESCE(SUM(jl.credit),0) as credit_total'),
+            ])
+            ->map(fn ($r) => [
+                'asset_id' => $r->asset_id === null ? null : (int) $r->asset_id,
+                'account_id' => (int) $r->id,
+                'code' => $r->code,
+                'type' => $r->type,
+                'net_credit' => round((float) $r->credit_total - (float) $r->debit_total, 2),
+            ])
+            ->filter(fn ($r) => abs($r['net_credit']) >= 0.005)
+            ->values();
+    }
+
     /** @return array<string, mixed> */
     private function statementRow(object $row, float $amount): array
     {

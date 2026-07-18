@@ -128,7 +128,8 @@ as one workstream, separate from the FRD:
 | **Egyptian tax depreciation (declining-balance) + a second tax book** | Depreciation is straight-line only, but Egyptian income tax (Law 91/2005) is pool-based diminishing-value — so no tax-basis figure can be produced at all. | [Fixed Assets](gap-analysis/odoo/04-fixed-assets.md) |
 | **Employer social insurance + end-of-service gratuity** | *Correctness*, not features: payroll posts only the withheld employee side, so the employer contribution and accruing gratuity are never expensed/accrued — the books **understate labour cost and liabilities today**. | [HR/Payroll](gap-analysis/odoo/05-hr-payroll.md) |
 
-The 🟡 tail (worth doing, not urgent): per-property year-end close ([F-80](gap-analysis/21-general-ledger.md)),
+The 🟡 tail (worth doing, not urgent): ~~per-property year-end close (F-80)~~ ✅ **done 2026-07-19**
+(per-asset closing entries — the owner-statements prerequisite),
 VAT-return report, comparative statements, weighted-average inventory costing, reorder
 auto-purchase, finishing the dead transfer stub, capex bid-comparison, statutory rate
 automation. The **⏭️ declined** set (multi-currency, consolidation, drop-ship, Odoo's full

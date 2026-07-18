@@ -40,17 +40,22 @@ Guard: `tests/Feature/Regression/GapAnalysisRound2FixesTest.php`, verified to fa
 > This is the **sibling of the MaintenancePenalty bug** (`4f01a93`) that survived the registry fix:
 > not a missing *source*, but a source **field the reconciler never compared**.
 
-### 🟡 F-80. Year-end close is consolidated-only → per-property balance sheets never roll profit into retained earnings
-`app/Services/Accounting/YearEndCloseService.php:73,97` · `LedgerReportService.php:371`
+### ✅ F-80 — FIXED (2026-07-19). Year-end close now posts per property
+`app/Services/Accounting/YearEndCloseService.php::postClosing()` · `LedgerReportService::profitLossBalancesByAsset()`
 
-`postClosing()` calls `profitLossBalances(null, …)` and posts with `asset_id = null`;
-`aggregate()` filters `whereIn('je.asset_id', $assetIds)`, which excludes NULL.
+**Was:** `postClosing()` called `profitLossBalances(null, …)` and posted ONE entry with `asset_id = null`;
+`aggregate()` filters `whereIn('je.asset_id', $assetIds)`, which excludes NULL, so a per-property balance
+sheet showed retained earnings 0.00 forever while consolidated was correct.
 
-**Scenario:** FY2025 — property A profit 600k, B 300k. Close → one entry (`asset_id` null) credits
-retained earnings 900k. Owner Jawad, scoped to A, opens A's balance sheet: **retained earnings
-reads 0.00, forever**, while `net_income` conflates closed-2025 with 2026. `balanced` stays `true`,
-so nothing flags it. Consolidated is correct. The documented null-`asset_id` limitation (written up
-only for cross-property *payments*) swallowing the single largest entry in the books.
+**Fix:** the close now groups the year's P&L by the entry `asset_id` (`profitLossBalancesByAsset()`) and
+posts **one balanced closing entry per property** (plus a consolidated bucket for any P&L posted without an
+asset_id), each dimensioned to its own `asset_id` and rolling its own net into its own retained earnings.
+The buckets sum to the consolidated net, so the consolidated balance sheet is unchanged; a per-property
+balance sheet now rolls FY profit into that property's retained earnings. `close()` returns a collection of
+entries; `reopen()` voids them all (reopening each distinct year-end period once). Locked in by
+`YearEndCloseTest` ("closes per property: each property's net rolls into ITS OWN retained earnings"): FY2026
+A profit 600 / B profit 300 → A's balance sheet RE 600, B's 300, consolidated 900, all balanced.
+Prerequisite for the owner-statements module, which is the first to post per-property owner equity.
 
 ### 🟡 F-81. `generateNumber()` string-sorts a variable-width counter → posting breaks at 10,001 entries/month
 `app/Models/JournalEntry.php:114`
@@ -110,7 +115,7 @@ Recoverable by reopening June, so bounded.
 ## 4. Deferred
 
 - **D-66** — harden `CrossModuleGlScenarioTest` with a deep reconcile assertion.
-- **D-67** — F-80 per-property year-end close (needs a product call: per-asset closing entries, or
-  document that retained earnings is consolidated-only).
+- ~~**D-67** — F-80 per-property year-end close~~ ✅ **DONE (2026-07-19)** — per-asset closing entries
+  shipped (see the F-80 ✅ entry above); done as the prerequisite for the owner-statements module.
 - **D-68** — F-81 zero-pad width / numeric sort on journal numbering.
 - **D-69** — F-82 close gate to include manual drafts dated in the period.
