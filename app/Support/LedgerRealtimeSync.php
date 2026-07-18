@@ -52,6 +52,8 @@ class LedgerRealtimeSync
         \App\Models\CustodyTransaction::class => 'transaction_date',
         // The owner-statement accrual is dated at finalise; a draft isn't posted at all.
         \App\Models\OwnerStatementRun::class => 'posting_date',
+        // The owner payout posts on the day it was paid; scheduled/approved don't post.
+        \App\Models\Disbursement::class => 'paid_on',
         // Mirrors MaintenancePenaltyJournalizer's `applied_at ?? created_at`. It only posts
         // once APPLIED, and applying always stamps applied_at, so the fallback never decides
         // the period of a real entry.

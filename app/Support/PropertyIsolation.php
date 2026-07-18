@@ -20,6 +20,7 @@ use App\Models\Department;
 use App\Models\DepositTransaction;
 use App\Models\DepreciationEntry;
 use App\Models\DeviceToken;
+use App\Models\Disbursement;
 use App\Models\Employee;
 use App\Models\Equipment;
 use App\Models\EmployeeAdvance;
@@ -48,6 +49,8 @@ use App\Models\MarketingSpend;
 use App\Models\MeterReading;
 use App\Models\Note;
 use App\Models\OwnerRequest;
+use App\Models\OwnerStatement;
+use App\Models\OwnerStatementRun;
 use App\Models\Payment;
 use App\Models\Payroll;
 use App\Models\PayrollLine;
@@ -146,6 +149,9 @@ class PropertyIsolation
         OwnerRequest::class => null,           // asset_id nullable (property-specific or cross-property)
         Department::class => null,             // asset_id nullable: null = operator-wide (global), set = property-scoped (hybrid)
         AssetOwner::class => null,             // the asset_owner ownership pivot — one row = one owner's stake in one mall; no Filament resource (managed via User/Asset relations), like LowStockAlert
+        OwnerStatementRun::class => null,      // owner statement run — one property's period statement (module 27)
+        OwnerStatement::class => null,         // per-owner child; asset_id denormalized for uniform auto-scope
+        Disbursement::class => null,           // owner payout; asset_id denormalized (journalizer reads own row)
 
         // ---- Indirect (relation chain to asset_id) ----
         Lease::class => 'unit',

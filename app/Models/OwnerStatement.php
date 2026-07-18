@@ -105,9 +105,28 @@ class OwnerStatement extends Model
         return max(0.0, round((float) $this->owner_share - (float) $this->paid_to_date, 2));
     }
 
+    /**
+     * Recompute `paid_to_date` from the sum of PAID disbursements and persist it. The single
+     * source of truth for how much of this statement has been paid — never hand-set (mirrors
+     * Invoice::recomputeTotals()'s discipline for AR).
+     */
+    public function recomputePaidToDate(): void
+    {
+        $paid = (float) $this->disbursements()
+            ->where('status', Disbursement::STATUS_PAID)
+            ->sum('amount');
+
+        $this->forceFill(['paid_to_date' => round($paid, 2)])->saveQuietly();
+    }
+
     public function run(): BelongsTo
     {
         return $this->belongsTo(OwnerStatementRun::class, 'owner_statement_run_id');
+    }
+
+    public function disbursements(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Disbursement::class);
     }
 
     public function asset(): BelongsTo

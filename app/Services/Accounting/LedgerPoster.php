@@ -7,6 +7,7 @@ use App\Models\Custody;
 use App\Models\CustodyTransaction;
 use App\Models\DepositTransaction;
 use App\Models\DepreciationEntry;
+use App\Models\Disbursement;
 use App\Models\EmployeeAdvance;
 use App\Models\EmployeeAdvanceRepayment;
 use App\Models\Expense;
@@ -27,6 +28,7 @@ use App\Services\Accounting\Journalizers\CustodyJournalizer;
 use App\Services\Accounting\Journalizers\CustodyTransactionJournalizer;
 use App\Services\Accounting\Journalizers\DepositTransactionJournalizer;
 use App\Services\Accounting\Journalizers\DepreciationEntryJournalizer;
+use App\Services\Accounting\Journalizers\DisbursementJournalizer;
 use App\Services\Accounting\Journalizers\EmployeeAdvanceJournalizer;
 use App\Services\Accounting\Journalizers\EmployeeAdvanceRepaymentJournalizer;
 use App\Services\Accounting\Journalizers\ExpenseJournalizer;
@@ -96,6 +98,7 @@ class LedgerPoster
         Custody::class => CustodyJournalizer::class,
         CustodyTransaction::class => CustodyTransactionJournalizer::class,
         OwnerStatementRun::class => OwnerStatementRunJournalizer::class,
+        Disbursement::class => DisbursementJournalizer::class,
     ];
 
     public function __construct(

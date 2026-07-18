@@ -33,7 +33,16 @@ class ApprovalRule extends Model
      */
     public const MODULE_PURCHASE_REQUEST = 'purchase_request';
 
-    public const MODULES = [self::MODULE_INVENTORY_DRAW, self::MODULE_PURCHASE_REQUEST];
+    /**
+     * Owner distributions (module 27) — signing off a payout to a Jawad owner. Deliberately
+     * has NO seeded bands: the operator's payout-approval policy is unknown, and inventing one
+     * would be inventing policy (the same discipline the other bands follow). With no bands,
+     * ApprovalPolicy treats a disbursement as needing no approval — the operator turns the gate
+     * on by adding bands. Approval is operator-side (Eltizam signs off paying Jawad).
+     */
+    public const MODULE_DISBURSEMENT = 'disbursement';
+
+    public const MODULES = [self::MODULE_INVENTORY_DRAW, self::MODULE_PURCHASE_REQUEST, self::MODULE_DISBURSEMENT];
 
     /**
      * The approval ladder, as permissions. Tiers rather than named roles so the ladder
