@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\MaintenanceRequests\Tables;
 use App\Enums\TenantRequestType;
 use App\Filament\Admin\Resources\MaintenanceRequests\MaintenanceRequestResource;
 use App\Filament\Admin\Resources\MaintenanceWorkOrders\Schemas\CorrectiveWorkOrderForm;
+use App\Filament\Exports\TenantRequestExporter;
 use App\Models\Department;
 use App\Models\TenantRequest;
 use App\Models\User;
@@ -15,6 +16,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ExportAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Forms\Components\Select;
@@ -168,7 +170,20 @@ class MaintenanceRequestsTable
                 TrashedFilter::make(),
             ])
             ->filtersFormColumns(2)
-            ->headerActions([])
+            ->headerActions([
+                // FR-REQ-12. Export runs through the resource query, so property scoping AND
+                // AssignmentScope already apply — a restricted user only ever exports rows they
+                // can see. Gated on `view_all` because export is an oversight capability: a
+                // technician who sees only their own work has no reason to bulk-export the board.
+                // Gated in BOTH visible() and authorize() — visible() is not a dispatch gate.
+                ExportAction::make()
+                    ->exporter(TenantRequestExporter::class)
+                    ->label(__('admin.actions.export'))
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('gray')
+                    ->visible(fn () => auth()->user()?->can('maintenance.view_all') ?? false)
+                    ->authorize(fn () => auth()->user()?->can('maintenance.view_all') ?? false),
+            ])
             ->recordActions([
                 EditAction::make()
                     ->visible(fn ($record) => MaintenanceRequestResource::canEdit($record)),
