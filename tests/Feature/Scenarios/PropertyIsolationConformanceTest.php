@@ -18,7 +18,7 @@ use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Admin\Resources\JournalEntries\JournalEntryResource;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Filament\Admin\Resources\MaintenancePlans\MaintenancePlanResource;
-use App\Filament\Admin\Resources\MaintenanceRequests\MaintenanceRequestResource;
+use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Filament\Admin\Resources\MaintenanceWorkOrders\MaintenanceWorkOrderResource;
 use App\Filament\Admin\Resources\OwnerRequests\OwnerRequestResource;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
@@ -157,7 +157,7 @@ if (! function_exists('propertyIsolationMustGuardResources')) {
             'Invoice' => InvoiceResource::class,
             'Lease' => LeaseResource::class,
             'TenantSalesDeclaration' => TenantSalesDeclarationResource::class,
-            'MaintenanceRequest' => MaintenanceRequestResource::class,
+            'TenantRequest' => TenantRequestResource::class,
             'Payment' => PaymentResource::class,
             // Hybrid (nullable asset_id): global rows visible to all; property-scoped ones guarded.
             'Department' => DepartmentResource::class,

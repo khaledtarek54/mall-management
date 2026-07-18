@@ -3,7 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Portal\Widgets\AccountBalance;
-use App\Filament\Portal\Widgets\OpenMaintenance;
+use App\Filament\Portal\Widgets\OpenTenantRequests;
 use App\Http\Middleware\SetLocale;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -53,7 +53,7 @@ class PortalPanelProvider extends PanelProvider
             ->discoverWidgets(in: app_path('Filament/Portal/Widgets'), for: 'App\\Filament\\Portal\\Widgets')
             ->widgets([
                 AccountBalance::class,
-                OpenMaintenance::class,
+                OpenTenantRequests::class,
             ])
             ->sidebarCollapsibleOnDesktop()
             ->middleware([

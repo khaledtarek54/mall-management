@@ -1,6 +1,6 @@
 <?php
 
-use App\Filament\Admin\Resources\MaintenanceRequests\MaintenanceRequestResource;
+use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Filament\Admin\Resources\MaintenanceWorkOrders\MaintenanceWorkOrderResource;
 use App\Models\MaintenanceWorkOrder;
 use App\Support\AssignmentScope;
@@ -130,16 +130,16 @@ it('applies to tenant requests too, on their differently-named column', function
     // FR-USR-04 says "requests/work orders". tenant_requests uses `assigned_to`;
     // maintenance_work_orders uses `assigned_to_user_id`. One primitive, two columns — which is
     // why the rule is not copied into each resource.
-    // On the technician's OWN property — makeMaintenanceRequest() otherwise builds its own asset,
+    // On the technician's OWN property — makeTenantRequest() otherwise builds its own asset,
     // and property scoping would then hide the request for the right reason but the wrong one,
     // proving nothing about assignment.
     $unit = makeUnit($this->asset, ['code' => 'U-ASG']);
     $tenant = makeTenant();
-    $mine = makeMaintenanceRequest(['unit_id' => $unit->id, 'tenant_id' => $tenant->id, 'assigned_to' => $this->tech->id]);
-    $theirs = makeMaintenanceRequest(['unit_id' => $unit->id, 'tenant_id' => $tenant->id, 'assigned_to' => $this->otherTech->id]);
+    $mine = makeTenantRequest(['unit_id' => $unit->id, 'tenant_id' => $tenant->id, 'assigned_to' => $this->tech->id]);
+    $theirs = makeTenantRequest(['unit_id' => $unit->id, 'tenant_id' => $tenant->id, 'assigned_to' => $this->otherTech->id]);
 
     $this->actingAs($this->tech);
-    $visible = MaintenanceRequestResource::getEloquentQuery()->pluck('id')->all();
+    $visible = TenantRequestResource::getEloquentQuery()->pluck('id')->all();
 
     expect($visible)->toContain($mine->id);
     expect($visible)->not->toContain($theirs->id);

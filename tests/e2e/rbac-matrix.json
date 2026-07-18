@@ -9,7 +9,7 @@
         "journal_entries": "journal-entries",
         "ledger_accounts": "ledger-accounts",
         "vendors": "vendors",
-        "maintenance": "maintenance-requests",
+        "maintenance": "requests",
         "tenant_sales": "tenant-sales-declarations",
         "employees": "employees",
         "marketing": "marketing-budgets",
@@ -63,7 +63,7 @@
                 "create": true,
                 "hasCreate": true
             },
-            "maintenance-requests": {
+            "requests": {
                 "view": true,
                 "create": true,
                 "hasCreate": true
@@ -140,7 +140,7 @@
                 "create": false,
                 "hasCreate": true
             },
-            "maintenance-requests": {
+            "requests": {
                 "view": true,
                 "create": false,
                 "hasCreate": true
@@ -217,7 +217,7 @@
                 "create": false,
                 "hasCreate": true
             },
-            "maintenance-requests": {
+            "requests": {
                 "view": false,
                 "create": false,
                 "hasCreate": true
@@ -294,7 +294,7 @@
                 "create": true,
                 "hasCreate": true
             },
-            "maintenance-requests": {
+            "requests": {
                 "view": true,
                 "create": true,
                 "hasCreate": true
@@ -371,7 +371,7 @@
                 "create": false,
                 "hasCreate": true
             },
-            "maintenance-requests": {
+            "requests": {
                 "view": false,
                 "create": false,
                 "hasCreate": true
@@ -448,7 +448,7 @@
                 "create": false,
                 "hasCreate": true
             },
-            "maintenance-requests": {
+            "requests": {
                 "view": false,
                 "create": false,
                 "hasCreate": true
@@ -525,7 +525,7 @@
                 "create": false,
                 "hasCreate": true
             },
-            "maintenance-requests": {
+            "requests": {
                 "view": false,
                 "create": false,
                 "hasCreate": true

@@ -30,7 +30,7 @@ class ViolationForm
                 ->label(__('admin.violations.fields.tenant'))
                 // Scoped to tenants leasing in the user's visible properties (plus
                 // unaffiliated tenants) — a restricted user is never offered another
-                // mall's tenants. Same helper the MaintenanceRequestForm uses.
+                // mall's tenants. Same helper the TenantRequestForm uses.
                 ->options(fn () => TenantScope::selectableTenantOptions())
                 ->searchable()
                 ->preload()

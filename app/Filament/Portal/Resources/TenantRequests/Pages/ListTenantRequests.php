@@ -1,14 +1,14 @@
 <?php
 
-namespace App\Filament\Portal\Resources\MaintenanceRequests\Pages;
+namespace App\Filament\Portal\Resources\TenantRequests\Pages;
 
-use App\Filament\Portal\Resources\MaintenanceRequests\MaintenanceRequestResource;
+use App\Filament\Portal\Resources\TenantRequests\TenantRequestResource;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 
-class ListMaintenanceRequests extends ListRecords
+class ListTenantRequests extends ListRecords
 {
-    protected static string $resource = MaintenanceRequestResource::class;
+    protected static string $resource = TenantRequestResource::class;
 
     protected function getHeaderActions(): array
     {

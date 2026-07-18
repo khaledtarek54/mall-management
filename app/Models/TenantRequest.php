@@ -48,7 +48,7 @@ class TenantRequest extends Model implements HasMedia
             ->logOnly(['request_type', 'status', 'priority', 'category', 'assigned_to', 'assigned_to_vendor_id', 'department_id', 'area_id', 'target_resolution_at', 'valid_from', 'valid_to', 'resolution_notes', 'csat_rating'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
-            ->useLogName('maintenance_request');
+            ->useLogName('tenant_request');
     }
 
     protected $fillable = [

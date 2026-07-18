@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Actions\Api\V1\Maintenance;
+namespace App\Actions\Api\V1\Requests;
 
 use App\Models\TenantRequest;
 use App\Models\TenantRequestComment;
@@ -11,7 +11,7 @@ use App\Services\TenantRequestService;
  * Add a tenant comment to a maintenance request. is_internal is forced false
  * here — the API can never create a staff-only internal note.
  */
-class AddMaintenanceCommentAction
+class AddTenantRequestCommentAction
 {
     public function __construct(private TenantRequestService $service) {}
 

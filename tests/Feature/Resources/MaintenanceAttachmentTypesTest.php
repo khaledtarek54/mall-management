@@ -1,6 +1,6 @@
 <?php
 
-use App\Filament\Portal\Resources\MaintenanceRequests\Pages\CreateMaintenanceRequest;
+use App\Filament\Portal\Resources\TenantRequests\Pages\CreateTenantRequest;
 use Filament\Facades\Filament;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -32,7 +32,7 @@ function fillPortalMaintenance(array $overrides = []): array
 }
 
 it('rejects a non image/PDF attachment (e.g. video)', function () {
-    Livewire::test(CreateMaintenanceRequest::class)
+    Livewire::test(CreateTenantRequest::class)
         ->fillForm(fillPortalMaintenance([
             'unit_id' => $this->unit->id,
             'attachments' => [UploadedFile::fake()->create('clip.mp4', 200, 'video/mp4')],
@@ -42,7 +42,7 @@ it('rejects a non image/PDF attachment (e.g. video)', function () {
 });
 
 it('accepts an image attachment', function () {
-    Livewire::test(CreateMaintenanceRequest::class)
+    Livewire::test(CreateTenantRequest::class)
         ->fillForm(fillPortalMaintenance([
             'unit_id' => $this->unit->id,
             'attachments' => [UploadedFile::fake()->image('photo.jpg')],
@@ -52,7 +52,7 @@ it('accepts an image attachment', function () {
 });
 
 it('accepts a PDF attachment', function () {
-    Livewire::test(CreateMaintenanceRequest::class)
+    Livewire::test(CreateTenantRequest::class)
         ->fillForm(fillPortalMaintenance([
             'unit_id' => $this->unit->id,
             'attachments' => [UploadedFile::fake()->create('report.pdf', 100, 'application/pdf')],

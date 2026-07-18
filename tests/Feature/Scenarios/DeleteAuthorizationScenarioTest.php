@@ -23,7 +23,7 @@ use App\Filament\Admin\Resources\CreditNotes\CreditNoteResource;
 use App\Filament\Admin\Resources\Departments\DepartmentResource;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
-use App\Filament\Admin\Resources\MaintenanceRequests\MaintenanceRequestResource;
+use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Filament\Admin\Resources\Tenants\TenantResource;
 use App\Filament\Admin\Resources\Units\UnitResource;
@@ -68,7 +68,7 @@ function deleteAuthResources(): array
         'Units'                => [UnitResource::class, new Unit()],
         'Vendors'              => [VendorResource::class, new Vendor()],
         'CreditNotes'          => [CreditNoteResource::class, new CreditNote()],
-        'MaintenanceRequests'  => [MaintenanceRequestResource::class, new TenantRequest()],
+        'TenantRequests'  => [TenantRequestResource::class, new TenantRequest()],
     ];
 }
 

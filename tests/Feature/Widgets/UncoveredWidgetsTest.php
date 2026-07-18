@@ -4,7 +4,7 @@ use App\Filament\Admin\Widgets\EnergyConsumptionTrend;
 use App\Filament\Admin\Widgets\EtaCompliance;
 use App\Filament\Admin\Widgets\ExpiringLeases;
 use App\Filament\Admin\Widgets\MonthlyRevenueTrend;
-use App\Filament\Admin\Widgets\OpenMaintenanceRequests;
+use App\Filament\Admin\Widgets\OpenTenantRequests;
 use App\Filament\Admin\Widgets\RecentPayments;
 use App\Filament\Admin\Widgets\SetupGuide;
 use App\Filament\Admin\Widgets\TopTenants;
@@ -177,7 +177,7 @@ it('RecentPayments query is property-scoped', function () {
     });
 });
 
-it('OpenMaintenanceRequests query returns only open statuses, property-scoped', function () {
+it('OpenTenantRequests query returns only open statuses, property-scoped', function () {
     TenantRequest::create([
         'reference' => 'MR-' . uniqid(),
         'unit_id' => $this->unit->id,
@@ -198,7 +198,7 @@ it('OpenMaintenanceRequests query returns only open statuses, property-scoped', 
     asTenant($this->asset, function () {
         // Widget orders by MySQL FIELD() which SQLite doesn't grok — assert on
         // the query builder shape instead of executing it.
-        $query = tableQueryFor(OpenMaintenanceRequests::class);
+        $query = tableQueryFor(OpenTenantRequests::class);
         $sql = $query->toSql();
         expect($sql)->toContain('asset_id');
         expect($sql)->toContain('FIELD(priority');

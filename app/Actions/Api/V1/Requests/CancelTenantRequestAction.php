@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Actions\Api\V1\Maintenance;
+namespace App\Actions\Api\V1\Requests;
 
 use App\Models\TenantRequest;
 use App\Services\TenantRequestService;
@@ -12,7 +12,7 @@ use Illuminate\Validation\ValidationException;
  * staff have started work (submitted / acknowledged). That extra guard is the
  * reason this is an action rather than a bare service call.
  */
-class CancelMaintenanceRequestAction
+class CancelTenantRequestAction
 {
     /** Statuses a tenant may still cancel from. */
     public const CANCELLABLE = ['submitted', 'acknowledged'];

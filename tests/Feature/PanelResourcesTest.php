@@ -1,10 +1,10 @@
 <?php
 
 use App\Filament\Owner\Resources\Invoices\InvoiceResource as OwnerInvoiceResource;
-use App\Filament\Owner\Resources\MaintenanceRequests\MaintenanceRequestResource as OwnerMRResource;
+use App\Filament\Owner\Resources\TenantRequests\TenantRequestResource as OwnerMRResource;
 use App\Filament\Owner\Resources\Properties\PropertyResource as OwnerPropertyResource;
 use App\Filament\Portal\Resources\Invoices\InvoiceResource as PortalInvoiceResource;
-use App\Filament\Portal\Resources\MaintenanceRequests\MaintenanceRequestResource as PortalMRResource;
+use App\Filament\Portal\Resources\TenantRequests\TenantRequestResource as PortalMRResource;
 use App\Filament\Portal\Resources\Payments\PaymentResource as PortalPaymentResource;
 use App\Filament\Portal\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource as PortalTSDResource;
 use App\Models\Asset;
@@ -60,7 +60,7 @@ it('Owner PropertyResource excludes All Properties + filters to owned assets', f
     expect($codes)->not->toContain(Asset::ALL_PROPERTIES_CODE);
 });
 
-it('Owner MaintenanceRequestResource scoped via asset.owners', function () {
+it('Owner TenantRequestResource scoped via asset.owners', function () {
     $owner = User::create(['name' => 'Owner', 'email' => 'mo@p.test', 'password' => bcrypt('x')]);
     $this->asset->owners()->attach($owner->id, ['ownership_percentage' => 100, 'started_at' => now()]);
 
@@ -128,7 +128,7 @@ it('Portal PaymentResource scoped via Auth::guard(portal)', function () {
     expect($ids)->not->toContain($strangerPay->id);
 });
 
-it('Portal MaintenanceRequestResource scoped via Auth::guard(portal); canCreate=true', function () {
+it('Portal TenantRequestResource scoped via Auth::guard(portal); canCreate=true', function () {
     $mine = TenantRequest::create([
         'reference' => 'MR-' . uniqid(),
         'unit_id' => $this->unit->id, 'tenant_id' => $this->tenant->id,

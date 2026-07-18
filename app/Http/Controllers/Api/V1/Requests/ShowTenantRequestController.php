@@ -1,18 +1,18 @@
 <?php
 
-namespace App\Http\Controllers\Api\V1\Maintenance;
+namespace App\Http\Controllers\Api\V1\Requests;
 
 use App\Http\Controllers\Api\V1\ApiController;
-use App\Http\Resources\Api\V1\MaintenanceRequestResource;
+use App\Http\Resources\Api\V1\TenantRequestResource;
 use Illuminate\Http\Request;
 
 /**
- * GET /api/v1/me/maintenance-requests/{id} — detail with the public comment
+ * GET /api/v1/me/requests/{id} — detail with the public comment
  * thread. Internal staff notes (is_internal = true) are never exposed.
  */
-class ShowMaintenanceRequestController extends ApiController
+class ShowTenantRequestController extends ApiController
 {
-    public function __invoke(Request $request, int $id): MaintenanceRequestResource
+    public function __invoke(Request $request, int $id): TenantRequestResource
     {
         $maintenanceRequest = $request->user()->maintenanceRequests()
             ->with([
@@ -23,6 +23,6 @@ class ShowMaintenanceRequestController extends ApiController
             ])
             ->findOrFail($id);
 
-        return new MaintenanceRequestResource($maintenanceRequest);
+        return new TenantRequestResource($maintenanceRequest);
     }
 }

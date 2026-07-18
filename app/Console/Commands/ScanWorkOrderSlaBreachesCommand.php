@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Notification;
 /**
  * Flags corrective jobs whose SLA has expired (FR-CM-08, detection half) — module 26.
  *
- * Distinct from `maintenance:scan-sla-breaches`, which covers module 11's tenant-facing
+ * Distinct from `requests:scan-sla-breaches`, which covers module 11's tenant-facing
  * requests. Same shape deliberately: idempotent via a `sla_breach_notified_at` stamp,
  * re-checked under a row lock inside the transaction, and contained per row so one bad
  * record can't halt the scan for every property.

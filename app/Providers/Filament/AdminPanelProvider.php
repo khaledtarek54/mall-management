@@ -11,7 +11,7 @@ use App\Filament\Admin\Widgets\ExpiringLeases;
 use App\Filament\Admin\Widgets\LeasingPipeline;
 use App\Filament\Admin\Widgets\MallStats;
 use App\Filament\Admin\Widgets\MonthlyRevenueTrend;
-use App\Filament\Admin\Widgets\OpenMaintenanceRequests;
+use App\Filament\Admin\Widgets\OpenTenantRequests;
 use App\Filament\Admin\Widgets\RecentPayments;
 use App\Filament\Admin\Widgets\SetupGuide;
 use App\Filament\Admin\Widgets\TenantMix;
@@ -103,7 +103,7 @@ class AdminPanelProvider extends PanelProvider
                 TenantMix::class,
                 MonthlyRevenueTrend::class,
                 ExpiringLeases::class,
-                OpenMaintenanceRequests::class,
+                OpenTenantRequests::class,
                 TopTenants::class,
                 RecentPayments::class,
                 EnergyConsumptionTrend::class,

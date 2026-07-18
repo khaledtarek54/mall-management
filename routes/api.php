@@ -14,13 +14,13 @@ use App\Http\Controllers\Api\V1\Invoices\InvoicePdfController;
 use App\Http\Controllers\Api\V1\Invoices\ListInvoicesController;
 use App\Http\Controllers\Api\V1\Invoices\ShowInvoiceController;
 use App\Http\Controllers\Api\V1\Invoices\StatementController;
-use App\Http\Controllers\Api\V1\Maintenance\CancelMaintenanceRequestController;
-use App\Http\Controllers\Api\V1\Maintenance\CommentMaintenanceRequestController;
-use App\Http\Controllers\Api\V1\Maintenance\CreateMaintenanceRequestController;
-use App\Http\Controllers\Api\V1\Maintenance\ListMaintenanceRequestsController;
-use App\Http\Controllers\Api\V1\Maintenance\RateMaintenanceRequestController;
-use App\Http\Controllers\Api\V1\Maintenance\ShowMaintenanceAttachmentController;
-use App\Http\Controllers\Api\V1\Maintenance\ShowMaintenanceRequestController;
+use App\Http\Controllers\Api\V1\Requests\CancelTenantRequestController;
+use App\Http\Controllers\Api\V1\Requests\CommentTenantRequestController;
+use App\Http\Controllers\Api\V1\Requests\CreateTenantRequestController;
+use App\Http\Controllers\Api\V1\Requests\ListTenantRequestsController;
+use App\Http\Controllers\Api\V1\Requests\RateTenantRequestController;
+use App\Http\Controllers\Api\V1\Requests\ShowTenantRequestAttachmentController;
+use App\Http\Controllers\Api\V1\Requests\ShowTenantRequestController;
 use App\Http\Controllers\Api\V1\Notifications\ListNotificationsController;
 use App\Http\Controllers\Api\V1\Notifications\MarkAllNotificationsReadController;
 use App\Http\Controllers\Api\V1\Notifications\MarkNotificationReadController;
@@ -124,13 +124,13 @@ Route::prefix('v1')->group(function () {
         Route::post('me/notifications/{id}/read', MarkNotificationReadController::class)->name('api.v1.me.notifications.read');
 
         // --- Maintenance requests ---
-        Route::get('me/maintenance-requests', ListMaintenanceRequestsController::class)->name('api.v1.me.maintenance.index');
-        Route::post('me/maintenance-requests', CreateMaintenanceRequestController::class)->name('api.v1.me.maintenance.store');
-        Route::get('me/maintenance-requests/{id}', ShowMaintenanceRequestController::class)->whereNumber('id')->name('api.v1.me.maintenance.show');
-        Route::post('me/maintenance-requests/{id}/comments', CommentMaintenanceRequestController::class)->whereNumber('id')->name('api.v1.me.maintenance.comment');
-        Route::post('me/maintenance-requests/{id}/cancel', CancelMaintenanceRequestController::class)->whereNumber('id')->name('api.v1.me.maintenance.cancel');
-        Route::post('me/maintenance-requests/{id}/rate', RateMaintenanceRequestController::class)->whereNumber('id')->name('api.v1.me.maintenance.rate');
-        Route::get('me/maintenance-requests/{id}/attachments/{media}', ShowMaintenanceAttachmentController::class)->whereNumber('id')->whereNumber('media')->name('api.v1.me.maintenance.attachment');
+        Route::get('me/requests', ListTenantRequestsController::class)->name('api.v1.me.requests.index');
+        Route::post('me/requests', CreateTenantRequestController::class)->name('api.v1.me.requests.store');
+        Route::get('me/requests/{id}', ShowTenantRequestController::class)->whereNumber('id')->name('api.v1.me.requests.show');
+        Route::post('me/requests/{id}/comments', CommentTenantRequestController::class)->whereNumber('id')->name('api.v1.me.requests.comment');
+        Route::post('me/requests/{id}/cancel', CancelTenantRequestController::class)->whereNumber('id')->name('api.v1.me.requests.cancel');
+        Route::post('me/requests/{id}/rate', RateTenantRequestController::class)->whereNumber('id')->name('api.v1.me.requests.rate');
+        Route::get('me/requests/{id}/attachments/{media}', ShowTenantRequestAttachmentController::class)->whereNumber('id')->whereNumber('media')->name('api.v1.me.requests.attachment');
 
         // --- Sales declarations (percentage-rent leases) ---
         Route::get('me/sales-declarations', ListSalesDeclarationsController::class)->name('api.v1.me.sales.index');

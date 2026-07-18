@@ -1,7 +1,7 @@
 <?php
 
 use App\Notifications\InvoiceOverdueOwnerNotification;
-use App\Notifications\MaintenanceSlaBreachedNotification;
+use App\Notifications\TenantRequestSlaBreachedNotification;
 use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Support\Facades\Notification;
 
@@ -44,17 +44,17 @@ it('alerts BOTH the asset staff (manager + operations) AND the owner on an open 
     $owner->ownedAssets()->attach($asset->id, ['ownership_percentage' => 100]);
 
     $unit = makeUnit($asset);
-    $req = makeMaintenanceRequest([
+    $req = makeTenantRequest([
         'unit_id' => $unit->id,
         'status' => 'in_progress',
         'target_resolution_at' => now()->subDay(),
     ]);
 
-    $this->artisan('maintenance:scan-sla-breaches')->assertSuccessful();
+    $this->artisan('requests:scan-sla-breaches')->assertSuccessful();
 
-    Notification::assertSentTo($manager, MaintenanceSlaBreachedNotification::class);
-    Notification::assertSentTo($operations, MaintenanceSlaBreachedNotification::class);
-    Notification::assertSentTo($owner, MaintenanceSlaBreachedNotification::class);
+    Notification::assertSentTo($manager, TenantRequestSlaBreachedNotification::class);
+    Notification::assertSentTo($operations, TenantRequestSlaBreachedNotification::class);
+    Notification::assertSentTo($owner, TenantRequestSlaBreachedNotification::class);
 
     expect($req->refresh()->sla_breach_notified_at)->not->toBeNull();
 });
@@ -71,17 +71,17 @@ it('does NOT alert a leasing/viewer teammate even when assigned to the breached 
     $manager = makeUser('manager', [$asset->id]);
 
     $unit = makeUnit($asset);
-    makeMaintenanceRequest([
+    makeTenantRequest([
         'unit_id' => $unit->id,
         'status' => 'in_progress',
         'target_resolution_at' => now()->subDay(),
     ]);
 
-    $this->artisan('maintenance:scan-sla-breaches')->assertSuccessful();
+    $this->artisan('requests:scan-sla-breaches')->assertSuccessful();
 
-    Notification::assertSentTo($manager, MaintenanceSlaBreachedNotification::class);
-    Notification::assertNotSentTo($leasing, MaintenanceSlaBreachedNotification::class);
-    Notification::assertNotSentTo($viewer, MaintenanceSlaBreachedNotification::class);
+    Notification::assertSentTo($manager, TenantRequestSlaBreachedNotification::class);
+    Notification::assertNotSentTo($leasing, TenantRequestSlaBreachedNotification::class);
+    Notification::assertNotSentTo($viewer, TenantRequestSlaBreachedNotification::class);
 });
 
 // ============================================================
@@ -98,16 +98,16 @@ it('does not alert a manager assigned to a DIFFERENT asset (staff scoping)', fun
     $elsewhereManager = makeUser('manager', [$other->id]);
 
     $unit = makeUnit($breached);
-    makeMaintenanceRequest([
+    makeTenantRequest([
         'unit_id' => $unit->id,
         'status' => 'in_progress',
         'target_resolution_at' => now()->subDay(),
     ]);
 
-    $this->artisan('maintenance:scan-sla-breaches')->assertSuccessful();
+    $this->artisan('requests:scan-sla-breaches')->assertSuccessful();
 
-    Notification::assertSentTo($hereManager, MaintenanceSlaBreachedNotification::class);
-    Notification::assertNotSentTo($elsewhereManager, MaintenanceSlaBreachedNotification::class);
+    Notification::assertSentTo($hereManager, TenantRequestSlaBreachedNotification::class);
+    Notification::assertNotSentTo($elsewhereManager, TenantRequestSlaBreachedNotification::class);
 });
 
 // ============================================================
@@ -124,17 +124,17 @@ it('does NOT alert when a finished request is past its target (terminal/resolved
     $owner->ownedAssets()->attach($asset->id, ['ownership_percentage' => 100]);
 
     $unit = makeUnit($asset);
-    $req = makeMaintenanceRequest([
+    $req = makeTenantRequest([
         'unit_id' => $unit->id,
         'status' => $finished,
         'target_resolution_at' => now()->subDay(),
     ]);
 
-    $this->artisan('maintenance:scan-sla-breaches')->assertSuccessful();
+    $this->artisan('requests:scan-sla-breaches')->assertSuccessful();
 
-    Notification::assertNotSentTo($manager, MaintenanceSlaBreachedNotification::class);
-    Notification::assertNotSentTo($operations, MaintenanceSlaBreachedNotification::class);
-    Notification::assertNotSentTo($owner, MaintenanceSlaBreachedNotification::class);
+    Notification::assertNotSentTo($manager, TenantRequestSlaBreachedNotification::class);
+    Notification::assertNotSentTo($operations, TenantRequestSlaBreachedNotification::class);
+    Notification::assertNotSentTo($owner, TenantRequestSlaBreachedNotification::class);
     expect($req->refresh()->sla_breach_notified_at)->toBeNull();
 })->with(['resolved', 'closed', 'cancelled']);
 
@@ -151,13 +151,13 @@ it('--dry-run sends no notifications and leaves sla_breach_notified_at null', fu
     $owner->ownedAssets()->attach($asset->id, ['ownership_percentage' => 100]);
 
     $unit = makeUnit($asset);
-    $req = makeMaintenanceRequest([
+    $req = makeTenantRequest([
         'unit_id' => $unit->id,
         'status' => 'in_progress',
         'target_resolution_at' => now()->subDay(),
     ]);
 
-    $this->artisan('maintenance:scan-sla-breaches', ['--dry-run' => true])
+    $this->artisan('requests:scan-sla-breaches', ['--dry-run' => true])
         ->expectsOutputToContain('Would alert on 1 breach(es):')
         ->assertSuccessful();
 
@@ -165,8 +165,8 @@ it('--dry-run sends no notifications and leaves sla_breach_notified_at null', fu
     expect($req->refresh()->sla_breach_notified_at)->toBeNull();
 
     // A subsequent REAL run still fires — dry-run did not consume the breach.
-    $this->artisan('maintenance:scan-sla-breaches')->assertSuccessful();
-    Notification::assertSentTo($manager, MaintenanceSlaBreachedNotification::class);
+    $this->artisan('requests:scan-sla-breaches')->assertSuccessful();
+    Notification::assertSentTo($manager, TenantRequestSlaBreachedNotification::class);
     expect($req->refresh()->sla_breach_notified_at)->not->toBeNull();
 });
 
@@ -182,22 +182,22 @@ it('alerts each staff recipient exactly once across re-runs (idempotent stamp)',
     $operations = makeUser('operations', [$asset->id]);
 
     $unit = makeUnit($asset);
-    $req = makeMaintenanceRequest([
+    $req = makeTenantRequest([
         'unit_id' => $unit->id,
         'status' => 'in_progress',
         'target_resolution_at' => now()->subDay(),
     ]);
 
-    $this->artisan('maintenance:scan-sla-breaches')->assertSuccessful();
+    $this->artisan('requests:scan-sla-breaches')->assertSuccessful();
     $firstStamp = $req->refresh()->sla_breach_notified_at;
     expect($firstStamp)->not->toBeNull();
 
-    $this->artisan('maintenance:scan-sla-breaches')
+    $this->artisan('requests:scan-sla-breaches')
         ->expectsOutputToContain('No new SLA breaches.')
         ->assertSuccessful();
 
-    Notification::assertSentToTimes($manager, MaintenanceSlaBreachedNotification::class, 1);
-    Notification::assertSentToTimes($operations, MaintenanceSlaBreachedNotification::class, 1);
+    Notification::assertSentToTimes($manager, TenantRequestSlaBreachedNotification::class, 1);
+    Notification::assertSentToTimes($operations, TenantRequestSlaBreachedNotification::class, 1);
     expect($req->refresh()->sla_breach_notified_at->equalTo($firstStamp))->toBeTrue();
 });
 
@@ -215,7 +215,7 @@ it('delivers BOTH req-#4 halves (maintenance SLA + invoice overdue) to the same 
     $unit = makeUnit($asset);
 
     // Half (a): an open maintenance request breaches SLA.
-    $req = makeMaintenanceRequest([
+    $req = makeTenantRequest([
         'unit_id' => $unit->id,
         'status' => 'in_progress',
         'target_resolution_at' => now()->subDay(),
@@ -231,11 +231,11 @@ it('delivers BOTH req-#4 halves (maintenance SLA + invoice overdue) to the same 
         'balance' => 1000,
     ]);
 
-    $this->artisan('maintenance:scan-sla-breaches')->assertSuccessful();
+    $this->artisan('requests:scan-sla-breaches')->assertSuccessful();
     $this->artisan('billing:scan-overdue-invoices')->assertSuccessful();
 
     // The one owner receives both distinct oversight alerts.
-    Notification::assertSentTo($owner, MaintenanceSlaBreachedNotification::class);
+    Notification::assertSentTo($owner, TenantRequestSlaBreachedNotification::class);
     Notification::assertSentTo($owner, InvoiceOverdueOwnerNotification::class);
 
     expect($req->refresh()->sla_breach_notified_at)->not->toBeNull()

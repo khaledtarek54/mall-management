@@ -70,7 +70,7 @@ Schedule::command('activitylog:clean')
 // config('maintenance.auto_close_after_days') (default 7). Without this
 // resolved tickets accumulate forever — operators occasionally need the
 // "open" filter to actually mean "current work" (audit M09 F-38 / D-30).
-Schedule::command('maintenance:auto-close')
+Schedule::command('requests:auto-close')
     ->dailyAt('03:00')
     ->name('atriom-auto-close-maintenance')
     ->withoutOverlapping();
@@ -86,7 +86,7 @@ Schedule::command('maintenance:generate-preventive')
 // managers + maintenance_managers on the asset (or super_admins as
 // fallback) via the bell. Idempotent through sla_breach_notified_at, so
 // each breach surfaces once.
-Schedule::command('maintenance:scan-sla-breaches')
+Schedule::command('requests:scan-sla-breaches')
     ->hourly()
     ->name('atriom-scan-sla-breaches')
     ->withoutOverlapping();

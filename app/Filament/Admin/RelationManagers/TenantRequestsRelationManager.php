@@ -2,7 +2,7 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
-use App\Filament\Admin\Resources\MaintenanceRequests\MaintenanceRequestResource;
+use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Models\TenantRequest;
 use Filament\Actions\Action;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -11,7 +11,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
 
-class TenantMaintenanceRelationManager extends RelationManager
+class TenantRequestsRelationManager extends RelationManager
 {
     protected static string $relationship = 'maintenanceRequests';
 
@@ -56,7 +56,7 @@ class TenantMaintenanceRelationManager extends RelationManager
                 TextColumn::make('status')
                     ->label(__('admin.tables.common.status'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => __("admin.statuses.maintenance_request.{$state}"))
+                    ->formatStateUsing(fn (string $state) => __("admin.statuses.tenant_request.{$state}"))
                     ->color(fn (string $state): string => match ($state) {
                         'submitted', 'in_progress' => 'info',
                         'acknowledged', 'awaiting_tenant' => 'warning',
@@ -72,14 +72,14 @@ class TenantMaintenanceRelationManager extends RelationManager
             ->filters([
                 SelectFilter::make('status')
                     ->label(__('admin.filters.status'))
-                    ->options(fn () => __('admin.statuses.maintenance_request')),
+                    ->options(fn () => __('admin.statuses.tenant_request')),
             ])
             ->headerActions([])
             ->recordActions([
                 Action::make('open')
                     ->label(__('admin.actions.view'))
                     ->icon('heroicon-o-arrow-top-right-on-square')
-                    ->url(fn (TenantRequest $record) => MaintenanceRequestResource::getUrl('edit', ['record' => $record])),
+                    ->url(fn (TenantRequest $record) => TenantRequestResource::getUrl('edit', ['record' => $record])),
             ])
             ->toolbarActions([])
             ->defaultSort('submitted_at', 'desc');

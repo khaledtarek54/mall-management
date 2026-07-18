@@ -31,7 +31,7 @@ class GeneratePreventiveWorkOrdersService
         $this->failures = [];
 
         MaintenancePlan::due($due)->select('id')->get()->each(function ($row) use ($due, &$created) {
-            // Per-plan containment, mirroring ScanMaintenanceSlaBreachesCommand's per-row
+            // Per-plan containment, mirroring ScanTenantRequestSlaBreachesCommand's per-row
             // catch. Without it one corrupt plan aborts the nightly run and every property
             // silently stops getting work orders.
             try {

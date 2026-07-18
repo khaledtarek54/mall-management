@@ -1,9 +1,9 @@
 <?php
 
-use App\Filament\Admin\Resources\MaintenanceRequests\MaintenanceRequestResource;
+use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Models\Department;
 use App\Models\TenantRequest;
-use App\Notifications\MaintenanceSlaBreachedNotification;
+use App\Notifications\TenantRequestSlaBreachedNotification;
 use App\Services\TenantRequestService;
 use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Support\Facades\Notification;
@@ -31,7 +31,7 @@ function svc(): TenantRequestService
 // ============================================================
 
 it('walks every legal hop submitted → acknowledged → in_progress → resolved → closed', function () {
-    $req = makeMaintenanceRequest(['status' => 'submitted']);
+    $req = makeTenantRequest(['status' => 'submitted']);
 
     svc()->transition($req, 'acknowledged');
     expect($req->fresh()->status)->toBe('acknowledged');
@@ -51,7 +51,7 @@ it('walks every legal hop submitted → acknowledged → in_progress → resolve
 });
 
 it('allows the awaiting_tenant detour: in_progress → awaiting_tenant → in_progress', function () {
-    $req = makeMaintenanceRequest(['status' => 'in_progress']);
+    $req = makeTenantRequest(['status' => 'in_progress']);
 
     svc()->transition($req, 'awaiting_tenant');
     expect($req->fresh()->status)->toBe('awaiting_tenant');
@@ -61,7 +61,7 @@ it('allows the awaiting_tenant detour: in_progress → awaiting_tenant → in_pr
 });
 
 it('reopens a resolved request: resolved → in_progress is legal', function () {
-    $req = makeMaintenanceRequest(['status' => 'resolved', 'resolved_at' => now()]);
+    $req = makeTenantRequest(['status' => 'resolved', 'resolved_at' => now()]);
 
     svc()->transition($req, 'in_progress');
 
@@ -73,43 +73,43 @@ it('reopens a resolved request: resolved → in_progress is legal', function () 
 // ============================================================
 
 it('rejects illegal transition closed → in_progress (terminal is a dead end)', function () {
-    $req = makeMaintenanceRequest(['status' => 'closed', 'closed_at' => now()]);
+    $req = makeTenantRequest(['status' => 'closed', 'closed_at' => now()]);
 
     svc()->transition($req, 'in_progress');
 })->throws(InvalidArgumentException::class, 'Illegal transition: closed → in_progress');
 
 it('rejects illegal transition cancelled → in_progress', function () {
-    $req = makeMaintenanceRequest(['status' => 'cancelled']);
+    $req = makeTenantRequest(['status' => 'cancelled']);
 
     svc()->transition($req, 'in_progress');
 })->throws(InvalidArgumentException::class, 'Illegal transition');
 
 it('rejects illegal transition submitted → resolved (cannot skip in_progress)', function () {
-    $req = makeMaintenanceRequest(['status' => 'submitted']);
+    $req = makeTenantRequest(['status' => 'submitted']);
 
     svc()->transition($req, 'resolved');
 })->throws(InvalidArgumentException::class, 'Illegal transition');
 
 it('rejects illegal transition acknowledged → closed (must resolve first)', function () {
-    $req = makeMaintenanceRequest(['status' => 'acknowledged']);
+    $req = makeTenantRequest(['status' => 'acknowledged']);
 
     svc()->transition($req, 'closed');
 })->throws(InvalidArgumentException::class, 'Illegal transition');
 
 it('rejects illegal transition resolved → submitted (no rewind to intake)', function () {
-    $req = makeMaintenanceRequest(['status' => 'resolved', 'resolved_at' => now()]);
+    $req = makeTenantRequest(['status' => 'resolved', 'resolved_at' => now()]);
 
     svc()->transition($req, 'submitted');
 })->throws(InvalidArgumentException::class, 'Illegal transition');
 
 it('rejects a no-op self-transition in_progress → in_progress', function () {
-    $req = makeMaintenanceRequest(['status' => 'in_progress']);
+    $req = makeTenantRequest(['status' => 'in_progress']);
 
     svc()->transition($req, 'in_progress');
 })->throws(InvalidArgumentException::class, 'Illegal transition');
 
 it('rejects an unknown target status', function () {
-    $req = makeMaintenanceRequest(['status' => 'submitted']);
+    $req = makeTenantRequest(['status' => 'submitted']);
 
     svc()->transition($req, 'banana');
 })->throws(InvalidArgumentException::class, 'Illegal transition');
@@ -119,7 +119,7 @@ it('rejects an unknown target status', function () {
 // ============================================================
 
 it('cancels (rejects) a request from each open state', function (string $from) {
-    $req = makeMaintenanceRequest(['status' => $from]);
+    $req = makeTenantRequest(['status' => $from]);
 
     svc()->transition($req, 'cancelled');
 
@@ -128,14 +128,14 @@ it('cancels (rejects) a request from each open state', function (string $from) {
 })->with(['submitted', 'acknowledged', 'in_progress', 'awaiting_tenant']);
 
 it('cannot cancel an already-resolved request (only close or reopen)', function () {
-    $req = makeMaintenanceRequest(['status' => 'resolved', 'resolved_at' => now()]);
+    $req = makeTenantRequest(['status' => 'resolved', 'resolved_at' => now()]);
 
     svc()->transition($req, 'cancelled');
 })->throws(InvalidArgumentException::class, 'Illegal transition');
 
 it('does not notify the tenant on cancellation but the request still lands cancelled', function () {
     Notification::fake();
-    $req = makeMaintenanceRequest(['status' => 'submitted']);
+    $req = makeTenantRequest(['status' => 'submitted']);
 
     svc()->transition($req, 'cancelled');
 
@@ -148,14 +148,14 @@ it('does not notify the tenant on cancellation but the request still lands cance
 // ============================================================
 
 it('treats closed and cancelled as terminal; open states are not', function () {
-    expect(makeMaintenanceRequest(['status' => 'closed'])->isTerminal())->toBeTrue()
-        ->and(makeMaintenanceRequest(['status' => 'cancelled'])->isTerminal())->toBeTrue()
-        ->and(makeMaintenanceRequest(['status' => 'resolved'])->isTerminal())->toBeFalse()
-        ->and(makeMaintenanceRequest(['status' => 'awaiting_tenant'])->isTerminal())->toBeFalse();
+    expect(makeTenantRequest(['status' => 'closed'])->isTerminal())->toBeTrue()
+        ->and(makeTenantRequest(['status' => 'cancelled'])->isTerminal())->toBeTrue()
+        ->and(makeTenantRequest(['status' => 'resolved'])->isTerminal())->toBeFalse()
+        ->and(makeTenantRequest(['status' => 'awaiting_tenant'])->isTerminal())->toBeFalse();
 });
 
 it('forbids ANY status move out of a terminal state via the service', function (string $terminal) {
-    $req = makeMaintenanceRequest(['status' => $terminal]);
+    $req = makeTenantRequest(['status' => $terminal]);
 
     // Every other status must be rejected — terminal has no legal successors.
     foreach (TenantRequest::STATUSES as $target) {
@@ -173,9 +173,9 @@ it('hides Edit / Redirect / Assign on a closed record (canEdit gates all three)'
     $this->seed(RolesPermissionsSeeder::class);
     $this->actingAs(makeUser('super_admin'));
 
-    expect(MaintenanceRequestResource::canEdit(makeMaintenanceRequest(['status' => 'closed'])))->toBeFalse()
-        ->and(MaintenanceRequestResource::canEdit(makeMaintenanceRequest(['status' => 'cancelled'])))->toBeFalse()
-        ->and(MaintenanceRequestResource::canEdit(makeMaintenanceRequest(['status' => 'in_progress'])))->toBeTrue();
+    expect(TenantRequestResource::canEdit(makeTenantRequest(['status' => 'closed'])))->toBeFalse()
+        ->and(TenantRequestResource::canEdit(makeTenantRequest(['status' => 'cancelled'])))->toBeFalse()
+        ->and(TenantRequestResource::canEdit(makeTenantRequest(['status' => 'in_progress'])))->toBeTrue();
 });
 
 it('blocks a super_admin from editing a terminal record even though they hold maintenance.edit', function () {
@@ -186,7 +186,7 @@ it('blocks a super_admin from editing a terminal record even though they hold ma
     // The permission is held...
     expect($admin->can('maintenance.edit'))->toBeTrue()
         // ...yet the terminal guard wins.
-        ->and(MaintenanceRequestResource::canEdit(makeMaintenanceRequest(['status' => 'closed'])))->toBeFalse();
+        ->and(TenantRequestResource::canEdit(makeTenantRequest(['status' => 'closed'])))->toBeFalse();
 });
 
 // ============================================================
@@ -196,7 +196,7 @@ it('blocks a super_admin from editing a terminal record even though they hold ma
 it('redirect changes department_id without touching status', function () {
     $ops = Department::create(['name' => 'Operations']);
     $facilities = Department::create(['name' => 'Facilities']);
-    $req = makeMaintenanceRequest(['status' => 'in_progress', 'department_id' => $ops->id]);
+    $req = makeTenantRequest(['status' => 'in_progress', 'department_id' => $ops->id]);
 
     svc()->redirectToDepartment($req, $facilities->id);
 
@@ -215,7 +215,7 @@ it('keeps the scheduled work window independent of target_resolution_at', functi
     $from = now()->addDays(5)->startOfSecond();
     $to = now()->addDays(5)->addHours(4)->startOfSecond();
 
-    $req = makeMaintenanceRequest([
+    $req = makeTenantRequest([
         'status' => 'in_progress',
         'target_resolution_at' => $target,
         'scheduled_from' => $from,
@@ -231,7 +231,7 @@ it('keeps the scheduled work window independent of target_resolution_at', functi
 });
 
 it('does not require a scheduled window to be set at all (nullable, decoupled)', function () {
-    $req = makeMaintenanceRequest([
+    $req = makeTenantRequest([
         'status' => 'acknowledged',
         'target_resolution_at' => now()->addDay(),
         'scheduled_from' => null,
@@ -253,50 +253,50 @@ describe('maintenance RBAC matrix', function () {
     it('lets operations view, create and edit open requests but never delete', function () {
         $this->actingAs(makeUser('operations'));
 
-        expect(MaintenanceRequestResource::canViewAny())->toBeTrue()
-            ->and(MaintenanceRequestResource::canCreate())->toBeTrue()
-            ->and(MaintenanceRequestResource::canEdit(makeMaintenanceRequest(['status' => 'in_progress'])))->toBeTrue()
-            ->and(MaintenanceRequestResource::canDelete(makeMaintenanceRequest()))->toBeFalse();
+        expect(TenantRequestResource::canViewAny())->toBeTrue()
+            ->and(TenantRequestResource::canCreate())->toBeTrue()
+            ->and(TenantRequestResource::canEdit(makeTenantRequest(['status' => 'in_progress'])))->toBeTrue()
+            ->and(TenantRequestResource::canDelete(makeTenantRequest()))->toBeFalse();
     });
 
     it('gives viewer read-only access (view yes, create/edit/delete no)', function () {
         $this->actingAs(makeUser('viewer'));
 
-        expect(MaintenanceRequestResource::canViewAny())->toBeTrue()
-            ->and(MaintenanceRequestResource::canCreate())->toBeFalse()
-            ->and(MaintenanceRequestResource::canEdit(makeMaintenanceRequest(['status' => 'in_progress'])))->toBeFalse()
-            ->and(MaintenanceRequestResource::canDelete(makeMaintenanceRequest()))->toBeFalse();
+        expect(TenantRequestResource::canViewAny())->toBeTrue()
+            ->and(TenantRequestResource::canCreate())->toBeFalse()
+            ->and(TenantRequestResource::canEdit(makeTenantRequest(['status' => 'in_progress'])))->toBeFalse()
+            ->and(TenantRequestResource::canDelete(makeTenantRequest()))->toBeFalse();
     });
 
     it('denies leasing any maintenance access (out of department)', function () {
         $this->actingAs(makeUser('leasing'));
 
-        expect(MaintenanceRequestResource::canViewAny())->toBeFalse()
-            ->and(MaintenanceRequestResource::canCreate())->toBeFalse()
-            ->and(MaintenanceRequestResource::canEdit(makeMaintenanceRequest(['status' => 'in_progress'])))->toBeFalse();
+        expect(TenantRequestResource::canViewAny())->toBeFalse()
+            ->and(TenantRequestResource::canCreate())->toBeFalse()
+            ->and(TenantRequestResource::canEdit(makeTenantRequest(['status' => 'in_progress'])))->toBeFalse();
     });
 
     it('reserves delete for super_admin only', function () {
-        $req = makeMaintenanceRequest(['status' => 'in_progress']);
+        $req = makeTenantRequest(['status' => 'in_progress']);
 
         $this->actingAs(makeUser('manager'));
-        expect(MaintenanceRequestResource::canDelete($req))->toBeFalse();
+        expect(TenantRequestResource::canDelete($req))->toBeFalse();
 
         $this->actingAs(makeUser('super_admin'));
-        expect(MaintenanceRequestResource::canDelete($req))->toBeTrue();
+        expect(TenantRequestResource::canDelete($req))->toBeTrue();
     });
 
     it('keeps bulk delete off for maintenance even for super_admin', function () {
         $this->actingAs(makeUser('super_admin'));
 
-        expect(MaintenanceRequestResource::canDeleteAny())->toBeFalse();
+        expect(TenantRequestResource::canDeleteAny())->toBeFalse();
     });
 
     it('lets a manager edit open requests but not delete', function () {
         $this->actingAs(makeUser('manager'));
 
-        expect(MaintenanceRequestResource::canEdit(makeMaintenanceRequest(['status' => 'acknowledged'])))->toBeTrue()
-            ->and(MaintenanceRequestResource::canDelete(makeMaintenanceRequest()))->toBeFalse();
+        expect(TenantRequestResource::canEdit(makeTenantRequest(['status' => 'acknowledged'])))->toBeTrue()
+            ->and(TenantRequestResource::canDelete(makeTenantRequest()))->toBeFalse();
     });
 });
 
@@ -316,53 +316,53 @@ describe('SLA breach scan boundaries', function () {
     it('does NOT notify a not-yet-due open request (target in the future)', function () {
         Notification::fake();
 
-        $req = makeMaintenanceRequest([
+        $req = makeTenantRequest([
             'unit_id' => $this->unit->id,
             'status' => 'in_progress',
             'target_resolution_at' => now()->addHours(6),
         ]);
 
-        $this->artisan('maintenance:scan-sla-breaches')->assertSuccessful();
+        $this->artisan('requests:scan-sla-breaches')->assertSuccessful();
 
-        Notification::assertNotSentTo($this->owner, MaintenanceSlaBreachedNotification::class);
+        Notification::assertNotSentTo($this->owner, TenantRequestSlaBreachedNotification::class);
         expect($req->fresh()->sla_breach_notified_at)->toBeNull();
     });
 
     it('does NOT notify an open request with no target_resolution_at set', function () {
         Notification::fake();
 
-        $req = makeMaintenanceRequest([
+        $req = makeTenantRequest([
             'unit_id' => $this->unit->id,
             'status' => 'in_progress',
             'target_resolution_at' => null,
         ]);
 
-        $this->artisan('maintenance:scan-sla-breaches')->assertSuccessful();
+        $this->artisan('requests:scan-sla-breaches')->assertSuccessful();
 
-        Notification::assertNotSentTo($this->owner, MaintenanceSlaBreachedNotification::class);
+        Notification::assertNotSentTo($this->owner, TenantRequestSlaBreachedNotification::class);
         expect($req->fresh()->sla_breach_notified_at)->toBeNull();
     });
 
     it('notifies the owner once and is idempotent across re-runs', function () {
         Notification::fake();
 
-        $req = makeMaintenanceRequest([
+        $req = makeTenantRequest([
             'unit_id' => $this->unit->id,
             'status' => 'in_progress',
             'target_resolution_at' => now()->subDay(),
         ]);
 
-        $this->artisan('maintenance:scan-sla-breaches')->assertSuccessful();
+        $this->artisan('requests:scan-sla-breaches')->assertSuccessful();
         $firstStamp = $req->fresh()->sla_breach_notified_at;
         expect($firstStamp)->not->toBeNull();
 
         // Re-run: the WHERE sla_breach_notified_at IS NULL guard skips it.
-        $this->artisan('maintenance:scan-sla-breaches')
+        $this->artisan('requests:scan-sla-breaches')
             ->expectsOutputToContain('No new SLA breaches.')
             ->assertSuccessful();
 
         // Exactly one notification across both runs, and the stamp is unchanged.
-        Notification::assertSentToTimes($this->owner, MaintenanceSlaBreachedNotification::class, 1);
+        Notification::assertSentToTimes($this->owner, TenantRequestSlaBreachedNotification::class, 1);
         expect($req->fresh()->sla_breach_notified_at->equalTo($firstStamp))->toBeTrue();
     });
 });

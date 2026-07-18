@@ -1,13 +1,13 @@
 <?php
 
-namespace App\Http\Requests\Api\V1\Maintenance;
+namespace App\Http\Requests\Api\V1\Requests;
 
 use App\Enums\TenantRequestType;
 use App\Models\TenantRequest;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class CreateMaintenanceRequestRequest extends FormRequest
+class CreateTenantRequestRequest extends FormRequest
 {
     public function authorize(): bool
     {

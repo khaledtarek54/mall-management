@@ -5,7 +5,7 @@ namespace App\Filament\Admin\Widgets;
 use App\Filament\Admin\Concerns\RoleScopedWidget;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
-use App\Filament\Admin\Resources\MaintenanceRequests\MaintenanceRequestResource;
+use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Filament\Admin\Resources\MaintenanceWorkOrders\MaintenanceWorkOrderResource;
 use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Models\Invoice;
@@ -114,7 +114,7 @@ class ActionRequired extends Widget
                 'color' => 'danger',
                 'title' => trans_choice('admin.widgets.action_required.urgent_maintenance', $urgentMaintenanceCount, ['count' => $urgentMaintenanceCount]),
                 'body' => __('admin.widgets.action_required.urgent_maintenance_body'),
-                'url' => MaintenanceRequestResource::getUrl('index', [
+                'url' => TenantRequestResource::getUrl('index', [
                     'filters' => ['priority' => ['value' => 'urgent']],
                     'sort' => 'submitted_at:asc',
                 ]),
@@ -128,7 +128,7 @@ class ActionRequired extends Widget
                 'color' => 'danger',
                 'title' => trans_choice('admin.widgets.action_required.sla_breached', $slaBreachedCount, ['count' => $slaBreachedCount]),
                 'body' => __('admin.widgets.action_required.sla_breached_body'),
-                'url' => MaintenanceRequestResource::getUrl('index', [
+                'url' => TenantRequestResource::getUrl('index', [
                     'filters' => ['sla_breached' => ['isActive' => true]],
                     'sort' => 'target_resolution_at:asc',
                 ]),

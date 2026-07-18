@@ -9,7 +9,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 /**
  * @mixin \App\Models\TenantRequestComment
  */
-class MaintenanceRequestCommentResource extends JsonResource
+class TenantRequestCommentResource extends JsonResource
 {
     /**
      * @return array<string,mixed>

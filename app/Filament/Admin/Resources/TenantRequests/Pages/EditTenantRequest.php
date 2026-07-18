@@ -1,21 +1,21 @@
 <?php
 
-namespace App\Filament\Admin\Resources\MaintenanceRequests\Pages;
+namespace App\Filament\Admin\Resources\TenantRequests\Pages;
 
-use App\Filament\Admin\Resources\MaintenanceRequests\MaintenanceRequestResource;
+use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\RestoreAction;
 use Filament\Resources\Pages\EditRecord;
 
-class EditMaintenanceRequest extends EditRecord
+class EditTenantRequest extends EditRecord
 {
-    protected static string $resource = MaintenanceRequestResource::class;
+    protected static string $resource = TenantRequestResource::class;
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
         // Block re-homing via a tampered unit (property is derived from the unit).
-        MaintenanceRequestResource::assertUnitAssetInScope($data['unit_id'] ?? $this->record->unit_id);
+        TenantRequestResource::assertUnitAssetInScope($data['unit_id'] ?? $this->record->unit_id);
 
         return $data;
     }

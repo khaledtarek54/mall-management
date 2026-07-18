@@ -9,7 +9,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
 
-class PortalMaintenanceCommentsRelationManager extends RelationManager
+class PortalTenantRequestCommentsRelationManager extends RelationManager
 {
     protected static string $relationship = 'comments';
 

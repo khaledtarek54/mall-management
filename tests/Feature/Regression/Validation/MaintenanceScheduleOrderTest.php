@@ -1,13 +1,13 @@
 <?php
 
-use App\Filament\Admin\Resources\MaintenanceRequests\Pages\CreateMaintenanceRequest;
+use App\Filament\Admin\Resources\TenantRequests\Pages\CreateTenantRequest;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
 
 // Guard: TenantRequest scheduled_to must be >= scheduled_from.
 // The form field `scheduled_to` carries ->afterOrEqual('scheduled_from')
-// (MaintenanceRequestForm). Mirrors MaintenanceDateValidationTest's idiom.
+// (TenantRequestForm). Mirrors MaintenanceDateValidationTest's idiom.
 
 beforeEach(function () {
     $this->seed(RolesPermissionsSeeder::class);
@@ -40,7 +40,7 @@ function fillScheduledMaintenance(array $overrides = []): array
 }
 
 it('rejects a scheduled_to earlier than scheduled_from', function () {
-    Livewire::test(CreateMaintenanceRequest::class)
+    Livewire::test(CreateTenantRequest::class)
         ->fillForm(fillScheduledMaintenance([
             'tenant_id' => $this->tenant->id,
             'unit_id' => $this->unit->id,
@@ -54,7 +54,7 @@ it('rejects a scheduled_to earlier than scheduled_from', function () {
 it('accepts a scheduled_to equal to scheduled_from', function () {
     $at = now()->addDays(2)->format('Y-m-d H:i:s');
 
-    Livewire::test(CreateMaintenanceRequest::class)
+    Livewire::test(CreateTenantRequest::class)
         ->fillForm(fillScheduledMaintenance([
             'tenant_id' => $this->tenant->id,
             'unit_id' => $this->unit->id,
@@ -66,7 +66,7 @@ it('accepts a scheduled_to equal to scheduled_from', function () {
 });
 
 it('accepts a scheduled_to later than scheduled_from', function () {
-    Livewire::test(CreateMaintenanceRequest::class)
+    Livewire::test(CreateTenantRequest::class)
         ->fillForm(fillScheduledMaintenance([
             'tenant_id' => $this->tenant->id,
             'unit_id' => $this->unit->id,

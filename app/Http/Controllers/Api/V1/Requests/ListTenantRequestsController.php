@@ -1,16 +1,16 @@
 <?php
 
-namespace App\Http\Controllers\Api\V1\Maintenance;
+namespace App\Http\Controllers\Api\V1\Requests;
 
 use App\Http\Controllers\Api\V1\ApiController;
-use App\Http\Resources\Api\V1\MaintenanceRequestResource;
+use App\Http\Resources\Api\V1\TenantRequestResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 /**
- * GET /api/v1/me/maintenance-requests — paginated list, newest first.
+ * GET /api/v1/me/requests — paginated list, newest first.
  */
-class ListMaintenanceRequestsController extends ApiController
+class ListTenantRequestsController extends ApiController
 {
     public function __invoke(Request $request): AnonymousResourceCollection
     {
@@ -22,6 +22,6 @@ class ListMaintenanceRequestsController extends ApiController
             $query->where('status', $status);
         }
 
-        return MaintenanceRequestResource::collection($query->paginate($this->perPage($request)));
+        return TenantRequestResource::collection($query->paginate($this->perPage($request)));
     }
 }

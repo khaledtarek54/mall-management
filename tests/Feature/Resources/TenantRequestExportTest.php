@@ -1,6 +1,6 @@
 <?php
 
-use App\Filament\Admin\Resources\MaintenanceRequests\Pages\ListMaintenanceRequests;
+use App\Filament\Admin\Resources\TenantRequests\Pages\ListTenantRequests;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Actions\Exports\Models\Export;
 use Filament\Actions\Testing\TestAction;
@@ -23,7 +23,7 @@ it('offers the export to an oversight role (coordinator)', function () {
     $this->actingAs(makeUser('coordinator', [$this->asset->id]));
 
     asTenant($this->asset, function () {
-        Livewire::test(ListMaintenanceRequests::class)->assertTableActionVisible('export');
+        Livewire::test(ListTenantRequests::class)->assertTableActionVisible('export');
     });
 });
 
@@ -31,7 +31,7 @@ it('offers the export to customer service (fields any call, oversees the board)'
     $this->actingAs(makeUser('customer_service', [$this->asset->id]));
 
     asTenant($this->asset, function () {
-        Livewire::test(ListMaintenanceRequests::class)->assertTableActionVisible('export');
+        Livewire::test(ListTenantRequests::class)->assertTableActionVisible('export');
     });
 });
 
@@ -39,7 +39,7 @@ it('hides the export from a technician (own work only, no view_all)', function (
     $this->actingAs(makeUser('technician', [$this->asset->id]));
 
     asTenant($this->asset, function () {
-        Livewire::test(ListMaintenanceRequests::class)->assertTableActionHidden('export');
+        Livewire::test(ListTenantRequests::class)->assertTableActionHidden('export');
     });
 });
 
@@ -50,7 +50,7 @@ it('a technician cannot dispatch the export by mounting it directly', function (
     $this->actingAs(makeUser('technician', [$this->asset->id]));
 
     asTenant($this->asset, function () {
-        Livewire::test(ListMaintenanceRequests::class)
+        Livewire::test(ListTenantRequests::class)
             ->mountAction(TestAction::make('export')->table())
             ->assertActionNotMounted('export');
     });

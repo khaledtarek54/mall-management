@@ -33,7 +33,7 @@ class DumpRbacMatrix extends Command
         'journal_entries' => 'journal-entries',
         'ledger_accounts' => 'ledger-accounts',
         'vendors' => 'vendors',
-        'maintenance' => 'maintenance-requests',
+        'maintenance' => 'requests',
         'tenant_sales' => 'tenant-sales-declarations',
         'employees' => 'employees',
         'marketing' => 'marketing-budgets',

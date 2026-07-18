@@ -4,7 +4,7 @@ use App\Filament\Admin\Resources\CamExpensePools\CamExpensePoolResource;
 use App\Filament\Admin\Resources\CreditNotes\CreditNoteResource;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
-use App\Filament\Admin\Resources\MaintenanceRequests\MaintenanceRequestResource;
+use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Filament\Admin\Resources\Tenants\TenantResource;
 use App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
@@ -182,7 +182,7 @@ describe('TenantRequest scoping', function () {
         ]);
 
         asTenant($this->hw, function () use ($hwReq, $paReq) {
-            $ids = scopedResourceQuery(MaintenanceRequestResource::class)->pluck('id')->all();
+            $ids = scopedResourceQuery(TenantRequestResource::class)->pluck('id')->all();
             expect($ids)->toContain($hwReq->id)->not->toContain($paReq->id);
         });
     });

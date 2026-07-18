@@ -1,7 +1,7 @@
 <?php
 
 use App\Models\TenantRequest;
-use App\Notifications\MaintenanceSlaBreachedNotification;
+use App\Notifications\TenantRequestSlaBreachedNotification;
 use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Support\Facades\Notification;
 
@@ -30,11 +30,11 @@ it('alerts on a breached request and stamps sla_breach_notified_at', function ()
         'target_resolution_at' => now()->subHours(3),
     ]);
 
-    $this->artisan('maintenance:scan-sla-breaches')
+    $this->artisan('requests:scan-sla-breaches')
         ->expectsOutputToContain('Alerted on 1 of 1 breach')
         ->assertExitCode(0);
 
-    Notification::assertSentTo($this->manager, MaintenanceSlaBreachedNotification::class);
+    Notification::assertSentTo($this->manager, TenantRequestSlaBreachedNotification::class);
     expect($request->fresh()->sla_breach_notified_at)->not->toBeNull();
 });
 
@@ -55,7 +55,7 @@ it('does not re-alert a request that was already notified', function () {
         'sla_breach_notified_at' => now()->subHours(1),
     ]);
 
-    $this->artisan('maintenance:scan-sla-breaches')
+    $this->artisan('requests:scan-sla-breaches')
         ->expectsOutputToContain('No new SLA breaches.')
         ->assertExitCode(0);
 
@@ -78,7 +78,7 @@ it('--dry-run does not write or notify', function () {
         'target_resolution_at' => now()->subHours(1),
     ]);
 
-    $this->artisan('maintenance:scan-sla-breaches --dry-run')
+    $this->artisan('requests:scan-sla-breaches --dry-run')
         ->expectsOutputToContain('Would alert on 1 breach')
         ->assertExitCode(0);
 
@@ -103,7 +103,7 @@ it('skips closed/resolved/cancelled requests even if past the target', function 
         'resolved_at' => now()->subHours(1),
     ]);
 
-    $this->artisan('maintenance:scan-sla-breaches')
+    $this->artisan('requests:scan-sla-breaches')
         ->expectsOutputToContain('No new SLA breaches.')
         ->assertExitCode(0);
 

@@ -1,7 +1,7 @@
 <?php
 
 use App\Filament\Admin\RelationManagers\TenantLeasesRelationManager;
-use App\Filament\Admin\RelationManagers\TenantMaintenanceRelationManager;
+use App\Filament\Admin\RelationManagers\TenantRequestsRelationManager;
 use App\Filament\Admin\RelationManagers\TenantPaymentsRelationManager;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Filament\Admin\Resources\Tenants\Pages\EditTenant;
@@ -70,14 +70,14 @@ it('TenantLeasesRelationManager lists only leases in the visible property', func
         ->assertCanNotSeeTableRecords([$this->leaseB]);
 });
 
-it('TenantMaintenanceRelationManager lists only requests in the visible property', function () {
+it('TenantRequestsRelationManager lists only requests in the visible property', function () {
     $reqA = makeTenantRequestFor($this->unitA, $this->tenant);
     $reqB = makeTenantRequestFor($this->unitB, $this->tenant);
 
     // asTenant provides the {tenant} route param the RM's "open" row-action URL needs
     // (visibleAssetIds() stays [A] for the restricted manager regardless).
     asTenant($this->a, function () use ($reqA, $reqB) {
-        Livewire::test(TenantMaintenanceRelationManager::class, [
+        Livewire::test(TenantRequestsRelationManager::class, [
             'ownerRecord' => $this->tenant,
             'pageClass' => EditTenant::class,
         ])

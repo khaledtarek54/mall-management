@@ -165,7 +165,7 @@ return [
         'maintenance' => [
             'heading' => 'لا توجد طلبات صيانة',
             'description' => 'حين يبلّغ المستأجر عن مشكلة من بوابته — أو تُسجلها أنت — تظهر هنا للمراجعة والتوزيع.',
-            'cta' => 'سجّل طلب صيانة',
+            'cta' => 'سجّل طلبًا',
         ],
         'tenant_sales' => [
             'heading' => 'لا توجد إقرارات مبيعات بعد',
@@ -341,7 +341,7 @@ return [
         'owner_request' => ['singular' => 'طلب مالك', 'plural' => 'طلبات الملاك'],
         'role' => ['singular' => 'دور', 'plural' => 'الأدوار والصلاحيات'],
         'user' => ['singular' => 'مستخدم', 'plural' => 'المستخدمون'],
-        'maintenance_request' => ['singular' => 'طلب', 'plural' => 'الطلبات'],
+        'tenant_request' => ['singular' => 'طلب', 'plural' => 'الطلبات'],
         'tenant_sales' => ['singular' => 'إقرار مبيعات', 'plural' => 'إقرارات مبيعات المستأجرين'],
         'cam_pool' => ['singular' => 'مجمع مصروفات', 'plural' => 'تسوية المصروفات المشتركة'],
         'cam_allocation' => ['singular' => 'تخصيص نفقات مشتركة', 'plural' => 'مصاريف المناطق المشتركة'],
@@ -1417,7 +1417,7 @@ return [
             'inactive' => 'غير نشط',
             'blacklisted' => 'محظور',
         ],
-        'maintenance_request' => [
+        'tenant_request' => [
             'submitted' => 'مُقدَّم',
             'acknowledged' => 'تم الاستلام',
             'in_progress' => 'قيد التنفيذ',

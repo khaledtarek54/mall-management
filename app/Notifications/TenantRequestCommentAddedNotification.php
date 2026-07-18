@@ -21,7 +21,7 @@ use Illuminate\Support\Str;
  *
  * Internal staff-only notes never trigger this; the service guards on that.
  */
-class MaintenanceCommentAddedNotification extends Notification
+class TenantRequestCommentAddedNotification extends Notification
 {
     use Queueable;
 

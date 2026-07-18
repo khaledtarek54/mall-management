@@ -9,7 +9,7 @@
 | Here we lock down the OPERATIONS group — the resources a manager/operations
 | user touches day to day:
 |
-|   - MaintenanceRequest (TenantRequest, chain via unit)  → assertUnitAssetInScope
+|   - TenantRequest (TenantRequest, chain via unit)  → assertUnitAssetInScope
 |   - CamExpensePool      (direct asset_id)               → assertAssetInScope
 |   - UtilityMeter        (direct asset_id)               → assertAssetInScope
 |   - MarketingBudget     (direct asset_id, NO write guard — asset_id form field is
@@ -29,7 +29,7 @@
 */
 
 use App\Filament\Admin\Resources\CamExpensePools\CamExpensePoolResource;
-use App\Filament\Admin\Resources\MaintenanceRequests\MaintenanceRequestResource;
+use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Filament\Admin\Resources\MarketingBudgets\MarketingBudgetResource;
 use App\Filament\Admin\Resources\UtilityMeters\UtilityMeterResource;
 use App\Models\Asset;
@@ -53,12 +53,12 @@ beforeEach(function () {
     $this->unitA = makeUnit($this->a, ['code' => 'A-OPS-01']);
     $this->unitB = makeUnit($this->b, ['code' => 'B-OPS-01']);
 
-    // --- MaintenanceRequest (TenantRequest via unit chain) ---
-    $this->mrA = makeMaintenanceRequest([
+    // --- TenantRequest (TenantRequest via unit chain) ---
+    $this->mrA = makeTenantRequest([
         'reference' => 'MR-OPSA',
         'unit_id' => $this->unitA->id,
     ]);
-    $this->mrB = makeMaintenanceRequest([
+    $this->mrB = makeTenantRequest([
         'reference' => 'MR-OPSB',
         'unit_id' => $this->unitB->id,
     ]);
@@ -113,7 +113,7 @@ describe('read-scope: a manager assigned only to property A', function () {
         $this->actingAs(makeUser('manager', [$this->a->id]));
 
         asTenant($this->a, function () {
-            $ids = scopedResourceQuery(MaintenanceRequestResource::class)->pluck('id')->all();
+            $ids = scopedResourceQuery(TenantRequestResource::class)->pluck('id')->all();
             expect($ids)->toContain($this->mrA->id)->not->toContain($this->mrB->id);
         });
     });
@@ -155,7 +155,7 @@ describe('all-properties mode', function () {
         $this->actingAs(makeUser('super_admin'));
 
         asTenant($this->all, function () {
-            $mr = scopedResourceQuery(MaintenanceRequestResource::class)->pluck('id')->all();
+            $mr = scopedResourceQuery(TenantRequestResource::class)->pluck('id')->all();
             expect($mr)->toContain($this->mrA->id)->toContain($this->mrB->id);
 
             $cam = scopedResourceQuery(CamExpensePoolResource::class)->pluck('id')->all();
@@ -173,8 +173,8 @@ describe('all-properties mode', function () {
         $this->actingAs(makeUser('manager', [$this->a->id]));
 
         asTenant($this->all, function () {
-            // MaintenanceRequest — chain scoping via ScopesViaProperty::getEloquentQuery.
-            $mr = scopedResourceQuery(MaintenanceRequestResource::class)->pluck('id')->all();
+            // TenantRequest — chain scoping via ScopesViaProperty::getEloquentQuery.
+            $mr = scopedResourceQuery(TenantRequestResource::class)->pluck('id')->all();
             expect($mr)->toContain($this->mrA->id)->not->toContain($this->mrB->id);
 
             // Direct-FK resources — scoping via BypassesScopingOnAll::scopeEloquentQueryToTenant.
@@ -201,19 +201,19 @@ describe('all-properties mode', function () {
  ========================================================================= */
 
 describe('write-guard for a manager assigned only to property A', function () {
-    it('MaintenanceRequest.assertUnitAssetInScope allows A unit, rejects B unit + null', function () {
+    it('TenantRequest.assertUnitAssetInScope allows A unit, rejects B unit + null', function () {
         $this->actingAs(makeUser('manager', [$this->a->id]));
 
         // In-scope unit → no throw.
-        MaintenanceRequestResource::assertUnitAssetInScope($this->unitA->id);
+        TenantRequestResource::assertUnitAssetInScope($this->unitA->id);
         expect(true)->toBeTrue();
 
         // B's unit → the unit resolves to property B → 403.
-        expect(fn () => MaintenanceRequestResource::assertUnitAssetInScope($this->unitB->id))
+        expect(fn () => TenantRequestResource::assertUnitAssetInScope($this->unitB->id))
             ->toThrow(HttpException::class);
 
         // A null/unknown unit resolves to a null asset → a restricted user is blocked.
-        expect(fn () => MaintenanceRequestResource::assertUnitAssetInScope(null))
+        expect(fn () => TenantRequestResource::assertUnitAssetInScope(null))
             ->toThrow(HttpException::class);
     });
 
@@ -247,7 +247,7 @@ describe('write-guard for a manager assigned only to property A', function () {
         $this->actingAs(makeUser('super_admin'));
 
         // No property constraint → every asset/unit is in scope, including null.
-        MaintenanceRequestResource::assertUnitAssetInScope($this->unitB->id);
+        TenantRequestResource::assertUnitAssetInScope($this->unitB->id);
         CamExpensePoolResource::assertAssetInScope($this->b->id);
         CamExpensePoolResource::assertAssetInScope(null);
         UtilityMeterResource::assertAssetInScope($this->b->id);

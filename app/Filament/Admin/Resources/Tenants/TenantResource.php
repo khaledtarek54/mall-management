@@ -5,7 +5,7 @@ namespace App\Filament\Admin\Resources\Tenants;
 use App\Filament\Admin\RelationManagers\ActivitiesRelationManager;
 use App\Filament\Admin\RelationManagers\PortalUsersRelationManager;
 use App\Filament\Admin\RelationManagers\TenantLeasesRelationManager;
-use App\Filament\Admin\RelationManagers\TenantMaintenanceRelationManager;
+use App\Filament\Admin\RelationManagers\TenantRequestsRelationManager;
 use App\Filament\Admin\RelationManagers\TenantNotesRelationManager;
 use App\Filament\Admin\RelationManagers\TenantPaymentsRelationManager;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
@@ -107,7 +107,7 @@ class TenantResource extends Resource
             PortalUsersRelationManager::class,
             TenantLeasesRelationManager::class,
             TenantPaymentsRelationManager::class,
-            TenantMaintenanceRelationManager::class,
+            TenantRequestsRelationManager::class,
             TenantNotesRelationManager::class,
             ActivitiesRelationManager::class,
         ];

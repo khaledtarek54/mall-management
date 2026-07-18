@@ -163,9 +163,9 @@ return [
             'cta' => 'Add a vendor',
         ],
         'maintenance' => [
-            'heading' => 'No maintenance requests',
+            'heading' => 'No requests',
             'description' => 'When a tenant reports an issue from the portal — or you log one yourself — it lands here for triage.',
-            'cta' => 'Log a maintenance request',
+            'cta' => 'Log a request',
         ],
         'tenant_sales' => [
             'heading' => 'No sales declarations yet',
@@ -341,7 +341,7 @@ return [
         'owner_request' => ['singular' => 'Owner Request', 'plural' => 'Owner Requests'],
         'role' => ['singular' => 'Role', 'plural' => 'Roles & Permissions'],
         'user' => ['singular' => 'User', 'plural' => 'Users'],
-        'maintenance_request' => ['singular' => 'Request', 'plural' => 'Requests'],
+        'tenant_request' => ['singular' => 'Request', 'plural' => 'Requests'],
         'tenant_sales' => ['singular' => 'Sales Declaration', 'plural' => 'Tenant Sales Declarations'],
         'cam_pool' => ['singular' => 'CAM Pool', 'plural' => 'CAM Reconciliation'],
         'cam_allocation' => ['singular' => 'CAM Allocation', 'plural' => 'Common Area Charges'],
@@ -497,7 +497,7 @@ return [
 
         'portal_open_maintenance' => [
             'heading' => 'My Open Requests',
-            'empty' => 'No open maintenance requests.',
+            'empty' => 'No open requests.',
         ],
 
         'account_balance' => [
@@ -1417,7 +1417,7 @@ return [
             'inactive' => 'Inactive',
             'blacklisted' => 'Blacklisted',
         ],
-        'maintenance_request' => [
+        'tenant_request' => [
             'submitted' => 'Submitted',
             'acknowledged' => 'Acknowledged',
             'in_progress' => 'In Progress',

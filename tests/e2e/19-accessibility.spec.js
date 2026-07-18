@@ -51,13 +51,13 @@ test.describe('Accessibility (axe WCAG 2.1 A/AA)', () => {
     });
 
     test('requests list — no critical violations', async ({ page }) => {
-      const critical = await audit(page, '/admin/maintenance-requests');
+      const critical = await audit(page, '/admin/requests');
       expect(critical.map((v) => v.id)).toEqual([]);
     });
 
     // Forms are where a11y issues cluster (unlabeled inputs, ARIA misuse).
     test('request create form — no critical violations', async ({ page }) => {
-      const critical = await audit(page, '/admin/maintenance-requests/create');
+      const critical = await audit(page, '/admin/requests/create');
       expect(critical.map((v) => v.id)).toEqual([]);
     });
   });

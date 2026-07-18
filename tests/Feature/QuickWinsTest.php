@@ -7,7 +7,7 @@ it('stores a tenant commercial register number (TEN-1)', function () {
 });
 
 it('stores a scheduled work window on a maintenance request (REQ-1)', function () {
-    $req = makeMaintenanceRequest([
+    $req = makeTenantRequest([
         'scheduled_from' => '2026-07-01 09:00:00',
         'scheduled_to' => '2026-07-01 12:00:00',
     ])->fresh();

@@ -33,8 +33,8 @@ use App\Models\TenantRequest;
 use App\Models\TenantSalesDeclaration;
 use App\Models\TenantUser;
 use App\Notifications\InvoiceIssuedNotification;
-use App\Notifications\MaintenanceCommentAddedNotification;
-use App\Notifications\MaintenanceStatusChangedNotification;
+use App\Notifications\TenantRequestCommentAddedNotification;
+use App\Notifications\TenantRequestStatusChangedNotification;
 use App\Notifications\PaymentReceivedNotification;
 use App\Notifications\SalesDeclarationLockedNotification;
 use App\Services\MonthlyBillingService;
@@ -224,7 +224,7 @@ it('the payment-received toDatabase payload carries the success-tagged bell entr
 // MAINTENANCE STATUS CHANGE — notifyPortal fan-out + scoping + payload
 // ============================================================================
 
-function notifMaintenanceRequest(array $attrs = []): TenantRequest
+function notifTenantRequest(array $attrs = []): TenantRequest
 {
     return TenantRequest::create(array_merge([
         'reference' => 'MR-'.uniqid(),
@@ -241,27 +241,27 @@ function notifMaintenanceRequest(array $attrs = []): TenantRequest
 
 it('a maintenance status change fans to the tenant AND every portal user, not an unrelated tenant', function () {
     Notification::fake();
-    $request = notifMaintenanceRequest();
+    $request = notifTenantRequest();
 
     app(TenantRequestService::class)->transition($request, 'acknowledged');
 
-    Notification::assertSentTo($this->tenant, MaintenanceStatusChangedNotification::class);
-    Notification::assertSentTo($this->portalA, MaintenanceStatusChangedNotification::class);
-    Notification::assertSentTo($this->portalB, MaintenanceStatusChangedNotification::class);
+    Notification::assertSentTo($this->tenant, TenantRequestStatusChangedNotification::class);
+    Notification::assertSentTo($this->portalA, TenantRequestStatusChangedNotification::class);
+    Notification::assertSentTo($this->portalB, TenantRequestStatusChangedNotification::class);
 
     // Scoping: the unrelated tenant's surfaces stay silent.
-    Notification::assertNotSentTo($this->otherTenant, MaintenanceStatusChangedNotification::class);
-    Notification::assertNotSentTo($this->otherPortal, MaintenanceStatusChangedNotification::class);
+    Notification::assertNotSentTo($this->otherTenant, TenantRequestStatusChangedNotification::class);
+    Notification::assertNotSentTo($this->otherPortal, TenantRequestStatusChangedNotification::class);
 });
 
 it('the maintenance status toDatabase payload reflects the new status with the right title/color/icon', function () {
-    $request = notifMaintenanceRequest(['status' => 'submitted']);
+    $request = notifTenantRequest(['status' => 'submitted']);
 
     // Drive a real transition so the notification sees the post-update record.
     app(TenantRequestService::class)->transition($request, 'in_progress');
     $request->refresh();
 
-    $payload = (new MaintenanceStatusChangedNotification($request, 'submitted'))
+    $payload = (new TenantRequestStatusChangedNotification($request, 'submitted'))
         ->toDatabase($this->portalA);
 
     expect($payload['type'])->toBe('maintenance_status_changed')
@@ -275,11 +275,11 @@ it('the maintenance status toDatabase payload reflects the new status with the r
 });
 
 it('the maintenance status body humanises the new status label', function () {
-    $request = notifMaintenanceRequest(['status' => 'submitted']);
+    $request = notifTenantRequest(['status' => 'submitted']);
     app(TenantRequestService::class)->transition($request, 'in_progress');
     $request->refresh();
 
-    $payload = (new MaintenanceStatusChangedNotification($request, 'submitted'))
+    $payload = (new TenantRequestStatusChangedNotification($request, 'submitted'))
         ->toDatabase($this->portalA);
 
     // The bell body should read the human "In Progress" label, not a raw key.
@@ -288,7 +288,7 @@ it('the maintenance status body humanises the new status label', function () {
 
 it('a resolved transition payload flips to the success colour + check icon', function () {
     // submitted → in_progress → resolved is the legal route to resolved.
-    $request = notifMaintenanceRequest(['status' => 'in_progress']);
+    $request = notifTenantRequest(['status' => 'in_progress']);
 
     // FR-USR-06 — evidence before resolution.
     $request->addMediaFromString('proof')->usingFileName('done.jpg')->toMediaCollection('attachments');
@@ -297,7 +297,7 @@ it('a resolved transition payload flips to the success colour + check icon', fun
         ->transition($request, 'resolved', ['resolution_notes' => 'Compressor replaced']);
     $request->refresh();
 
-    $payload = (new MaintenanceStatusChangedNotification($request, 'in_progress'))
+    $payload = (new TenantRequestStatusChangedNotification($request, 'in_progress'))
         ->toDatabase($this->tenant);
 
     expect($payload['status'])->toBe('resolved')
@@ -311,28 +311,28 @@ it('a resolved transition payload flips to the success colour + check icon', fun
 
 it('a STAFF comment fans to the tenant AND every portal user (mail+database surface)', function () {
     Notification::fake();
-    $request = notifMaintenanceRequest(['status' => 'in_progress']);
+    $request = notifTenantRequest(['status' => 'in_progress']);
 
     app(TenantRequestService::class)
         ->comment($request, $this->operator, 'On our way', isInternal: false);
 
-    Notification::assertSentTo($this->tenant, MaintenanceCommentAddedNotification::class);
-    Notification::assertSentTo($this->portalA, MaintenanceCommentAddedNotification::class);
-    Notification::assertSentTo($this->portalB, MaintenanceCommentAddedNotification::class);
+    Notification::assertSentTo($this->tenant, TenantRequestCommentAddedNotification::class);
+    Notification::assertSentTo($this->portalA, TenantRequestCommentAddedNotification::class);
+    Notification::assertSentTo($this->portalB, TenantRequestCommentAddedNotification::class);
 
     // The operator who authored it is not pinged about their own comment.
-    Notification::assertNotSentTo($this->operator, MaintenanceCommentAddedNotification::class);
+    Notification::assertNotSentTo($this->operator, TenantRequestCommentAddedNotification::class);
     // And an unrelated tenant is never in scope.
-    Notification::assertNotSentTo($this->otherTenant, MaintenanceCommentAddedNotification::class);
+    Notification::assertNotSentTo($this->otherTenant, TenantRequestCommentAddedNotification::class);
 });
 
 it('the staff-comment toDatabase payload (tenant recipient) carries the tenant-facing copy', function () {
-    $request = notifMaintenanceRequest(['status' => 'in_progress']);
+    $request = notifTenantRequest(['status' => 'in_progress']);
     $comment = app(TenantRequestService::class)
         ->comment($request, $this->operator, 'Technician dispatched', isInternal: false);
 
     // Tenant-facing branch of toDatabase().
-    $payload = (new MaintenanceCommentAddedNotification($request, $comment))
+    $payload = (new TenantRequestCommentAddedNotification($request, $comment))
         ->toDatabase($this->tenant);
 
     expect($payload['type'])->toBe('maintenance_comment_added')
@@ -342,26 +342,26 @@ it('the staff-comment toDatabase payload (tenant recipient) carries the tenant-f
         ->and($payload['color'])->toBe('primary');
 
     // via() for a Tenant uses mail + database + push.
-    expect((new MaintenanceCommentAddedNotification($request, $comment))->via($this->tenant))
+    expect((new TenantRequestCommentAddedNotification($request, $comment))->via($this->tenant))
         ->toBe(['mail', 'database', 'push']);
 });
 
 it('a TENANT comment notifies staff over database-only, with the staff-facing payload', function () {
     Notification::fake();
-    $request = notifMaintenanceRequest(['status' => 'submitted']);
+    $request = notifTenantRequest(['status' => 'submitted']);
 
     app(TenantRequestService::class)
         ->comment($request, $this->tenant, 'Any update?', isInternal: false);
 
     // Staff bell entry — the assigned operator receives it.
-    Notification::assertSentTo($this->operator, MaintenanceCommentAddedNotification::class);
+    Notification::assertSentTo($this->operator, TenantRequestCommentAddedNotification::class);
     // The tenant who authored it is NOT pinged back (their own comment).
-    Notification::assertNotSentTo($this->tenant, MaintenanceCommentAddedNotification::class);
-    Notification::assertNotSentTo($this->portalA, MaintenanceCommentAddedNotification::class);
+    Notification::assertNotSentTo($this->tenant, TenantRequestCommentAddedNotification::class);
+    Notification::assertNotSentTo($this->portalA, TenantRequestCommentAddedNotification::class);
 
     // Staff branch: database-only channel + staff-facing copy.
     $comment = $request->comments()->latest('id')->first();
-    $notification = new MaintenanceCommentAddedNotification($request, $comment);
+    $notification = new TenantRequestCommentAddedNotification($request, $comment);
 
     expect($notification->via($this->operator))->toBe(['database']);
 
@@ -377,7 +377,7 @@ it('a TENANT comment notifies staff over database-only, with the staff-facing pa
 
 it('an internal staff note fans out to NO ONE on either side', function () {
     Notification::fake();
-    $request = notifMaintenanceRequest(['status' => 'in_progress']);
+    $request = notifTenantRequest(['status' => 'in_progress']);
 
     app(TenantRequestService::class)
         ->comment($request, $this->operator, 'Waiting on parts', isInternal: true);

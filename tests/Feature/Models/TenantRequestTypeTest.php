@@ -37,13 +37,13 @@ it('carries per-type intake config', function () {
 });
 
 it('defaults every existing maintenance request to the maintenance type', function () {
-    $request = makeMaintenanceRequest();
+    $request = makeTenantRequest();
 
     expect($request->fresh()->request_type)->toBe(TenantRequestType::Maintenance);
 });
 
 it('persists and casts a non-maintenance request type', function () {
-    $request = makeMaintenanceRequest(['request_type' => 'complaint']);
+    $request = makeTenantRequest(['request_type' => 'complaint']);
 
     expect($request->fresh()->request_type)->toBe(TenantRequestType::Complaint);
 });

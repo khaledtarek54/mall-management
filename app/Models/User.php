@@ -127,7 +127,7 @@ class User extends Authenticatable implements FilamentUser, HasTenants
         return $assigned->concat($owned)->unique('id')->values();
     }
 
-    public function assignedMaintenanceRequests(): HasMany
+    public function assignedTenantRequests(): HasMany
     {
         return $this->hasMany(TenantRequest::class, 'assigned_to');
     }

@@ -18,7 +18,7 @@ use App\Filament\Admin\Resources\CreditNotes\CreditNoteResource;
 use App\Filament\Admin\Resources\Departments\DepartmentResource;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
-use App\Filament\Admin\Resources\MaintenanceRequests\MaintenanceRequestResource;
+use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Filament\Admin\Resources\MarketingBudgets\MarketingBudgetResource;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Filament\Admin\Resources\Tenants\TenantResource;
@@ -252,7 +252,7 @@ it('aligns each department-owned resource navigation group with its department n
         LeaseResource::class => 'Leasing',
         TenantResource::class => 'Leasing',
         UnitResource::class => 'Leasing',
-        MaintenanceRequestResource::class => 'Operations',
+        TenantRequestResource::class => 'Operations',
         UtilityMeterResource::class => 'Operations',
         MarketingBudgetResource::class => 'Marketing',
     ];

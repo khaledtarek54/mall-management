@@ -38,7 +38,7 @@ it('guards every non-public /api/v1 route with the tenant-api auth middleware', 
 it('rejects an unauthenticated request to a protected endpoint with 401', function () {
     $this->getJson('/api/v1/me')->assertUnauthorized();
     $this->getJson('/api/v1/me/invoices')->assertUnauthorized();
-    $this->postJson('/api/v1/me/maintenance-requests', [])->assertUnauthorized();
+    $this->postJson('/api/v1/me/requests', [])->assertUnauthorized();
 });
 
 // ---------------------------------------------------------------------------
@@ -72,7 +72,7 @@ it('ignores a client-supplied tenant_id — the request belongs to the caller', 
     makeLease(makeUnit(makeAsset()), $caller);
     $victim = makeTenant();
 
-    $this->postJson('/api/v1/me/maintenance-requests', [
+    $this->postJson('/api/v1/me/requests', [
         'title' => 'Spoof attempt',
         'description' => 'Trying to file against another tenant.',
         'category' => 'electrical',
@@ -87,7 +87,7 @@ it('ignores client-supplied status/csat on create (no privilege mass-assignment)
     $caller = makeTenant();
     makeLease(makeUnit(makeAsset()), $caller);
 
-    $response = $this->postJson('/api/v1/me/maintenance-requests', [
+    $response = $this->postJson('/api/v1/me/requests', [
         'title' => 'Mass-assign attempt',
         'description' => 'Trying to open it pre-resolved + pre-rated.',
         'category' => 'plumbing',

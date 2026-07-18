@@ -70,11 +70,11 @@
                 }
             }
         },
-        "/v1/me/maintenance-requests/{id}/cancel": {
+        "/v1/me/requests/{id}/cancel": {
             "post": {
-                "operationId": "v1.me.maintenance.cancel",
+                "operationId": "v1.me.requests.cancel",
                 "tags": [
-                    "CancelMaintenanceRequest"
+                    "CancelTenantRequest"
                 ],
                 "parameters": [
                     {
@@ -95,7 +95,7 @@
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/components/schemas/MaintenanceRequestResource"
+                                            "$ref": "#/components/schemas/TenantRequestResource"
                                         },
                                         "message": {
                                             "type": "string",
@@ -165,11 +165,11 @@
                 }
             }
         },
-        "/v1/me/maintenance-requests/{id}/comments": {
+        "/v1/me/requests/{id}/comments": {
             "post": {
-                "operationId": "v1.me.maintenance.comment",
+                "operationId": "v1.me.requests.comment",
                 "tags": [
-                    "CommentMaintenanceRequest"
+                    "CommentTenantRequest"
                 ],
                 "parameters": [
                     {
@@ -186,7 +186,7 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "$ref": "#/components/schemas/CommentMaintenanceRequestRequest"
+                                "$ref": "#/components/schemas/CommentTenantRequestRequest"
                             }
                         }
                     }
@@ -200,7 +200,7 @@
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/components/schemas/MaintenanceRequestCommentResource"
+                                            "$ref": "#/components/schemas/TenantRequestCommentResource"
                                         },
                                         "message": {
                                             "type": "string",
@@ -220,87 +220,6 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationException"
-                    }
-                }
-            }
-        },
-        "/v1/me/maintenance-requests": {
-            "post": {
-                "operationId": "v1.me.maintenance.store",
-                "tags": [
-                    "CreateMaintenanceRequest"
-                ],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "multipart/form-data": {
-                            "schema": {
-                                "$ref": "#/components/schemas/CreateMaintenanceRequestRequest"
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "201": {
-                        "description": "",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/components/schemas/MaintenanceRequestResource"
-                                        },
-                                        "message": {
-                                            "type": "string",
-                                            "const": "Maintenance request submitted."
-                                        }
-                                    },
-                                    "required": [
-                                        "data",
-                                        "message"
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
-                    },
-                    "422": {
-                        "$ref": "#/components/responses/ValidationException"
-                    }
-                }
-            },
-            "get": {
-                "operationId": "v1.me.maintenance.index",
-                "tags": [
-                    "ListMaintenanceRequests"
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Array of `MaintenanceRequestResource`",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/components/schemas/MaintenanceRequestResource"
-                                            }
-                                        }
-                                    },
-                                    "required": [
-                                        "data"
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
                     }
                 }
             }
@@ -370,6 +289,87 @@
                                             "type": "array",
                                             "items": {
                                                 "$ref": "#/components/schemas/TenantSalesDeclarationResource"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/requests": {
+            "post": {
+                "operationId": "v1.me.requests.store",
+                "tags": [
+                    "CreateTenantRequest"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreateTenantRequestRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/TenantRequestResource"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "const": "Maintenance request submitted."
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            },
+            "get": {
+                "operationId": "v1.me.requests.index",
+                "tags": [
+                    "ListTenantRequests"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Array of `TenantRequestResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/TenantRequestResource"
                                             }
                                         }
                                     },
@@ -1266,11 +1266,11 @@
                 }
             }
         },
-        "/v1/me/maintenance-requests/{id}/rate": {
+        "/v1/me/requests/{id}/rate": {
             "post": {
-                "operationId": "v1.me.maintenance.rate",
+                "operationId": "v1.me.requests.rate",
                 "tags": [
-                    "RateMaintenanceRequest"
+                    "RateTenantRequest"
                 ],
                 "parameters": [
                     {
@@ -1287,7 +1287,7 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "$ref": "#/components/schemas/RateMaintenanceRequestRequest"
+                                "$ref": "#/components/schemas/RateTenantRequestRequest"
                             }
                         }
                     }
@@ -1301,7 +1301,7 @@
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/components/schemas/MaintenanceRequestResource"
+                                            "$ref": "#/components/schemas/TenantRequestResource"
                                         },
                                         "message": {
                                             "type": "string",
@@ -1505,91 +1505,6 @@
                 }
             }
         },
-        "/v1/me/maintenance-requests/{id}/attachments/{media}": {
-            "get": {
-                "operationId": "v1.me.maintenance.attachment",
-                "tags": [
-                    "ShowMaintenanceAttachment"
-                ],
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    },
-                    {
-                        "name": "media",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "$ref": "#/components/responses/ModelNotFoundException"
-                    },
-                    "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
-                    }
-                }
-            }
-        },
-        "/v1/me/maintenance-requests/{id}": {
-            "get": {
-                "operationId": "v1.me.maintenance.show",
-                "tags": [
-                    "ShowMaintenanceRequest"
-                ],
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "`MaintenanceRequestResource`",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/components/schemas/MaintenanceRequestResource"
-                                        }
-                                    },
-                                    "required": [
-                                        "data"
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
-                    }
-                }
-            }
-        },
         "/v1/me/payments/{id}": {
             "get": {
                 "operationId": "v1.me.payments.show",
@@ -1754,6 +1669,91 @@
                 "operationId": "v1.me.sales.attachment",
                 "tags": [
                     "ShowSalesDeclarationAttachment"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "media",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/requests/{id}": {
+            "get": {
+                "operationId": "v1.me.requests.show",
+                "tags": [
+                    "ShowTenantRequest"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "`TenantRequestResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/TenantRequestResource"
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/requests/{id}/attachments/{media}": {
+            "get": {
+                "operationId": "v1.me.requests.attachment",
+                "tags": [
+                    "ShowTenantRequestAttachment"
                 ],
                 "parameters": [
                     {
@@ -2026,7 +2026,7 @@
                 ],
                 "title": "ChangePasswordRequest"
             },
-            "CommentMaintenanceRequestRequest": {
+            "CommentTenantRequestRequest": {
                 "type": "object",
                 "properties": {
                     "body": {
@@ -2037,9 +2037,45 @@
                 "required": [
                     "body"
                 ],
-                "title": "CommentMaintenanceRequestRequest"
+                "title": "CommentTenantRequestRequest"
             },
-            "CreateMaintenanceRequestRequest": {
+            "CreateSalesDeclarationRequest": {
+                "type": "object",
+                "properties": {
+                    "leaseId": {
+                        "type": "integer",
+                        "description": "Lease must belong to this tenant. The percentage-rent check and\nduplicate-period check carry richer messages and live in the\naction; here we just establish ownership."
+                    },
+                    "periodStart": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "periodEnd": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "attachments": {
+                        "type": "array",
+                        "description": "The tenant no longer types a figure \u2014 they attach their sales\nreport and staff read the number off it, then lock to bill the\npercentage rent. At least one file is required. Mirrors the\nmaintenance upload (images + PDF, \u226410 MB each, \u22645 files). Using\nmimetypes (not mimes) validates the real content type, so a\nrenamed .mp4 can't slip through as a .jpg.",
+                        "items": {
+                            "type": "string",
+                            "format": "binary",
+                            "contentMediaType": "application/octet-stream",
+                            "maxLength": 10240
+                        },
+                        "minItems": 1,
+                        "maxItems": 5
+                    }
+                },
+                "required": [
+                    "leaseId",
+                    "periodStart",
+                    "periodEnd",
+                    "attachments"
+                ],
+                "title": "CreateSalesDeclarationRequest"
+            },
+            "CreateTenantRequestRequest": {
                 "type": "object",
                 "properties": {
                     "requestType": {
@@ -2051,6 +2087,7 @@
                             "access",
                             "billing",
                             "document",
+                            "permit",
                             "other"
                         ]
                     },
@@ -2102,43 +2139,7 @@
                     "description",
                     "category"
                 ],
-                "title": "CreateMaintenanceRequestRequest"
-            },
-            "CreateSalesDeclarationRequest": {
-                "type": "object",
-                "properties": {
-                    "leaseId": {
-                        "type": "integer",
-                        "description": "Lease must belong to this tenant. The percentage-rent check and\nduplicate-period check carry richer messages and live in the\naction; here we just establish ownership."
-                    },
-                    "periodStart": {
-                        "type": "string",
-                        "format": "date-time"
-                    },
-                    "periodEnd": {
-                        "type": "string",
-                        "format": "date-time"
-                    },
-                    "attachments": {
-                        "type": "array",
-                        "description": "The tenant no longer types a figure \u2014 they attach their sales\nreport and staff read the number off it, then lock to bill the\npercentage rent. At least one file is required. Mirrors the\nmaintenance upload (images + PDF, \u226410 MB each, \u22645 files). Using\nmimetypes (not mimes) validates the real content type, so a\nrenamed .mp4 can't slip through as a .jpg.",
-                        "items": {
-                            "type": "string",
-                            "format": "binary",
-                            "contentMediaType": "application/octet-stream",
-                            "maxLength": 10240
-                        },
-                        "minItems": 1,
-                        "maxItems": 5
-                    }
-                },
-                "required": [
-                    "leaseId",
-                    "periodStart",
-                    "periodEnd",
-                    "attachments"
-                ],
-                "title": "CreateSalesDeclarationRequest"
+                "title": "CreateTenantRequestRequest"
             },
             "CreditNoteResource": {
                 "type": "object",
@@ -2623,218 +2624,6 @@
                 ],
                 "title": "LoginRequest"
             },
-            "MaintenanceRequestCommentResource": {
-                "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "integer"
-                    },
-                    "body": {
-                        "type": "string"
-                    },
-                    "authorKind": {
-                        "type": "string",
-                        "enum": [
-                            "tenant",
-                            "staff"
-                        ]
-                    },
-                    "authorName": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "string",
-                                "enum": [
-                                    "Property team"
-                                ]
-                            }
-                        ]
-                    },
-                    "createdAt": {
-                        "type": "string"
-                    }
-                },
-                "required": [
-                    "id",
-                    "body",
-                    "authorKind",
-                    "authorName",
-                    "createdAt"
-                ],
-                "title": "MaintenanceRequestCommentResource"
-            },
-            "MaintenanceRequestResource": {
-                "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "integer"
-                    },
-                    "reference": {
-                        "type": "string"
-                    },
-                    "requestType": {
-                        "type": "string"
-                    },
-                    "title": {
-                        "type": "string"
-                    },
-                    "description": {
-                        "type": "string"
-                    },
-                    "status": {
-                        "type": "string"
-                    },
-                    "priority": {
-                        "type": "string"
-                    },
-                    "category": {
-                        "type": [
-                            "string",
-                            "null"
-                        ],
-                        "description": "The type's sub-category (electrical, parking, lease_copy\u2026); null\nfor types that have none (inquiry, billing query)."
-                    },
-                    "channel": {
-                        "type": "string"
-                    },
-                    "isOpen": {
-                        "type": "boolean"
-                    },
-                    "isOverdue": {
-                        "type": "boolean"
-                    },
-                    "canCancel": {
-                        "type": "boolean",
-                        "description": "Whether the tenant may still cancel \u2014 true only before staff\nstart work. Mirrors the cancel endpoint's guard so the app can\nshow/hide the button without a round-trip."
-                    },
-                    "canRate": {
-                        "type": "boolean",
-                        "description": "Whether the tenant can submit a satisfaction rating \u2014 true once the\nrequest is resolved/closed. Mirrors the rate endpoint's guard."
-                    },
-                    "csatRating": {
-                        "type": [
-                            "integer",
-                            "null"
-                        ]
-                    },
-                    "csatComment": {
-                        "type": [
-                            "string",
-                            "null"
-                        ]
-                    },
-                    "submittedAt": {
-                        "type": "string"
-                    },
-                    "acknowledgedAt": {
-                        "type": "string"
-                    },
-                    "resolvedAt": {
-                        "type": "string"
-                    },
-                    "closedAt": {
-                        "type": "string"
-                    },
-                    "targetResolutionAt": {
-                        "type": "string"
-                    },
-                    "resolutionNotes": {
-                        "type": [
-                            "string",
-                            "null"
-                        ]
-                    },
-                    "unit": {
-                        "type": [
-                            "object",
-                            "null"
-                        ],
-                        "properties": {
-                            "id": {
-                                "type": "integer"
-                            },
-                            "code": {
-                                "type": "string"
-                            },
-                            "floor": {
-                                "type": [
-                                    "string",
-                                    "null"
-                                ]
-                            }
-                        },
-                        "required": [
-                            "id",
-                            "code",
-                            "floor"
-                        ]
-                    },
-                    "comments": {
-                        "type": "array",
-                        "items": {
-                            "$ref": "#/components/schemas/MaintenanceRequestCommentResource"
-                        }
-                    },
-                    "attachments": {
-                        "type": "array",
-                        "description": "Attachments uploaded by tenant or staff (Spatie media library,\n`attachments` collection). Absolute URLs so the app can render\nimages / open PDFs directly. Only images + PDF are accepted on\nupload, so the app never receives a type it can't preview.",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "id": {
-                                    "type": "string"
-                                },
-                                "name": {
-                                    "type": "string"
-                                },
-                                "mimeType": {
-                                    "type": "string"
-                                },
-                                "size": {
-                                    "type": "string"
-                                },
-                                "url": {
-                                    "type": "string",
-                                    "description": "Authenticated, tenant-scoped stream \u2014 NOT a public URL (H2)."
-                                }
-                            },
-                            "required": [
-                                "id",
-                                "name",
-                                "mimeType",
-                                "size",
-                                "url"
-                            ]
-                        }
-                    }
-                },
-                "required": [
-                    "id",
-                    "reference",
-                    "requestType",
-                    "title",
-                    "description",
-                    "status",
-                    "priority",
-                    "category",
-                    "channel",
-                    "isOpen",
-                    "isOverdue",
-                    "canCancel",
-                    "canRate",
-                    "csatRating",
-                    "csatComment",
-                    "submittedAt",
-                    "acknowledgedAt",
-                    "resolvedAt",
-                    "closedAt",
-                    "targetResolutionAt",
-                    "resolutionNotes"
-                ],
-                "title": "MaintenanceRequestResource"
-            },
             "NotificationResource": {
                 "type": "object",
                 "properties": {
@@ -2985,7 +2774,7 @@
                 ],
                 "title": "PaymobSessionResource"
             },
-            "RateMaintenanceRequestRequest": {
+            "RateTenantRequestRequest": {
                 "type": "object",
                 "properties": {
                     "rating": {
@@ -3004,7 +2793,7 @@
                 "required": [
                     "rating"
                 ],
-                "title": "RateMaintenanceRequestRequest"
+                "title": "RateTenantRequestRequest"
             },
             "RegisterDeviceRequest": {
                 "type": "object",
@@ -3058,6 +2847,218 @@
                     "passwordConfirmation"
                 ],
                 "title": "ResetPasswordRequest"
+            },
+            "TenantRequestCommentResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "body": {
+                        "type": "string"
+                    },
+                    "authorKind": {
+                        "type": "string",
+                        "enum": [
+                            "tenant",
+                            "staff"
+                        ]
+                    },
+                    "authorName": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "string",
+                                "enum": [
+                                    "Property team"
+                                ]
+                            }
+                        ]
+                    },
+                    "createdAt": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "body",
+                    "authorKind",
+                    "authorName",
+                    "createdAt"
+                ],
+                "title": "TenantRequestCommentResource"
+            },
+            "TenantRequestResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "reference": {
+                        "type": "string"
+                    },
+                    "requestType": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "priority": {
+                        "type": "string"
+                    },
+                    "category": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "The type's sub-category (electrical, parking, lease_copy\u2026); null\nfor types that have none (inquiry, billing query)."
+                    },
+                    "channel": {
+                        "type": "string"
+                    },
+                    "isOpen": {
+                        "type": "boolean"
+                    },
+                    "isOverdue": {
+                        "type": "boolean"
+                    },
+                    "canCancel": {
+                        "type": "boolean",
+                        "description": "Whether the tenant may still cancel \u2014 true only before staff\nstart work. Mirrors the cancel endpoint's guard so the app can\nshow/hide the button without a round-trip."
+                    },
+                    "canRate": {
+                        "type": "boolean",
+                        "description": "Whether the tenant can submit a satisfaction rating \u2014 true once the\nrequest is resolved/closed. Mirrors the rate endpoint's guard."
+                    },
+                    "csatRating": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "csatComment": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "submittedAt": {
+                        "type": "string"
+                    },
+                    "acknowledgedAt": {
+                        "type": "string"
+                    },
+                    "resolvedAt": {
+                        "type": "string"
+                    },
+                    "closedAt": {
+                        "type": "string"
+                    },
+                    "targetResolutionAt": {
+                        "type": "string"
+                    },
+                    "resolutionNotes": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "unit": {
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "code": {
+                                "type": "string"
+                            },
+                            "floor": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "id",
+                            "code",
+                            "floor"
+                        ]
+                    },
+                    "comments": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/TenantRequestCommentResource"
+                        }
+                    },
+                    "attachments": {
+                        "type": "array",
+                        "description": "Attachments uploaded by tenant or staff (Spatie media library,\n`attachments` collection). Absolute URLs so the app can render\nimages / open PDFs directly. Only images + PDF are accepted on\nupload, so the app never receives a type it can't preview.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "string"
+                                },
+                                "name": {
+                                    "type": "string"
+                                },
+                                "mimeType": {
+                                    "type": "string"
+                                },
+                                "size": {
+                                    "type": "string"
+                                },
+                                "url": {
+                                    "type": "string",
+                                    "description": "Authenticated, tenant-scoped stream \u2014 NOT a public URL (H2)."
+                                }
+                            },
+                            "required": [
+                                "id",
+                                "name",
+                                "mimeType",
+                                "size",
+                                "url"
+                            ]
+                        }
+                    }
+                },
+                "required": [
+                    "id",
+                    "reference",
+                    "requestType",
+                    "title",
+                    "description",
+                    "status",
+                    "priority",
+                    "category",
+                    "channel",
+                    "isOpen",
+                    "isOverdue",
+                    "canCancel",
+                    "canRate",
+                    "csatRating",
+                    "csatComment",
+                    "submittedAt",
+                    "acknowledgedAt",
+                    "resolvedAt",
+                    "closedAt",
+                    "targetResolutionAt",
+                    "resolutionNotes"
+                ],
+                "title": "TenantRequestResource"
             },
             "TenantResource": {
                 "type": "object",

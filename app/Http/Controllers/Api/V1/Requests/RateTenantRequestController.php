@@ -1,25 +1,25 @@
 <?php
 
-namespace App\Http\Controllers\Api\V1\Maintenance;
+namespace App\Http\Controllers\Api\V1\Requests;
 
-use App\Actions\Api\V1\Maintenance\RateMaintenanceRequestAction;
+use App\Actions\Api\V1\Requests\RateTenantRequestAction;
 use App\Http\Controllers\Api\V1\ApiController;
-use App\Http\Requests\Api\V1\Maintenance\RateMaintenanceRequestRequest;
-use App\Http\Resources\Api\V1\MaintenanceRequestResource;
+use App\Http\Requests\Api\V1\Requests\RateTenantRequestRequest;
+use App\Http\Resources\Api\V1\TenantRequestResource;
 use Illuminate\Http\JsonResponse;
 
 /**
- * POST /api/v1/me/maintenance-requests/{id}/rate — tenant rates a resolved /
+ * POST /api/v1/me/requests/{id}/rate — tenant rates a resolved /
  * closed request (CSAT 1–5 + optional comment). Scoped to the caller's own
  * requests; a foreign id 404s (no cross-tenant enumeration). The action defers
  * the resolved/closed guard to the service (→ 422 if not yet rateable).
  */
-class RateMaintenanceRequestController extends ApiController
+class RateTenantRequestController extends ApiController
 {
     public function __invoke(
-        RateMaintenanceRequestRequest $request,
+        RateTenantRequestRequest $request,
         int $id,
-        RateMaintenanceRequestAction $action
+        RateTenantRequestAction $action
     ): JsonResponse {
         $maintenanceRequest = $request->user()->maintenanceRequests()->findOrFail($id);
 
@@ -30,7 +30,7 @@ class RateMaintenanceRequestController extends ApiController
         );
 
         return $this->ok(
-            new MaintenanceRequestResource($maintenanceRequest->load('unit')),
+            new TenantRequestResource($maintenanceRequest->load('unit')),
             __('api.maintenance_rated'),
         );
     }

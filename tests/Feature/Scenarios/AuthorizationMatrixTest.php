@@ -30,7 +30,7 @@ use App\Filament\Admin\Resources\CreditNotes\CreditNoteResource;
 use App\Filament\Admin\Resources\Departments\DepartmentResource;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
-use App\Filament\Admin\Resources\MaintenanceRequests\MaintenanceRequestResource;
+use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Filament\Admin\Resources\MarketingBudgets\MarketingBudgetResource;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Filament\Admin\Resources\Roles\RoleResource;
@@ -68,7 +68,7 @@ function matrixResources(): array
         'Payment'           => PaymentResource::class,
         'CreditNote'        => CreditNoteResource::class,
         'Cam'               => CamExpensePoolResource::class,
-        'Maintenance'       => MaintenanceRequestResource::class,
+        'Maintenance'       => TenantRequestResource::class,
         'Vendor'            => VendorResource::class,
         'UtilityMeter'      => UtilityMeterResource::class,
         'MarketingBudget'   => MarketingBudgetResource::class,

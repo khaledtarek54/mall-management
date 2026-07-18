@@ -1,6 +1,6 @@
 <?php
 
-use App\Notifications\MaintenanceSlaBreachedNotification;
+use App\Notifications\TenantRequestSlaBreachedNotification;
 use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Support\Facades\Notification;
 
@@ -14,15 +14,15 @@ it('alerts the property owner when a maintenance request breaches SLA (MNT-5)', 
     $owner->ownedAssets()->attach($asset->id, ['ownership_percentage' => 100]);
 
     $unit = makeUnit($asset);
-    $req = makeMaintenanceRequest([
+    $req = makeTenantRequest([
         'unit_id' => $unit->id,
         'status' => 'in_progress',
         'target_resolution_at' => now()->subDay(),
     ]);
 
-    $this->artisan('maintenance:scan-sla-breaches')->assertSuccessful();
+    $this->artisan('requests:scan-sla-breaches')->assertSuccessful();
 
-    Notification::assertSentTo($owner, MaintenanceSlaBreachedNotification::class);
+    Notification::assertSentTo($owner, TenantRequestSlaBreachedNotification::class);
     expect($req->refresh()->sla_breach_notified_at)->not->toBeNull();
 });
 
@@ -35,13 +35,13 @@ it('does not alert an owner of a different property', function () {
     $owner->ownedAssets()->attach($owned->id, ['ownership_percentage' => 100]);
 
     $unit = makeUnit($other);
-    makeMaintenanceRequest([
+    makeTenantRequest([
         'unit_id' => $unit->id,
         'status' => 'in_progress',
         'target_resolution_at' => now()->subDay(),
     ]);
 
-    $this->artisan('maintenance:scan-sla-breaches')->assertSuccessful();
+    $this->artisan('requests:scan-sla-breaches')->assertSuccessful();
 
-    Notification::assertNotSentTo($owner, MaintenanceSlaBreachedNotification::class);
+    Notification::assertNotSentTo($owner, TenantRequestSlaBreachedNotification::class);
 });

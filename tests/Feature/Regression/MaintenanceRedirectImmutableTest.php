@@ -18,7 +18,7 @@ it('does not re-route or re-assign a CLOSED maintenance request', function () {
     $originalAssignee = makeUser('operations');
     $otherAssignee = makeUser('manager');
 
-    $req = makeMaintenanceRequest([
+    $req = makeTenantRequest([
         'status' => 'closed',
         'department_id' => $originalDept->id,
         'assigned_to' => $originalAssignee->id,
@@ -43,7 +43,7 @@ it('does not re-route or re-assign a CANCELLED maintenance request', function ()
     $originalAssignee = makeUser('operations');
     $otherAssignee = makeUser('manager');
 
-    $req = makeMaintenanceRequest([
+    $req = makeTenantRequest([
         'status' => 'cancelled',
         'department_id' => $originalDept->id,
         'assigned_to' => $originalAssignee->id,
@@ -64,7 +64,7 @@ it('still re-routes and re-assigns an OPEN maintenance request', function () {
 
     $assignee = makeUser('operations');
 
-    $req = makeMaintenanceRequest([
+    $req = makeTenantRequest([
         'status' => 'in_progress',
         'department_id' => $originalDept->id,
     ]);

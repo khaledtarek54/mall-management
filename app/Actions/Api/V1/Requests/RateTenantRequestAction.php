@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Actions\Api\V1\Maintenance;
+namespace App\Actions\Api\V1\Requests;
 
 use App\Models\TenantRequest;
 use App\Services\TenantRequestService;
@@ -10,7 +10,7 @@ use App\Services\TenantRequestService;
  * The rateable rule (resolved/closed only) lives in the service so it can't
  * drift between the mobile API and the web portal.
  */
-class RateMaintenanceRequestAction
+class RateTenantRequestAction
 {
     public function __construct(private TenantRequestService $service) {}
 

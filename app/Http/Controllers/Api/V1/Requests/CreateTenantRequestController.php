@@ -1,21 +1,21 @@
 <?php
 
-namespace App\Http\Controllers\Api\V1\Maintenance;
+namespace App\Http\Controllers\Api\V1\Requests;
 
-use App\Actions\Api\V1\Maintenance\CreateMaintenanceRequestAction;
+use App\Actions\Api\V1\Requests\CreateTenantRequestAction;
 use App\Http\Controllers\Api\V1\ApiController;
-use App\Http\Requests\Api\V1\Maintenance\CreateMaintenanceRequestRequest;
-use App\Http\Resources\Api\V1\MaintenanceRequestResource;
+use App\Http\Requests\Api\V1\Requests\CreateTenantRequestRequest;
+use App\Http\Resources\Api\V1\TenantRequestResource;
 use Illuminate\Http\JsonResponse;
 
 /**
- * POST /api/v1/me/maintenance-requests — submit a new request.
+ * POST /api/v1/me/requests — submit a new request.
  */
-class CreateMaintenanceRequestController extends ApiController
+class CreateTenantRequestController extends ApiController
 {
     public function __invoke(
-        CreateMaintenanceRequestRequest $request,
-        CreateMaintenanceRequestAction $action
+        CreateTenantRequestRequest $request,
+        CreateTenantRequestAction $action
     ): JsonResponse {
         $maintenanceRequest = $action->handle(
             $request->user(),
@@ -24,7 +24,7 @@ class CreateMaintenanceRequestController extends ApiController
         );
 
         return $this->ok(
-            new MaintenanceRequestResource($maintenanceRequest),
+            new TenantRequestResource($maintenanceRequest),
             __('api.maintenance_created'),
             201,
         );

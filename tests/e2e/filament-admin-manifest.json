@@ -134,13 +134,6 @@
             "hasView": false
         },
         {
-            "class": "MaintenanceRequestResource",
-            "slug": "maintenance-requests",
-            "hasCreate": true,
-            "hasEdit": true,
-            "hasView": false
-        },
-        {
             "class": "MaintenanceWorkOrderResource",
             "slug": "maintenance-work-orders",
             "hasCreate": true,
@@ -178,6 +171,13 @@
         {
             "class": "PurchaseRequestResource",
             "slug": "purchase-requests",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
+            "class": "TenantRequestResource",
+            "slug": "requests",
             "hasCreate": true,
             "hasEdit": true,
             "hasView": false

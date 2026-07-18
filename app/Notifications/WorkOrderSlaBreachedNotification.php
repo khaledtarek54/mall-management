@@ -10,7 +10,7 @@ use Illuminate\Notifications\Notification;
  * Operator-side bell entry for a corrective job whose SLA target has passed (FR-CM-08).
  * Fired once per order by `maintenance:scan-wo-sla-breaches`.
  *
- * Mirrors MaintenanceSlaBreachedNotification (module 11's tenant requests) — same shape,
+ * Mirrors TenantRequestSlaBreachedNotification (module 11's tenant requests) — same shape,
  * different subject: this one is about the facility's own work orders.
  */
 class WorkOrderSlaBreachedNotification extends Notification

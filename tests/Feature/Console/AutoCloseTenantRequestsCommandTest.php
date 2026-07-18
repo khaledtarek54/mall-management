@@ -11,7 +11,7 @@ beforeEach(function () {
     $this->tenant = makeTenant();
 });
 
-function makeResolvedMaintenanceRequest(Unit $unit, Tenant $tenant, array $overrides = []): TenantRequest
+function makeResolvedTenantRequest(Unit $unit, Tenant $tenant, array $overrides = []): TenantRequest
 {
     return TenantRequest::create(array_merge([
         'reference' => 'MR-' . uniqid(),
@@ -28,14 +28,14 @@ function makeResolvedMaintenanceRequest(Unit $unit, Tenant $tenant, array $overr
 }
 
 it('closes resolved requests older than the cutoff', function () {
-    $oldEnough = makeResolvedMaintenanceRequest($this->unit, $this->tenant, [
+    $oldEnough = makeResolvedTenantRequest($this->unit, $this->tenant, [
         'resolved_at' => now()->subDays(10),
     ]);
-    $tooRecent = makeResolvedMaintenanceRequest($this->unit, $this->tenant, [
+    $tooRecent = makeResolvedTenantRequest($this->unit, $this->tenant, [
         'resolved_at' => now()->subDays(2),
     ]);
 
-    $this->artisan('maintenance:auto-close --days=7')
+    $this->artisan('requests:auto-close --days=7')
         ->expectsOutputToContain('Closed 1 of 1 maintenance request')
         ->assertExitCode(0);
 
@@ -44,12 +44,12 @@ it('closes resolved requests older than the cutoff', function () {
 });
 
 it('leaves still-open statuses alone', function () {
-    $stillInProgress = makeResolvedMaintenanceRequest($this->unit, $this->tenant, [
+    $stillInProgress = makeResolvedTenantRequest($this->unit, $this->tenant, [
         'status' => 'in_progress',
         'resolved_at' => null,
     ]);
 
-    $this->artisan('maintenance:auto-close --days=7')
+    $this->artisan('requests:auto-close --days=7')
         ->expectsOutputToContain('No resolved maintenance requests older than 7 days.')
         ->assertExitCode(0);
 
@@ -57,11 +57,11 @@ it('leaves still-open statuses alone', function () {
 });
 
 it('--dry-run reports counts without changing status', function () {
-    $candidate = makeResolvedMaintenanceRequest($this->unit, $this->tenant, [
+    $candidate = makeResolvedTenantRequest($this->unit, $this->tenant, [
         'resolved_at' => now()->subDays(30),
     ]);
 
-    $this->artisan('maintenance:auto-close --days=7 --dry-run')
+    $this->artisan('requests:auto-close --days=7 --dry-run')
         ->expectsOutputToContain('Would close 1 maintenance request')
         ->assertExitCode(0);
 
@@ -69,5 +69,5 @@ it('--dry-run reports counts without changing status', function () {
 });
 
 it('rejects --days=0 with a clear error', function () {
-    $this->artisan('maintenance:auto-close --days=0')->assertExitCode(1);
+    $this->artisan('requests:auto-close --days=0')->assertExitCode(1);
 });

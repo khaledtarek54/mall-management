@@ -1,6 +1,6 @@
 <?php
 
-use App\Filament\Admin\Resources\MaintenanceRequests\Pages\ListMaintenanceRequests;
+use App\Filament\Admin\Resources\TenantRequests\Pages\ListTenantRequests;
 use App\Models\MaintenanceWorkOrder;
 use Database\Seeders\RolesPermissionsSeeder;
 use Livewire\Livewire;
@@ -16,7 +16,7 @@ beforeEach(function () {
     $this->unit = makeUnit($this->asset, ['code' => 'U-1']);
     $this->tenant = makeTenant();
     makeLease($this->unit, $this->tenant);
-    $this->request = makeMaintenanceRequest([
+    $this->request = makeTenantRequest([
         'unit_id' => $this->unit->id, 'tenant_id' => $this->tenant->id,
         'title' => 'AC down', 'description' => 'No cooling', 'category' => 'hvac', 'priority' => 'high',
     ]);
@@ -26,7 +26,7 @@ it('raises a linked work order from the action', function () {
     $this->actingAs(makeUser('operations', [$this->asset->id])); // holds preventive_maintenance.create
 
     asTenant($this->asset, function () {
-        Livewire::test(ListMaintenanceRequests::class)
+        Livewire::test(ListTenantRequests::class)
             ->callTableAction('raise_work_order', $this->request, data: [
                 'execution_type' => 'internal',
                 'title' => 'Fix the AC',
@@ -49,7 +49,7 @@ it('hides the action from a role that can see requests but not create work order
     $this->actingAs(makeUser('viewer', [$this->asset->id]));
 
     asTenant($this->asset, function () {
-        Livewire::test(ListMaintenanceRequests::class)
+        Livewire::test(ListTenantRequests::class)
             ->assertTableActionHidden('raise_work_order', $this->request);
     });
 });
@@ -62,7 +62,7 @@ it('offers the action while the request is open', function () {
     $this->actingAs(makeUser('operations', [$this->asset->id]));
 
     asTenant($this->asset, function () {
-        Livewire::test(ListMaintenanceRequests::class)
+        Livewire::test(ListTenantRequests::class)
             ->assertTableActionVisible('raise_work_order', $this->request);
     });
 });

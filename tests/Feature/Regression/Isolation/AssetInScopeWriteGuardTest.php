@@ -68,7 +68,7 @@ it('is a no-op for a portfolio user (super_admin)', function (string $resource) 
 })->with($guarded);
 
 /**
- * Chain-derived resources (Invoice, Lease, TenantSalesDeclaration, MaintenanceRequest,
+ * Chain-derived resources (Invoice, Lease, TenantSalesDeclaration, TenantRequest,
  * Payment, CreditNote, DepositTransaction) determine their property from a client-supplied
  * lease/unit/invoice FK — a security sweep found these unguarded. The FK-resolving guards
  * must reject a foreign-property FK and allow an in-scope one.
@@ -87,7 +87,7 @@ it('resolves and guards a chain-derived property (lease / unit / invoice)', func
     InvoiceResource::assertLeaseAssetInScope($leaseA->id);
     expect(fn () => InvoiceResource::assertLeaseAssetInScope($leaseB->id))->toThrow(HttpException::class);
 
-    // unit-derived (Lease master + additional units / MaintenanceRequest)
+    // unit-derived (Lease master + additional units / TenantRequest)
     LeaseResource::assertUnitAssetInScope($unitA->id);
     expect(fn () => LeaseResource::assertUnitAssetInScope($unitB->id))->toThrow(HttpException::class);
     LeaseResource::assertUnitsAssetInScope([$unitA->id]);

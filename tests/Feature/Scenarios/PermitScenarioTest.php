@@ -1,7 +1,7 @@
 <?php
 
 use App\Enums\TenantRequestType;
-use App\Filament\Admin\Resources\MaintenanceRequests\Pages\CreateMaintenanceRequest;
+use App\Filament\Admin\Resources\TenantRequests\Pages\CreateTenantRequest;
 use App\Models\TenantRequest;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
@@ -76,7 +76,7 @@ it('rejects a validity window whose end predates its start (model guard)', funct
 });
 
 it('ignores validity on a non-permit request — no window is required', function () {
-    $maintenance = makeMaintenanceRequest(['request_type' => 'maintenance'])->fresh();
+    $maintenance = makeTenantRequest(['request_type' => 'maintenance'])->fresh();
 
     expect($maintenance->request_type)->toBe(TenantRequestType::Maintenance)
         ->and($maintenance->valid_from)->toBeNull()
@@ -90,7 +90,7 @@ it('requires the validity dates on the admin form for a permit', function () {
     Filament::setCurrentPanel(Filament::getPanel('admin'));
     Filament::setTenant($this->asset);
 
-    Livewire::test(CreateMaintenanceRequest::class)
+    Livewire::test(CreateTenantRequest::class)
         // request_type first (its afterStateUpdated clears category + reworks the reference).
         ->fillForm(['request_type' => 'permit'])
         ->fillForm([
@@ -112,7 +112,7 @@ it('creates a permit through the admin form when the window is supplied', functi
     Filament::setCurrentPanel(Filament::getPanel('admin'));
     Filament::setTenant($this->asset);
 
-    Livewire::test(CreateMaintenanceRequest::class)
+    Livewire::test(CreateTenantRequest::class)
         ->fillForm(['request_type' => 'permit'])
         ->fillForm([
             'tenant_id' => $this->tenant->id,
@@ -140,7 +140,7 @@ it('does not require validity dates on the admin form for a non-permit type', fu
     Filament::setCurrentPanel(Filament::getPanel('admin'));
     Filament::setTenant($this->asset);
 
-    Livewire::test(CreateMaintenanceRequest::class)
+    Livewire::test(CreateTenantRequest::class)
         ->fillForm(['request_type' => 'maintenance'])
         ->fillForm([
             'tenant_id' => $this->tenant->id,

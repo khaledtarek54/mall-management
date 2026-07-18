@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Filament\Portal\Resources\MaintenanceRequests\Pages;
+namespace App\Filament\Portal\Resources\TenantRequests\Pages;
 
-use App\Filament\Portal\Resources\MaintenanceRequests\MaintenanceRequestResource;
+use App\Filament\Portal\Resources\TenantRequests\TenantRequestResource;
 use App\Models\TenantRequest;
 use App\Models\Tenant;
 use App\Services\TenantRequestService;
@@ -11,9 +11,9 @@ use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 
-class CreateMaintenanceRequest extends CreateRecord
+class CreateTenantRequest extends CreateRecord
 {
-    protected static string $resource = MaintenanceRequestResource::class;
+    protected static string $resource = TenantRequestResource::class;
 
     protected function handleRecordCreation(array $data): Model
     {

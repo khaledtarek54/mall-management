@@ -50,8 +50,8 @@ const PORTAL_PAGES = [
   '/portal',
   '/portal/invoices',
   '/portal/payments',
-  '/portal/maintenance-requests',
-  '/portal/maintenance-requests/create',
+  '/portal/requests',
+  '/portal/requests/create',
   '/portal/tenant-sales-declarations',
   '/portal/tenant-sales-declarations/create',
 ];
@@ -133,7 +133,7 @@ test.describe('ADMIN panel — opening filter panel does not 500', () => {
     '/admin/AW/payments',
     '/admin/AW/credit-notes',
     '/admin/AW/leases',
-    '/admin/AW/maintenance-requests',
+    '/admin/AW/requests',
     '/admin/AW/tenant-sales-declarations',
     '/admin/AW/vendors',
     '/admin/AW/units',
@@ -179,7 +179,7 @@ test.describe('PORTAL panel — first record detail loads', () => {
   const targets = [
     { list: '/portal/invoices', pattern: /\/portal\/invoices\/\d+/ },
     { list: '/portal/payments', pattern: /\/portal\/payments\/\d+/ },
-    { list: '/portal/maintenance-requests', pattern: /\/portal\/maintenance-requests\/\d+/ },
+    { list: '/portal/requests', pattern: /\/portal\/requests\/\d+/ },
     { list: '/portal/tenant-sales-declarations', pattern: /\/portal\/tenant-sales-declarations\/\d+/ },
   ];
 
@@ -240,7 +240,7 @@ test.describe('ARABIC locale — critical admin pages render', () => {
     '/admin/AW/invoices',
     '/admin/AW/credit-notes',
     '/admin/AW/vendors',
-    '/admin/AW/maintenance-requests',
+    '/admin/AW/requests',
     '/admin/AW/users',
   ];
 

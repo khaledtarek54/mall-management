@@ -10,7 +10,7 @@ use Illuminate\Notifications\Notification;
  * Supervisor-side bell entry when a request lands in a facility zone the user oversees
  * (module 30 → 11 routing). Routes to the area's supervisors (Area::supervisors).
  *
- * Database + push, no mail — matches MaintenanceSlaBreachedNotification's channel choice: this is a
+ * Database + push, no mail — matches TenantRequestSlaBreachedNotification's channel choice: this is a
  * high-frequency operations signal, the bell (and the app) is the right surface, not the inbox.
  * Push is a no-op for admin Users (they register no device tokens) but is declared so the routing
  * reaches the mobile app the moment a supervisor is a push-capable notifiable.

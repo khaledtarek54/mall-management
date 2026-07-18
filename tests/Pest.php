@@ -143,7 +143,7 @@ function makeInvoice(Lease $lease, array $attrs = []): Invoice
     ], $attrs));
 }
 
-function makeMaintenanceRequest(array $attrs = []): TenantRequest
+function makeTenantRequest(array $attrs = []): TenantRequest
 {
     $asset = makeAsset();
     $unit = makeUnit($asset);

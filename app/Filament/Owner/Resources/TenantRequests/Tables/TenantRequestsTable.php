@@ -1,13 +1,13 @@
 <?php
 
-namespace App\Filament\Owner\Resources\MaintenanceRequests\Tables;
+namespace App\Filament\Owner\Resources\TenantRequests\Tables;
 
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
-class MaintenanceRequestsTable
+class TenantRequestsTable
 {
     public static function configure(Table $table): Table
     {
@@ -48,7 +48,7 @@ class MaintenanceRequestsTable
                 TextColumn::make('status')
                     ->label(__('admin.tables.common.status'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => __("admin.statuses.maintenance_request.{$state}"))
+                    ->formatStateUsing(fn (string $state) => __("admin.statuses.tenant_request.{$state}"))
                     ->color(fn (string $state): string => match ($state) {
                         'submitted' => 'info',
                         'acknowledged' => 'warning',
@@ -71,7 +71,7 @@ class MaintenanceRequestsTable
             ->filters([
                 SelectFilter::make('status')
                     ->label(__('admin.filters.status'))
-                    ->options(fn () => __('admin.statuses.maintenance_request')),
+                    ->options(fn () => __('admin.statuses.tenant_request')),
                 SelectFilter::make('priority')
                     ->label(__('admin.filters.priority'))
                     ->options(fn () => __('admin.enums.maintenance_priority')),

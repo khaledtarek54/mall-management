@@ -9,9 +9,9 @@ use Illuminate\Notifications\Notification;
 /**
  * Operator-side bell entry for a maintenance request whose
  * target_resolution_at has passed without resolution. Fired once per
- * request by the daily maintenance:scan-sla-breaches command.
+ * request by the daily requests:scan-sla-breaches command.
  */
-class MaintenanceSlaBreachedNotification extends Notification
+class TenantRequestSlaBreachedNotification extends Notification
 {
     use Queueable;
 

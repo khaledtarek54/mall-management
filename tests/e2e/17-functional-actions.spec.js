@@ -152,7 +152,7 @@ test.describe('ADMIN: maintenance actions', () => {
   test.use({ storageState: 'storage/playwright-state/admin.json' });
 
   test('Change Status modal opens', async ({ page }) => {
-    await page.goto('/admin/AW/maintenance-requests', { waitUntil: 'networkidle' });
+    await page.goto('/admin/AW/requests', { waitUntil: 'networkidle' });
     const btn = page.locator('button:visible, a:visible').filter({ hasText: /Change Status/i }).first();
     if (await btn.isVisible({ timeout: 2000 }).catch(() => false)) {
       await btn.click();
@@ -167,8 +167,8 @@ test.describe('ADMIN: maintenance actions', () => {
   });
 
   test('maintenance edit page loads with vendor select', async ({ page }) => {
-    await page.goto('/admin/AW/maintenance-requests', { waitUntil: 'networkidle' });
-    const editLink = page.locator('a[href*="/admin/AW/maintenance-requests/"][href$="/edit"]').first();
+    await page.goto('/admin/AW/requests', { waitUntil: 'networkidle' });
+    const editLink = page.locator('a[href*="/admin/AW/requests/"][href$="/edit"]').first();
     await editLink.click();
     await page.waitForLoadState('networkidle');
     await expectNoLaravelError(page);
@@ -289,7 +289,7 @@ test.describe('PORTAL: tenant flows', () => {
   });
 
   test('Create Maintenance Request form mounts', async ({ page }) => {
-    const response = await page.goto('/portal/maintenance-requests/create', { waitUntil: 'networkidle' });
+    const response = await page.goto('/portal/requests/create', { waitUntil: 'networkidle' });
     expect(response?.status()).toBeLessThan(500);
     await expectNoLaravelError(page);
     await expect(page.locator('input, textarea, select').first()).toBeVisible();

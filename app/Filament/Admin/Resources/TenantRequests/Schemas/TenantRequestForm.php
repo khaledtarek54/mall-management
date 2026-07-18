@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\Admin\Resources\MaintenanceRequests\Schemas;
+namespace App\Filament\Admin\Resources\TenantRequests\Schemas;
 
 use App\Enums\TenantRequestType;
 use App\Models\Department;
@@ -19,7 +19,7 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 
-class MaintenanceRequestForm
+class TenantRequestForm
 {
     public static function configure(Schema $schema): Schema
     {
@@ -117,7 +117,7 @@ class MaintenanceRequestForm
                         ->helperText(__('admin.fields.channel_helper')),
                     Select::make('status')
                         ->label(__('admin.tables.common.status'))
-                        ->options(fn () => __('admin.statuses.maintenance_request'))
+                        ->options(fn () => __('admin.statuses.tenant_request'))
                         ->default('submitted')
                         // Read-only: status changes go through the Change-Status action
                         // (TenantRequestService::transition) — the state machine that

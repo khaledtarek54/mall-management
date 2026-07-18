@@ -64,7 +64,7 @@ trait GuardsAssetInScope
         );
     }
 
-    /** Guard a submitted `unit_id` by its property (Lease master unit, MaintenanceRequest…). */
+    /** Guard a submitted `unit_id` by its property (Lease master unit, TenantRequest…). */
     public static function assertUnitAssetInScope(mixed $unitId): void
     {
         static::assertAssetInScope(

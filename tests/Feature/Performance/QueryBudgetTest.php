@@ -54,7 +54,7 @@ it('serves /me/invoices without an N+1', function () {
     });
 });
 
-it('serves /me/maintenance-requests without an N+1', function () {
+it('serves /me/requests without an N+1', function () {
     assertNoN1(function (int $n) {
         $tenant = makeTenant();
         $unit = makeUnit(makeAsset());
@@ -74,6 +74,6 @@ it('serves /me/maintenance-requests without an N+1', function () {
             ]);
         }
 
-        return [apiHeaders($tenant), '/api/v1/me/maintenance-requests'];
+        return [apiHeaders($tenant), '/api/v1/me/requests'];
     });
 });

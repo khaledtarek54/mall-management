@@ -91,7 +91,7 @@ it('rejects a protected endpoint with no Authorization header (401)', function (
     // Covers the un-headered case across more than the one endpoint the
     // per-resource files probe.
     $this->getJson('/api/v1/me/payments')->assertUnauthorized();
-    $this->getJson('/api/v1/me/maintenance-requests')->assertUnauthorized();
+    $this->getJson('/api/v1/me/requests')->assertUnauthorized();
     $this->getJson('/api/v1/me/sales-declarations')->assertUnauthorized();
     $this->getJson('/api/v1/me/balance')->assertUnauthorized();
 });
@@ -176,10 +176,10 @@ it('returns 404 commenting on another tenant\'s maintenance request', function (
     // The controller resolves via $tenant->maintenanceRequests()->findOrFail,
     // so a foreign id is a 404 and writes nothing.
     $tenant = makeTenant();
-    $foreign = makeMaintenanceRequest(); // owned by a fresh, unrelated tenant
+    $foreign = makeTenantRequest(); // owned by a fresh, unrelated tenant
 
     $this->postJson(
-        "/api/v1/me/maintenance-requests/{$foreign->id}/comments",
+        "/api/v1/me/requests/{$foreign->id}/comments",
         ['body' => 'Trying to comment on your ticket'],
         apiHeaders($tenant),
     )->assertNotFound();
@@ -191,10 +191,10 @@ it('returns 404 commenting on another tenant\'s maintenance request', function (
 
 it('returns 404 cancelling another tenant\'s maintenance request', function () {
     $tenant = makeTenant();
-    $foreign = makeMaintenanceRequest(['status' => 'submitted']);
+    $foreign = makeTenantRequest(['status' => 'submitted']);
 
     $this->postJson(
-        "/api/v1/me/maintenance-requests/{$foreign->id}/cancel",
+        "/api/v1/me/requests/{$foreign->id}/cancel",
         [],
         apiHeaders($tenant),
     )->assertNotFound();
@@ -349,7 +349,7 @@ it('submits a maintenance request over the token and persists it to the tenant',
     makeLease(makeUnit(makeAsset()), $tenant); // active lease → unit resolution
     $bearer = loginAndGetToken($tenant);
 
-    $this->postJson('/api/v1/me/maintenance-requests', [
+    $this->postJson('/api/v1/me/requests', [
         'title' => 'Door handle loose',
         'description' => 'The main door handle is about to fall off.',
         'category' => 'other',

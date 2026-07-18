@@ -38,7 +38,7 @@ it('runs receive → consume → adjust with derived on-hand and perpetual-inven
     $asset = makeAsset();
     $warehouse = Warehouse::create(['asset_id' => $asset->id, 'name' => 'Main Store', 'code' => 'MS1']);
     $item = InventoryItem::create(['sku' => 'SEAL-1', 'name' => 'Pump Seal', 'unit' => 'each', 'unit_cost' => 25]);
-    $ticket = makeMaintenanceRequest(['unit_id' => makeUnit($asset)->id]);
+    $ticket = makeTenantRequest(['unit_id' => makeUnit($asset)->id]);
 
     // Receive 100 @ 25 = 2500.
     $receipt = $this->stock->receive($warehouse, $item, 100, 25);

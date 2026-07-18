@@ -1,6 +1,6 @@
 <?php
 
-use App\Filament\Admin\Resources\MaintenanceRequests\Pages\CreateMaintenanceRequest;
+use App\Filament\Admin\Resources\TenantRequests\Pages\CreateTenantRequest;
 use App\Models\TenantRequest;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
@@ -80,7 +80,7 @@ it('creates a caller-only request through the admin form', function () {
     Filament::setCurrentPanel(Filament::getPanel('admin'));
     Filament::setTenant($this->asset);
 
-    Livewire::test(CreateMaintenanceRequest::class)
+    Livewire::test(CreateTenantRequest::class)
         ->fillForm([
             'request_type' => 'maintenance',
             'channel' => 'phone',
@@ -108,7 +108,7 @@ it('requires a tenant on the admin form when the channel is the portal', functio
     Filament::setCurrentPanel(Filament::getPanel('admin'));
     Filament::setTenant($this->asset);
 
-    Livewire::test(CreateMaintenanceRequest::class)
+    Livewire::test(CreateTenantRequest::class)
         ->fillForm([
             'request_type' => 'maintenance',
             'channel' => 'portal',

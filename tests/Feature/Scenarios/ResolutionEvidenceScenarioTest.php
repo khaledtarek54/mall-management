@@ -28,7 +28,7 @@ beforeEach(function () {
 
 function inProgressRequest(): TenantRequest
 {
-    return makeMaintenanceRequest([
+    return makeTenantRequest([
         'unit_id' => test()->unit->id, 'tenant_id' => test()->tenant->id,
         'status' => 'in_progress', 'title' => 'AC down', 'description' => 'No cooling',
     ]);
@@ -74,7 +74,7 @@ it('lets a resolved request be closed without re-proving evidence', function () 
 
 it('does not gate the other transitions', function () {
     // Only resolution needs evidence. Acknowledging or starting work must not.
-    $request = makeMaintenanceRequest([
+    $request = makeTenantRequest([
         'unit_id' => $this->unit->id, 'tenant_id' => $this->tenant->id, 'status' => 'submitted',
     ]);
 

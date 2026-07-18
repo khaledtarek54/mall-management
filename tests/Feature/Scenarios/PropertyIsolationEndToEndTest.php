@@ -1,7 +1,7 @@
 <?php
 
 use App\Filament\Admin\Resources\Expenses\Pages\CreateExpense;
-use App\Filament\Admin\Resources\MaintenanceRequests\Pages\CreateMaintenanceRequest;
+use App\Filament\Admin\Resources\TenantRequests\Pages\CreateTenantRequest;
 use App\Filament\Admin\Resources\Payments\Pages\CreatePayment;
 use App\Filament\Admin\Resources\TenantSalesDeclarations\Pages\CreateTenantSalesDeclaration;
 use App\Models\Expense;
@@ -104,7 +104,7 @@ it('lease-derived (TenantSalesDeclaration): blocks a foreign-property lease', fu
     expect(TenantSalesDeclaration::where('lease_id', $leaseB->id)->exists())->toBeFalse();
 });
 
-it('unit-derived (MaintenanceRequest): blocks a foreign-property unit', function () {
+it('unit-derived (TenantRequest): blocks a foreign-property unit', function () {
     $unitA = makeUnit($this->a);
     $unitB = makeUnit($this->b);
     $tenant = makeTenant();
@@ -118,14 +118,14 @@ it('unit-derived (MaintenanceRequest): blocks a foreign-property unit', function
     ];
 
     // In-scope unit succeeds.
-    Livewire::test(CreateMaintenanceRequest::class)
+    Livewire::test(CreateTenantRequest::class)
         ->fillForm($valid + ['unit_id' => $unitA->id])
         ->call('create')
         ->assertHasNoFormErrors();
     expect(TenantRequest::where('unit_id', $unitA->id)->exists())->toBeTrue();
 
     // A unit in property B → no request lands against it.
-    attemptCreate(CreateMaintenanceRequest::class, $valid + ['unit_id' => $unitB->id]);
+    attemptCreate(CreateTenantRequest::class, $valid + ['unit_id' => $unitB->id]);
     expect(TenantRequest::where('unit_id', $unitB->id)->exists())->toBeFalse();
 });
 

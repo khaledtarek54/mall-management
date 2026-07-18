@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Filament\Admin\Resources\MaintenanceRequests\Tables;
+namespace App\Filament\Admin\Resources\TenantRequests\Tables;
 
 use App\Enums\TenantRequestType;
-use App\Filament\Admin\Resources\MaintenanceRequests\MaintenanceRequestResource;
+use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Filament\Admin\Resources\MaintenanceWorkOrders\Schemas\CorrectiveWorkOrderForm;
 use App\Filament\Exports\TenantRequestExporter;
 use App\Models\Department;
@@ -29,7 +29,7 @@ use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
-class MaintenanceRequestsTable
+class TenantRequestsTable
 {
     public static function configure(Table $table): Table
     {
@@ -103,7 +103,7 @@ class MaintenanceRequestsTable
                 TextColumn::make('status')
                     ->label(__('admin.tables.common.status'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => __("admin.statuses.maintenance_request.{$state}"))
+                    ->formatStateUsing(fn (string $state) => __("admin.statuses.tenant_request.{$state}"))
                     ->color(fn (string $state): string => match ($state) {
                         'submitted' => 'info',
                         'acknowledged' => 'warning',
@@ -170,7 +170,7 @@ class MaintenanceRequestsTable
             ->filters([
                 SelectFilter::make('status')
                     ->label(__('admin.filters.status'))
-                    ->options(fn () => __('admin.statuses.maintenance_request')),
+                    ->options(fn () => __('admin.statuses.tenant_request')),
                 SelectFilter::make('request_type')
                     ->label(__('admin.fields.request_type'))
                     ->options(fn () => TenantRequestType::options()),
@@ -215,12 +215,12 @@ class MaintenanceRequestsTable
             ])
             ->recordActions([
                 EditAction::make()
-                    ->visible(fn ($record) => MaintenanceRequestResource::canEdit($record)),
+                    ->visible(fn ($record) => TenantRequestResource::canEdit($record)),
                 Action::make('changeStatus')
                     ->label(__('admin.actions.change_status'))
                     ->icon('heroicon-o-arrow-path-rounded-square')
                     ->color('primary')
-                    ->visible(fn (TenantRequest $record) => MaintenanceRequestResource::canEdit($record)
+                    ->visible(fn (TenantRequest $record) => TenantRequestResource::canEdit($record)
                         && ! empty(TenantRequestService::TRANSITIONS[$record->status] ?? []))
                     ->modalHeading(fn (TenantRequest $record) => __('admin.actions.change_status_heading', ['ref' => $record->reference]))
                     ->fillForm(fn (TenantRequest $record) => ['status' => null])
@@ -228,7 +228,7 @@ class MaintenanceRequestsTable
                         Select::make('status')
                             ->label(__('admin.fields.new_status'))
                             ->options(fn () => collect(TenantRequestService::TRANSITIONS[$record->status] ?? [])
-                                ->mapWithKeys(fn ($s) => [$s => __("admin.statuses.maintenance_request.{$s}")])
+                                ->mapWithKeys(fn ($s) => [$s => __("admin.statuses.tenant_request.{$s}")])
                                 ->all())
                             ->required()
                             ->native(false)
@@ -247,7 +247,7 @@ class MaintenanceRequestsTable
                             ->title(__('admin.actions.status_changed'))
                             ->body(__('admin.actions.status_changed_body', [
                                 'ref' => $record->reference,
-                                'status' => __("admin.statuses.maintenance_request.{$data['status']}"),
+                                'status' => __("admin.statuses.tenant_request.{$data['status']}"),
                             ]))
                             ->success()
                             ->send();
@@ -256,7 +256,7 @@ class MaintenanceRequestsTable
                     ->label(__('admin.actions.assign'))
                     ->icon('heroicon-o-user-plus')
                     ->color('gray')
-                    ->visible(fn (TenantRequest $record) => MaintenanceRequestResource::canEdit($record)
+                    ->visible(fn (TenantRequest $record) => TenantRequestResource::canEdit($record)
                         && $record->isOpen())
                     ->fillForm(fn (TenantRequest $record) => ['assigned_to' => $record->assigned_to])
                     ->schema([
@@ -279,7 +279,7 @@ class MaintenanceRequestsTable
                     ->label(__('admin.actions.redirect'))
                     ->icon('heroicon-o-arrows-right-left')
                     ->color('gray')
-                    ->visible(fn (TenantRequest $record) => MaintenanceRequestResource::canEdit($record))
+                    ->visible(fn (TenantRequest $record) => TenantRequestResource::canEdit($record))
                     ->fillForm(fn (TenantRequest $record) => ['department_id' => $record->department_id])
                     ->schema([
                         Select::make('department_id')
@@ -337,11 +337,11 @@ class MaintenanceRequestsTable
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
-                        ->visible(fn () => MaintenanceRequestResource::canDeleteAny()),
+                        ->visible(fn () => TenantRequestResource::canDeleteAny()),
                     ForceDeleteBulkAction::make()
-                        ->visible(fn () => MaintenanceRequestResource::canForceDeleteAny()),
+                        ->visible(fn () => TenantRequestResource::canForceDeleteAny()),
                     RestoreBulkAction::make()
-                        ->visible(fn () => MaintenanceRequestResource::canRestoreAny()),
+                        ->visible(fn () => TenantRequestResource::canRestoreAny()),
                 ]),
             ])
             ->defaultSort('submitted_at', 'desc')

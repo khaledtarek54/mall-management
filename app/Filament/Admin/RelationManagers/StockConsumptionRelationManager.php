@@ -2,7 +2,7 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
-use App\Filament\Admin\Resources\MaintenanceRequests\MaintenanceRequestResource;
+use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Models\InventoryItem;
 use App\Models\StockMovement;
 use App\Models\TenantRequest;
@@ -80,7 +80,7 @@ class StockConsumptionRelationManager extends RelationManager
                     ->color('warning')
                     // Gate on inventory.create AND the request being editable (not terminal).
                     ->visible(fn (RelationManager $livewire) => (auth()->user()?->can('inventory.create') ?? false)
-                        && MaintenanceRequestResource::canEdit($livewire->getOwnerRecord()))
+                        && TenantRequestResource::canEdit($livewire->getOwnerRecord()))
                     ->authorize(fn () => auth()->user()?->can('inventory.create') ?? false)
                     ->schema([
                         Select::make('warehouse_id')
@@ -115,7 +115,7 @@ class StockConsumptionRelationManager extends RelationManager
                         $request = $livewire->getOwnerRecord();
                         // Server-side re-check (the authorize() closure can't see the record):
                         // no consumption may be logged against a terminal/uneditable ticket.
-                        abort_unless(MaintenanceRequestResource::canEdit($request), 403);
+                        abort_unless(TenantRequestResource::canEdit($request), 403);
                         $warehouse = $this->authorizedWarehouse($request, (int) $data['warehouse_id']);
                         $item = InventoryItem::findOrFail($data['inventory_item_id']);
 

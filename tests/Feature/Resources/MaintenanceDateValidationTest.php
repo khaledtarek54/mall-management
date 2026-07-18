@@ -1,6 +1,6 @@
 <?php
 
-use App\Filament\Admin\Resources\MaintenanceRequests\Pages\CreateMaintenanceRequest;
+use App\Filament\Admin\Resources\TenantRequests\Pages\CreateTenantRequest;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
@@ -34,7 +34,7 @@ function fillMaintenance(array $overrides = []): array
 }
 
 it('rejects a resolution target earlier than the request creation date', function () {
-    Livewire::test(CreateMaintenanceRequest::class)
+    Livewire::test(CreateTenantRequest::class)
         ->fillForm(fillMaintenance([
             'tenant_id' => $this->tenant->id,
             'unit_id' => $this->unit->id,
@@ -45,7 +45,7 @@ it('rejects a resolution target earlier than the request creation date', functio
 });
 
 it('accepts a resolution target in the future', function () {
-    Livewire::test(CreateMaintenanceRequest::class)
+    Livewire::test(CreateTenantRequest::class)
         ->fillForm(fillMaintenance([
             'tenant_id' => $this->tenant->id,
             'unit_id' => $this->unit->id,

@@ -2,8 +2,8 @@
 
 use App\Models\TenantRequest;
 use App\Models\TenantSalesDeclaration;
-use App\Notifications\MaintenanceCommentAddedNotification;
-use App\Notifications\MaintenanceStatusChangedNotification;
+use App\Notifications\TenantRequestCommentAddedNotification;
+use App\Notifications\TenantRequestStatusChangedNotification;
 use App\Notifications\SalesDeclarationLockedNotification;
 use App\Services\TenantRequestService;
 use App\Services\PercentageRentCalculationService;
@@ -45,8 +45,8 @@ it('TenantRequestService::transition notifies the tenant on status change', func
 
     Notification::assertSentTo(
         $this->tenant,
-        MaintenanceStatusChangedNotification::class,
-        fn (MaintenanceStatusChangedNotification $n) => $n->request->id === $request->id && $n->previousStatus === 'submitted'
+        TenantRequestStatusChangedNotification::class,
+        fn (TenantRequestStatusChangedNotification $n) => $n->request->id === $request->id && $n->previousStatus === 'submitted'
     );
 });
 
@@ -89,8 +89,8 @@ it('a tenant comment notifies the assigned property team (ERP bell)', function (
 
     Notification::assertSentTo(
         $this->operator,
-        MaintenanceCommentAddedNotification::class,
-        fn (MaintenanceCommentAddedNotification $n) => $n->request->id === $request->id
+        TenantRequestCommentAddedNotification::class,
+        fn (TenantRequestCommentAddedNotification $n) => $n->request->id === $request->id
     );
 });
 
@@ -112,12 +112,12 @@ it('a staff comment notifies the tenant, and internal notes notify no one', func
     $svc = app(TenantRequestService::class);
 
     $svc->comment($request, $this->operator, 'On our way', isInternal: false);
-    Notification::assertSentTo($this->tenant, MaintenanceCommentAddedNotification::class);
+    Notification::assertSentTo($this->tenant, TenantRequestCommentAddedNotification::class);
 
     // Internal note: no further notifications fan out.
-    Notification::assertSentToTimes($this->tenant, MaintenanceCommentAddedNotification::class, 1);
+    Notification::assertSentToTimes($this->tenant, TenantRequestCommentAddedNotification::class, 1);
     $svc->comment($request, $this->operator, 'Waiting on parts', isInternal: true);
-    Notification::assertSentToTimes($this->tenant, MaintenanceCommentAddedNotification::class, 1);
+    Notification::assertSentToTimes($this->tenant, TenantRequestCommentAddedNotification::class, 1);
 });
 
 it('PercentageRentCalculationService::lock notifies the tenant', function () {

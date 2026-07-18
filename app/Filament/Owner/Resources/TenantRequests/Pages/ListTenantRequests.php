@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Filament\Owner\Resources\MaintenanceRequests\Pages;
+namespace App\Filament\Owner\Resources\TenantRequests\Pages;
 
-use App\Filament\Owner\Resources\MaintenanceRequests\MaintenanceRequestResource;
+use App\Filament\Owner\Resources\TenantRequests\TenantRequestResource;
 use Filament\Resources\Pages\ListRecords;
 
-class ListMaintenanceRequests extends ListRecords
+class ListTenantRequests extends ListRecords
 {
-    protected static string $resource = MaintenanceRequestResource::class;
+    protected static string $resource = TenantRequestResource::class;
 }

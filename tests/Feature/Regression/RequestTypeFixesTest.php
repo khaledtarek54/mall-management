@@ -1,7 +1,7 @@
 <?php
 
 use App\Enums\TenantRequestType;
-use App\Filament\Admin\Resources\MaintenanceRequests\Pages\CreateMaintenanceRequest;
+use App\Filament\Admin\Resources\TenantRequests\Pages\CreateTenantRequest;
 use App\Models\TenantRequest;
 use App\Services\TenantRequestService;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -42,7 +42,7 @@ it('gives an admin-created complaint its own SLA window, not the maintenance one
     Filament::setCurrentPanel(Filament::getPanel('admin'));
     Filament::setTenant($asset);
 
-    Livewire::test(CreateMaintenanceRequest::class)
+    Livewire::test(CreateTenantRequest::class)
         // request_type first (its afterStateUpdated clears category), then the rest.
         ->fillForm(['request_type' => 'complaint'])
         ->fillForm([
@@ -68,7 +68,7 @@ it('rejects a sub-category sent to the API for a type that has none', function (
     $tenant = makeTenant();
     makeLease(makeUnit(makeAsset()), $tenant);
 
-    $this->postJson('/api/v1/me/maintenance-requests', [
+    $this->postJson('/api/v1/me/requests', [
         'request_type' => 'inquiry',
         'title' => 'Hours?',
         'description' => 'What are the Eid hours?',
@@ -81,11 +81,11 @@ it('rejects a sub-category sent to the API for a type that has none', function (
 it('refuses a comment on a terminal request but allows one on a resolved one', function () {
     $svc = app(TenantRequestService::class);
 
-    $closed = makeMaintenanceRequest(['status' => 'closed']);
+    $closed = makeTenantRequest(['status' => 'closed']);
     expect(fn () => $svc->comment($closed, $closed->tenant, 'too late'))
         ->toThrow(ValidationException::class);
 
     // Resolved is NOT terminal — a tenant can still reply (re-open).
-    $resolved = makeMaintenanceRequest(['status' => 'resolved']);
+    $resolved = makeTenantRequest(['status' => 'resolved']);
     expect($svc->comment($resolved, $resolved->tenant, 'one more thing')->exists)->toBeTrue();
 });

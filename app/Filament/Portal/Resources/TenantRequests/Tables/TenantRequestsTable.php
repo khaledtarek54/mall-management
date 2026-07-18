@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\Portal\Resources\MaintenanceRequests\Tables;
+namespace App\Filament\Portal\Resources\TenantRequests\Tables;
 
 use App\Enums\TenantRequestType;
 use App\Models\TenantRequest;
@@ -17,7 +17,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
-class MaintenanceRequestsTable
+class TenantRequestsTable
 {
     public static function configure(Table $table): Table
     {
@@ -63,7 +63,7 @@ class MaintenanceRequestsTable
                 TextColumn::make('status')
                     ->label(__('admin.tables.common.status'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => __("admin.statuses.maintenance_request.{$state}"))
+                    ->formatStateUsing(fn (string $state) => __("admin.statuses.tenant_request.{$state}"))
                     ->color(fn (string $state): string => match ($state) {
                         'submitted' => 'info',
                         'acknowledged' => 'warning',
@@ -82,7 +82,7 @@ class MaintenanceRequestsTable
             ->filters([
                 SelectFilter::make('status')
                     ->label(__('admin.filters.status'))
-                    ->options(fn () => __('admin.statuses.maintenance_request')),
+                    ->options(fn () => __('admin.statuses.tenant_request')),
                 Filter::make('open_only')
                     ->label(__('admin.filters.open_only'))
                     ->query(fn (Builder $query) => $query->whereIn('status', TenantRequest::OPEN_STATUSES))

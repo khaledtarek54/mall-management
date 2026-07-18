@@ -18,7 +18,7 @@
 
 use App\Filament\Portal\Resources\CamAllocations\CamAllocationResource;
 use App\Filament\Portal\Resources\Invoices\InvoiceResource;
-use App\Filament\Portal\Resources\MaintenanceRequests\MaintenanceRequestResource;
+use App\Filament\Portal\Resources\TenantRequests\TenantRequestResource;
 use App\Filament\Portal\Resources\Payments\PaymentResource;
 use App\Filament\Portal\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
 use App\Models\CamAllocation;
@@ -149,10 +149,10 @@ it('Portal CamAllocationResource shows company A its allocation and never compan
         ->and($ids)->not->toContain($this->allocB->id);
 })->with('portalRole');
 
-it('Portal MaintenanceRequestResource shows company A its request and never company B\'s', function (bool $isAdmin) {
+it('Portal TenantRequestResource shows company A its request and never company B\'s', function (bool $isAdmin) {
     $this->actingAs(makeTenantUser($this->tenantA, isAdmin: $isAdmin), 'portal');
 
-    $ids = MaintenanceRequestResource::getEloquentQuery()->pluck('id')->all();
+    $ids = TenantRequestResource::getEloquentQuery()->pluck('id')->all();
 
     expect($ids)->toContain($this->mrA->id)
         ->and($ids)->not->toContain($this->mrB->id);
@@ -176,7 +176,7 @@ it('the mirror holds — company B sees only B\'s records across every portal re
         ->toContain($this->paymentB->id)->not->toContain($this->paymentA->id);
     expect(CamAllocationResource::getEloquentQuery()->pluck('id')->all())
         ->toContain($this->allocB->id)->not->toContain($this->allocA->id);
-    expect(MaintenanceRequestResource::getEloquentQuery()->pluck('id')->all())
+    expect(TenantRequestResource::getEloquentQuery()->pluck('id')->all())
         ->toContain($this->mrB->id)->not->toContain($this->mrA->id);
     expect(TenantSalesDeclarationResource::getEloquentQuery()->pluck('id')->all())
         ->toContain($this->tsdB->id)->not->toContain($this->tsdA->id);

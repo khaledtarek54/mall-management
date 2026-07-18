@@ -25,7 +25,7 @@ beforeEach(function () {
 
 function reportedFault(array $attrs = []): TenantRequest
 {
-    return makeMaintenanceRequest(array_merge([
+    return makeTenantRequest(array_merge([
         'unit_id' => test()->unit->id,
         'tenant_id' => test()->tenant->id,
         'title' => 'AC leaking into the shop',

@@ -326,7 +326,7 @@ class DemoSeeder extends Seeder
         $this->seedArAgingSpread();
         $this->seedPortalDemoInvoices();
         $this->seedVendors($atriomWalk);
-        $this->seedMaintenanceRequests();
+        $this->seedTenantRequests();
         $this->seedTenantSalesDeclarations();
         $this->seedCamReconciliation($atriomWalk);
         $this->seedEtaSubmissions();
@@ -461,7 +461,7 @@ class DemoSeeder extends Seeder
      * one resolved, one closed. Spreads across the three portal tenants so any
      * /portal login has something to see.
      */
-    private function seedMaintenanceRequests(): void
+    private function seedTenantRequests(): void
     {
         $tenants = Tenant::whereIn('email', [
             'tenant1@atriomwalk.test',

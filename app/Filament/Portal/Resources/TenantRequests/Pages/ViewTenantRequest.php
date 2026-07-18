@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Filament\Portal\Resources\MaintenanceRequests\Pages;
+namespace App\Filament\Portal\Resources\TenantRequests\Pages;
 
-use App\Filament\Portal\Resources\MaintenanceRequests\MaintenanceRequestResource;
+use App\Filament\Portal\Resources\TenantRequests\TenantRequestResource;
 use App\Models\Tenant;
 use App\Models\TenantRequest;
 use App\Services\TenantRequestService;
@@ -12,9 +12,9 @@ use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 
-class ViewMaintenanceRequest extends ViewRecord
+class ViewTenantRequest extends ViewRecord
 {
-    protected static string $resource = MaintenanceRequestResource::class;
+    protected static string $resource = TenantRequestResource::class;
 
     public function getTitle(): string
     {

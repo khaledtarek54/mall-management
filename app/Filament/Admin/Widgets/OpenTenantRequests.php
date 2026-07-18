@@ -4,14 +4,14 @@ namespace App\Filament\Admin\Widgets;
 
 use App\Enums\TenantRequestType;
 use App\Filament\Admin\Concerns\RoleScopedWidget;
-use App\Filament\Admin\Resources\MaintenanceRequests\MaintenanceRequestResource;
+use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Models\TenantRequest;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
 use Illuminate\Database\Eloquent\Builder;
 
-class OpenMaintenanceRequests extends TableWidget
+class OpenTenantRequests extends TableWidget
 {
     use RoleScopedWidget;
 
@@ -53,7 +53,7 @@ class OpenMaintenanceRequests extends TableWidget
                     ->label(__('admin.widgets.open_maintenance.reference'))
                     ->fontFamily('mono')
                     ->size('xs')
-                    ->url(fn ($record) => MaintenanceRequestResource::getUrl('edit', ['record' => $record])),
+                    ->url(fn ($record) => TenantRequestResource::getUrl('edit', ['record' => $record])),
                 TextColumn::make('title')
                     ->label(__('admin.widgets.open_maintenance.title'))
                     ->limit(40)
@@ -90,7 +90,7 @@ class OpenMaintenanceRequests extends TableWidget
                 TextColumn::make('status')
                     ->label(__('admin.tables.common.status'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => __("admin.statuses.maintenance_request.{$state}"))
+                    ->formatStateUsing(fn (string $state) => __("admin.statuses.tenant_request.{$state}"))
                     ->color(fn (string $state): string => match ($state) {
                         'submitted' => 'info',
                         'acknowledged' => 'warning',

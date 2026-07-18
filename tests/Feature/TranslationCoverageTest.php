@@ -39,7 +39,7 @@ class TranslationCoverageTest extends TestCase
             'statuses.payment' => ['initiated', 'authorized', 'captured', 'reconciled', 'settled', 'failed', 'refunded', 'bounced'],
             'statuses.unit' => ['vacant', 'reserved', 'occupied', 'maintenance'],
             'statuses.tenant' => ['active', 'inactive', 'blacklisted'],
-            'statuses.maintenance_request' => ['submitted', 'acknowledged', 'in_progress', 'awaiting_tenant', 'resolved', 'closed', 'cancelled'],
+            'statuses.tenant_request' => ['submitted', 'acknowledged', 'in_progress', 'awaiting_tenant', 'resolved', 'closed', 'cancelled'],
             'statuses.tenant_sales' => ['submitted', 'locked', 'disputed'],
             'statuses.eta' => ['pending', 'submitted', 'valid', 'invalid', 'rejected', 'cancelled'],
             'statuses.cam_pool' => ['draft', 'reconciling', 'reconciled', 'closed'],

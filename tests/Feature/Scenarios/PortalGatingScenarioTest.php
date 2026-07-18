@@ -1,8 +1,8 @@
 <?php
 
 use App\Filament\Portal\Resources\Invoices\Pages\ViewInvoice;
-use App\Filament\Portal\Resources\MaintenanceRequests\MaintenanceRequestResource;
-use App\Filament\Portal\Resources\MaintenanceRequests\Pages\CreateMaintenanceRequest;
+use App\Filament\Portal\Resources\TenantRequests\TenantRequestResource;
+use App\Filament\Portal\Resources\TenantRequests\Pages\CreateTenantRequest;
 use App\Filament\Portal\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
@@ -15,7 +15,7 @@ use Livewire\Livewire;
 |   • the ViewInvoice "Pay Now" AND "Pay Demo" header actions are visible to an
 |     admin and HIDDEN to a non-admin (toggling integrations.paymob.enabled to
 |     exercise each pay path), mounted on the admin's OWN invoice; and
-|   • mounting the CreateMaintenanceRequest page as a non-admin is forbidden.
+|   • mounting the CreateTenantRequest page as a non-admin is forbidden.
 |
 | The portal scopes via the logged-in user, not Filament tenancy, so we only
 | set the portal as the current panel (so Livewire mounts portal pages) and
@@ -44,9 +44,9 @@ afterEach(fn () => Filament::setCurrentPanel(Filament::getPanel('admin')));
 it('grants an admin tenant user canCreate on both write resources', function () {
     $this->actingAs(makeTenantUser($this->tenant, isAdmin: true), 'portal');
 
-    expect(MaintenanceRequestResource::canCreate())->toBeTrue()
+    expect(TenantRequestResource::canCreate())->toBeTrue()
         ->and(TenantSalesDeclarationResource::canCreate())->toBeTrue()
-        ->and(MaintenanceRequestResource::canViewAny())->toBeTrue()
+        ->and(TenantRequestResource::canViewAny())->toBeTrue()
         ->and(TenantSalesDeclarationResource::canViewAny())->toBeTrue();
 });
 
@@ -54,10 +54,10 @@ it('keeps a non-admin tenant user read-only: canViewAny but not canCreate', func
     $this->actingAs(makeTenantUser($this->tenant, isAdmin: false), 'portal');
 
     // Viewing is shared across all portal users…
-    expect(MaintenanceRequestResource::canViewAny())->toBeTrue()
+    expect(TenantRequestResource::canViewAny())->toBeTrue()
         ->and(TenantSalesDeclarationResource::canViewAny())->toBeTrue()
         // …but submitting is admin-only.
-        ->and(MaintenanceRequestResource::canCreate())->toBeFalse()
+        ->and(TenantRequestResource::canCreate())->toBeFalse()
         ->and(TenantSalesDeclarationResource::canCreate())->toBeFalse();
 });
 
@@ -116,16 +116,16 @@ it('hides Pay Demo from a non-admin even with Paymob disabled', function () {
 | ---------------------------------------------------------------------------
 */
 
-it('forbids a non-admin from mounting the CreateMaintenanceRequest page', function () {
+it('forbids a non-admin from mounting the CreateTenantRequest page', function () {
     $this->actingAs(makeTenantUser($this->tenant, isAdmin: false), 'portal');
 
-    Livewire::test(CreateMaintenanceRequest::class)
+    Livewire::test(CreateTenantRequest::class)
         ->assertForbidden();
 });
 
-it('lets an admin mount the CreateMaintenanceRequest page', function () {
+it('lets an admin mount the CreateTenantRequest page', function () {
     $this->actingAs(makeTenantUser($this->tenant, isAdmin: true), 'portal');
 
-    Livewire::test(CreateMaintenanceRequest::class)
+    Livewire::test(CreateTenantRequest::class)
         ->assertSuccessful();
 });

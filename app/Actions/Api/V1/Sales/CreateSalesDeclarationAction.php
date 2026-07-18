@@ -64,7 +64,7 @@ class CreateSalesDeclarationAction
 
         // Push the uploaded report into the Spatie `sales_report` collection.
         // Done after the row saves (not in a DB transaction) because media
-        // moves files on disk — mirrors CreateMaintenanceRequestAction.
+        // moves files on disk — mirrors CreateTenantRequestAction.
         foreach ($attachments as $file) {
             $declaration->addMedia($file)->toMediaCollection(TenantSalesDeclaration::REPORT_COLLECTION);
         }

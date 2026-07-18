@@ -18,7 +18,7 @@ class TenantRequestFactory extends Factory
     /**
      * Define the model's default state.
      *
-     * Mirrors the makeMaintenanceRequest() helper in tests/Pest.php: an open,
+     * Mirrors the makeTenantRequest() helper in tests/Pest.php: an open,
      * just-submitted maintenance request. The NOT-NULL columns with no DB default
      * — reference (unique), tenant_id, unit_id, title, description, submitted_at —
      * are all set; status/priority/request_type/channel carry DB defaults but we

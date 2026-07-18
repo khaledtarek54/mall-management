@@ -10,7 +10,7 @@ use Illuminate\Validation\ValidationException;
 beforeEach(fn () => $this->svc = app(TenantRequestService::class));
 
 it('records a rating + comment on a resolved request', function () {
-    $request = makeMaintenanceRequest(['status' => 'resolved']);
+    $request = makeTenantRequest(['status' => 'resolved']);
 
     $this->svc->rate($request, 5, '  Great work  ');
 
@@ -19,14 +19,14 @@ it('records a rating + comment on a resolved request', function () {
 });
 
 it('refuses to rate a request that is not resolved/closed', function () {
-    $request = makeMaintenanceRequest(['status' => 'in_progress']);
+    $request = makeTenantRequest(['status' => 'in_progress']);
 
     expect(fn () => $this->svc->rate($request, 4))->toThrow(ValidationException::class);
     expect($request->fresh()->csat_rating)->toBeNull();
 });
 
 it('clamps an out-of-range score into 1–5', function () {
-    $request = makeMaintenanceRequest(['status' => 'closed']);
+    $request = makeTenantRequest(['status' => 'closed']);
 
     $this->svc->rate($request, 9);
     expect($request->fresh()->csat_rating)->toBe(5);
@@ -36,7 +36,7 @@ it('clamps an out-of-range score into 1–5', function () {
 });
 
 it('stores an empty comment as null', function () {
-    $request = makeMaintenanceRequest(['status' => 'resolved']);
+    $request = makeTenantRequest(['status' => 'resolved']);
 
     $this->svc->rate($request, 3, '   ');
 

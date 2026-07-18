@@ -103,7 +103,7 @@ it('logs a failed penalty assessment loudly — the vendor going uncharged is no
 });
 
 it('logs a durable summary of every maintenance SLA scan', function () {
-    makeMaintenanceRequest([
+    makeTenantRequest([
         'status' => 'submitted',
         'target_resolution_at' => now()->subHours(6),
     ]);
@@ -114,7 +114,7 @@ it('logs a durable summary of every maintenance SLA scan', function () {
         $events[] = $event;
     });
 
-    $this->artisan('maintenance:scan-sla-breaches')->assertExitCode(0);
+    $this->artisan('requests:scan-sla-breaches')->assertExitCode(0);
 
     expect($events)->toContain('Maintenance SLA scan complete');
 });

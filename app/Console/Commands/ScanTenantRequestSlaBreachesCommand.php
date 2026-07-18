@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\TenantRequest;
-use App\Notifications\MaintenanceSlaBreachedNotification;
+use App\Notifications\TenantRequestSlaBreachedNotification;
 use App\Services\AssetStaffRecipients;
 use App\Support\OpsLog;
 use Illuminate\Console\Command;
@@ -19,9 +19,9 @@ use Illuminate\Support\Facades\Notification;
  * returns SUCCESS), so the summary below is the only evidence that a breach went unalerted.
  * Mirrors ScanWorkOrderSlaBreachesCommand and MonthlyBillingService.
  */
-class ScanMaintenanceSlaBreachesCommand extends Command
+class ScanTenantRequestSlaBreachesCommand extends Command
 {
-    protected $signature = 'maintenance:scan-sla-breaches {--dry-run : Print what would be alerted without writing}';
+    protected $signature = 'requests:scan-sla-breaches {--dry-run : Print what would be alerted without writing}';
 
     protected $description = 'Notify operators about open maintenance requests whose target_resolution_at has passed (idempotent via sla_breach_notified_at).';
 
@@ -81,7 +81,7 @@ class ScanMaintenanceSlaBreachesCommand extends Command
                         return false;
                     }
 
-                    Notification::send($recipients, new MaintenanceSlaBreachedNotification($locked));
+                    Notification::send($recipients, new TenantRequestSlaBreachedNotification($locked));
                     $locked->forceFill(['sla_breach_notified_at' => now()])->save();
 
                     return true;

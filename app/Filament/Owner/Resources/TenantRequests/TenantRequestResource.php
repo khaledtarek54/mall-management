@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Filament\Owner\Resources\MaintenanceRequests;
+namespace App\Filament\Owner\Resources\TenantRequests;
 
-use App\Filament\Owner\Resources\MaintenanceRequests\Pages\ListMaintenanceRequests;
-use App\Filament\Owner\Resources\MaintenanceRequests\Pages\ViewMaintenanceRequest;
-use App\Filament\Owner\Resources\MaintenanceRequests\Tables\MaintenanceRequestsTable;
+use App\Filament\Owner\Resources\TenantRequests\Pages\ListTenantRequests;
+use App\Filament\Owner\Resources\TenantRequests\Pages\ViewTenantRequest;
+use App\Filament\Owner\Resources\TenantRequests\Tables\TenantRequestsTable;
 use App\Models\TenantRequest;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -13,8 +13,10 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 
-class MaintenanceRequestResource extends Resource
+class TenantRequestResource extends Resource
 {
+    protected static ?string $slug = 'requests';
+
     protected static ?string $model = TenantRequest::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedWrenchScrewdriver;
@@ -28,12 +30,12 @@ class MaintenanceRequestResource extends Resource
 
     public static function getModelLabel(): string
     {
-        return __('admin.resources.maintenance_request.singular');
+        return __('admin.resources.tenant_request.singular');
     }
 
     public static function getPluralModelLabel(): string
     {
-        return __('admin.resources.maintenance_request.plural');
+        return __('admin.resources.tenant_request.plural');
     }
 
     public static function getNavigationGroup(): ?string
@@ -43,14 +45,14 @@ class MaintenanceRequestResource extends Resource
 
     public static function table(Table $table): Table
     {
-        return MaintenanceRequestsTable::configure($table);
+        return TenantRequestsTable::configure($table);
     }
 
     public static function getPages(): array
     {
         return [
-            'index' => ListMaintenanceRequests::route('/'),
-            'view' => ViewMaintenanceRequest::route('/{record}'),
+            'index' => ListTenantRequests::route('/'),
+            'view' => ViewTenantRequest::route('/{record}'),
         ];
     }
 

@@ -8,8 +8,8 @@ use App\Models\Tenant;
 use App\Models\TenantRequest;
 use App\Models\TenantRequestComment;
 use App\Models\User;
-use App\Notifications\MaintenanceCommentAddedNotification;
-use App\Notifications\MaintenanceStatusChangedNotification;
+use App\Notifications\TenantRequestCommentAddedNotification;
+use App\Notifications\TenantRequestStatusChangedNotification;
 use App\Notifications\PortalMaintenanceSubmittedNotification;
 use App\Settings\MaintenanceSettings;
 use Carbon\Carbon;
@@ -215,7 +215,7 @@ class TenantRequestService
         if ($next !== 'cancelled' && $request->tenant) {
             try {
                 $request->tenant->notifyPortal(
-                    new MaintenanceStatusChangedNotification($request->refresh(), $current)
+                    new TenantRequestStatusChangedNotification($request->refresh(), $current)
                 );
             } catch (\Throwable $e) {
                 \Log::warning('Maintenance status notification failed', [
@@ -331,7 +331,7 @@ class TenantRequestService
                 if ($recipients->isNotEmpty()) {
                     Notification::send(
                         $recipients,
-                        new MaintenanceCommentAddedNotification($request, $comment)
+                        new TenantRequestCommentAddedNotification($request, $comment)
                     );
                 }
 
@@ -341,7 +341,7 @@ class TenantRequestService
             // Staff (or system) author → notify the requesting tenant.
             if ($request->tenant) {
                 $request->tenant->notifyPortal(
-                    new MaintenanceCommentAddedNotification($request, $comment)
+                    new TenantRequestCommentAddedNotification($request, $comment)
                 );
             }
         } catch (\Throwable $e) {

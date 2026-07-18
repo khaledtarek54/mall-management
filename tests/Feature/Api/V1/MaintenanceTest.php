@@ -26,7 +26,7 @@ it('lists the tenant\'s maintenance requests', function () {
     makeMaintenance($tenant);
     makeMaintenance(makeTenant()); // foreign — excluded
 
-    $response = $this->getJson('/api/v1/me/maintenance-requests', apiHeaders($tenant))->assertOk();
+    $response = $this->getJson('/api/v1/me/requests', apiHeaders($tenant))->assertOk();
 
     expect($response->json('meta.total'))->toBe(1);
 });
@@ -35,7 +35,7 @@ it('creates a maintenance request via the service path', function () {
     $tenant = makeTenant();
     makeLease(makeUnit(makeAsset()), $tenant); // active lease → resolves unit
 
-    $this->postJson('/api/v1/me/maintenance-requests', [
+    $this->postJson('/api/v1/me/requests', [
         'title' => 'AC not cooling',
         'description' => 'The unit AC stopped cooling yesterday.',
         'category' => 'hvac',
@@ -57,7 +57,7 @@ it('creates a request with image + PDF attachments', function () {
     makeLease(makeUnit(makeAsset()), $tenant);
 
     // Multipart upload (post, not postJson) so the files reach the request.
-    $response = $this->post('/api/v1/me/maintenance-requests', [
+    $response = $this->post('/api/v1/me/requests', [
         'title' => 'Leaking pipe',
         'description' => 'Water under the sink.',
         'category' => 'plumbing',
@@ -80,7 +80,7 @@ it('rejects a non image/PDF attachment', function () {
     $tenant = makeTenant();
     makeLease(makeUnit(makeAsset()), $tenant);
 
-    $this->post('/api/v1/me/maintenance-requests', [
+    $this->post('/api/v1/me/requests', [
         'title' => 'Broken AC',
         'description' => 'See the clip.',
         'category' => 'hvac',
@@ -95,7 +95,7 @@ it('rejects more than five attachments', function () {
     $tenant = makeTenant();
     makeLease(makeUnit(makeAsset()), $tenant);
 
-    $this->post('/api/v1/me/maintenance-requests', [
+    $this->post('/api/v1/me/requests', [
         'title' => 'Too many',
         'description' => 'Six photos.',
         'category' => 'other',
@@ -111,7 +111,7 @@ it('rejects more than five attachments', function () {
 it('validates the create payload', function () {
     $tenant = makeTenant();
 
-    $this->postJson('/api/v1/me/maintenance-requests', [
+    $this->postJson('/api/v1/me/requests', [
         'category' => 'not-a-category',
     ], apiHeaders($tenant))
         ->assertStatus(422)
@@ -124,7 +124,7 @@ it('shows a request and hides internal comments', function () {
     $request->comments()->create(['author_type' => $tenant->getMorphClass(), 'author_id' => $tenant->id, 'body' => 'Public note', 'is_internal' => false]);
     $request->comments()->create(['author_type' => $tenant->getMorphClass(), 'author_id' => $tenant->id, 'body' => 'Secret', 'is_internal' => true]);
 
-    $response = $this->getJson("/api/v1/me/maintenance-requests/{$request->id}", apiHeaders($tenant))->assertOk();
+    $response = $this->getJson("/api/v1/me/requests/{$request->id}", apiHeaders($tenant))->assertOk();
 
     expect($response->json('data.comments'))->toHaveCount(1);
     expect($response->json('data.comments.0.body'))->toBe('Public note');
@@ -134,7 +134,7 @@ it('adds a public comment', function () {
     $tenant = makeTenant();
     $request = makeMaintenance($tenant);
 
-    $this->postJson("/api/v1/me/maintenance-requests/{$request->id}/comments", [
+    $this->postJson("/api/v1/me/requests/{$request->id}/comments", [
         'body' => 'Any update?',
     ], apiHeaders($tenant))->assertCreated();
 
@@ -151,14 +151,14 @@ it('syncs attachment URLs to the app in the show + list responses', function () 
 
     // Response keys are camelCased by the CamelCaseResponseKeys middleware to
     // match the Flutter app (mime_type → mimeType).
-    $show = $this->getJson("/api/v1/me/maintenance-requests/{$request->id}", apiHeaders($tenant))->assertOk();
+    $show = $this->getJson("/api/v1/me/requests/{$request->id}", apiHeaders($tenant))->assertOk();
     expect($show->json('data.attachments'))->toHaveCount(1);
     expect($show->json('data.attachments.0'))->toHaveKeys(['id', 'name', 'mimeType', 'size', 'url']);
     expect($show->json('data.attachments.0.name'))->toContain('damage');
     // URL is the authenticated, tenant-scoped stream route — NOT a public file URL.
-    expect($show->json('data.attachments.0.url'))->toContain("/maintenance-requests/{$request->id}/attachments/");
+    expect($show->json('data.attachments.0.url'))->toContain("/requests/{$request->id}/attachments/");
 
-    $list = $this->getJson('/api/v1/me/maintenance-requests', apiHeaders($tenant))->assertOk();
+    $list = $this->getJson('/api/v1/me/requests', apiHeaders($tenant))->assertOk();
     expect($list->json('data.0.attachments'))->toHaveCount(1);
 });
 
@@ -168,7 +168,7 @@ it('streams an attachment to its owner (H2)', function () {
     $request = makeMaintenance($tenant);
     $media = $request->addMedia(UploadedFile::fake()->image('private.jpg'))->toMediaCollection('attachments');
 
-    $this->get("/api/v1/me/maintenance-requests/{$request->id}/attachments/{$media->id}", apiHeaders($tenant))
+    $this->get("/api/v1/me/requests/{$request->id}/attachments/{$media->id}", apiHeaders($tenant))
         ->assertOk();
 });
 
@@ -179,7 +179,7 @@ it('404s a foreign tenant requesting an attachment (H2 — no cross-tenant discl
     $media = $request->addMedia(UploadedFile::fake()->image('private.jpg'))->toMediaCollection('attachments');
 
     // A different tenant's token must not reach it (request isn't theirs).
-    $this->get("/api/v1/me/maintenance-requests/{$request->id}/attachments/{$media->id}", apiHeaders(makeTenant()))
+    $this->get("/api/v1/me/requests/{$request->id}/attachments/{$media->id}", apiHeaders(makeTenant()))
         ->assertNotFound();
 });
 
@@ -187,7 +187,7 @@ it('cancels a not-yet-started request', function () {
     $tenant = makeTenant();
     $request = makeMaintenance($tenant, ['status' => 'acknowledged']);
 
-    $this->postJson("/api/v1/me/maintenance-requests/{$request->id}/cancel", [], apiHeaders($tenant))
+    $this->postJson("/api/v1/me/requests/{$request->id}/cancel", [], apiHeaders($tenant))
         ->assertOk()
         ->assertJsonPath('data.status', 'cancelled');
 });
@@ -196,7 +196,7 @@ it('refuses to cancel a request that is already in progress', function () {
     $tenant = makeTenant();
     $request = makeMaintenance($tenant, ['status' => 'in_progress']);
 
-    $this->postJson("/api/v1/me/maintenance-requests/{$request->id}/cancel", [], apiHeaders($tenant))
+    $this->postJson("/api/v1/me/requests/{$request->id}/cancel", [], apiHeaders($tenant))
         ->assertStatus(422)
         ->assertJsonValidationErrors(['status']);
 
@@ -207,5 +207,5 @@ it('returns 404 for another tenant\'s request', function () {
     $tenant = makeTenant();
     $request = makeMaintenance(makeTenant());
 
-    $this->getJson("/api/v1/me/maintenance-requests/{$request->id}", apiHeaders($tenant))->assertNotFound();
+    $this->getJson("/api/v1/me/requests/{$request->id}", apiHeaders($tenant))->assertNotFound();
 });

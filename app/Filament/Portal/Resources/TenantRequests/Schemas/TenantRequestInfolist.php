@@ -1,12 +1,12 @@
 <?php
 
-namespace App\Filament\Portal\Resources\MaintenanceRequests\Schemas;
+namespace App\Filament\Portal\Resources\TenantRequests\Schemas;
 
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 
-class MaintenanceRequestInfolist
+class TenantRequestInfolist
 {
     public static function configure(Schema $schema): Schema
     {
@@ -25,7 +25,7 @@ class MaintenanceRequestInfolist
                     TextEntry::make('status')
                         ->label(__('admin.tables.common.status'))
                         ->badge()
-                        ->formatStateUsing(fn (string $state) => __("admin.statuses.maintenance_request.{$state}"))
+                        ->formatStateUsing(fn (string $state) => __("admin.statuses.tenant_request.{$state}"))
                         ->color(fn (string $state): string => match ($state) {
                             'submitted' => 'info',
                             'acknowledged' => 'warning',

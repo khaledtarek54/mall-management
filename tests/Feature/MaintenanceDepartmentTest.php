@@ -3,12 +3,12 @@
 use App\Models\Department;
 use App\Services\TenantRequestService;
 
-// makeMaintenanceRequest() is a shared global helper defined in
-// tests/Feature/Models/MaintenanceRequestTest.php.
+// makeTenantRequest() is a shared global helper defined in
+// tests/Feature/Models/TenantRequestTest.php.
 
 it('assigns a maintenance request to a department', function () {
     $dept = Department::create(['name' => 'Operations']);
-    $req = makeMaintenanceRequest();
+    $req = makeTenantRequest();
 
     app(TenantRequestService::class)->redirectToDepartment($req, $dept->id);
 
@@ -19,7 +19,7 @@ it('assigns a maintenance request to a department', function () {
 it('redirects a request from one department to another', function () {
     $ops = Department::create(['name' => 'Operations']);
     $leasing = Department::create(['name' => 'Leasing']);
-    $req = makeMaintenanceRequest(['department_id' => $ops->id]);
+    $req = makeTenantRequest(['department_id' => $ops->id]);
 
     app(TenantRequestService::class)->redirectToDepartment($req, $leasing->id);
 
@@ -28,7 +28,7 @@ it('redirects a request from one department to another', function () {
 
 it('clears the department when redirected to null', function () {
     $dept = Department::create(['name' => 'Leasing']);
-    $req = makeMaintenanceRequest(['department_id' => $dept->id]);
+    $req = makeTenantRequest(['department_id' => $dept->id]);
 
     app(TenantRequestService::class)->redirectToDepartment($req, null);
 
@@ -37,7 +37,7 @@ it('clears the department when redirected to null', function () {
 
 it('records the department change in the activity log', function () {
     $dept = Department::create(['name' => 'Operations']);
-    $req = makeMaintenanceRequest();
+    $req = makeTenantRequest();
 
     app(TenantRequestService::class)->redirectToDepartment($req, $dept->id);
 

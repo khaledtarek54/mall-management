@@ -1,22 +1,22 @@
 <?php
 
-namespace App\Filament\Admin\Resources\MaintenanceRequests\Pages;
+namespace App\Filament\Admin\Resources\TenantRequests\Pages;
 
 use App\Enums\TenantRequestType;
-use App\Filament\Admin\Resources\MaintenanceRequests\MaintenanceRequestResource;
+use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Models\Department;
 use App\Services\TenantRequestService;
 use Filament\Resources\Pages\CreateRecord;
 
-class CreateMaintenanceRequest extends CreateRecord
+class CreateTenantRequest extends CreateRecord
 {
-    protected static string $resource = MaintenanceRequestResource::class;
+    protected static string $resource = TenantRequestResource::class;
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         // The request's property comes from its unit — re-validate the submitted
         // unit is within the user's visible set (property isolation).
-        MaintenanceRequestResource::assertUnitAssetInScope($data['unit_id'] ?? null);
+        TenantRequestResource::assertUnitAssetInScope($data['unit_id'] ?? null);
 
         $data['submitted_at'] ??= now();
 

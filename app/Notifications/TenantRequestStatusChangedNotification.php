@@ -7,7 +7,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class MaintenanceStatusChangedNotification extends Notification
+class TenantRequestStatusChangedNotification extends Notification
 {
     use Queueable;
 
@@ -24,14 +24,14 @@ class MaintenanceStatusChangedNotification extends Notification
             ->subject(__('admin.notifications.maintenance_status_subject', [
                 'type' => $this->request->typeLabel(),
                 'reference' => $this->request->reference,
-                'status' => __("admin.statuses.maintenance_request.{$this->request->status}"),
+                'status' => __("admin.statuses.tenant_request.{$this->request->status}"),
             ]))
             ->greeting(__('admin.notifications.payment_received_greeting', ['name' => $this->request->tenant?->name ?? '']))
             ->line(__('admin.notifications.maintenance_status_body', [
                 'type' => $this->request->typeLabel(),
                 'title' => $this->request->title,
-                'from' => __("admin.statuses.maintenance_request.{$this->previousStatus}"),
-                'to' => __("admin.statuses.maintenance_request.{$this->request->status}"),
+                'from' => __("admin.statuses.tenant_request.{$this->previousStatus}"),
+                'to' => __("admin.statuses.tenant_request.{$this->request->status}"),
             ]))
             ->when(
                 in_array($this->request->status, ['resolved', 'closed'], true) && $this->request->resolution_notes,
@@ -53,7 +53,7 @@ class MaintenanceStatusChangedNotification extends Notification
             ]),
             'body' => __('admin.notifications.maintenance_status_short', [
                 'title' => $this->request->title,
-                'status' => __("admin.statuses.maintenance_request.{$this->request->status}"),
+                'status' => __("admin.statuses.tenant_request.{$this->request->status}"),
             ]),
             'status' => $this->request->status,
             'icon' => match ($this->request->status) {

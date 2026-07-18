@@ -47,8 +47,8 @@ test.describe('Credit Notes & Vendors admin pages', () => {
   });
 
   test('maintenance request edit shows external vendor field', async ({ page }) => {
-    await page.goto('/admin/AW/maintenance-requests', { waitUntil: 'networkidle' });
-    const firstEditLink = page.locator('a[href*="/admin/AW/maintenance-requests/"][href*="/edit"]').first();
+    await page.goto('/admin/AW/requests', { waitUntil: 'networkidle' });
+    const firstEditLink = page.locator('a[href*="/admin/AW/requests/"][href*="/edit"]').first();
     await firstEditLink.click();
     await page.waitForLoadState('networkidle');
     await expectNoLaravelError(page);

@@ -28,7 +28,7 @@ it('rates a resolved request', function () {
     $tenant = makeTenant();
     $request = makeRateableRequest($tenant);
 
-    $this->postJson("/api/v1/me/maintenance-requests/{$request->id}/rate", [
+    $this->postJson("/api/v1/me/requests/{$request->id}/rate", [
         'rating' => 5,
         'comment' => 'Fast and tidy, thank you.',
     ], apiHeaders($tenant))
@@ -45,7 +45,7 @@ it('refuses to rate a request that is not yet resolved', function () {
     $tenant = makeTenant();
     $request = makeRateableRequest($tenant, 'in_progress');
 
-    $this->postJson("/api/v1/me/maintenance-requests/{$request->id}/rate", [
+    $this->postJson("/api/v1/me/requests/{$request->id}/rate", [
         'rating' => 4,
     ], apiHeaders($tenant))->assertStatus(422);
 
@@ -56,7 +56,7 @@ it('validates the rating is within 1–5', function () {
     $tenant = makeTenant();
     $request = makeRateableRequest($tenant);
 
-    $this->postJson("/api/v1/me/maintenance-requests/{$request->id}/rate", [
+    $this->postJson("/api/v1/me/requests/{$request->id}/rate", [
         'rating' => 6,
     ], apiHeaders($tenant))
         ->assertStatus(422)
@@ -67,7 +67,7 @@ it('404s when rating another tenant\'s request (no cross-tenant access)', functi
     $tenant = makeTenant();
     $foreign = makeRateableRequest(makeTenant());
 
-    $this->postJson("/api/v1/me/maintenance-requests/{$foreign->id}/rate", [
+    $this->postJson("/api/v1/me/requests/{$foreign->id}/rate", [
         'rating' => 5,
     ], apiHeaders($tenant))->assertNotFound();
 });
@@ -76,8 +76,8 @@ it('lets the tenant overwrite an earlier rating', function () {
     $tenant = makeTenant();
     $request = makeRateableRequest($tenant);
 
-    $this->postJson("/api/v1/me/maintenance-requests/{$request->id}/rate", ['rating' => 2], apiHeaders($tenant))->assertOk();
-    $this->postJson("/api/v1/me/maintenance-requests/{$request->id}/rate", ['rating' => 4], apiHeaders($tenant))->assertOk();
+    $this->postJson("/api/v1/me/requests/{$request->id}/rate", ['rating' => 2], apiHeaders($tenant))->assertOk();
+    $this->postJson("/api/v1/me/requests/{$request->id}/rate", ['rating' => 4], apiHeaders($tenant))->assertOk();
 
     expect($request->fresh()->csat_rating)->toBe(4);
 });

@@ -4,28 +4,28 @@ use App\Models\TenantRequest;
 
 it('isOpen() recognises every OPEN_STATUSES value', function () {
     foreach (TenantRequest::OPEN_STATUSES as $status) {
-        $req = makeMaintenanceRequest(['status' => $status]);
+        $req = makeTenantRequest(['status' => $status]);
         expect($req->isOpen())->toBeTrue();
     }
 
     foreach (['resolved', 'closed', 'cancelled'] as $status) {
-        $req = makeMaintenanceRequest(['status' => $status]);
+        $req = makeTenantRequest(['status' => $status]);
         expect($req->isOpen())->toBeFalse();
     }
 });
 
 it('isOverdue() returns true past target_resolution_at while still open', function () {
-    $stale = makeMaintenanceRequest([
+    $stale = makeTenantRequest([
         'status' => 'in_progress',
         'target_resolution_at' => now()->subHours(3),
     ]);
 
-    $onTime = makeMaintenanceRequest([
+    $onTime = makeTenantRequest([
         'status' => 'in_progress',
         'target_resolution_at' => now()->addHours(3),
     ]);
 
-    $closed = makeMaintenanceRequest([
+    $closed = makeTenantRequest([
         'status' => 'closed',
         'target_resolution_at' => now()->subHours(3),
     ]);

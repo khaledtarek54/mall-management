@@ -2,7 +2,7 @@
 
 namespace App\Filament\Portal\Widgets;
 
-use App\Filament\Portal\Resources\MaintenanceRequests\MaintenanceRequestResource;
+use App\Filament\Portal\Resources\TenantRequests\TenantRequestResource;
 use App\Models\TenantRequest;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -10,7 +10,7 @@ use Filament\Widgets\TableWidget;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 
-class OpenMaintenance extends TableWidget
+class OpenTenantRequests extends TableWidget
 {
     protected static ?int $sort = 2;
 
@@ -36,7 +36,7 @@ class OpenMaintenance extends TableWidget
                     ->label(__('admin.tables.maintenance.reference'))
                     ->fontFamily('mono')
                     ->size('xs')
-                    ->url(fn ($record) => MaintenanceRequestResource::getUrl('view', ['record' => $record])),
+                    ->url(fn ($record) => TenantRequestResource::getUrl('view', ['record' => $record])),
                 TextColumn::make('title')
                     ->label(__('admin.tables.maintenance.title'))
                     ->limit(40),
@@ -57,7 +57,7 @@ class OpenMaintenance extends TableWidget
                 TextColumn::make('status')
                     ->label(__('admin.tables.common.status'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => __("admin.statuses.maintenance_request.{$state}"))
+                    ->formatStateUsing(fn (string $state) => __("admin.statuses.tenant_request.{$state}"))
                     ->color(fn (string $state): string => match ($state) {
                         'submitted' => 'info',
                         'acknowledged', 'awaiting_tenant' => 'warning',

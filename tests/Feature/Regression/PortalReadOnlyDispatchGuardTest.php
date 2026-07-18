@@ -1,6 +1,6 @@
 <?php
 
-use App\Filament\Portal\Resources\MaintenanceRequests\Pages\ViewMaintenanceRequest;
+use App\Filament\Portal\Resources\TenantRequests\Pages\ViewTenantRequest;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -15,7 +15,7 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
  * who can craft the Livewire request. `visible()` styles the UI; it does not defend it.
  *
  * Two shapes of the same hole:
- *   - ViewMaintenanceRequest::addComment/cancel had **no isAdmin() check at all** — they
+ *   - ViewTenantRequest::addComment/cancel had **no isAdmin() check at all** — they
  *     gated on record status only, so a read-only user could cancel their company's request
  *     from the UI, no crafting required.
  *   - ViewInvoice::payNow/payDemo had isAdmin() inside `visible()` only — invisible to a
@@ -37,7 +37,7 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
  */
 beforeEach(function () {
     $this->tenant = makeTenant();
-    $this->request = makeMaintenanceRequest([
+    $this->request = makeTenantRequest([
         'tenant_id' => $this->tenant->id,
         'status' => 'submitted',
     ]);
@@ -60,7 +60,7 @@ function dispatchPortalAction(string $page, string $record, string $action): voi
 it('refuses a read-only tenant user cancelling a request, even dispatched directly', function () {
     $this->actingAs(makeTenantUser($this->tenant, isAdmin: false), 'portal');
 
-    dispatchPortalAction(ViewMaintenanceRequest::class, $this->request->getRouteKey(), 'cancel');
+    dispatchPortalAction(ViewTenantRequest::class, $this->request->getRouteKey(), 'cancel');
 
     expect($this->request->fresh()->status)
         ->toBe('submitted', 'a read-only tenant user must not be able to cancel the request');
@@ -69,7 +69,7 @@ it('refuses a read-only tenant user cancelling a request, even dispatched direct
 it('refuses a read-only tenant user commenting on a request, even dispatched directly', function () {
     $this->actingAs(makeTenantUser($this->tenant, isAdmin: false), 'portal');
 
-    dispatchPortalAction(ViewMaintenanceRequest::class, $this->request->getRouteKey(), 'addComment');
+    dispatchPortalAction(ViewTenantRequest::class, $this->request->getRouteKey(), 'addComment');
 
     expect($this->request->fresh()->comments()->count())
         ->toBe(0, 'a read-only tenant user must not be able to comment');
@@ -79,7 +79,7 @@ it('hides the write actions from a read-only tenant user', function () {
     // The UI half. Necessary but NOT sufficient — see the note above.
     $this->actingAs(makeTenantUser($this->tenant, isAdmin: false), 'portal');
 
-    Livewire::test(ViewMaintenanceRequest::class, ['record' => $this->request->getRouteKey()])
+    Livewire::test(ViewTenantRequest::class, ['record' => $this->request->getRouteKey()])
         ->assertActionHidden('cancel')
         ->assertActionHidden('addComment');
 });
@@ -88,13 +88,13 @@ it('still lets an admin tenant user comment and cancel', function () {
     // The guard must block the read-only user WITHOUT breaking the real workflow.
     $this->actingAs(makeTenantUser($this->tenant, isAdmin: true), 'portal');
 
-    Livewire::test(ViewMaintenanceRequest::class, ['record' => $this->request->getRouteKey()])
+    Livewire::test(ViewTenantRequest::class, ['record' => $this->request->getRouteKey()])
         ->assertActionVisible('addComment')
         ->callAction('addComment', ['body' => 'Any update on this?']);
 
     expect($this->request->fresh()->comments()->count())->toBe(1);
 
-    Livewire::test(ViewMaintenanceRequest::class, ['record' => $this->request->getRouteKey()])
+    Livewire::test(ViewTenantRequest::class, ['record' => $this->request->getRouteKey()])
         ->callAction('cancel');
 
     expect($this->request->fresh()->status)->toBe('cancelled');

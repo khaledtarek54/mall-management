@@ -7,9 +7,9 @@ use App\Services\TenantRequestService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
-class AutoCloseMaintenanceRequestsCommand extends Command
+class AutoCloseTenantRequestsCommand extends Command
 {
-    protected $signature = 'maintenance:auto-close
+    protected $signature = 'requests:auto-close
         {--days= : Override config(maintenance.auto_close_after_days)}
         {--dry-run : Print what would change without writing}';
 

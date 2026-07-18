@@ -9,7 +9,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 /**
  * @mixin TenantRequest
  */
-class MaintenanceRequestResource extends JsonResource
+class TenantRequestResource extends JsonResource
 {
     /**
      * @return array<string,mixed>
@@ -50,7 +50,7 @@ class MaintenanceRequestResource extends JsonResource
                 'code' => $this->unit->code,
                 'floor' => $this->unit->floor,
             ] : null),
-            'comments' => MaintenanceRequestCommentResource::collection($this->whenLoaded('comments')),
+            'comments' => TenantRequestCommentResource::collection($this->whenLoaded('comments')),
             // Attachments uploaded by tenant or staff (Spatie media library,
             // `attachments` collection). Absolute URLs so the app can render
             // images / open PDFs directly. Only images + PDF are accepted on
@@ -62,7 +62,7 @@ class MaintenanceRequestResource extends JsonResource
                     'mime_type' => $media->mime_type,
                     'size' => $media->size,
                     // Authenticated, tenant-scoped stream — NOT a public URL (H2).
-                    'url' => route('api.v1.me.maintenance.attachment', ['id' => $this->id, 'media' => $media->id]),
+                    'url' => route('api.v1.me.requests.attachment', ['id' => $this->id, 'media' => $media->id]),
                 ])
                 ->values()),
         ];

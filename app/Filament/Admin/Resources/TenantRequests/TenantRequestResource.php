@@ -1,18 +1,18 @@
 <?php
 
-namespace App\Filament\Admin\Resources\MaintenanceRequests;
+namespace App\Filament\Admin\Resources\TenantRequests;
 
 use App\Filament\Admin\RelationManagers\ActivitiesRelationManager;
-use App\Filament\Admin\RelationManagers\MaintenanceCommentsRelationManager;
+use App\Filament\Admin\RelationManagers\TenantRequestCommentsRelationManager;
 use App\Filament\Admin\RelationManagers\StockConsumptionRelationManager;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Concerns\ScopesViaProperty;
-use App\Filament\Admin\Resources\MaintenanceRequests\Pages\CreateMaintenanceRequest;
-use App\Filament\Admin\Resources\MaintenanceRequests\Pages\EditMaintenanceRequest;
-use App\Filament\Admin\Resources\MaintenanceRequests\Pages\ListMaintenanceRequests;
-use App\Filament\Admin\Resources\MaintenanceRequests\Schemas\MaintenanceRequestForm;
-use App\Filament\Admin\Resources\MaintenanceRequests\Tables\MaintenanceRequestsTable;
+use App\Filament\Admin\Resources\TenantRequests\Pages\CreateTenantRequest;
+use App\Filament\Admin\Resources\TenantRequests\Pages\EditTenantRequest;
+use App\Filament\Admin\Resources\TenantRequests\Pages\ListTenantRequests;
+use App\Filament\Admin\Resources\TenantRequests\Schemas\TenantRequestForm;
+use App\Filament\Admin\Resources\TenantRequests\Tables\TenantRequestsTable;
 use App\Models\TenantRequest;
 use App\Support\AssignmentScope;
 use BackedEnum;
@@ -23,8 +23,10 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
-class MaintenanceRequestResource extends Resource
+class TenantRequestResource extends Resource
 {
+    protected static ?string $slug = 'requests';
+
     use GuardsAssetInScope;
     use RoleGatedActions {
         canEdit as protected roleGatedCanEdit;
@@ -72,12 +74,12 @@ class MaintenanceRequestResource extends Resource
 
     public static function getModelLabel(): string
     {
-        return __('admin.resources.maintenance_request.singular');
+        return __('admin.resources.tenant_request.singular');
     }
 
     public static function getPluralModelLabel(): string
     {
-        return __('admin.resources.maintenance_request.plural');
+        return __('admin.resources.tenant_request.plural');
     }
 
     public static function getNavigationGroup(): ?string
@@ -109,18 +111,18 @@ class MaintenanceRequestResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        return MaintenanceRequestForm::configure($schema);
+        return TenantRequestForm::configure($schema);
     }
 
     public static function table(Table $table): Table
     {
-        return MaintenanceRequestsTable::configure($table);
+        return TenantRequestsTable::configure($table);
     }
 
     public static function getRelations(): array
     {
         return [
-            MaintenanceCommentsRelationManager::class,
+            TenantRequestCommentsRelationManager::class,
             StockConsumptionRelationManager::class,
             ActivitiesRelationManager::class,
         ];
@@ -151,9 +153,9 @@ class MaintenanceRequestResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => ListMaintenanceRequests::route('/'),
-            'create' => CreateMaintenanceRequest::route('/create'),
-            'edit' => EditMaintenanceRequest::route('/{record}/edit'),
+            'index' => ListTenantRequests::route('/'),
+            'create' => CreateTenantRequest::route('/create'),
+            'edit' => EditTenantRequest::route('/{record}/edit'),
         ];
     }
 
@@ -167,7 +169,7 @@ class MaintenanceRequestResource extends Resource
         return [
             __('admin.tables.lease.tenant') => $record->tenant?->name,
             __('admin.tables.lease.unit') => $record->unit?->code,
-            __('admin.tables.common.status') => __("admin.statuses.maintenance_request.{$record->status}"),
+            __('admin.tables.common.status') => __("admin.statuses.tenant_request.{$record->status}"),
         ];
     }
 

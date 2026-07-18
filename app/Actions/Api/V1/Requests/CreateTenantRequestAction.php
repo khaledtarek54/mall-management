@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Actions\Api\V1\Maintenance;
+namespace App\Actions\Api\V1\Requests;
 
 use App\Models\TenantRequest;
 use App\Models\Tenant;
@@ -15,7 +15,7 @@ use Illuminate\Http\UploadedFile;
  * TenantRequestService used by the web portal — this action is the API
  * seam that delegates to it, so mobile and portal submissions stay identical.
  */
-class CreateMaintenanceRequestAction
+class CreateTenantRequestAction
 {
     public function __construct(private TenantRequestService $service) {}
 

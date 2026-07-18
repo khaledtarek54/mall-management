@@ -2,7 +2,7 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
-use App\Filament\Admin\Resources\MaintenanceRequests\MaintenanceRequestResource;
+use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Models\TenantRequest;
 use App\Models\Tenant;
 use App\Models\User;
@@ -18,7 +18,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 
-class MaintenanceCommentsRelationManager extends RelationManager
+class TenantRequestCommentsRelationManager extends RelationManager
 {
     protected static string $relationship = 'comments';
 
@@ -68,7 +68,7 @@ class MaintenanceCommentsRelationManager extends RelationManager
                     // Gate explicitly (Filament actions default to ALLOWED) — and
                     // canEdit() is false for terminal requests, so no comments are
                     // added to a closed/cancelled ticket from here.
-                    ->visible(fn (RelationManager $livewire) => MaintenanceRequestResource::canEdit($livewire->getOwnerRecord()))
+                    ->visible(fn (RelationManager $livewire) => TenantRequestResource::canEdit($livewire->getOwnerRecord()))
                     ->schema([
                         Textarea::make('body')
                             ->label(__('admin.maintenance.body'))
@@ -94,7 +94,7 @@ class MaintenanceCommentsRelationManager extends RelationManager
                         : __('admin.maintenance.make_internal'))
                     ->icon('heroicon-o-eye-slash')
                     ->color('gray')
-                    ->visible(fn (RelationManager $livewire) => MaintenanceRequestResource::canEdit($livewire->getOwnerRecord()))
+                    ->visible(fn (RelationManager $livewire) => TenantRequestResource::canEdit($livewire->getOwnerRecord()))
                     ->action(fn ($record) => $record->update(['is_internal' => ! $record->is_internal])),
             ])
             ->toolbarActions([])

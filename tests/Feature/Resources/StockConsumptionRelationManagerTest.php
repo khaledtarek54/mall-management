@@ -1,7 +1,7 @@
 <?php
 
 use App\Filament\Admin\RelationManagers\StockConsumptionRelationManager;
-use App\Filament\Admin\Resources\MaintenanceRequests\Pages\EditMaintenanceRequest;
+use App\Filament\Admin\Resources\TenantRequests\Pages\EditTenantRequest;
 use App\Models\InventoryItem;
 use App\Models\StockMovement;
 use App\Models\TenantRequest;
@@ -15,7 +15,7 @@ beforeEach(function () {
     ensureAllPropertiesAsset();
     $this->asset = makeAsset();
     $this->unit = makeUnit($this->asset);
-    $this->request = makeMaintenanceRequest(['unit_id' => $this->unit->id]);
+    $this->request = makeTenantRequest(['unit_id' => $this->unit->id]);
     $this->warehouse = Warehouse::create(['asset_id' => $this->asset->id, 'name' => 'Store', 'code' => 'S1']);
     $this->item = InventoryItem::create(['sku' => 'SKU-C', 'name' => 'Pump Seal', 'unit' => 'each', 'unit_cost' => 25]);
     app(StockMovementService::class)->receive($this->warehouse, $this->item, 50, 25);
@@ -25,7 +25,7 @@ function consumptionRM(TenantRequest $request)
 {
     return Livewire::test(StockConsumptionRelationManager::class, [
         'ownerRecord' => $request,
-        'pageClass' => EditMaintenanceRequest::class,
+        'pageClass' => EditTenantRequest::class,
     ]);
 }
 
@@ -93,11 +93,11 @@ it('refuses to log consumption against a terminal (closed) ticket', function () 
 
 it('hides the consumption panel when the inventory module is off', function () {
     $this->actingAs(makeUser('operations', [$this->asset->id]));
-    expect(StockConsumptionRelationManager::canViewForRecord($this->request, EditMaintenanceRequest::class))->toBeTrue();
+    expect(StockConsumptionRelationManager::canViewForRecord($this->request, EditTenantRequest::class))->toBeTrue();
 
     $settings = app(\App\Settings\ModulesSettings::class);
     $settings->inventory = false;
     $settings->save();
 
-    expect(StockConsumptionRelationManager::canViewForRecord($this->request, EditMaintenanceRequest::class))->toBeFalse();
+    expect(StockConsumptionRelationManager::canViewForRecord($this->request, EditTenantRequest::class))->toBeFalse();
 });
