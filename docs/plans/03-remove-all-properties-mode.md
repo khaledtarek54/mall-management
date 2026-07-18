@@ -24,12 +24,28 @@
 >   "Test D" clobber gates (they force-set the tenant via `Filament::setTenant`, which is unaffected).
 > - Tests updated: `UserTenantsTest`, `UserPropertyAssignmentTest`, `AdminPanelBrandingHttpTest`
 >   (now asserts `/admin/ALL` → 404), `ScopingScenarioTest` (title accuracy). Full suite green.
-> - **Not yet done — Phase A step 3** (drop / auto-stamp the `asset_id` picker on the 13 direct-FK forms):
->   deferred as a separate increment because it cascades into `AllPropertiesCreatePinsAssetTest` and the
->   form-level tests, and the read-only-vs-auto-stamp-vs-keep choice is its own design decision. With
->   All-mode already unreachable, the clobber can no longer occur via the UI; this step is hardening
->   (making a *within-visible-set* wrong-mall pick on multi-mall accounts structurally impossible), not a
->   correctness fix.
+>
+> ## Phase A step 3 (asset_id picker) — already delivered; no extra code
+> Investigating step 3 showed the "auto-stamp the picker / make the wrong-mall create structurally
+> impossible" goal is **already achieved** the moment All-Properties leaves the switcher — for two
+> independent reasons — so **no form churn and no server-side pin were added**. (A pin would have been
+> redundant, and worse: it would silently *coerce* a tampered value instead of rejecting it, discarding
+> the tamper signal.)
+> - **The picker is already read-only / auto-stamped.** Every direct-FK form declares its `asset_id`
+>   Select as `->default(currentAssetId())->disabled(fn () => currentAssetId() !== null)->dehydrated()`.
+>   It only ever *enabled* in All-Properties mode; with `currentAssetId()` now always a real mall on
+>   operational screens, the Select is **permanently disabled and stamped to the current mall**.
+> - **The write guard already confines to the current mall.** `TenantScope::visibleAssetIds()` returns
+>   the full assigned set *only* in All-Properties mode; with a real mall active it collapses to
+>   `[currentMall]`. So `assertAssetInScope()` (in every create/edit mutate hook) **already** rejects any
+>   other mall — even for super_admin, even against a crafted request that bypasses the disabled UI — and
+>   the scoped `Select` (`selectableAssetOptions()`) rejects it at validation too.
+> - **Locked in by** `tests/Feature/Regression/CreateConfinedToCurrentMallTest.php`: for all 13 direct-FK
+>   resources, a super_admin in mall REAL crafting `asset_id = OTHER` is rejected and nothing is filed
+>   into OTHER. (`AllPropertiesCreatePinsAssetTest` still covers the forced All-mode path.)
+>
+> Net: property-first isolation on create/edit is **complete**; the only remaining work is the Phase B
+> consolidation surface (below), needed before a second mall is onboarded.
 
 ---
 
