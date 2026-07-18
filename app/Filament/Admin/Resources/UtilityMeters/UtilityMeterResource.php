@@ -2,7 +2,7 @@
 
 namespace App\Filament\Admin\Resources\UtilityMeters;
 
-use App\Filament\Admin\Resources\Concerns\BypassesScopingOnAll;
+use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\UtilityMeters\Pages\CreateUtilityMeter;
@@ -11,17 +11,23 @@ use App\Filament\Admin\Resources\UtilityMeters\Pages\ListUtilityMeters;
 use App\Filament\Admin\Resources\UtilityMeters\Schemas\UtilityMeterForm;
 use App\Filament\Admin\Resources\UtilityMeters\Tables\UtilityMetersTable;
 use App\Models\UtilityMeter;
+use App\Support\TenantScope;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class UtilityMeterResource extends Resource
 {
-    use BypassesScopingOnAll;
+    // NOT Filament auto-tenancy: asset_id is CLIENT-supplied (the operator picks the mall, and that
+    // Select is enabled in All-Properties mode). Filament's ownership `creating` hook would force
+    // asset_id to the current tenant — and in All-mode the tenant is the ALL pseudo-asset, silently
+    // clobbering the chosen mall (the "Announcements tenancy trap"). BypassesFilamentTenantAutoScope
+    // turns that hook off; reads are scoped in getEloquentQuery() below and the submitted asset_id is
+    // re-validated by assertAssetInScope() on create + edit.
+    use BypassesFilamentTenantAutoScope;
     use GuardsAssetInScope;
     use RoleGatedActions;
 
@@ -30,8 +36,6 @@ class UtilityMeterResource extends Resource
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBolt;
 
     protected static ?int $navigationSort = 8;
-
-    protected static ?string $tenantOwnershipRelationshipName = 'asset';
 
     public static function getNavigationLabel(): string
     {
@@ -79,8 +83,18 @@ class UtilityMeterResource extends Resource
         ];
     }
 
+    /** Property-scope the list ourselves (Filament auto-tenancy is off — see the trait note above). */
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['asset', 'unit']);
+        $query = parent::getEloquentQuery()->with(['asset', 'unit']);
+
+        if ($assetId = TenantScope::currentAssetId()) {
+            $query->where('asset_id', $assetId);
+        } elseif (($ids = TenantScope::visibleAssetIds()) !== null) {
+            // All-Properties mode: a restricted user still sees only their own malls.
+            $query->whereIn('asset_id', $ids);
+        }
+
+        return $query;
     }
 }

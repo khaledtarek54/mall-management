@@ -4,7 +4,7 @@ namespace App\Filament\Admin\Resources\MaintenanceWorkOrders;
 
 use App\Filament\Admin\RelationManagers\MaintenanceChecklistRelationManager;
 use App\Filament\Admin\RelationManagers\WorkOrderPartsRelationManager;
-use App\Filament\Admin\Resources\Concerns\BypassesScopingOnAll;
+use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\MaintenanceWorkOrders\Pages\CreateMaintenanceWorkOrder;
 use App\Filament\Admin\Resources\MaintenanceWorkOrders\Pages\EditMaintenanceWorkOrder;
@@ -28,7 +28,14 @@ use Illuminate\Database\Eloquent\Builder;
  */
 class MaintenanceWorkOrderResource extends Resource
 {
-    use BypassesScopingOnAll;
+    // NOT Filament auto-tenancy: the form exposes an editable, dehydrated asset_id (the operator
+    // picks the mall, and that Select is enabled in All-Properties mode for a new order). Filament's
+    // ownership `creating` hook would force asset_id to the current tenant — and in All-mode the
+    // tenant is the ALL pseudo-asset, silently clobbering the chosen mall (the "Announcements tenancy
+    // trap"). BypassesFilamentTenantAutoScope turns that hook off; reads are scoped in
+    // getEloquentQuery() below (composed with AssignmentScope) and the submitted asset_id is
+    // re-validated by assertAssetInScope() on create + edit.
+    use BypassesFilamentTenantAutoScope;
     use RoleGatedActions;
 
     protected static ?string $model = MaintenanceWorkOrder::class;
@@ -38,8 +45,6 @@ class MaintenanceWorkOrderResource extends Resource
     protected static ?int $navigationSort = 47;
 
     protected static ?string $recordTitleAttribute = 'reference';
-
-    protected static ?string $tenantOwnershipRelationshipName = 'asset';
 
     protected static function permissionModule(): string
     {
@@ -104,6 +109,15 @@ class MaintenanceWorkOrderResource extends Resource
                 'items as marked_items_count' => fn ($q) => $q->marked(),
                 'items as failed_items_count' => fn ($q) => $q->failed(),
             ]);
+
+        // Property scoping — Filament auto-tenancy is off (see the trait note above), so we apply the
+        // per-property constraint ourselves, exactly as BypassesScopingOnAll's global scope used to.
+        if ($assetId = TenantScope::currentAssetId()) {
+            $query->where('asset_id', $assetId);
+        } elseif (($ids = TenantScope::visibleAssetIds()) !== null) {
+            // All-Properties mode: a restricted user still sees only their own malls.
+            $query->whereIn('asset_id', $ids);
+        }
 
         // FR-USR-04 — a technician sees only the jobs assigned to them. Here, in the query, so it
         // covers the record page too and cannot be cleared like a filter. Composes with the

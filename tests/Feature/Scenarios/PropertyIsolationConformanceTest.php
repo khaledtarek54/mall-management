@@ -23,6 +23,7 @@ use App\Filament\Admin\Resources\MaintenanceWorkOrders\MaintenanceWorkOrderResou
 use App\Filament\Admin\Resources\OwnerRequests\OwnerRequestResource;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Filament\Admin\Resources\Payrolls\PayrollResource;
+use App\Filament\Admin\Resources\PurchaseRequests\PurchaseRequestResource;
 use App\Filament\Admin\Resources\SlaPolicies\SlaPolicyResource;
 use App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
 use App\Filament\Admin\Resources\Units\UnitResource;
@@ -31,10 +32,14 @@ use App\Filament\Admin\Resources\VendorBills\VendorBillResource;
 use App\Filament\Admin\Resources\Violations\ViolationResource;
 use App\Filament\Admin\Resources\Warehouses\WarehouseResource;
 use App\Models\AccountMapping;
+use App\Models\Asset;
 use App\Support\PropertyIsolation;
+use Database\Seeders\RolesPermissionsSeeder;
+use Filament\Facades\Filament;
 use Filament\Resources\Resource;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
+use Livewire\Livewire;
 
 /**
  * The self-enforcing property-isolation gate. These are STRUCTURAL tests: they
@@ -72,7 +77,7 @@ if (! function_exists('propertyIsolationAdminResources')) {
                 return 'App\\Filament\\Admin\\Resources\\'.str_replace('/', '\\', $rel);
             })
             ->filter(fn ($c) => class_exists($c)
-                && is_subclass_of($c, Filament\Resources\Resource::class))
+                && is_subclass_of($c, Resource::class))
             ->values()
             ->all();
     }
@@ -115,8 +120,11 @@ if (! function_exists('propertyIsolationMustGuardResources')) {
     function propertyIsolationMustGuardResources(): array
     {
         return [
-            // Auto-stamped on create (isScopedToTenant=true) but asset_id is editable on
-            // EDIT in All-Properties mode (Filament does NOT re-stamp on update).
+            // Direct-asset_id resources whose form exposes an editable asset_id Select (enabled +
+            // client-supplied in All-Properties mode). All opt OUT of Filament auto-tenancy
+            // (BypassesFilamentTenantAutoScope) so the operator's picked mall is not clobbered to
+            // the ALL pseudo-asset on create, then re-validate it via assertAssetInScope on
+            // create + edit (see Test D + the AllPropertiesCreatePinsAsset regression).
             'Unit' => UnitResource::class,
             'CamExpensePool' => CamExpensePoolResource::class,
             'UtilityMeter' => UtilityMeterResource::class,
@@ -127,9 +135,12 @@ if (! function_exists('propertyIsolationMustGuardResources')) {
             'Employee' => EmployeeResource::class,
             'FixedAsset' => FixedAssetResource::class,
             'Warehouse' => WarehouseResource::class,
-            'Custody' => CustodyResource::class,
             'MaintenanceWorkOrder' => MaintenanceWorkOrderResource::class,
             'MaintenancePlan' => MaintenancePlanResource::class,
+            'PurchaseRequest' => PurchaseRequestResource::class,
+            // Still auto-stamped (isScopedToTenant=true): no asset_id form field — Custody derives
+            // its property from the chosen employee, so the create page guards employee->asset_id.
+            'Custody' => CustodyResource::class,
             // Create-only (immutable after broadcast); the property Select is
             // client-supplied in All-Properties mode, so the create page guards it.
             'Announcement' => AnnouncementResource::class,
@@ -327,5 +338,77 @@ it('confirms no dashboard widget scopes by currentAssetId()', function () {
         [],
         'Widgets scoping by currentAssetId() leak the whole portfolio to a restricted user in '
             .'All-Properties mode — use TenantScope::visibleAssetIds(): '.implode(', ', $offenders),
+    );
+});
+
+// ---- Test D: no create form clobbers a picked asset_id in All-Properties mode --------------
+//
+// A resource that (a) exposes an editable, dehydrated `asset_id` on its CREATE form AND (b) still
+// relies on Filament's auto-tenancy (`isScopedToTenant() === true`) has the "Announcements tenancy
+// trap": Panel::boot() registers a model `creating` hook that force-associates asset_id with the
+// current tenant, so in All-Properties mode (tenant = ALL pseudo-asset) the operator's PICKED mall is
+// silently overwritten and the record vanishes from every real mall's scoped list.
+// `BypassesScopingOnAll` does NOT save it — it neutralises only the read scope, not `isScopedToTenant()`.
+//
+// The fix is the AnnouncementResource pattern: BypassesFilamentTenantAutoScope (isScopedToTenant() ===
+// false, so the hook never registers) + a manual getEloquentQuery() scoping reads. So: any owned
+// create form whose asset_id is editable + dehydrated MUST have isScopedToTenant() === false.
+// See docs/PROPERTY-ISOLATION.md and tests/Feature/Regression/AllPropertiesCreatePinsAssetTest.php.
+it('opts every editable-asset_id create form out of Filament tenant auto-stamp (All-mode clobber)', function () {
+    $this->seed(RolesPermissionsSeeder::class);
+    ensureAllPropertiesAsset();
+    $this->actingAs(makeUser('super_admin'));
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+    // Inspect the forms as an operator sees them in All-Properties mode — where the clobber bites.
+    Filament::setTenant(Asset::where('code', Asset::ALL_PROPERTIES_CODE)->firstOrFail());
+
+    try {
+        $offenders = [];
+
+        foreach (propertyIsolationAdminResources() as $resource) {
+            if (! PropertyIsolation::isOwned($resource::getModel())) {
+                continue; // shared/global resources have no asset_id to clobber
+            }
+
+            // The clobber is create-only (Filament stamps asset_id on create, never on update), so
+            // only resources with a Create page can trip it.
+            $createRegistration = $resource::getPages()['create'] ?? null;
+            if ($createRegistration === null) {
+                continue;
+            }
+
+            // Render the real create form (record = null) and pull its asset_id component, evaluating
+            // its disabled/dehydrated closures the way Filament would — the same live-component
+            // introspection PaymentFormPropertyScopeTest / CreditNoteTenantScopeTest use.
+            $assetField = Livewire::test($createRegistration->getPage())
+                ->instance()
+                ->form
+                ->getComponent('asset_id');
+
+            // No asset_id field on the form ⇒ the property isn't operator-picked here (e.g. Custody
+            // derives it from the chosen employee). Not this gate's concern.
+            if ($assetField === null) {
+                continue;
+            }
+
+            // Editable = the operator can supply it (enabled) AND it is written back (dehydrated).
+            $editable = ! $assetField->isDisabled() && $assetField->isDehydrated();
+
+            if ($editable && $resource::isScopedToTenant()) {
+                $offenders[] = class_basename($resource);
+            }
+        }
+    } finally {
+        Filament::setTenant(null, isQuiet: true);
+    }
+
+    expect($offenders)->toBe(
+        [],
+        'These create forms expose an editable asset_id while STILL using Filament tenant auto-stamp '
+            .'(isScopedToTenant() === true), so they clobber the operator\'s chosen mall to the ALL '
+            .'pseudo-asset in All-Properties mode (the "Announcements tenancy trap"). Switch each to '
+            .'App\\Filament\\Admin\\Resources\\Concerns\\BypassesFilamentTenantAutoScope + a manual '
+            .'getEloquentQuery(), drop $tenantOwnershipRelationshipName, and keep its *AssetInScope '
+            .'write guard: '.implode(', ', $offenders),
     );
 });

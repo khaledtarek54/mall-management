@@ -47,10 +47,19 @@ journal entries, expenses, and their children.
 
 ### 1. Read scoping (which rows a query returns)
 
-- Direct-`asset_id` models → **`BypassesScopingOnAll`** (Filament auto-tenancy via
-  `$tenantOwnershipRelationshipName = 'asset'`, plus the All-Properties escape hatch).
+- Direct-`asset_id` models, **read-only or with a non-editable `asset_id`** → **`BypassesScopingOnAll`**
+  (Filament auto-tenancy via `$tenantOwnershipRelationshipName = 'asset'`, plus the All-Properties
+  escape hatch).
+- Direct-`asset_id` models whose **form exposes an editable `asset_id`** (the operator picks the mall;
+  the Select is enabled in All-Properties mode) → **`BypassesFilamentTenantAutoScope`** + a manual
+  `getEloquentQuery()` (the `currentAssetId()` / `visibleAssetIds()` block, as `AnnouncementResource`
+  does). **Do NOT use `BypassesScopingOnAll` here** — it keeps `isScopedToTenant() === true`, so
+  Filament's `creating` hook force-associates `asset_id` with the current tenant, and in All-Properties
+  mode (tenant = ALL pseudo-asset) that silently clobbers the chosen mall (the "Announcements tenancy
+  trap"; `Test D` of the conformance gate + `AllPropertiesCreatePinsAssetTest` guard against it). Keep
+  the `assertAssetInScope` write guard on create **and** edit.
 - Indirect models → **`ScopesViaProperty`** (declare `tenantScopeRelation()`, e.g. `'lease.unit'`).
-- Special cases → **`BypassesFilamentTenantAutoScope`** + a custom `getEloquentQuery()`.
+- Other special cases → **`BypassesFilamentTenantAutoScope`** + a custom `getEloquentQuery()`.
 - Widgets / services / reports → **`App\Support\TenantScope`** (`applyTo`, `visibleAssetIds`,
   `reportAssetIds`, `selectable*`). **Always** derive the constraint from `visibleAssetIds()` (null only
   for portfolio users), never `currentAssetId()` alone — the latter is null in All-mode and leaks.
@@ -94,6 +103,11 @@ fails CI when a new model/resource ships unclassified, unscoped, or unguarded:
 - **C** — every must-guard resource wires `assertAssetInScope` on its create/edit pages; **and** any
   not-auto-stamped (`isScopedToTenant=false`) owned resource exposing an editable `asset_id` is
   auto-flagged if it's missing from the must-guard set.
+- **D** — no owned resource whose **create form** exposes an editable, dehydrated `asset_id` still uses
+  Filament auto-tenancy (`isScopedToTenant() === true`). Such a resource clobbers the operator's picked
+  mall to the ALL pseudo-asset on create in All-Properties mode; it must opt out via
+  `BypassesFilamentTenantAutoScope`. (The gate renders each create form and inspects the `asset_id`
+  component's disabled/dehydrated state, so a new such resource fails CI unless it opts out.)
 
 ## How to add a new property-owned module safely
 

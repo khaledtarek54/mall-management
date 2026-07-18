@@ -2,7 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Units;
 
-use App\Filament\Admin\Resources\Concerns\BypassesScopingOnAll;
+use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Units\Pages\CreateUnit;
@@ -11,6 +11,7 @@ use App\Filament\Admin\Resources\Units\Pages\ListUnits;
 use App\Filament\Admin\Resources\Units\Schemas\UnitForm;
 use App\Filament\Admin\Resources\Units\Tables\UnitsTable;
 use App\Models\Unit;
+use App\Support\TenantScope;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -18,11 +19,16 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class UnitResource extends Resource
 {
-    use BypassesScopingOnAll;
+    // NOT Filament auto-tenancy: asset_id is CLIENT-supplied (the operator picks the mall, and that
+    // Select is enabled in All-Properties mode). Filament's ownership `creating` hook would force
+    // asset_id to the current tenant — and in All-mode the tenant is the ALL pseudo-asset, silently
+    // clobbering the chosen mall (the "Announcements tenancy trap"). BypassesFilamentTenantAutoScope
+    // turns that hook off; reads are scoped in getEloquentQuery() below and the submitted asset_id is
+    // re-validated by assertAssetInScope() on create + edit.
+    use BypassesFilamentTenantAutoScope;
     use GuardsAssetInScope;
     use RoleGatedActions;
 
@@ -34,7 +40,20 @@ class UnitResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'code';
 
-    protected static ?string $tenantOwnershipRelationshipName = 'asset';
+    /** Property-scope the list ourselves (Filament auto-tenancy is off — see the trait note above). */
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        if ($assetId = TenantScope::currentAssetId()) {
+            $query->where('asset_id', $assetId);
+        } elseif (($ids = TenantScope::visibleAssetIds()) !== null) {
+            // All-Properties mode: a restricted user still sees only their own malls.
+            $query->whereIn('asset_id', $ids);
+        }
+
+        return $query;
+    }
 
     public static function getNavigationLabel(): string
     {
@@ -97,11 +116,11 @@ class UnitResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        // getEloquentQuery() respects the active Filament tenant (Asset) via
-        // BypassesScopingOnAll, so the badge reflects the currently-viewed
+        // getEloquentQuery() scopes to the active Filament tenant (Asset) itself
+        // (see the trait note above), so the badge reflects the currently-viewed
         // property — not a global count. "All Properties" view returns the
-        // portfolio-wide total because the trait skips scoping for the ALL
-        // pseudo-asset.
+        // portfolio-wide total (super_admin) or the user's visible set, because
+        // getEloquentQuery() leaves the query unscoped / whereIn accordingly.
         return (string) static::getEloquentQuery()->where('status', 'vacant')->count();
     }
 

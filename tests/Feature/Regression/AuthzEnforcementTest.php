@@ -9,7 +9,6 @@ use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Models\CamExpensePool;
 use App\Models\Department;
 use App\Models\TenantSalesDeclaration;
-use App\Models\Unit;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
@@ -41,8 +40,9 @@ it('pins a restricted user to their assigned properties in All-mode (direct-FK r
     $all = ensureAllPropertiesAsset();
     Filament::setTenant($all);                          // "All Properties"
 
-    // Filament applies tenant scoping at the table layer via scopeEloquentQueryToTenant.
-    $ids = UnitResource::scopeEloquentQueryToTenant(Unit::query(), $all)->pluck('id')->all();
+    // UnitResource opts out of Filament auto-tenancy (BypassesFilamentTenantAutoScope) and applies
+    // the per-property scope itself in getEloquentQuery() — the query Filament runs for the table.
+    $ids = UnitResource::getEloquentQuery()->pluck('id')->all();
 
     expect($ids)->toContain($unitA->id)->not->toContain($unitB->id);
 });
@@ -71,7 +71,7 @@ it('still shows a super_admin every property in All-mode', function () {
     $all = ensureAllPropertiesAsset();
     Filament::setTenant($all);
 
-    $ids = UnitResource::scopeEloquentQueryToTenant(Unit::query(), $all)->pluck('id')->all();
+    $ids = UnitResource::getEloquentQuery()->pluck('id')->all();
 
     expect($ids)->toContain($unitA->id)->toContain($unitB->id);
 });
