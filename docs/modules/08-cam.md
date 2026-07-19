@@ -17,7 +17,8 @@ Mall owners (Jawad) collect estimated CAM charges monthly throughout a calendar 
 | Entity | Model | Key columns | Notes |
 |--------|-------|-------------|-------|
 | **CAM Expense Pool** | `CamExpensePool` | `id`, `asset_id` (FK), `period_year` (YYYY, 2020–2099), `total_actual_expense` (decimal:2), `total_estimated_collected` (decimal:2), `admin_fee_pct` (decimal:6,4, **nullable** — a FRACTION, 0.10 = 10%; null ⇒ no fee), `admin_fee_on_net` (bool, default true), `status` (enum), `notes`, `reconciled_at`, `reconciled_by_user_id`, `created_at`, `updated_at`, `deleted_at` (soft-delete) | A container for one year's CAM data on one property. Unique on `(asset_id, period_year)`. Index on `status`. |
-| **CAM Allocation** | `CamAllocation` | `id`, `cam_expense_pool_id` (FK), `lease_id` (FK), `pro_rata_share_pct` (decimal:7,4), `allocated_amount` (decimal:2), `estimated_paid` (decimal:2), `true_up_amount` (decimal:2), `admin_fee_amount` (decimal:2, default 0), `admin_fee_vat_amount` (decimal:2, default 0), `cap_amount` (nullable), `exclusions` (JSON), `status` (enum), `billed_charge_id` (FK, nullable), `billed_credit_note_id` (FK, nullable), `billed_admin_fee_charge_id` (FK, nullable), `created_at`, `updated_at`, `deleted_at` | One per active lease per pool. Unique on `(pool_id, lease_id)`. Index on `status`. |
+| **CAM Allocation** | `CamAllocation` | `id`, `cam_expense_pool_id` (FK), `lease_id` (FK), `pro_rata_share_pct` (decimal:7,4), `allocated_amount` (decimal:2, **UNCAPPED** — the tie-out basis), `estimated_paid` (decimal:2), `true_up_amount` (decimal:2, = `capped_cost − estimated`), `admin_fee_amount` (decimal:2, default 0), `admin_fee_vat_amount` (decimal:2, default 0), `cap_amount` (decimal:2, nullable — the resolved ceiling that applied), `capped_cost_amount` (decimal:2, nullable — `min(allocated, ceiling)`), `cap_absorbed_amount` (decimal:2, default 0 — landlord-absorbed excess), `exclusions` (JSON), `status` (enum), `billed_charge_id` (FK, nullable), `billed_credit_note_id` (FK, nullable), `billed_admin_fee_charge_id` (FK, nullable), `created_at`, `updated_at`, `deleted_at` | One per active lease per pool. Unique on `(pool_id, lease_id)`. Index on `status`. |
+| **Lease CAM Term** | `LeaseCamTerm` | `id`, `lease_id` (FK), `effective_year` (YYYY), `cap_type` (`absolute`/`yoy`/`both`), `cap_absolute_amount` (nullable), `base_year` (nullable), `base_year_amount` (nullable), `yoy_pct` (decimal:6,4, fraction, nullable), `compounding` (bool, default true), `notes`, `created_at`, `updated_at`, `deleted_at` | Effective-dated per-lease cap config. Unique on `(lease_id, effective_year)`. `resolveCeiling(int $year)` returns the ceiling; `Lease::resolveCamCeiling($year)` picks the latest term ≤ that year. |
 
 ### Relationships
 
@@ -92,6 +93,18 @@ The recovery-clause engine adds the routine **management fee** the landlord char
 - **`admin_fee_pct` null ⇒ no fee**, byte-identically to before the clause existed (guarded by `Regression/CamNoClauseParityTest`, the keystone — if it ever needs relaxing, the fee stopped being a no-op for pass-through-only malls). `admin_fee_on_net` (default true) is reserved for the gross-up slice and has no effect until then.
 
 **Test guards**: `Regression/CamAdminFeeTest` (10% + VAT across positive/negative/zero, real `bill()` + real `accounting:sync-ledger` sweep, trial balance ties out, fee lands in `41108001`), `Regression/CamNoClauseParityTest` (no-clause parity).
+
+### Caps — a ceiling on the true-up + fee base, never on the allocation
+A lease can carry an effective-dated **`LeaseCamTerm`** capping how much CAM cost its tenant bears in a year — the controllable-expense ceiling anchor tenants negotiate. The cap applies to the COST path only:
+
+- **`capped_cost = min(allocated_amount, ceiling)`**; **`true_up = capped_cost − estimated_paid`**; the admin fee is charged on the **capped** cost (`admin_fee_amount = admin_fee_pct × capped_cost`) so it can never re-breach the cap.
+- **`allocated_amount` is NEVER capped** — it stays the tenant's raw share of `total_actual_expense`, which is exactly what the `BooksReconciliationService` CAM check ties out (`Σ allocated = total_actual_expense`). The capped excess is recorded as **`cap_absorbed_amount = allocated − capped_cost`** — the landlord's auditable cost of the cap (revenue it chooses to forgo, not a GL expense).
+- **A cap can flip a positive true-up to a credit**: if the ceiling falls below what the tenant already paid in monthly estimates, `true_up` goes negative and settles through the normal credit-note path — while the admin fee (a positive amount on the capped cost) still bills on its own fee-only invoice.
+- **The ceiling** comes from `Lease::resolveCamCeiling($year)`, which selects the effective-dated term with the greatest `effective_year ≤` the reconciled year, then `LeaseCamTerm::resolveCeiling()`: **absolute** (a flat EGP ceiling), **yoy** (`base_year_amount` grown by `yoy_pct`, compounding or simple, over `year − base_year`), or **both** (the tighter/`min` of the two). **No term ⇒ null ceiling ⇒ `capped_cost = allocated`**, byte-identical to the no-cap slice.
+
+**Where operators set it**: the *CAM Cap Terms* relation manager on the Lease resource (write-gated on `leases.edit`, delete super_admin-only).
+
+**Test guards**: `Regression/CamCapTest` (absolute / compounding-YoY / both=min ceilings, `allocated` stays uncapped, cap-flips-to-credit, effective-dating, real books tie-out with a cap), plus the no-term parity case.
 
 ### Variance definition
 ```
@@ -446,10 +459,11 @@ Embedded on the pool's edit page. Shows all allocations in this pool.
 
 ### The recovery-clause engine (admin fee → caps → basis/gross-up/exclusions)
 
-The admin fee is **slice 1** of a phased recovery-clause engine (full design: [`docs/plans/05-cam-recovery-engine.md`](../plans/05-cam-recovery-engine.md)). The keystone constraint across every slice: **`allocated_amount` stays the uncapped cost pass-through** the books-check ties out against — clauses attach as siblings (the admin fee) or adjust only `true_up_amount` (caps), never the allocation. The remaining slices are designed + off-by-default (`admin_fee_pct` null, `cap_amount`/`exclusions` unset ⇒ byte-identical no-clause billing):
+The admin fee (**slice 1**) and caps (**slice 2**) are shipped; the engine is phased (full design: [`docs/plans/05-cam-recovery-engine.md`](../plans/05-cam-recovery-engine.md)). The keystone constraint across every slice: **`allocated_amount` stays the uncapped cost pass-through** the books-check ties out against — clauses attach as siblings (the admin fee) or adjust only `true_up_amount` (caps), never the allocation. Every clause is off-by-default (`admin_fee_pct` null, no `LeaseCamTerm`, `exclusions` unset ⇒ byte-identical no-clause billing):
 
-- **Slice 2 — caps** (`cap_amount` per allocation, via a `lease_cam_terms` table): a ceiling applied to the *cost* the tenant bears; the admin-fee base then becomes the *capped* cost (`admin_fee_on_net`). See "To add CAM fee tiers or caps" below for the mechanics — the cap adjusts the true-up only.
-- **Slice 3 — configurable basis / gross-up / exclusions**: alternative pro-rata weightings, a gross-up to a target occupancy, and per-lease exclusion sets (`exclusions` JSON). `admin_fee_on_net` decides whether the fee is charged on the gross or net (post-gross-up) share.
+- ✅ **Slice 1 — admin fee**: see the admin-fee rule above.
+- ✅ **Slice 2 — caps** (`LeaseCamTerm`): see the caps rule above — the cap adjusts the true-up + fee base only.
+- **Slice 3 — configurable basis / gross-up / exclusions** (designed, not yet built): alternative pro-rata weightings, a gross-up to a target occupancy, and per-lease exclusion sets (`exclusions` JSON). `admin_fee_on_net` decides whether the fee is charged on the gross or net (post-gross-up) share.
 
 **To add a new clause**: add its column(s) defaulting to a no-op, compute inside `generateAllocations`, apply in the correct order (SOURCE → EXCLUDE → GROSS-UP → ALLOCATE → CAP → ADMIN-FEE → TRUE-UP), and add a parity assertion to `CamNoClauseParityTest` proving the default is still byte-identical.
 

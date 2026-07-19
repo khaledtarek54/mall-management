@@ -73,6 +73,7 @@ class LeaseResource extends Resource
     {
         return [
             \App\Filament\Admin\RelationManagers\LeaseInvoicesRelationManager::class,
+            \App\Filament\Admin\RelationManagers\LeaseCamTermsRelationManager::class,
             \App\Filament\Admin\RelationManagers\ActivitiesRelationManager::class,
         ];
     }

@@ -35,6 +35,7 @@ use App\Models\InvoiceItem;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Models\Lease;
+use App\Models\LeaseCamTerm;
 use App\Models\LedgerAccount;
 use App\Models\MaintenancePenalty;
 use App\Models\MaintenancePlan;
@@ -160,6 +161,7 @@ class PropertyIsolation
         Invoice::class => 'lease.unit',
         InvoiceItem::class => 'invoice.lease.unit',
         Charge::class => 'lease.unit',
+        LeaseCamTerm::class => 'lease.unit',
         Payment::class => 'invoices.lease.unit',
         CreditNote::class => 'lease.unit',
         CreditNoteItem::class => 'creditNote.lease.unit',

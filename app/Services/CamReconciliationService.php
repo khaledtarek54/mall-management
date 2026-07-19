@@ -59,16 +59,26 @@ class CamReconciliationService
                 $share = $sqm / $totalSqm;
                 $allocated = round((float) $pool->total_actual_expense * $share, 2);
                 $estimated = round((float) $pool->total_estimated_collected * $share, 2);
-                $trueUp = round($allocated - $estimated, 2);
+
+                // Cap: a ceiling the tenant's CAM cost share can't exceed this year. It hits ONLY
+                // the true-up + the admin-fee base — allocated_amount stays uncapped, so the
+                // books-check's Σ allocated = total_actual_expense tie-out is untouched. The
+                // landlord ABSORBS the difference (cap_absorbed). No cap term ⇒ ceiling null ⇒
+                // capped_cost = allocated ⇒ true-up + fee byte-identical to the no-cap slice.
+                $ceiling = $lease->resolveCamCeiling((int) $pool->period_year);
+                $cappedCost = $ceiling !== null ? min($allocated, $ceiling) : $allocated;
+                $capAbsorbed = round($allocated - $cappedCost, 2);
+
+                $trueUp = round($cappedCost - $estimated, 2);
 
                 // Admin fee = the routine % the landlord adds on top of the recovered pool
                 // (operator default 10%, 14% VAT). It is a SIBLING of the true-up — its own
                 // invoice line + charge, never folded into true_up_amount — so allocated_amount
-                // stays the pass-through cost the books-check ties out against. Base = the (capped)
-                // cost share the tenant bears; slice 1 has no caps yet, so base = allocated. A null
+                // stays the pass-through cost the books-check ties out against. Base = the CAPPED
+                // (net) cost the tenant actually bears, so the fee can't re-breach the cap. A null
                 // admin_fee_pct (existing pools, no clause) yields 0 → byte-identical billing.
                 $adminFeePct = (float) ($pool->admin_fee_pct ?? 0);
-                $adminFee = round($adminFeePct * $allocated, 2);
+                $adminFee = round($adminFeePct * $cappedCost, 2);
                 $adminFeeVat = round($adminFee * 0.14, 2);
 
                 // Lock the existing row inside the txn so the status check below
@@ -95,6 +105,9 @@ class CamReconciliationService
                     'pro_rata_share_pct' => round($share * 100, 4),
                     'allocated_amount' => $allocated,
                     'estimated_paid' => $estimated,
+                    'cap_amount' => $ceiling,           // the resolved ceiling that applied (null = uncapped)
+                    'capped_cost_amount' => $cappedCost,
+                    'cap_absorbed_amount' => $capAbsorbed,
                     'true_up_amount' => $trueUp,
                     'admin_fee_amount' => $adminFee,
                     'admin_fee_vat_amount' => $adminFeeVat,

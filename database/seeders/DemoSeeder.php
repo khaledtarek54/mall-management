@@ -19,6 +19,7 @@ use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\JournalEntry;
 use App\Models\Lease;
+use App\Models\LeaseCamTerm;
 use App\Models\MaintenancePlan;
 use App\Models\MaintenanceWorkOrder;
 use App\Models\MaintenanceWorkOrderItem;
@@ -857,6 +858,25 @@ class DemoSeeder extends Seeder
             'status' => 'reconciling',
             'notes' => 'Includes security, cleaning, common-area HVAC, lobby lighting, landscaping. 10% admin fee.',
         ]);
+
+        // One anchor tenant negotiated a CAM cap — their cost share can't rise more than 5%/yr
+        // from a base year. Demonstrates the cap clause (caps the true-up + fee only; the raw
+        // allocation stays uncapped, so the books still tie out).
+        $anchorLease = Lease::whereHas('unit', fn ($q) => $q->where('asset_id', $asset->id))
+            ->where('status', 'active')
+            ->first();
+        if ($anchorLease) {
+            LeaseCamTerm::create([
+                'lease_id' => $anchorLease->id,
+                'effective_year' => $lastYear - 1,
+                'cap_type' => 'yoy',
+                'base_year' => $lastYear - 1,
+                'base_year_amount' => 18000,
+                'yoy_pct' => 0.05,
+                'compounding' => true,
+                'notes' => 'Anchor tenant — CAM increase capped at 5% YoY.',
+            ]);
+        }
 
         $service->generateAllocations($closedPool);
 

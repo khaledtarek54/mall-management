@@ -174,6 +174,26 @@ class Lease extends Model implements HasMedia
         return $this->hasMany(Charge::class);
     }
 
+    public function camTerms(): HasMany
+    {
+        return $this->hasMany(LeaseCamTerm::class);
+    }
+
+    /**
+     * The CAM cost-share ceiling in force for a reconciliation year, or null if the lease has no
+     * cap term for/before that year. Picks the effective-dated term with the greatest
+     * effective_year ≤ the reconciled year, then resolves its ceiling.
+     */
+    public function resolveCamCeiling(int $reconciledYear): ?float
+    {
+        $term = $this->camTerms()
+            ->where('effective_year', '<=', $reconciledYear)
+            ->orderByDesc('effective_year')
+            ->first();
+
+        return $term?->resolveCeiling($reconciledYear);
+    }
+
     public function invoices(): HasMany
     {
         return $this->hasMany(Invoice::class);

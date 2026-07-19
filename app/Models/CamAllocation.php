@@ -23,6 +23,8 @@ class CamAllocation extends Model
         'admin_fee_amount',
         'admin_fee_vat_amount',
         'cap_amount',
+        'capped_cost_amount',
+        'cap_absorbed_amount',
         'exclusions',
         'status',
         'billed_charge_id',
@@ -38,6 +40,8 @@ class CamAllocation extends Model
         'admin_fee_amount' => 'decimal:2',
         'admin_fee_vat_amount' => 'decimal:2',
         'cap_amount' => 'decimal:2',
+        'capped_cost_amount' => 'decimal:2',
+        'cap_absorbed_amount' => 'decimal:2',
         'exclusions' => 'array',
     ];
 
