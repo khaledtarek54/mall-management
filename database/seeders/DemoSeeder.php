@@ -329,6 +329,8 @@ class DemoSeeder extends Seeder
         $this->seedCurrentMonthPayments();
         $this->seedArAgingSpread();
         $this->seedPortalDemoInvoices();
+        // After the portal tenant's invoices exist, give them a credit on account (needs open invoices).
+        $this->seedTenantCredit();
         $this->seedVendors($atriomWalk);
         $this->seedTenantRequests();
         $this->seedTenantSalesDeclarations();
@@ -1147,6 +1149,47 @@ class DemoSeeder extends Seeder
         }
 
         $this->command->info("   Seeded {$created} current-month payments");
+    }
+
+    /**
+     * Give the portal demo tenant (tenant1) a CREDIT ON ACCOUNT so the new credit-balance feature is
+     * visible + tryable: they overpaid — one invoice is settled in full and a surplus is held on
+     * account (booked to Unearned Revenue). The surplus surfaces as Tenant::creditBalance() (the
+     * portal "Credit on account" stat) and the operator can draw it down on another open invoice via
+     * the "Apply tenant credit" action. Uses the real recomputeTotals path, not a manual AR poke.
+     */
+    private function seedTenantCredit(): void
+    {
+        $tenant = Tenant::where('email', 'tenant1@atriomwalk.test')->first();
+        if (! $tenant) {
+            return;
+        }
+
+        $open = $tenant->invoices()->where('balance', '>', 0)->orderBy('due_date')->get();
+        if ($open->count() < 2) {
+            return; // need one to fully settle + at least one left open as the "Apply credit" target
+        }
+
+        $payOff = $open->first();
+        $surplus = 6000.0;
+        $amount = round((float) $payOff->balance + $surplus, 2);
+
+        $payment = Payment::create([
+            'reference' => Payment::generateReference(),
+            'tenant_id' => $tenant->id,
+            'amount' => $amount,
+            'currency' => 'EGP',
+            'method' => 'cash',
+            'status' => 'captured',
+            'payment_date' => Carbon::now()->subDays(2),
+            'notes' => 'Rent paid in advance — surplus held on account (credit).',
+        ]);
+
+        // Allocate only the invoice's balance; the surplus stays UNALLOCATED = the credit on account.
+        $payment->invoices()->attach($payOff->id, ['allocated_amount' => round((float) $payOff->balance, 2)]);
+        $payOff->recomputeTotals();
+
+        $this->command->info("   Seeded EGP {$surplus} credit on account for {$tenant->name} (portal tenant1)");
     }
 
     /**

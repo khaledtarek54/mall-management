@@ -28,14 +28,24 @@ class AccountBalance extends StatsOverviewWidget
         $paidLifetime = (float) $tenant->payments()
             ->whereIn('status', \App\Models\Payment::RECEIVED_STATUSES)
             ->sum('amount');
+        // Credit on account = money the tenant has paid that isn't yet applied to an invoice.
+        $credit = $tenant->creditBalance();
 
-        return [
+        return array_values(array_filter([
             Stat::make(__('admin.widgets.account_balance.outstanding_balance'), 'EGP '.number_format($outstanding, 2))
                 ->description($outstanding > 0
                     ? __('admin.widgets.account_balance.outstanding_action')
                     : __('admin.widgets.account_balance.all_clear'))
                 ->descriptionIcon($outstanding > 0 ? 'heroicon-m-credit-card' : 'heroicon-m-check-circle')
                 ->color($outstanding > 0 ? 'danger' : 'success'),
+
+            // Only shown when there IS a credit — a routine tenant carries none, so don't clutter.
+            $credit > 0
+                ? Stat::make(__('admin.widgets.account_balance.credit_balance'), 'EGP '.number_format($credit, 2))
+                    ->description(__('admin.widgets.account_balance.credit_balance_desc'))
+                    ->descriptionIcon('heroicon-m-gift')
+                    ->color('success')
+                : null,
 
             Stat::make(__('admin.widgets.account_balance.overdue_invoices'), (string) $overdueCount)
                 ->description($overdueCount > 0
@@ -53,6 +63,6 @@ class AccountBalance extends StatsOverviewWidget
                 ->description(__('admin.widgets.account_balance.lifetime_paid_desc'))
                 ->descriptionIcon('heroicon-m-banknotes')
                 ->color('success'),
-        ];
+        ]));
     }
 }

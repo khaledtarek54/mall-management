@@ -200,6 +200,36 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
     }
 
     /**
+     * Money the tenant has paid that isn't yet applied to a receivable — the tenant's CREDIT / ON-
+     * ACCOUNT balance. It is the sum, over the tenant's RECEIVED payments (captured/reconciled/
+     * settled), of each payment's UNALLOCATED remainder (amount − its allocations); that remainder
+     * already sits on the books as Unearned Revenue (PaymentJournalizer). Scoped like
+     * outstandingBalance(): pass visibleAssetIds() for an admin surface, null for the tenant's own
+     * whole-company view. A credit is attributed to the property where the payment was received
+     * (its allocated invoices' asset), so a restricted user only sees credit for their properties.
+     *
+     * @param  array<int>|null  $assetIds
+     */
+    public function creditBalance(?array $assetIds = null): float
+    {
+        $payments = $this->payments()->received()
+            ->when(
+                $assetIds !== null,
+                fn ($q) => $q->whereHas('invoices.lease.unit', fn ($u) => $u->whereIn('asset_id', $assetIds)),
+            )
+            ->with('invoices')
+            ->get();
+
+        $credit = 0.0;
+        foreach ($payments as $payment) {
+            $allocated = (float) $payment->invoices->sum(fn ($i) => (float) $i->pivot->allocated_amount);
+            $credit += max(0.0, round((float) $payment->amount - $allocated, 2));
+        }
+
+        return round($credit, 2);
+    }
+
+    /**
      * Delinquent = at least one invoice with a remaining balance is past
      * its due date. Doesn't trust the `status` column alone — that column
      * is only auto-flipped to 'overdue' by Payment hooks, so manually

@@ -520,6 +520,8 @@ return [
             'active_leases_desc' => 'Currently in place',
             'lifetime_paid' => 'Lifetime Paid',
             'lifetime_paid_desc' => 'Captured across all methods',
+            'credit_balance' => 'Credit on account',
+            'credit_balance_desc' => 'Paid in advance — applied to your next invoice',
         ],
     ],
 

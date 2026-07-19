@@ -59,9 +59,10 @@ they know exactly which months are now cleared.)
 the rest.
 
 **Scenario — an overpayment.** Invoice owes 9,000; the tenant pays 10,000. You allocate 9,000 to the
-invoice; the remaining 1,000 is an advance (it books to *unearned revenue* — money you owe the tenant
-in service). *Applying that credit to a future invoice automatically is not yet built* — see the
-deferred list below.
+invoice; the remaining 1,000 is the tenant's **credit on account** (it books to *unearned revenue* —
+money you hold for them). The tenant sees this **"Credit on account"** on their portal. *Drawing that
+credit down onto a later invoice isn't a one-click action yet — see the deferred list for why (it must
+post its own dated correction to the ledger, not reshuffle the original receipt).*
 
 ---
 
@@ -91,15 +92,25 @@ trail, and the allocation history is kept so you can see what the reversed recei
 
 ---
 
-## 5. What's deferred (and what triggers building it)
+## 5. Built recently
 
-- **Printable receipt voucher (سند قبض).** A per-receipt PDF the office can hand a cash-paying
-  tenant. Today the tenant gets an email + portal + app record of the receipt, but there's no printed
-  voucher. *Trigger: cash tenants need a stamped receipt at the counter — build it mirroring the
-  invoice PDF.*
-- **Tenant credit balance / auto-apply advances.** Surfacing a tenant's on-account balance and
-  automatically applying it to the next invoice. *Trigger: prepayments/advances become a real
-  workflow.* (Until then, a receipt must be allocated to an invoice.)
+- **Printable receipt voucher (سند قبض).** Every received payment has a **Receipt** download (admin +
+  portal) — a bilingual PDF showing the amount received, the method, and which invoices it settled.
+  The office can hand a cash payer a printed receipt on the spot.
+- **Tenant credit balance (surfaced).** An overpayment/on-account remainder now shows as the tenant's
+  **credit on account** on their portal, so both sides can see money held in advance.
+
+## 6. What's still deferred (and what triggers building it)
+
+- **Applying a credit to an invoice.** Drawing a credit down onto a later invoice needs to post its
+  own dated ledger correction (Dr Unearned Revenue / Cr Receivables, dated the day you apply it) — a
+  first attempt that instead reshuffled the original receipt was caught in review because it would
+  quietly desync the books when the receipt was from an already-closed month. *Trigger: build it as
+  the proper dated correction; then* **auto-apply** *on the next invoice can follow.*
+- **Recording a pure advance with no invoice yet** — today a receipt must be applied to at least one
+  invoice, so a credit arises from an *overpayment*. Banking a standalone advance before any invoice
+  exists is a small follow-up. *Trigger: operators need to take an advance before invoicing.*
+- **Amount-in-words (تفقيط)** on the receipt voucher (needs an Arabic number-to-words helper).
 - **Autopay / recurring / stored card**, and **batch (lockbox) receipt entry** for a day's cash
   intake. *Triggers: online-collection volume, or a daily cash-batch process, makes them worth it.*
 

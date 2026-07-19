@@ -520,6 +520,8 @@ return [
             'active_leases_desc' => 'سارية المفعول',
             'lifetime_paid' => 'إجمالي المدفوعات',
             'lifetime_paid_desc' => 'محصّل عبر جميع الطرق',
+            'credit_balance' => 'رصيد لدى الحساب',
+            'credit_balance_desc' => 'مدفوع مقدمًا — يُطبَّق على فاتورتك التالية',
         ],
     ],
 
