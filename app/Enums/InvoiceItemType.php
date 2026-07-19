@@ -19,6 +19,7 @@ enum InvoiceItemType: string
     case Marketing = 'marketing';
     case LateFee = 'late_fee';
     case CamRecovery = 'cam_recovery';
+    case CamAdminFee = 'cam_admin_fee';
     case Other = 'other';
 
     /** @return list<string> */

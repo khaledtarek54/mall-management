@@ -21,6 +21,8 @@ class CamExpensePool extends Model
         'period_year',
         'total_actual_expense',
         'total_estimated_collected',
+        'admin_fee_pct',
+        'admin_fee_on_net',
         'status',
         'notes',
         'reconciled_at',
@@ -30,6 +32,8 @@ class CamExpensePool extends Model
     protected $casts = [
         'total_actual_expense' => 'decimal:2',
         'total_estimated_collected' => 'decimal:2',
+        'admin_fee_pct' => 'decimal:4',
+        'admin_fee_on_net' => 'boolean',
         'reconciled_at' => 'datetime',
     ];
 

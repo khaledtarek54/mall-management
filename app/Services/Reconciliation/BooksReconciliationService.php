@@ -138,7 +138,10 @@ class BooksReconciliationService
         // queries — instead of ~3 queries PER billed allocation (an N+1 that grows
         // with the number of billed CAM allocations across every pool).
         $billed = $pools->flatMap(fn ($pool) => $pool->allocations->where('status', 'billed'));
-        $chargeIds = $billed->pluck('billed_charge_id')->filter()->unique()->values();
+        // Both the cost true-up charge AND the admin-fee charge are backing documents to verify.
+        $chargeIds = $billed->pluck('billed_charge_id')
+            ->merge($billed->pluck('billed_admin_fee_charge_id'))
+            ->filter()->unique()->values();
         $creditIds = $billed->pluck('billed_credit_note_id')->filter()->unique()->values();
 
         $existingCharges = $chargeIds->isEmpty()
@@ -168,19 +171,28 @@ class BooksReconciliationService
             }
             foreach ($pool->allocations->where('status', 'billed') as $alloc) {
                 /** @var \App\Models\CamAllocation $alloc */
-                // A billed allocation must be backed by EITHER a charge (positive
-                // true-up) OR a credit note (negative true-up = credit owed).
+                // A billed allocation must be backed by a charge (positive true-up),
+                // a credit note (negative true-up), OR — when the true-up nets to zero
+                // but an admin fee is owed — the admin-fee charge.
                 $hasCharge = $alloc->billed_charge_id && $existingCharges->has($alloc->billed_charge_id);
                 $hasCredit = $alloc->billed_credit_note_id && $existingCredits->has($alloc->billed_credit_note_id);
-                if (! $hasCharge && ! $hasCredit) {
-                    $d[] = ['ref' => "pool #{$pool->id} alloc #{$alloc->id}", 'detail' => "billed but no backing charge/credit-note (charge={$alloc->billed_charge_id}, credit={$alloc->billed_credit_note_id})"];
-                } elseif ($hasCharge) {
-                    // A positive true-up's charge must actually have REACHED a
-                    // non-cancelled invoice (it's settled on a recovery invoice at
-                    // bill() time). Catches the "billed but never invoiced" lost-
-                    // revenue class instead of masking it.
-                    if (! $reachedCharges->has($alloc->billed_charge_id)) {
+                $hasFee = $alloc->billed_admin_fee_charge_id && $existingCharges->has($alloc->billed_admin_fee_charge_id);
+                // A settled allocation whose estimate exactly matched actual AND that carries
+                // no fee legitimately has no financial document — no money moved.
+                $settledNoMove = abs((float) $alloc->true_up_amount) < 0.005 && (float) $alloc->admin_fee_amount < 0.005;
+
+                if (! $hasCharge && ! $hasCredit && ! $hasFee && ! $settledNoMove) {
+                    $d[] = ['ref' => "pool #{$pool->id} alloc #{$alloc->id}", 'detail' => "billed but no backing charge/credit-note (charge={$alloc->billed_charge_id}, credit={$alloc->billed_credit_note_id}, fee={$alloc->billed_admin_fee_charge_id})"];
+                } else {
+                    // Any charge that backs a billed allocation must actually have REACHED a
+                    // non-cancelled invoice (it's settled on a recovery invoice at bill() time).
+                    // Catches the "billed but never invoiced" lost-revenue class for BOTH the
+                    // cost true-up and the admin fee, instead of masking it.
+                    if ($hasCharge && ! $reachedCharges->has($alloc->billed_charge_id)) {
                         $d[] = ['ref' => "pool #{$pool->id} alloc #{$alloc->id}", 'detail' => "billed true-up charge {$alloc->billed_charge_id} never reached a non-cancelled invoice (lost revenue)"];
+                    }
+                    if ($hasFee && ! $reachedCharges->has($alloc->billed_admin_fee_charge_id)) {
+                        $d[] = ['ref' => "pool #{$pool->id} alloc #{$alloc->id}", 'detail' => "admin-fee charge {$alloc->billed_admin_fee_charge_id} never reached a non-cancelled invoice (lost revenue)"];
                     }
                 }
             }

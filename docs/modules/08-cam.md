@@ -16,8 +16,8 @@ Mall owners (Jawad) collect estimated CAM charges monthly throughout a calendar 
 
 | Entity | Model | Key columns | Notes |
 |--------|-------|-------------|-------|
-| **CAM Expense Pool** | `CamExpensePool` | `id`, `asset_id` (FK), `period_year` (YYYY, 2020–2099), `total_actual_expense` (decimal:2), `total_estimated_collected` (decimal:2), `status` (enum), `notes`, `reconciled_at`, `reconciled_by_user_id`, `created_at`, `updated_at`, `deleted_at` (soft-delete) | A container for one year's CAM data on one property. Unique on `(asset_id, period_year)`. Index on `status`. |
-| **CAM Allocation** | `CamAllocation` | `id`, `cam_expense_pool_id` (FK), `lease_id` (FK), `pro_rata_share_pct` (decimal:7,4), `allocated_amount` (decimal:2), `estimated_paid` (decimal:2), `true_up_amount` (decimal:2), `cap_amount` (nullable), `exclusions` (JSON), `status` (enum), `billed_charge_id` (FK, nullable), `created_at`, `updated_at`, `deleted_at` | One per active lease per pool. Unique on `(pool_id, lease_id)`. Index on `status`. |
+| **CAM Expense Pool** | `CamExpensePool` | `id`, `asset_id` (FK), `period_year` (YYYY, 2020–2099), `total_actual_expense` (decimal:2), `total_estimated_collected` (decimal:2), `admin_fee_pct` (decimal:6,4, **nullable** — a FRACTION, 0.10 = 10%; null ⇒ no fee), `admin_fee_on_net` (bool, default true), `status` (enum), `notes`, `reconciled_at`, `reconciled_by_user_id`, `created_at`, `updated_at`, `deleted_at` (soft-delete) | A container for one year's CAM data on one property. Unique on `(asset_id, period_year)`. Index on `status`. |
+| **CAM Allocation** | `CamAllocation` | `id`, `cam_expense_pool_id` (FK), `lease_id` (FK), `pro_rata_share_pct` (decimal:7,4), `allocated_amount` (decimal:2), `estimated_paid` (decimal:2), `true_up_amount` (decimal:2), `admin_fee_amount` (decimal:2, default 0), `admin_fee_vat_amount` (decimal:2, default 0), `cap_amount` (nullable), `exclusions` (JSON), `status` (enum), `billed_charge_id` (FK, nullable), `billed_credit_note_id` (FK, nullable), `billed_admin_fee_charge_id` (FK, nullable), `created_at`, `updated_at`, `deleted_at` | One per active lease per pool. Unique on `(pool_id, lease_id)`. Index on `status`. |
 
 ### Relationships
 
@@ -79,9 +79,19 @@ true_up_amount      = allocated_amount - estimated_paid
 ### Positive true-up → charge; negative true-up → credit note
 - A **positive** true-up (tenant under-paid) creates a one-off `Charge` on the lease (`billed_charge_id`) and settles it immediately on a dedicated recovery invoice. That invoice's line item is typed **`cam_recovery`**, so the General Ledger books it to **CAM Recovery Revenue** (`cam_recovery_revenue`, إيرادات استرداد المصروفات المشتركة) rather than generic misc income. (The `Charge` itself stays `type='other'` — it is a non-billed, non-journalized traceability anchor; see [module 21](21-general-ledger.md).)
 - A **negative** true-up (tenant over-paid) creates an **issued `CreditNote`** on the tenant's account (`billed_credit_note_id`) — *not* a negative charge. A negative charge could drive a January invoice total negative, which `Invoice::recomputeTotals()` floors to 0, silently losing the credit. The credit note preserves it and settles future AR via the normal credit-apply flow.
-- The books reconciliation (`BooksReconciliationService`, CAM check) accepts a billed allocation backed by **either** a charge or a credit note.
+- The books reconciliation (`BooksReconciliationService`, CAM check) accepts a billed allocation backed by **either** a charge, a credit note, **or** (zero true-up + fee owed) the admin-fee charge.
 
 **Test guards**: `CamScenarioTest::it('re-billing an already-billed allocation is a no-op...')`, `CamScenarioTest::it('billing a negative-true-up allocation issues a credit note...')`, and `Regression/CamNegativeTrueUpCreditTest` (large credit preserved + books tie out).
+
+### Admin fee — a SIBLING of the true-up, never folded into it
+The recovery-clause engine adds the routine **management fee** the landlord charges on top of the recovered pool (operator default **10%**, **14% VAT**), the first bookable-revenue clause. It is deliberately built as a *sibling* of the true-up, not a modifier of it:
+
+- **`admin_fee_amount = admin_fee_pct × allocated_amount`** (the recovered COST share, not the true-up) and **`admin_fee_vat_amount = admin_fee_amount × 0.14`**, both computed in `generateAllocations` and stored on the allocation. `allocated_amount` — the value the books-check ties out against `total_actual_expense` — is **never** touched by the fee, so the pool's cost pass-through still balances exactly.
+- The fee bills as its own invoice line, typed **`cam_admin_fee`**, which the GL routes to a **dedicated `cam_admin_fee_revenue` account** (`41108001`, إيرادات رسوم إدارة المصروفات المشتركة) — margin the landlord *sells*, kept distinct from the cost pass-through (`cam_recovery_revenue`). It rides the **existing `Invoice` GL source** (no new `LedgerPoster` journalizer).
+- **Where it lands** depends on the true-up sign: a **positive** true-up carries the fee as a *second line on the same recovery invoice*; a **negative** (credit note) or **exactly-zero** true-up bills the fee on its *own fee-only invoice* (a credit note can't carry a positive fee, and the fee is owed regardless of estimate accuracy). Either way an `is_active=false` anchor charge is recorded in `billed_admin_fee_charge_id` for traceability + the books-check.
+- **`admin_fee_pct` null ⇒ no fee**, byte-identically to before the clause existed (guarded by `Regression/CamNoClauseParityTest`, the keystone — if it ever needs relaxing, the fee stopped being a no-op for pass-through-only malls). `admin_fee_on_net` (default true) is reserved for the gross-up slice and has no effect until then.
+
+**Test guards**: `Regression/CamAdminFeeTest` (10% + VAT across positive/negative/zero, real `bill()` + real `accounting:sync-ledger` sweep, trial balance ties out, fee lands in `41108001`), `Regression/CamNoClauseParityTest` (no-clause parity).
 
 ### Variance definition
 ```
@@ -433,6 +443,15 @@ Embedded on the pool's edit page. Shows all allocations in this pool.
 4. **Verify invariants**: Ensure sums still partition to 100% and that rounding residuals remain bounded.
 
 **Do NOT**: Break backward compatibility with existing allocations (they are immutable once billed).
+
+### The recovery-clause engine (admin fee → caps → basis/gross-up/exclusions)
+
+The admin fee is **slice 1** of a phased recovery-clause engine (full design: [`docs/plans/05-cam-recovery-engine.md`](../plans/05-cam-recovery-engine.md)). The keystone constraint across every slice: **`allocated_amount` stays the uncapped cost pass-through** the books-check ties out against — clauses attach as siblings (the admin fee) or adjust only `true_up_amount` (caps), never the allocation. The remaining slices are designed + off-by-default (`admin_fee_pct` null, `cap_amount`/`exclusions` unset ⇒ byte-identical no-clause billing):
+
+- **Slice 2 — caps** (`cap_amount` per allocation, via a `lease_cam_terms` table): a ceiling applied to the *cost* the tenant bears; the admin-fee base then becomes the *capped* cost (`admin_fee_on_net`). See "To add CAM fee tiers or caps" below for the mechanics — the cap adjusts the true-up only.
+- **Slice 3 — configurable basis / gross-up / exclusions**: alternative pro-rata weightings, a gross-up to a target occupancy, and per-lease exclusion sets (`exclusions` JSON). `admin_fee_on_net` decides whether the fee is charged on the gross or net (post-gross-up) share.
+
+**To add a new clause**: add its column(s) defaulting to a no-op, compute inside `generateAllocations`, apply in the correct order (SOURCE → EXCLUDE → GROSS-UP → ALLOCATE → CAP → ADMIN-FEE → TRUE-UP), and add a parity assertion to `CamNoClauseParityTest` proving the default is still byte-identical.
 
 ### To add CAM fee tiers or caps
 

@@ -42,6 +42,7 @@ class AccountMappingSeeder extends Seeder
         'rent_revenue' => '41101001',
         'service_charge_revenue' => '41102001',
         'cam_recovery_revenue' => '41103001',
+        'cam_admin_fee_revenue' => '41108001',
         'utility_revenue' => '41104001',
         'percentage_rent_revenue' => '41105001',
         'marketing_revenue' => '41106001',

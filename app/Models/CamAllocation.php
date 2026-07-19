@@ -20,11 +20,14 @@ class CamAllocation extends Model
         'allocated_amount',
         'estimated_paid',
         'true_up_amount',
+        'admin_fee_amount',
+        'admin_fee_vat_amount',
         'cap_amount',
         'exclusions',
         'status',
         'billed_charge_id',
         'billed_credit_note_id',
+        'billed_admin_fee_charge_id',
     ];
 
     protected $casts = [
@@ -32,6 +35,8 @@ class CamAllocation extends Model
         'allocated_amount' => 'decimal:2',
         'estimated_paid' => 'decimal:2',
         'true_up_amount' => 'decimal:2',
+        'admin_fee_amount' => 'decimal:2',
+        'admin_fee_vat_amount' => 'decimal:2',
         'cap_amount' => 'decimal:2',
         'exclusions' => 'array',
     ];

@@ -25,6 +25,7 @@ class InvoiceJournalizer implements Journalizer
         'marketing' => 'marketing_revenue',
         'late_fee' => 'late_fee_income',
         'cam_recovery' => 'cam_recovery_revenue',
+        'cam_admin_fee' => 'cam_admin_fee_revenue',
     ];
 
     public function __construct(private AccountResolver $accounts) {}

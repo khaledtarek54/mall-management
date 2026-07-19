@@ -853,8 +853,9 @@ class DemoSeeder extends Seeder
             'period_year' => $lastYear,
             'total_actual_expense' => $lastYearActual,
             'total_estimated_collected' => $lastYearEstimated,
+            'admin_fee_pct' => 0.10,   // 10% management fee on the recovered share (billed +14% VAT at reconciliation)
             'status' => 'reconciling',
-            'notes' => 'Includes security, cleaning, common-area HVAC, lobby lighting, landscaping.',
+            'notes' => 'Includes security, cleaning, common-area HVAC, lobby lighting, landscaping. 10% admin fee.',
         ]);
 
         $service->generateAllocations($closedPool);
@@ -876,6 +877,7 @@ class DemoSeeder extends Seeder
             'period_year' => now()->year,
             'total_actual_expense' => 612000,   // YTD partial — security + cleaning + HVAC + landscaping accrued so far
             'total_estimated_collected' => 580000,
+            'admin_fee_pct' => 0.10,
             'status' => 'draft',
             'notes' => 'YTD accrued expenses. Annual reconciliation runs at year end.',
         ]);

@@ -48,6 +48,11 @@ class CamAllocationsRelationManager extends RelationManager
                     ->money('EGP', divideBy: 1)
                     ->weight('semibold')
                     ->color(fn ($state) => $state > 0 ? 'warning' : ($state < 0 ? 'success' : 'gray')),
+                TextColumn::make('admin_fee_amount')
+                    ->label(__('admin.tables.cam.admin_fee'))
+                    ->money('EGP', divideBy: 1)
+                    ->toggleable()
+                    ->placeholder('—'),
                 TextColumn::make('status')
                     ->label(__('admin.tables.common.status'))
                     ->badge()

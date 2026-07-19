@@ -151,6 +151,10 @@ class ChartOfAccountsSeeder extends Seeder
         ['41106001', 'Marketing Levy Revenue', 'إيرادات رسوم تسويق', 'revenue', true],
         ['41107', 'Late Fee Income', 'إيرادات غرامات التأخير', 'revenue', false],
         ['41107001', 'Late Fee Income', 'إيرادات غرامات تأخير', 'revenue', true],
+        // The CAM administrative fee (10-15% the landlord adds on top of the recovered pool) is
+        // margin the landlord SELLS — its own revenue account, distinct from the cost pass-through.
+        ['41108', 'CAM Admin Fee Revenue', 'إيرادات رسوم إدارة المصروفات المشتركة', 'revenue', false],
+        ['41108001', 'CAM Admin Fee Revenue', 'إيرادات رسوم إدارة المصروفات المشتركة', 'revenue', true],
         ['42', 'Other Income', 'إيرادات أخرى', 'revenue', false],
         ['42101', 'Miscellaneous Income', 'إيرادات متنوعة', 'revenue', false],
         ['42101001', 'Miscellaneous Income', 'إيرادات متنوعة', 'revenue', true],
