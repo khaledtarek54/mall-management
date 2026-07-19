@@ -49,7 +49,7 @@ Ordered dependency-first. Generic-ERP modules (21–25, 28) are out of scope (al
 | 2 | 02 | Tenants | ✅ CLOSED | 2026-07-19 | 7 CLOSE_NOW fixed (3 HIGH: portal+API blacklist bypass, statement AR leak), 3 parity DEFER; see closure record |
 | 3 | 04 | Leases | ✅ CLOSED | 2026-07-19 | 2 CLOSE_NOW fixed (dead rent-escalation — critical business-logic — + terminal-lease immutability); 8 DEFER incl. 4 domain-decision calls for the operator; see closure record |
 | 4 | 05 | Billing & Invoices | ✅ CLOSED | 2026-07-19 | 5 CLOSE_NOW fixed (marketing-levy doc/behaviour reconciled by operator decision, parking GL account, legacy AR trap removed, run-summary count, late-fee floor test); 8 DEFER; VAT-on-levy = accountant question |
-| 5 | 06 | Payments | ⬜ Not started | — | |
+| 5 | 06 | Payments | ✅ CLOSED | 2026-07-19 | 9 CLOSE_NOW fixed (4 HIGH: reconciled/settled silently un-paid the invoice → canonical received-set across 10 money consumers incl. the books-reconciliation tie-out; back-dated receipt into a closed period; orphaned on-account receipt; duplicate-allocation data loss) + dedup + status-restriction + portal allocation display; adversarial review caught 1 low KPI-consistency miss (fixed); 8 DEFER (receipt voucher PDF, credit-balance auto-apply, autopay, batch entry); see closure record |
 | 6 | 07 | Credit Notes | ⬜ Not started | — | |
 | 7 | 08 | CAM reconciliation | 🟡 Partial | — | slices 1–2 shipped + adversarially reviewed this session; slice 3 (basis/gross-up/exclusions) DEFERRED |
 | 8 | 09 | Tenant Sales & % Rent | ⬜ Not started | — | |
@@ -97,10 +97,26 @@ park-with-trigger) when its owning module's close-out comes up.
 | **`leases.billing_day` is dead** — fillable, date-mistyped, copied on renewal, read by nowhere; global `monthly_billing_day` drives cadence. Not a bug (no writer) | **correctness/low · wire-or-drop** | 04/05 | a real per-lease billing-day requirement (→ implement + retype as day-of-month), OR any new write path starts populating it (→ becomes a live mis-billing risk; drop it). |
 | **Tenant PO / customer reference stamped on every invoice** — genuinely absent; notes workaround exists | **ux/parity/med** | 04/05 | onboard a corporate/government/anchor tenant whose AP requires a PO. Build as lease-persisted PO → snapshot onto invoice → PDF line, with an "ActionRequired: PO missing" surface (not a hard block). |
 | **Auto-prorate the first partial month in the *scheduled* run** — batch never prorates (`prorate` defaults false) while the manual toggle defaults true; common flow (manual first invoice → batch skips) is already correct | **business_logic/low · policy** | 05 | mid-month commencements common enough that hands-off billing must prorate, or multi-mall rollout where per-lease manual first invoices don't scale. Needs its own regression tests + doc update. |
+| **Payment receipt voucher (سند قبض)** — no per-receipt printable proof; the tenant gets email/portal/app records, but the office can't hand a cash payer a stamped receipt | **parity/ux/med** | 06 | cash tenants need a counter receipt (common in this market). Clean build: mirror `InvoicePdfService` + blade + a download action on the admin + portal PaymentResource. |
+| **Tenant credit balance — surface + auto-apply advances/overpayments** — an unallocated remainder books to unearned revenue but isn't shown as a tenant credit or auto-applied to the next invoice (a receipt must currently be fully allocated) | **business_logic/parity/high** | 06 | prepayments/advances become a real workflow. Needs a credit-balance concept on the tenant + an application step; then relax the require-allocation guard. |
+| **Autopay / recurring / stored card**, and **batch (lockbox) receipt entry** — card-only + one-receipt-per-form today | **parity/med-low** | 06 | online-collection volume (autopay), or a daily cash-batch intake process (lockbox), makes them worth it. |
 
 ## Closure records
 
 _One section per module as it closes, most recent first._
+
+### Module 06 — Payments — CLOSED 2026-07-19
+
+First close-out with the **UX lens** live. Sweep: 6 lenses → 9 CLOSE_NOW (4 HIGH), 8 DEFER, 3 refuted. Then a 4-lens adversarial review of the diff before push (1 low finding, fixed; 10 refuted). The module was already hardened by prior audits (M06 F-25/F-26, GL-integrity Phase 1), so the value was in domain-correctness + UX.
+
+- **[HIGH · business_logic/correctness] `reconciled`/`settled` silently un-paid the invoice + voided its GL cash entry.** The AR/GL core keyed on `status === 'captured'` while the portal `AccountBalance` widget already grouped `[captured, reconciled, settled]` — so a normal bank-reconciliation step (offered by the form + the state-machine doc) dropped the invoice back to unpaid and voided the ledger leg. Fixed with a **canonical `Payment::RECEIVED_STATUSES`** used by every money consumer: `recomputeTotals` (AR source of truth), `PaymentJournalizer`, both over-allocation guards, the immutability hook, `VoidPaymentService`, and — caught proactively, not by the sweep — **`BooksReconciliationService`** (the tie-out itself), the tenant/asset statement PDFs, `ReportService`, and `MonthlyRevenueTrend`. The review then caught the one remaining collections consumer (the trend's rate numerator, a raw pivot join with no status filter) → fixed. Tests: `PaymentReceivedStatusesTest`.
+- **[HIGH · correctness] Back-dated receipt into a closed period relieved AR while its GL leg could never post** (the exact `PostingDate` failure shape — every sibling money document guards it, the Payment form didn't). Fixed: `CreatePayment` runs `PostingDate::assertOpen(payment_date)`. Test: `PaymentFormGuardsTest`.
+- **[HIGH · isolation] Orphaned on-account receipt** — a zero-allocation captured payment posted as unearned revenue but was invisible in the property-scoped UI (which scopes payments via their invoices) with no way to apply it. Fixed: require ≥1 allocation (`minItems(1)` + server guard). Full credit-balance surfacing/auto-apply deferred.
+- **[MED · correctness] Duplicate allocation rows silently collapsed** (pivot keyed by invoice id → last row won; summary showed the money as applied). Fixed: the pivot builder now **sums** duplicate invoice rows.
+- **[MED · ux] Reversal bypassed the reason-gated Void action** — the editable status Select let `refunded`/`failed` reverse money with no reason/audit; and `reconciled`/`settled` un-paid (above). Fixed: status Select offers only the forward flow; reversals route through Void.
+- **[MED · ux] Portal receipt hid what it settled** — the web-portal PaymentInfolist omitted the invoice allocation the email + mobile API already show. Fixed: added the allocation display.
+
+**DEFER (8):** receipt voucher PDF (سند قبض) — *build when cash tenants need a counter receipt; mirror the invoice PDF* · tenant credit-balance surfacing + auto-apply advances · autopay / recurring / stored card · batch (lockbox) receipt entry · "record payment" action from an invoice · late-fee single-flat (known domain call) · localized/other minor UX. See the deferred backlog.
 
 ### Lease → Invoice UX sweep (follow-on) — 2026-07-19
 

@@ -33,7 +33,7 @@ class RecentPayments extends TableWidget
         return $table
             ->query(function (): Builder {
                 return TenantScope::applyTo(Payment::query(), 'invoices.lease.unit')
-                    ->where('status', 'captured')
+                    ->whereIn('status', \App\Models\Payment::RECEIVED_STATUSES)
                     ->with('tenant')
                     ->latest('payment_date')
                     ->latest('id')

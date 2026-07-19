@@ -83,7 +83,27 @@ class PaymentForm
                         ->native(false),
                     Select::make('status')
                         ->label(__('admin.tables.common.status'))
-                        ->options(fn () => __('admin.statuses.payment'))
+                        // Only the forward "money in" lifecycle is manually selectable. Reversals
+                        // (refunded / failed / bounced) re-open AR + void the GL cash leg, so they
+                        // must go through the reason-gated Void action — never a bare status edit
+                        // (which would leave no reason + no 'voided' audit event). A payment that is
+                        // already received can only move WITHIN the received set (captured →
+                        // reconciled → settled), never back to un-received. A terminal/reversed
+                        // payment keeps showing its status read-only so the record still renders.
+                        ->options(function (?Payment $record) {
+                            $received = ['captured', 'reconciled', 'settled'];
+                            $keys = $record && $record->isReceived()
+                                ? $received
+                                : array_merge(['initiated'], $received);
+                            $opts = collect(__('admin.statuses.payment'))->only($keys);
+                            if ($record && ! $opts->has($record->status)) {
+                                $opts->put($record->status, __('admin.statuses.payment.' . $record->status));
+                            }
+
+                            return $opts->all();
+                        })
+                        ->disabled(fn (?Payment $record): bool => $record !== null
+                            && in_array($record->status, ['refunded', 'failed', 'bounced'], true))
                         ->default('captured')
                         ->required()
                         ->native(false),
@@ -97,6 +117,9 @@ class PaymentForm
                         ->columns(12)
                         ->reorderable(false)
                         ->addActionLabel(__('admin.actions.add_allocation'))
+                        // A receipt must settle at least one invoice — an unallocated on-account
+                        // advance would be orphaned in the property-scoped UI (server-guarded too).
+                        ->minItems(1)
                         ->live()
                         ->schema([
                             Select::make('invoice_id')

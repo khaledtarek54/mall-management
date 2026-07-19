@@ -45,7 +45,7 @@ class AssetStatementPdfService
 
         $payments = \App\Models\Payment::query()
             ->whereHas('invoices.lease.unit', fn ($q) => $q->where('asset_id', $asset->id))
-            ->where('status', 'captured')
+            ->whereIn('status', \App\Models\Payment::RECEIVED_STATUSES)
             ->where('payment_date', '>=', $since)
             ->with('tenant')
             ->orderByDesc('payment_date')

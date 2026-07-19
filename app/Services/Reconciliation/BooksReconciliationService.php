@@ -76,7 +76,7 @@ class BooksReconciliationService
         $d = [];
         foreach ($invoices as $inv) {
             $allocated = round((float) $inv->payments()
-                ->where('payments.status', 'captured')
+                ->whereIn('payments.status', \App\Models\Payment::RECEIVED_STATUSES)
                 ->sum('invoice_payment.allocated_amount'), 2);
             $derived = round($allocated + (float) $inv->credit_applied_amount, 2);
             if (abs($derived - (float) $inv->paid_amount) > self::EPS) {
@@ -97,7 +97,7 @@ class BooksReconciliationService
 
         // 4. No captured payment is allocated beyond its own amount.
         $d = [];
-        foreach (Payment::query()->where('status', 'captured')->with('invoices')->get() as $p) {
+        foreach (Payment::query()->whereIn('status', \App\Models\Payment::RECEIVED_STATUSES)->with('invoices')->get() as $p) {
             $alloc = round((float) $p->invoices->sum(fn ($i) => $i->pivot->allocated_amount), 2);
             if ($alloc - (float) $p->amount > self::EPS) {
                 $d[] = ['ref' => $p->reference ?? "payment #{$p->id}", 'detail' => "allocated {$alloc} > captured amount {$p->amount}"];

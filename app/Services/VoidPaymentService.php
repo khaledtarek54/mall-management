@@ -19,18 +19,18 @@ class VoidPaymentService
 {
     public function void(Payment $payment, ?string $reason = null): Payment
     {
-        if (in_array($payment->status, ['refunded', 'failed'], true)) {
+        if (in_array($payment->status, ['refunded', 'failed', 'bounced'], true)) {
             return $payment; // already reversed
         }
-        if ($payment->status !== 'captured') {
-            throw new \DomainException('Only a captured payment can be voided / refunded.');
+        if (! $payment->isReceived()) {
+            throw new \DomainException('Only a received payment can be voided / refunded.');
         }
 
         return DB::transaction(function () use ($payment, $reason) {
             // Lock + re-read inside the txn so two concurrent refunds serialize (and the
             // second no-ops), mirroring the void-invoice + apply-credit lock discipline.
             $payment = Payment::query()->lockForUpdate()->find($payment->id);
-            if (! $payment || $payment->status !== 'captured') {
+            if (! $payment || ! $payment->isReceived()) {
                 return $payment; // already reversed by a racing request
             }
 

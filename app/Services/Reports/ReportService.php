@@ -50,7 +50,7 @@ class ReportService
 
         $paymentsInMonth = TenantScope::applyTo(Payment::query(), 'invoices.lease.unit')
             ->whereBetween('payment_date', [$monthStart, $monthEnd])
-            ->where('status', 'captured')
+            ->whereIn('status', \App\Models\Payment::RECEIVED_STATUSES)
             ->get();
 
         $paymentsByMethod = $paymentsInMonth

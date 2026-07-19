@@ -278,7 +278,7 @@ class Invoice extends Model
     public function recomputeTotals(): void
     {
         $paid = (float) $this->payments()
-            ->where('payments.status', 'captured')
+            ->whereIn('payments.status', \App\Models\Payment::RECEIVED_STATUSES)
             ->sum('invoice_payment.allocated_amount');
 
         // Applied credit notes settle AR too (they bump credit_applied_amount,

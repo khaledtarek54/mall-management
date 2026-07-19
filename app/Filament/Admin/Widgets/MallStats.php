@@ -69,11 +69,11 @@ class MallStats extends StatsOverviewWidget
         $startOfLastMonth = $now->subMonth()->startOfMonth();
         $endOfLastMonth = $now->subMonth()->endOfMonth();
 
-        $collectedThisMonth = (float) $paymentQuery()->where('status', 'captured')
+        $collectedThisMonth = (float) $paymentQuery()->whereIn('status', \App\Models\Payment::RECEIVED_STATUSES)
             ->whereBetween('payment_date', [$startOfMonth, $now])
             ->sum('amount');
 
-        $collectedLastMonth = (float) $paymentQuery()->where('status', 'captured')
+        $collectedLastMonth = (float) $paymentQuery()->whereIn('status', \App\Models\Payment::RECEIVED_STATUSES)
             ->whereBetween('payment_date', [$startOfLastMonth, $endOfLastMonth])
             ->sum('amount');
 
@@ -111,7 +111,7 @@ class MallStats extends StatsOverviewWidget
             6,
         );
         $collectedSeries = $this->monthlySeries(
-            $paymentQuery()->where('status', 'captured'),
+            $paymentQuery()->whereIn('status', \App\Models\Payment::RECEIVED_STATUSES),
             'payment_date',
             'amount',
             6,

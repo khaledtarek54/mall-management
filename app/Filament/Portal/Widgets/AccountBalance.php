@@ -26,7 +26,7 @@ class AccountBalance extends StatsOverviewWidget
         $overdueCount = (int) $tenant->invoices()->where('status', 'overdue')->count();
         $activeLeases = (int) $tenant->activeLeases()->count();
         $paidLifetime = (float) $tenant->payments()
-            ->whereIn('status', ['captured', 'reconciled', 'settled'])
+            ->whereIn('status', \App\Models\Payment::RECEIVED_STATUSES)
             ->sum('amount');
 
         return [

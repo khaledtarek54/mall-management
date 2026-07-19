@@ -29,6 +29,30 @@ class Payment extends Model
     public const CHANNEL_LINK = 'payment_link';
     public const CHANNEL_ADMIN = 'admin';
 
+    /**
+     * Statuses where the money has actually been received and belongs on the books:
+     * `captured` (cleared), `reconciled` (matched in accounting), `settled` (final).
+     * These are the SINGLE source for "is this payment real" — every AR / GL / collections
+     * consumer keys off this set, so a captured→reconciled→settled move never un-pays an
+     * invoice or voids its cash entry (the portal AccountBalance widget already grouped them;
+     * the core AR/GL had drifted to `captured`-only, which this consolidates).
+     * Reversals (`refunded`/`failed`/`bounced`) are NOT here — they correctly re-open AR, and
+     * are reached only through the reason-gated Void action, never a bare status edit.
+     */
+    public const RECEIVED_STATUSES = ['captured', 'reconciled', 'settled'];
+
+    /** True when this payment's money is on the books (see RECEIVED_STATUSES). */
+    public function isReceived(): bool
+    {
+        return in_array($this->status, self::RECEIVED_STATUSES, true);
+    }
+
+    /** Scope to payments whose money has been received (captured / reconciled / settled). */
+    public function scopeReceived($query)
+    {
+        return $query->whereIn('status', self::RECEIVED_STATUSES);
+    }
+
     protected $fillable = [
         'reference',
         'tenant_id',
@@ -65,7 +89,7 @@ class Payment extends Model
      */
     public function notifyReceiptOnce(): void
     {
-        if ($this->status !== 'captured' || $this->receipt_notified_at) {
+        if (! $this->isReceived() || $this->receipt_notified_at) {
             return;
         }
 
@@ -148,7 +172,7 @@ class Payment extends Model
 
         foreach (Invoice::whereIn('id', $invoiceIds)->lockForUpdate()->get() as $invoice) {
             $allocated = round(
-                (float) $invoice->payments()->where('payments.status', 'captured')->sum('invoice_payment.allocated_amount')
+                (float) $invoice->payments()->whereIn('payments.status', self::RECEIVED_STATUSES)->sum('invoice_payment.allocated_amount')
                 + (float) $invoice->credit_applied_amount,
                 2,
             );
@@ -188,7 +212,7 @@ class Payment extends Model
                 $fittable = 0.0;
             } else {
                 $otherCaptured = (float) $invoice->payments()
-                    ->where('payments.status', 'captured')
+                    ->whereIn('payments.status', self::RECEIVED_STATUSES)
                     ->where('payments.id', '!=', $this->getKey())
                     ->sum('invoice_payment.allocated_amount');
 
@@ -252,7 +276,7 @@ class Payment extends Model
         // lock — covers the API / tinker / bulk-edit paths a UI lock can't.
         // (GL integrity hardening — Phase 1.)
         static::updating(function (self $payment) {
-            if ($payment->getOriginal('status') !== 'captured') {
+            if (! in_array($payment->getOriginal('status'), self::RECEIVED_STATUSES, true)) {
                 return;
             }
             foreach (['amount', 'payment_date'] as $field) {

@@ -1,6 +1,8 @@
 # Payments & Allocation
 
 > System for recording tenant payments against invoices, tracking AR balances, integrating with Paymob gateway, and managing late fees.
+>
+> **Plain-language companion:** [docs/business-model/06-payments.md](../business-model/06-payments.md) — how payments work with worked scenarios.
 
 ## 1. Purpose & business context
 
@@ -10,7 +12,7 @@ The **Payments module** records money received from tenants (Eltizam operatives,
 - **Jawad admins** (accounting department) manually record cash, transfers, cheques in the admin Payment form, allocating amounts to specific invoices.
 - **Paymob integration** creates an `initiated` Payment when a tenant starts a Pay-Now session, captures it when the callback confirms success, and automatically settles the invoice.
 - **Late fees** are applied daily to overdue invoices (past due date + grace days), with a configurable % and minimum threshold.
-- **Invoices** recompute their AR balance (paid_amount, balance, status) from allocated *captured* payments + applied credit notes, making the pivot the source of truth for cash collection.
+- **Invoices** recompute their AR balance (paid_amount, balance, status) from allocated *received* payments (captured/reconciled/settled) + applied credit notes, making the pivot the source of truth for cash collection.
 
 The module ensures money math is exact, AR ageing is accurate, and every payment path (manual, Paymob, demo) converges on the same recomputation logic.
 
@@ -19,9 +21,9 @@ The module ensures money math is exact, AR ageing is accurate, and every payment
 | Table           | Model    | Key columns (type / constraint / default) | Meaning |
 |-----------------|----------|-------------------------------------------|---------|
 | `payments`      | `Payment` | `id`, `reference` (string, unique), `tenant_id` (FK), `amount` (decimal 12,2), `currency` (string 3, default EGP), `method` (enum: card, bank_transfer, instapay, wallet, cash, cheque, other), `status` (enum: initiated, authorized, captured, reconciled, settled, failed, refunded, bounced, default captured), `payment_date` (date), `gateway` (string, nullable; e.g. "Paymob", "demo"), `gateway_transaction_id` (string, nullable), `gateway_response` (json, nullable), `cheque_number` (string, nullable), `cheque_clearance_date` (date, nullable), `notes` (text, nullable), `received_by` (FK → users, nullable), `receipt_notified_at` (timestamp, nullable), timestamps, softDeletes | Core payment record. Scoped to a single tenant. |
-| `invoices`      | `Invoice` | `id`, `number` (string, unique; format INV-{ASSET_CODE}-{YYYYMM}-{SEQ}), `lease_id` (FK), `tenant_id` (FK), `status` (enum: draft, issued, partially_paid, paid, overdue, disputed, cancelled, credited), `issue_date`, `due_date` (dates), `period_start`, `period_end` (dates), `subtotal`, `vat_amount`, `total` (decimals 12,2), `paid_amount` (decimal 12,2, default 0), `credit_applied_amount` (decimal 12,2, default 0; see § 3), `balance` (decimal 12,2, default 0), `currency`, `eta_*` (tax authority submission fields), `owner_overdue_notified_at` (timestamp, nullable), timestamps, softDeletes | One invoice per lease billing period. AR balance computed from captured payments + credit. |
+| `invoices`      | `Invoice` | `id`, `number` (string, unique; format INV-{ASSET_CODE}-{YYYYMM}-{SEQ}), `lease_id` (FK), `tenant_id` (FK), `status` (enum: draft, issued, partially_paid, paid, overdue, disputed, cancelled, credited), `issue_date`, `due_date` (dates), `period_start`, `period_end` (dates), `subtotal`, `vat_amount`, `total` (decimals 12,2), `paid_amount` (decimal 12,2, default 0), `credit_applied_amount` (decimal 12,2, default 0; see § 3), `balance` (decimal 12,2, default 0), `currency`, `eta_*` (tax authority submission fields), `owner_overdue_notified_at` (timestamp, nullable), timestamps, softDeletes | One invoice per lease billing period. AR balance computed from received payments + credit. |
 | `invoice_items` | `InvoiceItem` | `id`, `invoice_id` (FK), `charge_id` (FK, nullable), `description`, `type` (enum: base_rent, service_charge, utility, parking, percentage_rent, late_fee, other), `amount`, `vat_rate`, `vat_amount`, `total`, timestamps | Line items (rent, CAM, utilities, late fees). Late fees added at charge time. |
-| `invoice_payment` | Pivot   | `id`, `invoice_id` (FK), `payment_id` (FK, unique pair), `allocated_amount` (decimal 12,2), timestamps | Many-to-many: allocates a payment across multiple invoices. Only *captured* rows count toward AR. |
+| `invoice_payment` | Pivot   | `id`, `invoice_id` (FK), `payment_id` (FK, unique pair), `allocated_amount` (decimal 12,2), timestamps | Many-to-many: allocates a payment across multiple invoices. Only *received* rows (captured/reconciled/settled) count toward AR. |
 
 **Relationships:**
 - `Payment` belongs-to `Tenant` | has-many `Invoice` (via pivot invoice_payment)
@@ -34,23 +36,32 @@ The module ensures money math is exact, AR ageing is accurate, and every payment
 > payment exists, the admin form disables `amount`, `payment_date`, `method`, and `tenant` — a
 > mistake is corrected by voiding + re-recording, not a silent edit that would desync the GL cash/AR
 > movement. The **allocations repeater stays editable** (re-allocating a receipt across invoices is
-> legitimate — it bumps the payment so the GL sweep re-derives the split) and `status` stays open
-> (initiated→captured, captured→failed). See [module 21 §Document immutability](21-general-ledger.md).
+> legitimate — it bumps the payment so the GL sweep re-derives the split). See [module 21 §Document immutability](21-general-ledger.md).
 >
-> **Reversing a captured payment = void/refund, not edit.** The "Void / refund" action
-> (`VoidPaymentService`, gated `payments.edit`, with a reason) sets `status='refunded'` → the allocated
-> invoices' AR re-opens (only captured payments count toward `paid_amount`) and the GL leg is reversed.
-> Record the actual refund to the tenant separately.
+> **"Received" = captured / reconciled / settled — one canonical set (`Payment::RECEIVED_STATUSES`).**
+> All three mean the money is on the books, and EVERY consumer keys off the set: `Invoice::recomputeTotals`,
+> `PaymentJournalizer`, the collections widgets (`MallStats`, `RecentPayments`, `MonthlyRevenueTrend`),
+> the portal `AccountBalance`, the tenant/asset statements, `ReportService`, `BooksReconciliationService`,
+> and the over-allocation guards. So a captured→reconciled→settled move never un-pays an invoice or voids
+> its cash entry. *(This consolidated a drift where the core AR/GL was `captured`-only while the portal
+> widget already grouped the three — marking a captured payment "reconciled" silently un-paid it.)*
+>
+> **Reversing a received payment = void/refund, not edit.** The status Select on the form offers only
+> the forward "money in" lifecycle (initiated + the received set); the reversal statuses
+> (`refunded`/`failed`/`bounced`) are NOT manually selectable. Reversal goes through the **"Void / refund"**
+> action (`VoidPaymentService`, gated `payments.void`, with a mandatory reason) → sets `status='refunded'`,
+> the allocated invoices' AR re-opens (only *received* payments count toward `paid_amount`), the GL leg is
+> reversed, and the reason lands in the audit trail. Record the actual refund to the tenant separately.
 
 ### AR Balance Computation (Invoice::recomputeTotals)
 The *single source of truth* for paid amount and balance:
 
 ```
-paid_amount = SUM(captured_payments.allocated_amount) + credit_applied_amount
+paid_amount = SUM(received_payments.allocated_amount) + credit_applied_amount
 balance = MAX(0, total - paid_amount)   /* never negative */
 ```
 
-- Only payments with `status = 'captured'` count. Initiated, failed, refunded allocations have zero effect on AR.
+- Only payments in `Payment::RECEIVED_STATUSES` (captured / reconciled / settled) count. Initiated, failed, refunded, bounced allocations have zero effect on AR.
 - Credit notes increase `credit_applied_amount` (tracked separately so recompute doesn't erase them).
 - Balance is floored at 0, never negative (guards against overpayment rounding).
 
@@ -67,6 +78,10 @@ Guarded by tests: `PaymentScenarioTest` (HAPPY, STATE-TRANSITION, BOUNDARY, NEGA
 2. **Per-row allocation cap** (audit M06 F-25 / D-18): Form validation ensures allocated amount ≤ invoice balance (+ existing row allocation when editing). Prevents over-allocation that the total-only guard would miss.
 3. **Total allocation cap**: Form displays unallocated remainder and warns if allocated > payment amount.
 4. **Property-scoped tenant select** (regression: cross-property IDOR fixed): PaymentForm's tenant_id relationship is filtered by `TenantScope::visibleAssetIds()`, so a property-restricted user cannot see another property's tenants. Tested in `PaymentFormPropertyScopeTest`.
+5. **Posting-date guard** (close-out 2026-07-19): `CreatePayment` runs `PostingDate::assertOpen(payment_date)` — a receipt back-dated into a **closed** accounting period is refused before it relieves AR (its GL cash/AR leg could never post → silent divergence). A missing period is allowed. Tested in `PaymentFormGuardsTest`.
+6. **At-least-one-allocation** (close-out 2026-07-19): the allocations Repeater has `minItems(1)` + a server `guardHasAllocation()` on create & edit. A zero-allocation on-account receipt would post as unearned revenue but be **orphaned** — invisible in the property-scoped UI (which scopes payments via their invoices) with no way to later apply it. Surfacing/auto-applying a tenant credit balance is deferred. Tested in `PaymentFormGuardsTest`.
+7. **Duplicate-allocation dedup** (close-out 2026-07-19): two repeater rows for the same invoice are **summed** in the pivot builder (was: the pivot is keyed by invoice id, so the second row silently overwrote the first → money stranded while the summary reported it allocated). Tested in `PaymentFormGuardsTest`.
+8. **Manual status restricted to the forward flow** (close-out 2026-07-19): the status Select offers only initiated + the received set; reversals route through the Void action (see §3 blockquote). Tested in `PaymentReceivedStatusesTest`.
 
 ### Late Fees (LateFeeService)
 - Config: `billing.late_fee_percent` (default 2%), `billing.late_fee_grace_days` (default 7), `billing.late_fee_minimum` (default 50 EGP).

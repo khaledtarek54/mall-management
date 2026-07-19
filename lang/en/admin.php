@@ -1947,6 +1947,8 @@ return [
     'payment' => [
         'allocation_exceeds_balance' => 'Allocation to invoice :invoice cannot exceed :max — that invoice does not have enough open balance for this amount.',
         'cross_tenant_allocation' => 'Cannot allocate to invoice :invoice — that invoice belongs to a different tenant.',
+        'allocation_required_title' => 'Allocate the receipt to an invoice',
+        'allocation_required_body' => 'A payment must be applied to at least one invoice. Recording an unallocated on-account advance is not yet supported.',
     ],
     'validation' => [
         'tenant_tax_id_format' => 'Tax ID must be 9 digits, optionally formatted as XXX-XXX-XXX (Egyptian Tax Registration Number).',

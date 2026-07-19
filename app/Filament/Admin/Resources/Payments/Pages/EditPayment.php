@@ -29,7 +29,7 @@ class EditPayment extends EditRecord
                 ->label(__('admin.actions.void_payment'))
                 ->icon('heroicon-o-arrow-uturn-left')
                 ->color('danger')
-                ->visible(fn () => $this->record->status === 'captured'
+                ->visible(fn () => $this->record->isReceived()
                     && (Auth::user()?->can('payments.void') ?? false))
                 ->authorize(fn () => Auth::user()?->can('payments.void') ?? false)
                 ->requiresConfirmation()
@@ -76,12 +76,33 @@ class EditPayment extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
+        // Don't let an edit strip a receipt down to zero allocations — that orphans the money
+        // (invisible in the property-scoped UI). Mirror the create guard.
+        $this->guardHasAllocation($data);
+
         $this->guardAllocationsTotal($data);
 
         $this->allocations = $data['allocations'] ?? [];
         unset($data['allocations']);
 
         return $data;
+    }
+
+    /** Refuse leaving a receipt with no invoice allocation (orphaned money). */
+    protected function guardHasAllocation(array $data): void
+    {
+        $hasAllocation = collect($data['allocations'] ?? [])
+            ->contains(fn ($row) => ! empty($row['invoice_id']) && (float) ($row['allocated_amount'] ?? 0) > 0);
+
+        if (! $hasAllocation) {
+            Notification::make()
+                ->title(__('admin.payment.allocation_required_title'))
+                ->body(__('admin.payment.allocation_required_body'))
+                ->danger()
+                ->send();
+
+            $this->halt();
+        }
     }
 
     protected function guardAllocationsTotal(array $data): void
@@ -124,7 +145,9 @@ class EditPayment extends EditRecord
             if (! $invoiceId || $amount <= 0) {
                 continue;
             }
-            $sync[$invoiceId] = ['allocated_amount' => round($amount, 2)];
+            // SUM duplicate rows for the same invoice (pivot is keyed by invoice id) — a plain
+            // assignment would silently drop all but the last row. Mirrors CreatePayment.
+            $sync[$invoiceId]['allocated_amount'] = round(($sync[$invoiceId]['allocated_amount'] ?? 0) + $amount, 2);
         }
 
         try {

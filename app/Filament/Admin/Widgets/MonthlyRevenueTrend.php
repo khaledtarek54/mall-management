@@ -68,7 +68,7 @@ class MonthlyRevenueTrend extends ChartWidget
         $collected = (clone $paymentBase)
             ->selectRaw(''.$monthExpr('payment_date').' as ym, SUM(amount) as amount')
             ->whereBetween('payment_date', [$start, $end])
-            ->where('status', 'captured')
+            ->whereIn('status', \App\Models\Payment::RECEIVED_STATUSES)
             ->groupBy('ym')
             ->pluck('amount', 'ym');
 
@@ -77,6 +77,12 @@ class MonthlyRevenueTrend extends ChartWidget
         // otherwise payments-on-old-AR distort the ratio.
         $paidPerMonthQuery = DB::table('invoice_payment')
             ->join('invoices', 'invoices.id', '=', 'invoice_payment.invoice_id')
+            // Count only RECEIVED allocations — mirror the `$collected` bar + Invoice::recomputeTotals.
+            // Without this the collection-rate line counts an abandoned Paymob `initiated` allocation
+            // (the pivot carries the full balance pre-capture) and refunded allocations (the pivot is
+            // kept as history), so the rate would overstate collection and disagree with its own bar.
+            ->join('payments', 'payments.id', '=', 'invoice_payment.payment_id')
+            ->whereIn('payments.status', \App\Models\Payment::RECEIVED_STATUSES)
             ->whereBetween('invoices.period_start', [$start, $end])
             ->whereNotIn('invoices.status', ['cancelled', 'credited']);
 

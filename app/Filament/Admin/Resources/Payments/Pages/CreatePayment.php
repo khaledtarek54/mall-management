@@ -15,6 +15,24 @@ class CreatePayment extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
+        // Posting-date guard: a receipt back-dated into a CLOSED accounting period would relieve
+        // AR here while its GL cash/AR leg can never post (silent divergence — the exact shape
+        // App\Support\PostingDate exists to stop). Refuse in the service layer, not just a
+        // DatePicker minDate. A missing period is allowed (see PostingDate).
+        try {
+            \App\Support\PostingDate::assertOpen($data['payment_date'] ?? null, __('admin.fields.payment_date'));
+        } catch (\DomainException $e) {
+            Notification::make()->title($e->getMessage())->danger()->send();
+            $this->halt();
+        }
+
+        // A receipt with NO allocation is orphaned money: it posts as an unearned-revenue advance
+        // but the property-scoped UI (which scopes payments via their invoices) can never surface
+        // it again to apply it. Require at least one allocation (surfacing + auto-applying a tenant
+        // credit balance is a deferred feature — see the closure ledger). Server-side backstop to
+        // the Repeater's minItems(1).
+        $this->guardHasAllocation($data);
+
         $this->guardAllocationsTotal($data);
 
         // Property isolation: every allocated invoice must be in the user's visible set.
@@ -55,6 +73,23 @@ class CreatePayment extends CreateRecord
         }
     }
 
+    /** Refuse a receipt with no invoice allocation (see mutateFormDataBeforeCreate). */
+    protected function guardHasAllocation(array $data): void
+    {
+        $hasAllocation = collect($data['allocations'] ?? [])
+            ->contains(fn ($row) => ! empty($row['invoice_id']) && (float) ($row['allocated_amount'] ?? 0) > 0);
+
+        if (! $hasAllocation) {
+            Notification::make()
+                ->title(__('admin.payment.allocation_required_title'))
+                ->body(__('admin.payment.allocation_required_body'))
+                ->danger()
+                ->send();
+
+            $this->halt();
+        }
+    }
+
     protected function afterCreate(): void
     {
         /** @var Payment $payment */
@@ -67,7 +102,10 @@ class CreatePayment extends CreateRecord
             if (! $invoiceId || $amount <= 0) {
                 continue;
             }
-            $sync[$invoiceId] = ['allocated_amount' => round($amount, 2)];
+            // SUM duplicate rows for the same invoice — the pivot is keyed by invoice id, so a
+            // plain assignment would let a second row silently overwrite the first (only the last
+            // applied, while the form summary reported both as allocated → stranded money).
+            $sync[$invoiceId]['allocated_amount'] = round(($sync[$invoiceId]['allocated_amount'] ?? 0) + $amount, 2);
         }
 
         if (! empty($sync)) {

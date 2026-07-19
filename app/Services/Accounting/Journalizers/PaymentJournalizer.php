@@ -23,7 +23,7 @@ class PaymentJournalizer implements Journalizer
         /** @var Payment $payment */
         $payment = $source;
 
-        if ($payment->status !== 'captured') {
+        if (! $payment->isReceived()) {
             return null;
         }
 
