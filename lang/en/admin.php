@@ -1257,7 +1257,7 @@ return [
         'security_deposit' => 'One-time deposit, typically 3× monthly rent. Refundable at lease termination if no damages.',
         'escalation_rate' => 'Annual rent increase percentage. Applied on the lease anniversary.',
         'escalation_type' => 'Fixed percent = same % every year. CPI = pegged to inflation index. Step = pre-agreed increases per year.',
-        'percentage_rent_calculation_type' => 'Artificial: percentage rent = (sales − threshold) × rate. Natural breakpoint: percentage rent = sales × rate − base rent (whichever is higher).',
+        'percentage_rent_calculation_type' => 'How the sales-based rent is worked out. NATURAL BREAKPOINT = the tenant pays the greater of base rent or (sales × rate) — pick this for "whichever is higher" deals; the tenant is billed only the amount by which sales × rate beats base rent. ARTIFICIAL = the tenant pays base rent AND, on top, a share of sales above a separately agreed threshold: (sales − threshold) × rate.',
         'percentage_rent_threshold' => 'Monthly sales level above which percentage rent applies. Tenant declares sales each month; below threshold = no extra rent.',
         'percentage_rent_rate' => 'Percentage of sales above the threshold owed as additional rent. Typical mall rates: 5%–8% for F&B, 4%–6% for retail.',
         'cam_actual_expense' => 'Total amount the mall actually spent on common-area maintenance this year (security, cleaning, HVAC, landscaping, lobby lighting).',
@@ -1676,8 +1676,8 @@ return [
             'gas' => 'Gas',
         ],
         'percentage_rent_calculation_type' => [
-            'artificial' => 'Artificial Breakpoint',
-            'natural_breakpoint' => 'Natural Breakpoint',
+            'artificial' => 'Artificial — base rent PLUS a share of sales above a threshold',
+            'natural_breakpoint' => 'Natural — the GREATER of base rent or % of sales',
         ],
         'note_channel' => [
             'call' => 'Phone Call',
