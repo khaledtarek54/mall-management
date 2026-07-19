@@ -15,7 +15,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
- * Owner disbursements (module 27) — the payout board. Approve, pay, or cancel the payouts
+ * Owner disbursements (module 32) — the payout board. Approve, pay, or cancel the payouts
  * scheduled against finalised owner statements; paying clears the Due-to-Owner liability.
  * Property-scoped on the denormalized `asset_id`; gated on `disbursements.*`.
  */

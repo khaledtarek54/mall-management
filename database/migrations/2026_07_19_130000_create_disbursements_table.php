@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Owner disbursements (module 27) — a payout against a finalised owner statement. Paying an
+ * Owner disbursements (module 32) — a payout against a finalised owner statement. Paying an
  * owner clears the Due-to-Owner liability the statement accrued: Dr Due to Owner / Cr Bank.
  * Partial payouts are allowed; the running total can never exceed the owner's share (enforced
  * in the service under lock). `required_permission` is frozen at schedule from the approval

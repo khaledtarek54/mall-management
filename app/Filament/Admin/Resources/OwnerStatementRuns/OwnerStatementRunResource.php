@@ -16,7 +16,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
- * Owner statements + disbursements (module 27) — the operator-for-owner deliverable. A run is
+ * Owner statements + disbursements (module 32) — the operator-for-owner deliverable. A run is
  * one property's statement for one accounting period; finalising it accrues what the property
  * owes the owner, and a payout clears it. v1: one owner per mall who gets 100% of the net.
  *

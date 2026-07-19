@@ -34,7 +34,7 @@ class ApprovalRule extends Model
     public const MODULE_PURCHASE_REQUEST = 'purchase_request';
 
     /**
-     * Owner distributions (module 27) — signing off a payout to a Jawad owner. Deliberately
+     * Owner distributions (module 32) — signing off a payout to a Jawad owner. Deliberately
      * has NO seeded bands: the operator's payout-approval policy is unknown, and inventing one
      * would be inventing policy (the same discipline the other bands follow). With no bands,
      * ApprovalPolicy treats a disbursement as needing no approval — the operator turns the gate

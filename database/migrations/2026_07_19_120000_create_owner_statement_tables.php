@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Owner statements + disbursements (module 27) — the operator-for-owner deliverable.
+ * Owner statements + disbursements (module 32) — the operator-for-owner deliverable.
  * A per-property, per-period OwnerStatementRun (the accounting truth + GL source) has a
  * child OwnerStatement per owner (the deliverable). Slice 4 builds runs + statements as a
  * read/draft engine; the GL journalizer + finalise arrive in slice 5, disbursements in 6.

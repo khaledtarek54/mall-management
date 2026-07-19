@@ -8,7 +8,7 @@ use Illuminate\Notifications\Notification;
 
 /**
  * Bell entry to the owner (Jawad) when the operator sends them a finalised statement
- * (module 27). Database channel — the owner sees it in the admin bell, scoped to them.
+ * (module 32). Database channel — the owner sees it in the admin bell, scoped to them.
  */
 class OwnerStatementSentNotification extends Notification
 {
