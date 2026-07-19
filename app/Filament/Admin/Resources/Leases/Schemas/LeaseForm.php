@@ -84,12 +84,11 @@ class LeaseForm
                                     return;
                                 }
 
-                                $exists = Lease::where('unit_id', $unitId)
-                                    ->where('status', 'active')
-                                    ->when($record, fn ($q) => $q->where('id', '!=', $record->id))
-                                    ->exists();
-
-                                if ($exists) {
+                                // Consult the lease_unit pivot (master OR additional), not just the
+                                // denormalized leases.unit_id — else a unit already held as an
+                                // additional unit in a multi-unit lease could be re-booked here.
+                                $unit = \App\Models\Unit::find($unitId);
+                                if ($unit && $unit->isActivelyLeased($record?->id)) {
                                     $fail(__('admin.validation.unit_has_active_lease'));
                                 }
                             },

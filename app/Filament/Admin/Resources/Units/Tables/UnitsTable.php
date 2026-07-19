@@ -107,9 +107,11 @@ class UnitsTable
                     ->options(fn () => collect(__('admin.enums.category'))->except(['office', 'storage'])->all()),
                 SelectFilter::make('asset_id')
                     ->label(__('admin.filters.asset'))
-                    ->relationship('asset', 'name')
-                    ->searchable()
-                    ->preload(),
+                    // Scope to the user's visible properties (excludes the ALL pseudo-asset) — a raw
+                    // ->relationship('asset','name') enumerates every mall's name + the ALL row to a
+                    // restricted operator (a cross-property metadata read leak).
+                    ->options(fn () => \App\Support\TenantScope::selectableAssetOptions())
+                    ->searchable(),
                 Filter::make('lease_expiring_soon')
                     ->label(__('admin.filters.expiring_soon'))
                     ->query(fn (Builder $query) => $query->whereHas('activeLease', fn (Builder $l) => $l->whereBetween('expiry_date', [now(), now()->addDays(90)]))),

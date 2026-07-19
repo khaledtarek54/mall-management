@@ -57,6 +57,22 @@ class Unit extends Model
         return $this->belongsToMany(Lease::class, 'lease_unit')->withPivot('is_master');
     }
 
+    /**
+     * Is this unit covered by an ACTIVE lease — as master OR as an additional unit? The
+     * double-booking guard must consult the lease_unit pivot (the source of truth for which units a
+     * lease covers), NOT the denormalized leases.unit_id master pointer: a unit held only as an
+     * additional unit in a multi-unit lease has a pivot row but is not any lease's unit_id, so a
+     * unit_id-only check would let a second lease re-book it. Pass the lease being validated to
+     * exclude itself on edit.
+     */
+    public function isActivelyLeased(?int $excludeLeaseId = null): bool
+    {
+        return $this->allLeases()
+            ->where('leases.status', 'active')
+            ->when($excludeLeaseId, fn ($q, $id) => $q->where('leases.id', '!=', $id))
+            ->exists();
+    }
+
     public function maintenanceRequests(): HasMany
     {
         return $this->hasMany(TenantRequest::class);

@@ -4,6 +4,7 @@ namespace App\Filament\Imports;
 
 use App\Models\Asset;
 use App\Models\Unit;
+use App\Support\TenantScope;
 use Filament\Actions\Imports\ImportColumn;
 use Filament\Actions\Imports\Importer;
 use Filament\Actions\Imports\Models\Import;
@@ -12,15 +13,40 @@ class UnitImporter extends Importer
 {
     protected static ?string $model = Unit::class;
 
+    /**
+     * Resolve an asset by code, CLAMPED to the importing user's visible properties. The import
+     * bypasses CreateUnit/EditUnit — the only place GuardsAssetInScope::assertAssetInScope runs —
+     * so without this a restricted user could upload a CSV row for another mall's code and
+     * create/overwrite its units (cross-property WRITE leak). null visibleAssetIds() = unrestricted
+     * (super_admin); otherwise the asset must be in the visible set or this returns null (row fails).
+     */
+    private static function resolveVisibleAsset(?string $code): ?Asset
+    {
+        if (! $code) {
+            return null;
+        }
+        $asset = Asset::withoutGlobalScopes()->where('code', $code)->first();
+        if (! $asset) {
+            return null;
+        }
+        $visible = TenantScope::visibleAssetIds();
+
+        return ($visible === null || in_array($asset->id, $visible, true)) ? $asset : null;
+    }
+
     public static function getColumns(): array
     {
         return [
             ImportColumn::make('asset_code')
                 ->label(__('admin.tables.asset.code'))
                 ->requiredMapping()
-                ->rules(['required', 'max:20'])
+                ->rules(['required', 'max:20', function (string $attribute, $value, \Closure $fail) {
+                    if (self::resolveVisibleAsset(is_string($value) ? $value : null) === null) {
+                        $fail(__('admin.validation.import_asset_out_of_scope'));
+                    }
+                }])
                 ->fillRecordUsing(function (Unit $record, string $state): void {
-                    $asset = Asset::withoutGlobalScopes()->where('code', $state)->first();
+                    $asset = self::resolveVisibleAsset($state);
                     if ($asset) {
                         $record->asset_id = $asset->id;
                     }
@@ -46,7 +72,9 @@ class UnitImporter extends Importer
 
             ImportColumn::make('status')
                 ->label(__('admin.tables.common.status'))
-                ->rules(['nullable', 'in:vacant,reserved,occupied,maintenance']),
+                // 'occupied'/'reserved' are projections of a lease, not importable values — only
+                // 'vacant' (default) and the manual 'maintenance' override may be set directly.
+                ->rules(['nullable', 'in:vacant,maintenance']),
         ];
     }
 
@@ -57,7 +85,7 @@ class UnitImporter extends Importer
         $unitCode = $this->data['code'] ?? null;
 
         if ($assetCode && $unitCode) {
-            $asset = Asset::withoutGlobalScopes()->where('code', $assetCode)->first();
+            $asset = self::resolveVisibleAsset(is_string($assetCode) ? $assetCode : null);
             if ($asset) {
                 return Unit::firstOrNew([
                     'asset_id' => $asset->id,
@@ -66,6 +94,7 @@ class UnitImporter extends Importer
             }
         }
 
+        // Out-of-scope / unknown asset: the asset_code rule fails the row; return a bare record.
         return new Unit;
     }
 

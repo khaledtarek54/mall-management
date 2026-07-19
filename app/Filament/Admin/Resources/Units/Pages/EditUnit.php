@@ -26,6 +26,13 @@ class EditUnit extends EditRecord
         return $data;
     }
 
+    protected function afterSave(): void
+    {
+        // Re-project status from the unit's leases — an operator-set 'occupied'/'reserved' with no
+        // backing lease self-heals to 'vacant' (and 'maintenance' is preserved). See CreateUnit.
+        $this->record->recomputeStatus();
+    }
+
     protected function getHeaderActions(): array
     {
         return [

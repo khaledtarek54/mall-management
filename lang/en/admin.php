@@ -1928,6 +1928,7 @@ return [
         'invoice_due_after_issue' => 'The due date must be after the issue date.',
         'maintenance_resolution_after_creation' => 'The resolution date cannot be earlier than the request creation date.',
         'unit_has_active_lease' => 'This unit already has an active lease. Terminate it first or pick another unit.',
+        'import_asset_out_of_scope' => 'This property code is not found or is outside the properties you can manage.',
         'account_code_type_mismatch' => 'A code starting with :digit belongs to :expected accounts — change the code or the account nature to match.',
     ],
 

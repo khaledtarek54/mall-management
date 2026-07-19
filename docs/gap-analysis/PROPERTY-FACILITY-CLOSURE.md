@@ -45,7 +45,7 @@ Ordered dependency-first. Generic-ERP modules (21–25, 28) are out of scope (al
 
 | Order | # | Module | Status | Closed | Notes |
 |---|---|---|---|---|---|
-| 1 | 01 | Properties & Units | ⏳ In review | — | foundation — first module |
+| 1 | 01 | Properties & Units | ✅ CLOSED | 2026-07-19 | 6 CLOSE_NOW fixed (2 HIGH), 1 parity DEFER; see closure record |
 | 2 | 02 | Tenants | ⬜ Not started | — | |
 | 3 | 04 | Leases | ⬜ Not started | — | |
 | 4 | 05 | Billing & Invoices | ⬜ Not started | — | |
@@ -87,10 +87,24 @@ park-with-trigger) when its owning module's close-out comes up.
 | Vendor dispatch / provider portal (accept/quote/evidence loop) | parity/low | 12 | external-vendor dispatch becomes core |
 | Penalty Filament actions (charge/waive) lack a dispatch/dual-gate test | coverage/med | 26 | fixed when module 26 closes |
 | No conformance gate for `ApprovalPolicy` single-interpretation invariant | coverage/low | 28 | generic-ERP already closed; revisit only if approvals grow |
+| Occupancy measured by unit count, not leasable area (no GLA / physical-vs-economic occupancy) | parity/high | 01 | a mall with a large vacant anchor + many small kiosks (where unit-count occupancy misleads), or the operator/owner asks for economic occupancy. `area_sqm` data already exists |
 
 ## Closure records
 
 _One section per module as it closes, most recent first._
+
+### Module 01 — Properties & Units — CLOSED 2026-07-19
+
+Scoped sweep: 4 lenses → adversarial verify. 10 raw findings → 8 CLOSE_NOW (deduped to 6 distinct), 1 DEFER, 2 refuted. All CLOSE_NOW fixed + regression-guarded (`Module01OccupancyIntegrityTest`, 6 tests):
+
+- **[HIGH · isolation] UnitImporter cross-property write** — resolved the target asset by CSV `asset_code` with `Asset::withoutGlobalScopes()` and no clamp, so a restricted user could create/overwrite another mall's units via import (a path that bypasses the form's `assertAssetInScope`). Fixed: `resolveVisibleAsset()` clamps to `visibleAssetIds()`; out-of-scope rows fail the `asset_code` rule; status column restricted to `vacant`/`maintenance`.
+- **[HIGH · correctness] Unit double-booking** — the guard checked only `leases.unit_id` (master), so a unit held as an *additional* unit in a multi-unit lease could be re-leased. Fixed: `Unit::isActivelyLeased()` consults the `lease_unit` pivot; used in both the lease-form rule and `LeaseCreationService`.
+- **[MED · correctness] Lease delete/restore strands occupancy** — `LeaseObserver` had only created/updated hooks, so soft-delete/restore/force-delete never re-projected unit status → phantom-occupied units, inflated owner occupancy. Fixed: `deleting` (captures unit ids into a **static** store — the observer instance isn't shared across events) + `deleted` + `restored` hooks recompute.
+- **[LOW · correctness] Unit status self-heal** — a lease-less unit set to `occupied`/`reserved` via the form never reconciled. Fixed: Unit create/edit pages recompute on save (maintenance preserved).
+- **[LOW · isolation] Units table property filter** — enumerated every mall's name + the ALL pseudo-asset. Fixed: `selectableAssetOptions()`.
+- **[LOW · frd] FRD marked UNIT-1 (multi-unit lease) unbuilt** though shipped + heavily tested. Corrected in 3 places.
+
+**DEFER:** occupancy-by-area (GLA) — see the parity backlog. **Refuted (2):** claims that grepped-missing but were implemented elsewhere.
 
 ### Sweep 0 — cross-module bugs caught while standing up the process (2026-07-19)
 

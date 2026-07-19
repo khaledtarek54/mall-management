@@ -108,8 +108,8 @@ Exception: If status === 'maintenance', never overwrite (manual override forever
 
 **Implementation:**
 - `Unit::recomputeStatus()` (line 80–97) idempotent query; returns early if status='maintenance'.
-- Triggered by `LeaseObserver::created()`, `LeaseObserver::updated()` (on status or unit_id change).
-- Also called after `Lease::syncUnits()` recomputes every attached unit.
+- Triggered by `LeaseObserver::created()`, `LeaseObserver::updated()` (on status or unit_id change), **and `LeaseObserver::deleted()` / `restored()`** — the full lifecycle. Soft-delete/restore/force-delete all re-project the affected units, so a deleted lease can't strand its units at `occupied` (`deleting` captures the unit ids into a **static** store first, because a force-delete cascades the pivot away before `deleted` runs, and the observer instance isn't shared across events).
+- Also called after `Lease::syncUnits()` recomputes every attached unit, and on **Unit create/edit save** (the pages call `recomputeStatus()`), so an operator-authored `occupied`/`reserved` on a lease-less unit self-heals to `vacant` (`maintenance` is preserved) — making the "status is a projection" invariant true at the write surface, not just when a lease event later fires.
 
 ### Multi-unit Leases (via `lease_unit` pivot)
 
@@ -170,7 +170,7 @@ No explicit lifecycle; status is a projection of leases (immutable by recomputeS
 - **Occupied:** Any active lease.
 - **Maintenance:** Manual override; never auto-recomputed (one-way; only manual status change can lift it).
 
-**Transition guard:** Cannot attach a unit to an active lease if it's already occupied by another active lease (enforced in `LeaseCreationService::create()` line 31–38).
+**Transition guard:** Cannot attach a unit to an active lease if it's already covered by another active lease — checked via **`Unit::isActivelyLeased()`**, which consults the `lease_unit` **pivot** (master OR additional unit), NOT just the `leases.unit_id` master pointer (else a unit held only as an additional unit in a multi-unit lease could be re-booked). Enforced in both `LeaseCreationService` and the lease form's `unit_id` rule.
 
 ### Lease (triggers occupancy changes)
 - **Draft → Active:** LeaseObserver fires on status change; all attached units recompute → `occupied`.

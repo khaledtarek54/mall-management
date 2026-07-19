@@ -21,4 +21,13 @@ class CreateUnit extends CreateRecord
 
         return $data;
     }
+
+    protected function afterCreate(): void
+    {
+        // Unit status is a PROJECTION of the unit's leases; only 'maintenance' is a legitimate manual
+        // value (docs/modules/01 §3). A brand-new unit has no lease, so an operator-picked
+        // 'occupied'/'reserved' is unbacked — recompute drops it to 'vacant' (respecting maintenance)
+        // so occupancy can't be inflated without a lease.
+        $this->record->recomputeStatus();
+    }
 }

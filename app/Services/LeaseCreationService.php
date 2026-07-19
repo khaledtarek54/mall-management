@@ -28,11 +28,8 @@ class LeaseCreationService
 
             $unit = Unit::with('asset')->findOrFail($payload['lease']['unit_id']);
 
-            $hasActiveLease = Lease::where('unit_id', $unit->id)
-                ->where('status', 'active')
-                ->exists();
-
-            if ($hasActiveLease) {
+            // Pivot-aware (master OR additional unit) — see Unit::isActivelyLeased().
+            if ($unit->isActivelyLeased()) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     'lease.unit_id' => __('admin.validation.unit_has_active_lease'),
                 ]);

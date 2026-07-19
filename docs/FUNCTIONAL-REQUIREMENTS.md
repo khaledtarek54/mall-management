@@ -97,7 +97,7 @@ The platform is **multi-property**: an `Asset` is one mall; everything hangs off
 | Overdue → notify **owners** (MNT-5) | ✅ Done | owners (`asset_owner`) merged into the SLA-breach scan |
 | Maintenance **late fees** (MNT-6) | 🟡 To-do | needs O-3/O-4 (what triggers a fee + who pays) |
 | Department-to-department messaging (DEPT-2) | ✅ Done | "Message" action on a department → bell to its members |
-| Master unit / multi-unit lease (UNIT-1) | 🔴 To-do | lease is still 1:1 with a unit; needs a `lease_unit` pivot ([O-6](#open-items)) |
+| Master unit / multi-unit lease (UNIT-1) | 🟢 Built | `lease_unit` pivot with `is_master`, mirrored to `leases.unit_id`; wired into `LeaseObserver` + `Lease::syncUnits()` + the lease form + occupancy projection. Tests: `MultiUnitLease*` |
 | Tenant-users — only tenant-admin submits (TEN-3) | ⏸️ Deferred | your decision 2026-06-24; would rewrite portal + mobile (Sanctum) auth |
 | Dept requests/payments via Accounting (DEPT-3 / ACCT-2) | ⏸️ Deferred | pending the accounting-team workflow |
 | RBAC, audit trail, notifications, settings | 🟢 Pre-existing | reused as-is |
@@ -106,7 +106,7 @@ The platform is **multi-property**: an `Asset` is one mall; everything hangs off
 
 1. **#4 — overdue → owners + late fees.** (a) *Small:* add owner (Jawad) users to the recipient set of `MaintenanceSlaBreachedNotification` (the daily `maintenance:scan-sla-breaches` job already fires it to staff). (b) *Needs your input:* late fees — decide **O-3** (what triggers a fee — past the work-window end, or the SLA deadline?) and **O-4** (who is charged + the amount), then realize it as a charge + alert.
 2. **#11 — department-to-department messaging.** A "Message department" action that fans a notification to a target department's members (reuse the existing notification fabric + `department_user` membership). Small.
-3. **#7 — master unit / multi-unit lease.** The one structural item. Add a `lease_unit` pivot (with `is_master`) so a lease can span several units, keeping existing 1:1 leases valid; surface in the lease form + occupancy. Isolated + schema-touching — build and validate on its own ([UNIT-1/3](#8-units--leases-unit), [O-6](#open-items)). Medium.
+3. **#7 — master unit / multi-unit lease. ✅ SHIPPED.** The `lease_unit` pivot (with `is_master`) lets a lease span several units, keeping 1:1 leases valid; surfaced in the lease form + occupancy projection ([UNIT-1/3](#8-units--leases-unit)). Heavily tested (`MultiUnitLeaseTest`, `MultiUnitLeaseDataScenarioTest`, `MultiUnitLeaseFormScenarioTest`, `MultiUnitLeaseRenewalTest`).
 
 **Deferred (by decision / dependency):** tenant-users auth rewrite (TEN-3); accounting routing of department spend (DEPT-3 / ACCT-2 — pending your accounting team).
 
@@ -185,7 +185,7 @@ A "request" is the central ERP workflow object, with **three concrete types** ov
 
 ## 8. Units & leases (UNIT)
 
-- **UNIT-1** 🟡 `[EXTEND]` — A **master unit** represents/handles all units under the **same lease**. *Today a `Lease` references exactly one `unit_id` ([leases migration](../database/migrations/2024_01_01_000004_create_leases_table.php#L14)) — 1 lease : 1 unit. One lease spanning multiple units (one designated master) is a schema change: a `lease_unit` pivot with `is_master`, or a self-referential `parent_unit_id` on units.* See [O-6](#open-items). — *covers original request #7.*
+- **UNIT-1** 🟢 `[BUILT]` — A **master unit** represents/handles all units under the **same lease**. *Shipped via the chosen `lease_unit` pivot (with `is_master`), mirrored to `leases.unit_id` so single-unit code paths stay valid. A lease spans any number of units; `Lease::syncUnits()` owns the pivot + occupancy recompute, `LeaseObserver` keeps unit status projected, and the lease form exposes `additional_unit_ids`.* — *covers original request #7.*
 - **UNIT-2** 🟢 `[EXISTS]` — Units on **different leases** stay separate; each unit belongs to an `Asset` with its own status (`vacant/reserved/occupied/maintenance`). See [units migration](../database/migrations/2024_01_01_000002_create_units_table.php). — *covers #7.*
 - **UNIT-3** 🔧 `[design]` — Prefer the `lease_unit` pivot (additive, keeps existing 1:1 leases valid) over reworking the units tree, unless physical sub-unit hierarchy is also needed. *(Design choice for #7 — see [O-6](#open-items).)*
 
