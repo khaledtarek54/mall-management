@@ -134,6 +134,20 @@ class OwnerStatementRun extends Model
         return $this->hasMany(OwnerStatement::class);
     }
 
+    /**
+     * True if any non-cancelled disbursement exists against this run's statements. Revising
+     * rebuilds the statements, which would orphan such a disbursement (and reset the overpayment
+     * cap on a PAID one → double payout), so revise is blocked while this holds. Named once here
+     * so the service guard and the action's visible() can't drift.
+     */
+    public function hasActiveDisbursements(): bool
+    {
+        return \App\Models\Disbursement::query()
+            ->whereIn('owner_statement_id', $this->statements()->select('id'))
+            ->where('status', '!=', \App\Models\Disbursement::STATUS_CANCELLED)
+            ->exists();
+    }
+
     public function supersedes(): BelongsTo
     {
         return $this->belongsTo(self::class, 'supersedes_id');

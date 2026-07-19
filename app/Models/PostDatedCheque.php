@@ -61,6 +61,19 @@ class PostDatedCheque extends Model
             if (! in_array($cheque->status, self::STATUSES, true)) {
                 throw new \InvalidArgumentException("Invalid post-dated cheque status '{$cheque->status}'.");
             }
+
+            // Property-isolation guard: a linked invoice MUST belong to the same property the cheque
+            // is pinned to. The form scopes the picker, but this is the real gate — a crafted request
+            // could otherwise attach another mall's invoice, and clearing the cheque would settle it
+            // (moving that property's AR + GL). Checked on create + on any invoice_id/asset_id change.
+            if ($cheque->invoice_id && ($cheque->isDirty('invoice_id') || $cheque->isDirty('asset_id'))) {
+                $invoiceAssetId = Invoice::whereKey($cheque->invoice_id)
+                    ->with('lease.unit:id,asset_id')
+                    ->first()?->lease?->unit?->asset_id;
+                if ($invoiceAssetId !== null && (int) $invoiceAssetId !== (int) $cheque->asset_id) {
+                    throw new \DomainException('The linked invoice belongs to a different property than the cheque.');
+                }
+            }
         });
 
         // A cleared/cancelled cheque is terminal — its money-material fields never change

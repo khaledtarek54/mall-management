@@ -31,7 +31,8 @@ class PostDatedChequeForm
                         ->native(false),
                     Select::make('tenant_id')
                         ->label(__('admin.post_dated_cheques.fields.tenant'))
-                        ->options(fn () => Tenant::query()->orderBy('name')->pluck('name', 'id')->all())
+                        // Property-scoped — never offer a tenant with no lease in a visible property.
+                        ->options(fn () => TenantScope::selectableTenantOptions())
                         ->searchable()
                         ->live()
                         ->required()
@@ -42,6 +43,12 @@ class PostDatedChequeForm
                             ? Invoice::query()
                                 ->where('tenant_id', $get('tenant_id'))
                                 ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
+                                // Scope to the property this cheque is pinned to — a cheque for Mall A
+                                // must NOT clear against Mall B's invoice (cross-property AR/GL leak).
+                                // Backstopped by visibleAssetIds so a restricted user never sees an
+                                // out-of-scope property's invoices even before a property is chosen.
+                                ->when($get('asset_id'), fn ($q, $assetId) => $q->whereHas('lease.unit', fn ($u) => $u->where('asset_id', $assetId)))
+                                ->when(TenantScope::visibleAssetIds(), fn ($q, $ids) => $q->whereHas('lease.unit', fn ($u) => $u->whereIn('asset_id', $ids)))
                                 ->orderByDesc('issue_date')
                                 ->pluck('reference', 'id')->all()
                             : [])

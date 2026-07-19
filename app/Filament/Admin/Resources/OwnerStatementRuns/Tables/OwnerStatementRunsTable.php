@@ -92,7 +92,7 @@ class OwnerStatementRunsTable
                     ->label(__('admin.owner_statements.actions.revise'))
                     ->icon('heroicon-o-arrow-path')->color('warning')
                     ->requiresConfirmation()
-                    ->visible(fn (OwnerStatementRun $r) => $r->isFinalised() && OwnerStatementRunResource::canRevise())
+                    ->visible(fn (OwnerStatementRun $r) => $r->isFinalised() && ! $r->hasActiveDisbursements() && OwnerStatementRunResource::canRevise())
                     ->authorize(fn (OwnerStatementRun $r) => OwnerStatementRunResource::canRevise())
                     ->action(function (OwnerStatementRun $record): void {
                         abort_unless(OwnerStatementRunResource::canRevise(), 403);
