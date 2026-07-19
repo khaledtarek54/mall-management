@@ -23,6 +23,7 @@ Leases model the core revenue instrument of Egyptian mall operations. They bind 
 | | | `service_charge_monthly` (decimal 12,2) | Monthly service charge (EGP), VAT-applicable (14% in Egypt). Default 0. |
 | | | `has_marketing_levy` (boolean, NOT NULL, default **true**) | Whether the tenant pays the marketing-fund contribution (a `marketing` charge = % of base rent, billed monthly). Default true preserves today's behaviour; turn off for tenants who negotiated out. Carried forward on renewal. |
 | | | `marketing_levy_rate` (decimal 5,2, nullable) | Per-lease override of the marketing levy %. Blank = the mall default (`MarketingSettings`, 5%). Carried forward on renewal. |
+| | | `fit_out_months` (unsigned tinyint, NOT NULL, default 0) | Rent-free fit-out grace: for this many whole months from the commencement month, the monthly billing run suppresses the **entire** invoice (rent + service + CAM + marketing levy — full grace, operator decision 2026-07-19). Does **not** carry forward on renewal. |
 | | | `currency` (string 3, default 'EGP') | ISO 4217 code (currently always EGP in Egypt context). |
 | | | `security_deposit` (decimal 12,2, default 0) | One-time security amount (typically 3× monthly rent). |
 | | | `security_deposit_received` (boolean, NOT NULL, default false) | Whether the deposit has been collected. |
@@ -248,6 +249,7 @@ Daily command (07:00) that reminds the tenant when an **active** lease's `expiry
    - `service_charge_monthly` (TextInput, numeric, ≥0; disabled on edit, dehydrated) — helper text on edit warns "use Change Rent action".
    - `has_marketing_levy` (Toggle, live, default true) — whether the marketing levy is billed to this tenant. `EditLease::afterSave()` re-syncs the `marketing` charge via `MarketingLevyService::createLevyCharge()` so a toggle change takes effect on the next run.
    - `marketing_levy_rate` (TextInput, numeric, 0–100, suffix '%', visible if has_marketing_levy) — per-lease rate override; placeholder shows the mall default; blank = default.
+   - `fit_out_months` (TextInput, integer, 0–24, suffix 'months') — rent-free fit-out grace; 0 = none; a blank field coerces to 0 (NOT-NULL). The billing gate lives on the model: `Lease::periodInFitOut()` / `firstBillableMonth()`, shared by `MonthlyBillingService` and the ActionRequired "unbilled leases" card (so a lease in grace is neither billed nor flagged).
    - `security_deposit` (TextInput, numeric, ≥0).
    - `escalation_rate` (TextInput, numeric, 0–100, default 7, suffix '%').
    - `escalation_type` (Select) — none, fixed_percent, cpi; default fixed_percent.

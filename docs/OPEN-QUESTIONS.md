@@ -149,7 +149,7 @@ These are unverified assumptions. Plausible, consistent, never confirmed by anyo
 | C1.2 | **Standard lease duration** + typical mix? Do leases **auto-renew**, and do charges + escalation carry over on renewal? | Renew/escalate actions exist | 🟡 | |
 | C1.3 | **Annual escalation** rule — fixed % (7% default) or index-linked? | Fixed % via `escalate` | 🟡 | |
 | C1.4 | **Early termination** — penalty (X months), notice period, deposit forfeited? | `terminate` action exists | 🟡 | |
-| C1.5 | **Rent-free / grace / fit-out** periods at lease start? **One-off charges** (fit-out, key money, signage, parking, storage, fines)? | Partial; confirm proration + ad-hoc charge types | 🟠 | |
+| C1.5 | **Rent-free / grace / fit-out** periods at lease start? **One-off charges** (fit-out, key money, signage, parking, storage, fines)? | ✅ **Grace RESOLVED 2026-07-19:** `leases.fit_out_months` — a **FULL** grace (rent + service + CAM + marketing levy all suppressed) for that many whole months from the commencement month; billing starts after. Whole-month grace (no mid-month proration of the tail). *One-off charges still via ad-hoc Charge rows — separate item.* | 🟢 | |
 | C1.6 | For **percentage rent**, how do tenants **report sales** (POS, manual monthly declaration, audited)? Do you **audit** them and what if under-reported? | Manual sales-declaration flow exists | 🟡 | |
 | C1.7 | **Multiple contacts per tenant** (owner + accountant + ops — different access)? Track **tenant insurance certificates** + expiry? | Multi portal-user support; no insurance-cert tracking | 🟡 | |
 | C1.8 | Need a **lease/contract PDF** + signature tracked in-system? | Not generated | 🟠 | |

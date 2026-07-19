@@ -54,6 +54,28 @@ kept in lock-step — you can't have the screen say 50,000 while invoices bill 4
 changes through the dedicated "change rent" service, which updates both together (and re-syncs the
 marketing levy).
 
+### Fit-out / rent-free grace period
+
+Egyptian mall leases almost always give a new tenant a **rent-free period at the start** (typically
+1–3 months) to build out the shop before they open. Set **`fit_out_months`** on the lease and, for
+that many whole months from the commencement month, **nothing is billed at all** — not rent, not
+service charge, not CAM, not the marketing levy (a *full* grace). Billing starts automatically the
+month after the grace ends.
+
+**Scenario — a lease commencing 15 Jan with 2 fit-out months:**
+
+| Month | What happens |
+|-------|--------------|
+| January | Free — tenant is fitting out. No invoice. |
+| February | Free. No invoice. |
+| March | Grace over → the first invoice bills the **full** monthly stack (rent + service + levy). |
+
+Two things to know: the grace counts in **whole months from the commencement month** (so a mid-month
+start still frees that whole month), and it does **not** carry onto a renewal — the fit-out was a
+one-time build-out, so a renewed lease bills from day one. Leave `fit_out_months` at **0** for no
+grace (the default). If you try to "Generate Invoice" for a month that's still in the grace, the
+system tells you the lease is in its fit-out period rather than billing it.
+
 ---
 
 ## 3. Rent escalation — the rent goes up on the anniversary

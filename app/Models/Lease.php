@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
@@ -103,6 +104,7 @@ class Lease extends Model implements HasMedia
         'service_charge_monthly',
         'has_marketing_levy',
         'marketing_levy_rate',
+        'fit_out_months',
         'currency',
         'security_deposit',
         'security_deposit_received',
@@ -125,6 +127,7 @@ class Lease extends Model implements HasMedia
     protected $attributes = [
         'has_percentage_rent' => false,
         'has_marketing_levy' => true, // preserve today's behaviour: every lease gets the levy by default
+        'fit_out_months' => 0,        // no rent-free grace unless explicitly set
         'security_deposit_received' => false,
     ];
 
@@ -144,6 +147,7 @@ class Lease extends Model implements HasMedia
         'has_percentage_rent' => 'boolean',
         'has_marketing_levy' => 'boolean',
         'marketing_levy_rate' => 'decimal:2',
+        'fit_out_months' => 'integer',
         'metadata' => 'array',
     ];
 
@@ -317,6 +321,34 @@ class Lease extends Model implements HasMedia
     public function daysUntilExpiry(): int
     {
         return (int) now()->diffInDays($this->expiry_date, false);
+    }
+
+    /**
+     * Fit-out / rent-free grace: the first period for which ANY charge bills. The grace suppresses
+     * the first `fit_out_months` WHOLE months from the commencement month (operator decision
+     * 2026-07-19, OPEN-QUESTIONS C1.5 = FULL grace on all charges). Null when no commencement date.
+     */
+    public function firstBillableMonth(): ?CarbonImmutable
+    {
+        if (! $this->commencement_date) {
+            return null;
+        }
+
+        return CarbonImmutable::instance($this->commencement_date)
+            ->startOfMonth()
+            ->addMonths((int) $this->fit_out_months);
+    }
+
+    /**
+     * True when the given billing period falls entirely inside the fit-out grace, so NOTHING bills.
+     * fit_out_months = 0 → always false (today's behaviour). Shared by the monthly billing engine
+     * and the ActionRequired "unbilled leases" card, so a lease in fit-out is neither billed nor nagged.
+     */
+    public function periodInFitOut(CarbonImmutable $periodEnd): bool
+    {
+        $first = $this->firstBillableMonth();
+
+        return $first !== null && $periodEnd->lessThan($first);
     }
 
     // ============ Generation helpers ============

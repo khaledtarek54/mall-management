@@ -138,6 +138,26 @@ class EditLease extends EditRecord
                     return;
                 }
 
+                if ($result['status'] === 'skipped' && ($result['reason'] ?? null) === 'fit_out') {
+                    Notification::make()
+                        ->title(__('admin.actions.fit_out_title'))
+                        ->body(__('admin.actions.fit_out_body', ['period' => $period->format('F Y')]))
+                        ->warning()
+                        ->send();
+
+                    return;
+                }
+
+                if ($result['status'] === 'skipped' && ($result['reason'] ?? null) === 'run_in_progress') {
+                    Notification::make()
+                        ->title(__('admin.actions.run_in_progress_title'))
+                        ->body(__('admin.actions.run_in_progress_body'))
+                        ->warning()
+                        ->send();
+
+                    return;
+                }
+
                 Notification::make()
                     ->title(__('admin.actions.generation_failed'))
                     ->body(__('admin.actions.generation_failed_body'))

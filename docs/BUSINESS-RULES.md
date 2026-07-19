@@ -97,6 +97,7 @@ These are confirmed facts about the current deployment. **Each one must be resol
 | **Base-rent VAT exemption on new leases** | Base rent created VAT-exempt. | Fixed in code. | Egyptian VAT law. | 🔴 HIGH | |
 | **Default percentage-rent type** | **Artificial breakpoint** = `(sales − threshold) × rate`, floored at zero. | Fixed default; form allows natural breakpoint. | Business choice (module docs). | 🔴 HIGH | |
 | **Natural-breakpoint formula** | `(sales × rate) − base rent`, floored at zero. | Fixed formula, used when type = natural. | Business design (docs). | 🔴 HIGH | |
+| **Fit-out / rent-free grace** | `fit_out_months` on the lease → for that many **whole months from the commencement month, NOTHING bills** (rent + service + CAM + marketing levy — a **full** grace). Billing starts the month after. Default **0** (no grace); does **not** carry on renewal. | Per-lease (0–24 months). | **Operator-confirmed 2026-07-19** (OPEN-QUESTIONS C1.5): a full grace, whole-month (no mid-month proration of the tail). | 🔴 HIGH | |
 | **One active lease per unit** | A unit may have only **one active lease at a time**. | Fixed business rule. | Physical occupancy invariant. | 🔴 HIGH | |
 | **Lease expiry date** | expiry = commencement + term months **− 1 day** (inclusive final day). | Fixed formula. | Standard inclusive end date. | 🔴 HIGH | |
 | **Renewal rent** | On renewal, rent is **whatever the operator types** — escalation is **not auto-applied**. | Operator must enter new rent. | Business practice (manual decision). | 🔴 HIGH | |

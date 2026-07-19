@@ -101,6 +101,10 @@ class ActionRequired extends Widget
             ->whereDoesntHave('invoices', function ($q) use ($monthStart, $monthEnd) {
                 $q->whereBetween('period_start', [$monthStart, $monthEnd]);
             })
+            ->get()
+            // A lease still inside its fit-out / rent-free grace legitimately has no invoice
+            // this month — the billing engine suppresses it — so don't flag it as "unbilled".
+            ->reject(fn ($lease) => $lease->periodInFitOut(\Carbon\CarbonImmutable::instance($monthEnd)))
             ->count();
 
         $items = [];

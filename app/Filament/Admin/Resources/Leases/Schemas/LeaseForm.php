@@ -228,6 +228,17 @@ class LeaseForm
                         ->placeholder(fn () => number_format(app(\App\Services\MarketingLevyService::class)->ratePercent(), 2))
                         ->helperText(__('admin.helpers.marketing_levy_rate'))
                         ->visible(fn (\Filament\Schemas\Components\Utilities\Get $get) => (bool) $get('has_marketing_levy')),
+                    TextInput::make('fit_out_months')
+                        ->label(__('admin.fields.fit_out_months'))
+                        ->numeric()
+                        ->integer()
+                        ->suffix(__('admin.fields.months'))
+                        ->minValue(0)
+                        ->maxValue(24)
+                        ->default(0)
+                        // NOT-NULL column — a blank field must send 0, never null.
+                        ->dehydrateStateUsing(fn ($state) => $state ?? 0)
+                        ->helperText(__('admin.helpers.fit_out_months')),
                     TextInput::make('security_deposit')
                         ->label(__('admin.fields.security_deposit'))
                         ->prefix('EGP')

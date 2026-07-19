@@ -169,6 +169,7 @@ public function runForPeriod(?CarbonImmutable $period = null): array
 **Behavior:**
 - Selects all leases with status='active', commencement ≤ period_end, and expiry_date >= period_start (or null)
 - Processes each in chunks of 100 (via chunkById for memory efficiency)
+- **Suppresses the entire invoice during a lease's fit-out / rent-free grace** — `Lease::periodInFitOut()` (from `fit_out_months`) returns true for periods inside the grace, so `generateInvoiceForLease` returns null (nothing bills — rent, service, CAM, levy all held). The single-lease path returns reason `fit_out` so the UI says "in fit-out period". See module 04 § "Fit-out grace".
 - Skips any lease that already has an invoice covering the period (idempotent)
 - Wraps each lease in its own transaction; one failure doesn't abort the whole run
 - Fires `InvoiceIssuedNotification` to tenant on success

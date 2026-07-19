@@ -194,6 +194,12 @@ class MonthlyBillingService
             return ['status' => 'skipped', 'reason' => 'already_billed', 'invoice' => null];
         }
 
+        // Fit-out / rent-free grace — nothing bills this period. Distinct reason so the UI can
+        // say "this lease is in its fit-out period" rather than a misleading "no charges".
+        if ($lease->periodInFitOut($periodEnd)) {
+            return ['status' => 'skipped', 'reason' => 'fit_out', 'invoice' => null];
+        }
+
         $lease->loadMissing(['charges' => fn ($q) => $q->where('is_active', true)]);
 
         try {
@@ -240,6 +246,13 @@ class MonthlyBillingService
 
     private function generateInvoiceForLease(Lease $lease, CarbonImmutable $periodStart, CarbonImmutable $periodEnd, bool $prorate = false): ?Invoice
     {
+        // Fit-out / rent-free grace: suppress the ENTIRE invoice for periods inside the grace
+        // window (operator decision 2026-07-19, OPEN-QUESTIONS C1.5 = full grace on all charges).
+        // Returns null → the run counts it as skipped (no applicable charges), same as an off-month.
+        if ($lease->periodInFitOut($periodEnd)) {
+            return null;
+        }
+
         $applicableCharges = $lease->charges->filter(
             fn (Charge $c) => $this->chargeAppliesToPeriod($c, $periodStart, $periodEnd)
         );

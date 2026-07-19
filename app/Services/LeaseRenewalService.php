@@ -52,6 +52,8 @@ class LeaseRenewalService
                 // rate override) keeps that on renewal; else the model default would silently re-levy them.
                 'has_marketing_levy' => $original->has_marketing_levy,
                 'marketing_levy_rate' => $original->marketing_levy_rate,
+                // Fit-out grace does NOT carry — it was for the original build-out; a renewal has none.
+                'fit_out_months' => 0,
                 'currency' => $original->currency,
                 'security_deposit' => $original->security_deposit,
                 'security_deposit_received' => $original->security_deposit_received,
