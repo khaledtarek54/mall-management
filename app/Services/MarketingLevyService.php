@@ -18,8 +18,16 @@ use App\Settings\MarketingSettings;
  */
 class MarketingLevyService
 {
-    public function ratePercent(): float
+    /**
+     * The levy rate for a lease: the lease's per-deal override if set, else the global default.
+     * Call with no lease for the global default (e.g. a form placeholder).
+     */
+    public function ratePercent(?Lease $lease = null): float
     {
+        if ($lease && $lease->marketing_levy_rate !== null) {
+            return (float) $lease->marketing_levy_rate;
+        }
+
         try {
             return (float) app(MarketingSettings::class)->levy_rate_percent;
         } catch (\Throwable $e) {
@@ -30,16 +38,27 @@ class MarketingLevyService
 
     public function amountFor(Lease $lease): float
     {
-        return round((float) $lease->base_rent_monthly * $this->ratePercent() / 100, 2);
+        return round((float) $lease->base_rent_monthly * $this->ratePercent($lease) / 100, 2);
     }
 
     /**
-     * Ensure the lease carries its marketing levy charge. Idempotent: one
-     * marketing charge per lease, kept in sync with the current rate × base rent.
-     * VAT-exempt, mirroring base rent.
+     * Sync the lease's marketing levy charge (idempotent — one `marketing` charge per lease).
+     * Respects the per-lease options:
+     *  - has_marketing_levy = false (or rate 0) → the levy is DEACTIVATED (billing stops; the
+     *    charge is kept inactive, not deleted, so any history it already billed is preserved).
+     *  - otherwise → active at the lease's rate (override or global default) × base rent, VAT-exempt.
+     * Re-called on create, renewal, rent-change, and lease edit so a toggle/rate change takes effect.
      */
-    public function createLevyCharge(Lease $lease): Charge
+    public function createLevyCharge(Lease $lease): ?Charge
     {
+        $rate = $this->ratePercent($lease);
+
+        if (! $lease->has_marketing_levy || $rate <= 0) {
+            Charge::where('lease_id', $lease->id)->where('type', 'marketing')->update(['is_active' => false]);
+
+            return null;
+        }
+
         return Charge::updateOrCreate(
             ['lease_id' => $lease->id, 'type' => 'marketing'],
             [

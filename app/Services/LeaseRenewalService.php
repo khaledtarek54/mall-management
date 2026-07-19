@@ -48,6 +48,10 @@ class LeaseRenewalService
                 'term_months' => $termMonths,
                 'base_rent_monthly' => $newRent,
                 'service_charge_monthly' => $newServiceCharge,
+                // Carry the negotiated marketing-levy terms — a tenant who opted out (or has a
+                // rate override) keeps that on renewal; else the model default would silently re-levy them.
+                'has_marketing_levy' => $original->has_marketing_levy,
+                'marketing_levy_rate' => $original->marketing_levy_rate,
                 'currency' => $original->currency,
                 'security_deposit' => $original->security_deposit,
                 'security_deposit_received' => $original->security_deposit_received,

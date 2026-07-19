@@ -21,6 +21,8 @@ Leases model the core revenue instrument of Egyptian mall operations. They bind 
 | | | `term_months` (unsigned small int) | Contract duration in months (1–120). |
 | | | `base_rent_monthly` (decimal 12,2) | Monthly rent amount (EGP), before VAT. Core revenue stream. Read-only on edit; changed via `LeaseRentChangeService::apply()` to keep `Charge.amount` synchronized. |
 | | | `service_charge_monthly` (decimal 12,2) | Monthly service charge (EGP), VAT-applicable (14% in Egypt). Default 0. |
+| | | `has_marketing_levy` (boolean, NOT NULL, default **true**) | Whether the tenant pays the marketing-fund contribution (a `marketing` charge = % of base rent, billed monthly). Default true preserves today's behaviour; turn off for tenants who negotiated out. Carried forward on renewal. |
+| | | `marketing_levy_rate` (decimal 5,2, nullable) | Per-lease override of the marketing levy %. Blank = the mall default (`MarketingSettings`, 5%). Carried forward on renewal. |
 | | | `currency` (string 3, default 'EGP') | ISO 4217 code (currently always EGP in Egypt context). |
 | | | `security_deposit` (decimal 12,2, default 0) | One-time security amount (typically 3× monthly rent). |
 | | | `security_deposit_received` (boolean, NOT NULL, default false) | Whether the deposit has been collected. |
@@ -244,6 +246,8 @@ Daily command (07:00) that reminds the tenant when an **active** lease's `expiry
 3. **Financial Terms** (3 cols)
    - `base_rent_monthly` (TextInput, numeric, ≥0, required; disabled on edit, dehydrated) — read-only on edit to enforce use of LeaseRentChangeService.
    - `service_charge_monthly` (TextInput, numeric, ≥0; disabled on edit, dehydrated) — helper text on edit warns "use Change Rent action".
+   - `has_marketing_levy` (Toggle, live, default true) — whether the marketing levy is billed to this tenant. `EditLease::afterSave()` re-syncs the `marketing` charge via `MarketingLevyService::createLevyCharge()` so a toggle change takes effect on the next run.
+   - `marketing_levy_rate` (TextInput, numeric, 0–100, suffix '%', visible if has_marketing_levy) — per-lease rate override; placeholder shows the mall default; blank = default.
    - `security_deposit` (TextInput, numeric, ≥0).
    - `escalation_rate` (TextInput, numeric, 0–100, default 7, suffix '%').
    - `escalation_type` (Select) — none, fixed_percent, cpi; default fixed_percent.

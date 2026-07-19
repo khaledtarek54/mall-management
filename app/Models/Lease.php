@@ -101,6 +101,8 @@ class Lease extends Model implements HasMedia
         'term_months',
         'base_rent_monthly',
         'service_charge_monthly',
+        'has_marketing_levy',
+        'marketing_levy_rate',
         'currency',
         'security_deposit',
         'security_deposit_received',
@@ -122,6 +124,7 @@ class Lease extends Model implements HasMedia
     // the NOT NULL columns (e.g. on renewal before a DB re-read).
     protected $attributes = [
         'has_percentage_rent' => false,
+        'has_marketing_levy' => true, // preserve today's behaviour: every lease gets the levy by default
         'security_deposit_received' => false,
     ];
 
@@ -139,6 +142,8 @@ class Lease extends Model implements HasMedia
         'percentage_rent_rate' => 'decimal:2',
         'security_deposit_received' => 'boolean',
         'has_percentage_rent' => 'boolean',
+        'has_marketing_levy' => 'boolean',
+        'marketing_levy_rate' => 'decimal:2',
         'metadata' => 'array',
     ];
 

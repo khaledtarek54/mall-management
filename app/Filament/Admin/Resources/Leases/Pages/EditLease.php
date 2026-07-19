@@ -57,6 +57,10 @@ class EditLease extends EditRecord
             [$this->record->unit_id, ...$additional],
             $this->record->unit_id,
         );
+
+        // Re-sync the marketing levy charge so a toggle/rate change on the form takes effect
+        // (activates/deactivates + re-rates the `marketing` charge for the next monthly run).
+        app(\App\Services\MarketingLevyService::class)->createLevyCharge($this->record);
     }
 
     protected function getHeaderActions(): array

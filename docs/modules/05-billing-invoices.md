@@ -227,6 +227,8 @@ Notifies the tenant via `$tenant->notifyPortal(InvoiceIssuedNotification)`. Wrap
 
 **The 5% marketing levy IS billed to the tenant** (operator-confirmed 2026-07-19): `MarketingLevyService::createLevyCharge()` puts a recurring monthly `marketing` Charge (= 5% of base rent) on the lease at creation/renewal/rent-change, and the monthly run bills it as its own line item (routed to `marketing_revenue` in the GL). The property's **marketing budget accrues FROM the billed line item** (`InvoiceItem::booted()`), so there is no double-count — the accrual derives from what was actually billed. *(The old internal-accrual `accrueMarketingLevy()` method is retired.)* **VAT:** currently 0% (mirrors rent); flagged for the accountant as possibly a 14% taxable service — see [BUSINESS-RULES.md](../BUSINESS-RULES.md).
 
+**Per-lease optional + rate override (2026-07-19):** the levy is on by default but a lease can **opt out** (`has_marketing_levy = false` → no marketing line; the charge is deactivated, not deleted) and can **override the rate** (`marketing_levy_rate`; blank = the mall default). `createLevyCharge()` is idempotent and re-runs on lease edit, so toggling the option or changing the rate re-syncs the charge for the next run; both settings carry forward on renewal. See [04-leases.md](04-leases.md).
+
 ---
 
 ### RunMonthlyBilling (Job)

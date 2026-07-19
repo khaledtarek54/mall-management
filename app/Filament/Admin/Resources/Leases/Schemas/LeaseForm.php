@@ -212,6 +212,22 @@ class LeaseForm
                         ->helperText(fn (string $operation): string => $operation === 'edit'
                             ? __('admin.helpers.service_charge_monthly_edit_lock')
                             : __('admin.helpers.service_charge_monthly')),
+                    Toggle::make('has_marketing_levy')
+                        ->label(__('admin.fields.has_marketing_levy'))
+                        ->default(true)
+                        ->live()
+                        ->helperText(__('admin.helpers.has_marketing_levy')),
+                    TextInput::make('marketing_levy_rate')
+                        ->label(__('admin.fields.marketing_levy_rate'))
+                        ->numeric()
+                        ->suffix('%')
+                        ->minValue(0)
+                        ->maxValue(100)
+                        ->step('0.01')
+                        // Blank = use the mall's default rate (shown as the placeholder).
+                        ->placeholder(fn () => number_format(app(\App\Services\MarketingLevyService::class)->ratePercent(), 2))
+                        ->helperText(__('admin.helpers.marketing_levy_rate'))
+                        ->visible(fn (\Filament\Schemas\Components\Utilities\Get $get) => (bool) $get('has_marketing_levy')),
                     TextInput::make('security_deposit')
                         ->label(__('admin.fields.security_deposit'))
                         ->prefix('EGP')

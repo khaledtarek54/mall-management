@@ -203,7 +203,9 @@ These are confirmed facts about the current deployment. **Each one must be resol
 
 | Rule | Current value / formula | Configurable? | Assumption / basis | Risk | Confirm? |
 |---|---|---|---|---|---|
-| **Levy rate** | **5.0% of base rent**. | Admin-settable (`/admin/settings`). | Documented (FR MKT-2) — industry norm 1–5%. | 🔴 HIGH | |
+| **Levy rate** | **5.0% of base rent** (the mall default). | Admin-settable (`/admin/settings`); **per-lease override** (`marketing_levy_rate`). | Documented (FR MKT-2) — industry norm 1–5%. | 🔴 HIGH | |
+| **Per-lease opt-out** | A lease can turn the levy **off** (`has_marketing_levy = false`) — some tenants (anchors, kiosks, storage) negotiate out of it. Default is **on**, preserving today's behaviour. Turning it off deactivates the `marketing` charge (kept, not deleted, so prior history is intact); it stops appearing on future invoices. | Fixed in code; **operator request 2026-07-19**. | Standard commercial-leasing flexibility — the marketing fund contribution is negotiated per deal. | 🔴 HIGH | |
+| **Per-lease rate override** | A lease can override the levy % (`marketing_levy_rate`); blank = the mall default. The override carries forward on renewal along with the opt-out. | Fixed in code. | Negotiated per deal. | 🔴 HIGH | |
 | **Calculation basis** | Calculated on **base rent only** — excludes service charges, utilities, percentage rent, and VAT. | Fixed. | Documented (FR MKT-2/5). | 🔴 HIGH | |
 | **Levy formula** | monthly levy = base rent × 5% ÷ 100, rounded to 2 decimals. | Rate configurable; formula fixed. | Documented. | 🔴 HIGH | |
 | **Billed to the tenant** | The levy **IS a line on the tenant's monthly invoice** (a `marketing` charge = 5% of base rent). The property's marketing budget **accrues FROM the billed line item** (no double-count). | Fixed in code; **operator-confirmed 2026-07-19**. | Standard mall "marketing fund contribution" — tenants pay it on top of rent. | 🔴 HIGH | |

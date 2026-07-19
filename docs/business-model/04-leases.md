@@ -27,22 +27,32 @@ A lease's monthly bill is built from **charges**. The standard stack for a retai
 |--------|--------|-----|-----|
 | **Base rent** | `base_rent_monthly` | **Exempt** (0%) | Rent on real estate is VAT-exempt in Egypt. |
 | **Service charge** | `service_charge_monthly` | **14%** | A *service* (common-area upkeep) — a taxable supply. |
-| **Marketing levy** | **5% of base rent** | 14% | Funds mall-wide marketing (configurable per charge). |
+| **Marketing levy** | **5% of base rent** (default) | **0%*** | Funds mall-wide marketing. Optional + rate-overridable **per lease** — see below. |
 
 So a tenant at **50,000 base + 8,000 service** pays each month:
 
 ```
 Base rent      50,000              (VAT-exempt)
 Service charge  8,000  + 1,120 VAT (14%)
-Marketing levy  2,500  +   350 VAT (5% of 50,000 base, +14%)
+Marketing levy  2,500              (5% of 50,000 base — currently VAT-exempt*)
                 ------   ------
-Subtotal       60,500   1,470 VAT   →  Total 61,970 / month
+Subtotal       60,500   1,120 VAT   →  Total 61,620 / month
 ```
+
+`* The marketing levy currently carries 0% VAT (mirroring rent). It's flagged for the accountant as
+possibly a 14% taxable service — see docs/BUSINESS-RULES.md.`
+
+**Marketing levy is optional per lease.** By default every lease pays it (5% of base rent), but a
+lease can **turn it off** (anchors, kiosks, storage units often negotiate out) or **override the
+rate** (blank = the mall's default). Turning it off simply drops the marketing line from future
+invoices — nothing already billed is touched. Both settings **carry forward on renewal**, so a
+tenant's negotiated deal survives when the lease renews. Changing the toggle or rate on the lease
+re-syncs the charge for the next monthly run.
 
 **Rule that protects you:** `base_rent_monthly` on the lease and the base-rent *charge* amount are
 kept in lock-step — you can't have the screen say 50,000 while invoices bill 48,000. Rent only
 changes through the dedicated "change rent" service, which updates both together (and re-syncs the
-5% marketing levy).
+marketing levy).
 
 ---
 
