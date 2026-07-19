@@ -3,7 +3,6 @@
 namespace App\Filament\Admin\Resources\PostDatedCheques\Schemas;
 
 use App\Models\Invoice;
-use App\Models\Tenant;
 use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -50,7 +49,13 @@ class PostDatedChequeForm
                                 ->when($get('asset_id'), fn ($q, $assetId) => $q->whereHas('lease.unit', fn ($u) => $u->where('asset_id', $assetId)))
                                 ->when(TenantScope::visibleAssetIds(), fn ($q, $ids) => $q->whereHas('lease.unit', fn ($u) => $u->whereIn('asset_id', $ids)))
                                 ->orderByDesc('issue_date')
-                                ->pluck('reference', 'id')->all()
+                                // Invoices are keyed by `number` (there is no `reference` column) —
+                                // label with the balance so the operator picks the right one.
+                                ->get()
+                                ->mapWithKeys(fn (Invoice $i) => [
+                                    $i->id => $i->number.' · '.__('admin.fields.balance').': EGP '.number_format((float) $i->balance, 0),
+                                ])
+                                ->all()
                             : [])
                         ->searchable()
                         ->native(false)

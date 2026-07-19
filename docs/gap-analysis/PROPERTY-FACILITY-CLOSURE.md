@@ -104,5 +104,6 @@ it surfaced three confirmed defects in this session's own work, all now fixed + 
   Mall B's invoice and settle it on clear. Fix: form picker scoped to the cheque's `asset_id` +
   `visibleAssetIds()`; model `saving` hook refuses a cross-property link (the real gate). Test: `PdcCrossPropertyInvoiceTest`.
 - **[LOW · mod 08] CAM admin-fee doc formula** — said `pct × allocated`; engine uses `pct × capped_cost`. Doc corrected.
+- **[HIGH · mod 33] PDC edit page 500** — the invoice picker plucked a non-existent `invoices.reference` column (invoices use `number`); latent until this session's demo seeded cheques made the edit page reachable. Fixed (`number` + balance label); guarded by `PdcEditPageRendersTest` (renders the form with a record — proven to fail on the old code).
 
 Module 01's proper scoped close-out is re-run next (arg bug fixed).
