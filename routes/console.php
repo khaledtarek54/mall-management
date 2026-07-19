@@ -118,6 +118,13 @@ Schedule::command('leases:apply-escalations')
     ->name('atriom-apply-rent-escalations')
     ->withoutOverlapping();
 
+// Report post-dated cheques matured-but-uncleared (money the register expected by now) + those
+// maturing soon. Read-only observability (OpsLog); the register itself is the maturity schedule.
+Schedule::command('pdc:scan-maturing')
+    ->dailyAt('07:45')
+    ->name('atriom-scan-maturing-cheques')
+    ->withoutOverlapping();
+
 // Daily reminder to tenants about their own overdue invoices (email + bell +
 // mobile push). Separate stamp (tenant_overdue_notified_at) so it fires once
 // per invoice, independently of the owner alert above.

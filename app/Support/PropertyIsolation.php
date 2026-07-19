@@ -53,6 +53,7 @@ use App\Models\OwnerStatement;
 use App\Models\OwnerStatementRun;
 use App\Models\Payment;
 use App\Models\Payroll;
+use App\Models\PostDatedCheque;
 use App\Models\PayrollLine;
 use App\Models\SlaPolicy;
 use App\Models\StockMovement;
@@ -152,6 +153,7 @@ class PropertyIsolation
         OwnerStatementRun::class => null,      // owner statement run — one property's period statement (module 32)
         OwnerStatement::class => null,         // per-owner child; asset_id denormalized for uniform auto-scope
         Disbursement::class => null,           // owner payout; asset_id denormalized (journalizer reads own row)
+        PostDatedCheque::class => null,        // a tenant's forward cheque, pinned to the property it relates to (module 33)
 
         // ---- Indirect (relation chain to asset_id) ----
         Lease::class => 'unit',

@@ -22,6 +22,7 @@ use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Filament\Admin\Resources\MaintenanceWorkOrders\MaintenanceWorkOrderResource;
 use App\Filament\Admin\Resources\OwnerRequests\OwnerRequestResource;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
+use App\Filament\Admin\Resources\PostDatedCheques\PostDatedChequeResource;
 use App\Filament\Admin\Resources\Payrolls\PayrollResource;
 use App\Filament\Admin\Resources\PurchaseRequests\PurchaseRequestResource;
 use App\Filament\Admin\Resources\SlaPolicies\SlaPolicyResource;
@@ -147,6 +148,7 @@ if (! function_exists('propertyIsolationMustGuardResources')) {
             // Not auto-stamped (isScopedToTenant=false): asset_id / lease is client-supplied.
             'Expense' => ExpenseResource::class,
             'VendorBill' => VendorBillResource::class,
+            'PostDatedCheque' => PostDatedChequeResource::class,
             'Payroll' => PayrollResource::class,
             'JournalEntry' => JournalEntryResource::class,
             'OwnerRequest' => OwnerRequestResource::class,

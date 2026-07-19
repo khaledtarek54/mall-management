@@ -191,6 +191,12 @@ class RolesPermissionsSeeder extends Seeder
             'disbursements.pay' => 'Mark a disbursement paid (clears Due to Owner)',
             'disbursements.cancel' => 'Cancel a not-yet-paid disbursement',
         ],
+        'post_dated_cheques' => [
+            'post_dated_cheques.view' => 'View the post-dated cheque register',
+            'post_dated_cheques.create' => 'Lodge a post-dated cheque',
+            'post_dated_cheques.edit' => 'Edit / deposit / bounce / cancel a post-dated cheque',
+            'post_dated_cheques.delete' => 'Delete a post-dated cheque',
+        ],
         'vendor_bills' => [
             'vendor_bills.view' => 'View vendor bills (accounts payable)',
             'vendor_bills.create' => 'Create vendor bills',
@@ -568,6 +574,7 @@ class RolesPermissionsSeeder extends Seeder
             'owner_statements.revise', 'owner_statements.send',
             'disbursements.view', 'disbursements.schedule', 'disbursements.approve',
             'disbursements.pay', 'disbursements.cancel',
+            'post_dated_cheques.view', 'post_dated_cheques.create', 'post_dated_cheques.edit',
             'reports.view', 'reports.download',
         ]);
 

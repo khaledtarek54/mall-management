@@ -1331,6 +1331,7 @@ return [
         'general_ledger' => 'دفتر الأستاذ والتقارير',
         'owner_statements' => 'كشوف حساب الملاك',
         'disbursements' => 'مدفوعات الملاك',
+        'post_dated_cheques' => 'الشيكات الآجلة',
         'assets' => 'العقارات',
         'units' => 'الوحدات',
         'tenants' => 'المستأجرون',
@@ -2042,6 +2043,50 @@ return [
             'none' => 'لا يوجد تأمين',
             'expiring' => 'قارب على الانتهاء',
             'expired' => 'منتهٍ',
+        ],
+    ],
+
+    'post_dated_cheques' => [
+        'singular' => 'شيك آجل',
+        'plural' => 'الشيكات الآجلة',
+        'sections' => [
+            'instrument' => 'الشيك',
+        ],
+        'statuses' => [
+            'held' => 'محتجَز',
+            'deposited' => 'مودَع',
+            'cleared' => 'مُحصَّل',
+            'bounced' => 'مرتجَع',
+            'cancelled' => 'ملغى',
+        ],
+        'fields' => [
+            'reference' => 'المرجع',
+            'property' => 'العقار',
+            'tenant' => 'المستأجر',
+            'invoice' => 'الفاتورة',
+            'invoice_hint' => 'اختياري — الفاتورة التي يُقصد سدادها عند تحصيل الشيك.',
+            'cheque_number' => 'رقم الشيك',
+            'bank_name' => 'البنك',
+            'amount' => 'المبلغ',
+            'cheque_date' => 'تاريخ الاستحقاق',
+            'received_date' => 'تاريخ الاستلام',
+            'status' => 'الحالة',
+            'cleared_on' => 'تاريخ التحصيل',
+        ],
+        'filters' => [
+            'matured' => 'مستحقة وغير محصَّلة',
+        ],
+        'actions' => [
+            'deposit' => 'إيداع',
+            'clear' => 'تحصيل',
+            'bounce' => 'ارتجاع',
+            'cancel' => 'إلغاء',
+        ],
+        'notices' => [
+            'deposited' => 'تم تسجيل إيداع الشيك',
+            'cleared' => 'تم تحصيل الشيك — وسُجِّلت الدفعة',
+            'bounced' => 'تم تسجيل ارتجاع الشيك',
+            'cancelled' => 'تم إلغاء الشيك',
         ],
     ],
     'inventory' => [

@@ -1331,6 +1331,7 @@ return [
         'general_ledger' => 'General Ledger & Reports',
         'owner_statements' => 'Owner Statements',
         'disbursements' => 'Owner Disbursements',
+        'post_dated_cheques' => 'Post-dated Cheques',
         'assets' => 'Properties',
         'units' => 'Units',
         'tenants' => 'Tenants',
@@ -2042,6 +2043,50 @@ return [
             'none' => 'No COI',
             'expiring' => 'Expiring soon',
             'expired' => 'Expired',
+        ],
+    ],
+
+    'post_dated_cheques' => [
+        'singular' => 'Post-dated Cheque',
+        'plural' => 'Post-dated Cheques',
+        'sections' => [
+            'instrument' => 'Cheque',
+        ],
+        'statuses' => [
+            'held' => 'Held',
+            'deposited' => 'Deposited',
+            'cleared' => 'Cleared',
+            'bounced' => 'Bounced',
+            'cancelled' => 'Cancelled',
+        ],
+        'fields' => [
+            'reference' => 'Reference',
+            'property' => 'Property',
+            'tenant' => 'Tenant',
+            'invoice' => 'Invoice',
+            'invoice_hint' => 'Optional — the invoice this cheque is meant to settle when it clears.',
+            'cheque_number' => 'Cheque no.',
+            'bank_name' => 'Bank',
+            'amount' => 'Amount',
+            'cheque_date' => 'Maturity date',
+            'received_date' => 'Received',
+            'status' => 'Status',
+            'cleared_on' => 'Cleared on',
+        ],
+        'filters' => [
+            'matured' => 'Matured & uncleared',
+        ],
+        'actions' => [
+            'deposit' => 'Deposit',
+            'clear' => 'Clear',
+            'bounce' => 'Bounce',
+            'cancel' => 'Cancel',
+        ],
+        'notices' => [
+            'deposited' => 'Cheque marked deposited',
+            'cleared' => 'Cheque cleared — payment recorded',
+            'bounced' => 'Cheque marked bounced',
+            'cancelled' => 'Cheque cancelled',
         ],
     ],
     'inventory' => [

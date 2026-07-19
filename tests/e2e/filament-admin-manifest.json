@@ -183,6 +183,13 @@
             "hasView": false
         },
         {
+            "class": "PostDatedChequeResource",
+            "slug": "post-dated-cheques",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
             "class": "PurchaseRequestResource",
             "slug": "purchase-requests",
             "hasCreate": true,

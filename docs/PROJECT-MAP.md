@@ -27,28 +27,28 @@ Sanctum (mobile API auth) · Spatie (permissions, media, activity-log, settings)
 
 | | | | |
 |---|---|---|---|
-| **70** models | **92** services | **41** admin resources | **5** portal resources |
-| **39** API controllers | **13** dashboard widgets | **24** console commands | **6** queued jobs |
-| **22** notifications | **123** migrations | **32** module docs | **371** test files |
+| **71** models | **93** services | **42** admin resources | **5** portal resources |
+| **39** API controllers | **13** dashboard widgets | **25** console commands | **6** queued jobs |
+| **22** notifications | **124** migrations | **33** module docs | **372** test files |
 
 ### Coverage — what the gates actually enforce
 
 | Dimension | State |
 |---|---|
-| **Property isolation** | 70 models classified — 55 property-owned, 14 shared, 1 self. Gated by `PropertyIsolationConformanceTest`. |
+| **Property isolation** | 71 models classified — 56 property-owned, 14 shared, 1 self. Gated by `PropertyIsolationConformanceTest`. |
 | **General ledger** | 20 posting sources, 20 journalizer classes — every one registered. One registry (`LedgerPoster::JOURNALIZERS`) that all four dispatch paths derive from; gated by `GlRegistryConformanceTest`. |
 | **E2E smoke** | Every admin resource + page, from `tests/e2e/filament-admin-manifest.json`; 22 specs. Gated by `AdminSmokeManifestConformanceTest`. |
-| **Tests** | 371 files — 80 scenario, 92 regression. |
+| **Tests** | 372 files — 80 scenario, 92 regression. |
 | **Module flags** | 16 toggleable modules (`App\Support\Modules`). |
 
-**Scheduled automation** — commands: `cam:reconcile` · `accounting:post-depreciation` · `vendors:expire-contracts` · `activitylog:clean` · `requests:auto-close` · `maintenance:generate-preventive` · `requests:scan-sla-breaches` · `maintenance:scan-wo-sla-breaches` · `billing:scan-overdue-invoices` · `inventory:scan-low-stock` · `leases:apply-escalations` · `billing:remind-overdue-tenants` · `leases:remind-expiring` · `marketing:ensure-budgets` · `accounting:sync-ledger` · `accounting:sync-ledger --all --scheduled`
+**Scheduled automation** — commands: `cam:reconcile` · `accounting:post-depreciation` · `vendors:expire-contracts` · `activitylog:clean` · `requests:auto-close` · `maintenance:generate-preventive` · `requests:scan-sla-breaches` · `maintenance:scan-wo-sla-breaches` · `billing:scan-overdue-invoices` · `inventory:scan-low-stock` · `leases:apply-escalations` · `pdc:scan-maturing` · `billing:remind-overdue-tenants` · `leases:remind-expiring` · `marketing:ensure-budgets` · `accounting:sync-ledger` · `accounting:sync-ledger --all --scheduled`
 ; jobs: `RunMonthlyBilling` · `ApplyLateFees` (registered via `Schedule::job`, so they do **not** appear as scheduled commands).
 
 ### Gap-analysis coverage
 
-**29 of 32** modules have ever been gap-analysed (`docs/gap-analysis/NN-*.md`). A module with a doc but no gap analysis has been *described*, never *audited* — and round 2 found six 🔴 money bugs in the eight modules that were in exactly that state.
+**29 of 33** modules have ever been gap-analysed (`docs/gap-analysis/NN-*.md`). A module with a doc but no gap analysis has been *described*, never *audited* — and round 2 found six 🔴 money bugs in the eight modules that were in exactly that state.
 
-**Never gap-analysed:** 30 — Areas · 31 — Violations · 32 — Owner Statements — see [gap-analysis/000-progress.md](gap-analysis/000-progress.md).
+**Never gap-analysed:** 30 — Areas · 31 — Violations · 32 — Owner Statements · 33 — Post Dated Cheques — see [gap-analysis/000-progress.md](gap-analysis/000-progress.md).
 
 <!-- census:end -->
 
