@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 use Spatie\MediaLibrary\HasMedia;
@@ -19,6 +20,48 @@ class Lease extends Model implements HasMedia
 
     /** The signed contract + supporting paperwork. */
     public const DOCUMENTS_COLLECTION = 'documents';
+
+    /** Terminal lease states — immutable once reached (CLAUDE.md invariant). */
+    public const TERMINAL_STATUSES = ['terminated', 'expired', 'cancelled', 'renewed'];
+
+    protected static function booted(): void
+    {
+        // ── Arm the rent-escalation anniversary on create ──────────────────────────────────────
+        // The daily leases:apply-escalations sweep keys on next_escalation_date, but NO creation
+        // path used to populate it (the wizard omitted it, the form has no field, renewal set it
+        // null) — so escalation silently never ran for a single real lease (dead feature; the tests
+        // only passed because fixtures hand-injected the column). Converge the derivation HERE so
+        // every path (wizard, standard form, renewal, seeder) arms it consistently and can't drift.
+        // Derived only when escalation is genuinely configured; 'none'/rate-0 leases stay null and
+        // are never considered by the sweep.
+        static::creating(function (self $lease) {
+            if ($lease->next_escalation_date === null
+                && in_array($lease->escalation_type, ['fixed_percent', 'cpi'], true)
+                && (float) $lease->escalation_rate > 0
+                && $lease->commencement_date !== null) {
+                $lease->next_escalation_date = Carbon::parse($lease->commencement_date)->addYear()->format('Y-m-d');
+            }
+        });
+
+        // ── Terminal leases are immutable ──────────────────────────────────────────────────────
+        // Once a lease is terminated/expired/cancelled/renewed its fields can't change — only
+        // soft-delete/restore (deleted_at). The transition INTO a terminal state is allowed (checked
+        // against the ORIGINAL status: termination + renewal both move from 'active'). Closes the
+        // hole where the standard Edit form could re-open + mutate a terminated lease.
+        static::updating(function (self $lease) {
+            $original = $lease->getOriginal('status');
+            if (in_array($original, self::TERMINAL_STATUSES, true)) {
+                // Block commercial/state changes; still permit benign annotations (notes/metadata),
+                // timestamps, and soft-delete/restore. This stops the exploit (re-opening a
+                // terminated lease and changing its rent/status/dates) without freezing housekeeping.
+                $allowed = ['notes', 'metadata', 'updated_at', 'deleted_at'];
+                $blocked = collect($lease->getDirty())->keys()->reject(fn ($k) => in_array($k, $allowed, true));
+                if ($blocked->isNotEmpty()) {
+                    throw new \DomainException("A '{$original}' lease is immutable — reverse or renew it instead.");
+                }
+            }
+        });
+    }
 
     /**
      * Lease documents live on a PRIVATE disk (not web-accessible). A signed contract is
@@ -229,6 +272,12 @@ class Lease extends Model implements HasMedia
     public function isActive(): bool
     {
         return $this->status === 'active';
+    }
+
+    /** Terminal = terminated/expired/cancelled/renewed — the lease is immutable in this state. */
+    public function isTerminal(): bool
+    {
+        return in_array($this->status, self::TERMINAL_STATUSES, true);
     }
 
     public function isExpiringSoon(int $days = 90): bool

@@ -190,8 +190,11 @@ it('renewal links previous_lease_id, marks the original renewed, and resets next
     expect($original->fresh()->status)->toBe('renewed')
         ->and($renewal->status)->toBe('active')
         ->and($renewal->previous_lease_id)->toBe($original->id)
-        // next_escalation_date is reset on renewal — a fresh term restarts the clock.
-        ->and($renewal->next_escalation_date)->toBeNull();
+        // The renewed lease copies the escalation clause, so its anniversary is re-armed to its OWN
+        // commencement + 1 year (previously it was left null, so a "7% escalation" renewal never
+        // actually escalated — the dead-escalation bug the Lease::creating hook now fixes).
+        ->and($renewal->next_escalation_date?->toDateString())
+            ->toBe($renewal->commencement_date->copy()->addYear()->toDateString());
 
     // Relationship wiring resolves both directions.
     expect($renewal->previousLease->is($original))->toBeTrue()

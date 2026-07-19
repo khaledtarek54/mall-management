@@ -21,6 +21,16 @@ class EditLease extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
+        // Terminal leases are immutable — halt with a notice rather than letting the model's
+        // updating guard throw a raw 500 (the model guard is the real backstop for crafted saves).
+        if ($this->record->isTerminal()) {
+            Notification::make()
+                ->title(__('admin.validation.lease_terminal_immutable'))
+                ->danger()
+                ->send();
+            $this->halt();
+        }
+
         // Block re-homing the lease (or attaching out-of-scope additional units).
         LeaseResource::assertUnitAssetInScope($data['unit_id'] ?? $this->record->unit_id);
         LeaseResource::assertUnitsAssetInScope($this->data['additional_unit_ids'] ?? []);

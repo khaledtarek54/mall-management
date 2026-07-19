@@ -47,7 +47,7 @@ Ordered dependency-first. Generic-ERP modules (21–25, 28) are out of scope (al
 |---|---|---|---|---|---|
 | 1 | 01 | Properties & Units | ✅ CLOSED | 2026-07-19 | 6 CLOSE_NOW fixed (2 HIGH), 1 parity DEFER; see closure record |
 | 2 | 02 | Tenants | ✅ CLOSED | 2026-07-19 | 7 CLOSE_NOW fixed (3 HIGH: portal+API blacklist bypass, statement AR leak), 3 parity DEFER; see closure record |
-| 3 | 04 | Leases | ⬜ Not started | — | |
+| 3 | 04 | Leases | ✅ CLOSED | 2026-07-19 | 2 CLOSE_NOW fixed (dead rent-escalation — critical business-logic — + terminal-lease immutability); 8 DEFER incl. 4 domain-decision calls for the operator; see closure record |
 | 4 | 05 | Billing & Invoices | ⬜ Not started | — | |
 | 5 | 06 | Payments | ⬜ Not started | — | |
 | 6 | 07 | Credit Notes | ⬜ Not started | — | |
@@ -90,10 +90,23 @@ park-with-trigger) when its owning module's close-out comes up.
 | Occupancy measured by unit count, not leasable area (no GLA / physical-vs-economic occupancy) | parity/high | 01 | a mall with a large vacant anchor + many small kiosks (where unit-count occupancy misleads), or the operator/owner asks for economic occupancy. `area_sqm` data already exists |
 | No tenant-level merchandising / trade classification — tenant-mix keyed on the coarse unit space-category, not the tenant's retail category | parity/med | 02 | operator wants tenant-mix / category-exclusivity analysis (a leasing-strategy feature) |
 | `tax_id` indexed but not unique + no tenant merge/dedupe — duplicates split AR and give one legal entity two ETA identities | parity/med | 02 | duplicate tenant records observed in practice; needs a merge tool (re-point leases/invoices/payments) before a uniqueness constraint |
+| **Holdover / auto-expiry** — a past-`expiry_date` lease stays `active`, keeps the unit occupied, but billing silently STOPS (the expiry filter excludes it) → a held-over tenant trades rent-free | **business_logic/high · DOMAIN CALL** | 04 | **operator rule needed:** auto-expire at term end? bill month-to-month (at a premium)? require explicit renew/terminate? Egyptian retail holdover is routine — revenue leak until decided |
+| **Move-out proration** — mid-month termination bills the full final month (no refund) or drops it entirely; only the FIRST month prorates, and only via the single-lease action | **business_logic/high · DOMAIN CALL** | 04 | **operator rule needed:** prorate the final month + auto-credit the overpaid days? |
+| **Rent-free / fit-out / stepped-rent schedule** — anchor deals need abatement + step schedules; today they're faked as manual charges | **business_logic/high · DOMAIN CALL** | 04 | **operator rule needed:** model a first-class lease-level abatement/step schedule? (common for anchor tenants) |
+| **Per-unit rent on a multi-unit lease** — one `base_rent` spans all units | **business_logic/med · DOMAIN CALL** | 04 | **operator rule needed:** do multi-unit leases price per-unit, or is a single blended rent correct? |
 
 ## Closure records
 
 _One section per module as it closes, most recent first._
+
+### Module 04 — Leases — CLOSED 2026-07-19
+
+First sweep with the new **business-logic / domain-rules lens** (added at the user's request), which led the findings. 2 CLOSE_NOW fixed + regression-guarded (`Module04LeaseIntegrityTest`); 8 DEFER (4 of them domain-decision calls flagged for the operator); 0 refuted.
+
+- **[CRITICAL · business_logic] Automated rent escalation was DEAD in production.** The daily sweep selects `WHERE next_escalation_date IS NOT NULL`, but no operator-reachable creation path ever seeded it (wizard omitted it, standard form has no field, renewal set it null) — so escalation never fired for a single real lease, and the tests only passed because fixtures hand-injected the column ("green over dead code"). Fixed with a single converged `Lease::creating` hook that arms `next_escalation_date = commencement + 1yr` whenever escalation is configured (`fixed_percent`/`cpi`, rate > 0); renewal now carries it forward. Tests rewritten to drive the REAL creation path. *This is exactly the class of bug the business-logic lens exists to catch — the feature "existed" but the rule never ran.*
+- **[MED · business_logic] Terminal leases were editable** — a terminated/expired/cancelled/renewed lease could be re-opened + have its rent/status mutated via the standard Edit form (violates the "terminal records immutable" invariant). `Lease::updating` now blocks commercial/state changes on a terminal lease (notes/metadata + soft-delete still allowed); `EditLease` halts cleanly with a notice.
+
+**DEFER — 4 domain-decision calls flagged for the operator** (business-logic gaps that need the operator's rule, not an engineering choice — see parity backlog): holdover / auto-expiry billing · mid-month move-out proration · rent-free / fit-out / stepped-rent schedules · per-unit rent on multi-unit leases. **DEFER — parity (4):** lease contract/document generation + e-signature · CPI/index-linked escalation · flexible billing cadence / anchor day · IFRS-16 straight-line recognition.
 
 ### Module 02 — Tenants — CLOSED 2026-07-19
 
