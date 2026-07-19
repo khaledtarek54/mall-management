@@ -60,7 +60,10 @@ class CamExpensePoolForm
                         ->step('0.01')
                         ->helperText(__('admin.helpers.cam_estimated_collected')),
                     // Admin fee % is stored as a FRACTION (0.10) but operators think in percent (10).
-                    // Convert on the way in/out; blank ⇒ null ⇒ no fee (pass-through-only pool).
+                    // formatStateUsing (×100) runs on hydrate — INCLUDING on the default — so the
+                    // default is expressed in the field's raw (pre-format) space, the fraction 0.10,
+                    // which formats to "10" for display and dehydrates back to 0.10 on save. (A
+                    // default of 10 would format to 1000 and blow maxValue(100).) Blank ⇒ null ⇒ no fee.
                     TextInput::make('admin_fee_pct')
                         ->label(__('admin.fields.cam_admin_fee_pct'))
                         ->suffix('%')
@@ -68,7 +71,7 @@ class CamExpensePoolForm
                         ->minValue(0)
                         ->maxValue(100)
                         ->step('0.01')
-                        ->default(10)
+                        ->default(0.10)
                         ->helperText(__('admin.helpers.cam_admin_fee_pct'))
                         ->formatStateUsing(fn ($state) => $state === null ? null : round((float) $state * 100, 4))
                         ->dehydrateStateUsing(fn ($state) => ($state === null || $state === '') ? null : round((float) $state / 100, 6)),
