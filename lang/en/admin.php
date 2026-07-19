@@ -1328,6 +1328,8 @@ return [
         'journal_entries' => 'Journal Entries',
         'accounting_periods' => 'Accounting Periods',
         'general_ledger' => 'General Ledger & Reports',
+        'owner_statements' => 'Owner Statements',
+        'disbursements' => 'Owner Disbursements',
         'assets' => 'Properties',
         'units' => 'Units',
         'tenants' => 'Tenants',

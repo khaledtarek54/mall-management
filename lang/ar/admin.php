@@ -1328,6 +1328,8 @@ return [
         'journal_entries' => 'قيود اليومية',
         'accounting_periods' => 'الفترات المحاسبية',
         'general_ledger' => 'دفتر الأستاذ والتقارير',
+        'owner_statements' => 'كشوف حساب الملاك',
+        'disbursements' => 'مدفوعات الملاك',
         'assets' => 'العقارات',
         'units' => 'الوحدات',
         'tenants' => 'المستأجرون',
