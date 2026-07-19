@@ -110,6 +110,14 @@ Schedule::command('billing:scan-overdue-invoices')
 // repeats faster than anyone can act on it is an alert people learn to ignore.
 Schedule::command('inventory:scan-low-stock')->dailyAt('07:30');
 
+// Apply due contractual rent escalations (fixed_percent) to active leases and roll
+// next_escalation_date forward a year. Idempotent + lock-safe; a missed anniversary would
+// otherwise leak revenue. Daily so a due lease escalates the day it comes due.
+Schedule::command('leases:apply-escalations')
+    ->dailyAt('05:30')
+    ->name('atriom-apply-rent-escalations')
+    ->withoutOverlapping();
+
 // Daily reminder to tenants about their own overdue invoices (email + bell +
 // mobile push). Separate stamp (tenant_overdue_notified_at) so it fires once
 // per invoice, independently of the owner alert above.

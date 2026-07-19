@@ -25,8 +25,8 @@ Leases model the core revenue instrument of Egyptian mall operations. They bind 
 | | | `security_deposit` (decimal 12,2, default 0) | One-time security amount (typically 3× monthly rent). |
 | | | `security_deposit_received` (boolean, NOT NULL, default false) | Whether the deposit has been collected. |
 | | | `escalation_rate` (decimal 5,2) | Annual rent-increase percentage (0–100, e.g., 7 → 7%). |
-| | | `escalation_type` (enum) | One of: `none`, `fixed_percent` (escalation_rate %), `cpi` (inflation-indexed, future). Default `none`. |
-| | | `next_escalation_date` (date, nullable) | Next scheduled escalation. Null until manually set by operator. |
+| | | `escalation_type` (enum) | One of: `none`, `fixed_percent` (escalation_rate %, **auto-applied**), `cpi` (inflation-indexed — **skipped by the sweep until an index feed exists**; no number is invented). Default `none`. |
+| | | `next_escalation_date` (date, nullable) | Next scheduled escalation. The daily `leases:apply-escalations` sweep (`RentEscalationService`) applies a due `fixed_percent` increase through `LeaseRentChangeService` and rolls this forward a year — idempotent + lock-safe. Null = never escalate. |
 | | | `has_percentage_rent` (boolean, NOT NULL, default false) | Whether sales-based rent (pct rent) applies. |
 | | | `percentage_rent_threshold` (decimal 12,2, nullable) | Sales floor triggering pct rent (artificial breakpoint). E.g., 100,000 EGP/month → charge on sales above this. |
 | | | `percentage_rent_rate` (decimal 5,2, nullable) | Pct rent rate (0–100, e.g., 8 → 8% of sales above threshold). |
