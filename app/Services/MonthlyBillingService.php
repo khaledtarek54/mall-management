@@ -99,9 +99,15 @@ class MonthlyBillingService
                         $invoice = DB::transaction(function () use ($lease, $periodStart, $periodEnd) {
                             return $this->generateInvoiceForLease($lease, $periodStart, $periodEnd);
                         });
-                        $stats['created']++;
+                        // A null invoice = the lease had no applicable charges this period (e.g. all
+                        // charges inactive, or only quarterly/annual charges in an off-month). Count it
+                        // as SKIPPED, not created — otherwise the run summary hides a silently-unbilled
+                        // lease (matches the single-lease generateForLease 'no_applicable_charges' path).
                         if ($invoice) {
+                            $stats['created']++;
                             $this->notifyInvoiceIssued($invoice);
+                        } else {
+                            $stats['skipped']++;
                         }
                     } catch (Throwable $e) {
                         $stats['failed']++;

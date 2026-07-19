@@ -28,6 +28,19 @@ it('applies late fees to invoices past due_date + grace window', function () {
     expect($stale->fresh()->items()->where('type', 'late_fee')->count())->toBe(1);
 });
 
+it('charges the MINIMUM floor when the percentage is below it (small balance)', function () {
+    // fee = max(minimum, balance × pct). With balance 1000 at 2% = 20, the 50 floor is operative.
+    config(['billing.late_fee_percent' => 2, 'billing.late_fee_minimum' => 50, 'billing.late_fee_grace_days' => 7]);
+
+    $lease = makeLease(makeUnit(makeAsset()));
+    $small = makeInvoice($lease, ['due_date' => '2026-01-01', 'status' => 'overdue', 'balance' => 1000]);
+
+    app(LateFeeService::class)->runForToday(CarbonImmutable::parse('2026-02-15'));
+
+    $fee = $small->fresh()->items()->where('type', 'late_fee')->first();
+    expect((float) $fee->amount)->toBe(50.0); // the floor, NOT 20 (2% × 1000)
+});
+
 it('is idempotent: a second pass does not double-apply', function () {
     config(['billing.late_fee_percent' => 5, 'billing.late_fee_grace_days' => 7]);
 

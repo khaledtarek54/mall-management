@@ -59,40 +59,6 @@ it('auto-generates a unique invoice number with the asset code and period', func
     expect($a->number)->not->toBe($b->number);
 });
 
-it('recalculates balance + status when paid_amount changes', function () {
-    $asset = makeAsset();
-    $unit = makeUnit($asset);
-    $lease = makeLease($unit);
-
-    $invoice = makeInvoice($lease, [
-        'total' => 1000,
-        'paid_amount' => 500,
-        'balance' => 500,
-        'status' => 'issued',
-    ]);
-
-    $invoice->paid_amount = 1000;
-    $invoice->recalculateBalance();
-
-    expect((float) $invoice->balance)->toBe(0.0);
-    expect($invoice->status)->toBe('paid');
-});
-
-it('marks partially paid when paid_amount > 0 but < total', function () {
-    $asset = makeAsset();
-    $unit = makeUnit($asset);
-    $lease = makeLease($unit);
-
-    $invoice = makeInvoice($lease, [
-        'total' => 1000,
-        'paid_amount' => 0,
-        'balance' => 1000,
-        'status' => 'issued',
-    ]);
-
-    $invoice->paid_amount = 300;
-    $invoice->recalculateBalance();
-
-    expect((float) $invoice->balance)->toBe(700.0);
-    expect($invoice->status)->toBe('partially_paid');
-});
+// NOTE: the tests for the legacy Invoice::recalculateBalance() were removed with the method — it
+// set paid_amount/balance directly, bypassing the AR single source of truth (Invoice::recomputeTotals,
+// which derives paid from captured payments + applied credits). recomputeTotals is tested elsewhere.

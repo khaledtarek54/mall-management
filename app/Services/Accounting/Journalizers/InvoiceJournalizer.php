@@ -21,6 +21,7 @@ class InvoiceJournalizer implements Journalizer
         'base_rent' => 'rent_revenue',
         'service_charge' => 'service_charge_revenue',
         'utility' => 'utility_revenue',
+        'parking' => 'parking_revenue',
         'percentage_rent' => 'percentage_rent_revenue',
         'marketing' => 'marketing_revenue',
         'late_fee' => 'late_fee_income',

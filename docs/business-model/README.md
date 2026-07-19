@@ -26,5 +26,6 @@ the action, and the exact result — the same shape as this percentage-rent exam
 | 01 | Properties & Units | [01-properties-units.md](01-properties-units.md) | [modules/01](../modules/01-properties-units.md) |
 | 02 | Tenants | [02-tenants.md](02-tenants.md) | [modules/02](../modules/02-tenants.md) |
 | 04 | Leases | [04-leases.md](04-leases.md) | [modules/04](../modules/04-leases.md) |
+| 05 | Billing & Invoices | [05-billing-invoices.md](05-billing-invoices.md) | [modules/05](../modules/05-billing-invoices.md) |
 
 _More added as each module closes (order in [PROPERTY-FACILITY-CLOSURE.md](../gap-analysis/PROPERTY-FACILITY-CLOSURE.md))._

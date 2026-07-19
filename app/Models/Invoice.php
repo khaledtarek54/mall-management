@@ -155,17 +155,6 @@ class Invoice extends Model
         return (int) $this->due_date->diffInDays(now());
     }
 
-    public function recalculateBalance(): void
-    {
-        $this->balance = $this->total - $this->paid_amount;
-        if ($this->balance <= 0) {
-            $this->status = 'paid';
-        } elseif ($this->paid_amount > 0) {
-            $this->status = 'partially_paid';
-        }
-        $this->save();
-    }
-
     public static function generateNumber(string $assetCode = 'AW', ?\DateTimeInterface $issueDate = null): string
     {
         $issueDate = $issueDate ? Carbon::instance($issueDate) : now();

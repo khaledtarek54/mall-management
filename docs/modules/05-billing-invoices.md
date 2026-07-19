@@ -223,9 +223,9 @@ Determines if a charge is due in the given month based on its frequency and time
 
 Notifies the tenant via `$tenant->notifyPortal(InvoiceIssuedNotification)`. Wraps in try-catch (fails gracefully if notification queue is down).
 
-#### accrueMarketingLevy(Lease $lease, Collection $items, CarbonImmutable $periodStart): void
+#### Marketing levy — a billed line, budget accrues from it
 
-Internal allocation (no tenant charge): extracts base_rent amount from billed items, multiplies by marketing levy rate (via MarketingLevyService), and accrue to the property's marketing budget. Wrapped in try-catch so billing is never blocked.
+**The 5% marketing levy IS billed to the tenant** (operator-confirmed 2026-07-19): `MarketingLevyService::createLevyCharge()` puts a recurring monthly `marketing` Charge (= 5% of base rent) on the lease at creation/renewal/rent-change, and the monthly run bills it as its own line item (routed to `marketing_revenue` in the GL). The property's **marketing budget accrues FROM the billed line item** (`InvoiceItem::booted()`), so there is no double-count — the accrual derives from what was actually billed. *(The old internal-accrual `accrueMarketingLevy()` method is retired.)* **VAT:** currently 0% (mirrors rent); flagged for the accountant as possibly a 14% taxable service — see [BUSINESS-RULES.md](../BUSINESS-RULES.md).
 
 ---
 
@@ -741,13 +741,13 @@ $dueDate = $issueDate->addDays($lease->payment_terms_days ?? 7);
 
 ---
 
-### 9. Marketing levy side effect
+### 9. Marketing levy — billed line, budget accrues from it
 
-**Gotcha:** During invoice generation, if a lease has a marketing charge configured, the system accesses `MarketingLevyService::accrue()` to allocate a percentage of base rent to a budget pool. This is wrapped in try-catch and non-blocking (failures log but don't abort invoice creation).
+**Gotcha:** the 5% marketing levy is a real `marketing` **Charge billed to the tenant** (a line on the monthly invoice), NOT an internal-only accrual. The property's marketing **budget accrues from the billed `InvoiceItem`** (via `InvoiceItem::booted()`), so the accrual mirrors what was actually billed (a prorated month accrues 5% of the prorated rent) with no double-count.
 
-**Why:** Separate business logic; marketing budgets are not AR-critical.
+**Why:** tenants pay a "marketing fund contribution" on top of rent (standard mall practice). The budget accrual is a non-AR side-effect derived from the billed line.
 
-**Impact:** If the marketing budget is misconfigured or full, invoices still generate correctly.
+**Impact:** the levy raises the tenant's invoice total + AR and posts to `marketing_revenue`. VAT is currently 0% — flagged for the accountant as possibly 14%.
 
 ---
 
@@ -806,7 +806,7 @@ $dueDate = $issueDate->addDays($lease->payment_terms_days ?? 7);
 | **Credit Notes** | Applied credits settle AR durably via credit_applied_amount. `CreditNoteService::applyToInvoice()` bumps this column. |
 | **Late Fees** | Applied on-demand via separate LateFeeService; adds an InvoiceItem type='late_fee' to an overdue invoice. |
 | **CAM Reconciliation** | CAM allocations are billed to tenants as charges; the service reads active charges and bills them. |
-| **Marketing Levy** | A percentage of base rent is accrued to a budget pool during invoice generation (side effect, non-blocking). |
+| **Marketing Levy** | 5% of base rent, **billed to the tenant** as a `marketing` line; the property marketing budget accrues from the billed line item (no double-count). |
 | **ETA Compliance** | Invoices can be submitted to the Egyptian Tax Authority; ETA status is tracked but does not affect AR. |
 | **Tenant & Tenant Notifications** | Notifications are sent to tenants (mail + portal bell) on issuance. |
 | **Jawad (Owner) Notifications** | Owner overdue alerts are sent via the Notification system (database channel). |

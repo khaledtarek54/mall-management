@@ -155,6 +155,9 @@ class ChartOfAccountsSeeder extends Seeder
         // margin the landlord SELLS — its own revenue account, distinct from the cost pass-through.
         ['41108', 'CAM Admin Fee Revenue', 'إيرادات رسوم إدارة المصروفات المشتركة', 'revenue', false],
         ['41108001', 'CAM Admin Fee Revenue', 'إيرادات رسوم إدارة المصروفات المشتركة', 'revenue', true],
+        // Parking is material recurring mall revenue — its own account, not lumped into misc income.
+        ['41109', 'Parking Revenue', 'إيرادات مواقف السيارات', 'revenue', false],
+        ['41109001', 'Parking Revenue', 'إيرادات مواقف السيارات', 'revenue', true],
         ['42', 'Other Income', 'إيرادات أخرى', 'revenue', false],
         ['42101', 'Miscellaneous Income', 'إيرادات متنوعة', 'revenue', false],
         ['42101001', 'Miscellaneous Income', 'إيرادات متنوعة', 'revenue', true],

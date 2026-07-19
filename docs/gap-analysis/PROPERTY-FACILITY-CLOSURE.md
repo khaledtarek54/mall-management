@@ -48,7 +48,7 @@ Ordered dependency-first. Generic-ERP modules (21–25, 28) are out of scope (al
 | 1 | 01 | Properties & Units | ✅ CLOSED | 2026-07-19 | 6 CLOSE_NOW fixed (2 HIGH), 1 parity DEFER; see closure record |
 | 2 | 02 | Tenants | ✅ CLOSED | 2026-07-19 | 7 CLOSE_NOW fixed (3 HIGH: portal+API blacklist bypass, statement AR leak), 3 parity DEFER; see closure record |
 | 3 | 04 | Leases | ✅ CLOSED | 2026-07-19 | 2 CLOSE_NOW fixed (dead rent-escalation — critical business-logic — + terminal-lease immutability); 8 DEFER incl. 4 domain-decision calls for the operator; see closure record |
-| 4 | 05 | Billing & Invoices | ⬜ Not started | — | |
+| 4 | 05 | Billing & Invoices | ✅ CLOSED | 2026-07-19 | 5 CLOSE_NOW fixed (marketing-levy doc/behaviour reconciled by operator decision, parking GL account, legacy AR trap removed, run-summary count, late-fee floor test); 8 DEFER; VAT-on-levy = accountant question |
 | 5 | 06 | Payments | ⬜ Not started | — | |
 | 6 | 07 | Credit Notes | ⬜ Not started | — | |
 | 7 | 08 | CAM reconciliation | 🟡 Partial | — | slices 1–2 shipped + adversarially reviewed this session; slice 3 (basis/gross-up/exclusions) DEFERRED |
@@ -98,6 +98,18 @@ park-with-trigger) when its owning module's close-out comes up.
 ## Closure records
 
 _One section per module as it closes, most recent first._
+
+### Module 05 — Billing & Invoices — CLOSED 2026-07-19
+
+Business-logic-led sweep of the money core. 5 CLOSE_NOW fixed; 8 DEFER; 4 refuted. Operator decisions taken: the 5% marketing levy **IS billed to the tenant** (fix the docs, not the code); VAT-on-levy flagged for the accountant.
+
+- **[HIGH · business_logic] Marketing levy: code bills it, sign-off doc said it's internal/not billed.** The code (deliberate + tested) bills the 5% levy as a tenant line; `BUSINESS-RULES.md` (the accountant sign-off doc) + module-05 doc said the opposite — an accountant would have certified the reverse of what ships. **Operator confirmed billing is correct** → reconciled `BUSINESS-RULES.md` (rules + open-question 5) + module-05 doc §5/§9 to state the levy is billed + the budget accrues from the billed line. **VAT 0% vs 14% left as an explicit accountant question** at sign-off (no code change).
+- **[MED · correctness] Parking revenue → misc income in the GL.** No `parking` role in the journalizer → parking lines lumped into misc_income. Added `parking_revenue` (41109001) + mapping; test drives real billing + sweep and asserts it lands in its own account, not misc.
+- **[LOW · correctness] Legacy `Invoice::recalculateBalance()`** set balance directly, ignoring applied credits — a dead-but-endorsed trap on the AR single-source-of-truth. Removed (+ its 2 anti-pattern tests).
+- **[LOW · correctness] Monthly-run summary counted a no-charge lease as "created"** (masking a silently-unbilled lease) → now counted "skipped", matching the single-lease path.
+- **[LOW · coverage] Late-fee minimum-floor** (`max(50, balance×2%)`) had no test — added the small-balance case (floor is operative).
+
+**DEFER:** move-out/trailing proration + auto-proration in the scheduled run (shared with mod-04), flexible billing cadence, escalating dunning, "voided invoice suppresses re-billing", + coverage gaps. **Accountant question:** marketing-levy VAT (0% vs 14%).
 
 ### Module 04 — Leases — CLOSED 2026-07-19
 

@@ -37,7 +37,7 @@ These are the ten highest-risk assumptions. If any answer is "no", stop and flag
 2. **Is percentage rent VAT-exempt?** The system charges **0% VAT** on percentage rent. If it should be taxed, every percentage-rent invoice is under-charging VAT.
 3. **Are CAM reconciliation (true-up) charges VAT-exempt?** The system applies **0% VAT** to them. This is an *unverified* assumption flagged by us.
 4. **Are late fees VAT-exempt?** The system treats late-fee penalties as **0% VAT**. Confirm penalty interest is outside VAT.
-5. **Is the marketing levy 5% of base rent**, calculated on **base rent only** (not service charges, utilities, or VAT)? And is it correct that it is **accrued internally and never shown as a line on the tenant's invoice**?
+5. **Marketing levy VAT.** The levy is 5% of base rent (base-rent only) and — **operator-confirmed 2026-07-19** — **IS billed to the tenant** as a line on the monthly invoice (a "marketing fund contribution"), with the property marketing budget accruing FROM that billed line. **Open:** it currently carries **0% VAT** (mirroring rent's exemption). Since it is a billed marketing/promotion *service*, should it instead be **14% VAT** (a taxable supply)? Accountant sign-off needed.
 6. **Is CAM allocated pro-rata by leased area (square metres)?** Does your lease wording actually say "by area"? (Some leases allocate by turnover or a fixed share.)
 7. **Late-fee policy:** is it **2% of the outstanding balance, minimum 50 EGP, charged once (not compounding), after a 7-day grace period**? None of these four numbers is backed by a documented legal source — they are business-policy defaults.
 8. **Default security deposit = 3 months' rent** and **default annual escalation = 7%** — are these your real contract defaults? Both are *unverified assumptions* baked into new leases.
@@ -78,7 +78,7 @@ These are confirmed facts about the current deployment. **Each one must be resol
 | **Percentage rent VAT** | **0% VAT** on percentage rent (always). | Fixed in code. | *Unverified* — assumed exempt like base rent. | 🔴 HIGH | |
 | **CAM true-up VAT** | **0% VAT** on CAM reconciliation charges. | Fixed in code. | *Unverified* — assumed non-taxable settlement. | 🔴 HIGH | |
 | **VAT per-item formula** | VAT per line = amount × (rate ÷ 100), rounded to 2 decimals. Invoice total = sum of amounts + sum of VAT. | Fixed in code. | Standard accounting; tested. | 🔴 HIGH | |
-| **Marketing levy VAT** | **0% VAT** on the marketing levy. | Fixed in code. | *Unverified* — assumed to mirror rent's exemption. | 🟠 MEDIUM | |
+| **Marketing levy VAT** | **0% VAT** on the (tenant-billed) marketing levy. | Fixed in code. | ⚠️ **Open for accountant** — the levy is BILLED to tenants (not internal), so it may be a **14% taxable service**, not exempt like rent. Reconfirm at sign-off. | 🟠 MEDIUM | |
 | **Late-fee VAT** | **0% VAT** on late fees. | Fixed in code. | *Unverified* — penalty interest assumed exempt. | 🟠 MEDIUM | |
 | **VAT rounding precision** | All VAT rounded to **2 decimal places** (piastres). | Fixed in code. | *Unverified* against ETA rounding rules. | 🟠 MEDIUM | |
 | **VAT for ETA submission** | Amounts sent to the tax authority rounded to **5 decimal places**; net amount excludes VAT, total includes it; tax type code **T1 / V009** (standard-rate VAT). | Fixed in code. | ETA API spec — **not yet certified live** (see warning section). | 🔴 HIGH | |
@@ -206,7 +206,7 @@ These are confirmed facts about the current deployment. **Each one must be resol
 | **Levy rate** | **5.0% of base rent**. | Admin-settable (`/admin/settings`). | Documented (FR MKT-2) — industry norm 1–5%. | 🔴 HIGH | |
 | **Calculation basis** | Calculated on **base rent only** — excludes service charges, utilities, percentage rent, and VAT. | Fixed. | Documented (FR MKT-2/5). | 🔴 HIGH | |
 | **Levy formula** | monthly levy = base rent × 5% ÷ 100, rounded to 2 decimals. | Rate configurable; formula fixed. | Documented. | 🔴 HIGH | |
-| **Internal — not on tenant invoice** | The levy is **accrued into the property's marketing budget** and does **not** add a line to the tenant's invoice. The tenant is not billed for it separately. | Fixed. | Documented. | 🔴 HIGH | |
+| **Billed to the tenant** | The levy **IS a line on the tenant's monthly invoice** (a `marketing` charge = 5% of base rent). The property's marketing budget **accrues FROM the billed line item** (no double-count). | Fixed in code; **operator-confirmed 2026-07-19**. | Standard mall "marketing fund contribution" — tenants pay it on top of rent. | 🔴 HIGH | |
 | **Levy charge VAT-exempt** | Marketing charge is VAT-exempt, monthly frequency. | Fixed. | Documented (mirrors rent). | 🔴 HIGH | |
 | **Accrues on billed rent** | Each invoice run accrues 5% of the **actually-billed** base rent (so a prorated month accrues 5% of the prorated rent, not the full month). | Fixed. | Documented (FR MKT-5). | 🔴 HIGH | |
 | **Accrual is cumulative** | Each cycle **adds** to the accrued amount (does not replace it). | Fixed. | Documented. | 🔴 HIGH | |
