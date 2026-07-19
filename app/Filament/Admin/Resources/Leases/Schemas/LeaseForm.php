@@ -239,6 +239,24 @@ class LeaseForm
                         // NOT-NULL column — a blank field must send 0, never null.
                         ->dehydrateStateUsing(fn ($state) => $state ?? 0)
                         ->helperText(__('admin.helpers.fit_out_months')),
+                    Select::make('billing_frequency')
+                        ->label(__('admin.fields.billing_frequency'))
+                        ->options([
+                            'monthly' => __('admin.billing_frequency.monthly'),
+                            'quarterly' => __('admin.billing_frequency.quarterly'),
+                            'semiannual' => __('admin.billing_frequency.semiannual'),
+                            'annual' => __('admin.billing_frequency.annual'),
+                        ])
+                        ->default('monthly')
+                        ->selectablePlaceholder(false)
+                        ->native(false)
+                        // Lock once invoicing has started. Cycles are anchored to the commencement,
+                        // so switching cadence mid-term could strand an unaligned month (billed on
+                        // neither the old nor the new cadence). Set it before the first invoice.
+                        ->disabled(fn (?Lease $record): bool => $record !== null && $record->invoices()->exists())
+                        ->helperText(fn (?Lease $record): string => $record !== null && $record->invoices()->exists()
+                            ? __('admin.helpers.billing_frequency_locked')
+                            : __('admin.helpers.billing_frequency')),
                     TextInput::make('security_deposit')
                         ->label(__('admin.fields.security_deposit'))
                         ->prefix('EGP')

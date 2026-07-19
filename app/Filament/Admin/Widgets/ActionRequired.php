@@ -102,9 +102,10 @@ class ActionRequired extends Widget
                 $q->whereBetween('period_start', [$monthStart, $monthEnd]);
             })
             ->get()
-            // A lease still inside its fit-out / rent-free grace legitimately has no invoice
-            // this month — the billing engine suppresses it — so don't flag it as "unbilled".
-            ->reject(fn ($lease) => $lease->periodInFitOut(\Carbon\CarbonImmutable::instance($monthEnd)))
+            // Only flag leases actually DUE to bill this month. isBillingCycleStart() is false during
+            // the fit-out grace (month < first billable) AND on a quarterly/annual lease's off-cycle
+            // months — in both cases the lease legitimately has no invoice, so it isn't "unbilled".
+            ->filter(fn ($lease) => $lease->isBillingCycleStart(\Carbon\CarbonImmutable::instance($monthStart)))
             ->count();
 
         $items = [];

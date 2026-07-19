@@ -105,6 +105,7 @@ class Lease extends Model implements HasMedia
         'has_marketing_levy',
         'marketing_levy_rate',
         'fit_out_months',
+        'billing_frequency',
         'currency',
         'security_deposit',
         'security_deposit_received',
@@ -128,6 +129,7 @@ class Lease extends Model implements HasMedia
         'has_percentage_rent' => false,
         'has_marketing_levy' => true, // preserve today's behaviour: every lease gets the levy by default
         'fit_out_months' => 0,        // no rent-free grace unless explicitly set
+        'billing_frequency' => 'monthly', // bill monthly unless set to quarterly/semiannual/annual
         'security_deposit_received' => false,
     ];
 
@@ -148,6 +150,7 @@ class Lease extends Model implements HasMedia
         'has_marketing_levy' => 'boolean',
         'marketing_levy_rate' => 'decimal:2',
         'fit_out_months' => 'integer',
+        'billing_frequency' => 'string',
         'metadata' => 'array',
     ];
 
@@ -349,6 +352,41 @@ class Lease extends Model implements HasMedia
         $first = $this->firstBillableMonth();
 
         return $first !== null && $periodEnd->lessThan($first);
+    }
+
+    /** Months in one billing cycle: monthly=1, quarterly=3, semiannual=6, annual=12. */
+    public function billingCycleMonths(): int
+    {
+        return match ($this->billing_frequency) {
+            'quarterly' => 3,
+            'semiannual' => 6,
+            'annual' => 12,
+            default => 1,
+        };
+    }
+
+    /**
+     * Is the given month the START of a billing cycle for this lease? Cycles are anchored to the
+     * lease's first billable month (commencement + fit-out) and run in full N-month steps
+     * (operator decision 2026-07-19 — commencement-anchored, no partial cycles). A month before the
+     * first billable month (still in fit-out / not started) is never a cycle start. For a monthly
+     * lease every billable month is a cycle start, so this is true from the first billable month on.
+     */
+    public function isBillingCycleStart(CarbonImmutable $period): bool
+    {
+        $first = $this->firstBillableMonth();
+        if ($first === null) {
+            return false;
+        }
+
+        $month = $period->startOfMonth();
+        if ($month->lessThan($first)) {
+            return false;
+        }
+
+        $monthsSince = ($month->year - $first->year) * 12 + ($month->month - $first->month);
+
+        return $monthsSince % $this->billingCycleMonths() === 0;
     }
 
     // ============ Generation helpers ============

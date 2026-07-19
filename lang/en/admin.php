@@ -2,6 +2,13 @@
 
 return [
 
+    'billing_frequency' => [
+        'monthly' => 'Monthly',
+        'quarterly' => 'Quarterly (every 3 months)',
+        'semiannual' => 'Semi-annual (every 6 months)',
+        'annual' => 'Annual (yearly)',
+    ],
+
     'groups' => [
         'operations' => 'Operations',
         'leasing' => 'Leasing',
@@ -857,6 +864,8 @@ return [
         'fit_out_body' => 'This lease is still in its rent-free fit-out grace for :period, so nothing is billed. Billing starts once the grace ends.',
         'run_in_progress_title' => 'Billing run in progress',
         'run_in_progress_body' => 'A billing run for this period is already running. Please try again in a moment.',
+        'off_cycle_title' => 'Not a billing month',
+        'off_cycle_body' => 'This lease bills :frequency, and :period is not a cycle-start month, so nothing is billed. Pick the month a billing cycle begins.',
         'generation_failed' => 'Invoice generation failed',
         'generation_failed_body' => 'Something went wrong. Check the logs for details.',
         'change_status' => 'Change Status',
@@ -1104,6 +1113,7 @@ return [
         'has_marketing_levy' => 'Charge marketing levy',
         'marketing_levy_rate' => 'Marketing Levy Rate',
         'fit_out_months' => 'Fit-out / rent-free months',
+        'billing_frequency' => 'Billing frequency',
         'security_deposit' => 'Security Deposit',
         'security_deposit_received' => 'Security deposit received',
         'escalation_rate' => 'Annual Escalation',
@@ -1266,6 +1276,8 @@ return [
         'has_marketing_levy' => 'Whether this tenant pays the marketing fund contribution (a monthly % of base rent, billed on the invoice). Turn off for tenants who negotiated it out.',
         'marketing_levy_rate' => 'Override the marketing levy % for this lease. Leave blank to use the mall default (shown in the box).',
         'fit_out_months' => 'Rent-free grace period at lease start (in whole months from the commencement month) while the tenant fits out the shop. NOTHING is billed during it — no rent, service charge, CAM, or marketing levy. Leave 0 for no grace.',
+        'billing_frequency' => 'How often this lease is invoiced. Quarterly/annual leases pay in advance: one invoice per cycle covering the whole quarter/year (rent + service + levy all billed together). Cycles start from the lease\'s first billable month. Monthly is the default. Set it before the first invoice — it locks afterwards.',
+        'billing_frequency_locked' => 'Locked — this lease has already been invoiced. Changing the cadence now could leave a month billed on neither the old nor the new cycle.',
         'service_charge_monthly_edit_lock' => 'Locked on Edit. Use the “Change rent” record action so the recurring Charge row updates atomically with the lease.',
         'security_deposit' => 'One-time deposit, typically 3× monthly rent. Refundable at lease termination if no damages.',
         'escalation_rate' => 'Annual rent increase percentage. Applied on the lease anniversary.',

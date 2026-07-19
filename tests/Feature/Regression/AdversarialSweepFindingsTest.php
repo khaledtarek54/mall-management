@@ -92,7 +92,11 @@ it('still bills base rent for a month when the lease has an annual CAM-recovery 
         'period_start' => '2026-01-01', 'period_end' => '2026-12-31',
         'subtotal' => 5000, 'total' => 5000, 'balance' => 5000,
     ]);
-    $annual->items()->create(['type' => 'cam', 'description' => 'CAM recovery', 'amount' => 5000, 'vat_rate' => 0, 'vat_amount' => 0, 'total' => 5000]);
+    // Use the REAL recovery item type the CamReconciliationService writes (cam_recovery) — 'cam' is
+    // not a valid invoice_items.type (MySQL enum) and never reaches production; the monthly billing
+    // probe excludes a lease's regular invoice from the special types [percentage_rent, cam_recovery,
+    // cam_admin_fee], so a faithful fixture must use one of those.
+    $annual->items()->create(['type' => 'cam_recovery', 'description' => 'CAM recovery', 'amount' => 5000, 'vat_rate' => 0, 'vat_amount' => 0, 'total' => 5000]);
 
     app(MonthlyBillingService::class)->generateForLease($lease, CarbonImmutable::parse('2026-01-01'));
 

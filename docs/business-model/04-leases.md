@@ -76,6 +76,33 @@ one-time build-out, so a renewed lease bills from day one. Leave `fit_out_months
 grace (the default). If you try to "Generate Invoice" for a month that's still in the grace, the
 system tells you the lease is in its fit-out period rather than billing it.
 
+### Billing frequency — monthly, quarterly, or annual (paid in advance)
+
+Most tenants are billed **monthly**, but anchors, kiosks, ATMs, storage and telecom cabinets are
+often contracted to pay **in advance** — the whole quarter, half-year, or year in one invoice. Set
+**`billing_frequency`** on the lease and the system issues **one invoice per cycle** covering the
+whole cycle: rent, service charge, and marketing levy all together, each monthly amount **× the
+number of months in the cycle**.
+
+**Scenario — a 50,000 rent + 8,000 service tenant, billed quarterly:**
+
+```
+One quarterly invoice (covers 3 months):
+  Base rent      150,000              (50,000 × 3, VAT-exempt)
+  Service charge  24,000  + 3,360 VAT (8,000 × 3, +14%)
+  Marketing levy   7,500              (2,500 × 3)
+                 -------   ------
+  Total         184,860  per quarter — then nothing for the next two months.
+```
+
+The key rules: cycles start from the lease's **first billable month** (its commencement, after any
+fit-out) — so a lease starting in February is billed Feb, May, Aug, Nov, *not* on the calendar
+quarters. Every cycle is a **full N months**; the rent amount stays the single source of truth
+(escalation still bumps the monthly rent, and the next cycle simply bills the new figure × the
+months). Billing frequency **does** carry onto a renewal (a quarterly lease renews quarterly). If you
+manually "Generate Invoice" for a month that isn't the start of a cycle, the system tells you it's not
+a billing month rather than billing it. Monthly is the default and behaves exactly as before.
+
 ---
 
 ## 3. Rent escalation — the rent goes up on the anniversary

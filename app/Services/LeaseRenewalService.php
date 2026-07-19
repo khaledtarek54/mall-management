@@ -54,6 +54,8 @@ class LeaseRenewalService
                 'marketing_levy_rate' => $original->marketing_levy_rate,
                 // Fit-out grace does NOT carry — it was for the original build-out; a renewal has none.
                 'fit_out_months' => 0,
+                // Billing frequency DOES carry — a quarterly/annual lease renews on the same cadence.
+                'billing_frequency' => $original->billing_frequency,
                 'currency' => $original->currency,
                 'security_deposit' => $original->security_deposit,
                 'security_deposit_received' => $original->security_deposit_received,

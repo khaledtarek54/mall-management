@@ -148,6 +148,19 @@ class EditLease extends EditRecord
                     return;
                 }
 
+                if ($result['status'] === 'skipped' && ($result['reason'] ?? null) === 'off_cycle') {
+                    Notification::make()
+                        ->title(__('admin.actions.off_cycle_title'))
+                        ->body(__('admin.actions.off_cycle_body', [
+                            'period' => $period->format('F Y'),
+                            'frequency' => __('admin.billing_frequency.' . $record->billing_frequency),
+                        ]))
+                        ->warning()
+                        ->send();
+
+                    return;
+                }
+
                 if ($result['status'] === 'skipped' && ($result['reason'] ?? null) === 'run_in_progress') {
                     Notification::make()
                         ->title(__('admin.actions.run_in_progress_title'))

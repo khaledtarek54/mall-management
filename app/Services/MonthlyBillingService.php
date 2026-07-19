@@ -68,29 +68,7 @@ class MonthlyBillingService
                 foreach ($leases as $lease) {
                     $stats['leases_considered']++;
 
-                    // Period-OVERLAP guard, not an exact month-start match: a
-                    // prorated first-month invoice stores period_start = the
-                    // mid-month commencement, so an exact "= month start" check
-                    // would miss it and bill the month a SECOND time (full). The
-                    // period must also END within the month — else an ANNUAL invoice
-                    // (a CAM year-end recovery, period Jan 1–Dec 31) would satisfy this
-                    // guard for January and wrongly SKIP the lease's regular rent.
-                    $alreadyBilled = Invoice::where('lease_id', $lease->id)
-                        ->whereDate('period_start', '>=', $periodStart->toDateString())
-                        ->whereDate('period_start', '<=', $periodEnd->toDateString())
-                        ->whereDate('period_end', '<=', $periodEnd->toDateString())
-                        // A percentage-rent OVERAGE invoice is billed immediately at
-                        // declaration-lock time, dated to its (past) sales month — it is NOT
-                        // this lease's regular monthly invoice. Exclude it so a back-filled /
-                        // late monthly run for that month still bills the base rent (else the
-                        // month-shaped overage period trips this guard and the rent silently
-                        // vanishes). Same spirit as the annual CAM recovery invoice, which the
-                        // period_end clause above already excludes. A regular monthly invoice
-                        // never carries a percentage_rent line, so this only skips pure overages.
-                        ->whereDoesntHave('items', fn ($q) => $q->where('type', 'percentage_rent'))
-                        ->exists();
-
-                    if ($alreadyBilled) {
+                    if ($this->alreadyBilledForMonth($lease, $periodStart, $periodEnd)) {
                         $stats['skipped']++;
                         continue;
                     }
@@ -173,24 +151,7 @@ class MonthlyBillingService
         $periodStart = $period;
         $periodEnd = $period->endOfMonth();
 
-        // Period-OVERLAP guard (see runForPeriod): catches a prorated first-month
-        // invoice whose period_start is the mid-month commencement, so re-running
-        // for that month — prorate on or off — can't double-bill.
-        $alreadyBilled = Invoice::where('lease_id', $lease->id)
-            ->whereDate('period_start', '>=', $periodStart->toDateString())
-            ->whereDate('period_start', '<=', $periodEnd->toDateString())
-            // Must also END within the month — mirrors billForPeriod's probe. Without
-            // this, an ANNUAL invoice whose period_start falls in this month (a CAM
-            // year-end recovery, period Jan 1–Dec 31) would satisfy the January guard
-            // and wrongly SKIP the lease's regular rent.
-            ->whereDate('period_end', '<=', $periodEnd->toDateString())
-            // Exclude the immediate percentage-rent overage invoice (see runForPeriod) — it
-            // is not this lease's regular monthly invoice, so a per-lease generate for that
-            // month must still bill the base rent.
-            ->whereDoesntHave('items', fn ($q) => $q->where('type', 'percentage_rent'))
-            ->exists();
-
-        if ($alreadyBilled) {
+        if ($this->alreadyBilledForMonth($lease, $periodStart, $periodEnd)) {
             return ['status' => 'skipped', 'reason' => 'already_billed', 'invoice' => null];
         }
 
@@ -198,6 +159,13 @@ class MonthlyBillingService
         // say "this lease is in its fit-out period" rather than a misleading "no charges".
         if ($lease->periodInFitOut($periodEnd)) {
             return ['status' => 'skipped', 'reason' => 'fit_out', 'invoice' => null];
+        }
+
+        // Off-cycle month for a quarterly/annual lease — this month is covered by (or belongs to)
+        // a multi-month cycle whose start is a different month. Distinct reason so the UI can tell
+        // the operator to pick the cycle-start month rather than showing a misleading "no charges".
+        if ($lease->billingCycleMonths() > 1 && ! $lease->isBillingCycleStart($periodStart)) {
+            return ['status' => 'skipped', 'reason' => 'off_cycle', 'invoice' => null];
         }
 
         $lease->loadMissing(['charges' => fn ($q) => $q->where('is_active', true)]);
@@ -253,6 +221,34 @@ class MonthlyBillingService
             return null;
         }
 
+        // Billing cadence (operator decision 2026-07-19): a quarterly/annual lease bills only on a
+        // cycle-START month, and one invoice covers the WHOLE cycle in advance. On a mid-cycle month
+        // it bills nothing (the cycle-start invoice already covers it). Cycles are anchored to the
+        // lease's first billable month; every cycle is a full N months (no partial cycles). A monthly
+        // lease has cycleMonths = 1, so this is a no-op for it.
+        $cycleMonths = $lease->billingCycleMonths();
+        if ($cycleMonths > 1) {
+            if (! $lease->isBillingCycleStart($periodStart)) {
+                return null;
+            }
+            $cycleEnd = $periodStart->addMonths($cycleMonths - 1)->endOfMonth();
+            // Never bill whole months AFTER the lease has ended. Cap the cycle at the expiry month,
+            // then recompute how many months it actually covers so BOTH period_end and the multiplier
+            // (factor + cycleMonths - 1) truncate together. Without this, a lease whose term isn't a
+            // whole number of cycles gets its final cycle billed in full past expiry — worst case a
+            // mid-month annual lease mints a second full-year invoice for a lease with days left. The
+            // final (partial) cycle bills its whole final month in full, matching monthly end-of-term.
+            if ($lease->expiry_date) {
+                $expiryMonthEnd = CarbonImmutable::instance($lease->expiry_date)->endOfMonth();
+                if ($cycleEnd->greaterThan($expiryMonthEnd)) {
+                    $cycleEnd = $expiryMonthEnd;
+                }
+            }
+            $periodEnd = $cycleEnd;
+            $cycleMonths = ($periodEnd->year - $periodStart->year) * 12
+                + ($periodEnd->month - $periodStart->month) + 1;
+        }
+
         $applicableCharges = $lease->charges->filter(
             fn (Charge $c) => $this->chargeAppliesToPeriod($c, $periodStart, $periodEnd)
         );
@@ -268,14 +264,20 @@ class MonthlyBillingService
             ? CarbonImmutable::instance($lease->commencement_date)
             : null;
 
-        if ($prorate && $commencement && $commencement->between($periodStart, $periodEnd) && $commencement->greaterThan($periodStart)) {
+        // Pro-rate the COMMENCEMENT month only (the first month of the cycle), when the cycle-start
+        // month IS the commencement month. Day-count is on that month, NOT the whole cycle — for a
+        // quarterly lease we prorate the partial first month and bill the rest of the cycle in full.
+        if ($prorate && $commencement
+            && $commencement->year === $periodStart->year && $commencement->month === $periodStart->month
+            && $commencement->greaterThan($periodStart)) {
             // Sign-safe, day-granular inclusive counting. Carbon 3's diffInDays is
             // SIGNED + fractional, so the old `$periodEnd->diffInDays($start) + 1`
             // added 1 to a negative magnitude and undercharged every mid-month
             // move-in (and billed 0 for a last-day commencement). Count whole days
             // on day boundaries instead.
+            $monthEnd = $periodStart->endOfMonth();
             $daysInPeriod = $periodStart->daysInMonth;
-            $daysBilled = (int) abs($periodEnd->startOfDay()->diffInDays($commencement->startOfDay())) + 1;
+            $daysBilled = (int) abs($monthEnd->startOfDay()->diffInDays($commencement->startOfDay())) + 1;
             // Full-precision ratio — the per-line AMOUNT is rounded to 2dp, not
             // the factor, so a clean fraction (1 of 30 days) bills exactly (1000,
             // not 999 from a 4dp-rounded factor).
@@ -283,11 +285,18 @@ class MonthlyBillingService
             $effectivePeriodStart = $commencement;
         }
 
-        $items = $applicableCharges->map(function (Charge $charge) use ($periodStart, $factor) {
-            $amount = round((float) $charge->amount * $factor, 2);
+        $items = $applicableCharges->map(function (Charge $charge) use ($periodStart, $periodEnd, $factor, $cycleMonths) {
+            // Recurring (monthly) charges bill for every month in the cycle; the commencement month
+            // is prorated when applicable → multiplier = factor + (the remaining full months). For a
+            // monthly lease (cycleMonths = 1) this is just `factor`, unchanged. A non-monthly charge
+            // (a one-off) bills once at its full amount, never multiplied.
+            $multiplier = $charge->frequency === 'monthly' ? ($factor + ($cycleMonths - 1)) : 1.0;
+            $amount = round((float) $charge->amount * $multiplier, 2);
             $vatRate = $charge->vat_applicable ? (float) $charge->vat_rate : 0.0;
             $vatAmount = round($amount * ($vatRate / 100), 2);
-            $label = $charge->name . ' - ' . $periodStart->format('F Y');
+            $label = $charge->name . ' - ' . ($cycleMonths > 1
+                ? $this->cycleLabel($periodStart, $periodEnd)
+                : $periodStart->format('F Y'));
             if ($factor < 1) {
                 $label .= ' (' . round($factor * 100) . '% pro-rated)';
             }
@@ -346,6 +355,36 @@ class MonthlyBillingService
         // (MarketingBudget::recomputeAccrued) — derived from source, not incremented.
 
         return $invoice;
+    }
+
+    /**
+     * Has this lease already been billed a REGULAR recurring invoice covering the given month?
+     * Period-OVERLAP so it also catches a multi-month (quarterly/annual) cycle invoice that spans
+     * the month, and a prorated first-month invoice whose period_start is the mid-month commencement.
+     *
+     * It excludes the special one-off invoices that legitimately share a lease + period but are NOT
+     * the regular rent invoice: the annual CAM year-end recovery (cam_recovery / cam_admin_fee items)
+     * and the immediate percentage-rent overage (percentage_rent item). Neither is the lease's
+     * recurring invoice, so a regular run for the month must still bill the rent. A regular invoice
+     * never carries any of those item types, so this only ever skips true duplicates. (This item-type
+     * test replaces the old `period_end <= monthEnd` heuristic, which a multi-month cycle invoice
+     * would have slipped past → double-bill.)
+     */
+    private function alreadyBilledForMonth(Lease $lease, CarbonImmutable $periodStart, CarbonImmutable $periodEnd): bool
+    {
+        return Invoice::where('lease_id', $lease->id)
+            ->whereDate('period_start', '<=', $periodEnd->toDateString())
+            ->whereDate('period_end', '>=', $periodStart->toDateString())
+            ->whereDoesntHave('items', fn ($q) => $q->whereIn('type', ['percentage_rent', 'cam_recovery', 'cam_admin_fee']))
+            ->exists();
+    }
+
+    /** Human label for a multi-month cycle, e.g. "Feb–Apr 2026" or "Nov 2026 – Jan 2027". */
+    private function cycleLabel(CarbonImmutable $periodStart, CarbonImmutable $periodEnd): string
+    {
+        return $periodStart->year === $periodEnd->year
+            ? $periodStart->format('M') . '–' . $periodEnd->format('M Y')
+            : $periodStart->format('M Y') . ' – ' . $periodEnd->format('M Y');
     }
 
     private function chargeAppliesToPeriod(Charge $charge, CarbonImmutable $periodStart, CarbonImmutable $periodEnd): bool
