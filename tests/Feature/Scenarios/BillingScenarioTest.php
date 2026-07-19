@@ -58,6 +58,12 @@ beforeEach(function () {
     // Invoice creation fires the issued-notification (mail + database). Fake it
     // so no PDF/email is built and we can assert it was dispatched.
     Notification::fake();
+
+    // Generate "on time": freeze now to before every period these tests bill (all are
+    // 2026-03/04), so issue_date >= now and the due-date anchor is the issue date —
+    // the steady-state path these assertions describe. The born-overdue behaviour of a
+    // LATE run is covered explicitly in tests/Feature/Regression/InvoiceDueDateNotBornOverdueTest.
+    $this->travelTo(CarbonImmutable::parse('2026-03-01'));
 });
 
 /*

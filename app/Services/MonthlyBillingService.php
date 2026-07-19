@@ -146,6 +146,30 @@ class MonthlyBillingService
     public function generateForLease(Lease $lease, ?CarbonImmutable $period = null, bool $prorate = false): array
     {
         $period = ($period ?? CarbonImmutable::now())->startOfMonth();
+
+        // Contend on the SAME period lock the bulk run holds (runForPeriod). The manual
+        // "Generate Invoice" action is otherwise unserialised, and idempotency here is a
+        // check-then-create with no DB unique key — so a double-click, a second admin, or a
+        // manual generate racing the scheduled run could each pass the alreadyBilled probe
+        // and mint a duplicate invoice for the same lease-month. The lock is the real guard.
+        $result = Cache::lock('billing:run:' . $period->format('Y-m'), 900)
+            ->get(fn () => $this->generateForLeaseUnderLock($lease, $period, $prorate));
+
+        if ($result === false) {
+            OpsLog::warning('Single-lease invoice generation skipped — a billing run for this period is in progress', [
+                'lease_id' => $lease->id,
+                'period' => $period->format('Y-m'),
+            ]);
+
+            return ['status' => 'skipped', 'reason' => 'run_in_progress', 'invoice' => null];
+        }
+
+        return $result;
+    }
+
+    /** @return array{status:'created'|'skipped'|'failed', reason?:string, invoice:?Invoice} */
+    private function generateForLeaseUnderLock(Lease $lease, CarbonImmutable $period, bool $prorate): array
+    {
         $periodStart = $period;
         $periodEnd = $period->endOfMonth();
 
@@ -270,8 +294,19 @@ class MonthlyBillingService
         $vatAmount = round((float) $items->sum('vat_amount'), 2);
         $total = round($subtotal + $vatAmount, 2);
 
+        // Never let an invoice be born overdue. issue_date stays at the period start
+        // deliberately — it is the GL entry_date (LedgerRealtimeSync::SOURCE_DATE_COLUMNS)
+        // and the YYYYMM segment of the invoice number, so moving it would re-period revenue
+        // and re-number the bill (a separate accounting decision). But the DUE date must
+        // anchor to when the tenant can actually receive the invoice — the later of the
+        // issue date and today — plus the payment terms. Otherwise a late / back-filled /
+        // off-the-1st run (e.g. a mid-month "Generate Invoice", or monthly_billing_day > 1)
+        // dates the bill to the 1st and derives a due date already in the past, so that
+        // night's overdue-scan duns the owner and LateFeeService penalises a same-day bill.
         $issueDate = $effectivePeriodStart;
-        $dueDate = $issueDate->addDays($lease->payment_terms_days ?? 7);
+        $today = CarbonImmutable::now()->startOfDay();
+        $dueBasis = $issueDate->greaterThan($today) ? $issueDate : $today;
+        $dueDate = $dueBasis->addDays($lease->payment_terms_days ?? 7);
 
         $invoice = Invoice::create([
             'lease_id' => $lease->id,

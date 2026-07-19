@@ -99,6 +99,7 @@ This is the core AR (accounts receivable) engine; all recurring revenue flows th
 
 7. **Invoice generation is idempotent per lease+period:** If an invoice already exists with the same period_start, the run skips it.
    - **Entry points:** `MonthlyBillingService::runForPeriod()` (batch all active leases) or `generateForLease()` (single lease, returns status array)
+   - **Both entry points serialise on the same period lock** `Cache::lock('billing:run:Y-m')`. The idempotency check is a check-then-create with **no DB unique key**, so the lock — not the probe — is what actually prevents a duplicate. The manual "Generate Invoice" action used to take no lock, so a double-click, a second admin, or a manual generate racing the scheduled run could each pass the probe and mint a second invoice for the same lease-month. `generateForLease()` now contends on the period lock and returns `{status: 'skipped', reason: 'run_in_progress'}` when a run holds it. **Test:** `SingleLeaseBillingLockTest`.
    - **Recovery invoices are excluded from the "already billed" probe.** Two invoice kinds are dated to a *past* period but are NOT the lease's regular monthly invoice: the annual **CAM year-end recovery** (excluded by the `period_end ≤ month-end` clause) and the immediate **percentage-rent overage** invoice (excluded by `whereDoesntHave('items', type='percentage_rent')`). Without these exclusions, a back-filled / late monthly run for that month would see the recovery invoice, think the lease is already billed, and silently skip the base rent (revenue leak). A regular monthly invoice never carries a `percentage_rent` line, so the exclusion only skips pure overages. See module 09 § "The billing gap".
    - **Test:** `BillingScenarioTest::test_skips_with_already_billed_when_an_invoice_already_covers_the_period` + `Services/MonthlyBillingServiceTest::test_is_idempotent_a_second_run_for_the_same_period_creates_no_duplicates` + `PercentageRentImmediateBillingTest::the immediate overage invoice does not suppress that month's regular rent invoice`
 
@@ -118,9 +119,10 @@ This is the core AR (accounts receivable) engine; all recurring revenue flows th
 
 ### Due date & payment terms
 
-10. **Due date is set at issuance:** `due_date = issue_date + lease.payment_terms_days` (default 7 if not set)
-    - For prorated invoices, due_date is still `issue_date + payment_terms_days`; issue_date shifts to commencement, not period_start
-    - **Test:** `BillingScenarioTest::test_derives_the_due_date_as_period_start__payment_terms_days`
+10. **Due date never lands in the past:** `due_date = max(issue_date, today) + lease.payment_terms_days` (default 7 if not set)
+    - `issue_date` stays at the period start (or the commencement, when prorated) — it is the GL `entry_date` and the `YYYYMM` segment of the invoice number, so it is *not* moved by a late run.
+    - The due date instead anchors to when the tenant can actually receive the bill: the later of `issue_date` and today. For an on-time run (the invoice's period is the current month) this equals `issue_date + terms` as before; only a **late / back-filled / off-the-1st** run (a mid-month "Generate Invoice", or `monthly_billing_day > 1`) differs — and there the fix is what stops the invoice being *born overdue* (which would otherwise trip the overdue-scan + a same-day late fee).
+    - **Tests:** `BillingScenarioTest::test_derives_the_due_date_as_period_start__payment_terms_days` (on-time) · `InvoiceDueDateNotBornOverdueTest` (late run not born overdue)
 
 ### Constraints (database)
 
@@ -174,7 +176,7 @@ public function runForPeriod(?CarbonImmutable $period = null): array
 
 **Idempotency:** Yes. Checked via `Invoice::where('lease_id', $lease_id)->whereDate('period_start', $periodStart)->exists()`.
 
-**Locking:** None (but per-lease transactions prevent concurrent overwrites of the same lease).
+**Locking:** The whole run holds `Cache::lock('billing:run:Y-m')` (900s) so a manual CLI run can't race the scheduled job; each lease is also wrapped in its own transaction. The single-lease `generateForLease()` path contends on the **same** period lock (see Idempotency §7), so a manual "Generate Invoice" can't race the batch and double-bill.
 
 **When it runs:** Typically via `RunMonthlyBillingCommand` triggered by a scheduler or admin action in Filament (see Tables section). Can also be queued via `--queue` flag.
 
