@@ -75,7 +75,9 @@ class TenantsTable
                 TextColumn::make('is_delinquent')
                     ->label(__('admin.tables.tenant.delinquent'))
                     ->badge()
-                    ->state(fn (Tenant $record): string => $record->isDelinquent() ? 'delinquent' : 'current')
+                    // Scope to visible properties — a shared tenant's mall-B overdue must not colour
+                    // the badge for a mall-A-only operator (cross-property AR leak).
+                    ->state(fn (Tenant $record): string => $record->isDelinquent(\App\Support\TenantScope::visibleAssetIds()) ? 'delinquent' : 'current')
                     ->color(fn (string $state): string => $state === 'delinquent' ? 'danger' : 'success')
                     ->icon(fn (string $state): string => $state === 'delinquent' ? 'heroicon-m-exclamation-triangle' : 'heroicon-m-check-circle')
                     ->formatStateUsing(fn (string $state) => __("admin.tables.tenant.delinquency_state.{$state}"))
@@ -101,14 +103,17 @@ class TenantsTable
                 TernaryFilter::make('is_delinquent')
                     ->label(__('admin.tables.tenant.delinquent'))
                     ->queries(
+                        // Scoped to visible properties — same reason as the badge above.
                         true: fn (Builder $query) => $query->whereHas('invoices', fn (Builder $q) => $q
                             ->where('balance', '>', 0)
                             ->where('due_date', '<', now())
-                            ->whereIn('status', ['issued', 'partially_paid', 'overdue'])),
+                            ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
+                            ->when(\App\Support\TenantScope::visibleAssetIds(), fn (Builder $i, $ids) => $i->whereHas('lease.unit', fn (Builder $u) => $u->whereIn('asset_id', $ids)))),
                         false: fn (Builder $query) => $query->whereDoesntHave('invoices', fn (Builder $q) => $q
                             ->where('balance', '>', 0)
                             ->where('due_date', '<', now())
-                            ->whereIn('status', ['issued', 'partially_paid', 'overdue'])),
+                            ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
+                            ->when(\App\Support\TenantScope::visibleAssetIds(), fn (Builder $i, $ids) => $i->whereHas('lease.unit', fn (Builder $u) => $u->whereIn('asset_id', $ids)))),
                         blank: fn (Builder $query) => $query,
                     ),
                 Filter::make('created_range')
@@ -156,7 +161,9 @@ class TenantsTable
                     ->authorize(fn () => auth()->user()?->can('tenants.view') ?? false)
                     ->action(function (Tenant $record) {
                         $svc = app(TenantStatementPdfService::class);
-                        $pdf = $svc->build($record);
+                        // Admin surface: scope to visible properties so a restricted operator's
+                        // statement of a shared tenant excludes malls they can't see.
+                        $pdf = $svc->build($record, \App\Support\TenantScope::visibleAssetIds());
                         return response()->streamDownload(
                             fn () => print($pdf),
                             $svc->filename($record),

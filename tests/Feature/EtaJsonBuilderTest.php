@@ -66,7 +66,8 @@ class EtaJsonBuilderTest extends TestCase
         $this->assertEquals('1.0', $doc['documentTypeVersion']);
         $this->assertEquals($invoice->number, $doc['internalID']);
         $this->assertEquals('B', $doc['receiver']['type'], 'company tenant maps to B');
-        $this->assertEquals('111-222-333', $doc['receiver']['id']);
+        // Tenant::setTaxIdAttribute normalises the dashed input to bare digits (ETA rejects dashes).
+        $this->assertEquals('111222333', $doc['receiver']['id']);
         $this->assertEquals('Acme Trading LLC', $doc['receiver']['name']);
         $this->assertCount(1, $doc['invoiceLines']);
         $this->assertEquals(11400.0, $doc['totalAmount']);

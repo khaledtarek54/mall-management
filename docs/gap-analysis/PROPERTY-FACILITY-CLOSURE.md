@@ -46,7 +46,7 @@ Ordered dependency-first. Generic-ERP modules (21–25, 28) are out of scope (al
 | Order | # | Module | Status | Closed | Notes |
 |---|---|---|---|---|---|
 | 1 | 01 | Properties & Units | ✅ CLOSED | 2026-07-19 | 6 CLOSE_NOW fixed (2 HIGH), 1 parity DEFER; see closure record |
-| 2 | 02 | Tenants | ⬜ Not started | — | |
+| 2 | 02 | Tenants | ✅ CLOSED | 2026-07-19 | 7 CLOSE_NOW fixed (3 HIGH: portal+API blacklist bypass, statement AR leak), 3 parity DEFER; see closure record |
 | 3 | 04 | Leases | ⬜ Not started | — | |
 | 4 | 05 | Billing & Invoices | ⬜ Not started | — | |
 | 5 | 06 | Payments | ⬜ Not started | — | |
@@ -88,10 +88,26 @@ park-with-trigger) when its owning module's close-out comes up.
 | Penalty Filament actions (charge/waive) lack a dispatch/dual-gate test | coverage/med | 26 | fixed when module 26 closes |
 | No conformance gate for `ApprovalPolicy` single-interpretation invariant | coverage/low | 28 | generic-ERP already closed; revisit only if approvals grow |
 | Occupancy measured by unit count, not leasable area (no GLA / physical-vs-economic occupancy) | parity/high | 01 | a mall with a large vacant anchor + many small kiosks (where unit-count occupancy misleads), or the operator/owner asks for economic occupancy. `area_sqm` data already exists |
+| No tenant-level merchandising / trade classification — tenant-mix keyed on the coarse unit space-category, not the tenant's retail category | parity/med | 02 | operator wants tenant-mix / category-exclusivity analysis (a leasing-strategy feature) |
+| `tax_id` indexed but not unique + no tenant merge/dedupe — duplicates split AR and give one legal entity two ETA identities | parity/med | 02 | duplicate tenant records observed in practice; needs a merge tool (re-point leases/invoices/payments) before a uniqueness constraint |
 
 ## Closure records
 
 _One section per module as it closes, most recent first._
+
+### Module 02 — Tenants — CLOSED 2026-07-19
+
+Scoped sweep → 9 CLOSE_NOW (deduped to 7 distinct), 3 DEFER, 2 refuted. All CLOSE_NOW fixed + regression-guarded (`Module02TenantIntegrityTest`):
+
+- **[HIGH · correctness] Blacklisted company kept PORTAL access** — the portal gate moved to `TenantUser` at the multi-user migration, but `TenantUser::canAccessPanel()` only checked the panel id, never the owning company's status (so `Tenant::canAccessPanel()`'s status check was dead). Now gates on `$this->tenant?->status === 'active'`.
+- **[HIGH · correctness] Blacklisted company kept mobile-API access** — status was checked only at login; a mid-session blacklist left every token valid. New `EnsureTenantActive` middleware on the `auth:tenant-api` group re-checks per request + revokes the token.
+- **[HIGH · isolation] Tenant Statement PDF + delinquency badge/filter + outstanding leaked cross-property AR** — a shared tenant's mall-B invoices/payments were shown to a mall-A-only operator. `TenantStatementPdfService::build()`, `Tenant::isDelinquent()/outstandingBalance()`, and the table column/filter now take an optional `visibleAssetIds()` scope (admin passes it; the tenant's own portal/API statement stays whole-company).
+- **[MED · frd] Importer bypassed the tax_id format** the form enforces (the ETA go-live risk). Added the same regex to the importer.
+- **[MED · coverage] tax_id un-normalised** — dashes reached ETA. `Tenant::setTaxIdAttribute` now stores bare digits; ETA builder tests updated to assert digits-only.
+- **[LOW · correctness] Importer `type=foreign`** — unstorable enum value → silent row failure on MySQL. Restricted to `in:individual,company`.
+- **[LOW · frd] FRD marked TEN-3 (tenant multi-user) deferred** though shipped. Corrected.
+
+**DEFER (3):** tenant merchandising classification; tax_id uniqueness + merge/dedupe (×2) — see parity backlog. **Refuted (2).**
 
 ### Module 01 — Properties & Units — CLOSED 2026-07-19
 

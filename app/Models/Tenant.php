@@ -174,10 +174,16 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
      * tenant's unapplied credit-note balances. A tenant carrying a 1000 EGP
      * invoice and a 300 EGP issued credit note owes 700, not 1000.
      */
-    public function outstandingBalance(): float
+    /**
+     * @param  array<int>|null  $assetIds  Restrict to these properties (pass visibleAssetIds() from
+     *   an admin surface so a property-restricted operator's view of a shared tenant excludes malls
+     *   they can't see). null (default) = whole company, for the tenant's own portal/API/statement.
+     */
+    public function outstandingBalance(?array $assetIds = null): float
     {
         $invoiceBalance = (float) $this->invoices()
             ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
+            ->when($assetIds !== null, fn ($q) => $q->whereHas('lease.unit', fn ($u) => $u->whereIn('asset_id', $assetIds)))
             ->sum('balance');
 
         // The CreditNote status enum is (draft, issued, applied, void) —
@@ -187,6 +193,7 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
         // See audit M14 F-55 / D-41.
         $creditNoteBalance = (float) $this->creditNotes()
             ->where('status', 'issued')
+            ->when($assetIds !== null, fn ($q) => $q->whereHas('lease.unit', fn ($u) => $u->whereIn('asset_id', $assetIds)))
             ->sum('balance');
 
         return round($invoiceBalance - $creditNoteBalance, 2);
@@ -198,12 +205,30 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
      * is only auto-flipped to 'overdue' by Payment hooks, so manually
      * cancelled / orphaned invoices can stay 'issued' indefinitely.
      */
-    public function isDelinquent(): bool
+    /**
+     * @param  array<int>|null  $assetIds  See outstandingBalance() — scope to visible properties for
+     *   an admin surface, null (default) for the tenant's own whole-company view.
+     */
+    public function isDelinquent(?array $assetIds = null): bool
     {
         return $this->invoices()
             ->where('balance', '>', 0)
             ->where('due_date', '<', now())
             ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
+            ->when($assetIds !== null, fn ($q) => $q->whereHas('lease.unit', fn ($u) => $u->whereIn('asset_id', $assetIds)))
             ->exists();
+    }
+
+    /**
+     * Normalise the Egyptian VAT number to BARE DIGITS on save. The form + importer accept the
+     * dashed form (123-456-789) for readability, but ETA's e-invoice expects digits only, and
+     * EtaJsonBuilder sends tax_id verbatim — so a dashed value would go on the wire and be rejected.
+     * Storing digits-only makes every downstream consumer (ETA, exports) correct by construction.
+     */
+    public function setTaxIdAttribute($value): void
+    {
+        $this->attributes['tax_id'] = ($value === null || $value === '')
+            ? null
+            : preg_replace('/\D+/', '', (string) $value);
     }
 }

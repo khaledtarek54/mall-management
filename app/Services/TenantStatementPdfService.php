@@ -10,7 +10,14 @@ use Mpdf\Output\Destination;
 
 class TenantStatementPdfService
 {
-    public function build(Tenant $tenant): string
+    /**
+     * @param  array<int>|null  $visibleAssetIds  Restrict the statement to these properties. Pass
+     *   TenantScope::visibleAssetIds() from the ADMIN surface so a property-restricted operator can't
+     *   read a shared tenant's AR in a mall they can't see. Pass null (the default) for the tenant's
+     *   OWN statement (portal / mobile API) — the tenant is entitled to their whole-company view.
+     *   Note: null also means "unrestricted" (super_admin), matching visibleAssetIds()'s null.
+     */
+    public function build(Tenant $tenant, ?array $visibleAssetIds = null): string
     {
         $tenant->loadMissing(['leases.unit.asset']);
 
@@ -20,6 +27,7 @@ class TenantStatementPdfService
         $invoicesAll = $tenant->invoices()
             ->with('lease.unit')
             ->whereNotIn('status', ['cancelled', 'credited'])
+            ->when($visibleAssetIds !== null, fn ($q) => $q->whereHas('lease.unit', fn ($u) => $u->whereIn('asset_id', $visibleAssetIds)))
             ->get();
 
         $openInvoices = $invoicesAll
@@ -35,6 +43,7 @@ class TenantStatementPdfService
         $payments = $tenant->payments()
             ->where('status', 'captured')
             ->where('payment_date', '>=', $since)
+            ->when($visibleAssetIds !== null, fn ($q) => $q->whereHas('invoices.lease.unit', fn ($u) => $u->whereIn('asset_id', $visibleAssetIds)))
             ->orderByDesc('payment_date')
             ->get();
 

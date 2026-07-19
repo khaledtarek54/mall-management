@@ -26,6 +26,8 @@ it('throws when a business tenant lacks a tax_id', function () {
 })->throws(RuntimeException::class, 'tax_id');
 
 it('builds a document when a business tenant has a tax_id', function () {
+    // The dashed form is accepted at input but Tenant::setTaxIdAttribute normalises it to bare
+    // digits on save, so ETA receives digits only (ETA rejects dashed VAT numbers).
     $tenant = makeTenant(['type' => 'company', 'tax_id' => '123-456-789']);
     $lease = makeLease($this->unit, $tenant);
     $invoice = makeInvoice($lease);
@@ -33,7 +35,7 @@ it('builds a document when a business tenant has a tax_id', function () {
     $doc = app(EtaJsonBuilder::class)->build($invoice);
 
     expect($doc['receiver']['type'])->toBe('B');
-    expect($doc['receiver']['id'])->toBe('123-456-789');
+    expect($doc['receiver']['id'])->toBe('123456789');
 });
 
 it('allows individual tenants without a tax_id (mapped to person type)', function () {

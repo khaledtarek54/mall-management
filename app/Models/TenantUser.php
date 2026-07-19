@@ -51,7 +51,11 @@ class TenantUser extends Authenticatable implements CanResetPasswordContract, Fi
 
     public function canAccessPanel(Panel $panel): bool
     {
-        return $panel->getId() === 'portal';
+        // Gate on the OWNING company's status too. Since the multi-user migration the portal
+        // authenticates TenantUser (not Tenant), so Tenant::canAccessPanel()'s status check became
+        // dead code — a blacklisted/inactive (or soft-deleted → tenant() resolves null) company's
+        // users could still sign in. Restore the gate here.
+        return $panel->getId() === 'portal' && $this->tenant?->status === 'active';
     }
 
     /** Only admin users may submit/write in the portal. */

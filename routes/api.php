@@ -72,7 +72,7 @@ Route::prefix('v1')->group(function () {
     });
 
     // ============ Authenticated (Sanctum tenant-api guard) ============
-    Route::middleware(['auth:tenant-api', 'throttle:60,1'])->group(function () {
+    Route::middleware(['auth:tenant-api', \App\Http\Middleware\EnsureTenantActive::class, 'throttle:60,1'])->group(function () {
 
         // --- Auth / session ---
         Route::get('auth/me', MeController::class)->name('api.v1.auth.me');

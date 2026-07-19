@@ -98,7 +98,7 @@ The platform is **multi-property**: an `Asset` is one mall; everything hangs off
 | Maintenance **late fees** (MNT-6) | 🟡 To-do | needs O-3/O-4 (what triggers a fee + who pays) |
 | Department-to-department messaging (DEPT-2) | ✅ Done | "Message" action on a department → bell to its members |
 | Master unit / multi-unit lease (UNIT-1) | 🟢 Built | `lease_unit` pivot with `is_master`, mirrored to `leases.unit_id`; wired into `LeaseObserver` + `Lease::syncUnits()` + the lease form + occupancy projection. Tests: `MultiUnitLease*` |
-| Tenant-users — only tenant-admin submits (TEN-3) | ⏸️ Deferred | your decision 2026-06-24; would rewrite portal + mobile (Sanctum) auth |
+| Tenant-users — only tenant-admin submits (TEN-3) | 🟢 Built | `TenantUser` multi-user model (guard `portal` → provider `tenant_users`); `is_admin` gates writes (`isPortalAdmin()`); read-only for staff |
 | Dept requests/payments via Accounting (DEPT-3 / ACCT-2) | ⏸️ Deferred | pending the accounting-team workflow |
 | RBAC, audit trail, notifications, settings | 🟢 Pre-existing | reused as-is |
 
@@ -108,7 +108,7 @@ The platform is **multi-property**: an `Asset` is one mall; everything hangs off
 2. **#11 — department-to-department messaging.** A "Message department" action that fans a notification to a target department's members (reuse the existing notification fabric + `department_user` membership). Small.
 3. **#7 — master unit / multi-unit lease. ✅ SHIPPED.** The `lease_unit` pivot (with `is_master`) lets a lease span several units, keeping 1:1 leases valid; surfaced in the lease form + occupancy projection ([UNIT-1/3](#8-units--leases-unit)). Heavily tested (`MultiUnitLeaseTest`, `MultiUnitLeaseDataScenarioTest`, `MultiUnitLeaseFormScenarioTest`, `MultiUnitLeaseRenewalTest`).
 
-**Deferred (by decision / dependency):** tenant-users auth rewrite (TEN-3); accounting routing of department spend (DEPT-3 / ACCT-2 — pending your accounting team).
+**Deferred (by decision / dependency):** accounting routing of department spend (DEPT-3 / ACCT-2 — pending your accounting team). *(TEN-3 tenant-users was later built — see §8.)*
 
 ---
 
@@ -179,7 +179,7 @@ A "request" is the central ERP workflow object, with **three concrete types** ov
 
   — *covers original request #8.*
 - **TEN-2** 🟢 `[EXISTS]` — Tenant `type` distinguishes `individual` vs `company`; company vs responsible-person fields already separated. *(Derived from #8.)*
-- **TEN-3** ⏸️ `[DEFERRED]` — **Tenant users with roles.** Today a `Tenant` is a *single* login (password on the tenant record — [auth-columns migration](../database/migrations/2026_05_12_125617_add_auth_columns_to_tenants_table.php)). **Decision 2026-06-24: deferred** — the single tenant login already acts as the tenant admin and sole submitter, so #9's intent is met; full multi-user-per-tenant (`tenant_admin`/`tenant_staff`) would require re-architecting the portal + mobile (Sanctum) auth and is a separate, deliberate migration. — *covers #9 (tenant-admin gating).*
+- **TEN-3** 🟢 `[BUILT]` — **Tenant users with roles.** *Shipped after the 2026-06-24 deferral was reversed: a `TenantUser` model (multiple logins per `Tenant`) backs the portal (guard `portal` → provider `tenant_users` → `TenantUser`), and `is_admin` / `isPortalAdmin()` gates writes — a tenant admin submits, staff are read-only. This unblocks the tenant-admin gating in ACC-6 / MNT-1.* — *covers #9 (tenant-admin gating).*
 
 ---
 

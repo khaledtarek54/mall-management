@@ -25,11 +25,16 @@ class TenantImporter extends Importer
 
             ImportColumn::make('type')
                 ->label(__('admin.fields.type'))
-                ->rules(['nullable', 'in:individual,company,foreign']),
+                // The schema is enum('type',['individual','company']); 'foreign' is not storable and
+                // would fail the INSERT on strict MySQL as an opaque failed row. Reject it cleanly.
+                ->rules(['nullable', 'in:individual,company']),
 
             ImportColumn::make('tax_id')
                 ->label(__('admin.fields.tax_id'))
-                ->rules(['nullable', 'max:50']),
+                // Same Egyptian-VAT format the admin form enforces — import is the primary roster
+                // onboarding path, so a malformed tax_id here is the go-live/ETA risk the module
+                // doc calls out. (The Tenant model then normalises it to bare digits on save.)
+                ->rules(['nullable', 'max:50', 'regex:/^\d{3}-?\d{3}-?\d{3}$/']),
 
             ImportColumn::make('email')
                 ->label(__('admin.tables.tenant.email'))
