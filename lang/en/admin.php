@@ -790,6 +790,7 @@ return [
         'cancel' => 'Cancel',
         'save' => 'Save',
         'pdf' => 'PDF',
+        'download_receipt' => 'Receipt',
         'download_pdf' => 'Download PDF',
         'post_to_ledger' => 'Post to GL now',
         'post_to_ledger_confirm' => 'This posts recent invoices, payments, and other documents to the general ledger. It runs automatically every day; running it now just makes the books current immediately. Safe to run anytime.',
@@ -1915,6 +1916,16 @@ return [
 
     'pdf' => [
         'tax_invoice' => 'Tax Invoice',
+        'receipt' => [
+            'title' => 'Receipt Voucher',
+            'received_from' => 'Received From',
+            'payment_details' => 'Payment Details',
+            'amount_received' => 'Amount Received',
+            'applied_to' => 'Applied To',
+            'on_account' => 'On account (unallocated)',
+            'received_by' => 'Received by',
+            'footer' => 'This is a computer-generated receipt and does not require a signature.',
+        ],
         'billed_to' => 'Billed To',
         'lease_reference' => 'Lease Reference',
         'billing_period' => 'Billing Period',

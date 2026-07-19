@@ -4,6 +4,9 @@ namespace App\Filament\Admin\Resources\Payments\Tables;
 
 use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Filament\Exports\PaymentExporter;
+use App\Models\Payment;
+use App\Services\ReceiptPdfService;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -136,6 +139,24 @@ class PaymentsTable
                     ->color('gray'),
             ])
             ->recordActions([
+                Action::make('downloadReceipt')
+                    ->label(__('admin.actions.download_receipt'))
+                    ->icon('heroicon-o-receipt-percent')
+                    ->color('gray')
+                    // Only a RECEIVED payment (captured/reconciled/settled) has real cash to receipt.
+                    // Gate in BOTH visible() (UI) and action() (the real gate — mountAction ignores visible()).
+                    ->visible(fn (Payment $record): bool => $record->isReceived())
+                    ->action(function (Payment $record) {
+                        abort_unless($record->isReceived(), 403);
+                        $svc = app(ReceiptPdfService::class);
+                        $pdf = $svc->build($record);
+
+                        return response()->streamDownload(
+                            fn () => print($pdf),
+                            $svc->filename($record),
+                            ['Content-Type' => 'application/pdf'],
+                        );
+                    }),
                 EditAction::make()
                     ->visible(fn ($record) => PaymentResource::canEdit($record)),
             ])
