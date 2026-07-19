@@ -174,10 +174,12 @@ Per-unit rents are a deferred decision — see below.
 These are real business choices flagged during the close-out, waiting on an operator rule — not
 bugs, but boundaries you should know:
 
-- **Holdover / auto-expiry.** A lease past its `expiry_date` stays *active* and keeps the unit
-  occupied, but the monthly engine excludes it — so a held-over tenant currently trades **rent-free**
-  until someone renews or terminates. *Decision: auto-expire? bill month-to-month, perhaps at a
-  premium?*
+- **Holdover.** A lease past its `expiry_date` stays *active* and keeps the unit occupied, but the
+  monthly engine excludes it — so a held-over tenant trades **rent-free** until someone renews or
+  terminates. **Now surfaced (MVP):** holdover leases show a red card on the *Action Required*
+  dashboard + a "Holdover" filter on the Leases list, so it can never go *silent*. *Still deferred:
+  automatic holdover **billing** (auto-expire? month-to-month at a premium?) — decide once you see
+  how often it happens.*
 - **Move-out proration.** A mid-month termination bills the **full** final month (no refund), or
   drops it if processed before that month's run. Only the **first** month prorates. *Decision:
   prorate + credit the final month?*

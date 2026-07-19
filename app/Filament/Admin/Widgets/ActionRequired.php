@@ -65,6 +65,10 @@ class ActionRequired extends Widget
         $overdueCount = $invoiceBase()->where('balance', '>', 0)->where('due_date', '<', $now)->count();
         $overdueAmount = $invoiceBase()->where('balance', '>', 0)->where('due_date', '<', $now)->sum('balance');
 
+        // Holdover: active leases PAST their end date — billing has silently stopped (rent-free
+        // holdover), so surface it prominently. Reuses Lease::scopeHoldover().
+        $holdoverCount = $leaseBase()->holdover()->count();
+
         $expiringCriticalCount = $leaseBase()->where('status', 'active')
             ->whereBetween('expiry_date', [$now, (clone $now)->addDays(30)])
             ->count();
@@ -159,6 +163,20 @@ class ActionRequired extends Widget
                 'url' => InvoiceResource::getUrl('index', [
                     'filters' => ['overdue_only' => ['isActive' => true]],
                     'sort' => 'due_date:asc',
+                ]),
+            ];
+        }
+
+        if ($holdoverCount > 0) {
+            $items[] = [
+                'key' => 'holdover',
+                'icon' => 'heroicon-o-exclamation-triangle',
+                'color' => 'danger',
+                'title' => trans_choice('admin.widgets.action_required.holdover', $holdoverCount, ['count' => $holdoverCount]),
+                'body' => __('admin.widgets.action_required.holdover_body'),
+                'url' => LeaseResource::getUrl('index', [
+                    'filters' => ['holdover' => ['isActive' => true]],
+                    'sort' => 'expiry_date:asc',
                 ]),
             ];
         }

@@ -163,6 +163,10 @@ class LeasesTable
                 Filter::make('expiring_soon')
                     ->label(__('admin.filters.expiring_soon'))
                     ->query(fn (Builder $query) => $query->where('status', 'active')->whereBetween('expiry_date', [now(), now()->addDays(90)])),
+                // Holdover: active leases PAST their end date (billing has silently stopped).
+                Filter::make('holdover')
+                    ->label(__('admin.filters.holdover'))
+                    ->query(fn (Builder $query) => $query->holdover()),
                 TrashedFilter::make(),
             ])
             ->filtersFormColumns(2)

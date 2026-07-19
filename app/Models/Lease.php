@@ -289,6 +289,26 @@ class Lease extends Model implements HasMedia
         return $this->expiry_date->isBetween(now(), now()->addDays($days));
     }
 
+    /**
+     * Holdover = an active lease PAST its end date. It still occupies the unit + projects it as
+     * occupied, but the monthly billing engine excludes it (period past expiry) — so a held-over
+     * tenant trades rent-free until someone renews or terminates. Surfaced on the ActionRequired
+     * dashboard so it can never go silent. (Automatic holdover *billing* is a deferred decision.)
+     */
+    public function scopeHoldover($query)
+    {
+        return $query->where('status', 'active')
+            ->whereNotNull('expiry_date')
+            ->whereDate('expiry_date', '<', now()->toDateString());
+    }
+
+    public function isHoldover(): bool
+    {
+        return $this->status === 'active'
+            && $this->expiry_date !== null
+            && $this->expiry_date->startOfDay()->lt(now()->startOfDay());
+    }
+
     public function daysUntilExpiry(): int
     {
         return (int) now()->diffInDays($this->expiry_date, false);
