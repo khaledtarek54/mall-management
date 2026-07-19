@@ -27,36 +27,54 @@ class CamReconciliationService
      */
     public function generateAllocations(CamExpensePool $pool): int
     {
-        // On a RE-RUN, keep the ORIGINAL participant set (and therefore the sqm
-        // denominator) stable: a lease that became active after some allocations were
-        // billed was not part of the reconciled period, and adding it would recompute
-        // the remaining shares against an inflated head-count → over-recovering the pool.
+        // On a RE-RUN, keep the ORIGINAL participant set AND the share basis frozen. The set is
+        // pinned via $existingLeaseIds; the SHARES are pinned by REUSING each existing allocation's
+        // stored pro_rata_share_pct instead of recomputing from live sqm. Otherwise a unit-area
+        // edit — or a soft-deleted participant — between runs would shift the sqm denominator, and
+        // with some allocations already billed (frozen) the remaining pending ones would recompute
+        // against the new denominator → Σ(allocated) ≠ total_actual_expense (broken tie-out) and
+        // over-/under-billed tenants. The pool freeze guard protects the expense basis; this
+        // protects the area basis, its missing counterpart.
         $existingLeaseIds = $pool->allocations()->pluck('lease_id')->all();
+        $isRerun = ! empty($existingLeaseIds);
 
-        $leases = empty($existingLeaseIds)
-            ? Lease::query()
+        $leases = $isRerun
+            ? Lease::query()->whereIn('id', $existingLeaseIds)->with('unit')->get()
+            : Lease::query()
                 ->whereHas('unit', fn ($q) => $q->where('asset_id', $pool->asset_id))
                 ->where('status', 'active')
                 ->with('unit')
-                ->get()
-            : Lease::query()->whereIn('id', $existingLeaseIds)->with('unit')->get();
+                ->get();
 
-        $totalSqm = (float) $leases->sum(fn (Lease $l) => (float) ($l->unit?->area_sqm ?? 0));
+        // Frozen shares (as a fraction) for the re-run path; the sqm denominator for the first run.
+        $frozenShares = $isRerun
+            ? $pool->allocations()->pluck('pro_rata_share_pct', 'lease_id')
+            : collect();
 
-        if ($totalSqm <= 0) {
+        $totalSqm = $isRerun ? 0.0 : (float) $leases->sum(fn (Lease $l) => (float) ($l->unit?->area_sqm ?? 0));
+
+        if (! $isRerun && $totalSqm <= 0) {
             return 0;
         }
 
-        return DB::transaction(function () use ($pool, $leases, $totalSqm) {
+        return DB::transaction(function () use ($pool, $leases, $totalSqm, $isRerun, $frozenShares) {
             $count = 0;
 
             foreach ($leases as $lease) {
-                $sqm = (float) ($lease->unit?->area_sqm ?? 0);
-                if ($sqm <= 0) {
-                    continue;
+                if ($isRerun) {
+                    // Reuse the established share — never recompute from live sqm on a re-run.
+                    $share = (float) ($frozenShares[$lease->id] ?? 0) / 100;
+                    if ($share <= 0) {
+                        continue;
+                    }
+                } else {
+                    $sqm = (float) ($lease->unit?->area_sqm ?? 0);
+                    if ($sqm <= 0) {
+                        continue;
+                    }
+                    $share = $sqm / $totalSqm;
                 }
 
-                $share = $sqm / $totalSqm;
                 $allocated = round((float) $pool->total_actual_expense * $share, 2);
                 $estimated = round((float) $pool->total_estimated_collected * $share, 2);
 

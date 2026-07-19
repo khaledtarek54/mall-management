@@ -46,8 +46,16 @@ class CamExpensePool extends Model
         // under-recovering the pool. Correcting a reconciled figure requires voiding
         // the billed allocations first (docs/modules/08-cam.md §8).
         static::updating(function (CamExpensePool $pool) {
-            if (($pool->isDirty('total_actual_expense') || $pool->isDirty('total_estimated_collected'))
-                && $pool->allocations()->where('status', '!=', 'pending')->exists()) {
+            // admin_fee_pct/admin_fee_on_net are recovery-basis inputs too: changing the fee rate
+            // after some allocations are billed would leave billed rows on the old rate while
+            // re-generated pending rows recompute on the new one → different fees for equal shares
+            // in one pool. Freeze them alongside the expense/estimate basis.
+            $basisChanged = $pool->isDirty('total_actual_expense')
+                || $pool->isDirty('total_estimated_collected')
+                || $pool->isDirty('admin_fee_pct')
+                || $pool->isDirty('admin_fee_on_net');
+
+            if ($basisChanged && $pool->allocations()->where('status', '!=', 'pending')->exists()) {
                 throw new \DomainException(
                     'Cannot change the CAM recovery basis once an allocation has been billed — void the billed allocations first.'
                 );
@@ -58,7 +66,7 @@ class CamExpensePool extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['status', 'total_actual_expense', 'total_estimated_collected', 'reconciled_at'])
+            ->logOnly(['status', 'total_actual_expense', 'total_estimated_collected', 'admin_fee_pct', 'reconciled_at'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('cam_pool');

@@ -32,8 +32,9 @@ return new class extends Migration
             $table->boolean('compounding')->default(true);              // compound vs. simple YoY growth
             $table->string('notes', 1000)->nullable();
             $table->timestamps();
-            $table->softDeletes();
-
+            // HARD-delete (no softDeletes): a removed cap term must free its (lease, effective_year)
+            // slot so the year can be re-capped — a soft-deleted row would collide with the unique
+            // index below and permanently block re-creation.
             $table->unique(['lease_id', 'effective_year']); // one cap config per lease per effective year
         });
 

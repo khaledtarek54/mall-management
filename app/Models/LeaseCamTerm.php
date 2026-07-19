@@ -5,17 +5,21 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * Effective-dated CAM cap terms for one lease — the ceiling a tenant's CAM cost share may not
  * exceed in a reconciliation year. Consumed by CamReconciliationService::generateAllocations,
  * which caps ONLY the true-up + admin-fee base; the raw allocated_amount stays uncapped so the
  * pool's cost partition still ties out. See docs/modules/08-cam.md §3.
+ *
+ * HARD-delete (no SoftDeletes): a cap term is forward-looking configuration, not a financial
+ * record — historical allocations already froze their applied cap_amount, so removing a term
+ * can't corrupt the past. Hard-delete keeps the unique(lease_id, effective_year) slot re-usable
+ * (a soft-deleted row would collide with the index and block ever re-adding that year's cap).
  */
 class LeaseCamTerm extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory;
 
     public const CAP_TYPES = ['absolute', 'yoy', 'both'];
 

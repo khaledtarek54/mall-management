@@ -18,7 +18,7 @@ Mall owners (Jawad) collect estimated CAM charges monthly throughout a calendar 
 |--------|-------|-------------|-------|
 | **CAM Expense Pool** | `CamExpensePool` | `id`, `asset_id` (FK), `period_year` (YYYY, 2020–2099), `total_actual_expense` (decimal:2), `total_estimated_collected` (decimal:2), `admin_fee_pct` (decimal:6,4, **nullable** — a FRACTION, 0.10 = 10%; null ⇒ no fee), `admin_fee_on_net` (bool, default true), `status` (enum), `notes`, `reconciled_at`, `reconciled_by_user_id`, `created_at`, `updated_at`, `deleted_at` (soft-delete) | A container for one year's CAM data on one property. Unique on `(asset_id, period_year)`. Index on `status`. |
 | **CAM Allocation** | `CamAllocation` | `id`, `cam_expense_pool_id` (FK), `lease_id` (FK), `pro_rata_share_pct` (decimal:7,4), `allocated_amount` (decimal:2, **UNCAPPED** — the tie-out basis), `estimated_paid` (decimal:2), `true_up_amount` (decimal:2, = `capped_cost − estimated`), `admin_fee_amount` (decimal:2, default 0), `admin_fee_vat_amount` (decimal:2, default 0), `cap_amount` (decimal:2, nullable — the resolved ceiling that applied), `capped_cost_amount` (decimal:2, nullable — `min(allocated, ceiling)`), `cap_absorbed_amount` (decimal:2, default 0 — landlord-absorbed excess), `exclusions` (JSON), `status` (enum), `billed_charge_id` (FK, nullable), `billed_credit_note_id` (FK, nullable), `billed_admin_fee_charge_id` (FK, nullable), `created_at`, `updated_at`, `deleted_at` | One per active lease per pool. Unique on `(pool_id, lease_id)`. Index on `status`. |
-| **Lease CAM Term** | `LeaseCamTerm` | `id`, `lease_id` (FK), `effective_year` (YYYY), `cap_type` (`absolute`/`yoy`/`both`), `cap_absolute_amount` (nullable), `base_year` (nullable), `base_year_amount` (nullable), `yoy_pct` (decimal:6,4, fraction, nullable), `compounding` (bool, default true), `notes`, `created_at`, `updated_at`, `deleted_at` | Effective-dated per-lease cap config. Unique on `(lease_id, effective_year)`. `resolveCeiling(int $year)` returns the ceiling; `Lease::resolveCamCeiling($year)` picks the latest term ≤ that year. |
+| **Lease CAM Term** | `LeaseCamTerm` | `id`, `lease_id` (FK), `effective_year` (YYYY), `cap_type` (`absolute`/`yoy`/`both`), `cap_absolute_amount` (nullable), `base_year` (nullable), `base_year_amount` (nullable), `yoy_pct` (decimal:6,4, fraction, nullable), `compounding` (bool, default true), `notes`, `created_at`, `updated_at` | Effective-dated per-lease cap config. **HARD-delete** (forward-looking config, not a financial record) so a removed term frees its `(lease_id, effective_year)` unique slot for re-creation. Unique on `(lease_id, effective_year)`. `resolveCeiling(int $year)` returns the ceiling; `Lease::resolveCamCeiling($year)` picks the latest term ≤ that year. |
 
 ### Relationships
 
@@ -530,6 +530,28 @@ Currently, `cap_amount` and `exclusions` are JSON fields in the model, but not u
 **Test guards**: `CamAllocationDoubleBillTest::it('does not reset an already-billed allocation...')`.
 
 **Lesson**: Any idempotent operation that reuses state must check state before overwriting.
+
+---
+
+### Share-basis drift on re-run after partial billing (FIXED — clause-review #1)
+
+**Bug**: `generateAllocations()` re-run pinned the participant *set* but recomputed the sqm denominator from *live* unit areas. After partial billing (some allocations frozen at `billed`), correcting a unit's `area_sqm` — or soft-deleting a participant — then re-running recomputed the still-pending shares against the new denominator: `Σ(allocated_amount) ≠ total_actual_expense` (broken tie-out) and mis-billed tenants. The pool freeze guard protected the *expense* basis but had no counterpart for the *area* basis.
+
+**Fix**: On a re-run (existing allocations present), REUSE each allocation's stored `pro_rata_share_pct` instead of recomputing from sqm — the share basis is established on the first run and frozen thereafter. `capped_cost`/`admin_fee` derive from the frozen `allocated`, so they stay consistent too.
+
+**Test guards**: `CamClauseReviewHardeningTest` (unit-area edit + soft-deleted participant between runs both keep `Σ = total_actual_expense`).
+
+---
+
+### Recovery-basis freeze now covers the admin fee (FIXED — clause-review #2)
+
+The pool `updating` freeze guard (can't change the basis after any allocation is billed) now also blocks `admin_fee_pct` / `admin_fee_on_net` — otherwise billed rows keep the old fee while re-generated pending rows recompute on the new rate, charging equal shares different fees. `admin_fee_pct` is also in the activity log now. To change a fee rate mid-cycle, void the billed allocations first.
+
+---
+
+### Cap terms hard-delete (clause-review #3/#4/#5)
+
+`LeaseCamTerm` is **hard-deleted** (not soft) so a removed cap frees its `(lease_id, effective_year)` unique slot — a soft-deleted row would collide with the index and permanently block re-adding that year's cap. Safe because a cap term is forward-looking config; historical allocations already froze the `cap_amount` they applied.
 
 ---
 
