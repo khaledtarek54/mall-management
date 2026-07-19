@@ -100,7 +100,8 @@ class MaintenanceWorkOrderForm
                 ->disabled($locked),
             Select::make('vendor_id')
                 ->label(__('admin.preventive_maintenance.fields.vendor'))
-                ->options(fn () => Vendor::query()->orderBy('name')->pluck('name', 'id')->all())
+                // Only dispatchable vendors (active + COI not lapsed); the saving guard is the real gate.
+                ->options(fn ($record) => Vendor::assignableOptions($record?->vendor_id))
                 ->searchable()
                 ->native(false)
                 ->disabled($locked),

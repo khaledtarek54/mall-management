@@ -64,7 +64,8 @@ class CorrectiveWorkOrderForm
 
             Select::make('vendor_id')
                 ->label(__('admin.preventive_maintenance.fields.vendor'))
-                ->options(fn () => Vendor::query()->orderBy('name')->pluck('name', 'id')->all())
+                // Only dispatchable vendors (active + COI not lapsed); the saving guard is the real gate.
+                ->options(fn ($record) => Vendor::assignableOptions($record?->vendor_id))
                 ->visible(fn (Get $get) => $get('execution_type') === MaintenanceWorkOrder::EXECUTION_EXTERNAL)
                 ->searchable()
                 ->native(false),

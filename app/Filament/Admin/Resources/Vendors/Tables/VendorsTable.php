@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Vendors\Tables;
 
 use App\Filament\Admin\Resources\Vendors\VendorResource;
+use App\Models\Vendor;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -46,6 +47,21 @@ class VendorsTable
                         'active' => 'success',
                         'blacklisted' => 'danger',
                         default => 'gray',
+                    }),
+                TextColumn::make('coi_status')
+                    ->label(__('admin.vendors.compliance.coi_status'))
+                    ->badge()
+                    ->state(fn (Vendor $record) => match (true) {
+                        $record->coi_expires_at === null => __('admin.vendors.compliance.none'),
+                        $record->coiDaysToExpiry() < 0 => __('admin.vendors.compliance.expired'),
+                        $record->coiDaysToExpiry() <= 30 => __('admin.vendors.compliance.expiring'),
+                        default => $record->coi_expires_at->format('Y-m-d'),
+                    })
+                    ->color(fn (Vendor $record) => match (true) {
+                        $record->coi_expires_at === null => 'gray',
+                        $record->coiDaysToExpiry() < 0 => 'danger',
+                        $record->coiDaysToExpiry() <= 30 => 'warning',
+                        default => 'success',
                     }),
             ])
             ->filters([

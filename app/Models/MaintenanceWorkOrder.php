@@ -406,6 +406,21 @@ class MaintenanceWorkOrder extends Model
                 );
             }
 
+            // Compliance gate (strengthen #5): never dispatch a non-dispatchable vendor
+            // (blacklisted/inactive, or its insurance/COI has lapsed). Only on assignment or
+            // reassignment — an existing order whose vendor's COI expires later isn't retroactively
+            // broken. This is the single server-side choke point for every write path (Filament
+            // form, RaiseCorrectiveMaintenanceService, factory); the pickers filter to Vendor
+            // ::assignable() too, but a client can post any vendor_id, so this is the real gate.
+            if ($order->isDirty('vendor_id') && $order->vendor_id !== null) {
+                $vendor = \App\Models\Vendor::find($order->vendor_id);
+                if ($vendor !== null && ! $vendor->isDispatchable()) {
+                    throw new \DomainException(
+                        "Vendor '{$vendor->name}' cannot be dispatched: it is blacklisted/inactive or its insurance (COI) has lapsed."
+                    );
+                }
+            }
+
             if ($order->work_order_type !== self::TYPE_CM) {
                 return;
             }

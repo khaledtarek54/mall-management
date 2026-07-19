@@ -2,7 +2,10 @@
 
 namespace App\Filament\Admin\Resources\Vendors\Schemas;
 
+use App\Models\Vendor;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
@@ -52,6 +55,27 @@ class VendorForm
                     Textarea::make('address')
                         ->label(__('admin.fields.address'))
                         ->rows(2)
+                        ->columnSpanFull(),
+                ]),
+
+            Section::make(__('admin.sections.vendor_compliance'))
+                ->description(__('admin.vendors.compliance.hint'))
+                ->columns(2)
+                ->components([
+                    DatePicker::make('coi_expires_at')
+                        ->label(__('admin.vendors.compliance.coi_expires_at'))
+                        ->native(false),
+                    TextInput::make('insurer')
+                        ->label(__('admin.vendors.compliance.insurer'))
+                        ->maxLength(200),
+                    TextInput::make('policy_number')
+                        ->label(__('admin.vendors.compliance.policy_number'))
+                        ->maxLength(100),
+                    SpatieMediaLibraryFileUpload::make('coi')
+                        ->label(__('admin.vendors.compliance.coi_document'))
+                        ->collection(Vendor::COI_COLLECTION)
+                        ->downloadable()
+                        ->acceptedFileTypes(['application/pdf', 'image/*'])
                         ->columnSpanFull(),
                 ]),
 

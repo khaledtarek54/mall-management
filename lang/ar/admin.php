@@ -1312,6 +1312,7 @@ return [
         'payroll_details' => 'بيانات الرواتب',
         'vendor_details' => 'المورد',
         'vendor_contracts' => 'العقود',
+        'vendor_compliance' => 'التأمين والامتثال',
         'vendor_contacts' => 'جهات الاتصال',
         'role_details' => 'الدور',
         'permissions' => 'الصلاحيات',
@@ -2027,6 +2028,20 @@ return [
             'approved' => 'تم اعتماد الصرف',
             'paid' => 'تم صرف المستحقات — وتمت تسوية المستحق للمالك',
             'cancelled' => 'تم إلغاء الصرف',
+        ],
+    ],
+
+    'vendors' => [
+        'compliance' => [
+            'hint' => 'لا يمكن إسناد أعمال الصيانة إلى مورّد محظور أو غير نشط أو انتهت وثيقة تأمينه (COI).',
+            'coi_expires_at' => 'انتهاء التأمين (COI)',
+            'insurer' => 'شركة التأمين',
+            'policy_number' => 'رقم الوثيقة',
+            'coi_document' => 'شهادة التأمين (COI)',
+            'coi_status' => 'التأمين',
+            'none' => 'لا يوجد تأمين',
+            'expiring' => 'قارب على الانتهاء',
+            'expired' => 'منتهٍ',
         ],
     ],
     'inventory' => [

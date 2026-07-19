@@ -1316,6 +1316,7 @@ return [
         'payroll_details' => 'Payroll details',
         'vendor_details' => 'Vendor',
         'vendor_contracts' => 'Contracts',
+        'vendor_compliance' => 'Insurance & Compliance',
         'vendor_contacts' => 'Contacts',
         'role_details' => 'Role',
         'permissions' => 'Permissions',
@@ -2027,6 +2028,20 @@ return [
             'approved' => 'Disbursement approved',
             'paid' => 'Disbursement paid — Due to Owner cleared',
             'cancelled' => 'Disbursement cancelled',
+        ],
+    ],
+
+    'vendors' => [
+        'compliance' => [
+            'hint' => 'A blacklisted/inactive vendor, or one whose insurance (COI) has lapsed, cannot be dispatched to maintenance work.',
+            'coi_expires_at' => 'Insurance (COI) expiry',
+            'insurer' => 'Insurer',
+            'policy_number' => 'Policy number',
+            'coi_document' => 'Insurance certificate (COI)',
+            'coi_status' => 'COI',
+            'none' => 'No COI',
+            'expiring' => 'Expiring soon',
+            'expired' => 'Expired',
         ],
     ],
     'inventory' => [
