@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Enums\TenantRequestType;
+use App\Models\AccountingPeriod;
 use App\Models\Asset;
 use App\Models\CamExpensePool;
 use App\Models\Charge;
@@ -30,6 +31,7 @@ use App\Models\Note;
 use App\Models\Payment;
 use App\Models\Payroll;
 use App\Models\PayrollLine;
+use App\Models\PostDatedCheque;
 use App\Models\SlaPolicy;
 use App\Models\Tenant;
 use App\Models\TenantRequest;
@@ -56,6 +58,7 @@ use App\Services\GrantCustodyService;
 use App\Services\GrantEmployeeAdvanceService;
 use App\Services\PayrollService;
 use App\Services\PercentageRentCalculationService;
+use App\Services\PostDatedChequeService;
 use App\Services\RecordAdvanceRepaymentService;
 use App\Services\SettleCustodyService;
 use App\Services\StockMovementService;
@@ -352,6 +355,7 @@ class DemoSeeder extends Seeder
         $this->seedVendorBills($atriomWalk);
         $this->seedExpenses($atriomWalk);
         $this->seedSecurityDeposits();
+        $this->seedPostDatedCheques($atriomWalk);
 
         $plazaUnitCount = Unit::where('asset_id', $plazaAnnex->id)->count();
         $this->command->info("✅ Created Atriom Walk with {$occupiedCount} occupied, {$vacantCount} vacant units (+ {$plazaUnitCount} vacant units on Plaza Annex demo asset)");
@@ -374,6 +378,9 @@ class DemoSeeder extends Seeder
         $this->command->info('📒 Posting General Ledger from all source documents (this may take a moment)...');
         Artisan::call('accounting:sync-ledger', ['--all' => true]);
         $this->command->info('   GL entries posted: '.JournalEntry::count().' journal entries');
+
+        // Owner statements read the posted GL for the period, so they must run AFTER the sync.
+        $this->seedOwnerStatements($atriomWalk);
     }
 
     /**
@@ -1473,6 +1480,8 @@ class DemoSeeder extends Seeder
                 'city' => 'Cairo',
                 'contact' => ['name' => 'Sara Adel', 'role' => 'Sales', 'phone' => '+201117788990'],
                 'contract' => null,
+                // Deliberately EXPIRED — demonstrates the COI gate blocking a work-order assignment.
+                'coi' => ['expires' => now()->subMonths(2)->toDateString(), 'insurer' => 'GIG Egypt', 'policy' => 'POL-GL-2025'],
             ],
             [
                 'name' => 'PestStop Egypt',
@@ -1482,6 +1491,8 @@ class DemoSeeder extends Seeder
                 'city' => 'Cairo',
                 'contact' => ['name' => 'Tarek Sami', 'role' => 'Operations', 'phone' => '+201557788992'],
                 'contract' => ['name' => 'Quarterly pest control', 'value' => 60000, 'start' => '2026-01-01', 'end' => '2026-12-31'],
+                // No certificate on file at all — also blocked from assignment.
+                'coi' => null,
             ],
             [
                 'name' => 'FireSafe Consultants',
@@ -1495,6 +1506,12 @@ class DemoSeeder extends Seeder
         ];
 
         foreach ($vendors as $v) {
+            // Most vendors carry a valid certificate of insurance (8 months out); the two with an
+            // explicit 'coi' key are non-compliant (expired / missing) to demo the assignment gate.
+            $coi = array_key_exists('coi', $v)
+                ? $v['coi']
+                : ['expires' => now()->addMonths(8)->toDateString(), 'insurer' => 'Misr Insurance', 'policy' => 'POL-'.strtoupper(substr(md5($v['email']), 0, 8))];
+
             $vendor = Vendor::updateOrCreate(
                 ['email' => $v['email']],
                 [
@@ -1504,6 +1521,9 @@ class DemoSeeder extends Seeder
                     'tax_id' => $v['tax_id'] ?? null,
                     'phone' => $v['phone'],
                     'city' => $v['city'],
+                    'coi_expires_at' => $coi['expires'] ?? null,
+                    'insurer' => $coi['insurer'] ?? null,
+                    'policy_number' => $coi['policy'] ?? null,
                 ],
             );
 
@@ -2307,5 +2327,113 @@ class DemoSeeder extends Seeder
         }
 
         $this->command->info("   Seeded {$count} security-deposit transactions (receipts + refund + forfeit)");
+    }
+
+    /**
+     * Post-dated cheque register (module 33): tenants hand over forward-dated cheques the operator
+     * banks on maturity. Seed a spread across the whole lifecycle so the register, the maturity
+     * scan, and the settle-on-clear flow all have live data. Runs BEFORE the GL sync so the cleared
+     * cheque's Payment gets posted.
+     */
+    private function seedPostDatedCheques(Asset $asset): void
+    {
+        $leases = Lease::whereHas('unit', fn ($q) => $q->where('asset_id', $asset->id))
+            ->where('status', 'active')
+            ->with('tenant')
+            ->take(5)
+            ->get();
+
+        if ($leases->isEmpty()) {
+            return;
+        }
+
+        $service = app(PostDatedChequeService::class);
+        $actor = User::where('email', 'admin@mall.test')->first();
+        $banks = ['CIB', 'QNB Alahli', 'Banque Misr', 'NBE', 'AAIB'];
+        // [cheque_date offset in days, lifecycle action]
+        $plan = [
+            [-15, 'held'],      // matured but still held → the maturity scan surfaces it
+            [-5,  'deposited'], // presented to the bank, awaiting clearance
+            [-3,  'cleared'],   // funds received → a Payment settles the invoice + posts to the GL
+            [-8,  'bounced'],   // deposited then returned unpaid
+            [30,  'held'],      // not yet due
+        ];
+        $count = 0;
+
+        foreach ($leases as $i => $lease) {
+            [$offset, $action] = $plan[$i] ?? [0, 'held'];
+
+            $invoice = Invoice::where('lease_id', $lease->id)
+                ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
+                ->where('balance', '>', 0)
+                ->orderBy('due_date')
+                ->first();
+
+            $cheque = PostDatedCheque::create([
+                'reference' => PostDatedCheque::generateReference(),
+                'asset_id' => $asset->id,
+                'tenant_id' => $lease->tenant_id,
+                'lease_id' => $lease->id,
+                'invoice_id' => $invoice?->id,
+                'cheque_number' => 'CHQ-'.now()->format('y').'-'.str_pad((string) ($i + 1), 4, '0', STR_PAD_LEFT),
+                'bank_name' => $banks[$i % count($banks)],
+                'amount' => $invoice ? min((float) $invoice->balance, 25000) : 15000,
+                'currency' => 'EGP',
+                'cheque_date' => now()->addDays($offset)->toDateString(),
+                'received_date' => now()->subDays(20)->toDateString(),
+                'status' => PostDatedCheque::STATUS_HELD,
+            ]);
+            $count++;
+
+            if ($action === 'deposited') {
+                $service->deposit($cheque);
+            } elseif ($action === 'cleared' && $actor) {
+                $service->clear($cheque, $actor, now()->subDays(2)->toDateString());
+            } elseif ($action === 'bounced') {
+                $service->deposit($cheque);
+                $service->bounce($cheque);
+            }
+        }
+
+        $this->command->info("   Seeded {$count} post-dated cheques (held / deposited / cleared / bounced)");
+    }
+
+    /**
+     * Owner statements (module 32): the accrual-basis statement + disbursement the operator produces
+     * for the property owner each month. Generate one FINALISED run for a fully-elapsed month and one
+     * DRAFT for last month, so both boards have rows. Reads the posted GL, so it runs AFTER the sync.
+     */
+    private function seedOwnerStatements(Asset $asset): void
+    {
+        $owner = User::where('email', 'owner@atriom.test')->first();
+        if (! $owner || ! $asset->owners()->where('users.id', $owner->id)->exists()) {
+            return;
+        }
+
+        try {
+            $calendar = app(\App\Services\Accounting\FiscalCalendar::class);
+            $calendar->ensureYear((int) now()->year);
+            $calendar->ensureYear((int) now()->subYear()->year); // in case sub-2-months crosses January
+
+            $generate = app(\App\Services\OwnerAccounting\GenerateOwnerStatementRunService::class);
+            $finalise = app(\App\Services\OwnerAccounting\FinaliseOwnerStatementRunService::class);
+
+            // Finalised statement for two months ago (fully elapsed, GL posted).
+            $priorPeriod = AccountingPeriod::forDate(now()->subMonthsNoOverflow(2)->startOfMonth());
+            if ($priorPeriod) {
+                $finalise->finalise($generate->generate($asset, $priorPeriod), $owner);
+            }
+
+            // A draft for last month so the review queue isn't empty.
+            $lastPeriod = AccountingPeriod::forDate(now()->subMonthNoOverflow()->startOfMonth());
+            if ($lastPeriod && (! $priorPeriod || $lastPeriod->id !== $priorPeriod->id)) {
+                $generate->generate($asset, $lastPeriod);
+            }
+
+            $this->command->info('   Seeded owner statements ('.\App\Models\OwnerStatementRun::count().' run(s), 1 finalised + 1 draft)');
+        } catch (\Throwable $e) {
+            // Owner statements are demo polish — never let a period/GL edge abort the whole seed.
+            $this->command->warn('   Owner statements skipped: '.$e->getMessage());
+        }
     }
 }
