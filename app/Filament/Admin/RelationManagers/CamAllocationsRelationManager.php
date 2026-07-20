@@ -20,6 +20,20 @@ class CamAllocationsRelationManager extends RelationManager
         return __('admin.tables.cam.allocations');
     }
 
+    /** Named once so the bill action's visible() (UI) and action() (real gate) can't drift. */
+    public static function canBill(CamAllocation $record): bool
+    {
+        return $record->status === 'pending'
+            && (auth()->user()?->can('cam.bill_allocation') ?? false);
+    }
+
+    /** Void (un-bill) — the inverse of bill(); same permission domain. */
+    public static function canVoid(CamAllocation $record): bool
+    {
+        return $record->status === 'billed'
+            && (auth()->user()?->can('cam.bill_allocation') ?? false);
+    }
+
     public function table(Table $table): Table
     {
         return $table
@@ -78,8 +92,11 @@ class CamAllocationsRelationManager extends RelationManager
                     ->color('success')
                     ->requiresConfirmation()
                     ->modalDescription(__('admin.actions.bill_allocation_confirm'))
-                    ->visible(fn (CamAllocation $record) => $record->status === 'pending' && auth()->user()?->can('cam.bill_allocation'))
+                    ->visible(fn (CamAllocation $record) => self::canBill($record))
                     ->action(function (CamAllocation $record): void {
+                        // action() is the real gate — mountAction() never checks visible() (a custom
+                        // role with cam.edit but not cam.bill_allocation could otherwise bill).
+                        abort_unless(self::canBill($record), 403);
                         app(CamReconciliationService::class)->bill($record);
                         Notification::make()
                             ->success()
@@ -88,6 +105,26 @@ class CamAllocationsRelationManager extends RelationManager
                                 'amount' => number_format((float) $record->true_up_amount, 2),
                             ]))
                             ->send();
+                    }),
+                Action::make('void')
+                    ->label(__('admin.actions.void_allocation'))
+                    ->icon('heroicon-o-arrow-uturn-left')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalDescription(__('admin.actions.void_allocation_confirm'))
+                    ->visible(fn (CamAllocation $record) => self::canVoid($record))
+                    ->action(function (CamAllocation $record): void {
+                        abort_unless(self::canVoid($record), 403);
+                        try {
+                            app(CamReconciliationService::class)->voidAllocation($record);
+                            Notification::make()
+                                ->success()
+                                ->title(__('admin.notifications.allocation_voided'))
+                                ->send();
+                        } catch (\DomainException $e) {
+                            // e.g. the recovery invoice was already paid — refund it first.
+                            Notification::make()->danger()->title($e->getMessage())->send();
+                        }
                     }),
             ]);
     }

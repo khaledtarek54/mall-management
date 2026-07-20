@@ -30,7 +30,7 @@ function billPositiveTrueUp(array $leaseAttrs = [])
     // actual 50000 > estimated 30000 → +20000 the tenant owes.
     $pool = CamExpensePool::create([
         'asset_id' => $asset->id, 'period_year' => 2026,
-        'total_actual_expense' => 50000, 'total_estimated_collected' => 30000, 'status' => 'draft',
+        'total_actual_expense' => 50000, 'total_estimated_collected' => 30000, 'recovery_vat_rate' => 0, 'status' => 'draft',
     ]);
     $svc = app(CamReconciliationService::class);
     $svc->generateAllocations($pool);
@@ -65,7 +65,7 @@ it('does not let a CAM recovery invoice pre-empt the lease regular monthly invoi
     // Reconcile 2026 → positive true-up → recovery invoice (period 2026, not Feb 2027).
     $pool = CamExpensePool::create([
         'asset_id' => $asset->id, 'period_year' => 2026,
-        'total_actual_expense' => 50000, 'total_estimated_collected' => 30000, 'status' => 'draft',
+        'total_actual_expense' => 50000, 'total_estimated_collected' => 30000, 'recovery_vat_rate' => 0, 'status' => 'draft',
     ]);
     $svc = app(CamReconciliationService::class);
     $svc->generateAllocations($pool);

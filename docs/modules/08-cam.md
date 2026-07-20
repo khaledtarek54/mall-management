@@ -272,7 +272,7 @@ php artisan cam:reconcile --year=2025 --auto-bill
 
 **Navigation**: "Accounting" group, icon building-office-2, sort 7.
 
-**Scoping**: Bypasses tenant scoping (admin sees all properties). Gated by module permission `'cam'`.
+**Scoping**: Property-scoped — `getEloquentQuery()` filters pools by the current asset (`TenantScope::currentAssetId()` / `visibleAssetIds()`), so a property-restricted operator sees only their malls' pools; only a fully-unrestricted admin sees all. `GuardsAssetInScope::assertAssetInScope()` guards the pool's `asset_id` on create + edit. Gated by module permission `'cam'`. *(The three write actions — generateAllocations / markReconciled / bill — gate their permission + status in **both** `visible()` and `action()` via a named predicate; `viewer`/`owner` hold `cam.view` but can't dispatch them. See `CamActionAuthzTest`.)*
 
 **Permission module**: `'cam'` (overridden via `permissionModule()` from `RoleGatedActions`).
 
@@ -467,29 +467,19 @@ The admin fee (**slice 1**) and caps (**slice 2**) are shipped; the engine is ph
 
 **To add a new clause**: add its column(s) defaulting to a no-op, compute inside `generateAllocations`, apply in the correct order (SOURCE → EXCLUDE → GROSS-UP → ALLOCATE → CAP → ADMIN-FEE → TRUE-UP), and add a parity assertion to `CamNoClauseParityTest` proving the default is still byte-identical.
 
-### To add CAM fee tiers or caps
+### Caps and exclusions
 
-Currently, `cap_amount` and `exclusions` are JSON fields in the model, but not used. To enable:
+**Caps are SHIPPED** (slice 2) — see the *Caps* rule in § 3. `cap_amount` / `capped_cost_amount` /
+`cap_absorbed_amount` are populated by `generateAllocations` from the lease's effective-dated
+`LeaseCamTerm` (`Lease::resolveCamCeiling`); the cap trims the true-up + admin-fee base only,
+**never** `allocated_amount` (the books-check tie-out basis). *(This section previously said caps
+were "not used" — stale; corrected in the close-out.)*
 
-1. **Populate cap/exclusions** in `generateAllocations()`:
-   ```php
-   $allocation->fill([
-       'cap_amount' => computeCapFor($lease),
-       'exclusions' => $lease->camExclusions() ?? [],
-   ]);
-   ```
+**`exclusions`** (the JSON column) belongs to **slice 3** (per-lease non-recoverables) and is still
+unused — see the recovery-clause engine note below and the [plan](../plans/05-cam-recovery-engine.md).
 
-2. **Adjust true-up logic** if a cap is in place:
-   ```php
-   $trueUp = round($allocated - $estimated, 2);
-   if ($allocation->cap_amount && $trueUp > $allocation->cap_amount) {
-       $trueUp = $allocation->cap_amount;
-   }
-   ```
-
-3. **Test**: Add cases for capped scenarios (e.g. `it('respects cap_amount...')`).
-
-**Do NOT**: Change the allocation amounts themselves; only the true-up.
+**Do NOT**: change `allocated_amount` for a cap/exclusion — only the true-up + fee base (the keystone
+invariant).
 
 ### To link CAM charges to a tax/VAT regime
 
@@ -660,3 +650,19 @@ php artisan test --filter='generates one pro-rata allocation'
 | **Asset** (`docs/modules/01-asset.md`) | Pool is scoped to an asset. Asset properties (e.g. name, currency) may influence CAM. |
 | **Permissions & Roles** (`docs/modules/11-permissions.md`) | CAM actions are gated by module permissions (`cam.*`). Only users with the right role can view/create/edit pools or bill allocations. |
 
+
+## 11. Close-out (2026-07-20) — what changed
+
+The property+facility close-out ([gap-analysis](../gap-analysis/PROPERTY-FACILITY-CLOSURE.md)); plain-language business model: [business-model/08](../business-model/08-cam.md). The engine (slices 1–2) was found correct; the fixes are around it.
+
+### Authz double-gate (was: dispatch hole)
+`generateAllocations` / `markReconciled` (`CamExpensePoolsTable`) + `bill` + the new `void` (`CamAllocationsRelationManager`) now re-assert a **named predicate** — `canGenerate` / `canMarkReconciled` / `canBill` / `canVoid` (permission **and** status) — in **both** `visible()` and `action()` (`abort_unless`). `mountAction()` never checks `isVisible()`, and seeded `viewer`/`owner` hold `cam.view`, so the old visible()-only gate let them dispatch these (and `generateAllocations` re-opened a reconciled pool via its unconditional `status=reconciling`). Tested via `mountAction`+`callMountedAction` in `CamActionAuthzTest` (not `callAction`, which false-passes).
+
+### Per-pool recovery VAT (`recovery_vat_rate`, default 14%)
+The monthly CAM estimate bills at 14% VAT; the year-end recovery used to bill at 0% — an output-VAT under-collection inconsistent with the estimate. `billChargeImmediately` now VATs the recovery line and `billCredit` VATs the over-collection credit note (the credit-note journalizer reverses it: Dr Sales Returns + Dr VAT Payable / Cr AR). VAT rides **on top** — `allocated_amount` / `true_up_amount` are untouched, so `Σ allocated = total_actual_expense` still ties out. Frozen with the rest of the basis (`CamExpensePool::booted`). `recovery_vat_rate = 0` ⇒ byte-identical to the pre-VAT pass-through. Tested through the real sweep in `CamRecoveryVatTest`. *(A tax call for the accountant; the default matches the estimate, 0% available per pool.)*
+
+### `voidAllocation` (un-bill / correction path)
+Reverses a billed allocation's documents — the recovery invoice (`VoidInvoiceService`, which also carries the fee line for a positive true-up), the credit note (`CreditNoteService::reverseAllApplications` then `void`), and the fee-only invoice — and resets the allocation to `pending`, which **unfreezes the pool basis** (the freeze guard checks non-pending allocations) for a correct-and-re-bill. A recovery invoice the tenant already **paid** blocks it (`VoidInvoiceService` refuses captured cash — refund first). Lock-safe + idempotent; the whole reversal is one transaction. Surfaced as the `void` action on the allocations relation manager (gated `cam.bill_allocation`). Tested in `CamVoidAllocationTest`. This is the action the freeze guard's error message ("void the billed allocations first") always referenced.
+
+### Deferred (with triggers)
+Slice 3 (gross-up / GLA basis / alternative bases / per-lease `exclusions`); per-tenant estimate derivation from actual billed service charges; move-in/out occupied-days proration; a tenant reconciliation-statement PDF. See the closure record for the triggers.

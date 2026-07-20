@@ -23,6 +23,7 @@ class CamExpensePool extends Model
         'total_estimated_collected',
         'admin_fee_pct',
         'admin_fee_on_net',
+        'recovery_vat_rate',
         'status',
         'notes',
         'reconciled_at',
@@ -34,6 +35,7 @@ class CamExpensePool extends Model
         'total_estimated_collected' => 'decimal:2',
         'admin_fee_pct' => 'decimal:4',
         'admin_fee_on_net' => 'boolean',
+        'recovery_vat_rate' => 'decimal:2',
         'reconciled_at' => 'datetime',
     ];
 
@@ -53,7 +55,8 @@ class CamExpensePool extends Model
             $basisChanged = $pool->isDirty('total_actual_expense')
                 || $pool->isDirty('total_estimated_collected')
                 || $pool->isDirty('admin_fee_pct')
-                || $pool->isDirty('admin_fee_on_net');
+                || $pool->isDirty('admin_fee_on_net')
+                || $pool->isDirty('recovery_vat_rate'); // changing the recovery VAT after billing would leave billed rows on the old rate
 
             if ($basisChanged && $pool->allocations()->where('status', '!=', 'pending')->exists()) {
                 throw new \DomainException(
@@ -66,7 +69,7 @@ class CamExpensePool extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['status', 'total_actual_expense', 'total_estimated_collected', 'admin_fee_pct', 'reconciled_at'])
+            ->logOnly(['status', 'total_actual_expense', 'total_estimated_collected', 'admin_fee_pct', 'recovery_vat_rate', 'reconciled_at'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('cam_pool');

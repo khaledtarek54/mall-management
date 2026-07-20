@@ -31,6 +31,7 @@ function makePool(\App\Models\Asset $asset, array $attrs = []): CamExpensePool
         'period_year' => 2026,
         'total_actual_expense' => 100000,
         'total_estimated_collected' => 80000,
+        'recovery_vat_rate' => 0, // these scenarios pin the true-up/credit MECHANISM; the 14% VAT path has dedicated tests
         'status' => 'draft',
     ], $attrs));
 }

@@ -29,5 +29,6 @@ the action, and the exact result — the same shape as this percentage-rent exam
 | 05 | Billing & Invoices | [05-billing-invoices.md](05-billing-invoices.md) | [modules/05](../modules/05-billing-invoices.md) |
 | 06 | Payments | [06-payments.md](06-payments.md) | [modules/06](../modules/06-payments.md) |
 | 07 | Credit Notes | [07-credit-notes.md](07-credit-notes.md) | [modules/07](../modules/07-credit-notes.md) |
+| 08 | CAM Reconciliation | [08-cam.md](08-cam.md) | [modules/08](../modules/08-cam.md) |
 
 _More added as each module closes (order in [PROPERTY-FACILITY-CLOSURE.md](../gap-analysis/PROPERTY-FACILITY-CLOSURE.md))._

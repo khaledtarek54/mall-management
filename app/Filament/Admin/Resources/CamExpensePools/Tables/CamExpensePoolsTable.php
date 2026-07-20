@@ -15,6 +15,25 @@ use Filament\Tables\Table;
 
 class CamExpensePoolsTable
 {
+    /**
+     * The predicate for each write action, named ONCE so visible() (the UI) and action() (the real
+     * gate) can't drift. `mountAction()` never checks isVisible(), so a hidden action is still
+     * dispatchable by a crafted Livewire call — every write must re-assert in action() (abort_unless).
+     * Both the permission AND the status must be re-checked: `viewer`/`owner` hold cam.view (so the
+     * pool list renders) but not the action perms, and re-opening a reconciled pool must stay blocked.
+     */
+    public static function canGenerate(CamExpensePool $record): bool
+    {
+        return in_array($record->status, ['draft', 'reconciling'], true)
+            && (auth()->user()?->can('cam.generate_allocations') ?? false);
+    }
+
+    public static function canMarkReconciled(CamExpensePool $record): bool
+    {
+        return $record->status === 'reconciling'
+            && (auth()->user()?->can('cam.mark_reconciled') ?? false);
+    }
+
     public static function configure(Table $table): Table
     {
         return $table
@@ -76,8 +95,9 @@ class CamExpensePoolsTable
                     ->color('primary')
                     ->requiresConfirmation()
                     ->modalDescription(__('admin.actions.generate_allocations_confirm'))
-                    ->visible(fn (CamExpensePool $record) => in_array($record->status, ['draft', 'reconciling']) && auth()->user()?->can('cam.generate_allocations'))
+                    ->visible(fn (CamExpensePool $record) => self::canGenerate($record))
                     ->action(function (CamExpensePool $record): void {
+                        abort_unless(self::canGenerate($record), 403);
                         $count = app(CamReconciliationService::class)->generateAllocations($record);
                         $record->update(['status' => 'reconciling']);
                         Notification::make()
@@ -91,8 +111,9 @@ class CamExpensePoolsTable
                     ->icon('heroicon-o-check-badge')
                     ->color('success')
                     ->requiresConfirmation()
-                    ->visible(fn (CamExpensePool $record) => $record->status === 'reconciling' && auth()->user()?->can('cam.mark_reconciled'))
+                    ->visible(fn (CamExpensePool $record) => self::canMarkReconciled($record))
                     ->action(function (CamExpensePool $record): void {
+                        abort_unless(self::canMarkReconciled($record), 403);
                         $record->update([
                             'status' => 'reconciled',
                             'reconciled_at' => now(),

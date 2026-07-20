@@ -24,6 +24,7 @@ function parityPool(float $actual, float $estimated): CamExpensePool
     return CamExpensePool::create([
         'asset_id' => $asset->id, 'period_year' => 2026,
         'total_actual_expense' => $actual, 'total_estimated_collected' => $estimated,
+        'recovery_vat_rate' => 0, // pure passthrough parity: no fee, no cap, no VAT
         'status' => 'draft',
         // admin_fee_pct intentionally left null → no clause.
     ]);

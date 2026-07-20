@@ -37,7 +37,7 @@ function billWithFee(float $actual, float $estimated)
     $pool = CamExpensePool::create([
         'asset_id' => $asset->id, 'period_year' => 2026,
         'total_actual_expense' => $actual, 'total_estimated_collected' => $estimated,
-        'admin_fee_pct' => 0.10, 'admin_fee_on_net' => true, 'status' => 'draft',
+        'admin_fee_pct' => 0.10, 'admin_fee_on_net' => true, 'recovery_vat_rate' => 0, 'status' => 'draft',
     ]);
     $svc = app(CamReconciliationService::class);
     $svc->generateAllocations($pool);

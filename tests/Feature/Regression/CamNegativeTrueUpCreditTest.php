@@ -21,7 +21,7 @@ it('preserves a large negative CAM true-up as a credit note, not a lost negative
     // month's rent, the scenario that used to lose the credit).
     $pool = CamExpensePool::create([
         'asset_id' => $asset->id, 'period_year' => 2026,
-        'total_actual_expense' => 10000, 'total_estimated_collected' => 60000, 'status' => 'draft',
+        'total_actual_expense' => 10000, 'total_estimated_collected' => 60000, 'recovery_vat_rate' => 0, 'status' => 'draft',
     ]);
 
     $svc = app(CamReconciliationService::class);
@@ -53,7 +53,7 @@ it('auto-applies the CAM credit to the lease open invoices (nets what is owed)',
 
     $pool = CamExpensePool::create([
         'asset_id' => $asset->id, 'period_year' => 2026,
-        'total_actual_expense' => 10000, 'total_estimated_collected' => 60000, 'status' => 'draft',
+        'total_actual_expense' => 10000, 'total_estimated_collected' => 60000, 'recovery_vat_rate' => 0, 'status' => 'draft',
     ]); // → -50000 credit
 
     $svc = app(CamReconciliationService::class);
@@ -76,7 +76,7 @@ it('re-generating allocations does not clobber a billed credit allocation', func
     makeLease(makeUnit($asset, ['area_sqm' => 100]), makeTenant());
     $pool = CamExpensePool::create([
         'asset_id' => $asset->id, 'period_year' => 2026,
-        'total_actual_expense' => 10000, 'total_estimated_collected' => 60000, 'status' => 'draft',
+        'total_actual_expense' => 10000, 'total_estimated_collected' => 60000, 'recovery_vat_rate' => 0, 'status' => 'draft',
     ]);
 
     $svc = app(CamReconciliationService::class);
@@ -97,7 +97,7 @@ it('re-billing a credit allocation is a no-op (no duplicate credit note)', funct
     makeLease(makeUnit($asset, ['area_sqm' => 100]));
     $pool = CamExpensePool::create([
         'asset_id' => $asset->id, 'period_year' => 2026,
-        'total_actual_expense' => 10000, 'total_estimated_collected' => 60000, 'status' => 'draft',
+        'total_actual_expense' => 10000, 'total_estimated_collected' => 60000, 'recovery_vat_rate' => 0, 'status' => 'draft',
     ]);
 
     $svc = app(CamReconciliationService::class);

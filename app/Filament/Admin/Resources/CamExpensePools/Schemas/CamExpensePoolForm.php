@@ -75,6 +75,20 @@ class CamExpensePoolForm
                         ->helperText(__('admin.helpers.cam_admin_fee_pct'))
                         ->formatStateUsing(fn ($state) => $state === null ? null : round((float) $state * 100, 4))
                         ->dehydrateStateUsing(fn ($state) => ($state === null || $state === '') ? null : round((float) $state / 100, 6)),
+
+                    // VAT on the cost recovery (true-up + over-collection credit). Plain percentage
+                    // (14, not the fee's 0.10 fraction). Default 14% to match the monthly CAM estimate;
+                    // 0% for a genuinely non-taxable pass-through. Frozen once an allocation is billed.
+                    TextInput::make('recovery_vat_rate')
+                        ->label(__('admin.fields.cam_recovery_vat_rate'))
+                        ->suffix('%')
+                        ->numeric()
+                        ->minValue(0)
+                        ->maxValue(100)
+                        ->step('0.01')
+                        ->default(14)
+                        ->required()
+                        ->helperText(__('admin.helpers.cam_recovery_vat_rate')),
                 ]),
             Section::make(__('admin.sections.cam_notes'))
                 ->components([

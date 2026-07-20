@@ -308,6 +308,74 @@ class CamReconciliationService
     }
 
     /**
+     * Un-bill an allocation: reverse every financial document it created and reset it to `pending`,
+     * so the operator can correct the pool basis (the freeze guard's "void the billed allocations
+     * first") and re-bill. Reverses:
+     *  - the recovery invoice (positive true-up) — which also carries the fee line, if any;
+     *  - the credit note (negative true-up) — un-applied from the invoices it settled, then voided;
+     *  - the fee-only invoice (negative / zero true-up).
+     * A recovery invoice the tenant has already PAID blocks the void (VoidInvoiceService refuses
+     * captured cash) — refund the payment first. Idempotent + lock-safe (a non-billed allocation is
+     * a no-op).
+     */
+    public function voidAllocation(CamAllocation $allocation): CamAllocation
+    {
+        return DB::transaction(function () use ($allocation) {
+            $allocation = CamAllocation::query()->lockForUpdate()->find($allocation->id);
+            if (! $allocation || $allocation->status !== 'billed') {
+                return $allocation; // only a billed allocation can be un-billed
+            }
+
+            // The credit note first: un-apply it from the invoices it settled (re-opening their AR),
+            // then void it (void refuses an applied note, so the un-apply must come first).
+            if ($allocation->billed_credit_note_id) {
+                $note = CreditNote::find($allocation->billed_credit_note_id);
+                if ($note) {
+                    $creditSvc = app(CreditNoteService::class);
+                    $creditSvc->reverseAllApplications($note);
+                    $creditSvc->void($note, 'CAM reconciliation voided');
+                }
+            }
+
+            // Void each DISTINCT invoice backing the allocation. For a positive true-up the recovery
+            // charge + the fee charge share ONE invoice (unique() collapses them); for a negative/zero
+            // true-up the fee has its own fee-only invoice.
+            $invoiceIds = collect([$allocation->billed_charge_id, $allocation->billed_admin_fee_charge_id])
+                ->filter()
+                ->map(fn ($chargeId) => InvoiceItem::where('charge_id', $chargeId)->value('invoice_id'))
+                ->filter()
+                ->unique();
+
+            foreach ($invoiceIds as $invoiceId) {
+                $invoice = Invoice::find($invoiceId);
+                if ($invoice && ! in_array($invoice->status, ['cancelled', 'credited'], true)) {
+                    app(VoidInvoiceService::class)->void($invoice, 'CAM reconciliation voided');
+                }
+            }
+
+            // Reset to pending so the pool basis unfreezes (once no allocation is billed) and the
+            // allocation can be re-generated + re-billed with the corrected figures.
+            $allocation->update([
+                'status' => 'pending',
+                'billed_charge_id' => null,
+                'billed_credit_note_id' => null,
+                'billed_admin_fee_charge_id' => null,
+            ]);
+
+            // Voiding an allocation re-opens the pool for correction: a sealed (reconciled) pool must
+            // return to 'reconciling', otherwise generateAllocations — which is blocked on
+            // 'reconciled' — can't re-run the corrected figures, and the operator is stuck re-billing
+            // the stale allocation. (No separate un-reconcile action exists; this is that path.)
+            $pool = CamExpensePool::find($allocation->cam_expense_pool_id);
+            if ($pool && in_array($pool->status, ['reconciled', 'closed'], true)) {
+                $pool->update(['status' => 'reconciling', 'reconciled_at' => null]);
+            }
+
+            return $allocation->refresh();
+        });
+    }
+
+    /**
      * Settle a POSITIVE true-up (tenant owes more) on a dedicated recovery
      * invoice IMMEDIATELY — never via a future-dated one_time charge that the
      * monthly engine may skip. Reconciliation runs the year after the reconciled
@@ -326,6 +394,14 @@ class CamReconciliationService
         $now = CarbonImmutable::now();
         $name = "CAM Reconciliation — {$year}";
 
+        // The recovery is additional consideration for the same taxable service supply as the monthly
+        // CAM estimate (billed at 14%), so it carries the pool's configured recovery VAT (default 14%;
+        // 0% for a genuinely non-taxable pass-through). VAT rides ON TOP of the cost recovery — the
+        // net `$amount` (= allocated/true-up) is unchanged, so the books-check's Σ allocated tie-out holds.
+        $vatRate = (float) ($allocation->pool->recovery_vat_rate ?? 0);
+        $vat = round($amount * $vatRate / 100, 2);
+        $lineTotal = round($amount + $vat, 2);
+
         // The Charge is a traceability record + the books-check anchor only — it is
         // ALREADY settled on the recovery invoice below. It MUST be is_active=false
         // and dated to the reconciled year so the monthly billing engine (which
@@ -338,8 +414,8 @@ class CamReconciliationService
             'amount' => $amount,
             'currency' => 'EGP',
             'frequency' => 'one_time',
-            'vat_applicable' => false,
-            'vat_rate' => 0,
+            'vat_applicable' => $vatRate > 0,
+            'vat_rate' => $vatRate,
             'start_date' => CarbonImmutable::create($year, 1, 1),
             'end_date' => CarbonImmutable::create($year, 12, 31),
             'is_active' => false,
@@ -360,10 +436,10 @@ class CamReconciliationService
             'period_start' => CarbonImmutable::create($year, 1, 1),
             'period_end' => CarbonImmutable::create($year, 12, 31),
             'subtotal' => $amount,
-            'vat_amount' => 0,
-            'total' => $amount,
+            'vat_amount' => $vat,
+            'total' => $lineTotal,
             'paid_amount' => 0,
-            'balance' => $amount,
+            'balance' => $lineTotal,
             'currency' => $lease->currency ?? 'EGP',
         ]);
 
@@ -375,9 +451,9 @@ class CamReconciliationService
             // (إيرادات استرداد المصروفات المشتركة) in the GL, not generic misc income.
             'type' => 'cam_recovery',
             'amount' => $amount,
-            'vat_rate' => 0,
-            'vat_amount' => 0,
-            'total' => $amount,
+            'vat_rate' => $vatRate,
+            'vat_amount' => $vat,
+            'total' => $lineTotal,
         ]);
 
         return [$charge, $invoice];
@@ -489,11 +565,20 @@ class CamReconciliationService
         }
     }
 
-    /** A negative true-up becomes an issued credit on the tenant's account. */
+    /**
+     * A negative true-up becomes an issued credit on the tenant's account. It carries the pool's
+     * recovery VAT — the tenant over-paid a 14%-VAT monthly estimate, so refunding the over-collection
+     * must reverse that output VAT too (the credit-note journalizer books Dr Sales Returns + Dr VAT
+     * Payable / Cr AR). A 0% pool → a VAT-free credit, byte-identical to before this setting existed.
+     */
     private function billCredit(CamAllocation $allocation, float $credit, int $year): CreditNote
     {
         /** @var Lease $lease */
         $lease = $allocation->lease;
+
+        $vatRate = (float) ($allocation->pool->recovery_vat_rate ?? 0);
+        $vat = round($credit * $vatRate / 100, 2);
+        $total = round($credit + $vat, 2);
 
         return CreditNote::create([
             'tenant_id' => $lease->tenant_id,
@@ -503,10 +588,10 @@ class CamReconciliationService
             'reason' => 'adjustment',
             'reason_notes' => "CAM reconciliation credit — {$year}",
             'subtotal' => $credit,
-            'vat_amount' => 0,
-            'total' => $credit,
+            'vat_amount' => $vat,
+            'total' => $total,
             'applied_amount' => 0,
-            'balance' => $credit,
+            'balance' => $total,
             'currency' => 'EGP',
         ]);
     }
