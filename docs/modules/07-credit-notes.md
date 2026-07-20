@@ -47,7 +47,7 @@ The system allows an operator to:
 | **Void guard**: Cannot void a note that has already been partially or fully applied (`applied_amount > 0`). Throws `DomainException`. Unapplied draft/issued notes can be voided. Void is idempotent. | `CreditNoteService::void()` lines 87–89. | `CreditNoteScenarioTest::test_void_throws_when_already_applied()`, `test_void_is_idempotent()` |
 | **Void effects**: Voiding zeroes `balance`, stamps `voided_at`, appends reason to `notes`, flips `status → void`. | Lines 97–98. | `CreditNoteScenarioTest::test_void_on_an_unapplied_issued_note_zeroes_the_balance()` |
 | **Item VAT computation**: Per item: `vat_amount = round(amount * vat_rate / 100, 2)`, `total = amount + vat_amount`. Note totals aggregate: `subtotal = sum(item.amount)`, `vat_amount = sum(item.vat_amount)`, `total = subtotal + vat_amount`. | Form `recomputeItem()` (line 176 in CreditNoteForm). | Implicit in form UI. |
-| **Scoping**: In Filament, a lease-linked credit note is visible only under its asset's property scope. A standalone note (no lease_id, no invoice_id) is visible under all properties (tenant-level adjustment). | `CreditNoteResource::getEloquentQuery()` lines 85–93. | `CreditNoteScenarioTest::test_scopes_a_lease_linked_credit_note_to_its_own_property()`, `test_shows_a_standalone_credit_note_under_every_property_scope()` |
+| **Scoping**: In Filament, a lease-linked credit note is visible only under its asset's property scope. A standalone note (no lease_id) is visible only under the properties where **its tenant leases** — NOT portfolio-wide (close-out 2026-07-20: the old "visible everywhere" leaked another property's tenant + credit and let a restricted operator void/issue it). | `CreditNoteResource::getEloquentQuery()`. | `CreditNoteScenarioTest` (scopes a lease-linked + a standalone note); `ResourceScopingTest` |
 
 ## 4. Lifecycle / state machine
 
@@ -331,4 +331,35 @@ The model logs status/balance changes via ActivityLog. But individual apply call
 ### Activity Log
 
 Credit notes use Spatie ActivityLog (`LogsActivity` trait). Logged fields: number, status, invoice_id, tenant_id, total, applied_amount, balance, reason. Changes trigger a new activity entry in the `activity_log` table with log_name='credit_note'.
+
+## 11. Close-out (2026-07-20) — what changed
+
+The property+facility close-out (see [gap-analysis](../gap-analysis/PROPERTY-FACILITY-CLOSURE.md)). Business model in plain language: [business-model/07](../business-model/07-credit-notes.md).
+
+### `credit_note_applications` (new) — reversible application link
+`applyToInvoice()` now writes a `CreditNoteApplication` row (`credit_note_id`, `invoice_id`, `amount`, `applied_at`, `created_by`; soft-deletes) for each application. This is the link the aggregate `applied_amount` / `credit_applied_amount` columns can't express — it lets an application be **un-applied** precisely. It is **NOT a GL source** (`PropertyIsolation::OWNED` chain `creditNote.lease.unit`; absent from `LedgerPoster::JOURNALIZERS`) — the note's own entry (posted at issue) already carries the ledger effect; an application only moves subledger balances.
+
+### Un-apply, not a second note (fixes the cancel double-count)
+`reverseAppliedCredit(Invoice)` (invoice-cancel hook) and `reverseAllApplications(CreditNote)` (the **Reverse** action) now **restore the original note** (balance/status/`applied_amount`) and soft-delete the application rows, instead of issuing a new offsetting note. The old design left the note `applied` AND created a second note — both posting Dr Sales Returns / Cr AR, so the sales-return was **double-counted** and AR went negative while the trial balance stayed balanced. Un-applying keeps the note's single original entry (now representing the returned, available credit). Tested through the real sweep in `CreditNoteCloseoutTest` + `VoidActionsTest`.
+
+### Apply guards (`applyToInvoice`)
+- **Same-tenant** (fail-closed): throws if `note.tenant_id !== invoice.tenant_id`. The apply action also `abort(403)`s on tenant mismatch (the picker filters by tenant, but a crafted `mountAction` submits any id). Mirrors `Payment::assertInvoicesShareTenant`.
+- **Property binding + same-property**: a standalone note **adopts the invoice's `lease_id` on first apply** (so its Dr Sales Returns posts to that property's books / owner statement, not the null bucket), then may only settle that property's invoices (throws otherwise). The finalized-note immutability guard was relaxed to allow `lease_id` to be set **once from null** (never re-homed).
+
+### Other guards
+- **`issue()`** runs `PostingDate::assertOpen($note->issue_date)` — refuses issuing into a closed period (the create-as-issued page path guards it too). AR can't move while the GL post is silently rejected.
+- **`CreditNote::recomputeFromItems()`** re-derives subtotal/vat/total/balance from the persisted line items (VAT from `amount × vat_rate`, never the submitted item vat/total). Called in the create/edit **page hooks** (the form boundary) — a tampered header total (readOnly, not disabled) can't reach the GL. Not called in `issue()` (a programmatically-created note has no item rows and sets its totals directly). Reachable-path test in `CreditNoteTenantScopeTest`.
+- **`deleting` guard**: refuses deleting a note with `applied_amount > 0` (Filament Delete doesn't route through `void()`, which is hidden for applied notes) — else `credit_applied_amount` strands. Force-delete is exempt.
+
+### Completeness
+- **`CreditNotePdfService`** + `resources/views/pdf/credit-note.blade.php` — a printable إشعار دائن; download from the list row + the edit header (gated `credit_notes.view`).
+- **`CreditNoteExporter`** + an `issue_date` range filter on the table (accountant's register/close).
+- **VAT inheritance**: selecting an invoice on the form prefills the note's lines from the invoice's items (description/amount/vat_rate) when none are entered — so a 14% charge reverses 14%.
+- **Reverse action** (`EditCreditNote`, double-gated `credit_notes.apply`): the supported way to undo an applied note (the applied-note Void dead-end).
+
+### Review hardening (pre-push)
+- **Backfill migration** (`2026_07_20_100001`): credit applied *before* the applications table existed has `applied_amount > 0` but no rows — on a `migrate` (not fresh) environment the reverse paths would strand/re-free that credit. The migration reconstructs one row per already-applied note (from its `invoice_id`). Belt-and-suspenders: `reverseAllApplications` **derives** the reset from the summed live rows (never blind-zeroes), so a rows-less note is a safe no-op, not a corruption.
+- **Deadlock retry**: `applyToInvoice` locks note→invoice while the invoice-cancel path locks invoice→note — an inversion. Both operator-facing transactions retry (`DB::transaction(..., 3)`); MySQL rolls back one on the rare same-note+invoice apply-vs-cancel collision and the retry succeeds.
+- **Force-delete** of an applied note is refused too (the guard no longer exempts `isForceDeleting`) — the applications FK is `cascadeOnDelete`, so a force-delete would drop the rows while the invoice keeps the credit.
+- **Known LOW edges** (accepted, non-silent): a standalone note whose tenant has *no* lease is visible only to a fully-unrestricted admin (over-restriction, not a leak); binding a standalone note whose `issue_date` period has since **closed** can't re-post its entry to the new asset (the sweep flags it `failed` + alerts — portfolio AR still ties, only per-property attribution waits for a reopen).
 

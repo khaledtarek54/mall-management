@@ -166,6 +166,7 @@ class PropertyIsolation
         Payment::class => 'invoices.lease.unit',
         CreditNote::class => 'lease.unit',
         CreditNoteItem::class => 'creditNote.lease.unit',
+        \App\Models\CreditNoteApplication::class => 'creditNote.lease.unit', // one application of a note; asset = the note's (invoice's) property; service-created, no Filament resource
         TenantRequest::class => 'unit',
         TenantRequestComment::class => 'request.unit',
         TenantSalesDeclaration::class => 'lease.unit',

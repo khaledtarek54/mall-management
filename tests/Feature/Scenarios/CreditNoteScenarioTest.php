@@ -383,20 +383,24 @@ it('scopes a lease-linked credit note to its own property and hides the other pr
     });
 });
 
-it('shows a STANDALONE (lease-less) credit note under every property scope', function () {
+it('scopes a STANDALONE (lease-less) credit note to the properties where its tenant leases', function () {
     ensureAllPropertiesAsset();
     $a = makeAsset(['code' => 'AAA']);
     $b = makeAsset(['code' => 'BBB']);
 
-    // Tenant-level adjustment: no lease_id, no invoice_id.
+    // A tenant who leases ONLY in property A, with a tenant-level (lease-less) credit note.
     $tenant = makeTenant();
+    makeLease(makeUnit($a), $tenant);
     $standalone = cnDraft($tenant->id, null, 750, null);
 
     asTenant($a, function () use ($standalone) {
+        // Visible under A — the tenant has a presence here.
         expect(CreditNoteResource::getEloquentQuery()->pluck('id')->all())->toContain($standalone->id);
     });
     asTenant($b, function () use ($standalone) {
-        expect(CreditNoteResource::getEloquentQuery()->pluck('id')->all())->toContain($standalone->id);
+        // NOT visible under B — the tenant doesn't lease here (this used to leak portfolio-wide,
+        // exposing another property's tenant + credit amount and letting them void/issue it).
+        expect(CreditNoteResource::getEloquentQuery()->pluck('id')->all())->not->toContain($standalone->id);
     });
 });
 

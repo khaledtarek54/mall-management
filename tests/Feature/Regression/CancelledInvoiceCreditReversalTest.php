@@ -4,12 +4,16 @@ use App\Models\CreditNote;
 use App\Services\CreditNoteService;
 
 /**
- * Regression (HIGH / money, hardening backlog H1): cancelling an invoice that
- * had credit applied used to LOSE that credit — credit_applied_amount was never
- * returned to the tenant. Now an offsetting credit note is issued so the
- * tenant's net credit is preserved.
+ * Regression (HIGH / money): cancelling an invoice that had credit applied must return that credit
+ * to the tenant WITHOUT double-counting the sales-return. The original design issued a SECOND
+ * offsetting note, so both it and the still-`applied` original posted Dr Sales Returns / Cr AR —
+ * doubling the return and driving AR negative. Now the original application is UN-APPLIED: its note
+ * is restored to available (its single, original GL entry now correctly represents the returned
+ * credit), the invoice's applied credit is zeroed, and NO second note is created.
  */
-it('returns consumed credit when a credited invoice is cancelled (no leak)', function () {
+use App\Models\CreditNoteApplication;
+
+it('un-applies consumed credit when a credited invoice is cancelled (no second note, no double-count)', function () {
     $tenant = makeTenant();
     $lease = makeLease(makeUnit(makeAsset()), $tenant);
     $invoice = makeInvoice($lease); // issued, balance 11400
@@ -21,23 +25,25 @@ it('returns consumed credit when a credited invoice is cancelled (no leak)', fun
         'applied_amount' => 0, 'balance' => 5000, 'currency' => 'EGP',
     ]);
     app(CreditNoteService::class)->applyToInvoice($note, $invoice->fresh());
-    expect((float) $invoice->fresh()->credit_applied_amount)->toBe(5000.0);
+    expect((float) $invoice->fresh()->credit_applied_amount)->toBe(5000.0)
+        ->and(CreditNoteApplication::where('credit_note_id', $note->id)->count())->toBe(1);
 
     $notesBefore = CreditNote::where('tenant_id', $tenant->id)->count();
 
     $invoice->fresh()->update(['status' => 'cancelled']);
 
-    // An offsetting note was issued + the invoice's applied credit zeroed.
-    expect(CreditNote::where('tenant_id', $tenant->id)->count())->toBe($notesBefore + 1)
+    // No SECOND note — the SAME note is restored to available, and the invoice's credit is zeroed.
+    expect(CreditNote::where('tenant_id', $tenant->id)->count())->toBe($notesBefore)
         ->and((float) $invoice->fresh()->credit_applied_amount)->toBe(0.0);
 
-    // The 5000 consumed credit is back on a fresh issued note (net preserved).
-    $offsetting = CreditNote::where('tenant_id', $tenant->id)->latest('id')->first();
-    expect($offsetting->status)->toBe('issued')
-        ->and((float) $offsetting->balance)->toBe(5000.0);
+    $note->refresh();
+    expect($note->status)->toBe('issued')
+        ->and((float) $note->balance)->toBe(5000.0)       // 5000 credit back on the ORIGINAL note
+        ->and((float) $note->applied_amount)->toBe(0.0)
+        ->and(CreditNoteApplication::where('credit_note_id', $note->id)->count())->toBe(0); // application reversed
 });
 
-it('reverses credit + zeros balance when cancelling the SAME (stale) in-memory instance', function () {
+it('un-applies credit + zeros balance when cancelling the SAME (stale) in-memory instance', function () {
     $tenant = makeTenant();
     $lease = makeLease(makeUnit(makeAsset()), $tenant);
     $invoice = makeInvoice($lease); // balance 11400
@@ -53,12 +59,13 @@ it('reverses credit + zeros balance when cancelling the SAME (stale) in-memory i
 
     $notesBefore = CreditNote::where('tenant_id', $tenant->id)->count();
 
-    // Cancel the SAME stale instance — the reversal must still fire (reads the DB).
+    // Cancel the SAME stale instance — the un-apply must still fire (reads the DB).
     $invoice->update(['status' => 'cancelled']);
 
-    expect(CreditNote::where('tenant_id', $tenant->id)->count())->toBe($notesBefore + 1) // offsetting note
+    expect(CreditNote::where('tenant_id', $tenant->id)->count())->toBe($notesBefore) // no offsetting note
         ->and((float) $invoice->fresh()->credit_applied_amount)->toBe(0.0)
-        ->and((float) $invoice->fresh()->balance)->toBe(0.0); // not a phantom 11400
+        ->and((float) $invoice->fresh()->balance)->toBe(0.0) // not a phantom 11400
+        ->and((float) $note->fresh()->balance)->toBe(5000.0); // credit returned to the original note
 });
 
 it('does NOT reverse credit when an invoice is marked credited (settlement stays consumed)', function () {

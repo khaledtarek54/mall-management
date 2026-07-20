@@ -118,7 +118,7 @@ describe('Payment scoping', function () {
 });
 
 describe('CreditNote scoping', function () {
-    it('scopes credit notes via lease.unit and always shows standalone ones', function () {
+    it('scopes credit notes via lease.unit; a standalone note follows its tenant\'s leased properties', function () {
         $linked = CreditNote::create([
             'number' => 'CN-LINKED-'.uniqid(),
             'tenant_id' => $this->hwInvoice->tenant_id,
@@ -145,11 +145,13 @@ describe('CreditNote scoping', function () {
 
         asTenant($this->hw, function () use ($linked, $standalone) {
             $ids = scopedResourceQuery(CreditNoteResource::class)->pluck('id')->all();
-            expect($ids)->toContain($linked->id)->toContain($standalone->id);
+            // linked → HW lease (visible); standalone → its tenant leases in PA, not HW (NOT visible).
+            expect($ids)->toContain($linked->id)->not->toContain($standalone->id);
         });
 
         asTenant($this->pa, function () use ($linked, $standalone) {
             $ids = scopedResourceQuery(CreditNoteResource::class)->pluck('id')->all();
+            // standalone → its tenant leases in PA (visible); linked → HW lease (NOT visible).
             expect($ids)->not->toContain($linked->id)->toContain($standalone->id);
         });
     });

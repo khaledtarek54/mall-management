@@ -22,7 +22,21 @@ class CreateCreditNote extends CreateRecord
             );
         }
 
+        // Creating a note straight to a posting status (bypassing the Issue action) still posts to
+        // the GL dated issue_date — refuse a closed period here too, mirroring issue().
+        if (in_array($data['status'] ?? 'draft', ['issued', 'applied'], true)) {
+            \App\Support\PostingDate::assertOpen($data['issue_date'] ?? null, __('admin.fields.issue_date'));
+        }
+
         $data['issued_by_user_id'] = auth()->id();
         return $data;
+    }
+
+    protected function afterCreate(): void
+    {
+        // The header money fields are client-supplied (readOnly, not disabled). Re-derive them from
+        // the now-persisted line items so a tampered submit can't post a fabricated total to the GL.
+        $this->record->recomputeFromItems();
+        $this->record->saveQuietly(); // the create's afterCommit ledger sync reads this corrected total
     }
 }

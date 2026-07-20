@@ -2620,3 +2620,20 @@ parameters:
 			identifier: property.notFound
 			count: 1
 			path: /Users/khaled/Herd/mall-management/app/Services/VoidPaymentService.php
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:sum\(\) expects \(callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: float\)\|string\|null, Closure\(App\\Models\\CreditNoteItem\)\: float given\.$#'
+			identifier: argument.type
+			count: 2
+			path: /Users/khaled/Herd/mall-management/app/Models/CreditNote.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
+			identifier: property.notFound
+			count: 1
+			path: /Users/khaled/Herd/mall-management/app/Services/CreditNotePdfService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
+			identifier: property.notFound
+			count: 2
+			path: /Users/khaled/Herd/mall-management/app/Services/CreditNoteService.php

@@ -50,7 +50,7 @@ Ordered dependency-first. Generic-ERP modules (21–25, 28) are out of scope (al
 | 3 | 04 | Leases | ✅ CLOSED | 2026-07-19 | 2 CLOSE_NOW fixed (dead rent-escalation — critical business-logic — + terminal-lease immutability); 8 DEFER incl. 4 domain-decision calls for the operator; see closure record |
 | 4 | 05 | Billing & Invoices | ✅ CLOSED | 2026-07-19 | 5 CLOSE_NOW fixed (marketing-levy doc/behaviour reconciled by operator decision, parking GL account, legacy AR trap removed, run-summary count, late-fee floor test); 8 DEFER; VAT-on-levy = accountant question |
 | 5 | 06 | Payments | ✅ CLOSED | 2026-07-19 | 9 CLOSE_NOW fixed (4 HIGH: reconciled/settled silently un-paid the invoice → canonical received-set across 10 money consumers incl. the books-reconciliation tie-out; back-dated receipt into a closed period; orphaned on-account receipt; duplicate-allocation data loss) + dedup + status-restriction + portal allocation display; adversarial review caught 1 low KPI-consistency miss (fixed); 8 DEFER (receipt voucher PDF, credit-balance auto-apply, autopay, batch entry); see closure record |
-| 6 | 07 | Credit Notes | ⬜ Not started | — | |
+| 6 | 07 | Credit Notes | ✅ CLOSED | 2026-07-20 | 6 CLOSE_NOW integrity fixes (2 HIGH: cancel-with-applied-credit **double-counted** the sales-return → AR negative [empirically reproduced]; **cross-tenant apply** — no `note.tenant==invoice.tenant` guard + **standalone-note owner-statement leak**) + delete-guard on applied notes + closed-period guard on issue + server-side total recompute (anti-tamper); 4 completeness wins (credit-note PDF إشعار دائن, exporter+period filter, VAT-inherit from source invoice, guided **Reverse** action); introduced `credit_note_applications` (reversible link → un-apply on cancel + guided reverse, no second note); standalone notes now scoped to the tenant's leased properties; 2-lens pre-push review. VAT reversal + GL registration were verified CORRECT (not gaps). **DEFER:** ETA credit-note e-filing (gated on ETA go-live — biggest compliance hole), cash-refund path, maker-checker approval, portal web visibility, auto-apply. See closure record. |
 | 7 | 08 | CAM reconciliation | 🟡 Partial | — | slices 1–2 shipped + adversarially reviewed this session; slice 3 (basis/gross-up/exclusions) DEFERRED |
 | 8 | 09 | Tenant Sales & % Rent | ⬜ Not started | — | |
 | 9 | 10 | Utility Meters | ⬜ Not started | — | |
@@ -107,6 +107,26 @@ park-with-trigger) when its owning module's close-out comes up.
 ## Closure records
 
 _One section per module as it closes, most recent first._
+
+### Module 07 — Credit Notes — CLOSED 2026-07-20
+
+A 5-lens gap sweep (business-model/competitor lead, correctness, isolation, UX, coverage) → 6 CLOSE_NOW integrity fixes + 4 completeness wins, then a 2-lens adversarial pre-push review. The module's core was already strong (dual row-locking + capping on apply, finalized-note immutability, and — verified, not gaps — **correct VAT reversal** in the GL and a real-sweep tie-out on the apply path). The value was in domain-correctness the arithmetic hid.
+
+**Business model (the lead lens).** A credit note is an *operator adjustment* (Dr Sales Returns / Cr AR), cleanly distinct from a tenant's overpayment *credit* (Dr Unearned Revenue) — no confusion bug. Owner statements correctly net down for asset-scoped credits. The two real business-model holes were the owner-statement leak on standalone notes (fixed) and the absence of ETA credit-note filing (deferred behind ETA go-live).
+
+**CLOSE_NOW fixed (6 integrity):**
+- **[HIGH · correctness] Cancel double-count.** Cancelling an invoice that had a credit applied left the note `applied` (its Dr Sales Returns still posted) **and** issued a second offsetting note → the sales-return was booked twice and AR went to −6,000 vs −3,000 (trial balance stayed balanced, hiding it). Reproduced empirically. Fixed by **un-applying** the original application (new `credit_note_applications` link) instead of issuing a second note — the note's single original entry now correctly represents the returned credit; GL↔AR ties out.
+- **[HIGH · isolation] Cross-tenant apply.** `applyToInvoice` never checked `note.tenant == invoice.tenant`; the apply action re-validated *property* but not *tenant*, so a crafted dispatch could pay down another tenant's invoice with a tenant's credit. Fixed: fail-closed guard in the service + a tenant `abort(403)` in the action.
+- **[HIGH · business_logic] Standalone-note owner-statement leak.** A lease-less note's Dr Sales Returns posted to the null/portfolio bucket, so applying it to a property invoice cut that property's AR while its income statement never saw the return → the owner was overpaid. Fixed: on first apply the note **binds to the invoice's property** (its return posts there) and can then only settle that property's invoices; standalone reads are scoped to the tenant's leased properties (was portfolio-wide, also a read leak that let a restricted operator void/issue another property's note).
+- **[MED] Soft-deleting an applied note stranded `credit_applied_amount`** (Filament Delete doesn't route through void, which is hidden for applied notes) → permanent AR drift. Fixed: a `deleting` guard mirroring void.
+- **[MED] Back-dated note bypassed `PostingDate`** → AR moved while the GL post silently failed. Fixed: `PostingDate::assertOpen(issue_date)` in `issue()` (+ the create-as-issued page path).
+- **[MED] Create trusted client `total`/`balance`** (readOnly, not disabled) → a crafted submit could post a fabricated sales-return. Fixed: the note's totals are re-derived from its line items on save (reachable-path test).
+
+**Completeness (4 wins, sibling-pattern copies):** credit-note **PDF** (إشعار دائن); **exporter + issue-date range filter** for the accountant; **VAT inherited** from the linked invoice's lines (no 0%-under-reversal); a guided **Reverse** action (un-apply) that resolves the applied-note void dead-end.
+
+**Coverage:** 8 new close-out tests (incl. the cancel GL↔AR tie-out through real posting, the VAT-reversal real-path, cross-tenant/cross-property guards, delete + posting-date guards, guided reverse, deterministic double-apply race) + a reachable-path create-tamper test; 3 pre-existing tests updated from the old double-count/leak behavior. Full suite green, `billing:reconcile` ties out, PHPStan clean above baseline.
+
+**DEFER (with triggers):** **ETA credit-note e-filing** (`documentType 'c'`, references the invoice UUID — *trigger: ETA leaves mock*; biggest compliance hole) · cash-refund/AP path (*tenant owed money with no open invoice*) · maker-checker approval (*second finance user / auditor*) · tenant-portal web visibility + tenant statement line (*self-service*) · auto-apply at billing run (*credit volume*) · per-reason GL accounts (*Jawad's real chart lands*) · multi-invoice apply modal.
 
 ### Module 06 — Payments — CLOSED 2026-07-19
 

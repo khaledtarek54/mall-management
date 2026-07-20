@@ -109,7 +109,7 @@ it('voids a payment through the edit-page action with a reason', function () {
     expect($payment->fresh()->status)->toBe('refunded');
 });
 
-it('voids a credit-applied invoice returning the credit as EXACTLY ONE offsetting note (lock-safe, idempotent)', function () {
+it('voids a credit-applied invoice by UN-APPLYING the original note exactly once (lock-safe, idempotent, no double-count)', function () {
     $lease = makeLease(makeUnit(makeAsset()));
     $invoice = makeInvoice($lease, ['total' => 5000, 'balance' => 5000]);
     $note = \App\Models\CreditNote::create([
@@ -120,15 +120,21 @@ it('voids a credit-applied invoice returning the credit as EXACTLY ONE offsettin
     app(\App\Services\CreditNoteService::class)->applyToInvoice($note, $invoice, 2000);
     expect((float) $invoice->fresh()->credit_applied_amount)->toBe(2000.0);
 
-    // Void, then re-void — the lock + re-read makes the second call a no-op (a racing
-    // second void would otherwise fire the credit reversal twice = double refund).
+    $notesBefore = \App\Models\CreditNote::count();
+
+    // Void, then re-void — the lock + re-read makes the second call a no-op (a racing second void
+    // would otherwise un-apply twice; soft-deleted applications also make the un-apply idempotent).
     app(\App\Services\VoidInvoiceService::class)->void($invoice->fresh(), 'error');
     app(\App\Services\VoidInvoiceService::class)->void($invoice->fresh(), 'again');
 
-    $offsetting = \App\Models\CreditNote::where('reason_notes', 'like', '%cancelled invoice '.$invoice->number.'%')->count();
-    expect($offsetting)->toBe(1) // exactly one credit returned, never two
+    // No SECOND note is created (the old design double-counted the sales-return); the ORIGINAL note
+    // is restored to available EXACTLY once — balance back to 2000, never 4000.
+    expect(\App\Models\CreditNote::count())->toBe($notesBefore)
         ->and($invoice->fresh()->status)->toBe('cancelled')
-        ->and((float) $invoice->fresh()->credit_applied_amount)->toBe(0.0);
+        ->and((float) $invoice->fresh()->credit_applied_amount)->toBe(0.0)
+        ->and($note->fresh()->status)->toBe('issued')
+        ->and((float) $note->fresh()->balance)->toBe(2000.0)
+        ->and(\App\Models\CreditNoteApplication::where('credit_note_id', $note->id)->count())->toBe(0);
 });
 
 it('grants the dedicated void permissions to accounting + super_admin but not viewer', function () {

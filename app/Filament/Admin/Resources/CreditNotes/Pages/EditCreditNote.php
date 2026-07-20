@@ -30,9 +30,36 @@ class EditCreditNote extends EditRecord
         return $data;
     }
 
+    protected function afterSave(): void
+    {
+        // Editing is only possible while draft (finalized notes lock their items + don't dehydrate
+        // the derived money fields). Re-derive the totals from the now-persisted items so a tampered
+        // submit can't carry a fabricated total into issuance.
+        if ($this->record->status === 'draft') {
+            $this->record->recomputeFromItems();
+            $this->record->saveQuietly();
+        }
+    }
+
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('downloadPdf')
+                ->label(__('admin.actions.download_pdf'))
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('gray')
+                ->authorize(fn () => Auth::user()?->can('credit_notes.view') ?? false)
+                ->action(function () {
+                    $svc = app(\App\Services\CreditNotePdfService::class);
+                    $pdf = $svc->build($this->record);
+
+                    return response()->streamDownload(
+                        fn () => print($pdf),
+                        $svc->filename($this->record),
+                        ['Content-Type' => 'application/pdf'],
+                    );
+                }),
+
             Action::make('issue')
                 ->label(__('admin.actions.issue_credit_note'))
                 ->icon('heroicon-o-check-circle')
@@ -94,17 +121,25 @@ class EditCreditNote extends EditRecord
                 ->action(function (array $data): void {
                     $invoice = Invoice::findOrFail($data['invoice_id']);
 
-                    // Defense-in-depth against form tampering: never apply a credit to an
-                    // invoice in a property the current user cannot see (the picker is
-                    // scoped, but the submitted id must be re-validated server-side).
+                    // Defense-in-depth against form tampering: the picker is scoped, but a crafted
+                    // submit can pass any id — re-validate BOTH the property (never credit a property
+                    // the user can't see) AND the tenant (never pay down another tenant's invoice).
                     $visibleAssetIds = \App\Support\TenantScope::visibleAssetIds();
                     if ($visibleAssetIds !== null
                         && ! in_array($invoice->lease?->unit?->asset_id, $visibleAssetIds, true)) {
                         abort(403);
                     }
+                    if ((int) $invoice->tenant_id !== (int) $this->record->tenant_id) {
+                        abort(403);
+                    }
 
-                    $applied = app(CreditNoteService::class)
-                        ->applyToInvoice($this->record, $invoice, (float) $data['amount']);
+                    try {
+                        $applied = app(CreditNoteService::class)
+                            ->applyToInvoice($this->record, $invoice, (float) $data['amount']);
+                    } catch (\DomainException $e) {
+                        Notification::make()->title($e->getMessage())->danger()->send();
+                        return;
+                    }
 
                     if ($applied <= 0) {
                         Notification::make()
@@ -122,6 +157,29 @@ class EditCreditNote extends EditRecord
                             'amount' => number_format($applied, 2),
                             'invoice' => $invoice->number,
                         ]))
+                        ->success()
+                        ->send();
+                }),
+
+            // Guided reversal of an APPLIED note (the void dead-end's supported way out): un-apply
+            // every application, re-opening the invoices' AR and returning the note to available.
+            // Double-gated on credit_notes.apply in visible() AND action().
+            Action::make('reverse')
+                ->label(__('admin.actions.reverse_credit_note'))
+                ->icon('heroicon-o-arrow-uturn-left')
+                ->color('warning')
+                ->visible(fn () => (float) $this->record->applied_amount > 0
+                    && $this->record->status !== 'void'
+                    && Auth::user()?->can('credit_notes.apply'))
+                ->authorize(fn () => Auth::user()?->can('credit_notes.apply') ?? false)
+                ->requiresConfirmation()
+                ->modalDescription(__('admin.actions.reverse_credit_note_confirm'))
+                ->action(function (): void {
+                    abort_unless(Auth::user()?->can('credit_notes.apply') ?? false, 403);
+                    $reversed = app(CreditNoteService::class)->reverseAllApplications($this->record);
+                    $this->refreshFormData(['status', 'applied_amount', 'balance']);
+                    Notification::make()
+                        ->title(__('admin.notifications.credit_note_reversed', ['amount' => number_format($reversed, 2)]))
                         ->success()
                         ->send();
                 }),

@@ -74,13 +74,36 @@ class CreditNoteForm
                         ->getOptionLabelUsing(fn ($value): ?string => Invoice::find($value)?->number)
                         ->searchable()
                         ->live()
-                        ->afterStateUpdated(function ($state, Set $set) {
+                        ->afterStateUpdated(function ($state, Set $set, Get $get) {
                             if (! $state) {
                                 return;
                             }
-                            $invoice = Invoice::find($state);
-                            if ($invoice) {
-                                $set('lease_id', $invoice->lease_id);
+                            $invoice = Invoice::with('items')->find($state);
+                            if (! $invoice) {
+                                return;
+                            }
+                            $set('lease_id', $invoice->lease_id);
+
+                            // Inherit the invoice's lines (and their VAT) so a 14%-service line
+                            // reverses 14% — defaulting vat_rate to 0 would silently under-reverse
+                            // output VAT. Only prefill when the operator hasn't entered lines yet,
+                            // so we never clobber their edits; they can then trim to a partial credit.
+                            $hasLines = collect($get('items') ?? [])
+                                ->contains(fn ($i) => (float) ($i['amount'] ?? 0) > 0);
+                            if (! $hasLines && $invoice->items->isNotEmpty()) {
+                                $rows = $invoice->items->map(fn ($it) => [
+                                    'description' => $it->description,
+                                    'amount' => (float) $it->amount,
+                                    'vat_rate' => (float) $it->vat_rate,
+                                    'vat_amount' => (float) $it->vat_amount,
+                                    'total' => (float) $it->total,
+                                ])->values()->all();
+                                $set('items', $rows);
+                                [$subtotal, $vat] = self::sumItems($rows);
+                                $set('subtotal', $subtotal);
+                                $set('vat_amount', $vat);
+                                $set('total', round($subtotal + $vat, 2));
+                                $set('balance', round($subtotal + $vat, 2));
                             }
                         }),
 

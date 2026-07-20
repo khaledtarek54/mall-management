@@ -69,3 +69,28 @@ it('excludes a non-visible property tenant from the credit note form', function 
     // property B tenant — out of scope, must NOT be offered (no IDOR).
     expect($options)->not->toContain($this->tenantB->id);
 });
+
+it('recomputes the note total from its items on create — a tampered header total cannot post', function () {
+    // The subtotal/total/balance fields are readOnly (not disabled), so a crafted submit can set
+    // them directly; the journalizer posts $note->total. The create page must re-derive them from
+    // the persisted line items so a fabricated total can never reach the GL. (Reachable form path.)
+    Livewire::test(CreateCreditNote::class)
+        ->fillForm([
+            'tenant_id' => $this->tenantA->id,
+            'reason' => 'adjustment',
+            'issue_date' => now()->toDateString(),
+            'status' => 'draft',
+            'items' => [
+                ['description' => 'Overcharge', 'amount' => 100, 'vat_rate' => 0, 'total' => 100],
+            ],
+            // Tampered header — items sum to 100, but these claim 999,999.
+            'subtotal' => 999999, 'vat_amount' => 0, 'total' => 999999, 'balance' => 999999,
+        ])
+        ->call('create')
+        ->assertHasNoFormErrors();
+
+    $note = \App\Models\CreditNote::where('tenant_id', $this->tenantA->id)->latest('id')->first();
+    expect((float) $note->total)->toBe(100.0)      // re-derived from items, NOT the tampered 999,999
+        ->and((float) $note->subtotal)->toBe(100.0)
+        ->and((float) $note->balance)->toBe(100.0);
+});

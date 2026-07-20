@@ -84,19 +84,19 @@ class CreditNoteResource extends Resource
     {
         $query = parent::getEloquentQuery();
 
-        if ($assetId = \App\Support\TenantScope::currentAssetId()) {
-            // Scope via the linked lease's unit's asset. Standalone credit
-            // notes (no lease_id) are visible regardless — they're tenant-
-            // level adjustments, not asset-scoped.
-            $query->where(function ($q) use ($assetId) {
-                $q->whereNull('lease_id')
-                  ->orWhereHas('lease.unit', fn ($q2) => $q2->where('asset_id', $assetId));
-            });
-        } elseif (($ids = \App\Support\TenantScope::visibleAssetIds()) !== null) {
-            // "All Properties" for a restricted user — pin to their assigned set.
+        // Scope both an asset-linked note (via lease.unit) AND a standalone note (no lease_id): a
+        // standalone note is a TENANT-level adjustment, so it belongs to the properties where that
+        // tenant leases — NOT every property. Showing it portfolio-wide leaked a restricted
+        // operator another property's tenant + credit amount (and let them void/issue it).
+        $ids = \App\Support\TenantScope::currentAssetId() !== null
+            ? [\App\Support\TenantScope::currentAssetId()]
+            : \App\Support\TenantScope::visibleAssetIds();
+
+        if ($ids !== null) {
             $query->where(function ($q) use ($ids) {
-                $q->whereNull('lease_id')
-                  ->orWhereHas('lease.unit', fn ($q2) => $q2->whereIn('asset_id', $ids));
+                $q->whereHas('lease.unit', fn ($q2) => $q2->whereIn('asset_id', $ids))
+                  ->orWhere(fn ($q3) => $q3->whereNull('lease_id')
+                      ->whereHas('tenant.leases.unit', fn ($u) => $u->whereIn('asset_id', $ids)));
             });
         }
 

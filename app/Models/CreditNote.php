@@ -76,6 +76,11 @@ class CreditNote extends Model
         return $this->hasMany(CreditNoteItem::class);
     }
 
+    public function applications(): HasMany
+    {
+        return $this->hasMany(CreditNoteApplication::class);
+    }
+
     public function issuedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'issued_by_user_id');
@@ -84,6 +89,23 @@ class CreditNote extends Model
     public function hasBalance(): bool
     {
         return (float) $this->balance > 0 && in_array($this->status, ['issued', 'applied']);
+    }
+
+    /**
+     * Re-derive the note's money fields from its authoritative persisted line items — VAT is
+     * computed from each item's amount × vat_rate (never the submitted item vat_amount/total), so a
+     * tampered form submit can't inflate the note's total (which the journalizer posts to the GL).
+     */
+    public function recomputeFromItems(): void
+    {
+        $items = $this->items()->get();
+        $subtotal = round((float) $items->sum(fn (CreditNoteItem $i) => (float) $i->amount), 2);
+        $vat = round((float) $items->sum(fn (CreditNoteItem $i) => round((float) $i->amount * (float) $i->vat_rate / 100, 2)), 2);
+
+        $this->subtotal = $subtotal;
+        $this->vat_amount = $vat;
+        $this->total = round($subtotal + $vat, 2);
+        $this->balance = round((float) $this->total - (float) $this->applied_amount, 2);
     }
 
     public static function generateNumber(string $assetCode = 'AW', ?\DateTimeInterface $issueDate = null): string
@@ -133,10 +155,29 @@ class CreditNote extends Model
             if ($note->status === 'draft') {
                 throw new \DomainException('A finalized credit note cannot be returned to draft — void it and issue a new one instead.');
             }
-            foreach (['issue_date', 'tenant_id', 'invoice_id', 'lease_id'] as $field) {
+            foreach (['issue_date', 'tenant_id', 'invoice_id'] as $field) {
                 if ($note->isDirty($field)) {
                     throw new \DomainException("A finalized credit note's {$field} is immutable — void it and issue a new one.");
                 }
+            }
+            // lease_id may be bound ONCE from null — a standalone note adopting the property of the
+            // first invoice it settles (CreditNoteService::applyToInvoice, so the sales-return posts
+            // to that property). Re-homing an already-scoped note stays refused.
+            if ($note->isDirty('lease_id') && $note->getOriginal('lease_id') !== null) {
+                throw new \DomainException("A finalized credit note's lease_id is immutable — void it and issue a new one.");
+            }
+        });
+
+        // Deleting a note whose credit is still APPLIED would strand the invoice's
+        // credit_applied_amount (the Filament DeleteAction does NOT route through void(), which is
+        // hidden for applied notes anyway) — the sweep voids the note's GL entry while the invoice
+        // keeps counting the credit → permanent AR drift. Refuse; reverse the application first.
+        static::deleting(function (self $note) {
+            // Applies to force-delete too: the applications FK is cascadeOnDelete, so force-deleting an
+            // applied note would drop its rows while the invoices keep credit_applied_amount (AR drift)
+            // and orphan the note's GL entry. Reverse the application first, then delete.
+            if ((float) $note->applied_amount > 0) {
+                throw new \DomainException('Cannot delete a credit note whose credit is still applied — reverse the application first, then delete.');
             }
         });
     }

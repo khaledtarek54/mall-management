@@ -3,14 +3,17 @@
 namespace App\Services;
 
 use App\Models\CreditNote;
+use App\Models\CreditNoteApplication;
 use App\Models\Invoice;
+use App\Support\PostingDate;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class CreditNoteService
 {
     /**
-     * Issue a draft credit note (status -> issued). Sets balance = total - applied_amount
-     * and stamps issued_at via the timestamps. Idempotent on issued status.
+     * Issue a draft credit note (status -> issued). Sets balance = total - applied_amount.
+     * Idempotent on issued/applied status.
      */
     public function issue(CreditNote $note): CreditNote
     {
@@ -19,6 +22,13 @@ class CreditNoteService
         }
 
         return DB::transaction(function () use ($note) {
+            // Issuing is a GL event (the journalizer posts Dr Sales Returns / Cr AR dated issue_date):
+            // refuse a date whose accounting period is closed, else the AR effect commits while the
+            // ledger post is silently rejected — the divergence every money service guards against.
+            // (The totals are already item-derived: a form note is recomputed from its items on save;
+            // a programmatically-created note sets its totals directly and has no items to derive from.)
+            PostingDate::assertOpen($note->issue_date, __('admin.fields.issue_date'));
+
             $note->balance = (float) $note->total - (float) $note->applied_amount;
             $note->status = $note->balance > 0 ? 'issued' : 'applied';
             $note->save();
@@ -28,26 +38,43 @@ class CreditNoteService
     }
 
     /**
-     * Apply (some of) a credit note's remaining balance to one invoice.
-     * Updates both sides atomically. Caps the application at min(invoice.balance, note.balance).
+     * Apply (some of) a credit note's remaining balance to one invoice. Updates both sides
+     * atomically and records a reversible CreditNoteApplication. Caps at min(note.balance,
+     * invoice.balance, requestedAmount). Returns the actual amount applied (0 = nothing applied).
      *
-     * Returns the actual amount applied. 0 means nothing applied (note voided, no balance, etc).
+     * @throws \DomainException on a cross-tenant or cross-property target (fail-closed backstop).
      */
     public function applyToInvoice(CreditNote $note, Invoice $invoice, ?float $requestedAmount = null): float
     {
         return DB::transaction(function () use ($note, $invoice, $requestedAmount) {
-            // Lock BOTH rows and re-read their state INSIDE the txn. Two concurrent
-            // applies would otherwise each observe the same pre-state and both
-            // commit their full amount — over-applying the credit (note balance
-            // goes negative; invoice credit_applied exceeds total). Mirrors the
-            // payment path's lock-safe over-allocation guard.
+            // Lock BOTH rows and re-read their state INSIDE the txn. Two concurrent applies would
+            // otherwise each observe the same pre-state and both commit their full amount —
+            // over-applying the credit. Mirrors the payment path's lock-safe guard.
             $note = CreditNote::query()->lockForUpdate()->find($note->id);
             $invoice = Invoice::query()->lockForUpdate()->find($invoice->id);
 
-            // hasBalance() = balance > 0 AND status in [issued, applied] — blocks
-            // draft / void / fully-applied notes (re-checked under the lock).
+            // hasBalance() = balance > 0 AND status in [issued, applied] — blocks draft / void /
+            // fully-applied notes (re-checked under the lock).
             if (! $note || ! $invoice || ! $note->hasBalance()) {
                 return 0.0;
+            }
+
+            // A credit note settles ONE tenant's AR — never pay down another tenant's invoice with
+            // it. The apply picker filters by tenant, but a crafted dispatch can submit any id, so
+            // this is the real (fail-closed) gate. Mirrors Payment::assertInvoicesShareTenant().
+            if ((int) $note->tenant_id !== (int) $invoice->tenant_id) {
+                throw new \DomainException(__('admin.notifications.credit_note_apply_cross_tenant'));
+            }
+
+            // Property binding: a note's single GL entry (Dr Sales Returns) is attributed to ONE
+            // property. Bind an unscoped (standalone) note to the target invoice's property on first
+            // apply so the contra-revenue lands in that property's books (else its owner is paid a
+            // share on revenue that was credited back). Once bound, it can only settle that property's
+            // invoices — keeping the note's returns single-property and its owner statement honest.
+            $invoiceAssetId = $invoice->lease?->unit?->asset_id;
+            $noteAssetId = $note->lease?->unit?->asset_id;
+            if ($noteAssetId !== null && $invoiceAssetId !== null && (int) $noteAssetId !== (int) $invoiceAssetId) {
+                throw new \DomainException(__('admin.notifications.credit_note_apply_cross_property'));
             }
 
             $available = (float) $note->balance;
@@ -57,9 +84,8 @@ class CreditNoteService
                 return 0.0;
             }
 
-            // Only apply to a live, payable invoice — applying to a cancelled /
-            // credited / disputed / draft / paid invoice would consume the credit's
-            // balance against a row that isn't collecting, silently leaking it.
+            // Only apply to a live, payable invoice — applying to a cancelled / credited / disputed /
+            // draft / paid invoice would consume the credit against a row that isn't collecting.
             if (! in_array($invoice->status, ['issued', 'partially_paid', 'overdue'], true)) {
                 return 0.0;
             }
@@ -72,60 +98,117 @@ class CreditNoteService
                 return 0.0;
             }
 
-            // Adjust the credit note side (capped at $available above → never negative).
+            // Adopt the invoice's lease/property if the note is still unscoped (standalone).
+            // (An invoice always has a lease — lease_id is NOT NULL.)
+            if ($note->lease_id === null) {
+                $note->lease_id = $invoice->lease_id;
+            }
+
+            // Adjust the credit note side (capped at $available → never negative).
             $note->applied_amount = (float) $note->applied_amount + $amount;
             $note->balance = (float) $note->total - (float) $note->applied_amount;
             $note->status = $note->balance > 0 ? 'issued' : 'applied';
             $note->applied_at = $note->applied_at ?? now();
-            $note->save();
+            $note->save(); // a newly-bound lease re-syncs the note's GL entry to the invoice's asset
 
-            // Record the applied credit durably (credit_applied_amount) so
-            // Invoice::recomputeTotals — which otherwise sums only the payments
-            // pivot — folds it into paid_amount/balance/status. This keeps a
-            // later payment recompute from erasing the credit.
+            // Record the application so it can be un-applied precisely (invoice cancel / guided reverse).
+            CreditNoteApplication::create([
+                'credit_note_id' => $note->id,
+                'invoice_id' => $invoice->id,
+                'amount' => $amount,
+                'applied_at' => now(),
+                'created_by' => Auth::id(),
+            ]);
+
+            // Record the applied credit durably (credit_applied_amount) so Invoice::recomputeTotals —
+            // which otherwise sums only the payments pivot — folds it into paid_amount/balance/status,
+            // keeping a later payment recompute from erasing the credit.
             $invoice->credit_applied_amount = (float) $invoice->credit_applied_amount + $amount;
             $invoice->recomputeTotals();
 
             return $amount;
+        }, 3); // retry on deadlock: apply locks note→invoice, cancel locks invoice→note (opposite order)
+    }
+
+    /**
+     * Un-apply every credit note applied to an invoice that is being cancelled / credited. The
+     * invoice no longer collects, so its applied credit must return to the tenant as available.
+     *
+     * We RESTORE each note's balance (soft-deleting the application row) rather than issuing a new
+     * offsetting note: the note's original Dr Sales Returns / Cr AR entry already sits in the GL and
+     * now correctly represents the returned, available credit. Issuing a second note (the old
+     * behaviour) posted a SECOND sales-return — double-counting the return and driving AR negative.
+     */
+    public function reverseAppliedCredit(Invoice $invoice): void
+    {
+        DB::transaction(function () use ($invoice) {
+            foreach (CreditNoteApplication::where('invoice_id', $invoice->id)->lockForUpdate()->get() as $app) {
+                $note = CreditNote::query()->lockForUpdate()->find($app->credit_note_id);
+                if ($note) {
+                    $note->applied_amount = max(0, round((float) $note->applied_amount - (float) $app->amount, 2));
+                    $note->balance = round((float) $note->total - (float) $note->applied_amount, 2);
+                    if ($note->balance > 0 && $note->status === 'applied') {
+                        $note->status = 'issued'; // available again
+                    }
+                    if ($note->applied_amount <= 0) {
+                        $note->applied_at = null;
+                    }
+                    $note->save();
+                }
+                $app->delete();
+            }
+
+            $invoice->credit_applied_amount = 0;
+            $invoice->recomputeTotals(); // saveQuietly inside — keeps 'cancelled' / 'credited' status
         });
     }
 
     /**
-     * Return credit consumed by an invoice that is being cancelled/credited.
-     * The invoice no longer collects, so the applied credit would be lost; we
-     * issue an offsetting CreditNote (restoring the tenant's credit) and zero the
-     * invoice's credit_applied_amount, then re-derive its totals.
+     * Guided reversal of an APPLIED note (the operator "un-applies" it): restore the note to
+     * available and re-open every invoice it had settled. The note's own GL entry is untouched
+     * (it stays a valid, now-unapplied, sales return). This is the supported way to undo an
+     * application — voiding an applied note is refused; you reverse it here or issue an offsetting one.
+     *
+     * Returns the total amount un-applied.
      */
-    public function reverseAppliedCredit(Invoice $invoice): void
+    public function reverseAllApplications(CreditNote $note): float
     {
-        $amount = round((float) $invoice->credit_applied_amount, 2);
-        if ($amount <= 0) {
-            return;
-        }
+        return DB::transaction(function () use ($note) {
+            $note = CreditNote::query()->lockForUpdate()->find($note->id);
+            if (! $note) {
+                return 0.0;
+            }
 
-        CreditNote::create([
-            'tenant_id' => $invoice->tenant_id,
-            'lease_id' => $invoice->lease_id,
-            'status' => 'issued',
-            'issue_date' => now(),
-            'reason' => 'adjustment',
-            'reason_notes' => "Credit returned from cancelled invoice {$invoice->number}",
-            'subtotal' => $amount,
-            'vat_amount' => 0,
-            'total' => $amount,
-            'applied_amount' => 0,
-            'balance' => $amount,
-            'currency' => $invoice->currency ?? 'EGP',
-        ]);
+            $reversed = 0.0;
+            foreach (CreditNoteApplication::where('credit_note_id', $note->id)->lockForUpdate()->get() as $app) {
+                $invoice = Invoice::query()->lockForUpdate()->find($app->invoice_id);
+                if ($invoice) {
+                    $invoice->credit_applied_amount = max(0, round((float) $invoice->credit_applied_amount - (float) $app->amount, 2));
+                    $invoice->recomputeTotals(); // re-opens the invoice's AR
+                }
+                $reversed += (float) $app->amount;
+                $app->delete();
+            }
 
-        $invoice->credit_applied_amount = 0;
-        $invoice->recomputeTotals(); // saveQuietly inside — keeps 'cancelled'/'credited' status
+            // DERIVE the reset from the rows actually reversed — never blindly zero. A note with
+            // applied credit but NO application rows (e.g. applied before this table existed, or a
+            // factory ->applied() fixture) would otherwise be made fully available while its invoices
+            // keep the credit → the same credit re-applies elsewhere = double-count. With no rows this
+            // is a safe no-op; the backfill migration gives legacy applied notes their rows.
+            $note->applied_amount = max(0, round((float) $note->applied_amount - $reversed, 2));
+            $note->balance = round((float) $note->total - (float) $note->applied_amount, 2);
+            $note->status = $note->balance > 0 ? 'issued' : 'applied';
+            if ((float) $note->applied_amount <= 0) {
+                $note->applied_at = null;
+            }
+            $note->save();
+
+            return round($reversed, 2);
+        }, 3); // retry on deadlock (locks note→invoice vs the cancel path's invoice→note)
     }
 
     /**
-     * Void a credit note. Cannot void an applied one without reversing the application —
-     * for v1 we refuse to void if applied_amount > 0. Caller can issue an offsetting note
-     * if needed.
+     * Void a credit note. Cannot void an APPLIED one (reverse it first, or issue an offsetting note).
      */
     public function void(CreditNote $note, ?string $reason = null): CreditNote
     {
@@ -134,16 +217,15 @@ class CreditNoteService
         }
 
         return DB::transaction(function () use ($note, $reason) {
-            // Lock + re-read the note INSIDE the txn so a concurrent applyToInvoice()
-            // (which also locks this row) can't slip an application in between the
-            // applied_amount guard and the void — which would strand applied credit
-            // against a now-void note and break the AR / GL tie-out.
+            // Lock + re-read the note INSIDE the txn so a concurrent applyToInvoice() (which also
+            // locks this row) can't slip an application in between the applied_amount guard and the
+            // void — which would strand applied credit against a now-void note.
             $locked = CreditNote::query()->lockForUpdate()->find($note->id);
             if (! $locked || $locked->status === 'void') {
                 return $locked ?? $note;
             }
             if ((float) $locked->applied_amount > 0) {
-                throw new \DomainException('Cannot void a credit note that has already been applied. Issue an offsetting note instead.');
+                throw new \DomainException(__('admin.notifications.credit_note_void_applied'));
             }
 
             $locked->status = 'void';

@@ -3,13 +3,22 @@
 namespace App\Filament\Admin\Resources\CreditNotes\Tables;
 
 use App\Filament\Admin\Resources\CreditNotes\CreditNoteResource;
+use App\Filament\Exports\CreditNoteExporter;
+use App\Models\CreditNote;
+use App\Services\CreditNotePdfService;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ExportAction;
+use Filament\Actions\ExportBulkAction;
+use Filament\Forms\Components\DatePicker;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class CreditNotesTable
 {
@@ -80,14 +89,66 @@ class CreditNotesTable
                     ->relationship('tenant', 'name')
                     ->searchable()
                     ->preload(),
+                Filter::make('issue_date_range')
+                    ->label(__('admin.fields.issue_date'))
+                    ->schema([
+                        DatePicker::make('issued_from')
+                            ->label(__('admin.filters.issued_from'))
+                            ->native(false),
+                        DatePicker::make('issued_until')
+                            ->label(__('admin.filters.issued_until'))
+                            ->native(false),
+                    ])
+                    ->columns(2)
+                    ->query(fn (Builder $query, array $data): Builder => $query
+                        ->when($data['issued_from'] ?? null, fn (Builder $q, $date) => $q->whereDate('issue_date', '>=', $date))
+                        ->when($data['issued_until'] ?? null, fn (Builder $q, $date) => $q->whereDate('issue_date', '<=', $date)))
+                    ->indicateUsing(function (array $data): array {
+                        $indicators = [];
+                        if ($data['issued_from'] ?? null) {
+                            $indicators[] = __('admin.filters.issued_from') . ': ' . \Carbon\Carbon::parse($data['issued_from'])->format('d/m/Y');
+                        }
+                        if ($data['issued_until'] ?? null) {
+                            $indicators[] = __('admin.filters.issued_until') . ': ' . \Carbon\Carbon::parse($data['issued_until'])->format('d/m/Y');
+                        }
+                        return $indicators;
+                    }),
                 TrashedFilter::make(),
             ])
+            ->filtersFormColumns(2)
+            ->headerActions([
+                ExportAction::make()
+                    ->exporter(CreditNoteExporter::class)
+                    ->label(__('admin.actions.export'))
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('gray'),
+            ])
             ->recordActions([
+                Action::make('downloadPdf')
+                    ->label(__('admin.actions.pdf'))
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('gray')
+                    // Gate in BOTH authorize() (UI) and action() (the real gate — mountAction ignores visible()).
+                    ->authorize(fn (CreditNote $record) => CreditNoteResource::canView($record))
+                    ->action(function (CreditNote $record) {
+                        abort_unless(CreditNoteResource::canView($record), 403);
+                        $svc = app(CreditNotePdfService::class);
+                        $pdf = $svc->build($record);
+
+                        return response()->streamDownload(
+                            fn () => print($pdf),
+                            $svc->filename($record),
+                            ['Content-Type' => 'application/pdf'],
+                        );
+                    }),
                 EditAction::make()
                     ->visible(fn ($record) => CreditNoteResource::canEdit($record)),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
+                    ExportBulkAction::make()
+                        ->exporter(CreditNoteExporter::class)
+                        ->label(__('admin.actions.export')),
                     DeleteBulkAction::make()
                         ->visible(fn () => CreditNoteResource::canDeleteAny()),
                 ]),
