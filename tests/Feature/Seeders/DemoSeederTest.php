@@ -56,6 +56,15 @@ it('gives every portal-login tenant an unpaid invoice for the Pay Now demo', fun
     }
 });
 
+it('gives every seeded invoice line items (no orphan-header invoice that renders blank)', function () {
+    // Regression: seedArAgingSpread created invoice headers (subtotal/VAT/total) with NO
+    // invoice_items, so those invoices rendered blank in the admin edit form and posted an
+    // incomplete GL revenue split. Every invoice must carry at least one line item.
+    $orphans = Invoice::doesntHave('items')->pluck('number')->all();
+
+    expect($orphans)->toBe([], 'Invoices with a total but no line items: '.implode(', ', $orphans));
+});
+
 it('uses recognizable Egyptian retail brands', function () {
     foreach (['Cilantro', 'Buffalo Burger', 'Cook Door', 'Seoudi Market', 'B.TECH', 'Magrabi Optical'] as $brand) {
         expect(Tenant::where('name', $brand)->exists())->toBeTrue("Expected seeded tenant: {$brand}");

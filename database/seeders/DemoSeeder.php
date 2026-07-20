@@ -1218,12 +1218,14 @@ class DemoSeeder extends Seeder
                     return;
                 }
                 $lease = $leases[$i++];
-                $amount = (float) $lease->base_rent_monthly + (float) $lease->service_charge_monthly;
-                $vat = round($amount * 0.14, 2);
-                $total = round($amount + $vat, 2);
+                $rent = (float) $lease->base_rent_monthly;
+                $service = (float) $lease->service_charge_monthly;
+                $subtotal = round($rent + $service, 2);
+                $vat = round($service * 0.14, 2); // VAT only on service charge — base rent is VAT-exempt
+                $total = round($subtotal + $vat, 2);
                 $dueDate = $now->copy()->subDays($bucket['days']);
 
-                Invoice::create([
+                $invoice = Invoice::create([
                     'number' => Invoice::generateNumber('AW', $dueDate),
                     'lease_id' => $lease->id,
                     'tenant_id' => $lease->tenant_id,
@@ -1232,12 +1234,24 @@ class DemoSeeder extends Seeder
                     'due_date' => $dueDate,
                     'period_start' => $dueDate->copy()->startOfMonth(),
                     'period_end' => $dueDate->copy()->endOfMonth(),
-                    'subtotal' => $amount,
+                    'subtotal' => $subtotal,
                     'vat_amount' => $vat,
                     'total' => $total,
                     'paid_amount' => 0,
                     'balance' => $total,
                     'currency' => 'EGP',
+                ]);
+
+                // Line items so the invoice renders (and posts to the GL) like a real one.
+                InvoiceItem::create([
+                    'invoice_id' => $invoice->id,
+                    'description' => 'Monthly Rent - '.$dueDate->format('F Y'),
+                    'type' => 'base_rent', 'amount' => $rent, 'vat_rate' => 0, 'vat_amount' => 0, 'total' => $rent,
+                ]);
+                InvoiceItem::create([
+                    'invoice_id' => $invoice->id,
+                    'description' => 'Service Charge - '.$dueDate->format('F Y'),
+                    'type' => 'service_charge', 'amount' => $service, 'vat_rate' => 14.00, 'vat_amount' => $vat, 'total' => round($service + $vat, 2),
                 ]);
             }
         }
