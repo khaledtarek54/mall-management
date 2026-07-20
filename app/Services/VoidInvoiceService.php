@@ -10,10 +10,11 @@ use Illuminate\Support\Facades\DB;
  * invoice's money fields are locked (you don't edit it, you void it and re-issue).
  *
  * Sets status = 'cancelled': the Invoice `updated` hook returns any applied credit to the
- * tenant (an offsetting credit note), recomputeTotals() zeros the balance (it left the
- * books), and the ledger entry is voided by the real-time sync / sweep (the invoice
- * journalizer returns no effect for a cancelled invoice). Captured CASH payments block the
- * void — refund the payment first (VoidPaymentService), then void.
+ * tenant (an offsetting credit note for credit notes; soft-deleting the applications for on-account
+ * tenant credit), recomputeTotals() zeros the balance (it left the books), and the ledger entry is
+ * voided by the real-time sync / sweep (the invoice journalizer returns no effect for a cancelled
+ * invoice). Only captured CASH blocks the void — applied non-cash credit is reversed automatically,
+ * so refund a captured payment first (VoidPaymentService), then void.
  */
 class VoidInvoiceService
 {
@@ -33,10 +34,10 @@ class VoidInvoiceService
             throw new \DomainException('This invoice was filed with the Tax Authority (ETA) and cannot be voided internally — issue a credit note (and an ETA cancellation) instead.');
         }
 
-        // paid_amount = captured payments + applied credit; the credit half is reversed on
-        // cancel, but captured CASH must be refunded first (else it strands on a void invoice).
-        $capturedCash = round((float) $invoice->paid_amount - (float) $invoice->credit_applied_amount, 2);
-        if ($capturedCash > 0) {
+        // paid_amount = captured cash + reversible non-cash credit (notes + applied tenant credit);
+        // the credit halves reverse on cancel, but captured CASH must be refunded first (else it
+        // strands on a void invoice). capturedCashPaid() nets out both credit kinds.
+        if ($invoice->capturedCashPaid() > 0) {
             throw new \DomainException('Cannot void an invoice with captured payments — void/refund the payment first, then void the invoice.');
         }
 
@@ -55,7 +56,7 @@ class VoidInvoiceService
             if ($invoice->eta_status === 'valid') {
                 throw new \DomainException('This invoice was filed with the Tax Authority (ETA) and cannot be voided internally — issue a credit note (and an ETA cancellation) instead.');
             }
-            if (round((float) $invoice->paid_amount - (float) $invoice->credit_applied_amount, 2) > 0) {
+            if ($invoice->capturedCashPaid() > 0) {
                 throw new \DomainException('Cannot void an invoice with captured payments — void/refund the payment first, then void the invoice.');
             }
 

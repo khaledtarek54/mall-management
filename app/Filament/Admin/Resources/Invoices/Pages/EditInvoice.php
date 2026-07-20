@@ -52,6 +52,55 @@ class EditInvoice extends EditRecord
                 ->modalHeading(fn () => __('admin.actions.payment_link').' · '.$this->record->number)
                 ->modalSubmitAction(false)
                 ->modalContent(fn () => view('filament.payment-link-modal', ['invoice' => $this->record])),
+            // Apply the tenant's on-account CREDIT to this invoice. Posts its own Dr Unearned / Cr AR
+            // entry dated today (ApplyTenantCreditService), so an old overpayment settles a current
+            // invoice safely. Capped at the invoice balance; same-property.
+            Action::make('apply_credit')
+                ->label(__('admin.actions.apply_credit'))
+                ->icon('heroicon-o-gift')
+                ->color('gray')
+                ->authorize(fn () => Auth::user()?->can('payments.edit') ?? false)
+                ->visible(fn (): bool => round((float) $this->record->balance, 2) > 0
+                    && $this->record->tenant !== null
+                    && $this->record->tenant->creditBalance(\App\Support\TenantScope::visibleAssetIds()) > 0
+                    && (Auth::user()?->can('payments.edit') ?? false))
+                ->requiresConfirmation()
+                ->modalDescription(fn () => __('admin.actions.apply_credit_confirm', [
+                    'credit' => 'EGP '.number_format($this->record->tenant->creditBalance(\App\Support\TenantScope::visibleAssetIds()), 2),
+                ]))
+                ->action(function (): void {
+                    abort_unless(Auth::user()?->can('payments.edit') ?? false, 403);
+                    try {
+                        $applied = app(\App\Services\ApplyTenantCreditService::class)->applyToInvoice($this->record);
+                        $this->refreshFormData(['status', 'paid_amount', 'balance']);
+                        Notification::make()
+                            ->title(__('admin.notifications.credit_applied', ['amount' => 'EGP '.number_format($applied, 2)]))
+                            ->success()
+                            ->send();
+                    } catch (\DomainException $e) {
+                        Notification::make()->title($e->getMessage())->danger()->send();
+                    }
+                }),
+            // Reverse the applied credit (undo) — soft-deletes the applications; the GL entry is
+            // voided, the invoice AR re-opens, and the credit returns to the tenant's balance.
+            Action::make('reverse_credit')
+                ->label(__('admin.actions.reverse_credit'))
+                ->icon('heroicon-o-arrow-uturn-left')
+                ->color('warning')
+                ->authorize(fn () => Auth::user()?->can('payments.edit') ?? false)
+                ->visible(fn (): bool => \App\Models\TenantCreditApplication::where('invoice_id', $this->record->id)->exists()
+                    && (Auth::user()?->can('payments.edit') ?? false))
+                ->requiresConfirmation()
+                ->modalDescription(__('admin.actions.reverse_credit_confirm'))
+                ->action(function (): void {
+                    abort_unless(Auth::user()?->can('payments.edit') ?? false, 403);
+                    $reversed = app(\App\Services\ApplyTenantCreditService::class)->reverseForInvoice($this->record);
+                    $this->refreshFormData(['status', 'paid_amount', 'balance']);
+                    Notification::make()
+                        ->title(__('admin.notifications.credit_reversed', ['amount' => 'EGP '.number_format($reversed, 2)]))
+                        ->success()
+                        ->send();
+                }),
             // Void (cancel) an issued invoice — the supported correction now that editing is
             // locked. Reverses any applied credit + voids the GL entry; captured cash blocks it.
             Action::make('void_invoice')
@@ -60,7 +109,7 @@ class EditInvoice extends EditRecord
                 ->color('danger')
                 ->visible(fn () => in_array($this->record->status, ['issued', 'overdue'], true)
                     && $this->record->eta_status !== 'valid' // a filed ETA tax invoice: use a credit note
-                    && round((float) $this->record->paid_amount - (float) $this->record->credit_applied_amount, 2) <= 0
+                    && $this->record->capturedCashPaid() <= 0 // reversible credit (notes + tenant credit) doesn't block
                     && (Auth::user()?->can('invoices.void') ?? false))
                 ->authorize(fn () => Auth::user()?->can('invoices.void') ?? false)
                 ->requiresConfirmation()

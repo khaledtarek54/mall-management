@@ -34,6 +34,26 @@ class VoidPaymentService
                 return $payment; // already reversed by a racing request
             }
 
+            // Don't refund a receipt whose UNALLOCATED surplus has already been applied to invoices as
+            // tenant credit — that would refund money that was also used to settle AR, leaving the
+            // tenant with a negative credit. Block it (reverse those credit applications first).
+            // Scope the credit check to THIS receipt's property(ies): a global balance would let an
+            // unrelated credit at another mall mask that this receipt's own surplus was already spent.
+            $remainder = round(
+                (float) $payment->amount - (float) $payment->invoices()->sum('invoice_payment.allocated_amount'),
+                2,
+            );
+            $tenant = $payment->tenant;
+            if ($remainder > 0.005 && $tenant instanceof \App\Models\Tenant) {
+                $assetIds = $payment->invoices()->with('lease.unit')->get()
+                    ->map(fn ($inv) => $inv->lease?->unit?->asset_id)
+                    ->filter()->unique()->values()->all();
+                $available = (float) $tenant->creditBalance($assetIds !== [] ? $assetIds : null);
+                if (round($available - $remainder, 2) < -0.005) {
+                    throw new \DomainException(__('admin.payment.refund_blocked_credit_applied'));
+                }
+            }
+
             if ($reason) {
                 $payment->notes = trim(($payment->notes ? $payment->notes."\n" : '').'[VOID] '.$reason);
             }

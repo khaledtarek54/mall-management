@@ -152,6 +152,7 @@ class PropertyIsolation
         Department::class => null,             // asset_id nullable: null = operator-wide (global), set = property-scoped (hybrid)
         AssetOwner::class => null,             // the asset_owner ownership pivot — one row = one owner's stake in one mall; no Filament resource (managed via User/Asset relations), like LowStockAlert
         OwnerStatementRun::class => null,      // owner statement run — one property's period statement (module 32)
+        \App\Models\TenantCreditApplication::class => null, // applying on-account credit to an invoice; asset = the invoice's property; service-created, no Filament resource
         OwnerStatement::class => null,         // per-owner child; asset_id denormalized for uniform auto-scope
         Disbursement::class => null,           // owner payout; asset_id denormalized (journalizer reads own row)
         PostDatedCheque::class => null,        // a tenant's forward cheque, pinned to the property it relates to (module 33)

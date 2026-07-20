@@ -226,7 +226,19 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
             $credit += max(0.0, round((float) $payment->amount - $allocated, 2));
         }
 
-        return round($credit, 2);
+        // Subtract credit already APPLIED to invoices (an on-account draw-down — its own document,
+        // soft-deleted rows excluded so a reversal returns the credit here). Scoped by the
+        // application's asset (= the settled invoice's property).
+        $applied = (float) $this->creditApplications()
+            ->when($assetIds !== null, fn ($q) => $q->whereIn('asset_id', $assetIds))
+            ->sum('amount');
+
+        return round($credit - $applied, 2);
+    }
+
+    public function creditApplications(): HasMany
+    {
+        return $this->hasMany(TenantCreditApplication::class);
     }
 
     /**

@@ -258,6 +258,13 @@ class Invoice extends Model
                 if ($appliedCredit > 0) {
                     app(CreditNoteService::class)->reverseAppliedCredit($invoice->fresh());
                 }
+                // Applied tenant CREDIT (on-account draw-downs) likewise returns to the tenant — soft-delete
+                // the applications so their Dr Unearned / Cr AR entries void and the credit frees up again.
+                // Fires on ANY cancel path, not just VoidInvoiceService, so a credit can never strand on a
+                // voided invoice (else AR/Unearned would be left holding a reversed-but-still-applied credit).
+                foreach (\App\Models\TenantCreditApplication::where('invoice_id', $invoice->id)->get() as $app) {
+                    $app->delete();
+                }
             }
 
             if ($invoice->status !== 'cancelled' && $invoice->getOriginal('status') !== 'cancelled') {
@@ -286,6 +293,11 @@ class Invoice extends Model
         // doesn't erase the credit.
         $paid += (float) $this->credit_applied_amount;
 
+        // Applied tenant CREDIT (an on-account advance drawn onto this invoice) also settles AR.
+        // It is its own document (Dr Unearned / Cr AR); soft-deleted (reversed) rows are excluded,
+        // so reversing an application re-opens the AR here on the next recompute.
+        $paid += (float) \App\Models\TenantCreditApplication::where('invoice_id', $this->id)->sum('amount');
+
         $this->paid_amount = round($paid, 2);
         $this->balance = round(max(0, (float) $this->total - $this->paid_amount), 2);
 
@@ -310,5 +322,21 @@ class Invoice extends Model
         }
 
         $this->saveQuietly();
+    }
+
+    /**
+     * The portion of paid_amount that is real captured CASH — i.e. excluding the reversible, non-cash
+     * settlements (applied credit notes + applied tenant credit). This is what must be refunded /
+     * reversed before an invoice can be voided; a voidable invoice has captured cash ≤ 0. Named here
+     * once so the void guard (service + Filament visible()) can't drift on how the two are treated.
+     */
+    public function capturedCashPaid(): float
+    {
+        return round(
+            (float) $this->paid_amount
+            - (float) $this->credit_applied_amount
+            - (float) \App\Models\TenantCreditApplication::where('invoice_id', $this->id)->sum('amount'),
+            2,
+        );
     }
 }

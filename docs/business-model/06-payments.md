@@ -60,9 +60,16 @@ the rest.
 
 **Scenario — an overpayment.** Invoice owes 9,000; the tenant pays 10,000. You allocate 9,000 to the
 invoice; the remaining 1,000 is the tenant's **credit on account** (it books to *unearned revenue* —
-money you hold for them). The tenant sees this **"Credit on account"** on their portal. *Drawing that
-credit down onto a later invoice isn't a one-click action yet — see the deferred list for why (it must
-post its own dated correction to the ledger, not reshuffle the original receipt).*
+money you hold for them). The tenant sees this **"Credit on account"** on their portal, and both the
+tenant's row and the payments screen show it on the admin side too.
+
+**Scenario — spending that credit.** A later invoice owes 5,000 and the tenant already has 1,000 on
+account. Open the invoice and hit **Apply tenant credit** — it draws down the credit (capped at the
+invoice balance, and only credit held *in this property*), the invoice balance drops, and the books
+get their own **dated-today** correction (Dr Unearned Revenue / Cr Receivables). Dating it *today* —
+rather than reshuffling the original receipt — is what lets you spend a credit that came from an
+already-closed month without desyncing the ledger. Changed your mind? **Reverse applied credit** on
+the same invoice undoes it: the invoice re-opens and the credit returns to the tenant's balance.
 
 ---
 
@@ -97,16 +104,16 @@ trail, and the allocation history is kept so you can see what the reversed recei
 - **Printable receipt voucher (سند قبض).** Every received payment has a **Receipt** download (admin +
   portal) — a bilingual PDF showing the amount received, the method, and which invoices it settled.
   The office can hand a cash payer a printed receipt on the spot.
-- **Tenant credit balance (surfaced).** An overpayment/on-account remainder now shows as the tenant's
-  **credit on account** on their portal, so both sides can see money held in advance.
+- **Tenant credit balance (surfaced + spendable).** An overpayment/on-account remainder shows as the
+  tenant's **credit on account** on their portal *and* the admin side, and the **Apply tenant credit**
+  action on an invoice draws it down — posting its own dated-today ledger correction (Dr Unearned
+  Revenue / Cr Receivables) so a credit from an already-closed month spends safely. **Reverse applied
+  credit** undoes it. Capped at the invoice balance and scoped to credit held in the same property.
 
 ## 6. What's still deferred (and what triggers building it)
 
-- **Applying a credit to an invoice.** Drawing a credit down onto a later invoice needs to post its
-  own dated ledger correction (Dr Unearned Revenue / Cr Receivables, dated the day you apply it) — a
-  first attempt that instead reshuffled the original receipt was caught in review because it would
-  quietly desync the books when the receipt was from an already-closed month. *Trigger: build it as
-  the proper dated correction; then* **auto-apply** *on the next invoice can follow.*
+- **Auto-applying a credit** onto the next invoice at billing time — today applying is a one-click
+  action the operator takes on the invoice. *Trigger: operators want the credit spent automatically.*
 - **Recording a pure advance with no invoice yet** — today a receipt must be applied to at least one
   invoice, so a credit arises from an *overpayment*. Banking a standalone advance before any invoice
   exists is a small follow-up. *Trigger: operators need to take an advance before invoicing.*

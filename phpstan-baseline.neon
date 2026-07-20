@@ -2603,3 +2603,20 @@ parameters:
 			count: 1
 			path: /Users/khaled/Herd/mall-management/app/Http/Controllers/Api/V1/Requests/RateTenantRequestController.php
 
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Relations\\HasMany\:\:received\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: /Users/khaled/Herd/mall-management/app/Models/Tenant.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
+			identifier: property.notFound
+			count: 1
+			path: /Users/khaled/Herd/mall-management/app/Services/ApplyTenantCreditService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$lease\.$#'
+			identifier: property.notFound
+			count: 1
+			path: /Users/khaled/Herd/mall-management/app/Services/VoidPaymentService.php

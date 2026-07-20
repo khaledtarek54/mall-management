@@ -14,13 +14,14 @@ use App\Models\Expense;
 use App\Models\FixedAsset;
 use App\Models\FixedAssetDisposal;
 use App\Models\Invoice;
-use App\Models\MaintenancePenalty;
 use App\Models\JournalEntry;
+use App\Models\MaintenancePenalty;
 use App\Models\MarketingSpend;
 use App\Models\OwnerStatementRun;
 use App\Models\Payment;
 use App\Models\Payroll;
 use App\Models\StockMovement;
+use App\Models\TenantCreditApplication;
 use App\Models\VendorBill;
 use App\Models\VendorBillPayment;
 use App\Services\Accounting\Journalizers\CreditNoteJournalizer;
@@ -34,14 +35,15 @@ use App\Services\Accounting\Journalizers\EmployeeAdvanceRepaymentJournalizer;
 use App\Services\Accounting\Journalizers\ExpenseJournalizer;
 use App\Services\Accounting\Journalizers\FixedAssetAcquisitionJournalizer;
 use App\Services\Accounting\Journalizers\FixedAssetDisposalJournalizer;
-use App\Services\Accounting\Journalizers\InvoiceJournalizer;
-use App\Services\Accounting\Journalizers\MaintenancePenaltyJournalizer;
 use App\Services\Accounting\Journalizers\InventoryMovementJournalizer;
+use App\Services\Accounting\Journalizers\InvoiceJournalizer;
 use App\Services\Accounting\Journalizers\Journalizer;
+use App\Services\Accounting\Journalizers\MaintenancePenaltyJournalizer;
 use App\Services\Accounting\Journalizers\MarketingSpendJournalizer;
 use App\Services\Accounting\Journalizers\OwnerStatementRunJournalizer;
 use App\Services\Accounting\Journalizers\PaymentJournalizer;
 use App\Services\Accounting\Journalizers\PayrollJournalizer;
+use App\Services\Accounting\Journalizers\TenantCreditApplicationJournalizer;
 use App\Services\Accounting\Journalizers\VendorBillJournalizer;
 use App\Services\Accounting\Journalizers\VendorBillPaymentJournalizer;
 use Illuminate\Database\Eloquent\Model;
@@ -99,6 +101,7 @@ class LedgerPoster
         CustodyTransaction::class => CustodyTransactionJournalizer::class,
         OwnerStatementRun::class => OwnerStatementRunJournalizer::class,
         Disbursement::class => DisbursementJournalizer::class,
+        TenantCreditApplication::class => TenantCreditApplicationJournalizer::class,
     ];
 
     public function __construct(

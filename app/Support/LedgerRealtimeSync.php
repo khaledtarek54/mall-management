@@ -58,6 +58,9 @@ class LedgerRealtimeSync
         // once APPLIED, and applying always stamps applied_at, so the fallback never decides
         // the period of a real entry.
         \App\Models\MaintenancePenalty::class => 'applied_at',
+        // Applied at application time (an open period), never the source receipt's date — that
+        // decoupling is what lets an old overpayment settle a current invoice without stranding the GL.
+        \App\Models\TenantCreditApplication::class => 'entry_date',
     ];
 
     public static function register(): void

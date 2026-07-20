@@ -173,7 +173,8 @@ class Payment extends Model
         foreach (Invoice::whereIn('id', $invoiceIds)->lockForUpdate()->get() as $invoice) {
             $allocated = round(
                 (float) $invoice->payments()->whereIn('payments.status', self::RECEIVED_STATUSES)->sum('invoice_payment.allocated_amount')
-                + (float) $invoice->credit_applied_amount,
+                + (float) $invoice->credit_applied_amount
+                + (float) TenantCreditApplication::where('invoice_id', $invoice->id)->sum('amount'),
                 2,
             );
 
