@@ -622,6 +622,7 @@ return [
             'units' => 'الوحدات',
             'balance' => 'الرصيد',
             'delinquent' => 'حالة التأخر',
+            'credit_on_account' => 'رصيد لدى الحساب',
             'delinquency_state' => [
                 'current' => 'منتظم',
                 'delinquent' => 'متأخر',

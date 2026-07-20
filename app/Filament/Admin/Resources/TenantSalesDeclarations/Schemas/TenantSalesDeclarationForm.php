@@ -32,6 +32,11 @@ class TenantSalesDeclarationForm
                                 ->get()
                                 ->mapWithKeys(fn (Lease $l) => [$l->id => sprintf('%s — %s (%s)', $l->reference, $l->tenant?->name, $l->unit?->code)]);
                         })
+                        // Options list only ACTIVE leases; a declaration on a lease later expired/
+                        // terminated would render the raw id on edit — resolve any stored lease.
+                        ->getOptionLabelUsing(fn ($value): ?string => ($l = Lease::with(['tenant', 'unit'])->find($value))
+                            ? sprintf('%s — %s (%s)', $l->reference, $l->tenant?->name, $l->unit?->code)
+                            : null)
                         ->searchable()
                         ->required(),
                     DatePicker::make('period_start')

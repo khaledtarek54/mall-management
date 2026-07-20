@@ -52,6 +52,9 @@ class TenantRequestForm
                     Select::make('tenant_id')
                         ->label(__('admin.resources.tenant.singular'))
                         ->options(fn () => TenantScope::selectableTenantOptions())
+                        // Resolve a stored tenant who now leases only in another property (excluded
+                        // from the scoped options) so edit shows the name, not the raw id.
+                        ->getOptionLabelUsing(fn ($value): ?string => \App\Models\Tenant::find($value)?->name)
                         ->searchable()
                         ->preload()
                         ->live()
@@ -170,6 +173,9 @@ class TenantRequestForm
                     Select::make('department_id')
                         ->label(__('admin.resources.department.singular'))
                         ->options(fn () => Department::selectableOptions())
+                        // selectableOptions filters is_active — resolve a stored (now-inactive)
+                        // department so edit shows its name, not the raw id.
+                        ->getOptionLabelUsing(fn ($value): ?string => \App\Models\Department::find($value)?->name)
                         ->searchable()
                         ->placeholder(__('admin.fields.unassigned'))
                         ->native(false),
@@ -191,6 +197,10 @@ class TenantRequestForm
                     Select::make('assigned_to_vendor_id')
                         ->label(__('admin.fields.assigned_vendor') ?: 'External Vendor')
                         ->relationship('assignedVendor', 'name', fn ($query) => $query->where('status', 'active'))
+                        // The relationship filters status=active; a vendor assigned while active but
+                        // later deactivated/blacklisted would render the raw id (a relationship Select's
+                        // getSelectedRecord applies the filter). getOptionLabelUsing bypasses it.
+                        ->getOptionLabelUsing(fn ($value): ?string => \App\Models\Vendor::find($value)?->name)
                         ->searchable()
                         ->preload()
                         ->placeholder('—'),

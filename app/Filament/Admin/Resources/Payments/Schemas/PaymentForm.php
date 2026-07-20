@@ -137,11 +137,16 @@ class PaymentForm
                                         ->when(\App\Support\TenantScope::visibleAssetIds(), fn ($q, $ids) => $q->whereHas('lease.unit', fn ($u) => $u->whereIn('asset_id', $ids)))
                                         ->orderBy('due_date')
                                         ->get()
-                                        ->mapWithKeys(fn (Invoice $i) => [
-                                            $i->id => "{$i->number} · " . __('admin.fields.balance') . ': EGP ' . number_format((float) $i->balance, 0) . ' · ' . __('admin.fields.due_date') . ' ' . $i->due_date?->format('d/m/Y'),
-                                        ])
+                                        ->mapWithKeys(fn (Invoice $i) => [$i->id => self::invoiceOptionLabel($i)])
                                         ->all();
                                 })
+                                // The options() list is scoped to balance > 0, so an invoice this
+                                // payment already fully PAID (balance now 0) is not in it. On the
+                                // edit page that stored value would otherwise render as a raw id
+                                // ("6"); resolve ANY invoice's label so the row shows its number.
+                                ->getOptionLabelUsing(fn ($value): ?string => ($i = Invoice::find($value))
+                                    ? self::invoiceOptionLabel($i)
+                                    : null)
                                 ->searchable()
                                 ->live()
                                 ->afterStateUpdated(function ($state, Set $set, Get $get) {
@@ -270,6 +275,16 @@ class PaymentForm
                         ->columnSpanFull(),
                 ]),
         ]);
+    }
+
+    /**
+     * Human label for an invoice in the allocation picker. Shared by options() and
+     * getOptionLabelUsing() so the list and the stored-value label can never drift.
+     */
+    protected static function invoiceOptionLabel(Invoice $i): string
+    {
+        return "{$i->number} · " . __('admin.fields.balance') . ': EGP ' . number_format((float) $i->balance, 0)
+            . ' · ' . __('admin.fields.due_date') . ' ' . $i->due_date?->format('d/m/Y');
     }
 
     /**

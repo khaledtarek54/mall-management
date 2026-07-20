@@ -622,6 +622,7 @@ return [
             'units' => 'Units',
             'balance' => 'Balance',
             'delinquent' => 'Delinquency',
+            'credit_on_account' => 'Credit on account',
             'delinquency_state' => [
                 'current' => 'Current',
                 'delinquent' => 'Past Due',

@@ -32,6 +32,10 @@ class ViolationForm
                 // unaffiliated tenants) — a restricted user is never offered another
                 // mall's tenants. Same helper the TenantRequestForm uses.
                 ->options(fn () => TenantScope::selectableTenantOptions())
+                // The options exclude a tenant leasing only in another property (or soft-deleted),
+                // yet the violation row stays openable via its own asset — resolve the stored tenant
+                // so edit never shows the raw id.
+                ->getOptionLabelUsing(fn ($value): ?string => \App\Models\Tenant::withTrashed()->find($value)?->name)
                 ->searchable()
                 ->preload()
                 ->required()

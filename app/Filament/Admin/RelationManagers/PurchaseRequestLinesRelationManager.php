@@ -65,6 +65,9 @@ class PurchaseRequestLinesRelationManager extends RelationManager
                 ->options(fn () => InventoryItem::query()->where('is_active', true)->orderBy('sku')
                     ->get(['id', 'sku', 'name'])
                     ->mapWithKeys(fn (InventoryItem $i) => [$i->id => $i->sku.' — '.$i->name])->all())
+                // Options exclude deactivated items, but a line may reference an item deactivated
+                // after it was added — resolve any stored item so edit shows its SKU, not the raw id.
+                ->getOptionLabelUsing(fn ($value): ?string => ($i = InventoryItem::find($value)) ? $i->sku.' — '.$i->name : null)
                 ->searchable()->preload()->native(false)->live()
                 ->requiredWithout('description'),
 

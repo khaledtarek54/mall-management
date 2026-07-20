@@ -82,6 +82,16 @@ class TenantsTable
                     ->icon(fn (string $state): string => $state === 'delinquent' ? 'heroicon-m-exclamation-triangle' : 'heroicon-m-check-circle')
                     ->formatStateUsing(fn (string $state) => __("admin.tables.tenant.delinquency_state.{$state}"))
                     ->toggleable(),
+                // Credit on account = money paid but not yet applied to an invoice (an overpayment /
+                // on-account remainder booked to Unearned Revenue). Property-scoped like delinquency.
+                TextColumn::make('credit_on_account')
+                    ->label(__('admin.tables.tenant.credit_on_account'))
+                    ->badge()
+                    ->state(fn (Tenant $record): float => $record->creditBalance(\App\Support\TenantScope::visibleAssetIds()))
+                    ->formatStateUsing(fn ($state): string => (float) $state > 0 ? 'EGP '.number_format((float) $state, 2) : '—')
+                    ->color(fn ($state): string => (float) $state > 0 ? 'success' : 'gray')
+                    ->icon(fn ($state): ?string => (float) $state > 0 ? 'heroicon-m-gift' : null)
+                    ->toggleable(),
             ])
             ->filters([
                 SelectFilter::make('status')

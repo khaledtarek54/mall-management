@@ -57,6 +57,10 @@ class PostDatedChequeForm
                                 ])
                                 ->all()
                             : [])
+                        // The options are scoped to unpaid statuses, so a cleared cheque's invoice
+                        // (now 'paid') drops out; resolve any stored invoice to its number so the
+                        // edit page never renders the raw id.
+                        ->getOptionLabelUsing(fn ($value): ?string => Invoice::find($value)?->number)
                         ->searchable()
                         ->native(false)
                         ->helperText(__('admin.post_dated_cheques.fields.invoice_hint')),

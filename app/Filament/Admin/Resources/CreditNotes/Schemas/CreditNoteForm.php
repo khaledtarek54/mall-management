@@ -68,6 +68,10 @@ class CreditNoteForm
                                 ->mapWithKeys(fn ($i) => [$i->id => $i->number . ' — EGP ' . number_format((float) $i->total, 2)])
                                 ->all();
                         })
+                        // The options are capped at the 50 most-recent invoices, so a stored invoice
+                        // that scrolled out of that window (or a disabled Select on a locked note)
+                        // would render its raw id; resolve any stored value to its number.
+                        ->getOptionLabelUsing(fn ($value): ?string => Invoice::find($value)?->number)
                         ->searchable()
                         ->live()
                         ->afterStateUpdated(function ($state, Set $set) {
