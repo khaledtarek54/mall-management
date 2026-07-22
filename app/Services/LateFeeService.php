@@ -86,7 +86,13 @@ class LateFeeService
 
             InvoiceItem::create([
                 'invoice_id' => $locked->id,
-                'description' => __('admin.enums.invoice_item_type.late_fee'),
+                // Spell out the basis so the operator (and the tenant on the invoice/PDF) can verify
+                // the charge instead of seeing a bare "Late Fee" amount.
+                'description' => __('admin.actions.late_fee_line_description', [
+                    'percent' => rtrim(rtrim(number_format($percent, 2), '0'), '.'),
+                    'balance' => 'EGP '.number_format((float) $locked->balance, 2),
+                    'min' => 'EGP '.number_format((float) $min, 2),
+                ]),
                 'type' => 'late_fee',
                 'amount' => $fee,
                 'vat_rate' => 0,

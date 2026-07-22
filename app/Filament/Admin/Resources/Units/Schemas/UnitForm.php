@@ -102,6 +102,7 @@ class UnitForm
                         ->default('vacant')
                         ->native(false),
                     Textarea::make('description')
+                        ->label(__('admin.fields.description'))
                         ->rows(2)
                         ->columnSpanFull(),
                 ]),

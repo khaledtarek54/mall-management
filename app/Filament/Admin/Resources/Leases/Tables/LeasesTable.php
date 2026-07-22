@@ -384,7 +384,15 @@ class LeasesTable
                             ->required(),
                     ])
                     ->action(function (Lease $record, array $data) {
-                        $renewal = app(LeaseRenewalService::class)->renew($record, $data);
+                        try {
+                            $renewal = app(LeaseRenewalService::class)->renew($record, $data);
+                        } catch (\InvalidArgumentException $e) {
+                            // A stale/concurrent modal (the lease changed state since it opened) hits the
+                            // service status guard — surface it as a toast, not an uncaught Livewire 500.
+                            Notification::make()->danger()->title($e->getMessage())->send();
+
+                            return;
+                        }
 
                         Notification::make()
                             ->title(__('admin.actions.lease_renewed'))
@@ -427,7 +435,13 @@ class LeasesTable
                             ->rows(2),
                     ])
                     ->action(function (Lease $record, array $data) {
-                        $updated = app(\App\Services\LeaseRentChangeService::class)->apply($record, $data);
+                        try {
+                            $updated = app(\App\Services\LeaseRentChangeService::class)->apply($record, $data);
+                        } catch (\InvalidArgumentException $e) {
+                            Notification::make()->danger()->title($e->getMessage())->send();
+
+                            return;
+                        }
 
                         Notification::make()
                             ->title(__('admin.actions.rent_changed'))
@@ -467,7 +481,13 @@ class LeasesTable
                             ->default(true),
                     ])
                     ->action(function (Lease $record, array $data) {
-                        $terminated = app(LeaseTerminationService::class)->terminate($record, $data);
+                        try {
+                            $terminated = app(LeaseTerminationService::class)->terminate($record, $data);
+                        } catch (\InvalidArgumentException $e) {
+                            Notification::make()->danger()->title($e->getMessage())->send();
+
+                            return;
+                        }
 
                         Notification::make()
                             ->title(__('admin.actions.lease_terminated'))

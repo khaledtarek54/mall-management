@@ -36,10 +36,10 @@ Legend: ✅ done · 🔄 in progress · ⬜ not started · — n/a. "Biz/Compl/G
 
 | # | Module | Biz-gap | UX | Completion | GL | Bugs | Overall |
 |---|--------|:---:|:---:|:---:|:---:|:---:|---|
-| 01 | Properties & Units | ✅ | 🔄 | ✅ | — | ✅ | Closed; UX pass in progress |
-| 02 | Tenants | ✅ | 🔄 | ✅ | — | ✅ | Closed; UX pass in progress |
-| 04 | Leases | ✅ | 🔄 | ✅ | ✅ | ✅ | Closed; UX pass in progress |
-| 05 | Billing & Invoices | ✅ | 🔄 | ✅ | ✅ | ✅ | Closed; UX pass in progress |
+| 01 | Properties & Units | ✅ | ✅ | ✅ | — | ✅ | **UX pass done** |
+| 02 | Tenants | ✅ | ✅ | ✅ | — | ✅ | **UX pass done** (HIGH authz fixed) |
+| 04 | Leases | ✅ | ✅ | ✅ | ✅ | ✅ | **UX pass done** |
+| 05 | Billing & Invoices | ✅ | ✅ | ✅ | ✅ | ✅ | **UX pass done** (HIGH authz fixed) |
 | 06 | Payments (+ tenant credit) | ✅ | ✅ | ✅ | ✅ | ✅ | **UX pass done** (`b0740e1`) |
 | 07 | Credit Notes | ✅ | ✅ | ✅ | ✅ | ✅ | **UX pass done** (`88814a7`) |
 | 08 | CAM reconciliation | ✅ | ✅ | ✅ | ✅ | ✅ | **UX pass done** (`6ba6fb1`) |
@@ -59,8 +59,12 @@ Legend: ✅ done · 🔄 in progress · ⬜ not started · — n/a. "Biz/Compl/G
 Modules **01, 02, 04, 05, 06, 07, 08, 09** — the money-critical core the client touches daily. UX pass:
 
 - **Done:** 09 annual (cumulative) % rent — module completion **and** the operator/tenant UX; then the UX pass over **06 tenant-credit**, **07 Credit Notes**, **08 CAM** (each: verifiable "View working" breakdowns, caught `DomainException`→toast instead of 500, native components, richer/branched feedback, honest modal copy, EN+AR keys — with per-module adversarial review + tests).
-- **In progress:** UX pass on the remaining four — **01 Properties/Units, 02 Tenants, 04 Leases, 05 Billing/Invoices**.
-- **Then:** modules 10+ (Utility Meters → Maintenance → Vendors → Procurement → Owner Statements → PDC → …), each through the full six-dimension pass.
+- **Also done — 01, 02, 04, 05.** Two **HIGH authz holes** closed (the systemic `visible()`-only class): Tenants **`portalAccess`** (a `leasing` user could set/reset any tenant's portal password via a crafted dispatch) and Billing **`runMonthlyBilling` + ETA submit/bulk-submit** (viewer/owner could trigger a property-wide billing run or file tax invoices). Plus: Leases `renew`/`changeRent`/`terminate` now catch the service guard instead of a Livewire 500; the Assets list column titled *Occupancy* actually showed raw leasable area (relabelled); English label fallbacks in the Arabic panel fixed (country/currency/areas/is_active/description); a manually-added `base_rent` line no longer defaults to 14% VAT (base + % rent are exempt); the late-fee line now states its basis (`2% of EGP X overdue, min EGP 50`) instead of a bare "Late Fee"; `reverse_credit` catches its guard.
+- **The "first 8" (the AR/leasing spine) is now complete across all six dimensions.**
+- **Next:** modules 10+ (Utility Meters → Maintenance → Vendors → Procurement → Owner Statements → PDC → …), each through the full six-dimension pass.
+
+### Deferred from the first-8 UX pass (recommendations, with triggers)
+Non-blocking; captured so nothing is lost. **Leases:** an on-screen "working" for derived figures (next escalation date + escalated rent, levy EGP/month, deposit multiple), reactive escalation-rate field (hide for `none`/CPI, which the sweep skips), CAM cap-term resolved-ceiling column, renew-modal term preview, relation-manager empty states. **Billing:** distinguish the *lock-skipped* monthly run from "nothing to bill" (currently a green success with zeros), a read-only itemised invoice View, per-line VAT column, status filter for cancelled/credited/disputed. **Properties:** surface real occupancy % (`Asset::occupancyRate()` exists but is unsurfaced), a guard so force-deleting a unit/asset with lease dependents is a toast not an FK 500, confirm whether the Units resource should stay labelled "Tenant Directory". **Tenants:** a derivation tooltip on the on-account credit badge. **Project-wide:** exporter completion toasts are hardcoded English (systemic — own sweep).
 
 ## 6. Recurring gaps found (so the pass stays sharp)
 

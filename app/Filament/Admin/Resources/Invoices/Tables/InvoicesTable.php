@@ -203,10 +203,14 @@ class InvoicesTable
                     ->icon('heroicon-o-play')
                     ->color('primary')
                     ->visible(fn () => InvoiceResource::canCreate())
+                    ->authorize(fn () => InvoiceResource::canCreate())
                     ->requiresConfirmation()
                     ->modalHeading(__('admin.actions.run_monthly_billing_modal_heading'))
                     ->modalDescription(fn () => __('admin.actions.run_monthly_billing_modal_description', ['period' => now()->locale(app()->getLocale())->isoFormat('MMMM YYYY')]))
                     ->action(function () {
+                        // action() is the real gate — mountAction() never checks visible(); viewer/owner
+                        // hold invoices.view but not .create and must not trigger a property-wide run.
+                        abort_unless(InvoiceResource::canCreate(), 403);
                         $stats = app(MonthlyBillingService::class)->runForPeriod();
 
                         Notification::make()
@@ -263,11 +267,15 @@ class InvoicesTable
                     ->icon('heroicon-o-paper-airplane')
                     ->color('primary')
                     ->visible(fn (Invoice $record) => \App\Support\Modules::enabled('eta') && $record->eta_status !== 'valid' && in_array($record->status, ['issued', 'partially_paid', 'paid', 'overdue']) && auth()->user()?->can('invoices.submit_to_eta'))
+                    ->authorize(fn () => (auth()->user()?->can('invoices.submit_to_eta') ?? false) && \App\Support\Modules::enabled('eta'))
                     ->requiresConfirmation()
                     ->modalDescription(fn () => config('eta.mock')
                         ? __('admin.actions.submit_to_eta_modal_mock')
                         : __('admin.actions.submit_to_eta_modal_live'))
                     ->action(function (Invoice $record): void {
+                        // action() is the real gate — mountAction() ignores visible(); the ETA filing job
+                        // must not be dispatchable without the permission (and the module enabled).
+                        abort_unless((auth()->user()?->can('invoices.submit_to_eta') ?? false) && \App\Support\Modules::enabled('eta'), 403);
                         // Queue the submission — the ETA gateway can be slow when live,
                         // so never block the request on it. The job retries with backoff
                         // and surfaces exhaustion (see App\Jobs\SubmitInvoiceToEta).
@@ -304,11 +312,13 @@ class InvoicesTable
                         ->icon('heroicon-o-paper-airplane')
                         ->color('primary')
                         ->visible(fn () => \App\Support\Modules::enabled('eta') && auth()->user()?->can('invoices.submit_to_eta'))
+                        ->authorize(fn () => (auth()->user()?->can('invoices.submit_to_eta') ?? false) && \App\Support\Modules::enabled('eta'))
                         ->requiresConfirmation()
                         ->modalDescription(fn () => config('eta.mock')
                             ? __('admin.actions.submit_to_eta_modal_mock')
                             : __('admin.actions.submit_to_eta_modal_live'))
                         ->action(function ($records) {
+                            abort_unless((auth()->user()?->can('invoices.submit_to_eta') ?? false) && \App\Support\Modules::enabled('eta'), 403);
                             // Queue each submission — a bulk of 20+ must never block the
                             // request (or time out) on a slow ETA gateway.
                             $queued = 0;

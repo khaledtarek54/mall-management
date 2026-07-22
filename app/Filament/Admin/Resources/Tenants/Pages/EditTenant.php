@@ -29,6 +29,7 @@ class EditTenant extends EditRecord
                 ->icon('heroicon-o-key')
                 ->color('primary')
                 ->visible(fn () => Auth::user()?->hasAnyRole(['super_admin', 'manager']) ?? false)
+                ->authorize(fn () => Auth::user()?->hasAnyRole(['super_admin', 'manager']) ?? false)
                 ->modalHeading(fn () => __('admin.tenants.portal_modal_heading', ['name' => $this->record->name]))
                 ->modalDescription(__('admin.tenants.portal_modal_description'))
                 ->modalSubmitActionLabel(__('admin.tenants.save_password'))
@@ -45,6 +46,9 @@ class EditTenant extends EditRecord
                         ->helperText(__('admin.tenants.portal_password_helper')),
                 ])
                 ->action(function (array $data) {
+                    // action() is the real gate — mountAction() never checks visible(); a role with
+                    // tenants.edit but not super_admin/manager must not set/reset portal credentials.
+                    abort_unless(Auth::user()?->hasAnyRole(['super_admin', 'manager']) ?? false, 403);
                     $this->record->update([
                         'password' => Hash::make($data['password']),
                         'status' => 'active',

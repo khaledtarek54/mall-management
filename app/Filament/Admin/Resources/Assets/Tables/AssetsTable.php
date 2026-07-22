@@ -46,8 +46,9 @@ class AssetsTable
                     ->badge()
                     ->color('primary'),
                 TextColumn::make('leasable_area_sqm')
-                    ->label(__('admin.tables.asset.occupancy'))
+                    ->label(__('admin.fields.leasable_area_sqm'))
                     ->numeric(decimalPlaces: 0)
+                    ->suffix(' m²')
                     ->sortable(),
                 IconColumn::make('is_active')
                     ->label(__('admin.tables.common.status'))

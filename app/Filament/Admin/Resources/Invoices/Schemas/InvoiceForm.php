@@ -186,6 +186,14 @@ class InvoiceForm
                                 ->required()
                                 ->default('base_rent')
                                 ->native(false)
+                                ->live()
+                                // Base rent + percentage rent are VAT-EXEMPT (project invariant); a
+                                // manually-added line of those types must default to 0% VAT, not the
+                                // field's 14. Service charges / CAM stay taxable at 14.
+                                ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                    $set('vat_rate', in_array($state, ['base_rent', 'percentage_rent'], true) ? 0 : 14);
+                                    self::recomputeItem($set, $get);
+                                })
                                 ->columnSpan(3),
                             TextInput::make('description')
                                 ->label(__('admin.fields.description'))

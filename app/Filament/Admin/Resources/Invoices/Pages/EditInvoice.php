@@ -137,7 +137,15 @@ class EditInvoice extends EditRecord
                 ->modalDescription(__('admin.actions.reverse_credit_confirm'))
                 ->action(function (): void {
                     abort_unless(Auth::user()?->can('payments.edit') ?? false, 403);
-                    $reversed = app(ApplyTenantCreditService::class)->reverseForInvoice($this->record);
+                    try {
+                        $reversed = app(ApplyTenantCreditService::class)->reverseForInvoice($this->record);
+                    } catch (\DomainException $e) {
+                        // e.g. the GL void lands in a CLOSED period — clean toast, not a 500
+                        // (mirrors apply_credit above).
+                        Notification::make()->title($e->getMessage())->danger()->send();
+
+                        return;
+                    }
                     $this->refreshFormData(['status', 'balance']);
                     Notification::make()
                         ->title(__('admin.notifications.credit_reversed', ['amount' => 'EGP '.number_format($reversed, 2)]))

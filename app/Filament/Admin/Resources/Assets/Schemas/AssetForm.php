@@ -45,10 +45,12 @@ class AssetForm
                         ->maxLength(255)
                         ->default('Cairo'),
                     TextInput::make('country')
+                        ->label(__('admin.fields.country'))
                         ->required()
                         ->maxLength(255)
                         ->default('Egypt'),
                     TextInput::make('currency')
+                        ->label(__('admin.fields.currency'))
                         ->required()
                         ->default('EGP')
                         ->maxLength(3),
@@ -57,10 +59,12 @@ class AssetForm
                 ->columns(2)
                 ->components([
                     TextInput::make('total_area_sqm')
+                        ->label(__('admin.fields.total_area_sqm'))
                         ->numeric()
                         ->minValue(0)
                         ->suffix('m²'),
                     TextInput::make('leasable_area_sqm')
+                        ->label(__('admin.fields.leasable_area_sqm'))
                         ->numeric()
                         ->minValue(0)
                         ->suffix('m²'),
@@ -68,6 +72,7 @@ class AssetForm
             Section::make(__('admin.sections.status'))
                 ->components([
                     Toggle::make('is_active')
+                        ->label(__('admin.fields.is_active'))
                         ->default(true),
                 ]),
             Section::make(__('admin.sections.branding'))
