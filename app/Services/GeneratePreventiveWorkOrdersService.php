@@ -77,6 +77,9 @@ class GeneratePreventiveWorkOrdersService
             $order = $plan->workOrders()->create([
                 'asset_id' => $plan->asset_id,
                 'unit_id' => $plan->unit_id,
+                // The location a soft-service round is performed on (cleaning, landscaping). Carried
+                // onto the order so it still says where after the plan is edited or deleted.
+                'area_id' => $plan->area_id,
                 // Carried onto the order so the job records which machine it was against,
                 // and keeps saying so after the plan is edited or deleted (FR-PPM-03).
                 'equipment_id' => $plan->equipment_id,

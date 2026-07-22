@@ -38,6 +38,11 @@ class MaintenancePlansTable
                 TextColumn::make('unit.code')
                     ->label(__('admin.preventive_maintenance.fields.unit'))
                     ->placeholder('—'),
+                // Where an area-based round runs (cleaning, landscaping) — blank for equipment work.
+                TextColumn::make('area.name')
+                    ->label(__('admin.preventive_maintenance.fields.area'))
+                    ->placeholder('—')
+                    ->toggleable(),
                 TextColumn::make('frequency')
                     ->label(__('admin.preventive_maintenance.fields.frequency'))
                     ->state(fn (MaintenancePlan $record) => $record->frequency_value.' '.__("admin.preventive_maintenance.frequency_units.{$record->frequency_unit}")),

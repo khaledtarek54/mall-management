@@ -44,7 +44,9 @@ class MaintenancePlan extends Model
     protected $fillable = [
         'asset_id',
         'unit_id',
+        'area_id',
         'equipment_id',
+        'days_of_week',
         'title',
         'category',
         'maintenance_type',
@@ -61,6 +63,7 @@ class MaintenancePlan extends Model
 
     protected $casts = [
         'checklist' => 'array',
+        'days_of_week' => 'array',
         'next_due_date' => 'date',
         'last_generated_at' => 'datetime',
         'is_active' => 'boolean',
@@ -75,7 +78,7 @@ class MaintenancePlan extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['asset_id', 'unit_id', 'equipment_id', 'title', 'category', 'maintenance_type', 'frequency_unit', 'frequency_value', 'next_due_date', 'is_active'])
+            ->logOnly(['asset_id', 'unit_id', 'area_id', 'equipment_id', 'title', 'category', 'maintenance_type', 'frequency_unit', 'frequency_value', 'days_of_week', 'next_due_date', 'is_active'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('maintenance_plan');
@@ -89,6 +92,12 @@ class MaintenancePlan extends Model
     public function unit(): BelongsTo
     {
         return $this->belongsTo(Unit::class);
+    }
+
+    /** The location this work targets — soft services (cleaning, landscaping) are area-scoped. */
+    public function area(): BelongsTo
+    {
+        return $this->belongsTo(Area::class);
     }
 
     /** The machine this plan services (FR-PPM-01/03) — null = property/unit-wide. */
@@ -145,7 +154,7 @@ class MaintenancePlan extends Model
         $base = CarbonImmutable::parse($this->next_due_date);
         $step = max(1, (int) $this->frequency_value);
 
-        $this->next_due_date = (match ($this->frequency_unit) {
+        $next = match ($this->frequency_unit) {
             'days' => $base->addDays($step),
             'weeks' => $base->addWeeks($step),
             'months' => $base->addMonths($step),
@@ -153,8 +162,19 @@ class MaintenancePlan extends Model
             default => throw new InvalidArgumentException(
                 "Maintenance plan #{$this->id} has an unknown frequency_unit '{$this->frequency_unit}'."
             ),
-        })->toDateString();
+        };
 
+        // Soft-service rounds often run on set weekdays ("every Mon/Wed/Fri"). When days_of_week is
+        // set, roll forward to the next permitted ISO weekday (1=Mon … 7=Sun). Empty/null = any day,
+        // which is the original behaviour. Bounded to 7 hops, so a nonsense list can't spin.
+        $allowed = array_values(array_filter(array_map('intval', (array) ($this->days_of_week ?? []))));
+        if ($allowed !== []) {
+            for ($hop = 0; $hop < 7 && ! in_array($next->isoWeekday(), $allowed, true); $hop++) {
+                $next = $next->addDay();
+            }
+        }
+
+        $this->next_due_date = $next->toDateString();
         $this->last_generated_at = now();
     }
 

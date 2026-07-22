@@ -41,6 +41,16 @@ class MaintenancePlanForm
                     : [])
                 ->searchable()
                 ->native(false),
+            // SOFT services (cleaning, landscaping, pest, waste, security) are LOCATION-scoped, not
+            // equipment-scoped — "clean the food court", "sweep parking L2". Same clamp as unit_id.
+            Select::make('area_id')
+                ->label(__('admin.preventive_maintenance.fields.area'))
+                ->helperText(__('admin.preventive_maintenance.area_hint'))
+                ->options(fn (Get $get) => ($assetId = TenantScope::clampAssetId($get('asset_id'))) !== null
+                    ? \App\Models\Area::query()->where('asset_id', $assetId)->orderBy('name')->pluck('name', 'id')->all()
+                    : [])
+                ->searchable()
+                ->native(false),
             TextInput::make('title')
                 ->label(__('admin.preventive_maintenance.fields.title'))
                 ->required()
@@ -82,6 +92,14 @@ class MaintenancePlanForm
                 ->default('months')
                 ->required()
                 ->native(false),
+            // Soft-service rounds usually land on set weekdays ("every Mon/Wed/Fri"). Leave all
+            // unticked for "any day", which is how every existing plan behaves.
+            \Filament\Forms\Components\CheckboxList::make('days_of_week')
+                ->label(__('admin.preventive_maintenance.fields.days_of_week'))
+                ->helperText(__('admin.preventive_maintenance.days_of_week_hint'))
+                ->options(fn () => __('admin.preventive_maintenance.weekdays'))
+                ->columns(4)
+                ->columnSpanFull(),
             DatePicker::make('next_due_date')
                 ->label(__('admin.preventive_maintenance.fields.next_due'))
                 ->default(now())

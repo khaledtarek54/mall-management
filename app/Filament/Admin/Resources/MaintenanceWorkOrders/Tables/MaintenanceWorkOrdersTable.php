@@ -63,6 +63,11 @@ class MaintenanceWorkOrdersTable
                 TextColumn::make('asset.name')
                     ->label(__('admin.preventive_maintenance.fields.property'))
                     ->badge()->color('gray')->toggleable(),
+                // The location for an area-based job, so the technician knows WHERE.
+                TextColumn::make('area.name')
+                    ->label(__('admin.preventive_maintenance.fields.area'))
+                    ->placeholder('—')
+                    ->toggleable(),
                 TextColumn::make('equipment.code')
                     ->label(__('admin.preventive_maintenance.equipment.singular'))
                     ->fontFamily('mono')

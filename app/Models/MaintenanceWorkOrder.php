@@ -109,6 +109,7 @@ class MaintenanceWorkOrder extends Model
         'execution_type',
         'asset_id',
         'unit_id',
+        'area_id',
         'equipment_id',
         'reference',
         'title',
@@ -156,7 +157,7 @@ class MaintenanceWorkOrder extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['maintenance_plan_id', 'work_order_type', 'execution_type', 'asset_id', 'unit_id', 'equipment_id', 'title', 'category', 'status', 'priority', 'scheduled_for', 'acknowledged_at', 'target_resolution_at', 'completed_at', 'vendor_id', 'assigned_to_user_id', 'parent_work_order_id', 'tenant_request_id', 'fault_party', 'cost_bearer', 'fault_notes'])
+            ->logOnly(['maintenance_plan_id', 'work_order_type', 'execution_type', 'asset_id', 'unit_id', 'area_id', 'equipment_id', 'title', 'category', 'status', 'priority', 'scheduled_for', 'acknowledged_at', 'target_resolution_at', 'completed_at', 'vendor_id', 'assigned_to_user_id', 'parent_work_order_id', 'tenant_request_id', 'fault_party', 'cost_bearer', 'fault_notes'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('maintenance_work_order');
@@ -175,6 +176,12 @@ class MaintenanceWorkOrder extends Model
     public function unit(): BelongsTo
     {
         return $this->belongsTo(Unit::class);
+    }
+
+    /** The location this work targets — soft services (cleaning, landscaping) are area-scoped. */
+    public function area(): BelongsTo
+    {
+        return $this->belongsTo(Area::class);
     }
 
     /**

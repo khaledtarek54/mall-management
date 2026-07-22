@@ -45,7 +45,7 @@ Legend: ✅ done · 🔄 in progress · ⬜ not started · — n/a. "Biz/Compl/G
 | 08 | CAM reconciliation | ✅ | ✅ | ✅ | ✅ | ✅ | **UX pass done** (`6ba6fb1`) |
 | 09 | Tenant Sales & % Rent | ✅ | ✅ | ✅ | ✅ | ✅ | **Annual + UX done** (`8b2ca48`) |
 | 10 | Utility Meters | ✅ | ✅ | ✅ | ✅ | ✅ | **Recharge built** — readings can now be billed |
-| 11/26 | Maintenance (CM + PPM) | ⬜ | ⬜ | 🟡 | — | ⬜ | Next |
+| 11/26 | Facility work (requests · work orders · service schedules) | ✅ | 🟡 | ✅ | — | 🟡 | **Generalised** to any facility service |
 | 12 | Vendors & Contracts | 🟡 | ⬜ | 🟡 | ✅ | 🟡 | Next |
 | 29 | Procurement | ⬜ | ⬜ | 🟡 | ⬜ | ⬜ | Later |
 | 32 | Owner Statements | 🟡 | ⬜ | 🟡 | ✅ | 🟡 | Later |
@@ -61,7 +61,28 @@ Modules **01, 02, 04, 05, 06, 07, 08, 09** — the money-critical core the clien
 - **Done:** 09 annual (cumulative) % rent — module completion **and** the operator/tenant UX; then the UX pass over **06 tenant-credit**, **07 Credit Notes**, **08 CAM** (each: verifiable "View working" breakdowns, caught `DomainException`→toast instead of 500, native components, richer/branched feedback, honest modal copy, EN+AR keys — with per-module adversarial review + tests).
 - **Also done — 01, 02, 04, 05.** Two **HIGH authz holes** closed (the systemic `visible()`-only class): Tenants **`portalAccess`** (a `leasing` user could set/reset any tenant's portal password via a crafted dispatch) and Billing **`runMonthlyBilling` + ETA submit/bulk-submit** (viewer/owner could trigger a property-wide billing run or file tax invoices). Plus: Leases `renew`/`changeRent`/`terminate` now catch the service guard instead of a Livewire 500; the Assets list column titled *Occupancy* actually showed raw leasable area (relabelled); English label fallbacks in the Arabic panel fixed (country/currency/areas/is_active/description); a manually-added `base_rent` line no longer defaults to 14% VAT (base + % rent are exempt); the late-fee line now states its basis (`2% of EGP X overdue, min EGP 50`) instead of a bare "Late Fee"; `reverse_credit` catches its guard.
 - **The "first 8" (the AR/leasing spine) is now complete across all six dimensions.**
-- **Next:** modules 11+ (Maintenance → Vendors → Procurement → Owner Statements → PDC → …), each through the full six-dimension pass.
+- **Next:** modules 12+ (Vendors → Procurement → Owner Statements → PDC → …), each through the full six-dimension pass.
+
+## 5c. Facility work (modules 11/26) — the domain model, and what changed
+
+**There is no standalone "maintenance module", and that is correct.** The system already has the three-layer structure every CMMS/IWMS is built on — and they must stay distinct (not every request becomes work; one request can spawn several work orders; and **planned work has no request at all**):
+
+| Layer | Here | Holds |
+|---|---|---|
+| **Demand (intake)** | **Tenant Requests** | `request_type` + `category`, priority, SLA target, area, department, vendor, CSAT — maintenance is one *category* |
+| **Execution** | **Work Orders** | ppm/cm, internal/external, targets asset/unit/**area**/equipment, SLA, vendor/assignee, parent WO, `tenant_request_id`, **fault party + cost bearer** (tenant chargeback), parts |
+| **Planned generator** | **Service Schedules** (was "Maintenance Plans") | target + discipline + cadence + **checklist** → raises work orders |
+
+**What changed (2026-07-22).** FM splits work into **hard services** (HVAC, electrical, lifts — *equipment*-centric PPM) and **soft services** (cleaning, landscaping, pest, waste, security — *location*-centric rounds). Both belong in the same work-order engine; they differ only in target and cadence. Plans and work orders could target asset/unit/equipment but **not an area**, so soft services — which this operator schedules in-house — could not be planned at all. Now:
+
+- **`area_id` on schedules and work orders** — a round knows *where* it happens ("clean the food court"), and the generator carries the location onto the raised order so it still says where after the plan changes.
+- **`days_of_week` on schedules** — "every Mon/Wed/Fri" rounds. Empty = any day, so every existing plan behaves exactly as before.
+- **Discipline vocabulary broadened** — added landscaping, pest control, waste management, security alongside the maintenance trades.
+- **Relabelled** to *Service Schedule(s)* so an operator scheduling cleaning isn't staring at a screen called "Maintenance Plans" (labels + i18n only; tables unchanged).
+
+**Deliberately NOT built — sub-daily work orders.** "Clean twice daily" as two work orders per day is 700+ orders a year per area of pure noise. The FM convention is **one daily work order whose checklist carries the rounds** ("morning round", "evening round") — which `checklist` already supports. *Trigger to revisit: a client needing per-round sign-off with distinct times/assignees.*
+
+**Deferred (triggers):** meter/usage-based triggers (service every 500 runtime hours — *trigger: equipment with runtime metering*); condition-based triggers; route/patrol schedules covering many areas in one order; per-discipline SLA targets.
 
 ## 5b. Module 10 — Utility Meters (done)
 

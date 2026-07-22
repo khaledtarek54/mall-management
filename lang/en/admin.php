@@ -2533,7 +2533,7 @@ return [
     ],
     'preventive_maintenance' => [
         'group' => 'Facility',
-        'plan' => ['singular' => 'Maintenance Plan', 'plural' => 'Maintenance Plans'],
+        'plan' => ['singular' => 'Service Schedule', 'plural' => 'Service Schedules'],
         'order' => ['singular' => 'Work Order', 'plural' => 'Work Orders'],
         'equipment' => [
             'singular' => 'Equipment',
@@ -2548,6 +2548,7 @@ return [
         ],
         'fields' => [
             'property' => 'Property', 'unit' => 'Unit', 'title' => 'Title', 'category' => 'Category',
+            'area' => 'Area / location', 'days_of_week' => 'Days of the week',
             'code' => 'Code', 'parent' => 'Parent equipment', 'name' => 'Name', 'name_en' => 'Name (EN)',
             'name_ar' => 'Name (AR)', 'location' => 'Location', 'fixed_asset' => 'Fixed asset',
             'spare_parts' => 'Compatible spare parts', 'sub_codes' => 'Sub-codes',
@@ -2692,6 +2693,9 @@ return [
             'assignee_hint' => 'Who is on the job. Internal jobs name a technician; external jobs name the vendor instead.',
         ],
         'frequency_units' => ['days' => 'day(s)', 'weeks' => 'week(s)', 'months' => 'month(s)', 'years' => 'year(s)'],
+        'weekdays' => [1 => 'Monday', 2 => 'Tuesday', 3 => 'Wednesday', 4 => 'Thursday', 5 => 'Friday', 6 => 'Saturday', 7 => 'Sunday'],
+        'area_hint' => 'The location the work is performed on (food court, parking level 2). Use it for cleaning, landscaping, pest control and other area-based services; leave blank for equipment or unit work.',
+        'days_of_week_hint' => 'Restrict the round to these weekdays (e.g. Mon/Wed/Fri). Leave all unticked for any day. For several rounds in one day keep ONE daily schedule and list the rounds as checklist items.',
         'maintenance_types' => ['routine' => 'Routine (recurring schedule)', 'fixed' => 'Fixed (per machine)'],
         'maintenance_type_hint' => 'Routine recurs on a schedule for the property or unit. Fixed targets one specific machine.',
         'equipment_hint' => 'The machine this plan services. Required for fixed maintenance.',
@@ -2700,6 +2704,7 @@ return [
             'electrical' => 'Electrical', 'plumbing' => 'Plumbing', 'hvac' => 'HVAC',
             'structural' => 'Structural', 'cleaning' => 'Cleaning', 'safety' => 'Safety', 'other' => 'Other',
             'elevator' => 'Elevator', 'fire-safety' => 'Fire Safety', 'generator' => 'Generator',
+            'landscaping' => 'Landscaping', 'pest_control' => 'Pest Control', 'waste' => 'Waste Management', 'security' => 'Security',
         ],
         'statuses' => ['open' => 'Open', 'in_progress' => 'In progress', 'done' => 'Done', 'cancelled' => 'Cancelled'],
         'actions' => ['start' => 'Start', 'complete' => 'Mark done', 'cancel' => 'Cancel'],
