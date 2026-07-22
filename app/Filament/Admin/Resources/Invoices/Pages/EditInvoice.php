@@ -3,13 +3,17 @@
 namespace App\Filament\Admin\Resources\Invoices\Pages;
 
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
+use App\Services\ApplyTenantCreditService;
 use App\Services\InvoicePdfService;
 use App\Services\VoidInvoiceService;
+use App\Support\TenantScope;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\RestoreAction;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Auth;
@@ -24,6 +28,18 @@ class EditInvoice extends EditRecord
         InvoiceResource::assertLeaseAssetInScope($data['lease_id'] ?? $this->record->lease_id);
 
         return $data;
+    }
+
+    /** The tenant's on-account credit available for THIS property (isolation-scoped). */
+    private function availableCredit(): float
+    {
+        return $this->record->tenant?->creditBalance(TenantScope::visibleAssetIds()) ?? 0.0;
+    }
+
+    /** The most that can be applied to this invoice: min(invoice balance, available credit). */
+    private function creditCap(): float
+    {
+        return round(min((float) $this->record->balance, $this->availableCredit()), 2);
     }
 
     protected function getHeaderActions(): array
@@ -65,21 +81,48 @@ class EditInvoice extends EditRecord
                     && $this->record->tenant->creditBalance(\App\Support\TenantScope::visibleAssetIds()) > 0
                     && (Auth::user()?->can('payments.edit') ?? false))
                 ->requiresConfirmation()
-                ->modalDescription(fn () => __('admin.actions.apply_credit_confirm', [
-                    'credit' => 'EGP '.number_format($this->record->tenant->creditBalance(\App\Support\TenantScope::visibleAssetIds()), 2),
-                ]))
-                ->action(function (): void {
+                ->modalDescription(__('admin.actions.apply_credit_confirm'))
+                ->schema([
+                    // Show the operator the actual figures BEFORE they confirm — the invoice balance and
+                    // the credit available — so "Apply" is never a leap of faith (previously the modal
+                    // implied the whole credit went on, when only min(credit, balance) does).
+                    Placeholder::make('credit_summary')
+                        ->hiddenLabel()
+                        ->content(fn () => __('admin.actions.apply_credit_summary', [
+                            'balance' => 'EGP '.number_format((float) $this->record->balance, 2),
+                            'credit' => 'EGP '.number_format($this->availableCredit(), 2),
+                        ])),
+                    TextInput::make('amount')
+                        ->label(__('admin.fields.amount'))
+                        ->prefix('EGP')
+                        ->numeric()
+                        ->minValue(0.01)
+                        ->maxValue(fn () => $this->creditCap())     // can't over-apply the invoice or the credit
+                        ->default(fn () => $this->creditCap())      // default = apply all that fits
+                        ->required()
+                        ->helperText(fn () => __('admin.actions.apply_credit_amount_helper', [
+                            'max' => number_format($this->creditCap(), 2),
+                        ])),
+                ])
+                ->action(function (array $data): void {
                     abort_unless(Auth::user()?->can('payments.edit') ?? false, 403);
                     try {
-                        $applied = app(\App\Services\ApplyTenantCreditService::class)->applyToInvoice($this->record);
-                        $this->refreshFormData(['status', 'paid_amount', 'balance']);
-                        Notification::make()
-                            ->title(__('admin.notifications.credit_applied', ['amount' => 'EGP '.number_format($applied, 2)]))
-                            ->success()
-                            ->send();
+                        $applied = app(ApplyTenantCreditService::class)
+                            ->applyToInvoice($this->record, isset($data['amount']) ? (float) $data['amount'] : null);
                     } catch (\DomainException $e) {
                         Notification::make()->title($e->getMessage())->danger()->send();
+
+                        return;
                     }
+                    $this->refreshFormData(['status', 'balance']);
+                    Notification::make()
+                        ->title(__('admin.notifications.credit_applied', ['amount' => 'EGP '.number_format($applied, 2)]))
+                        ->body(__('admin.notifications.credit_applied_body', [
+                            'balance' => 'EGP '.number_format((float) $this->record->fresh()->balance, 2),
+                            'remaining' => 'EGP '.number_format($this->availableCredit(), 2),
+                        ]))
+                        ->success()
+                        ->send();
                 }),
             // Reverse the applied credit (undo) — soft-deletes the applications; the GL entry is
             // voided, the invoice AR re-opens, and the credit returns to the tenant's balance.
@@ -94,8 +137,8 @@ class EditInvoice extends EditRecord
                 ->modalDescription(__('admin.actions.reverse_credit_confirm'))
                 ->action(function (): void {
                     abort_unless(Auth::user()?->can('payments.edit') ?? false, 403);
-                    $reversed = app(\App\Services\ApplyTenantCreditService::class)->reverseForInvoice($this->record);
-                    $this->refreshFormData(['status', 'paid_amount', 'balance']);
+                    $reversed = app(ApplyTenantCreditService::class)->reverseForInvoice($this->record);
+                    $this->refreshFormData(['status', 'balance']);
                     Notification::make()
                         ->title(__('admin.notifications.credit_reversed', ['amount' => 'EGP '.number_format($reversed, 2)]))
                         ->success()

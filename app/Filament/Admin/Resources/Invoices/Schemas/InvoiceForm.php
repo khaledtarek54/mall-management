@@ -255,6 +255,12 @@ class InvoiceForm
                         ->default(0)
                         ->readOnly()
                         ->dehydrated(),
+                    // Show credit settled distinctly from cash paid (both fold into paid_amount otherwise),
+                    // so the operator/tenant can tell how this invoice was settled. Only when it applies.
+                    \Filament\Forms\Components\Placeholder::make('credit_applied_display')
+                        ->label(__('admin.fields.credit_applied'))
+                        ->content(fn ($record) => $record ? 'EGP '.number_format((float) $record->credit_applied_amount, 2) : '—')
+                        ->visible(fn ($record) => $record !== null && (float) $record->credit_applied_amount > 0),
                 ]),
 
             Section::make(__('admin.sections.notes'))

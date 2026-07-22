@@ -58,6 +58,18 @@ class PaymentForm
                         ->afterStateUpdated(function ($state, Set $set, Get $get) {
                             self::suggestAllocations($state, $get, $set);
                         }),
+                    // Surface the tenant's on-account credit right where a payment is taken — so the
+                    // operator can see it and choose to apply it (via the invoice) instead of collecting
+                    // cash the tenant has already prepaid. Property-scoped; reacts to the tenant select.
+                    \Filament\Forms\Components\Placeholder::make('tenant_credit_balance')
+                        ->label(__('admin.fields.credit_on_account'))
+                        ->visible(fn (Get $get) => (bool) $get('tenant_id'))
+                        ->content(function (Get $get) {
+                            $tenant = \App\Models\Tenant::find($get('tenant_id'));
+                            $balance = $tenant?->creditBalance(\App\Support\TenantScope::visibleAssetIds()) ?? 0.0;
+
+                            return $balance > 0.005 ? 'EGP '.number_format($balance, 2) : __('admin.fields.no_credit');
+                        }),
                     DatePicker::make('payment_date')
                         ->label(__('admin.fields.payment_date'))
                         ->required()
