@@ -50,6 +50,58 @@ class VendorBillForm
                         ->placeholder(__('admin.fields.property_consolidated'))
                         ->disabled($locked),
 
+                    // What the contract's `value` was always missing: the link that turns it from a
+                    // decorative number into a commitment. Optional — an ad-hoc call-out has none.
+                    // Scoped to the chosen vendor AND to properties this user can see, so the picker
+                    // can't enumerate another mall's contracts (property-isolation read rule).
+                    Select::make('vendor_contract_id')
+                        ->label(__('admin.fields.vendor_contract'))
+                        ->options(function (Get $get) {
+                            $vendorId = $get('vendor_id');
+
+                            if (blank($vendorId)) {
+                                return [];
+                            }
+
+                            $visible = \App\Support\TenantScope::visibleAssetIds();
+
+                            return \App\Models\VendorContract::query()
+                                ->where('vendor_id', $vendorId)
+                                ->when($visible !== null, fn ($q) => $q->where(
+                                    fn ($w) => $w->whereIn('asset_id', $visible)->orWhereNull('asset_id'),
+                                ))
+                                ->orderByDesc('start_date')
+                                ->get()
+                                ->mapWithKeys(fn (\App\Models\VendorContract $c) => [
+                                    $c->id => sprintf(
+                                        '%s · %s',
+                                        $c->reference ?: $c->name,
+                                        __('admin.vendors.commitment.remaining_short', [
+                                            'amount' => number_format($c->remainingValue(), 0),
+                                        ]),
+                                    ),
+                                ])
+                                ->all();
+                        })
+                        ->helperText(function (Get $get) {
+                            $contract = \App\Models\VendorContract::find($get('vendor_contract_id'));
+
+                            if (! $contract instanceof \App\Models\VendorContract) {
+                                return __('admin.fields.vendor_contract_hint');
+                            }
+
+                            // Spell out the arithmetic — an operator should never have to trust a
+                            // bare "remaining" figure they can't reconcile.
+                            return __('admin.vendors.commitment.helper', [
+                                'value' => number_format((float) $contract->value, 2),
+                                'billed' => number_format($contract->billedToDate(), 2),
+                                'remaining' => number_format($contract->remainingValue(), 2),
+                            ]);
+                        })
+                        ->searchable()
+                        ->live()
+                        ->disabled($locked),
+
                     // FR-PROC-04's other half — and until now, the missing half.
                     //
                     // VendorBillJournalizer clears GRNI instead of charging the expense when a

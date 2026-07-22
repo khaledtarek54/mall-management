@@ -125,6 +125,51 @@ Operators (Eltizam) manage vendor records and can assign vendors to maintenance 
 
 ---
 
+### ScanVendorCoiExpiryCommand
+
+**Registered as:** `vendors:scan-coi-expiry {--dry-run}` · daily at **02:40** (`routes/console.php`).
+
+**Why it exists.** The compliance gate refuses to dispatch a vendor whose COI has lapsed — but it did so *silently*: `Vendor::assignable()` simply stopped returning the contractor, with no warning before and no explanation after. This is the chase that makes the gate usable.
+
+**Behaviour.** For every active vendor whose `coi_expires_at` falls inside the alert window (`Vendor::coiNeedsAttention()`, 30 days), resolve the stage — `expiring` (≤30 days out) or `expired` (past) — and notify, unless that exact `(stage, cert date)` was already alerted.
+
+**Idempotency:** Yes, and it is the interesting part. The stamp is **two** columns — `coi_alert_stage` *and* `coi_alert_for` (the cert date the alert fired for). Consequences, all intentional:
+- a re-run never re-nags (same stage, same date);
+- `expiring → expired` alerts **once more** (stage changed);
+- **renewing the COI re-arms the whole cycle automatically** (date changed) — no manual reset, no separate "clear the flag" step.
+
+**Transaction / locking:** Per-vendor `DB::transaction` + `lockForUpdate`, with the stage **re-checked inside the lock** (the cert may have been renewed since the outer query) — the scheduled-scan invariant. Per-vendor `try/catch` contains failures so one bad row can't stop the portfolio being chased.
+
+**Recipients.** Vendors are a **shared** portfolio catalog, so "whose problem is this" comes from *engagement*: `AssetStaffRecipients::for()` over the assets where the vendor holds an **active contract**, unioned and de-duplicated; portfolio roles when it holds none. Delivery is wrapped in its own `try/catch` — a failed send **warns but still stamps**, because the Action Required card surfaces the same set live off `coiNeedsAttention()`, independently of the stamp. (Without that wrapper, spatie's `role()` scope throwing on an unseeded role silently cost the whole alert cycle.)
+
+**Surfaces sharing the one scope:** the nightly scan, the **Action Required** card (`vendor_coi`, property-scoped via active contracts), and the Vendors table filter **"Insurance lapsed / lapsing"**. All three call `Vendor::coiNeedsAttention()`, so the nag, the count and the list can never disagree.
+
+**Tests:** `tests/Feature/Regression/VendorCoiAlertingTest.php`.
+
+---
+
+### Contract commitment tracking (committed vs actual)
+
+`vendor_contracts.value` used to be a decorative number: a bill was never tied to the contract it was incurred under, so nothing compared what was committed against what the vendor actually invoiced — a EGP 500k contract could quietly absorb EGP 5m of bills.
+
+`vendor_bills.vendor_contract_id` (**nullable** — an ad-hoc call-out has no contract) closes it, via three model methods on `VendorContract`:
+
+| Method | Meaning |
+|---|---|
+| `billedToDate()` | gross invoiced against the contract, **excluding cancelled bills** (withdrawn ≠ incurred) |
+| `remainingValue()` | `value − billedToDate()`; **negative** once over-run |
+| `isOverCommitted()` | `value > 0 && remainingValue() < 0` |
+
+Surfaced as **Committed / Billed to date / Remaining** columns on the vendor's contracts list (remaining turns red + tooltipped when over-run), and as a live helper under the bill form's *Under contract* picker that spells out the arithmetic — `committed − billed = remaining` — rather than showing a bare figure the operator can't reconcile.
+
+**It is a flag, not a block.** Change orders and legitimate overruns exist; the failure mode worth preventing is an over-run nobody can *see*, not one nobody can *record*.
+
+**Property isolation:** the contract picker is scoped to `TenantScope::visibleAssetIds()` (plus portfolio-wide `asset_id = null` contracts), so it can't enumerate another mall's contracts.
+
+**Tests:** `tests/Feature/Regression/VendorContractCommitmentTest.php`.
+
+---
+
 ### Vendor lifecycle in Filament (no service layer)
 
 Creation, edit, and delete are handled directly in Filament pages + relation managers. No service class is needed because vendor records are simple master data (no cascading derived state like leases or invoices).

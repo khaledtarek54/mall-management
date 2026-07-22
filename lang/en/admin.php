@@ -448,6 +448,8 @@ return [
             'sla_breached_body' => 'Resolve or update the tenant',
             'wo_sla_breached' => ':count work order past SLA|:count work orders past SLA',
             'wo_sla_breached_body' => 'Corrective jobs running late',
+            'vendor_coi' => '{1} 1 vendor insurance certificate needs attention|[2,*] :count vendor insurance certificates need attention',
+            'vendor_coi_body' => 'Lapsed or lapsing within 30 days — a lapsed vendor cannot be assigned work',
             'all_clear' => 'You are all caught up. Nothing urgent right now.',
             'view' => 'View',
         ],
@@ -744,6 +746,7 @@ return [
 
     'filters' => [
         'status' => 'Status',
+        'coi_attention' => 'Insurance lapsed / lapsing',
         'overdue_only' => 'Overdue Only',
         'eta_status' => 'ETA Status',
         'needs_eta_attention' => 'Needs ETA Attention',
@@ -1094,6 +1097,10 @@ return [
         'sla_breached_body' => ':type :reference (:priority) is :hours h past its target resolution.',
         'wo_sla_breached_title' => 'Work order past its SLA',
         'wo_sla_breached_body' => ':reference (:equipment) is :hours h past its :priority SLA target.',
+        'vendor_coi_expiring_title' => 'Vendor insurance expiring',
+        'vendor_coi_expiring_body' => ":vendor's insurance certificate (COI) expires on :date — in :days days. Renew it, or the vendor will drop out of every work assignment.",
+        'vendor_coi_expired_title' => 'Vendor insurance expired',
+        'vendor_coi_expired_body' => ":vendor's insurance certificate (COI) expired on :date, :days days ago. The vendor can no longer be assigned work orders or service schedules.",
         'invoice_overdue_title' => 'Invoice overdue',
         'invoice_overdue_body' => 'Invoice :number is :days days overdue — EGP :amount unpaid.',
         // Admin / operator-facing (existing operator-initiated events)
@@ -1262,6 +1269,8 @@ return [
         'recharge_invoice' => 'Recharged',
         'paid_amount' => 'Paid',
         'vendor' => 'Vendor',
+        'vendor_contract' => 'Under contract',
+        'vendor_contract_hint' => 'Optional — link the bill to its contract to track committed vs actually invoiced.',
         'bill_number' => 'Bill no.',
         'bill_date' => 'Bill date',
         'vendor_reference' => 'Vendor reference',
@@ -2234,6 +2243,14 @@ return [
             'none' => 'No COI',
             'expiring' => 'Expiring soon',
             'expired' => 'Expired',
+        ],
+        'commitment' => [
+            'committed' => 'Committed',
+            'billed' => 'Billed to date',
+            'remaining' => 'Remaining',
+            'remaining_short' => 'EGP :amount left',
+            'over_committed' => 'This vendor has invoiced more than the contract committed.',
+            'helper' => 'Committed EGP :value − billed to date EGP :billed = EGP :remaining remaining.',
         ],
     ],
 

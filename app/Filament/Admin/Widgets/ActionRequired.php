@@ -69,6 +69,17 @@ class ActionRequired extends Widget
         // holdover), so surface it prominently. Reuses Lease::scopeHoldover().
         $holdoverCount = $leaseBase()->holdover()->count();
 
+        // Vendors are a SHARED portfolio catalog, so "whose problem is it" comes from engagement:
+        // only certs on vendors under an active contract at a property this user can see. Counting
+        // the raw catalog would show a restricted manager another mall's compliance work.
+        $coiCount = \App\Models\Vendor::query()
+            ->coiNeedsAttention()
+            ->when($assetIds !== null, fn ($q) => $q->whereHas(
+                'contracts',
+                fn ($c) => $c->where('status', 'active')->whereIn('asset_id', $assetIds),
+            ))
+            ->count();
+
         $expiringCriticalCount = $leaseBase()->where('status', 'active')
             ->whereBetween('expiry_date', [$now, (clone $now)->addDays(30)])
             ->count();
@@ -171,6 +182,20 @@ class ActionRequired extends Widget
                 'url' => MaintenanceWorkOrderResource::getUrl('index', [
                     'filters' => ['sla_breached' => ['isActive' => true]],
                     'sort' => 'target_resolution_at:asc',
+                ]),
+            ];
+        }
+
+        if ($coiCount > 0) {
+            $items[] = [
+                'key' => 'vendor_coi',
+                'icon' => 'heroicon-o-shield-exclamation',
+                'color' => 'warning',
+                'title' => trans_choice('admin.widgets.action_required.vendor_coi', $coiCount, ['count' => $coiCount]),
+                'body' => __('admin.widgets.action_required.vendor_coi_body'),
+                'url' => \App\Filament\Admin\Resources\Vendors\VendorResource::getUrl('index', [
+                    'filters' => ['coi_attention' => ['isActive' => true]],
+                    'sort' => 'coi_expires_at:asc',
                 ]),
             ];
         }

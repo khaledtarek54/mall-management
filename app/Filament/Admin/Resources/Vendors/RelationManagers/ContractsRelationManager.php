@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Vendors\RelationManagers;
 
 use App\Models\Asset;
+use App\Models\VendorContract;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -121,7 +122,26 @@ class ContractsRelationManager extends RelationManager
                 TextColumn::make('asset.name')->placeholder(__('admin.fields.portfolio') ?: 'Portfolio')->color('gray'),
                 TextColumn::make('start_date')->date('d/m/Y')->sortable(),
                 TextColumn::make('end_date')->date('d/m/Y')->sortable()->placeholder('—'),
-                TextColumn::make('value')->money('EGP')->alignRight(),
+                TextColumn::make('value')
+                    ->label(__('admin.vendors.commitment.committed'))
+                    ->money('EGP')
+                    ->alignRight(),
+                // Committed vs actual, side by side — the whole point of recording a contract
+                // value. Red the moment the vendor has invoiced past what was agreed.
+                TextColumn::make('billed_to_date')
+                    ->label(__('admin.vendors.commitment.billed'))
+                    ->state(fn (VendorContract $record) => $record->billedToDate())
+                    ->money('EGP')
+                    ->alignRight(),
+                TextColumn::make('remaining_value')
+                    ->label(__('admin.vendors.commitment.remaining'))
+                    ->state(fn (VendorContract $record) => $record->remainingValue())
+                    ->money('EGP')
+                    ->alignRight()
+                    ->color(fn (VendorContract $record) => $record->isOverCommitted() ? 'danger' : 'success')
+                    ->tooltip(fn (VendorContract $record) => $record->isOverCommitted()
+                        ? __('admin.vendors.commitment.over_committed')
+                        : null),
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.statuses.vendor_contract.{$state}"))

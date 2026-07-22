@@ -53,4 +53,35 @@ class VendorContract extends Model
     {
         return $this->belongsTo(Asset::class);
     }
+
+    /** @return \Illuminate\Database\Eloquent\Relations\HasMany<VendorBill, $this> */
+    public function bills(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(VendorBill::class);
+    }
+
+    // ============ Commitment tracking (committed vs actual) ============
+    //
+    // `value` is what was committed when the contract was signed. Without these, it was a
+    // decorative number: nothing compared it to what the vendor has actually invoiced, so a
+    // EGP 500k contract could quietly absorb EGP 5m of bills. Cancelled bills don't consume
+    // the commitment — they were withdrawn, not incurred.
+
+    /** Total invoiced against this contract to date (gross, excluding cancelled bills). */
+    public function billedToDate(): float
+    {
+        return (float) $this->bills()->where('status', '!=', 'cancelled')->sum('total');
+    }
+
+    /** Commitment left before the contract is fully drawn; negative once it is over-run. */
+    public function remainingValue(): float
+    {
+        return round((float) $this->value - $this->billedToDate(), 2);
+    }
+
+    /** Has the vendor invoiced more than the contract committed? A flag to investigate, not a block. */
+    public function isOverCommitted(): bool
+    {
+        return (float) $this->value > 0 && $this->remainingValue() < 0;
+    }
 }

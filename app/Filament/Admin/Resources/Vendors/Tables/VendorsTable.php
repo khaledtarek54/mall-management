@@ -8,7 +8,9 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
+use Illuminate\Database\Eloquent\Builder;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 
@@ -71,6 +73,16 @@ class VendorsTable
                 SelectFilter::make('status')
                     ->label(__('admin.filters.status'))
                     ->options(fn () => __('admin.statuses.vendor')),
+                // The chase list: certs lapsed or lapsing inside the alert window. Shares
+                // Vendor::coiNeedsAttention() with the nightly scan and the dashboard card,
+                // so all three can never disagree about who needs chasing.
+                Filter::make('coi_attention')
+                    ->label(__('admin.filters.coi_attention'))
+                    ->query(function (Builder $query): Builder {
+                        /** @var Builder<Vendor> $query */
+                        return $query->coiNeedsAttention();
+                    })
+                    ->toggle(),
                 TrashedFilter::make(),
             ])
             ->recordActions([

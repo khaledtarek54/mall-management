@@ -27,6 +27,7 @@ class VendorBill extends Model
         'purchase_request_id',
         'number',
         'vendor_id',
+        'vendor_contract_id',
         'asset_id',
         'category',
         'status',
@@ -70,6 +71,17 @@ class VendorBill extends Model
     public function vendor(): BelongsTo
     {
         return $this->belongsTo(Vendor::class);
+    }
+
+    /**
+     * The contract this bill was incurred under, if any.
+     *
+     * Optional by design — an ad-hoc call-out has no contract. When set it's what makes
+     * `vendor_contracts.value` mean something: committed vs actually invoiced.
+     */
+    public function contract(): BelongsTo
+    {
+        return $this->belongsTo(VendorContract::class, 'vendor_contract_id');
     }
 
     /**

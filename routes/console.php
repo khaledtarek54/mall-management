@@ -58,6 +58,14 @@ Schedule::command('vendors:expire-contracts')
     ->name('atriom-expire-vendor-contracts')
     ->withoutOverlapping();
 
+// Chase vendor COIs 30 days out and again on lapse. The compliance gate already
+// drops a lapsed vendor from every assignment picker — without this the operator
+// gets no warning and no explanation, just a contractor missing from a dropdown.
+Schedule::command('vendors:scan-coi-expiry')
+    ->dailyAt('02:40')
+    ->name('atriom-scan-vendor-coi-expiry')
+    ->withoutOverlapping();
+
 // Monthly housekeeping. Spatie's activitylog:clean drops rows older than
 // the config's clean_after_days (default 365) so the audit log doesn't
 // accumulate indefinitely (audit M20 F-75 / D-59).

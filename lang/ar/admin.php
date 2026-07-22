@@ -448,6 +448,8 @@ return [
             'sla_breached_body' => 'احسم الطلب أو حدّث المستأجر',
             'wo_sla_breached' => ':count أمر شغل تجاوز مستوى الخدمة|:count أوامر شغل تجاوزت مستوى الخدمة',
             'wo_sla_breached_body' => 'أعمال تصحيحية متأخرة',
+            'vendor_coi' => '{1} وثيقة تأمين مورّد تحتاج متابعة|[2,*] :count وثائق تأمين موردين تحتاج متابعة',
+            'vendor_coi_body' => 'منتهية أو تنتهي خلال ٣٠ يومًا — المورّد المنتهية وثيقته لا يمكن إسناد أعمال إليه',
             'all_clear' => 'كل شيء تحت السيطرة. لا يوجد شيء عاجل الآن.',
             'view' => 'عرض',
         ],
@@ -744,6 +746,7 @@ return [
 
     'filters' => [
         'status' => 'الحالة',
+        'coi_attention' => 'تأمين منتهٍ أو يقارب الانتهاء',
         'overdue_only' => 'المتأخرة فقط',
         'eta_status' => 'حالة مصلحة الضرائب',
         'needs_eta_attention' => 'تحتاج تدخّل لدى المصلحة',
@@ -1094,6 +1097,10 @@ return [
         'sla_breached_body' => ':type :reference (:priority) تجاوز موعد الحل المستهدف بـ :hours ساعة.',
         'wo_sla_breached_title' => 'أمر شغل تجاوز مستوى الخدمة',
         'wo_sla_breached_body' => ':reference (:equipment) تجاوز المستهدف بـ :hours ساعة لأولوية :priority.',
+        'vendor_coi_expiring_title' => 'وثيقة تأمين مورّد تقارب الانتهاء',
+        'vendor_coi_expiring_body' => 'تنتهي وثيقة تأمين :vendor بتاريخ :date — خلال :days يومًا. جدّدها وإلا لن يظهر المورّد في إسناد الأعمال.',
+        'vendor_coi_expired_title' => 'انتهت وثيقة تأمين مورّد',
+        'vendor_coi_expired_body' => 'انتهت وثيقة تأمين :vendor بتاريخ :date منذ :days يومًا. لم يعد بالإمكان إسناد أوامر عمل أو خطط خدمة إليه.',
         'invoice_overdue_title' => 'فاتورة متأخرة',
         'invoice_overdue_body' => 'الفاتورة :number متأخرة :days يوماً — :amount جنيه غير مدفوعة.',
         // Admin / operator-facing (existing operator-initiated events)
@@ -1262,6 +1269,8 @@ return [
         'recharge_invoice' => 'أُعيد تحميلها',
         'paid_amount' => 'المدفوع',
         'vendor' => 'المورد',
+        'vendor_contract' => 'ضمن العقد',
+        'vendor_contract_hint' => 'اختياري — اربط الفاتورة بعقدها لمتابعة المتعاقد عليه مقابل المفوتر فعليًا.',
         'bill_number' => 'رقم الفاتورة',
         'bill_date' => 'تاريخ الفاتورة',
         'vendor_reference' => 'مرجع المورد',
@@ -2234,6 +2243,14 @@ return [
             'none' => 'لا يوجد تأمين',
             'expiring' => 'قارب على الانتهاء',
             'expired' => 'منتهٍ',
+        ],
+        'commitment' => [
+            'committed' => 'المتعاقد عليه',
+            'billed' => 'المفوتر حتى تاريخه',
+            'remaining' => 'المتبقي',
+            'remaining_short' => 'المتبقي :amount ج.م',
+            'over_committed' => 'فوتر هذا المورّد أكثر من قيمة العقد المتعاقد عليها.',
+            'helper' => 'المتعاقد عليه :value ج.م − المفوتر :billed ج.م = المتبقي :remaining ج.م.',
         ],
     ],
 

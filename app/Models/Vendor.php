@@ -44,6 +44,8 @@ class Vendor extends Model implements HasMedia
         'coi_expires_at',
         'insurer',
         'policy_number',
+        'coi_alert_stage',
+        'coi_alert_for',
         'email',
         'phone',
         'address',
@@ -55,7 +57,14 @@ class Vendor extends Model implements HasMedia
     protected $casts = [
         'metadata' => 'array',
         'coi_expires_at' => 'date',
+        'coi_alert_for' => 'date',
     ];
+
+    /** Days before a COI lapses that the operator starts being chased to renew it. */
+    public const COI_ALERT_DAYS = 30;
+
+    public const COI_STAGE_EXPIRING = 'expiring';
+    public const COI_STAGE_EXPIRED = 'expired';
 
     public function registerMediaCollections(): void
     {
@@ -94,6 +103,37 @@ class Vendor extends Model implements HasMedia
         return $this->coi_expires_at === null
             ? null
             : (int) Carbon::today()->startOfDay()->diffInDays($this->coi_expires_at->startOfDay(), false);
+    }
+
+    /**
+     * Which COI alert stage this vendor is in RIGHT NOW, or null when there's nothing to chase
+     * (no cert recorded, or one comfortably in date). Drives both `vendors:scan-coi-expiry` and
+     * the dashboard card, so the nightly nag and the live count can never disagree.
+     */
+    public function coiAlertStage(?Carbon $on = null): ?string
+    {
+        if ($this->coi_expires_at === null || $this->status !== self::STATUS_ACTIVE) {
+            return null;
+        }
+
+        $days = (int) ($on ?? Carbon::today())->startOfDay()
+            ->diffInDays($this->coi_expires_at->startOfDay(), false);
+
+        return match (true) {
+            $days < 0 => self::COI_STAGE_EXPIRED,
+            $days <= self::COI_ALERT_DAYS => self::COI_STAGE_EXPIRING,
+            default => null,
+        };
+    }
+
+    /** Active vendors whose COI is lapsed or lapsing within the alert window — the chase list. */
+    public function scopeCoiNeedsAttention(Builder $query, ?Carbon $on = null): Builder
+    {
+        $on = ($on ?? Carbon::today())->startOfDay();
+
+        return $query->where('status', self::STATUS_ACTIVE)
+            ->whereNotNull('coi_expires_at')
+            ->whereDate('coi_expires_at', '<=', $on->copy()->addDays(self::COI_ALERT_DAYS)->toDateString());
     }
 
     /** The dispatchable set — active vendors whose COI (if any) is still valid. */
