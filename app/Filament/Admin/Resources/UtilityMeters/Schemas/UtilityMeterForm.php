@@ -61,6 +61,15 @@ class UtilityMeterForm
                         ->label(__('admin.fields.unit_of_measurement'))
                         ->maxLength(16)
                         ->placeholder('kWh / m³'),
+                    // The tariff that turns consumption into money. Leave blank for a meter that is
+                    // monitored but never recharged (e.g. a landlord/common-area meter).
+                    TextInput::make('rate_per_unit')
+                        ->label(__('admin.fields.rate_per_unit'))
+                        ->prefix('EGP')
+                        ->numeric()
+                        ->minValue(0)
+                        ->step('0.0001')
+                        ->helperText(__('admin.helpers.rate_per_unit')),
                 ]),
         ]);
     }

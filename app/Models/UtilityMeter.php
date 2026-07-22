@@ -24,6 +24,7 @@ class UtilityMeter extends Model
         'provider',
         'status',
         'unit_of_measurement',
+        'rate_per_unit',
     ];
 
     public function asset(): BelongsTo

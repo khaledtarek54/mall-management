@@ -375,7 +375,11 @@ class MonthlyBillingService
         return Invoice::where('lease_id', $lease->id)
             ->whereDate('period_start', '<=', $periodEnd->toDateString())
             ->whereDate('period_end', '>=', $periodStart->toDateString())
-            ->whereDoesntHave('items', fn ($q) => $q->whereIn('type', ['percentage_rent', 'cam_recovery', 'cam_admin_fee']))
+            // 'utility' joins the list for the same reason as percentage_rent/cam_*: a utility RECHARGE
+            // invoice is dated to the CONSUMPTION month, which overlaps this probe's window — without
+            // the exclusion a recharged month would read as "already billed" and the monthly run would
+            // silently skip that lease's BASE RENT (the revenue-leak class fixed for % rent).
+            ->whereDoesntHave('items', fn ($q) => $q->whereIn('type', ['percentage_rent', 'cam_recovery', 'cam_admin_fee', 'utility']))
             ->exists();
     }
 
