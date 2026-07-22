@@ -20,6 +20,8 @@ class SalesDeclarationLockedNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
+        $working = app(\App\Services\PercentageRentCalculationService::class)->explain($this->declaration);
+
         $mail = (new MailMessage)
             ->subject(__('admin.notifications.sales_locked_subject', [
                 'period' => $this->declaration->periodLabel(),
@@ -28,6 +30,17 @@ class SalesDeclarationLockedNotification extends Notification
                 'period' => $this->declaration->periodLabel(),
                 'amount' => 'EGP '.number_format((float) $this->declaration->calculated_percentage_rent, 2),
             ]));
+
+        // Annual (cumulative) lease: spell out the running total the charge is based on, so the tenant
+        // can see WHY this month's percentage rent is what it is — or why it's zero (still under the
+        // year's breakpoint). Without this a single month's figure on an annual deal is inexplicable.
+        if (($working['frequency'] ?? null) === 'annual') {
+            $mail->line(__('admin.notifications.sales_locked_annual_context', [
+                'year' => \Illuminate\Support\Carbon::parse($this->declaration->period_start)->year,
+                'cumulative' => 'EGP '.number_format((float) ($working['cumulative_ytd_sales'] ?? 0), 2),
+                'breakpoint' => 'EGP '.number_format((float) ($working['breakpoint'] ?? 0), 2),
+            ]));
+        }
 
         // The billing hint only holds when an overage was actually billed — a locked declaration
         // that was UNDER threshold (owed 0) creates no invoice, so claiming "billed on a separate

@@ -49,6 +49,87 @@ class PercentageRentCalculationService
     }
 
     /**
+     * A plain-language breakdown of how this declaration's percentage rent is worked out — so an
+     * operator (and the tenant notification) can SEE and verify the number rather than trusting a bare
+     * figure. For an annual lease this is the whole point: it exposes the running cumulative that a
+     * single month's charge is otherwise impossible to explain. `applicable` is false when the lease
+     * has no percentage-rent terms. `is_estimate` flags a not-yet-locked figure.
+     *
+     * @return array<string, mixed>
+     */
+    public function explain(TenantSalesDeclaration $declaration): array
+    {
+        $lease = $declaration->lease;
+        if (! $lease instanceof Lease || ! $lease->has_percentage_rent) {
+            return ['applicable' => false];
+        }
+
+        $annual = ($lease->percentage_rent_frequency ?? 'monthly') === 'annual';
+        $natural = ($lease->percentage_rent_calculation_type ?? 'artificial') === 'natural_breakpoint';
+        $rate = (float) $lease->percentage_rent_rate;
+
+        // The breakpoint we DISPLAY is always the SALES level at which percentage rent begins, so it is
+        // directly comparable to declared/cumulative sales. Artificial = the stated threshold. Natural =
+        // sales × rate = base rent → sales = base rent ÷ rate (× 12 base for an annual lease). Showing
+        // the raw base rent here instead — as the first cut did — reads as a nonsensical "breakpoint"
+        // that a tenant's sales dwarf while still owing nothing.
+        $breakpoint = $natural
+            ? ($rate > 0 ? round(((float) $lease->base_rent_monthly * ($annual ? 12 : 1)) / ($rate / 100.0), 2) : 0.0)
+            : (float) ($lease->percentage_rent_threshold ?? 0);
+
+        $base = [
+            'applicable' => true,
+            'frequency' => $annual ? 'annual' : 'monthly',
+            'method' => $natural ? 'natural_breakpoint' : 'artificial',
+            'rate' => $rate,
+            'breakpoint' => $breakpoint,
+            'declared_sales' => (float) $declaration->declared_sales,
+            'this_period_share' => (float) $declaration->calculated_percentage_rent,
+            'is_estimate' => $declaration->status !== 'locked',
+        ];
+
+        if (! $annual) {
+            return $base;
+        }
+
+        $prior = $this->priorLockedSalesYtd($declaration);
+        $cumulative = $prior + (float) $declaration->declared_sales;
+
+        return $base + [
+            'prior_ytd_sales' => $prior,
+            'cumulative_ytd_sales' => $cumulative,
+            'ytd_overage' => round(max(0.0, $this->overage($lease, $cumulative)), 2),
+        ];
+    }
+
+    /**
+     * How an annual lease's overage is currently spread across the year's LOCKED months (each month's
+     * live share + the year total). Used to tell the operator, after a lock/void re-trues the year,
+     * exactly how the % rent now sits — the re-attribution is otherwise invisible.
+     *
+     * @return array{year:int, months:array<int,array{period:string, share:float}>, total:float, cumulative_sales:float}
+     */
+    public function yearAttribution(int $leaseId, int $year): array
+    {
+        $months = TenantSalesDeclaration::query()
+            ->where('lease_id', $leaseId)
+            ->where('status', 'locked')
+            ->whereYear('period_start', $year)
+            ->orderBy('period_start')
+            ->get(['id', 'period_start', 'calculated_percentage_rent', 'declared_sales']);
+
+        return [
+            'year' => $year,
+            'months' => $months->map(fn ($d) => [
+                'period' => \Illuminate\Support\Carbon::parse($d->period_start)->isoFormat('MMM YYYY'),
+                'share' => (float) $d->calculated_percentage_rent,
+            ])->all(),
+            'total' => (float) $months->sum('calculated_percentage_rent'),
+            'cumulative_sales' => (float) $months->sum('declared_sales'),
+        ];
+    }
+
+    /**
      * The raw (pre-floor) percentage-rent overage on a given sales figure, per the lease's formula.
      * Artificial: (sales − breakpoint) × rate. Natural: sales × rate − base rent (× 12 for an annual
      * lease, whose breakpoint is the ANNUAL base rent).

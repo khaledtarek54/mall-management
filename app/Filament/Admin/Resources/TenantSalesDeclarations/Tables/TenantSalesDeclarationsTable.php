@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\TenantSalesDeclarations\Tables;
 
+use App\Models\Lease;
 use App\Models\TenantSalesDeclaration;
 use App\Services\PercentageRentCalculationService;
 use Filament\Actions\Action;
@@ -9,7 +10,9 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Textarea;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
+use Filament\Support\Enums\FontWeight;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -38,6 +41,99 @@ class TenantSalesDeclarationsTable
     public static function canVoid(TenantSalesDeclaration $record): bool
     {
         return $record->status === 'locked' && (auth()->user()?->can('tenant_sales.lock') ?? false);
+    }
+
+    protected static function isAnnualLease(TenantSalesDeclaration $record): bool
+    {
+        $lease = $record->lease;
+
+        return $lease instanceof Lease && $lease->percentage_rent_frequency === 'annual';
+    }
+
+    protected static function hasPercentageRent(TenantSalesDeclaration $record): bool
+    {
+        $lease = $record->lease;
+
+        return $lease instanceof Lease && (bool) $lease->has_percentage_rent;
+    }
+
+    /**
+     * For an ANNUAL lease, a plain-language summary of how the year's percentage rent now sits after a
+     * lock/void re-trued it — which months carry what + the year total — so the re-attribution (locking
+     * one month can shift the charge onto another; voiding re-trues the survivors) is visible to the
+     * operator instead of silent. Returns null for a monthly lease (nothing to summarise).
+     */
+    public static function annualYearSummary(TenantSalesDeclaration $record): ?string
+    {
+        if (! self::isAnnualLease($record)) {
+            return null;
+        }
+
+        $attr = app(PercentageRentCalculationService::class)->yearAttribution(
+            $record->lease_id,
+            \Illuminate\Support\Carbon::parse($record->period_start)->year,
+        );
+
+        $breakdown = collect($attr['months'])
+            ->filter(fn ($m) => $m['share'] > 0)
+            ->map(fn ($m) => $m['period'].': EGP '.number_format($m['share'], 2))
+            ->implode(' · ');
+
+        return __('admin.notifications.declaration_annual_summary', [
+            'year' => $attr['year'],
+            'total' => number_format($attr['total'], 2),
+            'breakdown' => $breakdown !== '' ? $breakdown : __('admin.notifications.declaration_annual_none'),
+        ]);
+    }
+
+    /**
+     * The read-only "View working" modal body as native Filament infolist entries (no custom markup,
+     * so it matches the design system). Shows how this declaration's percentage rent is derived — and
+     * for an annual lease, the cumulative year-to-date working that makes a single month's share
+     * explicable — from the service's plain-language `explain()`.
+     *
+     * @return array<int, TextEntry>
+     */
+    public static function workingSchema(TenantSalesDeclaration $record): array
+    {
+        $w = app(PercentageRentCalculationService::class)->explain($record);
+
+        if (! ($w['applicable'] ?? false)) {
+            return [TextEntry::make('working_na')->hiddenLabel()->state(__('admin.sales_working.not_applicable'))];
+        }
+
+        $money = fn ($v) => 'EGP '.number_format((float) $v, 2);
+        $annual = ($w['frequency'] ?? null) === 'annual';
+
+        $entries = [
+            TextEntry::make('working_frequency')->label(__('admin.fields.percentage_rent_frequency'))->inlineLabel()
+                ->state(__('admin.enums.percentage_rent_frequency')[$w['frequency']] ?? $w['frequency'])
+                ->badge()->color($annual ? 'info' : 'gray'),
+            TextEntry::make('working_method')->label(__('admin.fields.percentage_rent_calculation_type'))->inlineLabel()
+                ->state(__('admin.enums.percentage_rent_calculation_type')[$w['method']] ?? $w['method']),
+            TextEntry::make('working_rate')->label(__('admin.sales_working.rate'))->inlineLabel()
+                ->state(rtrim(rtrim(number_format((float) $w['rate'], 2), '0'), '.').'%'),
+        ];
+
+        if ($annual) {
+            $entries[] = TextEntry::make('working_declared')->label(__('admin.sales_working.declared_this_month'))->inlineLabel()->state($money($w['declared_sales']));
+            $entries[] = TextEntry::make('working_prior')->label(__('admin.sales_working.prior_ytd_sales'))->inlineLabel()->state($money($w['prior_ytd_sales']));
+            $entries[] = TextEntry::make('working_cumulative')->label(__('admin.sales_working.cumulative_ytd_sales'))->inlineLabel()->state($money($w['cumulative_ytd_sales']))->weight(FontWeight::Bold);
+            $entries[] = TextEntry::make('working_breakpoint')->label(__('admin.sales_working.annual_breakpoint'))->inlineLabel()->state($money($w['breakpoint']));
+            $entries[] = TextEntry::make('working_ytd_overage')->label(__('admin.sales_working.ytd_overage'))->inlineLabel()->state($money($w['ytd_overage']));
+            $entries[] = TextEntry::make('working_share')->label(__('admin.sales_working.this_month_share'))->inlineLabel()->state($money($w['this_period_share']))->weight(FontWeight::Bold)->color('primary');
+            $entries[] = TextEntry::make('working_note')->hiddenLabel()->state(__('admin.sales_working.annual_note'))->color('gray');
+        } else {
+            $entries[] = TextEntry::make('working_declared')->label(__('admin.sales_working.declared_sales'))->inlineLabel()->state($money($w['declared_sales']));
+            $entries[] = TextEntry::make('working_breakpoint')->label(__('admin.sales_working.monthly_breakpoint'))->inlineLabel()->state($money($w['breakpoint']));
+            $entries[] = TextEntry::make('working_overage')->label(__('admin.sales_working.this_month_overage'))->inlineLabel()->state($money($w['this_period_share']))->weight(FontWeight::Bold)->color('primary');
+        }
+
+        if ($w['is_estimate'] ?? false) {
+            $entries[] = TextEntry::make('working_estimate')->hiddenLabel()->state(__('admin.sales_working.estimate_note'))->color('warning');
+        }
+
+        return $entries;
     }
 
     public static function configure(Table $table): Table
@@ -73,6 +169,11 @@ class TenantSalesDeclarationsTable
                 TextColumn::make('calculated_percentage_rent')
                     ->label(__('admin.tables.tenant_sales.percentage_rent'))
                     ->money('EGP', divideBy: 1)
+                    // Mark annual (cumulative) leases: a bare figure on an annual lease is a running
+                    // total's share and can't be understood without the "View working" breakdown.
+                    ->description(fn (TenantSalesDeclaration $record) => self::isAnnualLease($record)
+                        ? __('admin.tables.tenant_sales.annual_cumulative')
+                        : null)
                     ->color(fn ($state) => $state > 0 ? 'success' : 'gray'),
                 TextColumn::make('status')
                     ->label(__('admin.tables.common.status'))
@@ -122,11 +223,14 @@ class TenantSalesDeclarationsTable
                             $data['audit_notes'] ?? null,
                         );
 
+                        // Annual: show how the whole year now sits (re-truing can move the charge onto a
+                        // different month). Monthly: just this month's figure.
+                        $record = $record->fresh();
                         Notification::make()
                             ->success()
                             ->title(__('admin.notifications.declaration_locked'))
-                            ->body(__('admin.notifications.declaration_locked_body', [
-                                'amount' => number_format((float) $record->fresh()->calculated_percentage_rent, 2),
+                            ->body(self::annualYearSummary($record) ?? __('admin.notifications.declaration_locked_body', [
+                                'amount' => number_format((float) $record->calculated_percentage_rent, 2),
                             ]))
                             ->send();
                     }),
@@ -188,11 +292,28 @@ class TenantSalesDeclarationsTable
                             return;
                         }
 
+                        // Annual: the void re-trued the year — show the operator how it now sits (a
+                        // survivor month's charge may have changed). Monthly: no body (as before).
                         Notification::make()
                             ->warning()
                             ->title(__('admin.notifications.declaration_voided'))
+                            ->body(self::annualYearSummary($record->fresh()))
                             ->send();
                     }),
+                // Read-only breakdown so an operator can SEE how the figure is derived — essential for
+                // annual leases, where a single month's charge is a share of a running yearly total.
+                // Native Filament infolist entries (no custom markup) so it matches the design system.
+                Action::make('working')
+                    ->label(__('admin.actions.view_sales_working'))
+                    ->icon('heroicon-o-calculator')
+                    ->color('gray')
+                    ->modalHeading(fn (TenantSalesDeclaration $record) => __('admin.actions.view_sales_working_heading', [
+                        'period' => $record->periodLabel(),
+                    ]))
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel(__('admin.actions.close'))
+                    ->schema(fn (TenantSalesDeclaration $record) => self::workingSchema($record))
+                    ->visible(fn (TenantSalesDeclaration $record) => self::hasPercentageRent($record)),
                 EditAction::make(),
             ])
             ->toolbarActions([

@@ -307,6 +307,7 @@ class LeaseForm
                         ->options(fn () => __('admin.enums.percentage_rent_calculation_type'))
                         ->default('artificial')
                         ->native(false)
+                        ->live()
                         ->helperText(__('admin.helpers.percentage_rent_calculation_type'))
                         ->visible(fn ($get) => (bool) $get('has_percentage_rent')),
                     Select::make('percentage_rent_frequency')
@@ -314,15 +315,36 @@ class LeaseForm
                         ->options(fn () => __('admin.enums.percentage_rent_frequency'))
                         ->default('monthly')
                         ->native(false)
+                        ->live()
                         ->helperText(__('admin.helpers.percentage_rent_frequency'))
                         ->visible(fn ($get) => (bool) $get('has_percentage_rent')),
                     TextInput::make('percentage_rent_threshold')
-                        ->label(__('admin.fields.percentage_rent_threshold'))
+                        // Label + helper switch so it is unmistakable that an ANNUAL lease's threshold is
+                        // a WHOLE-YEAR figure — the single easiest thing to get wrong (a monthly figure
+                        // here under-bills ~12×). Hidden for a natural breakpoint, where the breakpoint is
+                        // derived from base rent and this field is unused.
+                        ->label(fn ($get) => $get('percentage_rent_frequency') === 'annual'
+                            ? __('admin.fields.percentage_rent_threshold_annual')
+                            : __('admin.fields.percentage_rent_threshold'))
                         ->prefix('EGP')
                         ->numeric()
                         ->minValue(0)
-                        ->helperText(__('admin.helpers.percentage_rent_threshold'))
-                        ->visible(fn ($get) => (bool) $get('has_percentage_rent')),
+                        ->live(onBlur: true)
+                        ->required(fn ($get) => ($get('percentage_rent_calculation_type') ?? 'artificial') === 'artificial')
+                        ->helperText(fn ($get) => $get('percentage_rent_frequency') === 'annual'
+                            ? __('admin.helpers.percentage_rent_threshold_annual')
+                            : __('admin.helpers.percentage_rent_threshold'))
+                        // Soft nudge: an annual breakpoint below one month's base rent is almost certainly
+                        // a monthly figure typed by mistake. Guidance, not a hard validation error.
+                        ->hintColor('warning')
+                        ->hint(fn ($get, $state) => $get('percentage_rent_frequency') === 'annual'
+                            && is_numeric($state) && (float) $state > 0
+                            && (float) $get('base_rent_monthly') > 0
+                            && (float) $state < (float) $get('base_rent_monthly')
+                                ? __('admin.helpers.percentage_rent_threshold_annual_warning')
+                                : null)
+                        ->visible(fn ($get) => (bool) $get('has_percentage_rent')
+                            && ($get('percentage_rent_calculation_type') ?? 'artificial') === 'artificial'),
                     TextInput::make('percentage_rent_rate')
                         ->label(__('admin.fields.percentage_rent_rate'))
                         ->suffix('%')
