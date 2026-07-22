@@ -208,6 +208,45 @@ class CreditNoteService
     }
 
     /**
+     * Un-apply ONE application (a single note→invoice link) — the granular counterpart to
+     * reverseAllApplications, so an operator can undo one invoice's credit without reversing the whole
+     * note. Restores that invoice's AR and decrements the note's applied balance; the note's own GL
+     * entry (the sales return) is untouched. Returns the amount un-applied.
+     */
+    public function reverseApplication(CreditNoteApplication $application): float
+    {
+        return DB::transaction(function () use ($application) {
+            $application = CreditNoteApplication::query()->lockForUpdate()->find($application->id);
+            if (! $application) {
+                return 0.0;
+            }
+
+            $amount = (float) $application->amount;
+
+            $invoice = Invoice::query()->lockForUpdate()->find($application->invoice_id);
+            if ($invoice) {
+                $invoice->credit_applied_amount = max(0, round((float) $invoice->credit_applied_amount - $amount, 2));
+                $invoice->recomputeTotals(); // re-opens this invoice's AR
+            }
+
+            $note = CreditNote::query()->lockForUpdate()->find($application->credit_note_id);
+            if ($note) {
+                $note->applied_amount = max(0, round((float) $note->applied_amount - $amount, 2));
+                $note->balance = round((float) $note->total - (float) $note->applied_amount, 2);
+                $note->status = $note->balance > 0 ? 'issued' : 'applied';
+                if ((float) $note->applied_amount <= 0) {
+                    $note->applied_at = null;
+                }
+                $note->save();
+            }
+
+            $application->delete();
+
+            return round($amount, 2);
+        }, 3);
+    }
+
+    /**
      * Void a credit note. Cannot void an APPLIED one (reverse it first, or issue an offsetting note).
      */
     public function void(CreditNote $note, ?string $reason = null): CreditNote

@@ -67,6 +67,7 @@ class CreditNoteResource extends Resource
     public static function getRelations(): array
     {
         return [
+            \App\Filament\Admin\RelationManagers\CreditNoteApplicationsRelationManager::class,
             \App\Filament\Admin\RelationManagers\ActivitiesRelationManager::class,
         ];
     }

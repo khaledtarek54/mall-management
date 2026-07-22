@@ -41,6 +41,19 @@ class EditCreditNote extends EditRecord
         }
     }
 
+    /** The most that can be applied: capped at the LESSER of the note's balance and the chosen
+     * invoice's balance, so the operator can't try to over-apply an invoice (the service caps it too,
+     * but this guides them in the modal instead of only correcting it after). */
+    private function applyCap(mixed $invoiceId): float
+    {
+        $noteBalance = (float) $this->record->balance;
+        if (! $invoiceId) {
+            return $noteBalance;
+        }
+
+        return min($noteBalance, (float) (Invoice::find($invoiceId)?->balance ?? 0));
+    }
+
     protected function getHeaderActions(): array
     {
         return [
@@ -68,8 +81,17 @@ class EditCreditNote extends EditRecord
                     && Auth::user()?->can('credit_notes.issue'))
                 ->authorize(fn () => Auth::user()?->can('credit_notes.issue') ?? false)
                 ->requiresConfirmation()
+                ->modalDescription(__('admin.actions.issue_credit_note_confirm'))
                 ->action(function (): void {
-                    app(CreditNoteService::class)->issue($this->record);
+                    try {
+                        app(CreditNoteService::class)->issue($this->record);
+                    } catch (\DomainException $e) {
+                        // e.g. issuing into a CLOSED accounting period (PostingDate guard) — show the
+                        // localized reason as a clean toast instead of an uncaught Livewire 500.
+                        Notification::make()->title($e->getMessage())->danger()->send();
+
+                        return;
+                    }
                     $this->refreshFormData(['status', 'balance']);
                     Notification::make()
                         ->title(__('admin.notifications.credit_note_issued'))
@@ -108,15 +130,19 @@ class EditCreditNote extends EditRecord
                                 ->all();
                         })
                         ->required()
-                        ->searchable(),
+                        ->searchable()
+                        ->live()
+                        // Pre-fill the amount with the cap for the chosen invoice (min of note + invoice
+                        // balance), so the common "apply all that fits" is one click and never over-applies.
+                        ->afterStateUpdated(fn ($state, \Filament\Schemas\Components\Utilities\Set $set) => $set('amount', $this->applyCap($state))),
                     TextInput::make('amount')
                         ->label(__('admin.fields.amount'))
                         ->prefix('EGP')
                         ->numeric()
                         ->minValue(0.01)
-                        ->maxValue(fn () => (float) $this->record->balance)
+                        ->maxValue(fn (\Filament\Schemas\Components\Utilities\Get $get) => $this->applyCap($get('invoice_id')))
                         ->default(fn () => (float) $this->record->balance)
-                        ->helperText(__('admin.actions.apply_amount_helper', ['max' => number_format((float) $this->record->balance, 2)])),
+                        ->helperText(fn (\Filament\Schemas\Components\Utilities\Get $get) => __('admin.actions.apply_amount_helper', ['max' => number_format($this->applyCap($get('invoice_id')), 2)])),
                 ])
                 ->action(function (array $data): void {
                     $invoice = Invoice::findOrFail($data['invoice_id']);
@@ -209,7 +235,10 @@ class EditCreditNote extends EditRecord
                     }
                 }),
 
-            DeleteAction::make(),
+            // Hidden once credit is applied — deleting would throw (the model refuses, to avoid AR
+            // drift); the guided way out is Reverse (visible in that case). Delete stays super_admin-only.
+            DeleteAction::make()
+                ->hidden(fn () => (float) $this->record->applied_amount > 0),
         ];
     }
 }

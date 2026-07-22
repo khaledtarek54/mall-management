@@ -148,6 +148,10 @@ return [
             'description' => 'Issue credit notes to settle disputes, refund returns, or adjust an invoice.',
             'cta' => 'Issue a credit note',
         ],
+        'credit_note_applications' => [
+            'heading' => 'Not applied to any invoice yet',
+            'description' => 'When this credit is applied to an invoice, each application is listed here — with a per-row option to un-apply it.',
+        ],
         'vendor_bills' => [
             'heading' => 'No vendor bills yet',
             'description' => 'Record a vendor bill to track and pay it through accounting.',
@@ -715,6 +719,11 @@ return [
             'applied' => 'Applied',
             'balance' => 'Balance',
         ],
+        'credit_note_applications' => [
+            'title' => 'Applications',
+            'applied_at' => 'Applied',
+            'by' => 'By',
+        ],
         'vendor' => [
             'name' => 'Name',
             'type' => 'Type',
@@ -920,6 +929,9 @@ return [
         'submit_to_eta_modal_mock' => 'ETA is in mock mode. The submission returns a stubbed Valid response — useful for the demo before real test credentials arrive.',
         'submit_to_eta_modal_live' => 'Submits this invoice to the Egyptian Tax Authority preproduction endpoint and stores the response.',
         'issue_credit_note' => 'Issue',
+        'issue_credit_note_confirm' => 'Issuing finalizes the note and posts it to the general ledger (Dr Sales Returns / Cr AR). It can no longer be edited — only applied, reversed, or voided.',
+        'unapply_credit_note' => 'Un-apply',
+        'unapply_credit_note_confirm' => 'Un-apply this credit from the invoice — the invoice re-opens for that amount and the note becomes available again. Other applications are untouched.',
         'apply_to_invoice' => 'Apply to Invoice',
         'apply_amount_helper' => 'Maximum applicable: EGP :max',
         'void_credit_note' => 'Void',

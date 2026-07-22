@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\CreditNotes\Pages;
 
 use App\Filament\Admin\Resources\CreditNotes\CreditNoteResource;
 use App\Models\Lease;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 
 class CreateCreditNote extends CreateRecord
@@ -23,9 +24,15 @@ class CreateCreditNote extends CreateRecord
         }
 
         // Creating a note straight to a posting status (bypassing the Issue action) still posts to
-        // the GL dated issue_date — refuse a closed period here too, mirroring issue().
+        // the GL dated issue_date — refuse a closed period here too, mirroring issue(). Catch the
+        // guard so a closed period is a clean field-level toast, not an uncaught Livewire 500.
         if (in_array($data['status'] ?? 'draft', ['issued', 'applied'], true)) {
-            \App\Support\PostingDate::assertOpen($data['issue_date'] ?? null, __('admin.fields.issue_date'));
+            try {
+                \App\Support\PostingDate::assertOpen($data['issue_date'] ?? null, __('admin.fields.issue_date'));
+            } catch (\DomainException $e) {
+                Notification::make()->title($e->getMessage())->danger()->send();
+                $this->halt();
+            }
         }
 
         $data['issued_by_user_id'] = auth()->id();
