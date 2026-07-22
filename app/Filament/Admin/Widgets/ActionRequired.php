@@ -108,6 +108,23 @@ class ActionRequired extends Widget
             ->filter(fn ($lease) => $lease->isBillingCycleStart(\Carbon\CarbonImmutable::instance($monthStart)))
             ->count();
 
+        // Percentage-rent leases with NO sales declaration for the closed (previous) month — the
+        // tenant hasn't reported, so their overage can't be billed (a silent revenue leak). Only
+        // leases actually billable that month (commenced, past fit-out grace).
+        $prevMonthStart = (clone $now)->subMonthNoOverflow()->startOfMonth();
+        $missingSalesCount = $leaseBase()->where('status', 'active')
+            ->where('has_percentage_rent', true)
+            ->whereNotNull('commencement_date')
+            ->whereDate('commencement_date', '<=', (clone $prevMonthStart)->endOfMonth())
+            ->whereDoesntHave('salesDeclarations', fn ($q) => $q->whereDate('period_start', $prevMonthStart))
+            ->get()
+            ->filter(function ($lease) use ($prevMonthStart) {
+                $firstBillable = $lease->firstBillableMonth();
+
+                return $firstBillable === null || $firstBillable->lessThanOrEqualTo(\Carbon\CarbonImmutable::instance($prevMonthStart));
+            })
+            ->count();
+
         $items = [];
         $maintenanceEnabled = \App\Support\Modules::enabled('maintenance');
         $ppmEnabled = \App\Support\Modules::enabled('preventive_maintenance');
@@ -242,6 +259,19 @@ class ActionRequired extends Widget
                     'filters' => ['status' => ['value' => 'active']],
                     'sort' => 'commencement_date:desc',
                 ]),
+            ];
+        }
+
+        if ($missingSalesCount > 0) {
+            // Percentage-rent tenants who haven't reported last month's sales — land the operator on
+            // the declarations list so they can chase the report (and lock it once it arrives).
+            $items[] = [
+                'key' => 'missing_sales',
+                'icon' => 'heroicon-o-presentation-chart-line',
+                'color' => 'warning',
+                'title' => trans_choice('admin.widgets.action_required.missing_sales', $missingSalesCount, ['count' => $missingSalesCount]),
+                'body' => __('admin.widgets.action_required.missing_sales_body'),
+                'url' => \App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource::getUrl('index'),
             ];
         }
 

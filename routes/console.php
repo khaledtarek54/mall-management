@@ -105,6 +105,14 @@ Schedule::command('billing:scan-overdue-invoices')
     ->name('atriom-scan-overdue-invoices')
     ->withoutOverlapping();
 
+// Remind percentage-rent tenants who haven't submitted last month's sales declaration — else
+// their overage never bills (a silent revenue leak). Runs on the 10th (tenants have the first
+// week+ to report the closed month). Idempotent: one reminder per (lease, period).
+Schedule::command('sales:scan-missing-declarations')
+    ->monthlyOn(10, '08:00')
+    ->name('atriom-scan-missing-sales-declarations')
+    ->withoutOverlapping();
+
 // FR-INV-03 — each mall's own shortages, once per shortage rather than once per run.
 // Daily, not hourly: a reorder level is a restocking hint, not a deadline, and an alert that
 // repeats faster than anyone can act on it is an alert people learn to ignore.

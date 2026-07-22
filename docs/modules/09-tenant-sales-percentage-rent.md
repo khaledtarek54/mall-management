@@ -655,3 +655,21 @@ Test: `PercentageRentScenarioTest::fractional-rate rounding to 2dp`
 **Last updated:** 2026-07-10 (file-first submission: tenants upload a sales report; staff enter the figure)
 **Confidence:** High (test suite green; code reviewed)
 
+
+---
+
+## 11. Close-out (2026-07-22) — what changed
+
+The property+facility close-out ([gap-analysis](../gap-analysis/PROPERTY-FACILITY-CLOSURE.md)); plain-language business model: [business-model/09](../business-model/09-tenant-sales-percentage-rent.md). The core (immediate-overage billing, void/re-lock, file-first submission) was already shipped & correct — these are the layer around it.
+
+### Authz double-gate (was: dispatch hole)
+`lock` / `dispute` / `voidLocked` (`TenantSalesDeclarationsTable`) gated permission + status only in `visible()`. `mountAction()` never checks `isVisible()`, and seeded `viewer` + `owner` hold `tenant_sales.view` (the list renders), so a read-only auditor or owner could Lock (bill an overage invoice + post GL), Dispute, or Void a locked declaration via a crafted call. Now each action re-asserts a **named predicate** — `canLock` / `canDispute` / `canVoid` (permission **and** status) — in **both** `visible()` and `action()` (`abort_unless`). Tested via `mountAction`+`callMountedAction` in `SalesDeclarationActionAuthzTest` (the prior `assertTableActionHidden` test checked only `visible()` and false-passed).
+
+### Non-reporting scan + dashboard card
+A percentage-rent tenant who never uploads a report has no declaration → the overage never bills and nothing alerts (the reporting-layer twin of the closed billing gap). `sales:scan-missing-declarations` (`ScanMissingSalesDeclarationsCommand`, scheduled monthly on the 10th) reminds every active `has_percentage_rent` lease that was billable in the closed month (commenced, past `firstBillableMonth()` fit-out grace) and has no declaration for it (`whereDoesntHave('salesDeclarations', period_start=prevMonth)`). Idempotent: `SalesDeclarationReminderNotification` carries `period_key` (YYYY-MM) + `lease_id`, and the scan skips a lease already reminded for that period — so re-runs never re-nag. The `ActionRequired` **"missing sales declarations"** card surfaces the same set live (property-scoped via `visibleAssetIds()`), so the leak is never silent again.
+
+### GL real-sweep tie-out
+`PercentageRentGlTieOutTest` drives the real service + `accounting:sync-ledger` and asserts the overage posts Dr AR / Cr `percentage_rent_revenue` (41105001) balanced + tied, and that `voidLocked` reverses it — satisfying the GL invariant ("at least one test per money source must drive the real service + the sweep").
+
+### Deferred (with triggers)
+**Annual / cumulative reconciliation** (the biggest gap — Atriom bills per-month against a monthly breakpoint, which over-bills a seasonal tenant; the operator confirmed all current leases use monthly breakpoints — *trigger: the first lease with an annual/cumulative breakpoint*) · structured sales-basis / exclusions · estimated/deemed-sales billing on chronic non-reporting · a tenant-facing % rent statement PDF. The stale "billed next monthly cycle" notification copy was corrected (it's immediate).

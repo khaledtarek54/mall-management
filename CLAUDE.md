@@ -38,7 +38,7 @@ php artisan atriom:dump-system-census     # regenerate the census in docs/PROJEC
 php artisan atriom:dump-admin-manifest    # regenerate the E2E resource manifest
 ```
 **Never hand-type a count into a doc** — that's how PROJECT-MAP came to claim 28 models when there were 61. Run the census instead.
-Scheduled (`routes/console.php`): `requests:scan-sla-breaches` · `billing:scan-overdue-invoices` · `billing:apply-late-fees` · `requests:auto-close` · `maintenance:generate-preventive` · `maintenance:scan-wo-sla-breaches` · `vendors:expire-contracts` · `cam:reconcile` · `accounting:sync-ledger` · `accounting:post-depreciation` · `leases:apply-escalations` · `pdc:scan-maturing`. *(The tenant-request scans are `requests:*`; `maintenance:*` is now facility work-orders/plans only.)*
+Scheduled (`routes/console.php`): `requests:scan-sla-breaches` · `billing:scan-overdue-invoices` · `billing:apply-late-fees` · `requests:auto-close` · `maintenance:generate-preventive` · `maintenance:scan-wo-sla-breaches` · `vendors:expire-contracts` · `cam:reconcile` · `accounting:sync-ledger` · `accounting:post-depreciation` · `leases:apply-escalations` · `pdc:scan-maturing` · `sales:scan-missing-declarations`. *(The tenant-request scans are `requests:*`; `maintenance:*` is now facility work-orders/plans only.)*
 
 ## Skills (`.claude/skills/`)
 - **`/new-module`** — scaffold a module the Atriom way (model+migration, service, RBAC + property-scoped Filament resource, permissions, doc, tests).

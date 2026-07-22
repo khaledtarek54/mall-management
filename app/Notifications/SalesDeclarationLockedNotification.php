@@ -20,15 +20,23 @@ class SalesDeclarationLockedNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        return (new MailMessage)
+        $mail = (new MailMessage)
             ->subject(__('admin.notifications.sales_locked_subject', [
                 'period' => $this->declaration->periodLabel(),
             ]))
             ->line(__('admin.notifications.sales_locked_body', [
                 'period' => $this->declaration->periodLabel(),
                 'amount' => 'EGP '.number_format((float) $this->declaration->calculated_percentage_rent, 2),
-            ]))
-            ->line(__('admin.notifications.sales_locked_billing_hint'));
+            ]));
+
+        // The billing hint only holds when an overage was actually billed — a locked declaration
+        // that was UNDER threshold (owed 0) creates no invoice, so claiming "billed on a separate
+        // invoice" would be a false statement that generates "where's my invoice?" tickets.
+        if ((float) $this->declaration->calculated_percentage_rent > 0) {
+            $mail->line(__('admin.notifications.sales_locked_billing_hint'));
+        }
+
+        return $mail;
     }
 
     public function toDatabase(object $notifiable): array

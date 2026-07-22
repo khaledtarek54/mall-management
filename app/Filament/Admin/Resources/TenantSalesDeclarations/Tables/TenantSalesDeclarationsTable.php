@@ -17,6 +17,29 @@ use Filament\Tables\Table;
 
 class TenantSalesDeclarationsTable
 {
+    /**
+     * The predicate for each write action, named ONCE so visible() (the UI) and action() (the real
+     * gate) can't drift. Filament's mountAction() never checks isVisible(), so a hidden action is
+     * still dispatchable by a crafted Livewire call — every write must re-assert in action()
+     * (abort_unless). `viewer` + `owner` hold tenant_sales.view (the list renders) but not the action
+     * perms; without the action-side gate they could Lock (bill an overage invoice + post GL),
+     * Dispute, or Void a declaration via mountAction. The permission AND the status are re-checked.
+     */
+    public static function canLock(TenantSalesDeclaration $record): bool
+    {
+        return $record->status === 'submitted' && (auth()->user()?->can('tenant_sales.lock') ?? false);
+    }
+
+    public static function canDispute(TenantSalesDeclaration $record): bool
+    {
+        return $record->status === 'submitted' && (auth()->user()?->can('tenant_sales.dispute') ?? false);
+    }
+
+    public static function canVoid(TenantSalesDeclaration $record): bool
+    {
+        return $record->status === 'locked' && (auth()->user()?->can('tenant_sales.lock') ?? false);
+    }
+
     public static function configure(Table $table): Table
     {
         return $table
@@ -90,8 +113,9 @@ class TenantSalesDeclarationsTable
                             ->label(__('admin.fields.audit_notes'))
                             ->rows(3),
                     ])
-                    ->visible(fn (TenantSalesDeclaration $record) => $record->status === 'submitted' && auth()->user()?->can('tenant_sales.lock'))
+                    ->visible(fn (TenantSalesDeclaration $record) => self::canLock($record))
                     ->action(function (TenantSalesDeclaration $record, array $data): void {
+                        abort_unless(self::canLock($record), 403);
                         app(PercentageRentCalculationService::class)->lock(
                             $record,
                             auth()->user(),
@@ -117,8 +141,9 @@ class TenantSalesDeclarationsTable
                             ->required()
                             ->rows(3),
                     ])
-                    ->visible(fn (TenantSalesDeclaration $record) => $record->status === 'submitted' && auth()->user()?->can('tenant_sales.dispute'))
+                    ->visible(fn (TenantSalesDeclaration $record) => self::canDispute($record))
                     ->action(function (TenantSalesDeclaration $record, array $data): void {
+                        abort_unless(self::canDispute($record), 403);
                         $record->update([
                             'status' => 'disputed',
                             'audit_notes' => $data['audit_notes'],
@@ -144,8 +169,9 @@ class TenantSalesDeclarationsTable
                             ->rows(3)
                             ->placeholder(__('admin.actions.void_locked_reason_placeholder')),
                     ])
-                    ->visible(fn (TenantSalesDeclaration $record) => $record->status === 'locked' && auth()->user()?->can('tenant_sales.lock'))
+                    ->visible(fn (TenantSalesDeclaration $record) => self::canVoid($record))
                     ->action(function (TenantSalesDeclaration $record, array $data): void {
+                        abort_unless(self::canVoid($record), 403);
                         try {
                             app(\App\Services\PercentageRentCalculationService::class)
                                 ->voidLocked($record, auth()->user(), $data['reason']);
