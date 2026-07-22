@@ -5,8 +5,10 @@ namespace App\Filament\Admin\RelationManagers;
 use App\Models\CamAllocation;
 use App\Services\CamReconciliationService;
 use Filament\Actions\Action;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Support\Enums\FontWeight;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -18,6 +20,14 @@ class CamAllocationsRelationManager extends RelationManager
     public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
     {
         return __('admin.tables.cam.allocations');
+    }
+
+    protected static function tenantName(CamAllocation $record): string
+    {
+        $lease = $record->lease;
+        $tenant = $lease instanceof \App\Models\Lease ? $lease->tenant : null;
+
+        return $tenant instanceof \App\Models\Tenant ? $tenant->name : '—';
     }
 
     /** Named once so the bill action's visible() (UI) and action() (real gate) can't drift. */
@@ -34,10 +44,92 @@ class CamAllocationsRelationManager extends RelationManager
             && (auth()->user()?->can('cam.bill_allocation') ?? false);
     }
 
+    /**
+     * The billed-allocation notification body, branched on what the service actually did: a recovery
+     * invoice (positive true-up), an auto-applied credit (the tenant over-paid the estimate), or a
+     * fee-only invoice (estimate matched actual). The old copy said "true-up of EGP :amount added" for
+     * all three — which read as "-500 added" for a credit and never mentioned the admin fee.
+     */
+    public static function billedNotificationBody(CamAllocation $record): string
+    {
+        $trueUp = (float) $record->true_up_amount;
+        $fee = number_format((float) $record->admin_fee_amount, 2);
+
+        if ($trueUp < -0.005) {
+            return __('admin.notifications.allocation_billed_credit', [
+                'amount' => number_format(abs($trueUp), 2),
+                'fee' => $fee,
+            ]);
+        }
+
+        if ($trueUp > 0.005) {
+            return __('admin.notifications.allocation_billed_recovery', [
+                'amount' => number_format($trueUp, 2),
+                'fee' => $fee,
+            ]);
+        }
+
+        return __('admin.notifications.allocation_billed_fee_only', ['fee' => $fee]);
+    }
+
+    /**
+     * The read-only per-allocation "Breakdown" as native Filament infolist entries — every leg of the
+     * true-up (pro-rata share → allocated → cap ceiling/capped/absorbed → estimate → true-up → recovery
+     * VAT → admin fee + its VAT → net invoiced/credited), so the number is verifiable exactly where a
+     * tenant is most likely to dispute it (a cap biting makes the bare table columns stop adding up).
+     *
+     * @return array<int, TextEntry>
+     */
+    public static function breakdownSchema(CamAllocation $record): array
+    {
+        $w = app(CamReconciliationService::class)->explainAllocation($record);
+        $money = fn ($v) => 'EGP '.number_format((float) $v, 2);
+
+        $rows = [
+            TextEntry::make('bd_share')->label(__('admin.cam_working.share'))->inlineLabel()
+                ->state(number_format($w['share_pct'], 4).'%'),
+            TextEntry::make('bd_pool_actual')->label(__('admin.cam_working.pool_actual'))->inlineLabel()->state($money($w['pool_actual'])),
+            TextEntry::make('bd_allocated')->label(__('admin.cam_working.allocated'))->inlineLabel()->state($money($w['allocated'])),
+        ];
+
+        if ($w['cap_applied']) {
+            $rows[] = TextEntry::make('bd_cap_ceiling')->label(__('admin.cam_working.cap_ceiling'))->inlineLabel()->state($money($w['cap_ceiling']));
+            $rows[] = TextEntry::make('bd_capped_cost')->label(__('admin.cam_working.capped_cost'))->inlineLabel()->state($money($w['capped_cost']));
+            $rows[] = TextEntry::make('bd_cap_absorbed')->label(__('admin.cam_working.cap_absorbed'))->inlineLabel()
+                ->state($money($w['cap_absorbed']))->color('success');
+        }
+
+        $rows[] = TextEntry::make('bd_estimated')->label(__('admin.cam_working.estimated_paid'))->inlineLabel()->state($money($w['estimated_paid']));
+        $rows[] = TextEntry::make('bd_true_up')->label(__('admin.cam_working.true_up'))->inlineLabel()
+            ->state($money($w['true_up']))->weight(FontWeight::Bold)
+            ->color($w['true_up'] > 0 ? 'warning' : ($w['true_up'] < 0 ? 'success' : 'gray'));
+
+        if ($w['recovery_vat'] > 0) {
+            $rows[] = TextEntry::make('bd_recovery_vat')
+                ->label(__('admin.cam_working.recovery_vat', ['rate' => rtrim(rtrim(number_format($w['recovery_vat_rate'], 2), '0'), '.')]))
+                ->inlineLabel()->state($money($w['recovery_vat']));
+        }
+
+        if ($w['admin_fee'] > 0) {
+            $rows[] = TextEntry::make('bd_admin_fee')->label(__('admin.cam_working.admin_fee'))->inlineLabel()->state($money($w['admin_fee']));
+            if ($w['admin_fee_vat'] > 0) {
+                $rows[] = TextEntry::make('bd_admin_fee_vat')->label(__('admin.cam_working.admin_fee_vat'))->inlineLabel()->state($money($w['admin_fee_vat']));
+            }
+        }
+
+        $rows[] = $w['direction'] === 'credit'
+            ? TextEntry::make('bd_net')->label(__('admin.cam_working.net_credited'))->inlineLabel()
+                ->state($money($w['net_invoiced']))->weight(FontWeight::Bold)->color('success')
+            : TextEntry::make('bd_net')->label(__('admin.cam_working.net_invoiced'))->inlineLabel()
+                ->state($money($w['net_invoiced']))->weight(FontWeight::Bold)->color('primary');
+
+        return $rows;
+    }
+
     public function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['lease.tenant', 'lease.unit']))
+            ->modifyQueryUsing(fn ($query) => $query->with(['lease.tenant', 'lease.unit', 'pool']))
             ->columns([
                 TextColumn::make('lease.tenant.name')
                     ->label(__('admin.tables.cam.tenant'))
@@ -53,6 +145,18 @@ class CamAllocationsRelationManager extends RelationManager
                 TextColumn::make('allocated_amount')
                     ->label(__('admin.tables.cam.allocated'))
                     ->money('EGP', divideBy: 1),
+                // Cap legs — hidden by default, but present so the true-up reconciles when a cap bites
+                // (allocated − absorbed = capped cost; capped cost − estimated = true-up).
+                TextColumn::make('capped_cost_amount')
+                    ->label(__('admin.tables.cam.capped_cost'))
+                    ->money('EGP', divideBy: 1)
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('cap_absorbed_amount')
+                    ->label(__('admin.tables.cam.cap_absorbed'))
+                    ->money('EGP', divideBy: 1)
+                    ->color('success')
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('estimated_paid')
                     ->label(__('admin.tables.cam.estimated_paid'))
                     ->money('EGP', divideBy: 1)
@@ -85,7 +189,21 @@ class CamAllocationsRelationManager extends RelationManager
                     ->options(fn () => __('admin.statuses.cam_allocation')),
             ])
             ->defaultSort('allocated_amount', 'desc')
+            ->emptyStateIcon('heroicon-o-calculator')
+            ->emptyStateHeading(__('admin.empty.cam_allocations.heading'))
+            ->emptyStateDescription(__('admin.empty.cam_allocations.description'))
             ->recordActions([
+                // Read-only working — how this tenant's true-up is derived, every leg (cap + VAT included).
+                Action::make('breakdown')
+                    ->label(__('admin.actions.view_cam_working'))
+                    ->icon('heroicon-o-calculator')
+                    ->color('gray')
+                    ->modalHeading(fn (CamAllocation $record) => __('admin.actions.view_cam_working_heading', [
+                        'tenant' => self::tenantName($record),
+                    ]))
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel(__('admin.actions.close'))
+                    ->schema(fn (CamAllocation $record) => self::breakdownSchema($record)),
                 Action::make('bill')
                     ->label(__('admin.actions.bill_allocation'))
                     ->icon('heroicon-o-banknotes')
@@ -101,9 +219,7 @@ class CamAllocationsRelationManager extends RelationManager
                         Notification::make()
                             ->success()
                             ->title(__('admin.notifications.allocation_billed'))
-                            ->body(__('admin.notifications.allocation_billed_body', [
-                                'amount' => number_format((float) $record->true_up_amount, 2),
-                            ]))
+                            ->body(self::billedNotificationBody($record->refresh()))
                             ->send();
                     }),
                 Action::make('void')

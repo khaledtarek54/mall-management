@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\CamExpensePools\Schemas;
 
+use App\Models\CamExpensePool;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -10,6 +11,18 @@ use Filament\Schemas\Schema;
 
 class CamExpensePoolForm
 {
+    /**
+     * The recovery basis (expense, estimate, fee %, VAT) is FROZEN once any allocation is billed —
+     * changing it would leave billed rows on the old figure while regenerated rows use the new one
+     * (the model's updating guard throws). Disabling the fields (with a hint saying why) is the UX
+     * side of that guard: the operator sees they must void billed allocations first, instead of hitting
+     * a raw exception on save.
+     */
+    public static function basisFrozen(?CamExpensePool $record): bool
+    {
+        return $record !== null && $record->allocations()->where('status', '!=', 'pending')->exists();
+    }
+
     public static function configure(Schema $schema): Schema
     {
         return $schema->columns(1)->components([
@@ -50,7 +63,10 @@ class CamExpensePoolForm
                         ->numeric()
                         ->minValue(0)
                         ->step('0.01')
-                        ->helperText(__('admin.helpers.cam_actual_expense')),
+                        ->helperText(__('admin.helpers.cam_actual_expense'))
+                        ->disabled(fn (?CamExpensePool $record) => self::basisFrozen($record))
+                        ->hintColor('warning')
+                        ->hint(fn (?CamExpensePool $record) => self::basisFrozen($record) ? __('admin.helpers.cam_basis_frozen') : null),
                     TextInput::make('total_estimated_collected')
                         ->label(__('admin.fields.total_estimated_collected'))
                         ->prefix('EGP')
@@ -58,7 +74,10 @@ class CamExpensePoolForm
                         ->numeric()
                         ->minValue(0)
                         ->step('0.01')
-                        ->helperText(__('admin.helpers.cam_estimated_collected')),
+                        ->helperText(__('admin.helpers.cam_estimated_collected'))
+                        ->disabled(fn (?CamExpensePool $record) => self::basisFrozen($record))
+                        ->hintColor('warning')
+                        ->hint(fn (?CamExpensePool $record) => self::basisFrozen($record) ? __('admin.helpers.cam_basis_frozen') : null),
                     // Admin fee % is stored as a FRACTION (0.10) but operators think in percent (10).
                     // formatStateUsing (×100) runs on hydrate — INCLUDING on the default — so the
                     // default is expressed in the field's raw (pre-format) space, the fraction 0.10,
@@ -74,7 +93,10 @@ class CamExpensePoolForm
                         ->default(0.10)
                         ->helperText(__('admin.helpers.cam_admin_fee_pct'))
                         ->formatStateUsing(fn ($state) => $state === null ? null : round((float) $state * 100, 4))
-                        ->dehydrateStateUsing(fn ($state) => ($state === null || $state === '') ? null : round((float) $state / 100, 6)),
+                        ->dehydrateStateUsing(fn ($state) => ($state === null || $state === '') ? null : round((float) $state / 100, 6))
+                        ->disabled(fn (?CamExpensePool $record) => self::basisFrozen($record))
+                        ->hintColor('warning')
+                        ->hint(fn (?CamExpensePool $record) => self::basisFrozen($record) ? __('admin.helpers.cam_basis_frozen') : null),
 
                     // VAT on the cost recovery (true-up + over-collection credit). Plain percentage
                     // (14, not the fee's 0.10 fraction). Default 14% to match the monthly CAM estimate;
@@ -88,7 +110,10 @@ class CamExpensePoolForm
                         ->step('0.01')
                         ->default(14)
                         ->required()
-                        ->helperText(__('admin.helpers.cam_recovery_vat_rate')),
+                        ->helperText(__('admin.helpers.cam_recovery_vat_rate'))
+                        ->disabled(fn (?CamExpensePool $record) => self::basisFrozen($record))
+                        ->hintColor('warning')
+                        ->hint(fn (?CamExpensePool $record) => self::basisFrozen($record) ? __('admin.helpers.cam_basis_frozen') : null),
                 ]),
             Section::make(__('admin.sections.cam_notes'))
                 ->components([

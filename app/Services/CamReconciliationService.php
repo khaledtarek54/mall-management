@@ -230,6 +230,52 @@ class CamReconciliationService
      *
      * Idempotent + lock-safe: re-billing an already-billed allocation is a no-op.
      */
+    /**
+     * A plain-language breakdown of how one lease's CAM true-up is worked out — so an operator (and a
+     * disputing tenant) can SEE every leg, not just the bare allocated/true-up columns. Surfaces the
+     * cap legs (ceiling / capped cost / landlord-absorbed) that make the visible columns stop adding up
+     * when a cap bites, plus the recovery VAT and admin-fee VAT that never appeared in the table, and
+     * the net the tenant is actually invoiced (positive true-up) or credited (over-payment).
+     *
+     * @return array<string, mixed>
+     */
+    public function explainAllocation(CamAllocation $allocation): array
+    {
+        $pool = $allocation->pool instanceof CamExpensePool ? $allocation->pool : null;
+        $recoveryVatRate = $pool ? (float) $pool->recovery_vat_rate : 0.0;
+        $trueUp = (float) $allocation->true_up_amount;
+        $recovery = max(0.0, $trueUp);
+        $recoveryVat = round($recovery * $recoveryVatRate / 100.0, 2);
+        $fee = (float) $allocation->admin_fee_amount;
+        $feeVat = (float) $allocation->admin_fee_vat_amount;
+
+        $direction = $trueUp > 0.005 ? 'recover' : ($trueUp < -0.005 ? 'credit' : 'fee_only');
+
+        return [
+            'share_pct' => (float) $allocation->pro_rata_share_pct,
+            'pool_actual' => $pool ? (float) $pool->total_actual_expense : 0.0,
+            'allocated' => (float) $allocation->allocated_amount,
+            // A cap bit only when it actually absorbed cost; the ceiling alone (== allocated) is a no-op.
+            'cap_applied' => $allocation->cap_amount !== null && (float) $allocation->cap_absorbed_amount > 0.005,
+            'cap_ceiling' => $allocation->cap_amount !== null ? (float) $allocation->cap_amount : null,
+            'capped_cost' => (float) $allocation->capped_cost_amount,
+            'cap_absorbed' => (float) $allocation->cap_absorbed_amount,
+            'estimated_paid' => (float) $allocation->estimated_paid,
+            'true_up' => $trueUp,
+            'recovery_vat_rate' => $recoveryVatRate,
+            'recovery_vat' => $recoveryVat,
+            'admin_fee' => $fee,
+            'admin_fee_vat' => $feeVat,
+            'direction' => $direction,
+            // What the tenant is actually invoiced (recover / fee-only) — true-up + its VAT + the fee +
+            // fee VAT. For a credit (over-payment), the credit note carries |true-up| + its recovery VAT
+            // and the admin fee bills separately.
+            'net_invoiced' => $direction === 'credit'
+                ? round(abs($trueUp) * (1 + $recoveryVatRate / 100.0), 2)
+                : round($recovery + $recoveryVat + $fee + $feeVat, 2),
+        ];
+    }
+
     public function bill(CamAllocation $allocation): CamAllocation
     {
         return DB::transaction(function () use ($allocation) {
