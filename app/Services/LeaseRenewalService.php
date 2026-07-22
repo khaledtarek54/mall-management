@@ -66,6 +66,7 @@ class LeaseRenewalService
                 'percentage_rent_threshold' => $original->percentage_rent_threshold,
                 'percentage_rent_rate' => $original->percentage_rent_rate,
                 'percentage_rent_calculation_type' => $original->percentage_rent_calculation_type,
+                'percentage_rent_frequency' => $original->percentage_rent_frequency,
                 'billing_day' => $original->billing_day,
                 'payment_terms_days' => $original->payment_terms_days,
                 'notes' => $original->notes,

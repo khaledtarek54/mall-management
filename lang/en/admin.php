@@ -1273,6 +1273,7 @@ return [
         'percentage_rent_threshold' => 'Sales Threshold',
         'percentage_rent_rate' => 'Rate',
         'percentage_rent_calculation_type' => 'Calculation Method',
+        'percentage_rent_frequency' => 'Breakpoint Frequency',
         'note_channel' => 'Channel',
         'note_subject' => 'Subject',
         'note_body' => 'Notes',
@@ -1309,6 +1310,7 @@ return [
         'escalation_rate' => 'Annual rent increase percentage. Applied on the lease anniversary.',
         'escalation_type' => 'Fixed percent = same % every year. CPI = pegged to inflation index. Step = pre-agreed increases per year.',
         'percentage_rent_calculation_type' => 'How the sales-based rent is worked out. NATURAL BREAKPOINT = the tenant pays the greater of base rent or (sales × rate) — pick this for "whichever is higher" deals; the tenant is billed only the amount by which sales × rate beats base rent. ARTIFICIAL = the tenant pays base rent AND, on top, a share of sales above a separately agreed threshold: (sales − threshold) × rate.',
+        'percentage_rent_frequency' => 'How often the breakpoint resets. MONTHLY (default) = the threshold (and base rent, for natural) applies fresh to each month\'s sales. ANNUAL = the threshold is a YEARLY figure; each locked month bills only the increment needed to bring the year\'s % rent up to the cumulative overage, so a strong month is netted against slow ones instead of over-charged. Set the threshold as the annual figure when choosing annual.',
         'percentage_rent_threshold' => 'Monthly sales level above which percentage rent applies. Tenant declares sales each month; below threshold = no extra rent.',
         'percentage_rent_rate' => 'Percentage of sales above the threshold owed as additional rent. Typical mall rates: 5%–8% for F&B, 4%–6% for retail.',
         'cam_actual_expense' => 'Total amount the mall actually spent on common-area maintenance this year (security, cleaning, HVAC, landscaping, lobby lighting).',
@@ -1730,6 +1732,10 @@ return [
         'percentage_rent_calculation_type' => [
             'artificial' => 'Artificial — base rent PLUS a share of sales above a threshold',
             'natural_breakpoint' => 'Natural — the GREATER of base rent or % of sales',
+        ],
+        'percentage_rent_frequency' => [
+            'monthly' => 'Monthly — a fresh breakpoint each declared month',
+            'annual' => 'Annual — a yearly breakpoint, trued up as the year builds',
         ],
         'note_channel' => [
             'call' => 'Phone Call',

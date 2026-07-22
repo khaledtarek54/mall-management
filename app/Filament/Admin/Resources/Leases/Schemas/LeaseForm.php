@@ -309,6 +309,13 @@ class LeaseForm
                         ->native(false)
                         ->helperText(__('admin.helpers.percentage_rent_calculation_type'))
                         ->visible(fn ($get) => (bool) $get('has_percentage_rent')),
+                    Select::make('percentage_rent_frequency')
+                        ->label(__('admin.fields.percentage_rent_frequency'))
+                        ->options(fn () => __('admin.enums.percentage_rent_frequency'))
+                        ->default('monthly')
+                        ->native(false)
+                        ->helperText(__('admin.helpers.percentage_rent_frequency'))
+                        ->visible(fn ($get) => (bool) $get('has_percentage_rent')),
                     TextInput::make('percentage_rent_threshold')
                         ->label(__('admin.fields.percentage_rent_threshold'))
                         ->prefix('EGP')

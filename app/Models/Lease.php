@@ -116,6 +116,7 @@ class Lease extends Model implements HasMedia
         'percentage_rent_threshold',
         'percentage_rent_rate',
         'percentage_rent_calculation_type',
+        'percentage_rent_frequency',
         'billing_day',
         'payment_terms_days',
         'notes',
@@ -130,6 +131,7 @@ class Lease extends Model implements HasMedia
         'has_marketing_levy' => true, // preserve today's behaviour: every lease gets the levy by default
         'fit_out_months' => 0,        // no rent-free grace unless explicitly set
         'billing_frequency' => 'monthly', // bill monthly unless set to quarterly/semiannual/annual
+        'percentage_rent_frequency' => 'monthly', // fresh monthly breakpoint unless set to annual (cumulative)
         'security_deposit_received' => false,
     ];
 

@@ -70,3 +70,29 @@ it('reverses the GL when the locked declaration is voided, and the books still t
         ->and(pctRevenue('credit') - pctRevenue('debit'))->toBe(0.0) // revenue reversed to net zero
         ->and(app(BooksReconciliationService::class)->glTieOut()['ar']['delta'])->toBe(0.0);
 });
+
+it('an ANNUAL lease posts each month\'s delta so the year\'s GL revenue telescopes to the annual overage', function () {
+    // Annual breakpoint 150,000 @ 10%. Three 100k months → cumulative 300k → annual overage 15,000.
+    // The monthly deltas (0 + 5,000 + 10,000) must sum to that in the GL, driven through the real sweep.
+    $lease = makeLease(makeUnit(makeAsset()), makeTenant(), [
+        'status' => 'active', 'has_percentage_rent' => true,
+        'percentage_rent_calculation_type' => 'artificial',
+        'percentage_rent_frequency' => 'annual',
+        'percentage_rent_threshold' => 150000, 'percentage_rent_rate' => 10,
+    ]);
+
+    $svc = app(PercentageRentCalculationService::class);
+    foreach (['2026-01-01' => '2026-01-31', '2026-02-01' => '2026-02-28', '2026-03-01' => '2026-03-31'] as $start => $end) {
+        $decl = TenantSalesDeclaration::create([
+            'lease_id' => $lease->id, 'period_start' => $start, 'period_end' => $end,
+            'declared_sales' => 100000, 'calculated_percentage_rent' => 0, 'status' => 'submitted',
+            'declared_at' => now(), 'declared_by_type' => $lease->tenant::class, 'declared_by_id' => $lease->tenant_id,
+        ]);
+        $svc->lock($decl, makeUser('super_admin'), null);
+    }
+
+    // (300,000 − 150,000) × 10% = 15,000 credited to percentage_rent_revenue, balanced + tied.
+    expect(pctTb())->toBeTrue()
+        ->and(pctRevenue('credit'))->toBe(15000.0)
+        ->and(app(BooksReconciliationService::class)->glTieOut()['ar']['delta'])->toBe(0.0);
+});
