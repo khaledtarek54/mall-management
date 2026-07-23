@@ -32,6 +32,12 @@ as written](#e--requirements-we-cannot-build-as-written).
 
 ## A · Accountant / Finance
 
+> 🇪🇬 **نسخة المحاسب ثنائية اللغة + خريطة الترحيل الكاملة** (كل حركة مالية على أنهي حساب مدين/دائن) في
+> **[accounting/ACCOUNTANT-BRIEFING.md](accounting/ACCOUNTANT-BRIEFING.md)** — دي النسخة اللي تتسلّم في الاجتماع.
+> The **bilingual accountant hand-out + the full GL posting map** (every movement → its exact debit/credit account)
+> live in **[accounting/ACCOUNTANT-BRIEFING.md](accounting/ACCOUNTANT-BRIEFING.md)**. This file stays the internal
+> master log where answers are recorded.
+
 ### A1 · Tax rules the billing engine computes from — 🔴 all block go-live
 
 These are unverified assumptions. Plausible, consistent, never confirmed by anyone with authority.
@@ -117,6 +123,21 @@ These are unverified assumptions. Plausible, consistent, never confirmed by anyo
 | A8.1 | Which **financial reports are must-have at go-live** (rent roll, AR aging, collection rate, owner statement, VAT output)? Per-property **and** consolidated? Who may see them? | Excel/PDF exports; property + consolidated views | 🟡 | |
 | A8.2 | Your stakeholders use **Oracle / SAP / Odoo** — what **export format** do they need (Excel-compatible? Odoo-importable)? | Excel/PDF today | 🟡 | |
 | A8.3 | What **financial history** must migrate and **how many years** (open AR, deposits, payment history, cheques, credits)? Current system of record — can you share **sample files**? | Migration scope undefined | 🔴 | |
+
+### A9 · Account mapping & policies — added 2026-07-23 (tracked bilingually in [ACCOUNTANT-BRIEFING.md](accounting/ACCOUNTANT-BRIEFING.md) §4)
+
+New questions surfaced while writing the posting map, so the accountant can re-point wrong accounts and confirm the policy-level treatments that decide *which* account a movement hits.
+
+| # | Question | What we do today | | Answer |
+|---|---|---|---|---|
+| A9.1 | **Review the posting-role → account mapping** (briefing Part 2): does every role post to the right account in your chart? Every role is re-pointable per-role **and per-property** from the UI, no code change. | Starter mapping (`AccountMappingSeeder`) | 🔴 | |
+| A9.2 | **Marketing levy (5%)** — book as **revenue** (today: `marketing_revenue` 41106001, billed as an invoice line) or as a **restricted marketing fund / liability** to be spent on marketing, not kept as profit? And is it shown on the tenant invoice? *(Refines A1.5 with the GL treatment.)* | Revenue, billed as a line | 🔴 | |
+| A9.3 | **CAM** presented **gross** (recovery revenue + pooled expenses booked separately) or **net**? Confirm the GL treatment, not just the pool contents (C2.1). | Gross | 🟡 | |
+| A9.4 | **Inventory valuation method** — FIFO / weighted-average / standard cost? | Per-movement unit cost | 🟡 | |
+| A9.5 | Accrue **end-of-service & leave provisions monthly** (accounts 22201001 / 22201002 already exist in the chart)? | Not automated | 🟠 | |
+| A9.6 | **Fixed-asset useful lives / depreciation rates per class** and **salvage value**? | Straight-line, per-asset params | 🟡 | |
+| A9.7 | Separate **cash/bank account per mall**, or shared? Any specific **numbering series** for journals/invoices to match your books? | Shared; internal numbering | 🟡 | |
+| A9.8 | Need a **WHT report (Form 41)** and a **salary-tax report** alongside the VAT-output report (A2.5)? | Not built | 🟠 | |
 
 ---
 
