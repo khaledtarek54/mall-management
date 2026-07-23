@@ -5,6 +5,7 @@ namespace App\Services\Accounting\Journalizers;
 use App\Models\DepositTransaction;
 use App\Services\Accounting\AccountResolver;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Security-deposit event (حركة تأمين):
@@ -45,6 +46,15 @@ class DepositTransactionJournalizer implements Journalizer
             default => null,
         };
         if ($pair === null) {
+            // Reached only past the postable + non-zero guards, so real money moved but its type
+            // isn't mapped — post nothing rather than throw, but surface it: a silent no-op here is
+            // the shape of a GL leak (a new deposit type shipped without a journalizer branch).
+            Log::warning('DepositTransactionJournalizer: unmapped deposit type — nothing posted to the GL.', [
+                'deposit_transaction_id' => $deposit->getKey(),
+                'type' => $deposit->type,
+                'amount' => $amount,
+            ]);
+
             return null;
         }
         [$debit, $credit] = $pair;

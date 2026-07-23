@@ -5,6 +5,7 @@ namespace App\Services\Accounting\Journalizers;
 use App\Models\StockMovement;
 use App\Services\Accounting\AccountResolver;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Inventory stock movement → GL (module 22, Phase 3). Perpetual inventory:
@@ -50,6 +51,15 @@ class InventoryMovementJournalizer implements Journalizer
 
         [$debitRole, $creditRole] = $this->accountsFor($movement);
         if ($debitRole === null) {
+            // Reached only past the transfer/zero-value/asset guards, so real inventory value moved
+            // but its type isn't mapped — post nothing rather than throw, but surface it: a silent
+            // no-op here is the shape of a GL leak (a new movement type shipped without a branch).
+            Log::warning('InventoryMovementJournalizer: unmapped stock-movement type — nothing posted to the GL.', [
+                'stock_movement_id' => $movement->getKey(),
+                'type' => $movement->type,
+                'amount' => $amount,
+            ]);
+
             return null;
         }
 

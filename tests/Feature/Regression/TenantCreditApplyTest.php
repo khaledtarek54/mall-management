@@ -91,6 +91,38 @@ it('applies credit, reduces the invoice, and ties the GL out to AR through the r
     expect($tie['ar']['delta'])->toBe(0.0);
 });
 
+it('posts the applied credit through the real accounting:sync-ledger sweep — not just LedgerPoster', function () {
+    // The strict GL invariant: at least one test per source must drive the REAL service AND the
+    // REAL sweep (the case above calls LedgerPoster::sync() directly, which only proves the
+    // journalizer's arithmetic — it never exercises the discovery/dispatch layer). A regression in
+    // the sweep wiring would strand this source exactly as it once stranded the SLA penalty, so we
+    // prove the sweep finds and posts it, then tie the books out. @see SlaPenaltyLedgerDispatchTest
+    $tenant = makeTenant();
+    $lease = makeLease(makeUnit(makeAsset()), $tenant, ['status' => 'active']);
+
+    $invA = creditInvoice($lease, 10000);
+    overpayLeavingCredit($invA, 5000);       // 5,000 credit on account
+    $invB = creditInvoice($lease, 5000);
+
+    app(ApplyTenantCreditService::class)->applyToInvoice($invB);
+    $app = TenantCreditApplication::where('invoice_id', $invB->id)->firstOrFail();
+
+    // Nothing has posted the application yet — the sweep is the only production path exercised here.
+    expect(JournalEntry::where('source_type', TenantCreditApplication::class)->exists())
+        ->toBeFalse('precondition: the credit application has not been posted yet');
+
+    $this->artisan('accounting:sync-ledger', ['--all' => true])->assertExitCode(0);
+
+    $entry = JournalEntry::where('source_type', TenantCreditApplication::class)
+        ->where('source_id', $app->id)->where('status', 'posted')->with('lines')->first();
+
+    expect($entry)->not->toBeNull('the sweep did not post the applied credit')
+        ->and((float) $entry->lines->sum('debit'))->toBe(5000.0)     // Dr Unearned 5,000
+        ->and((float) $entry->lines->sum('credit'))->toBe(5000.0)    // Cr AR 5,000
+        // …and the books tie out through the same sweep that posted the invoice + payment + application.
+        ->and(app(BooksReconciliationService::class)->glTieOut()['ar']['delta'])->toBe(0.0);
+});
+
 it('applies a credit from a CLOSED-period overpayment without stranding the GL (the fixed bug)', function () {
     $tenant = makeTenant();
     $lease = makeLease(makeUnit(makeAsset()), $tenant, ['status' => 'active']);
