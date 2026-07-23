@@ -135,7 +135,24 @@ Phase 3 additive and the GL/tie-out untouched.
 
 ---
 
+### Payroll register CSV export (UX, 2026-07-23)
+
+Per-employee payslips shipped in Phase 3 — but one PDF at a time. What HR/finance actually works each
+month is the **consolidated register** (muster roll): every employee on the run with gross, statutory
+withholdings and net, in one spreadsheet. That view existed nowhere. Added an **Export register**
+row action on the Payrolls table (per run) via the shared `App\Support\ReportCsv` (UTF-8 BOM).
+`PayrollResource::registerCsv($run)` reads the run's `payroll_lines` (employee `withTrashed` so a
+frozen run stays reproducible after staff turnover), emits code / name / position / gross / salary tax
+/ social insurance / net per employee, and closes with totals that **tie to the derived run header**
+(`net_paid`). The action shows only when the run has per-employee lines (a lump-sum run has nothing to
+break down) and gates `canView` in both `visible()` and `authorize()`. Same accountant-workable
+finding as inventory (mod 22) and fixed assets (mod 23).
+
 ## 5. Tests
+
+`tests/Feature/Regression/PayrollRegisterCsvTest.php` — the register CSV computes each line's
+net (`gross − tax − insurance`) and closes with gross / tax / insurance / net totals that **tie to
+the derived run header** (`net_paid`).
 
 `tests/Feature/Resources/EmployeeResourceTest.php` — `employees.*` RBAC gating (hr owns
 it; accounting/viewer read-only; leasing none), module-off hiding, property scoping, the

@@ -11,6 +11,7 @@ use App\Filament\Admin\Resources\Payrolls\Pages\ListPayrolls;
 use App\Filament\Admin\Resources\Payrolls\Schemas\PayrollForm;
 use App\Filament\Admin\Resources\Payrolls\Tables\PayrollsTable;
 use App\Models\Payroll;
+use App\Models\PayrollLine;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -101,5 +102,55 @@ class PayrollResource extends Resource
     public static function getGloballySearchableAttributes(): array
     {
         return ['number'];
+    }
+
+    /**
+     * The payroll register for one run as CSV rows — every employee's gross, statutory
+     * withholdings and net pay, the consolidated muster roll HR/finance works each month
+     * (the per-employee payslips are the same figures one PDF at a time). Reads the run's
+     * lines (employee `withTrashed` so a frozen run stays reproducible after staff turnover)
+     * and closes with gross / tax / insurance / net totals that tie to the run header.
+     *
+     * @return array{headers: array<int,string>, rows: array<int, array<int, string|float>>}
+     */
+    public static function registerCsv(Payroll $run): array
+    {
+        $rows = [];
+        $totalGross = 0.0;
+        $totalTax = 0.0;
+        $totalInsurance = 0.0;
+        $totalNet = 0.0;
+
+        /** @var PayrollLine $line */
+        foreach ($run->lines()->with('employee')->get() as $line) {
+            $gross = round((float) $line->gross, 2);
+            $tax = round((float) $line->salary_tax, 2);
+            $insurance = round((float) $line->social_insurance, 2);
+            $net = round((float) $line->net, 2);
+            $totalGross += $gross;
+            $totalTax += $tax;
+            $totalInsurance += $insurance;
+            $totalNet += $net;
+
+            $rows[] = [
+                (string) data_get($line, 'employee.code', ''),
+                (string) data_get($line, 'employee.name', ''),
+                (string) data_get($line, 'employee.position', ''),
+                $gross, $tax, $insurance, $net,
+            ];
+        }
+
+        $rows[] = ['', __('admin.reports.csv.total'), '',
+            round($totalGross, 2), round($totalTax, 2), round($totalInsurance, 2), round($totalNet, 2)];
+
+        return [
+            'headers' => [
+                __('admin.employees.fields.code'), __('admin.employees.fields.name'),
+                __('admin.employees.fields.position'), __('admin.payroll_lines.fields.gross'),
+                __('admin.payroll_lines.fields.salary_tax'), __('admin.payroll_lines.fields.social_insurance'),
+                __('admin.payroll_lines.fields.net'),
+            ],
+            'rows' => $rows,
+        ];
     }
 }

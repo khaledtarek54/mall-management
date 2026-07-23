@@ -3,6 +3,9 @@
 namespace App\Filament\Admin\Resources\Payrolls\Tables;
 
 use App\Filament\Admin\Resources\Payrolls\PayrollResource;
+use App\Models\Payroll;
+use App\Support\ReportCsv;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -75,6 +78,20 @@ class PayrollsTable
                 TrashedFilter::make(),
             ])
             ->recordActions([
+                // The per-run payroll register (muster roll) as a spreadsheet — every employee's
+                // gross / withholdings / net + totals. Only when the run has per-employee lines
+                // (a lump-sum run has nothing to break down).
+                Action::make('export_register')
+                    ->label(__('admin.reports.csv.export'))
+                    ->icon('heroicon-o-table-cells')
+                    ->color('gray')
+                    ->visible(fn (Payroll $record) => PayrollResource::canView($record) && $record->lines()->exists())
+                    ->authorize(fn (Payroll $record) => PayrollResource::canView($record))
+                    ->action(function (Payroll $record) {
+                        $csv = PayrollResource::registerCsv($record);
+
+                        return ReportCsv::stream("payroll-register-{$record->number}", $csv['headers'], $csv['rows']);
+                    }),
                 EditAction::make()
                     ->visible(fn ($record) => PayrollResource::canEdit($record)),
             ])

@@ -56,6 +56,7 @@ Legend: ✅ done · 🔄 in progress · ⬜ not started · — n/a. "Biz/Compl/G
 | 31 | Violations | ✅ | ✅ | ✅ | — | ✅ | **Categories + photo evidence** — classify & filter by kind; attach the photo of the breach |
 | 22 | Inventory & Stock | ✅ | ✅ | ✅ | ✅ | ✅ | **Stock valuation on screen + CSV registers** — first generic-module UX pass; correctness unchanged |
 | 23 | Fixed Assets & Depreciation | ✅ | ✅ | ✅ | ✅ | ✅ | **Register CSV (cost / accum. deprec. / NBV + totals)** — the balance-sheet schedule, accountant-workable; correctness unchanged |
+| 24 | HR / Payroll | ✅ | ✅ | ✅ | ✅ | ✅ | **Payroll register CSV (per-run muster roll + totals)** — the consolidated view behind the per-employee payslips; correctness unchanged |
 | 10–33 | (remaining) | ⬜ | ⬜ | — | — | ⬜ | Backlog — see the ledger |
 
 *The full ordered list (including 03 Tenant Portal, 15 Owner Requests, 16 ETA, 17 Reports, 30 Areas, 31 Violations, and the generic-ERP layer that is intentionally frozen) is in the [closure ledger](gap-analysis/PROPERTY-FACILITY-CLOSURE.md).*
@@ -194,6 +195,14 @@ Fixed Assets is a very complete module (register, straight-line depreciation eng
 - **Export CSV** on the register via the shared `App\Support\ReportCsv` (UTF-8 BOM). `FixedAssetResource::registerCsv()` reads the **same property-scoped query and derived `accumulated` subquery the table shows** (valuation can't disagree with the screen), emits cost / monthly charge / accumulated / NBV / status per asset, and closes with **cost, accumulated and NBV totals**. Double-gated (`visible()` + `authorize()`).
 
 **Trap avoided:** my test's global helper `makeFixedAsset()` collided with the same-named helper in `FixedAssetResourceTest` — renamed to `makeRegisterAsset()`. (This is the exact `--parallel`-hides-it cross-file redeclaration class from Module 22; now a standing pre-commit check: `grep -rhoE "^function [a-z_]+\(" tests/ | sort | uniq -d`.)
+
+## 5n. Module 24 — HR / Payroll (done) — generic-module UX pass
+
+HR/Payroll is complete (employee register, advances/loans → GL, per-employee payslips — all untouched). Phase 3 shipped per-employee payslip PDFs, but **one at a time**. What HR/finance actually works each month is the **consolidated payroll register** (muster roll): every employee on the run with gross / statutory withholdings / net, in one spreadsheet. That view existed nowhere.
+
+- **Export register** row action on the Payrolls table (per run) via `App\Support\ReportCsv`. `PayrollResource::registerCsv($run)` reads the run's `payroll_lines` (employee `withTrashed` so a frozen run stays reproducible after staff turnover), emits code / name / position / gross / salary tax / social insurance / net per employee, and closes with totals that **tie to the derived run header** (`net_paid`). Shown only when the run has per-employee lines; `canView` gated in `visible()` + `authorize()`.
+
+Same accountant-workable finding as [Inventory](#5l-module-22--inventory--stock-done--first-generic-module-ux-pass) and [Fixed Assets](#5m-module-23--fixed-assets--depreciation-done--generic-module-ux-pass). `PayrollLine::lines()` loop typed `Model` → local `@var PayrollLine` annotation (no relation-generic ripple). Test helpers named `registerEmployee`/`registerRun` to avoid colliding with `PayrollLineTest`'s `lineEmployee`/`draftRun`.
 
 ## 5b. Module 10 — Utility Meters (done)
 
