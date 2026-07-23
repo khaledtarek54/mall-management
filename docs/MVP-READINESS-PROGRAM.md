@@ -54,6 +54,7 @@ Legend: ✅ done · 🔄 in progress · ⬜ not started · — n/a. "Biz/Compl/G
 | 03 | Tenant Portal | ✅ | ✅ | ✅ | — | ✅ | **Tenant can see their own lease** — terms + document download; the doc claimed it, the surface didn't exist |
 | 15 | Owner Requests | ✅ | ✅ | ✅ | — | ✅ | **Conversation thread** — a real back-and-forth replacing a single overwritten note that was silently dropped |
 | 31 | Violations | ✅ | ✅ | ✅ | — | ✅ | **Categories + photo evidence** — classify & filter by kind; attach the photo of the breach |
+| 22 | Inventory & Stock | ✅ | ✅ | ✅ | ✅ | ✅ | **Stock valuation on screen + CSV registers** — first generic-module UX pass; correctness unchanged |
 | 10–33 | (remaining) | ⬜ | ⬜ | — | — | ⬜ | Backlog — see the ledger |
 
 *The full ordered list (including 03 Tenant Portal, 15 Owner Requests, 16 ETA, 17 Reports, 30 Areas, 31 Violations, and the generic-ERP layer that is intentionally frozen) is in the [closure ledger](gap-analysis/PROPERTY-FACILITY-CLOSURE.md).*
@@ -171,6 +172,19 @@ Leading with UX, a violation record had two gaps that made the operator's core w
 - **Photo evidence** — a `SpatieMediaLibraryFileUpload` (multiple, reorderable, max 8) on a **private** `photos` collection (`useDisk('local')`, gated by `MediaPrivacyConformanceTest` so it can't fail open to the webroot). The table flags evidence-backed violations with a **camera icon**.
 
 **Verified sound, unchanged:** `fine_amount` still records-only (never billed/GL); property scoping + RBAC; the `notified_at` tenant-notice flow. **Deferred (trigger):** exposing violations in the tenant portal (the tenant is already notified) — *trigger: a tenant asking to see their violation history*; and billing a fine to AR — *trigger: the operator confirming fines should hit the tenant's account* (the doc keeps it record-only by design).
+
+## 5l. Module 22 — Inventory & Stock (done) — first generic-module UX pass
+
+The generic-ERP layer is frozen for *breadth* (don't grow toward Odoo), but the user re-scoped the MVP **UX-completeness** pass onto it too. Inventory is the first: correctness stays exactly as it was (the on-hand scoping, sign-by-type, GL costing, overdraw lock are all sound and untouched), and the pass adds only what makes the existing data workable.
+
+**The gap was that stock value existed only in the GL.** The item table showed on-hand quantity and unit cost side by side and left the operator to multiply in their head, and there was **no way to export** either the stock register or the movement ledger — an accountant doing a stock-take or reconciling Inventory against the GL had nothing but a screen to read.
+
+- **`value` column** on the items table — `on_hand × unit_cost`, money-formatted, reusing the same property-scoped `on_hand` subquery so the valuation can never disagree with the quantity beside it. "What is this mall sitting on?" is now answerable at a glance.
+- **Export CSV** on both the item register and the movement ledger, via the shared `App\Support\ReportCsv` (UTF-8 BOM so Excel renders Arabic) — the same accountant-workable finding as [Module 17 Reports](#5h-module-17--reports-done). `InventoryItemResource::stockRegisterCsv()` reads the **same scoped query the table shows** and closes with a **total valuation** row; `StockMovementResource::movementsCsv()` exports the scoped movement trail. Both double-gate (`visible()` + `authorize()` on `canViewAny()`).
+
+**Trap caught while building it:** a pre-existing cross-file test collision — my new `ViolationEvidenceAndCategoryTest` (Module 31) and `ViolationScenarioTest` both defined a global `makeViolation()` helper. `--parallel` runs each file in its own worker so they never collided there (which is why it stayed green), but a serial full-suite run fataled on the redeclaration. Renamed mine to `makeCategorisedViolation()`. **Also surfaced:** the PHPStan gate currently has ~73 above-baseline errors in the owner-statement / PDC / disbursement modules from recent commits — landed because `--parallel` doesn't run PHPStan and CI enforcement lagged. Not mine (my two changed files are 0-error), flagged for a dedicated baseline-reconcile pass.
+
+**Deferred (triggers):** an as-of-date point-in-time valuation (needs a movement replay) — *trigger: a period-end stock-take that must value at a past date*; the `restrictOnDelete` FK hardening for the ledger (§6 gotcha).
 
 ## 5b. Module 10 — Utility Meters (done)
 

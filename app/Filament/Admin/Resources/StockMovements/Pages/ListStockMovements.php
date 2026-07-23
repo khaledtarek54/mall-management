@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\StockMovements\StockMovementResource;
 use App\Models\InventoryItem;
 use App\Models\Warehouse;
 use App\Services\StockMovementService;
+use App\Support\ReportCsv;
 use App\Support\TenantScope;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
@@ -24,6 +25,18 @@ class ListStockMovements extends ListRecords
         return [
             $this->receiveAction(),
             $this->adjustAction(),
+            // The full movement ledger as a spreadsheet — reconcile / audit the stock trail.
+            Action::make('export_csv')
+                ->label(__('admin.reports.csv.export'))
+                ->icon('heroicon-o-table-cells')
+                ->color('gray')
+                ->visible(fn () => StockMovementResource::canViewAny())
+                ->authorize(fn () => StockMovementResource::canViewAny())
+                ->action(function () {
+                    $csv = StockMovementResource::movementsCsv();
+
+                    return ReportCsv::stream('stock-movements', $csv['headers'], $csv['rows']);
+                }),
         ];
     }
 

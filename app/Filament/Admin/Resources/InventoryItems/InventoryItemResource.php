@@ -120,4 +120,39 @@ class InventoryItemResource extends Resource
     {
         return ['sku', 'name'];
     }
+
+    /**
+     * The stock-on-hand register as CSV rows — what's held and what it's worth, the accountant's
+     * working format. Reads the same property-scoped query the table shows (on_hand + unit cost),
+     * so the export can never disagree with the screen, and closes with a total-valuation row.
+     *
+     * @return array{headers: array<int,string>, rows: array<int, array<int, string|float>>}
+     */
+    public static function stockRegisterCsv(): array
+    {
+        $rows = [];
+        $totalValue = 0.0;
+
+        /** @var InventoryItem $item */
+        foreach (static::getEloquentQuery()->orderBy('name')->get() as $item) {
+            $onHand = round((float) ($item->on_hand ?? 0), 3);
+            $value = round($onHand * (float) $item->unit_cost, 2);
+            $totalValue += $value;
+
+            $rows[] = [$item->sku, $item->name, $item->category ?? '', $item->unit, $onHand,
+                round((float) $item->unit_cost, 2), $value];
+        }
+
+        $rows[] = ['', __('admin.reports.csv.total'), '', '', '', '', round($totalValue, 2)];
+
+        return [
+            'headers' => [
+                __('admin.inventory.fields.sku'), __('admin.inventory.fields.name'),
+                __('admin.inventory.fields.category'), __('admin.inventory.fields.unit'),
+                __('admin.inventory.fields.on_hand'), __('admin.inventory.fields.unit_cost'),
+                __('admin.inventory.fields.value'),
+            ],
+            'rows' => $rows,
+        ];
+    }
 }

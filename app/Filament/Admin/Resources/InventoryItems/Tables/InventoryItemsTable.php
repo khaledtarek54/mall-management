@@ -39,6 +39,14 @@ class InventoryItemsTable
                     ->label(__('admin.inventory.fields.unit_cost'))
                     ->money('EGP')
                     ->toggleable(),
+                // What the stock on hand is WORTH (on_hand × unit cost) — the number an operator
+                // and their accountant actually want, and which was nowhere on screen.
+                TextColumn::make('stock_value')
+                    ->label(__('admin.inventory.fields.value'))
+                    ->state(fn ($record) => round((float) ($record->on_hand ?? 0) * (float) $record->unit_cost, 2))
+                    ->money('EGP')
+                    ->alignRight()
+                    ->weight('bold'),
                 TextColumn::make('reorder_level')
                     ->label(__('admin.inventory.fields.reorder_level'))
                     ->numeric(decimalPlaces: 3)

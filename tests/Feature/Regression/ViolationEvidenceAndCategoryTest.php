@@ -10,7 +10,7 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
  * pin the category field, the private photo collection, and that the evidence stays on the private
  * disk (MediaPrivacyConformanceTest gates the disk; this proves the wiring end-to-end).
  */
-function makeViolation(array $overrides = []): Violation
+function makeCategorisedViolation(array $overrides = []): Violation
 {
     return Violation::create(array_merge([
         'asset_id' => makeAsset()->id,
@@ -22,9 +22,9 @@ function makeViolation(array $overrides = []): Violation
 }
 
 it('records a violation under a category and filters by it', function () {
-    makeViolation(['category' => 'signage']);
-    makeViolation(['category' => 'safety']);
-    makeViolation(['category' => 'safety']);
+    makeCategorisedViolation(['category' => 'signage']);
+    makeCategorisedViolation(['category' => 'safety']);
+    makeCategorisedViolation(['category' => 'safety']);
 
     expect(Violation::where('category', 'safety')->count())->toBe(2)
         ->and(Violation::where('category', 'signage')->count())->toBe(1)
@@ -33,7 +33,7 @@ it('records a violation under a category and filters by it', function () {
 });
 
 it('attaches evidence photos on the PRIVATE disk', function () {
-    $violation = makeViolation();
+    $violation = makeCategorisedViolation();
 
     $violation->addMedia(UploadedFile::fake()->image('breach.jpg'))
         ->toMediaCollection(Violation::PHOTOS_COLLECTION);
@@ -56,10 +56,10 @@ it('declares the photos collection on the private disk (media-privacy invariant)
 });
 
 it('reports the evidence count per violation without loading files', function () {
-    $withPhotos = makeViolation();
+    $withPhotos = makeCategorisedViolation();
     $withPhotos->addMedia(UploadedFile::fake()->image('a.jpg'))->toMediaCollection(Violation::PHOTOS_COLLECTION);
     $withPhotos->addMedia(UploadedFile::fake()->image('b.jpg'))->toMediaCollection(Violation::PHOTOS_COLLECTION);
-    $noPhotos = makeViolation();
+    $noPhotos = makeCategorisedViolation();
 
     expect($withPhotos->getMedia(Violation::PHOTOS_COLLECTION))->toHaveCount(2)
         ->and($noPhotos->getMedia(Violation::PHOTOS_COLLECTION)->isEmpty())->toBeTrue();

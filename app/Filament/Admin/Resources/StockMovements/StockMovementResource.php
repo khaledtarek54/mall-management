@@ -80,4 +80,40 @@ class StockMovementResource extends Resource
 
         return $query;
     }
+
+    /**
+     * The stock movement ledger as CSV rows — the append-only audit trail of every receipt,
+     * consumption and adjustment, in the accountant's working format. Reads the same
+     * property-scoped query the table shows so the export can never disagree with the screen.
+     *
+     * @return array{headers: array<int,string>, rows: array<int, array<int, string|float>>}
+     */
+    public static function movementsCsv(): array
+    {
+        $rows = [];
+
+        /** @var StockMovement $movement */
+        foreach (static::getEloquentQuery()->latest('moved_on')->latest('id')->get() as $movement) {
+            $rows[] = [
+                // moved_on is a NOT-NULL date column — always a Carbon, no nullsafe needed.
+                $movement->moved_on->format('Y-m-d'),
+                (string) data_get($movement, 'warehouse.name', ''),
+                (string) data_get($movement, 'item.name', ''),
+                __('admin.inventory.types.' . $movement->type),
+                round((float) $movement->quantity, 3),
+                (string) ($movement->reference ?? ''),
+                (string) data_get($movement, 'movedBy.name', ''),
+            ];
+        }
+
+        return [
+            'headers' => [
+                __('admin.inventory.fields.moved_on'), __('admin.inventory.fields.warehouse'),
+                __('admin.inventory.fields.item'), __('admin.inventory.fields.type'),
+                __('admin.inventory.fields.quantity'), __('admin.inventory.fields.reference'),
+                __('admin.inventory.fields.moved_by'),
+            ],
+            'rows' => $rows,
+        ];
+    }
 }

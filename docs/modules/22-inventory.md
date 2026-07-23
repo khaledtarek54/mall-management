@@ -173,11 +173,33 @@ changing this API.
 
 ---
 
+### Stock valuation on screen + CSV export of the registers (UX, 2026-07-23)
+
+The engine already knew what stock was **worth** (`|qty| × unit_cost`), but the number lived only in
+the GL — the item table showed quantity and unit cost side by side and left the operator to multiply.
+Two thin UX additions, no new mechanics:
+
+- **`value` column** on the items table — `on_hand × unit_cost`, money-formatted, so "what is this
+  mall sitting on?" is answerable at a glance. It reuses the same property-scoped `on_hand` subquery,
+  so the valuation can never disagree with the quantity beside it.
+- **Export CSV** on both the item register and the movement ledger, via the shared
+  `App\Support\ReportCsv` primitive (UTF-8 BOM so Excel renders Arabic) — the format an accountant
+  actually reconciles a stock-take in, unlike a screen. `InventoryItemResource::stockRegisterCsv()`
+  reads the **same scoped query the table shows** and closes with a **total valuation** row;
+  `StockMovementResource::movementsCsv()` exports the scoped movement trail. Both gate on
+  `canViewAny()` in `visible()` **and** `authorize()`. The register export is deliberately the
+  live on-hand valuation (matches the screen), not an as-of-date snapshot — a point-in-time
+  valuation would need a movement-replay and is a future enhancement.
+
 ## 5. Tests
 
 `tests/Feature/Services/StockMovementServiceTest.php` — derived on-hand, sign-by-type,
 signed adjustments, per-warehouse vs total, invalid-type/zero-qty rejection, NOT-NULL
 coercion, movement value.
+
+`tests/Feature/Regression/InventoryStockRegisterCsvTest.php` — the register CSV values stock at
+`on_hand × unit_cost` **scoped to the user** (a restricted manager gets their mall's quantity, not
+the portfolio sum), closes with a portfolio total, and the movement-ledger CSV is scoped the same way.
 
 ## 6. Gotchas / hardening backlog
 
