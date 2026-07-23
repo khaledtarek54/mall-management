@@ -18,7 +18,8 @@ class ViolationTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['asset', 'tenant']))
+            // Eager-load the photo media so the evidence indicator doesn't N+1 across the list.
+            ->modifyQueryUsing(fn ($query) => $query->with(['asset', 'tenant', 'media']))
             ->columns([
                 TextColumn::make('reference')
                     ->label(__('admin.violations.fields.reference'))
@@ -28,10 +29,21 @@ class ViolationTable
                     ->label(__('admin.violations.fields.tenant'))
                     ->searchable()
                     ->sortable(),
+                TextColumn::make('category')
+                    ->label(__('admin.violations.fields.category'))
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state) => $state ? __("admin.violations.categories.{$state}") : '—')
+                    ->color('gray')
+                    ->sortable(),
                 TextColumn::make('description')
                     ->label(__('admin.violations.fields.description'))
                     ->limit(50)
-                    ->wrap(),
+                    ->wrap()
+                    // Show at a glance whether the breach is backed by photos — a violation with
+                    // evidence is a defensible one.
+                    ->icon(fn (Violation $record) => $record->getMedia(Violation::PHOTOS_COLLECTION)->isNotEmpty()
+                        ? 'heroicon-m-camera' : null)
+                    ->iconColor('primary'),
                 TextColumn::make('fine_amount')
                     ->label(__('admin.violations.fields.fine_amount'))
                     ->money('EGP')
@@ -63,6 +75,11 @@ class ViolationTable
                     ->label(__('admin.violations.fields.status'))
                     ->options(fn () => collect(Violation::STATUSES)
                         ->mapWithKeys(fn (string $s) => [$s => __("admin.statuses.violation.$s")])),
+                // Filter by kind — the point of categorising: "show me this quarter's signage breaches".
+                SelectFilter::make('category')
+                    ->label(__('admin.violations.fields.category'))
+                    ->options(fn () => collect(Violation::CATEGORIES)
+                        ->mapWithKeys(fn (string $c) => [$c => __("admin.violations.categories.{$c}")])),
                 TrashedFilter::make(),
             ])
             ->recordActions([

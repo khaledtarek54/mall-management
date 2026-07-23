@@ -6,6 +6,7 @@ use App\Models\Violation;
 use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
@@ -41,10 +42,31 @@ class ViolationForm
                 ->required()
                 ->native(false),
 
+            Select::make('category')
+                ->label(__('admin.violations.fields.category'))
+                ->options(fn () => collect(Violation::CATEGORIES)
+                    ->mapWithKeys(fn ($c) => [$c => __("admin.violations.categories.{$c}")]))
+                ->default('other')
+                ->required()
+                ->native(false),
+
             Textarea::make('description')
                 ->label(__('admin.violations.fields.description'))
                 ->required()
                 ->rows(3)
+                ->columnSpanFull(),
+
+            // Photographic evidence of the breach — the thing that makes a violation defensible.
+            // Private disk (declared on the model's media collection).
+            SpatieMediaLibraryFileUpload::make('photos')
+                ->label(__('admin.violations.fields.photos'))
+                ->helperText(__('admin.violations.fields.photos_hint'))
+                ->collection(Violation::PHOTOS_COLLECTION)
+                ->image()
+                ->multiple()
+                ->reorderable()
+                ->downloadable()
+                ->maxFiles(8)
                 ->columnSpanFull(),
 
             TextInput::make('fine_amount')

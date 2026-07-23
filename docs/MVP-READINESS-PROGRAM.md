@@ -53,6 +53,7 @@ Legend: ✅ done · 🔄 in progress · ⬜ not started · — n/a. "Biz/Compl/G
 | 17 | Reports | ✅ | ✅ | ✅ | — | ✅ | **CSV export across all financial reports** — GL + AR-aging gained export; accountant-workable, not PDF-only |
 | 03 | Tenant Portal | ✅ | ✅ | ✅ | — | ✅ | **Tenant can see their own lease** — terms + document download; the doc claimed it, the surface didn't exist |
 | 15 | Owner Requests | ✅ | ✅ | ✅ | — | ✅ | **Conversation thread** — a real back-and-forth replacing a single overwritten note that was silently dropped |
+| 31 | Violations | ✅ | ✅ | ✅ | — | ✅ | **Categories + photo evidence** — classify & filter by kind; attach the photo of the breach |
 | 10–33 | (remaining) | ⬜ | ⬜ | — | — | ⬜ | Backlog — see the ledger |
 
 *The full ordered list (including 03 Tenant Portal, 15 Owner Requests, 16 ETA, 17 Reports, 30 Areas, 31 Violations, and the generic-ERP layer that is intentionally frozen) is in the [closure ledger](gap-analysis/PROPERTY-FACILITY-CLOSURE.md).*
@@ -161,6 +162,15 @@ The user asked to lead with **UX** here, and the module had two concrete UX defe
 The fix turns it into a real conversation: an `owner_request_replies` thread (immutable, oldest-first), and a reworked **Reply** action that (1) shows the whole conversation inline so a reply is written in context, (2) takes a **required message that is always saved** regardless of status, (3) lets an **optional status move ride along**, and (4) notifies the *counterparty* (owner ↔ operator), never the author. Feedback reports the resulting status; the list shows a reply-count badge. Demo seeds a request with a 3-message conversation so the thread is visible on a fresh install.
 
 **Verified sound, unchanged:** terminal-immutability (a closed request refuses replies, guarded in the service now, not just the UI); property scoping; the reply model is a property-owned chain (`=> 'ownerRequest'`), caught-and-classified by the conformance gate. **Deferred (trigger):** exposing owner requests in the dedicated `/owner` portal (owners currently use `/admin` with the owner role, per the module's design) — *trigger: consolidating owners onto the `/owner` panel*.
+
+## 5k. Module 31 — Violations (done)
+
+Leading with UX, a violation record had two gaps that made the operator's core workflow weak: it was classified only by **free-text `description`** (so you couldn't filter or report "how many signage breaches this quarter" or "which tenants repeat safety issues"), and it had **no photo evidence** at all — a violation without the photo of the blocked exit or the unauthorised banner isn't defensible. The module's own doc even listed "category, evidence photos" as a future extension; this builds it.
+
+- **Category** — a required Select over `Violation::CATEGORIES` (signage / operating hours / cleanliness / safety / unauthorised works / noise / other; strings, not a DB enum), with a **table column and filter**. A field officer picks the kind instead of retyping it, and the operator can classify and report by it.
+- **Photo evidence** — a `SpatieMediaLibraryFileUpload` (multiple, reorderable, max 8) on a **private** `photos` collection (`useDisk('local')`, gated by `MediaPrivacyConformanceTest` so it can't fail open to the webroot). The table flags evidence-backed violations with a **camera icon**.
+
+**Verified sound, unchanged:** `fine_amount` still records-only (never billed/GL); property scoping + RBAC; the `notified_at` tenant-notice flow. **Deferred (trigger):** exposing violations in the tenant portal (the tenant is already notified) — *trigger: a tenant asking to see their violation history*; and billing a fine to AR — *trigger: the operator confirming fines should hit the tenant's account* (the doc keeps it record-only by design).
 
 ## 5b. Module 10 — Utility Meters (done)
 

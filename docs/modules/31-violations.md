@@ -102,16 +102,22 @@ navigation group.
   disabled to the current property, enabled only in All-Properties mode.
 - **Tenant** (`tenant_id`) — required, `searchable` + `preload`,
   `TenantScope::selectableTenantOptions()` (scoped to the user's visible malls).
+- **Category** (`category`) — required Select over `Violation::CATEGORIES` (signage / operating hours /
+  cleanliness / safety / unauthorised works / noise / other). Strings, not a DB enum. A field officer
+  picks the kind instead of retyping it, and the operator can then **filter and report by it**.
+- **Evidence photos** (`photos`) — `SpatieMediaLibraryFileUpload`, `multiple`/`image`/`reorderable`,
+  max 8, on the **private** `photos` collection (`useDisk('local')`, gated by
+  `MediaPrivacyConformanceTest`). The thing that makes a violation defensible.
 - **Description** — required textarea.
 - **Fine** (`fine_amount`) — numeric, `minValue(0)`, `EGP` prefix, **optional**.
 - **Date** (`violation_date`) — required, default today, `maxDate(today)` (not future).
 - **Status** — Select (`open` / `resolved`), default `open`, no placeholder.
 - **Notes** — textarea.
 
-**Table (FR-REQ-16):** reference (mono/bold), tenant, description, fine (money),
-date, status (badge), notified-at (with a "Not sent" placeholder), property
-badge; filters for status + trashed. Record actions: **Send notice** + Edit
-(gated on `canEdit`).
+**Table (FR-REQ-16):** reference (mono/bold), tenant, **category** (badge), description
+(with a **camera icon** when the breach carries photos), fine (money), date, status
+(badge), notified-at (with a "Not sent" placeholder), property badge; filters for status,
+**category**, and trashed. Record actions: **Send notice** + Edit (gated on `canEdit`).
 
 **Create page** stamps `created_by_user_id` and guards `assertAssetInScope`.
 **Edit page** guards `assertAssetInScope` and ships Delete/ForceDelete/Restore.

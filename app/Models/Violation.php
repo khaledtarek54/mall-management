@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 
 /**
  * A violation recorded against a tenant (module 31) — FR-REQ-15/16/17.
@@ -26,9 +28,9 @@ use Spatie\Activitylog\Support\LogOptions;
  * action ({@see \App\Services\SendViolationNoticeAction}), never on create. The
  * lifecycle is intentionally minimal: `open` → `resolved`.
  */
-class Violation extends Model
+class Violation extends Model implements HasMedia
 {
-    use HasFactory, LogsActivity, SoftDeletes;
+    use HasFactory, InteractsWithMedia, LogsActivity, SoftDeletes;
 
     public const STATUS_OPEN = 'open';
 
@@ -40,9 +42,30 @@ class Violation extends Model
         self::STATUS_RESOLVED,
     ];
 
+    /** Photographic evidence of the breach — PRIVATE (a tenant's violation record is confidential). */
+    public const PHOTOS_COLLECTION = 'photos';
+
+    /**
+     * The operator's violation kinds. Strings, not a DB enum (project convention) — extend the set
+     * without a migration. A field officer picks the kind instead of retyping it, and the operator
+     * can then filter/report by it.
+     *
+     * @var list<string>
+     */
+    public const CATEGORIES = [
+        'signage',
+        'operating_hours',
+        'cleanliness',
+        'safety',
+        'unauthorized_works',
+        'noise',
+        'other',
+    ];
+
     protected $fillable = [
         'asset_id',
         'tenant_id',
+        'category',
         'description',
         'fine_amount',
         'violation_date',
@@ -67,10 +90,17 @@ class Violation extends Model
         'status' => self::STATUS_OPEN,
     ];
 
+    public function registerMediaCollections(): void
+    {
+        // Never omit useDisk — medialibrary's default is fail-open ('public'); a violation photo
+        // (which can show a tenant's premises) is confidential. MediaPrivacyConformanceTest gates it.
+        $this->addMediaCollection(self::PHOTOS_COLLECTION)->useDisk('local');
+    }
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['asset_id', 'tenant_id', 'description', 'fine_amount', 'violation_date', 'status', 'notified_at'])
+            ->logOnly(['asset_id', 'tenant_id', 'category', 'description', 'fine_amount', 'violation_date', 'status', 'notified_at'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('violation');
