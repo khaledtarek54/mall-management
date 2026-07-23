@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\FixedAssets\Pages;
 
 use App\Filament\Admin\Resources\FixedAssets\FixedAssetResource;
 use App\Services\DepreciationService;
+use App\Support\ReportCsv;
 use App\Support\TenantScope;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
@@ -37,6 +38,19 @@ class ListFixedAssets extends ListRecords
                         ->body(__('admin.fixed_assets.depreciation_posted_body', ['count' => $count]))
                         ->success()
                         ->send();
+                }),
+            // The fixed-asset register in the accountant's format — cost, accumulated depreciation
+            // and net book value per asset plus totals, the schedule behind the balance sheet.
+            Action::make('export_csv')
+                ->label(__('admin.reports.csv.export'))
+                ->icon('heroicon-o-table-cells')
+                ->color('gray')
+                ->visible(fn () => FixedAssetResource::canViewAny())
+                ->authorize(fn () => FixedAssetResource::canViewAny())
+                ->action(function () {
+                    $csv = FixedAssetResource::registerCsv();
+
+                    return ReportCsv::stream('fixed-asset-register', $csv['headers'], $csv['rows']);
                 }),
             CreateAction::make()->visible(fn () => FixedAssetResource::canCreate()),
         ];

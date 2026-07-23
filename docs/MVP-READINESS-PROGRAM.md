@@ -55,6 +55,7 @@ Legend: ✅ done · 🔄 in progress · ⬜ not started · — n/a. "Biz/Compl/G
 | 15 | Owner Requests | ✅ | ✅ | ✅ | — | ✅ | **Conversation thread** — a real back-and-forth replacing a single overwritten note that was silently dropped |
 | 31 | Violations | ✅ | ✅ | ✅ | — | ✅ | **Categories + photo evidence** — classify & filter by kind; attach the photo of the breach |
 | 22 | Inventory & Stock | ✅ | ✅ | ✅ | ✅ | ✅ | **Stock valuation on screen + CSV registers** — first generic-module UX pass; correctness unchanged |
+| 23 | Fixed Assets & Depreciation | ✅ | ✅ | ✅ | ✅ | ✅ | **Register CSV (cost / accum. deprec. / NBV + totals)** — the balance-sheet schedule, accountant-workable; correctness unchanged |
 | 10–33 | (remaining) | ⬜ | ⬜ | — | — | ⬜ | Backlog — see the ledger |
 
 *The full ordered list (including 03 Tenant Portal, 15 Owner Requests, 16 ETA, 17 Reports, 30 Areas, 31 Violations, and the generic-ERP layer that is intentionally frozen) is in the [closure ledger](gap-analysis/PROPERTY-FACILITY-CLOSURE.md).*
@@ -185,6 +186,14 @@ The generic-ERP layer is frozen for *breadth* (don't grow toward Odoo), but the 
 **Trap caught while building it:** a pre-existing cross-file test collision — my new `ViolationEvidenceAndCategoryTest` (Module 31) and `ViolationScenarioTest` both defined a global `makeViolation()` helper. `--parallel` runs each file in its own worker so they never collided there (which is why it stayed green), but a serial full-suite run fataled on the redeclaration. Renamed mine to `makeCategorisedViolation()`. **Also surfaced:** the PHPStan gate currently has ~73 above-baseline errors in the owner-statement / PDC / disbursement modules from recent commits — landed because `--parallel` doesn't run PHPStan and CI enforcement lagged. Not mine (my two changed files are 0-error), flagged for a dedicated baseline-reconcile pass.
 
 **Deferred (triggers):** an as-of-date point-in-time valuation (needs a movement replay) — *trigger: a period-end stock-take that must value at a past date*; the `restrictOnDelete` FK hardening for the ledger (§6 gotcha).
+
+## 5m. Module 23 — Fixed Assets & Depreciation (done) — generic-module UX pass
+
+Fixed Assets is a very complete module (register, straight-line depreciation engine, disposal write-off, full three-journalizer GL, RBAC, property scoping — all sound and untouched). The prior turn's `e6547a4` already fixed the category field (broken `<datalist>` → real Select). The one remaining UX gap was the same accountant-workable finding as [Inventory](#5l-module-22--inventory--stock-done--first-generic-module-ux-pass) and [Reports](#5h-module-17--reports-done): **the register lived only on screen.** The fixed-asset register — cost, accumulated depreciation, net book value per asset — is the schedule that supports the balance sheet's fixed-asset line, and there was no way to export it for a spreadsheet reconciliation.
+
+- **Export CSV** on the register via the shared `App\Support\ReportCsv` (UTF-8 BOM). `FixedAssetResource::registerCsv()` reads the **same property-scoped query and derived `accumulated` subquery the table shows** (valuation can't disagree with the screen), emits cost / monthly charge / accumulated / NBV / status per asset, and closes with **cost, accumulated and NBV totals**. Double-gated (`visible()` + `authorize()`).
+
+**Trap avoided:** my test's global helper `makeFixedAsset()` collided with the same-named helper in `FixedAssetResourceTest` — renamed to `makeRegisterAsset()`. (This is the exact `--parallel`-hides-it cross-file redeclaration class from Module 22; now a standing pre-commit check: `grep -rhoE "^function [a-z_]+\(" tests/ | sort | uniq -d`.)
 
 ## 5b. Module 10 — Utility Meters (done)
 

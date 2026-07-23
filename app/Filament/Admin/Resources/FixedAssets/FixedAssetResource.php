@@ -10,6 +10,7 @@ use App\Filament\Admin\Resources\FixedAssets\Pages\ListFixedAssets;
 use App\Filament\Admin\Resources\FixedAssets\Schemas\FixedAssetForm;
 use App\Filament\Admin\Resources\FixedAssets\Tables\FixedAssetsTable;
 use App\Models\FixedAsset;
+use App\Services\DepreciationService;
 use App\Support\TenantScope;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -113,6 +114,56 @@ class FixedAssetResource extends Resource
     public static function getGloballySearchableAttributes(): array
     {
         return ['name', 'tag'];
+    }
+
+    /**
+     * The fixed-asset register as CSV rows — cost, accumulated depreciation and net book value per
+     * asset, the schedule that supports the balance sheet's fixed-asset line. Reads the same
+     * property-scoped query (and the same derived `accumulated` subquery) the table shows, so the
+     * export can never disagree with the screen, and closes with cost / accumulated / NBV totals.
+     *
+     * @return array{headers: array<int,string>, rows: array<int, array<int, string|float>>}
+     */
+    public static function registerCsv(): array
+    {
+        $depreciation = app(DepreciationService::class);
+        $rows = [];
+        $totalCost = 0.0;
+        $totalAccumulated = 0.0;
+        $totalNbv = 0.0;
+
+        /** @var FixedAsset $asset */
+        foreach (static::getEloquentQuery()->with('asset')->orderBy('name')->get() as $asset) {
+            $cost = round((float) $asset->acquisition_cost, 2);
+            $accumulated = round((float) ($asset->accumulated ?? 0), 2);
+            $nbv = round($cost - $accumulated, 2);
+            $totalCost += $cost;
+            $totalAccumulated += $accumulated;
+            $totalNbv += $nbv;
+
+            $rows[] = [
+                $asset->tag, $asset->name, $asset->category ?? '',
+                (string) data_get($asset, 'asset.name', ''),
+                // acquisition_date is a NOT-NULL date column — always a Carbon.
+                $asset->acquisition_date->format('Y-m-d'),
+                $cost, round($depreciation->monthlyAmount($asset), 2), $accumulated, $nbv,
+                __('admin.fixed_assets.statuses.' . $asset->status),
+            ];
+        }
+
+        $rows[] = ['', __('admin.reports.csv.total'), '', '', '',
+            round($totalCost, 2), '', round($totalAccumulated, 2), round($totalNbv, 2), ''];
+
+        return [
+            'headers' => [
+                __('admin.fixed_assets.fields.tag'), __('admin.fixed_assets.fields.name'),
+                __('admin.fixed_assets.fields.category'), __('admin.fixed_assets.fields.property'),
+                __('admin.fixed_assets.fields.acquisition_date'), __('admin.fixed_assets.fields.acquisition_cost'),
+                __('admin.fixed_assets.fields.monthly'), __('admin.fixed_assets.fields.accumulated'),
+                __('admin.fixed_assets.fields.net_book_value'), __('admin.fixed_assets.fields.status'),
+            ],
+            'rows' => $rows,
+        ];
     }
 
     /**

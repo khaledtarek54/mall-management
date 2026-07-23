@@ -147,7 +147,23 @@ the GL↔AR/AP tie-out that gates monthly close is unaffected (the GRNI lesson f
 
 ---
 
+### Register CSV export (UX, 2026-07-23)
+
+The register lived only on screen. An accountant preparing or reconciling the balance sheet's
+fixed-asset line needs it as a spreadsheet — cost, accumulated depreciation and net book value per
+asset — not a table they can only look at. Added an **Export CSV** action (shared `App\Support\ReportCsv`,
+UTF-8 BOM so Excel renders Arabic). `FixedAssetResource::registerCsv()` reads the **same
+property-scoped query and derived `accumulated` subquery the table shows** (so the export can never
+disagree with the screen), emits tag / name / category / property / acquisition date / cost / monthly
+charge / accumulated / NBV / status per asset, and closes with **cost, accumulated and NBV totals**.
+Double-gated (`visible()` + `authorize()` on `canViewAny()`). Parallels the inventory stock register
+and the module-17 financial-report exports — the same accountant-workable finding.
+
 ## 5. Tests
+
+`tests/Feature/Regression/FixedAssetRegisterCsvTest.php` — the register CSV values each asset at
+`cost − accumulated depreciation` **scoped to the user** (a restricted accounting user gets their
+mall's assets, not the portfolio) and closes with cost / accumulated / NBV totals.
 
 `tests/Feature/Services/DepreciationServiceTest.php` — monthly amount (net of salvage),
 one entry per asset per month, derived accumulated/NBV, idempotent re-run, no charge
