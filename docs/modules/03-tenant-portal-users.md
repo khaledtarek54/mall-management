@@ -138,9 +138,19 @@ This ensures existing portal logins keep working immediately after deployment.
 
 Portal users cannot create or manage other portal users from the `/portal` app; that is an operator-only action in `/admin`. The portal only shows:
 - A **Dashboard** with account balance and open maintenance requests.
-- Read-only views of **Invoices**, **Payments**, **Maintenance Requests**, **CAM Allocations**, **Sales Declarations**.
+- Read-only views of the tenant's own **Lease(s)**, **Invoices**, **Payments**, **Maintenance Requests**, **CAM Allocations**, **Sales Declarations**.
 - **Create/Edit** forms for Maintenance Requests and Sales Declarations (if admin).
 - **Profile editing** via the top-bar avatar (password change, personal details).
+
+**Lease visibility (module 03 MVP pass).** A tenant can now see their **own lease** — a read-only
+`LeaseResource` scoped `where('tenant_id', Portal::tenantId())` with a full-terms infolist (reference,
+unit, property, status, dates, base rent, service charge, deposit, marketing levy, escalation, and a
+percentage-rent section shown only to the tenants it applies to) and a **Download lease** action that
+streams the signed document from the private `documents` media collection (`$media->toResponse()`).
+Until this, the portal claimed lease visibility it did not have. **Deferred (trigger):** a browsable
+**Announcements/Notices** page — operator broadcasts already reach the tenant as an in-app bell
+notification (`BroadcastAnnouncement` → `notifyPortal`), so the deliverable *arrives*; a persistent,
+scrollable list is polish. *Trigger: a tenant asking to re-read a dismissed notice.*
 
 ## 7. Notifications & integrations
 

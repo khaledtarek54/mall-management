@@ -1,6 +1,19 @@
 <?php
 
 return [
+    'portal' => [
+        'lease' => [
+            'terms' => 'بنود العقد',
+            'charges' => 'الرسوم',
+            'percentage_rent' => 'إيجار النسبة',
+            'escalation' => 'الزيادة السنوية',
+            'pct_rate' => 'نسبة الإيجار',
+            'pct_threshold' => 'حد المبيعات',
+            'download_document' => 'تنزيل العقد',
+            'empty_heading' => 'لا يوجد عقد مسجّل',
+            'empty_description' => 'سيظهر عقدك هنا بمجرد أن يقوم المشغّل بإعداده.',
+        ],
+    ],
 
     'billing_frequency' => [
         'monthly' => 'شهري',

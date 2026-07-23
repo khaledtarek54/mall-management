@@ -51,6 +51,7 @@ Legend: ✅ done · 🔄 in progress · ⬜ not started · — n/a. "Biz/Compl/G
 | 32 | Owner Statements | ✅ | ✅ | ✅ | ✅ | ✅ | **Itemized statement + owner portal** — the deliverable is readable and reaches the owner |
 | 33 | Post-dated Cheques | ✅ | ✅ | ✅ | ✅ | ✅ | **Series lodging + maturity dashboard** — a year of cheques in one act, and matured ones surfaced |
 | 17 | Reports | ✅ | ✅ | ✅ | — | ✅ | **CSV export across all financial reports** — GL + AR-aging gained export; accountant-workable, not PDF-only |
+| 03 | Tenant Portal | ✅ | ✅ | ✅ | — | ✅ | **Tenant can see their own lease** — terms + document download; the doc claimed it, the surface didn't exist |
 | 10–33 | (remaining) | ⬜ | ⬜ | — | — | ⬜ | Backlog — see the ledger |
 
 *The full ordered list (including 03 Tenant Portal, 15 Owner Requests, 16 ETA, 17 Reports, 30 Areas, 31 Violations, and the generic-ERP layer that is intentionally frozen) is in the [closure ledger](gap-analysis/PROPERTY-FACILITY-CLOSURE.md).*
@@ -143,6 +144,14 @@ The fix — **CSV export across all six financial reports** (Trial Balance, Inco
 - Wired as an **"Export CSV"** action on every report page, gated on `reports.view`. **GL and AR aging gained export for the first time.**
 
 **Verified sound, unchanged:** the reports are read-only, property-scoped (`TenantScope`), and GL-derived; the existing PDF export stays. This is dimension 2 (UX) + dimension 1 (business-gap: every accounting system exports to CSV) closed together. **Deferred (trigger):** true `.xlsx` (needs a spreadsheet library — CSV opens natively in Excel and covers the accountant's need); a custom from/to date range on the statements (currently calendar-year) — *trigger: an accountant asking for a non-calendar period*.
+
+## 5i. Module 03 — Tenant Portal (done)
+
+The portal is already rich (Invoices with pay/download, Payments, Tenant Requests, CAM, Sales Declarations, a dashboard). Leading with business-gap + UX, the scout found a gap the module doc itself papered over: **the doc says a tenant "sees the same lease, invoices and maintenance requests" — but there was no lease surface at all.** A tenant could not see their own terms (rent, dates, escalation, percentage rent, deposit) or download their signed lease — a core tenant-portal staple, and the same recurring shape as the last few modules: *a record the recipient can't see.*
+
+The fix: a read-only **`LeaseResource` in the portal**, scoped `where('tenant_id', Portal::tenantId())` (never another tenant's), with a full-terms **infolist** (native, no Blade) — the percentage-rent section shown only to the tenants it applies to — and a **Download lease** action streaming the signed document from the private `documents` collection. Read-only for everyone (it's the operator's record, shown to the tenant), so even a viewer-only portal user sees it.
+
+**Verified sound, unchanged:** the existing portal scoping/gating (admin-only writes, tenant isolation) holds; no new model (Lease is already property-classified). **Deferred (trigger):** a browsable **Announcements** page — operator broadcasts already reach the tenant as a bell notification (the deliverable *arrives*), so a persistent list is polish; *trigger: a tenant wanting to re-read a dismissed notice.*
 
 ## 5b. Module 10 — Utility Meters (done)
 

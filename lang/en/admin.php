@@ -1,6 +1,19 @@
 <?php
 
 return [
+    'portal' => [
+        'lease' => [
+            'terms' => 'Lease terms',
+            'charges' => 'Charges',
+            'percentage_rent' => 'Percentage rent',
+            'escalation' => 'Annual escalation',
+            'pct_rate' => 'Percentage rate',
+            'pct_threshold' => 'Sales breakpoint',
+            'download_document' => 'Download lease',
+            'empty_heading' => 'No lease on file',
+            'empty_description' => 'Your lease will appear here once the operator sets it up.',
+        ],
+    ],
 
     'billing_frequency' => [
         'monthly' => 'Monthly',
