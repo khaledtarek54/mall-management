@@ -59,6 +59,8 @@ Legend: ✅ done · 🔄 in progress · ⬜ not started · — n/a. "Biz/Compl/G
 | 24 | HR / Payroll | ✅ | ✅ | ✅ | ✅ | ✅ | **Payroll register CSV (per-run muster roll + totals)** — the consolidated view behind the per-employee payslips; correctness unchanged |
 | 25 | Treasury / Custody (عهدة) | ✅ | ✅ | ✅ | ✅ | ✅ | **Custody register CSV (amount / settled / outstanding + totals)** — the outstanding-عهدة schedule; correctness unchanged |
 | 13 | Marketing | ✅ | ✅ | ✅ | ✅ | ✅ | **Over-budget made visible (red balance + filter) + spend register CSV** — the owner-oversight the module exists for; correctness unchanged |
+| 28 | Approvals | ✅ | ⏸️ | ✅ | — | ✅ | **UX deliberately DEFERRED** — the ladder amounts are the FRD's own open item; a UI to tune un-agreed numbers is worse than none. No build (documented decision). |
+| 21 | General Ledger | ✅ | ✅ | ✅ | ✅ | ✅ | **Covered** — the accountant's export surface is the 6 financial reports (all CSV+PDF, mod 17); GL engine + integrity already CLOSED. No new gap. |
 | 10–33 | (remaining) | ⬜ | ⬜ | — | — | ⬜ | Backlog — see the ledger |
 
 *The full ordered list (including 03 Tenant Portal, 15 Owner Requests, 16 ETA, 17 Reports, 30 Areas, 31 Violations, and the generic-ERP layer that is intentionally frozen) is in the [closure ledger](gap-analysis/PROPERTY-FACILITY-CLOSURE.md).*
@@ -222,6 +224,22 @@ The module exists so the owner (Jawad) can see the operator stayed within the ma
 - **Spend register CSV.** Where the fund went existed only on screen. Export CSV header action on the spends relation manager (per budget); `MarketingBudgetResource::spendRegisterCsv($budget)` reads the budget's live spends (soft-deleted excluded → total **ties to `spent_amount`**), date / category / description / amount / paid-from / receipt + total. Gated on `marketing.view`.
 
 Test drives real budget+spends; the over-budget filter tested via `Livewire::filterTable`. New i18n `over_budget` (EN+AR). phpstan: `getOwnerRecord()` is base `Model` → a typed `budget()` helper (not a relation-generic).
+
+## 5q. Module 28 — Approvals (reviewed — UX deliberately deferred)
+
+**No build, by documented decision.** The approval ladder (value → approver tier) is an `ApprovalPolicy` engine with one live consumer (spare-part draws) and **no Filament resource** — deliberately. The module doc (§4) and [BUSINESS-RULES.md](BUSINESS-RULES.md#procurement-approval-hierarchy-fr-proc-02--the-frds-own-open-item) are explicit: the band amounts are the **FRD's own open item**, unsigned-off defaults. A UI inviting the operator to tune numbers nobody has agreed to is *worse than no UI*; the resource is to be built **with** the sign-off (`approvals.manage_rules` already exists for it).
+
+Forcing a CSV/editor here would contradict that decision and present un-agreed amounts as policy — the exact "reflex" this pass avoids. So Module 28 is **reviewed and correctly left as-is**; the trigger to build its UX is the operator signing off the ladder amounts. (Correctness/engine already CLOSED — cumulative authority, fail-closed-to-strictest, `canApprove()`-is-not-an-action-gate all tested.)
+
+## 5r. Module 21 — General Ledger (reviewed — already covered)
+
+**No new build needed.** The GL is the most heavily-worked module in the codebase (double-entry engine, one-registry journalizer rule, integrity hardening Phases 0–5, close gate, property dimension) and its **correctness is CLOSED**. The UX-completeness dimension it needed — the accountant's *workable* export — was already delivered by the [Module 17 pass](#5h-module-17--reports-done): all six financial reports (Trial Balance, **General Ledger**, Balance Sheet, Cash Flow, Income Statement, AR Aging) export to CSV **and** PDF. The GeneralLedger report *is* the full journal/ledger export (with date + account filters), so a separate JournalEntry-resource export would be redundant. The JournalEntry resource itself is complete (form with balanced lines, table, CRUD). Reviewed and left as-is.
+
+---
+
+### Generic-modules UX pass — COMPLETE (2026-07-23)
+
+All generic modules taken through the re-scoped UX pass: **22 Inventory**, **23 Fixed Assets**, **24 HR/Payroll**, **25 Treasury/Custody**, **13 Marketing** (built); **28 Approvals** (deferred by documented decision), **21 GL** (already covered). The recurring finding held: once mechanics are correct, the highest-value gap is the **accountant/owner-workable register that doesn't leave the screen** — met with the reusable `registerCsv()` play (`App\Support\ReportCsv`, scoped-to-the-table, totals row) as a list export (22/23/25), a per-run row action (24), and a relation-manager export (13) — plus, where a module's *purpose* pointed elsewhere, the sharper gap first (13's over-budget visibility). Correctness was untouched throughout; the freeze on generic *breadth* holds. Along the way the PHPStan gate was restored to green (65 above-baseline FPs, `d3bfeba`) and a latent cross-file test-helper redeclaration class was fixed.
 
 ## 5b. Module 10 — Utility Meters (done)
 
