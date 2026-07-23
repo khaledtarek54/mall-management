@@ -52,6 +52,7 @@ Legend: ✅ done · 🔄 in progress · ⬜ not started · — n/a. "Biz/Compl/G
 | 33 | Post-dated Cheques | ✅ | ✅ | ✅ | ✅ | ✅ | **Series lodging + maturity dashboard** — a year of cheques in one act, and matured ones surfaced |
 | 17 | Reports | ✅ | ✅ | ✅ | — | ✅ | **CSV export across all financial reports** — GL + AR-aging gained export; accountant-workable, not PDF-only |
 | 03 | Tenant Portal | ✅ | ✅ | ✅ | — | ✅ | **Tenant can see their own lease** — terms + document download; the doc claimed it, the surface didn't exist |
+| 15 | Owner Requests | ✅ | ✅ | ✅ | — | ✅ | **Conversation thread** — a real back-and-forth replacing a single overwritten note that was silently dropped |
 | 10–33 | (remaining) | ⬜ | ⬜ | — | — | ⬜ | Backlog — see the ledger |
 
 *The full ordered list (including 03 Tenant Portal, 15 Owner Requests, 16 ETA, 17 Reports, 30 Areas, 31 Violations, and the generic-ERP layer that is intentionally frozen) is in the [closure ledger](gap-analysis/PROPERTY-FACILITY-CLOSURE.md).*
@@ -152,6 +153,14 @@ The portal is already rich (Invoices with pay/download, Payments, Tenant Request
 The fix: a read-only **`LeaseResource` in the portal**, scoped `where('tenant_id', Portal::tenantId())` (never another tenant's), with a full-terms **infolist** (native, no Blade) — the percentage-rent section shown only to the tenants it applies to — and a **Download lease** action streaming the signed document from the private `documents` collection. Read-only for everyone (it's the operator's record, shown to the tenant), so even a viewer-only portal user sees it.
 
 **Verified sound, unchanged:** the existing portal scoping/gating (admin-only writes, tenant isolation) holds; no new model (Lease is already property-classified). **Deferred (trigger):** a browsable **Announcements** page — operator broadcasts already reach the tenant as a bell notification (the deliverable *arrives*), so a persistent list is polish; *trigger: a tenant wanting to re-read a dismissed notice.*
+
+## 5j. Module 15 — Owner Requests (done)
+
+The user asked to lead with **UX** here, and the module had two concrete UX defects hiding behind a working-looking feature. Owner requests are a *communication channel* (an owner raises a matter to the operator or a co-owner), but the interaction was a single `resolution_notes` field the operator overwrote — and, worse, that note was **silently dropped unless the status was set to `resolved`**. So an operator replying "we're looking into it" while moving the request to *in-progress* lost their message entirely, and there was never a back-and-forth. A channel with no conversation and a note that can vanish is the definition of poor UX.
+
+The fix turns it into a real conversation: an `owner_request_replies` thread (immutable, oldest-first), and a reworked **Reply** action that (1) shows the whole conversation inline so a reply is written in context, (2) takes a **required message that is always saved** regardless of status, (3) lets an **optional status move ride along**, and (4) notifies the *counterparty* (owner ↔ operator), never the author. Feedback reports the resulting status; the list shows a reply-count badge. Demo seeds a request with a 3-message conversation so the thread is visible on a fresh install.
+
+**Verified sound, unchanged:** terminal-immutability (a closed request refuses replies, guarded in the service now, not just the UI); property scoping; the reply model is a property-owned chain (`=> 'ownerRequest'`), caught-and-classified by the conformance gate. **Deferred (trigger):** exposing owner requests in the dedicated `/owner` portal (owners currently use `/admin` with the owner role, per the module's design) — *trigger: consolidating owners onto the `/owner` panel*.
 
 ## 5b. Module 10 — Utility Meters (done)
 

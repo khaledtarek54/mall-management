@@ -50,6 +50,7 @@ use App\Models\MarketingSpend;
 use App\Models\MeterReading;
 use App\Models\Note;
 use App\Models\OwnerRequest;
+use App\Models\OwnerRequestReply;
 use App\Models\OwnerStatement;
 use App\Models\OwnerStatementRun;
 use App\Models\Payment;
@@ -152,6 +153,7 @@ class PropertyIsolation
         MaintenanceWorkOrder::class => null,
         MaintenancePenalty::class => null,   // asset_id copied from the breaching work order
         OwnerRequest::class => null,           // asset_id nullable (property-specific or cross-property)
+        OwnerRequestReply::class => 'ownerRequest', // a reply reaches its property through its request; no resource of its own (posted via the Reply action)
         Department::class => null,             // asset_id nullable: null = operator-wide (global), set = property-scoped (hybrid)
         AssetOwner::class => null,             // the asset_owner ownership pivot — one row = one owner's stake in one mall; no Filament resource (managed via User/Asset relations), like LowStockAlert
         OwnerStatementRun::class => null,      // owner statement run — one property's period statement (module 32)

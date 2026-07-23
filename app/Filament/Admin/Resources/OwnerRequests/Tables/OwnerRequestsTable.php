@@ -6,10 +6,13 @@ use App\Filament\Admin\Resources\OwnerRequests\OwnerRequestResource;
 use App\Models\OwnerRequest;
 use App\Services\OwnerRequestService;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\HtmlString;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
@@ -17,6 +20,26 @@ use Illuminate\Support\Str;
 
 class OwnerRequestsTable
 {
+    /** The original request plus every reply, attributed + timestamped — the conversation, in order. */
+    private static function renderThread(OwnerRequest $request): HtmlString
+    {
+        $line = function (?string $who, $when, string $body): string {
+            $meta = e(($who ?: __('admin.owner_requests.unknown_author')).' · '.($when?->diffForHumans() ?? ''));
+            $text = nl2br(e($body));
+
+            return "<div style=\"margin-bottom:.6rem;\"><div style=\"font-size:.75rem;color:#6b7280;\">{$meta}</div><div>{$text}</div></div>";
+        };
+
+        // The opening message is the request itself (subject + body) from its creator.
+        $html = $line($request->creator?->name, $request->created_at, $request->subject."\n".$request->body);
+
+        foreach ($request->replies as $reply) {
+            $html .= $line($reply->author?->name, $reply->created_at, $reply->body);
+        }
+
+        return new HtmlString($html);
+    }
+
     public static function configure(Table $table): Table
     {
         return $table
@@ -58,6 +81,13 @@ class OwnerRequestsTable
                         'cancelled' => 'danger',
                         default => 'gray',
                     }),
+                // How lively the conversation is — the number of replies since it was raised.
+                TextColumn::make('replies_count')
+                    ->label(__('admin.owner_requests.replies'))
+                    ->counts('replies')
+                    ->badge()
+                    ->color(fn (int $state) => $state > 0 ? 'primary' : 'gray')
+                    ->alignCenter(),
                 TextColumn::make('created_at')
                     ->label(__('admin.tables.owner_request.created'))
                     ->date('d/m/Y')
@@ -70,29 +100,50 @@ class OwnerRequestsTable
                 TrashedFilter::make(),
             ])
             ->recordActions([
-                Action::make('respond')
-                    ->label(__('admin.actions.respond'))
+                // A REPLY, not a one-shot note. Shows the whole conversation inline, takes a message
+                // (always saved — the old flow dropped it unless status happened to be "resolved"),
+                // and lets an optional status move ride along. The other party is notified.
+                Action::make('reply')
+                    ->label(__('admin.owner_requests.actions.reply'))
                     ->icon('heroicon-o-chat-bubble-left-right')
                     ->color('primary')
+                    ->modalHeading(fn (OwnerRequest $r) => $r->reference.' · '.$r->subject)
+                    ->modalSubmitActionLabel(__('admin.owner_requests.actions.send'))
                     ->visible(fn (OwnerRequest $r) => OwnerRequestResource::canEdit($r) && ! $r->isTerminal())
-                    ->modalHeading(fn (OwnerRequest $r) => $r->reference)
-                    ->modalDescription(fn (OwnerRequest $r) => $r->subject . ' — ' . $r->body)
                     ->fillForm(fn (OwnerRequest $r) => ['status' => $r->status])
                     ->schema([
+                        // The conversation so far — the original message + every reply, attributed and
+                        // timestamped, so a reply is written in context, not blind.
+                        Placeholder::make('thread')
+                            ->label(__('admin.owner_requests.conversation'))
+                            ->content(fn (OwnerRequest $r) => self::renderThread($r)),
+                        Textarea::make('body')
+                            ->label(__('admin.owner_requests.actions.your_reply'))
+                            ->rows(3)
+                            ->required(),
                         Select::make('status')
-                            ->label(__('admin.tables.owner_request.status'))
-                            ->options(fn () => collect(OwnerRequest::STATUSES)->mapWithKeys(fn ($s) => [$s => Str::headline($s)]))
-                            ->required()
+                            ->label(__('admin.owner_requests.set_status'))
+                            ->helperText(__('admin.owner_requests.set_status_hint'))
+                            ->options(fn () => collect(OwnerRequest::STATUSES)
+                                ->mapWithKeys(fn ($s) => [$s => __("admin.owner_requests.statuses.{$s}")]))
                             ->native(false),
-                        Textarea::make('resolution_notes')
-                            ->label(__('admin.fields.resolution_notes'))
-                            ->rows(3),
                     ])
                     ->action(function (OwnerRequest $r, array $data) {
-                        app(OwnerRequestService::class)->transition($r, $data['status'], $data);
+                        try {
+                            app(OwnerRequestService::class)->reply($r, Auth::user(), $data['body'], $data['status'] ?? null);
+                        } catch (\DomainException $e) {
+                            Notification::make()->title($e->getMessage())->danger()->send();
 
+                            return;
+                        }
+
+                        // Feedback with the resulting state — the reply is on the thread and the
+                        // status it now sits at.
                         Notification::make()
-                            ->title(__('admin.actions.owner_request_updated'))
+                            ->title(__('admin.owner_requests.notices.replied'))
+                            ->body(__('admin.owner_requests.notices.replied_body', [
+                                'status' => __("admin.owner_requests.statuses.{$r->refresh()->status}"),
+                            ]))
                             ->success()
                             ->send();
                     }),

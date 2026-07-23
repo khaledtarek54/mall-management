@@ -2609,5 +2609,36 @@ class DemoSeeder extends Seeder
             // Owner statements are demo polish — never let a period/GL edge abort the whole seed.
             $this->command->warn('   Owner statements skipped: '.$e->getMessage());
         }
+
+        $this->seedOwnerRequests($asset);
+    }
+
+    /**
+     * One owner request with a real back-and-forth, so the conversation thread + reply count are
+     * visible on a fresh demo (the module was otherwise empty).
+     */
+    private function seedOwnerRequests(Asset $asset): void
+    {
+        $owner = User::where('email', 'owner@atriom.test')->first();
+        $operator = User::where('email', 'manager@mall.test')->first();
+        if (! $owner || ! $operator) {
+            return;
+        }
+
+        $svc = app(\App\Services\OwnerRequestService::class);
+        $request = $svc->create([
+            'asset_id' => $asset->id,
+            'recipient' => 'operator',
+            'subject' => 'Facade repair budget split',
+            'body' => 'Please confirm the 60/40 cost split for the north-facade waterproofing before we sign off.',
+            'priority' => 'high',
+        ], $owner);
+
+        // The conversation: operator acknowledges (moves to in-progress), owner nudges, operator resolves.
+        $svc->reply($request, $operator, 'Received — reviewing the contractor quote, will confirm within two days.', 'in_progress');
+        $svc->reply($request->refresh(), $owner, 'Thanks. We need it settled before the board meeting on Sunday.');
+        $svc->reply($request->refresh(), $operator, 'Confirmed: 60/40 as proposed. Work order raised.', 'resolved');
+
+        $this->command->info('   Seeded 1 owner request with a 3-message conversation');
     }
 }

@@ -64,7 +64,23 @@ The Owner Requests module enables legal property owners (Jawad) to communicate w
 
 **Triggering transitions**:
 - Create: starts in `open` (hardcoded in `OwnerRequestService::create()`)
-- Operator response: calls `transition(request, status, ['resolution_notes' => '...'])` (OwnerRequestsTable respond action)
+- Operator/owner reply: `OwnerRequestService::reply($request, $author, $body, ?$status)` (the OwnerRequestsTable **Reply** action) — see the conversation note below.
+- Legacy status-only move: `transition(request, status, ['resolution_notes' => '...'])` is retained for programmatic callers.
+
+### Conversation thread (module 15 UX pass)
+
+Owner requests are a communication *channel* but had no conversation: the whole exchange was the
+owner's opening message plus a single `resolution_notes` field the operator overwrote — and which was
+**silently dropped unless** the status happened to be set to `resolved`. So an operator replying "we're
+looking into it" while moving it to *in-progress* lost their message, and there was no back-and-forth.
+
+Now `owner_request_replies` (a `HasMany` thread, oldest-first, immutable once posted) is the
+conversation. The **Reply** action shows the whole thread inline (opening message + every reply,
+attributed and timestamped), takes a **required message that is always saved** regardless of status,
+and lets an **optional status move ride along**. Each reply notifies the *counterparty* (the owner when
+the operator replies; the operator team when the owner replies), never the author. The list shows a
+**reply-count** badge. `OwnerRequestReply` is a property-owned chain model (`=> 'ownerRequest'`), no
+resource of its own — it is posted only through the Reply action.
 - UI guard: respond action hidden if `canEdit($record) && ! $record->isTerminal()` (line 77, OwnerRequestsTable)
 
 **Notification on transition**:

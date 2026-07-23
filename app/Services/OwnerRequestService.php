@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\OwnerRequest;
+use App\Models\OwnerRequestReply;
 use App\Models\User;
 use App\Notifications\OwnerRequestNotification;
 use Illuminate\Support\Facades\DB;
@@ -39,9 +40,72 @@ class OwnerRequestService
     }
 
     /**
-     * Operator (or owner) progresses the request. Notifies the owner who
-     * raised it. Terminal requests are immutable — guarded at the UI layer.
+     * Post a reply to the conversation and (optionally) move the status — the real interaction on an
+     * owner request. The reply is ALWAYS persisted, regardless of status; the old flow silently
+     * dropped the note unless the status happened to be `resolved`, and overwrote it each time, so a
+     * "channel" kept no history. Every reply notifies the OTHER party (never the author).
+     *
+     * @throws \DomainException
      */
+    public function reply(OwnerRequest $request, User $author, string $body, ?string $status = null): OwnerRequestReply
+    {
+        $body = trim($body);
+
+        if ($request->isTerminal()) {
+            throw new \DomainException(__('admin.owner_requests.errors.terminal'));
+        }
+        if ($body === '') {
+            throw new \DomainException(__('admin.owner_requests.errors.empty_reply'));
+        }
+
+        return DB::transaction(function () use ($request, $author, $body, $status) {
+            $reply = $request->replies()->create([
+                'author_id' => $author->id,
+                'body' => $body,
+            ]);
+
+            // An optional status move rides along with the message (in-progress, resolved, …).
+            if ($status !== null && $status !== $request->status && in_array($status, OwnerRequest::STATUSES, true)) {
+                $payload = ['status' => $status];
+                if ($status === 'resolved') {
+                    $payload['resolved_at'] = now();
+                }
+                if ($status === 'closed') {
+                    $payload['closed_at'] = now();
+                }
+                $request->update($payload);
+            }
+
+            $this->notifyCounterparty($request->refresh(), $author);
+
+            return $reply;
+        });
+    }
+
+    /**
+     * Bell the participant(s) who are NOT the author: the owner who raised it when the operator
+     * replies, and the operator team when the owner replies. A failed send never blocks the reply.
+     */
+    private function notifyCounterparty(OwnerRequest $request, User $author): void
+    {
+        try {
+            if ((int) $author->id === (int) $request->created_by_user_id) {
+                // The owner replied → notify the recipient side (assigned owner, or the operator team).
+                $this->notifyRecipients($request);
+
+                return;
+            }
+
+            // The operator (or the assigned owner) replied → notify the owner who raised it.
+            $request->creator?->notify(new OwnerRequestNotification($request, 'updated'));
+        } catch (\Throwable $e) {
+            Log::warning('Owner request reply notification failed', [
+                'owner_request_id' => $request->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
     public function transition(OwnerRequest $request, string $status, array $extra = []): OwnerRequest
     {
         // Terminal requests (resolved / closed / cancelled) are immutable — the

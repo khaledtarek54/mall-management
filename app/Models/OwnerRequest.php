@@ -58,6 +58,7 @@ class OwnerRequest extends Model
         'closed_at' => 'datetime',
     ];
 
+    /** @return BelongsTo<User, $this> */
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_user_id');
@@ -68,9 +69,20 @@ class OwnerRequest extends Model
         return $this->belongsTo(Asset::class);
     }
 
+    /** @return BelongsTo<User, $this> */
     public function assignee(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_to_user_id');
+    }
+
+    /**
+     * The conversation thread — replies oldest-first, so it reads top-to-bottom like a chat.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany<OwnerRequestReply, $this>
+     */
+    public function replies(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(OwnerRequestReply::class)->oldest();
     }
 
     public function isOpen(): bool

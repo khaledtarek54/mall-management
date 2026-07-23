@@ -182,7 +182,7 @@ it('renders the owner-requests list with rows (regression: status/priority color
 
     Livewire::test(ListOwnerRequests::class)
         ->assertCanSeeTableRecords([$req])
-        ->assertTableActionVisible('respond', $req);
+        ->assertTableActionVisible('reply', $req);
 });
 
 /* ─────────────────────── query scoping (own only) ────────────────────── */
