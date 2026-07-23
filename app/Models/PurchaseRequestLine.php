@@ -34,6 +34,7 @@ class PurchaseRequestLine extends Model
         return $this->belongsTo(PurchaseRequest::class, 'purchase_request_id');
     }
 
+    /** @return BelongsTo<InventoryItem, $this> */
     public function item(): BelongsTo
     {
         return $this->belongsTo(InventoryItem::class, 'inventory_item_id');

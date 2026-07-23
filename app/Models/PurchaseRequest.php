@@ -68,7 +68,7 @@ class PurchaseRequest extends Model
         'asset_id', 'reference', 'status', 'justification', 'warehouse_id', 'vendor_id',
         'total_value', 'required_permission', 'requested_by_user_id', 'decided_by_user_id',
         'decided_at', 'decision_notes', 'ordered_by_user_id', 'ordered_at', 'order_reference',
-        'received_by_user_id', 'received_at',
+        'po_number', 'received_by_user_id', 'received_at',
     ];
 
     protected $casts = [
@@ -94,6 +94,7 @@ class PurchaseRequest extends Model
             ->useLogName('purchase_request');
     }
 
+    /** @return BelongsTo<Asset, $this> */
     public function asset(): BelongsTo
     {
         return $this->belongsTo(Asset::class);
@@ -114,16 +115,19 @@ class PurchaseRequest extends Model
      * Retiring a storeroom while its order is in transit is ordinary; the goods still have to
      * land somewhere, and the request must still say where they were going.
      */
+    /** @return BelongsTo<Warehouse, $this> */
     public function warehouse(): BelongsTo
     {
         return $this->belongsTo(Warehouse::class)->withTrashed();
     }
 
+    /** @return BelongsTo<Vendor, $this> */
     public function vendor(): BelongsTo
     {
         return $this->belongsTo(Vendor::class);
     }
 
+    /** @return HasMany<PurchaseRequestLine, $this> */
     public function lines(): HasMany
     {
         return $this->hasMany(PurchaseRequestLine::class);
@@ -148,6 +152,11 @@ class PurchaseRequest extends Model
     public function decidedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'decided_by_user_id');
+    }
+
+    public function orderedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'ordered_by_user_id');
     }
 
     public function receivedBy(): BelongsTo
@@ -216,6 +225,24 @@ class PurchaseRequest extends Model
         // Bump until free — max+1 races under concurrent creates; the unique index is the backstop.
         $candidate = $prefix.str_pad((string) $next, 4, '0', STR_PAD_LEFT);
         while (static::withTrashed()->where('reference', $candidate)->exists()) {
+            $candidate = $prefix.str_pad((string) ++$next, 4, '0', STR_PAD_LEFT);
+        }
+
+        return $candidate;
+    }
+
+    /** `PO-{asset}-{YYYYMM}-{n}` — the PURCHASE ORDER's own number, distinct from the PR reference. */
+    public static function generatePoNumber(string $assetCode = 'GEN', ?\DateTimeInterface $date = null): string
+    {
+        $date = $date ? Carbon::instance($date) : now();
+        $prefix = sprintf('PO-%s-%s-', $assetCode, $date->format('Ym'));
+
+        $last = static::withTrashed()->where('po_number', 'like', $prefix.'%')->orderByDesc('po_number')->value('po_number');
+        $next = $last ? ((int) substr($last, strlen($prefix))) + 1 : 1;
+
+        // Bump until free — max+1 races under concurrent orders; the unique index is the backstop.
+        $candidate = $prefix.str_pad((string) $next, 4, '0', STR_PAD_LEFT);
+        while (static::withTrashed()->where('po_number', $candidate)->exists()) {
             $candidate = $prefix.str_pad((string) ++$next, 4, '0', STR_PAD_LEFT);
         }
 

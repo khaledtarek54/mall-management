@@ -47,7 +47,7 @@ Legend: ✅ done · 🔄 in progress · ⬜ not started · — n/a. "Biz/Compl/G
 | 10 | Utility Meters | ✅ | ✅ | ✅ | ✅ | ✅ | **Recharge built** — readings can now be billed |
 | 11/26 | Facility work (requests · work orders · service schedules) | ✅ | 🟡 | ✅ | — | 🟡 | **Generalised** to any facility service |
 | 12 | Vendors & Contracts | ✅ | ✅ | ✅ | ✅ | ✅ | **Full vendor lifecycle** — compliance docs, renewal notice, change orders, withholding tax |
-| 29 | Procurement | ⬜ | ⬜ | 🟡 | ⬜ | ⬜ | Later |
+| 29 | Procurement | ✅ | ✅ | ✅ | ✅ | ✅ | **PO document + UX** — ordering now produces a real purchase order |
 | 32 | Owner Statements | 🟡 | ⬜ | 🟡 | ✅ | 🟡 | Later |
 | 33 | Post-dated Cheques | 🟡 | ⬜ | 🟡 | ✅ | 🟡 | Later |
 | 10–33 | (remaining) | ⬜ | ⬜ | — | — | ⬜ | Backlog — see the ledger |
@@ -105,6 +105,15 @@ A follow-up review asked whether the module was *structurally* competitive, not 
 - **Withholding tax (خصم وإضافة).** Atriom paid vendors **gross** — non-compliant with Income Tax Law 91/2005 art. 59, and the un-withheld amount becomes the operator's own liability. Now the payment splits **Dr AP (gross) / Cr Bank (net) / Cr WHT Payable (withheld)** — the AP-side twin of the AR VAT. **Settings-driven** rates (never a hardcoded statutory guess), **off by default**, per-vendor override where `0 = exempt ≠ null = use default`. GL tie-out proven through the **real `accounting:sync-ledger` sweep**, per the registry rule.
 
 *Discipline note:* the initial scout's "COI is never enforced" was **false** (the gate shipped in `5df09c0`) — caught by verifying first, again ([[feedback_verify_absence_claims]]). **Deferred (triggers):** WHT remittance-return reporting to the ETA (*trigger: first filing period*); per-payment-category WHT rates; document OCR.
+
+## 5e. Module 29 — Procurement (done)
+
+The mechanics were already complete and correct: the request → approve → order → receive state machine (with `requested → ordered` deliberately *unrepresentable* = FR-PROC-02), the value-based approval ladder, GRNI clearing against the vendor bill (a proven double-count fixed earlier), warehouse scoping, RBAC. The pass therefore led with the two priority dimensions — **business gap** and **UX** — and found one material gap.
+
+- **Business gap #1 — there was no Purchase Order document.** Ordering flipped a status and stored a free-text `order_reference`; the vendor received nothing. Every procurement system (and the operator's real workflow) needs a numbered, itemized PO to send. Now `po_number` is stamped at order time — its own identity, distinct from the internal requisition `reference` — and `PurchaseOrderPdfService` renders a bilingual, priced PO downloadable from the row and the edit page. It reuses the established PDF-service pattern (the app already has 7); the "order" action finally produces an artifact like every other money-document.
+- **UX — verifiable numbers + feedback with resulting state.** A **"View working"** modal shows the lines that make the total and **which approval tier the value falls into** (re-judged on the current total), so an approver never trusts a bare figure. Order and receive feedback now carry the *result*: ordering reports the PO number + who it went to ("download and send it from the row"); receiving reports how many items stocked into which warehouse (or that it was services-only). EN+AR keys added in the same change.
+
+**Verified sound, unchanged:** every write action already double-gates (`visible()` + `authorize()`); the approval tier is frozen at request time yet re-judged on the current total; GRNI clearing is capped at what the receipt credited. **Deferred (trigger):** partial receipts (receive some lines/quantity now) — the FRD doesn't ask and half-receiving is a real workflow decision; the line-level `stock_movement_id` is the seam when a client needs it. Emailing the PO to the vendor waits on the same email-certification gate as the rest of the app.
 
 ## 5b. Module 10 — Utility Meters (done)
 

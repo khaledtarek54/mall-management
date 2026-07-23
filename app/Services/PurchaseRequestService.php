@@ -180,6 +180,10 @@ class PurchaseRequestService
                 'status' => PurchaseRequest::STATUS_ORDERED,
                 'vendor_id' => $vendorId ?? $locked->vendor_id,
                 'order_reference' => $orderReference,
+                // The request becomes a PURCHASE ORDER now — stamp its own document number so the
+                // vendor receives a numbered PO, not a bare status change. Kept if already set
+                // (a re-order can't happen — ordered is a one-way transition — but be idempotent).
+                'po_number' => $locked->po_number ?: PurchaseRequest::generatePoNumber($locked->asset?->code ?: 'GEN'),
                 'ordered_by_user_id' => $actor->id,
                 'ordered_at' => now(),
             ]);

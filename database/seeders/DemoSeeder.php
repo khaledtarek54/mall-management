@@ -49,6 +49,7 @@ use App\Models\Warehouse;
 use App\Services\CamReconciliationService;
 use App\Services\CreditNoteService;
 use App\Services\DepreciationService;
+use App\Services\PurchaseRequestService;
 use App\Services\DisposeFixedAssetService;
 use App\Services\Eta\EtaSubmissionService;
 use App\Services\GeneratePreventiveWorkOrdersService;
@@ -2024,6 +2025,51 @@ class DemoSeeder extends Seeder
         $svc->adjust($parts, $filter, -2, ['moved_on' => Carbon::now()->subDays(3), 'notes' => 'Stock-count correction (damaged units).']);
 
         $this->command->info('   Seeded 2 warehouses, '.count($catalog).' inventory items with stock movements');
+
+        $this->seedProcurement($asset, $parts);
+    }
+
+    /**
+     * Procurement (module 29): a couple of purchase requests taken through the real workflow so the
+     * PO document, the approval ladder and GRNI are all visible on a fresh demo rather than empty.
+     * Requested by operations, approved by the manager (self-approval is refused), then one ordered
+     * (has a PO to download) and one received (stock landed + GRNI posted).
+     */
+    private function seedProcurement(Asset $asset, Warehouse $parts): void
+    {
+        $svc = app(PurchaseRequestService::class);
+        $buyer = User::where('email', 'maintenance@mall.test')->first();     // operations — raises
+        $approver = User::where('email', 'manager@mall.test')->first();      // manager — signs off
+        $vendor = Vendor::where('name', 'Cool-Air HVAC Services')->first() ?? Vendor::first();
+        $filter = InventoryItem::where('sku', 'FLT-HVAC-STD')->first();
+        $belt = InventoryItem::where('sku', 'BELT-HVAC-A')->first();
+
+        if (! $buyer || ! $approver || ! $filter) {
+            return;
+        }
+
+        // 1) Ordered — a PO is out with the supplier, goods not yet in.
+        $ordered = $svc->request([
+            'asset_id' => $asset->id,
+            'justification' => 'Restock HVAC filters ahead of the summer service round.',
+            'warehouse_id' => $parts->id,
+            'lines' => [['inventory_item_id' => $filter->id, 'quantity' => 40, 'unit_cost' => 180]],
+        ], $buyer);
+        $svc->approve($ordered, 'Approved — within the maintenance budget.', $approver);
+        $svc->order($ordered->fresh(), $vendor?->id, 'CA-Q-2044', $approver);
+
+        // 2) Received — the full loop, so GRNI and a stocked receipt exist on the demo books.
+        $received = $svc->request([
+            'asset_id' => $asset->id,
+            'justification' => 'Drive belts for the rooftop AHUs.',
+            'warehouse_id' => $parts->id,
+            'lines' => [['inventory_item_id' => $belt?->id ?? $filter->id, 'quantity' => 15, 'unit_cost' => 95]],
+        ], $buyer);
+        $svc->approve($received, null, $approver);
+        $svc->order($received->fresh(), $vendor?->id, 'CA-Q-2051', $approver);
+        $svc->receive($received->fresh(), $approver);
+
+        $this->command->info('   Seeded 2 purchase requests (1 ordered w/ PO, 1 received)');
     }
 
     /**

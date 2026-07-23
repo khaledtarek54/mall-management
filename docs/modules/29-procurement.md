@@ -147,7 +147,8 @@ Three rules make the clearing honest, each pinned by a test that fails without i
 |-------|-------|--------|
 | **1 — Request → Approve → Order → Receive** | `purchase_requests` + lines, the value-based approval ladder reusing [module 28](28-approvals.md), the transition matrix that makes FR-PROC-02 unrepresentable, receipt → stock with a **source link** (FR-WH-02), status history via the activity log, property-scoped resource + lines relation manager | ✅ shipped |
 | **2 — Clear GRNI against the vendor bill** | `vendor_bills.purchase_request_id` + the GRNI split in `VendorBillJournalizer`. Fixed a proven **double count**: a purchase was hitting Inventory *and* Expense, with GRNI and AP both carrying the liability. Only received stockable lines clear, capped at what the receipt credited | ✅ shipped |
-| **3 — Partial receipts** | receive some lines / some quantity now, the rest later. The line-level `stock_movement_id` is the seam; not built because the FRD does not ask and half-receiving is a real workflow decision | ⬜ deferred |
+| **3 — The Purchase Order document + UX** | `po_number` stamped at order time (its own identity, distinct from the requisition `reference`); `PurchaseOrderPdfService` + a bilingual blade renders the numbered, itemized, priced PO — downloadable from the row and the edit page once ordered. Plus the UX pass: a **"View working"** modal (lines → total → which approval tier the value falls into) and **feedback carrying the resulting state** (order → the PO number + who it went to; receive → how many items stocked where). Demo seeds one ordered + one received request | ✅ shipped |
+| **4 — Partial receipts** | receive some lines / some quantity now, the rest later. The line-level `stock_movement_id` is the seam; not built because the FRD does not ask and half-receiving is a real workflow decision | ⬜ deferred |
 
 ---
 
