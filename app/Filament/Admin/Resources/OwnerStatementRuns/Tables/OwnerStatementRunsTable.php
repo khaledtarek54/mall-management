@@ -98,7 +98,7 @@ class OwnerStatementRunsTable
                         try {
                             app(FinaliseOwnerStatementRunService::class)->finalise($record, auth()->user(), $data['posting_date'] ?? null);
                         } catch (\DomainException $e) {
-                            static::notifyFailure($e);
+                            self::notifyFailure($e);
 
                             return;
                         }
@@ -117,7 +117,7 @@ class OwnerStatementRunsTable
                         try {
                             app(ReviseOwnerStatementRunService::class)->revise($record, auth()->user());
                         } catch (\DomainException $e) {
-                            static::notifyFailure($e);
+                            self::notifyFailure($e);
 
                             return;
                         }
@@ -149,14 +149,14 @@ class OwnerStatementRunsTable
                         abort_unless(OwnerStatementRunResource::canSchedule(), 403);
                         $statement = $record->statements()->first();
                         if (! $statement) {
-                            static::notifyFailure(new \DomainException(__('admin.owner_statements.statements')));
+                            self::notifyFailure(new \DomainException(__('admin.owner_statements.statements')));
 
                             return;
                         }
                         try {
                             app(DisbursementService::class)->schedule($statement, (float) $data['amount'], $data['method'], auth()->user());
                         } catch (\DomainException $e) {
-                            static::notifyFailure($e);
+                            self::notifyFailure($e);
 
                             return;
                         }
@@ -217,7 +217,7 @@ class OwnerStatementRunsTable
                         abort_unless(OwnerStatementRunResource::canSend(), 403);
                         $statement = $record->statements()->first();
                         if (! $statement) {
-                            static::notifyFailure(new \DomainException(__('admin.owner_statements.statements')));
+                            self::notifyFailure(new \DomainException(__('admin.owner_statements.statements')));
 
                             return;
                         }

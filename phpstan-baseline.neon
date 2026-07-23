@@ -2637,3 +2637,249 @@ parameters:
 			identifier: property.notFound
 			count: 2
 			path: /Users/khaled/Herd/mall-management/app/Services/CreditNoteService.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Builder\:\:holdover\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Filament/Admin/Resources/Leases/Tables/LeasesTable.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Admin/Resources/OwnerStatementRuns/OwnerStatementRunResource.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Admin/Resources/OwnerStatementRuns/OwnerStatementRunResource.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$owner\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Filament/Admin/Resources/OwnerStatementRuns/Tables/OwnerStatementRunsTable.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$paid_to_date\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Admin/Resources/OwnerStatementRuns/Tables/OwnerStatementRunsTable.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Admin/Resources/OwnerStatementRuns/Tables/OwnerStatementRunsTable.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:outstanding\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: app/Filament/Admin/Resources/OwnerStatementRuns/Tables/OwnerStatementRunsTable.php
+
+		-
+			message: '#^Parameter \#1 \$statement of class App\\Notifications\\OwnerStatementSentNotification constructor expects App\\Models\\OwnerStatement, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Admin/Resources/OwnerStatementRuns/Tables/OwnerStatementRunsTable.php
+
+		-
+			message: '#^Parameter \#1 \$statement of method App\\Services\\OwnerAccounting\\DisbursementService\:\:schedule\(\) expects App\\Models\\OwnerStatement, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Admin/Resources/OwnerStatementRuns/Tables/OwnerStatementRunsTable.php
+
+		-
+			message: '#^Parameter \#1 \$statement of method App\\Services\\OwnerAccounting\\OwnerStatementPdfService\:\:build\(\) expects App\\Models\\OwnerStatement, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Admin/Resources/OwnerStatementRuns/Tables/OwnerStatementRunsTable.php
+
+		-
+			message: '#^Parameter \#1 \$statement of method App\\Services\\OwnerAccounting\\OwnerStatementPdfService\:\:filename\(\) expects App\\Models\\OwnerStatement, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Admin/Resources/OwnerStatementRuns/Tables/OwnerStatementRunsTable.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Filament/Admin/Resources/OwnerStatementRuns/Tables/OwnerStatementRunsTable.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>paid_to_date" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Filament/Admin/Resources/OwnerStatementRuns/Tables/OwnerStatementRunsTable.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Admin/Resources/PostDatedCheques/PostDatedChequeResource.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Admin/Resources/PostDatedCheques/PostDatedChequeResource.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:resolveCeiling\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Models/Lease.php
+
+		-
+			message: '#^Negated boolean expression is always false\.$#'
+			identifier: booleanNot.alwaysFalse
+			count: 1
+			path: app/Models/Lease.php
+
+		-
+			message: '#^Property App\\Models\\Lease\:\:\$next_escalation_date \(Carbon\\Carbon\|null\) does not accept string\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: app/Models/Lease.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between Carbon\\Carbon and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 2
+			path: app/Models/Lease.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/PostDatedCheque.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/TenantUser.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Asset\:\:\$pivot\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/User.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:mapWithKeys\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\<int, float\>, Closure\(App\\Models\\Asset\)\: non\-empty\-array\<int, float\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Models/User.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Notifications/OwnerStatementSentNotification.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Notifications/OwnerStatementSentNotification.php
+
+		-
+			message: '#^Offset ''lines'' on array\{entry_date\?\: DateTimeInterface\|string\|null, description_en\?\: string\|null, description_ar\?\: string\|null, asset_id\?\: int\|null, source\?\: Illuminate\\Database\\Eloquent\\Model\|null, is_manual\?\: bool, is_closing\?\: bool, status\?\: ''draft''\|''posted'', \.\.\.\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/Accounting/JournalPostingService.php
+
+		-
+			message: '#^Method App\\Services\\Accounting\\LedgerReportService\:\:profitLossBalancesByAsset\(\) should return Illuminate\\Support\\Collection\<int, array\{asset_id\: int\|null, account_id\: int, code\: string, type\: string, net_credit\: float\}\> but returns Illuminate\\Support\\Collection\<int, array\{asset_id\: int\|null, account_id\: int, code\: mixed, type\: mixed, net_credit\: float\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/Accounting/LedgerReportService.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Support\\Collection\<int, App\\Models\\JournalEntry\>\:\:load\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Services/Accounting/YearEndCloseService.php
+
+		-
+			message: '#^Parameter \#1 \$payload of method App\\Services\\Accounting\\JournalPostingService\:\:post\(\) expects array\{entry_date\?\: DateTimeInterface\|string\|null, description_en\?\: string\|null, description_ar\?\: string\|null, asset_id\?\: int\|null, source\?\: Illuminate\\Database\\Eloquent\\Model\|null, is_manual\?\: bool, is_closing\?\: bool, status\?\: ''draft''\|''posted'', \.\.\.\}, array\{entry_date\: string, description_en\: non\-falsy\-string, description_ar\: non\-falsy\-string, asset_id\: int\|null, is_manual\: true, is_closing\: true, lines\: list\<array\{ledger_account_id\: int, debit\: 0, credit\: float\}\|array\{ledger_account_id\: int, debit\: float, credit\: 0\}\>\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/Accounting/YearEndCloseService.php
+
+		-
+			message: '#^If condition is always true\.$#'
+			identifier: if.alwaysTrue
+			count: 1
+			path: app/Services/MonthlyBillingService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$owner_share\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/OwnerAccounting/DisbursementService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$paid_to_date\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/OwnerAccounting/DisbursementService.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:recomputePaidToDate\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: app/Services/OwnerAccounting/DisbursementService.php
+
+		-
+			message: '#^Method App\\Services\\OwnerAccounting\\DisbursementService\:\:schedule\(\) should return App\\Models\\Disbursement but returns Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/OwnerAccounting/DisbursementService.php
+
+		-
+			message: '#^Parameter \#1 \$asset of method App\\Services\\OwnerAccounting\\GenerateOwnerStatementRunService\:\:generate\(\) expects App\\Models\\Asset, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/OwnerAccounting/FinaliseOwnerStatementRunService.php
+
+		-
+			message: '#^Parameter \#2 \$period of method App\\Services\\OwnerAccounting\\GenerateOwnerStatementRunService\:\:generate\(\) expects App\\Models\\AccountingPeriod, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/OwnerAccounting/FinaliseOwnerStatementRunService.php
+
+		-
+			message: '#^Property App\\Models\\OwnerStatementRun\:\:\$posting_date \(Carbon\\Carbon\) does not accept string\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: app/Services/OwnerAccounting/FinaliseOwnerStatementRunService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 5
+			path: app/Services/OwnerAccounting/GenerateOwnerStatementRunService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$pivot\.$#'
+			identifier: property.notFound
+			count: 4
+			path: app/Services/OwnerAccounting/GenerateOwnerStatementRunService.php
+
+		-
+			message: '#^Variable \$run on left side of \?\?\= always exists and is not nullable\.$#'
+			identifier: nullCoalesce.variable
+			count: 1
+			path: app/Services/OwnerAccounting/GenerateOwnerStatementRunService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$lease\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ReceiptPdfService.php

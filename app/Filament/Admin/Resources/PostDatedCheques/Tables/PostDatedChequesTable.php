@@ -64,7 +64,7 @@ class PostDatedChequesTable
                     ->icon('heroicon-o-arrow-up-tray')->color('info')
                     ->visible(fn (PostDatedCheque $r) => in_array($r->status, [PostDatedCheque::STATUS_HELD, PostDatedCheque::STATUS_BOUNCED], true) && PostDatedChequeResource::canManage())
                     ->authorize(fn (PostDatedCheque $r) => PostDatedChequeResource::canManage())
-                    ->action(fn (PostDatedCheque $record) => static::run(fn () => app(PostDatedChequeService::class)->deposit($record), 'deposited')),
+                    ->action(fn (PostDatedCheque $record) => self::run(fn () => app(PostDatedChequeService::class)->deposit($record), 'deposited')),
 
                 Action::make('clear')
                     ->label(__('admin.post_dated_cheques.actions.clear'))
@@ -80,7 +80,7 @@ class PostDatedChequesTable
                     ])
                     ->action(function (PostDatedCheque $record, array $data): void {
                         abort_unless(PostDatedChequeResource::canClear(), 403);
-                        static::run(fn () => app(PostDatedChequeService::class)->clear($record, auth()->user(), $data['cleared_on']), 'cleared');
+                        self::run(fn () => app(PostDatedChequeService::class)->clear($record, auth()->user(), $data['cleared_on']), 'cleared');
                     }),
 
                 Action::make('bounce')
@@ -89,7 +89,7 @@ class PostDatedChequesTable
                     ->requiresConfirmation()
                     ->visible(fn (PostDatedCheque $r) => in_array($r->status, [PostDatedCheque::STATUS_HELD, PostDatedCheque::STATUS_DEPOSITED], true) && PostDatedChequeResource::canManage())
                     ->authorize(fn (PostDatedCheque $r) => PostDatedChequeResource::canManage())
-                    ->action(fn (PostDatedCheque $record) => static::run(fn () => app(PostDatedChequeService::class)->bounce($record), 'bounced')),
+                    ->action(fn (PostDatedCheque $record) => self::run(fn () => app(PostDatedChequeService::class)->bounce($record), 'bounced')),
 
                 Action::make('cancel')
                     ->label(__('admin.post_dated_cheques.actions.cancel'))
@@ -97,7 +97,7 @@ class PostDatedChequesTable
                     ->requiresConfirmation()
                     ->visible(fn (PostDatedCheque $r) => ! in_array($r->status, [PostDatedCheque::STATUS_CLEARED, PostDatedCheque::STATUS_CANCELLED], true) && PostDatedChequeResource::canManage())
                     ->authorize(fn (PostDatedCheque $r) => PostDatedChequeResource::canManage())
-                    ->action(fn (PostDatedCheque $record) => static::run(fn () => app(PostDatedChequeService::class)->cancel($record), 'cancelled')),
+                    ->action(fn (PostDatedCheque $record) => self::run(fn () => app(PostDatedChequeService::class)->cancel($record), 'cancelled')),
             ]);
     }
 
@@ -107,7 +107,7 @@ class PostDatedChequesTable
         try {
             $fn();
         } catch (\DomainException $e) {
-            static::notifyFailure($e);
+            self::notifyFailure($e);
 
             return;
         }

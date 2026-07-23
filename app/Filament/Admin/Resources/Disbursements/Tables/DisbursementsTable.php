@@ -65,7 +65,7 @@ class DisbursementsTable
                         try {
                             app(DisbursementService::class)->approve($record, auth()->user());
                         } catch (\DomainException $e) {
-                            static::notifyFailure($e);
+                            self::notifyFailure($e);
 
                             return;
                         }
@@ -92,7 +92,7 @@ class DisbursementsTable
                         try {
                             app(DisbursementService::class)->markPaid($record, auth()->user(), $data['paid_on'], $data['external_reference'] ?? null);
                         } catch (\DomainException $e) {
-                            static::notifyFailure($e);
+                            self::notifyFailure($e);
 
                             return;
                         }
@@ -110,7 +110,7 @@ class DisbursementsTable
                         try {
                             app(DisbursementService::class)->cancel($record, auth()->user());
                         } catch (\DomainException $e) {
-                            static::notifyFailure($e);
+                            self::notifyFailure($e);
 
                             return;
                         }

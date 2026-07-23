@@ -33,6 +33,7 @@ class JournalPostingService
      *     asset_id?: int|null,
      *     source?: Model|null,
      *     is_manual?: bool,
+     *     is_closing?: bool,
      *     status?: 'posted'|'draft',
      *     lines: array<int, array{
      *         ledger_account_id?: int, account_code?: string, account?: LedgerAccount,
