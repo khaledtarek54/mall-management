@@ -2,6 +2,9 @@
     $isRtl = app()->getLocale() === 'ar';
     $fmt = fn ($v) => number_format((float) $v, 2).' '.($asset->currency ?? 'EGP');
     $align = $isRtl ? 'left' : 'right';
+    // The frozen per-account breakdown snapshotted at generate time; localized name per row.
+    $breakdown = $run->income_breakdown ?? ['revenue' => [], 'expense' => []];
+    $rowName = fn ($r) => $isRtl ? ($r['name_ar'] ?? $r['name_en'] ?? $r['code']) : ($r['name_en'] ?? $r['name_ar'] ?? $r['code']);
 @endphp
 <!DOCTYPE html>
 <html lang="{{ app()->getLocale() }}" dir="{{ $isRtl ? 'rtl' : 'ltr' }}">
@@ -28,7 +31,9 @@
         table.figures td { padding: 8px 10px; border-bottom: 1px solid #E7E1D6; }
         table.figures td.amt { text-align: {{ $align }}; white-space: nowrap; }
         tr.net td { border-top: 2px solid #0F766E; border-bottom: none; font-weight: bold; font-size: 11.5pt; background: #F5F0E8; }
-        tr.sub td { color: #6B6660; }
+        tr.sub td { color: #6B6660; padding-{{ $isRtl ? 'right' : 'left' }}: 20px; font-size: 9.5pt; }
+        tr.section td { background: #0F1419; color: #F5F0E8; font-size: 8.5pt; text-transform: {{ $isRtl ? 'none' : 'uppercase' }}; letter-spacing: {{ $isRtl ? '0' : '1px' }}; padding: 6px 10px; }
+        tr.subtotal td { font-weight: bold; border-bottom: 1px solid #0F766E; }
         .footnote { margin-top: 22px; font-size: 8.5pt; color: #8C8478; border-top: 1px solid #E7E1D6; padding-top: 8px; }
         .status { display: inline-block; padding: 1px 8px; border-radius: 8px; font-size: 8pt; background: #0F766E; color: #fff; }
     </style>
@@ -71,15 +76,47 @@
         </tr>
     </table>
 
+    {{-- Itemized property P&L — what the revenue was and where the expenses went, the whole point
+         of a statement. Falls back to the bare totals for pre-snapshot (legacy) runs. --}}
     <table class="figures">
-        <tr>
-            <td>{{ __('admin.owner_statements.fields.total_revenue') }}</td>
-            <td class="amt">{{ $fmt($run->total_revenue) }}</td>
-        </tr>
-        <tr>
-            <td>{{ __('admin.owner_statements.fields.total_expense') }}</td>
-            <td class="amt">({{ $fmt($run->total_expense) }})</td>
-        </tr>
+        @if (! empty($breakdown['revenue']) || ! empty($breakdown['expense']))
+            <tr class="section"><td colspan="2">{{ __('admin.owner_statements.pdf.revenue') }}</td></tr>
+            @forelse ($breakdown['revenue'] as $r)
+                <tr class="sub">
+                    <td>{{ $rowName($r) }}</td>
+                    <td class="amt">{{ $fmt($r['amount']) }}</td>
+                </tr>
+            @empty
+                <tr class="sub"><td>{{ __('admin.owner_statements.pdf.none') }}</td><td class="amt">{{ $fmt(0) }}</td></tr>
+            @endforelse
+            <tr class="subtotal">
+                <td>{{ __('admin.owner_statements.fields.total_revenue') }}</td>
+                <td class="amt">{{ $fmt($run->total_revenue) }}</td>
+            </tr>
+
+            <tr class="section"><td colspan="2">{{ __('admin.owner_statements.pdf.expenses') }}</td></tr>
+            @forelse ($breakdown['expense'] as $r)
+                <tr class="sub">
+                    <td>{{ $rowName($r) }}</td>
+                    <td class="amt">({{ $fmt($r['amount']) }})</td>
+                </tr>
+            @empty
+                <tr class="sub"><td>{{ __('admin.owner_statements.pdf.none') }}</td><td class="amt">({{ $fmt(0) }})</td></tr>
+            @endforelse
+            <tr class="subtotal">
+                <td>{{ __('admin.owner_statements.fields.total_expense') }}</td>
+                <td class="amt">({{ $fmt($run->total_expense) }})</td>
+            </tr>
+        @else
+            <tr>
+                <td>{{ __('admin.owner_statements.fields.total_revenue') }}</td>
+                <td class="amt">{{ $fmt($run->total_revenue) }}</td>
+            </tr>
+            <tr>
+                <td>{{ __('admin.owner_statements.fields.total_expense') }}</td>
+                <td class="amt">({{ $fmt($run->total_expense) }})</td>
+            </tr>
+        @endif
         <tr class="net">
             <td>{{ __('admin.owner_statements.fields.net_operating_income') }}</td>
             <td class="amt">{{ $fmt($run->net_operating_income) }}</td>

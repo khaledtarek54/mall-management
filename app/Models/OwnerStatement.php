@@ -119,6 +119,7 @@ class OwnerStatement extends Model
         $this->forceFill(['paid_to_date' => round($paid, 2)])->saveQuietly();
     }
 
+    /** @return BelongsTo<OwnerStatementRun, $this> */
     public function run(): BelongsTo
     {
         return $this->belongsTo(OwnerStatementRun::class, 'owner_statement_run_id');

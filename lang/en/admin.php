@@ -2156,6 +2156,8 @@ return [
         'plural' => 'Owner Statements',
         'run_plural' => 'Owner Statement Runs',
         'statements' => 'Owner statements',
+        'owner_empty_heading' => 'No statements yet',
+        'owner_empty_description' => 'Your monthly owner statements will appear here once the operator finalises and sends them.',
         'statuses' => [
             'draft' => 'Draft',
             'finalised' => 'Finalised',
@@ -2195,6 +2197,7 @@ return [
             'revise' => 'Revise',
             'send' => 'Send to owner',
             'download_pdf' => 'Download PDF',
+            'view_working' => 'View working',
         ],
         'notices' => [
             'generated' => 'Draft statement generated',
@@ -2204,6 +2207,10 @@ return [
         ],
         'pdf' => [
             'note' => 'Prepared by Eltizam as operator on behalf of the property owner. Figures are drawn from the property ledger for the period shown.',
+            'revenue' => 'Revenue',
+            'expenses' => 'Expenses',
+            'none' => 'No items in this period',
+            'net_hint' => 'Net = total revenue − total expenses, from the property ledger for the period.',
         ],
         'notification' => [
             'sent_title' => 'A statement is ready for you',

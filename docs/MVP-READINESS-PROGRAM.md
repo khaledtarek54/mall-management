@@ -48,7 +48,7 @@ Legend: ✅ done · 🔄 in progress · ⬜ not started · — n/a. "Biz/Compl/G
 | 11/26 | Facility work (requests · work orders · service schedules) | ✅ | 🟡 | ✅ | — | 🟡 | **Generalised** to any facility service |
 | 12 | Vendors & Contracts | ✅ | ✅ | ✅ | ✅ | ✅ | **Full vendor lifecycle** — compliance docs, renewal notice, change orders, withholding tax |
 | 29 | Procurement | ✅ | ✅ | ✅ | ✅ | ✅ | **PO document + UX** — ordering now produces a real purchase order |
-| 32 | Owner Statements | 🟡 | ⬜ | 🟡 | ✅ | 🟡 | Later |
+| 32 | Owner Statements | ✅ | ✅ | ✅ | ✅ | ✅ | **Itemized statement + owner portal** — the deliverable is readable and reaches the owner |
 | 33 | Post-dated Cheques | 🟡 | ⬜ | 🟡 | ✅ | 🟡 | Later |
 | 10–33 | (remaining) | ⬜ | ⬜ | — | — | ⬜ | Backlog — see the ledger |
 
@@ -114,6 +114,15 @@ The mechanics were already complete and correct: the request → approve → ord
 - **UX — verifiable numbers + feedback with resulting state.** A **"View working"** modal shows the lines that make the total and **which approval tier the value falls into** (re-judged on the current total), so an approver never trusts a bare figure. Order and receive feedback now carry the *result*: ordering reports the PO number + who it went to ("download and send it from the row"); receiving reports how many items stocked into which warehouse (or that it was services-only). EN+AR keys added in the same change.
 
 **Verified sound, unchanged:** every write action already double-gates (`visible()` + `authorize()`); the approval tier is frozen at request time yet re-judged on the current total; GRNI clearing is capped at what the receipt credited. **Deferred (trigger):** partial receipts (receive some lines/quantity now) — the FRD doesn't ask and half-receiving is a real workflow decision; the line-level `stock_movement_id` is the seam when a client needs it. Emailing the PO to the vendor waits on the same email-certification gate as the rest of the app.
+
+## 5f. Module 32 — Owner Statements (done)
+
+The GL spine, lifecycle (generate → finalise → revise), disbursements, approval ladder and posting-date guards were already built and correct. Leading with **business gap + UX**, two findings — both about the *deliverable itself*, not the accounting:
+
+- **The statement showed only three totals** — revenue, expense, net. An owner receiving it couldn't see WHAT the revenue was (rent, CAM, parking) or WHERE the expenses went (maintenance, utilities, staff). Every property-management platform itemizes; Atriom already computed the per-account breakdown in `LedgerReportService::incomeStatement()` and was **discarding it after summing**. Now `income_breakdown` (JSON) snapshots it at generate time, **frozen alongside the totals** (recompute-then-freeze, so the detail can't drift from the net), and the PDF + "View working" modals render revenue-by-account → expenses-by-account → net. This is the "verifiable numbers" checklist item applied to the deliverable — the net is no longer an unexplained figure.
+- **The owner portal (`/owner`) had no statements at all.** The operator produces the statement *for* the owner, yet the owner's own portal (Invoices, CAM, Properties, TenantRequests) didn't surface it — it had to be emailed by hand. A read-only `OwnerStatementResource` now lists the owner's **own finalised/sent** statements (scoped `where('user_id', Auth::id())` + status filter — never a draft, never another owner's), with owner-share / paid / **outstanding**, in-portal "View working", and Download PDF. The deliverable finally reaches its recipient, self-service.
+
+**Verified sound, unchanged:** the `net_distributable = Σ owner_share` penny reconciliation; recompute-then-freeze; disbursement cap re-checked under lock; posting-date guard; the two-source GL tie-out. **Deferred (unchanged):** the **management fee** (Eltizam's cut) — it needs the settings-driven Egyptian tax catalog for its VAT-on-fee treatment, so it stays deferred with the design pre-written in the plan; and multi-owner co-ownership (the split infra exists, unapplied — one owner, 100%).
 
 ## 5b. Module 10 — Utility Meters (done)
 

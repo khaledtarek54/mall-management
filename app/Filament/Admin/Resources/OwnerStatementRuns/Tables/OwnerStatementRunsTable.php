@@ -15,6 +15,7 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -25,6 +26,23 @@ class OwnerStatementRunsTable
     private static function notifyFailure(\Throwable $e): void
     {
         Notification::make()->title($e->getMessage())->danger()->send();
+    }
+
+    /** One line per P&L account from the frozen snapshot (localized), or a dash for a legacy run. */
+    private static function breakdownLines(OwnerStatementRun $run, string $side): string
+    {
+        $isRtl = app()->getLocale() === 'ar';
+        $rows = (array) (($run->income_breakdown ?? [])[$side] ?? []);
+
+        if ($rows === []) {
+            return __('admin.owner_statements.pdf.none');
+        }
+
+        return collect($rows)->map(function (array $r) use ($isRtl) {
+            $name = $isRtl ? ($r['name_ar'] ?? $r['name_en'] ?? $r['code']) : ($r['name_en'] ?? $r['name_ar'] ?? $r['code']);
+
+            return $name.' — EGP '.number_format((float) ($r['amount'] ?? 0), 2);
+        })->join("\n");
     }
 
     public static function configure(Table $table): Table
@@ -146,6 +164,26 @@ class OwnerStatementRunsTable
                     }),
 
                 // Download the owner's statement PDF (operator or the owner themselves).
+                // "View working" — the itemized P&L behind the net, so an operator (and the owner)
+                // can see WHAT the revenue was and WHERE the expenses went, not just three totals.
+                // Native infolist, reading the frozen snapshot.
+                Action::make('breakdown')
+                    ->label(__('admin.owner_statements.actions.view_working'))
+                    ->icon('heroicon-o-calculator')->color('gray')
+                    ->modalSubmitAction(false)
+                    ->schema(fn (OwnerStatementRun $record) => [
+                        TextEntry::make('revenue_working')
+                            ->label(__('admin.owner_statements.pdf.revenue'))
+                            ->state(fn () => self::breakdownLines($record, 'revenue')),
+                        TextEntry::make('expense_working')
+                            ->label(__('admin.owner_statements.pdf.expenses'))
+                            ->state(fn () => self::breakdownLines($record, 'expense')),
+                        TextEntry::make('net_working')
+                            ->label(__('admin.owner_statements.fields.net_operating_income'))
+                            ->state(fn () => 'EGP '.number_format((float) $record->net_operating_income, 2))
+                            ->helperText(__('admin.owner_statements.pdf.net_hint')),
+                    ]),
+
                 Action::make('download_pdf')
                     ->label(__('admin.owner_statements.actions.download_pdf'))
                     ->icon('heroicon-o-document-arrow-down')->color('gray')

@@ -64,6 +64,20 @@ class GenerateOwnerStatementRunService
             $totalExpense = round((float) $pl['total_expense'], 2);
             $net = round((float) $pl['net_profit'], 2);
 
+            // Snapshot the PER-ACCOUNT breakdown, not just the totals — a statement that only says
+            // "revenue 500k, expense 200k" is not one an owner can read. Frozen alongside the totals
+            // (recompute-then-freeze), so the detail can never drift from the net it sums to.
+            $breakdown = [
+                'revenue' => collect($pl['revenue'])->map(fn ($r) => [
+                    'code' => $r['code'], 'name_en' => $r['name_en'], 'name_ar' => $r['name_ar'],
+                    'amount' => round((float) $r['amount'], 2),
+                ])->values()->all(),
+                'expense' => collect($pl['expense'])->map(fn ($r) => [
+                    'code' => $r['code'], 'name_en' => $r['name_en'], 'name_ar' => $r['name_ar'],
+                    'amount' => round((float) $r['amount'], 2),
+                ])->values()->all(),
+            ];
+
             $run ??= new OwnerStatementRun([
                 'reference' => OwnerStatementRun::generateReference(),
                 'asset_id' => $asset->id,
@@ -79,6 +93,7 @@ class GenerateOwnerStatementRunService
                 'total_revenue' => $totalRevenue,
                 'total_expense' => $totalExpense,
                 'net_operating_income' => $net,
+                'income_breakdown' => $breakdown,
                 'net_distributable' => 0,
                 'status' => OwnerStatementRun::STATUS_DRAFT,
             ]);

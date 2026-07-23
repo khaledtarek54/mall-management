@@ -93,6 +93,19 @@ pattern (`BypassesFilamentTenantAutoScope` + manual `getEloquentQuery`), every w
 The owner (an `owner`-role RBAC user in `/admin`) sees the runs for **their** properties (read-only —
 operator actions are permission-hidden) and can **Download PDF** their statement; **Send** bells them.
 
+**The dedicated owner portal (`/owner`)** now carries the deliverable too — an `OwnerStatementResource`
+(read-only, `Portfolio` group) listing the owner's **own finalised/sent** statements (never a draft or
+another owner's — scoped `where('user_id', Auth::id())` + status in finalised/sent), with owner-share /
+paid / **outstanding**, a **"View working"** modal (the itemized P&L from the frozen snapshot) and a
+**Download PDF**. Until this, the operator produced the statement but the owner had no self-service way to
+see it — it had to be emailed by hand.
+
+**The statement is itemized.** `owner_statement_runs.income_breakdown` (JSON) snapshots the per-account
+revenue and expense lines from `LedgerReportService::incomeStatement()` **at generate time**, frozen
+alongside the totals (recompute-then-freeze), so the detail can never drift from the net it sums to. The
+PDF and both "View working" modals render revenue-by-account → expenses-by-account → net. Legacy runs
+(pre-snapshot) fall back to the bare totals.
+
 Permissions: `owner_statements.{view,generate,finalise,revise,send,view_own}`,
 `disbursements.{view,schedule,approve,pay,cancel}` — owner auto-gets `.view` + pushed `view_own`; accounting
 gets the operator actions; manager auto-gets the non-delete set.
