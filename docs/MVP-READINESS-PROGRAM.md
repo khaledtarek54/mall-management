@@ -57,6 +57,7 @@ Legend: ✅ done · 🔄 in progress · ⬜ not started · — n/a. "Biz/Compl/G
 | 22 | Inventory & Stock | ✅ | ✅ | ✅ | ✅ | ✅ | **Stock valuation on screen + CSV registers** — first generic-module UX pass; correctness unchanged |
 | 23 | Fixed Assets & Depreciation | ✅ | ✅ | ✅ | ✅ | ✅ | **Register CSV (cost / accum. deprec. / NBV + totals)** — the balance-sheet schedule, accountant-workable; correctness unchanged |
 | 24 | HR / Payroll | ✅ | ✅ | ✅ | ✅ | ✅ | **Payroll register CSV (per-run muster roll + totals)** — the consolidated view behind the per-employee payslips; correctness unchanged |
+| 25 | Treasury / Custody (عهدة) | ✅ | ✅ | ✅ | ✅ | ✅ | **Custody register CSV (amount / settled / outstanding + totals)** — the outstanding-عهدة schedule; correctness unchanged |
 | 10–33 | (remaining) | ⬜ | ⬜ | — | — | ⬜ | Backlog — see the ledger |
 
 *The full ordered list (including 03 Tenant Portal, 15 Owner Requests, 16 ETA, 17 Reports, 30 Areas, 31 Violations, and the generic-ERP layer that is intentionally frozen) is in the [closure ledger](gap-analysis/PROPERTY-FACILITY-CLOSURE.md).*
@@ -203,6 +204,14 @@ HR/Payroll is complete (employee register, advances/loans → GL, per-employee p
 - **Export register** row action on the Payrolls table (per run) via `App\Support\ReportCsv`. `PayrollResource::registerCsv($run)` reads the run's `payroll_lines` (employee `withTrashed` so a frozen run stays reproducible after staff turnover), emits code / name / position / gross / salary tax / social insurance / net per employee, and closes with totals that **tie to the derived run header** (`net_paid`). Shown only when the run has per-employee lines; `canView` gated in `visible()` + `authorize()`.
 
 Same accountant-workable finding as [Inventory](#5l-module-22--inventory--stock-done--first-generic-module-ux-pass) and [Fixed Assets](#5m-module-23--fixed-assets--depreciation-done--generic-module-ux-pass). `PayrollLine::lines()` loop typed `Model` → local `@var PayrollLine` annotation (no relation-generic ripple). Test helpers named `registerEmployee`/`registerRun` to avoid colliding with `PayrollLineTest`'s `lineEmployee`/`draftRun`.
+
+## 5o. Module 25 — Treasury / Custody (عهدة) (done) — generic-module UX pass
+
+Custodies is complete (grant → GL, expense/return settlements, derived outstanding, over-settle lock — untouched). The عهدة register — who holds company cash, how much they've settled, what's still in their hands — is the treasury's core control and lived only on screen.
+
+- **Export CSV** on the Custodies list via `App\Support\ReportCsv`. `CustodyResource::registerCsv()` reads the **same property-scoped query and derived `settled_sum` subquery the table shows**, emits date / custodian / reference / purpose / property / amount / settled / outstanding / paid-from per custody, and closes with amount / settled / outstanding totals. Double-gated.
+
+Straight application of the resource-level `registerCsv()` play (like [Inventory](#5l-module-22--inventory--stock-done--first-generic-module-ux-pass)/[Fixed Assets](#5m-module-23--fixed-assets--depreciation-done--generic-module-ux-pass)). Test drives the real `GrantCustodyService`/`SettleCustodyService` (reachable inputs), helpers named `custodianFor` to dodge `CustodyLedgerTest`'s `custodyEmployee`.
 
 ## 5b. Module 10 — Utility Meters (done)
 

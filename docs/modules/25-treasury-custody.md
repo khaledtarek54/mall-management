@@ -97,7 +97,23 @@ custodian's hands) — NOT accounts receivable — so the AR tie-out is unaffect
 
 ---
 
+### Custody register CSV export (UX, 2026-07-23)
+
+The عهدة register — who holds company cash, how much they've settled, and what's still outstanding —
+is the treasury's core control, and it lived only on screen. Added an **Export CSV** action on the
+Custodies list via the shared `App\Support\ReportCsv` (UTF-8 BOM). `CustodyResource::registerCsv()`
+reads the **same property-scoped query and derived `settled_sum` subquery the table shows** (so the
+export can never disagree with the screen), emits date / custodian / reference / purpose / property /
+amount / settled / outstanding / paid-from per custody, and closes with **amount, settled and
+outstanding totals** — the outstanding-custody schedule an accountant reconciles. Double-gated
+(`visible()` + `authorize()` on `canViewAny()`). Same accountant-workable finding as inventory (mod
+22), fixed assets (mod 23) and payroll (mod 24).
+
 ## 6. Tests
+
+`tests/Feature/Regression/CustodyRegisterCsvTest.php` — the register CSV values each custody at
+`amount − settled` **scoped to the user** (a restricted accounting user gets their mall's custodies,
+not the portfolio) and closes with amount / settled / outstanding totals.
 
 `tests/Feature/Services/CustodyLedgerTest.php` — grant (Dr Custodies / Cr Cash|Bank, not
 touching AR/AP), expense settlement (Dr Expense by category / Cr Custodies), cash return (Dr

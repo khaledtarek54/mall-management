@@ -111,6 +111,56 @@ class CustodyResource extends Resource
         return ['reference'];
     }
 
+    /**
+     * The عهدة (custody) register as CSV rows — each custodian's grant, settled-to-date and the
+     * cash still in their hands, the treasury's outstanding-custody schedule. Reads the same
+     * property-scoped query and derived `settled_sum` subquery the table shows (so the export can
+     * never disagree with the screen) and closes with amount / settled / outstanding totals.
+     *
+     * @return array{headers: array<int,string>, rows: array<int, array<int, string|float>>}
+     */
+    public static function registerCsv(): array
+    {
+        $rows = [];
+        $totalAmount = 0.0;
+        $totalSettled = 0.0;
+        $totalOutstanding = 0.0;
+
+        /** @var Custody $custody */
+        foreach (static::getEloquentQuery()->with(['employee', 'asset'])->orderByDesc('custody_date')->get() as $custody) {
+            $amount = round((float) $custody->amount, 2);
+            $settled = round((float) ($custody->settled_sum ?? 0), 2);
+            $outstanding = round(max(0, $amount - $settled), 2);
+            $totalAmount += $amount;
+            $totalSettled += $settled;
+            $totalOutstanding += $outstanding;
+
+            $rows[] = [
+                $custody->custody_date->format('Y-m-d'),
+                (string) data_get($custody, 'employee.name', ''),
+                $custody->reference ?? '',
+                $custody->purpose ?? '',
+                (string) data_get($custody, 'asset.name', ''),
+                $amount, $settled, $outstanding,
+                __('admin.enums.expense_paid_from.' . $custody->paid_from),
+            ];
+        }
+
+        $rows[] = ['', __('admin.reports.csv.total'), '', '', '',
+            round($totalAmount, 2), round($totalSettled, 2), round($totalOutstanding, 2), ''];
+
+        return [
+            'headers' => [
+                __('admin.custodies.fields.custody_date'), __('admin.custodies.fields.custodian'),
+                __('admin.custodies.fields.reference'), __('admin.custodies.fields.purpose'),
+                __('admin.custodies.fields.property'), __('admin.custodies.fields.amount'),
+                __('admin.custodies.fields.settled'), __('admin.custodies.fields.outstanding'),
+                __('admin.custodies.fields.paid_from'),
+            ],
+            'rows' => $rows,
+        ];
+    }
+
     /** Server-side guard: the custodian's property must be within the user's visible set. */
     public static function assertAssetInScope(mixed $assetId): void
     {
