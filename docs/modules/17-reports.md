@@ -90,6 +90,26 @@ daysOverdue = due_date.diffInDays(asOf, false)  // negative = not yet due
 
 ## 5. Services, jobs & scheduled commands
 
+### CSV export — `ReportCsvExporter` + `App\Support\ReportCsv`
+
+The financial reports were **PDF-only**, and the two an accountant most needs as raw data — the
+**General Ledger** and **AR Aging** — had **no export at all**. A PDF only presents; an accountant
+works in a spreadsheet (pivot, reconcile, hand to an auditor, import elsewhere). So every financial
+report now exports to **CSV**:
+
+- **`App\Support\ReportCsv::stream(filename, headers, rows)`** — the one streaming primitive. Prepends
+  a **UTF-8 BOM** (Excel needs it to render Arabic), quotes via `fputcsv`, streams so a large GL never
+  loads into memory.
+- **`App\Services\Reports\ReportCsvExporter`** — flattens each computed report into `[headers, rows]`
+  (kept out of the Filament pages so the row shape is unit-testable; a streamed response is not).
+  Account names follow the locale; amounts are plain numbers (no separators/symbol) so a spreadsheet
+  reads them as numbers. Methods: `trialBalance`, `incomeStatement`, `balanceSheet`, `cashFlow`,
+  `generalLedger`, `arAging`. Statements carry per-section subtotals + a final net line, so the CSV
+  reads exactly like the on-screen report; the trial balance carries a self-checking totals row.
+- **Wired as an "Export CSV" header action** on all six report pages (Trial Balance, Income Statement,
+  Balance Sheet, Cash Flow, General Ledger, AR Aging), gated on `reports.view`. GL and AR aging gained
+  export here for the first time.
+
 ### `ReportService` (app/Services/Reports/ReportService.php)
 
 **Read-only query layer backed by PHPUnit tests, not spinning up a browser.** All methods scoped via `TenantScope::applyTo()`.

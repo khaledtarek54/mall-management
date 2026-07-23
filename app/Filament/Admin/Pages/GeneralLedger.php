@@ -6,7 +6,10 @@ use App\Filament\Admin\Concerns\PostsToLedger;
 use App\Filament\Admin\Pages\Concerns\ScopesLedgerReport;
 use App\Models\LedgerAccount;
 use App\Services\Accounting\LedgerReportService;
+use App\Services\Reports\ReportCsvExporter;
+use App\Support\ReportCsv;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Carbon;
@@ -39,6 +42,29 @@ class GeneralLedger extends Page
     {
         return [
             $this->postToLedgerAction(),
+            // The GL had NO export at all — yet it is the raw transaction detail an accountant
+            // reconciles against, the report they most want in a spreadsheet. Enabled once an
+            // account is selected (there is nothing to export otherwise).
+            Action::make('export_csv')
+                ->label(__('admin.reports.csv.export'))
+                ->icon('heroicon-o-table-cells')
+                ->color('gray')
+                ->visible(fn () => $this->canViewReports() && $this->accountId !== null)
+                ->authorize(fn () => $this->canViewReports())
+                ->action(function () {
+                    $account = LedgerAccount::find($this->accountId);
+                    abort_unless($account !== null, 404);
+
+                    $statement = app(LedgerReportService::class)->accountLedger(
+                        $account,
+                        $this->scopedAssetIds(),
+                        Carbon::create($this->year, 1, 1)->startOfDay(),
+                        Carbon::create($this->year, 12, 31)->endOfDay(),
+                    );
+                    $csv = app(ReportCsvExporter::class)->generalLedger($statement);
+
+                    return ReportCsv::stream("general-ledger-{$account->code}-{$this->year}", $csv['headers'], $csv['rows']);
+                }),
         ];
     }
 

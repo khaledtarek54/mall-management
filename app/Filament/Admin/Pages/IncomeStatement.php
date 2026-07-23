@@ -6,6 +6,8 @@ use App\Filament\Admin\Concerns\PostsToLedger;
 use App\Filament\Admin\Pages\Concerns\ScopesLedgerReport;
 use App\Services\Accounting\LedgerReportPdfService;
 use App\Services\Accounting\LedgerReportService;
+use App\Services\Reports\ReportCsvExporter;
+use App\Support\ReportCsv;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Pages\Page;
@@ -59,6 +61,22 @@ class IncomeStatement extends Page
                         $svc->filename('income-statement', $this->year),
                         ['Content-Type' => 'application/pdf'],
                     );
+                }),
+            Action::make('export_csv')
+                ->label(__('admin.reports.csv.export'))
+                ->icon('heroicon-o-table-cells')
+                ->color('gray')
+                ->visible(fn () => $this->canViewReports())
+                ->authorize(fn () => $this->canViewReports())
+                ->action(function () {
+                    $report = app(LedgerReportService::class)->incomeStatement(
+                        $this->scopedAssetIds(),
+                        Carbon::create($this->year, 1, 1)->startOfDay(),
+                        Carbon::create($this->year, 12, 31)->endOfDay(),
+                    );
+                    $csv = app(ReportCsvExporter::class)->incomeStatement($report);
+
+                    return ReportCsv::stream("income-statement-{$this->year}", $csv['headers'], $csv['rows']);
                 }),
         ];
     }

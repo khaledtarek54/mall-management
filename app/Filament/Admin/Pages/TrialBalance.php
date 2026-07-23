@@ -6,6 +6,8 @@ use App\Filament\Admin\Concerns\PostsToLedger;
 use App\Filament\Admin\Pages\Concerns\ScopesLedgerReport;
 use App\Services\Accounting\LedgerReportPdfService;
 use App\Services\Accounting\LedgerReportService;
+use App\Services\Reports\ReportCsvExporter;
+use App\Support\ReportCsv;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Pages\Page;
@@ -59,6 +61,24 @@ class TrialBalance extends Page
                         $svc->filename('trial-balance', $this->year),
                         ['Content-Type' => 'application/pdf'],
                     );
+                }),
+            // CSV, not just PDF — the accountant works the trial balance in a spreadsheet
+            // (reconcile, pivot, hand to an auditor). A PDF can only be looked at.
+            Action::make('export_csv')
+                ->label(__('admin.reports.csv.export'))
+                ->icon('heroicon-o-table-cells')
+                ->color('gray')
+                ->visible(fn () => $this->canViewReports())
+                ->authorize(fn () => $this->canViewReports())
+                ->action(function () {
+                    $report = app(LedgerReportService::class)->trialBalance(
+                        $this->scopedAssetIds(),
+                        Carbon::create($this->year, 1, 1)->startOfDay(),
+                        Carbon::create($this->year, 12, 31)->endOfDay(),
+                    );
+                    $csv = app(ReportCsvExporter::class)->trialBalance($report);
+
+                    return ReportCsv::stream("trial-balance-{$this->year}", $csv['headers'], $csv['rows']);
                 }),
         ];
     }

@@ -50,6 +50,7 @@ Legend: ✅ done · 🔄 in progress · ⬜ not started · — n/a. "Biz/Compl/G
 | 29 | Procurement | ✅ | ✅ | ✅ | ✅ | ✅ | **PO document + UX** — ordering now produces a real purchase order |
 | 32 | Owner Statements | ✅ | ✅ | ✅ | ✅ | ✅ | **Itemized statement + owner portal** — the deliverable is readable and reaches the owner |
 | 33 | Post-dated Cheques | ✅ | ✅ | ✅ | ✅ | ✅ | **Series lodging + maturity dashboard** — a year of cheques in one act, and matured ones surfaced |
+| 17 | Reports | ✅ | ✅ | ✅ | — | ✅ | **CSV export across all financial reports** — GL + AR-aging gained export; accountant-workable, not PDF-only |
 | 10–33 | (remaining) | ⬜ | ⬜ | — | — | ⬜ | Backlog — see the ledger |
 
 *The full ordered list (including 03 Tenant Portal, 15 Owner Requests, 16 ETA, 17 Reports, 30 Areas, 31 Violations, and the generic-ERP layer that is intentionally frozen) is in the [closure ledger](gap-analysis/PROPERTY-FACILITY-CLOSURE.md).*
@@ -132,6 +133,16 @@ The register, lifecycle (held → deposited → cleared/bounced/cancelled), sett
 - **Business-gap + UX — the maturity schedule wasn't surfaced.** The whole value of a PDC register is knowing what cash is due when, but the daily scan only wrote to OpsLog; matured-but-uncleared cheques (money the operator should already have collected) never reached the dashboard the way overdue invoices do. An **Action Required card** now counts them (property-scoped) and links to the register's "Matured & uncleared" filter. The scan, the card and the filter all read one shared scope (`maturedUncleared()`), so they can never disagree.
 
 **Verified sound, unchanged:** clearing routes through `Payment` + `recomputeTotals()` (AR single source of truth); posting-date guard; terminal-immutability of cleared/cancelled cheques; every transition lock-safe. Demo now seeds a 12-cheque annual series so the feature is visible on a fresh install. **Deferred (unchanged):** the Notes-Receivable-on-receipt accrual (needs the accountant + a `notes_receivable` mapping) — v1 stays register-only, settle-on-clear.
+
+## 5h. Module 17 — Reports (done)
+
+Flagged by the client as "stale and not best practice." The scout confirmed the instinct precisely: **the entire app had zero CSV/Excel export**, every report was **PDF-only**, and the two reports an accountant most needs as raw data — the **General Ledger** (raw transaction detail) and **AR Aging** (the collections worklist) — had **no export at all**. That *is* the not-best-practice: a financial report you can only look at, never pull into a spreadsheet to pivot, reconcile, or hand an auditor, isn't a working report.
+
+The fix — **CSV export across all six financial reports** (Trial Balance, Income Statement, Balance Sheet, Cash Flow, General Ledger, AR Aging):
+- One streaming primitive (`App\Support\ReportCsv`) with a **UTF-8 BOM** so Excel renders Arabic, and a testable flattener (`ReportCsvExporter`) that turns each computed report into `[headers, rows]` — amounts as plain numbers (spreadsheet-native), account names by locale, statements with per-section subtotals + a self-checking totals/net line so the CSV reads like the on-screen report.
+- Wired as an **"Export CSV"** action on every report page, gated on `reports.view`. **GL and AR aging gained export for the first time.**
+
+**Verified sound, unchanged:** the reports are read-only, property-scoped (`TenantScope`), and GL-derived; the existing PDF export stays. This is dimension 2 (UX) + dimension 1 (business-gap: every accounting system exports to CSV) closed together. **Deferred (trigger):** true `.xlsx` (needs a spreadsheet library — CSV opens natively in Excel and covers the accountant's need); a custom from/to date range on the statements (currently calendar-year) — *trigger: an accountant asking for a non-calendar period*.
 
 ## 5b. Module 10 — Utility Meters (done)
 
