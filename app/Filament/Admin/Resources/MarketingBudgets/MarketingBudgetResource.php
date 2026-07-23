@@ -10,11 +10,13 @@ use App\Filament\Admin\Resources\MarketingBudgets\RelationManagers\MarketingSpen
 use App\Filament\Admin\Resources\MarketingBudgets\Schemas\MarketingBudgetForm;
 use App\Filament\Admin\Resources\MarketingBudgets\Tables\MarketingBudgetsTable;
 use App\Models\MarketingBudget;
+use App\Models\MarketingSpend;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Support\Str;
 
 class MarketingBudgetResource extends Resource
 {
@@ -98,6 +100,47 @@ class MarketingBudgetResource extends Resource
         return [
             'index' => ListMarketingBudgets::route('/'),
             'edit' => EditMarketingBudget::route('/{record}/edit'),
+        ];
+    }
+
+    /**
+     * One budget's marketing spend register as CSV rows — where the fund went, item by item, the
+     * record the owner (Jawad) reviews to see the operator stayed within the collected levy. Reads
+     * the budget's live spends (soft-deleted excluded, so it ties to `spent_amount`) and closes with
+     * a spend total that ties to the fund panel.
+     *
+     * @return array{headers: array<int,string>, rows: array<int, array<int, string|float>>}
+     */
+    public static function spendRegisterCsv(MarketingBudget $budget): array
+    {
+        $rows = [];
+        $total = 0.0;
+
+        /** @var MarketingSpend $spend */
+        foreach ($budget->spends()->orderByDesc('spent_on')->get() as $spend) {
+            $amount = round((float) $spend->amount, 2);
+            $total += $amount;
+
+            $rows[] = [
+                // spent_on is a NOT-NULL date column; paid_from is NOT-NULL (coerced to 'cash').
+                $spend->spent_on->format('Y-m-d'),
+                Str::headline((string) $spend->category),
+                (string) $spend->description,
+                $amount,
+                __('admin.enums.expense_paid_from.' . $spend->paid_from),
+                $spend->receipt_reference ?? '',
+            ];
+        }
+
+        $rows[] = ['', __('admin.reports.csv.total'), '', round($total, 2), '', ''];
+
+        return [
+            'headers' => [
+                __('admin.tables.marketing_spend.spent_on'), __('admin.tables.marketing_spend.category'),
+                __('admin.tables.marketing_spend.description'), __('admin.tables.marketing_spend.amount'),
+                __('admin.fields.paid_from'), __('admin.tables.marketing_spend.receipt'),
+            ],
+            'rows' => $rows,
         ];
     }
 }

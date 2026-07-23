@@ -2,7 +2,11 @@
 
 namespace App\Filament\Admin\Resources\MarketingBudgets\RelationManagers;
 
+use App\Filament\Admin\Resources\MarketingBudgets\MarketingBudgetResource;
+use App\Models\MarketingBudget;
 use App\Models\MarketingSpend;
+use App\Support\ReportCsv;
+use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -115,6 +119,19 @@ class MarketingSpendsRelationManager extends RelationManager
             ->headerActions([
                 CreateAction::make()->after(fn () => $this->warnIfOverBudget())
                     ->visible(fn () => auth()->user()?->can('marketing.edit') ?? false),
+                // Where the marketing fund went, as a spreadsheet — the record the owner reviews.
+                Action::make('export_csv')
+                    ->label(__('admin.reports.csv.export'))
+                    ->icon('heroicon-o-table-cells')
+                    ->color('gray')
+                    ->visible(fn () => (auth()->user()?->can('marketing.view') ?? false) && $this->budget()->spends()->exists())
+                    ->authorize(fn () => auth()->user()?->can('marketing.view') ?? false)
+                    ->action(function () {
+                        $budget = $this->budget();
+                        $csv = MarketingBudgetResource::spendRegisterCsv($budget);
+
+                        return ReportCsv::stream("marketing-spend-{$budget->asset_id}-{$budget->period_year}", $csv['headers'], $csv['rows']);
+                    }),
             ])
             ->recordActions([
                 EditAction::make()->after(fn () => $this->warnIfOverBudget())
@@ -130,6 +147,15 @@ class MarketingSpendsRelationManager extends RelationManager
      * it pushes the balance negative we surface a non-blocking warning so the
      * overspend is visible (FR MKT-5 — confirmed behaviour 2026-06-25).
      */
+    /** The owning budget, typed (getOwnerRecord() is declared as the base Model). */
+    private function budget(): MarketingBudget
+    {
+        /** @var MarketingBudget $record */
+        $record = $this->getOwnerRecord();
+
+        return $record;
+    }
+
     protected function warnIfOverBudget(): void
     {
         $balance = $this->getOwnerRecord()->fresh()->balance();

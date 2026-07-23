@@ -664,6 +664,7 @@ return [
             'spent' => 'Spent',
             'balance' => 'Available',
             'status' => 'Status',
+            'over_budget' => 'Over budget',
         ],
         'marketing_spend' => [
             'category' => 'Category',

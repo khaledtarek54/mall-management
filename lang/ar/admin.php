@@ -664,6 +664,7 @@ return [
             'spent' => 'المصروف',
             'balance' => 'المتاح',
             'status' => 'الحالة',
+            'over_budget' => 'تجاوز الميزانية',
         ],
         'marketing_spend' => [
             'category' => 'الفئة',

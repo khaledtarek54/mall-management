@@ -58,6 +58,7 @@ Legend: ✅ done · 🔄 in progress · ⬜ not started · — n/a. "Biz/Compl/G
 | 23 | Fixed Assets & Depreciation | ✅ | ✅ | ✅ | ✅ | ✅ | **Register CSV (cost / accum. deprec. / NBV + totals)** — the balance-sheet schedule, accountant-workable; correctness unchanged |
 | 24 | HR / Payroll | ✅ | ✅ | ✅ | ✅ | ✅ | **Payroll register CSV (per-run muster roll + totals)** — the consolidated view behind the per-employee payslips; correctness unchanged |
 | 25 | Treasury / Custody (عهدة) | ✅ | ✅ | ✅ | ✅ | ✅ | **Custody register CSV (amount / settled / outstanding + totals)** — the outstanding-عهدة schedule; correctness unchanged |
+| 13 | Marketing | ✅ | ✅ | ✅ | ✅ | ✅ | **Over-budget made visible (red balance + filter) + spend register CSV** — the owner-oversight the module exists for; correctness unchanged |
 | 10–33 | (remaining) | ⬜ | ⬜ | — | — | ⬜ | Backlog — see the ledger |
 
 *The full ordered list (including 03 Tenant Portal, 15 Owner Requests, 16 ETA, 17 Reports, 30 Areas, 31 Violations, and the generic-ERP layer that is intentionally frozen) is in the [closure ledger](gap-analysis/PROPERTY-FACILITY-CLOSURE.md).*
@@ -212,6 +213,15 @@ Custodies is complete (grant → GL, expense/return settlements, derived outstan
 - **Export CSV** on the Custodies list via `App\Support\ReportCsv`. `CustodyResource::registerCsv()` reads the **same property-scoped query and derived `settled_sum` subquery the table shows**, emits date / custodian / reference / purpose / property / amount / settled / outstanding / paid-from per custody, and closes with amount / settled / outstanding totals. Double-gated.
 
 Straight application of the resource-level `registerCsv()` play (like [Inventory](#5l-module-22--inventory--stock-done--first-generic-module-ux-pass)/[Fixed Assets](#5m-module-23--fixed-assets--depreciation-done--generic-module-ux-pass)). Test drives the real `GrantCustodyService`/`SettleCustodyService` (reachable inputs), helpers named `custodianFor` to dodge `CustodyLedgerTest`'s `custodyEmployee`.
+
+## 5p. Module 13 — Marketing (done) — generic-module UX pass
+
+The module exists so the owner (Jawad) can see the operator stayed within the marketing fund — and the two things that serve that were weak. **Not a reflex CSV pass:** the sharper gap was visibility.
+
+- **Over-budget was invisible.** The budget list's `balance` column was bold but uncoloured — a property spent *past* its collected levy (negative balance) looked identical to a healthy one. Now red-when-negative / green otherwise, plus an **"Over budget" filter** (`spent_amount > accrued_amount`) that surfaces exactly the properties needing attention.
+- **Spend register CSV.** Where the fund went existed only on screen. Export CSV header action on the spends relation manager (per budget); `MarketingBudgetResource::spendRegisterCsv($budget)` reads the budget's live spends (soft-deleted excluded → total **ties to `spent_amount`**), date / category / description / amount / paid-from / receipt + total. Gated on `marketing.view`.
+
+Test drives real budget+spends; the over-budget filter tested via `Livewire::filterTable`. New i18n `over_budget` (EN+AR). phpstan: `getOwnerRecord()` is base `Model` → a typed `budget()` helper (not a relation-generic).
 
 ## 5b. Module 10 — Utility Meters (done)
 

@@ -362,6 +362,13 @@ When a MarketingBudget is manually created (via the form), it defaults to `accru
 
 **Normal flow:** Budgets are **auto-provisioned** — `marketing:ensure-budgets` (daily) creates one per property per year, and `forPeriod()` lazily creates on first billed levy. There is **no manual create/delete** (canCreate/canDelete = false); users only record spends.
 
+### Over-budget visibility + spend register export (UX, 2026-07-23)
+
+Two owner-oversight gaps — the module exists so Jawad can see the operator stayed within the fund, and both were weak:
+
+- **Over-budget was invisible.** The budget list's `balance` column was bold but uncoloured, so a property spent *past* its collected levy (negative balance) looked identical to a healthy one. Now the balance is **red when negative / green otherwise**, and a **"Over budget" filter** (`spent_amount > accrued_amount`) surfaces exactly the properties that need attention.
+- **No spend register export.** Where the marketing fund actually went existed only on screen. Added an **Export CSV** header action on the spends relation manager (per budget) via the shared `App\Support\ReportCsv`. `MarketingBudgetResource::spendRegisterCsv($budget)` reads the budget's live spends (soft-deleted excluded, so the total **ties to `spent_amount`**) — date / category / description / amount / paid-from / receipt + a spend total. Gated on `marketing.view` (`visible()` + `authorize()`), shown only when the budget has spends.
+
 ## 10. Tests & related modules
 
 ### Tests
@@ -372,6 +379,7 @@ When a MarketingBudget is manually created (via the form), it defaults to `accru
 - **`tests/Feature/Scenarios/MarketingScenarioTest.php`** — End-to-end scenarios: billing accrual, overspend, rate versioning, pro-ration, RBAC, scoping.
 - **`tests/Feature/MarketingBudgetResourceTest.php`** — Filament resource: list rendering, relation manager rendering, RBAC, overspend warning.
 - **`tests/Feature/MarketingAutowireTest.php`** — Integration with MonthlyBillingService: accrual doesn't add invoice line, backfill command.
+- **`tests/Feature/Regression/MarketingSpendRegisterAndOverBudgetTest.php`** — the spend-register CSV total ties to `spent_amount`; the "Over budget" list filter shows only budgets spent past their accrued levy.
 
 ### Related modules
 

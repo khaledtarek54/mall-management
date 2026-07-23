@@ -7,6 +7,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Illuminate\Support\Str;
 
@@ -35,7 +36,10 @@ class MarketingBudgetsTable
                     ->label(__('admin.tables.marketing_budget.balance'))
                     ->money('EGP')
                     ->state(fn ($record) => $record->balance())
-                    ->weight('bold'),
+                    ->weight('bold')
+                    // Over budget (spent past the collected levy) must stand out — the owner's whole
+                    // reason for this screen is to see whether the operator stayed within the fund.
+                    ->color(fn ($state) => (float) $state < 0 ? 'danger' : 'success'),
                 TextColumn::make('status')
                     ->label(__('admin.tables.marketing_budget.status'))
                     ->badge()
@@ -43,6 +47,12 @@ class MarketingBudgetsTable
                     ->color(fn (string $state) => $state === 'open' ? 'success' : 'gray'),
             ])
             ->defaultSort('period_year', 'desc')
+            ->filters([
+                // Surface the budgets that need attention — spent past the collected levy.
+                Filter::make('over_budget')
+                    ->label(__('admin.tables.marketing_budget.over_budget'))
+                    ->query(fn ($query) => $query->whereColumn('spent_amount', '>', 'accrued_amount')),
+            ])
             ->recordActions([
                 EditAction::make()->visible(fn ($record) => MarketingBudgetResource::canEdit($record)),
             ])
