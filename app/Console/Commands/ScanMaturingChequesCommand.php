@@ -16,14 +16,12 @@ class ScanMaturingChequesCommand extends Command
     public function handle(): int
     {
         $today = $this->option('date') ? CarbonImmutable::parse($this->option('date')) : CarbonImmutable::now();
-        $horizon = $today->addDays((int) $this->option('days'));
-        $outstanding = [PostDatedCheque::STATUS_HELD, PostDatedCheque::STATUS_DEPOSITED];
+        $days = (int) $this->option('days');
 
-        $matured = PostDatedCheque::whereIn('status', $outstanding)
-            ->whereDate('cheque_date', '<=', $today->toDateString())->count();
-        $upcoming = PostDatedCheque::whereIn('status', $outstanding)
-            ->whereDate('cheque_date', '>', $today->toDateString())
-            ->whereDate('cheque_date', '<=', $horizon->toDateString())->count();
+        // Off the shared model scopes, so this nightly report, the Action Required card and the
+        // register's "Matured & uncleared" filter can never disagree about what's due.
+        $matured = PostDatedCheque::query()->maturedUncleared($today)->count();
+        $upcoming = PostDatedCheque::query()->maturingWithin($days, $today)->count();
 
         // Matured-but-uncleared is money the register expected by now — surface it off-box.
         if ($matured > 0) {

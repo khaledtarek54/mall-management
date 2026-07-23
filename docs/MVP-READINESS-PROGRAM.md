@@ -49,7 +49,7 @@ Legend: ✅ done · 🔄 in progress · ⬜ not started · — n/a. "Biz/Compl/G
 | 12 | Vendors & Contracts | ✅ | ✅ | ✅ | ✅ | ✅ | **Full vendor lifecycle** — compliance docs, renewal notice, change orders, withholding tax |
 | 29 | Procurement | ✅ | ✅ | ✅ | ✅ | ✅ | **PO document + UX** — ordering now produces a real purchase order |
 | 32 | Owner Statements | ✅ | ✅ | ✅ | ✅ | ✅ | **Itemized statement + owner portal** — the deliverable is readable and reaches the owner |
-| 33 | Post-dated Cheques | 🟡 | ⬜ | 🟡 | ✅ | 🟡 | Later |
+| 33 | Post-dated Cheques | ✅ | ✅ | ✅ | ✅ | ✅ | **Series lodging + maturity dashboard** — a year of cheques in one act, and matured ones surfaced |
 | 10–33 | (remaining) | ⬜ | ⬜ | — | — | ⬜ | Backlog — see the ledger |
 
 *The full ordered list (including 03 Tenant Portal, 15 Owner Requests, 16 ETA, 17 Reports, 30 Areas, 31 Violations, and the generic-ERP layer that is intentionally frozen) is in the [closure ledger](gap-analysis/PROPERTY-FACILITY-CLOSURE.md).*
@@ -123,6 +123,15 @@ The GL spine, lifecycle (generate → finalise → revise), disbursements, appro
 - **The owner portal (`/owner`) had no statements at all.** The operator produces the statement *for* the owner, yet the owner's own portal (Invoices, CAM, Properties, TenantRequests) didn't surface it — it had to be emailed by hand. A read-only `OwnerStatementResource` now lists the owner's **own finalised/sent** statements (scoped `where('user_id', Auth::id())` + status filter — never a draft, never another owner's), with owner-share / paid / **outstanding**, in-portal "View working", and Download PDF. The deliverable finally reaches its recipient, self-service.
 
 **Verified sound, unchanged:** the `net_distributable = Σ owner_share` penny reconciliation; recompute-then-freeze; disbursement cap re-checked under lock; posting-date guard; the two-source GL tie-out. **Deferred (unchanged):** the **management fee** (Eltizam's cut) — it needs the settings-driven Egyptian tax catalog for its VAT-on-fee treatment, so it stays deferred with the design pre-written in the plan; and multi-owner co-ownership (the split infra exists, unapplied — one owner, 100%).
+
+## 5g. Module 33 — Post-dated Cheques (done)
+
+The register, lifecycle (held → deposited → cleared/bounced/cancelled), settle-on-clear GL and property isolation were already correct. Leading with business-gap + UX, two findings, both drawn straight from the module's own framing — "a tenant commonly lodges a **year** of post-dated cheques up front":
+
+- **UX — no bulk series lodging.** The create form is one cheque at a time, so taking in a year of PDCs meant 12 separate, error-prone entries. `PostDatedChequeService::lodgeSeries()` + a **"Lodge a series"** action now creates the whole series in one act — sequential cheque numbers (numeric tail incremented, zero-pad kept), maturities one interval apart (monthly/quarterly/biannual) — with a **live preview** of count · each · total · first→last maturity before the operator commits. This is the operator's real workflow, matched.
+- **Business-gap + UX — the maturity schedule wasn't surfaced.** The whole value of a PDC register is knowing what cash is due when, but the daily scan only wrote to OpsLog; matured-but-uncleared cheques (money the operator should already have collected) never reached the dashboard the way overdue invoices do. An **Action Required card** now counts them (property-scoped) and links to the register's "Matured & uncleared" filter. The scan, the card and the filter all read one shared scope (`maturedUncleared()`), so they can never disagree.
+
+**Verified sound, unchanged:** clearing routes through `Payment` + `recomputeTotals()` (AR single source of truth); posting-date guard; terminal-immutability of cleared/cancelled cheques; every transition lock-safe. Demo now seeds a 12-cheque annual series so the feature is visible on a fresh install. **Deferred (unchanged):** the Notes-Receivable-on-receipt accrual (needs the accountant + a `notes_receivable` mapping) — v1 stays register-only, settle-on-clear.
 
 ## 5b. Module 10 — Utility Meters (done)
 

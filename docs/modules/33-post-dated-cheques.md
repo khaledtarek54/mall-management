@@ -46,7 +46,18 @@ held ──deposit──▶ deposited ──clear──▶ cleared   (records a 
 ## 3. Services & commands
 
 - `App\Services\PostDatedChequeService::{deposit, clear, bounce, cancel}` — the lifecycle.
-- `pdc:scan-maturing` (scheduled daily) — reports cheques matured-but-uncleared (OpsLog) + those maturing soon.
+- **`PostDatedChequeService::lodgeSeries(array): Collection`** — bulk-lodge a whole series in one act
+  (the Egyptian norm: a tenant hands over a year of monthly cheques up front). Creates `count` cheques
+  with **sequential numbers** (increments the numeric tail, keeping zero-pad width; a non-numeric
+  number falls back to a `-N` suffix) and maturities `interval_months` apart. Each cheque is its own
+  register entry (own PDC reference, `held`); a series is **not** pre-linked to an invoice (the month's
+  invoice may not exist yet — each settles whatever's open when it clears). Surfaced as a **"Lodge a
+  series"** header action with a **live preview** (count · each · total · first→last maturity).
+- `pdc:scan-maturing` (scheduled daily) — reports cheques matured-but-uncleared (OpsLog) + those
+  maturing soon, **off the shared `PostDatedCheque::maturedUncleared()` / `maturingWithin()` scopes**.
+- **The maturity schedule is surfaced live:** an **Action Required** dashboard card counts
+  matured-but-uncleared cheques (property-scoped) and links to the register's **"Matured & uncleared"**
+  filter — the scan, the card and the filter all read the one scope, so they can never disagree.
 
 ## 4. Filament surface
 

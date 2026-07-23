@@ -87,6 +87,14 @@ class ActionRequired extends Widget
             ->when($assetIds !== null, fn ($q) => $q->whereIn('asset_id', $assetIds))
             ->count();
 
+        // Post-dated cheques matured but not yet cleared — money the register expected by now. A PDC
+        // carries asset_id directly, so it scopes like a work order. Surfaces the register's core
+        // value where overdue invoices already are, off the same scope as the nightly scan.
+        $maturedChequeCount = \App\Models\PostDatedCheque::query()
+            ->maturedUncleared()
+            ->when($assetIds !== null, fn ($q) => $q->whereIn('asset_id', $assetIds))
+            ->count();
+
         $expiringCriticalCount = $leaseBase()->where('status', 'active')
             ->whereBetween('expiry_date', [$now, (clone $now)->addDays(30)])
             ->count();
@@ -217,6 +225,20 @@ class ActionRequired extends Widget
                 // Contracts live inside the Vendors resource, so land the operator on the
                 // vendors whose contracts are due and let the contracts tab carry the filter.
                 'url' => \App\Filament\Admin\Resources\Vendors\VendorResource::getUrl('index'),
+            ];
+        }
+
+        if ($maturedChequeCount > 0) {
+            $items[] = [
+                'key' => 'matured_cheques',
+                'icon' => 'heroicon-o-banknotes',
+                'color' => 'danger',
+                'title' => trans_choice('admin.widgets.action_required.matured_cheques', $maturedChequeCount, ['count' => $maturedChequeCount]),
+                'body' => __('admin.widgets.action_required.matured_cheques_body'),
+                'url' => \App\Filament\Admin\Resources\PostDatedCheques\PostDatedChequeResource::getUrl('index', [
+                    'filters' => ['matured' => ['isActive' => true]],
+                    'sort' => 'cheque_date:asc',
+                ]),
             ];
         }
 

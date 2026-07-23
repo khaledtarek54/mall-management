@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Carbon\CarbonInterface;
+use Illuminate\Support\Carbon;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -115,6 +118,30 @@ class PostDatedCheque extends Model
     public function isOutstanding(): bool
     {
         return in_array($this->status, [self::STATUS_HELD, self::STATUS_DEPOSITED, self::STATUS_BOUNCED], true);
+    }
+
+    /** Awaiting maturity/clearing — the states that still owe cash into the register. */
+    public const AWAITING_STATUSES = [self::STATUS_HELD, self::STATUS_DEPOSITED];
+
+    /**
+     * Cheques matured (post-date reached) but not yet cleared — money the operator should already
+     * have collected. Shared by `pdc:scan-maturing`, the Action Required card and the table filter
+     * so the nightly report, the live count and the list can never disagree.
+     */
+    public function scopeMaturedUncleared(Builder $query, ?CarbonInterface $on = null): Builder
+    {
+        return $query->whereIn('status', self::AWAITING_STATUSES)
+            ->whereDate('cheque_date', '<=', ($on ?? Carbon::today())->toDateString());
+    }
+
+    /** Cheques maturing within the next `$days` (the forward slice of the maturity schedule). */
+    public function scopeMaturingWithin(Builder $query, int $days, ?CarbonInterface $on = null): Builder
+    {
+        $on = ($on ?? Carbon::today());
+
+        return $query->whereIn('status', self::AWAITING_STATUSES)
+            ->whereDate('cheque_date', '>', $on->toDateString())
+            ->whereDate('cheque_date', '<=', $on->copy()->addDays($days)->toDateString());
     }
 
     public function asset(): BelongsTo

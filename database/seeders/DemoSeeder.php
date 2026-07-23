@@ -2550,7 +2550,26 @@ class DemoSeeder extends Seeder
             }
         }
 
-        $this->command->info("   Seeded {$count} post-dated cheques (held / deposited / cleared / bounced)");
+        // A whole year of monthly cheques lodged up front (the Egyptian norm) — so the register
+        // shows a real series and the "Lodge a series" feature isn't invisible on a fresh demo.
+        $seriesLease = $leases->first();
+        if ($seriesLease) {
+            $series = $service->lodgeSeries([
+                'asset_id' => $asset->id,
+                'tenant_id' => $seriesLease->tenant_id,
+                'lease_id' => $seriesLease->id,
+                'bank_name' => 'CIB',
+                'first_cheque_number' => '900100',
+                'amount' => 25000,
+                'count' => 12,
+                'interval_months' => 1,
+                'first_cheque_date' => now()->addMonthNoOverflow()->startOfMonth()->toDateString(),
+                'received_date' => now()->subDays(20)->toDateString(),
+            ]);
+            $count += $series->count();
+        }
+
+        $this->command->info("   Seeded {$count} post-dated cheques (incl. a 12-cheque annual series)");
     }
 
     /**

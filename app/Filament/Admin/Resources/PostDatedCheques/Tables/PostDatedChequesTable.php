@@ -52,9 +52,9 @@ class PostDatedChequesTable
                         ->mapWithKeys(fn (string $s) => [$s => __("admin.post_dated_cheques.statuses.{$s}")])->all()),
                 Filter::make('matured')
                     ->label(__('admin.post_dated_cheques.filters.matured'))
-                    ->query(fn ($query) => $query
-                        ->whereIn('status', [PostDatedCheque::STATUS_HELD, PostDatedCheque::STATUS_DEPOSITED])
-                        ->whereDate('cheque_date', '<=', now()->toDateString())),
+                    // Shared scope with the nightly scan + the Action Required card, so all three
+                    // agree on what "matured & uncleared" means.
+                    ->query(fn ($query) => $query->maturedUncleared()),
             ])
             ->recordActions([
                 EditAction::make()->visible(fn (PostDatedCheque $r) => $r->status === PostDatedCheque::STATUS_HELD && PostDatedChequeResource::canManage()),

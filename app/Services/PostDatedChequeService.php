@@ -113,4 +113,83 @@ class PostDatedChequeService
             return $cheque;
         });
     }
+
+    /**
+     * Lodge a SERIES of cheques in one act (the Egyptian norm — a tenant hands over a year of monthly
+     * post-dated cheques up front). Entering them one at a time is slow and error-prone; this creates
+     * `count` cheques with sequential numbers and maturities `intervalMonths` apart.
+     *
+     * A series is deliberately NOT pre-linked to an invoice — the month's invoice may not exist yet;
+     * each cheque settles whatever is open when it clears, through the normal clear() flow.
+     *
+     * @param  array{asset_id:int, tenant_id:int, lease_id?:int|null, bank_name?:string|null,
+     *     first_cheque_number:string, amount:float, count:int, first_cheque_date:string,
+     *     received_date?:string|null, interval_months?:int, notes?:string|null}  $data
+     * @return \Illuminate\Support\Collection<int, PostDatedCheque>
+     *
+     * @throws \DomainException
+     */
+    public function lodgeSeries(array $data): \Illuminate\Support\Collection
+    {
+        $count = (int) $data['count'];
+        $amount = round((float) $data['amount'], 2);
+        $interval = max(1, (int) ($data['interval_months'] ?? 1));
+
+        if ($count < 1 || $count > 60) {
+            throw new \DomainException(__('admin.post_dated_cheques.errors.series_count'));
+        }
+        if ($amount <= 0) {
+            throw new \DomainException(__('admin.post_dated_cheques.errors.series_amount'));
+        }
+
+        $firstMaturity = \Illuminate\Support\Carbon::parse($data['first_cheque_date']);
+        $received = isset($data['received_date'])
+            ? \Illuminate\Support\Carbon::parse($data['received_date'])->toDateString()
+            : now()->toDateString();
+
+        return DB::transaction(function () use ($data, $count, $amount, $interval, $firstMaturity, $received) {
+            $created = collect();
+
+            for ($i = 0; $i < $count; $i++) {
+                $created->push(PostDatedCheque::create([
+                    // Each cheque is its own register entry with its own PDC reference. Generated
+                    // per-row (the model has no auto-creating hook — the create page sets it too).
+                    'reference' => PostDatedCheque::generateReference(),
+                    'asset_id' => $data['asset_id'],
+                    'tenant_id' => $data['tenant_id'],
+                    'lease_id' => $data['lease_id'] ?? null,
+                    'bank_name' => $data['bank_name'] ?? null,
+                    // Sequential numbers: increment the numeric tail, preserving any zero-padding
+                    // ("100123" → "100124"); a non-numeric number falls back to a "-N" suffix.
+                    'cheque_number' => $this->nextChequeNumber((string) $data['first_cheque_number'], $i),
+                    'amount' => $amount,
+                    'currency' => 'EGP',
+                    // Maturities march forward one interval at a time (monthly by default).
+                    'cheque_date' => $firstMaturity->copy()->addMonthsNoOverflow($i * $interval)->toDateString(),
+                    'received_date' => $received,
+                    'status' => PostDatedCheque::STATUS_HELD,
+                    'notes' => $data['notes'] ?? null,
+                ]));
+            }
+
+            return $created;
+        });
+    }
+
+    /** The `$offset`-th cheque number after `$first`, incrementing its numeric tail with zero-pad kept. */
+    private function nextChequeNumber(string $first, int $offset): string
+    {
+        if ($offset === 0) {
+            return $first;
+        }
+
+        if (preg_match('/^(\D*)(\d+)$/', $first, $m) === 1) {
+            $width = strlen($m[2]);
+
+            return $m[1].str_pad((string) ((int) $m[2] + $offset), $width, '0', STR_PAD_LEFT);
+        }
+
+        // No numeric tail to increment — keep the base and disambiguate with the sequence index.
+        return $first.'-'.($offset + 1);
+    }
 }
