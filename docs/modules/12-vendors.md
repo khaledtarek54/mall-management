@@ -125,48 +125,51 @@ Operators (Eltizam) manage vendor records and can assign vendors to maintenance 
 
 ---
 
-### ScanVendorCoiExpiryCommand
+### Compliance documents — `vendor_documents` (module 12b)
 
-**Registered as:** `vendors:scan-coi-expiry {--dry-run}` · daily at **02:40** (`routes/console.php`).
+`vendors.coi_expires_at` modelled exactly **one** document. Before an Egyptian entity may legally engage and pay a supplier it needs several, each on its own expiry clock: insurance (COI), بطاقة ضريبية (tax card), سجل تجاري (commercial register), شهادة تأمينات اجتماعية (social-insurance certificate — the principal carries liability for a subcontractor's unpaid social insurance). The three COI columns **moved into** `vendor_documents` (data + certificate files migrated across, `vendors` columns dropped) so there is exactly one source of truth, not two mechanisms for one concept.
 
-**Why it exists.** The compliance gate refuses to dispatch a vendor whose COI has lapsed — but it did so *silently*: `Vendor::assignable()` simply stopped returning the contractor, with no warning before and no explanation after. This is the chase that makes the gate usable.
+- **Blocking vs non-blocking.** `VendorDocument::BLOCKING_TYPES` (currently just insurance) is the single place that decides which lapse *stops dispatch*. A lapsed insurance certificate removes the vendor from every picker (`Vendor::assignable()` now reads `whereDoesntHave('documents', blocking+expired)`); a lapsed tax card is a finance-side compliance problem chased loudly but never blocking emergency work.
+- **The chase — `vendors:scan-document-expiry`** (daily 02:40). For every document inside the 30-day window (`VendorDocument::scopeNeedsAttention`), resolve `expiring`/`expired` and notify. Idempotent via the **two-column stamp** on the *document* (`alert_stage` + `alert_for` = the expiry it fired for): a re-run never re-nags, `expiring → expired` escalates once, and **renewing a document re-arms its cycle by itself**. Lock-safe (stage re-checked inside the row lock), per-document containment, delivery wrapped so a failed send warns but still stamps.
+- **Recipients** come from *engagement* (vendors are a shared catalog): staff of the assets where the vendor holds an active contract, portfolio roles otherwise.
+- **One scope, three surfaces:** the scan, the **Action Required** card (`vendor_documents`), and the Vendors table filter **"Document lapsed / lapsing"** all read `Vendor::documentsNeedAttention()`, so nag, count and list can't disagree.
 
-**Behaviour.** For every active vendor whose `coi_expires_at` falls inside the alert window (`Vendor::coiNeedsAttention()`, 30 days), resolve the stage — `expiring` (≤30 days out) or `expired` (past) — and notify, unless that exact `(stage, cert date)` was already alerted.
-
-**Idempotency:** Yes, and it is the interesting part. The stamp is **two** columns — `coi_alert_stage` *and* `coi_alert_for` (the cert date the alert fired for). Consequences, all intentional:
-- a re-run never re-nags (same stage, same date);
-- `expiring → expired` alerts **once more** (stage changed);
-- **renewing the COI re-arms the whole cycle automatically** (date changed) — no manual reset, no separate "clear the flag" step.
-
-**Transaction / locking:** Per-vendor `DB::transaction` + `lockForUpdate`, with the stage **re-checked inside the lock** (the cert may have been renewed since the outer query) — the scheduled-scan invariant. Per-vendor `try/catch` contains failures so one bad row can't stop the portfolio being chased.
-
-**Recipients.** Vendors are a **shared** portfolio catalog, so "whose problem is this" comes from *engagement*: `AssetStaffRecipients::for()` over the assets where the vendor holds an **active contract**, unioned and de-duplicated; portfolio roles when it holds none. Delivery is wrapped in its own `try/catch` — a failed send **warns but still stamps**, because the Action Required card surfaces the same set live off `coiNeedsAttention()`, independently of the stamp. (Without that wrapper, spatie's `role()` scope throwing on an unseeded role silently cost the whole alert cycle.)
-
-**Surfaces sharing the one scope:** the nightly scan, the **Action Required** card (`vendor_coi`, property-scoped via active contracts), and the Vendors table filter **"Insurance lapsed / lapsing"**. All three call `Vendor::coiNeedsAttention()`, so the nag, the count and the list can never disagree.
-
-**Tests:** `tests/Feature/Regression/VendorCoiAlertingTest.php`.
+**Filament:** `DocumentsRelationManager` on the vendor (replaces the three fixed COI fields on the form); the table badge names the *consequence*, not just the date.
+**Tests:** `tests/Feature/Regression/VendorDocumentAlertingTest.php`, `tests/Feature/VendorComplianceGateTest.php`.
 
 ---
 
-### Contract commitment tracking (committed vs actual)
+### Contract lifecycle — commitment, renewal notice, change orders (module 12b)
 
-`vendor_contracts.value` used to be a decorative number: a bill was never tied to the contract it was incurred under, so nothing compared what was committed against what the vendor actually invoiced — a EGP 500k contract could quietly absorb EGP 5m of bills.
-
-`vendor_bills.vendor_contract_id` (**nullable** — an ad-hoc call-out has no contract) closes it, via three model methods on `VendorContract`:
+**Commitment tracking.** `vendor_contracts.value` used to be decorative: no bill was tied to its contract, so a EGP 500k contract could quietly absorb EGP 5m of bills. `vendor_bills.vendor_contract_id` (**nullable** — ad-hoc call-outs have none) closes it:
 
 | Method | Meaning |
 |---|---|
-| `billedToDate()` | gross invoiced against the contract, **excluding cancelled bills** (withdrawn ≠ incurred) |
-| `remainingValue()` | `value − billedToDate()`; **negative** once over-run |
-| `isOverCommitted()` | `value > 0 && remainingValue() < 0` |
+| `billedToDate()` | gross invoiced, **excluding cancelled bills** (withdrawn ≠ incurred) |
+| `effectiveValue()` | `value` + every approved change order |
+| `remainingValue()` | `effectiveValue() − billedToDate()`; **negative** once over-run |
+| `isOverCommitted()` | `effectiveValue() > 0 && remainingValue() < 0` |
 
-Surfaced as **Committed / Billed to date / Remaining** columns on the vendor's contracts list (remaining turns red + tooltipped when over-run), and as a live helper under the bill form's *Under contract* picker that spells out the arithmetic — `committed − billed = remaining` — rather than showing a bare figure the operator can't reconcile.
+Surfaced as **Committed / Billed / Remaining** columns (remaining red when over-run) + a "View working" action modal, and a live helper on the bill's *Under contract* picker spelling out the arithmetic. **A flag, not a block** — the failure worth preventing is an over-run nobody can *see*.
 
-**It is a flag, not a block.** Change orders and legitimate overruns exist; the failure mode worth preventing is an over-run nobody can *see*, not one nobody can *record*.
+**Change orders — `vendor_contract_amendments`.** Without them the over-run flag couldn't tell an approved uplift from an uncontrolled over-run — both showed red, which teaches operators to ignore the flag. A **signed** `value_delta` (descoping allowed) moves `effectiveValue()`, with a dated, attributed, reasoned audit trail. Recorded via the **"Add change order"** action on the contracts list (double-gated, `visible()` + `abort_unless`); **no edit action** — a change order is a signed instrument, corrected by a compensating one, not a silent rewrite.
 
-**Property isolation:** the contract picker is scoped to `TenantScope::visibleAssetIds()` (plus portfolio-wide `asset_id = null` contracts), so it can't enumerate another mall's contracts.
+**Renewal *notice* — `vendors:scan-contract-renewals`** (daily 02:45). `vendors:expire-contracts` fires on `end_date`, by which point every decision is already made for you. The date a contract manager works to is the **notice deadline** = `end_date − notice_period_days`, stored in the indexable `notice_deadline` column (kept in step by `VendorContract::saving()`, because "date minus a *column* of days" has no portable SQL). `auto_renews` changes the alert from "line up a replacement" to the harder "**serve notice by X or you're committed for another term**". Idempotent via `renewal_alert_for` (the end_date it fired for); re-signing re-arms it. Shares `VendorContract::noticeDue()` with the Action Required card and the **"Renewal notice due"** filter.
 
-**Tests:** `tests/Feature/Regression/VendorContractCommitmentTest.php`.
+**Tests:** `tests/Feature/Regression/VendorContractLifecycleTest.php`, `VendorContractCommitmentTest.php`.
+
+---
+
+### Withholding tax on vendor payments — خصم وإضافة (module 12b)
+
+Atriom paid vendors **gross**, which is non-compliant with Income Tax Law 91/2005 art. 59 — the operator must withhold at source and remit to the ETA, and the un-withheld amount otherwise becomes their own liability. This is the AP-side twin of the AR VAT.
+
+- **Mechanics.** `vendor_bill_payments.amount` stays **gross** (settles the payable in full — `VendorBill::recompute()` untouched); `withholding_amount` is the slice owed to the ETA; net cash out = `amount − withholding_amount`. GL: **Dr Accounts Payable (gross) / Cr Bank (net) / Cr Withholding Tax Payable `21303001` (withheld)** — the WHT leg only appears when > 0.
+- **Settings-driven, never hardcoded** (`App\Support\WithholdingTax` over `TaxSettings`): the statutory rate varies by payment nature and is revised by the ETA, so a compiled constant would look official and be wrong. **Off by default** (`wht_enabled`); per-vendor `withholding_tax_rate` overrides the `wht_default_rate`, where **`0` = exempt ≠ `null` = use default**. Clamped to the payment so a mis-set rate can't drive cash negative.
+- **UX.** The payment modal shows a live *"what the bank will pay"* breakdown; the success toast reports **net paid + withheld**, not just gross. Configured at **/admin/settings → Tax**.
+- **GL proof** is driven through the **real `accounting:sync-ledger` sweep**, per the registry rule — not `LedgerPoster` directly.
+
+**Tests:** `tests/Feature/Regression/VendorWithholdingTaxTest.php` (incl. the sweep tie-out).
 
 ---
 

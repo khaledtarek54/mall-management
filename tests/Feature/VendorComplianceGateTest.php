@@ -2,20 +2,34 @@
 
 use App\Models\MaintenanceWorkOrder;
 use App\Models\Vendor;
+use App\Models\VendorDocument;
 
 /**
- * Vendor compliance / COI gate (strengthen item #5): a mall must not dispatch a blacklisted /
- * inactive vendor, or one whose insurance (COI) has lapsed, to maintenance work. The gate is the
+ * Vendor compliance gate (strengthen item #5): a mall must not dispatch a blacklisted / inactive
+ * vendor, or one whose insurance has lapsed, to maintenance work. The gate is the
  * MaintenanceWorkOrder saving hook (the single server-side choke point); the pickers filter to
  * Vendor::assignable() too.
+ *
+ * Module 12b moved the certificate off `vendors.coi_expires_at` into `vendor_documents`, so the
+ * gate now reads the BLOCKING document types. The rules it enforces are deliberately unchanged.
  */
-function complianceVendor(array $attrs = []): Vendor
+function complianceVendor(array $attrs = [], ?string $coiExpiresOn = null): Vendor
 {
-    return Vendor::create(array_merge([
+    $vendor = Vendor::create(array_merge([
         'name' => 'Acme '.uniqid(),
         'type' => 'contractor',
         'status' => Vendor::STATUS_ACTIVE,
     ], $attrs));
+
+    if ($coiExpiresOn !== null) {
+        VendorDocument::create([
+            'vendor_id' => $vendor->id,
+            'type' => VendorDocument::TYPE_INSURANCE_COI,
+            'expires_on' => $coiExpiresOn,
+        ]);
+    }
+
+    return $vendor;
 }
 
 function externalCmWorkOrder(int $assetId, int $vendorId): MaintenanceWorkOrder
@@ -35,7 +49,7 @@ function externalCmWorkOrder(int $assetId, int $vendorId): MaintenanceWorkOrder
 
 it('dispatches a compliant vendor (active + valid COI)', function () {
     $asset = makeAsset();
-    $vendor = complianceVendor(['coi_expires_at' => now()->addYear()->toDateString()]);
+    $vendor = complianceVendor([], now()->addYear()->toDateString());
 
     expect($vendor->isDispatchable())->toBeTrue();
     $wo = externalCmWorkOrder($asset->id, $vendor->id);
@@ -52,7 +66,7 @@ it('blocks dispatching a blacklisted vendor', function () {
 
 it('blocks dispatching a vendor whose COI has lapsed', function () {
     $asset = makeAsset();
-    $vendor = complianceVendor(['coi_expires_at' => now()->subDay()->toDateString()]);
+    $vendor = complianceVendor([], now()->subDay()->toDateString());
 
     expect($vendor->isDispatchable())->toBeFalse();
     expect(fn () => externalCmWorkOrder($asset->id, $vendor->id))->toThrow(DomainException::class);
@@ -60,7 +74,7 @@ it('blocks dispatching a vendor whose COI has lapsed', function () {
 
 it('allows a vendor with no COI recorded (v1 does not force a cert on every vendor)', function () {
     $asset = makeAsset();
-    $vendor = complianceVendor(['coi_expires_at' => null]);
+    $vendor = complianceVendor();
 
     expect($vendor->isDispatchable())->toBeTrue();
     $wo = externalCmWorkOrder($asset->id, $vendor->id);
@@ -68,9 +82,9 @@ it('allows a vendor with no COI recorded (v1 does not force a cert on every vend
 });
 
 it('excludes non-dispatchable vendors from the assignable scope + keeps the current one in options (flagged)', function () {
-    $active = complianceVendor(['coi_expires_at' => now()->addYear()->toDateString()]);
+    $active = complianceVendor([], now()->addYear()->toDateString());
     $blacklisted = complianceVendor(['status' => Vendor::STATUS_BLACKLISTED]);
-    $expired = complianceVendor(['coi_expires_at' => now()->subDay()->toDateString()]);
+    $expired = complianceVendor([], now()->subDay()->toDateString());
     $inactive = complianceVendor(['status' => Vendor::STATUS_INACTIVE]);
 
     $assignable = Vendor::assignable()->pluck('id');
@@ -87,21 +101,22 @@ it('excludes non-dispatchable vendors from the assignable scope + keeps the curr
 
 it('does not retroactively block an existing order when the vendor later lapses', function () {
     $asset = makeAsset();
-    $vendor = complianceVendor(['coi_expires_at' => now()->addYear()->toDateString()]);
+    $vendor = complianceVendor([], now()->addYear()->toDateString());
     $wo = externalCmWorkOrder($asset->id, $vendor->id);
 
     // The vendor's insurance lapses AFTER assignment.
-    $vendor->update(['coi_expires_at' => now()->subDay()->toDateString()]);
+    $vendor->documents()->first()->update(['expires_on' => now()->subDay()->toDateString()]);
 
     // A save that doesn't touch vendor_id must NOT be blocked (the guard is assignment-time only).
     $wo->update(['title' => 'Renamed job']);
     expect($wo->fresh()->title)->toBe('Renamed job');
 });
 
-it('keeps the COI collection on the private disk', function () {
-    $vendor = complianceVendor();
+it('keeps the compliance-document collection on the private disk', function () {
+    $document = new VendorDocument;
     // registerMediaCollections declares useDisk('local') — MediaPrivacyConformanceTest enforces it.
-    $vendor->registerMediaCollections();
-    $collection = collect($vendor->getRegisteredMediaCollections())->firstWhere('name', Vendor::COI_COLLECTION);
+    // A supplier's insurance certificate and tax card must never land in the public webroot.
+    $document->registerMediaCollections();
+    $collection = collect($document->getRegisteredMediaCollections())->firstWhere('name', 'file');
     expect($collection?->diskName)->toBe('local');
 });

@@ -1578,9 +1578,37 @@ class DemoSeeder extends Seeder
                     'tax_id' => $v['tax_id'] ?? null,
                     'phone' => $v['phone'],
                     'city' => $v['city'],
-                    'coi_expires_at' => $coi['expires'] ?? null,
-                    'insurer' => $coi['insurer'] ?? null,
-                    'policy_number' => $coi['policy'] ?? null,
+                ],
+            );
+
+            // Compliance file. Insurance is the blocking document (a lapsed one removes the vendor
+            // from every assignment picker); the statutory Egyptian documents are chased but never
+            // block site work. One vendor's tax card is deliberately near expiry to demo the chase.
+            if (($coi['expires'] ?? null) !== null) {
+                \App\Models\VendorDocument::updateOrCreate(
+                    ['vendor_id' => $vendor->id, 'type' => \App\Models\VendorDocument::TYPE_INSURANCE_COI],
+                    [
+                        'reference' => $coi['policy'] ?? null,
+                        'issuer' => $coi['insurer'] ?? null,
+                        'expires_on' => $coi['expires'],
+                    ],
+                );
+            }
+
+            \App\Models\VendorDocument::updateOrCreate(
+                ['vendor_id' => $vendor->id, 'type' => \App\Models\VendorDocument::TYPE_TAX_CARD],
+                [
+                    'reference' => $v['tax_id'] ?? null,
+                    'issuer' => 'ETA',
+                    'expires_on' => now()->addDays(str_contains($v['name'], 'Janitorial') ? 12 : 400)->toDateString(),
+                ],
+            );
+
+            \App\Models\VendorDocument::updateOrCreate(
+                ['vendor_id' => $vendor->id, 'type' => \App\Models\VendorDocument::TYPE_COMMERCIAL_REGISTER],
+                [
+                    'reference' => 'CR-'.strtoupper(substr(md5($v['email']), 0, 6)),
+                    'expires_on' => now()->addMonths(20)->toDateString(),
                 ],
             );
 
@@ -1595,13 +1623,24 @@ class DemoSeeder extends Seeder
             );
 
             if ($v['contract']) {
-                VendorContract::updateOrCreate(
+                // Every real contract has a renewal-notice window. One cleaning contract's end
+                // date is pulled close so its notice deadline is already past — lighting up the
+                // "Renewal notice due" card + filter on a fresh demo. Auto-renewing ones make the
+                // deadline urgent (silence = another term); fixed ones just end.
+                $isSoftService = str_contains($v['name'], 'Janitorial') || str_contains($v['name'], 'Security');
+                $endDate = str_contains($v['name'], 'Janitorial')
+                    ? now()->addDays(20)->toDateString()   // inside a 90-day notice window → due now
+                    : $v['contract']['end'];
+
+                $contract = VendorContract::updateOrCreate(
                     ['vendor_id' => $vendor->id, 'name' => $v['contract']['name']],
                     [
                         'asset_id' => $asset->id,
                         'status' => 'active',
                         'start_date' => $v['contract']['start'],
-                        'end_date' => $v['contract']['end'],
+                        'end_date' => $endDate,
+                        'notice_period_days' => $isSoftService ? 90 : 30,
+                        'auto_renews' => $isSoftService,
                         'value' => $v['contract']['value'],
                         'currency' => 'EGP',
                         // FR-CM-08 — SLA penalty terms, if this contract negotiated any.
@@ -1611,6 +1650,19 @@ class DemoSeeder extends Seeder
                         'sla_penalty_rate' => $v['contract']['penalty_rate'] ?? 0,
                     ],
                 );
+
+                // A demo change order on the cleaning contract, so "committed vs as-amended" and
+                // the amendments audit trail aren't empty on a fresh install.
+                if (str_contains($v['name'], 'Janitorial')) {
+                    \App\Models\VendorContractAmendment::updateOrCreate(
+                        ['vendor_contract_id' => $contract->id, 'reference' => 'CO-01'],
+                        [
+                            'value_delta' => round($v['contract']['value'] * 0.15, 2),
+                            'effective_on' => now()->subMonths(2)->toDateString(),
+                            'reason' => 'Added evening deep-clean round for the food court',
+                        ],
+                    );
+                }
             }
         }
 

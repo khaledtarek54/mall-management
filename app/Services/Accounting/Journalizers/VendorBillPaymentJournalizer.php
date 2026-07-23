@@ -38,25 +38,47 @@ class VendorBillPaymentJournalizer implements Journalizer
 
         $cashRole = $payment->method === 'cash' ? 'cash' : 'bank';
 
+        // Egyptian withholding tax (خصم وإضافة). The payable is discharged in FULL by $amount —
+        // part in cash, part by tax the operator now owes the ETA on the vendor's behalf. So the
+        // debit stays gross and the credit splits:
+        //   Dr Accounts Payable      (gross)
+        //   Cr Cash / Bank           (gross − withheld)   ← what actually left the account
+        //   Cr Withholding Tax Payable (withheld)         ← held for the ETA, not the operator's
+        // Withholding it and NOT booking the liability would understate what is owed to the tax
+        // authority while flattering cash — the exact failure this closes.
+        $withheld = round((float) $payment->withholding_amount, 2);
+        $net = round($amount - $withheld, 2);
+
+        $lines = [
+            [
+                'ledger_account_id' => $this->accounts->id('accounts_payable', $assetId),
+                'debit' => $amount,
+                'credit' => 0,
+                'asset_id' => $assetId,
+            ],
+            [
+                'ledger_account_id' => $this->accounts->id($cashRole, $assetId),
+                'debit' => 0,
+                'credit' => $net,
+                'asset_id' => $assetId,
+            ],
+        ];
+
+        if ($withheld > 0) {
+            $lines[] = [
+                'ledger_account_id' => $this->accounts->id('withholding_tax_payable', $assetId),
+                'debit' => 0,
+                'credit' => $withheld,
+                'asset_id' => $assetId,
+            ];
+        }
+
         return [
             'entry_date' => $payment->payment_date,
             'description_en' => 'Vendor payment '.($payment->reference ?: '#'.$payment->id).' — bill '.$payment->bill?->number,
             'description_ar' => 'سداد مورد — فاتورة '.$payment->bill?->number,
             'asset_id' => $assetId,
-            'lines' => [
-                [
-                    'ledger_account_id' => $this->accounts->id('accounts_payable', $assetId),
-                    'debit' => $amount,
-                    'credit' => 0,
-                    'asset_id' => $assetId,
-                ],
-                [
-                    'ledger_account_id' => $this->accounts->id($cashRole, $assetId),
-                    'debit' => 0,
-                    'credit' => $amount,
-                    'asset_id' => $assetId,
-                ],
-            ],
+            'lines' => $lines,
         ];
     }
 }

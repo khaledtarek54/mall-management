@@ -30,6 +30,8 @@ class AccountMappingSeeder extends Seeder
         'vat_recoverable' => '11401001',
         'accrued_expenses' => '21401001',
         'salary_tax_payable' => '21302001',
+        // Tax withheld from vendor payments, owed to the ETA (module 12b).
+        'withholding_tax_payable' => '21303001',
         'social_insurance_payable' => '21601001',
         'unearned_revenue' => '21501001',
         'capital' => '31101001',

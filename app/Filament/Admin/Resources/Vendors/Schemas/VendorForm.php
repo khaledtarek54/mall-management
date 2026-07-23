@@ -2,10 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Vendors\Schemas;
 
-use App\Models\Vendor;
-use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
@@ -41,6 +38,19 @@ class VendorForm
                     TextInput::make('tax_id')
                         ->label(__('admin.fields.tax_id'))
                         ->maxLength(50),
+                    // خصم وإضافة. Blank = use the portfolio default; an explicit 0 means this
+                    // supplier is exempt, which is a different statement and must survive a
+                    // later change to the default.
+                    TextInput::make('withholding_tax_rate')
+                        ->label(__('admin.vendors.wht.rate'))
+                        ->helperText(__('admin.vendors.wht.rate_hint', [
+                            'default' => rtrim(rtrim(number_format(\App\Support\WithholdingTax::defaultRate(), 2), '0'), '.'),
+                        ]))
+                        ->suffix('%')
+                        ->numeric()
+                        ->minValue(0)
+                        ->maxValue(100)
+                        ->visible(fn () => \App\Support\WithholdingTax::enabled()),
                     TextInput::make('email')
                         ->label(__('admin.fields.email'))
                         ->email()
@@ -55,27 +65,6 @@ class VendorForm
                     Textarea::make('address')
                         ->label(__('admin.fields.address'))
                         ->rows(2)
-                        ->columnSpanFull(),
-                ]),
-
-            Section::make(__('admin.sections.vendor_compliance'))
-                ->description(__('admin.vendors.compliance.hint'))
-                ->columns(2)
-                ->components([
-                    DatePicker::make('coi_expires_at')
-                        ->label(__('admin.vendors.compliance.coi_expires_at'))
-                        ->native(false),
-                    TextInput::make('insurer')
-                        ->label(__('admin.vendors.compliance.insurer'))
-                        ->maxLength(200),
-                    TextInput::make('policy_number')
-                        ->label(__('admin.vendors.compliance.policy_number'))
-                        ->maxLength(100),
-                    SpatieMediaLibraryFileUpload::make('coi')
-                        ->label(__('admin.vendors.compliance.coi_document'))
-                        ->collection(Vendor::COI_COLLECTION)
-                        ->downloadable()
-                        ->acceptedFileTypes(['application/pdf', 'image/*'])
                         ->columnSpanFull(),
                 ]),
 

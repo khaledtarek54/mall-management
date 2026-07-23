@@ -58,12 +58,22 @@ Schedule::command('vendors:expire-contracts')
     ->name('atriom-expire-vendor-contracts')
     ->withoutOverlapping();
 
-// Chase vendor COIs 30 days out and again on lapse. The compliance gate already
-// drops a lapsed vendor from every assignment picker — without this the operator
-// gets no warning and no explanation, just a contractor missing from a dropdown.
-Schedule::command('vendors:scan-coi-expiry')
+// Chase vendor compliance documents 30 days out and again on lapse. The dispatch gate
+// already drops a vendor with lapsed insurance from every assignment picker — without
+// this the operator gets no warning, just a contractor missing from a dropdown. The
+// statutory documents (tax card, commercial register, social insurance) are chased too.
+Schedule::command('vendors:scan-document-expiry')
     ->dailyAt('02:40')
-    ->name('atriom-scan-vendor-coi-expiry')
+    ->name('atriom-scan-vendor-document-expiry')
+    ->withoutOverlapping();
+
+// Alert on contracts that have reached their NOTICE deadline (end_date − notice_period_days).
+// expire-contracts above fires on the end date, which is far too late to decide anything: miss
+// the notice window and the contract auto-renews at the old rate, or the mall opens with no
+// contractor. Idempotent via renewal_alert_for; re-signing re-arms it.
+Schedule::command('vendors:scan-contract-renewals')
+    ->dailyAt('02:45')
+    ->name('atriom-scan-contract-renewals')
     ->withoutOverlapping();
 
 // Monthly housekeeping. Spatie's activitylog:clean drops rows older than

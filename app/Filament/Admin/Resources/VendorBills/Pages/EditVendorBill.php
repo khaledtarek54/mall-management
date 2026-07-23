@@ -8,8 +8,10 @@ use App\Support\PostingDate;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
@@ -76,12 +78,32 @@ class EditVendorBill extends EditRecord
                 ->schema([
                     TextInput::make('amount')
                         ->label(__('admin.fields.amount'))
+                        ->helperText(__('admin.vendors.wht.gross_hint'))
                         ->prefix('EGP')
                         ->numeric()
                         ->minValue(0.01)
                         ->maxValue(fn () => (float) $this->record->balance)
                         ->default(fn () => (float) $this->record->balance)
+                        ->live(onBlur: true)
                         ->required(),
+                    // Withholding is statutory, so the operator must SEE what the bank will
+                    // actually pay before they commit — a gross figure alone hides the fact that
+                    // the vendor receives less and the difference is owed to the ETA.
+                    Placeholder::make('wht_breakdown')
+                        ->label(__('admin.vendors.wht.breakdown'))
+                        ->visible(fn () => \App\Support\WithholdingTax::rateFor($this->record->vendor) > 0)
+                        ->content(function (Get $get) {
+                            $gross = (float) ($get('amount') ?: 0);
+                            $withheld = \App\Support\WithholdingTax::on($gross, $this->record->vendor);
+
+                            return __('admin.vendors.wht.breakdown_text', [
+                                'gross' => number_format($gross, 2),
+                                'rate' => rtrim(rtrim(number_format(
+                                    \App\Support\WithholdingTax::rateFor($this->record->vendor), 2), '0'), '.'),
+                                'withheld' => number_format($withheld, 2),
+                                'net' => number_format($gross - $withheld, 2),
+                            ]);
+                        }),
                     Select::make('method')
                         ->label(__('admin.fields.method'))
                         ->options(fn () => __('admin.enums.vendor_bill_payment_method'))
@@ -120,9 +142,19 @@ class EditVendorBill extends EditRecord
                         return;
                     }
 
+                    // Feedback must state what actually left the bank. Reporting only the gross
+                    // would let the operator reconcile against a figure the statement never shows.
+                    $withheld = (float) ($this->record->payments()->latest('id')->value('withholding_amount') ?? 0);
+
                     Notification::make()
                         ->title(__('admin.notifications.vendor_bill_paid'))
-                        ->body('EGP ' . number_format($paid, 2))
+                        ->body($withheld > 0
+                            ? __('admin.vendors.wht.paid_body', [
+                                'net' => number_format($paid - $withheld, 2),
+                                'withheld' => number_format($withheld, 2),
+                                'gross' => number_format($paid, 2),
+                            ])
+                            : 'EGP '.number_format($paid, 2))
                         ->success()
                         ->send();
                 }),

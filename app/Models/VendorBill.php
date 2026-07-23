@@ -68,6 +68,7 @@ class VendorBill extends Model
             ->useLogName('vendor_bill');
     }
 
+    /** @return BelongsTo<Vendor, $this> */
     public function vendor(): BelongsTo
     {
         return $this->belongsTo(Vendor::class);

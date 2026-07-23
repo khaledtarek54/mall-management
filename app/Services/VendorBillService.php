@@ -41,7 +41,7 @@ class VendorBillService
     public function recordPayment(VendorBill $bill, float $amount, string $method = 'bank_transfer', ?\DateTimeInterface $date = null, ?string $notes = null): float
     {
         return DB::transaction(function () use ($bill, $amount, $method, $date, $notes) {
-            $bill = VendorBill::query()->lockForUpdate()->find($bill->id);
+            $bill = VendorBill::query()->with('vendor')->lockForUpdate()->find($bill->id);
 
             if (! $bill || ! $bill->isPostable()) {
                 return 0.0; // draft/cancelled bills can't be paid
@@ -52,9 +52,17 @@ class VendorBillService
                 return 0.0;
             }
 
+            // Egyptian withholding tax (خصم وإضافة). The vendor's payable is settled in FULL by
+            // $pay — part in cash, part by tax paid to the ETA on their behalf — so `amount` stays
+            // gross and the bill's balance arithmetic is unchanged. Only the cash leg shrinks.
+            // Rate resolution + the on/off switch live in App\Support\WithholdingTax (settings-
+            // driven; a guessed statutory rate hardcoded here would look official and be wrong).
+            $withheld = \App\Support\WithholdingTax::on($pay, $bill->vendor);
+
             VendorBillPayment::create([
                 'vendor_bill_id' => $bill->id,
                 'amount' => $pay,
+                'withholding_amount' => $withheld,
                 'method' => $method,
                 'payment_date' => $date ? \Illuminate\Support\Carbon::instance($date)->toDateString() : now()->toDateString(),
                 'notes' => $notes,

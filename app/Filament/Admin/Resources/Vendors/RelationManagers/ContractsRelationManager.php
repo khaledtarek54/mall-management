@@ -11,6 +11,7 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
@@ -27,6 +28,22 @@ class ContractsRelationManager extends RelationManager
     public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
         return __('admin.sections.vendor_contracts');
+    }
+
+    /**
+     * The notice deadline the operator is about to commit to, shown live as they type the period —
+     * so "90 days" is never an abstract number they have to work out on a calendar.
+     */
+    private static function previewNoticeDeadline(Get $get): ?string
+    {
+        $end = $get('end_date');
+        $days = $get('notice_period_days');
+
+        if (blank($end) || blank($days)) {
+            return null;
+        }
+
+        return \Illuminate\Support\Carbon::parse($end)->subDays((int) $days)->format('Y-m-d');
     }
 
     public function form(Schema $schema): Schema
@@ -64,7 +81,26 @@ class ContractsRelationManager extends RelationManager
                         },
                     ]),
                 DatePicker::make('start_date')->label(__('admin.fields.start_date') ?: 'Start')->required()->native(false),
-                DatePicker::make('end_date')->label(__('admin.fields.end_date') ?: 'End')->native(false)->afterOrEqual('start_date'),
+                DatePicker::make('end_date')
+                    ->label(__('admin.fields.end_date') ?: 'End')
+                    ->native(false)
+                    ->afterOrEqual('start_date')
+                    ->live(),
+                // The end date is not the date anyone decides on — the NOTICE deadline is.
+                // Captured here so `vendors:scan-contract-renewals` can chase it.
+                TextInput::make('notice_period_days')
+                    ->label(__('admin.vendors.renewal.notice_period_days'))
+                    ->helperText(fn (Get $get) => ($deadline = self::previewNoticeDeadline($get)) !== null
+                        ? __('admin.vendors.renewal.notice_preview', ['date' => $deadline])
+                        : __('admin.vendors.renewal.notice_period_hint'))
+                    ->numeric()
+                    ->minValue(0)
+                    ->maxValue(730)
+                    ->suffix(__('admin.vendors.renewal.days'))
+                    ->live(onBlur: true),
+                Toggle::make('auto_renews')
+                    ->label(__('admin.vendors.renewal.auto_renews'))
+                    ->helperText(__('admin.vendors.renewal.auto_renews_hint')),
                 TextInput::make('value')
                     ->label(__('admin.fields.amount'))
                     ->prefix('EGP')
@@ -122,10 +158,34 @@ class ContractsRelationManager extends RelationManager
                 TextColumn::make('asset.name')->placeholder(__('admin.fields.portfolio') ?: 'Portfolio')->color('gray'),
                 TextColumn::make('start_date')->date('d/m/Y')->sortable(),
                 TextColumn::make('end_date')->date('d/m/Y')->sortable()->placeholder('—'),
+                // The date a contract manager actually works to. Sorted/filtered on a real column
+                // (VendorContract::saving keeps it in step with end_date + notice_period_days).
+                TextColumn::make('notice_deadline')
+                    ->label(__('admin.vendors.renewal.notice_deadline'))
+                    ->date('d/m/Y')
+                    ->sortable()
+                    ->placeholder('—')
+                    ->badge()
+                    ->color(fn (VendorContract $record) => match (true) {
+                        ! $record->isNoticeDue() => 'gray',
+                        (bool) $record->auto_renews => 'danger',
+                        default => 'warning',
+                    })
+                    // Auto-renewing and fixed-term contracts demand opposite actions at this date.
+                    ->description(fn (VendorContract $record) => match (true) {
+                        ! $record->isNoticeDue() => null,
+                        (bool) $record->auto_renews => __('admin.vendors.renewal.serve_notice_or_renews'),
+                        default => __('admin.vendors.renewal.will_simply_end'),
+                    }),
                 TextColumn::make('value')
                     ->label(__('admin.vendors.commitment.committed'))
                     ->money('EGP')
-                    ->alignRight(),
+                    ->alignRight()
+                    // Signed value vs the commitment as varied — silent divergence is what made
+                    // the over-run flag untrustworthy before change orders existed.
+                    ->description(fn (VendorContract $record) => $record->effectiveValue() !== (float) $record->value
+                        ? __('admin.vendors.commitment.as_amended', ['amount' => number_format($record->effectiveValue(), 2)])
+                        : null),
                 // Committed vs actual, side by side — the whole point of recording a contract
                 // value. Red the moment the vendor has invoiced past what was agreed.
                 TextColumn::make('billed_to_date')
@@ -155,12 +215,116 @@ class ContractsRelationManager extends RelationManager
                 SelectFilter::make('status')
                     ->label(__('admin.filters.status'))
                     ->options(fn () => __('admin.statuses.vendor_contract')),
+                // The decision list, sharing VendorContract::noticeDue() with the nightly scan
+                // and the dashboard card so all three agree on what is due.
+                \Filament\Tables\Filters\Filter::make('notice_due')
+                    ->label(__('admin.filters.notice_due'))
+                    ->query(function (\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder {
+                        /** @var \Illuminate\Database\Eloquent\Builder<VendorContract> $query */
+                        return $query->noticeDue();
+                    })
+                    ->toggle(),
             ])
             ->headerActions([
                 CreateAction::make()->label(__('admin.actions.add_contract'))
                     ->visible(fn () => auth()->user()?->can('vendors.edit') ?? false),
             ])
             ->recordActions([
+                // "View working" for the commitment: an operator should never have to trust a
+                // bare Remaining figure they cannot reconcile. Native infolist entries, per the
+                // codebase convention (no View pages, read-only detail lives in an action modal).
+                \Filament\Actions\Action::make('commitment')
+                    ->label(__('admin.vendors.commitment.view_working'))
+                    ->icon('heroicon-o-calculator')
+                    ->color('gray')
+                    ->modalSubmitAction(false)
+                    ->schema(fn (VendorContract $record) => [
+                        \Filament\Infolists\Components\TextEntry::make('signed')
+                            ->label(__('admin.vendors.commitment.committed'))
+                            ->state('EGP '.number_format((float) $record->value, 2)),
+                        \Filament\Infolists\Components\TextEntry::make('amendments')
+                            ->label(__('admin.vendors.amendments.title'))
+                            ->state(function () use ($record) {
+                                $rows = $record->amendments()->orderBy('effective_on')->get();
+
+                                if ($rows->isEmpty()) {
+                                    return __('admin.vendors.amendments.none');
+                                }
+
+                                return $rows->map(fn ($a) => sprintf(
+                                    '%s · %s EGP %s — %s',
+                                    $a->effective_on->format('Y-m-d'),
+                                    (float) $a->value_delta < 0 ? '−' : '+',
+                                    number_format(abs((float) $a->value_delta), 2),
+                                    $a->reason,
+                                ))->join("\n");
+                            }),
+                        \Filament\Infolists\Components\TextEntry::make('effective')
+                            ->label(__('admin.vendors.commitment.effective'))
+                            ->state('EGP '.number_format($record->effectiveValue(), 2)),
+                        \Filament\Infolists\Components\TextEntry::make('billed')
+                            ->label(__('admin.vendors.commitment.billed'))
+                            ->state('EGP '.number_format($record->billedToDate(), 2)),
+                        \Filament\Infolists\Components\TextEntry::make('remaining')
+                            ->label(__('admin.vendors.commitment.remaining'))
+                            ->state('EGP '.number_format($record->remainingValue(), 2))
+                            ->color($record->isOverCommitted() ? 'danger' : 'success')
+                            ->helperText($record->isOverCommitted()
+                                ? __('admin.vendors.commitment.over_committed')
+                                : null),
+                    ]),
+                // A change order. `visible()` is not a gate in Filament (mountAction never checks
+                // it), so the permission is asserted in action() too.
+                \Filament\Actions\Action::make('amend')
+                    ->label(__('admin.vendors.amendments.add'))
+                    ->icon('heroicon-o-document-plus')
+                    ->visible(fn () => auth()->user()?->can('vendors.edit') ?? false)
+                    ->authorize(fn () => auth()->user()?->can('vendors.edit') ?? false)
+                    ->schema([
+                        TextInput::make('reference')
+                            ->label(__('admin.vendors.amendments.reference'))
+                            ->maxLength(100),
+                        TextInput::make('value_delta')
+                            ->label(__('admin.vendors.amendments.value_delta'))
+                            // Signed on purpose — descoping is a variation too, and forcing it
+                            // positive would make a reduction impossible to record honestly.
+                            ->helperText(__('admin.vendors.amendments.value_delta_hint'))
+                            ->prefix('EGP')
+                            ->numeric()
+                            ->required(),
+                        DatePicker::make('effective_on')
+                            ->label(__('admin.vendors.amendments.effective_on'))
+                            ->default(now())
+                            ->required()
+                            ->native(false),
+                        Textarea::make('reason')
+                            ->label(__('admin.vendors.amendments.reason'))
+                            ->helperText(__('admin.vendors.amendments.reason_hint'))
+                            ->rows(2)
+                            ->required(),
+                    ])
+                    ->action(function (VendorContract $record, array $data): void {
+                        abort_unless(auth()->user()?->can('vendors.edit') ?? false, 403);
+
+                        $record->amendments()->create([
+                            'reference' => $data['reference'] ?? null,
+                            'value_delta' => (float) $data['value_delta'],
+                            'effective_on' => $data['effective_on'],
+                            'reason' => $data['reason'],
+                            'created_by_user_id' => auth()->id(),
+                        ]);
+
+                        // Feedback carries the RESULTING state, not just "saved".
+                        \Filament\Notifications\Notification::make()
+                            ->success()
+                            ->title(__('admin.vendors.amendments.recorded'))
+                            ->body(__('admin.vendors.commitment.helper', [
+                                'value' => number_format($record->effectiveValue(), 2),
+                                'billed' => number_format($record->billedToDate(), 2),
+                                'remaining' => number_format($record->remainingValue(), 2),
+                            ]))
+                            ->send();
+                    }),
                 EditAction::make()
                     ->visible(fn () => auth()->user()?->can('vendors.edit') ?? false),
                 DeleteAction::make()

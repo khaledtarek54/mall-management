@@ -19,6 +19,9 @@ class VendorsTable
     public static function configure(Table $table): Table
     {
         return $table
+            // The compliance badge reads every document per row — eager load or the
+            // vendors list fires a query per vendor.
+            ->modifyQueryUsing(fn ($query) => $query->with('documents'))
             ->columns([
                 TextColumn::make('name')
                     ->label(__('admin.tables.vendor.name'))
@@ -50,21 +53,34 @@ class VendorsTable
                         'blacklisted' => 'danger',
                         default => 'gray',
                     }),
-                TextColumn::make('coi_status')
+                // A compliance SUMMARY, not one date: a vendor file is several documents expiring on
+                // their own clocks, and only a lapsed blocking one (insurance) actually stops work.
+                // Worst state wins, and the badge says the consequence rather than making the
+                // operator open the record to work it out.
+                TextColumn::make('compliance')
                     ->label(__('admin.vendors.compliance.coi_status'))
                     ->badge()
                     ->state(fn (Vendor $record) => match (true) {
-                        $record->coi_expires_at === null => __('admin.vendors.compliance.none'),
-                        $record->coiDaysToExpiry() < 0 => __('admin.vendors.compliance.expired'),
-                        $record->coiDaysToExpiry() <= 30 => __('admin.vendors.compliance.expiring'),
-                        default => $record->coi_expires_at->format('Y-m-d'),
+                        $record->documents->isEmpty() => __('admin.vendors.compliance.none'),
+                        $record->documents->contains(fn ($d) => $d->isBlocking() && $d->hasExpired())
+                            => __('admin.vendors.compliance.blocked'),
+                        $record->documents->contains(fn ($d) => $d->hasExpired())
+                            => __('admin.vendors.compliance.expired'),
+                        $record->documents->contains(fn ($d) => $d->alertStage() !== null)
+                            => __('admin.vendors.compliance.expiring'),
+                        default => __('admin.vendors.compliance.ok'),
                     })
                     ->color(fn (Vendor $record) => match (true) {
-                        $record->coi_expires_at === null => 'gray',
-                        $record->coiDaysToExpiry() < 0 => 'danger',
-                        $record->coiDaysToExpiry() <= 30 => 'warning',
+                        $record->documents->isEmpty() => 'gray',
+                        $record->documents->contains(fn ($d) => $d->hasExpired()) => 'danger',
+                        $record->documents->contains(fn ($d) => $d->alertStage() !== null) => 'warning',
                         default => 'success',
-                    }),
+                    })
+                    // Name the offending documents so the operator knows what to chase.
+                    ->description(fn (Vendor $record) => $record->documents
+                        ->filter(fn ($d) => $d->alertStage() !== null)
+                        ->map(fn ($d) => __("admin.vendors.documents.types.{$d->type}"))
+                        ->join(', ') ?: null),
             ])
             ->filters([
                 SelectFilter::make('type')
@@ -73,14 +89,14 @@ class VendorsTable
                 SelectFilter::make('status')
                     ->label(__('admin.filters.status'))
                     ->options(fn () => __('admin.statuses.vendor')),
-                // The chase list: certs lapsed or lapsing inside the alert window. Shares
-                // Vendor::coiNeedsAttention() with the nightly scan and the dashboard card,
+                // The chase list: documents lapsed or lapsing inside the alert window. Shares
+                // Vendor::documentsNeedAttention() with the nightly scan and the dashboard card,
                 // so all three can never disagree about who needs chasing.
-                Filter::make('coi_attention')
-                    ->label(__('admin.filters.coi_attention'))
+                Filter::make('document_attention')
+                    ->label(__('admin.filters.document_attention'))
                     ->query(function (Builder $query): Builder {
                         /** @var Builder<Vendor> $query */
-                        return $query->coiNeedsAttention();
+                        return $query->documentsNeedAttention();
                     })
                     ->toggle(),
                 TrashedFilter::make(),

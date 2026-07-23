@@ -73,11 +73,18 @@ class ActionRequired extends Widget
         // only certs on vendors under an active contract at a property this user can see. Counting
         // the raw catalog would show a restricted manager another mall's compliance work.
         $coiCount = \App\Models\Vendor::query()
-            ->coiNeedsAttention()
+            ->documentsNeedAttention()
             ->when($assetIds !== null, fn ($q) => $q->whereHas(
                 'contracts',
                 fn ($c) => $c->where('status', 'active')->whereIn('asset_id', $assetIds),
             ))
+            ->count();
+
+        // Contracts at their NOTICE deadline — the date a decision is actually due. A contract
+        // carries its own asset_id (null = portfolio-wide), so it scopes directly.
+        $noticeDueCount = \App\Models\VendorContract::query()
+            ->noticeDue()
+            ->when($assetIds !== null, fn ($q) => $q->whereIn('asset_id', $assetIds))
             ->count();
 
         $expiringCriticalCount = $leaseBase()->where('status', 'active')
@@ -188,15 +195,28 @@ class ActionRequired extends Widget
 
         if ($coiCount > 0) {
             $items[] = [
-                'key' => 'vendor_coi',
+                'key' => 'vendor_documents',
                 'icon' => 'heroicon-o-shield-exclamation',
                 'color' => 'warning',
-                'title' => trans_choice('admin.widgets.action_required.vendor_coi', $coiCount, ['count' => $coiCount]),
-                'body' => __('admin.widgets.action_required.vendor_coi_body'),
+                'title' => trans_choice('admin.widgets.action_required.vendor_documents', $coiCount, ['count' => $coiCount]),
+                'body' => __('admin.widgets.action_required.vendor_documents_body'),
                 'url' => \App\Filament\Admin\Resources\Vendors\VendorResource::getUrl('index', [
-                    'filters' => ['coi_attention' => ['isActive' => true]],
-                    'sort' => 'coi_expires_at:asc',
+                    'filters' => ['document_attention' => ['isActive' => true]],
+                    'sort' => 'name:asc',
                 ]),
+            ];
+        }
+
+        if ($noticeDueCount > 0) {
+            $items[] = [
+                'key' => 'contract_notice',
+                'icon' => 'heroicon-o-calendar-days',
+                'color' => 'danger',
+                'title' => trans_choice('admin.widgets.action_required.contract_notice', $noticeDueCount, ['count' => $noticeDueCount]),
+                'body' => __('admin.widgets.action_required.contract_notice_body'),
+                // Contracts live inside the Vendors resource, so land the operator on the
+                // vendors whose contracts are due and let the contracts tab carry the filter.
+                'url' => \App\Filament\Admin\Resources\Vendors\VendorResource::getUrl('index'),
             ];
         }
 

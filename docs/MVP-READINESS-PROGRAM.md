@@ -46,7 +46,7 @@ Legend: ✅ done · 🔄 in progress · ⬜ not started · — n/a. "Biz/Compl/G
 | 09 | Tenant Sales & % Rent | ✅ | ✅ | ✅ | ✅ | ✅ | **Annual + UX done** (`8b2ca48`) |
 | 10 | Utility Meters | ✅ | ✅ | ✅ | ✅ | ✅ | **Recharge built** — readings can now be billed |
 | 11/26 | Facility work (requests · work orders · service schedules) | ✅ | 🟡 | ✅ | — | 🟡 | **Generalised** to any facility service |
-| 12 | Vendors & Contracts | ✅ | ✅ | ✅ | ✅ | ✅ | **COI chase + commitment tracking** — certs no longer lapse silently |
+| 12 | Vendors & Contracts | ✅ | ✅ | ✅ | ✅ | ✅ | **Full vendor lifecycle** — compliance docs, renewal notice, change orders, withholding tax |
 | 29 | Procurement | ⬜ | ⬜ | 🟡 | ⬜ | ⬜ | Later |
 | 32 | Owner Statements | 🟡 | ⬜ | 🟡 | ✅ | 🟡 | Later |
 | 33 | Post-dated Cheques | 🟡 | ⬜ | 🟡 | ✅ | 🟡 | Later |
@@ -94,6 +94,17 @@ Modules **01, 02, 04, 05, 06, 07, 08, 09** — the money-critical core the clien
 **Verified sound, not changed:** every vendor/AP write action already uses `->authorize()` (a real Filament gate, unlike `visible()`), `VendorBillService::approve()` re-checks state, `recordPayment()` locks, `cancel()` guards; `VendorBill`/`VendorBillPayment`/`MaintenancePenalty`/`Disbursement` are all on the GL registry.
 
 **Deferred (triggers):** hard-blocking a non-compliant vendor at *award* time on purchase requests (*trigger: a client whose procurement policy requires it* — a block without an emergency override stops 2am burst-pipe work); COI document-expiry OCR; per-contract SLA scorecards.
+
+### 5d(ii). Module 12b — structural completion vs competitors (done)
+
+A follow-up review asked whether the module was *structurally* competitive, not just correct. It was a **vendor directory + AP ledger**; Yardi/MRI/ServiceChannel ship vendor **lifecycle management**. Four material gaps closed (all verified real by grep before building):
+
+- **Compliance documents (`vendor_documents`).** `vendors.coi_expires_at` modelled exactly one document. An Egyptian supplier file is several — insurance, بطاقة ضريبية, سجل تجاري, شهادة تأمينات اجتماعية — each expiring on its own clock. Rather than bolt a second mechanism beside the COI columns, the COI **moved into** the new table (data + files migrated, columns dropped) so there is one source of truth. Only **blocking** types (insurance) stop dispatch; the statutory ones are chased but never block emergency work. The expiry chase generalised from COI-only to any document (`vendors:scan-document-expiry`), same two-column re-arming stamp.
+- **Renewal *notice* alerting.** `vendors:expire-contracts` fired on `end_date` — too late to decide anything. `vendors:scan-contract-renewals` fires on the **notice deadline** (`end_date − notice_period_days`), with `auto_renews` changing the message from "line up a replacement" to the harder "serve notice by X or you're committed for another term". `notice_deadline` is a stored, indexable column kept in step by a saving hook.
+- **Change orders (`vendor_contract_amendments`).** `value` was static, so the over-run flag couldn't tell an approved uplift from an uncontrolled over-run — both showed red. A signed `value_delta` (descoping allowed) now moves `effectiveValue()`, with a dated, attributed, reasoned audit trail. No edit action — a change order is a signed instrument; correct via a compensating one.
+- **Withholding tax (خصم وإضافة).** Atriom paid vendors **gross** — non-compliant with Income Tax Law 91/2005 art. 59, and the un-withheld amount becomes the operator's own liability. Now the payment splits **Dr AP (gross) / Cr Bank (net) / Cr WHT Payable (withheld)** — the AP-side twin of the AR VAT. **Settings-driven** rates (never a hardcoded statutory guess), **off by default**, per-vendor override where `0 = exempt ≠ null = use default`. GL tie-out proven through the **real `accounting:sync-ledger` sweep**, per the registry rule.
+
+*Discipline note:* the initial scout's "COI is never enforced" was **false** (the gate shipped in `5df09c0`) — caught by verifying first, again ([[feedback_verify_absence_claims]]). **Deferred (triggers):** WHT remittance-return reporting to the ETA (*trigger: first filing period*); per-payment-category WHT rates; document OCR.
 
 ## 5b. Module 10 — Utility Meters (done)
 

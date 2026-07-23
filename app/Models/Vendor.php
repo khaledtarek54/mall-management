@@ -11,24 +11,19 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
-use Spatie\MediaLibrary\HasMedia;
-use Spatie\MediaLibrary\InteractsWithMedia;
 
-class Vendor extends Model implements HasMedia
+class Vendor extends Model
 {
-    use HasFactory, InteractsWithMedia, LogsActivity, SoftDeletes;
+    use HasFactory, LogsActivity, SoftDeletes;
 
     public const STATUS_ACTIVE = 'active';
     public const STATUS_INACTIVE = 'inactive';
     public const STATUS_BLACKLISTED = 'blacklisted';
 
-    /** Insurance / COI documents — PRIVATE (a vendor's cert is confidential); on the shared vendor. */
-    public const COI_COLLECTION = 'coi';
-
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['name', 'type', 'status', 'email', 'phone', 'tax_id', 'coi_expires_at', 'insurer', 'policy_number'])
+            ->logOnly(['name', 'type', 'status', 'email', 'phone', 'tax_id', 'withholding_tax_rate'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('vendor');
@@ -41,11 +36,7 @@ class Vendor extends Model implements HasMedia
         'status',
         'legal_name',
         'tax_id',
-        'coi_expires_at',
-        'insurer',
-        'policy_number',
-        'coi_alert_stage',
-        'coi_alert_for',
+        'withholding_tax_rate',
         'email',
         'phone',
         'address',
@@ -56,93 +47,70 @@ class Vendor extends Model implements HasMedia
 
     protected $casts = [
         'metadata' => 'array',
-        'coi_expires_at' => 'date',
-        'coi_alert_for' => 'date',
+        // Nullable on purpose: null = fall back to the portfolio default rate, an explicit 0 =
+        // this supplier is exempt. Collapsing the two would silently start withholding from an
+        // exempt vendor the next time the default changed.
+        'withholding_tax_rate' => 'decimal:2',
     ];
 
-    /** Days before a COI lapses that the operator starts being chased to renew it. */
-    public const COI_ALERT_DAYS = 30;
+    // ============ Compliance gate (reads vendor_documents) ============
 
-    public const COI_STAGE_EXPIRING = 'expiring';
-    public const COI_STAGE_EXPIRED = 'expired';
-
-    public function registerMediaCollections(): void
+    /** @return \Illuminate\Database\Eloquent\Relations\HasMany<VendorDocument, $this> */
+    public function documents(): HasMany
     {
-        // Never omit useDisk — medialibrary's default is fail-open ('public'); a COI is private.
-        $this->addMediaCollection(self::COI_COLLECTION)->useDisk('local');
+        return $this->hasMany(VendorDocument::class);
     }
-
-    // ============ Compliance / COI gate ============
 
     public function isBlacklisted(): bool
     {
         return $this->status === self::STATUS_BLACKLISTED;
     }
 
-    /** True only when a COI date is on file AND it is in the past — a null (not-recorded) COI is not "expired". */
-    public function hasCoiExpired(?Carbon $on = null): bool
+    /**
+     * Is a document whose lapse should stop work (currently: insurance) actually lapsed?
+     *
+     * A vendor with NO such document on file is not "expired" — v1 doesn't retro-demand a
+     * certificate from every existing supplier; blacklist one to hard-block it. That was the
+     * rule when this read a single `coi_expires_at` column and it survives the move to
+     * VendorDocument unchanged.
+     */
+    public function hasExpiredBlockingDocument(?Carbon $on = null): bool
     {
-        $on = ($on ?? Carbon::today())->startOfDay();
-
-        return $this->coi_expires_at !== null && $this->coi_expires_at->startOfDay()->lt($on);
+        return $this->documents()->blocking()->expired($on)->exists();
     }
 
     /**
-     * May this vendor be dispatched to work? Active status (so blacklisted/inactive are out) AND a
-     * COI that isn't lapsed. A vendor with no COI recorded is still assignable (v1 doesn't force a
-     * cert on every existing vendor) — blacklist one to hard-block it.
+     * May this vendor be dispatched to work? Active status (so blacklisted/inactive are out)
+     * AND no lapsed blocking document.
      */
     public function isDispatchable(?Carbon $on = null): bool
     {
-        return $this->status === self::STATUS_ACTIVE && ! $this->hasCoiExpired($on);
-    }
-
-    /** Days until the COI expires (negative = already expired), or null if none is recorded. */
-    public function coiDaysToExpiry(): ?int
-    {
-        return $this->coi_expires_at === null
-            ? null
-            : (int) Carbon::today()->startOfDay()->diffInDays($this->coi_expires_at->startOfDay(), false);
+        return $this->status === self::STATUS_ACTIVE && ! $this->hasExpiredBlockingDocument($on);
     }
 
     /**
-     * Which COI alert stage this vendor is in RIGHT NOW, or null when there's nothing to chase
-     * (no cert recorded, or one comfortably in date). Drives both `vendors:scan-coi-expiry` and
-     * the dashboard card, so the nightly nag and the live count can never disagree.
+     * Active vendors holding a document lapsed or lapsing inside the alert window — the chase list.
+     *
+     * Shared by `vendors:scan-document-expiry`, the Action Required card and the table filter, so
+     * the nightly nag, the live count and the list can never disagree about who needs chasing.
      */
-    public function coiAlertStage(?Carbon $on = null): ?string
+    public function scopeDocumentsNeedAttention(Builder $query, ?Carbon $on = null): Builder
     {
-        if ($this->coi_expires_at === null || $this->status !== self::STATUS_ACTIVE) {
-            return null;
-        }
-
-        $days = (int) ($on ?? Carbon::today())->startOfDay()
-            ->diffInDays($this->coi_expires_at->startOfDay(), false);
-
-        return match (true) {
-            $days < 0 => self::COI_STAGE_EXPIRED,
-            $days <= self::COI_ALERT_DAYS => self::COI_STAGE_EXPIRING,
-            default => null,
-        };
-    }
-
-    /** Active vendors whose COI is lapsed or lapsing within the alert window — the chase list. */
-    public function scopeCoiNeedsAttention(Builder $query, ?Carbon $on = null): Builder
-    {
-        $on = ($on ?? Carbon::today())->startOfDay();
-
         return $query->where('status', self::STATUS_ACTIVE)
-            ->whereNotNull('coi_expires_at')
-            ->whereDate('coi_expires_at', '<=', $on->copy()->addDays(self::COI_ALERT_DAYS)->toDateString());
+            ->whereHas('documents', function ($q) use ($on) {
+                /** @var Builder<VendorDocument> $q */
+                return $q->needsAttention($on);
+            });
     }
 
-    /** The dispatchable set — active vendors whose COI (if any) is still valid. */
+    /** The dispatchable set — active vendors with no lapsed blocking document. */
     public function scopeAssignable(Builder $query): Builder
     {
         return $query->where('status', self::STATUS_ACTIVE)
-            ->where(fn (Builder $q) => $q
-                ->whereNull('coi_expires_at')
-                ->orWhereDate('coi_expires_at', '>=', Carbon::today()->toDateString()));
+            ->whereDoesntHave('documents', function ($q) {
+                /** @var Builder<VendorDocument> $q */
+                return $q->blocking()->expired();
+            });
     }
 
     /**

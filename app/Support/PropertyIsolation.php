@@ -71,7 +71,9 @@ use App\Models\Vendor;
 use App\Models\VendorBill;
 use App\Models\VendorBillPayment;
 use App\Models\VendorContact;
+use App\Models\VendorDocument;
 use App\Models\VendorContract;
+use App\Models\VendorContractAmendment;
 use App\Models\Violation;
 use App\Models\Warehouse;
 
@@ -102,6 +104,7 @@ class PropertyIsolation
         DeviceToken::class,         // push token for a Tenant
         Vendor::class,              // shared vendor catalog; engagement per-property (VendorContract/Bill)
         VendorContact::class,       // belongs to the shared Vendor
+        VendorDocument::class,      // compliance file (insurance/tax card/register) of the shared Vendor
         InventoryItem::class,       // shared SKU catalog; stock is per-Warehouse
         LedgerAccount::class,       // one shared chart of accounts; property is a dimension on entries
         FiscalYear::class,          // one operator fiscal calendar
@@ -179,6 +182,10 @@ class PropertyIsolation
         PayrollLine::class => 'payroll',
         MaintenanceWorkOrderItem::class => 'workOrder',
         MaintenanceWorkOrderPart::class => 'workOrder',
+        // A change order reaches its property through the contract it varies. No Filament
+        // resource of its own — recorded via the "Add change order" action on the vendor's
+        // contracts list, which is already property-scoped.
+        VendorContractAmendment::class => 'contract',
         LowStockAlert::class => null,
         PurchaseRequest::class => null,
         PurchaseRequestLine::class => 'request',

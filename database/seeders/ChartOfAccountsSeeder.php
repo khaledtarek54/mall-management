@@ -81,6 +81,11 @@ class ChartOfAccountsSeeder extends Seeder
         ['21301001', 'VAT Payable', 'ض.ق.م مستحقة', 'liability', true],
         ['21302', 'Salary Tax Payable', 'ضريبة كسب العمل المستحقة', 'liability', false],
         ['21302001', 'Salary Tax Payable', 'ضريبة كسب العمل مستحقة', 'liability', true],
+        // Tax withheld at source from a SUPPLIER payment (خصم وإضافة, Law 91/2005 art. 59) and
+        // owed onward to the ETA. Not the operator's expense — money held on the vendor's behalf,
+        // so it is a liability until remitted, exactly like VAT collected.
+        ['21303', 'Withholding Tax Payable', 'ضريبة الخصم والإضافة المستحقة', 'liability', false],
+        ['21303001', 'Withholding Tax Payable', 'خصم وإضافة مستحقة', 'liability', true],
         ['216', 'Social Insurance Payable', 'التأمينات الاجتماعية المستحقة', 'liability', false],
         ['21601', 'Social Insurance Payable', 'التأمينات الاجتماعية المستحقة', 'liability', false],
         ['21601001', 'Social Insurance Payable', 'تأمينات اجتماعية مستحقة', 'liability', true],

@@ -7,6 +7,7 @@ use App\Settings\EtaSettings;
 use App\Settings\IntegrationsSettings;
 use App\Settings\MaintenanceSettings;
 use App\Settings\ModulesSettings;
+use App\Settings\TaxSettings;
 use App\Support\Modules;
 use BackedEnum;
 use Filament\Forms\Components\TextInput;
@@ -69,6 +70,7 @@ class Settings extends Page implements HasSchemas
         $maint = app(MaintenanceSettings::class);
         $integ = app(IntegrationsSettings::class);
         $eta = app(EtaSettings::class);
+        $tax = app(TaxSettings::class);
         $mods = app(ModulesSettings::class);
 
         // Filament treats dots in field names as nested-array paths, so the
@@ -101,6 +103,10 @@ class Settings extends Page implements HasSchemas
                 'issuer_name' => $eta->issuer_name,
                 'issuer_tax_registration_number' => $eta->issuer_tax_registration_number,
             ],
+            'tax' => [
+                'wht_enabled' => $tax->wht_enabled,
+                'wht_default_rate' => $tax->wht_default_rate,
+            ],
             'modules' => [],
         ];
 
@@ -120,6 +126,7 @@ class Settings extends Page implements HasSchemas
                     Tab::make(__('admin.settings.tabs.billing'))->icon('heroicon-o-banknotes')->schema($this->billingFields()),
                     Tab::make(__('admin.settings.tabs.maintenance'))->icon('heroicon-o-wrench-screwdriver')->schema($this->maintenanceFields()),
                     Tab::make(__('admin.settings.tabs.eta'))->icon('heroicon-o-document-text')->schema($this->etaFields()),
+                    Tab::make(__('admin.settings.tabs.tax'))->icon('heroicon-o-receipt-percent')->schema($this->taxFields()),
                     Tab::make(__('admin.settings.tabs.integrations'))->icon('heroicon-o-bolt')->schema($this->integrationsFields()),
                 ])
                 ->columnSpanFull(),
@@ -163,6 +170,11 @@ class Settings extends Page implements HasSchemas
         $eta->issuer_name = (string) $state['eta']['issuer_name'];
         $eta->issuer_tax_registration_number = (string) $state['eta']['issuer_tax_registration_number'];
         $eta->save();
+
+        $tax = app(TaxSettings::class);
+        $tax->wht_enabled = (bool) $state['tax']['wht_enabled'];
+        $tax->wht_default_rate = (float) $state['tax']['wht_default_rate'];
+        $tax->save();
 
         $mods = app(ModulesSettings::class);
         foreach (Modules::KEYS as $key) {
@@ -265,6 +277,30 @@ class Settings extends Page implements HasSchemas
                     Toggle::make('eta.mock')->label(__('admin.settings.fields.eta_mock')),
                     TextInput::make('eta.issuer_name')->label(__('admin.settings.fields.eta_issuer_name'))->columnSpan(2)->required(),
                     TextInput::make('eta.issuer_tax_registration_number')->label(__('admin.settings.fields.eta_issuer_trn'))->columnSpan(2)->required(),
+                ]),
+        ];
+    }
+
+    /** @return array<int, mixed> */
+    private function taxFields(): array
+    {
+        return [
+            Section::make(__('admin.settings.sections.wht'))
+                ->description(__('admin.settings.sections.wht_description'))
+                ->columns(2)
+                ->components([
+                    Toggle::make('tax.wht_enabled')
+                        ->label(__('admin.settings.fields.wht_enabled'))
+                        ->helperText(__('admin.settings.fields.wht_enabled_helper'))
+                        ->live(),
+                    TextInput::make('tax.wht_default_rate')
+                        ->label(__('admin.settings.fields.wht_default_rate'))
+                        ->helperText(__('admin.settings.fields.wht_default_rate_helper'))
+                        ->suffix('%')
+                        ->numeric()
+                        ->minValue(0)
+                        ->maxValue(100)
+                        ->required(),
                 ]),
         ];
     }

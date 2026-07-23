@@ -72,6 +72,7 @@ class VendorResource extends Resource
         return [
             ContactsRelationManager::class,
             ContractsRelationManager::class,
+            \App\Filament\Admin\Resources\Vendors\RelationManagers\DocumentsRelationManager::class,
             \App\Filament\Admin\RelationManagers\ActivitiesRelationManager::class,
         ];
     }

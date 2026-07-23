@@ -22,14 +22,27 @@ class VendorBillPayment extends Model
         'vendor_bill_id',
         'reference',
         'amount',
+        'withholding_amount',
         'method',
         'payment_date',
         'notes',
         'created_by_user_id',
     ];
 
+    /**
+     * Cash that actually left the bank: the gross settlement minus tax withheld for the ETA.
+     *
+     * `amount` is what discharges the vendor's claim; this is what the bank statement shows.
+     * They differ by exactly `withholding_amount` (خصم وإضافة, module 12b).
+     */
+    public function netPaid(): float
+    {
+        return round((float) $this->amount - (float) $this->withholding_amount, 2);
+    }
+
     protected $casts = [
         'amount' => 'decimal:2',
+        'withholding_amount' => 'decimal:2',
         'payment_date' => 'date',
     ];
 
