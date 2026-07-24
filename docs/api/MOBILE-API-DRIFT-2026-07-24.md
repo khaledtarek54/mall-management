@@ -238,8 +238,9 @@ does not exist. The seeded accounts are **`tenant1/2/3@atriomwalk.test`**, passw
 
 # C. Endpoints the app calls that do not exist
 
-All three are already flagged in-repo as `// NOT in openapi.json — app-assumed, pending backend`
-(`JAWAD_MOBILE_MASTER.md` #16 / #20). Confirming their status:
+**Complete list — exactly three** (same set-difference method as §D). All three are already flagged
+in-repo as `// NOT in openapi.json — app-assumed, pending backend` (`JAWAD_MOBILE_MASTER.md` #16 / #20).
+Confirming their status:
 
 | # | Call | Site | Status |
 |---|---|---|---|
@@ -252,6 +253,15 @@ Recommend: keep C1 (cheap, degrades to empty), drop C2 and C3 unless there's a s
 ---
 
 # D. Live endpoints the app never calls
+
+**This list is complete — it is the full set difference, not a sample.** Computed programmatically:
+every `@GET/@POST/@PATCH/@DELETE` annotation in `lib/` normalised against `php artisan route:list`,
+with `/me/maintenance-requests` mapped onto `/me/requests` so the rename isn't double-counted. There
+are **no raw `dio.get/post/...` calls anywhere in `lib/`** — every network call goes through a
+Retrofit service — so the annotation scan captures 100% of the app's API surface.
+
+**Reconciliation:** 38 backend endpoints − 4 never called = 34 covered; 34 + 3 phantom calls (§C) = 37
+declared mobile endpoints. Both sides balance.
 
 Not defects — recording them so the decision is explicit. `JAWAD_MOBILE_MASTER.md` #19 already judged
 D1–D3 redundant; that judgement still holds.
