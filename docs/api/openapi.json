@@ -34,14 +34,15 @@
                                                     "type": "number"
                                                 },
                                                 "openCount": {
-                                                    "type": "string"
+                                                    "type": "integer",
+                                                    "description": "Cast the count/bool explicitly so the generated spec publishes\ninteger/boolean rather than falling back to `string` \u2014 the client\ndecodes against the spec."
                                                 },
                                                 "currency": {
                                                     "type": "string",
                                                     "const": "EGP"
                                                 },
                                                 "isDelinquent": {
-                                                    "type": "string"
+                                                    "type": "boolean"
                                                 }
                                             },
                                             "required": [
@@ -1848,30 +1849,29 @@
                                                     "type": "number"
                                                 },
                                                 "openInvoices": {
-                                                    "type": "string"
+                                                    "type": "integer",
+                                                    "description": "Counts/bools are cast explicitly so the generated spec publishes\ninteger/boolean rather than falling back to `string` \u2014 the mobile\nclient decodes against the spec."
                                                 },
                                                 "creditAvailable": {
                                                     "type": "number",
                                                     "description": "'issued' only \u2014 same filter Tenant::outstandingBalance() uses for\nspendable credit (applied/void notes carry no remaining balance)."
                                                 },
                                                 "isDelinquent": {
-                                                    "type": "string"
+                                                    "type": "boolean"
                                                 },
                                                 "openMaintenance": {
-                                                    "type": "string",
+                                                    "type": "integer",
                                                     "description": "Open work"
                                                 },
                                                 "disputedDeclarations": {
                                                     "type": "integer",
-                                                    "description": "Needs the tenant's attention",
-                                                    "minimum": 0
+                                                    "description": "Needs the tenant's attention"
                                                 },
                                                 "canDeclareSales": {
-                                                    "type": "string"
+                                                    "type": "boolean"
                                                 },
                                                 "unreadNotifications": {
-                                                    "type": "integer",
-                                                    "minimum": 0
+                                                    "type": "integer"
                                                 },
                                                 "currency": {
                                                     "type": "string",
@@ -2751,16 +2751,16 @@
                         "type": "string"
                     },
                     "orderId": {
-                        "type": "string"
+                        "type": "integer"
                     },
                     "paymentId": {
-                        "type": "string"
+                        "type": "integer"
                     },
                     "expiresAt": {
                         "type": "string"
                     },
                     "reused": {
-                        "type": "string"
+                        "type": "boolean"
                     }
                 },
                 "required": [
@@ -3009,7 +3009,8 @@
                             "type": "object",
                             "properties": {
                                 "id": {
-                                    "type": "string"
+                                    "type": "integer",
+                                    "description": "id + size are cast explicitly: the media model's props are\nuntyped, so Scramble published them as `string` while the\nwire carried ints \u2014 the client decoded `as String` and\nthrew, taking the whole request list down with it."
                                 },
                                 "name": {
                                     "type": "string"
@@ -3018,7 +3019,7 @@
                                     "type": "string"
                                 },
                                 "size": {
-                                    "type": "string"
+                                    "type": "integer"
                                 },
                                 "url": {
                                     "type": "string",
@@ -3186,7 +3187,8 @@
                             "type": "object",
                             "properties": {
                                 "id": {
-                                    "type": "string"
+                                    "type": "integer",
+                                    "description": "id + size are cast explicitly: the media model's props are\nuntyped, so Scramble published them as `string` while the\nwire carried ints \u2014 the client decoded `as String` and\nthrew, taking the whole request list down with it."
                                 },
                                 "name": {
                                     "type": "string"
@@ -3195,7 +3197,7 @@
                                     "type": "string"
                                 },
                                 "size": {
-                                    "type": "string"
+                                    "type": "integer"
                                 },
                                 "url": {
                                     "type": "string",

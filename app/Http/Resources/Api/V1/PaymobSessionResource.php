@@ -20,14 +20,20 @@ class PaymobSessionResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        // Cast every field explicitly. The source is an untyped array, so
+        // without these Scramble inferred `string` for all of them and the
+        // generated spec told the Flutter client to decode `orderId` /
+        // `paymentId` (ints) and `reused` (bool) as String — which throws on
+        // decode and killed the whole card-payment response. The casts pin both
+        // the runtime type and the published contract to the same thing.
         return [
-            'payment_token' => $this->resource['payment_token'],
-            'iframe_url' => $this->resource['iframe_url'],
+            'payment_token' => (string) $this->resource['payment_token'],
+            'iframe_url' => (string) $this->resource['iframe_url'],
             'iframe_id' => (string) config('integrations.paymob.iframe_id'),
-            'order_id' => $this->resource['order_id'],
-            'payment_id' => $this->resource['payment_id'],
+            'order_id' => (int) $this->resource['order_id'],
+            'payment_id' => (int) $this->resource['payment_id'],
             'expires_at' => $this->resource['expires_at']->toIso8601String(),
-            'reused' => $this->resource['reused'],
+            'reused' => (bool) $this->resource['reused'],
         ];
     }
 }

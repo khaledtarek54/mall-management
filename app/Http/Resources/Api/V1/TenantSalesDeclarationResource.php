@@ -37,10 +37,11 @@ class TenantSalesDeclarationResource extends JsonResource
             // NOT public (the file can carry commercial turnover figures).
             'attachments' => $this->whenLoaded('media', fn () => $this->getMedia('sales_report')
                 ->map(fn ($media) => [
-                    'id' => $media->id,
+                    // Cast explicitly — see the note in TenantRequestResource.
+                    'id' => (int) $media->id,
                     'name' => $media->file_name,
                     'mime_type' => $media->mime_type,
-                    'size' => $media->size,
+                    'size' => (int) $media->size,
                     'url' => route('api.v1.me.sales.attachment', ['id' => $this->id, 'media' => $media->id]),
                 ])
                 ->values()),

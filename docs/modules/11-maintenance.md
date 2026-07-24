@@ -90,7 +90,7 @@ these fields, so a permit is a typed request with a validity window and nothing 
 | valid_from | date | nullable | Permit validity window start (FR-REQ-14). Null for non-permit requests. |
 | valid_to | date | nullable | Permit validity window end (FR-REQ-14). Must be ≥ valid_from if both set (enforced in `TenantRequest::booted`). Null for non-permit requests. |
 | sla_breach_notified_at | timestamp | nullable | Stamped by scan-sla-breaches after firing alert (idempotency guard) |
-| csat_rating | tinyint | nullable | Close-out satisfaction score (1–5). Captured from the tenant once the request is resolved/closed — via the portal "Rate" action or `POST /me/maintenance-requests/{id}/rate`. Recorded by `MaintenanceRequestService::rate()` (resolved/closed guard, clamps 1–5, overwritable). Shown as a toggleable admin column. |
+| csat_rating | tinyint | nullable | Close-out satisfaction score (1–5). Captured from the tenant once the request is resolved/closed — via the portal "Rate" action or `POST /me/requests/{id}/rate`. Recorded by `MaintenanceRequestService::rate()` (resolved/closed guard, clamps 1–5, overwritable). Shown as a toggleable admin column. |
 | csat_comment | text | nullable | Optional free-text feedback accompanying the CSAT score |
 | created_at | timestamp | - | Record creation |
 | updated_at | timestamp | - | Last update |

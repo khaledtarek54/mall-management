@@ -33,7 +33,7 @@ All routes are versioned under `/api/v1` and are protected by the `auth:tenant-a
 | `leases` | `Lease` | `id`, `tenant_id`, `unit_id`, `reference`, `status` enum(`active`/`expired`/`etc`), `commencement_date`, `expiry_date`, `base_rent_monthly`, `service_charge_monthly`, `has_percentage_rent` (bool), `percentage_rent_rate`, `percentage_rent_threshold`, `deleted_at` (soft) | Tenant's occupancy contract. The mobile app shows leases on login. |
 | `units` | `Unit` | `id`, `code`, `floor`, `asset_id` | Physical space. Identified by `code` (e.g., "B-214"). |
 | `assets` | `Asset` | `id`, `name` | Mall/building. Shown in mobile login (mall name). |
-| `maintenance_requests` | `MaintenanceRequest` | `id`, `reference`, `tenant_id`, `unit_id`, `status` enum, `priority`, `category`, `title`, `description`, `submitted_at`, `channel` ('portal'/etc), `deleted_at` (soft) | Tenant-reported issues. Accepted via `/maintenance-requests`. Attachments stored via Spatie Media. |
+| `maintenance_requests` | `MaintenanceRequest` | `id`, `reference`, `tenant_id`, `unit_id`, `status` enum, `priority`, `category`, `title`, `description`, `submitted_at`, `channel` ('portal'/etc), `deleted_at` (soft) | Tenant-reported issues. Accepted via `/me/requests`. Attachments stored via Spatie Media. |
 | `maintenance_comments` | `MaintenanceComment` | `id`, `request_id`, `author_id`, `body`, `created_at` | Comments on requests (tenant + staff). |
 | `tenant_sales_declarations` | `TenantSalesDeclaration` | `id`, `lease_id`, `period_start`, `period_end`, `declared_sales` (**nullable**), `calculated_percentage_rent`, `status` enum(`submitted`/`locked`/`disputed`), `declared_at` | Monthly sales for percentage-rent leases. Tenant uploads a **sales report file** (Spatie `sales_report` collection, private disk) — `declared_sales` is null at submission and entered by staff on review. Percentage rent = `(declared_sales - threshold) * rate` (if declared_sales > threshold, else 0). |
 | `device_tokens` | `DeviceToken` | `id`, `tenant_id`, `platform` (fcm/apns), `token`, `device_name`, `last_used_at` | Push token. Upserted on register (deduped by tenant + platform + device_name). |
@@ -161,9 +161,9 @@ All routes are versioned under `/api/v1` and are protected by the `auth:tenant-a
 | `ResetTenantPasswordAction` | `handle(array $credentials): string` (returns Password::* status) | Validates token + email, resets password, revokes ALL tokens (fresh start). | No explicit transaction. | POST `/api/v1/auth/reset-password` |
 | `RegisterDeviceTokenAction` | `handle(Tenant $tenant, array $data): DeviceToken` | Upserts on (tenant, platform, device_name); updates token + last_used_at. | No transaction. | POST `/api/v1/me/devices` |
 | `UnregisterDeviceTokenAction` | `handle(Tenant $tenant, int $id): void` | Deletes the device token (soft-delete). | No transaction. | DELETE `/api/v1/me/devices/{id}` |
-| `CreateMaintenanceRequestAction` | `handle(Tenant $tenant, array $payload, UploadedFile[] $attachments): MaintenanceRequest` | Creates request, stores attachments via Spatie Media, returns with media URLs. | DB transaction (request + media). | POST `/api/v1/me/maintenance-requests` |
-| `AddMaintenanceCommentAction` | `handle(MaintenanceRequest $req, Tenant $tenant, string $body): MaintenanceComment` | Adds comment from tenant, scoped to tenant's own request. | No transaction. | POST `/api/v1/me/maintenance-requests/{id}/comments` |
-| `CancelMaintenanceRequestAction` | `handle(MaintenanceRequest $req, Tenant $tenant): void` | Cancels request if in cancellable status, checks ownership. | No transaction. | POST `/api/v1/me/maintenance-requests/{id}/cancel` |
+| `CreateMaintenanceRequestAction` | `handle(Tenant $tenant, array $payload, UploadedFile[] $attachments): MaintenanceRequest` | Creates request, stores attachments via Spatie Media, returns with media URLs. | DB transaction (request + media). | POST `/api/v1/me/requests` |
+| `AddMaintenanceCommentAction` | `handle(MaintenanceRequest $req, Tenant $tenant, string $body): MaintenanceComment` | Adds comment from tenant, scoped to tenant's own request. | No transaction. | POST `/api/v1/me/requests/{id}/comments` |
+| `CancelMaintenanceRequestAction` | `handle(MaintenanceRequest $req, Tenant $tenant): void` | Cancels request if in cancellable status, checks ownership. | No transaction. | POST `/api/v1/me/requests/{id}/cancel` |
 | `CreateSalesDeclarationAction` | `handle(Tenant $tenant, array $payload, UploadedFile[] $attachments): TenantSalesDeclaration` | Validates lease ownership + percentage-rent eligibility + no-duplicate-period, creates the declaration with `declared_sales=null`, then attaches the uploaded report file(s) to the `sales_report` collection. Does **not** calculate or lock (staff enter the figure later). | No transaction (media moves files on disk). | POST `/api/v1/me/sales-declarations` |
 | `RecordDemoPaymentAction` | `handle(Invoice $invoice): Payment` | Creates `initiated` Payment with full invoice balance, allocates, flips to `captured` (via Status cast triggers Payment::saved). Bypasses Paymob. | DB transaction (payment + allocation). | POST `/api/v1/me/invoices/{id}/pay-demo` |
 
@@ -330,6 +330,16 @@ However, **key validation & business logic** is shared via:
 
 1. Responses are **re-cased to camelCase** via CamelCaseResponseKeys middleware (outgoing) and SnakeCaseRequestKeys middleware (incoming).
 2. Resources define keys in snake_case; middleware does the conversion.
+2b. **`SnakeCaseRequestKeys` must cover all four input bags** — the JSON bag,
+   the request bag (`multipart/form-data` + urlencoded), the query string, and
+   the *files* bag. It once covered only JSON + query, which silently broke
+   every multipart endpoint for the camelCase contract we publish: `leaseId`
+   422'd `POST /me/sales-declarations` on `lease_id` every time, and `unitId` /
+   `requestType` were dropped **without an error** so a request was filed
+   against the wrong unit. The pre-existing API tests all POSTed snake_case, so
+   the suite stayed green over a contract the app could not satisfy — any new
+   multipart endpoint needs a camelCase test
+   (`tests/Feature/Regression/MultipartCamelCaseKeysTest.php`).
 3. To disable casing for a specific endpoint:
    - Return a Response object (not JsonResponse) from the controller.
    - The middleware only touches JsonResponse.
@@ -345,6 +355,16 @@ However, **key validation & business logic** is shared via:
 3. If adding a relation, use `$this->whenLoaded('relation')` to avoid N+1 queries (only include if eager-loaded).
 4. Update tests to assert the new field is present (or omitted if conditionally loaded).
 5. Increment the resource/API contract version if it's a breaking change (optional for this v1, but document it).
+6. **Cast scalars explicitly — `(int)`, `(bool)`, `(float)`.** Scramble infers
+   the published type from the array literal, and anything it can't resolve
+   (an untyped array element, a Spatie media prop, a `count()` off a builder)
+   falls back to `string`. The generated spec is what the Flutter client codegens
+   against, so a `size` that's really an int published as `string` makes the app
+   decode `as String` and throw — that took down the whole request list, and the
+   same artifact mistyped `PaymobSessionResource.reused`/`orderId`/`paymentId`
+   and the `/me/summary` counts. Regenerate with `php artisan api:export-spec`
+   and **check the emitted types**, not just that the route is documented — the
+   `ApiSpecContractTest` gate only asserts presence, never type fidelity.
 
 **Adding validations or business rule checks:**
 

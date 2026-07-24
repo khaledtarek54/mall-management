@@ -29,9 +29,12 @@ class BalanceController extends ApiController
         return $this->ok([
             'outstanding' => round($tenant->outstandingBalance(), 2),
             'overdue' => round($overdue, 2),
-            'open_count' => $openInvoices->where('balance', '>', 0)->count(),
+            // Cast the count/bool explicitly so the generated spec publishes
+            // integer/boolean rather than falling back to `string` — the client
+            // decodes against the spec.
+            'open_count' => (int) $openInvoices->where('balance', '>', 0)->count(),
             'currency' => 'EGP',
-            'is_delinquent' => $tenant->isDelinquent(),
+            'is_delinquent' => (bool) $tenant->isDelinquent(),
         ]);
     }
 }

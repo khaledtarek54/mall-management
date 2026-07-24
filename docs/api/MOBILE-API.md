@@ -3,7 +3,7 @@
 > Tenant-facing REST API for the Atriom mall-management mobile app.
 > Base URL: `https://<host>/api/v1`
 > Auth: Bearer tokens (Laravel Sanctum), `tenants` provider.
-> Last updated: 2026-06-28 — added `/me/summary`, credit-notes + notifications inbox; documented Paymob session/pay-demo; invoices carry `paymentLinkUrl` + `creditAppliedAmount`; payments carry `channel` + `receiptAt`.
+> Last updated: 2026-07-24 — ⚠️ **breaking:** `/me/maintenance-requests` → `/me/requests` (no alias, old paths `404`). Sales declarations are now a **file upload** (multipart, no `declaredSales`) with a new attachment stream. camelCase now works on **multipart** bodies too (it silently didn't before — `leaseId`/`unitId`/`requestType` were dropped). Attachment `id`/`size` and the summary/balance counts are typed correctly in the spec at last. Demo logins corrected to `@atriomwalk.test`.
 
 This document is the single reference a mobile developer needs to build the
 app: the business domain, the auth model, every endpoint with request/response
@@ -30,15 +30,15 @@ machine. Until then, the contract below is stable to build against.
 
 | Email | Has | Notes |
 |---|---|---|
-| `tenant1@haya.test` | invoices, payments, maintenance | Café Crema, unit A-01 — richest data, use this one |
-| `tenant2@haya.test` | invoices, maintenance | second tenant |
-| `tenant3@haya.test` | invoices | third tenant |
+| `tenant1@atriomwalk.test` | invoices, payments, maintenance | Café Crema, unit A-01 — richest data, use this one |
+| `tenant2@atriomwalk.test` | invoices, maintenance | second tenant |
+| `tenant3@atriomwalk.test` | invoices | third tenant |
 
 **Smoke test:**
 ```bash
 curl -X POST https://<host>/api/v1/auth/login \
   -H "Content-Type: application/json" -H "Accept: application/json" \
-  -d '{"email":"tenant1@haya.test","password":"password"}'
+  -d '{"email":"tenant1@atriomwalk.test","password":"password"}'
 # → { "data": [ {lease...} ], "accessToken": "…", "tokenType": "Bearer", "message": "Login successful" }
 ```
 Then send `Authorization: Bearer <accessToken>` on any `/me/*` endpoint.
@@ -55,12 +55,12 @@ reset is the **two-step** email-link flow (not a single tokenless call) — see 
 You are building the app for a **tenant** — a business that rents a unit in a
 mall. Here's the world they live in, and it's all they can ever see:
 
-- An **Operator** (e.g. *Jawad Developments*) owns one or more **Assets** (malls, e.g. *Haya Walk*).
+- An **Operator** (e.g. *Jawad Developments*) owns one or more **Assets** (malls, e.g. *Atriom Walk*).
 - An **Asset** contains **Units** (shops, e.g. `A-01`).
 - A **Tenant** signs a **Lease** for a Unit. A tenant usually has exactly one active lease.
 - A **Lease** carries **Charges** (base rent, service charge, parking, …). Each month the mall runs billing and every active charge on the lease becomes a line on one monthly **Invoice**.
 - A tenant settles invoices with **Payments**. One payment can be split across several invoices — each split is an **allocation** (`allocated_amount`).
-- A tenant can raise **Requests** of any type (maintenance, complaint, inquiry, access, billing query, document request, …) against their unit, comment on them, cancel one that hasn't been started, and rate one once it's resolved. (The endpoints are still under `/me/maintenance-requests` for back-compat.)
+- A tenant can raise **Requests** of any type (maintenance, complaint, inquiry, access, billing query, document request, …) against their unit, comment on them, cancel one that hasn't been started, and rate one once it's resolved. (⚠️ **Breaking, 2026-07-19:** these endpoints moved from `/me/maintenance-requests` to `/me/requests`. There is **no alias** — the old paths `404`.)
 - Some retail/F&B leases have **percentage rent**: the tenant must declare their monthly **Sales** (a **Sales Declaration**); when staff *lock* it, the system creates a "percentage rent" charge that lands on next month's invoice.
 
 **The golden rule of this API:** a tenant only ever sees their own data. Every
@@ -183,13 +183,13 @@ Legend: 🔓 public · 🔒 requires `Authorization: Bearer`.
 #### 🔓 `POST /auth/login`
 ```json
 // request — deviceName is optional (defaults to the User-Agent)
-{ "email": "tenant1@haya.test", "password": "secret", "deviceName": "Khaled's iPhone 16" }
+{ "email": "tenant1@atriomwalk.test", "password": "secret", "deviceName": "Khaled's iPhone 16" }
 ```
 ```json
 // 200 — data is ALWAYS an array of leases; the token is at the top level
 {
   "data": [
-    { "id": 1, "name": "John Doe", "shop": "Acme Co", "mall": "Haya Walk",
+    { "id": 1, "name": "John Doe", "shop": "Acme Co", "mall": "Atriom Walk",
       "unitNumber": "A-01", "startDate": "2026-01-01T00:00:00.000Z",
       "endDate": "2027-12-31T00:00:00.000Z", "isActive": true }
   ],
@@ -226,7 +226,7 @@ password is weak / matches the old one.
 
 #### 🔓 `POST /auth/forgot-password`
 ```json
-{ "email": "tenant1@haya.test" }
+{ "email": "tenant1@atriomwalk.test" }
 ```
 → Always `200 { "message": "If that email is registered, a reset link has been sent." }`
 (generic by design — no enumeration). `429` if throttled. The email contains a
@@ -234,7 +234,7 @@ deep link (`APP_MOBILE_RESET_URL?token=…&email=…`) the app should handle.
 
 #### 🔓 `POST /auth/reset-password`
 ```json
-{ "token": "<from email link>", "email": "tenant1@haya.test", "password": "NewPass-1", "passwordConfirmation": "NewPass-1" }
+{ "token": "<from email link>", "email": "tenant1@atriomwalk.test", "password": "NewPass-1", "passwordConfirmation": "NewPass-1" }
 ```
 → `200 { "message": "Password has been reset. You can now sign in." }`. Revokes
 **all** the tenant's tokens. `422` if the token is invalid/expired or the
@@ -285,7 +285,7 @@ doesn't fan out to balance + maintenance + declarations + notifications.
   "totalMonthlyAmount": 12000.00, "currency": "EGP",
   "hasPercentageRent": true, "percentageRentRate": 5.00,
   "unit": { "id": 4, "code": "A-01", "floor": "G", "category": "retail",
-    "areaSqm": 120.00, "asset": { "id": 1, "name": "Haya Walk", "code": "HW" } } } ] }
+    "areaSqm": 120.00, "asset": { "id": 1, "name": "Atriom Walk", "code": "AW" } } } ] }
 ```
 
 ---
@@ -402,9 +402,9 @@ Pass `?unread=1` for unread only.
 
 ---
 
-### 4.7 Maintenance requests
+### 4.7 Requests (tenant requests — any type)
 
-#### 🔒 `GET /me/maintenance-requests` — paginated, newest first
+#### 🔒 `GET /me/requests` — paginated, newest first
 Query: `status`, `page`, `per_page`.
 ```json
 { "data": [ { "id": 12, "reference": "MR-AW-2026-0012", "requestType": "maintenance",
@@ -427,11 +427,15 @@ none). Use **`canCancel`** to show/hide the cancel button (true only while
 `submitted`/`acknowledged`) and **`canRate`** to show the rating prompt (true
 once `resolved`/`closed`).
 
-#### 🔒 `POST /me/maintenance-requests` — submit (any request type)
+#### 🔒 `POST /me/requests` — submit (any request type)
 ```json
 { "requestType": "complaint", "title": "Loud music next door",
   "description": "...", "category": "noise", "priority": "high", "unitId": 4 }
 ```
+Send as **`multipart/form-data`** when attaching photos/PDFs (`attachments[]`,
+1–5 files, image or PDF, ≤10 MB each); plain JSON is fine when there are none.
+camelCase field names work in **both** encodings.
+
 `requestType` is optional and defaults to `maintenance` (so older builds that
 only send `category` keep working). `category` is required for types that define
 sub-categories (maintenance, access, document, complaint) and must be one of
@@ -440,22 +444,22 @@ that type's values; types without sub-categories (inquiry, billing) omit it.
 provided it must be a unit on one of *your* leases (else `422`). → `201` with
 the created request, auto-routed to the type's default team, which is notified.
 
-#### 🔒 `GET /me/maintenance-requests/{id}` — detail with public comment thread
+#### 🔒 `GET /me/requests/{id}` — detail with public comment thread
 Adds `comments: [{ id, body, authorKind: "tenant"|"staff", authorName, createdAt }]`.
 **Internal staff notes are never returned.** Staff identities are shown
 generically as "Property team".
 
-#### 🔒 `POST /me/maintenance-requests/{id}/comments`
+#### 🔒 `POST /me/requests/{id}/comments`
 ```json
 { "body": "Any update on this?" }
 ```
 → `201` with the created comment.
 
-#### 🔒 `POST /me/maintenance-requests/{id}/cancel`
+#### 🔒 `POST /me/requests/{id}/cancel`
 No body. → `200` with the cancelled request. `422` if work has already started
 (status past `acknowledged`).
 
-#### 🔒 `POST /me/maintenance-requests/{id}/rate` — satisfaction (CSAT)
+#### 🔒 `POST /me/requests/{id}/rate` — satisfaction (CSAT)
 ```json
 { "rating": 5, "comment": "Fast and tidy, thank you." }
 ```
@@ -542,12 +546,12 @@ calling it again with a refreshed token replaces, never stacks. → `201`.
 |---|---|
 | Login / first-run | `POST /auth/login`, `POST /auth/change-password` |
 | Forgot password | `POST /auth/forgot-password` → `POST /auth/reset-password` |
-| Home / dashboard | `GET /me/balance`, `GET /me/maintenance-requests?status=…` |
+| Home / dashboard | `GET /me/balance`, `GET /me/requests?status=…` |
 | Invoices list / detail | `GET /me/invoices`, `GET /me/invoices/{id}` |
 | Invoice PDF / share | `GET /me/invoices/{id}/pdf` |
 | Statement | `GET /me/statement` |
 | Payments | `GET /me/payments`, `GET /me/payments/{id}` |
-| Maintenance | `GET/POST /me/maintenance-requests`, `GET /{id}`, `POST /{id}/comments`, `POST /{id}/cancel` |
+| Maintenance | `GET/POST /me/requests`, `GET /{id}`, `POST /{id}/comments`, `POST /{id}/cancel` |
 | Sales declarations | `GET/POST /me/sales-declarations`, `GET /{id}`, `GET /{id}/attachments/{media}` |
 | Profile / settings | `GET /me`, `PATCH /me`, `GET /me/leases` |
 | App launch (push) | `POST /me/devices`; on logout: `DELETE /me/devices/{id}` |

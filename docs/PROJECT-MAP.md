@@ -117,8 +117,8 @@ bilingual, RTL) · `tests/` (Feature/Unit + `e2e/` Playwright) · `docs/`.
 - **Invoices:** `me/invoices[/{id}[/pdf]] · me/statement · …/paymob-session · …/pay-demo`
 - **Payments / Credit notes:** `me/payments[/{id}] · me/credit-notes[/{id}]`
 - **Notifications:** `me/notifications · …/unread-count · …/read-all · …/{id}/read`
-- **Requests:** `me/maintenance-requests` CRUD + `…/{id}/comments · /cancel · /rate · /attachments/{media}`
-- **Sales declarations:** `me/sales-declarations[/{id}]` · **Devices:** `me/devices[/{id}]`
+- **Requests:** `me/requests` CRUD + `…/{id}/comments · /cancel · /rate · /attachments/{media}`
+- **Sales declarations:** `me/sales-declarations[/{id}[/attachments/{media}]]` · **Devices:** `me/devices[/{id}]`
 
 ### `routes/console.php` — scheduled automation (need cron + a queue worker in prod)
 The live list is in the generated census above. Note that **`billing:run-monthly` and

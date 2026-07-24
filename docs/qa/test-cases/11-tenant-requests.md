@@ -20,8 +20,8 @@ Roles — admin: `manager · operations · accounting · leasing · viewer`; por
 | 5 | Type immutability | Open an existing request for edit | manager | Request Type is **disabled** (can't change after creation) | | |
 | 6 | Portal intake | Tenant submits a **complaint** (sub-category noise) | tenant-admin | Created; appears in "My Requests"; team notified | | |
 | 7 | Portal gating | Read-only portal user tries to create | tenant-staff | Create action **not available** | | |
-| 8 | Mobile API | `POST /me/maintenance-requests` with `requestType:"access"`, `category:"parking"` | tenant | `201`; `requestType=access`; reference `AR-…` | | |
-| 9 | API back-compat | `POST /me/maintenance-requests` with only `category` (no requestType) | tenant | `201`; defaults to `maintenance` (old app keeps working) | | |
+| 8 | Mobile API | `POST /me/requests` with `requestType:"access"`, `category:"parking"` | tenant | `201`; `requestType=access`; reference `AR-…` | | |
+| 9 | API back-compat | `POST /me/requests` with only `category` (no requestType) | tenant | `201`; defaults to `maintenance` (old app keeps working) | | |
 | 10 | API validation | Complaint with a maintenance sub-category (`electrical`) | tenant | `422` — sub-category not valid for this type | | |
 | 11 | State machine | Move submitted → resolved directly (illegal hop) via Change Status | operations | Rejected; only legal transitions offered | | |
 | 12 | Terminal immutability | Edit / re-route / assign a **closed** request | operations | Actions hidden; service refuses to mutate | | |

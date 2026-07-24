@@ -57,10 +57,14 @@ class TenantRequestResource extends JsonResource
             // upload, so the app never receives a type it can't preview.
             'attachments' => $this->whenLoaded('media', fn () => $this->getMedia('attachments')
                 ->map(fn ($media) => [
-                    'id' => $media->id,
+                    // id + size are cast explicitly: the media model's props are
+                    // untyped, so Scramble published them as `string` while the
+                    // wire carried ints — the client decoded `as String` and
+                    // threw, taking the whole request list down with it.
+                    'id' => (int) $media->id,
                     'name' => $media->file_name,
                     'mime_type' => $media->mime_type,
-                    'size' => $media->size,
+                    'size' => (int) $media->size,
                     // Authenticated, tenant-scoped stream — NOT a public URL (H2).
                     'url' => route('api.v1.me.requests.attachment', ['id' => $this->id, 'media' => $media->id]),
                 ])
