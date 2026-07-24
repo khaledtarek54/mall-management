@@ -33,8 +33,11 @@ DEMO_USER_PASSWORD=<rotated>    # rotate or delete demo accounts before exposing
 SANCTUM_TOKEN_EXPIRATION=43200  # 30 days (mobile)
 SECURITY_FORCE_2FA_ROLES="super_admin,manager,accounting,leasing,operations,hr"
 
-MAIL_MAILER=smtp                # + MAIL_HOST/PORT/USERNAME/PASSWORD/ENCRYPTION + MAIL_FROM_* ; set SPF/DKIM
+MAIL_MAILER=mailersend          # + MAILERSEND_API_KEY + MAIL_FROM_ADDRESS on the verified domain
+MAIL_ALWAYS_TO=                 # MUST stay empty in prod (ignored there anyway) — see below
 ```
+
+**Outbound email** runs on MailerSend's HTTPS API (`mailersend/laravel-driver`) — no SMTP egress rules, no long-lived socket, and the API token is scoped to sending only. Setup: verify the sending domain in the MailerSend dashboard (Domains → add → publish the SPF/DKIM/Return-Path DNS records), issue a token with Email send permission, then set `MAILERSEND_API_KEY` and a `MAIL_FROM_ADDRESS` **on that verified domain** — any other domain 422s with `#MS42207`. Verify with `php artisan integrations:check --mail` (reads the sending quota, sends nothing) then `php artisan mail:test you@example.com` (sends one real message, inline, not queued). Trial plans also cap *unique recipients* (`#MS42225`) until the account is approved in the dashboard. `MAIL_ALWAYS_TO` redirects **every** outgoing email to one inbox so the fake `@*.test` demo addresses don't hard-bounce off the live provider — it is ignored when `APP_ENV=production` so it can never silently swallow tenant mail. To keep mail entirely on the box, set `MAIL_MAILER=log`.
 
 Integration creds (see ETA-PAYMOB-CERTIFICATION.md): `PAYMOB_*` (live, after KYC), `ETA_*` (live + `ETA_MOCK=false` + signing cert), Apple Pay (`PAYMOB_APPLE_PAY_INTEGRATION_ID` + domain file).
 
@@ -114,7 +117,7 @@ php artisan marketing:ensure-budgets    # provision current-year budgets
 php artisan billing:reconcile           # books tie out (AR + marketing + CAM) — exits non-zero on drift
 vendor/bin/pest --parallel              # full suite green
 ```
-Then: Paymob KYC done + live keys + prod callback URLs registered; ETA signing cert installed + `ETA_MOCK=false` tested against preprod; SMTP sends a real test email; accountant has signed off [BUSINESS-RULES.md](BUSINESS-RULES.md).
+Then: Paymob KYC done + live keys + prod callback URLs registered; ETA signing cert installed + `ETA_MOCK=false` tested against preprod; `php artisan mail:test` lands in a real inbox from the verified domain; accountant has signed off [BUSINESS-RULES.md](BUSINESS-RULES.md).
 
 ---
 

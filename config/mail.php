@@ -65,6 +65,15 @@ return [
             'transport' => 'resend',
         ],
 
+        // MailerSend HTTPS API (mailersend/laravel-driver). Preferred over SMTP:
+        // no long-lived socket, no port-25/587 egress rules, and the API key is
+        // scoped to sending only. Credentials come from config/mailersend-driver.php
+        // (MAILERSEND_API_KEY); the from-address domain must be VERIFIED in the
+        // MailerSend account or every send 422s with #MS42207.
+        'mailersend' => [
+            'transport' => 'mailersend',
+        ],
+
         'sendmail' => [
             'transport' => 'sendmail',
             'path' => env('MAIL_SENDMAIL_PATH', '/usr/sbin/sendmail -bs -i'),
@@ -114,5 +123,19 @@ return [
         'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Non-production Catch-all Recipient
+    |--------------------------------------------------------------------------
+    |
+    | When set (and APP_ENV is not production) every outgoing email is
+    | redirected here instead of its real recipient — see AppServiceProvider.
+    | Keeps the fake @*.test demo addresses from hard-bouncing off the live
+    | mail provider while you exercise real flows.
+    |
+    */
+
+    'always_to' => env('MAIL_ALWAYS_TO'),
 
 ];

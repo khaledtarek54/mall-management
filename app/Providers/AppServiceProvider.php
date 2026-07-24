@@ -17,6 +17,7 @@ use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Number;
 use Illuminate\Support\ServiceProvider;
@@ -79,6 +80,8 @@ class AppServiceProvider extends ServiceProvider
             \App\Support\LedgerRealtimeSync::register();
         }
 
+        $this->configureMailCatchAll();
+
         // Register the 'push' notification channel (FCM via the bound PushSender).
         // Always registered so a notification with 'push' in its via() resolves
         // even when push is disabled (the NullPushSender just no-ops).
@@ -111,5 +114,28 @@ class AppServiceProvider extends ServiceProvider
             PanelsRenderHook::FOOTER,
             fn (): string => view('branding.powered-by')->render(),
         );
+    }
+
+    /**
+     * Outside production, redirect EVERY outgoing email to MAIL_ALWAYS_TO instead
+     * of its real recipient. Demo/seed data is full of fake tenant addresses
+     * (@atriomwalk.test …); pointed at a live provider those all hard-bounce, burn
+     * the daily sending quota, and cost the sending domain reputation.
+     *
+     * The production guard is deliberate, not defensive: a stray MAIL_ALWAYS_TO on
+     * the live box would silently swallow every tenant's invoice mail.
+     *
+     * Public so it can be exercised in isolation — re-running the whole boot()
+     * would re-register observers and render hooks.
+     */
+    public function configureMailCatchAll(): void
+    {
+        if ($this->app->environment('production')) {
+            return;
+        }
+
+        if (filled($to = config('mail.always_to'))) {
+            Mail::alwaysTo($to);
+        }
     }
 }

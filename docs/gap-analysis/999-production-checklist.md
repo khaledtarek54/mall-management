@@ -56,10 +56,12 @@
 
 ## 7. Mail
 
-- [ ] `MAIL_MAILER=smtp` (or sendmail/api driver for the chosen provider)
-- [ ] `MAIL_HOST/PORT/USERNAME/PASSWORD/ENCRYPTION` set
-- [ ] `MAIL_FROM_ADDRESS` is a real mailbox for the operator's domain
-- [ ] Test send via `Mail::raw(...)` from tinker; verify SPF/DKIM at the DNS layer
+- [ ] `MAIL_MAILER=mailersend` (the shipped driver) — or `smtp`/`log` if the provider changes
+- [ ] `MAILERSEND_API_KEY` set to a token with Email send permission
+- [ ] `MAIL_FROM_ADDRESS` is a real mailbox on a domain **verified** in MailerSend (else `#MS42207`)
+- [ ] MailerSend account approved — trial plans cap unique recipients (`#MS42225`)
+- [ ] `MAIL_ALWAYS_TO` empty (it is ignored in production, but leave no misleading value)
+- [ ] `php artisan integrations:check --mail` passes, then `php artisan mail:test <inbox>` lands; verify SPF/DKIM at the DNS layer
 - [ ] Decide whether InvoiceIssued mail attaches the PDF (D-16 / F-23)
 
 ## 8. Sanctum / API
