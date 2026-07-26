@@ -27,6 +27,11 @@ class InvoiceJournalizer implements Journalizer
         'late_fee' => 'late_fee_income',
         'cam_recovery' => 'cam_recovery_revenue',
         'cam_admin_fee' => 'cam_admin_fee_revenue',
+        // A violation fine is a penalty, not consideration for a supply — it books to miscellaneous
+        // (non-operating) income, and it is VAT-exempt (out of scope), unlike a service recharge.
+        // Mapped explicitly (not left to the misc_income fallback) so it's intentional + reportable;
+        // the accountant can reclassify to a dedicated penalty-income account later.
+        'violation_fine' => 'misc_income',
     ];
 
     public function __construct(private AccountResolver $accounts) {}

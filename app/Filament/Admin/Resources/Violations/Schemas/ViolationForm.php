@@ -21,7 +21,9 @@ class ViolationForm
                 // Scoped to the user's visible properties (never leaks another mall).
                 ->options(fn () => TenantScope::selectableAssetOptions())
                 ->default(fn () => TenantScope::currentAssetId())
-                ->disabled(fn () => TenantScope::currentAssetId() !== null)
+                // Locked to the current property, and additionally frozen once the fine is billed (the
+                // invoice's property is fixed by the resolved lease).
+                ->disabled(fn (?Violation $record) => TenantScope::currentAssetId() !== null || ($record?->isBilled() ?? false))
                 ->dehydrated()
                 ->required()
                 ->live()
@@ -40,6 +42,9 @@ class ViolationForm
                 ->searchable()
                 ->preload()
                 ->required()
+                // The tenant is the invoice's debtor once billed — lock it so an edit can't re-point a
+                // live fine invoice at a different tenant.
+                ->disabled(fn (?Violation $record) => $record?->isBilled() ?? false)
                 ->native(false),
 
             Select::make('category')
@@ -72,11 +77,14 @@ class ViolationForm
             TextInput::make('fine_amount')
                 ->label(__('admin.violations.fields.fine_amount'))
                 ->helperText(__('admin.violations.fine_amount_hint'))
-                // FR-REQ-15: record the associated cost/fine. Optional (a violation
-                // may carry no fine) and non-negative. Recorded only — never billed.
+                // FR-REQ-15: record the associated cost/fine. Optional (a violation may carry no
+                // fine) and non-negative.
                 ->numeric()
                 ->minValue(0)
-                ->prefix('EGP'),
+                ->prefix('EGP')
+                // Once the fine is billed, the amount is fixed by the issued invoice — editing it here
+                // would silently diverge the record from the AR. Cancel the invoice to change it.
+                ->disabled(fn (?Violation $record) => $record?->isBilled() ?? false),
 
             DatePicker::make('violation_date')
                 ->label(__('admin.violations.fields.violation_date'))

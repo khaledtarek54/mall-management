@@ -11,23 +11,21 @@
 ## 1. Purpose & business context
 
 Eltizam's on-site teams need to log when a tenant breaks a mall rule and, where
-applicable, the **fine** they assessed for it. This module is a **register**, not
-a billing document: it captures *what happened* and *how much was charged as a
-fine* so the operator has an auditable record and can formally notify the tenant.
-
-Scope is deliberately tight — the three FRD lines and nothing more:
+applicable, the **fine** they assessed for it. The module is first a **register** —
+it captures *what happened* and *how much was charged as a fine* so the operator has
+an auditable record and can formally notify the tenant — and can then **bill** that
+fine to the tenant as AR on an explicit operator action.
 
 | FR | What it asks | How this module answers it |
 |---|---|---|
-| **FR-REQ-15** | record a violation against a tenant, incl. an associated cost/fine | `violations` row + nullable `fine_amount` — **recorded, not billed** |
+| **FR-REQ-15** | record a violation against a tenant, incl. an associated cost/fine | `violations` row + nullable `fine_amount` |
 | **FR-REQ-16** | violations viewable by authorized staff | property-scoped, RBAC-gated Filament resource |
 | **FR-REQ-17** | send violation notices to the relevant tenant | an explicit **"Send notice"** record action (never on create) |
+| *(completion)* | actually charge the fine | an explicit **"Bill fine"** action → a VAT-exempt AR invoice (see §5) |
 
-> **Deliberately NOT built (follow-ups, like the deferred tenant-repair recharge):**
-> auto-billing the fine (no Invoice / Charge / InvoiceItem / GL entry is created —
-> `fine_amount` is a recorded number), and any workflow richer than `open` /
-> `resolved`. If a future slice bills the fine, it must go through the normal AR
-> path (a `Charge` on the lease), not this register.
+> **Deliberately NOT built:** auto-billing on create (billing is always an explicit
+> operator act, never a side effect of recording), and any workflow richer than
+> `open` / `resolved`.
 
 ## 2. Domain model
 
@@ -42,6 +40,8 @@ Scope is deliberately tight — the three FRD lines and nothing more:
 | `violation_date` | date, **required**, not in the future. |
 | `status` | string, `open` / `resolved`, DB default `open` **and** model `$attributes` default `open` (a blank Select must never send `null` into the NOT-NULL column). |
 | `notified_at` | timestamp, nullable — **when the tenant notice was sent** (FR-REQ-17). Null until the operator sends it. |
+| `billed_invoice_id` | FK → `invoices`, nullable, `nullOnDelete` — the fine invoice this violation produced (the once-only + traceability anchor). Null until billed. |
+| `billed_at` | timestamp, nullable — when the fine invoice was issued. |
 | `notes` | nullable text. |
 | `created_by_user_id` | FK → `users`, nullable, `nullOnDelete` — who recorded it (stamped on create). |
 | soft deletes | trashed rows retained for history; Delete/Restore/ForceDelete on the Edit page. |
@@ -54,10 +54,15 @@ with `useLogName('violation')`.
 
 ## 3. Business rules & invariants
 
-- **Record the fine, do NOT bill it.** `fine_amount` is a recorded number. This
-  module never creates an Invoice / Charge / InvoiceItem / GL entry — the money
-  path is untouched. (`ViolationScenarioTest` asserts the invoice/charge/item
-  counts are unchanged after recording a fined violation.)
+- **Recording is not billing.** Creating a violation touches no Invoice / Charge /
+  GL entry — `fine_amount` is a recorded number until an operator explicitly bills
+  it. (`ViolationScenarioTest` asserts the invoice/charge/item counts are unchanged
+  after *recording* a fined violation.)
+- **Billing is explicit + once-only.** The **"Bill fine"** action issues a single
+  VAT-exempt AR invoice (a `violation_fine` line → misc_income) and stamps
+  `billed_invoice_id`; `isBilled()` then blocks a second bill and locks the
+  fine/tenant/property fields (see §5). A fine can only be re-billed after its
+  invoice is **cancelled** (which voids the GL entry) — never after `credited`.
 - **The notice is explicit.** `notified_at` is stamped only by the **"Send notice"**
   action, never on create. FR-REQ-17 is "support *sending*" — an operator act.
 - **Minimal lifecycle.** `open` → `resolved`. No invented workflow.
@@ -90,7 +95,31 @@ a soft-deleted tenant) or a throwing send is logged via `OpsLog` and reported as
 an un-sent notice — never a 500 — and `notified_at` is left null so the operator
 can retry. `notified_at` is stamped only on a successful send.
 
-No scheduled command — nothing auto-fires here.
+**`App\Services\BillViolationFineService`** — `bill(Violation): Invoice` recharges a
+recorded fine to the tenant. Mirrors the utility-recharge / CAM immediate-billing pattern:
+- Issues a **dedicated invoice NOW**, dated (`period_start/end`) to the violation month,
+  carrying a single `violation_fine` line → `misc_income` (42101001) via the existing
+  `InvoiceJournalizer`. `violation_fine` is excluded from `MonthlyBillingService`'s
+  already-billed probe so a fine dated to the current month can't suppress that lease's
+  base rent (the revenue-leak class fixed for % rent / utility).
+- **VAT-EXEMPT.** A fine is a penalty, not consideration for a supply, so it is out of VAT
+  scope (0%) — unlike a service recharge (14%). *Accountant-confirmable; misc_income is a
+  reclassifiable default (a dedicated penalty-income account can replace it later).*
+- **Lease resolution.** AR needs a lease, so it bills the tenant's **active lease in the
+  violation's property** — keeping the AR scoped to the mall the violation happened in.
+  No active lease there ⇒ a clear refusal (a runtime toast, since it's dynamic).
+- **Idempotent + lock-safe.** Re-reads the violation under `lockForUpdate`; an already-billed
+  violation returns its invoice untouched. **Only a cancelled invoice** (whose GL entry is
+  voided) frees the fine to re-bill — a credited invoice keeps its posting, so re-billing
+  would double-count `misc_income`.
+
+Dispatched from the **"Bill fine"** record action (triple-gated: `visible()` + `authorize()` +
+`abort_unless`, all on `ViolationResource::canBillFine`, which requires `invoices.create`; a
+`DomainException` surfaces as a toast, never a 500). Once billed, `ViolationForm` locks the
+`fine_amount` / `tenant_id` / `asset_id` fields (they define the issued invoice) — cancel the
+invoice to change them.
+
+No scheduled command — nothing auto-fires here; billing is always operator-initiated.
 
 ## 6. Filament fields & validation
 
@@ -190,6 +219,14 @@ No auto-billing, no GL, no ETA — this module touches none of the money paths.
   bell+push, no email; it is a safe no-op / contained on a missing recipient; and
   it is blocked for a role lacking `violations.notify`, dispatched via
   `mountAction` (not `callAction`, the project's false-pass gotcha).
+
+`tests/Feature/Regression/ViolationFineBillingTest.php` — the fine-billing path: a fine bills as a
+**VAT-exempt** `violation_fine` invoice + stamps the violation; idempotent (no double-charge); refuses
+with no fine / no active lease; posts to **misc_income** and ties AR out **through the real
+`accounting:sync-ledger` sweep**; a fine invoice does **NOT** suppress that month's base rent in the
+monthly run; a **credited** invoice can't be re-billed but a **cancelled** one can; `canBillFine` is
+gated on `invoices.create` and hidden once billed; and a billed violation refuses **force-delete**
+(audit-link protection) while still allowing a reversible soft-delete.
 
 Plus the standing gates: `PropertyIsolationConformanceTest` (classification +
 scope + guard), `AdminSmokeManifestConformanceTest` (regenerate with

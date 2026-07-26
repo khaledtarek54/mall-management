@@ -22,11 +22,13 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  * Invoice / Lease — the tenant may lease in several malls; the violation is
  * pinned to the mall where it happened).
  *
- * SCOPE. `fine_amount` RECORDS the money assessed (FR-REQ-15) — it is not billed:
- * this model never touches Invoice / Charge / GL. `notified_at` records when the
- * operator sent the tenant a notice (FR-REQ-17); the notice is an explicit
- * action ({@see \App\Services\SendViolationNoticeAction}), never on create. The
- * lifecycle is intentionally minimal: `open` → `resolved`.
+ * `fine_amount` RECORDS the money assessed (FR-REQ-15). It is billed to the tenant ONLY by an
+ * explicit "Bill fine" action ({@see \App\Services\BillViolationFineService}) — never on create —
+ * which issues a normal AR invoice (a VAT-exempt `violation_fine` line → misc_income) and stamps
+ * `billed_invoice_id`. Recording a violation still touches no Invoice/GL; the money only enters the
+ * books when the operator chooses to bill it. `notified_at` records when the operator sent the
+ * tenant a notice (FR-REQ-17), also an explicit action ({@see \App\Services\SendViolationNoticeAction}).
+ * The lifecycle is intentionally minimal: `open` → `resolved`.
  */
 class Violation extends Model implements HasMedia
 {
@@ -73,12 +75,15 @@ class Violation extends Model implements HasMedia
         'notified_at',
         'notes',
         'created_by_user_id',
+        'billed_invoice_id',
+        'billed_at',
     ];
 
     protected $casts = [
         'fine_amount' => 'decimal:2',
         'violation_date' => 'date',
         'notified_at' => 'datetime',
+        'billed_at' => 'datetime',
     ];
 
     /**
@@ -130,14 +135,46 @@ class Violation extends Model implements HasMedia
         return $this->belongsTo(User::class, 'created_by_user_id');
     }
 
+    /** The fine invoice this violation produced (null until billed). */
+    public function billedInvoice(): BelongsTo
+    {
+        return $this->belongsTo(Invoice::class, 'billed_invoice_id');
+    }
+
     /** True once a tenant notice has been sent (FR-REQ-17). */
     public function isNotified(): bool
     {
         return $this->notified_at !== null;
     }
 
+    /**
+     * Billed = it produced a fine invoice that still posts revenue. ONLY a cancelled invoice frees
+     * the fine to re-bill — cancelling is the one status that voids the GL entry; a credited invoice
+     * keeps its AR + misc_income posting, so re-billing it would double-count (the exact asymmetry
+     * fixed for utility recharge in module 10).
+     */
+    public function isBilled(): bool
+    {
+        $invoice = $this->billedInvoice;
+
+        return $invoice instanceof Invoice && $invoice->status !== 'cancelled';
+    }
+
     public function scopeOpen(Builder $query): Builder
     {
         return $query->where('status', self::STATUS_OPEN);
+    }
+
+    protected static function booted(): void
+    {
+        // A billed violation is the origin of a live AR invoice. Force-deleting it would hard-remove
+        // the row and sever the audit link to that invoice (which survives, along with its GL entry).
+        // Refuse it — cancel the fine invoice first (which frees isBilled). Soft-delete stays allowed:
+        // it's reversible and keeps billed_invoice_id on the trashed row.
+        static::forceDeleting(function (self $violation) {
+            if ($violation->isBilled()) {
+                return false;
+            }
+        });
     }
 }

@@ -379,7 +379,9 @@ class MonthlyBillingService
             // invoice is dated to the CONSUMPTION month, which overlaps this probe's window — without
             // the exclusion a recharged month would read as "already billed" and the monthly run would
             // silently skip that lease's BASE RENT (the revenue-leak class fixed for % rent).
-            ->whereDoesntHave('items', fn ($q) => $q->whereIn('type', ['percentage_rent', 'cam_recovery', 'cam_admin_fee', 'utility']))
+            // 'violation_fine' joins for the same reason: a standalone fine invoice is dated to the
+            // violation's month and would otherwise suppress that lease's base rent.
+            ->whereDoesntHave('items', fn ($q) => $q->whereIn('type', ['percentage_rent', 'cam_recovery', 'cam_admin_fee', 'utility', 'violation_fine']))
             ->exists();
     }
 

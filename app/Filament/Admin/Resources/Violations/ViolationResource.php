@@ -79,6 +79,21 @@ class ViolationResource extends Resource
         return static::hasPermission('notify');
     }
 
+    /**
+     * Whether the current user may bill this violation's fine to the tenant. Gated on `invoices.create`
+     * (it issues AR, like the utility recharge), and only offered for a fined, not-yet-billed
+     * violation. Named once so the table action gates the SAME predicate in visible() (UI) and
+     * action()/authorize() (the real dispatch gate) — they can't drift. (A missing active LEASE is
+     * dynamic, so it stays a runtime toast, not a hidden button.)
+     */
+    public static function canBillFine(Violation $record): bool
+    {
+        return $record->fine_amount !== null
+            && (float) $record->fine_amount > 0
+            && ! $record->isBilled()
+            && (auth()->user()?->can('invoices.create') ?? false);
+    }
+
     public static function getNavigationLabel(): string
     {
         return __('admin.violations.plural');

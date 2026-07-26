@@ -1843,6 +1843,7 @@ return [
             'late_fee' => 'Late Fee',
             'cam_recovery' => 'CAM Recovery',
             'cam_admin_fee' => 'CAM Admin Fee',
+            'violation_fine' => 'Violation Fine',
             'other' => 'Other',
         ],
         'cam_cap_type' => [
@@ -2810,6 +2811,14 @@ return [
         'notice_sent' => 'Violation notice sent to the tenant.',
         'notice_failed' => 'The violation notice could not be sent. It has been logged; please retry.',
         'send_notice_confirm' => 'Send a notice of this violation to the tenant?',
+        'not_billed' => 'Not billed',
+        'bill_fine_confirm' => 'Bill this :amount fine to :tenant now? This issues a VAT-exempt invoice against their active lease in this property. A fine can only be billed once.',
+        'fine_billed' => 'Fine billed',
+        'fine_billed_body' => 'Invoice :number issued — :total.',
+        'fine_line' => 'Violation fine :reference (:category) — :date',
+        'bill_failed_missing' => 'The violation could not be found.',
+        'bill_failed_no_fine' => 'This violation has no fine amount to bill.',
+        'bill_failed_no_lease' => 'The tenant has no active lease in this property to bill the fine against.',
         'fields' => [
             'reference' => 'Reference',
             'property' => 'Property',
@@ -2819,6 +2828,7 @@ return [
             'photos' => 'Evidence photos',
             'photos_hint' => 'Photos of the breach (blocked exit, unauthorised signage…). Private — visible only to the operator.',
             'fine_amount' => 'Fine',
+            'fine_invoice' => 'Fine invoice',
             'violation_date' => 'Date',
             'status' => 'Status',
             'notified_at' => 'Notice sent',
@@ -2835,6 +2845,7 @@ return [
         ],
         'actions' => [
             'send_notice' => 'Send notice',
+            'bill_fine' => 'Bill fine',
         ],
     ],
     'preventive_maintenance' => [
