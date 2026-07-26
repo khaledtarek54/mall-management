@@ -57,7 +57,7 @@ Ordered dependency-first. Generic-ERP modules (21–25, 28) are out of scope (al
 | 10 | 11/26 | Maintenance (CM + PPM) | ✅ CLOSED | 2026-07-26 | 4-lens sweep on a very mature pair. 1 HIGH money bug (SLA-penalty sub-hour undercharge), owner CM-breach alert, 2 work-order notifications (assigned + raised, FRD MNT-2), authz-hardening + a Filament-premise finding, plan filters. Correctness lens found everything else clean. See closure record |
 | 11 | 12 | Vendors & Contracts | 🟡 Partial | — | COI gate shipped this session; full sweep pending |
 | 12 | 29 | Procurement | ⬜ Not started | — | Round-2 fixed F-100..105 |
-| 13 | 30 | Areas | ⬜ Not started | — | register shipped; routing to follow |
+| 13 | 30 | Areas | ✅ CLOSED | 2026-07-26 | The register + property isolation + **request** routing were already airtight (adversarial-verified: supervisor-scope predicate, unique-rule oracle collapse, post-save re-validation, cross-property `area_id` guard — nothing to fix). The one open follow-up (doc §8, ledger "routing to follow") was **work-order routing to zones**: `maintenance_work_orders.area_id` existed but nothing derived it for CM/manual orders (only PPM, from the plan) and **no work-order path notified the zone's supervisors** (only the assignee). Wired it, mirroring the request pattern: model-level `area_id` derivation in `MaintenanceWorkOrder::creating` (from the linked request, else the unit; only fills a null, never overrides the plan's zone), `NotifyAreaSupervisorsService::notifyWorkOrder` on `created`, and a new `AreaWorkOrderRaisedNotification` (database+push). 5 regressions; a dedicated adversarial review of the new code refuted all 6 hunted bugs (phantom-bell-on-rollback, cross-property derive, override, fail-safety, null-safety, re-entrancy) — clean. Documented the in-transaction-send assumption. **DEFER:** notify only on CM (not PPM) if the fan-out proves noisy. See closure record |
 | 14 | 31 | Violations | ⬜ Not started | — | fine recorded-not-billed |
 | 15 | 03 | Tenant Portal | ⬜ Not started | — | |
 | 16 | 15 | Owner Requests & model | ⬜ Not started | — | |
@@ -107,6 +107,21 @@ park-with-trigger) when its owning module's close-out comes up.
 ## Closure records
 
 _One section per module as it closes, most recent first._
+
+### Module 30 — Areas (facility zones) — CLOSED 2026-07-26
+
+The most-hardened greenfield module in the codebase: the register was built property-isolation-first (BypassesFilamentTenantAutoScope + manual `getEloquentQuery` + `assertAssetInScope` on create/edit; a supervisor-scope predicate `applySupervisorScope` that's the single source for the picker, the post-save re-validation `assertSupervisorsInScope`, and its test; the unique-rule existence-oracle collapsed via `clampAssetId`), and the **request** routing (units → zones → requests → supervisors) shipped with its own adversarial-review follow-ups already baked in. A read of the whole surface found **nothing to fix** there.
+
+The one genuine open item — flagged in the module doc's §8 and the ledger ("routing to follow") — was **work-order routing to zones**. The column `maintenance_work_orders.area_id` existed (and PPM orders carried the plan's zone), but:
+- **nothing derived `area_id`** for CM / manual / Filament work orders — `RaiseCorrectiveMaintenanceService` never set it, so a CM raised from a zoned request came out zone-less; and
+- **no work-order path notified the zone's supervisors** — the `created` hook only pinged the assignee; `NotifyAreaSupervisorsService` handled requests only.
+
+**Built (mirroring the request pattern exactly):**
+- `MaintenanceWorkOrder::creating` derives `area_id` when null — from the linked `tenant_request`'s zone (it already resolved one from its unit), else the order's own `unit`. Model-level, so **every** path inherits it (PPM sweep, CM service, Filament form, factory). Guarded on `area_id === null`, so a PPM order's explicit plan-zone is never overridden.
+- `MaintenanceWorkOrder::created` → `NotifyAreaSupervisorsService::notifyWorkOrder`, sending the new `AreaWorkOrderRaisedNotification` (database + push) to the zone's supervisors. Notify, not assign (WO ownership follows the plan / the CM XOR, not the zone). Fires for PPM + CM; a PPM order reaches its zone supervisors *and* the manager/operations `WorkOrderRaisedNotification`, exactly as a request reaches its zone *and* its department.
+- Refactored the service to a shared, fail-safe `dispatch(?areaId, notification, logContext)` — `notify()` (request) and `notifyWorkOrder()` (work order) both forward into it; request-routing behavior unchanged.
+
+5 regressions (derive-from-unit, derive-from-request, don't-override-plan-zone, notify-supervisors, no-op-when-no-zone/no-supervisor). A dedicated adversarial review of the new code hunted 6 specific failure modes (phantom-bell-on-rollback, cross-property derive, override, fail-safety, larastan/null-safety, re-entrancy) and **refuted every one** — the only substantive note (the `created` send fires inside the PPM/CM transaction, unlike the deliberately post-commit sibling) is safe today (synchronous + database-only; push no-ops for token-less admin Users) and is now documented at the call site with the condition under which to revisit. **DEFER:** scoping the fan-out to CM-only if PPM volume proves noisy.
 
 ### Module 10 — Utility Meters (+ recharge) — CLOSED 2026-07-26
 

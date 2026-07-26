@@ -1199,6 +1199,8 @@ return [
         'portal_maintenance_submitted_body' => ':tenant (unit :unit) submitted: ":title" · priority :priority',
         'area_request_raised_title' => 'New request in :area',
         'area_request_raised_body' => ':type request in your zone: ":title" (unit :unit) · priority :priority',
+        'area_work_order_raised_title' => 'New work order in :area',
+        'area_work_order_raised_body' => 'Work order in your zone: ":title" (unit :unit) · priority :priority',
         'maintenance_comment_staff_title' => 'New tenant comment',
         'maintenance_comment_staff_body' => ':tenant commented on :reference (":title"): :comment',
         'sales_submitted_title' => 'New sales declaration',

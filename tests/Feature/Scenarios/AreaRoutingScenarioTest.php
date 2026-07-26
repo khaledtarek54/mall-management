@@ -4,11 +4,13 @@ use App\Filament\Admin\Resources\Areas\AreaResource;
 use App\Filament\Admin\Resources\Areas\Schemas\AreaForm;
 use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Models\Area;
+use App\Models\MaintenanceWorkOrder;
 use App\Models\Tenant;
 use App\Models\TenantRequest;
 use App\Models\Unit;
 use App\Models\User;
 use App\Notifications\AreaRequestRaisedNotification;
+use App\Notifications\AreaWorkOrderRaisedNotification;
 use App\Services\TenantRequestService;
 use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Support\Facades\Notification;
@@ -210,4 +212,88 @@ it('refuses to tag a unit with a zone from another property, even via a crafted 
     UnitResource::assertAreaInScope($zoneA->id, $mallA->id);
     UnitResource::assertAreaInScope(null, $mallA->id);
     expect(true)->toBeTrue();
+});
+
+/* ---- work-order routing (module 30 → 11): the work-order half of the zone routing ------- */
+
+function makeZoneWorkOrder(int $assetId, array $attrs = []): MaintenanceWorkOrder
+{
+    return MaintenanceWorkOrder::create(array_merge([
+        'asset_id' => $assetId,
+        'work_order_type' => MaintenanceWorkOrder::TYPE_PPM,
+        'title' => 'Filter swap',
+        'category' => 'hvac',
+        'scheduled_for' => '2026-07-01',
+        'status' => 'open',
+    ], $attrs));
+}
+
+it('derives a work order\'s zone from its unit on creation', function () {
+    Notification::fake();
+    $zone = makeZone($this->asset->id);
+    $unit = makeUnit($this->asset, ['area_id' => $zone->id]);
+
+    $order = makeZoneWorkOrder($this->asset->id, ['unit_id' => $unit->id]);
+
+    expect($order->area_id)->toBe($zone->id);
+});
+
+it('derives a work order\'s zone from its linked tenant request (preferred over the unit)', function () {
+    Notification::fake();
+    $unitZone = makeZone($this->asset->id, ['code' => 'FC']);
+    $requestZone = makeZone($this->asset->id, ['code' => 'PKG', 'name' => 'Parking']);
+    // The request carries a DIFFERENT (explicitly-set) zone than the unit — the WO follows the request.
+    $unit = makeUnit($this->asset, ['area_id' => $unitZone->id]);
+    $request = makeZoneRequest($unit, makeTenant(), ['area_id' => $requestZone->id]);
+
+    $order = makeZoneWorkOrder($this->asset->id, [
+        'unit_id' => $unit->id,
+        'tenant_request_id' => $request->id,
+    ]);
+
+    expect($order->area_id)->toBe($requestZone->id);
+});
+
+it('never overrides a work order\'s explicitly-set zone (e.g. the plan\'s area)', function () {
+    Notification::fake();
+    $unitZone = makeZone($this->asset->id, ['code' => 'FC']);
+    $planZone = makeZone($this->asset->id, ['code' => 'ROOF', 'name' => 'Roof Plant']);
+    $unit = makeUnit($this->asset, ['area_id' => $unitZone->id]);
+
+    $order = makeZoneWorkOrder($this->asset->id, [
+        'unit_id' => $unit->id,
+        'area_id' => $planZone->id, // as GeneratePreventiveWorkOrdersService passes the plan's area
+    ]);
+
+    expect($order->area_id)->toBe($planZone->id);
+});
+
+it('notifies the zone supervisors when a work order lands in their area', function () {
+    Notification::fake();
+    $zone = makeZone($this->asset->id);
+    $sup1 = makeUser('operations', [$this->asset->id]);
+    $sup2 = makeUser('operations', [$this->asset->id]);
+    $zone->supervisors()->sync([$sup1->id, $sup2->id]);
+    $unit = makeUnit($this->asset, ['area_id' => $zone->id]);
+
+    makeZoneWorkOrder($this->asset->id, ['unit_id' => $unit->id]);
+
+    foreach ([$sup1, $sup2] as $sup) {
+        Notification::assertSentTo($sup, AreaWorkOrderRaisedNotification::class);
+    }
+});
+
+it('is a safe no-op when the work order has no zone or the zone has no supervisors', function () {
+    Notification::fake();
+    // No zone on the unit → no area, no notification.
+    $unitNoZone = makeUnit($this->asset);
+    makeZoneWorkOrder($this->asset->id, ['unit_id' => $unitNoZone->id]);
+
+    // A zone with no supervisors → derived area, still no notification.
+    $zone = makeZone($this->asset->id, ['code' => 'EMPTY']);
+    $unit = makeUnit($this->asset, ['area_id' => $zone->id]);
+    $order = makeZoneWorkOrder($this->asset->id, ['unit_id' => $unit->id]);
+
+    expect($order->area_id)->toBe($zone->id);
+    Notification::assertNothingSent();
 });

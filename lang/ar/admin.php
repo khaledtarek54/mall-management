@@ -1199,6 +1199,8 @@ return [
         'portal_maintenance_submitted_body' => ':tenant (وحدة :unit) قدّم: ":title" · أولوية :priority',
         'area_request_raised_title' => 'طلب جديد في :area',
         'area_request_raised_body' => 'طلب :type في منطقتك: ":title" (وحدة :unit) · أولوية :priority',
+        'area_work_order_raised_title' => 'أمر عمل جديد في :area',
+        'area_work_order_raised_body' => 'أمر عمل في منطقتك: ":title" (وحدة :unit) · أولوية :priority',
         'maintenance_comment_staff_title' => 'تعليق جديد من المستأجر',
         'maintenance_comment_staff_body' => ':tenant علّق على :reference (":title"): :comment',
         'sales_submitted_title' => 'إقرار مبيعات جديد',

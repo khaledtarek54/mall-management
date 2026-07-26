@@ -1,11 +1,11 @@
 # 30 · Areas (facility zones)
 
 > A facility zone within a mall — Ground Floor, Food Court, Parking, Roof Plant.
-> The building block for **routing**: a unit belongs to a zone, and a tenant
-> request **inherits its unit's zone** on intake, then notifies the zone's
-> **supervisor(s)**. This slice ships the register + the supervisor assignment;
-> the **request routing** (units → zones → requests → supervisors) is now wired
-> (see §7). Work-order routing to zones is still a separate follow-up.
+> The building block for **routing**: a unit belongs to a zone, and both a tenant
+> **request** and a **work order** **inherit that zone** on intake, then notify the
+> zone's **supervisor(s)**. This ships the register + supervisor assignment, the
+> **request routing** (units → zones → requests → supervisors), and now the
+> **work-order routing** (units/requests → zones → work orders → supervisors) — see §7.
 
 ---
 
@@ -69,11 +69,15 @@ routing target once routing lands.
 ## 5. Services & commands
 
 **`App\Services\NotifyAreaSupervisorsService`** — the routing dispatch (added with the
-routing slice). Given a freshly-created `TenantRequest`, it notifies the request's zone
-supervisors (`Area::supervisors`). Idempotent + fail-safe: no zone, a trashed zone, or no
-supervisors is a no-op, and every failure is contained (a bad recipient never breaks
-request creation). It runs **alongside** the request's department routing, not instead of
-it — both fan-outs can fire. See §7.
+routing slice). Two entry points over one shared, fail-safe fan-out (`dispatch()`):
+- `notify(TenantRequest)` — notifies a freshly-created request's zone supervisors.
+- `notifyWorkOrder(MaintenanceWorkOrder)` — notifies a freshly-created work order's zone
+  supervisors (`AreaWorkOrderRaisedNotification`).
+
+Idempotent + fail-safe: no zone, a trashed zone, or no supervisors is a no-op, and every
+failure is contained (a bad recipient never breaks request / work-order creation). Each runs
+**alongside** the record's own routing (a request's department fan-out, a PPM order's
+manager/operations `WorkOrderRaisedNotification`), not instead of it. See §7.
 
 The CRUD register itself has no service; its business logic is the property isolation +
 uniqueness rules enforced by the model, migration, and Filament form.
@@ -100,7 +104,8 @@ count, `is_active` icon; filters for active + trashed; Edit action gated on `can
 
 ## 7. Notifications / integrations — the routing (module 30 → 11)
 
-The zone is the **routing target** for tenant requests. Three pieces wire it:
+The zone is the **routing target** for both tenant requests and work orders. Three pieces wire
+the request path:
 
 1. **A unit belongs to a zone.** `units.area_id` (nullable FK → `areas`, `nullOnDelete`).
    The `UnitForm` picker offers **only the unit's own property's active zones**
@@ -125,13 +130,27 @@ notification (`TenantRequestService::notifyOperators`), the zone's supervisors g
 The `created` model event is the single hook every create path passes through (admin
 Filament never touches `TenantRequestService`), so no channel can skip the routing.
 
+**Work orders route the same way.** `maintenance_work_orders.area_id` is derived in
+`MaintenanceWorkOrder::creating` when null — first from the linked `tenant_request`'s zone
+(it already resolved one from its unit), then from the order's own `unit`. A PPM order arrives
+carrying the plan's zone, so the derivation only **fills a null, never overrides** an explicit
+zone; and because it's model-level, every path (the PPM sweep, `RaiseCorrectiveMaintenanceService`,
+the Filament form, the factory) inherits it. `MaintenanceWorkOrder::created` then calls
+`NotifyAreaSupervisorsService::notifyWorkOrder`, sending `AreaWorkOrderRaisedNotification`
+(database + push) to the zone's supervisors — **notify, not assign** (work-order ownership
+follows the plan or the CM internal-vs-external XOR, not the zone). This fires for both PPM and
+CM orders; a PPM order therefore reaches its zone supervisors *and* the manager/operations
+`WorkOrderRaisedNotification`, exactly as a request reaches both its zone and its department.
+
 ## 8. Extension points (how to change safely)
 
-- **Request routing is wired** (§7): `units.area_id` + `tenant_requests.area_id`, model-level
-  derivation, and `NotifyAreaSupervisorsService`. **Extending to work orders**: add `area_id`
-  to `maintenance_work_orders`, derive it the same way (from the linked request or the
-  equipment/unit), and reuse `NotifyAreaSupervisorsService` (or a peer). Keep `area_id` a
-  nullable FK (`nullOnDelete`) so a retired zone never strands a historical record.
+- **Request + work-order routing are both wired** (§7): `units.area_id`,
+  `tenant_requests.area_id` and `maintenance_work_orders.area_id`, model-level derivation, and
+  `NotifyAreaSupervisorsService` (`notify` / `notifyWorkOrder`). **Extending to a new record
+  type**: give it a nullable `area_id` FK (`nullOnDelete`, so a retired zone never strands a
+  historical record), derive it in that model's `creating` when null (from a related record's
+  zone, else its unit), and add a `notify*` method + peer notification on the shared `dispatch()`.
+  Keep the derivation guarded on `area_id === null` so an explicit zone is never overridden.
 - **The supervisor scope is one predicate** — `AreaForm::applySupervisorScope()` (property's
   own staff OR property-less). The picker, the post-save re-validation
   (`AreaResource::assertSupervisorsInScope`) and its regression test all derive from it; do
@@ -167,12 +186,15 @@ RBAC (operations/coordinator create; viewer view-only; leasing none; delete = su
 property scoping (read scope via `scopedResourceQuery`, write guard rejects an out-of-scope
 `asset_id`), and the table rendering with rows.
 
-`tests/Feature/Scenarios/AreaRoutingScenarioTest.php` — the routing slice: a request inherits
-its unit's zone (direct + via `TenantRequestService`), an explicit zone is never overridden,
-a caller-only / zone-less request stays zone-less, supervisors are notified on creation
+`tests/Feature/Scenarios/AreaRoutingScenarioTest.php` — the routing slice. **Requests:** a request
+inherits its unit's zone (direct + via `TenantRequestService`), an explicit zone is never
+overridden, a caller-only / zone-less request stays zone-less, supervisors are notified on creation
 (asserted via `Notification::fake()`), no-zone / no-supervisor creations are safe no-ops, the
 supervisor picker offers only the property's own (or property-less) staff, and the post-save
-re-validation strips + 403s an out-of-scope attach.
+re-validation strips + 403s an out-of-scope attach. **Work orders:** a work order derives its zone
+from the linked request (preferred) or its unit, an explicit (plan) zone is never overridden,
+supervisors are notified on creation (`AreaWorkOrderRaisedNotification`), and no-zone /
+no-supervisor creations are safe no-ops.
 
 Plus the standing gates: `PropertyIsolationConformanceTest` (classification + scope + guard),
 `AdminSmokeManifestConformanceTest` (regenerate with `php artisan atriom:dump-admin-manifest`),

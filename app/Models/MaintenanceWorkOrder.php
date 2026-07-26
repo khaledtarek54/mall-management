@@ -184,6 +184,30 @@ class MaintenanceWorkOrder extends Model
         return $this->belongsTo(Area::class);
     }
 
+    /** The zone's display name, null-safe — for the area-routing notification copy. */
+    public function areaName(): ?string
+    {
+        // Key off the FK: a set area_id guarantees a row, but the zone may be soft-deleted (the
+        // default relation excludes trashed), so the resolved model can still be null.
+        if ($this->area_id === null) {
+            return null;
+        }
+
+        /** @var Area|null $area */
+        $area = $this->area;
+
+        return $area?->name;
+    }
+
+    /** The unit's code, null-safe — for the area-routing notification copy (Larastan mistypes the BelongsTo). */
+    public function unitCode(): ?string
+    {
+        /** @var Unit|null $unit */
+        $unit = $this->unit;
+
+        return $unit?->code;
+    }
+
     /**
      * The machine this job is against (FR-PPM-03) — copied from the plan when raised, or
      * set directly on an ad-hoc order. Carried here rather than read through the plan
@@ -446,6 +470,24 @@ class MaintenanceWorkOrder extends Model
                     $order->work_order_type ?? self::TYPE_PPM,
                 );
             }
+
+            // Area routing (module 30 → 11): a work order lives in a facility zone, just like the
+            // request it may come from. Inherit the zone when it wasn't set explicitly — first from
+            // the linked tenant request (which already derived it from its unit), then from the
+            // order's own unit. PPM orders arrive with the plan's area already set, so this only
+            // FILLS a null and never overrides an explicit zone. Model-level so every path (the PPM
+            // sweep, RaiseCorrectiveMaintenanceService, the Filament form, the factory) inherits it —
+            // the same reason TenantRequest derives its area in the model, not a service.
+            if ($order->area_id === null) {
+                $derived = null;
+                if ($order->tenant_request_id !== null) {
+                    $derived = TenantRequest::whereKey($order->tenant_request_id)->value('area_id');
+                }
+                if ($derived === null && $order->unit_id !== null) {
+                    $derived = Unit::whereKey($order->unit_id)->value('area_id');
+                }
+                $order->area_id = $derived === null ? null : (int) $derived;
+            }
         });
 
         static::saving(function (self $order) {
@@ -509,6 +551,19 @@ class MaintenanceWorkOrder extends Model
             if ($order->assigned_to_user_id !== null) {
                 self::notifyAssignee($order);
             }
+
+            // Area routing (module 30 → 11): tell the zone's supervisors a job landed in their area
+            // — the work-order half of the request routing. Notify, NOT assign: work-order ownership
+            // follows the plan / the CM internal-vs-external XOR, not the zone. Fail-safe + a no-op
+            // when there's no zone or no supervisors (contained inside the service).
+            //
+            // Fires INSIDE the PPM/CM create transaction (like notifyAssignee above). Safe because
+            // AreaWorkOrderRaisedNotification is synchronous and database-only in practice — a
+            // rolled-back generation discards the row with the txn, and `push` no-ops for admin Users
+            // (no device tokens). If it is ever made ShouldQueue, or supervisors become push-capable,
+            // move this to a post-commit fan-out (as GeneratePreventiveWorkOrdersService does for
+            // WorkOrderRaisedNotification) so a rollback can't strand an external side-effect.
+            app(\App\Services\NotifyAreaSupervisorsService::class)->notifyWorkOrder($order);
         });
 
         static::updated(function (self $order) {
