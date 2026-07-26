@@ -36,6 +36,19 @@ it('raises a work order with the checklist for a due plan and advances next_due'
     expect($plan->fresh()->next_due_date->toDateString())->toBe('2026-07-01');
 });
 
+it('notifies operations when a scheduled work order is raised (FRD MNT-2)', function () {
+    $this->seed(\Database\Seeders\RolesPermissionsSeeder::class);
+    \Illuminate\Support\Facades\Notification::fake();
+    $asset = makeAsset();
+    $ops = makeUser('operations', [$asset->id]);
+    makePlan(['asset_id' => $asset->id, 'next_due_date' => now()->subDay()->toDateString()]);
+
+    expect($this->svc->run())->toBe(1);
+
+    // Was raised completely silently before — the scheduled service now pings the doers.
+    \Illuminate\Support\Facades\Notification::assertSentTo($ops, \App\Notifications\WorkOrderRaisedNotification::class);
+});
+
 it('is idempotent — a second run does not double-generate', function () {
     $plan = makePlan();
     $this->svc->run();

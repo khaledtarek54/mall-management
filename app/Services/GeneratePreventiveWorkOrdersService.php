@@ -3,8 +3,12 @@
 namespace App\Services;
 
 use App\Models\MaintenancePlan;
+use App\Models\MaintenanceWorkOrder;
+use App\Notifications\WorkOrderRaisedNotification;
+use App\Services\AssetStaffRecipients;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 
 /**
  * Raises preventive-maintenance work orders for every plan that's due (module 26).
@@ -23,12 +27,16 @@ class GeneratePreventiveWorkOrdersService
     /** @var array<int,string> plan id => failure reason, for the caller to surface */
     public array $failures = [];
 
+    /** @var array<int,int> ids of the work orders raised this run (for the post-commit notify). */
+    private array $raisedOrderIds = [];
+
     /** @return int number of work orders raised */
     public function run(?string $onOrBefore = null): int
     {
         $due = $onOrBefore ?? now()->toDateString();
         $created = 0;
         $this->failures = [];
+        $this->raisedOrderIds = [];
 
         MaintenancePlan::due($due)->select('id')->get()->each(function ($row) use ($due, &$created) {
             // Per-plan containment, mirroring ScanTenantRequestSlaBreachesCommand's per-row
@@ -46,7 +54,33 @@ class GeneratePreventiveWorkOrdersService
             }
         });
 
+        // FRD MNT-2 — a scheduled service must NOT be raised silently. Notify AFTER the
+        // per-plan transactions commit (only committed orders), so a rolled-back generation
+        // never sends a bell. Throwable-guarded per the module's convention: a notification
+        // hiccup must never make the nightly run report a failure it didn't have.
+        $this->notifyRaised();
+
         return $created;
+    }
+
+    /** Bell the property's operations staff for each work order this run actually raised. */
+    private function notifyRaised(): void
+    {
+        try {
+            if ($this->raisedOrderIds === []) {
+                return;
+            }
+
+            $staff = app(AssetStaffRecipients::class);
+            MaintenanceWorkOrder::whereKey($this->raisedOrderIds)->get()->each(function (MaintenanceWorkOrder $order) use ($staff) {
+                $recipients = $staff->for($order->asset_id, ['manager', 'operations']);
+                if ($recipients->isNotEmpty()) {
+                    Notification::send($recipients, new WorkOrderRaisedNotification($order));
+                }
+            });
+        } catch (\Throwable $e) {
+            Log::warning('Preventive generation raised-notification failed', ['error' => $e->getMessage()]);
+        }
     }
 
     private function generateFor(int $planId, string $due, int &$created): void
@@ -74,6 +108,7 @@ class GeneratePreventiveWorkOrdersService
                 return;
             }
 
+            /** @var MaintenanceWorkOrder $order */
             $order = $plan->workOrders()->create([
                 'asset_id' => $plan->asset_id,
                 'unit_id' => $plan->unit_id,
@@ -101,6 +136,7 @@ class GeneratePreventiveWorkOrdersService
             $plan->advanceDue();
             $plan->save();
             $created++;
+            $this->raisedOrderIds[] = $order->id;
         });
     }
 }

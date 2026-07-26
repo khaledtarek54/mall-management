@@ -425,6 +425,17 @@ class MaintenanceWorkOrder extends Model
         return $candidate;
     }
 
+    /** Bell the assigned technician (N2). Throwable-guarded — a notify hiccup never breaks the write. */
+    private static function notifyAssignee(self $order): void
+    {
+        try {
+            \App\Models\User::find((int) $order->assigned_to_user_id)
+                ?->notify(new \App\Notifications\WorkOrderAssignedNotification($order));
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Work-order assigned notification failed', ['error' => $e->getMessage()]);
+        }
+    }
+
     protected static function booted(): void
     {
         static::creating(function (self $order) {
@@ -486,6 +497,23 @@ class MaintenanceWorkOrder extends Model
 
             if ($order->execution_type === self::EXECUTION_EXTERNAL && $order->assigned_to_user_id !== null) {
                 throw new InvalidArgumentException('An external corrective work order is handled by the vendor; it cannot also name an in-house technician.');
+            }
+        });
+
+        // Ping the newly-assigned technician — AssignmentScope (FR-USR-04) hides every OTHER
+        // work order from an operations user, so without this they never learn one landed on
+        // them. Split created/updated hooks (NOT `saved` + wasRecentlyCreated, which stays true
+        // on the instance for later saves and would re-ping on any subsequent edit). Generated
+        // PPM orders carry no assignee, so this is silent for them (N3 covers those).
+        static::created(function (self $order) {
+            if ($order->assigned_to_user_id !== null) {
+                self::notifyAssignee($order);
+            }
+        });
+
+        static::updated(function (self $order) {
+            if ($order->wasChanged('assigned_to_user_id') && $order->assigned_to_user_id !== null) {
+                self::notifyAssignee($order);
             }
         });
     }
