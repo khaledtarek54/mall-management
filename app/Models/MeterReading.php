@@ -40,12 +40,19 @@ class MeterReading extends Model
         return $this->belongsTo(Invoice::class, 'billed_invoice_id');
     }
 
-    /** Billed = it produced a recharge invoice that is still live (a cancelled one frees it to re-bill). */
+    /**
+     * Billed = it produced a recharge invoice that still posts revenue.
+     *
+     * ONLY a `cancelled` invoice frees the reading to re-bill, because cancelling is the one status
+     * that makes InvoiceJournalizer void the GL entry (draft/cancelled → no payload). A `credited`
+     * invoice KEEPS its AR + utility_revenue posting, so treating it as "free to re-bill" would post
+     * utility_revenue a second time with nothing offsetting the first — an unoffset double-count.
+     */
     public function isBilled(): bool
     {
         $invoice = $this->billedInvoice;
 
-        return $invoice instanceof Invoice && ! in_array($invoice->status, ['cancelled', 'credited'], true);
+        return $invoice instanceof Invoice && $invoice->status !== 'cancelled';
     }
 
     protected static function booted(): void
@@ -55,6 +62,16 @@ class MeterReading extends Model
         static::saving(function (self $reading) {
             if ($reading->cost === null) {
                 $reading->cost = 0;
+            }
+        });
+
+        // A billed reading is the EVIDENCE for a live recharge invoice, and there are no soft-deletes
+        // here — a raw delete would hard-erase the row and orphan the invoice (destroying the only
+        // back-link). Refuse it at the model layer so no dispatch path (crafted or not) can bypass the
+        // UI guard. Correct a billed reading by cancelling its invoice first, which frees it.
+        static::deleting(function (self $reading) {
+            if ($reading->isBilled()) {
+                return false;
             }
         });
     }

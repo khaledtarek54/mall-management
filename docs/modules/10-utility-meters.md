@@ -4,7 +4,11 @@
 
 ## 1. Purpose & business context
 
-The Utility Meters module enables energy management for mall properties: operators log monthly meter readings (odometer snapshots), the system auto-calculates consumption as the delta from the prior reading, and a dashboard widget visualizes consumption trends per utility type. Each meter belongs to an asset (property) and optionally to a unit (shop/tenant space); null `unit_id` signals a common-area meter. Meter readings are immutable once created (soft-deletable but not edited). The module supports three utility types (electric, water, gas) and three operational states (active, inactive, faulty) for lifecycle management.
+The Utility Meters module enables energy management for mall properties: operators log monthly meter readings (odometer snapshots), the system auto-calculates consumption as the delta from the prior reading, and a dashboard widget visualizes consumption trends per utility type. Each meter belongs to an asset (property) and optionally to a unit (shop/tenant space); null `unit_id` signals a common-area meter. The module supports three utility types (electric, water, gas) and three operational states (active, inactive, faulty) for lifecycle management.
+
+Since 2026-07, the module also **recharges** metered consumption to tenants: a per-meter tariff (`rate_per_unit`) turns consumption into a cost, and a reading can be billed to the unit's tenant as a dedicated VAT'd invoice (`utility` line → `utility_revenue` in the GL). Before this, readings were recorded but the cost had to be re-keyed onto an invoice by hand — the revenue leaked. See §3 (Recharge) and §5.
+
+**Editability:** a reading is *editable* (there is an `EditAction`) until it has been billed; once a recharge invoice exists, the quantitative fields (`reading_date`, `reading_value`, `consumption`, `cost`) lock and the reading can no longer be deleted — it is the evidence for a live invoice (only `notes` stays editable). Readings have **no soft-deletes** (unlike meters), so an un-billed reading's delete is a hard delete.
 
 ## 2. Domain model
 
@@ -19,6 +23,7 @@ The Utility Meters module enables energy management for mall properties: operato
 | provider | varchar | nullable | Utility company (e.g. "National Grid") |
 | status | enum('active','inactive','faulty') | default 'active' | Operational state |
 | unit_of_measurement | varchar(16) | nullable | Display unit (kWh, m³, etc.) |
+| rate_per_unit | decimal(12,4) | nullable | Recharge tariff (EGP per kWh/m³). Null = monitored but not recharged (e.g. a landlord/common-area meter) |
 | created_at, updated_at, deleted_at | timestamp | — | Lifecycle timestamps; soft-deletes |
 
 **Key indexes:** `[asset_id, type]`, `[status]`
@@ -31,7 +36,9 @@ The Utility Meters module enables energy management for mall properties: operato
 | reading_date | date | — | Month-end snapshot date |
 | reading_value | decimal(14,2) | — | Odometer value at date |
 | consumption | decimal(14,2) | default 0 | Delta: current reading − prior reading |
-| cost | decimal(14,2) | default 0, NOT NULL | EGP amount; dehydrated null→0 |
+| cost | decimal(14,2) | default 0, NOT NULL | EGP amount; derived from `consumption × meter.rate_per_unit` when a tariff is set (editable); dehydrated null→0 |
+| billed_invoice_id | bigint | FK→invoices, nullable, null on delete | The recharge invoice this reading produced (null until billed); the once-only + traceability anchor |
+| billed_at | timestamp | nullable | When the recharge invoice was issued |
 | notes | text | nullable | Operator annotations (meter reset, anomaly, etc.) |
 | created_at, updated_at | timestamp | — | |
 
@@ -74,8 +81,15 @@ The database enforces `UNIQUE [utility_meter_id, reading_date]` — only one rea
 
 **Test guard:** `UtilityMeterScenarioTest` line 234–239.
 
-### Immutability
-Readings have no edit/update UI in the relation manager — only create, view, and delete via soft-delete. If an operator needs to correct a reading, they delete it and re-enter. This prevents audit confusion and sneaky post-month corrections.
+### Recharge (billing a reading to the tenant)
+A reading with a `cost > 0` on a **unit** meter (not common-area) can be recharged via the "Bill to tenant" action → `BillMeterReadingService` (see §5). Once billed, `MeterReading::isBilled()` is true (any recharge invoice that is not `cancelled`), which:
+- hides the "Bill" button (no double-bill),
+- **locks** the quantitative fields (`reading_date`/`reading_value`/`consumption`/`cost`) on the edit form, and
+- **blocks deletion** of the reading (model `deleting` guard returns false) — it is the evidence for a live invoice.
+To correct a billed reading, **cancel its recharge invoice first** (which voids the GL entry and frees the reading), then edit/re-bill.
+
+### Editability & correction
+Readings **are** editable (there is an `EditAction`) while un-billed; `notes` stays editable even after billing. There are **no soft-deletes** on readings — an un-billed reading's delete is a hard delete (delete-and-re-enter to correct). A future date is rejected (`reading_date` has `maxDate(today())`).
 
 ## 4. Lifecycle / state machine
 
@@ -87,15 +101,24 @@ Readings have no edit/update UI in the relation manager — only create, view, a
 No state-transition rules are enforced; status is a free-form label for operators. Only `active` meters appear in the energy consumption widget (implicitly — the widget doesn't filter by status, but the expectation is that active meters drive decisions).
 
 ### Reading lifecycle
-1. **Created** via the Filament relation manager (ReadingsRelationManager::create).
-2. **Visible** in the readings table, sorted descending by date (most recent first).
-3. **Editable** via the same form (field-by-field) — though the reading_value→consumption auto-fill only fires on initial insert, not update.
-4. **Soft-deletable** via the UI delete button; hard-delete via RestoreAction/ForceDeleteAction (EditUtilityMeter page).
-5. **Terminal** when soft-deleted → does not appear in readings list; cost is 0 (default), consumption is whatever was logged.
+1. **Created** via the Filament relation manager (ReadingsRelationManager::create); `reading_date` must be ≤ today.
+2. **Visible** in the readings table, sorted descending by date; filterable by year and by recharge status (billed / unbilled-billable).
+3. **Editable** via the same form (field-by-field) while un-billed — the reading_value→consumption auto-fill only fires on live update, not a silent write.
+4. **Billed** (optional) → a recharge invoice exists; quantitative fields lock, delete is blocked, only `notes` stays editable (§3 Recharge).
+5. **Hard-deletable** (un-billed only) via the UI delete button — readings have **no** soft-deletes. Correct an un-billed reading by delete-and-re-enter; correct a billed one by cancelling its invoice first.
 
 ## 5. Services, jobs & scheduled commands
 
-**No services, jobs, or console commands yet.** The module is query-only at runtime (no background sync or automated reconciliation).
+### `BillMeterReadingService` (utility recharge)
+`bill(MeterReading $reading): Invoice` recharges a reading's cost to the unit's tenant. Mirrors the CAM / percentage-rent immediate-billing pattern:
+- Issues a **dedicated invoice NOW**, dated (period_start/end) to the consumption month, carrying a single `utility` line → `utility_revenue` (41104001) via the existing `InvoiceJournalizer`. `utility` is excluded from `MonthlyBillingService`'s already-billed probe so a recharge can't suppress that month's base rent.
+- **Taxable supply:** 14% output VAT (unlike base rent).
+- **Lease resolution:** `resolveLeaseFor()` picks the lease whose **term contains the reading date** (`commencement_date ≤ reading_date ≤ expiry_date`), not merely the latest active lease — so the tenant who actually consumed is billed (a departed tenant is billable for their own past consumption; a successor tenant is never billed for the predecessor's usage). A reading in a vacant period (no covering lease) is refused.
+- **Idempotent + lock-safe:** re-reads the reading under `lockForUpdate` inside the transaction; a reading already carrying a live invoice returns it untouched. **Only a `cancelled` invoice frees a re-bill** — cancelling is the one status that voids the GL entry; a `credited` invoice keeps its posting, so re-billing it would double-count `utility_revenue`.
+
+Dispatched from the readings relation-manager's **"Bill to tenant"** action (double-gated on `invoices.create`; hidden on common-area meters where it can't succeed). The confirmation modal names the resolved tenant + period so a mis-resolved bill is caught before issue.
+
+**No scheduled command** — recharge is operator-initiated per reading (consumption periods and tariffs vary; a blind nightly sweep would mis-bill).
 
 ### Future extension points
 - **Hourly/daily meter sync** via a third-party API (if integrating with smart meters).
@@ -182,16 +205,21 @@ $set('consumption', round($delta, 2));
 | reading_value | TextColumn | — | — | numeric(2), right-aligned, odometer value |
 | consumption | TextColumn | — | — | numeric(2), right-aligned, **bold** |
 | cost | TextColumn | — | — | money('EGP'), right-aligned |
+| billedInvoice.number | TextColumn | — | — | badge; recharge invoice number, "Not billed" placeholder (green when billed) |
 | notes | TextColumn | — | ✓ hidden | limit 40 chars, toggleable (hidden by default) |
 
 **Default sort:** `reading_date` descending (most recent first).
 
 **Filters:**
 - Year filter (TextInput, dynamic): `whereYear('reading_date', $year)`.
+- Recharge-status filter (TernaryFilter): billed (`billed_invoice_id NOT NULL`) / unbilled-billable (`billed_invoice_id NULL AND cost > 0`) / all — surfaces the un-recharged revenue.
 
 **Actions:**
-- **headerAction:** CreateAction labeled "Log Reading".
-- **recordActions:** EditAction, DeleteAction (soft-delete).
+- **headerAction:** CreateAction labeled "Log Reading" (gated `utility_meters.edit`).
+- **recordActions:**
+  - **billToTenant** ("Bill to tenant") — recharge this reading via `BillMeterReadingService`; double-gated on `invoices.create`, visible only when `canBill()` (un-billed, `cost > 0`, meter has a unit). Confirmation modal names the resolved tenant + period.
+  - **EditAction** — quantitative fields disabled once the reading is billed.
+  - **DeleteAction** — super_admin only; **hidden for a billed reading** (hard delete would orphan the invoice; model `deleting` guard is the real backstop).
 
 ## 7. Notifications & integrations
 
@@ -307,17 +335,10 @@ $set('consumption', round($delta, 2));
 ```
 Otherwise, common-area consumption will leak into unit totals.
 
-### Energy widget doesn't filter by meter status
-**Issue:** EnergyConsumptionTrend (line 40–98) sums **all** meter readings regardless of meter status. A faulty meter's readings still roll into the trend.
+### Energy widget: soft-deleted meters excluded (FIXED); faulty meters still included
+**Soft-deletes (FIXED 2026-07-26):** `EnergyConsumptionTrend` uses a raw `DB::table('meter_readings')->join('utility_meters', …)`, which bypasses `UtilityMeter`'s `SoftDeletes` global scope. It now explicitly filters `->whereNull('utility_meters.deleted_at')`, so a decommissioned (soft-deleted) meter's readings drop out of the trend. *Before the fix they rolled in forever — and this gotcha itself used to (wrongly) tell operators to soft-delete a meter to remove it from the chart.*
 
-**Why:** The widget aggregates by reading date and meter type, not individual meters. Filtering by `utility_meters.status = 'active'` would require a JOIN and WHERE—currently it just joins and sums.
-
-**Operator expectation:** Operators should **not** log readings for faulty meters; if they do, that data will pollute the trend until the meter is soft-deleted.
-
-**Workaround:** Add a scope to the widget query if faulty readings are frequent:
-```php
-->where('utility_meters.status', 'active')
-```
+**Faulty/inactive meters (still included):** the widget aggregates by reading date and meter type, not per-meter status, so a `faulty`/`inactive` meter's readings still roll into the trend. Operators should **not** log readings for faulty meters. If filtering by status becomes necessary, add `->where('utility_meters.status', 'active')` to the query. (DEFERRED — currently operator discipline.)
 
 ### All-Properties ("ALL") tenant bypasses per-property meter scoping
 **Issue:** When the active tenant is the synthetic ALL pseudo-asset, `BypassesScopingOnAll` trait (line 20–29) returns the query unchanged, so the user sees **all** meters from **every** property they have access to.
@@ -368,6 +389,6 @@ This would provide a friendlier validation message before the database complains
 
 ---
 
-**Last updated:** 2026-06-27
-**Module status:** Mature (1043 passing tests, production-ready)
-**RBAC:** Gated by utility_meters.{view,create,edit,delete}; delete reserved for super_admin.
+**Last updated:** 2026-07-26 (close-out sweep — recharge documented; 6 fixes: credited-rebill double-post, wrong-tenant lease resolution, billed-reading edit/delete lock, common-area Bill-button, energy-trend soft-delete leak, `maxDate`; + unbilled-readings filter)
+**Module status:** CLOSED (property-facility close-out). Mature; recharge money-path adversarially reviewed + tied out through the real GL sweep.
+**RBAC:** Gated by utility_meters.{view,create,edit,delete}; recharge gated on invoices.create; delete reserved for super_admin.

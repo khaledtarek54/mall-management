@@ -436,3 +436,55 @@ it('reserves meter deletion for super_admin only', function () {
     $this->actingAs(makeUser('super_admin'));
     expect(UtilityMeterResource::canDelete($this->meter))->toBeTrue();
 });
+
+/*
+|--------------------------------------------------------------------------
+| Recharge UX guards — the "Bill" button and the energy trend.
+|--------------------------------------------------------------------------
+*/
+
+it('offers "Bill to tenant" only when the meter has a unit — never for a common-area meter', function () {
+    $this->actingAs(makeUser('super_admin', [$this->asset->id]));
+    $month = now()->startOfMonth()->toDateString();
+
+    // A UNIT meter reading with a billable cost → billable.
+    $unitReading = seedReading($this->meter, $month, 1000, consumption: 400);
+    $unitReading->update(['cost' => 800]);
+
+    // A COMMON-AREA meter (no unit) with the same cost → NOT billable (no tenant to recharge),
+    // so the green "Bill" button must be hidden rather than offered as a dead click.
+    $common = UtilityMeter::create([
+        'asset_id' => $this->asset->id,
+        'unit_id' => null,
+        'meter_number' => 'HW-CA-' . uniqid(),
+        'type' => 'electric', 'status' => 'active', 'unit_of_measurement' => 'kWh', 'rate_per_unit' => 2,
+    ]);
+    $commonReading = seedReading($common, $month, 1000, consumption: 400);
+    $commonReading->update(['cost' => 800]);
+
+    expect(ReadingsRelationManager::canBill($unitReading->fresh()))->toBeTrue()
+        ->and(ReadingsRelationManager::canBill($commonReading->fresh()))->toBeFalse();
+});
+
+it('excludes a soft-deleted meter\'s readings from the energy trend', function () {
+    $month = now()->startOfMonth()->toDateString();
+    seedReading($this->meter, $month, 5250, consumption: 250);
+
+    // A second meter that later gets decommissioned (soft-deleted).
+    $decommissioned = UtilityMeter::create([
+        'asset_id' => $this->asset->id,
+        'meter_number' => 'HW-E-OLD-' . uniqid(),
+        'type' => 'electric', 'status' => 'active', 'unit_of_measurement' => 'kWh',
+    ]);
+    seedReading($decommissioned, $month, 8000, consumption: 8000);
+    $decommissioned->delete(); // soft-delete
+
+    $data = asTenant($this->asset, function () {
+        $widget = new \App\Filament\Admin\Widgets\EnergyConsumptionTrend;
+
+        return (fn () => $this->getData())->call($widget);
+    });
+
+    // Only the live meter's 250 — the soft-deleted meter's 8000 must not roll into the trend.
+    expect(end($data['datasets'][0]['data']))->toBe(250.0);
+});

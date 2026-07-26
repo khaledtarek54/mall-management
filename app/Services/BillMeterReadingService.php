@@ -27,6 +27,30 @@ class BillMeterReadingService
     /** Utility recharge is a taxable supply (unlike base rent) — standard 14% output VAT. */
     private const VAT_RATE = 14.0;
 
+    /**
+     * The lease that should be recharged for a reading — the one whose TERM CONTAINS the consumption
+     * date, NOT simply the latest active lease on the unit. Billing "whoever is active now" would
+     * charge the new tenant for the previous tenant's consumption (and would make a departed tenant's
+     * reading unbillable — a silent revenue leak). Tie-break by latest commencement for safety on
+     * overlapping data. Returns null for a common-area meter or an uncovered (vacant-period) date.
+     */
+    public static function resolveLeaseFor(MeterReading $reading): ?Lease
+    {
+        $meter = $reading->meter;
+        if (! $meter instanceof UtilityMeter || $meter->unit_id === null) {
+            return null;
+        }
+
+        $date = $reading->reading_date->toDateString();
+
+        return Lease::query()
+            ->where('unit_id', $meter->unit_id)
+            ->whereDate('commencement_date', '<=', $date)
+            ->where(fn ($q) => $q->whereNull('expiry_date')->orWhereDate('expiry_date', '>=', $date))
+            ->orderByDesc('commencement_date')
+            ->first();
+    }
+
     public function bill(MeterReading $reading): Invoice
     {
         return DB::transaction(function () use ($reading) {
@@ -37,9 +61,11 @@ class BillMeterReadingService
                 throw new \DomainException(__('admin.utility.bill_failed_missing'));
             }
 
-            // Already recharged (and that invoice is still live) — return it, never double-bill.
+            // Already recharged and that invoice still posts revenue — return it, never double-bill.
+            // ONLY a cancelled invoice (whose GL entry is voided) frees the reading to re-bill; a
+            // credited invoice keeps its revenue posting, so re-billing it would double-count.
             $existing = $locked->billedInvoice;
-            if ($existing instanceof Invoice && ! in_array($existing->status, ['cancelled', 'credited'], true)) {
+            if ($existing instanceof Invoice && $existing->status !== 'cancelled') {
                 return $existing;
             }
 
@@ -49,11 +75,7 @@ class BillMeterReadingService
                 throw new \DomainException(__('admin.utility.bill_failed_no_unit'));
             }
 
-            $lease = Lease::query()
-                ->where('unit_id', $meter->unit_id)
-                ->where('status', 'active')
-                ->latest('commencement_date')
-                ->first();
+            $lease = self::resolveLeaseFor($locked);
 
             if (! $lease instanceof Lease) {
                 throw new \DomainException(__('admin.utility.bill_failed_no_lease'));

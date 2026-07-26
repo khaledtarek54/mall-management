@@ -54,6 +54,10 @@ class EnergyConsumptionTrend extends ChartWidget
 
         $query = DB::table('meter_readings')
             ->join('utility_meters', 'utility_meters.id', '=', 'meter_readings.utility_meter_id')
+            // Raw join bypasses UtilityMeter's SoftDeletes global scope — exclude decommissioned
+            // meters by hand, or a soft-deleted meter's consumption rolls into the trend forever
+            // (and the module doc tells operators to soft-delete a meter to drop it from the chart).
+            ->whereNull('utility_meters.deleted_at')
             ->selectRaw("{$monthExpr} as ym, utility_meters.type as type, SUM(consumption) as total")
             ->whereBetween('reading_date', [$start, $end])
             ->groupBy('ym', 'type');

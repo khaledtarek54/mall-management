@@ -114,3 +114,108 @@ it('a utility recharge does NOT suppress that month\'s base rent in the monthly 
     expect($rent)->toHaveCount(1)
         ->and((float) $rent->first()->total)->toBe(10000.0);
 });
+
+/*
+|--------------------------------------------------------------------------
+| Re-bill asymmetry — ONLY a cancelled invoice (GL voided) frees a re-bill.
+|--------------------------------------------------------------------------
+*/
+
+it('does NOT re-bill a reading whose recharge invoice was CREDITED (credited still posts revenue)', function () {
+    $reading = utilReading(cost: 1000);
+    $invoice = $this->svc->bill($reading);
+
+    // Operator flips the invoice to 'credited' with no credit note → nothing offsets its revenue.
+    // A 'credited' invoice KEEPS its AR + utility_revenue posting (only draft/cancelled are skipped),
+    // so re-billing would double-count utility_revenue with the first posting still standing.
+    $invoice->update(['status' => 'credited']);
+
+    expect($reading->fresh()->isBilled())->toBeTrue();
+    $again = $this->svc->bill($reading->fresh());
+
+    expect($again->id)->toBe($invoice->id)                                                       // same doc
+        ->and(Invoice::whereHas('items', fn ($q) => $q->where('type', 'utility'))->count())->toBe(1);
+});
+
+it('allows re-billing ONLY after the recharge invoice is CANCELLED (its GL entry is voided)', function () {
+    $reading = utilReading(cost: 1000);
+    $first = $this->svc->bill($reading);
+    $first->update(['status' => 'cancelled']);
+
+    expect($reading->fresh()->isBilled())->toBeFalse();
+    $second = $this->svc->bill($reading->fresh());
+
+    expect($second->id)->not->toBe($first->id)
+        ->and($reading->fresh()->billed_invoice_id)->toBe($second->id);
+});
+
+it('refuses to hard-delete a reading once it has been billed (protects the invoice back-link)', function () {
+    // MeterReading has no soft-deletes, so a raw delete would erase the evidence for a live invoice.
+    $reading = utilReading(cost: 1000);
+    $this->svc->bill($reading);
+
+    $reading->fresh()->delete();
+
+    expect(MeterReading::whereKey($reading->id)->exists())->toBeTrue();
+});
+
+/*
+|--------------------------------------------------------------------------
+| Lease resolution — recharge the tenant whose TERM contains the reading.
+|--------------------------------------------------------------------------
+*/
+
+it('recharges the tenant whose lease term CONTAINS the consumption date, not the current tenant', function () {
+    $asset = makeAsset();
+    $unit = makeUnit($asset);
+    $tenantA = makeTenant();
+    $tenantB = makeTenant();
+    // A occupied Jan–Feb (now expired); B took over from March (active).
+    makeLease($unit, $tenantA, ['status' => 'expired', 'commencement_date' => '2026-01-01', 'expiry_date' => '2026-02-28']);
+    makeLease($unit, $tenantB, ['status' => 'active', 'commencement_date' => '2026-03-01', 'expiry_date' => '2026-12-31']);
+    $meter = UtilityMeter::create([
+        'asset_id' => $asset->id, 'unit_id' => $unit->id, 'meter_number' => 'M-'.uniqid(),
+        'type' => 'electric', 'status' => 'active', 'unit_of_measurement' => 'kWh', 'rate_per_unit' => 2.5,
+    ]);
+    $janReading = MeterReading::create([
+        'utility_meter_id' => $meter->id, 'reading_date' => '2026-01-31',
+        'reading_value' => 5000, 'consumption' => 200, 'cost' => 500,
+    ]);
+
+    // A consumed it in January — bill A, never the successor tenant B.
+    expect($this->svc->bill($janReading)->tenant_id)->toBe($tenantA->id);
+});
+
+it('bills a departed tenant for their own past consumption (old active-only lookup leaked it)', function () {
+    $asset = makeAsset();
+    $unit = makeUnit($asset);
+    $tenantA = makeTenant();
+    makeLease($unit, $tenantA, ['status' => 'expired', 'commencement_date' => '2026-01-01', 'expiry_date' => '2026-02-28']);
+    $meter = UtilityMeter::create([
+        'asset_id' => $asset->id, 'unit_id' => $unit->id, 'meter_number' => 'M-'.uniqid(),
+        'type' => 'electric', 'status' => 'active', 'unit_of_measurement' => 'kWh', 'rate_per_unit' => 2.5,
+    ]);
+    $reading = MeterReading::create([
+        'utility_meter_id' => $meter->id, 'reading_date' => '2026-02-15',
+        'reading_value' => 5000, 'consumption' => 200, 'cost' => 500,
+    ]);
+
+    expect($this->svc->bill($reading)->tenant_id)->toBe($tenantA->id);
+});
+
+it('refuses to recharge a reading whose date falls in a vacant period (no lease covers it)', function () {
+    $asset = makeAsset();
+    $unit = makeUnit($asset);
+    // The only lease starts in March; a January reading precedes every lease term.
+    makeLease($unit, makeTenant(), ['status' => 'active', 'commencement_date' => '2026-03-01', 'expiry_date' => '2026-12-31']);
+    $meter = UtilityMeter::create([
+        'asset_id' => $asset->id, 'unit_id' => $unit->id, 'meter_number' => 'M-'.uniqid(),
+        'type' => 'electric', 'status' => 'active', 'unit_of_measurement' => 'kWh', 'rate_per_unit' => 2.5,
+    ]);
+    $reading = MeterReading::create([
+        'utility_meter_id' => $meter->id, 'reading_date' => '2026-01-31',
+        'reading_value' => 5000, 'consumption' => 200, 'cost' => 500,
+    ]);
+
+    expect(fn () => $this->svc->bill($reading))->toThrow(DomainException::class);
+});
