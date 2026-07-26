@@ -89,6 +89,10 @@ class ChartOfAccountsSeeder extends Seeder
         ['216', 'Social Insurance Payable', 'التأمينات الاجتماعية المستحقة', 'liability', false],
         ['21601', 'Social Insurance Payable', 'التأمينات الاجتماعية المستحقة', 'liability', false],
         ['21601001', 'Social Insurance Payable', 'تأمينات اجتماعية مستحقة', 'liability', true],
+        // Ad-hoc payroll deductions withheld from staff (module 24, Phase 4c) — a neutral
+        // holding liability (e.g. penalties fund صندوق الجزاءات); reclassify via mapping.
+        ['21602', 'Employee Deductions Payable', 'خصومات مستحقة على العاملين', 'liability', false],
+        ['21602001', 'Employee Deductions Payable', 'خصومات مستحقة على العاملين', 'liability', true],
         ['214', 'Accrued Expenses', 'المصروفات المستحقة', 'liability', false],
         ['21401', 'Accrued Expenses', 'مصروفات مستحقة', 'liability', false],
         ['21401001', 'Accrued Expenses', 'مصروفات مستحقة الدفع', 'liability', true],
@@ -194,6 +198,11 @@ class ChartOfAccountsSeeder extends Seeder
         // The P&L counterpart of the 11206001 allowance (Dr Bad Debt / Cr Allowance).
         ['51109', 'Bad Debt Expense', 'مصروف الديون المشكوك فيها', 'expense', false],
         ['51109001', 'Bad Debt Expense', 'مصروف ديون مشكوك فيها', 'expense', true],
+        // Employer's social-insurance contribution (module 24, Phase 4a) — the COMPANY'S
+        // share of التأمينات, a cost distinct from the employee share withheld from pay.
+        // Posts Dr here / Cr Social Insurance Payable 21601001 (owed to the authority).
+        ['51110', 'Social Insurance Expense', 'مصروف التأمينات الاجتماعية', 'expense', false],
+        ['51110001', 'Social Insurance Expense (Employer)', 'مصروف التأمينات الاجتماعية (حصة صاحب العمل)', 'expense', true],
         ['52', 'Other Expenses', 'مصروفات أخرى', 'expense', false],
         ['52101', 'Bank Charges', 'مصروفات بنكية', 'expense', false],
         ['52101001', 'Bank Charges', 'مصروفات بنكية', 'expense', true],

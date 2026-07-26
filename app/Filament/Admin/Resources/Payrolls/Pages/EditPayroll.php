@@ -9,10 +9,24 @@ use Filament\Actions\DeleteAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\On;
 
 class EditPayroll extends EditRecord
 {
     protected static string $resource = PayrollResource::class;
+
+    /**
+     * The payroll-lines relation manager fires this after any line mutation
+     * (generate / add / edit / delete). The line hooks have already re-derived the
+     * run header in the DB (Payroll::recomputeFromLines) — re-pull the record and
+     * refill the derived amount fields so they update live, no page refresh needed.
+     */
+    #[On('payroll-lines-updated')]
+    public function refreshDerivedTotals(): void
+    {
+        $this->record->refresh();
+        $this->refreshFormData(['gross_salaries', 'salary_tax', 'social_insurance', 'net_paid']);
+    }
 
     protected function mutateFormDataBeforeSave(array $data): array
     {

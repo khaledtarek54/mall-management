@@ -170,6 +170,80 @@ it('posts a payroll run then voids it on cancel', function () {
     expect(gps_balanced())->toBeTrue();
 });
 
+it('posts the employer social-insurance leg through the real sweep and stays balanced (Phase 4a)', function () {
+    $asset = makeAsset();
+    // gross 20000 (incl. 4000 allowances), employee SI 3000 withheld, employer SI 3750 (company cost).
+    // net = 20000 − 2000 − 3000 = 15000. Employer SI does NOT reduce net — it's Dr Expense / Cr Payable.
+    $payroll = Payroll::create([
+        'asset_id' => $asset->id, 'period_month' => now()->startOfMonth()->toDateString(),
+        'gross_salaries' => 20000, 'allowances' => 4000, 'salary_tax' => 2000,
+        'social_insurance' => 3000, 'employer_social_insurance' => 3750,
+        'net_paid' => 15000, 'paid_from' => 'bank', 'status' => 'approved',
+    ]);
+
+    gps_sync();
+
+    $entry = gps_postedEntries($payroll)->first();
+    expect($entry)->not->toBeNull();
+    expect($entry->isBalanced())->toBeTrue();   // Dr 20000+3750 = Cr 2000+6750+15000
+    expect(gps_balanced())->toBeTrue();          // whole trial balance still balances
+
+    $accounts = app(App\Services\Accounting\AccountResolver::class);
+    $byAccount = $entry->lines->keyBy('ledger_account_id');
+    expect((float) $byAccount[$accounts->id('salaries_expense')]->debit)->toEqualWithDelta(20000.0, 0.001);
+    expect((float) $byAccount[$accounts->id('social_insurance_expense')]->debit)->toEqualWithDelta(3750.0, 0.001);   // employer share = expense
+    expect((float) $byAccount[$accounts->id('salary_tax_payable')]->credit)->toEqualWithDelta(2000.0, 0.001);
+    expect((float) $byAccount[$accounts->id('social_insurance_payable')]->credit)->toEqualWithDelta(6750.0, 0.001);  // employee 3000 + employer 3750
+    expect((float) $byAccount[$accounts->id('bank')]->credit)->toEqualWithDelta(15000.0, 0.001);                     // net (unchanged by employer SI)
+});
+
+it('posts a payroll advance installment through the real sweep (Cr Employee Advances) and stays balanced (Phase 4b)', function () {
+    $asset = makeAsset();
+    // gross 10000, no tax/SI; a 1500 advance installment reduces net to 8500 and credits
+    // Employee Advances. net = 10000 − 0 − 0 − 1500 = 8500.
+    $payroll = Payroll::create([
+        'asset_id' => $asset->id, 'period_month' => now()->startOfMonth()->toDateString(),
+        'gross_salaries' => 10000, 'salary_tax' => 0, 'social_insurance' => 0,
+        'advance_deductions' => 1500, 'net_paid' => 8500, 'paid_from' => 'bank', 'status' => 'approved',
+    ]);
+
+    gps_sync();
+
+    $entry = gps_postedEntries($payroll)->first();
+    expect($entry)->not->toBeNull();
+    expect($entry->isBalanced())->toBeTrue();   // Dr 10000 = Cr 1500 (advances) + 8500 (bank)
+    expect(gps_balanced())->toBeTrue();
+
+    $accounts = app(App\Services\Accounting\AccountResolver::class);
+    $byAccount = $entry->lines->keyBy('ledger_account_id');
+    expect((float) $byAccount[$accounts->id('salaries_expense')]->debit)->toEqualWithDelta(10000.0, 0.001);
+    expect((float) $byAccount[$accounts->id('employee_advances')]->credit)->toEqualWithDelta(1500.0, 0.001); // loan repaid
+    expect((float) $byAccount[$accounts->id('bank')]->credit)->toEqualWithDelta(8500.0, 0.001);              // reduced net
+});
+
+it('posts an ad-hoc payroll deduction through the real sweep (Cr Employee Deductions Payable) and stays balanced (Phase 4c)', function () {
+    $asset = makeAsset();
+    // gross 10000; a 400 penalty/other deduction reduces net to 9600 and credits the holding
+    // liability. net = 10000 − 0 − 0 − 0 − 400 = 9600.
+    $payroll = Payroll::create([
+        'asset_id' => $asset->id, 'period_month' => now()->startOfMonth()->toDateString(),
+        'gross_salaries' => 10000, 'salary_tax' => 0, 'social_insurance' => 0,
+        'other_deductions' => 400, 'net_paid' => 9600, 'paid_from' => 'bank', 'status' => 'approved',
+    ]);
+
+    gps_sync();
+
+    $entry = gps_postedEntries($payroll)->first();
+    expect($entry)->not->toBeNull();
+    expect($entry->isBalanced())->toBeTrue();   // Dr 10000 = Cr 400 (deductions) + 9600 (bank)
+    expect(gps_balanced())->toBeTrue();
+
+    $accounts = app(App\Services\Accounting\AccountResolver::class);
+    $byAccount = $entry->lines->keyBy('ledger_account_id');
+    expect((float) $byAccount[$accounts->id('employee_deductions_payable')]->credit)->toEqualWithDelta(400.0, 0.001);
+    expect((float) $byAccount[$accounts->id('bank')]->credit)->toEqualWithDelta(9600.0, 0.001);
+});
+
 it('posts a deposit receipt then voids it on cancel', function () {
     $asset = makeAsset();
     $lease = makeLease(makeUnit($asset));

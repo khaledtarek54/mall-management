@@ -21,4 +21,14 @@ class CreatePayroll extends CreateRecord
 
         return $data;
     }
+
+    /**
+     * Land on the run's Edit page after creating it — that's where the per-employee
+     * payslip lines live (and the "Generate payslips from roster" action). Sends the
+     * operator straight to building the run, not back to the list.
+     */
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('edit', ['record' => $this->getRecord()]);
+    }
 }

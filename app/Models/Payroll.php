@@ -26,8 +26,12 @@ class Payroll extends Model
         'period_month',
         'description',
         'gross_salaries',
+        'allowances',
         'salary_tax',
         'social_insurance',
+        'advance_deductions',
+        'other_deductions',
+        'employer_social_insurance',
         'net_paid',
         'paid_from',
         'status',
@@ -40,15 +44,19 @@ class Payroll extends Model
         'period_month' => 'date',
         'approved_at' => 'datetime',
         'gross_salaries' => 'decimal:2',
+        'allowances' => 'decimal:2',
         'salary_tax' => 'decimal:2',
         'social_insurance' => 'decimal:2',
+        'advance_deductions' => 'decimal:2',
+        'other_deductions' => 'decimal:2',
+        'employer_social_insurance' => 'decimal:2',
         'net_paid' => 'decimal:2',
     ];
 
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['number', 'status', 'asset_id', 'gross_salaries', 'salary_tax', 'social_insurance', 'net_paid', 'paid_from'])
+            ->logOnly(['number', 'status', 'asset_id', 'gross_salaries', 'allowances', 'salary_tax', 'social_insurance', 'advance_deductions', 'other_deductions', 'employer_social_insurance', 'net_paid', 'paid_from'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('payroll');
@@ -83,8 +91,12 @@ class Payroll extends Model
     {
         if (! $this->lines()->exists()) {
             $this->gross_salaries = 0;
+            $this->allowances = 0;
             $this->salary_tax = 0;
             $this->social_insurance = 0;
+            $this->advance_deductions = 0;
+            $this->other_deductions = 0;
+            $this->employer_social_insurance = 0;
             $this->net_paid = 0;
             $this->saveQuietly();
 
@@ -92,9 +104,13 @@ class Payroll extends Model
         }
 
         $this->gross_salaries = round((float) $this->lines()->sum('gross'), 2);
+        $this->allowances = round((float) $this->lines()->sum('allowances'), 2);
         $this->salary_tax = round((float) $this->lines()->sum('salary_tax'), 2);
         $this->social_insurance = round((float) $this->lines()->sum('social_insurance'), 2);
-        $this->net_paid = round($this->gross_salaries - $this->salary_tax - $this->social_insurance, 2);
+        $this->advance_deductions = round((float) $this->lines()->sum('advance_deduction'), 2);
+        $this->other_deductions = round((float) $this->lines()->sum('other_deductions'), 2);
+        $this->employer_social_insurance = round((float) $this->lines()->sum('employer_social_insurance'), 2);
+        $this->net_paid = round($this->gross_salaries - $this->salary_tax - $this->social_insurance - $this->advance_deductions - $this->other_deductions, 2);
         $this->saveQuietly();
     }
 
@@ -124,16 +140,17 @@ class Payroll extends Model
         static::saving(function (self $payroll) {
             // Coerce blank NOT-NULL money inputs to 0 — read the RAW attribute (a
             // decimal:2 cast throws MathException if '' is read through the getter).
-            foreach (['gross_salaries', 'salary_tax', 'social_insurance'] as $column) {
+            foreach (['gross_salaries', 'allowances', 'salary_tax', 'social_insurance', 'advance_deductions', 'other_deductions', 'employer_social_insurance'] as $column) {
                 $raw = $payroll->getAttributes()[$column] ?? null;
                 if ($raw === null || $raw === '') {
                     $payroll->{$column} = 0;
                 }
             }
 
-            // net_paid is derived on every write path.
+            // net_paid is derived on every write path (employer SI is NOT deducted; the advance
+            // installment + ad-hoc deductions ARE — they repay the loan / withhold from pay).
             $payroll->net_paid = round(
-                (float) $payroll->gross_salaries - (float) $payroll->salary_tax - (float) $payroll->social_insurance,
+                (float) $payroll->gross_salaries - (float) $payroll->salary_tax - (float) $payroll->social_insurance - (float) $payroll->advance_deductions - (float) $payroll->other_deductions,
                 2,
             );
         });

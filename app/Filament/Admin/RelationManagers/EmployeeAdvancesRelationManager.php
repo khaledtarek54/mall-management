@@ -43,7 +43,7 @@ class EmployeeAdvancesRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with('createdBy')->withSum('repayments as repaid_sum', 'amount'))
+            ->modifyQueryUsing(fn ($query) => $query->with('createdBy'))
             ->columns([
                 TextColumn::make('advance_date')
                     ->label(__('admin.employees.advance_fields.advance_date'))
@@ -57,15 +57,17 @@ class EmployeeAdvancesRelationManager extends RelationManager
                 TextColumn::make('amount')
                     ->label(__('admin.employees.advance_fields.amount'))
                     ->money('EGP'),
-                TextColumn::make('repaid_sum')
+                TextColumn::make('repaid')
                     ->label(__('admin.employees.advance_fields.repaid'))
+                    // Total repaid = amount − outstanding = cash repayments + approved payroll
+                    // installments (Phase 4b), so repaid + outstanding always ties to amount.
+                    ->state(fn (EmployeeAdvance $record) => round((float) $record->amount - $record->outstanding(), 2))
                     ->money('EGP')
-                    ->default(0)
                     ->color('success'),
                 TextColumn::make('outstanding')
                     ->label(__('admin.employees.advance_fields.outstanding'))
-                    // amount − repaid (derived from the withSum alias — no N+1).
-                    ->state(fn (EmployeeAdvance $record) => round(max(0, (float) $record->amount - (float) ($record->repaid_sum ?? 0)), 2))
+                    // amount − cash repayments − approved payroll installments (the accessor).
+                    ->state(fn (EmployeeAdvance $record) => $record->outstanding())
                     ->money('EGP')
                     ->weight('bold')
                     ->color(fn ($state) => (float) $state > 0 ? 'warning' : 'gray'),

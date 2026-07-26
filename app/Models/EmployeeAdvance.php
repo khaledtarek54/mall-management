@@ -65,16 +65,31 @@ class EmployeeAdvance extends Model
         return $this->belongsTo(User::class, 'created_by_user_id');
     }
 
-    /** Repaid to date = Σ of this advance's repayments. */
+    /** Repaid to date = Σ of this advance's cash repayments. */
     public function repaid(): float
     {
         return round((float) $this->repayments()->sum('amount'), 2);
     }
 
-    /** Outstanding balance = amount − repaid (never negative). */
+    /**
+     * Repaid via payroll deduction (Phase 4b) = Σ installments on APPROVED payroll lines
+     * that name this advance. Only approved (non-cancelled, non-trashed) runs count, so a
+     * cancelled/deleted run's deduction stops reducing the balance automatically — no
+     * repayment record to unwind. The payroll GL entry credits Employee Advances for this
+     * same amount, so the receivable and the books move together.
+     */
+    public function repaidViaPayroll(): float
+    {
+        return round((float) PayrollLine::query()
+            ->where('employee_advance_id', $this->getKey())
+            ->whereHas('payroll', fn ($q) => $q->where('status', 'approved'))
+            ->sum('advance_deduction'), 2);
+    }
+
+    /** Outstanding balance = amount − cash repayments − approved payroll installments (never negative). */
     public function outstanding(): float
     {
-        return round(max(0, (float) $this->amount - $this->repaid()), 2);
+        return round(max(0, (float) $this->amount - $this->repaid() - $this->repaidViaPayroll()), 2);
     }
 
     /** The child ledger sources whose GL follows this advance's lifecycle. */

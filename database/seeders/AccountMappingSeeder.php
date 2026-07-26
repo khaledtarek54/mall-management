@@ -33,6 +33,9 @@ class AccountMappingSeeder extends Seeder
         // Tax withheld from vendor payments, owed to the ETA (module 12b).
         'withholding_tax_payable' => '21303001',
         'social_insurance_payable' => '21601001',
+        // Ad-hoc payroll deductions (module 24, Phase 4c) — a holding liability the accountant
+        // reclassifies as needed (penalties fund / other income / expense-reduction).
+        'employee_deductions_payable' => '21602001',
         'unearned_revenue' => '21501001',
         'capital' => '31101001',
         'retained_earnings' => '32101001',
@@ -53,6 +56,9 @@ class AccountMappingSeeder extends Seeder
         'misc_income' => '42101001',
         'sales_returns' => '43101001',
         'salaries_expense' => '51101001',
+        // Employer's social-insurance contribution (module 24, Phase 4a) — a company cost,
+        // Dr here / Cr social_insurance_payable. The employee share is withheld from pay.
+        'social_insurance_expense' => '51110001',
         'maintenance_expense' => '51102001',
         'utilities_expense' => '51103001',
         'cleaning_security_expense' => '51104001',

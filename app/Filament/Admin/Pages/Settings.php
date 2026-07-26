@@ -7,6 +7,7 @@ use App\Settings\EtaSettings;
 use App\Settings\IntegrationsSettings;
 use App\Settings\MaintenanceSettings;
 use App\Settings\ModulesSettings;
+use App\Settings\PayrollSettings;
 use App\Settings\TaxSettings;
 use App\Support\Modules;
 use BackedEnum;
@@ -71,6 +72,7 @@ class Settings extends Page implements HasSchemas
         $integ = app(IntegrationsSettings::class);
         $eta = app(EtaSettings::class);
         $tax = app(TaxSettings::class);
+        $payroll = app(PayrollSettings::class);
         $mods = app(ModulesSettings::class);
 
         // Filament treats dots in field names as nested-array paths, so the
@@ -107,6 +109,11 @@ class Settings extends Page implements HasSchemas
                 'wht_enabled' => $tax->wht_enabled,
                 'wht_default_rate' => $tax->wht_default_rate,
             ],
+            'payroll' => [
+                'social_insurance_rate' => $payroll->social_insurance_rate,
+                'salary_tax_rate' => $payroll->salary_tax_rate,
+                'employer_social_insurance_rate' => $payroll->employer_social_insurance_rate,
+            ],
             'modules' => [],
         ];
 
@@ -127,6 +134,7 @@ class Settings extends Page implements HasSchemas
                     Tab::make(__('admin.settings.tabs.maintenance'))->icon('heroicon-o-wrench-screwdriver')->schema($this->maintenanceFields()),
                     Tab::make(__('admin.settings.tabs.eta'))->icon('heroicon-o-document-text')->schema($this->etaFields()),
                     Tab::make(__('admin.settings.tabs.tax'))->icon('heroicon-o-receipt-percent')->schema($this->taxFields()),
+                    Tab::make(__('admin.settings.tabs.payroll'))->icon('heroicon-o-users')->schema($this->payrollFields()),
                     Tab::make(__('admin.settings.tabs.integrations'))->icon('heroicon-o-bolt')->schema($this->integrationsFields()),
                 ])
                 ->columnSpanFull(),
@@ -175,6 +183,12 @@ class Settings extends Page implements HasSchemas
         $tax->wht_enabled = (bool) $state['tax']['wht_enabled'];
         $tax->wht_default_rate = (float) $state['tax']['wht_default_rate'];
         $tax->save();
+
+        $payroll = app(PayrollSettings::class);
+        $payroll->social_insurance_rate = (float) $state['payroll']['social_insurance_rate'];
+        $payroll->salary_tax_rate = (float) $state['payroll']['salary_tax_rate'];
+        $payroll->employer_social_insurance_rate = (float) $state['payroll']['employer_social_insurance_rate'];
+        $payroll->save();
 
         $mods = app(ModulesSettings::class);
         foreach (Modules::KEYS as $key) {
@@ -296,6 +310,42 @@ class Settings extends Page implements HasSchemas
                     TextInput::make('tax.wht_default_rate')
                         ->label(__('admin.settings.fields.wht_default_rate'))
                         ->helperText(__('admin.settings.fields.wht_default_rate_helper'))
+                        ->suffix('%')
+                        ->numeric()
+                        ->minValue(0)
+                        ->maxValue(100)
+                        ->required(),
+                ]),
+        ];
+    }
+
+    /** @return array<int, mixed> */
+    private function payrollFields(): array
+    {
+        return [
+            Section::make(__('admin.settings.sections.payroll_deductions'))
+                ->description(__('admin.settings.sections.payroll_deductions_description'))
+                ->columns(2)
+                ->components([
+                    TextInput::make('payroll.social_insurance_rate')
+                        ->label(__('admin.settings.fields.payroll_social_insurance_rate'))
+                        ->helperText(__('admin.settings.fields.payroll_social_insurance_rate_helper'))
+                        ->suffix('%')
+                        ->numeric()
+                        ->minValue(0)
+                        ->maxValue(100)
+                        ->required(),
+                    TextInput::make('payroll.salary_tax_rate')
+                        ->label(__('admin.settings.fields.payroll_salary_tax_rate'))
+                        ->helperText(__('admin.settings.fields.payroll_salary_tax_rate_helper'))
+                        ->suffix('%')
+                        ->numeric()
+                        ->minValue(0)
+                        ->maxValue(100)
+                        ->required(),
+                    TextInput::make('payroll.employer_social_insurance_rate')
+                        ->label(__('admin.settings.fields.payroll_employer_social_insurance_rate'))
+                        ->helperText(__('admin.settings.fields.payroll_employer_social_insurance_rate_helper'))
                         ->suffix('%')
                         ->numeric()
                         ->minValue(0)

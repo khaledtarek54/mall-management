@@ -13,6 +13,7 @@ return [
         \App\Settings\EtaSettings::class,
         \App\Settings\ModulesSettings::class,
         \App\Settings\MarketingSettings::class,
+        \App\Settings\PayrollSettings::class,
     ],
 
     /*

@@ -3,6 +3,7 @@
 use App\Filament\Admin\Resources\Payrolls\Pages\CreatePayroll;
 use App\Filament\Admin\Resources\Payrolls\Pages\EditPayroll;
 use App\Filament\Admin\Resources\Payrolls\Pages\ListPayrolls;
+use App\Models\Employee;
 use App\Models\Payroll;
 use App\Services\Accounting\FiscalCalendar;
 use Database\Seeders\AccountMappingSeeder;
@@ -66,4 +67,32 @@ it('hides approve from a user who can edit but not approve', function () {
 
     Livewire::test(EditPayroll::class, ['record' => $payroll->getRouteKey()])
         ->assertActionHidden('approve');
+});
+
+it('refreshes the derived header totals live when lines change (no manual refresh)', function () {
+    $asset = makeAsset(['code' => 'RX']);
+    Filament::setTenant($asset);
+
+    $run = Payroll::create([
+        'asset_id' => $asset->id, 'period_month' => now()->startOfMonth()->toDateString(),
+        'gross_salaries' => 0, 'salary_tax' => 0, 'social_insurance' => 0,
+        'paid_from' => 'bank', 'status' => 'draft',
+    ]);
+    $employee = Employee::create([
+        'asset_id' => $asset->id, 'code' => 'E-RX', 'name' => 'Nour Adel',
+        'hire_date' => '2026-01-01', 'base_salary' => 9000, 'payment_method' => 'bank',
+    ]);
+
+    // The edit form opens with the derived totals at 0 (no lines yet).
+    $page = Livewire::test(EditPayroll::class, ['record' => $run->getRouteKey()]);
+    expect((float) $page->get('data.gross_salaries'))->toBe(0.0);
+
+    // A line is added (the model hook re-derives the run header in the DB). The relation
+    // manager dispatches 'payroll-lines-updated'; the page must re-pull without a reload.
+    $run->lines()->create(['employee_id' => $employee->id, 'gross' => 9000, 'salary_tax' => 800, 'social_insurance' => 600]);
+
+    $page->dispatch('payroll-lines-updated');
+
+    expect((float) $page->get('data.gross_salaries'))->toBe(9000.0);
+    expect((float) $page->get('data.net_paid'))->toBe(7600.0);
 });

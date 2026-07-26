@@ -3,8 +3,10 @@
 namespace App\Filament\Admin\RelationManagers;
 
 use App\Models\Employee;
+use App\Models\EmployeeAdvance;
 use App\Models\Payroll;
 use App\Models\PayrollLine;
+use App\Services\GeneratePayrollService;
 use App\Services\PayslipPdfService;
 use App\Support\TenantScope;
 use Filament\Actions\Action;
@@ -46,6 +48,17 @@ class PayrollLinesRelationManager extends RelationManager
             && (auth()->user()?->can('payrolls.edit') ?? false);
     }
 
+    /**
+     * A line mutation re-derives the run header (Payroll::recomputeFromLines), but the
+     * header fields render on the parent Edit page — a SEPARATE Livewire component that
+     * won't know its record changed. Dispatch an event the page listens for so the
+     * gross / tax / insurance / net totals update live, without a manual refresh.
+     */
+    private function refreshOwnerHeader(): void
+    {
+        $this->dispatch('payroll-lines-updated');
+    }
+
     public function table(Table $table): Table
     {
         return $table
@@ -55,6 +68,10 @@ class PayrollLinesRelationManager extends RelationManager
                     ->label(__('admin.payroll_lines.fields.employee'))
                     ->description(fn (PayrollLine $record) => $record->employee?->code)
                     ->weight('medium'),
+                TextColumn::make('allowances')
+                    ->label(__('admin.payroll_lines.fields.allowances'))
+                    ->money('EGP')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('gross')
                     ->label(__('admin.payroll_lines.fields.gross'))
                     ->money('EGP'),
@@ -66,18 +83,99 @@ class PayrollLinesRelationManager extends RelationManager
                     ->label(__('admin.payroll_lines.fields.social_insurance'))
                     ->money('EGP')
                     ->color('danger'),
+                TextColumn::make('advance_deduction')
+                    ->label(__('admin.payroll_lines.fields.advance_deduction'))
+                    ->money('EGP')
+                    ->color('danger')
+                    ->placeholder('—')
+                    ->toggleable(),
+                TextColumn::make('other_deductions')
+                    ->label(__('admin.payroll_lines.fields.other_deductions'))
+                    ->money('EGP')
+                    ->color('danger')
+                    ->description(fn (PayrollLine $record) => $record->deduction_note)
+                    ->placeholder('—')
+                    ->toggleable(),
                 TextColumn::make('net')
                     ->label(__('admin.payroll_lines.fields.net'))
                     ->state(fn (PayrollLine $record) => $record->net)
                     ->money('EGP')
                     ->weight('bold')
                     ->color('success'),
+                TextColumn::make('employer_social_insurance')
+                    ->label(__('admin.payroll_lines.fields.employer_social_insurance'))
+                    ->money('EGP')
+                    ->color('gray')
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->headerActions([
+                // The Odoo-style "generate payslips" step: build one line per active
+                // employee in the run's property, pre-filled from base salary + the
+                // configured deduction rates. The lines are the review surface; the
+                // header derives from Σ lines (GL untouched). Primary CTA — hand-adding
+                // one employee at a time is the fallback.
+                Action::make('generate_from_roster')
+                    ->label(__('admin.payroll_lines.generate.label'))
+                    ->icon('heroicon-o-sparkles')
+                    ->color('primary')
+                    ->visible(fn () => $this->runIsEditable())
+                    ->authorize(fn () => auth()->user()?->can('payrolls.edit') ?? false)
+                    ->requiresConfirmation()
+                    ->modalHeading(__('admin.payroll_lines.generate.heading'))
+                    ->modalDescription(function () {
+                        /** @var Payroll $run */
+                        $run = $this->getOwnerRecord();
+                        $count = app(GeneratePayrollService::class)->eligibleCount($run);
+
+                        return $count > 0
+                            ? __('admin.payroll_lines.generate.description', ['count' => $count])
+                            : __('admin.payroll_lines.generate.none');
+                    })
+                    ->modalSubmitActionLabel(__('admin.payroll_lines.generate.confirm'))
+                    ->action(function (): void {
+                        abort_unless($this->runIsEditable(), 403);
+
+                        /** @var Payroll $run */
+                        $run = $this->getOwnerRecord();
+
+                        try {
+                            $result = app(GeneratePayrollService::class)->generate($run);
+                        } catch (\DomainException $e) {
+                            Notification::make()->title($e->getMessage())->danger()->send();
+
+                            return;
+                        }
+
+                        if ($result['added'] === 0) {
+                            Notification::make()
+                                ->title(__('admin.payroll_lines.generate.nothing_added'))
+                                ->warning()
+                                ->send();
+
+                            return;
+                        }
+
+                        $body = __('admin.payroll_lines.generate.added_body', ['count' => $result['added']]);
+                        if ($result['zero_salary'] > 0) {
+                            $body .= ' '.__('admin.payroll_lines.generate.zero_salary_note', ['count' => $result['zero_salary']]);
+                        }
+
+                        Notification::make()
+                            ->title(__('admin.payroll_lines.generate.done'))
+                            ->body($body)
+                            ->success()
+                            ->send();
+
+                        // The derived header totals live on the parent Edit form (a
+                        // separate Livewire component) — nudge it to re-pull, so they
+                        // update live instead of only after a manual page refresh.
+                        $this->refreshOwnerHeader();
+                    }),
+
                 Action::make('add_line')
                     ->label(__('admin.payroll_lines.add_line'))
                     ->icon('heroicon-o-user-plus')
-                    ->color('primary')
+                    ->color('gray')
                     ->visible(fn () => $this->runIsEditable())
                     ->authorize(fn () => auth()->user()?->can('payrolls.edit') ?? false)
                     ->schema([
@@ -107,6 +205,7 @@ class PayrollLinesRelationManager extends RelationManager
                             'social_insurance' => (float) ($data['social_insurance'] ?? 0),
                         ]);
                         // recomputeFromLines() runs via the PayrollLine saved hook.
+                        $this->refreshOwnerHeader();
                     }),
             ])
             ->recordActions([
@@ -114,10 +213,89 @@ class PayrollLinesRelationManager extends RelationManager
                     ->visible(fn () => $this->runIsEditable())
                     ->authorize(fn () => auth()->user()?->can('payrolls.edit') ?? false)
                     ->schema($this->moneyFields())
-                    ->before(fn () => abort_unless($this->runIsEditable(), 403)),
+                    ->before(fn () => abort_unless($this->runIsEditable(), 403))
+                    ->after(fn () => $this->refreshOwnerHeader()),
                 DeleteAction::make()
                     ->visible(fn () => $this->runIsEditable())
-                    ->before(fn () => abort_unless($this->runIsEditable(), 403)),
+                    ->before(fn () => abort_unless($this->runIsEditable(), 403))
+                    ->after(fn () => $this->refreshOwnerHeader()),
+                // Repay an advance/loan installment out of this payslip (Phase 4b). Shows only on a
+                // draft run when the employee has an outstanding advance (or this line already has an
+                // installment to edit/clear). The installment reduces net pay and — on approval —
+                // the payroll GL entry credits Employee Advances, closing the سلف loop.
+                Action::make('deduct_advance')
+                    ->label(__('admin.payroll_lines.deduct_advance.label'))
+                    ->icon('heroicon-o-arrow-uturn-left')
+                    ->color('warning')
+                    ->visible(fn (PayrollLine $record) => $this->runIsEditable()
+                        && ((float) $record->advance_deduction > 0 || $this->eligibleAdvances($record)->isNotEmpty()))
+                    ->authorize(fn () => auth()->user()?->can('payrolls.edit') ?? false)
+                    ->fillForm(fn (PayrollLine $record) => [
+                        'employee_advance_id' => $record->employee_advance_id,
+                        'advance_deduction' => (float) $record->advance_deduction,
+                    ])
+                    ->schema([
+                        \Filament\Forms\Components\Select::make('employee_advance_id')
+                            ->label(__('admin.payroll_lines.deduct_advance.advance'))
+                            ->options(fn (PayrollLine $record) => $this->advanceOptions($record))
+                            ->native(false)
+                            ->helperText(__('admin.payroll_lines.deduct_advance.advance_helper')),
+                        \Filament\Forms\Components\TextInput::make('advance_deduction')
+                            ->label(__('admin.payroll_lines.deduct_advance.amount'))
+                            ->numeric()->minValue(0)->default(0)->prefix('EGP')
+                            ->helperText(__('admin.payroll_lines.deduct_advance.amount_helper')),
+                    ])
+                    ->action(function (PayrollLine $record, array $data): void {
+                        abort_unless($this->runIsEditable(), 403);
+                        $amount = round((float) ($data['advance_deduction'] ?? 0), 2);
+
+                        if ($amount <= 0) {
+                            // Clearing the installment.
+                            $record->update(['advance_deduction' => 0, 'employee_advance_id' => null]);
+                            $this->refreshOwnerHeader();
+
+                            return;
+                        }
+
+                        // The advance must belong to THIS line's employee + be within scope (tamper guard).
+                        $advance = $this->eligibleAdvances($record)
+                            ->merge($record->employee_advance_id ? EmployeeAdvance::withTrashed()->whereKey($record->employee_advance_id)->get() : collect())
+                            ->firstWhere('id', (int) ($data['employee_advance_id'] ?? 0));
+                        if ($advance === null) {
+                            Notification::make()->title(__('admin.payroll_lines.deduct_advance.advance_required'))->danger()->send();
+
+                            return;
+                        }
+
+                        // Guard 1: can't repay more than the advance's outstanding.
+                        if ($amount > $advance->outstanding() + 0.001) {
+                            Notification::make()->title(__('admin.payroll_lines.errors.advance_over_repay', [
+                                'outstanding' => number_format($advance->outstanding(), 2),
+                            ]))->danger()->send();
+
+                            return;
+                        }
+                        // Guard 2: the installment can't exceed take-home (net ≥ 0) — take-home
+                        // is gross LESS the other deductions already on the line, not just tax + SI.
+                        $takeHomeBeforeAdvance = round((float) $record->gross - (float) $record->salary_tax
+                            - (float) $record->social_insurance - (float) $record->other_deductions, 2);
+                        if ($amount > $takeHomeBeforeAdvance + 0.001) {
+                            Notification::make()->title(__('admin.payroll_lines.errors.net_negative'))->danger()->send();
+
+                            return;
+                        }
+
+                        try {
+                            $record->update(['advance_deduction' => $amount, 'employee_advance_id' => $advance->id]);
+                        } catch (\DomainException $e) {
+                            // Backstop: the model re-checks net ≥ 0 — surface it as a toast, not a 500.
+                            Notification::make()->title($e->getMessage())->danger()->send();
+
+                            return;
+                        }
+                        $this->refreshOwnerHeader();
+                    }),
+
                 Action::make('payslip')
                     ->label(__('admin.payroll_lines.payslip'))
                     ->icon('heroicon-o-arrow-down-tray')
@@ -135,7 +313,10 @@ class PayrollLinesRelationManager extends RelationManager
                         );
                     }),
             ])
-            ->defaultSort('id');
+            ->defaultSort('id')
+            ->emptyStateIcon('heroicon-o-user-group')
+            ->emptyStateHeading(__('admin.payroll_lines.empty.heading'))
+            ->emptyStateDescription(__('admin.payroll_lines.empty.description'));
     }
 
     /**
@@ -144,21 +325,44 @@ class PayrollLinesRelationManager extends RelationManager
      * net (a payslip printing "Net −1,000"). The model enforces the same invariant as a
      * backstop; this validates it inline so the operator sees it on the field, not a 500.
      *
-     * @return array<int, TextInput>
+     * @return array<int, \Filament\Forms\Components\Field>
      */
     private function moneyFields(): array
     {
+        // net = gross − tax − SI − advance installment − other deductions, must stay ≥ 0.
+        // Computed purely from $get (which reflects the SUBMITTED values during validation), so
+        // it's correct on whichever field the rule fires. The advance installment is set via its
+        // own action but RETAINED on the line — lowering gross / raising a deduction here has to
+        // account for it too, else the model's net-negative invariant throws uncaught. It's
+        // carried in a read-only hidden field (filled from the record on edit, 0 on a new line).
+        $netNegative = fn (Get $get): bool => (float) $get('gross')
+            - (float) $get('salary_tax') - (float) $get('social_insurance')
+            - (float) ($get('advance_deduction') ?? 0) - (float) ($get('other_deductions') ?? 0) < 0;
+        $netRule = fn (Get $get) => function (string $attribute, $value, $fail) use ($get, $netNegative) {
+            if ($netNegative($get)) {
+                $fail(__('admin.payroll_lines.errors.net_negative'));
+            }
+        };
+
         return [
-            TextInput::make('gross')->label(__('admin.payroll_lines.fields.gross'))->numeric()->minValue(0)->required()->prefix('EGP'),
-            TextInput::make('salary_tax')->label(__('admin.payroll_lines.fields.salary_tax'))->numeric()->minValue(0)->default(0)->prefix('EGP'),
-            TextInput::make('social_insurance')->label(__('admin.payroll_lines.fields.social_insurance'))->numeric()->minValue(0)->default(0)->prefix('EGP')
+            \Filament\Forms\Components\Hidden::make('advance_deduction')->dehydrated(false),
+            TextInput::make('gross')->label(__('admin.payroll_lines.fields.gross'))->helperText(__('admin.payroll_lines.fields.gross_helper'))->numeric()->minValue(0)->required()->prefix('EGP')
+                ->rule($netRule), // lowering gross below the retained deductions drives net negative
+            TextInput::make('allowances')->label(__('admin.payroll_lines.fields.allowances'))->helperText(__('admin.payroll_lines.fields.allowances_helper'))->numeric()->minValue(0)->default(0)->prefix('EGP')
                 ->rule(function (Get $get) {
                     return function (string $attribute, $value, $fail) use ($get) {
-                        if ((float) $get('gross') - (float) $get('salary_tax') - (float) $value < 0) {
-                            $fail(__('admin.payroll_lines.errors.net_negative'));
+                        if ((float) $value > (float) $get('gross')) {
+                            $fail(__('admin.payroll_lines.errors.allowances_exceed_gross'));
                         }
                     };
                 }),
+            TextInput::make('salary_tax')->label(__('admin.payroll_lines.fields.salary_tax'))->numeric()->minValue(0)->default(0)->prefix('EGP'),
+            TextInput::make('social_insurance')->label(__('admin.payroll_lines.fields.social_insurance'))->numeric()->minValue(0)->default(0)->prefix('EGP')
+                ->rule($netRule),
+            TextInput::make('other_deductions')->label(__('admin.payroll_lines.fields.other_deductions'))->helperText(__('admin.payroll_lines.fields.other_deductions_helper'))->numeric()->minValue(0)->default(0)->prefix('EGP')
+                ->rule($netRule), // full net incl. the retained advance installment
+            \Filament\Forms\Components\TextInput::make('deduction_note')->label(__('admin.payroll_lines.fields.deduction_note'))->maxLength(255)->placeholder(__('admin.payroll_lines.fields.deduction_note_placeholder')),
+            TextInput::make('employer_social_insurance')->label(__('admin.payroll_lines.fields.employer_social_insurance'))->helperText(__('admin.payroll_lines.fields.employer_social_insurance_helper'))->numeric()->minValue(0)->default(0)->prefix('EGP'),
         ];
     }
 
@@ -193,5 +397,51 @@ class PayrollLinesRelationManager extends RelationManager
     private function authorizedEmployee(int $employeeId): Employee
     {
         return $this->employeeQuery()->whereKey($employeeId)->firstOr(fn () => abort(403));
+    }
+
+    /**
+     * The advances this line could repay: THIS line's employee's advances with an outstanding
+     * balance, and within the run's property scope (an advance's asset_id is denormalised from
+     * the employee, so this also blocks repaying an out-of-scope loan). `outstanding()` isn't a
+     * column, so filter in PHP — an employee has only a handful of advances.
+     *
+     * @return \Illuminate\Support\Collection<int, EmployeeAdvance>
+     */
+    private function eligibleAdvances(PayrollLine $record): \Illuminate\Support\Collection
+    {
+        if (! $record->employee_id) {
+            return collect();
+        }
+
+        $query = EmployeeAdvance::where('employee_id', $record->employee_id);
+        /** @var Payroll $run */
+        $run = $this->getOwnerRecord();
+        if ($run->asset_id) {
+            $query->where('asset_id', $run->asset_id);
+        } elseif (($ids = TenantScope::visibleAssetIds()) !== null) {
+            $query->whereIn('asset_id', $ids);
+        }
+
+        return $query->orderByDesc('advance_date')->get()
+            ->filter(fn (EmployeeAdvance $a) => $a->outstanding() > 0)
+            ->values();
+    }
+
+    /** @return array<int, string> */
+    private function advanceOptions(PayrollLine $record): array
+    {
+        $advances = $this->eligibleAdvances($record);
+
+        // Keep the currently-linked advance selectable even if it no longer has headroom.
+        if ($record->employee_advance_id && ! $advances->contains('id', $record->employee_advance_id)) {
+            if ($linked = EmployeeAdvance::withTrashed()->find($record->employee_advance_id)) {
+                $advances = $advances->push($linked);
+            }
+        }
+
+        return $advances->mapWithKeys(fn (EmployeeAdvance $a) => [
+            $a->id => __("admin.employees.types.{$a->type}").' · '.$a->advance_date->format('d/m/Y')
+                .' · '.__('admin.employees.advance_fields.outstanding').' EGP '.number_format($a->outstanding(), 2),
+        ])->all();
     }
 }

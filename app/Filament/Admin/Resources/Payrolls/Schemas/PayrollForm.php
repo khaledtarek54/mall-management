@@ -66,6 +66,7 @@ class PayrollForm
                 ]),
 
             Section::make(__('admin.sections.amounts'))
+                ->description(__('admin.sections.payroll_amounts_hint'))
                 ->columns(4)
                 ->components([
                     TextInput::make('gross_salaries')

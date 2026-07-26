@@ -28,6 +28,8 @@
         .earn { color: #0F766E; }
         .ded { color: #B4341C; }
         .net-row td { border-top: 2px solid #0F766E; border-bottom: none; font-size: 12pt; font-weight: bold; padding-top: 12px; }
+        .employer-note { margin-top: 14px; padding: 8px 10px; background: #F5F2EC; border-radius: 4px; font-size: 9pt; color: #4A4A4A; }
+        .employer-note-sub { color: #8C8478; }
         .footer { margin-top: 28px; font-size: 8pt; color: #8C8478; text-align: center; }
     </style>
 </head>
@@ -72,6 +74,16 @@
     </table>
 
     <table class="amounts">
+        @if ((float) $line->allowances > 0)
+            <tr>
+                <td class="earn">{{ __('admin.payslip.basic') }}</td>
+                <td class="num earn">{{ $money($line->basic) }}</td>
+            </tr>
+            <tr>
+                <td class="earn">{{ __('admin.payslip.allowances') }}</td>
+                <td class="num earn">{{ $money($line->allowances) }}</td>
+            </tr>
+        @endif
         <tr>
             <td class="earn">{{ __('admin.payslip.gross') }}</td>
             <td class="num earn">{{ $money($line->gross) }}</td>
@@ -84,11 +96,30 @@
             <td class="ded">{{ __('admin.payslip.social_insurance') }}</td>
             <td class="num ded">− {{ $money($line->social_insurance) }}</td>
         </tr>
+        @if ((float) $line->advance_deduction > 0)
+            <tr>
+                <td class="ded">{{ __('admin.payslip.advance_deduction') }}</td>
+                <td class="num ded">− {{ $money($line->advance_deduction) }}</td>
+            </tr>
+        @endif
+        @if ((float) $line->other_deductions > 0)
+            <tr>
+                <td class="ded">{{ __('admin.payslip.other_deductions') }}{{ $line->deduction_note ? ' — '.$line->deduction_note : '' }}</td>
+                <td class="num ded">− {{ $money($line->other_deductions) }}</td>
+            </tr>
+        @endif
         <tr class="net-row">
             <td>{{ __('admin.payslip.net') }}</td>
             <td class="num">{{ $money($line->net) }}</td>
         </tr>
     </table>
+
+    @if ((float) $line->employer_social_insurance > 0)
+        <div class="employer-note">
+            {{ __('admin.payslip.employer_social_insurance') }}: {{ $money($line->employer_social_insurance) }}
+            <span class="employer-note-sub">— {{ __('admin.payslip.employer_social_insurance_note') }}</span>
+        </div>
+    @endif
 
     <div class="footer">{{ __('admin.payslip.footer') }}</div>
 </body>

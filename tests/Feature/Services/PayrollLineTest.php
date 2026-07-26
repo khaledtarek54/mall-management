@@ -59,6 +59,56 @@ it('computes a line net = gross − tax − insurance', function () {
     expect($line->net)->toBe(7600.0);
 });
 
+it('breaks gross into basic + allowances and leaves net + basic derived (Phase 4a)', function () {
+    $asset = makeAsset();
+    $line = draftRun($asset->id)->lines()->create([
+        'employee_id' => lineEmployee($asset->id)->id,
+        'gross' => 10000, 'allowances' => 2500, 'salary_tax' => 800, 'social_insurance' => 600,
+        'employer_social_insurance' => 1875,
+    ]);
+
+    expect($line->basic)->toBe(7500.0);   // gross − allowances
+    expect($line->net)->toBe(8600.0);     // gross − tax − insurance (employer SI NOT deducted)
+});
+
+it('rejects allowances that exceed gross (they are a portion of it)', function () {
+    $asset = makeAsset();
+
+    expect(fn () => draftRun($asset->id)->lines()->create([
+        'employee_id' => lineEmployee($asset->id)->id, 'gross' => 5000, 'allowances' => 6000,
+    ]))->toThrow(DomainException::class);
+});
+
+it('deducts ad-hoc/other deductions from net and rolls them to the header (Phase 4c)', function () {
+    $asset = makeAsset();
+    $run = draftRun($asset->id);
+    $line = $run->lines()->create(['employee_id' => lineEmployee($asset->id)->id,
+        'gross' => 10000, 'salary_tax' => 1000, 'social_insurance' => 500, 'other_deductions' => 300, 'deduction_note' => 'absence 1 day']);
+
+    expect($line->net)->toBe(8200.0);                                  // 10000 − 1000 − 500 − 300
+    expect((float) $run->fresh()->other_deductions)->toBe(300.0);
+    expect((float) $run->fresh()->net_paid)->toBe(8200.0);
+});
+
+it('rejects a line whose other deductions drive net negative (Phase 4c)', function () {
+    $asset = makeAsset();
+
+    expect(fn () => draftRun($asset->id)->lines()->create(['employee_id' => lineEmployee($asset->id)->id,
+        'gross' => 5000, 'salary_tax' => 1000, 'social_insurance' => 500, 'other_deductions' => 4000])) // < 0
+        ->toThrow(DomainException::class);
+});
+
+it('rolls employer social insurance up to the header without touching net (Phase 4a)', function () {
+    $asset = makeAsset();
+    $run = draftRun($asset->id);
+    $run->lines()->create(['employee_id' => lineEmployee($asset->id)->id, 'gross' => 10000, 'salary_tax' => 1000, 'social_insurance' => 500, 'employer_social_insurance' => 1875]);
+    $run->lines()->create(['employee_id' => lineEmployee($asset->id)->id, 'gross' => 6000, 'salary_tax' => 400, 'social_insurance' => 300, 'employer_social_insurance' => 1125]);
+
+    $run->refresh();
+    expect((float) $run->employer_social_insurance)->toBe(3000.0);          // Σ employer SI
+    expect((float) $run->net_paid)->toBe(13800.0);                          // unchanged: 16000 − 1400 − 800
+});
+
 it('recomputes the header down when a line is deleted', function () {
     $asset = makeAsset();
     $run = draftRun($asset->id);

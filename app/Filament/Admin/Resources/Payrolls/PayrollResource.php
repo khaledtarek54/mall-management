@@ -116,39 +116,59 @@ class PayrollResource extends Resource
     public static function registerCsv(Payroll $run): array
     {
         $rows = [];
+        $totalBasic = 0.0;
+        $totalAllowances = 0.0;
         $totalGross = 0.0;
         $totalTax = 0.0;
         $totalInsurance = 0.0;
+        $totalAdvance = 0.0;
+        $totalOther = 0.0;
         $totalNet = 0.0;
+        $totalEmployerInsurance = 0.0;
 
         /** @var PayrollLine $line */
         foreach ($run->lines()->with('employee')->get() as $line) {
             $gross = round((float) $line->gross, 2);
+            $allowances = round((float) $line->allowances, 2);
+            $basic = round($gross - $allowances, 2);
             $tax = round((float) $line->salary_tax, 2);
             $insurance = round((float) $line->social_insurance, 2);
+            $advance = round((float) $line->advance_deduction, 2);
+            $other = round((float) $line->other_deductions, 2);
             $net = round((float) $line->net, 2);
+            $employerInsurance = round((float) $line->employer_social_insurance, 2);
+            $totalBasic += $basic;
+            $totalAllowances += $allowances;
             $totalGross += $gross;
             $totalTax += $tax;
             $totalInsurance += $insurance;
+            $totalAdvance += $advance;
+            $totalOther += $other;
             $totalNet += $net;
+            $totalEmployerInsurance += $employerInsurance;
 
             $rows[] = [
                 (string) data_get($line, 'employee.code', ''),
                 (string) data_get($line, 'employee.name', ''),
                 (string) data_get($line, 'employee.position', ''),
-                $gross, $tax, $insurance, $net,
+                $basic, $allowances, $gross, $tax, $insurance, $advance, $other, $net, $employerInsurance,
             ];
         }
 
         $rows[] = ['', __('admin.reports.csv.total'), '',
-            round($totalGross, 2), round($totalTax, 2), round($totalInsurance, 2), round($totalNet, 2)];
+            round($totalBasic, 2), round($totalAllowances, 2), round($totalGross, 2),
+            round($totalTax, 2), round($totalInsurance, 2), round($totalAdvance, 2), round($totalOther, 2),
+            round($totalNet, 2), round($totalEmployerInsurance, 2)];
 
         return [
             'headers' => [
                 __('admin.employees.fields.code'), __('admin.employees.fields.name'),
-                __('admin.employees.fields.position'), __('admin.payroll_lines.fields.gross'),
+                __('admin.employees.fields.position'),
+                __('admin.payroll_lines.fields.basic'), __('admin.payroll_lines.fields.allowances'),
+                __('admin.payroll_lines.fields.gross'),
                 __('admin.payroll_lines.fields.salary_tax'), __('admin.payroll_lines.fields.social_insurance'),
-                __('admin.payroll_lines.fields.net'),
+                __('admin.payroll_lines.fields.advance_deduction'), __('admin.payroll_lines.fields.other_deductions'),
+                __('admin.payroll_lines.fields.net'), __('admin.payroll_lines.fields.employer_social_insurance'),
             ],
             'rows' => $rows,
         ];
