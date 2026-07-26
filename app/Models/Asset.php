@@ -159,4 +159,36 @@ class Asset extends Model implements HasMedia
     {
         return $this->units()->where('status', 'occupied')->count();
     }
+
+    /**
+     * Economic (GLA) occupancy — occupied leasable area ÷ total leasable area, as a percentage.
+     *
+     * `occupancyRate()` above gives every unit one vote, so a 20 m² kiosk and a 2,000 m² anchor
+     * count the same; but rent tracks area, so the area-weighted figure is the one that moves
+     * revenue. The denominator is summed bottom-up from the units (NOT the declared
+     * `leasable_area_sqm` column), so numerator and denominator always share the same scope —
+     * the ratio can never exceed 100% just because the declared GLA and the unit areas disagree.
+     * Units with no recorded area contribute nothing to either side (you can't weight by an area
+     * you don't have), so incomplete area data shows up as economic occupancy drifting from the
+     * unit-count figure — that gap is a real data-quality signal, not a bug.
+     */
+    public function areaOccupancyRate(): float
+    {
+        $total = $this->totalUnitAreaSqm();
+        if ($total <= 0) {
+            return 0;
+        }
+
+        return round(($this->occupiedAreaSqm() / $total) * 100, 1);
+    }
+
+    public function occupiedAreaSqm(): float
+    {
+        return (float) $this->units()->where('status', 'occupied')->sum('area_sqm');
+    }
+
+    public function totalUnitAreaSqm(): float
+    {
+        return (float) $this->units()->sum('area_sqm');
+    }
 }

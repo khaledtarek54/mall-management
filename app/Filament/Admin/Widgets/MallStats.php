@@ -60,6 +60,14 @@ class MallStats extends StatsOverviewWidget
         $vacantUnits = $unitQuery()->where('status', 'vacant')->count();
         $occupancy = $totalUnits > 0 ? round(($occupiedUnits / $totalUnits) * 100, 1) : 0;
 
+        // Economic (GLA) occupancy — the same units weighted by leasable area, not by headcount.
+        // For a mall this is the figure that tracks revenue: leasing the one 2,000 m² anchor
+        // moves it far more than leasing five kiosks. Summed straight from the scoped units so
+        // it stays consistent with the unit-count figure above (same scope, different weighting).
+        $occupiedAreaSqm = (float) $unitQuery()->where('status', 'occupied')->sum('area_sqm');
+        $totalAreaSqm = (float) $unitQuery()->sum('area_sqm');
+        $areaOccupancy = $totalAreaSqm > 0 ? round(($occupiedAreaSqm / $totalAreaSqm) * 100, 1) : 0;
+
         $monthlyRecurring = (float) $leaseQuery()->where('status', 'active')
             ->selectRaw('SUM(base_rent_monthly + service_charge_monthly) as total')
             ->value('total');
@@ -118,6 +126,7 @@ class MallStats extends StatsOverviewWidget
         );
 
         $occupancyColor = $occupancy >= 85 ? 'success' : ($occupancy >= 70 ? 'warning' : 'danger');
+        $areaOccupancyColor = $areaOccupancy >= 85 ? 'success' : ($areaOccupancy >= 70 ? 'warning' : 'danger');
 
         return [
             Stat::make(__('admin.widgets.mall_stats.occupancy'), $occupancy.'%')
@@ -129,6 +138,17 @@ class MallStats extends StatsOverviewWidget
                 ->descriptionIcon('heroicon-m-building-storefront')
                 ->color($occupancyColor)
                 ->chart($occupancySeries),
+
+            // Economic occupancy sits next to the unit-count one so the two are read together:
+            // a wide gap between them means the vacant space is disproportionately large (or small)
+            // units. Total leasable area (m²) doubles as the denominator's context in the caption.
+            Stat::make(__('admin.widgets.mall_stats.economic_occupancy'), $areaOccupancy.'%')
+                ->description(__('admin.widgets.mall_stats.economic_occupancy_desc', [
+                    'occupied' => number_format($occupiedAreaSqm, 0),
+                    'total' => number_format($totalAreaSqm, 0),
+                ]))
+                ->descriptionIcon('heroicon-m-squares-2x2')
+                ->color($areaOccupancyColor),
 
             // No sparkline on MRR — contractual rent is a stable number; a
             // billed-in-month sparkline would dip in the partial current month

@@ -40,6 +40,15 @@ class PropertiesTable
                         $record->occupancyRate() >= 50 => 'warning',
                         default => 'danger',
                     }),
+                TextColumn::make('areaOccupancyRate')
+                    ->label(__('admin.tables.asset.area_occupancy'))
+                    ->getStateUsing(fn (Asset $record) => $record->areaOccupancyRate() . '%')
+                    ->badge()
+                    ->color(fn (Asset $record) => match (true) {
+                        $record->areaOccupancyRate() >= 70 => 'success',
+                        $record->areaOccupancyRate() >= 50 => 'warning',
+                        default => 'danger',
+                    }),
                 TextColumn::make('leasable_area_sqm')
                     ->label(__('admin.tables.asset.leasable_sqm'))
                     ->formatStateUsing(fn ($state) => number_format((float) $state, 0) . ' m²')

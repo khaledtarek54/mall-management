@@ -40,6 +40,15 @@ class PropertyInfolist
                             $record->occupancyRate() >= 50 => 'warning',
                             default => 'danger',
                         }),
+                    TextEntry::make('areaOccupancyRate')
+                        ->label(__('admin.tables.asset.area_occupancy'))
+                        ->getStateUsing(fn (Asset $record) => $record->areaOccupancyRate() . '%')
+                        ->badge()
+                        ->color(fn (Asset $record) => match (true) {
+                            $record->areaOccupancyRate() >= 70 => 'success',
+                            $record->areaOccupancyRate() >= 50 => 'warning',
+                            default => 'danger',
+                        }),
                     TextEntry::make('occupiedUnits')
                         ->label(__('admin.widgets.mall_stats.occupancy').' — '.__('admin.statuses.unit.occupied'))
                         ->getStateUsing(fn (Asset $record) => $record->occupiedUnitsCount()),

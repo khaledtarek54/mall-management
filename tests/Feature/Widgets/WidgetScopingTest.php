@@ -49,6 +49,28 @@ it('MallStats reflects only the current property AR balance', function () {
     });
 });
 
+it('MallStats surfaces economic (area) occupancy, property-scoped', function () {
+    // Give the two properties deliberately different area mixes so they can't share a figure,
+    // then assert each scope's widget value equals that property's own areaOccupancyRate() —
+    // which proves the stat renders, weights by area, AND stays isolated to the scoped property
+    // (all-mode aggregation would match neither single asset).
+    makeUnit($this->hw, ['status' => 'occupied', 'area_sqm' => 3000]);
+    makeUnit($this->pa, ['status' => 'vacant', 'area_sqm' => 4000]);
+
+    foreach ([$this->hw, $this->pa] as $asset) {
+        asTenant($asset, function () use ($asset) {
+            $stats = widgetCall(MallStats::class, 'getStats');
+            $eco = collect($stats)->first(fn ($s) => $s->getLabel() === __('admin.widgets.mall_stats.economic_occupancy'));
+            expect($eco)->not->toBeNull();
+            expect($eco->getValue())->toBe($asset->fresh()->areaOccupancyRate() . '%');
+        });
+    }
+
+    // And the two must genuinely differ, or the isolation assertion above proves nothing.
+    expect($this->hw->fresh()->areaOccupancyRate())
+        ->not->toBe($this->pa->fresh()->areaOccupancyRate());
+});
+
 it('ArAging totals are property-scoped', function () {
     asTenant($this->hw, function () {
         $data = widgetCall(ArAging::class, 'getData');

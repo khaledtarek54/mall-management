@@ -131,7 +131,7 @@ $lease->syncUnits([$master->id, $extra->id], $master->id);
 // Both units now occupied; lease.units has 2 rows, exactly one is_master=true
 ```
 
-### Asset::occupancyRate() Calculation
+### Asset::occupancyRate() Calculation — physical (unit-count) occupancy
 
 ```php
 occupied_count = count(units where status='occupied')
@@ -140,6 +140,23 @@ return round((occupied_count / total_count) * 100, 1)
 ```
 
 Returns 0.0 if no units. **Multi-unit leases count each occupied unit separately** (see test `tests/Feature/Scenarios/MultiUnitLeaseDataScenarioTest.php:365–384`).
+
+### Asset::areaOccupancyRate() Calculation — economic (GLA) occupancy
+
+```php
+occupied_area = SUM(units.area_sqm where status='occupied')
+total_area    = SUM(units.area_sqm)   // all units, bottom-up
+return total_area <= 0 ? 0.0 : round((occupied_area / total_area) * 100, 1)
+```
+
+Physical occupancy gives every unit one vote; **economic occupancy weights by leasable area**, so it is the figure that tracks the rent roll — leasing the single 2,000 m² anchor moves it far more than leasing five kiosks. The two are surfaced side by side (admin `MallStats`, owner `PortfolioStats` + the property table/infolist), and a wide gap between them is a signal in itself (the vacant space is disproportionately large, or small, units).
+
+Design choices, and why:
+- **Denominator is summed bottom-up from the units, NOT the declared `assets.leasable_area_sqm` column.** Numerator and denominator then always share the same scope, so the ratio can never exceed 100% just because the declared GLA and the unit areas disagree.
+- **Units with no recorded area contribute nothing to either side** — you can't weight by an area you don't have. So incomplete area data shows up as economic occupancy *drifting* from the unit-count figure; that gap is a real data-quality signal, not a bug.
+- **Guarded against divide-by-zero** — a property with no units, or all-zero-area units, reads 0.0% (never NaN).
+
+Companion accessors: `occupiedAreaSqm()`, `totalUnitAreaSqm()`. Guarding test: `tests/Feature/Models/AssetTest.php` (weighted divergence + both zero-denominator paths).
 
 ### All Properties Pseudo-Asset (`Asset::ALL_PROPERTIES_CODE = 'ALL'`)
 
