@@ -227,7 +227,8 @@ class ContractsRelationManager extends RelationManager
             ])
             ->headerActions([
                 CreateAction::make()->label(__('admin.actions.add_contract'))
-                    ->visible(fn () => auth()->user()?->can('vendors.edit') ?? false),
+                    ->visible(fn () => auth()->user()?->can('vendors.edit') ?? false)
+                    ->authorize(fn () => auth()->user()?->can('vendors.edit') ?? false),
             ])
             ->recordActions([
                 // "View working" for the commitment: an operator should never have to trust a
@@ -326,9 +327,11 @@ class ContractsRelationManager extends RelationManager
                             ->send();
                     }),
                 EditAction::make()
-                    ->visible(fn () => auth()->user()?->can('vendors.edit') ?? false),
+                    ->visible(fn () => auth()->user()?->can('vendors.edit') ?? false)
+                    ->authorize(fn () => auth()->user()?->can('vendors.edit') ?? false),
                 DeleteAction::make()
-                    ->visible(fn () => auth()->user()?->hasRole('super_admin') ?? false),
+                    ->visible(fn () => auth()->user()?->hasRole('super_admin') ?? false)
+                    ->authorize(fn () => auth()->user()?->hasRole('super_admin') ?? false),
             ])
             ->defaultSort('start_date', 'desc');
     }

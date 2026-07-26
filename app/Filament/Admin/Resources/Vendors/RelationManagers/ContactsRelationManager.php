@@ -46,13 +46,16 @@ class ContactsRelationManager extends RelationManager
             ])
             ->headerActions([
                 CreateAction::make()->label(__('admin.actions.add_contact'))
-                    ->visible(fn () => auth()->user()?->can('vendors.edit') ?? false),
+                    ->visible(fn () => auth()->user()?->can('vendors.edit') ?? false)
+                    ->authorize(fn () => auth()->user()?->can('vendors.edit') ?? false),
             ])
             ->recordActions([
                 EditAction::make()
-                    ->visible(fn () => auth()->user()?->can('vendors.edit') ?? false),
+                    ->visible(fn () => auth()->user()?->can('vendors.edit') ?? false)
+                    ->authorize(fn () => auth()->user()?->can('vendors.edit') ?? false),
                 DeleteAction::make()
-                    ->visible(fn () => auth()->user()?->hasRole('super_admin') ?? false),
+                    ->visible(fn () => auth()->user()?->hasRole('super_admin') ?? false)
+                    ->authorize(fn () => auth()->user()?->hasRole('super_admin') ?? false),
             ])
             ->defaultSort('is_primary', 'desc');
     }

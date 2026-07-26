@@ -54,7 +54,7 @@ Operators (Eltizam) manage vendor records and can assign vendors to maintenance 
 - `Vendor::primaryContact()` → returns first with `is_primary=true`, or oldest by creation if none marked (helper method)
 - `Vendor::contracts()` → `hasMany(VendorContract::class)` (all contracts)
 - `Vendor::activeContractsCount()` → count of contracts with `status='active'` (helper for nav badge)
-- `Vendor::maintenanceRequests()` → `hasMany(MaintenanceRequest::class, 'assigned_to_vendor_id')` (requests assigned to this vendor)
+- `Vendor::maintenanceRequests()` → `hasMany(TenantRequest::class, 'assigned_to_vendor_id')` (tenant requests assigned to this vendor; `MaintenanceRequest` was renamed `TenantRequest`)
 - `VendorContact::vendor()` → `belongsTo(Vendor::class)`
 - `VendorContract::vendor()` → `belongsTo(Vendor::class)`
 - `VendorContract::asset()` → `belongsTo(Asset::class)` (nullable; null = portfolio-wide contract)
@@ -184,9 +184,18 @@ Creation, edit, and delete are handled directly in Filament pages + relation man
 - **Edit contract:** `ContractsRelationManager::edit` → updates contract.
 - **Delete:** Soft-delete via `SoftDeletes` trait; hard-delete restricted to super_admin.
 
-No event observers on Vendor or VendorContract.
+**Model hooks (not "none"):** `Vendor::creating()` generates the collision-safe slug; `VendorContract::saving()` maintains the derived `notice_deadline` (`end_date − notice_period_days`, kept in step because "a date minus a *column* of days" has no portable SQL). No cascading service is needed for the master data itself.
+
+### VendorBillService (Accounts Payable)
+
+AP has a real service because a vendor bill posts to the GL and is settled by payments. `VendorBillService`:
+- **`approve()`** — draft → approved (GL-postable). **Guards `bill_date`'s period** with `App\Support\PostingDate`: a draft approved after its bill-date month has closed can't recognise the payable (silent-strand class F-89/F-93), so approval is refused until the still-editable draft is re-dated into an open period.
+- **`recordPayment()`** — lock-safe, caps the amount at the balance, computes Egyptian **withholding tax**, and **guards `payment_date`'s period** the same way (the AP mirror of the AR receipt guard). A back-dated payment into a closed period is refused, not silently stranded.
+- **`cancel()`** — refuses if any cash was paid; **releases any applied SLA penalty back to `final`** (a cancelled bill owes nothing, so an applied penalty would otherwise be silently dropped — still owed, but no longer chargeable), then zeroes the balance via `recompute()`'s cancelled branch.
 
 ## 6. Filament resources & key fields
+
+> **12b additions not detailed below** (this section predates them): the vendor edit page also carries a **`DocumentsRelationManager`** (compliance certs, private disk) and the contracts RM gained an **`amend`** (change-order) action + Committed/Billed/Remaining columns; and there is a **separate `VendorBillResource`** (`/admin/vendors/bills`) for AP — property-scoped (`asset_id` guarded by `assertAssetInScope` on create+edit), with `approve` / `record_payment` (withholding-tax breakdown) / `cancel_bill` actions, all double-gated. All vendor relation-manager write actions gate the predicate in both `visible()` and `authorize()`.
 
 ### VendorResource (Admin)
 
@@ -337,7 +346,7 @@ The 'operations' role has all three (view, create, edit).
 
 **Integrations:** None currently. Vendors are internal master data, not connected to external systems (Paymob, ETA, etc.). Future integrations (e.g., vendor payment processing) would be added here.
 
-**Maintenance request assignment:** `MaintenanceRequest::assignedVendor()` links a maintenance request to a vendor via `assigned_to_vendor_id` foreign key. This is logged in activity records but does not trigger notifications.
+**Request/work-order assignment:** `TenantRequest::assignedVendor()` (formerly `MaintenanceRequest`) links a request to a vendor via `assigned_to_vendor_id`; the actual facility **dispatch** is a `MaintenanceWorkOrder`, whose `saving()` hook is the compliance gate (see §9). Assignment is activity-logged; the vendor picker filters to active/dispatchable vendors.
 
 ## 8. Extension points — how to change/extend SAFELY
 
@@ -492,13 +501,9 @@ When `currentAssetId()` is null (ALL asset or no tenant), the filter is skipped 
 
 ---
 
-### Maintenance request vendor assignment is independent
+### Vendor dispatch is compliance-gated (superseding the old "assignment is independent" note)
 
-**Risk:** A vendor can be assigned to a maintenance request even if the vendor is blacklisted or inactive.
-
-**Mitigation:** No validation in `MaintenanceRequest` form prevents assigning a blacklisted vendor. Operator is trusted to use judgment. Future enhancement: add a constraint or warning.
-
-**Workaround:** Filter the vendor dropdown to only active/non-blacklisted vendors (not currently implemented).
+A non-dispatchable vendor **cannot be put on a facility job.** The single server-side gate is `MaintenanceWorkOrder::saving()`, which throws a `DomainException` when `vendor_id` is dirty and `! Vendor::isDispatchable()` (blacklisted/inactive, or a **blocking** document — insurance/COI — has lapsed). Every work-order vendor picker filters to `Vendor::assignableOptions()` / `scopeAssignable()`, and the tenant-request picker filters `status='active'`, so a blacklisted vendor is never offered for triage assignment either. See §3's compliance-gate row. (Assignment-time only — an order whose vendor's COI lapses *later* isn't retroactively broken; a vendor with no COI on file is still assignable, blacklist to hard-block.)
 
 ## 10. Tests & related modules
 
@@ -517,6 +522,16 @@ When `currentAssetId()` is null (ALL asset or no tenant), the filter is skipped 
   - Expires active contracts past end_date
   - `--dry-run` reports without writing
   - Clean exit when no candidates
+
+**Module 12b + AP tests** (the doc's original list predates these):
+- `tests/Feature/Services/VendorBillTest.php` — AP lifecycle (approve → pay → paid), `recompute()` derivation, GRNI clearing.
+- `tests/Feature/Regression/VendorBillClosedPeriodTest.php` — **closed-period guard** on bill create/edit **and** (added this sweep) on the payment + approve paths.
+- `tests/Feature/Regression/VendorWithholdingTaxTest.php` — WHT arithmetic + the GL sweep tie-out (Dr AP / Cr Bank / Cr WHT-Payable).
+- `tests/Feature/Scenarios/SlaPenaltyChargeScenarioTest.php` — SLA penalty applied to a bill (FR-CM-08), detach/waive re-derive, and (added this sweep) **cancel releases the applied penalty**.
+- `tests/Feature/Regression/VendorContractLifecycleTest.php` + `VendorContractCommitmentTest.php` — commitment (billed/effective/remaining/over-committed), append-only change orders, renewal notice.
+- `tests/Feature/Regression/VendorDocumentAlertingTest.php` + `tests/Feature/VendorComplianceGateTest.php` — document expiry chase (two-column stamp) + the dispatch compliance gate.
+- `tests/Feature/Resources/VendorBillResourceTest.php`, `tests/Feature/VendorRoleTest.php` — resource + RBAC.
+- GRNI: `tests/Feature/Regression/GrniClearingTest.php`, `GrniReachableAndCappedTest.php`, `PurchaseReceiptLedgerTest.php`.
 
 ### Related modules
 

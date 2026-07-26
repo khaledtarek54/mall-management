@@ -7,6 +7,7 @@ use App\Models\Vendor;
 use App\Models\VendorBill;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\PeriodService;
+use App\Services\VendorBillService;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -106,4 +107,60 @@ it('allows an unrelated edit of a bill whose unchanged date sits in a closed per
         ->fillForm(['notes' => 'Chasing the vendor for the PO number'])
         ->call('save')
         ->assertHasNoFormErrors();
+});
+
+/*
+|--------------------------------------------------------------------------
+| The same guard on the PAYMENT and APPROVE paths (the gap the sweep found).
+| payment_date and the recognition-at-approve are both operator-controlled
+| GL entry_dates that the bill-create/edit guard never covered.
+|--------------------------------------------------------------------------
+*/
+
+function openApprovedBill(): VendorBill
+{
+    $bill = VendorBill::create([
+        'asset_id' => Filament::getTenant()->id,
+        'vendor_id' => test()->vendor->id,
+        'category' => 'maintenance',
+        'bill_date' => now()->toDateString(),
+        'subtotal' => 10000, 'vat_amount' => 1400, 'total' => 11400,
+        'status' => 'draft',
+    ]);
+
+    return app(VendorBillService::class)->approve($bill)->fresh();
+}
+
+it('refuses a vendor-bill PAYMENT dated into a closed period (the AP mirror of the AR receipt)', function () {
+    $bill = openApprovedBill();
+
+    expect(fn () => app(VendorBillService::class)->recordPayment($bill, 5000, 'bank_transfer', Carbon::parse($this->closedDate)))
+        ->toThrow(DomainException::class);
+
+    // Nothing committed — no payment row, the payable is untouched.
+    expect($bill->fresh()->payments()->count())->toBe(0)
+        ->and((float) $bill->fresh()->balance)->toBe(11400.0);
+});
+
+it('still records a payment dated in an open period', function () {
+    $bill = openApprovedBill();
+
+    $paid = app(VendorBillService::class)->recordPayment($bill, 5000, 'bank_transfer', now());
+
+    expect($paid)->toBe(5000.0)
+        ->and($bill->fresh()->payments()->count())->toBe(1);
+});
+
+it('refuses to APPROVE a draft whose bill_date sits in a closed period (recognition would strand)', function () {
+    $bill = VendorBill::create([
+        'asset_id' => Filament::getTenant()->id,
+        'vendor_id' => $this->vendor->id,
+        'category' => 'maintenance',
+        'bill_date' => $this->closedDate,
+        'subtotal' => 10000, 'vat_amount' => 1400, 'total' => 11400,
+        'status' => 'draft',
+    ]);
+
+    expect(fn () => app(VendorBillService::class)->approve($bill))->toThrow(DomainException::class);
+    expect($bill->fresh()->status)->toBe('draft');
 });

@@ -58,7 +58,14 @@ class EditVendorBill extends EditRecord
                 ->authorize(fn () => Auth::user()?->can('vendor_bills.approve') ?? false)
                 ->requiresConfirmation()
                 ->action(function (): void {
-                    app(VendorBillService::class)->approve($this->record);
+                    try {
+                        app(VendorBillService::class)->approve($this->record);
+                    } catch (\DomainException $e) {
+                        // A closed bill_date period refuses recognition — surface it, don't 500.
+                        Notification::make()->title($e->getMessage())->danger()->send();
+
+                        return;
+                    }
                     $this->refreshFormData(['status']);
                     Notification::make()
                         ->title(__('admin.notifications.vendor_bill_approved'))
@@ -120,13 +127,21 @@ class EditVendorBill extends EditRecord
                         ->rows(2),
                 ])
                 ->action(function (array $data): void {
-                    $paid = app(VendorBillService::class)->recordPayment(
-                        $this->record,
-                        (float) $data['amount'],
-                        $data['method'],
-                        Carbon::parse($data['payment_date']),
-                        $data['notes'] ?? null,
-                    );
+                    try {
+                        $paid = app(VendorBillService::class)->recordPayment(
+                            $this->record,
+                            (float) $data['amount'],
+                            $data['method'],
+                            Carbon::parse($data['payment_date']),
+                            $data['notes'] ?? null,
+                        );
+                    } catch (\DomainException $e) {
+                        // A back-dated payment into a closed period is refused (would strand the GL) —
+                        // surface it as a toast, not a 500.
+                        Notification::make()->title($e->getMessage())->danger()->send();
+
+                        return;
+                    }
 
                     // recordPayment re-loads + mutates a locked instance, so the
                     // page's $this->record is stale — refresh it before re-filling

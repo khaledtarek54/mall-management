@@ -197,6 +197,22 @@ it('restores the bill balance when the deduction is detached', function () {
     expect($penalty->fresh()->vendor_bill_id)->toBeNull();
 });
 
+it('releases an applied penalty back to final when the bill is cancelled (never silently dropped)', function () {
+    // A penalty-settled bill with no cash is cancellable (paid_amount is 0). Cancelling must return
+    // the penalty to the pool — otherwise it stays `applied` on a cancelled bill: still owed by the
+    // vendor, but no longer chargeable or collectable.
+    $bill = payableBill(5000);
+    $penalty = finalPenalty();
+    $this->apply->toBill($penalty, $bill);
+    expect($penalty->fresh()->status)->toBe(MaintenancePenalty::STATUS_APPLIED);
+
+    app(\App\Services\VendorBillService::class)->cancel($bill->fresh());
+
+    expect($penalty->fresh()->status)->toBe(MaintenancePenalty::STATUS_FINAL)
+        ->and($penalty->fresh()->vendor_bill_id)->toBeNull()
+        ->and($bill->fresh()->status)->toBe('cancelled');
+});
+
 /* ---- the GL: a cost reduction, not income ------------------------------- */
 
 it('posts the penalty as Dr Accounts Payable / Cr the expense the bill charged', function () {

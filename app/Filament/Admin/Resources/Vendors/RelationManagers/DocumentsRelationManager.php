@@ -125,13 +125,16 @@ class DocumentsRelationManager extends RelationManager
             ->headerActions([
                 CreateAction::make()
                     ->label(__('admin.vendors.documents.add'))
-                    ->visible(fn () => auth()->user()?->can('vendors.edit') ?? false),
+                    ->visible(fn () => auth()->user()?->can('vendors.edit') ?? false)
+                    ->authorize(fn () => auth()->user()?->can('vendors.edit') ?? false),
             ])
             ->recordActions([
                 EditAction::make()
-                    ->visible(fn () => auth()->user()?->can('vendors.edit') ?? false),
+                    ->visible(fn () => auth()->user()?->can('vendors.edit') ?? false)
+                    ->authorize(fn () => auth()->user()?->can('vendors.edit') ?? false),
                 DeleteAction::make()
-                    ->visible(fn () => auth()->user()?->hasRole('super_admin') ?? false),
+                    ->visible(fn () => auth()->user()?->hasRole('super_admin') ?? false)
+                    ->authorize(fn () => auth()->user()?->hasRole('super_admin') ?? false),
             ])
             ->defaultSort('expires_on')
             ->emptyStateIcon('heroicon-o-document-check')

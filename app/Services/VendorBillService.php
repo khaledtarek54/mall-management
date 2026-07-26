@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\MaintenancePenalty;
 use App\Models\VendorBill;
 use App\Models\VendorBillPayment;
+use App\Support\PostingDate;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -21,6 +23,12 @@ class VendorBillService
         if ($bill->status !== 'draft') {
             return $bill;
         }
+
+        // Approval recognises the payable on the GL dated by `bill_date` (VendorBillJournalizer). If
+        // that period has since closed, the recognition would silently fail (the F-89/F-93 class) —
+        // the bill would read `approved` while the GL never posted the AP. Refuse it so the operator
+        // re-dates the still-editable draft into an open period first. A missing period is allowed.
+        PostingDate::assertOpen($bill->bill_date, __('admin.fields.bill_date'));
 
         return DB::transaction(function () use ($bill) {
             $bill->status = 'approved';
@@ -40,7 +48,14 @@ class VendorBillService
      */
     public function recordPayment(VendorBill $bill, float $amount, string $method = 'bank_transfer', ?\DateTimeInterface $date = null, ?string $notes = null): float
     {
-        return DB::transaction(function () use ($bill, $amount, $method, $date, $notes) {
+        // `payment_date` becomes the GL entry_date (VendorBillPaymentJournalizer), so it must land in
+        // an OPEN period — otherwise the Dr AP / Cr Bank / Cr WHT-Payable posting silently fails (the
+        // F-89/F-93 class) while the bill reads "paid" and the WHT liability is understated. Guard in
+        // the SERVICE so the API/console paths are covered too, mirroring the AR receipt (CreatePayment).
+        // A missing period is allowed; only a CLOSED one is refused. Returns the normalised date.
+        $postingDate = PostingDate::assertOpen($date ?? now(), __('admin.fields.payment_date'));
+
+        return DB::transaction(function () use ($bill, $amount, $method, $postingDate, $notes) {
             $bill = VendorBill::query()->with('vendor')->lockForUpdate()->find($bill->id);
 
             if (! $bill || ! $bill->isPostable()) {
@@ -64,7 +79,7 @@ class VendorBillService
                 'amount' => $pay,
                 'withholding_amount' => $withheld,
                 'method' => $method,
-                'payment_date' => $date ? \Illuminate\Support\Carbon::instance($date)->toDateString() : now()->toDateString(),
+                'payment_date' => $postingDate->toDateString(),
                 'notes' => $notes,
                 'created_by_user_id' => Auth::id(),
             ]); // its saved() hook recomputes the bill
@@ -84,6 +99,16 @@ class VendorBillService
         }
 
         return DB::transaction(function () use ($bill) {
+            // Release any SLA penalty applied to this bill back to `final`. A cancelled bill owes
+            // nothing, so an applied penalty pointing at it would be silently dropped — still owed by
+            // the vendor, but no longer chargeable or collectable. Un-applying returns it to the pool
+            // to be re-charged to another bill (the canonical un-apply, which also re-derives the bill).
+            $applied = $bill->penalties()->where('status', MaintenancePenalty::STATUS_APPLIED)->get();
+            foreach ($applied as $penalty) {
+                /** @var MaintenancePenalty $penalty */
+                app(ApplySlaPenaltyService::class)->detach($penalty);
+            }
+
             $bill->status = 'cancelled';
             $bill->save();      // persist the status change (activity-logged)
             $bill->recompute(); // zeroes the balance via the cancelled branch — the single source of truth
