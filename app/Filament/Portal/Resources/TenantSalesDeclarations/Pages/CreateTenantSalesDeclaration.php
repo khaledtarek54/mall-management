@@ -17,6 +17,15 @@ class CreateTenantSalesDeclaration extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
+        // Clamp the client-supplied lease_id to the signed-in tenant's OWN. The form's options()
+        // scope only the RENDERING; a crafted Livewire submit can post any lease_id — and without this
+        // a portal user could plant a declaration on ANOTHER retailer's lease: it would occupy that
+        // lease's (lease_id, period_start) unique slot (DoS'ing the victim's own reporting) and surface
+        // a fabricated report on that mall's admin queue → potential misbilling. The mobile API's
+        // CreateSalesDeclarationAction already enforces this; the portal page must too.
+        $data['lease_id'] = \App\Support\Portal::clampLeaseId($data['lease_id'] ?? null);
+        abort_if($data['lease_id'] === null, 403);
+
         $data['declared_at'] ??= now();
         $data['declared_by_type'] = Tenant::class;
         $data['declared_by_id'] = \App\Support\Portal::tenantId();

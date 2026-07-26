@@ -221,9 +221,16 @@ Example: allow admins to upload a document to an invoice.
    ```php
    ->visible(fn () => Portal::isAdmin())
    ```
-   This prevents non-admins from seeing and mounting the form.
+   This prevents non-admins from seeing and mounting the form. `visible()` is UX, not a gate — a write action must ALSO gate `Portal::isAdmin()` in `action()`/`abort_unless`.
 
-2. **In the action handler**, validate and save the record, then call `notifyPortal()` if needed:
+2. **CLAMP every client-supplied foreign key to the tenant's own** (`lease_id`, `unit_id`, …). A Select's `->options()` scope the RENDERING, not the payload — a crafted Livewire submit posts any id. Without a server-side clamp a portal user files/plants a record against **another retailer's** lease/unit (cross-tenant write: a competitor's sales-declaration slot DoS'd, a request misrouted to another mall's staff). Use `Portal::clampLeaseId($data['lease_id'])` (returns null for a foreign lease) and refuse null; for `unit_id`, derive it from the tenant's own lease, never from the raw payload:
+   ```php
+   $data['lease_id'] = Portal::clampLeaseId($data['lease_id'] ?? null);
+   abort_if($data['lease_id'] === null, 403);
+   ```
+   The mobile API request-validators do this with `Rule::exists('leases', …)->where('tenant_id', …)`; the portal has no such rule, so the page/service MUST clamp. Guarded by `PortalCrossTenantWriteGuardTest`.
+
+3. **In the action handler**, validate and save the record, then call `notifyPortal()` if needed:
    ```php
    $invoice->update($data);
    $invoice->tenant->notifyPortal(new InvoiceUpdatedNotification($invoice));
@@ -275,6 +282,14 @@ If the business later requires role-based permissions within a tenant (e.g., "Ac
 **Do NOT break:** the scoping in `getEloquentQuery()` (always filter by tenant_id), the soft-delete cascade, or the password-hashing cast.
 
 ## 9. Gotchas, edge cases & recently-fixed bugs
+
+### Cross-tenant WRITE via an unclamped foreign key (FIXED 2026-07-26)
+
+Two portal create paths trusted a **client-supplied lease_id / unit_id** — the form's `->options()` scope only the rendering, so a crafted Livewire submit could post another retailer's id:
+- **Sales declarations (HIGH).** `CreateTenantSalesDeclaration` left `lease_id` raw → mass-assigned. Tenant A could plant a declaration on tenant B's lease: it occupies B's `(lease_id, period_start)` unique slot (**DoS'ing B's own reporting**) and surfaces a fabricated report on that mall's admin queue (**potential misbilling**). The `period_start` `unique` rule *is* clamped via `clampLeaseId` — but that returns null for a foreign lease, so the rule matches nothing and passes, guarding the oracle but **not the write**. Fixed: `mutateFormDataBeforeCreate` clamps `lease_id` via `Portal::clampLeaseId` and 403s on null.
+- **Tenant requests (MED).** `TenantRequestService::create` used `$data['unit_id']` raw → a request with `tenant_id=A, unit_id=B's unit`, leaking B's unit code back through A's own request view and **misrouting** to B's property staff / area supervisors. Fixed in the service: unit + lease are derived from the tenant's own lease, never the payload.
+
+The mobile API already clamped both (`CreateSalesDeclarationAction`, `CreateTenantRequestRequest`); only the portal skipped it. **Lesson (now in §8):** every portal write must clamp its client-supplied foreign keys server-side — options are rendering, not authorization. Guarded by `PortalCrossTenantWriteGuardTest`.
 
 ### Email uniqueness and password-reset collisions
 

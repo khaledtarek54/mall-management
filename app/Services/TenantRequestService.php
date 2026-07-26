@@ -42,8 +42,20 @@ class TenantRequestService
     public function create(array $data, Tenant $tenant): TenantRequest
     {
         return DB::transaction(function () use ($data, $tenant) {
-            $unit = $tenant->activeLeases()->first()?->unit;
-            $lease = $tenant->activeLeases()->first();
+            // Clamp the client-supplied unit_id to the tenant's OWN lease. The portal form's options()
+            // scope only the rendering — a crafted Livewire submit can post another retailer's unit_id,
+            // and (unlike the mobile API's CreateTenantRequestRequest, which has an exists-rule) the
+            // portal form has no server-side rule. Without this a portal user could file a request
+            // against another tenant's unit → their unit code leaks back through the request view, and
+            // the request misroutes to that unit's PROPERTY staff / area supervisors. Deriving the
+            // lease from the tenant's own row (never the client) keeps unit_id + lease_id consistent
+            // and tenant-owned. Guard here, the single choke point for the portal + API create paths.
+            $requestedUnitId = isset($data['unit_id']) ? (int) $data['unit_id'] : null;
+            $lease = ($requestedUnitId !== null
+                ? $tenant->leases()->where('unit_id', $requestedUnitId)->first()
+                : null)
+                ?? $tenant->activeLeases()->first();
+            $unit = $lease?->unit;
 
             $type = isset($data['request_type'])
                 ? TenantRequestType::from($data['request_type'])
@@ -57,8 +69,9 @@ class TenantRequestService
                     $type->referencePrefix(),
                 ),
                 'tenant_id' => $tenant->id,
-                'unit_id' => $data['unit_id'] ?? $unit?->id,
-                'lease_id' => $data['lease_id'] ?? $lease?->id,
+                // From the clamped lease only — never the raw client unit_id/lease_id (see above).
+                'unit_id' => $unit?->id,
+                'lease_id' => $lease?->id,
                 'request_type' => $type->value,
                 'status' => 'submitted',
                 'priority' => $priority,
