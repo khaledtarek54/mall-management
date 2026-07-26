@@ -56,6 +56,16 @@ class MaintenancePlansTable
                     ->label(__('admin.preventive_maintenance.fields.active'))
                     ->boolean(),
             ])
+            // A plan that silently stopped generating (machine moved/retired, or deactivated) was
+            // unfindable — the table had no filters at all, and ActionRequired surfaces breached
+            // work ORDERS, not stale plans. These make an overdue/inactive plan visible.
+            ->filters([
+                \Filament\Tables\Filters\TernaryFilter::make('is_active')
+                    ->label(__('admin.preventive_maintenance.filters.active')),
+                \Filament\Tables\Filters\Filter::make('overdue')
+                    ->label(__('admin.preventive_maintenance.filters.overdue'))
+                    ->query(fn ($query) => $query->where('is_active', true)->whereDate('next_due_date', '<', now()->toDateString())),
+            ])
             ->recordActions([
                 EditAction::make()->visible(fn (MaintenancePlan $record) => MaintenancePlanResource::canEdit($record)),
             ])

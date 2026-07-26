@@ -57,13 +57,15 @@ class AssessSlaPenaltyService
                 return $existing;
             }
 
-            $hoursOver = $locked->hoursOverSla();
-
-            if ($hoursOver <= 0) {
+            // Gate on ACTUAL lateness (any positive overrun, even sub-hour) — NOT on
+            // hoursOverSla() > 0, which truncates a sub-hour breach to 0 and let a job minutes
+            // late escape a penalty forever (it goes terminal, and the scan only sees open jobs).
+            if (! $locked->isSlaBreached()) {
                 return $existing;
             }
 
-            $amount = $this->amountFor($locked, $contract, $hoursOver);
+            $hoursOver = $locked->hoursOverSla(); // informational, frozen onto the row
+            $amount = $this->amountFor($locked, $contract);
 
             if ($amount === null) {
                 return $existing;
@@ -196,16 +198,17 @@ class AssessSlaPenaltyService
     }
 
     /** Null when the basis cannot be computed for this job — see percent_of_value. */
-    private function amountFor(MaintenanceWorkOrder $order, VendorContract $contract, int $hoursOver): ?float
+    private function amountFor(MaintenanceWorkOrder $order, VendorContract $contract): ?float
     {
         $rate = (float) $contract->sla_penalty_rate;
 
         return match ($contract->sla_penalty_basis) {
+            // Flat fires on ANY breach (the gate already proved lateness) — never gated on hours.
             MaintenancePenalty::BASIS_FLAT => round($rate, 2),
 
-            // Part of a day counts as a day: an SLA breach is a breach, and charging 0.4 of
-            // a day's penalty for a nine-hour overrun invites an argument no one wants.
-            MaintenancePenalty::BASIS_PER_DAY => round((float) ceil($hoursOver / 24) * $rate, 2),
+            // Part of a day counts as a day (from the TRUE elapsed time via daysOverSla — at least
+            // 1 for any breach): charging 0.4 of a day for a nine-hour overrun invites an argument.
+            MaintenancePenalty::BASIS_PER_DAY => round((float) $order->daysOverSla() * $rate, 2),
 
             // Needs the job's value. Null (no quote captured) means it cannot be computed —
             // return null rather than silently charge 0, which would look like "assessed and

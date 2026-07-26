@@ -490,6 +490,26 @@ cancelled        → (terminal, no successors)
 1. Add HasMedia trait to MaintenanceRequestComment model.
 2. Add Spatie file upload to comments relation manager.
 
+## 8a. Action authorization — double-gated (2026-07-26)
+
+The request write actions **changeStatus / assign / redirect** on `TenantRequestsTable` gated their
+permission + terminal check **only in `visible()`** (via `TenantRequestResource::canEdit`), unlike
+`raise_work_order` beside them (already triple-gated) and modules 08/09, which re-assert in both
+`visible()` and `action()`. Brought into compliance with the project's double-gate invariant: the
+same `canEdit` predicate now re-asserts in `->authorize()` **and** `abort_unless(...)` inside
+`action()`, so they can't drift and a read-only viewer/owner (holds `maintenance.view`, not `.edit`)
+can never re-status, reassign or reroute a request. Guarded by `TenantRequestActionAuthzTest`.
+
+> **Filament-version note (empirically verified).** In the *installed* Filament version,
+> `mountAction()`/`TestAction` **does** respect `visible()` — a visible-only action was already
+> blocked from the `mountAction + callMountedAction` vector (proven by reverting the gate here **and**
+> on `CamActionAuthzTest` and watching both still pass). So the codebase's older "**`visible()` is not
+> a dispatch gate**" premise no longer holds for that vector. The `action()` gate is retained as
+> **defense-in-depth + invariant compliance** (robust to a Filament upgrade, a `visible()` refactor,
+> or a raw crafted HTTP request the test helper doesn't exercise) — it is **not** closing an exploit
+> reproducible via `mountAction` today. Worth a wider team decision on whether the invariant's
+> rationale should be updated.
+
 ## 9. Gotchas, edge cases & recently-fixed bugs
 
 **SLA scan lock & re-check** (prevents duplicate alerts):
@@ -502,10 +522,11 @@ cancelled        → (terminal, no successors)
 - This is intentional (line 144-145 of MaintenanceRequestService): `if ($next !== 'cancelled')`.
 - If staff cancels a request, the tenant also doesn't get notified (same guard).
 
-**Resolved → closed is automatic, not manual**:
-- Staff cannot directly click "Close" from the UI.
-- Only the console command maintenance:auto-close transitions resolved → closed.
-- The transition is legal (in TRANSITIONS), but no UI action exposes it except manual edit.
+**Resolved → closed — manual OR automatic** *(corrected 2026-07-26; the old text below was stale)*:
+- The **Change Status** action builds its options from `TRANSITIONS[$status]`; for a `resolved`
+  request that is `['closed', 'in_progress']`, so staff **can** close (or re-open) on the spot.
+- `maintenance:auto-close` also closes a resolved request once the auto-close window expires — so
+  a resolved ticket left alone still closes itself.
 
 **Tenant cannot re-open a resolved request**:
 - Portal UI is read-only for tenants (canEdit = false).

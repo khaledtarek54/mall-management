@@ -2822,6 +2822,7 @@ return [
     ],
     'preventive_maintenance' => [
         'group' => 'Facility',
+        'filters' => ['active' => 'Active', 'overdue' => 'Overdue (due before today)'],
         'plan' => ['singular' => 'Service Schedule', 'plural' => 'Service Schedules'],
         'order' => ['singular' => 'Work Order', 'plural' => 'Work Orders'],
         'equipment' => [

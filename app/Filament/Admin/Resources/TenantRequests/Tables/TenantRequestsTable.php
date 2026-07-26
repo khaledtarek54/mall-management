@@ -222,6 +222,10 @@ class TenantRequestsTable
                     ->color('primary')
                     ->visible(fn (TenantRequest $record) => TenantRequestResource::canEdit($record)
                         && ! empty(TenantRequestService::TRANSITIONS[$record->status] ?? []))
+                    // visible() is NOT a dispatch gate — mountAction never checks isVisible(), and
+                    // viewer/owner hold maintenance.view. Re-assert the same canEdit predicate as the
+                    // real gate in authorize() + action(), so they can't drift (module-08/09 pattern).
+                    ->authorize(fn (TenantRequest $record) => TenantRequestResource::canEdit($record))
                     ->modalHeading(fn (TenantRequest $record) => __('admin.actions.change_status_heading', ['ref' => $record->reference]))
                     ->fillForm(fn (TenantRequest $record) => ['status' => null])
                     ->schema(fn (TenantRequest $record) => [
@@ -240,6 +244,7 @@ class TenantRequestsTable
                             ->visible(fn ($get) => $get('status') === 'resolved'),
                     ])
                     ->action(function (TenantRequest $record, array $data) {
+                        abort_unless(TenantRequestResource::canEdit($record), 403);
                         $svc = app(TenantRequestService::class);
                         $svc->transition($record, $data['status'], $data);
 
@@ -258,6 +263,7 @@ class TenantRequestsTable
                     ->color('gray')
                     ->visible(fn (TenantRequest $record) => TenantRequestResource::canEdit($record)
                         && $record->isOpen())
+                    ->authorize(fn (TenantRequest $record) => TenantRequestResource::canEdit($record))
                     ->fillForm(fn (TenantRequest $record) => ['assigned_to' => $record->assigned_to])
                     ->schema([
                         Select::make('assigned_to')
@@ -267,6 +273,7 @@ class TenantRequestsTable
                             ->placeholder(__('admin.fields.unassigned')),
                     ])
                     ->action(function (TenantRequest $record, array $data) {
+                        abort_unless(TenantRequestResource::canEdit($record), 403);
                         app(TenantRequestService::class)
                             ->assign($record, $data['assigned_to'] ?? null);
 
@@ -280,6 +287,7 @@ class TenantRequestsTable
                     ->icon('heroicon-o-arrows-right-left')
                     ->color('gray')
                     ->visible(fn (TenantRequest $record) => TenantRequestResource::canEdit($record))
+                    ->authorize(fn (TenantRequest $record) => TenantRequestResource::canEdit($record))
                     ->fillForm(fn (TenantRequest $record) => ['department_id' => $record->department_id])
                     ->schema([
                         Select::make('department_id')
@@ -290,6 +298,7 @@ class TenantRequestsTable
                             ->native(false),
                     ])
                     ->action(function (TenantRequest $record, array $data) {
+                        abort_unless(TenantRequestResource::canEdit($record), 403);
                         app(TenantRequestService::class)
                             ->redirectToDepartment($record, $data['department_id'] ?? null);
 

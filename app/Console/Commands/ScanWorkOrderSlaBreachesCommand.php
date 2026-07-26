@@ -174,7 +174,15 @@ class ScanWorkOrderSlaBreachesCommand extends Command
                 return false;
             }
 
-            $recipients = app(AssetStaffRecipients::class)->for($order->asset_id, ['manager', 'operations']);
+            // Owner Jawad gets the oversight alert on a late FACILITY job too (FR MNT-5 / NOT-2),
+            // exactly as the tenant-request breach scan does — a late corrective job on the
+            // building is the "late maintenance → notify Jawad" event the FRD names, and omitting
+            // owners here (while module 11 includes them) was an inconsistency, not a decision.
+            $staff = app(AssetStaffRecipients::class);
+            $recipients = $staff->for($order->asset_id, ['manager', 'operations'])
+                ->merge($staff->owners($order->asset_id))
+                ->unique('id')
+                ->values();
 
             if ($recipients->isNotEmpty()) {
                 Notification::send($recipients, new WorkOrderSlaBreachedNotification($order));

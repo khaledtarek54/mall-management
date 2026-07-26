@@ -106,6 +106,34 @@ it('charges a percentage of the job value', function () {
     expect((float) $this->svc->assess($order)->amount)->toBe(800.0);
 });
 
+// Sub-hour + day-boundary breaches — the money bug the whole-hour tests above never exercised.
+// hoursOverSla() truncated the fractional hour to 0, so a job minutes late assessed NO penalty
+// and (being terminal) was never revisited → the vendor escaped it forever.
+it('charges a flat penalty on a job completed LESS THAN AN HOUR late (never zero)', function () {
+    contract('flat', 500);
+    $order = externalCm();
+    $this->wos->transition($order, 'in_progress'); // stamps target = accept + 1h SLA
+    $this->travel(90)->minutes();                  // 30 min past the 1h SLA
+    $this->wos->transition($order->fresh(), 'done'); // completes 30 min late → terminal
+
+    $penalty = $this->svc->assess($order->fresh());
+
+    expect($penalty)->not->toBeNull()             // was null before the fix → penalty escaped forever
+        ->and((float) $penalty->amount)->toBe(500.0)
+        ->and($penalty->status)->toBe('final');    // frozen on the terminal job
+});
+
+it('counts a 48h40m overrun as THREE days, not two (day-boundary ceil)', function () {
+    contract('per_day', 200);
+    $order = externalCm();
+    $this->wos->transition($order, 'in_progress'); // target = accept + 1h
+    $this->travel(49)->hours();
+    $this->travel(40)->minutes();                  // now accept + 49h40m → 48h40m over the SLA
+
+    // 48h40m spills into the third 24h window → 3 days × 200 (was 2 × 200 with truncation).
+    expect((float) $this->svc->assess($order->fresh())->amount)->toBe(600.0);
+});
+
 it('assesses nothing on a percent contract when the job has no value captured', function () {
     // Returning 0 would read as "assessed, owes nothing" rather than "we don't know yet".
     contract('percent_of_value', 10);

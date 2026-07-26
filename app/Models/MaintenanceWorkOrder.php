@@ -363,7 +363,38 @@ class MaintenanceWorkOrder extends Model
             return 0;
         }
 
+        // Whole hours over, truncated — the INFORMATIONAL figure (frozen onto the penalty row +
+        // shown in the UI). The money must NOT gate on this: `(int)` of a sub-hour overrun is 0,
+        // yet the job IS late (see isSlaBreached / daysOverSla, which the penalty uses instead).
         return (int) abs($this->target_resolution_at->diffInHours($end));
+    }
+
+    /**
+     * Is the job actually past its SLA — the precise gate the penalty uses (any positive
+     * lateness, even sub-hour). `hoursOverSla()` truncates to 0 below an hour, so gating a
+     * penalty on `hoursOverSla() > 0` let a job minutes late escape assessment entirely; once
+     * terminal, the open-only scan never revisited it → the vendor escaped it forever.
+     */
+    public function isSlaBreached(): bool
+    {
+        return $this->target_resolution_at !== null
+            && ($this->completed_at ?? now())->greaterThan($this->target_resolution_at);
+    }
+
+    /**
+     * Whole days over the SLA, rounding a partial day UP ("part of a day counts as a whole day",
+     * §7g) — computed from the TRUE elapsed time, not truncated hours. 30 min late → 1 day;
+     * 48h40m → 3 days (truncating to 48h wrongly gave 2). Zero when not breached.
+     */
+    public function daysOverSla(): int
+    {
+        if (! $this->isSlaBreached()) {
+            return 0;
+        }
+
+        $end = $this->completed_at ?? now();
+
+        return (int) ceil($this->target_resolution_at->diffInSeconds($end) / 86400);
     }
 
     public function scopeOpen(Builder $query): Builder

@@ -2822,6 +2822,7 @@ return [
     ],
     'preventive_maintenance' => [
         'group' => 'المرافق',
+        'filters' => ['active' => 'نشِطة', 'overdue' => 'متأخرة (مستحقة قبل اليوم)'],
         'plan' => ['singular' => 'خطة خدمة', 'plural' => 'خطط الخدمات'],
         'order' => ['singular' => 'أمر شغل', 'plural' => 'أوامر الشغل'],
         'equipment' => [

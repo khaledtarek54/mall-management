@@ -52,7 +52,7 @@ These four decisions steer the FRs below:
 | **REV-3** | Split revenue between rent and **owner entitlement** on an accrual basis | ⏸️ | **Deferred (D-1).** No operator→owner split exists |
 | **REV-4** | Track rent's **source and destination** (tenant → operator → owner) | ⏸️ | **Deferred (D-1).** Double-entry captures source/destination accounts for cash/AR/revenue; the **owner leg** is the deferred part |
 | **COST-1** | Maintenance/supply costs recognized from **stock consumption** (as used) | ❌→build | **Approved (D-3).** Today vendor bills/expenses are lump-sum by category, not material-based |
-| **VEND-1** | Separate maintenance vendor companies, tagged distinctly | 🟡 | Vendors + `maintenance` expense category exist; no explicit "contractor vs supplier" type flag |
+| **VEND-1** | Separate maintenance vendor companies, tagged distinctly | ✅ | Vendor `type` = contractor / supplier / service_provider / consultant / other (form + table column + filter + CSV) |
 | **LEASE-1** | Capture contract start/end (from–to) per contract | ✅ | Module 04 leases |
 | **LEASE-2** | Support 4 contract revenue models: (a) 100%-owner, (b) operator service-fee, (c) operator charges tenant, (d) owner/operator %-split | ⏸️ | **Deferred (D-1).** Lease has no `revenue_model`/`contract_type` |
 | **INT-1** | "Vuala" accounting app — integrate / replace / ignore | ✅ resolved | **Out of scope (D-2):** Atriom is the system of record; no Vuala integration |
@@ -72,15 +72,15 @@ These four decisions steer the FRs below:
 |---|---|---|---|
 | **DEPT-1** | Model Eltizam's departments & how each operates | 🟡 | 5 fixed departments (HR, Accounting, Marketing, Leasing, Operations) + membership→role |
 | **DEPT-2** | Department **org hierarchy** (Leasing Mgr→Mgr→Head; Ops Financial/Admin/Operations; Head over facility checklist) | ❌ | Only a free-form role label on membership; no reporting hierarchy/titles |
-| **MNT-1** | Shared facility **checkup checklist** co-owned with facilities (cleaning, soft/hard services, toilets) | ❌ | No checklist/inspection entity |
-| **MNT-2** | Scheduled-service notifications generated from facilities input | 🟡 | Requests carry a `scheduled_from/to` window; no recurring/preventive **generator** |
+| **MNT-1** | Shared facility **checkup checklist** co-owned with facilities (cleaning, soft/hard services, toilets) | ✅ | Module 26 PPM checklist: `maintenance_plans.checklist` → `maintenance_work_order_items` (pass/fail) + the FR-PPM-07 close gate; plan `category` covers cleaning / soft-service |
+| **MNT-2** | Scheduled-service notifications generated from facilities input | 🟡 | **Generator BUILT** (module 26 `maintenance:generate-preventive` raises a work order per due plan); the **notification** on generation is still missing (2026-07-26) |
 | **MNT-3** | Ad-hoc urgent tickets on top of scheduled | ✅ | Reactive requests (module 11) |
 | **MNT-4** | PM supervises facility; ticket handed off Operations → Eltizam | 🟡 | Department routing + `redirectToDepartment()`; no explicit PM approval checkpoint |
 | **INV-2** | Daily-consumables tickets: whoever enters item raises ticket; engineer logs what was used + work done | ❌→build | **Approved (D-3)** |
 | **INV-3** | Main inventory (spare parts, deep-clean machines) + usage on both inventory types | ❌→build | **Approved (D-3)** |
 | **INV-4** | 3 warehouse/inventory categories | ❌→build | **Approved (D-3);** 3rd category name **unknown** (Q-C) |
 | **SVC-1** | Per-service: chargeable (billed out) vs absorbed as unit expense, **plus an annual report either way** | 🟡 | Service-charge billing + CAM exist; no per-service chargeable/expense toggle or unified annual service report (Q-D) |
-| **RPT-1** | Facility reports: daily work log, cleaning activity | 🟡 | Request lists exist; no dedicated facility work-log/cleaning report |
+| **RPT-1** | Facility reports: daily work log, cleaning activity | ✅ | `FacilityWorkLogPdfService` — bilingual PDF of work orders per property over a date range (summary by status + category + detail), from the work-order list; cleaning shows via the category grouping |
 | **RPT-2** | Financial reports: rent, turnover-rent, service charge, marketing | ✅ | Income statement + reports (module 17); %-rent (module 09) |
 | **RPT-3** | Sales reports for revenue share | ✅ | Tenant sales declarations → percentage rent (module 09) |
 | **RPT-4** | Traffic-flow reports integrated with **gate systems** | ⏸️ | **Deferred (D-4).** No hardware integration |

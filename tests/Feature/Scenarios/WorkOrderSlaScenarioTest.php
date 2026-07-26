@@ -164,6 +164,21 @@ it('alerts operators once when an accepted job runs past its SLA', function () {
     expect($order->fresh()->hoursOverSla())->toBe(2);
 });
 
+it('alerts owner Jawad on a late facility job too (FR MNT-5 / NOT-2), like the tenant-request scan', function () {
+    Notification::fake();
+    makeUser('operations', [$this->asset->id]);
+    $owner = makeUser('owner');
+    $owner->ownedAssets()->attach($this->asset->id, ['ownership_percentage' => 100]);
+    SlaPolicy::create(['asset_id' => $this->asset->id, 'priority' => 'urgent', 'resolve_hours' => 1]);
+    $order = cm(['priority' => 'urgent']);
+    $this->svc->transition($order, 'in_progress');
+
+    $this->travel(3)->hours();
+    $this->artisan('maintenance:scan-wo-sla-breaches')->assertSuccessful();
+
+    Notification::assertSentTo($owner, WorkOrderSlaBreachedNotification::class); // was silently omitted
+});
+
 it('does not alert twice for the same breach', function () {
     // The stamp is the idempotency key; the scan runs hourly.
     Notification::fake();
