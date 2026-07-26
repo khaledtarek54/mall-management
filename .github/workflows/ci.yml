@@ -1,21 +1,21 @@
 name: CI
 
-# Auto-runs are ON (re-enabled 2026-07-18). CI runs on every push to main/develop and on
-# every PR into them, so the self-enforcing conformance gates —
-# PropertyIsolationConformanceTest, GlRegistryConformanceTest, MediaPrivacyConformanceTest,
-# GlRegistry/AdminSmokeManifestConformanceTest — actually block a bad change from merging
-# rather than only firing when someone remembers `pest --parallel`. Every one of those gates
-# exists because the class of bug it catches already shipped once; "fails CI" in the docs is
-# now literal.
+# Auto-runs are PAUSED (2026-07-26, at the owner's request — "stop CI for now").
+# Only manual runs fire now (Actions tab → Run workflow, or `gh workflow run ci.yml`). While
+# paused, the self-enforcing conformance gates — PropertyIsolationConformanceTest,
+# GlRegistryConformanceTest, MediaPrivacyConformanceTest, GlRegistry/AdminSmokeManifestConformanceTest
+# — are ADVISORY again: nothing blocks a bad change from merging, so keep `pest --parallel`
+# green locally before pushing. Every one of those gates exists because the class of bug it
+# catches already shipped once.
 #
-# To pause auto-runs again (cost/noise), comment the push/pull_request blocks and leave
-# workflow_dispatch — but then say so in the docs, because the gates become advisory again.
+# To RE-ENABLE auto-runs: uncomment the push/pull_request blocks below (and update the CLAUDE.md
+# CI note back to "ON").
 on:
   workflow_dispatch:
-  push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main, develop]
+  # push:
+  #   branches: [main, develop]
+  # pull_request:
+  #   branches: [main, develop]
 
 jobs:
   # Known-vulnerable dependencies. Cheap (no PHP deps needed beyond the lock file) and it
