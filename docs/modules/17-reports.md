@@ -34,7 +34,7 @@ The module is **optional** (Module flag: `reports`; defaults enabled) and scoped
 ### Invoices & AR
 - **Invoice balance** = `total - paid_amount - credit_applied_amount`. When balance ≤ 0, status → `paid`; when balance > 0 and paid_amount > 0, status → `partially_paid`.
 - **Open invoices** for AR aging: status ∈ {`issued`, `partially_paid`, `overdue`} AND balance > 0.
-- **Cancelled + draft invoices** excluded from monthly close's `revenue_by_type`, but **counted in total billed** (invoices.count + total).
+- **Cancelled + draft invoices** are excluded from **all** monthly-close billed figures — `invoices.count`/`total`/`vat`, `revenue_by_type`, **and** the collections-rate denominator (a draft was never issued; a cancelled invoice was voided). They still appear in the `by_status` breakdown. *(Fixed 2026-07-27 — they used to inflate the billed headline while `revenue_by_type` excluded them, so the report contradicted itself.)*
 - **VAT rate** standard 14%; invoice_items carry individual vat_rate (may vary; 0 for some line types).
 
 ### Payments & Collections
@@ -43,10 +43,10 @@ The module is **optional** (Module flag: `reports`; defaults enabled) and scoped
 - **Receipt notification** fires once per payment when status=captured AND at least one invoice allocated, idempotent via `receipt_notified_at`.
 
 ### AR Aging
-Buckets based on `invoice.due_date` vs. reference date (`asOf`), measured in **days overdue**:
+Buckets based on `invoice.due_date` vs. reference date (`asOf`), measured in **whole days overdue**:
 
 ```
-daysOverdue = due_date.diffInDays(asOf, false)  // negative = not yet due
+daysOverdue = (int) due_date.startOfDay().diffInDays(asOf.startOfDay(), false)  // negative = not yet due
   daysOverdue <= 0    → 'current'               (not yet due)
   daysOverdue <= 30   → 'd_1_30'                (1–30 days)
   daysOverdue <= 60   → 'd_31_60'               (31–60 days)
@@ -54,6 +54,8 @@ daysOverdue = due_date.diffInDays(asOf, false)  // negative = not yet due
   daysOverdue > 90    → 'd_90_plus'             (90+ days)
 ```
 
+- **Floor to start-of-day on BOTH sides.** `due_date` is a date (midnight) but `asOf` carries a time (`monthlyClose` passes `endOfMonth()` = 23:59:59), so a raw `diffInDays` returns N.99… . *(Fixed 2026-07-27 — the summary used the raw float and over-aged every whole-day boundary by a bucket: a 30-days-overdue invoice showed as 31–60, one due today as 1–30. The drilldown already used `(int)`, so the two didn't reconcile — and the Reports page links each bucket total to that drilldown.)*
+- **Summary (`arAgingBuckets`) and drilldown (`arAgingDrilldown`) use identical day-math + the same `issue_date <= asOf` inclusion cutoff**, so a bucket total always equals the sum of its drilldown rows. Guarded by `ReportAgingBoundaryTest`.
 - **Null due_date** treated as 0 days overdue (current).
 - **Paid/zero-balance invoices** excluded entirely.
 - **Bucket totals** = sum of `balance` (not total) for invoices in that bucket.
@@ -63,7 +65,7 @@ daysOverdue = due_date.diffInDays(asOf, false)  // negative = not yet due
 - **Period** is month-to-month; `monthlyClose(CarbonImmutable $period)` defaults to current month.
 - **Invoices included** if `issue_date BETWEEN period.startOfMonth() AND period.endOfMonth()`.
 - **Payments included** if `payment_date BETWEEN period.startOfMonth() AND period.endOfMonth()` AND status=captured.
-- **Collections rate** = (captured_payment_total / billed_total) * 100; zero-guarded when billed_total=0.
+- **Collections rate** = (captured_payment_total / billable_total) * 100, where billable = the month's invoices **excluding cancelled + draft**; zero-guarded when billable_total=0. (Payments in the month may settle a *prior* month's invoice, so the rate can exceed 100% — it is a cash-flow ratio, not a per-invoice collection %.)
 - **Credit notes** included if `issue_date` in period AND status ∈ {`issued`, `applied`}.
 - **Revenue by type** aggregates `SUM(invoice_items.amount)` grouped by `type`, excluding cancelled/draft invoices.
 

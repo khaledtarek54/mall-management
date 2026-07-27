@@ -43,6 +43,12 @@ class ReportService
             ->whereBetween('issue_date', [$monthStart, $monthEnd])
             ->get();
 
+        // "Billed" excludes draft (never issued) + cancelled (voided) — matching revenueByType()
+        // below, so the report is internally consistent. Folding those into the headline inflated
+        // billed revenue and understated the collections rate (real cash over a padded denominator).
+        // by_status still lists every status, so cancelled/draft remain visible in the breakdown.
+        $billable = $invoicesInMonth->whereNotIn('status', ['cancelled', 'draft']);
+
         $invoicesByStatus = $invoicesInMonth->groupBy('status')->map(fn ($group) => [
             'count' => $group->count(),
             'total' => round((float) $group->sum('total'), 2),
@@ -68,7 +74,7 @@ class ReportService
             ->whereIn('status', ['issued', 'applied'])
             ->get();
 
-        $expectedThisMonth = (float) $invoicesInMonth->sum('total');
+        $expectedThisMonth = (float) $billable->sum('total');
         $collectedThisMonth = (float) $paymentsInMonth->sum('amount');
         $collectionsRate = $expectedThisMonth > 0
             ? round(($collectedThisMonth / $expectedThisMonth) * 100, 1)
@@ -78,9 +84,9 @@ class ReportService
             'period' => $period->format('Y-m'),
             'period_label' => $period->locale(app()->getLocale())->isoFormat('MMMM YYYY'),
             'invoices' => [
-                'count' => $invoicesInMonth->count(),
-                'total' => round((float) $invoicesInMonth->sum('total'), 2),
-                'vat' => round((float) $invoicesInMonth->sum('vat_amount'), 2),
+                'count' => $billable->count(),
+                'total' => round((float) $billable->sum('total'), 2),
+                'vat' => round((float) $billable->sum('vat_amount'), 2),
                 'by_status' => $invoicesByStatus,
             ],
             'payments' => [
@@ -125,7 +131,12 @@ class ReportService
         ];
 
         foreach ($openInvoices as $invoice) {
-            $daysOverdue = $invoice->due_date?->diffInDays($asOf, false) ?? 0;
+            // Whole-day overdue, floored to start-of-day on BOTH sides. `due_date` is a date (00:00)
+            // but `$asOf` carries a time, so a raw diffInDays returns N.99… — and the float `match`
+            // below then over-aged every whole-day boundary by one bucket (a 30-days-overdue invoice
+            // fell into 31–60; one due *today* into 1–30). Computed identically to arAgingDrilldown()
+            // so a summary bucket and its clickable drilldown always agree.
+            $daysOverdue = (int) ($invoice->due_date?->startOfDay()->diffInDays($asOf->startOfDay(), false) ?? 0);
             $key = match (true) {
                 $daysOverdue <= 0 => 'current',
                 $daysOverdue <= 30 => 'd_1_30',
@@ -164,10 +175,14 @@ class ReportService
         return TenantScope::applyTo(Invoice::query(), 'lease.unit')
             ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
             ->where('balance', '>', 0)
+            // Same inclusion cutoff as the summary (arAgingBuckets) so the drilldown can't surface an
+            // invoice the bucket total didn't count.
+            ->whereDate('issue_date', '<=', $asOf)
             ->with(['tenant', 'lease.unit'])
             ->get()
             ->filter(function (Invoice $invoice) use ($asOf, $min, $max) {
-                $days = (int) ($invoice->due_date?->diffInDays($asOf, false) ?? 0);
+                // Identical whole-day math to arAgingBuckets() — see the note there.
+                $days = (int) ($invoice->due_date?->startOfDay()->diffInDays($asOf->startOfDay(), false) ?? 0);
                 return $days >= $min && $days <= $max;
             })
             ->sortByDesc('balance')
