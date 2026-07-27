@@ -54,14 +54,30 @@ class AssignedAssets
 
         // Staff assignments (asset_user) ∪ legal ownership (asset_owner) — so
         // Jawad owners are scoped to their owned properties, not unrestricted.
+        // Ownership is CURRENT-tenure only (currentOwnedAssets, not the all-time ownedAssets): a
+        // former owner who sold their stake (asset_owner.ended_at in the past) must lose visibility to
+        // the sold property, and a not-yet-started owner must not see it early — matching the owner
+        // statements + the owner-panel-era widget. (Staff assignments stay all-time — that tenure is
+        // a separate concern.)
         $assigned = $user->assignedAssets()->where('assets.code', '!=', $code)->pluck('assets.id')->all();
-        $owned = $user->ownedAssets()->where('assets.code', '!=', $code)->pluck('assets.id')->all();
+        $owned = $user->currentOwnedAssets()->where('assets.code', '!=', $code)->pluck('assets.id')->all();
         $ids = array_values(array_unique(array_merge($assigned, $owned)));
 
-        // No assignments and no ownership → unrestricted (back-compat;
-        // single-mall deployments with no explicit assignments show everything).
         if (empty($ids)) {
-            return null;
+            // Distinguish "never scoped" from "scope has LAPSED":
+            //  - a user who was never an owner/staff → null = unrestricted (the single-mall back-compat
+            //    for deployments with no explicit assignments).
+            //  - a former/not-yet-started owner (or ex-staff) who holds NOTHING now must see NOTHING,
+            //    not everything. Returning [] would be unsafe: Laravel's `->when([], …)` treats an
+            //    empty array as falsy and SKIPS the filter (= unrestricted), and several scoping call
+            //    sites use that form. So return a never-matching sentinel [0] (asset ids are ≥ 1):
+            //    truthy → `->when()` still applies the restriction, non-null → `!== null` guards apply,
+            //    and `whereIn('asset_id', [0])` matches nothing. Fail-closed for every consumer.
+            $everScoped = $user->hasRole('owner')
+                || $user->ownedAssets()->exists()
+                || $user->assignedAssets()->exists();
+
+            return $everScoped ? [0] : null;
         }
 
         return array_map('intval', $ids);

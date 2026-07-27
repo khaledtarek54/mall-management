@@ -103,9 +103,11 @@ class User extends Authenticatable implements FilamentUser, HasTenants
             return true;
         }
 
-        // Staff assignment (asset_user) OR legal ownership (asset_owner).
+        // Staff assignment (asset_user) OR CURRENT legal ownership (asset_owner). Ownership is
+        // tenure-aware (currentOwnedAssets) so a former owner can't keep operating on a sold property
+        // via the tenant switcher / a saved URL — mirrors AssignedAssets + accessibleAssets().
         return $this->assignedAssets()->whereKey($tenant->getKey())->exists()
-            || $this->ownedAssets()->whereKey($tenant->getKey())->exists();
+            || $this->currentOwnedAssets()->whereKey($tenant->getKey())->exists();
     }
 
     /**
@@ -121,7 +123,8 @@ class User extends Authenticatable implements FilamentUser, HasTenants
         $code = Asset::ALL_PROPERTIES_CODE;
 
         $assigned = $this->assignedAssets()->where('assets.code', '!=', $code)->get();
-        $owned = $this->ownedAssets()->where('assets.code', '!=', $code)->get();
+        // CURRENT ownership only — a sold property drops out of the /admin tenant switcher.
+        $owned = $this->currentOwnedAssets()->where('assets.code', '!=', $code)->get();
 
         return $assigned->concat($owned)->unique('id')->values();
     }
@@ -149,9 +152,13 @@ class User extends Authenticatable implements FilamentUser, HasTenants
     {
         $on = $onDate ?? now()->toDateString();
 
+        // whereDate (not a raw string `<=`): the pivot bounds are DATE columns, but a caller may
+        // attach a full Carbon (e.g. `now()`), which SQLite stores WITH a time — a raw
+        // `'2026-07-27 14:30:00' <= '2026-07-27'` compares false and wrongly drops a current owner.
+        // Comparing the DATE part is robust across SQLite + MySQL and matches AssetOwner::coversDate.
         return $this->ownedAssets()
-            ->where(fn ($q) => $q->whereNull('asset_owner.started_at')->orWhere('asset_owner.started_at', '<=', $on))
-            ->where(fn ($q) => $q->whereNull('asset_owner.ended_at')->orWhere('asset_owner.ended_at', '>=', $on));
+            ->where(fn ($q) => $q->whereNull('asset_owner.started_at')->orWhereDate('asset_owner.started_at', '<=', $on))
+            ->where(fn ($q) => $q->whereNull('asset_owner.ended_at')->orWhereDate('asset_owner.ended_at', '>=', $on));
     }
 
     /**
