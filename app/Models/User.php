@@ -53,10 +53,9 @@ class User extends Authenticatable implements FilamentUser, HasTenants
     public function canAccessPanel(Panel $panel): bool
     {
         return match ($panel->getId()) {
-            'owner' => $this->hasRole('owner'),
-            // Any user with a role can access /admin. Jawad owners are now
-            // RBAC users inside the admin app (the /owner portal is retired);
-            // their permissions + owned-property scoping limit what they see.
+            // Any user with a role can access /admin. Jawad owners are RBAC users inside the admin
+            // app (the /owner portal was removed 2026-07-27); their permissions + owned-property
+            // scoping limit what they see.
             'admin' => $this->roles()->exists(),
             default => true,
         };

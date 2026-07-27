@@ -4,7 +4,6 @@ namespace App\Providers;
 
 use App\Models\Lease;
 use App\Observers\LeaseObserver;
-use App\Providers\Filament\OwnerPanelProvider;
 use App\Notifications\Channels\PushChannel;
 use App\Services\Eta\Signing\EtaDocumentSigner;
 use App\Services\Eta\Signing\UnsignedEtaSigner;
@@ -50,13 +49,9 @@ class AppServiceProvider extends ServiceProvider
             return new NullPushSender();
         });
 
-        // Owner portal is opt-in. Registering its panel provider only when the
-        // feature flag is on keeps the /owner panel (routes + login) entirely
-        // absent while disabled. Tests set OWNER_PORTAL_ENABLED=true so the
-        // owner-panel suite still runs.
-        if (config('features.owner_portal')) {
-            $this->app->register(OwnerPanelProvider::class);
-        }
+        // The /owner panel was removed (2026-07-27): owners are admin-panel RBAC users
+        // with the `owner` role (read-only oversight scoped to their owned properties),
+        // not a separate portal.
     }
 
     public function boot(): void

@@ -17,18 +17,10 @@ it('lets every non-owner role into the admin panel', function () {
 });
 
 it('lets owners into the admin panel (owners are RBAC users; no separate portal)', function () {
+    // The /owner panel was removed 2026-07-27 — owners are admin-panel RBAC users with the `owner`
+    // role, scoped to their owned properties by AssignedAssets.
     $owner = makeUser('owner');
     expect($owner->canAccessPanel(Filament::getPanel('admin')))->toBeTrue();
-});
-
-it('lets only owners into the owner panel', function () {
-    $ownerPanel = Filament::getPanel('owner');
-
-    $owner = makeUser('owner');
-    $manager = makeUser('manager');
-
-    expect($owner->canAccessPanel($ownerPanel))->toBeTrue();
-    expect($manager->canAccessPanel($ownerPanel))->toBeFalse();
 });
 
 it('non-super-admin user gets restricted to assigned properties via AssignedAssets', function () {
