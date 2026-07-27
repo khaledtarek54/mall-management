@@ -225,13 +225,21 @@ it('refuses to receive stockable goods with nowhere to put them', function () {
     expect(onHandPrc())->toBe(0.0);
 });
 
-it('refuses to receive into another property\'s warehouse', function () {
-    // The mall that requested it is the mall that receives it.
+it('refuses another property\'s warehouse — at creation, with receive() as the backstop', function () {
+    // The mall that requested it is the mall that receives it. The model gate now refuses a
+    // cross-property warehouse at CREATION (audit M29-2, the stronger guard); receive() remains the
+    // backstop for a request somehow forced into that state.
     $other = makeAsset(['code' => 'OTH']);
     $foreign = Warehouse::create(['asset_id' => $other->id, 'name' => 'Theirs', 'code' => 'W9']);
-    $r = pr(['warehouse_id' => $foreign->id]);
+
+    // Primary guard: it can't even be raised with a foreign warehouse.
+    expect(fn () => pr(['warehouse_id' => $foreign->id]))->toThrow(DomainException::class);
+
+    // Backstop: force the invalid state past the model hook (raw update), then receive() still refuses.
+    $r = pr();
     $this->svc->approve($r, null, $this->manager);
     $this->svc->order($r->fresh(), null, 'PO-6', $this->manager);
+    \Illuminate\Support\Facades\DB::table('purchase_requests')->where('id', $r->id)->update(['warehouse_id' => $foreign->id]);
 
     expect(fn () => $this->svc->receive($r->fresh(), $this->buyer))->toThrow(DomainException::class);
     expect(onHandPrc())->toBe(0.0);

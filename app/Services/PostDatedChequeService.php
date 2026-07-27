@@ -62,11 +62,24 @@ class PostDatedChequeService
             // Allocate to the linked invoice, capped at its balance (the surplus stays as an
             // on-account credit rather than over-paying the invoice).
             if ($cheque->invoice_id) {
-                $invoice = Invoice::find($cheque->invoice_id);
+                // Lock the INVOICE (not just the cheque): two cheques clearing against the same
+                // invoice concurrently would each read the pre-settlement balance and both fit
+                // `min(amount, balance)`, together over-allocating it (paid_amount > total → AR
+                // credited past the receivable, negative AR in the GL). The lock serialises them,
+                // mirroring every other payment path (audit M33 F-1).
+                $invoice = Invoice::whereKey($cheque->invoice_id)->lockForUpdate()->first();
                 $allocate = $invoice ? min(round((float) $cheque->amount, 2), round((float) $invoice->balance, 2)) : 0.0;
                 if ($allocate > 0) {
+                    // The cheque's payment settles the tenant's OWN invoice — never another
+                    // tenant's, even in the same property. Belt to the model's link-time guard
+                    // (audit M33 F-2).
+                    $payment->assertInvoicesShareTenant([$cheque->invoice_id]);
                     $payment->invoices()->sync([$cheque->invoice_id => ['allocated_amount' => $allocate]]);
                     $payment->recomputeAllocatedInvoices();
+                    // Concurrency backstop: re-check under the invoice lock that captured
+                    // allocations + applied credits don't exceed the total; a racing second clear
+                    // rolls back here rather than silently over-settling.
+                    $payment->assertInvoicesNotOverAllocated([$cheque->invoice_id]);
                 }
             }
 

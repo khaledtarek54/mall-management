@@ -166,6 +166,26 @@ Three rules make the clearing honest, each pinned by a test that fails without i
 - The item catalog is a deliberately SHARED register — a pump seal is the same part in every mall —
   so it is not property-filtered. Warehouses are.
 
+### Close-out sweep — 2026-07-27
+
+- **A PR-linked vendor bill re-derives its SIBLINGS' GRNI clearing when it changes.** The clearing is FIFO
+  across a purchase's bills (`VendorBillJournalizer::goodsAwaitingInvoice`), so cancelling/adding/re-dating one
+  bill changes what the others should clear — but the windowed `accounting:sync-ledger` keys on each row's own
+  `updated_at`. `VendorBill::touchPurchaseRequestSiblings()` (fired on `saved`/`deleted`/`restored`) bumps the
+  siblings so the sweep revisits them. **Any new field that moves the FIFO (status/bill_date/total/vat/PR link)
+  must keep triggering the touch**, or a sibling strands a stale clearing until a CLI `--all`. See
+  [[project_child_source_windowed_sweep]].
+- **A bill that clears GRNI must be in the SAME property as its purchase request** (`VendorBill::saving` gate) —
+  the clearing debit posts to the bill's `asset_id`, the receipt credited GRNI in the request's; a mismatch
+  strands GRNI in one mall and is invisible to the close gate.
+- **The header freezes wholesale once the request leaves `requested`** (`PurchaseRequest::updating`): `asset_id`,
+  `warehouse_id`, `justification` are immutable after approval — a received request's warehouse must not diverge
+  from the movement, and the PO must keep naming the storeroom that received the goods. The `warehouse_id` is
+  also validated in-scope on `saving` (a crafted foreign warehouse would surface its name on the PO PDF).
+  `receive()`'s cross-property check remains the backstop.
+- **Stock movements honour the closed-period guard** (`StockMovementService::record` → `PostingDate::assertOpen`
+  on `moved_on`) — a back-dated receipt/adjustment into a closed period is refused, not silently stranded.
+
 ---
 
 ## 7. Tests

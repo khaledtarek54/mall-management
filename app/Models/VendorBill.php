@@ -124,6 +124,31 @@ class VendorBill extends Model
         return [$this->payments()];
     }
 
+    /**
+     * Bump the OTHER postable bills on this bill's purchase request so the windowed
+     * sync-ledger sweep re-derives their GRNI clearing.
+     *
+     * The clearing is FIFO across a request's bills (VendorBillJournalizer::goodsAwaitingInvoice):
+     * each bill takes what the receipt credited minus what earlier bills already took. So adding,
+     * re-dating, approving, cancelling, or deleting ONE bill changes what its SIBLINGS should
+     * clear — but the sweep keys on each row's own `updated_at`, and a sibling whose own columns
+     * didn't move would keep a now-stale clearing posted (GRNI stranded, or double-cleared, until
+     * a CLI `accounting:sync-ledger --all`). Making "the FIFO set changed" a first-class re-derive
+     * trigger closes it (audit M29 F-1). The mass update fires no model events → no recursion, and
+     * a re-derive that finds no change is a sync no-op, so over-touching is harmless.
+     */
+    protected function touchPurchaseRequestSiblings(): void
+    {
+        if ($this->purchase_request_id === null) {
+            return;
+        }
+
+        static::withTrashed()
+            ->where('purchase_request_id', $this->purchase_request_id)
+            ->whereKeyNot($this->getKey())
+            ->update(['updated_at' => now()]);
+    }
+
     /** The statuses that have no GL effect — the single definition {@see isPostable} and {@see scopePostable} share. */
     public const NON_POSTABLE_STATUSES = ['draft', 'cancelled'];
 
@@ -224,6 +249,21 @@ class VendorBill extends Model
             // (which the journalizer would silently skip) or vat>total (negative
             // expense). The single source of truth for the bill total.
             $bill->total = round((float) $bill->subtotal + (float) $bill->vat_amount, 2);
+
+            // A bill that pays for a purchase request must post its GRNI clearing in the SAME
+            // property the receipt credited GRNI in (the request's warehouse). The receipt
+            // debited Inventory / credited GRNI in the REQUEST's property; this bill's clearing
+            // debit posts to the BILL's asset_id (VendorBillJournalizer). If they differ, GRNI
+            // stays uncleared in one mall and swings positive in another — permanently, because
+            // nothing re-derives a "correct" cross-property link and the close gate is blind to
+            // it (the entry matches its own payload). The form scopes the PR picker; this is the
+            // money gate below the form (audit M29 F-2).
+            if ($bill->purchase_request_id !== null && ($bill->isDirty('purchase_request_id') || $bill->isDirty('asset_id'))) {
+                $prAssetId = PurchaseRequest::whereKey($bill->purchase_request_id)->value('asset_id');
+                if ($prAssetId !== null && (int) $prAssetId !== (int) $bill->asset_id) {
+                    throw new \DomainException('The linked purchase request belongs to a different property than the bill.');
+                }
+            }
         });
 
         static::creating(function (self $bill) {
@@ -248,7 +288,22 @@ class VendorBill extends Model
         // deleting a paid bill voids the bill entry (Cr AP) but leaves each payment's
         // Dr AP / Cr Cash posted — an unbalanced, understated AP/cash until --all (F9/High).
         // A force-delete lets the FK cascade physically remove the payments instead.
+        // A new/changed bill re-derives its purchase-request siblings' GRNI FIFO (audit M29 F-1).
+        // Only the fields that move the FIFO — membership, order, and each bill's net — matter;
+        // recompute()'s paid_amount/status churn is saveQuietly (no event) and irrelevant here.
+        static::saved(function (self $bill) {
+            if ($bill->wasRecentlyCreated
+                || $bill->wasChanged(['status', 'bill_date', 'total', 'vat_amount', 'purchase_request_id'])) {
+                $bill->touchPurchaseRequestSiblings();
+            }
+        });
+
         static::deleted(function (self $bill) {
+            // Deleting a bill (soft OR force) shrinks the purchase-request FIFO set, so its
+            // siblings must re-derive their clearing (audit M29 F-1) — before the force-delete
+            // early-return below, since the set shrank either way.
+            $bill->touchPurchaseRequestSiblings();
+
             if ($bill->isForceDeleting()) {
                 return;
             }
@@ -265,6 +320,13 @@ class VendorBill extends Model
                     ->where('deleted_at', $bill->deleted_at)
                     ->update(['deleted_at' => null, 'updated_at' => now()]);
             }
+        });
+
+        // A restored bill re-enters the purchase-request FIFO set → its siblings re-derive
+        // (audit M29 F-1). deleted_at is already null here, so touchPurchaseRequestSiblings'
+        // withTrashed()->whereKeyNot bumps exactly the siblings.
+        static::restored(function (self $bill) {
+            $bill->touchPurchaseRequestSiblings();
         });
 
         // Re-home: the bill's asset_id is the books dimension of its payments' GL

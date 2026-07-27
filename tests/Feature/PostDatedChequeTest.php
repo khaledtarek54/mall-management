@@ -113,3 +113,82 @@ it('makes a cleared cheque terminal-immutable', function () {
 
     expect(fn () => $pdc->fresh()->update(['status' => 'held']))->toThrow(DomainException::class);
 });
+
+/*
+|--------------------------------------------------------------------------
+| Close-out sweep 2026-07-27 — module 33 (PDC) formal CLOSED pass
+|--------------------------------------------------------------------------
+| An adversarial money/AR + authz sweep on the mature module. These pin the
+| CLOSE_NOW fixes it surfaced.
+*/
+
+it('reverses a cleared cheque back to bounced when its clearing payment is voided (F-3)', function () {
+    // The documented remedy for a cleared cheque is "void its payment". That re-opens the invoice's
+    // AR — but nothing reconciled the cheque, so it stayed permanently `cleared` pointing at a
+    // refunded payment, invisible to the matured-uncleared surfaces. Now the payment's saved hook
+    // reverses it to `bounced`.
+    $asset = makeAsset();
+    $invoice = invoiceOf($asset, 5000);
+    $pdc = pdcFor($asset, $invoice, 5000);
+    app(PostDatedChequeService::class)->clear($pdc, makeUser(), '2026-07-19');
+    expect($pdc->fresh()->status)->toBe('cleared')
+        ->and((float) $invoice->fresh()->balance)->toBe(0.0);
+
+    $payment = Payment::find($pdc->fresh()->cleared_payment_id);
+    app(\App\Services\VoidPaymentService::class)->void($payment, 'bank returned it');
+
+    // The register stops reporting it collected, and the invoice's AR re-opened.
+    expect($pdc->fresh()->status)->toBe('bounced')
+        ->and((float) $invoice->fresh()->balance)->toBe(5000.0);
+
+    // ...and the bounced lifecycle is available again (it can be re-presented).
+    app(PostDatedChequeService::class)->deposit($pdc->fresh());
+    expect($pdc->fresh()->status)->toBe('deposited');
+});
+
+it('refuses to link a cheque to another tenant\'s invoice in the same property (F-2)', function () {
+    // Same-property cross-TENANT: clearing would settle another tenant's invoice with this tenant's
+    // payment, contaminating the per-tenant AR sub-ledger + owner statements.
+    $asset = makeAsset();
+    $invoiceT1 = invoiceOf($asset, 5000);          // tenant T1
+    $leaseT2 = makeLease(makeUnit($asset));         // a DIFFERENT tenant, same property
+    expect((int) $leaseT2->tenant_id)->not->toBe((int) $invoiceT1->tenant_id);
+
+    expect(fn () => PostDatedCheque::create([
+        'reference' => PostDatedCheque::generateReference(),
+        'asset_id' => $asset->id,
+        'tenant_id' => $leaseT2->tenant_id,          // T2
+        'invoice_id' => $invoiceT1->id,               // T1's invoice — same property, cross-tenant
+        'cheque_number' => 'CHQ-'.uniqid(),
+        'amount' => 5000, 'cheque_date' => '2026-08-01', 'received_date' => '2026-07-01',
+        'status' => 'held',
+    ]))->toThrow(DomainException::class);
+});
+
+it('re-checks the tenant when a held cheque\'s tenant is edited after linking (F-2 dirty-trigger)', function () {
+    // Editing ONLY tenant_id (invoice_id/asset_id unchanged) was the gap the property-only guard
+    // missed — the tenant_id-dirty trigger now catches it.
+    $asset = makeAsset();
+    $pdc = pdcFor($asset, invoiceOf($asset, 5000), 5000);   // correct: T1 + T1's invoice
+    $leaseT2 = makeLease(makeUnit($asset));
+
+    expect(fn () => $pdc->update(['tenant_id' => $leaseT2->tenant_id]))->toThrow(DomainException::class);
+});
+
+it('does not over-settle an invoice when two cheques clear against it (F-1)', function () {
+    // The clear() path now locks the invoice and calls assertInvoicesNotOverAllocated, mirroring
+    // every other payment path — the second clear can never push paid_amount past the total.
+    $asset = makeAsset();
+    $invoice = invoiceOf($asset, 5000);
+    $a = pdcFor($asset, $invoice, 5000);
+    $b = pdcFor($asset, $invoice, 5000);            // both point at the same 5000 invoice
+    $svc = app(PostDatedChequeService::class);
+
+    $svc->clear($a, makeUser(), '2026-07-19');
+    $svc->clear($b->fresh(), makeUser(), '2026-07-19');
+
+    // Settled exactly once — never 10000 on a 5000 receivable.
+    $invoice->refresh();
+    expect((float) $invoice->paid_amount)->toBe(5000.0)
+        ->and((float) $invoice->balance)->toBe(0.0);
+});

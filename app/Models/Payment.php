@@ -258,6 +258,27 @@ class Payment extends Model
         }
     }
 
+    /**
+     * When a payment that CLEARED a post-dated cheque is voided/refunded, the clearing was
+     * reversed (the bank returned the cheque) — move the cheque back to `bounced` so the PDC
+     * register stops showing it collected and the matured-uncleared scan/card/filter re-surface
+     * it. Without this the cheque stays permanently `cleared` pointing at a refunded payment while
+     * the invoice's AR (correctly) re-opens, and its own terminal-immutability guard blocks any
+     * later correction (audit M33 F-3). The cheque's `updating` hook carves out exactly this
+     * cleared→bounced reversal. Called from the saved() hook, gated on a real reversal.
+     */
+    public function reconcileClearedChequeOnReversal(): void
+    {
+        $cheques = PostDatedCheque::query()
+            ->where('cleared_payment_id', $this->getKey())
+            ->where('status', PostDatedCheque::STATUS_CLEARED)
+            ->get();
+
+        foreach ($cheques as $cheque) {
+            $cheque->update(['status' => PostDatedCheque::STATUS_BOUNCED]);
+        }
+    }
+
     protected static function booted(): void
     {
         static::creating(function (self $payment) {
@@ -290,6 +311,15 @@ class Payment extends Model
         static::saved(function (self $payment) {
             // Status change (e.g. captured ↔ failed) must roll forward to invoices.
             $payment->recomputeAllocatedInvoices();
+
+            // If this payment CLEARED a post-dated cheque and has just been voided/refunded
+            // (left the received set), the bank reversed the cheque — reconcile the cheque back
+            // to `bounced` so the PDC register stops reporting it collected and the
+            // matured-uncleared surfaces re-catch it. Guarded to a real status change into a
+            // non-received state, so the common capture/recompute path adds no query (audit M33 F-3).
+            if ($payment->wasChanged('status') && ! $payment->isReceived()) {
+                $payment->reconcileClearedChequeOnReversal();
+            }
 
             // Receipt notification — fires once the payment is captured AND has
             // allocations. The gateway path allocates before flipping to

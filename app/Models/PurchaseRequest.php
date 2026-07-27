@@ -256,5 +256,38 @@ class PurchaseRequest extends Model
                 $request->reference = static::generateReference($request->asset?->code ?: 'GEN');
             }
         });
+
+        static::saving(function (self $request) {
+            // The warehouse the goods land in must belong to the SAME property that requested
+            // (and pays for) them. The form scopes the picker to the request's asset; this is the
+            // gate below it. Without it a crafted submit pins another mall's warehouse: receive()
+            // refuses to LAND stock there (its own backstop), but the foreign warehouse_id
+            // persists and its name surfaces on the PO PDF — a name/existence oracle for an
+            // invisible property's storerooms. Checked on create + on any change (audit M29-2).
+            if ($request->warehouse_id !== null && ($request->isDirty('warehouse_id') || $request->isDirty('asset_id'))) {
+                $warehouseAssetId = Warehouse::whereKey($request->warehouse_id)->value('asset_id');
+                if ($warehouseAssetId !== null && (int) $warehouseAssetId !== (int) $request->asset_id) {
+                    throw new \DomainException('The selected warehouse belongs to a different property than the request.');
+                }
+            }
+        });
+
+        static::updating(function (self $request) {
+            // The header freezes wholesale once the request leaves `requested`: asset_id (the
+            // budget), warehouse_id (where the goods land) and justification (what the approval
+            // signed off on) are frozen the moment it is approved. Changing any afterwards strands
+            // the PO/receipt from what was authorised — a received request's warehouse_id could
+            // diverge from the actual stock movement, and a re-downloaded PO would name a storeroom
+            // that never received the goods. The status transition itself is allowed because
+            // getOriginal('status') is still `requested` when approve() flips it. Mirrors
+            // PostDatedCheque's terminal immutability (audit M29-1).
+            if ($request->getOriginal('status') !== self::STATUS_REQUESTED) {
+                foreach (['asset_id', 'warehouse_id', 'justification'] as $frozen) {
+                    if ($request->isDirty($frozen)) {
+                        throw new \DomainException('A purchase request cannot change its property, warehouse, or justification after it has been approved.');
+                    }
+                }
+            }
+        });
     }
 }

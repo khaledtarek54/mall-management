@@ -65,16 +65,26 @@ class PostDatedCheque extends Model
                 throw new \InvalidArgumentException("Invalid post-dated cheque status '{$cheque->status}'.");
             }
 
-            // Property-isolation guard: a linked invoice MUST belong to the same property the cheque
-            // is pinned to. The form scopes the picker, but this is the real gate — a crafted request
-            // could otherwise attach another mall's invoice, and clearing the cheque would settle it
-            // (moving that property's AR + GL). Checked on create + on any invoice_id/asset_id change.
-            if ($cheque->invoice_id && ($cheque->isDirty('invoice_id') || $cheque->isDirty('asset_id'))) {
-                $invoiceAssetId = Invoice::whereKey($cheque->invoice_id)
+            // Isolation guard: a linked invoice MUST belong to the same property AND the same tenant
+            // as the cheque. The form scopes the picker, but this is the real gate — a crafted
+            // request (or editing the tenant AFTER linking) could otherwise attach another party's
+            // invoice, and clearing the cheque would settle it. Re-checked on any invoice_id /
+            // asset_id / tenant_id change — the `tenant_id` trigger closes the edit-the-tenant path
+            // the property-only check missed (audit M33 F-2).
+            if ($cheque->invoice_id && ($cheque->isDirty('invoice_id') || $cheque->isDirty('asset_id') || $cheque->isDirty('tenant_id'))) {
+                $invoice = Invoice::whereKey($cheque->invoice_id)
                     ->with('lease.unit:id,asset_id')
-                    ->first()?->lease?->unit?->asset_id;
+                    ->first();
+                $invoiceAssetId = $invoice?->lease?->unit?->asset_id;
                 if ($invoiceAssetId !== null && (int) $invoiceAssetId !== (int) $cheque->asset_id) {
+                    // Property leak: clearing would move another mall's AR + GL.
                     throw new \DomainException('The linked invoice belongs to a different property than the cheque.');
+                }
+                if ($invoice !== null && (int) $invoice->tenant_id !== (int) $cheque->tenant_id) {
+                    // Same-property but cross-TENANT: clearing would settle another tenant's invoice
+                    // with this tenant's payment, contaminating the per-tenant AR sub-ledger + owner
+                    // statements (the exact class Payment::assertInvoicesShareTenant guards).
+                    throw new \DomainException('The linked invoice belongs to a different tenant than the cheque.');
                 }
             }
         });
@@ -83,8 +93,24 @@ class PostDatedCheque extends Model
         // (soft-delete/restore, which touch only deleted_at, are still allowed).
         static::updating(function (self $cheque) {
             $original = $cheque->getOriginal('status');
-            if (in_array($original, [self::STATUS_CLEARED, self::STATUS_CANCELLED], true)
-                && ($cheque->isDirty('status') || $cheque->isDirty('amount') || $cheque->isDirty('cleared_payment_id'))) {
+            if (! in_array($original, [self::STATUS_CLEARED, self::STATUS_CANCELLED], true)) {
+                return;
+            }
+
+            // The ONE legitimate way out of `cleared`: a reversal to `bounced` when the clearing
+            // Payment is voided (the bank returned the cheque after all). Payment::saved drives
+            // this (audit M33 F-3) and it mirrors the money reversal — VoidPaymentService re-opens
+            // the invoice's AR. Without the carve-out the cheque would be stranded `cleared`
+            // forever, pointing at a refunded payment, invisible to the matured-uncleared surfaces.
+            $isClearingReversal = $original === self::STATUS_CLEARED
+                && $cheque->status === self::STATUS_BOUNCED
+                && ! $cheque->isDirty('amount')
+                && ! $cheque->isDirty('cleared_payment_id');
+            if ($isClearingReversal) {
+                return;
+            }
+
+            if ($cheque->isDirty('status') || $cheque->isDirty('amount') || $cheque->isDirty('cleared_payment_id')) {
                 throw new \DomainException("A {$original} post-dated cheque is immutable.");
             }
         });

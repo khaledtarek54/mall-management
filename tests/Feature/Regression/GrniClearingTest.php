@@ -88,8 +88,12 @@ function bal(string $code): float
         return 0.0;
     }
 
+    // Match production's balance rule (LedgerReportService::REPORTABLE = ['posted','void']): a
+    // voided entry stays counted ALONGSIDE its posted reversal so the pair nets to zero. Counting
+    // 'posted' alone would drop the void original but keep the reversal — double-reversing any
+    // re-derived (void-and-repost) source, which the module-29 sibling re-derivation exercises.
     $lines = JournalLine::where('ledger_account_id', $account->id)
-        ->whereHas('entry', fn ($q) => $q->where('status', 'posted'))->get();
+        ->whereHas('entry', fn ($q) => $q->whereIn('status', ['posted', 'void']))->get();
 
     return round($lines->sum(fn ($l) => (float) $l->debit) - $lines->sum(fn ($l) => (float) $l->credit), 2);
 }
@@ -219,4 +223,98 @@ it('keeps the books tying out, and does not double-post on a re-sweep', function
     $this->artisan('accounting:sync-ledger')->assertExitCode(0);
     expect(bal(GRNI))->toBe(0.0);
     expect(bal(INVENTORY))->toBe(500.0);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Close-out sweep 2026-07-27 — module 29 (procurement) formal CLOSED pass
+|--------------------------------------------------------------------------
+| An adversarial money/GL + authz sweep on the mature module. These pin the
+| CLOSE_NOW fixes it surfaced.
+*/
+
+it('re-derives a purchase\'s OTHER bills when the FIFO set changes days later (F-1)', function () {
+    // GRNI clearing is FIFO across a request's bills, oldest first — so cancelling/adding/re-dating
+    // ONE bill changes what its SIBLINGS should clear. The windowed sweep keys on each row's own
+    // updated_at, so a sibling untouched for > 2 days would keep a now-stale clearing posted (GRNI
+    // stranded, the value double-counted). The sibling-touch makes "the FIFO set changed" a trigger.
+    $pr = purchased(10, 50);        // receipt: GRNI −500
+    $billA = billFor($pr, 500);     // day 0
+    billFor($pr, 500);              // day 0 — a duplicate of the same purchase (billB)
+    $this->artisan('accounting:sync-ledger')->assertExitCode(0);
+    expect(bal(GRNI))->toBe(0.0)        // A (oldest) clears the 500…
+        ->and(bal(RM_EXPENSE))->toBe(500.0); // …B is pure expense
+
+    // Days pass, so billB's updated_at falls outside the windowed sweep's 2-day look-back.
+    $this->travel(5)->days();
+
+    // The erroneous duplicate A is cancelled: its clearing voids (GRNI back to −500) and B must now
+    // clear the 500 in its place. Without the sibling-touch the windowed sweep never revisits B →
+    // GRNI stranded at −500 AND the 500 still double-counted as an expense on B.
+    $billA->fresh()->update(['status' => 'cancelled']);
+    $this->artisan('accounting:sync-ledger')->assertExitCode(0);
+
+    expect(bal(GRNI))->toBe(0.0)          // ← would be −500 without the fix
+        ->and(bal(RM_EXPENSE))->toBe(0.0) // ← would be 500 without the fix (B still expense)
+        ->and(bal(INVENTORY))->toBe(500.0);
+});
+
+it('refuses to link a vendor bill to a purchase request in another property (F-2)', function () {
+    // The bill's GRNI clearing posts to the BILL's asset; the receipt credited GRNI in the
+    // REQUEST's property. A cross-property link strands GRNI in one mall and swings it positive in
+    // another — permanently, and invisibly to the close gate (the entry matches its own payload).
+    $pr = purchased(10, 50);
+    $otherAsset = makeAsset(['code' => 'GR2']);
+
+    expect(fn () => VendorBill::create([
+        'vendor_id' => $this->vendor->id, 'asset_id' => $otherAsset->id,
+        'number' => 'X-'.fake()->unique()->numberBetween(1000, 9999),
+        'category' => 'maintenance', 'purchase_request_id' => $pr->id,
+        'bill_date' => now()->toDateString(), 'due_date' => now()->addDays(30)->toDateString(),
+        'subtotal' => 500, 'vat_amount' => 0, 'total' => 500, 'status' => 'approved',
+    ]))->toThrow(DomainException::class);
+});
+
+it('refuses a stock movement dated into a closed accounting period (F-3)', function () {
+    // moved_on becomes the movement's GL entry_date; a back-dated movement into a closed month must
+    // be refused in the SERVICE, not silently committed while the real-time GL post fails.
+    $inClosedMonth = now()->startOfMonth()->addDays(3)->toDateString();
+
+    $this->artisan('accounting:sync-ledger', ['--all' => true])->assertExitCode(0);
+    $period = \App\Models\AccountingPeriod::forDate(\Illuminate\Support\Carbon::parse($inClosedMonth));
+    app(\App\Services\Accounting\PeriodService::class)->closePeriod($period);
+
+    expect(fn () => app(StockMovementService::class)->record([
+        'warehouse_id' => $this->warehouse->id, 'inventory_item_id' => $this->item->id,
+        'type' => 'adjustment', 'quantity' => 5, 'unit_cost' => 50, 'moved_on' => $inClosedMonth,
+    ]))->toThrow(DomainException::class);
+
+    // The row was refused before creation — on-hand did not move.
+    expect(app(StockMovementService::class)->onHand($this->item, $this->warehouse))->toBe(0.0);
+});
+
+it('freezes warehouse + justification once a request leaves requested (M29-1)', function () {
+    // The header is meant to freeze wholesale after approval — the form disables the fields, this
+    // is the gate below it (a received request's warehouse_id must not diverge from the movement).
+    $pr = purchased(10, 50); // now RECEIVED (past requested)
+    $annex = Warehouse::create(['asset_id' => $this->asset->id, 'name' => 'Annex', 'code' => 'W2']);
+
+    expect(fn () => $pr->fresh()->update(['warehouse_id' => $annex->id]))->toThrow(DomainException::class);
+    expect(fn () => $pr->fresh()->update(['justification' => 'changed my mind later']))->toThrow(DomainException::class);
+});
+
+it('refuses a warehouse in another property when raising a request (M29-2)', function () {
+    // The form scopes the warehouse picker to the request's property; a crafted submit could pin
+    // another mall's warehouse (a name/existence oracle on the PO PDF). The model gate refuses it.
+    $otherAsset = makeAsset(['code' => 'OTHR']);
+    $foreign = Warehouse::create(['asset_id' => $otherAsset->id, 'name' => 'Foreign', 'code' => 'WF']);
+
+    expect(fn () => $this->svc->request([
+        'asset_id' => $this->asset->id, 'justification' => 'crafted',
+        'warehouse_id' => $foreign->id,
+        'lines' => [['inventory_item_id' => $this->item->id, 'quantity' => 1, 'unit_cost' => 10]],
+    ], $this->buyer))->toThrow(DomainException::class);
+
+    // The create rolled back inside the transaction — nothing persisted.
+    expect(PurchaseRequest::where('justification', 'crafted')->exists())->toBeFalse();
 });

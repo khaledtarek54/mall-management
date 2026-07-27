@@ -661,12 +661,6 @@ parameters:
 			path: app/Filament/Admin/Resources/PurchaseRequests/Tables/PurchaseRequestsTable.php
 
 		-
-			message: '#^Unsafe call to private method App\\Filament\\Admin\\Resources\\PurchaseRequests\\Tables\\PurchaseRequestsTable\:\:canDecide\(\) through static\:\:\.$#'
-			identifier: staticClassAccess.privateMethod
-			count: 4
-			path: app/Filament/Admin/Resources/PurchaseRequests/Tables/PurchaseRequestsTable.php
-
-		-
 			message: '#^Unsafe call to private method App\\Filament\\Admin\\Resources\\PurchaseRequests\\Tables\\PurchaseRequestsTable\:\:canReceive\(\) through static\:\:\.$#'
 			identifier: staticClassAccess.privateMethod
 			count: 2

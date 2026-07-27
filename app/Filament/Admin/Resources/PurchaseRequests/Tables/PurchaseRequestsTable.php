@@ -92,9 +92,9 @@ class PurchaseRequestsTable
                     ->icon('heroicon-o-check-circle')->color('success')
                     ->requiresConfirmation()
                     ->visible(fn (PurchaseRequest $r) => $r->status === PurchaseRequest::STATUS_REQUESTED
-                        && static::canDecide($r)
+                        && self::canDecide($r)
                         && (int) $r->requested_by_user_id !== (int) auth()->id())
-                    ->authorize(fn (PurchaseRequest $r) => static::canDecide($r))
+                    ->authorize(fn (PurchaseRequest $r) => self::canDecide($r))
                     ->schema([Textarea::make('notes')->label(__('admin.procurement.fields.notes'))->rows(2)])
                     ->action(function (PurchaseRequest $record, array $data): void {
                         try {
@@ -110,8 +110,8 @@ class PurchaseRequestsTable
                 Action::make('reject')
                     ->label(__('admin.procurement.actions.reject'))
                     ->icon('heroicon-o-x-circle')->color('danger')
-                    ->visible(fn (PurchaseRequest $r) => $r->status === PurchaseRequest::STATUS_REQUESTED && static::canDecide($r))
-                    ->authorize(fn (PurchaseRequest $r) => static::canDecide($r))
+                    ->visible(fn (PurchaseRequest $r) => $r->status === PurchaseRequest::STATUS_REQUESTED && self::canDecide($r))
+                    ->authorize(fn (PurchaseRequest $r) => self::canDecide($r))
                     ->schema([Textarea::make('reason')->label(__('admin.procurement.reject_reason'))->required()->rows(2)])
                     ->action(function (PurchaseRequest $record, array $data): void {
                         try {
@@ -128,9 +128,12 @@ class PurchaseRequestsTable
                 Action::make('order')
                     ->label(__('admin.procurement.actions.order'))
                     ->icon('heroicon-o-paper-airplane')->color('info')
+                    // Same two-question gate as approve/reject: the tier must cover the value.
+                    // The service re-checks it (assertMayDecideValue), so this is honest-UI parity
+                    // — a low-tier decider no longer sees an Order button they can't action (M29-3).
                     ->visible(fn (PurchaseRequest $r) => $r->status === PurchaseRequest::STATUS_APPROVED
-                        && (auth()->user()?->can(PurchaseRequestService::DECIDE_PERMISSION) ?? false))
-                    ->authorize(fn () => auth()->user()?->can(PurchaseRequestService::DECIDE_PERMISSION) ?? false)
+                        && self::canDecide($r))
+                    ->authorize(fn (PurchaseRequest $r) => self::canDecide($r))
                     ->schema([
                         Select::make('vendor_id')
                             ->label(__('admin.procurement.fields.vendor'))
@@ -196,9 +199,12 @@ class PurchaseRequestsTable
                 Action::make('cancel')
                     ->label(__('admin.procurement.actions.cancel'))
                     ->icon('heroicon-o-no-symbol')->color('gray')
-                    ->visible(fn (PurchaseRequest $r) => ! $r->isTerminal()
-                        && (auth()->user()?->can(PurchaseRequestService::DECIDE_PERMISSION) ?? false))
-                    ->authorize(fn () => auth()->user()?->can(PurchaseRequestService::DECIDE_PERMISSION) ?? false)
+                    // Cancelling unwinds a commitment (an approved+ordered purchase), so it carries
+                    // the same authority as approving it — the tier, not just the base permission.
+                    // The service enforces it (assertMayDecideValue); this keeps the button honest
+                    // for a low-tier decider (M29-3).
+                    ->visible(fn (PurchaseRequest $r) => ! $r->isTerminal() && self::canDecide($r))
+                    ->authorize(fn (PurchaseRequest $r) => self::canDecide($r))
                     ->schema([Textarea::make('reason')->label(__('admin.procurement.cancel_reason'))->required()->rows(2)])
                     ->action(function (PurchaseRequest $record, array $data): void {
                         try {

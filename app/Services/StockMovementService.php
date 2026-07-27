@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\InventoryItem;
 use App\Models\StockMovement;
 use App\Models\Warehouse;
+use App\Support\PostingDate;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -77,6 +78,20 @@ class StockMovementService
             );
         }
 
+        // `moved_on` becomes the movement's GL entry_date (InventoryMovementJournalizer), so an
+        // operator-supplied date in a CLOSED accounting period must be refused HERE — the same
+        // guard the AP/AR service paths enforce (VendorBillService::approve, PostDatedChequeService).
+        // Without it a back-dated receipt/adjustment (module 22's ad-hoc DatePicker is freely
+        // editable) commits the row + on-hand while the real-time GL post silently fails — the
+        // exact closed-period divergence PostingDate exists to stop, and it can strand a GRNI
+        // credit a later vendor bill would then over-clear. A MISSING period is allowed (assertOpen
+        // refuses only a CLOSED one), so fresh installs / pre-accounting dates are unaffected
+        // (audit M29 F-3). Guarded in the service so console/API callers are covered too.
+        $movedOn = PostingDate::assertOpen(
+            filled($data['moved_on'] ?? null) ? $data['moved_on'] : today(),
+            'moved_on',
+        )->toDateString();
+
         $attributes = [
             'warehouse_id' => $data['warehouse_id'],
             'inventory_item_id' => $data['inventory_item_id'],
@@ -87,7 +102,7 @@ class StockMovementService
             'source_type' => $data['source_type'] ?? null,
             'source_id' => $data['source_id'] ?? null,
             'moved_by_user_id' => $data['moved_by_user_id'] ?? auth()->id(),
-            'moved_on' => $data['moved_on'] ?? today(),
+            'moved_on' => $movedOn,
             'notes' => $data['notes'] ?? null,
         ];
 

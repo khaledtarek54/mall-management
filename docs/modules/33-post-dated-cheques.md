@@ -73,10 +73,22 @@ held ──deposit──▶ deposited ──clear──▶ cleared   (records a 
 - **Future refinement:** the Notes-Receivable accrual on receipt (needs the accountant + a `notes_receivable`
   account mapping to `11205001`) — would move the receivable to a note on lodging and convert note→cash on clear.
 - **Do not set the invoice balance directly** — clearing routes through `Payment` + `recomputeTotals()`.
+- **`clear()` locks the invoice + calls `assertInvoicesNotOverAllocated`** (close-out 2026-07-27) — two cheques
+  clearing the same invoice concurrently must not over-settle it. Mirror this on any new settle path.
+- **A linked invoice must match the cheque's property AND tenant.** The model `saving` hook is the real gate
+  (the picker is scoped, but a crafted submit / a `tenant_id` edit after linking could bypass it); `clear()` also
+  calls `assertInvoicesShareTenant`. Never relax to property-only — a same-mall cross-tenant clear contaminates
+  the per-tenant AR sub-ledger + owner statements.
+- **A cleared cheque whose payment is later voided reverses to `bounced` automatically** (`Payment::saved` →
+  `reconcileClearedChequeOnReversal`), so the register never lies about a collection that was reversed and the
+  matured-uncleared surfaces re-catch it. The cheque's terminal-immutability guard carves out exactly this
+  `cleared→bounced` reversal; keep any new lifecycle change behind the same carve-out.
 
 ## 6. Tests
 
 `PostDatedChequeTest` — clear records a payment + reduces AR, allocation capped at balance, deposit→clear,
-bounce leaves AR untouched + re-present, cancel (and refuses a cleared one), terminal immutability. Conformance:
+bounce leaves AR untouched + re-present, cancel (and refuses a cleared one), terminal immutability; plus the
+close-out (2026-07-27) cases: two cheques don't over-settle one invoice, a cross-tenant/same-property link is
+refused (and the `tenant_id`-edit trigger), a voided clearing payment reverses the cheque to `bounced`. Conformance:
 `PropertyIsolationConformanceTest` (the create form guards `asset_id`), `TranslationCoverageTest`,
 `ModuleLabelCoverageTest`, `AdminSmokeManifestConformanceTest`.
