@@ -2583,54 +2583,54 @@ parameters:
 			message: '#^Parameter \#1 \$request of method App\\Actions\\Api\\V1\\Requests\\CancelTenantRequestAction\:\:handle\(\) expects App\\Models\\TenantRequest, Illuminate\\Database\\Eloquent\\Model given\.$#'
 			identifier: argument.type
 			count: 1
-			path: /Users/khaled/Herd/mall-management/app/Http/Controllers/Api/V1/Requests/CancelTenantRequestController.php
+			path: app/Http/Controllers/Api/V1/Requests/CancelTenantRequestController.php
 
 		-
 			message: '#^Parameter \#1 \$request of method App\\Actions\\Api\\V1\\Requests\\AddTenantRequestCommentAction\:\:handle\(\) expects App\\Models\\TenantRequest, Illuminate\\Database\\Eloquent\\Model given\.$#'
 			identifier: argument.type
 			count: 1
-			path: /Users/khaled/Herd/mall-management/app/Http/Controllers/Api/V1/Requests/CommentTenantRequestController.php
+			path: app/Http/Controllers/Api/V1/Requests/CommentTenantRequestController.php
 
 		-
 			message: '#^Parameter \#1 \$request of method App\\Actions\\Api\\V1\\Requests\\RateTenantRequestAction\:\:handle\(\) expects App\\Models\\TenantRequest, Illuminate\\Database\\Eloquent\\Model given\.$#'
 			identifier: argument.type
 			count: 1
-			path: /Users/khaled/Herd/mall-management/app/Http/Controllers/Api/V1/Requests/RateTenantRequestController.php
+			path: app/Http/Controllers/Api/V1/Requests/RateTenantRequestController.php
 
 		-
 			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Relations\\HasMany\:\:received\(\)\.$#'
 			identifier: method.notFound
 			count: 1
-			path: /Users/khaled/Herd/mall-management/app/Models/Tenant.php
+			path: app/Models/Tenant.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
 			identifier: property.notFound
 			count: 1
-			path: /Users/khaled/Herd/mall-management/app/Services/ApplyTenantCreditService.php
+			path: app/Services/ApplyTenantCreditService.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$lease\.$#'
 			identifier: property.notFound
 			count: 1
-			path: /Users/khaled/Herd/mall-management/app/Services/VoidPaymentService.php
+			path: app/Services/VoidPaymentService.php
 		-
 			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:sum\(\) expects \(callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: float\)\|string\|null, Closure\(App\\Models\\CreditNoteItem\)\: float given\.$#'
 			identifier: argument.type
 			count: 2
-			path: /Users/khaled/Herd/mall-management/app/Models/CreditNote.php
+			path: app/Models/CreditNote.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
 			identifier: property.notFound
 			count: 1
-			path: /Users/khaled/Herd/mall-management/app/Services/CreditNotePdfService.php
+			path: app/Services/CreditNotePdfService.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
 			identifier: property.notFound
 			count: 2
-			path: /Users/khaled/Herd/mall-management/app/Services/CreditNoteService.php
+			path: app/Services/CreditNoteService.php
 
 		-
 			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Builder\:\:holdover\(\)\.$#'

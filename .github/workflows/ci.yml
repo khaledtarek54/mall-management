@@ -51,10 +51,13 @@ jobs:
   phpunit:
     name: Test suite (Pest, parallel)
     runs-on: ubuntu-latest
-    # Was 10 minutes, and the serial run took 10m15s — so the job was killed mid-suite and
-    # reported failure without a single failing test. Parallel (the command the project uses
-    # locally) plus headroom.
-    timeout-minutes: 20
+    # This budget has been wrong twice: 10 minutes killed a 10m15s serial run, then 20 minutes
+    # killed a 20m15s parallel one — both reported "failure" without a single failing test, which
+    # is the worst possible signal. 45 is deliberate headroom to get a REAL duration on the board
+    # rather than guess a third time. 453 test files across 150 migrations, and there is no
+    # `database/schema` dump, so every paratest worker replays all 150 migrations before it starts
+    # — that is the thing to fix if the measured time is unacceptable (`php artisan schema:dump`).
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
