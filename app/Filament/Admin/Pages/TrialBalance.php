@@ -11,15 +11,28 @@ use App\Support\ReportCsv;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Pages\Page;
+use Filament\Schemas\Concerns\InteractsWithSchemas;
+use Filament\Schemas\Contracts\HasSchemas;
 use Filament\Support\Icons\Heroicon;
-use Illuminate\Support\Carbon;
+use Filament\Tables\Columns\Summarizers\Summarizer;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Concerns\InteractsWithTable;
+use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Table;
 
 /**
  * ميزان المراجعة — Trial Balance. Every account with movement, its total debit
  * and credit, and the net on its normal side. The two column totals must match.
+ *
+ * Rendered as a native Filament table over the report service's computed rows
+ * (`records()`, not `query()` — a trial balance is an aggregate per account, not
+ * a row set). That buys sorting, column control and a real footer tie-out, and
+ * replaces the hand-written <table> with inline styles this page used to ship.
  */
-class TrialBalance extends Page
+class TrialBalance extends Page implements HasSchemas, HasTable
 {
+    use InteractsWithSchemas;
+    use InteractsWithTable;
     use PostsToLedger;
     use ScopesLedgerReport;
 
@@ -27,13 +40,29 @@ class TrialBalance extends Page
 
     protected static ?int $navigationSort = 22;
 
-    protected string $view = 'filament.pages.trial-balance';
+    protected string $view = 'filament.pages.ledger-report';
 
     protected static string $routePath = 'trial-balance';
 
     public function getTitle(): string
     {
         return __('admin.reports.trial_balance_title');
+    }
+
+    /**
+     * The balance check, as the page subheading rather than a bespoke coloured
+     * div: whether the ledger foots is the single fact this page exists to
+     * report, so it belongs next to the title.
+     */
+    public function getSubheading(): ?string
+    {
+        $check = $this->report()['balanced']
+            ? '✓ '.__('admin.reports.balanced')
+            : '✗ '.__('admin.reports.not_balanced');
+
+        $sync = $this->ledgerLastSyncedSubheading();
+
+        return $sync ? $check.' · '.$sync : $check;
     }
 
     protected function getHeaderActions(): array
@@ -50,14 +79,14 @@ class TrialBalance extends Page
                     $svc = app(LedgerReportPdfService::class);
                     $pdf = $svc->trialBalance(
                         $this->scopedAssetIds(),
-                        Carbon::create($this->year, 1, 1)->startOfDay(),
-                        Carbon::create($this->year, 12, 31)->endOfDay(),
+                        $this->periodStart(),
+                        $this->periodEnd(),
                         $this->propertyLabel(),
                         $this->year,
                     );
 
                     return response()->streamDownload(
-                        fn () => print($pdf),
+                        fn () => print ($pdf),
                         $svc->filename('trial-balance', $this->year),
                         ['Content-Type' => 'application/pdf'],
                     );
@@ -71,21 +100,11 @@ class TrialBalance extends Page
                 ->visible(fn () => $this->canViewReports())
                 ->authorize(fn () => $this->canViewReports())
                 ->action(function () {
-                    $report = app(LedgerReportService::class)->trialBalance(
-                        $this->scopedAssetIds(),
-                        Carbon::create($this->year, 1, 1)->startOfDay(),
-                        Carbon::create($this->year, 12, 31)->endOfDay(),
-                    );
-                    $csv = app(ReportCsvExporter::class)->trialBalance($report);
+                    $csv = app(ReportCsvExporter::class)->trialBalance($this->report());
 
                     return ReportCsv::stream("trial-balance-{$this->year}", $csv['headers'], $csv['rows']);
                 }),
         ];
-    }
-
-    public function getSubheading(): ?string
-    {
-        return $this->ledgerLastSyncedSubheading();
     }
 
     public static function getNavigationLabel(): string
@@ -93,13 +112,74 @@ class TrialBalance extends Page
         return __('admin.navigation.trial_balance');
     }
 
-    protected function getViewData(): array
+    /** @return array<string, mixed> */
+    protected function report(): array
     {
-        $from = Carbon::create($this->year, 1, 1)->startOfDay();
-        $to = Carbon::create($this->year, 12, 31)->endOfDay();
+        return app(LedgerReportService::class)->trialBalance(
+            $this->scopedAssetIds(),
+            $this->periodStart(),
+            $this->periodEnd(),
+        );
+    }
 
-        return array_merge($this->filterViewData(), [
-            'report' => app(LedgerReportService::class)->trialBalance($this->scopedAssetIds(), $from, $to),
-        ]);
+    public function table(Table $table): Table
+    {
+        $locale = app()->getLocale();
+
+        return $table
+            ->records(fn (): array => $this->report()['rows']
+                ->map(fn (array $row): array => [
+                    'id' => $row['account_id'],
+                    'code' => $row['code'],
+                    'account' => $locale === 'ar' ? $row['name_ar'] : $row['name_en'],
+                    'type' => $row['type'],
+                    'debit_balance' => $row['debit_balance'],
+                    'credit_balance' => $row['credit_balance'],
+                ])
+                ->all())
+            ->columns([
+                TextColumn::make('code')
+                    ->label(__('admin.tables.ledger_account.code'))
+                    ->fontFamily('mono')
+                    ->size('sm'),
+                TextColumn::make('account')
+                    ->label(__('admin.tables.ledger_account.account'))
+                    ->weight('medium')
+                    ->description(fn (array $record): string => __("admin.enums.ledger_account_type.{$record['type']}")),
+                TextColumn::make('debit_balance')
+                    ->label(__('admin.fields.debit'))
+                    ->money('EGP')
+                    ->alignEnd()
+                    // A zero on one side is noise — the eye runs down whichever
+                    // column the account actually sits in.
+                    ->state(fn (array $record) => $record['debit_balance'] > 0 ? $record['debit_balance'] : null)
+                    ->placeholder('—')
+                    ->summarize(
+                        Summarizer::make('total')
+                            ->label(__('admin.reports.totals'))
+                            ->money('EGP')
+                            // Off the report, not the paginated page: this total is
+                            // half of the tie-out the whole statement is judged on.
+                            ->using(fn (): float => $this->report()['total_debit'])
+                    ),
+                TextColumn::make('credit_balance')
+                    ->label(__('admin.fields.credit'))
+                    ->money('EGP')
+                    ->alignEnd()
+                    ->state(fn (array $record) => $record['credit_balance'] > 0 ? $record['credit_balance'] : null)
+                    ->placeholder('—')
+                    ->summarize(
+                        Summarizer::make('total')
+                            ->label(__('admin.reports.totals'))
+                            ->money('EGP')
+                            ->using(fn (): float => $this->report()['total_credit'])
+                    ),
+            ])
+            // A trial balance is read as one continuous statement that has to
+            // foot; paginating it would split the totals off their rows.
+            ->paginated(false)
+            ->emptyStateIcon('heroicon-o-scale')
+            ->emptyStateHeading(__('admin.reports.no_movements'))
+            ->emptyStateDescription(__('admin.reports.no_movements_hint'));
     }
 }

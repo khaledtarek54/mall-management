@@ -37,7 +37,9 @@ function stLeasedProperty(): array
 
 function stInvoice(Asset $asset, Lease $lease, string $status): Invoice
 {
-    return makeInvoice($lease, ['asset_id' => $asset->id, 'status' => $status]);
+    // An invoice has no asset_id — its property comes through lease.unit, so the
+    // $asset argument is what the lease was built on, not a column to set.
+    return makeInvoice($lease, ['status' => $status]);
 }
 
 it('narrows the invoice list to the tab it is on', function () {

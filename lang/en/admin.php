@@ -369,6 +369,7 @@ return [
         'balanced' => 'Balanced',
         'not_balanced' => 'Not balanced',
         'no_movements' => 'No movements in this period.',
+        'no_movements_hint' => 'Nothing has posted to the general ledger for the selected year and property yet.',
         'totals' => 'Totals',
         'choose_account' => '— Choose an account —',
         'account' => 'Account',

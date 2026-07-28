@@ -3,9 +3,14 @@
 use App\Actions\Api\Auth\LogoutTenantAction;
 use App\Filament\Admin\Pages\ArAging;
 use App\Filament\Admin\Pages\Reports;
+use App\Filament\Admin\Widgets\MonthlyCloseStats;
 use App\Settings\ModulesSettings;
+use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Laravel\Sanctum\PersonalAccessToken;
+use Livewire\Livewire;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 // Freeze "now" so CarbonImmutable::createFromFormat('Y-m', ...) on the Reports
 // page is deterministic regardless of which day-of-month the suite runs on.
@@ -24,31 +29,49 @@ function callPageView(object $page, string $method = 'getViewData'): array
 {
     $ref = new ReflectionMethod($page, $method);
     $ref->setAccessible(true);
+
     return $ref->invoke($page);
 }
 
 /* ─────────────── Reports page ─────────────── */
 
-it('Reports page resolves the period from request + mount()', function () {
-    $page = new Reports;
-    $page->period = '2026-02';
-    $data = callPageView($page);
-
-    expect($data)->toHaveKeys(['period', 'report', 'recentPeriods']);
-    expect($data['period']->format('Y-m'))->toBe('2026-02');
-    expect($data['recentPeriods'])->toHaveCount(12);
+it('Reports page resolves the period it was given', function () {
+    expect(Reports::parsePeriod('2026-02')->format('Y-m'))->toBe('2026-02');
 });
 
 it('Reports page falls back to current month when the period string is malformed', function () {
-    $page = new Reports;
-    $page->period = 'not-a-date';
-    $data = callPageView($page);
+    // A hand-edited ?period= must not 500 the page.
+    expect(Reports::parsePeriod('not-a-date')->format('Y-m'))->toBe(now()->format('Y-m'))
+        ->and(Reports::parsePeriod(null)->format('Y-m'))->toBe(now()->format('Y-m'));
+});
 
-    expect($data['period']->format('Y-m'))->toBe(now()->format('Y-m'));
+it('Reports page and its stats widget always describe the SAME month', function () {
+    // The KPI cards live in a widget and the revenue table on the page; both
+    // parse the same string, so they must not be able to drift apart.
+    $widget = new MonthlyCloseStats;
+    $widget->period = 'not-a-date';
+
+    $resolve = new ReflectionMethod($widget, 'resolvePeriod');
+    $resolve->setAccessible(true);
+
+    expect($resolve->invoke($widget)->format('Y-m'))
+        ->toBe(Reports::parsePeriod('not-a-date')->format('Y-m'));
+});
+
+it('Reports page lists revenue by type for the selected month', function () {
+    $this->seed(RolesPermissionsSeeder::class);
+    $this->actingAs(makeUser('manager', [$this->asset->id]));
+
+    asTenant($this->asset, function () {
+        $component = Livewire::test(Reports::class)->assertOk();
+
+        // Renders (and the table compiles) for a month with no activity too.
+        expect(collect($component->instance()->getTableRecords()))->toBeInstanceOf(Collection::class);
+    });
 });
 
 it('Reports page downloadMonthlyClose returns a PDF streamed response', function () {
-    $this->seed(\Database\Seeders\RolesPermissionsSeeder::class);
+    $this->seed(RolesPermissionsSeeder::class);
     $this->actingAs(makeUser('accounting'));   // holds reports.download
 
     $page = new Reports;
@@ -56,12 +79,12 @@ it('Reports page downloadMonthlyClose returns a PDF streamed response', function
 
     $response = $page->downloadMonthlyClose();
 
-    expect($response)->toBeInstanceOf(\Symfony\Component\HttpFoundation\StreamedResponse::class);
+    expect($response)->toBeInstanceOf(StreamedResponse::class);
     expect($response->headers->get('Content-Type'))->toBe('application/pdf');
 });
 
 it('Reports page gating + navigation reflect the reports module toggle', function () {
-    $this->seed(\Database\Seeders\RolesPermissionsSeeder::class);
+    $this->seed(RolesPermissionsSeeder::class);
     $this->actingAs(makeUser('manager', [$this->asset->id]));
 
     $settings = app(ModulesSettings::class);
@@ -78,7 +101,7 @@ it('Reports page gating + navigation reflect the reports module toggle', functio
 });
 
 it('Reports page denies access to users that lack reports.view', function () {
-    $this->seed(\Database\Seeders\RolesPermissionsSeeder::class);
+    $this->seed(RolesPermissionsSeeder::class);
     $user = makeUser('manager', [$this->asset->id]);
     $user->syncPermissions([]);
     $user->syncRoles([]);
@@ -95,29 +118,40 @@ it('Reports page exposes title + nav labels (translations resolved)', function (
 
 /* ─────────────── ArAging drilldown page ─────────────── */
 
-it('ArAging page builds view data with bucket labels + total balance', function () {
-    // Overdue invoice — falls in d_1_30 bucket.
-    makeInvoice($this->lease, [
+it('ArAging lists the selected bucket\'s invoices and totals them', function () {
+    // Overdue invoice — falls in the d_1_30 bucket.
+    $invoice = makeInvoice($this->lease, [
         'status' => 'issued',
         'issue_date' => now()->subDays(15),
         'due_date' => now()->subDays(10),
         'balance' => 5000, 'paid_amount' => 0, 'total' => 5000,
     ]);
 
-    asTenant($this->asset, function () {
-        $page = new ArAging;
-        $page->bucket = 'd_1_30';
-        $data = callPageView($page);
+    $this->seed(RolesPermissionsSeeder::class);
+    $this->actingAs(makeUser('manager', [$this->asset->id]));
 
-        expect($data)->toHaveKeys(['invoices', 'bucket', 'buckets', 'totalBalance']);
-        expect($data['bucket'])->toBe('d_1_30');
-        expect($data['buckets'])->toHaveCount(5);
-        expect($data['totalBalance'])->toBe(5000.0);
+    // The page is a native Filament table now, so assert the rows it returns
+    // rather than a view-data array.
+    asTenant($this->asset, function () use ($invoice) {
+        $component = Livewire::test(ArAging::class)->set('bucket', 'd_1_30');
+
+        expect(collect($component->instance()->getTableRecords())->pluck('id')->all())
+            ->toEqual([$invoice->id]);
+
+        // The bucket total is stated on the page — it is what a collections
+        // call is prioritised by.
+        expect($component->instance()->getSubheading())->toContain('5,000.00');
+
+        // A bucket the invoice does not belong in must come back empty.
+        $other = Livewire::test(ArAging::class)->set('bucket', 'd_90_plus');
+        expect(collect($other->instance()->getTableRecords()))->toBeEmpty();
     });
+
+    expect(ArAging::buckets())->toHaveCount(5);
 });
 
 it('ArAging page exposes title + access gate + nav group', function () {
-    $this->seed(\Database\Seeders\RolesPermissionsSeeder::class);
+    $this->seed(RolesPermissionsSeeder::class);
     $this->actingAs(makeUser('manager', [$this->asset->id]));
 
     expect((new ArAging)->getTitle())->toBeString()->not->toBeEmpty();

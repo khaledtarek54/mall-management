@@ -330,7 +330,7 @@ public function build(CarbonImmutable $period): string
 1. Edit `ReportService::monthlyClose()` to calculate the KPI (e.g., `sum($invoices->where('status', 'disputed'))`).
 2. Add the field to the return array (e.g., `'disputed' => [...]`).
 3. Update the test in `tests/Feature/Scenarios/ReportScenarioTest.php` to assert the new field.
-4. Update Blade template `resources/views/filament/pages/reports.blade.php` to display it (add a KPI card or row).
+4. Add a `Stat` for it in `App\Filament\Admin\Widgets\MonthlyCloseStats::getStats()` — the KPI grid is a native Filament stats widget, not a Blade template.
 5. Update PDF template `resources/views/reports/monthly-close.blade.php` to include it.
 6. **Do NOT** break the existing return structure; new fields should be optional/backward-compatible if the return is consumed elsewhere (API, exports, etc.).
 
@@ -338,7 +338,7 @@ public function build(CarbonImmutable $period): string
 1. Edit the `match()` logic in `ReportService::arAgingBuckets()` (line 129–135).
 2. Update the bucket array keys and comments.
 3. Update tests in `ReportScenarioTest::test AR aging bucket boundaries` to reflect new cutoffs.
-4. Update both `reports.blade.php` and `ar-aging.blade.php` bucket labels if the names change.
+4. Update the bucket labels in `ArAging::buckets()` (the single list the page, its picker and `MonthlyCloseStats` all read) if the names change.
 5. **Invariant to maintain:** `outstanding_total == sum of all bucket totals` (tested).
 
 ### Add filters to monthly close (e.g., by status, tenant, unit)
@@ -439,3 +439,49 @@ public function build(CarbonImmutable $period): string
 - **[04-leases.md](./04-leases.md)**: Lease domain (invoice.lease_id parent).
 - **[02-tenants.md](./02-tenants.md)**: Tenant domain (invoice.tenant_id parent, statement generation).
 
+
+## 9. UI architecture — native Filament, no hand-written report markup
+
+Every report surface in this module is a Filament **Page + Table**, not a Blade
+template. The pages share one 12-line shell
+(`resources/views/filament/pages/ledger-report.blade.php`) that renders three
+things and nothing else:
+
+```blade
+{{ $this->filtersForm }}   {{-- native Schema: year / property / period / bucket --}}
+<x-filament-widgets::widgets … />   {{-- header stats, where the page has them --}}
+{{ $this->table }}
+```
+
+**Why it matters.** These pages previously carried ~700 lines of hand-written
+`<table>` markup with inline styles and hard-coded hex colours. That markup did
+not follow the panel theme (including each property's own `primary_color`), had
+patchy dark-mode support, and gave an operator no sorting, no column control and
+no drill-through beyond bespoke anchors.
+
+**`records()`, not `query()`.** The trial balance, the three statements, the AR
+ageing drill-down and monthly-close revenue are all AGGREGATES computed by a
+report service, not row sets. They are fed to Filament through
+`Table::records()`. Two consequences worth knowing before changing one:
+
+- A per-group `Summarizer` has no query to aggregate. The financial statements
+  therefore emit section totals as **real rows** (`is_total`), which is also how
+  a printed statement reads. See `Concerns\RendersFinancialStatement`.
+- A `Summarizer` on such a table must ignore its `$query` argument and read the
+  figure off the report (`->using(fn (): float => $this->report()['total_debit'])`).
+  This is deliberate: those totals are the tie-out the statement is judged on,
+  so they come from the same array the PDF and CSV are built from.
+
+**Filters stay bound to the page's own properties** (`$year`, `$assetId`,
+`$period`, `$bucket`) rather than living in table-filter state, because the PDF
+and CSV header actions read those properties. One piece of state means the
+export can never describe a different period than the screen.
+
+**Ordering carries meaning** on the general ledger (running balance) and the
+statements (section order), so both are `paginated(false)` and unsorted by
+design — re-ordering them would make each line's balance not follow from the one
+above it.
+
+Related: `tests/Feature/Pages/LedgerReportTablesTest.php` asserts each page's
+rows and totals against the report service rather than merely that the page
+renders.

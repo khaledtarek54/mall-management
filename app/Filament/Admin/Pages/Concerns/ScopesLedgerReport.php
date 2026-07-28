@@ -5,14 +5,24 @@ namespace App\Filament\Admin\Pages\Concerns;
 use App\Models\Asset;
 use App\Models\FiscalYear;
 use App\Support\TenantScope;
+use Filament\Forms\Components\Select;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 
 /**
  * Shared scaffold for the read-only ledger report PAGES — Trial Balance, General
- * Ledger, Income Statement, Balance Sheet. Centralizes the year + property filter
- * state, the `general_ledger.view` gate, the Accounting nav group, the
- * property-scoped asset-id resolution, and the year list, so each page declares
- * only its icon/sort/route/title and the one report-service call.
+ * Ledger, Income Statement, Balance Sheet, Cash Flow. Centralizes the year +
+ * property filter state, the `general_ledger.view` gate, the Accounting nav
+ * group, the property-scoped asset-id resolution, and the year list, so each
+ * page declares only its icon/sort/route/title and the one report-service call.
+ *
+ * The year/property pickers are a native Filament Schema (`filtersForm`), not
+ * hand-written <select> markup. They stay bound to the `$year` / `$assetId`
+ * Livewire properties on purpose: the PDF and CSV header actions read those, so
+ * screen and export are driven by one piece of state and cannot disagree about
+ * which period was exported.
  */
 trait ScopesLedgerReport
 {
@@ -28,6 +38,41 @@ trait ScopesLedgerReport
     public function mount(): void
     {
         $this->year = (int) now()->year;
+    }
+
+    /** The year + property picker strip, rendered above the report table. */
+    public function filtersForm(Schema $schema): Schema
+    {
+        return $schema
+            ->components([
+                Section::make()
+                    ->columns(['sm' => 2, 'lg' => 3])
+                    ->schema([
+                        Select::make('year')
+                            ->label(__('admin.reports.fiscal_year'))
+                            ->options(fn (): array => $this->yearOptions())
+                            ->native(false)
+                            ->live(),
+                        Select::make('assetId')
+                            ->label(__('admin.reports.property_scope'))
+                            ->options(fn (): array => TenantScope::selectableAssetOptions())
+                            ->placeholder(__('admin.fields.property_consolidated'))
+                            ->native(false)
+                            ->live(),
+                    ]),
+            ]);
+    }
+
+    /** First instant of the selected fiscal year. */
+    protected function periodStart(): Carbon
+    {
+        return Carbon::create($this->year, 1, 1)->startOfDay();
+    }
+
+    /** Last instant of the selected fiscal year. */
+    protected function periodEnd(): Carbon
+    {
+        return Carbon::create($this->year, 12, 31)->endOfDay();
     }
 
     public static function getNavigationGroup(): ?string

@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Pages;
 
 use App\Filament\Admin\Concerns\PostsToLedger;
+use App\Filament\Admin\Pages\Concerns\RendersFinancialStatement;
 use App\Filament\Admin\Pages\Concerns\ScopesLedgerReport;
 use App\Services\Accounting\LedgerReportPdfService;
 use App\Services\Accounting\LedgerReportService;
@@ -11,23 +12,30 @@ use App\Support\ReportCsv;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Pages\Page;
+use Filament\Schemas\Concerns\InteractsWithSchemas;
+use Filament\Schemas\Contracts\HasSchemas;
 use Filament\Support\Icons\Heroicon;
-use Illuminate\Support\Carbon;
+use Filament\Tables\Concerns\InteractsWithTable;
+use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Table;
 
 /**
  * قائمة الدخل — Income Statement (P&L): revenue − expenses = net profit, for a
  * fiscal year, per property or consolidated.
  */
-class IncomeStatement extends Page
+class IncomeStatement extends Page implements HasSchemas, HasTable
 {
+    use InteractsWithSchemas;
+    use InteractsWithTable;
     use PostsToLedger;
+    use RendersFinancialStatement;
     use ScopesLedgerReport;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedChartBar;
 
     protected static ?int $navigationSort = 24;
 
-    protected string $view = 'filament.pages.income-statement';
+    protected string $view = 'filament.pages.ledger-report';
 
     protected static string $routePath = 'income-statement';
 
@@ -50,14 +58,14 @@ class IncomeStatement extends Page
                     $svc = app(LedgerReportPdfService::class);
                     $pdf = $svc->incomeStatement(
                         $this->scopedAssetIds(),
-                        Carbon::create($this->year, 1, 1)->startOfDay(),
-                        Carbon::create($this->year, 12, 31)->endOfDay(),
+                        $this->periodStart(),
+                        $this->periodEnd(),
                         $this->propertyLabel(),
                         $this->year,
                     );
 
                     return response()->streamDownload(
-                        fn () => print($pdf),
+                        fn () => print ($pdf),
                         $svc->filename('income-statement', $this->year),
                         ['Content-Type' => 'application/pdf'],
                     );
@@ -69,12 +77,7 @@ class IncomeStatement extends Page
                 ->visible(fn () => $this->canViewReports())
                 ->authorize(fn () => $this->canViewReports())
                 ->action(function () {
-                    $report = app(LedgerReportService::class)->incomeStatement(
-                        $this->scopedAssetIds(),
-                        Carbon::create($this->year, 1, 1)->startOfDay(),
-                        Carbon::create($this->year, 12, 31)->endOfDay(),
-                    );
-                    $csv = app(ReportCsvExporter::class)->incomeStatement($report);
+                    $csv = app(ReportCsvExporter::class)->incomeStatement($this->report());
 
                     return ReportCsv::stream("income-statement-{$this->year}", $csv['headers'], $csv['rows']);
                 }),
@@ -91,13 +94,42 @@ class IncomeStatement extends Page
         return __('admin.navigation.income_statement');
     }
 
-    protected function getViewData(): array
+    /** @return array<string, mixed> */
+    protected function report(): array
     {
-        $from = Carbon::create($this->year, 1, 1)->startOfDay();
-        $to = Carbon::create($this->year, 12, 31)->endOfDay();
+        return app(LedgerReportService::class)->incomeStatement(
+            $this->scopedAssetIds(),
+            $this->periodStart(),
+            $this->periodEnd(),
+        );
+    }
 
-        return array_merge($this->filterViewData(), [
-            'report' => app(LedgerReportService::class)->incomeStatement($this->scopedAssetIds(), $from, $to),
-        ]);
+    public function table(Table $table): Table
+    {
+        return $this->statementTable($table)
+            ->records(function (): array {
+                $report = $this->report();
+
+                return $this->statementRecords([
+                    __('admin.reports.revenue') => [
+                        'rows' => $report['revenue'],
+                        'total' => $report['total_revenue'],
+                        'total_label' => __('admin.reports.total_revenue'),
+                    ],
+                    __('admin.reports.expenses') => [
+                        'rows' => $report['expense'],
+                        'total' => $report['total_expense'],
+                        'total_label' => __('admin.reports.total_expenses'),
+                    ],
+                    // Net profit stands as its own one-line section so it reads
+                    // where an income statement puts it — under the two it derives
+                    // from — instead of being tacked onto expenses.
+                    __('admin.reports.net_profit') => [
+                        'rows' => collect(),
+                        'total' => $report['net_profit'],
+                        'total_label' => __('admin.reports.net_profit'),
+                    ],
+                ]);
+            });
     }
 }

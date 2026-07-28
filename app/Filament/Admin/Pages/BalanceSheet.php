@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Pages;
 
 use App\Filament\Admin\Concerns\PostsToLedger;
+use App\Filament\Admin\Pages\Concerns\RendersFinancialStatement;
 use App\Filament\Admin\Pages\Concerns\ScopesLedgerReport;
 use App\Services\Accounting\LedgerReportPdfService;
 use App\Services\Accounting\LedgerReportService;
@@ -11,23 +12,30 @@ use App\Support\ReportCsv;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Pages\Page;
+use Filament\Schemas\Concerns\InteractsWithSchemas;
+use Filament\Schemas\Contracts\HasSchemas;
 use Filament\Support\Icons\Heroicon;
-use Illuminate\Support\Carbon;
+use Filament\Tables\Concerns\InteractsWithTable;
+use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Table;
 
 /**
  * قائمة المركز المالي — Balance Sheet as of a year-end: Assets vs Liabilities +
  * Equity + net income, per property or consolidated.
  */
-class BalanceSheet extends Page
+class BalanceSheet extends Page implements HasSchemas, HasTable
 {
+    use InteractsWithSchemas;
+    use InteractsWithTable;
     use PostsToLedger;
+    use RendersFinancialStatement;
     use ScopesLedgerReport;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedScale;
 
     protected static ?int $navigationSort = 25;
 
-    protected string $view = 'filament.pages.balance-sheet';
+    protected string $view = 'filament.pages.ledger-report';
 
     protected static string $routePath = 'balance-sheet';
 
@@ -50,12 +58,12 @@ class BalanceSheet extends Page
                     $svc = app(LedgerReportPdfService::class);
                     $pdf = $svc->balanceSheet(
                         $this->scopedAssetIds(),
-                        Carbon::create($this->year, 12, 31)->endOfDay(),
+                        $this->periodEnd(),
                         $this->propertyLabel(),
                     );
 
                     return response()->streamDownload(
-                        fn () => print($pdf),
+                        fn () => print ($pdf),
                         $svc->filename('balance-sheet', $this->year),
                         ['Content-Type' => 'application/pdf'],
                     );
@@ -67,20 +75,26 @@ class BalanceSheet extends Page
                 ->visible(fn () => $this->canViewReports())
                 ->authorize(fn () => $this->canViewReports())
                 ->action(function () {
-                    $report = app(LedgerReportService::class)->balanceSheet(
-                        $this->scopedAssetIds(),
-                        Carbon::create($this->year, 12, 31)->endOfDay(),
-                    );
-                    $csv = app(ReportCsvExporter::class)->balanceSheet($report);
+                    $csv = app(ReportCsvExporter::class)->balanceSheet($this->report());
 
                     return ReportCsv::stream("balance-sheet-{$this->year}", $csv['headers'], $csv['rows']);
                 }),
         ];
     }
 
+    /**
+     * Whether the sheet balances leads the subheading — Assets ≡ Liabilities +
+     * Equity + net income is the assertion the whole statement rests on.
+     */
     public function getSubheading(): ?string
     {
-        return $this->ledgerLastSyncedSubheading();
+        $check = $this->report()['balanced']
+            ? '✓ '.__('admin.reports.balanced')
+            : '✗ '.__('admin.reports.not_balanced');
+
+        $sync = $this->ledgerLastSyncedSubheading();
+
+        return $sync ? $check.' · '.$sync : $check;
     }
 
     public static function getNavigationLabel(): string
@@ -88,12 +102,41 @@ class BalanceSheet extends Page
         return __('admin.navigation.balance_sheet');
     }
 
-    protected function getViewData(): array
+    /** @return array<string, mixed> */
+    protected function report(): array
     {
-        $asOf = Carbon::create($this->year, 12, 31)->endOfDay();
+        return app(LedgerReportService::class)->balanceSheet($this->scopedAssetIds(), $this->periodEnd());
+    }
 
-        return array_merge($this->filterViewData(), [
-            'report' => app(LedgerReportService::class)->balanceSheet($this->scopedAssetIds(), $asOf),
-        ]);
+    public function table(Table $table): Table
+    {
+        return $this->statementTable($table)
+            ->records(function (): array {
+                $report = $this->report();
+
+                return $this->statementRecords([
+                    __('admin.reports.assets') => [
+                        'rows' => $report['assets'],
+                        'total' => $report['total_assets'],
+                        'total_label' => __('admin.reports.total_assets'),
+                    ],
+                    __('admin.reports.liabilities_equity') => [
+                        // Net income for the period is presented as its own line:
+                        // it is real equity that has not yet been closed to
+                        // retained earnings, and without it the section would not
+                        // foot against assets.
+                        'rows' => $report['liabilities']
+                            ->concat($report['equity'])
+                            ->push([
+                                'code' => null,
+                                'name_en' => __('admin.reports.net_income_period'),
+                                'name_ar' => __('admin.reports.net_income_period'),
+                                'amount' => $report['net_income'],
+                            ]),
+                        'total' => $report['total_equity_and_liabilities'],
+                        'total_label' => __('admin.reports.total_equity_and_liabilities'),
+                    ],
+                ]);
+            });
     }
 }

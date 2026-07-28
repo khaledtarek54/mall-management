@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Filament\Admin\Pages\Concerns\RendersFinancialStatement;
 use App\Filament\Admin\Pages\Concerns\ScopesLedgerReport;
 use App\Services\Accounting\LedgerReportPdfService;
 use App\Services\Accounting\LedgerReportService;
@@ -10,22 +11,29 @@ use App\Support\ReportCsv;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Pages\Page;
-use Illuminate\Support\Carbon;
+use Filament\Schemas\Concerns\InteractsWithSchemas;
+use Filament\Schemas\Contracts\HasSchemas;
+use Filament\Tables\Concerns\InteractsWithTable;
+use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Table;
 
 /**
  * قائمة التدفقات النقدية — Cash-Flow Statement (indirect method): net income adjusted
  * for non-cash items and working-capital changes, plus investing + financing, for a
  * fiscal year, per property or consolidated. Reconciles to the actual cash movement.
  */
-class CashFlow extends Page
+class CashFlow extends Page implements HasSchemas, HasTable
 {
+    use InteractsWithSchemas;
+    use InteractsWithTable;
+    use RendersFinancialStatement;
     use ScopesLedgerReport;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-banknotes';
 
     protected static ?int $navigationSort = 26;
 
-    protected string $view = 'filament.pages.cash-flow';
+    protected string $view = 'filament.pages.ledger-report';
 
     protected static string $routePath = 'cash-flow';
 
@@ -47,14 +55,14 @@ class CashFlow extends Page
                     $svc = app(LedgerReportPdfService::class);
                     $pdf = $svc->cashFlow(
                         $this->scopedAssetIds(),
-                        Carbon::create($this->year, 1, 1)->startOfDay(),
-                        Carbon::create($this->year, 12, 31)->endOfDay(),
+                        $this->periodStart(),
+                        $this->periodEnd(),
                         $this->propertyLabel(),
                         $this->year,
                     );
 
                     return response()->streamDownload(
-                        fn () => print($pdf),
+                        fn () => print ($pdf),
                         $svc->filename('cash-flow', $this->year),
                         ['Content-Type' => 'application/pdf'],
                     );
@@ -68,8 +76,8 @@ class CashFlow extends Page
                 ->action(function () {
                     $report = app(LedgerReportService::class)->cashFlow(
                         $this->scopedAssetIds(),
-                        Carbon::create($this->year, 1, 1)->startOfDay(),
-                        Carbon::create($this->year, 12, 31)->endOfDay(),
+                        $this->periodStart(),
+                        $this->periodEnd(),
                     );
                     $csv = app(ReportCsvExporter::class)->cashFlow($report);
 
@@ -78,18 +86,84 @@ class CashFlow extends Page
         ];
     }
 
+    /**
+     * The integrity check leads the subheading: a cash-flow statement that does
+     * not tie to the actual movement in the cash accounts is wrong, and that
+     * has to be impossible to scroll past.
+     */
+    public function getSubheading(): ?string
+    {
+        return $this->report()['reconciled']
+            ? __('admin.reports.cash_flow_reconciled')
+            : __('admin.reports.cash_flow_unreconciled');
+    }
+
     public static function getNavigationLabel(): string
     {
         return __('admin.navigation.cash_flow');
     }
 
-    protected function getViewData(): array
+    /** @return array<string, mixed> */
+    protected function report(): array
     {
-        $from = Carbon::create($this->year, 1, 1)->startOfDay();
-        $to = Carbon::create($this->year, 12, 31)->endOfDay();
+        return app(LedgerReportService::class)->cashFlow(
+            $this->scopedAssetIds(),
+            $this->periodStart(),
+            $this->periodEnd(),
+        );
+    }
 
-        return array_merge($this->filterViewData(), [
-            'report' => app(LedgerReportService::class)->cashFlow($this->scopedAssetIds(), $from, $to),
-        ]);
+    public function table(Table $table): Table
+    {
+        return $this->statementTable($table)
+            ->records(function (): array {
+                $report = $this->report();
+
+                return $this->statementRecords([
+                    // Indirect method: the operating section opens with net income
+                    // and then lists the non-cash add-backs and working-capital
+                    // moves that reconcile it to cash.
+                    __('admin.reports.operating_activities') => [
+                        'rows' => collect([[
+                            'code' => null,
+                            'name_en' => __('admin.reports.net_income'),
+                            'name_ar' => __('admin.reports.net_income'),
+                            'amount' => $report['net_income'],
+                        ]])->concat($report['adjustments']),
+                        'total' => $report['operating_total'],
+                        'total_label' => __('admin.reports.net_cash_operating'),
+                    ],
+                    __('admin.reports.investing_activities') => [
+                        'rows' => $report['investing'],
+                        'total' => $report['investing_total'],
+                        'total_label' => __('admin.reports.net_cash_investing'),
+                    ],
+                    __('admin.reports.financing_activities') => [
+                        'rows' => $report['financing'],
+                        'total' => $report['financing_total'],
+                        'total_label' => __('admin.reports.net_cash_financing'),
+                    ],
+                    // Opening + net change = closing. This is the section that
+                    // proves the three above actually explain the cash movement.
+                    __('admin.reports.csv.net_change') => [
+                        'rows' => collect([
+                            [
+                                'code' => null,
+                                'name_en' => __('admin.reports.cash_at_start'),
+                                'name_ar' => __('admin.reports.cash_at_start'),
+                                'amount' => $report['cash_opening'],
+                            ],
+                            [
+                                'code' => null,
+                                'name_en' => __('admin.reports.csv.net_change'),
+                                'name_ar' => __('admin.reports.csv.net_change'),
+                                'amount' => $report['net_change'],
+                            ],
+                        ]),
+                        'total' => $report['cash_closing'],
+                        'total_label' => __('admin.reports.cash_at_end'),
+                    ],
+                ]);
+            });
     }
 }
