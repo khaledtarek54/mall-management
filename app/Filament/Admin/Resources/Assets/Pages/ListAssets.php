@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Assets\Pages;
 
 use App\Filament\Admin\Resources\Assets\AssetResource;
+use App\Support\StatusTabs;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 
@@ -15,5 +16,14 @@ class ListAssets extends ListRecords
         return [
             CreateAction::make(),
         ];
+    }
+
+    public function getTabs(): array
+    {
+        return StatusTabs::build(AssetResource::class, [
+            'all' => ['label' => __('admin.tabs.all')],
+            'active' => ['label' => __('admin.tabs.active'), 'query' => fn ($query) => $query->where('is_active', true)],
+            'inactive' => ['label' => __('admin.filters.inactive_only'), 'query' => fn ($query) => $query->where('is_active', false)],
+        ]);
     }
 }

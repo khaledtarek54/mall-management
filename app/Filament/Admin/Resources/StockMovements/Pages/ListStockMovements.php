@@ -7,6 +7,7 @@ use App\Models\InventoryItem;
 use App\Models\Warehouse;
 use App\Services\StockMovementService;
 use App\Support\ReportCsv;
+use App\Support\StatusTabs;
 use App\Support\TenantScope;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
@@ -15,6 +16,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Schemas\Components\Utilities\Set;
 
 class ListStockMovements extends ListRecords
 {
@@ -157,7 +159,7 @@ class ListStockMovements extends ListRecords
                 ->native(false)
                 ->live()
                 // Prefill the receipt cost from the item's standard cost (editable).
-                ->afterStateUpdated(fn (\Filament\Schemas\Components\Utilities\Set $set, $state) => $set('unit_cost', (float) (InventoryItem::find($state)?->unit_cost ?? 0))),
+                ->afterStateUpdated(fn (Set $set, $state) => $set('unit_cost', (float) (InventoryItem::find($state)?->unit_cost ?? 0))),
         ];
     }
 
@@ -177,5 +179,17 @@ class ListStockMovements extends ListRecords
                 ->rows(2)
                 ->columnSpanFull(),
         ];
+    }
+
+    /** Stock ledger split by what the movement did. Tabs on `type`, not `status`. */
+    public function getTabs(): array
+    {
+        return StatusTabs::build(StockMovementResource::class, [
+            'all' => ['label' => __('admin.tabs.all')],
+            'receipt' => ['label' => __('admin.inventory.types.receipt'), 'statuses' => ['receipt']],
+            'consumption' => ['label' => __('admin.inventory.types.consumption'), 'statuses' => ['consumption']],
+            'adjustment' => ['label' => __('admin.inventory.types.adjustment'), 'statuses' => ['adjustment']],
+            'transfer' => ['label' => __('admin.inventory.transfers'), 'statuses' => ['transfer_in', 'transfer_out']],
+        ], column: 'type');
     }
 }

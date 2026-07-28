@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\AccountingPeriods\AccountingPeriodResource;
 use App\Models\FiscalYear;
 use App\Services\Accounting\PeriodService;
 use App\Services\Accounting\YearEndCloseService;
+use App\Support\StatusTabs;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
@@ -15,7 +16,6 @@ class ListAccountingPeriods extends ListRecords
 {
     protected static string $resource = AccountingPeriodResource::class;
 
-    /** @return callable */
     private function canManage(): callable
     {
         return fn () => auth()->user()?->can('accounting_periods.manage') ?? false;
@@ -109,5 +109,15 @@ class ListAccountingPeriods extends ListRecords
                         ->send();
                 }),
         ];
+    }
+
+    /** Which months are still open to post into. */
+    public function getTabs(): array
+    {
+        return StatusTabs::build(AccountingPeriodResource::class, [
+            'all' => ['label' => __('admin.tabs.all')],
+            'open' => ['label' => __('admin.statuses.period.open'), 'statuses' => ['open'], 'badge' => true, 'color' => 'success'],
+            'closed' => ['label' => __('admin.statuses.period.closed'), 'statuses' => ['closed']],
+        ]);
     }
 }

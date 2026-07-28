@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\PostDatedCheques\Pages;
 
 use App\Filament\Admin\Resources\PostDatedCheques\PostDatedChequeResource;
 use App\Services\PostDatedChequeService;
+use App\Support\StatusTabs;
 use App\Support\TenantScope;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
@@ -14,6 +15,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Utilities\Get;
+use Illuminate\Support\Carbon;
 
 class ListPostDatedCheques extends ListRecords
 {
@@ -91,7 +93,7 @@ class ListPostDatedCheques extends ListRecords
                                 return __('admin.post_dated_cheques.series_preview_empty');
                             }
 
-                            $first = \Illuminate\Support\Carbon::parse($get('first_cheque_date'));
+                            $first = Carbon::parse($get('first_cheque_date'));
                             $last = $first->copy()->addMonthsNoOverflow(($count - 1) * $interval);
 
                             return __('admin.post_dated_cheques.series_preview_text', [
@@ -125,5 +127,21 @@ class ListPostDatedCheques extends ListRecords
                         ->send();
                 }),
         ];
+    }
+
+    /**
+     * Held = the drawer of cheques not yet banked, which is the whole point of
+     * the module. Bounced is its own tab because a bounced cheque is an
+     * incident, not a status you scroll past.
+     */
+    public function getTabs(): array
+    {
+        return StatusTabs::build(PostDatedChequeResource::class, [
+            'all' => ['label' => __('admin.tabs.all')],
+            'held' => ['label' => __('admin.tabs.held'), 'statuses' => ['held'], 'badge' => true, 'color' => 'info'],
+            'deposited' => ['label' => __('admin.tabs.deposited'), 'statuses' => ['deposited'], 'badge' => true, 'color' => 'warning'],
+            'cleared' => ['label' => __('admin.tabs.cleared'), 'statuses' => ['cleared']],
+            'bounced' => ['label' => __('admin.tabs.bounced'), 'statuses' => ['bounced'], 'badge' => true, 'color' => 'danger'],
+        ]);
     }
 }

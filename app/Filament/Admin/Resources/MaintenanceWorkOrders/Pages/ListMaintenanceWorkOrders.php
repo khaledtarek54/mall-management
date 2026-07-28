@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\MaintenanceWorkOrders\Pages;
 use App\Filament\Admin\Resources\MaintenanceWorkOrders\MaintenanceWorkOrderResource;
 use App\Models\Asset;
 use App\Services\FacilityWorkLogPdfService;
+use App\Support\StatusTabs;
 use App\Support\TenantScope;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
@@ -61,5 +62,17 @@ class ListMaintenanceWorkOrders extends ListRecords
                 }),
             CreateAction::make()->visible(fn () => MaintenanceWorkOrderResource::canCreate()),
         ];
+    }
+
+    /** The facility team's board: what is queued, what is being worked, what is finished. */
+    public function getTabs(): array
+    {
+        return StatusTabs::build(MaintenanceWorkOrderResource::class, [
+            'all' => ['label' => __('admin.tabs.all')],
+            'open' => ['label' => __('admin.tabs.open'), 'statuses' => ['open'], 'badge' => true, 'color' => 'warning'],
+            'in_progress' => ['label' => __('admin.tabs.in_progress'), 'statuses' => ['in_progress'], 'badge' => true, 'color' => 'info'],
+            'done' => ['label' => __('admin.tabs.done'), 'statuses' => ['done']],
+            'cancelled' => ['label' => __('admin.tabs.cancelled'), 'statuses' => ['cancelled']],
+        ]);
     }
 }

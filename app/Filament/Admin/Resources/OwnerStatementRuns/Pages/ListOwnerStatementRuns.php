@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\OwnerStatementRuns\OwnerStatementRunResource;
 use App\Models\AccountingPeriod;
 use App\Models\Asset;
 use App\Services\OwnerAccounting\GenerateOwnerStatementRunService;
+use App\Support\StatusTabs;
 use App\Support\TenantScope;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
@@ -62,5 +63,17 @@ class ListOwnerStatementRuns extends ListRecords
                     Notification::make()->title(__('admin.owner_statements.notices.generated'))->success()->send();
                 }),
         ];
+    }
+
+    /** Draft runs are the ones not yet finalised and sent to the owner. */
+    public function getTabs(): array
+    {
+        return StatusTabs::build(OwnerStatementRunResource::class, [
+            'all' => ['label' => __('admin.tabs.all')],
+            'draft' => ['label' => __('admin.owner_statements.statuses.draft'), 'statuses' => ['draft'], 'badge' => true, 'color' => 'warning'],
+            'finalised' => ['label' => __('admin.owner_statements.statuses.finalised'), 'statuses' => ['finalised']],
+            'sent' => ['label' => __('admin.owner_statements.statuses.sent'), 'statuses' => ['sent']],
+            'superseded' => ['label' => __('admin.owner_statements.statuses.superseded'), 'statuses' => ['superseded']],
+        ]);
     }
 }

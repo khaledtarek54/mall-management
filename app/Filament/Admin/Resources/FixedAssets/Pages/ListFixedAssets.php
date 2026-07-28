@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\FixedAssets\Pages;
 use App\Filament\Admin\Resources\FixedAssets\FixedAssetResource;
 use App\Services\DepreciationService;
 use App\Support\ReportCsv;
+use App\Support\StatusTabs;
 use App\Support\TenantScope;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
@@ -54,5 +55,15 @@ class ListFixedAssets extends ListRecords
                 }),
             CreateAction::make()->visible(fn () => FixedAssetResource::canCreate()),
         ];
+    }
+
+    /** The live register (which ties to the balance sheet) vs. what has been disposed. */
+    public function getTabs(): array
+    {
+        return StatusTabs::build(FixedAssetResource::class, [
+            'all' => ['label' => __('admin.tabs.all')],
+            'active' => ['label' => __('admin.fixed_assets.statuses.active'), 'statuses' => ['active'], 'badge' => true, 'color' => 'success'],
+            'disposed' => ['label' => __('admin.fixed_assets.statuses.disposed'), 'statuses' => ['disposed']],
+        ]);
     }
 }
