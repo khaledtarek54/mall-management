@@ -1,21 +1,28 @@
 name: CI
 
-# Auto-runs are ON (re-enabled 2026-07-29 — they were paused 2026-07-26 through 2026-07-29).
+# Auto-runs are PAUSED (2026-07-29, at the owner's request — the pipeline takes too long to be
+# in the push loop). Only manual runs fire: Actions → Run workflow, or `gh workflow run ci.yml`.
 #
-# Why they are back: the project now carries FIVE self-enforcing conformance gates —
-# PropertyIsolationConformanceTest, GlRegistryConformanceTest, MediaPrivacyConformanceTest,
-# AdminSmokeManifestConformanceTest and DashboardLayoutConformanceTest — and every one of them
-# exists because the class of bug it catches already shipped once. While auto-runs were paused
-# they were ADVISORY: they only ran when somebody remembered. In that window a widget with no
-# authorization gate at all reached production and published the property's receivables to the
-# HR and marketing dashboards — exactly the class the gates are for. A gate nobody runs is not
-# a gate.
+# While paused, the five self-enforcing conformance gates — PropertyIsolation, GlRegistry,
+# MediaPrivacy, AdminSmokeManifest and DashboardLayout — are ADVISORY: nothing blocks a bad change
+# from merging, so keep `pest --parallel` green locally before pushing. Every one of them exists
+# because the class of bug it catches already shipped once.
+#
+# The jobs themselves were REPAIRED on 2026-07-29 and are worth running manually before anything
+# risky — all four had been failing on every run since at least 2026-07-23 for reasons that had
+# nothing to do with the product (see the commit "fix(ci): repair all four jobs").
+#
+# To re-enable: uncomment the push/pull_request blocks below, and flip the CLAUDE.md CI note.
+#
+# Known cost before you do: the test job needs ~20+ minutes (453 test files replaying 150
+# migrations per paratest worker). `php artisan schema:dump` is the lever that would make
+# auto-runs affordable.
 on:
   workflow_dispatch:
-  push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main, develop]
+  # push:
+  #   branches: [main, develop]
+  # pull_request:
+  #   branches: [main, develop]
 
 jobs:
   # Known-vulnerable dependencies. Cheap (no PHP deps needed beyond the lock file) and it
