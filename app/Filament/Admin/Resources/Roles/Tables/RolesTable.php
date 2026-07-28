@@ -111,6 +111,7 @@ class RolesTable
                                 'guard_name' => $record->guard_name,
                             ]);
 
+                            /** @var Role $clone Spatie types its statics as the CONTRACT; this is the model. */
                             $clone = Role::query()->where('name', $data['name'])
                                 ->where('guard_name', $record->guard_name)
                                 ->firstOrFail();

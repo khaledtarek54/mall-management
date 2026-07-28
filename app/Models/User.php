@@ -14,12 +14,21 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 use Spatie\Permission\Traits\HasRoles;
 use Stephenjude\FilamentTwoFactorAuthentication\TwoFactorAuthenticatable;
 
+/**
+ * Attribute types PHPStan cannot infer from casts() — without these it reads
+ * `suspended_at` as the raw string column and rejects ->format() on it.
+ *
+ * @property ?Carbon $suspended_at
+ * @property ?string $suspended_reason
+ * @property ?string $status
+ */
 #[Fillable(['name', 'email', 'password', 'status', 'suspended_at', 'suspended_reason'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements FilamentUser, HasTenants
@@ -52,6 +61,20 @@ class User extends Authenticatable implements FilamentUser, HasTenants
             // an auditor comes looking for, and it is the reason the row still exists at all.
             ->logOnly(['name', 'email', 'email_verified_at', 'status', 'suspended_reason'])
             ->logOnlyDirty()
+            // Credential churn is not an audit event, and it must be excluded HERE rather
+            // than relied on falling out of logOnly. shouldLogEvent() decides whether to
+            // write a row by diffing getDirty() against THIS list — not against logOnly —
+            // so a password-only save otherwise still created a row (with an empty diff,
+            // because password isn't logged). `updated_at` belongs in the list too: it is
+            // dirty on every save, so leaving it out would keep every such save loggable.
+            ->dontLogIfAttributesChangedOnly([
+                'password',
+                'remember_token',
+                'two_factor_secret',
+                'two_factor_recovery_codes',
+                'two_factor_confirmed_at',
+                'updated_at',
+            ])
             ->dontLogEmptyChanges()
             ->useLogName('user');
     }
