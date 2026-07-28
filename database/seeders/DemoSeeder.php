@@ -12,8 +12,8 @@ use App\Models\CreditNoteItem;
 use App\Models\Department;
 use App\Models\DepositTransaction;
 use App\Models\Employee;
-use App\Models\Expense;
 use App\Models\Equipment;
+use App\Models\Expense;
 use App\Models\FixedAsset;
 use App\Models\InventoryItem;
 use App\Models\Invoice;
@@ -28,6 +28,7 @@ use App\Models\MarketingBudget;
 use App\Models\MarketingSpend;
 use App\Models\MeterReading;
 use App\Models\Note;
+use App\Models\OwnerStatementRun;
 use App\Models\Payment;
 use App\Models\Payroll;
 use App\Models\PayrollLine;
@@ -45,21 +46,27 @@ use App\Models\Vendor;
 use App\Models\VendorBill;
 use App\Models\VendorContact;
 use App\Models\VendorContract;
+use App\Models\VendorContractAmendment;
+use App\Models\VendorDocument;
 use App\Models\Warehouse;
+use App\Services\Accounting\FiscalCalendar;
 use App\Services\CamReconciliationService;
 use App\Services\CreditNoteService;
 use App\Services\DepreciationService;
-use App\Services\PurchaseRequestService;
 use App\Services\DisposeFixedAssetService;
 use App\Services\Eta\EtaSubmissionService;
 use App\Services\GeneratePreventiveWorkOrdersService;
-use App\Services\MaintenanceWorkOrderService;
-use App\Services\RaiseCorrectiveMaintenanceService;
 use App\Services\GrantCustodyService;
 use App\Services\GrantEmployeeAdvanceService;
+use App\Services\MaintenanceWorkOrderService;
+use App\Services\OwnerAccounting\FinaliseOwnerStatementRunService;
+use App\Services\OwnerAccounting\GenerateOwnerStatementRunService;
+use App\Services\OwnerRequestService;
 use App\Services\PayrollService;
 use App\Services\PercentageRentCalculationService;
 use App\Services\PostDatedChequeService;
+use App\Services\PurchaseRequestService;
+use App\Services\RaiseCorrectiveMaintenanceService;
 use App\Services\RecordAdvanceRepaymentService;
 use App\Services\SettleCustodyService;
 use App\Services\StockMovementService;
@@ -1586,8 +1593,8 @@ class DemoSeeder extends Seeder
             // from every assignment picker); the statutory Egyptian documents are chased but never
             // block site work. One vendor's tax card is deliberately near expiry to demo the chase.
             if (($coi['expires'] ?? null) !== null) {
-                \App\Models\VendorDocument::updateOrCreate(
-                    ['vendor_id' => $vendor->id, 'type' => \App\Models\VendorDocument::TYPE_INSURANCE_COI],
+                VendorDocument::updateOrCreate(
+                    ['vendor_id' => $vendor->id, 'type' => VendorDocument::TYPE_INSURANCE_COI],
                     [
                         'reference' => $coi['policy'] ?? null,
                         'issuer' => $coi['insurer'] ?? null,
@@ -1596,8 +1603,8 @@ class DemoSeeder extends Seeder
                 );
             }
 
-            \App\Models\VendorDocument::updateOrCreate(
-                ['vendor_id' => $vendor->id, 'type' => \App\Models\VendorDocument::TYPE_TAX_CARD],
+            VendorDocument::updateOrCreate(
+                ['vendor_id' => $vendor->id, 'type' => VendorDocument::TYPE_TAX_CARD],
                 [
                     'reference' => $v['tax_id'] ?? null,
                     'issuer' => 'ETA',
@@ -1605,8 +1612,8 @@ class DemoSeeder extends Seeder
                 ],
             );
 
-            \App\Models\VendorDocument::updateOrCreate(
-                ['vendor_id' => $vendor->id, 'type' => \App\Models\VendorDocument::TYPE_COMMERCIAL_REGISTER],
+            VendorDocument::updateOrCreate(
+                ['vendor_id' => $vendor->id, 'type' => VendorDocument::TYPE_COMMERCIAL_REGISTER],
                 [
                     'reference' => 'CR-'.strtoupper(substr(md5($v['email']), 0, 6)),
                     'expires_on' => now()->addMonths(20)->toDateString(),
@@ -1655,7 +1662,7 @@ class DemoSeeder extends Seeder
                 // A demo change order on the cleaning contract, so "committed vs as-amended" and
                 // the amendments audit trail aren't empty on a fresh install.
                 if (str_contains($v['name'], 'Janitorial')) {
-                    \App\Models\VendorContractAmendment::updateOrCreate(
+                    VendorContractAmendment::updateOrCreate(
                         ['vendor_contract_id' => $contract->id, 'reference' => 'CO-01'],
                         [
                             'value_delta' => round($v['contract']['value'] * 0.15, 2),
@@ -1771,6 +1778,10 @@ class DemoSeeder extends Seeder
             ['email' => 'accounting@mall.test',  'role' => 'Accounting Lead'],
             ['email' => 'marketing@mall.test',   'role' => 'Marketing Lead'],
             ['email' => 'hr@mall.test',          'role' => 'HR Lead'],
+            // The auditor was the one demo login with no property, so every page 404'd for it
+            // and the role was untestable. (The owner reaches the property through asset_owner,
+            // not this pivot, so it stays out of this list.)
+            ['email' => 'viewer@mall.test',      'role' => 'Auditor'],
         ];
 
         foreach ($assignments as $a) {
@@ -2585,12 +2596,12 @@ class DemoSeeder extends Seeder
         }
 
         try {
-            $calendar = app(\App\Services\Accounting\FiscalCalendar::class);
+            $calendar = app(FiscalCalendar::class);
             $calendar->ensureYear((int) now()->year);
             $calendar->ensureYear((int) now()->subYear()->year); // in case sub-2-months crosses January
 
-            $generate = app(\App\Services\OwnerAccounting\GenerateOwnerStatementRunService::class);
-            $finalise = app(\App\Services\OwnerAccounting\FinaliseOwnerStatementRunService::class);
+            $generate = app(GenerateOwnerStatementRunService::class);
+            $finalise = app(FinaliseOwnerStatementRunService::class);
 
             // Finalised statement for two months ago (fully elapsed, GL posted).
             $priorPeriod = AccountingPeriod::forDate(now()->subMonthsNoOverflow(2)->startOfMonth());
@@ -2604,7 +2615,7 @@ class DemoSeeder extends Seeder
                 $generate->generate($asset, $lastPeriod);
             }
 
-            $this->command->info('   Seeded owner statements ('.\App\Models\OwnerStatementRun::count().' run(s), 1 finalised + 1 draft)');
+            $this->command->info('   Seeded owner statements ('.OwnerStatementRun::count().' run(s), 1 finalised + 1 draft)');
         } catch (\Throwable $e) {
             // Owner statements are demo polish — never let a period/GL edge abort the whole seed.
             $this->command->warn('   Owner statements skipped: '.$e->getMessage());
@@ -2625,7 +2636,7 @@ class DemoSeeder extends Seeder
             return;
         }
 
-        $svc = app(\App\Services\OwnerRequestService::class);
+        $svc = app(OwnerRequestService::class);
         $request = $svc->create([
             'asset_id' => $asset->id,
             'recipient' => 'operator',

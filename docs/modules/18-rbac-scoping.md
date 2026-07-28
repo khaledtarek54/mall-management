@@ -247,6 +247,48 @@ gate at all** and so published the property's invoicing, collections rate, outst
 ageing bucket to every role on the panel, HR and marketing included; and a manager's dashboard was
 eleven widgets and a 2,900px scroll.
 
+### Account lifecycle — suspend, don't delete
+
+`users.status` is `active` | `suspended` (a string column validated by `User::STATUSES`, never a DB
+enum). Suspending is gated on `users.edit` **plus a self-guard** (`UserResource::canSuspend()`) —
+locking yourself out of the panel you administer is not recoverable from inside it.
+
+The block lives in `User::canAccessPanel()`, not at the login form, so Filament re-runs it on every
+request: suspending someone who is already signed in ends their session at the next page load.
+`App\Filament\Admin\Pages\Auth\Login` then tells them **why** — but only after the submitted
+password has already verified, so a wrong password on a suspended account still gets the generic
+message and nothing is enumerable.
+
+*Why it exists (2026-07-28):* the only way to stop a login was to delete the user, which takes
+their name off every record they touched and off the activity log with it. An auditor expects a
+leaver's account disabled and kept.
+
+### Creating a property is a privilege, and Filament does not assume that
+
+`RegisterProperty` (the tenant-registration page) is a **privilege boundary**. Filament's stock
+`canView()` asks `authorize('create', Asset::class)`, and with no policy registered Filament's
+`authorize()` helper defaults to **ALLOWED** — the same "custom things default to permitted" trap
+as custom actions.
+
+*Fixed 2026-07-28:* a user with zero accessible properties is routed to that page, so a read-only
+`viewer` (the auditor role), a `technician`, even an external `vendor` login was served a working
+"Create your first property" form — and `handleRegistration()` then attached them to the new mall
+with the pivot role `manager`. **Eleven of fourteen roles could mint themselves a property they
+then administered.** Only `super_admin`, `manager` and `mall_admin` hold `assets.create`.
+
+The page now serves two audiences: the form for those who may create, and a "no property assigned
+yet — ask an administrator" explanation for everyone else (who previously got a bare 404 with no
+hint what to do). The gate is in `handleRegistration()`, not in the form's visibility — a hidden
+form is still dispatchable over Livewire.
+
+### Cloning a role
+
+Building a narrow role meant ticking the right boxes out of ~200 across 40 collapsed sections. In
+practice nobody did — they handed out `manager`. The **Clone role** action on the roles table copies
+a source role's whole permission set into a new name, which is then narrowed by unticking. The clone
+is written to the access-control trail (`AccessControlAudit`) like any other grant, so a role does
+not appear in the audit from nowhere fully armed.
+
 ### Add a new module (e.g., "Contracts")
 1. **Seed permissions** in `database/seeders/RolesPermissionsSeeder.php::PERMISSIONS['contracts']`:
    ```php

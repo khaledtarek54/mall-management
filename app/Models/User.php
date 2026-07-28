@@ -20,12 +20,24 @@ use Spatie\Activitylog\Support\LogOptions;
 use Spatie\Permission\Traits\HasRoles;
 use Stephenjude\FilamentTwoFactorAuthentication\TwoFactorAuthenticatable;
 
-#[Fillable(['name', 'email', 'password'])]
+#[Fillable(['name', 'email', 'password', 'status', 'suspended_at', 'suspended_reason'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements FilamentUser, HasTenants
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, HasRoles, LogsActivity, Notifiable, TwoFactorAuthenticatable;
+
+    public const STATUS_ACTIVE = 'active';
+
+    public const STATUS_SUSPENDED = 'suspended';
+
+    /**
+     * Account lifecycle states. A string column validated here, never a DB enum, so the operator
+     * can gain a "locked" state without a migration.
+     *
+     * @var array<string>
+     */
+    public const STATUSES = [self::STATUS_ACTIVE, self::STATUS_SUSPENDED];
 
     /**
      * Track create/edit/delete on staff accounts so the ActivityLog page
@@ -36,7 +48,9 @@ class User extends Authenticatable implements FilamentUser, HasTenants
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['name', 'email', 'email_verified_at'])
+            // `status` is logged on purpose: suspending an account is exactly the kind of change
+            // an auditor comes looking for, and it is the reason the row still exists at all.
+            ->logOnly(['name', 'email', 'email_verified_at', 'status', 'suspended_reason'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('user');
@@ -47,11 +61,25 @@ class User extends Authenticatable implements FilamentUser, HasTenants
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'suspended_at' => 'datetime',
         ];
+    }
+
+    public function isSuspended(): bool
+    {
+        return $this->status === self::STATUS_SUSPENDED;
     }
 
     public function canAccessPanel(Panel $panel): bool
     {
+        // A suspended account cannot enter ANY panel. Checked here rather than at the login form
+        // because Filament re-runs this on every request: suspending someone who is already signed
+        // in ends their session at the next page load, instead of leaving them working until they
+        // happen to log out.
+        if ($this->isSuspended()) {
+            return false;
+        }
+
         return match ($panel->getId()) {
             // Any user with a role can access /admin. Jawad owners are RBAC users inside the admin
             // app (the /owner portal was removed 2026-07-27); their permissions + owned-property
@@ -165,9 +193,9 @@ class User extends Authenticatable implements FilamentUser, HasTenants
      * Current ownership share per owned property: [asset_id => percentage (0–100)].
      * Keyed by asset, so a consumer can weight any per-property figure by the owner's stake.
      *
-     * @return \Illuminate\Support\Collection<int, float>
+     * @return Collection<int, float>
      */
-    public function currentOwnershipShares(?string $onDate = null): \Illuminate\Support\Collection
+    public function currentOwnershipShares(?string $onDate = null): Collection
     {
         return $this->currentOwnedAssets($onDate)->get()
             ->mapWithKeys(fn (Asset $a) => [$a->id => (float) $a->pivot->ownership_percentage]);

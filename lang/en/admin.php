@@ -126,10 +126,21 @@ return [
         ],
     ],
 
+    'auth' => [
+        // Shown only after the submitted password has already been verified — so it names the
+        // real reason without telling an attacker anything they did not just prove they knew.
+        'account_suspended' => 'This account has been suspended. Contact your administrator to restore access.',
+    ],
+
     'tenancy' => [
         'register_label' => 'Add property',
         'register_heading' => 'Create your first property',
         'register_subheading' => 'A property is a mall, plaza, or office building. Once created, every list and report scopes to it — switch between properties from the menu at the top.',
+        // Shown to a user who has no property AND no right to create one — an auditor, a
+        // technician, an external vendor. Says what is wrong and who fixes it.
+        'no_property_heading' => 'No property assigned yet',
+        'no_property_subheading' => 'Your account is active, but it has not been given access to a property yet.',
+        'no_property_body' => 'Every list, report and record in Atriom belongs to a property. Ask an administrator to assign you to the property you work on — once they do, it appears in the switcher at the top of the page and this screen goes away.',
     ],
 
     'setup' => [
@@ -157,6 +168,17 @@ return [
             'create_tenant' => 'Add a tenant',
             'create_lease' => 'Sign a lease',
             'create_invoice' => 'Open invoices to bill',
+        ],
+    ],
+
+    // Roles module — cloning an existing role instead of ticking ~200 boxes by hand.
+    'roles' => [
+        'actions' => [
+            'clone' => 'Clone role',
+        ],
+        'notices' => [
+            'cloned' => 'Role “:name” created',
+            'cloned_body' => 'It starts with the same :count permission(s). Edit it to narrow them down.',
         ],
     ],
 
@@ -2180,6 +2202,25 @@ return [
     ],
 
     'users' => [
+        // Account lifecycle — suspend a leaver instead of deleting them, so every record and
+        // activity-log entry they touched stays attributable to a real name.
+        'statuses' => [
+            'active' => 'Active',
+            'suspended' => 'Suspended',
+        ],
+        'actions' => [
+            'suspend' => 'Suspend access',
+            'suspend_confirm' => 'This account will be signed out and blocked from logging in. Nothing it created is deleted, and you can reactivate it at any time.',
+            'reactivate' => 'Reactivate',
+        ],
+        'fields' => [
+            'suspended_reason' => 'Reason (optional)',
+            'suspended_reason_help' => 'Shown next to the account in the user list — e.g. "left the company", "on secondment".',
+        ],
+        'notices' => [
+            'suspended' => ':name can no longer sign in',
+            'reactivated' => ':name can sign in again',
+        ],
         'account' => 'Account',
         'name' => 'Name',
         'password' => 'Password',

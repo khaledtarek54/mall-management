@@ -31,7 +31,7 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->login()
+            ->login(\App\Filament\Admin\Pages\Auth\Login::class)
             // Admin password lifecycle. Operators can recover access without
             // a super_admin reset, and can change their own password from the
             // top-bar avatar (audit M17 F-64 / D-49).

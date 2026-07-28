@@ -79,6 +79,20 @@ class UserResource extends Resource
         return Auth::user()?->hasRole('super_admin') && Auth::id() !== $record->id;
     }
 
+    /**
+     * May the current user suspend / reactivate this account?
+     *
+     * Deliberately the same bar as `users.edit` and NOT super_admin-only: suspending a leaver on
+     * their last day is routine HR work, and routing it through the one super_admin makes the
+     * safe option (suspend) harder than the destructive one nobody should reach for. What it does
+     * borrow from delete is the **self guard** — locking yourself out of the panel you administer
+     * is not a recoverable mistake from inside the app.
+     */
+    public static function canSuspend($record): bool
+    {
+        return (Auth::user()?->can('users.edit') ?? false) && Auth::id() !== $record->id;
+    }
+
     // Force-delete + restore must never be more permissive than delete —
     // including the self-delete guard (you cannot force-delete your own account).
     public static function canForceDelete($record): bool
