@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\TenantSalesDeclarations\Tables;
 
+use App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
 use App\Models\Lease;
 use App\Models\TenantSalesDeclaration;
 use App\Services\PercentageRentCalculationService;
@@ -9,6 +10,7 @@ use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Textarea;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
@@ -207,6 +209,13 @@ class TenantSalesDeclarationsTable
             ])
             ->defaultSort('period_start', 'desc')
             ->recordActions([
+                // Read the record without opening its edit form — less
+                // friction, and no write surface for view-only roles. The
+                // schema is the resource's own form rendered disabled, so it
+                // cannot drift from the fields that actually exist.
+                ViewAction::make()
+                    ->visible(fn ($record) => TenantSalesDeclarationResource::canView($record))
+                    ->authorize(fn ($record) => TenantSalesDeclarationResource::canView($record)),
                 Action::make('lock')
                     ->label(__('admin.actions.lock_declaration'))
                     ->icon('heroicon-o-lock-closed')

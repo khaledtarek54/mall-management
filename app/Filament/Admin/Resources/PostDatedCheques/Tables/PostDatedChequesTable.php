@@ -8,6 +8,7 @@ use App\Services\PostDatedChequeService;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\Summarizers\Sum;
@@ -60,6 +61,13 @@ class PostDatedChequesTable
                     ->query(fn ($query) => $query->maturedUncleared()),
             ])
             ->recordActions([
+                // Read the record without opening its edit form — less
+                // friction, and no write surface for view-only roles. The
+                // schema is the resource's own form rendered disabled, so it
+                // cannot drift from the fields that actually exist.
+                ViewAction::make()
+                    ->visible(fn ($record) => PostDatedChequeResource::canView($record))
+                    ->authorize(fn ($record) => PostDatedChequeResource::canView($record)),
                 EditAction::make()->visible(fn (PostDatedCheque $r) => $r->status === PostDatedCheque::STATUS_HELD && PostDatedChequeResource::canManage()),
 
                 Action::make('deposit')

@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\MaintenancePlans\MaintenancePlanResource;
 use App\Models\MaintenancePlan;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -70,6 +71,13 @@ class MaintenancePlansTable
                     ->query(fn ($query) => $query->where('is_active', true)->whereDate('next_due_date', '<', now()->toDateString())),
             ])
             ->recordActions([
+                // Read the record without opening its edit form — less
+                // friction, and no write surface for view-only roles. The
+                // schema is the resource's own form rendered disabled, so it
+                // cannot drift from the fields that actually exist.
+                ViewAction::make()
+                    ->visible(fn ($record) => MaintenancePlanResource::canView($record))
+                    ->authorize(fn ($record) => MaintenancePlanResource::canView($record)),
                 EditAction::make()->visible(fn (MaintenancePlan $record) => MaintenancePlanResource::canEdit($record)),
             ])
             ->defaultSort('next_due_date')

@@ -6,14 +6,18 @@ use App\Filament\Admin\Resources\Tenants\TenantResource;
 use App\Filament\Exports\TenantExporter;
 use App\Models\Tenant;
 use App\Services\TenantStatementPdfService;
+use App\Support\TenantScope;
+use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ExportAction;
 use Filament\Actions\ExportBulkAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -77,7 +81,7 @@ class TenantsTable
                     ->badge()
                     // Scope to visible properties — a shared tenant's mall-B overdue must not colour
                     // the badge for a mall-A-only operator (cross-property AR leak).
-                    ->state(fn (Tenant $record): string => $record->isDelinquent(\App\Support\TenantScope::visibleAssetIds()) ? 'delinquent' : 'current')
+                    ->state(fn (Tenant $record): string => $record->isDelinquent(TenantScope::visibleAssetIds()) ? 'delinquent' : 'current')
                     ->color(fn (string $state): string => $state === 'delinquent' ? 'danger' : 'success')
                     ->icon(fn (string $state): string => $state === 'delinquent' ? 'heroicon-m-exclamation-triangle' : 'heroicon-m-check-circle')
                     ->formatStateUsing(fn (string $state) => __("admin.tables.tenant.delinquency_state.{$state}"))
@@ -87,7 +91,7 @@ class TenantsTable
                 TextColumn::make('credit_on_account')
                     ->label(__('admin.tables.tenant.credit_on_account'))
                     ->badge()
-                    ->state(fn (Tenant $record): float => $record->creditBalance(\App\Support\TenantScope::visibleAssetIds()))
+                    ->state(fn (Tenant $record): float => $record->creditBalance(TenantScope::visibleAssetIds()))
                     ->formatStateUsing(fn ($state): string => (float) $state > 0 ? 'EGP '.number_format((float) $state, 2) : '—')
                     ->color(fn ($state): string => (float) $state > 0 ? 'success' : 'gray')
                     ->icon(fn ($state): ?string => (float) $state > 0 ? 'heroicon-m-gift' : null)
@@ -118,12 +122,12 @@ class TenantsTable
                             ->where('balance', '>', 0)
                             ->where('due_date', '<', now())
                             ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
-                            ->when(\App\Support\TenantScope::visibleAssetIds(), fn (Builder $i, $ids) => $i->whereHas('lease.unit', fn (Builder $u) => $u->whereIn('asset_id', $ids)))),
+                            ->when(TenantScope::visibleAssetIds(), fn (Builder $i, $ids) => $i->whereHas('lease.unit', fn (Builder $u) => $u->whereIn('asset_id', $ids)))),
                         false: fn (Builder $query) => $query->whereDoesntHave('invoices', fn (Builder $q) => $q
                             ->where('balance', '>', 0)
                             ->where('due_date', '<', now())
                             ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
-                            ->when(\App\Support\TenantScope::visibleAssetIds(), fn (Builder $i, $ids) => $i->whereHas('lease.unit', fn (Builder $u) => $u->whereIn('asset_id', $ids)))),
+                            ->when(TenantScope::visibleAssetIds(), fn (Builder $i, $ids) => $i->whereHas('lease.unit', fn (Builder $u) => $u->whereIn('asset_id', $ids)))),
                         blank: fn (Builder $query) => $query,
                     ),
                 Filter::make('created_range')
@@ -143,11 +147,12 @@ class TenantsTable
                     ->indicateUsing(function (array $data): array {
                         $indicators = [];
                         if ($data['created_from'] ?? null) {
-                            $indicators[] = __('admin.filters.created_from') . ': ' . \Carbon\Carbon::parse($data['created_from'])->format('d/m/Y');
+                            $indicators[] = __('admin.filters.created_from').': '.Carbon::parse($data['created_from'])->format('d/m/Y');
                         }
                         if ($data['created_until'] ?? null) {
-                            $indicators[] = __('admin.filters.created_until') . ': ' . \Carbon\Carbon::parse($data['created_until'])->format('d/m/Y');
+                            $indicators[] = __('admin.filters.created_until').': '.Carbon::parse($data['created_until'])->format('d/m/Y');
                         }
+
                         return $indicators;
                     }),
                 TrashedFilter::make(),
@@ -161,6 +166,13 @@ class TenantsTable
                     ->color('gray'),
             ])
             ->recordActions([
+                // Read the record without opening its edit form — less
+                // friction, and no write surface for view-only roles. The
+                // schema is the resource's own form rendered disabled, so it
+                // cannot drift from the fields that actually exist.
+                ViewAction::make()
+                    ->visible(fn ($record) => TenantResource::canView($record))
+                    ->authorize(fn ($record) => TenantResource::canView($record)),
                 EditAction::make()
                     ->visible(fn ($record) => TenantResource::canEdit($record)),
                 Action::make('statement')
@@ -173,9 +185,10 @@ class TenantsTable
                         $svc = app(TenantStatementPdfService::class);
                         // Admin surface: scope to visible properties so a restricted operator's
                         // statement of a shared tenant excludes malls they can't see.
-                        $pdf = $svc->build($record, \App\Support\TenantScope::visibleAssetIds());
+                        $pdf = $svc->build($record, TenantScope::visibleAssetIds());
+
                         return response()->streamDownload(
-                            fn () => print($pdf),
+                            fn () => print ($pdf),
                             $svc->filename($record),
                             ['Content-Type' => 'application/pdf'],
                         );
@@ -199,7 +212,7 @@ class TenantsTable
             ->emptyStateHeading(__('admin.empty.tenants.heading'))
             ->emptyStateDescription(__('admin.empty.tenants.description'))
             ->emptyStateActions([
-                \Filament\Actions\CreateAction::make()
+                CreateAction::make()
                     ->label(__('admin.empty.tenants.cta'))
                     ->icon('heroicon-o-plus'),
             ]);

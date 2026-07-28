@@ -10,6 +10,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\Summarizers\Summarizer;
 use Filament\Tables\Columns\TextColumn;
@@ -116,6 +117,13 @@ class InventoryItemsTable
                 TrashedFilter::make(),
             ])
             ->recordActions([
+                // Read the record without opening its edit form — less
+                // friction, and no write surface for view-only roles. The
+                // schema is the resource's own form rendered disabled, so it
+                // cannot drift from the fields that actually exist.
+                ViewAction::make()
+                    ->visible(fn ($record) => InventoryItemResource::canView($record))
+                    ->authorize(fn ($record) => InventoryItemResource::canView($record)),
                 EditAction::make()->visible(fn ($record) => InventoryItemResource::canEdit($record)),
             ])
             ->toolbarActions([

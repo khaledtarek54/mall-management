@@ -19,8 +19,8 @@
  * makes this reachable rather than theoretical.
  */
 
-use App\Models\Asset;
 use App\Support\AssignedAssets;
+use App\Support\TenantScope;
 use Database\Seeders\RolesPermissionsSeeder;
 
 beforeEach(function () {
@@ -68,6 +68,31 @@ it('keeps a former owner fail-closed when the owned property is archived', funct
 
     expect(AssignedAssets::idsFor($user->fresh()))->toEqual([0])
         ->and(AssignedAssets::idsFor($user->fresh()))->not->toContain($other->id);
+});
+
+it('propagates the lapsed scope through the whole scoping layer', function () {
+    // AssignedAssets is the ONE place in the codebase that decides
+    // "restricted vs unrestricted" — TenantScope::visibleAssetIds() and
+    // reportAssetIds() both delegate to it, and every widget, report and
+    // resource query funnels through those. So the fix is only worth anything
+    // if it survives that hop; assert it rather than assume it.
+    $mine = makeAsset(['code' => 'HW']);
+    $other = makeAsset(['code' => 'PA']);
+
+    $user = makeUser('operations', [$mine->id]);
+    $mine->delete();
+
+    $this->actingAs($user->fresh());
+
+    expect(TenantScope::visibleAssetIds())->toEqual([0])
+        ->and(TenantScope::visibleAssetIds())->not->toContain($other->id);
+
+    // A ledger report with no explicit pick must land on the same sentinel,
+    // not on "all properties".
+    expect(TenantScope::reportAssetIds(null))->toEqual([0]);
+
+    // …and a hand-typed property id they never had access to is not honoured.
+    expect(TenantScope::reportAssetIds($other->id))->toEqual([0]);
 });
 
 it('still treats a genuinely unassigned user as unrestricted', function () {

@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\Expenses\ExpenseResource;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -82,6 +83,13 @@ class ExpensesTable
                 TrashedFilter::make(),
             ])
             ->recordActions([
+                // Read the record without opening its edit form — less
+                // friction, and no write surface for view-only roles. The
+                // schema is the resource's own form rendered disabled, so it
+                // cannot drift from the fields that actually exist.
+                ViewAction::make()
+                    ->visible(fn ($record) => ExpenseResource::canView($record))
+                    ->authorize(fn ($record) => ExpenseResource::canView($record)),
                 EditAction::make()
                     ->visible(fn ($record) => ExpenseResource::canEdit($record)),
             ])

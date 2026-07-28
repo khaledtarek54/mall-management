@@ -3,8 +3,8 @@
 namespace App\Filament\Admin\Resources\TenantRequests\Tables;
 
 use App\Enums\TenantRequestType;
-use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Filament\Admin\Resources\MaintenanceWorkOrders\Schemas\CorrectiveWorkOrderForm;
+use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Filament\Exports\TenantRequestExporter;
 use App\Models\Department;
 use App\Models\TenantRequest;
@@ -19,6 +19,7 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ExportAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
@@ -214,6 +215,13 @@ class TenantRequestsTable
                     ->authorize(fn () => auth()->user()?->can('maintenance.view_all') ?? false),
             ])
             ->recordActions([
+                // Read the record without opening its edit form — less
+                // friction, and no write surface for view-only roles. The
+                // schema is the resource's own form rendered disabled, so it
+                // cannot drift from the fields that actually exist.
+                ViewAction::make()
+                    ->visible(fn ($record) => TenantRequestResource::canView($record))
+                    ->authorize(fn ($record) => TenantRequestResource::canView($record)),
                 EditAction::make()
                     ->visible(fn ($record) => TenantRequestResource::canEdit($record)),
                 Action::make('changeStatus')

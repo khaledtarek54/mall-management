@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\OwnerRequests\OwnerRequestResource;
 use App\Models\OwnerRequest;
 use App\Services\OwnerRequestService;
 use Filament\Actions\Action;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -100,6 +101,13 @@ class OwnerRequestsTable
                 TrashedFilter::make(),
             ])
             ->recordActions([
+                // Read the record without opening its edit form — less
+                // friction, and no write surface for view-only roles. The
+                // schema is the resource's own form rendered disabled, so it
+                // cannot drift from the fields that actually exist.
+                ViewAction::make()
+                    ->visible(fn ($record) => OwnerRequestResource::canView($record))
+                    ->authorize(fn ($record) => OwnerRequestResource::canView($record)),
                 // A REPLY, not a one-shot note. Shows the whole conversation inline, takes a message
                 // (always saved — the old flow dropped it unless status happened to be "resolved"),
                 // and lets an optional status move ride along. The other party is notified.

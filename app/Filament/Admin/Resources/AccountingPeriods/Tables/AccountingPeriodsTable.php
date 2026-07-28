@@ -2,9 +2,11 @@
 
 namespace App\Filament\Admin\Resources\AccountingPeriods\Tables;
 
+use App\Filament\Admin\Resources\AccountingPeriods\AccountingPeriodResource;
 use App\Models\AccountingPeriod;
 use App\Services\Accounting\PeriodService;
 use Filament\Actions\Action;
+use Filament\Actions\ViewAction;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -59,6 +61,13 @@ class AccountingPeriodsTable
                     ->relationship('fiscalYear', 'year', fn (Builder $query) => $query->orderByDesc('year')),
             ])
             ->recordActions([
+                // Read the record without opening its edit form — less
+                // friction, and no write surface for view-only roles. The
+                // schema is the resource's own form rendered disabled, so it
+                // cannot drift from the fields that actually exist.
+                ViewAction::make()
+                    ->visible(fn ($record) => AccountingPeriodResource::canView($record))
+                    ->authorize(fn ($record) => AccountingPeriodResource::canView($record)),
                 Action::make('close_period')
                     ->label(__('admin.actions.close_period'))
                     ->icon('heroicon-o-lock-closed')

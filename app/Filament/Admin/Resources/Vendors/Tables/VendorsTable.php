@@ -5,14 +5,16 @@ namespace App\Filament\Admin\Resources\Vendors\Tables;
 use App\Filament\Admin\Resources\Vendors\VendorResource;
 use App\Models\Vendor;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
-use Illuminate\Database\Eloquent\Builder;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class VendorsTable
 {
@@ -62,12 +64,9 @@ class VendorsTable
                     ->badge()
                     ->state(fn (Vendor $record) => match (true) {
                         $record->documents->isEmpty() => __('admin.vendors.compliance.none'),
-                        $record->documents->contains(fn ($d) => $d->isBlocking() && $d->hasExpired())
-                            => __('admin.vendors.compliance.blocked'),
-                        $record->documents->contains(fn ($d) => $d->hasExpired())
-                            => __('admin.vendors.compliance.expired'),
-                        $record->documents->contains(fn ($d) => $d->alertStage() !== null)
-                            => __('admin.vendors.compliance.expiring'),
+                        $record->documents->contains(fn ($d) => $d->isBlocking() && $d->hasExpired()) => __('admin.vendors.compliance.blocked'),
+                        $record->documents->contains(fn ($d) => $d->hasExpired()) => __('admin.vendors.compliance.expired'),
+                        $record->documents->contains(fn ($d) => $d->alertStage() !== null) => __('admin.vendors.compliance.expiring'),
                         default => __('admin.vendors.compliance.ok'),
                     })
                     ->color(fn (Vendor $record) => match (true) {
@@ -102,6 +101,13 @@ class VendorsTable
                 TrashedFilter::make(),
             ])
             ->recordActions([
+                // Read the record without opening its edit form — less
+                // friction, and no write surface for view-only roles. The
+                // schema is the resource's own form rendered disabled, so it
+                // cannot drift from the fields that actually exist.
+                ViewAction::make()
+                    ->visible(fn ($record) => VendorResource::canView($record))
+                    ->authorize(fn ($record) => VendorResource::canView($record)),
                 EditAction::make()->visible(fn ($record) => VendorResource::canEdit($record)),
             ])
             ->toolbarActions([
@@ -114,7 +120,7 @@ class VendorsTable
             ->emptyStateHeading(__('admin.empty.vendors.heading'))
             ->emptyStateDescription(__('admin.empty.vendors.description'))
             ->emptyStateActions([
-                \Filament\Actions\CreateAction::make()
+                CreateAction::make()
                     ->label(__('admin.empty.vendors.cta'))
                     ->icon('heroicon-o-plus'),
             ]);

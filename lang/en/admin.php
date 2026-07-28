@@ -742,6 +742,41 @@ return [
             'pending' => 'ETA Not Submitted',
             'pending_desc' => 'Queued or never submitted',
         ],
+        // Marketing's dashboard — this year's levy fund and how much of it is left.
+        'marketing' => [
+            'accrued' => 'Marketing Fund',
+            'accrued_desc' => 'Levy accrued in :year',
+            'spent' => 'Spent',
+            'spent_desc' => ':pct% of the fund used',
+            'balance' => 'Remaining',
+            'balance_desc' => 'Available to commit',
+            'over_budget' => 'Over budget — spend exceeds the fund',
+        ],
+
+        // HR's dashboard — headcount and the state of this month's payroll run.
+        'payroll' => [
+            'headcount' => 'Active Staff',
+            'headcount_desc' => 'On the payroll now',
+            'this_month' => "This Month's Payroll",
+            'not_run' => 'Not run',
+            'not_run_desc' => 'No payroll created for :month',
+            'awaiting_approval' => ':count run(s) still awaiting approval',
+            'approved_desc' => 'Approved for :month',
+            'leavers' => 'Leavers',
+            'leavers_desc' => 'Terminated during :year',
+        ],
+
+        // The technician's and external vendor's whole dashboard: work assigned to them.
+        'my_work' => [
+            'open_requests' => 'My Open Requests',
+            'open_work_orders' => 'My Open Work Orders',
+            'past_due' => ':count past the SLA target',
+            'on_time' => 'Nothing past its target',
+            'due_today' => ':count due today or overdue',
+            'nothing_due' => 'Nothing due yet',
+            'modules_off' => 'Maintenance modules are switched off',
+        ],
+
         'pipeline' => [
             'heading' => 'Leasing Pipeline',
             'description' => 'Where each lease sits in its lifecycle',

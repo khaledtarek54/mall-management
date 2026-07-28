@@ -10,6 +10,7 @@ use App\Services\SendViolationNoticeAction;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
@@ -96,6 +97,13 @@ class ViolationTable
                 TrashedFilter::make(),
             ])
             ->recordActions([
+                // Read the record without opening its edit form — less
+                // friction, and no write surface for view-only roles. The
+                // schema is the resource's own form rendered disabled, so it
+                // cannot drift from the fields that actually exist.
+                ViewAction::make()
+                    ->visible(fn ($record) => ViolationResource::canView($record))
+                    ->authorize(fn ($record) => ViolationResource::canView($record)),
                 // Bill the recorded fine to the tenant as a VAT-exempt AR invoice — the path that did
                 // not exist (fine_amount was recorded but never charged). Same triple-gate as
                 // sendNotice; a DomainException (no active lease / no fine) surfaces as a toast.

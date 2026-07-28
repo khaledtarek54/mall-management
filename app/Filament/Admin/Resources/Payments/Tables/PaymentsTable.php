@@ -16,6 +16,7 @@ use Filament\Actions\ExportAction;
 use Filament\Actions\ExportBulkAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\TextInput;
 use Filament\Tables\Columns\Summarizers\Sum;
@@ -145,6 +146,13 @@ class PaymentsTable
                     ->color('gray'),
             ])
             ->recordActions([
+                // Read the record without opening its edit form — less
+                // friction, and no write surface for view-only roles. The
+                // schema is the resource's own form rendered disabled, so it
+                // cannot drift from the fields that actually exist.
+                ViewAction::make()
+                    ->visible(fn ($record) => PaymentResource::canView($record))
+                    ->authorize(fn ($record) => PaymentResource::canView($record)),
                 Action::make('downloadReceipt')
                     ->label(__('admin.actions.download_receipt'))
                     ->icon('heroicon-o-receipt-percent')

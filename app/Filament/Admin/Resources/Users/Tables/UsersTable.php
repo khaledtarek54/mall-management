@@ -8,6 +8,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -81,6 +82,13 @@ class UsersTable
             ])
             ->filtersFormColumns(2)
             ->recordActions([
+                // Read the record without opening its edit form — less
+                // friction, and no write surface for view-only roles. The
+                // schema is the resource's own form rendered disabled, so it
+                // cannot drift from the fields that actually exist.
+                ViewAction::make()
+                    ->visible(fn ($record) => UserResource::canView($record))
+                    ->authorize(fn ($record) => UserResource::canView($record)),
                 // Navigate to the Edit PAGE (not a modal): EditUser::afterSave is
                 // where the super_admin guard + the role-change audit run. A modal
                 // EditAction would save via its own handler and bypass both.

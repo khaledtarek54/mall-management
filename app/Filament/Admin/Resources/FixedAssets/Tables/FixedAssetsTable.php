@@ -10,6 +10,7 @@ use App\Services\DisposeFixedAssetService;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -140,6 +141,13 @@ class FixedAssetsTable
                 TrashedFilter::make(),
             ])
             ->recordActions([
+                // Read the record without opening its edit form — less
+                // friction, and no write surface for view-only roles. The
+                // schema is the resource's own form rendered disabled, so it
+                // cannot drift from the fields that actually exist.
+                ViewAction::make()
+                    ->visible(fn ($record) => FixedAssetResource::canView($record))
+                    ->authorize(fn ($record) => FixedAssetResource::canView($record)),
                 Action::make('dispose')
                     ->label(__('admin.fixed_assets.actions.dispose'))
                     ->icon('heroicon-o-archive-box-x-mark')

@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\Announcements\Tables;
 use App\Filament\Admin\Resources\Announcements\AnnouncementResource;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -71,6 +72,13 @@ class AnnouncementsTable
                 TrashedFilter::make(),
             ])
             ->recordActions([
+                // Read the record without opening its edit form — less
+                // friction, and no write surface for view-only roles. The
+                // schema is the resource's own form rendered disabled, so it
+                // cannot drift from the fields that actually exist.
+                ViewAction::make()
+                    ->visible(fn ($record) => AnnouncementResource::canView($record))
+                    ->authorize(fn ($record) => AnnouncementResource::canView($record)),
                 // No edit — an announcement is immutable once broadcast. Only a
                 // super_admin can delete one (canDelete = isSuperAdmin).
                 DeleteAction::make()->visible(fn ($record) => AnnouncementResource::canDelete($record)),

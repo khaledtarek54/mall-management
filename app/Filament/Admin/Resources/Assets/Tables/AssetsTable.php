@@ -5,10 +5,12 @@ namespace App\Filament\Admin\Resources\Assets\Tables;
 use App\Filament\Admin\Resources\Assets\AssetResource;
 use App\Models\Asset;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -75,6 +77,13 @@ class AssetsTable
             ])
             ->filtersFormColumns(2)
             ->recordActions([
+                // Read the record without opening its edit form — less
+                // friction, and no write surface for view-only roles. The
+                // schema is the resource's own form rendered disabled, so it
+                // cannot drift from the fields that actually exist.
+                ViewAction::make()
+                    ->visible(fn ($record) => AssetResource::canView($record))
+                    ->authorize(fn ($record) => AssetResource::canView($record)),
                 EditAction::make()
                     ->visible(fn ($record) => AssetResource::canEdit($record)),
             ])
@@ -93,7 +102,7 @@ class AssetsTable
             ->emptyStateHeading(__('admin.empty.assets.heading'))
             ->emptyStateDescription(__('admin.empty.assets.description'))
             ->emptyStateActions([
-                \Filament\Actions\CreateAction::make()
+                CreateAction::make()
                     ->label(__('admin.empty.assets.cta'))
                     ->icon('heroicon-o-plus'),
             ]);

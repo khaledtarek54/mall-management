@@ -4,13 +4,16 @@ namespace App\Filament\Admin\Resources\Units\Tables;
 
 use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Filament\Exports\UnitExporter;
+use App\Support\TenantScope;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ExportAction;
 use Filament\Actions\ExportBulkAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
@@ -84,6 +87,7 @@ class UnitsTable
                         if ($days < 90) {
                             return 'warning';
                         }
+
                         return 'success';
                     }),
                 TextColumn::make('status')
@@ -110,7 +114,7 @@ class UnitsTable
                     // Scope to the user's visible properties (excludes the ALL pseudo-asset) — a raw
                     // ->relationship('asset','name') enumerates every mall's name + the ALL row to a
                     // restricted operator (a cross-property metadata read leak).
-                    ->options(fn () => \App\Support\TenantScope::selectableAssetOptions())
+                    ->options(fn () => TenantScope::selectableAssetOptions())
                     ->searchable(),
                 Filter::make('lease_expiring_soon')
                     ->label(__('admin.filters.expiring_soon'))
@@ -129,6 +133,13 @@ class UnitsTable
                     ->color('gray'),
             ])
             ->recordActions([
+                // Read the record without opening its edit form — less
+                // friction, and no write surface for view-only roles. The
+                // schema is the resource's own form rendered disabled, so it
+                // cannot drift from the fields that actually exist.
+                ViewAction::make()
+                    ->visible(fn ($record) => UnitResource::canView($record))
+                    ->authorize(fn ($record) => UnitResource::canView($record)),
                 EditAction::make()
                     ->visible(fn ($record) => UnitResource::canEdit($record)),
             ])
@@ -150,7 +161,7 @@ class UnitsTable
             ->emptyStateHeading(__('admin.empty.units.heading'))
             ->emptyStateDescription(__('admin.empty.units.description'))
             ->emptyStateActions([
-                \Filament\Actions\CreateAction::make()
+                CreateAction::make()
                     ->label(__('admin.empty.units.cta'))
                     ->icon('heroicon-o-plus'),
             ]);

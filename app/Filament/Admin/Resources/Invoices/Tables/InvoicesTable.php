@@ -22,6 +22,7 @@ use Filament\Actions\ExportAction;
 use Filament\Actions\ExportBulkAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\Summarizers\Sum;
@@ -240,6 +241,13 @@ class InvoicesTable
                     }),
             ])
             ->recordActions([
+                // Read the record without opening its edit form — less
+                // friction, and no write surface for view-only roles. The
+                // schema is the resource's own form rendered disabled, so it
+                // cannot drift from the fields that actually exist.
+                ViewAction::make()
+                    ->visible(fn ($record) => InvoiceResource::canView($record))
+                    ->authorize(fn ($record) => InvoiceResource::canView($record)),
                 EditAction::make()
                     ->visible(fn ($record) => InvoiceResource::canEdit($record)),
                 Action::make('downloadPdf')

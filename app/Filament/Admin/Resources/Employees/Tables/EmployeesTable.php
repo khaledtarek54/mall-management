@@ -7,6 +7,7 @@ use App\Models\Employee;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\Summarizers\Sum;
@@ -92,6 +93,13 @@ class EmployeesTable
                 TrashedFilter::make(),
             ])
             ->recordActions([
+                // Read the record without opening its edit form — less
+                // friction, and no write surface for view-only roles. The
+                // schema is the resource's own form rendered disabled, so it
+                // cannot drift from the fields that actually exist.
+                ViewAction::make()
+                    ->visible(fn ($record) => EmployeeResource::canView($record))
+                    ->authorize(fn ($record) => EmployeeResource::canView($record)),
                 Action::make('terminate')
                     ->label(__('admin.employees.actions.terminate'))
                     ->icon('heroicon-o-user-minus')

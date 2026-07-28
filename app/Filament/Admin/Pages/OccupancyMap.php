@@ -178,9 +178,10 @@ class OccupancyMap extends Page implements HasSchemas, HasTable
                         ->size('xs')
                         ->color('gray')
                         ->searchable()
-                        // A vacant unit has no tenant — say the status instead, as
-                        // the old grid did.
-                        ->placeholder(fn (Unit $record): string => __("admin.statuses.unit.{$record->status}")),
+                        // Just a dash when vacant. Repeating the status here put
+                        // the word "Vacant" on the card TWICE, once as the tenant
+                        // line and again in the badge below it.
+                        ->placeholder('—'),
                     TextColumn::make('status')
                         ->badge()
                         ->formatStateUsing(fn (string $state): string => __("admin.statuses.unit.{$state}"))
@@ -195,12 +196,21 @@ class OccupancyMap extends Page implements HasSchemas, HasTable
                         }),
                 ])->space(1),
             ])
-            // The floor plan: cards in a grid, one block per floor.
-            ->contentGrid(['md' => 2, 'lg' => 3, 'xl' => 4])
+            // The floor plan: dense enough to take a floor in at a glance. The
+            // markup this replaced packed ~10 tiles per row (minmax 120px); four
+            // wide turned a 50-unit mall into two screenfuls.
+            ->contentGrid(['sm' => 2, 'md' => 4, 'lg' => 5, 'xl' => 6, '2xl' => 8])
             ->groups([
                 Group::make('floor')
                     ->label(__('admin.pdf.floor'))
-                    ->titlePrefixedWithLabel(),
+                    ->titlePrefixedWithLabel()
+                    // Ground before 1, 2, 3 — a floor plan reads from the
+                    // ground up, and plain string ordering puts "1" first.
+                    // length() then value keeps 2 ahead of 10.
+                    ->orderQueryUsing(fn (Builder $query) => $query
+                        ->orderByRaw("case when lower(coalesce(floor, '')) in ('ground', 'g', '0') then 0 else 1 end")
+                        ->orderByRaw("length(coalesce(floor, ''))")
+                        ->orderBy('floor')),
             ])
             ->defaultGroup('floor')
             ->defaultSort('code')
@@ -216,8 +226,11 @@ class OccupancyMap extends Page implements HasSchemas, HasTable
             ->recordUrl(fn (Unit $record): ?string => $record->asset_id
                 ? UnitResource::getUrl('edit', ['record' => $record], tenant: $record->asset)
                 : null)
-            ->paginated([24, 48, 96, 'all'])
-            ->defaultPaginationPageOption(48)
+            // A floor plan shows the WHOLE property. Paginating split a 50-unit
+            // mall across two pages, which defeats the one thing this page is
+            // for — and made the occupancy figure in the subheading disagree
+            // with what was on screen.
+            ->paginated(false)
             ->emptyStateIcon('heroicon-o-squares-2x2')
             ->emptyStateHeading(__('admin.widgets.occupancy_grid.no_asset'));
     }

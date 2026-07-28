@@ -7,6 +7,7 @@ use App\Models\Department;
 use App\Services\DepartmentMessageService;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
@@ -71,6 +72,13 @@ class DepartmentsTable
             ->emptyStateHeading(__('admin.empty.departments.heading'))
             ->emptyStateDescription(__('admin.empty.departments.description'))
             ->recordActions([
+                // Read the record without opening its edit form — less
+                // friction, and no write surface for view-only roles. The
+                // schema is the resource's own form rendered disabled, so it
+                // cannot drift from the fields that actually exist.
+                ViewAction::make()
+                    ->visible(fn ($record) => DepartmentResource::canView($record))
+                    ->authorize(fn ($record) => DepartmentResource::canView($record)),
                 // Inter-department messaging (FR DEPT-2): notify this
                 // department's members via the bell.
                 Action::make('message')

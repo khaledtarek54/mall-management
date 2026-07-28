@@ -7,6 +7,7 @@ use App\Models\Custody;
 use App\Models\CustodyTransaction;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\Summarizers\Summarizer;
@@ -115,6 +116,13 @@ class CustodiesTable
                 TrashedFilter::make(),
             ])
             ->recordActions([
+                // Read the record without opening its edit form — less
+                // friction, and no write surface for view-only roles. The
+                // schema is the resource's own form rendered disabled, so it
+                // cannot drift from the fields that actually exist.
+                ViewAction::make()
+                    ->visible(fn ($record) => CustodyResource::canView($record))
+                    ->authorize(fn ($record) => CustodyResource::canView($record)),
                 EditAction::make()->visible(fn (Custody $record) => CustodyResource::canEdit($record)),
             ])
             ->emptyStateIcon('heroicon-o-banknotes')

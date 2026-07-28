@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\CamExpensePools\Tables;
 
+use App\Filament\Admin\Resources\CamExpensePools\CamExpensePoolResource;
 use App\Models\CamExpensePool;
 use App\Services\CamReconciliationService;
 use Filament\Actions\Action;
@@ -9,6 +10,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
@@ -93,6 +95,13 @@ class CamExpensePoolsTable
             ])
             ->defaultSort('period_year', 'desc')
             ->recordActions([
+                // Read the record without opening its edit form — less
+                // friction, and no write surface for view-only roles. The
+                // schema is the resource's own form rendered disabled, so it
+                // cannot drift from the fields that actually exist.
+                ViewAction::make()
+                    ->visible(fn ($record) => CamExpensePoolResource::canView($record))
+                    ->authorize(fn ($record) => CamExpensePoolResource::canView($record)),
                 Action::make('generateAllocations')
                     ->label(__('admin.actions.generate_allocations'))
                     ->icon('heroicon-o-calculator')

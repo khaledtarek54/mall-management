@@ -12,6 +12,7 @@ use App\Support\ApprovalPolicy;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -89,6 +90,13 @@ class PurchaseRequestsTable
                         ->mapWithKeys(fn (string $s) => [$s => __("admin.procurement.statuses.{$s}")])->all()),
             ])
             ->recordActions([
+                // Read the record without opening its edit form — less
+                // friction, and no write surface for view-only roles. The
+                // schema is the resource's own form rendered disabled, so it
+                // cannot drift from the fields that actually exist.
+                ViewAction::make()
+                    ->visible(fn ($record) => PurchaseRequestResource::canView($record))
+                    ->authorize(fn ($record) => PurchaseRequestResource::canView($record)),
                 // FR-PROC-02 — approval, and it is what unlocks ordering.
                 Action::make('approve')
                     ->label(__('admin.procurement.actions.approve'))

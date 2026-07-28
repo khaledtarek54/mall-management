@@ -14,6 +14,7 @@ use App\Services\RaiseCorrectiveMaintenanceService;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
@@ -177,6 +178,13 @@ class MaintenanceWorkOrdersTable
                         ->whereNotIn('status', MaintenanceWorkOrder::TERMINAL)),
             ])
             ->recordActions([
+                // Read the record without opening its edit form — less
+                // friction, and no write surface for view-only roles. The
+                // schema is the resource's own form rendered disabled, so it
+                // cannot drift from the fields that actually exist.
+                ViewAction::make()
+                    ->visible(fn ($record) => MaintenanceWorkOrderResource::canView($record))
+                    ->authorize(fn ($record) => MaintenanceWorkOrderResource::canView($record)),
                 Action::make('start')
                     ->label(__('admin.preventive_maintenance.actions.start'))
                     ->icon('heroicon-o-play')
