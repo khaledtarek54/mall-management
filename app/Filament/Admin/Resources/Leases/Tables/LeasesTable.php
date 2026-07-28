@@ -9,10 +9,13 @@ use App\Models\Tenant;
 use App\Models\Unit;
 use App\Services\LeaseCreationService;
 use App\Services\LeaseRenewalService;
+use App\Services\LeaseRentChangeService;
 use App\Services\LeaseTerminationService;
 use App\Support\TenantScope;
+use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ExportAction;
@@ -28,6 +31,7 @@ use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Wizard;
 use Filament\Schemas\Components\Wizard\Step;
+use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
@@ -54,10 +58,10 @@ class LeasesTable
                     ->color('gray')
                     ->searchable()
                     // Surface multi-unit leases: list the additional (non-master) units.
-                    ->description(function (\App\Models\Lease $record): ?string {
+                    ->description(function (Lease $record): ?string {
                         $extra = $record->units->reject(fn ($u) => $u->pivot->is_master);
 
-                        return $extra->isNotEmpty() ? '+ ' . $extra->pluck('code')->join(', ') : null;
+                        return $extra->isNotEmpty() ? '+ '.$extra->pluck('code')->join(', ') : null;
                     }),
                 TextColumn::make('tenant.name')
                     ->label(__('admin.tables.lease.tenant'))
@@ -67,7 +71,8 @@ class LeasesTable
                     ->label(__('admin.tables.lease.rent'))
                     ->money('EGP')
                     ->sortable()
-                    ->alignRight(),
+                    ->alignRight()
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('commencement_date')
                     ->label(__('admin.tables.lease.start'))
                     ->date('d/m/Y')
@@ -84,6 +89,7 @@ class LeasesTable
                         if ($days < 90) {
                             return 'warning';
                         }
+
                         return null;
                     }),
                 TextColumn::make('status')
@@ -129,11 +135,12 @@ class LeasesTable
                     ->indicateUsing(function (array $data): array {
                         $indicators = [];
                         if ($data['commencement_from'] ?? null) {
-                            $indicators[] = __('admin.filters.commencement_from') . ': ' . \Carbon\Carbon::parse($data['commencement_from'])->format('d/m/Y');
+                            $indicators[] = __('admin.filters.commencement_from').': '.Carbon::parse($data['commencement_from'])->format('d/m/Y');
                         }
                         if ($data['commencement_until'] ?? null) {
-                            $indicators[] = __('admin.filters.commencement_until') . ': ' . \Carbon\Carbon::parse($data['commencement_until'])->format('d/m/Y');
+                            $indicators[] = __('admin.filters.commencement_until').': '.Carbon::parse($data['commencement_until'])->format('d/m/Y');
                         }
+
                         return $indicators;
                     }),
                 Filter::make('expiry_range')
@@ -153,11 +160,12 @@ class LeasesTable
                     ->indicateUsing(function (array $data): array {
                         $indicators = [];
                         if ($data['expiry_from'] ?? null) {
-                            $indicators[] = __('admin.filters.expiry_from') . ': ' . \Carbon\Carbon::parse($data['expiry_from'])->format('d/m/Y');
+                            $indicators[] = __('admin.filters.expiry_from').': '.Carbon::parse($data['expiry_from'])->format('d/m/Y');
                         }
                         if ($data['expiry_until'] ?? null) {
-                            $indicators[] = __('admin.filters.expiry_until') . ': ' . \Carbon\Carbon::parse($data['expiry_until'])->format('d/m/Y');
+                            $indicators[] = __('admin.filters.expiry_until').': '.Carbon::parse($data['expiry_until'])->format('d/m/Y');
                         }
+
                         return $indicators;
                     }),
                 Filter::make('expiring_soon')
@@ -213,7 +221,7 @@ class LeasesTable
                                         ->columnSpanFull(),
                                     Select::make('tenant_id')
                                         ->label(__('admin.fields.pick_existing_tenant'))
-                                        ->options(fn () => \App\Support\TenantScope::selectableTenantOptions())
+                                        ->options(fn () => TenantScope::selectableTenantOptions())
                                         ->searchable()
                                         ->required()
                                         ->visible(fn (Get $get) => $get('tenant_mode') === 'existing')
@@ -436,7 +444,7 @@ class LeasesTable
                     ])
                     ->action(function (Lease $record, array $data) {
                         try {
-                            $updated = app(\App\Services\LeaseRentChangeService::class)->apply($record, $data);
+                            $updated = app(LeaseRentChangeService::class)->apply($record, $data);
                         } catch (\InvalidArgumentException $e) {
                             Notification::make()->danger()->title($e->getMessage())->send();
 
@@ -447,8 +455,8 @@ class LeasesTable
                             ->title(__('admin.actions.rent_changed'))
                             ->body(__('admin.actions.rent_changed_body', [
                                 'ref' => $updated->reference,
-                                'rent' => 'EGP ' . number_format((float) $updated->base_rent_monthly, 2),
-                                'service' => 'EGP ' . number_format((float) $updated->service_charge_monthly, 2),
+                                'rent' => 'EGP '.number_format((float) $updated->base_rent_monthly, 2),
+                                'service' => 'EGP '.number_format((float) $updated->service_charge_monthly, 2),
                             ]))
                             ->success()
                             ->send();
@@ -518,7 +526,7 @@ class LeasesTable
             ->emptyStateHeading(__('admin.empty.leases.heading'))
             ->emptyStateDescription(__('admin.empty.leases.description'))
             ->emptyStateActions([
-                \Filament\Actions\CreateAction::make()
+                CreateAction::make()
                     ->label(__('admin.empty.leases.cta'))
                     ->icon('heroicon-o-plus'),
             ]);

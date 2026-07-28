@@ -9,6 +9,7 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
+use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -28,7 +29,8 @@ class DisbursementsTable
                 TextColumn::make('reference')->label(__('admin.disbursements.fields.reference'))->searchable()->sortable(),
                 TextColumn::make('payee.name')->label(__('admin.disbursements.fields.owner'))->toggleable(),
                 TextColumn::make('asset.name')->label(__('admin.disbursements.fields.property'))->toggleable(),
-                TextColumn::make('amount')->label(__('admin.disbursements.fields.amount'))->money('EGP')->alignRight()->sortable(),
+                TextColumn::make('amount')->label(__('admin.disbursements.fields.amount'))->money('EGP')->alignRight()->sortable()
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('method')
                     ->label(__('admin.disbursements.fields.method'))
                     ->formatStateUsing(fn (string $state) => __("admin.disbursements.methods.{$state}"))

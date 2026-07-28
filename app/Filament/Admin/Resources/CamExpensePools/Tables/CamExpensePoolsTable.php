@@ -6,9 +6,11 @@ use App\Models\CamExpensePool;
 use App\Services\CamReconciliationService;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Notifications\Notification;
+use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -51,10 +53,12 @@ class CamExpensePoolsTable
                 TextColumn::make('total_actual_expense')
                     ->label(__('admin.tables.cam.actual'))
                     ->money('EGP', divideBy: 1)
-                    ->sortable(),
+                    ->sortable()
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('total_estimated_collected')
                     ->label(__('admin.tables.cam.estimated'))
-                    ->money('EGP', divideBy: 1),
+                    ->money('EGP', divideBy: 1)
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('variance')
                     ->label(__('admin.tables.cam.variance'))
                     ->getStateUsing(fn (CamExpensePool $record) => $record->variance())
@@ -132,7 +136,7 @@ class CamExpensePoolsTable
             ->emptyStateHeading(__('admin.empty.cam.heading'))
             ->emptyStateDescription(__('admin.empty.cam.description'))
             ->emptyStateActions([
-                \Filament\Actions\CreateAction::make()
+                CreateAction::make()
                     ->label(__('admin.empty.cam.cta'))
                     ->icon('heroicon-o-plus'),
             ]);

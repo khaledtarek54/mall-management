@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\Expenses\ExpenseResource;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
@@ -44,17 +45,20 @@ class ExpensesTable
                 TextColumn::make('amount')
                     ->label(__('admin.fields.amount'))
                     ->money('EGP')
-                    ->alignRight(),
+                    ->alignRight()
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('vat_amount')
                     ->label(__('admin.fields.vat_amount'))
                     ->money('EGP')
                     ->alignRight()
-                    ->toggleable(),
+                    ->toggleable()
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('total')
                     ->label(__('admin.fields.total'))
                     ->money('EGP')
                     ->weight('bold')
-                    ->alignRight(),
+                    ->alignRight()
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('status')
                     ->label(__('admin.tables.common.status'))
                     ->badge()

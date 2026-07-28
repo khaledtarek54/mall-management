@@ -4,19 +4,21 @@ namespace App\Filament\Portal\Resources\Invoices\Tables;
 
 use App\Actions\Api\V1\Payments\RecordDemoPaymentAction;
 use App\Models\Invoice;
+use App\Models\Payment;
 use App\Services\InvoicePdfService;
 use App\Services\Paymob\PaymobPaymentInitiator;
+use App\Support\Portal;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Notifications\Notification;
+use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
 class InvoicesTable
@@ -43,19 +45,22 @@ class InvoicesTable
                     ->label(__('admin.tables.invoice.total'))
                     ->money('EGP')
                     ->sortable()
-                    ->alignRight(),
+                    ->alignRight()
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('paid_amount')
                     ->label(__('admin.tables.invoice.paid'))
                     ->money('EGP')
                     ->color('success')
-                    ->alignRight(),
+                    ->alignRight()
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('balance')
                     ->label(__('admin.tables.invoice.balance'))
                     ->money('EGP')
                     ->sortable()
                     ->color(fn ($state) => $state > 0 ? 'danger' : 'success')
                     ->weight('bold')
-                    ->alignRight(),
+                    ->alignRight()
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('due_date')
                     ->label(__('admin.tables.invoice.due_date'))
                     ->date('d/m/Y')
@@ -86,7 +91,7 @@ class InvoicesTable
                 SelectFilter::make('unit_id')
                     ->label(__('admin.filters.unit'))
                     ->options(function (): array {
-                        $tenant = \App\Support\Portal::tenant();
+                        $tenant = Portal::tenant();
                         if (! $tenant) {
                             return [];
                         }
@@ -161,13 +166,13 @@ class InvoicesTable
                     // isPayable() (not just balance>0) — never open a live checkout for a
                     // cancelled/fully-credited invoice (matches the paymentLink action + every
                     // other capture entry point).
-                    ->visible(fn ($record) => \App\Support\Portal::isAdmin() && config('integrations.paymob.enabled') && $record->isPayable())
+                    ->visible(fn ($record) => Portal::isAdmin() && config('integrations.paymob.enabled') && $record->isPayable())
                     ->requiresConfirmation()
                     ->modalHeading(fn ($record) => __('admin.actions.pay_now').' · '.$record->number)
                     ->action(function (Invoice $record) {
-                        abort_unless(\App\Support\Portal::isAdmin() && $record->isPayable(), 403);
+                        abort_unless(Portal::isAdmin() && $record->isPayable(), 403);
                         try {
-                            $session = app(PaymobPaymentInitiator::class)->start($record, \App\Models\Payment::CHANNEL_PORTAL);
+                            $session = app(PaymobPaymentInitiator::class)->start($record, Payment::CHANNEL_PORTAL);
 
                             return redirect()->away($session['iframe_url']);
                         } catch (\Throwable $e) {
@@ -191,7 +196,7 @@ class InvoicesTable
                     ->label(__('admin.actions.pay_now'))
                     ->icon('heroicon-o-credit-card')
                     ->color('primary')
-                    ->visible(fn (Invoice $record) => \App\Support\Portal::isAdmin()
+                    ->visible(fn (Invoice $record) => Portal::isAdmin()
                         && ! config('integrations.paymob.enabled')
                         && (float) $record->balance > 0
                         && ! in_array($record->status, ['cancelled', 'credited'], true))
@@ -202,7 +207,7 @@ class InvoicesTable
                     ]))
                     ->modalSubmitActionLabel(__('admin.actions.pay_now'))
                     ->action(function (Invoice $record) {
-                        abort_unless(\App\Support\Portal::isAdmin(), 403);
+                        abort_unless(Portal::isAdmin(), 403);
                         app(RecordDemoPaymentAction::class)->handle($record);
 
                         Notification::make()

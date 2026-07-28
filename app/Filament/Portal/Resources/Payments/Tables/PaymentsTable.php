@@ -2,8 +2,10 @@
 
 namespace App\Filament\Portal\Resources\Payments\Tables;
 
+use Carbon\Carbon;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
@@ -30,7 +32,8 @@ class PaymentsTable
                     ->sortable()
                     ->weight('bold')
                     ->color('success')
-                    ->alignRight(),
+                    ->alignRight()
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('method')
                     ->label(__('admin.tables.payment.method'))
                     ->badge()
@@ -71,11 +74,12 @@ class PaymentsTable
                     ->indicateUsing(function (array $data): array {
                         $indicators = [];
                         if ($data['payment_from'] ?? null) {
-                            $indicators[] = __('admin.filters.payment_from') . ': ' . \Carbon\Carbon::parse($data['payment_from'])->format('d/m/Y');
+                            $indicators[] = __('admin.filters.payment_from').': '.Carbon::parse($data['payment_from'])->format('d/m/Y');
                         }
                         if ($data['payment_until'] ?? null) {
-                            $indicators[] = __('admin.filters.payment_until') . ': ' . \Carbon\Carbon::parse($data['payment_until'])->format('d/m/Y');
+                            $indicators[] = __('admin.filters.payment_until').': '.Carbon::parse($data['payment_until'])->format('d/m/Y');
                         }
+
                         return $indicators;
                     }),
             ])

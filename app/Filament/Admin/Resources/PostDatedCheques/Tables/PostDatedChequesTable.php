@@ -9,6 +9,7 @@ use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Notifications\Notification;
+use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
@@ -30,7 +31,8 @@ class PostDatedChequesTable
                 TextColumn::make('tenant.name')->label(__('admin.post_dated_cheques.fields.tenant'))->searchable()->toggleable(),
                 TextColumn::make('asset.name')->label(__('admin.post_dated_cheques.fields.property'))->toggleable(),
                 TextColumn::make('cheque_number')->label(__('admin.post_dated_cheques.fields.cheque_number'))->searchable(),
-                TextColumn::make('amount')->label(__('admin.post_dated_cheques.fields.amount'))->money('EGP')->alignRight()->sortable(),
+                TextColumn::make('amount')->label(__('admin.post_dated_cheques.fields.amount'))->money('EGP')->alignRight()->sortable()
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('cheque_date')->label(__('admin.post_dated_cheques.fields.cheque_date'))->date()->sortable(),
                 TextColumn::make('status')
                     ->label(__('admin.post_dated_cheques.fields.status'))

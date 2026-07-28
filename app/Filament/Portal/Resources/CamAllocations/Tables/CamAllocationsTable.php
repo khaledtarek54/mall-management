@@ -3,6 +3,7 @@
 namespace App\Filament\Portal\Resources\CamAllocations\Tables;
 
 use Filament\Actions\ViewAction;
+use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -28,18 +29,21 @@ class CamAllocationsTable
                 TextColumn::make('allocated_amount')
                     ->label(__('admin.fields.allocated_amount'))
                     ->money('EGP')
-                    ->alignRight(),
+                    ->alignRight()
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('estimated_paid')
                     ->label(__('admin.fields.estimated_paid'))
                     ->money('EGP')
                     ->alignRight()
-                    ->toggleable(),
+                    ->toggleable()
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('true_up_amount')
                     ->label(__('admin.fields.true_up_amount'))
                     ->money('EGP')
                     ->alignRight()
                     ->weight('bold')
-                    ->color(fn ($state): string => (float) $state > 0 ? 'danger' : ((float) $state < 0 ? 'success' : 'gray')),
+                    ->color(fn ($state): string => (float) $state > 0 ? 'danger' : ((float) $state < 0 ? 'success' : 'gray'))
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('status')
                     ->label(__('admin.tables.common.status'))
                     ->badge()

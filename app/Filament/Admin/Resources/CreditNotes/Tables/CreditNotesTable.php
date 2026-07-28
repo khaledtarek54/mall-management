@@ -6,13 +6,16 @@ use App\Filament\Admin\Resources\CreditNotes\CreditNoteResource;
 use App\Filament\Exports\CreditNoteExporter;
 use App\Models\CreditNote;
 use App\Services\CreditNotePdfService;
+use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ExportAction;
 use Filament\Actions\ExportBulkAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
@@ -54,18 +57,21 @@ class CreditNotesTable
                     ->label(__('admin.tables.credit_note.total'))
                     ->money('EGP')
                     ->sortable()
-                    ->alignRight(),
+                    ->alignRight()
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('applied_amount')
                     ->label(__('admin.tables.credit_note.applied'))
                     ->money('EGP')
                     ->color('info')
-                    ->alignRight(),
+                    ->alignRight()
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('balance')
                     ->label(__('admin.tables.credit_note.balance'))
                     ->money('EGP')
                     ->color(fn ($state) => $state > 0 ? 'success' : 'gray')
                     ->weight('bold')
-                    ->alignRight(),
+                    ->alignRight()
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('status')
                     ->label(__('admin.tables.common.status'))
                     ->badge()
@@ -106,11 +112,12 @@ class CreditNotesTable
                     ->indicateUsing(function (array $data): array {
                         $indicators = [];
                         if ($data['issued_from'] ?? null) {
-                            $indicators[] = __('admin.filters.issued_from') . ': ' . \Carbon\Carbon::parse($data['issued_from'])->format('d/m/Y');
+                            $indicators[] = __('admin.filters.issued_from').': '.Carbon::parse($data['issued_from'])->format('d/m/Y');
                         }
                         if ($data['issued_until'] ?? null) {
-                            $indicators[] = __('admin.filters.issued_until') . ': ' . \Carbon\Carbon::parse($data['issued_until'])->format('d/m/Y');
+                            $indicators[] = __('admin.filters.issued_until').': '.Carbon::parse($data['issued_until'])->format('d/m/Y');
                         }
+
                         return $indicators;
                     }),
                 TrashedFilter::make(),
@@ -136,7 +143,7 @@ class CreditNotesTable
                         $pdf = $svc->build($record);
 
                         return response()->streamDownload(
-                            fn () => print($pdf),
+                            fn () => print ($pdf),
                             $svc->filename($record),
                             ['Content-Type' => 'application/pdf'],
                         );
@@ -158,7 +165,7 @@ class CreditNotesTable
             ->emptyStateHeading(__('admin.empty.credit_notes.heading'))
             ->emptyStateDescription(__('admin.empty.credit_notes.description'))
             ->emptyStateActions([
-                \Filament\Actions\CreateAction::make()
+                CreateAction::make()
                     ->label(__('admin.empty.credit_notes.cta'))
                     ->icon('heroicon-o-plus'),
             ]);

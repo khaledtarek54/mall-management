@@ -16,6 +16,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
+use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -53,7 +54,8 @@ class PurchaseRequestsTable
                 TextColumn::make('asset.name')->label(__('admin.procurement.fields.asset'))->toggleable(),
                 TextColumn::make('total_value')
                     ->label(__('admin.procurement.fields.total_value'))
-                    ->money('EGP')->alignRight()->sortable(),
+                    ->money('EGP')->alignRight()->sortable()
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('status')
                     ->label(__('admin.procurement.fields.status'))
                     ->badge()
@@ -279,7 +281,7 @@ class PurchaseRequestsTable
                         $pdf = $svc->build($record);
 
                         return response()->streamDownload(
-                            fn () => print($pdf),
+                            fn () => print ($pdf),
                             $svc->filename($record),
                             ['Content-Type' => 'application/pdf'],
                         );

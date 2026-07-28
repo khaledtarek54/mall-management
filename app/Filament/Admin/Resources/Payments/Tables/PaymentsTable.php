@@ -6,8 +6,10 @@ use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Filament\Exports\PaymentExporter;
 use App\Models\Payment;
 use App\Services\ReceiptPdfService;
+use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ExportAction;
@@ -16,6 +18,7 @@ use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\TextInput;
+use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
@@ -45,7 +48,8 @@ class PaymentsTable
                     ->sortable()
                     ->color('success')
                     ->weight('bold')
-                    ->alignRight(),
+                    ->alignRight()
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('method')
                     ->label(__('admin.tables.payment.method'))
                     ->badge()
@@ -95,11 +99,12 @@ class PaymentsTable
                     ->indicateUsing(function (array $data): array {
                         $indicators = [];
                         if ($data['payment_from'] ?? null) {
-                            $indicators[] = __('admin.filters.payment_from') . ': ' . \Carbon\Carbon::parse($data['payment_from'])->format('d/m/Y');
+                            $indicators[] = __('admin.filters.payment_from').': '.Carbon::parse($data['payment_from'])->format('d/m/Y');
                         }
                         if ($data['payment_until'] ?? null) {
-                            $indicators[] = __('admin.filters.payment_until') . ': ' . \Carbon\Carbon::parse($data['payment_until'])->format('d/m/Y');
+                            $indicators[] = __('admin.filters.payment_until').': '.Carbon::parse($data['payment_until'])->format('d/m/Y');
                         }
+
                         return $indicators;
                     }),
                 Filter::make('amount_range')
@@ -121,11 +126,12 @@ class PaymentsTable
                     ->indicateUsing(function (array $data): array {
                         $indicators = [];
                         if ($data['amount_min'] ?? null) {
-                            $indicators[] = __('admin.filters.amount_min') . ': ' . $data['amount_min'];
+                            $indicators[] = __('admin.filters.amount_min').': '.$data['amount_min'];
                         }
                         if ($data['amount_max'] ?? null) {
-                            $indicators[] = __('admin.filters.amount_max') . ': ' . $data['amount_max'];
+                            $indicators[] = __('admin.filters.amount_max').': '.$data['amount_max'];
                         }
+
                         return $indicators;
                     }),
                 TrashedFilter::make(),
@@ -152,7 +158,7 @@ class PaymentsTable
                         $pdf = $svc->build($record);
 
                         return response()->streamDownload(
-                            fn () => print($pdf),
+                            fn () => print ($pdf),
                             $svc->filename($record),
                             ['Content-Type' => 'application/pdf'],
                         );
@@ -178,7 +184,7 @@ class PaymentsTable
             ->emptyStateHeading(__('admin.empty.payments.heading'))
             ->emptyStateDescription(__('admin.empty.payments.description'))
             ->emptyStateActions([
-                \Filament\Actions\CreateAction::make()
+                CreateAction::make()
                     ->label(__('admin.empty.payments.cta'))
                     ->icon('heroicon-o-plus'),
             ]);

@@ -3,6 +3,7 @@
 namespace App\Filament\Portal\Resources\TenantSalesDeclarations\Tables;
 
 use Filament\Actions\ViewAction;
+use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -26,11 +27,13 @@ class TenantSalesDeclarationsTable
                     ->label(__('admin.tables.tenant_sales.declared_sales'))
                     ->money('EGP', divideBy: 1)
                     ->placeholder(__('admin.tables.tenant_sales.pending_review'))
-                    ->weight('semibold'),
+                    ->weight('semibold')
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('calculated_percentage_rent')
                     ->label(__('admin.tables.tenant_sales.percentage_rent'))
                     ->money('EGP', divideBy: 1)
-                    ->color(fn ($state) => $state > 0 ? 'success' : 'gray'),
+                    ->color(fn ($state) => $state > 0 ? 'success' : 'gray')
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('status')
                     ->label(__('admin.tables.common.status'))
                     ->badge()

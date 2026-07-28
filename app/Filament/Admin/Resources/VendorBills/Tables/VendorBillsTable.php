@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\VendorBills\VendorBillResource;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
@@ -44,18 +45,21 @@ class VendorBillsTable
                 TextColumn::make('total')
                     ->label(__('admin.fields.total'))
                     ->money('EGP')
-                    ->alignRight(),
+                    ->alignRight()
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('paid_amount')
                     ->label(__('admin.fields.paid_amount'))
                     ->money('EGP')
                     ->color('info')
-                    ->alignRight(),
+                    ->alignRight()
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('balance')
                     ->label(__('admin.fields.balance'))
                     ->money('EGP')
                     ->weight('bold')
                     ->alignRight()
-                    ->color(fn ($state) => $state > 0 ? 'warning' : 'success'),
+                    ->color(fn ($state) => $state > 0 ? 'warning' : 'success')
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('status')
                     ->label(__('admin.tables.common.status'))
                     ->badge()

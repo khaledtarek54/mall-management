@@ -3,12 +3,14 @@
 namespace App\Filament\Admin\Resources\Violations\Tables;
 
 use App\Filament\Admin\Resources\Violations\ViolationResource;
+use App\Models\Tenant;
 use App\Models\Violation;
 use App\Services\BillViolationFineService;
 use App\Services\SendViolationNoticeAction;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Notifications\Notification;
+use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
@@ -49,7 +51,8 @@ class ViolationTable
                     ->label(__('admin.violations.fields.fine_amount'))
                     ->money('EGP')
                     ->placeholder('—')
-                    ->sortable(),
+                    ->sortable()
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 // Whether the fine has been billed to the tenant, and to which invoice — so an
                 // operator sees at a glance which fines are still uncollected revenue.
                 TextColumn::make('billedInvoice.number')
@@ -106,7 +109,7 @@ class ViolationTable
 
                         return __('admin.violations.bill_fine_confirm', [
                             'amount' => 'EGP '.number_format((float) $record->fine_amount, 2),
-                            'tenant' => $tenant instanceof \App\Models\Tenant ? $tenant->name : '—',
+                            'tenant' => $tenant instanceof Tenant ? $tenant->name : '—',
                         ]);
                     })
                     ->visible(fn (Violation $record) => ViolationResource::canBillFine($record))

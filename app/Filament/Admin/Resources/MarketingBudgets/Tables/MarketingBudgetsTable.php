@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\MarketingBudgets\MarketingBudgetResource;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
@@ -27,11 +28,13 @@ class MarketingBudgetsTable
                 TextColumn::make('accrued_amount')
                     ->label(__('admin.tables.marketing_budget.accrued'))
                     ->money('EGP')
-                    ->color('success'),
+                    ->color('success')
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('spent_amount')
                     ->label(__('admin.tables.marketing_budget.spent'))
                     ->money('EGP')
-                    ->color('danger'),
+                    ->color('danger')
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('balance')
                     ->label(__('admin.tables.marketing_budget.balance'))
                     ->money('EGP')

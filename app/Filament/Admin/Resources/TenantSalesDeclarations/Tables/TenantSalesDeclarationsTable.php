@@ -14,9 +14,11 @@ use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Support\Enums\FontWeight;
 use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Support\Carbon;
 
 class TenantSalesDeclarationsTable
 {
@@ -71,7 +73,7 @@ class TenantSalesDeclarationsTable
 
         $attr = app(PercentageRentCalculationService::class)->yearAttribution(
             $record->lease_id,
-            \Illuminate\Support\Carbon::parse($record->period_start)->year,
+            Carbon::parse($record->period_start)->year,
         );
 
         $breakdown = collect($attr['months'])
@@ -165,7 +167,8 @@ class TenantSalesDeclarationsTable
                     ->money('EGP', divideBy: 1)
                     ->placeholder(__('admin.tables.tenant_sales.pending_review'))
                     ->sortable()
-                    ->weight('semibold'),
+                    ->weight('semibold')
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('calculated_percentage_rent')
                     ->label(__('admin.tables.tenant_sales.percentage_rent'))
                     ->money('EGP', divideBy: 1)
@@ -174,7 +177,8 @@ class TenantSalesDeclarationsTable
                     ->description(fn (TenantSalesDeclaration $record) => self::isAnnualLease($record)
                         ? __('admin.tables.tenant_sales.annual_cumulative')
                         : null)
-                    ->color(fn ($state) => $state > 0 ? 'success' : 'gray'),
+                    ->color(fn ($state) => $state > 0 ? 'success' : 'gray')
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('status')
                     ->label(__('admin.tables.common.status'))
                     ->badge()
@@ -277,7 +281,7 @@ class TenantSalesDeclarationsTable
                     ->action(function (TenantSalesDeclaration $record, array $data): void {
                         abort_unless(self::canVoid($record), 403);
                         try {
-                            app(\App\Services\PercentageRentCalculationService::class)
+                            app(PercentageRentCalculationService::class)
                                 ->voidLocked($record, auth()->user(), $data['reason']);
                         } catch (\DomainException $e) {
                             // The overage invoice was already PAID — VoidInvoiceService refuses,

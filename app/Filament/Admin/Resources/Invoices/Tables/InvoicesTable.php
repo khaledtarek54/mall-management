@@ -4,13 +4,18 @@ namespace App\Filament\Admin\Resources\Invoices\Tables;
 
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Exports\InvoiceExporter;
+use App\Jobs\SubmitInvoiceToEta;
 use App\Models\Invoice;
 use App\Models\Unit;
 use App\Services\InvoicePdfService;
 use App\Services\MonthlyBillingService;
+use App\Support\Modules;
+use App\Support\TenantScope;
+use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ExportAction;
@@ -19,6 +24,7 @@ use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Notifications\Notification;
+use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
@@ -54,20 +60,23 @@ class InvoicesTable
                     ->label(__('admin.tables.invoice.total'))
                     ->money('EGP')
                     ->sortable()
-                    ->alignRight(),
+                    ->alignRight()
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('paid_amount')
                     ->label(__('admin.tables.invoice.paid'))
                     ->money('EGP')
                     ->sortable()
                     ->color('success')
-                    ->alignRight(),
+                    ->alignRight()
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('balance')
                     ->label(__('admin.tables.invoice.balance'))
                     ->money('EGP')
                     ->sortable()
                     ->color(fn ($state) => $state > 0 ? 'danger' : 'success')
                     ->weight('bold')
-                    ->alignRight(),
+                    ->alignRight()
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('due_date')
                     ->label(__('admin.tables.invoice.due_date'))
                     ->date('d/m/Y')
@@ -76,6 +85,7 @@ class InvoicesTable
                         if (in_array($record->status, ['paid', 'cancelled'])) {
                             return null;
                         }
+
                         return $record->due_date?->isPast() ? 'danger' : null;
                     }),
                 TextColumn::make('status')
@@ -115,7 +125,7 @@ class InvoicesTable
                 SelectFilter::make('unit_id')
                     ->label(__('admin.filters.unit'))
                     ->options(fn () => Unit::query()
-                        ->when(\App\Support\TenantScope::visibleAssetIds(), fn ($q, $ids) => $q->whereIn('asset_id', $ids))
+                        ->when(TenantScope::visibleAssetIds(), fn ($q, $ids) => $q->whereIn('asset_id', $ids))
                         ->orderBy('code')->pluck('code', 'id'))
                     ->searchable()
                     ->query(fn (Builder $query, array $data): Builder => $query
@@ -137,11 +147,12 @@ class InvoicesTable
                     ->indicateUsing(function (array $data): array {
                         $indicators = [];
                         if ($data['period_from'] ?? null) {
-                            $indicators[] = __('admin.filters.period_from') . ': ' . \Carbon\Carbon::parse($data['period_from'])->format('d/m/Y');
+                            $indicators[] = __('admin.filters.period_from').': '.Carbon::parse($data['period_from'])->format('d/m/Y');
                         }
                         if ($data['period_until'] ?? null) {
-                            $indicators[] = __('admin.filters.period_until') . ': ' . \Carbon\Carbon::parse($data['period_until'])->format('d/m/Y');
+                            $indicators[] = __('admin.filters.period_until').': '.Carbon::parse($data['period_until'])->format('d/m/Y');
                         }
+
                         return $indicators;
                     }),
                 Filter::make('due_date_range')
@@ -161,11 +172,12 @@ class InvoicesTable
                     ->indicateUsing(function (array $data): array {
                         $indicators = [];
                         if ($data['due_from'] ?? null) {
-                            $indicators[] = __('admin.filters.due_from') . ': ' . \Carbon\Carbon::parse($data['due_from'])->format('d/m/Y');
+                            $indicators[] = __('admin.filters.due_from').': '.Carbon::parse($data['due_from'])->format('d/m/Y');
                         }
                         if ($data['due_until'] ?? null) {
-                            $indicators[] = __('admin.filters.due_until') . ': ' . \Carbon\Carbon::parse($data['due_until'])->format('d/m/Y');
+                            $indicators[] = __('admin.filters.due_until').': '.Carbon::parse($data['due_until'])->format('d/m/Y');
                         }
+
                         return $indicators;
                     }),
                 Filter::make('overdue_only')
@@ -178,17 +190,17 @@ class InvoicesTable
                 SelectFilter::make('eta_status')
                     ->label(__('admin.filters.eta_status'))
                     ->options(fn () => __('admin.statuses.eta'))
-                    ->visible(fn () => \App\Support\Modules::enabled('eta')),
+                    ->visible(fn () => Modules::enabled('eta')),
                 Filter::make('needs_eta_attention')
                     ->label(__('admin.filters.needs_eta_attention'))
                     ->query(fn ($query) => $query->whereIn('eta_status', ['invalid', 'rejected']))
-                    ->visible(fn () => \App\Support\Modules::enabled('eta')),
+                    ->visible(fn () => Modules::enabled('eta')),
                 Filter::make('eta_pending')
                     ->label(__('admin.filters.eta_pending'))
                     ->query(fn ($query) => $query->where(fn ($q) => $q
                         ->whereNull('eta_status')
                         ->orWhere('eta_status', 'pending')))
-                    ->visible(fn () => \App\Support\Modules::enabled('eta')),
+                    ->visible(fn () => Modules::enabled('eta')),
                 TrashedFilter::make(),
             ])
             ->filtersFormColumns(2)
@@ -237,8 +249,9 @@ class InvoicesTable
                     ->action(function (Invoice $record) {
                         $svc = app(InvoicePdfService::class);
                         $pdf = $svc->build($record);
+
                         return response()->streamDownload(
-                            fn () => print($pdf),
+                            fn () => print ($pdf),
                             $svc->filename($record),
                             ['Content-Type' => 'application/pdf'],
                         );
@@ -266,8 +279,8 @@ class InvoicesTable
                     ->label(__('admin.actions.submit_to_eta'))
                     ->icon('heroicon-o-paper-airplane')
                     ->color('primary')
-                    ->visible(fn (Invoice $record) => \App\Support\Modules::enabled('eta') && $record->eta_status !== 'valid' && in_array($record->status, ['issued', 'partially_paid', 'paid', 'overdue']) && auth()->user()?->can('invoices.submit_to_eta'))
-                    ->authorize(fn () => (auth()->user()?->can('invoices.submit_to_eta') ?? false) && \App\Support\Modules::enabled('eta'))
+                    ->visible(fn (Invoice $record) => Modules::enabled('eta') && $record->eta_status !== 'valid' && in_array($record->status, ['issued', 'partially_paid', 'paid', 'overdue']) && auth()->user()?->can('invoices.submit_to_eta'))
+                    ->authorize(fn () => (auth()->user()?->can('invoices.submit_to_eta') ?? false) && Modules::enabled('eta'))
                     ->requiresConfirmation()
                     ->modalDescription(fn () => config('eta.mock')
                         ? __('admin.actions.submit_to_eta_modal_mock')
@@ -275,11 +288,11 @@ class InvoicesTable
                     ->action(function (Invoice $record): void {
                         // action() is the real gate — mountAction() ignores visible(); the ETA filing job
                         // must not be dispatchable without the permission (and the module enabled).
-                        abort_unless((auth()->user()?->can('invoices.submit_to_eta') ?? false) && \App\Support\Modules::enabled('eta'), 403);
+                        abort_unless((auth()->user()?->can('invoices.submit_to_eta') ?? false) && Modules::enabled('eta'), 403);
                         // Queue the submission — the ETA gateway can be slow when live,
                         // so never block the request on it. The job retries with backoff
                         // and surfaces exhaustion (see App\Jobs\SubmitInvoiceToEta).
-                        \App\Jobs\SubmitInvoiceToEta::dispatch($record);
+                        SubmitInvoiceToEta::dispatch($record);
                         Notification::make()
                             ->title(__('admin.notifications.eta_queued'))
                             ->body(__('admin.notifications.eta_queued_body', ['number' => $record->number]))
@@ -305,20 +318,21 @@ class InvoicesTable
                                 $zip->addFromString($svc->filename($invoice), $svc->build($invoice));
                             }
                             $zip->close();
+
                             return response()->download($tmp, 'invoices-'.now()->format('Ymd-His').'.zip')->deleteFileAfterSend();
                         }),
                     BulkAction::make('bulkSubmitToEta')
                         ->label(__('admin.actions.bulk_submit_to_eta'))
                         ->icon('heroicon-o-paper-airplane')
                         ->color('primary')
-                        ->visible(fn () => \App\Support\Modules::enabled('eta') && auth()->user()?->can('invoices.submit_to_eta'))
-                        ->authorize(fn () => (auth()->user()?->can('invoices.submit_to_eta') ?? false) && \App\Support\Modules::enabled('eta'))
+                        ->visible(fn () => Modules::enabled('eta') && auth()->user()?->can('invoices.submit_to_eta'))
+                        ->authorize(fn () => (auth()->user()?->can('invoices.submit_to_eta') ?? false) && Modules::enabled('eta'))
                         ->requiresConfirmation()
                         ->modalDescription(fn () => config('eta.mock')
                             ? __('admin.actions.submit_to_eta_modal_mock')
                             : __('admin.actions.submit_to_eta_modal_live'))
                         ->action(function ($records) {
-                            abort_unless((auth()->user()?->can('invoices.submit_to_eta') ?? false) && \App\Support\Modules::enabled('eta'), 403);
+                            abort_unless((auth()->user()?->can('invoices.submit_to_eta') ?? false) && Modules::enabled('eta'), 403);
                             // Queue each submission — a bulk of 20+ must never block the
                             // request (or time out) on a slow ETA gateway.
                             $queued = 0;
@@ -326,9 +340,10 @@ class InvoicesTable
                             foreach ($records as $invoice) {
                                 if ($invoice->eta_status === 'valid') {
                                     $skipped++;
+
                                     continue;
                                 }
-                                \App\Jobs\SubmitInvoiceToEta::dispatch($invoice);
+                                SubmitInvoiceToEta::dispatch($invoice);
                                 $queued++;
                             }
                             Notification::make()
@@ -353,7 +368,7 @@ class InvoicesTable
             ->emptyStateHeading(__('admin.empty.invoices.heading'))
             ->emptyStateDescription(__('admin.empty.invoices.description'))
             ->emptyStateActions([
-                \Filament\Actions\CreateAction::make()
+                CreateAction::make()
                     ->label(__('admin.empty.invoices.cta'))
                     ->icon('heroicon-o-plus'),
             ]);

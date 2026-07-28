@@ -9,6 +9,7 @@ use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
@@ -38,22 +39,26 @@ class PayrollsTable
                 TextColumn::make('gross_salaries')
                     ->label(__('admin.fields.gross_salaries'))
                     ->money('EGP')
-                    ->alignRight(),
+                    ->alignRight()
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('salary_tax')
                     ->label(__('admin.fields.salary_tax'))
                     ->money('EGP')
                     ->alignRight()
-                    ->toggleable(),
+                    ->toggleable()
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('social_insurance')
                     ->label(__('admin.fields.social_insurance'))
                     ->money('EGP')
                     ->alignRight()
-                    ->toggleable(),
+                    ->toggleable()
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('net_paid')
                     ->label(__('admin.fields.net_paid'))
                     ->money('EGP')
                     ->weight('bold')
-                    ->alignRight(),
+                    ->alignRight()
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('paid_from')
                     ->label(__('admin.fields.paid_from'))
                     ->badge()

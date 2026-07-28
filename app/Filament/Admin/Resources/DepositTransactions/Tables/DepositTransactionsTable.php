@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\DepositTransactions\DepositTransactionResource;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
@@ -50,7 +51,8 @@ class DepositTransactionsTable
                     ->label(__('admin.fields.amount'))
                     ->money('EGP')
                     ->alignRight()
-                    ->weight('bold'),
+                    ->weight('bold')
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('method')
                     ->label(__('admin.fields.method'))
                     ->badge()

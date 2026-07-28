@@ -17,6 +17,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
+use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -57,7 +58,8 @@ class OwnerStatementRunsTable
                     ->label(__('admin.owner_statements.fields.owner'))
                     ->getStateUsing(fn (OwnerStatementRun $r) => $r->statements->first()?->owner?->name ?? '—')
                     ->toggleable(),
-                TextColumn::make('net_distributable')->label(__('admin.owner_statements.fields.net_distributable'))->money('EGP')->alignRight()->sortable(),
+                TextColumn::make('net_distributable')->label(__('admin.owner_statements.fields.net_distributable'))->money('EGP')->alignRight()->sortable()
+                    ->summarize(Sum::make('total')->label(__('admin.reports.totals'))->money('EGP')),
                 TextColumn::make('paid')
                     ->label(__('admin.owner_statements.fields.paid_to_date'))
                     ->getStateUsing(fn (OwnerStatementRun $r) => (float) ($r->statements->first()?->paid_to_date ?? 0))
