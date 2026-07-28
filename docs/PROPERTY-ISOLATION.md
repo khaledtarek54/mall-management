@@ -183,3 +183,26 @@ work assigned to them". **The role decides whether the filter applies.**
 **Note also:** FR-USR-04 puts a *permission check in the query layer*, which previously had none.
 A fixture that builds `makeUser('super_admin')` without seeding roles now sees nothing — correctly,
 since fail-closed — so any test asserting scoping must seed `RolesPermissionsSeeder`.
+
+## Gotcha — "was this user ever scoped?" must not read a soft-deleting relation
+
+`AssignedAssets::idsFor()` returns `null` (= unrestricted) for a user who was
+NEVER assigned or an owner — deliberate back-compat for single-mall deployments
+— but the fail-closed sentinel `[0]` (= sees nothing) for a user whose scope has
+**lapsed**.
+
+That probe must ask about the **assignment**, not the asset. It originally used
+`assignedAssets()` / `ownedAssets()`, which are relations to a **soft-deleting**
+`Asset`. Archiving a property therefore made them return nothing, so a staff
+member assigned to exactly that property fell into the "never scoped" branch and
+became **unrestricted** — gaining read access to every other property in the
+portfolio. Archiving a mall is an ordinary super_admin action, so this was
+reachable, not theoretical.
+
+It now reads the `asset_user` / `asset_owner` pivot rows directly, which are
+independent of the asset's soft-delete state.
+
+**If you touch this probe:** any relation you use must survive the related model
+being soft-deleted, or the failure mode is silent privilege escalation rather
+than an error. Guarded by
+`tests/Feature/Regression/AssignedAssetsLapsedScopeTest.php`.

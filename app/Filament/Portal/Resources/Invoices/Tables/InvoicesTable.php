@@ -217,6 +217,9 @@ class InvoicesTable
                             ->send();
                     }),
             ])
-            ->defaultSort('issue_date', 'desc');
+            ->defaultSort('issue_date', 'desc')
+            ->emptyStateIcon('heroicon-o-document-text')
+            ->emptyStateHeading(__('admin.empty.portal_invoices.heading'))
+            ->emptyStateDescription(__('admin.empty.portal_invoices.description'));
     }
 }

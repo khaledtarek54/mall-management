@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\Equipment\Tables;
 
 use App\Filament\Admin\Resources\Equipment\EquipmentResource;
 use App\Models\Equipment;
+use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -76,6 +77,14 @@ class EquipmentTable
             ->recordActions([
                 EditAction::make()->visible(fn (Equipment $record) => EquipmentResource::canEdit($record)),
             ])
-            ->defaultSort('code');
+            ->defaultSort('code')
+            ->emptyStateIcon('heroicon-o-wrench-screwdriver')
+            ->emptyStateHeading(__('admin.empty.equipment.heading'))
+            ->emptyStateDescription(__('admin.empty.equipment.description'))
+            ->emptyStateActions([
+                CreateAction::make()
+                    ->label(__('admin.empty.equipment.cta'))
+                    ->icon('heroicon-o-plus'),
+            ]);
     }
 }

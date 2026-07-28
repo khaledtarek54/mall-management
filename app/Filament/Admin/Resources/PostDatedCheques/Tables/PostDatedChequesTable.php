@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\PostDatedCheques\PostDatedChequeResource;
 use App\Models\PostDatedCheque;
 use App\Services\PostDatedChequeService;
 use Filament\Actions\Action;
+use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Notifications\Notification;
@@ -109,6 +110,15 @@ class PostDatedChequesTable
                         abort_unless(PostDatedChequeResource::canManage(), 403);
                         self::run(fn () => app(PostDatedChequeService::class)->cancel($record), 'cancelled');
                     }),
+            ])
+            ->emptyStateIcon('heroicon-o-credit-card')
+            ->emptyStateHeading(__('admin.empty.post_dated_cheques.heading'))
+            ->emptyStateDescription(__('admin.empty.post_dated_cheques.description'))
+            ->emptyStateActions([
+                CreateAction::make()
+                    ->label(__('admin.empty.post_dated_cheques.cta'))
+                    ->icon('heroicon-o-plus')
+                    ->visible(fn () => PostDatedChequeResource::canCreate()),
             ]);
     }
 

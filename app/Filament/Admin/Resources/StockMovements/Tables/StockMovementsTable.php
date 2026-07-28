@@ -6,7 +6,6 @@ use App\Models\StockMovement;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
-use Illuminate\Support\Str;
 
 class StockMovementsTable
 {
@@ -55,6 +54,9 @@ class StockMovementsTable
                     ->label(__('admin.inventory.fields.type'))
                     ->options(fn () => collect(StockMovement::TYPES)->mapWithKeys(fn ($t) => [$t => __("admin.inventory.types.{$t}")])->all()),
             ])
-            ->defaultSort('moved_on', 'desc');
+            ->defaultSort('moved_on', 'desc')
+            ->emptyStateIcon('heroicon-o-arrows-right-left')
+            ->emptyStateHeading(__('admin.empty.stock_movements.heading'))
+            ->emptyStateDescription(__('admin.empty.stock_movements.description'));
     }
 }

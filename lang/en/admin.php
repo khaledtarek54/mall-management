@@ -260,6 +260,93 @@ return [
             'heading' => 'No common-area charges yet',
             'description' => 'When the mall closes its annual CAM reconciliation, your share will appear here with a full breakdown.',
         ],
+        'accounting_periods' => [
+            'heading' => 'No accounting periods yet',
+            'description' => 'Periods open automatically per fiscal year. Create the fiscal year in Settings if this is empty.',
+        ],
+        'areas' => [
+            'heading' => 'No zones yet',
+            'description' => 'Split the property into zones — floors, wings, the car park — so requests and work orders route to the right team.',
+            'cta' => 'Add a zone',
+        ],
+        'disbursements' => [
+            'heading' => 'No owner payouts yet',
+            'description' => 'Payouts appear here once an owner statement is finalised and scheduled for payment.',
+        ],
+        'equipment' => [
+            'heading' => 'No equipment yet',
+            'description' => 'Chillers, lifts, generators, pumps. Register them to run preventive maintenance plans against them.',
+            'cta' => 'Add equipment',
+        ],
+        'maintenance_plans' => [
+            'heading' => 'No preventive plans yet',
+            'description' => 'A plan raises work orders on a schedule — quarterly chiller service, monthly lift inspection — so nothing waits for a breakdown.',
+            'cta' => 'Create a plan',
+        ],
+        'maintenance_work_orders' => [
+            'heading' => 'No work orders yet',
+            'description' => 'Corrective and preventive jobs for the facility team. They arrive from tenant requests, plans, or are raised directly.',
+            'cta' => 'Raise a work order',
+        ],
+        'marketing_budgets' => [
+            'heading' => 'No marketing budgets yet',
+            'description' => 'A budget accrues the marketing levy collected from tenants and tracks spend against it, per year.',
+        ],
+        'owner_requests' => [
+            'heading' => 'No owner requests yet',
+            'description' => 'Questions and instructions raised by the property owner. They appear here for the operator to answer.',
+        ],
+        'owner_statement_runs' => [
+            'heading' => 'No statement runs yet',
+            'description' => 'Generate a monthly run to produce each owner\'s statement of income, expenses and net distributable.',
+        ],
+        'post_dated_cheques' => [
+            'heading' => 'No cheques lodged yet',
+            'description' => 'Tenants often hand over a year of monthly cheques up front. Lodge them here so maturity is tracked and nothing is banked late.',
+            'cta' => 'Lodge a cheque',
+        ],
+        'purchase_requests' => [
+            'heading' => 'No purchase requests yet',
+            'description' => 'Raise a request to buy goods or services. It routes for approval, then becomes a purchase order and a vendor bill.',
+            'cta' => 'Raise a request',
+        ],
+        'sla_policies' => [
+            'heading' => 'No SLA policies yet',
+            'description' => 'A policy sets the response and resolution clock per request type and priority. Breaches alert the responsible team.',
+            'cta' => 'Add a policy',
+        ],
+        'stock_movements' => [
+            'heading' => 'No stock movements yet',
+            'description' => 'Every receipt, consumption, adjustment and transfer is recorded here — the audit trail behind each item\'s quantity on hand.',
+        ],
+        'users' => [
+            'heading' => 'No users yet',
+            'description' => 'Staff logins for the admin panel. Each user gets a role, which decides what they can see and do.',
+            'cta' => 'Add a user',
+        ],
+        'violations' => [
+            'heading' => 'No violations recorded',
+            'description' => 'Log a breach of the tenant handbook — obstruction, signage, waste, trading hours — with a photo, and bill the fine if one applies.',
+            'cta' => 'Record a violation',
+        ],
+        'portal_invoices' => [
+            'heading' => 'No invoices yet',
+            'description' => 'Your rent and service-charge invoices will appear here as the mall issues them.',
+        ],
+        'portal_payments' => [
+            'heading' => 'No payments yet',
+            'description' => 'Payments you make against your invoices are listed here with their receipts.',
+        ],
+        'portal_tenant_requests' => [
+            'heading' => 'No requests yet',
+            'description' => 'Raise a request for maintenance, fit-out approval, access or anything else you need from mall management.',
+            'cta' => 'Submit a request',
+        ],
+        'portal_tenant_sales' => [
+            'heading' => 'No sales declared yet',
+            'description' => 'If your lease has percentage rent, declare each month\'s turnover here by the deadline in your lease.',
+            'cta' => 'Declare sales',
+        ],
         'warehouses' => [
             'heading' => 'No stores yet',
             'description' => 'A store is where stock physically sits — the main store, a housekeeping cupboard, a maintenance workshop.',

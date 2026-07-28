@@ -98,6 +98,9 @@ class AccountingPeriodsTable
                     }),
             ])
             ->defaultSort('starts_on', 'desc')
-            ->paginated([12, 24, 48]);
+            ->paginated([12, 24, 48])
+            ->emptyStateIcon('heroicon-o-calendar-days')
+            ->emptyStateHeading(__('admin.empty.accounting_periods.heading'))
+            ->emptyStateDescription(__('admin.empty.accounting_periods.description'));
     }
 }

@@ -10,6 +10,7 @@ use App\Services\PurchaseOrderPdfService;
 use App\Services\PurchaseRequestService;
 use App\Support\ApprovalPolicy;
 use Filament\Actions\Action;
+use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -287,7 +288,15 @@ class PurchaseRequestsTable
                         );
                     }),
             ])
-            ->defaultSort('id', 'desc');
+            ->defaultSort('id', 'desc')
+            ->emptyStateIcon('heroicon-o-shopping-cart')
+            ->emptyStateHeading(__('admin.empty.purchase_requests.heading'))
+            ->emptyStateDescription(__('admin.empty.purchase_requests.description'))
+            ->emptyStateActions([
+                CreateAction::make()
+                    ->label(__('admin.empty.purchase_requests.cta'))
+                    ->icon('heroicon-o-plus'),
+            ]);
     }
 
     /** The stored tier is a permission (`approvals.tier_1`); a dotted key can never resolve. */

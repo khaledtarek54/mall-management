@@ -7,6 +7,7 @@ use App\Models\TenantRequest;
 use App\Services\TenantRequestService;
 use App\Support\Portal;
 use Filament\Actions\Action;
+use Filament\Actions\CreateAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -130,6 +131,14 @@ class TenantRequestsTable
                         Notification::make()->title(__('admin.actions.rated'))->success()->send();
                     }),
             ])
-            ->defaultSort('submitted_at', 'desc');
+            ->defaultSort('submitted_at', 'desc')
+            ->emptyStateIcon('heroicon-o-wrench')
+            ->emptyStateHeading(__('admin.empty.portal_tenant_requests.heading'))
+            ->emptyStateDescription(__('admin.empty.portal_tenant_requests.description'))
+            ->emptyStateActions([
+                CreateAction::make()
+                    ->label(__('admin.empty.portal_tenant_requests.cta'))
+                    ->icon('heroicon-o-plus'),
+            ]);
     }
 }

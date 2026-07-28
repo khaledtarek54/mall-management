@@ -8,6 +8,7 @@ use App\Models\Violation;
 use App\Services\BillViolationFineService;
 use App\Services\SendViolationNoticeAction;
 use Filament\Actions\Action;
+use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\Summarizers\Sum;
@@ -167,6 +168,14 @@ class ViolationTable
                     }),
                 EditAction::make()->visible(fn (Violation $record) => ViolationResource::canEdit($record)),
             ])
-            ->defaultSort('violation_date', 'desc');
+            ->defaultSort('violation_date', 'desc')
+            ->emptyStateIcon('heroicon-o-exclamation-triangle')
+            ->emptyStateHeading(__('admin.empty.violations.heading'))
+            ->emptyStateDescription(__('admin.empty.violations.description'))
+            ->emptyStateActions([
+                CreateAction::make()
+                    ->label(__('admin.empty.violations.cta'))
+                    ->icon('heroicon-o-plus'),
+            ]);
     }
 }

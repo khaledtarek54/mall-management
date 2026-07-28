@@ -12,6 +12,7 @@ use App\Services\AttributeWorkOrderFaultService;
 use App\Services\MaintenanceWorkOrderService;
 use App\Services\RaiseCorrectiveMaintenanceService;
 use Filament\Actions\Action;
+use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -396,6 +397,14 @@ class MaintenanceWorkOrdersTable
                     }),
                 EditAction::make()->visible(fn (MaintenanceWorkOrder $record) => ! $record->isTerminal() && MaintenanceWorkOrderResource::canEdit($record)),
             ])
-            ->defaultSort('scheduled_for', 'desc');
+            ->defaultSort('scheduled_for', 'desc')
+            ->emptyStateIcon('heroicon-o-clipboard-document-list')
+            ->emptyStateHeading(__('admin.empty.maintenance_work_orders.heading'))
+            ->emptyStateDescription(__('admin.empty.maintenance_work_orders.description'))
+            ->emptyStateActions([
+                CreateAction::make()
+                    ->label(__('admin.empty.maintenance_work_orders.cta'))
+                    ->icon('heroicon-o-plus'),
+            ]);
     }
 }

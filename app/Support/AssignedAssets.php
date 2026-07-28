@@ -2,8 +2,10 @@
 
 namespace App\Support;
 
+use App\Models\Asset;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Property-staff query scoping helper.
@@ -50,7 +52,7 @@ class AssignedAssets
             return null;
         }
 
-        $code = \App\Models\Asset::ALL_PROPERTIES_CODE;
+        $code = Asset::ALL_PROPERTIES_CODE;
 
         // Staff assignments (asset_user) ∪ legal ownership (asset_owner) — so
         // Jawad owners are scoped to their owned properties, not unrestricted.
@@ -73,9 +75,19 @@ class AssignedAssets
             //    sites use that form. So return a never-matching sentinel [0] (asset ids are ≥ 1):
             //    truthy → `->when()` still applies the restriction, non-null → `!== null` guards apply,
             //    and `whereIn('asset_id', [0])` matches nothing. Fail-closed for every consumer.
+            //
+            // The probe reads the PIVOT ROWS, not assignedAssets()/ownedAssets().
+            // Those are relations to a SOFT-DELETING model, so archiving a property
+            // made them return nothing — and a user assigned to exactly that
+            // property fell into the "never scoped" branch and became UNRESTRICTED,
+            // gaining read access to every other property. Archiving a mall is an
+            // ordinary super_admin action, so that was reachable, not theoretical.
+            // "Was this user ever scoped?" is a question about the assignment, and
+            // must not depend on whether the asset still exists.
+            // Regression: tests/Feature/Regression/AssignedAssetsLapsedScopeTest.php
             $everScoped = $user->hasRole('owner')
-                || $user->ownedAssets()->exists()
-                || $user->assignedAssets()->exists();
+                || DB::table('asset_owner')->where('user_id', $user->getKey())->exists()
+                || DB::table('asset_user')->where('user_id', $user->getKey())->exists();
 
             return $everScoped ? [0] : null;
         }
@@ -93,6 +105,7 @@ class AssignedAssets
         if (! $user instanceof User) {
             return false;
         }
+
         return static::idsFor($user) !== null;
     }
 }

@@ -11,11 +11,11 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\HtmlString;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 
 class OwnerRequestsTable
@@ -148,6 +148,9 @@ class OwnerRequestsTable
                             ->send();
                     }),
             ])
-            ->defaultSort('created_at', 'desc');
+            ->defaultSort('created_at', 'desc')
+            ->emptyStateIcon('heroicon-o-inbox-arrow-down')
+            ->emptyStateHeading(__('admin.empty.owner_requests.heading'))
+            ->emptyStateDescription(__('admin.empty.owner_requests.description'));
     }
 }

@@ -63,6 +63,9 @@ class MarketingBudgetsTable
                 BulkActionGroup::make([
                     DeleteBulkAction::make()->visible(fn () => MarketingBudgetResource::canDeleteAny()),
                 ]),
-            ]);
+            ])
+            ->emptyStateIcon('heroicon-o-megaphone')
+            ->emptyStateHeading(__('admin.empty.marketing_budgets.heading'))
+            ->emptyStateDescription(__('admin.empty.marketing_budgets.description'));
     }
 }

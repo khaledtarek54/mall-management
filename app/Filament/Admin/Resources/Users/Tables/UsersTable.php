@@ -3,7 +3,9 @@
 namespace App\Filament\Admin\Resources\Users\Tables;
 
 use App\Filament\Admin\Resources\Users\UserResource;
+use Carbon\Carbon;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
@@ -68,11 +70,12 @@ class UsersTable
                     ->indicateUsing(function (array $data): array {
                         $indicators = [];
                         if ($data['created_from'] ?? null) {
-                            $indicators[] = __('admin.filters.created_from') . ': ' . \Carbon\Carbon::parse($data['created_from'])->format('d/m/Y');
+                            $indicators[] = __('admin.filters.created_from').': '.Carbon::parse($data['created_from'])->format('d/m/Y');
                         }
                         if ($data['created_until'] ?? null) {
-                            $indicators[] = __('admin.filters.created_until') . ': ' . \Carbon\Carbon::parse($data['created_until'])->format('d/m/Y');
+                            $indicators[] = __('admin.filters.created_until').': '.Carbon::parse($data['created_until'])->format('d/m/Y');
                         }
+
                         return $indicators;
                     }),
             ])
@@ -89,6 +92,14 @@ class UsersTable
                     DeleteBulkAction::make(),
                 ]),
             ])
-            ->defaultSort('id');
+            ->defaultSort('id')
+            ->emptyStateIcon('heroicon-o-users')
+            ->emptyStateHeading(__('admin.empty.users.heading'))
+            ->emptyStateDescription(__('admin.empty.users.description'))
+            ->emptyStateActions([
+                CreateAction::make()
+                    ->label(__('admin.empty.users.cta'))
+                    ->icon('heroicon-o-plus'),
+            ]);
     }
 }

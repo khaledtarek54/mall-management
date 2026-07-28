@@ -4,9 +4,12 @@ namespace App\Filament\Admin\Resources\MaintenancePlans\Tables;
 
 use App\Filament\Admin\Resources\MaintenancePlans\MaintenancePlanResource;
 use App\Models\MaintenancePlan;
+use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 
 class MaintenancePlansTable
@@ -60,15 +63,23 @@ class MaintenancePlansTable
             // unfindable — the table had no filters at all, and ActionRequired surfaces breached
             // work ORDERS, not stale plans. These make an overdue/inactive plan visible.
             ->filters([
-                \Filament\Tables\Filters\TernaryFilter::make('is_active')
+                TernaryFilter::make('is_active')
                     ->label(__('admin.preventive_maintenance.filters.active')),
-                \Filament\Tables\Filters\Filter::make('overdue')
+                Filter::make('overdue')
                     ->label(__('admin.preventive_maintenance.filters.overdue'))
                     ->query(fn ($query) => $query->where('is_active', true)->whereDate('next_due_date', '<', now()->toDateString())),
             ])
             ->recordActions([
                 EditAction::make()->visible(fn (MaintenancePlan $record) => MaintenancePlanResource::canEdit($record)),
             ])
-            ->defaultSort('next_due_date');
+            ->defaultSort('next_due_date')
+            ->emptyStateIcon('heroicon-o-calendar')
+            ->emptyStateHeading(__('admin.empty.maintenance_plans.heading'))
+            ->emptyStateDescription(__('admin.empty.maintenance_plans.description'))
+            ->emptyStateActions([
+                CreateAction::make()
+                    ->label(__('admin.empty.maintenance_plans.cta'))
+                    ->icon('heroicon-o-plus'),
+            ]);
     }
 }

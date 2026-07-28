@@ -118,6 +118,9 @@ class DisbursementsTable
                         }
                         Notification::make()->title(__('admin.disbursements.notices.cancelled'))->success()->send();
                     }),
-            ]);
+            ])
+            ->emptyStateIcon('heroicon-o-arrow-up-tray')
+            ->emptyStateHeading(__('admin.empty.disbursements.heading'))
+            ->emptyStateDescription(__('admin.empty.disbursements.description'));
     }
 }

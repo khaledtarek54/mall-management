@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\SlaPolicies\Tables;
 use App\Filament\Admin\Resources\SlaPolicies\SlaPolicyResource;
 use App\Models\SlaPolicy;
 use App\Support\SlaResolver;
+use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -53,6 +54,14 @@ class SlaPoliciesTable
             ->recordActions([
                 EditAction::make()->visible(fn (SlaPolicy $record) => SlaPolicyResource::canEdit($record)),
             ])
-            ->defaultSort('asset_id');
+            ->defaultSort('asset_id')
+            ->emptyStateIcon('heroicon-o-clock')
+            ->emptyStateHeading(__('admin.empty.sla_policies.heading'))
+            ->emptyStateDescription(__('admin.empty.sla_policies.description'))
+            ->emptyStateActions([
+                CreateAction::make()
+                    ->label(__('admin.empty.sla_policies.cta'))
+                    ->icon('heroicon-o-plus'),
+            ]);
     }
 }

@@ -227,6 +227,9 @@ class OwnerStatementRunsTable
                         $statement->owner?->notify(new OwnerStatementSentNotification($statement));
                         Notification::make()->title(__('admin.owner_statements.notices.sent'))->success()->send();
                     }),
-            ]);
+            ])
+            ->emptyStateIcon('heroicon-o-document-chart-bar')
+            ->emptyStateHeading(__('admin.empty.owner_statement_runs.heading'))
+            ->emptyStateDescription(__('admin.empty.owner_statement_runs.description'));
     }
 }

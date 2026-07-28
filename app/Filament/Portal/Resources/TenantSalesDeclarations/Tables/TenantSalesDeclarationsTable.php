@@ -2,6 +2,7 @@
 
 namespace App\Filament\Portal\Resources\TenantSalesDeclarations\Tables;
 
+use Filament\Actions\CreateAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
@@ -57,6 +58,14 @@ class TenantSalesDeclarationsTable
             ->defaultSort('period_start', 'desc')
             ->recordActions([
                 ViewAction::make(),
+            ])
+            ->emptyStateIcon('heroicon-o-chart-bar')
+            ->emptyStateHeading(__('admin.empty.portal_tenant_sales.heading'))
+            ->emptyStateDescription(__('admin.empty.portal_tenant_sales.description'))
+            ->emptyStateActions([
+                CreateAction::make()
+                    ->label(__('admin.empty.portal_tenant_sales.cta'))
+                    ->icon('heroicon-o-plus'),
             ]);
     }
 }

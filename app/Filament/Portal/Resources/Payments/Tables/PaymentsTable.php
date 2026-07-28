@@ -87,6 +87,9 @@ class PaymentsTable
             ->recordActions([
                 ViewAction::make(),
             ])
-            ->defaultSort('payment_date', 'desc');
+            ->defaultSort('payment_date', 'desc')
+            ->emptyStateIcon('heroicon-o-banknotes')
+            ->emptyStateHeading(__('admin.empty.portal_payments.heading'))
+            ->emptyStateDescription(__('admin.empty.portal_payments.description'));
     }
 }

@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\Areas\Tables;
 
 use App\Filament\Admin\Resources\Areas\AreaResource;
 use App\Models\Area;
+use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -56,6 +57,14 @@ class AreaTable
             ->recordActions([
                 EditAction::make()->visible(fn (Area $record) => AreaResource::canEdit($record)),
             ])
-            ->defaultSort('code');
+            ->defaultSort('code')
+            ->emptyStateIcon('heroicon-o-map')
+            ->emptyStateHeading(__('admin.empty.areas.heading'))
+            ->emptyStateDescription(__('admin.empty.areas.description'))
+            ->emptyStateActions([
+                CreateAction::make()
+                    ->label(__('admin.empty.areas.cta'))
+                    ->icon('heroicon-o-plus'),
+            ]);
     }
 }
