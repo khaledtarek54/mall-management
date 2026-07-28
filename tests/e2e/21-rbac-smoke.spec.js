@@ -33,6 +33,20 @@ for (const [role, access] of Object.entries(MATRIX.roles)) {
 
     test(`${role}: permitted modules render, forbidden ones 403`, async ({ page }) => {
       const tenant = await landingTenant(page);
+
+      // An EXPIRED saved session redirects /admin → /admin/login, so `tenant`
+      // comes back as "login" and every URL below becomes
+      // /admin/login/<slug>, which renders the login page at 200 — reported as
+      // "not viewable but returned 200", i.e. a phantom RBAC violation on every
+      // role at once. Fail loudly with the fix instead: these states are cached
+      // by global-setup and only refreshed when deleted, so they go stale
+      // silently whenever the demo DB is reseeded.
+      expect(
+        tenant,
+        `Saved session for "${role}" is no longer authenticated (landed on /admin/login).\n` +
+        'Refresh it:  rm storage/playwright-state/role-*.json  then re-run.',
+      ).not.toBe('login');
+
       if (!tenant || tenant === 'new') {
         test.skip(true, `${role} has no assigned property (landed on /admin/${tenant})`);
         return;
