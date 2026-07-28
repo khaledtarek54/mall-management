@@ -14,11 +14,6 @@ class RecentPayments extends TableWidget
 {
     use RoleScopedWidget;
 
-    protected static function allowedRoles(): array
-    {
-        return ['manager', 'viewer', 'accounting'];
-    }
-
     protected static ?int $sort = 9;
 
     protected int|string|array $columnSpan = 'full';
@@ -33,7 +28,7 @@ class RecentPayments extends TableWidget
         return $table
             ->query(function (): Builder {
                 return TenantScope::applyTo(Payment::query(), 'invoices.lease.unit')
-                    ->whereIn('status', \App\Models\Payment::RECEIVED_STATUSES)
+                    ->whereIn('status', Payment::RECEIVED_STATUSES)
                     ->with('tenant')
                     ->latest('payment_date')
                     ->latest('id')

@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Widgets;
 use App\Filament\Admin\Concerns\RoleScopedWidget;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Models\Lease;
+use App\Support\TenantScope;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 
@@ -18,16 +19,11 @@ class LeasingPipeline extends StatsOverviewWidget
 {
     use RoleScopedWidget;
 
-    protected static function allowedRoles(): array
-    {
-        return ['manager', 'leasing'];
-    }
-
     protected static ?int $sort = 2;
 
     protected function getStats(): array
     {
-        $byStatus = \App\Support\TenantScope::applyTo(Lease::query(), 'unit')
+        $byStatus = TenantScope::applyTo(Lease::query(), 'unit')
             ->selectRaw('status, COUNT(*) as count, SUM(base_rent_monthly + service_charge_monthly) as monthly_value')
             ->groupBy('status')
             ->get()
@@ -35,6 +31,7 @@ class LeasingPipeline extends StatsOverviewWidget
 
         $get = function (string $status) use ($byStatus) {
             $row = $byStatus->get($status);
+
             return [
                 'count' => (int) ($row->count ?? 0),
                 'value' => (float) ($row->monthly_value ?? 0),

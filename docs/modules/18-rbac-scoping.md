@@ -219,6 +219,34 @@ Database notifications are used for operational events (portal maintenance reque
 
 ## 8. Extension points — how to change/extend SAFELY
 
+### The dashboard: `App\Support\DashboardLayout`
+
+**One registry decides what every role's dashboard is** — `LAYOUTS` maps a role to an ordered list
+of widget classes, `App\Filament\Admin\Pages\Dashboard` composes from it, and
+`RoleScopedWidget::canView()` asks it. `DashboardLayoutConformanceTest` fails the build on an empty
+role, an unknown role, or a widget in neither a layout nor `NOT_ON_DASHBOARD`.
+
+**To add a widget:** write it with `use RoleScopedWidget` (plus `widgetModule()` if it belongs to a
+toggleable module), then name it in the layout of every role that should see it. There is no
+"visible by default" — Filament's `discoverWidgets()` registers the whole directory with the panel,
+so a widget outside the registry is simply never composed.
+
+**Do NOT** add widgets to `->widgets([...])` in `AdminPanelProvider`. That list publishes to every
+role and leaves gating to each widget's own `canView()`, which is precisely how it went wrong.
+
+**Money:** `MONEY_ROLES` is the list of roles that may see collections/receivables figures.
+`MallStats` filters its AR and collections cards on it, and `ActionRequired` gates each alert card
+on the `{module}.view` permission of the register it links to (`CARD_PERMISSIONS`) — so an
+operations user is not told about overdue invoices they cannot open.
+
+*Fixed 2026-07-28.* Before the registry, visibility was thirteen separate `allowedRoles()` lists.
+Nobody could read them back by role, and the result was: **six of fifteen roles had a completely
+blank dashboard** (owner, marketing, hr, technician, vendor, mall_admin — the last of which is
+documented as "a manager for their assigned properties"); `MonthlyCloseStats` shipped with **no
+gate at all** and so published the property's invoicing, collections rate, outstanding AR and every
+ageing bucket to every role on the panel, HR and marketing included; and a manager's dashboard was
+eleven widgets and a 2,900px scroll.
+
 ### Add a new module (e.g., "Contracts")
 1. **Seed permissions** in `database/seeders/RolesPermissionsSeeder.php::PERMISSIONS['contracts']`:
    ```php

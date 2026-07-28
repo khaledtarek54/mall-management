@@ -3,11 +3,12 @@
 namespace App\Filament\Admin\Widgets;
 
 use App\Filament\Admin\Concerns\RoleScopedWidget;
-use App\Models\Invoice;
 use App\Models\Lease;
 use App\Models\Payment;
 use App\Models\TenantRequest;
 use App\Models\Unit;
+use App\Services\Reports\ReportService;
+use App\Support\DashboardLayout;
 use App\Support\TenantScope;
 use Carbon\CarbonImmutable;
 use Filament\Widgets\StatsOverviewWidget;
@@ -18,17 +19,8 @@ class MallStats extends StatsOverviewWidget
 {
     use RoleScopedWidget;
 
-    // Headline KPIs — everyone with admin access sees these.
-    protected static function allowedRoles(): array
-    {
-        return ['manager', 'viewer', 'leasing', 'operations', 'accounting'];
-    }
-
-    // Dashboard order: SetupGuide(-1) → ActionRequired(0) → MallStats(1)
-    // → LeasingPipeline(2) → ExpiringLeases(3) → TopTenants(4) →
-    // ArAging(5) + TenantMix(6) [paired half-width charts] →
-    // EtaCompliance(7) → MonthlyRevenueTrend(8) → RecentPayments(9) →
-    // OpenTenantRequests(10) → EnergyConsumptionTrend(11).
+    // Render order within a layout. Which layouts include this widget at all is
+    // App\Support\DashboardLayout's decision, not this constant's.
     protected static ?int $sort = 1;
 
     protected function getStats(): array
@@ -46,10 +38,6 @@ class MallStats extends StatsOverviewWidget
         $leaseQuery = fn () => $assetIds !== null
             ? Lease::whereHas('unit', fn ($q) => $q->whereIn('asset_id', $assetIds))
             : Lease::query();
-
-        $invoiceQuery = fn () => $assetIds !== null
-            ? Invoice::whereHas('lease.unit', fn ($q) => $q->whereIn('asset_id', $assetIds))
-            : Invoice::query();
 
         $paymentQuery = fn () => $assetIds !== null
             ? Payment::whereHas('invoices.lease.unit', fn ($q) => $q->whereIn('asset_id', $assetIds))
@@ -77,26 +65,26 @@ class MallStats extends StatsOverviewWidget
         $startOfLastMonth = $now->subMonth()->startOfMonth();
         $endOfLastMonth = $now->subMonth()->endOfMonth();
 
-        $collectedThisMonth = (float) $paymentQuery()->whereIn('status', \App\Models\Payment::RECEIVED_STATUSES)
+        $collectedThisMonth = (float) $paymentQuery()->whereIn('status', Payment::RECEIVED_STATUSES)
             ->whereBetween('payment_date', [$startOfMonth, $now])
             ->sum('amount');
 
-        $collectedLastMonth = (float) $paymentQuery()->whereIn('status', \App\Models\Payment::RECEIVED_STATUSES)
+        $collectedLastMonth = (float) $paymentQuery()->whereIn('status', Payment::RECEIVED_STATUSES)
             ->whereBetween('payment_date', [$startOfLastMonth, $endOfLastMonth])
             ->sum('amount');
 
-        $outstandingAR = (float) $invoiceQuery()->whereIn('status', ['issued', 'partially_paid', 'overdue'])
-            ->sum('balance');
+        // Receivables come from the report service, not from a private query here. The same five
+        // buckets are shown on this dashboard (AR-ageing chart), on the monthly-close page and in
+        // its drill-down; every copy of the bucket rules that existed disagreed with the others at
+        // the boundaries. "Outstanding" is the sum of the buckets by construction, so the headline
+        // and the chart underneath it cannot show two different totals.
+        $buckets = app(ReportService::class)->arAgingBuckets();
 
-        $overdueAR = (float) $invoiceQuery()->whereIn('status', ['issued', 'partially_paid', 'overdue'])
-            ->where('balance', '>', 0)
-            ->where('due_date', '<', now())
-            ->sum('balance');
+        $outstandingAR = array_sum(array_column($buckets, 'total'));
 
-        $overdueCount = $invoiceQuery()->whereIn('status', ['issued', 'partially_paid', 'overdue'])
-            ->where('balance', '>', 0)
-            ->where('due_date', '<', now())
-            ->count();
+        // Overdue = everything except the not-yet-due bucket.
+        $overdueAR = $outstandingAR - $buckets['current']['total'];
+        $overdueCount = array_sum(array_column($buckets, 'count')) - $buckets['current']['count'];
 
         // Tenant satisfaction (CSAT) — average close-out rating across all
         // resolved/closed requests that were rated, property-scoped.
@@ -112,14 +100,8 @@ class MallStats extends StatsOverviewWidget
         $collectedDelta = $this->percentDelta($collectedThisMonth, $collectedLastMonth);
 
         $occupancySeries = $this->occupancyHistorySeries(6, $assetIds);
-        $billedSeries = $this->monthlySeries(
-            $invoiceQuery()->whereNotIn('status', ['cancelled', 'credited']),
-            'period_start',
-            'total',
-            6,
-        );
         $collectedSeries = $this->monthlySeries(
-            $paymentQuery()->whereIn('status', \App\Models\Payment::RECEIVED_STATUSES),
+            $paymentQuery()->whereIn('status', Payment::RECEIVED_STATUSES),
             'payment_date',
             'amount',
             6,
@@ -128,7 +110,14 @@ class MallStats extends StatsOverviewWidget
         $occupancyColor = $occupancy >= 85 ? 'success' : ($occupancy >= 70 ? 'warning' : 'danger');
         $areaOccupancyColor = $areaOccupancy >= 85 ? 'success' : ($areaOccupancy >= 70 ? 'warning' : 'danger');
 
-        return [
+        // Occupancy, contractual rent and satisfaction are every operational role's business.
+        // Collections and receivables are not: leasing and operations need to know the mall is
+        // full and what it rents for, not what the tenants currently owe. See
+        // DashboardLayout::MONEY_ROLES — same registry that decides the layouts, so the two
+        // can't drift into disagreeing about who handles money.
+        $seesMoney = DashboardLayout::seesMoney();
+
+        $stats = [
             Stat::make(__('admin.widgets.mall_stats.occupancy'), $occupancy.'%')
                 ->description(__('admin.widgets.mall_stats.occupancy_desc', [
                     'occupied' => $occupiedUnits,
@@ -158,20 +147,6 @@ class MallStats extends StatsOverviewWidget
                 ->descriptionIcon('heroicon-m-banknotes')
                 ->color('primary'),
 
-            Stat::make(__('admin.widgets.mall_stats.collected_this_month'), 'EGP '.number_format($collectedThisMonth, 0))
-                ->description($this->collectedDescription($collectionRate, $collectedDelta))
-                ->descriptionIcon($collectedDelta >= 0 ? 'heroicon-m-arrow-trending-up' : 'heroicon-m-arrow-trending-down')
-                ->color($collectionRate >= 75 ? 'success' : ($collectionRate >= 40 ? 'warning' : 'danger'))
-                ->chart($collectedSeries),
-
-            Stat::make(__('admin.widgets.mall_stats.outstanding_ar'), 'EGP '.number_format($outstandingAR, 0))
-                ->description(__('admin.widgets.mall_stats.outstanding_ar_desc', [
-                    'overdue' => number_format($overdueAR, 0),
-                    'count' => $overdueCount,
-                ]))
-                ->descriptionIcon($overdueAR > 0 ? 'heroicon-m-exclamation-triangle' : 'heroicon-m-check-circle')
-                ->color($overdueAR > 0 ? 'danger' : 'success'),
-
             Stat::make(__('admin.widgets.mall_stats.satisfaction'), $avgCsat !== null ? $avgCsat.' / 5' : '—')
                 ->description($avgCsat !== null
                     ? __('admin.widgets.mall_stats.satisfaction_desc', ['count' => $ratedCount])
@@ -179,6 +154,24 @@ class MallStats extends StatsOverviewWidget
                 ->descriptionIcon('heroicon-m-face-smile')
                 ->color($avgCsat === null ? 'gray' : ($avgCsat >= 4 ? 'success' : ($avgCsat >= 3 ? 'warning' : 'danger'))),
         ];
+
+        if ($seesMoney) {
+            $stats[] = Stat::make(__('admin.widgets.mall_stats.collected_this_month'), 'EGP '.number_format($collectedThisMonth, 0))
+                ->description($this->collectedDescription($collectionRate, $collectedDelta))
+                ->descriptionIcon($collectedDelta >= 0 ? 'heroicon-m-arrow-trending-up' : 'heroicon-m-arrow-trending-down')
+                ->color($collectionRate >= 75 ? 'success' : ($collectionRate >= 40 ? 'warning' : 'danger'))
+                ->chart($collectedSeries);
+
+            $stats[] = Stat::make(__('admin.widgets.mall_stats.outstanding_ar'), 'EGP '.number_format($outstandingAR, 0))
+                ->description(__('admin.widgets.mall_stats.outstanding_ar_desc', [
+                    'overdue' => number_format($overdueAR, 0),
+                    'count' => $overdueCount,
+                ]))
+                ->descriptionIcon($overdueAR > 0 ? 'heroicon-m-exclamation-triangle' : 'heroicon-m-check-circle')
+                ->color($overdueAR > 0 ? 'danger' : 'success');
+        }
+
+        return $stats;
     }
 
     protected function collectedDescription(float $collectionRate, ?float $momDelta): string

@@ -3,7 +3,7 @@
 namespace App\Filament\Admin\Widgets;
 
 use App\Filament\Admin\Concerns\RoleScopedWidget;
-use App\Models\MeterReading;
+use App\Support\TenantScope;
 use Carbon\CarbonImmutable;
 use Filament\Widgets\ChartWidget;
 use Illuminate\Support\Facades\DB;
@@ -11,11 +11,6 @@ use Illuminate\Support\Facades\DB;
 class EnergyConsumptionTrend extends ChartWidget
 {
     use RoleScopedWidget;
-
-    protected static function allowedRoles(): array
-    {
-        return ['manager', 'operations', 'viewer'];
-    }
 
     protected static function widgetModule(): ?string
     {
@@ -44,7 +39,7 @@ class EnergyConsumptionTrend extends ChartWidget
         $start = CarbonImmutable::now()->startOfMonth()->subMonths(11);
         // Property isolation: visibleAssetIds() keeps a restricted user pinned to their
         // set in All-Properties mode (currentAssetId() is null there → portfolio leak).
-        $assetIds = \App\Support\TenantScope::visibleAssetIds();
+        $assetIds = TenantScope::visibleAssetIds();
 
         $monthExpr = match (DB::connection()->getDriverName()) {
             'sqlite' => "strftime('%Y-%m', reading_date)",

@@ -6,9 +6,15 @@ use App\Filament\Admin\Widgets\LeasingPipeline;
 use App\Filament\Admin\Widgets\MallStats;
 use App\Filament\Admin\Widgets\TenantMix;
 use App\Models\Asset;
-use App\Models\Payment;
+use App\Models\Unit;
+use Database\Seeders\RolesPermissionsSeeder;
 
 beforeEach(function () {
+    // Real role definitions: the ActionRequired cards are gated on the {module}.view permission of
+    // the register each links to, and `makeUser()` alone creates a bare role with no permissions —
+    // a manager that cannot exist in production. Without this the card list is empty and the
+    // assertions below would pass over nothing.
+    $this->seed(RolesPermissionsSeeder::class);
     ensureAllPropertiesAsset();
 
     $this->hw = makeAsset(['code' => 'HW']);
@@ -32,6 +38,7 @@ function widgetCall(string $widgetClass, string $method): mixed
 {
     $widget = new $widgetClass;
     $ref = new ReflectionMethod($widget, $method);
+
     return $ref->invoke($widget);
 }
 
@@ -62,7 +69,7 @@ it('MallStats surfaces economic (area) occupancy, property-scoped', function () 
             $stats = widgetCall(MallStats::class, 'getStats');
             $eco = collect($stats)->first(fn ($s) => $s->getLabel() === __('admin.widgets.mall_stats.economic_occupancy'));
             expect($eco)->not->toBeNull();
-            expect($eco->getValue())->toBe($asset->fresh()->areaOccupancyRate() . '%');
+            expect($eco->getValue())->toBe($asset->fresh()->areaOccupancyRate().'%');
         });
     }
 
@@ -112,8 +119,8 @@ it('LeasingPipeline counts only the current property leases', function () {
 it('TenantMix slices by category for the current property', function () {
     makeUnit($this->hw, ['status' => 'occupied', 'category' => 'food_beverage']);
     makeUnit($this->hw, ['status' => 'occupied', 'category' => 'food_beverage']);
-    makeLease(\App\Models\Unit::where('asset_id', $this->hw->id)->where('category', 'food_beverage')->orderBy('id')->first(), attrs: ['status' => 'active']);
-    makeLease(\App\Models\Unit::where('asset_id', $this->hw->id)->where('category', 'food_beverage')->orderBy('id', 'desc')->first(), attrs: ['status' => 'active']);
+    makeLease(Unit::where('asset_id', $this->hw->id)->where('category', 'food_beverage')->orderBy('id')->first(), attrs: ['status' => 'active']);
+    makeLease(Unit::where('asset_id', $this->hw->id)->where('category', 'food_beverage')->orderBy('id', 'desc')->first(), attrs: ['status' => 'active']);
 
     asTenant($this->hw, function () {
         $data = widgetCall(TenantMix::class, 'getData');

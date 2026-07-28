@@ -4,17 +4,13 @@ namespace App\Filament\Admin\Widgets;
 
 use App\Filament\Admin\Concerns\RoleScopedWidget;
 use App\Models\Lease;
+use App\Support\TenantScope;
 use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
 
 class TenantMix extends ChartWidget
 {
     use RoleScopedWidget;
-
-    protected static function allowedRoles(): array
-    {
-        return ['manager', 'leasing', 'viewer'];
-    }
 
     public function getHeading(): ?string
     {
@@ -45,7 +41,7 @@ class TenantMix extends ChartWidget
     {
         // Property isolation: visibleAssetIds() keeps a restricted user pinned to their
         // set in All-Properties mode (currentAssetId() is null there → portfolio leak).
-        $assetIds = \App\Support\TenantScope::visibleAssetIds();
+        $assetIds = TenantScope::visibleAssetIds();
 
         $query = Lease::query()
             ->where('leases.status', 'active')

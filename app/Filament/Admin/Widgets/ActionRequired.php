@@ -5,26 +5,57 @@ namespace App\Filament\Admin\Widgets;
 use App\Filament\Admin\Concerns\RoleScopedWidget;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
-use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Filament\Admin\Resources\MaintenanceWorkOrders\MaintenanceWorkOrderResource;
+use App\Filament\Admin\Resources\PostDatedCheques\PostDatedChequeResource;
+use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
+use App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
 use App\Filament\Admin\Resources\Units\UnitResource;
+use App\Filament\Admin\Resources\Vendors\VendorResource;
 use App\Models\Invoice;
 use App\Models\Lease;
 use App\Models\MaintenanceWorkOrder;
+use App\Models\PostDatedCheque;
 use App\Models\TenantRequest;
 use App\Models\Unit;
+use App\Models\Vendor;
+use App\Models\VendorContract;
+use App\Support\Modules;
+use App\Support\TenantScope;
 use Carbon\Carbon;
+use Carbon\CarbonImmutable;
 use Filament\Widgets\Widget;
+use Illuminate\Support\Facades\Auth;
 
 class ActionRequired extends Widget
 {
     use RoleScopedWidget;
 
-    // ActionRequired is the inbox — every operational role sees it.
-    protected static function allowedRoles(): array
-    {
-        return ['manager', 'leasing', 'operations'];
-    }
+    /**
+     * Each card's `key` → the permission that governs the register it links to.
+     *
+     * The widget is one panel shown to managers, leasing, operations, accounting and the
+     * maintenance coordinator, but its cards are not one audience: an operations user was being
+     * told "9 overdue invoices — EGP 275,671 unpaid past due date" and handed a link that would
+     * have 403'd them. Gating per card on the same `{module}.view` permission the target resource
+     * uses means the alert list is exactly the work this user can actually go and do.
+     *
+     * @var array<string, string>
+     */
+    private const CARD_PERMISSIONS = [
+        'urgent_maintenance' => 'maintenance.view',
+        'sla_breached' => 'maintenance.view',
+        'wo_sla_breached' => 'preventive_maintenance.view',
+        'vendor_documents' => 'vendors.view',
+        'contract_notice' => 'vendors.view',
+        'matured_cheques' => 'post_dated_cheques.view',
+        'overdue' => 'invoices.view',
+        'unbilled' => 'invoices.view',
+        'holdover' => 'leases.view',
+        'expiring_critical' => 'leases.view',
+        'expiring_soon' => 'leases.view',
+        'vacant' => 'units.view',
+        'missing_sales' => 'tenant_sales.view',
+    ];
 
     protected string $view = 'filament.admin.widgets.action-required';
 
@@ -39,7 +70,7 @@ class ActionRequired extends Widget
         $now = Carbon::now();
         // Property isolation: visibleAssetIds() keeps a restricted user pinned to their
         // set in All-Properties mode (currentAssetId() is null there → portfolio leak).
-        $assetIds = \App\Support\TenantScope::visibleAssetIds();
+        $assetIds = TenantScope::visibleAssetIds();
 
         $invoiceBase = fn () => $assetIds !== null
             ? Invoice::whereHas('lease.unit', fn ($q) => $q->whereIn('asset_id', $assetIds))
@@ -72,7 +103,7 @@ class ActionRequired extends Widget
         // Vendors are a SHARED portfolio catalog, so "whose problem is it" comes from engagement:
         // only certs on vendors under an active contract at a property this user can see. Counting
         // the raw catalog would show a restricted manager another mall's compliance work.
-        $coiCount = \App\Models\Vendor::query()
+        $coiCount = Vendor::query()
             ->documentsNeedAttention()
             ->when($assetIds !== null, fn ($q) => $q->whereHas(
                 'contracts',
@@ -82,7 +113,7 @@ class ActionRequired extends Widget
 
         // Contracts at their NOTICE deadline — the date a decision is actually due. A contract
         // carries its own asset_id (null = portfolio-wide), so it scopes directly.
-        $noticeDueCount = \App\Models\VendorContract::query()
+        $noticeDueCount = VendorContract::query()
             ->noticeDue()
             ->when($assetIds !== null, fn ($q) => $q->whereIn('asset_id', $assetIds))
             ->count();
@@ -90,7 +121,7 @@ class ActionRequired extends Widget
         // Post-dated cheques matured but not yet cleared — money the register expected by now. A PDC
         // carries asset_id directly, so it scopes like a work order. Surfaces the register's core
         // value where overdue invoices already are, off the same scope as the nightly scan.
-        $maturedChequeCount = \App\Models\PostDatedCheque::query()
+        $maturedChequeCount = PostDatedCheque::query()
             ->maturedUncleared()
             ->when($assetIds !== null, fn ($q) => $q->whereIn('asset_id', $assetIds))
             ->count();
@@ -131,7 +162,7 @@ class ActionRequired extends Widget
             // Only flag leases actually DUE to bill this month. isBillingCycleStart() is false during
             // the fit-out grace (month < first billable) AND on a quarterly/annual lease's off-cycle
             // months — in both cases the lease legitimately has no invoice, so it isn't "unbilled".
-            ->filter(fn ($lease) => $lease->isBillingCycleStart(\Carbon\CarbonImmutable::instance($monthStart)))
+            ->filter(fn ($lease) => $lease->isBillingCycleStart(CarbonImmutable::instance($monthStart)))
             ->count();
 
         // Percentage-rent leases with NO sales declaration for the closed (previous) month — the
@@ -147,13 +178,13 @@ class ActionRequired extends Widget
             ->filter(function ($lease) use ($prevMonthStart) {
                 $firstBillable = $lease->firstBillableMonth();
 
-                return $firstBillable === null || $firstBillable->lessThanOrEqualTo(\Carbon\CarbonImmutable::instance($prevMonthStart));
+                return $firstBillable === null || $firstBillable->lessThanOrEqualTo(CarbonImmutable::instance($prevMonthStart));
             })
             ->count();
 
         $items = [];
-        $maintenanceEnabled = \App\Support\Modules::enabled('maintenance');
-        $ppmEnabled = \App\Support\Modules::enabled('preventive_maintenance');
+        $maintenanceEnabled = Modules::enabled('maintenance');
+        $ppmEnabled = Modules::enabled('preventive_maintenance');
 
         // Each card pre-applies the right filter AND sorts the offending
         // rows to the top, so clicking lands the operator on the work
@@ -208,7 +239,7 @@ class ActionRequired extends Widget
                 'color' => 'warning',
                 'title' => trans_choice('admin.widgets.action_required.vendor_documents', $coiCount, ['count' => $coiCount]),
                 'body' => __('admin.widgets.action_required.vendor_documents_body'),
-                'url' => \App\Filament\Admin\Resources\Vendors\VendorResource::getUrl('index', [
+                'url' => VendorResource::getUrl('index', [
                     'filters' => ['document_attention' => ['isActive' => true]],
                     'sort' => 'name:asc',
                 ]),
@@ -224,7 +255,7 @@ class ActionRequired extends Widget
                 'body' => __('admin.widgets.action_required.contract_notice_body'),
                 // Contracts live inside the Vendors resource, so land the operator on the
                 // vendors whose contracts are due and let the contracts tab carry the filter.
-                'url' => \App\Filament\Admin\Resources\Vendors\VendorResource::getUrl('index'),
+                'url' => VendorResource::getUrl('index'),
             ];
         }
 
@@ -235,7 +266,7 @@ class ActionRequired extends Widget
                 'color' => 'danger',
                 'title' => trans_choice('admin.widgets.action_required.matured_cheques', $maturedChequeCount, ['count' => $maturedChequeCount]),
                 'body' => __('admin.widgets.action_required.matured_cheques_body'),
-                'url' => \App\Filament\Admin\Resources\PostDatedCheques\PostDatedChequeResource::getUrl('index', [
+                'url' => PostDatedChequeResource::getUrl('index', [
                     'filters' => ['matured' => ['isActive' => true]],
                     'sort' => 'cheque_date:asc',
                 ]),
@@ -338,10 +369,30 @@ class ActionRequired extends Widget
                 'color' => 'warning',
                 'title' => trans_choice('admin.widgets.action_required.missing_sales', $missingSalesCount, ['count' => $missingSalesCount]),
                 'body' => __('admin.widgets.action_required.missing_sales_body'),
-                'url' => \App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource::getUrl('index'),
+                'url' => TenantSalesDeclarationResource::getUrl('index'),
             ];
         }
 
-        return ['items' => $items];
+        return ['items' => $this->visibleTo($items)];
+    }
+
+    /**
+     * Drop the cards this user has no business acting on.
+     *
+     * A card whose key isn't mapped stays visible — a new alert should not vanish silently just
+     * because its permission was forgotten. The mapping is the gate; the omission is loud.
+     *
+     * @param  array<int, array<string, mixed>>  $items
+     * @return array<int, array<string, mixed>>
+     */
+    private function visibleTo(array $items): array
+    {
+        $user = Auth::user();
+
+        return array_values(array_filter($items, function (array $item) use ($user): bool {
+            $permission = self::CARD_PERMISSIONS[$item['key']] ?? null;
+
+            return $permission === null || ($user?->can($permission) ?? false);
+        }));
     }
 }

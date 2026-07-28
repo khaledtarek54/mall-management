@@ -2,20 +2,8 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Admin\Pages\Dashboard;
 use App\Filament\Admin\Pages\Tenancy\RegisterProperty;
-use App\Filament\Admin\Widgets\ActionRequired;
-use App\Filament\Admin\Widgets\ArAging;
-use App\Filament\Admin\Widgets\EnergyConsumptionTrend;
-use App\Filament\Admin\Widgets\EtaCompliance;
-use App\Filament\Admin\Widgets\ExpiringLeases;
-use App\Filament\Admin\Widgets\LeasingPipeline;
-use App\Filament\Admin\Widgets\MallStats;
-use App\Filament\Admin\Widgets\MonthlyRevenueTrend;
-use App\Filament\Admin\Widgets\OpenTenantRequests;
-use App\Filament\Admin\Widgets\RecentPayments;
-use App\Filament\Admin\Widgets\SetupGuide;
-use App\Filament\Admin\Widgets\TenantMix;
-use App\Filament\Admin\Widgets\TopTenants;
 use App\Http\Middleware\SetLocale;
 use App\Models\Asset;
 use Filament\Facades\Filament;
@@ -24,7 +12,6 @@ use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Navigation\NavigationGroup;
-use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\View\PanelsRenderHook;
@@ -91,23 +78,12 @@ class AdminPanelProvider extends PanelProvider
                 Dashboard::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Admin/Widgets'), for: 'App\\Filament\\Admin\\Widgets')
-            ->widgets([
-                SetupGuide::class,
-                ActionRequired::class,
-                MallStats::class,
-                EtaCompliance::class,
-                LeasingPipeline::class,
-                // AR Aging + Tenant Mix are half-width (columnSpan = 1) so
-                // they render side by side as a single row of charts.
-                ArAging::class,
-                TenantMix::class,
-                MonthlyRevenueTrend::class,
-                ExpiringLeases::class,
-                OpenTenantRequests::class,
-                TopTenants::class,
-                RecentPayments::class,
-                EnergyConsumptionTrend::class,
-            ])
+            // Deliberately empty: the dashboard is composed per role by
+            // App\Support\DashboardLayout (see App\Filament\Admin\Pages\Dashboard).
+            // Listing widgets here would publish them to every role again — Filament's
+            // dashboard renders the panel's widget list and leaves gating to each widget,
+            // which is how the monthly-close receivables reached HR and marketing.
+            ->widgets([])
             ->navigationGroups([
                 // Sidebar organized by department (FR DEPT). Access to each
                 // resource is still RBAC; this is just the grouping.

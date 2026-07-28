@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Widgets;
 
 use App\Filament\Admin\Concerns\RoleScopedWidget;
 use App\Models\Lease;
+use App\Support\TenantScope;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
@@ -12,11 +13,6 @@ use Illuminate\Database\Eloquent\Builder;
 class ExpiringLeases extends TableWidget
 {
     use RoleScopedWidget;
-
-    protected static function allowedRoles(): array
-    {
-        return ['manager', 'leasing', 'viewer'];
-    }
 
     protected static ?int $sort = 5;
 
@@ -31,7 +27,7 @@ class ExpiringLeases extends TableWidget
     {
         return $table
             ->query(function (): Builder {
-                return \App\Support\TenantScope::applyTo(Lease::query(), 'unit')
+                return TenantScope::applyTo(Lease::query(), 'unit')
                     ->where('status', 'active')
                     ->whereDate('expiry_date', '<=', now()->addDays(90))
                     ->whereDate('expiry_date', '>=', now())

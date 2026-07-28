@@ -2,34 +2,28 @@
 
 namespace App\Filament\Admin\Concerns;
 
+use App\Support\DashboardLayout;
 use App\Support\Modules;
 use Illuminate\Support\Facades\Auth;
 
 /**
- * Single source of truth for which dashboard widgets each Spatie role
- * sees on the admin dashboard.
+ * Visibility gate for a dashboard widget: is it in this user's layout, and is its module on?
  *
- * Why a trait + central map: Filament 4 evaluates `canView()` per widget,
- * so we'd duplicate role checks across 10+ classes. Instead each widget
- * uses this trait and only declares the role list it serves.
+ * The role decision itself lives in `App\Support\DashboardLayout` — this trait used to carry a
+ * per-widget `allowedRoles()` list, thirteen of them, and no one could answer "what does a
+ * marketing user see?" without opening all thirteen and intersecting them by hand. (Nothing. The
+ * answer was nothing.) A widget now declares only the module it belongs to, if any.
+ *
+ * Belt-and-braces: `Dashboard` already composes from the same registry, so `canView()` is the
+ * second lock rather than the only one — it still matters wherever Filament resolves a widget
+ * outside the dashboard page.
  */
 trait RoleScopedWidget
 {
     /**
-     * Roles allowed to see this widget. super_admin always sees everything.
-     * Override in the widget if needed.
-     *
-     * @return string[]
-     */
-    protected static function allowedRoles(): array
-    {
-        return ['super_admin', 'manager', 'viewer', 'leasing', 'operations'];
-    }
-
-    /**
-     * Optional: feature-flag module this widget belongs to. If set and the
-     * module is disabled in /admin/settings → Modules, the widget hides.
-     * Return null for widgets that aren't tied to a toggleable module.
+     * Optional: feature-flag module this widget belongs to. If set and the module is disabled in
+     * /admin/settings → Modules, the widget hides regardless of role. Return null for widgets that
+     * aren't tied to a toggleable module.
      */
     protected static function widgetModule(): ?string
     {
@@ -39,27 +33,26 @@ trait RoleScopedWidget
     public static function canView(): bool
     {
         $module = static::widgetModule();
+
         if ($module !== null && ! Modules::enabled($module)) {
             return false;
         }
+
         return static::roleAllowsView();
     }
 
     /**
-     * Reusable role check. Extracted so widgets that need to compose
-     * additional gates (e.g. a config flag + role) can call this directly.
+     * Reusable role check. Extracted so widgets that need to compose additional gates
+     * (e.g. a config flag + role) can call this directly.
      */
     protected static function roleAllowsView(): bool
     {
         $user = Auth::user();
+
         if (! $user) {
             return false;
         }
 
-        if ($user->hasRole('super_admin')) {
-            return true;
-        }
-
-        return $user->hasAnyRole(static::allowedRoles());
+        return DashboardLayout::allows(static::class, $user);
     }
 }

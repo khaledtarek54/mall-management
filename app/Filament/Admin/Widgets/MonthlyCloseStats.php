@@ -8,6 +8,7 @@ use App\Services\Reports\ReportService;
 use Carbon\CarbonImmutable;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Reactive;
 
 /**
@@ -19,11 +20,20 @@ use Livewire\Attributes\Reactive;
  * theme (including each property's own primary colour) and dark mode, and each
  * ageing bucket keeps its click-through into the AR drill-down.
  *
- * NOT registered on the dashboard — it is driven by the period the Reports page
- * is showing, which is passed in as a widget property.
+ * Belongs to the Reports page, which drives it with a period picker — it is NOT part of any
+ * dashboard layout (see `DashboardLayout::NOT_ON_DASHBOARD`). That used to be a claim in this
+ * docblock and nothing more: Filament auto-discovers every widget in this directory, this one
+ * declared no gate at all, and so the property's invoicing, collections rate, outstanding AR and
+ * all five ageing buckets were published to every role on the panel — HR and marketing included.
+ * `canView()` now ties it to the same `reports.view` permission as the page it belongs to.
  */
 class MonthlyCloseStats extends StatsOverviewWidget
 {
+    public static function canView(): bool
+    {
+        return Auth::user()?->can('reports.view') ?? false;
+    }
+
     /**
      * Y-m of the period being closed; injected by the Reports page.
      *

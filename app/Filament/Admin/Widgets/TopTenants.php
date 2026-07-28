@@ -5,7 +5,7 @@ namespace App\Filament\Admin\Widgets;
 use App\Filament\Admin\Concerns\RoleScopedWidget;
 use App\Models\Lease;
 use App\Models\TenantSalesDeclaration;
-use Carbon\CarbonImmutable;
+use App\Support\TenantScope;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
@@ -14,11 +14,6 @@ use Illuminate\Database\Eloquent\Builder;
 class TopTenants extends TableWidget
 {
     use RoleScopedWidget;
-
-    protected static function allowedRoles(): array
-    {
-        return ['manager', 'leasing', 'viewer'];
-    }
 
     protected static ?int $sort = 6;
 
@@ -33,7 +28,7 @@ class TopTenants extends TableWidget
     {
         return $table
             ->query(function (): Builder {
-                return \App\Support\TenantScope::applyTo(Lease::query(), 'unit')
+                return TenantScope::applyTo(Lease::query(), 'unit')
                     ->where('status', 'active')
                     ->with(['tenant', 'unit'])
                     ->orderByDesc('base_rent_monthly')
@@ -66,7 +61,7 @@ class TopTenants extends TableWidget
                     ->label(__('admin.widgets.top_tenants.sales_density'))
                     ->state(fn (Lease $lease) => $this->salesDensityFor($lease))
                     ->formatStateUsing(fn ($state) => $state !== null
-                        ? 'EGP ' . number_format($state, 0) . '/' . __('admin.widgets.top_tenants.per_sqm')
+                        ? 'EGP '.number_format($state, 0).'/'.__('admin.widgets.top_tenants.per_sqm')
                         : '—')
                     ->color(fn ($state) => $state !== null ? 'success' : 'gray')
                     ->alignRight()

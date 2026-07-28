@@ -3,6 +3,7 @@
 use App\Filament\Admin\Widgets\EtaCompliance;
 use App\Settings\ModulesSettings;
 use App\Support\Modules;
+use Database\Seeders\RolesPermissionsSeeder;
 
 it('Modules::enabled returns the configured value for the eta key', function () {
     $settings = app(ModulesSettings::class);
@@ -18,7 +19,12 @@ it('Modules::enabled returns the configured value for the eta key', function () 
 });
 
 it('EtaCompliance widget hides when the eta module is disabled', function () {
-    $user = makeUser('manager');
+    // Accounting, not manager: ETA e-invoicing compliance is an accounting concern, and
+    // App\Support\DashboardLayout puts this widget on the accounting dashboard only.
+    // `seedRoles()` (which makeUser calls) only creates the six original roles, so the real
+    // seeder is what makes `accounting` exist at all.
+    $this->seed(RolesPermissionsSeeder::class);
+    $user = makeUser('accounting');
     $this->actingAs($user);
 
     $settings = app(ModulesSettings::class);

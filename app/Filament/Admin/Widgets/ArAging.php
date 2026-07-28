@@ -11,11 +11,6 @@ class ArAging extends ChartWidget
 {
     use RoleScopedWidget;
 
-    protected static function allowedRoles(): array
-    {
-        return ['manager', 'viewer', 'accounting'];
-    }
-
     public function getHeading(): ?string
     {
         return __('admin.widgets.ar_aging.heading');
@@ -27,6 +22,12 @@ class ArAging extends ChartWidget
     }
 
     protected static ?int $sort = 3;
+
+    // Full width. It used to be half, paired with TenantMix — but the two are no longer in any
+    // one role's layout together (money roles get the ageing, leasing/marketing get the mix), so
+    // half-width just left an empty column beside it. A five-bucket bar chart also reads better
+    // wide than tall.
+    protected int|string|array $columnSpan = 'full';
 
     protected function getData(): array
     {

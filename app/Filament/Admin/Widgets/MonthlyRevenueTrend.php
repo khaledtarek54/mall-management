@@ -15,11 +15,6 @@ class MonthlyRevenueTrend extends ChartWidget
 {
     use RoleScopedWidget;
 
-    protected static function allowedRoles(): array
-    {
-        return ['manager', 'viewer', 'accounting'];
-    }
-
     public function getHeading(): ?string
     {
         return __('admin.widgets.monthly_revenue_trend.heading');
@@ -68,7 +63,7 @@ class MonthlyRevenueTrend extends ChartWidget
         $collected = (clone $paymentBase)
             ->selectRaw(''.$monthExpr('payment_date').' as ym, SUM(amount) as amount')
             ->whereBetween('payment_date', [$start, $end])
-            ->whereIn('status', \App\Models\Payment::RECEIVED_STATUSES)
+            ->whereIn('status', Payment::RECEIVED_STATUSES)
             ->groupBy('ym')
             ->pluck('amount', 'ym');
 
@@ -82,7 +77,7 @@ class MonthlyRevenueTrend extends ChartWidget
             // (the pivot carries the full balance pre-capture) and refunded allocations (the pivot is
             // kept as history), so the rate would overstate collection and disagree with its own bar.
             ->join('payments', 'payments.id', '=', 'invoice_payment.payment_id')
-            ->whereIn('payments.status', \App\Models\Payment::RECEIVED_STATUSES)
+            ->whereIn('payments.status', Payment::RECEIVED_STATUSES)
             ->whereBetween('invoices.period_start', [$start, $end])
             ->whereNotIn('invoices.status', ['cancelled', 'credited']);
 

@@ -6,6 +6,7 @@ use App\Enums\TenantRequestType;
 use App\Filament\Admin\Concerns\RoleScopedWidget;
 use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Models\TenantRequest;
+use App\Support\TenantScope;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
@@ -14,15 +15,6 @@ use Illuminate\Database\Eloquent\Builder;
 class OpenTenantRequests extends TableWidget
 {
     use RoleScopedWidget;
-
-    protected static function allowedRoles(): array
-    {
-        // The open-request board IS the coordinator's and customer_service's job — without them
-        // the FR-USR roles whose whole scope is this queue would land on an empty dashboard (the
-        // same class as the accounting-empty-dashboard bug). Property scoping still applies via the
-        // query below.
-        return ['manager', 'operations', 'coordinator', 'customer_service'];
-    }
 
     protected static function widgetModule(): ?string
     {
@@ -42,7 +34,7 @@ class OpenTenantRequests extends TableWidget
     {
         return $table
             ->query(function (): Builder {
-                return \App\Support\TenantScope::applyTo(TenantRequest::query(), 'unit')
+                return TenantScope::applyTo(TenantRequest::query(), 'unit')
                     ->whereIn('status', TenantRequest::OPEN_STATUSES)
                     ->with(['tenant', 'unit', 'assignee'])
                     ->orderByRaw("FIELD(priority, 'urgent', 'high', 'medium', 'low')")

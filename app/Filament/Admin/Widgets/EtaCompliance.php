@@ -19,12 +19,6 @@ class EtaCompliance extends StatsOverviewWidget
 {
     use RoleScopedWidget;
 
-    // Compliance posture is a finance/operations signal.
-    protected static function allowedRoles(): array
-    {
-        return ['manager', 'viewer', 'accounting'];
-    }
-
     protected static function widgetModule(): ?string
     {
         return 'eta';

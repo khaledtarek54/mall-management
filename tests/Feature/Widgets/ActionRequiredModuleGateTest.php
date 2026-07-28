@@ -3,8 +3,14 @@
 use App\Filament\Admin\Widgets\ActionRequired;
 use App\Models\TenantRequest;
 use App\Settings\ModulesSettings;
+use Database\Seeders\RolesPermissionsSeeder;
 
 beforeEach(function () {
+    // The ActionRequired cards are gated on the {module}.view permission of the register each one
+    // links to, so these need the REAL role definitions — `makeUser()` alone creates a bare role with
+    // no permissions at all, a manager that cannot exist in production. Without the seeder the widget
+    // correctly returns an empty card list and the assertions below would be green over nothing.
+    $this->seed(RolesPermissionsSeeder::class);
     ensureAllPropertiesAsset();
     $this->asset = makeAsset();
     $this->unit = makeUnit($this->asset);
@@ -14,7 +20,7 @@ beforeEach(function () {
     // Seed an urgent open maintenance request so the ActionRequired widget
     // would normally surface a card for it.
     TenantRequest::create([
-        'reference' => 'MR-' . uniqid(),
+        'reference' => 'MR-'.uniqid(),
         'unit_id' => $this->unit->id,
         'tenant_id' => $this->tenant->id,
         'title' => 'AC down',
@@ -32,6 +38,7 @@ function actionItems(): array
 {
     $widget = new ActionRequired;
     $ref = new ReflectionMethod($widget, 'getViewData');
+
     return $ref->invoke($widget)['items'];
 }
 
