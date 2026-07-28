@@ -42,13 +42,19 @@ jobs:
           tools: composer:v2
 
       # Audits composer.lock directly — no install needed.
+      # --locked: this job deliberately installs nothing (that is what makes it cheap), and
+      # `composer audit` without it aborts with "No installed packages found" — which is how this
+      # job had been failing on every run since at least 2026-07-23 without auditing anything.
       - name: composer audit
-        run: composer audit --no-interaction
+        run: composer audit --locked --no-interaction
 
   phpunit:
-    name: PHPUnit (services + math)
+    name: Test suite (Pest, parallel)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Was 10 minutes, and the serial run took 10m15s — so the job was killed mid-suite and
+    # reported failure without a single failing test. Parallel (the command the project uses
+    # locally) plus headroom.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -75,8 +81,10 @@ jobs:
           php artisan key:generate --force
           touch database/database.sqlite
 
-      - name: Run PHPUnit
-        run: php artisan test --testsuite=Unit,Feature
+      # `pest --parallel` is the project's canonical command (CLAUDE.md) — running something else
+      # here meant CI and the developer loop could disagree about what "green" means.
+      - name: Run test suite
+        run: vendor/bin/pest --parallel
 
   static-analysis:
     name: Static analysis (PHPStan)
@@ -101,6 +109,18 @@ jobs:
 
       - name: Install composer deps
         run: composer install --no-interaction --no-progress --prefer-dist
+
+      # larastan BOOTS the application to infer model relations and generics. Without an .env and
+      # an app key it cannot, and silently degrades every custom model to
+      # Illuminate\Database\Eloquent\Model — reporting ~11 phantom errors ("undefined property
+      # Model::$unit", "undefined method HasMany::received()") that phpstan-baseline.neon, which
+      # was generated WITH an .env, does not match. This step is why the gate was red for weeks
+      # while passing on every developer machine.
+      - name: Prepare app
+        run: |
+          cp .env.example .env || true
+          php artisan key:generate --force
+          touch database/database.sqlite
 
       # Gate enforces NO NEW errors above the grandfathered phpstan-baseline.neon.
       - name: PHPStan
@@ -155,12 +175,19 @@ jobs:
         run: |
           cp .env.example .env
           php artisan key:generate --force
-          sed -i 's|^DB_CONNECTION=.*|DB_CONNECTION=mysql|' .env
-          sed -i 's|^DB_HOST=.*|DB_HOST=127.0.0.1|' .env
-          sed -i 's|^DB_PORT=.*|DB_PORT=3306|' .env
-          sed -i 's|^DB_DATABASE=.*|DB_DATABASE=mall_management_test|' .env
-          sed -i 's|^DB_USERNAME=.*|DB_USERNAME=root|' .env
-          sed -i 's|^DB_PASSWORD=.*|DB_PASSWORD=root|' .env
+          # `#\?` matters: .env.example ships these keys COMMENTED OUT (the Laravel 11+ default),
+          # so the old `^DB_HOST=` anchors matched nothing. Only DB_CONNECTION was ever rewritten,
+          # and the job then tried to reach database `laravel` as root with NO password —
+          # "Access denied for user 'root'" on every run.
+          sed -i -E 's|^#? *DB_CONNECTION=.*|DB_CONNECTION=mysql|' .env
+          sed -i -E 's|^#? *DB_HOST=.*|DB_HOST=127.0.0.1|' .env
+          sed -i -E 's|^#? *DB_PORT=.*|DB_PORT=3306|' .env
+          sed -i -E 's|^#? *DB_DATABASE=.*|DB_DATABASE=mall_management_test|' .env
+          sed -i -E 's|^#? *DB_USERNAME=.*|DB_USERNAME=root|' .env
+          sed -i -E 's|^#? *DB_PASSWORD=.*|DB_PASSWORD=root|' .env
+          # Fail loudly here rather than 40 lines later inside artisan.
+          grep -q '^DB_DATABASE=mall_management_test' .env
+          grep -q '^DB_PASSWORD=root' .env
 
       - name: Migrate + seed
         run: |
