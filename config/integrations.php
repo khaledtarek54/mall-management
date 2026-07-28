@@ -31,6 +31,22 @@ return [
         'iframe_id' => env('PAYMOB_IFRAME_ID'),
         'hmac_secret' => env('PAYMOB_HMAC_SECRET'),
 
+        /*
+         * Session creation is serialised per invoice+channel, because opening a
+         * Paymob order is check-then-act with a network call in the middle: two
+         * simultaneous taps otherwise create two live orders against one debt.
+         *
+         *   session_lock_seconds       how long the lock is held. Must exceed a slow
+         *                              round-trip to Paymob, since it is held across
+         *                              that call — but not so long that a wedged
+         *                              request blocks the invoice for minutes.
+         *   session_lock_wait_seconds  how long the SECOND request waits. It is
+         *                              waiting to reuse the first one's session, so
+         *                              this should cover a normal round-trip.
+         */
+        'session_lock_seconds' => (int) env('PAYMOB_SESSION_LOCK_SECONDS', 30),
+        'session_lock_wait_seconds' => (int) env('PAYMOB_SESSION_LOCK_WAIT_SECONDS', 10),
+
         // Currency must match the integration's account currency (EGP for
         // Egyptian Paymob accounts).
         'currency' => env('PAYMOB_CURRENCY', 'EGP'),

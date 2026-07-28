@@ -21,10 +21,21 @@ use Illuminate\Support\Facades\Log;
  */
 class OpsLog
 {
-    /** Context keys whose values are always redacted (secrets / card data / credentials). */
+    /**
+     * Context keys whose values are always redacted (secrets / card data / credentials).
+     *
+     * **Matching is EXACT, not substring** — `scrub()` does `in_array(strtolower($key), …)`. So
+     * `token` here does NOT cover `payment_token`, and every variant has to be spelled out. That
+     * is not obvious from reading the list, and it is the way this leaks: someone logs
+     * `['payment_token' => …]`, sees `token` in REDACT, and reasonably assumes it is covered.
+     *
+     * `payment_token` is a Paymob bearer credential that AUTHORISES A CHARGE, and
+     * `payment_key`/`access_token` are the same class of thing.
+     */
     private const REDACT = [
         'password', 'token', 'api_key', 'apikey', 'hmac', 'secret',
         'pan', 'card', 'card_number', 'cvv', 'authorization', 'auth_token',
+        'payment_token', 'payment_key', 'access_token', 'refresh_token', 'bearer',
     ];
 
     public static function info(string $event, array $context = []): void

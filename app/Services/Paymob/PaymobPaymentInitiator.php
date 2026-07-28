@@ -4,7 +4,10 @@ namespace App\Services\Paymob;
 
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Support\OpsLog;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -49,19 +52,63 @@ class PaymobPaymentInitiator
      * The 'initiated' Payment row is keyed by Paymob's order_id so the S2S
      * callback can recover it without extra state.
      *
-     * @return array{payment_token:string,iframe_url:string,order_id:int,payment_id:int,expires_at:\Carbon\CarbonImmutable,reused:bool}
+     * @return array{payment_token:string,iframe_url:string,order_id:int,payment_id:int,expires_at:CarbonImmutable,reused:bool}
      */
     public function start(Invoice $invoice, string $channel = Payment::CHANNEL_MOBILE, ?int $integrationId = null): array
     {
+        // Serialised per invoice+channel. Without this, start() is check-then-act
+        // with a NETWORK CALL in the middle: two requests arriving together — a
+        // double-click, two tabs, a retried POST — both find no reusable session
+        // and both open one, leaving two live Paymob orders against one debt,
+        // each allocated the full balance. Capture both and the tenant has paid
+        // twice. Proven in PaymobConcurrentSessionTest.
+        //
+        // The lock is held ACROSS the gateway call deliberately: releasing before
+        // it would reopen the exact window being closed. Hence the TTL, so a
+        // wedged request cannot hold it forever.
+        $lock = Cache::lock(
+            "paymob-session:{$invoice->id}:{$channel}",
+            (int) config('integrations.paymob.session_lock_seconds', 30),
+        );
+
+        // Waits for the in-flight request rather than failing outright, so the
+        // second tap ends up REUSING the first one's session below.
+        $lock->block((int) config('integrations.paymob.session_lock_wait_seconds', 10));
+
+        try {
+            return $this->startLocked($invoice, $channel, $integrationId);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /**
+     * The session build, guaranteed to run one-at-a-time per invoice+channel.
+     *
+     * @return array{payment_token:string,iframe_url:string,order_id:int,payment_id:int,expires_at:CarbonImmutable,reused:bool}
+     */
+    protected function startLocked(Invoice $invoice, string $channel, ?int $integrationId): array
+    {
+        // Re-checked INSIDE the lock — the point of the whole exercise. The
+        // request that waited now sees the session the first one created and
+        // reuses it instead of opening a second.
+        //
         // The card flow reuses a recent session; the Apple Pay flow (its own
         // integration) always builds fresh so a card token is never served for it.
         if ($integrationId === null && $reused = $this->findReusableSession($invoice, $channel)) {
+            OpsLog::info('paymob.session_reused', [
+                'invoice' => $invoice->id,
+                'payment' => $reused['payment_id'],
+                'order' => $reused['order_id'],
+                'channel' => $channel,
+            ]);
+
             return $reused;
         }
 
         $session = $this->client->buildPaymentSession($invoice, $integrationId);
 
-        return DB::transaction(function () use ($invoice, $session, $channel) {
+        return DB::transaction(function () use ($invoice, $session, $channel, $integrationId) {
             $payment = Payment::create([
                 'tenant_id' => $invoice->tenant_id,
                 'amount' => $invoice->balance,
@@ -86,6 +133,26 @@ class PaymobPaymentInitiator
             // Payment captured.
             $payment->invoices()->attach($invoice->id, [
                 'allocated_amount' => round((float) $invoice->balance, 2),
+            ]);
+
+            // The public revenue surface had NO logging at all: when a tenant reported "the pay
+            // button did nothing", the only trace was a PaymobClient warning if the HTTP call
+            // itself failed. This is the line that ties a Paymob order id to our Payment row, so
+            // a support question can be answered from ops.log instead of a database dig.
+            // Neither the token nor the iframe URL: a payment_token authorises a charge. (It IS
+            // in OpsLog::REDACT now — but only because writing this comment revealed it was not,
+            // since that list matches keys exactly and held `token`, never `payment_token`.)
+            OpsLog::info('paymob.session_started', [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->number,
+                'tenant_id' => $invoice->tenant_id,
+                'payment_id' => $payment->id,
+                'order_id' => (int) $session['order_id'],
+                'amount' => round((float) $invoice->balance, 2),
+                'channel' => $channel,
+                // Apple Pay runs its own integration; which one was used decides where a failed
+                // charge is investigated.
+                'integration_id' => $integrationId,
             ]);
 
             return [
@@ -137,6 +204,17 @@ class PaymobPaymentInitiator
         // session was created, the gateway token is bound to the OLD (higher)
         // amount — reusing it would overcharge. Fall through to a fresh session.
         if (round((float) $payment->amount, 2) !== round((float) $invoice->balance, 2)) {
+            // Worth a line: this is the branch that stops a tenant being charged an amount a
+            // credit or part-payment has already reduced. Silent, it looks identical to "the
+            // reuse window expired" — and the two have very different implications if the
+            // amounts ever disagree for a reason we did not predict.
+            OpsLog::info('paymob.session_discarded_stale_amount', [
+                'invoice_id' => $invoice->id,
+                'payment_id' => $payment->id,
+                'session_amount' => round((float) $payment->amount, 2),
+                'invoice_balance' => round((float) $invoice->balance, 2),
+            ]);
+
             return null;
         }
 

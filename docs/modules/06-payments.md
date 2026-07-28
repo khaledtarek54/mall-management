@@ -108,6 +108,7 @@ An overpayment leaves a **credit on account** (`Tenant::creditBalance()` = recei
 - Capture: `success = true AND NOT is_voided`. Voided transactions are treated as failed.
 - Idempotency: callback gateway_transaction_id is promoted from `paymob:order:{id}` to `paymob:txn:{txn_id}:order:{order_id}` on capture, so a replay of the same payload misses the bare-order lookup and returns 200 `already_processed` without re-touching anything.
 - Tested in `PaymobPaymentScenarioTest`, `PaymobSessionStaleAmountTest`.
+- **One session per invoice+channel at a time.** `start()` is check-then-act with a network call in the middle, so it is serialised on a `Cache::lock("paymob-session:{invoice}:{channel}")` held ACROSS the gateway call. Without it two simultaneous taps (double-click, two tabs, a retried POST) both find no reusable session and both open one, leaving **two live Paymob orders against one debt**, each allocated the full balance — capture both and the tenant has paid twice. The second request WAITS (`session_lock_wait_seconds`, default 10) and then reuses the first one's session rather than failing. Lock TTL `session_lock_seconds` (default 30) so a wedged request cannot strand the invoice; released in a `finally`, including when the gateway throws. Tested in `PaymobConcurrentSessionTest`.
 
 ### Receipt Notification (regression: fixed in `PaymentReceivedNotification`)
 - Fires exactly once when: payment is `captured` AND has at least one allocated invoice.
@@ -160,11 +161,12 @@ Manual overrides (not clobbered):
 ## 5. Services, jobs & scheduled commands
 
 ### PaymobPaymentInitiator::start(Invoice) → array
-**Signature:** `public function start(Invoice $invoice): array`
+**Signature:** `public function start(Invoice $invoice, string $channel = Payment::CHANNEL_MOBILE, ?int $integrationId = null): array`
 
 Creates an `initiated` Payment for the invoice's current balance, allocates the full amount in the pivot, and returns the Paymob session (payment_token, iframe_url, order_id, payment_id, expires_at, reused). The Payment is keyed by Paymob's order_id so the S2S callback can recover it.
 
 - **Idempotency:** Reuses an existing initiated session if within 2700s window and amount matches current balance.
+- **Concurrency:** serialised per invoice+channel by a cache lock; the reuse check is re-run INSIDE it, which is what makes reuse a guarantee rather than a race. See the gateway rules above.
 - **Transaction:** DB::transaction wraps Payment create + pivot attach.
 - **Call sites:** Portal invoice Pay-Now button, mobile app payment endpoint.
 - **Tested:** `PaymobPaymentInitiatorTest`, `PaymobSessionStaleAmountTest`.
@@ -392,6 +394,13 @@ Demo-only (gates to PAYMOB_ENABLED=false): simulates a successful Paymob capture
 ### Online payment link & channels (2026-06-27)
 
 Payments carry a **`channel`** (`payments.channel`): `payment_link` (public `/pay/{token}` page), `mobile_api` (the app), `portal` (tenant portal Pay Now), `admin`. Paymob **session reuse is scoped per channel**, and `CallbackController::returned()` routes the browser by channel — `payment_link` → the public status page `/pay/{token}/status`, everything else → the portal. The S2S capture + tenant notification are shared. The public link is surfaced via the admin/portal **"Payment link"** action and the mobile `invoice.payment_link_url`. **Apple Pay** is scaffolded (a separate `PAYMOB_APPLE_PAY_INTEGRATION_ID` + the `/.well-known/apple-developer-merchantid-domain-association` route), off until configured. Full runbook: **[docs/PAYMENT-LINK-APPLEPAY.md](../PAYMENT-LINK-APPLEPAY.md)**. Tests: `tests/Feature/PaymentLink/PaymentLinkFlowTest.php`.
+
+**Revoking a leaked link.** `invoices.payment_link_token` is a bearer credential: 48 random chars, no login, **no expiry**. Anyone holding the URL can read the tenant, the line items and the amounts — which is the point (it has to work from an email on a phone), but it means a link that is forwarded, lands in a shared inbox or is screenshotted stays live forever. The remedy is **rotation**, not expiry: `Invoice::rotatePaymentLinkToken()` mints a new token and every previously-issued URL 404s on all three public routes. Surfaced as the **"Regenerate payment link"** action on the invoice table and edit page, gated on `invoices.edit` in *both* `visible()` and `action()`, confirmation-required, and written to `ops.log` as `invoice.pay_link_rotated` (a client reporting "the link stopped working" is otherwise unanswerable).
+
+- It is **not** gated on `isPayable()` — a leaked link to a settled invoice still discloses the tenant and the amounts via `/pay/{token}/status`, so the remedy has to outlive payability.
+- It is safe mid-checkout: the gateway session is keyed by Paymob's `order_id`, not by this token, so rotating never strands a payment already at the gateway.
+- Expiry was rejected deliberately: it would silently kill legitimate links in already-sent mail and turn every late payer into a support call.
+- Tests: `tests/Feature/Regression/PaymentLinkRotationTest.php`.
 
 ### Related Modules
 

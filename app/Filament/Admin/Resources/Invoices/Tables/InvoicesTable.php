@@ -10,6 +10,7 @@ use App\Models\Unit;
 use App\Services\InvoicePdfService;
 use App\Services\MonthlyBillingService;
 use App\Support\Modules;
+use App\Support\OpsLog;
 use App\Support\TenantScope;
 use Carbon\Carbon;
 use Filament\Actions\Action;
@@ -272,6 +273,42 @@ class InvoicesTable
                     ->modalHeading(fn (Invoice $record) => __('admin.actions.payment_link').' · '.$record->number)
                     ->modalSubmitAction(false)
                     ->modalContent(fn (Invoice $record) => view('filament.payment-link-modal', ['invoice' => $record])),
+                // The pay link is a bearer credential with no expiry: whoever holds the URL
+                // can read the tenant, the line items and the amounts, with no login. Without
+                // this the operator has NO remedy when one leaks — a forwarded mail, a shared
+                // inbox, a screenshot. Rotating mints a new token and kills every old URL.
+                Action::make('regeneratePaymentLink')
+                    ->label(__('admin.actions.regenerate_payment_link'))
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalDescription(__('admin.actions.regenerate_payment_link_confirm'))
+                    // Available whenever a token exists — NOT only while payable. A leaked link
+                    // to a settled invoice still discloses the tenant and the amounts, so the
+                    // remedy must outlive payability.
+                    ->visible(fn (Invoice $record) => filled($record->payment_link_token)
+                        && (auth()->user()?->can('invoices.edit') ?? false))
+                    ->action(function (Invoice $record): void {
+                        // The real gate: mountAction() ignores visible(), so revoking a client's
+                        // access to their invoice must not be dispatchable without invoices.edit.
+                        abort_unless(auth()->user()?->can('invoices.edit') ?? false, 403);
+
+                        $record->rotatePaymentLinkToken();
+
+                        // Revoking access to a financial document is worth a trace: a client
+                        // reporting "the link stopped working" is otherwise unanswerable.
+                        OpsLog::info('invoice.pay_link_rotated', [
+                            'invoice_id' => $record->id,
+                            'invoice_number' => $record->number,
+                            'by' => auth()->id(),
+                        ]);
+
+                        Notification::make()
+                            ->title(__('admin.actions.regenerate_payment_link_done'))
+                            ->body(__('admin.actions.regenerate_payment_link_done_body', ['number' => $record->number]))
+                            ->success()
+                            ->send();
+                    }),
                 Action::make('sendWhatsApp')
                     ->label(__('admin.actions.send_whatsapp'))
                     ->icon('heroicon-o-chat-bubble-left-right')

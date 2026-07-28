@@ -3,9 +3,11 @@
 namespace App\Filament\Admin\Resources\Invoices\Pages;
 
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
+use App\Models\TenantCreditApplication;
 use App\Services\ApplyTenantCreditService;
 use App\Services\InvoicePdfService;
 use App\Services\VoidInvoiceService;
+use App\Support\OpsLog;
 use App\Support\TenantScope;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
@@ -53,8 +55,9 @@ class EditInvoice extends EditRecord
                 ->action(function () {
                     $svc = app(InvoicePdfService::class);
                     $pdf = $svc->build($this->record);
+
                     return response()->streamDownload(
-                        fn () => print($pdf),
+                        fn () => print ($pdf),
                         $svc->filename($this->record),
                         ['Content-Type' => 'application/pdf'],
                     );
@@ -68,6 +71,34 @@ class EditInvoice extends EditRecord
                 ->modalHeading(fn () => __('admin.actions.payment_link').' · '.$this->record->number)
                 ->modalSubmitAction(false)
                 ->modalContent(fn () => view('filament.payment-link-modal', ['invoice' => $this->record])),
+            // Kill a leaked pay link. See the identical action on the invoice table for
+            // why a bearer URL with no expiry needs a revocation path.
+            Action::make('regeneratePaymentLink')
+                ->label(__('admin.actions.regenerate_payment_link'))
+                ->icon('heroicon-o-arrow-path')
+                ->color('danger')
+                ->requiresConfirmation()
+                ->modalDescription(__('admin.actions.regenerate_payment_link_confirm'))
+                ->authorize(fn () => Auth::user()?->can('invoices.edit') ?? false)
+                ->visible(fn () => filled($this->record->payment_link_token)
+                    && (Auth::user()?->can('invoices.edit') ?? false))
+                ->action(function (): void {
+                    abort_unless(Auth::user()?->can('invoices.edit') ?? false, 403);
+
+                    $this->record->rotatePaymentLinkToken();
+
+                    OpsLog::info('invoice.pay_link_rotated', [
+                        'invoice_id' => $this->record->id,
+                        'invoice_number' => $this->record->number,
+                        'by' => Auth::id(),
+                    ]);
+
+                    Notification::make()
+                        ->title(__('admin.actions.regenerate_payment_link_done'))
+                        ->body(__('admin.actions.regenerate_payment_link_done_body', ['number' => $this->record->number]))
+                        ->success()
+                        ->send();
+                }),
             // Apply the tenant's on-account CREDIT to this invoice. Posts its own Dr Unearned / Cr AR
             // entry dated today (ApplyTenantCreditService), so an old overpayment settles a current
             // invoice safely. Capped at the invoice balance; same-property.
@@ -78,7 +109,7 @@ class EditInvoice extends EditRecord
                 ->authorize(fn () => Auth::user()?->can('payments.edit') ?? false)
                 ->visible(fn (): bool => round((float) $this->record->balance, 2) > 0
                     && $this->record->tenant !== null
-                    && $this->record->tenant->creditBalance(\App\Support\TenantScope::visibleAssetIds()) > 0
+                    && $this->record->tenant->creditBalance(TenantScope::visibleAssetIds()) > 0
                     && (Auth::user()?->can('payments.edit') ?? false))
                 ->requiresConfirmation()
                 ->modalDescription(__('admin.actions.apply_credit_confirm'))
@@ -131,7 +162,7 @@ class EditInvoice extends EditRecord
                 ->icon('heroicon-o-arrow-uturn-left')
                 ->color('warning')
                 ->authorize(fn () => Auth::user()?->can('payments.edit') ?? false)
-                ->visible(fn (): bool => \App\Models\TenantCreditApplication::where('invoice_id', $this->record->id)->exists()
+                ->visible(fn (): bool => TenantCreditApplication::where('invoice_id', $this->record->id)->exists()
                     && (Auth::user()?->can('payments.edit') ?? false))
                 ->requiresConfirmation()
                 ->modalDescription(__('admin.actions.reverse_credit_confirm'))

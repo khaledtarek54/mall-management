@@ -46,7 +46,7 @@ Two structural facts worth holding:
 
 | Item | What & why | Owner | Effort |
 | --- | --- | --- | --- |
-| ~~Decide: is CI a gate or a suggestion?~~ | ✅ **CI is a gate — re-enabled 2026-07-29** after a three-day pause (2026-07-26 → 07-29). `.github/workflows/ci.yml` fires on `push` + `pull_request` to `main`/`develop` plus `workflow_dispatch`; `composer audit`, PHPUnit, PHPStan and Playwright all block a merge, and the five conformance gates (PropertyIsolation, GlRegistry, MediaPrivacy, AdminSmokeManifest, DashboardLayout) enforce inside the test job. *Why the pause ended:* while auto-runs were off, a dashboard widget carrying no authorization gate shipped and published the property's receivables to the HR and marketing dashboards — exactly the class those gates exist to catch. An earlier pause had likewise let PHPStan drift ~208 errors above baseline. **A gate rots precisely when it is not enforced.** | ⚙️ | — |
+| **CI runs on demand only** | `.github/workflows/ci.yml` is `workflow_dispatch` only — owner's standing call (the test job needs 20+ min; too slow for the push loop). So `composer audit`, the test suite, PHPStan, Playwright and the five conformance gates (PropertyIsolation, GlRegistry, MediaPrivacy, AdminSmokeManifest, DashboardLayout) are **ADVISORY** — keep `pest --parallel` green locally instead. The jobs themselves were **repaired 2026-07-29** (all four had been failing on every run since ≥2026-07-23 for non-product reasons: `composer audit` missing `--locked` so it audited nothing, a PHPStan baseline carrying **absolute paths** that matched one laptop only, and two timeouts set below the real runtime), so `gh workflow run ci.yml` is worth running before anything risky. Cost of changing this later: 453 test files replay all 150 migrations per paratest worker — `php artisan schema:dump` is the lever. | ⚙️ | — |
 | **Keep `composer audit` green** | Now a CI job. Its first run (2026-07-16) found **22 advisories across 12 packages**, incl. two HIGH: Filament **MFA recovery codes reusable via concurrent submission**, and a medialibrary **file-upload restriction bypass** — plus a Filament **scope-enforcement** CVE landing directly on this project's property-isolation invariant. All fixed inside existing constraints (Filament 4.11.3→4.11.8, Laravel 13.11.2→13.20.0, medialibrary 11.22.1→11.23.2); 2283 tests green. Nobody knew because nothing looked — and a CVE lands with no change to your code, so only a scheduled check finds it. **This is the row most likely to bite again if CI stays manual.** | ⚙️ | S |
 | **ETA live credentials + signing certificate** | Real `client_id`/`client_secret` from the operator's ETA taxpayer profile **and** a CAdES signing certificate. ETA production **rejects unsigned B2B documents**. The pluggable signer seam + refuse-to-submit guard are ready (`config/eta.php:70-74`, `signing.enabled` defaults false). | 🔑 | M |
 | **ETA EGS codes + issuer identity** | Register real EGS item codes (base_rent, service_charge, utility, parking, percentage_rent) + issuer TRN/legal name/address. Placeholders still ship (`config/eta.php:36-46` — issuer TRN `100000000`; `:55-62` — EGS `EG-6820-001`). Wrong codes ⇒ rejection. All env-driven, no code change. | 🔑 | S |
@@ -74,7 +74,6 @@ Ordered by real risk, not by age.
 | **Paymob credential vaulting + HMAC rotation** | Live keys in plaintext `.env` (`config/integrations.php:29-32`), no vault, no rotation procedure. A leaked HMAC lets an attacker forge "paid" callbacks. | ⚙️ | M |
 | **ETA receiver address per tenant** | `EtaJsonBuilder.php:46-47` hardcodes governate/city to Giza / 6 October — wrong buyer address on real invoices. Blocked on schema: tenants have only a freeform `text('address')`. | 🧑‍💻 | M |
 | **ETA retry policy is untested** | `$tries=3` + backoff + `OpsLog::error('eta.job_exhausted')` are correct, but **no test asserts `$tries`/`backoff()`/`failed()`** — the policy protecting tax submissions is unverified. | 🧑‍💻 | S |
-| **`PaymobPaymentInitiator` has no logging** | `PaymobClient` and the callback controller now log; the initiator still has zero. Missing tests: expired-token, concurrent attempts, and **there is no payment-link E2E spec** (`tests/e2e/13-*` is `13-eta.spec.js`). This is the public revenue surface. | 🧑‍💻 | M |
 | **Ops alerts are bell-only** | Push exists and 8 notifications use mail+database+push, but 7 remain database-only — including exactly the ones you'd want off-app: `MaintenanceSlaBreached`, `WorkOrderSlaBreached`, `LedgerSyncFailed`. | 🧑‍💻 | M |
 | **Mobile (Flutter) app v1** | API complete and the password-reset flow is now unified across admin/portal/API. The app repo itself is external. | 🔑 | L |
 
@@ -266,6 +265,25 @@ Acting on the first one would actively reintroduce a bug.
   audits, in opposite directions, both get this wrong.
 - ❌ **"`PaymentLinkFlowTest` is happy-path only"** — it already covers unknown-token,
   settled, and gateway-down.
+- ✅ **"The public payment surface is uninstrumented + untested"** — **done 2026-07-29.** Three
+  distinct things came out of actually looking at it, and only one was the thing the row named:
+  - **A real double-charge race.** `PaymobPaymentInitiator::start()` was check-then-act with a
+    *network call* between the check and the act, so two simultaneous taps both found no
+    reusable session and both opened one — two live Paymob orders against one debt, each
+    allocated the full balance. Now serialised on a cache lock held across the gateway call;
+    the second request waits and reuses the first one's session. `PaymobConcurrentSessionTest`
+    reproduces the race and the timeout/exception release paths.
+  - **A leaked pay link could never be revoked.** `/pay/{token}` is a bearer URL with no login
+    and **no expiry**: forwarded mail, a shared inbox or a screenshot exposed the tenant, the
+    line items and the amounts permanently, and the operator had no remedy. Added
+    `Invoice::rotatePaymentLinkToken()` + a **Regenerate payment link** action (gated on
+    `invoices.edit` in both `visible()` and `action()`, `ops.log`-audited). Deliberately *not*
+    an expiry — that would silently kill legitimate links in already-sent mail.
+  - **Logging + E2E**, the row's original ask: `paymob.session_started` / `session_reused` /
+    `session_discarded_stale_amount`, and `tests/e2e/23-payment-link.spec.js` — the first
+    coverage of the app's only unauthenticated HTML surface. Writing the logging also revealed
+    `OpsLog::REDACT` matches keys **exactly**, so `token` never covered `payment_token` — a
+    credential that authorises a charge. Fixed in the same pass.
 - ❌ **"`CreditNoteService` misses locked-declaration + resubmission edge cases"** — the
   locked-declaration path isn't on that service's surface (it's covered in
   `PercentageRentVoidLockedTest`), and "resubmission" has **zero hits** in `app/` or `tests/`.
@@ -323,14 +341,10 @@ Acting on the first one would actively reintroduce a bug.
    carry close-out notes in their module docs, but 22–25 have only had a **UX pass**
    (registers/CSV), not a correctness sweep. Every other module that got one produced a real
    money or exposure bug, so this is still the highest expected-value work left.
-2. **The public payment surface** — `/pay/{token}` is unauthenticated, internet-facing and
-   takes money, yet `PaymobPaymentInitiator` has **zero logging** and there is **no
-   payment-link E2E spec at all** (`tests/e2e/13-*` is ETA). Missing tests: expired token,
-   concurrent attempts — the one revenue path with no E2E coverage at all.
-3. **Point the uptime monitor at `/health`** — the endpoint exists as of 2026-07-29 and
+2. **Point the uptime monitor at `/health`** — the endpoint exists as of 2026-07-29 and
    already fails on a dead scheduler, a stale backup, a stopped worker or a DB outage. It is
    worth nothing until something external polls it.
-4. **The remaining ⚙️ go-live rows** (§2) — backups are now half done in-app (2026-07-29);
+3. **The remaining ⚙️ go-live rows** (§2) — backups are now half done in-app (2026-07-29);
    what is left there is off-site copies, an archive password and **a tested restore**. There
    is still **no deploy workflow at all**, which makes several other rows moot.
 

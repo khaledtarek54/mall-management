@@ -35,6 +35,20 @@ Session reuse is scoped **per channel** (a mobile session is never reused for a 
 - **Portal** → invoice row → **Payment link** action (the tenant can copy/forward it).
 - **Mobile API** → `payment_link_url` on the invoice resource (null once nothing is owed).
 
+## If a link goes somewhere it shouldn't
+
+The pay link is a **bearer URL** — no login, no expiry. That is what makes it work from an email on a phone, and it also means whoever holds it can read the tenant name, the line items and the amounts, and pay the invoice. Links leak: they get forwarded, land in a shared inbox, end up in a WhatsApp screenshot, or sit in browser history on a shop-floor PC.
+
+**Admin** → invoice row (or the invoice edit page) → **Regenerate payment link**. It asks for confirmation, then:
+
+- issues a new token — **every URL sent out before that moment stops working**, on the pay page, the status page and the start endpoint alike;
+- leaves any payment already at the gateway alone (Paymob tracks it by its own order id, not by this token), so nobody mid-checkout is stranded;
+- records `invoice.pay_link_rotated` in `ops.log` with the invoice and the user.
+
+**You must then send the client the new link** — they will get a "not found" page on the old one, with no explanation. Requires the `invoices.edit` permission. Works on settled invoices too, since a leaked link still discloses a paid invoice.
+
+There is deliberately **no automatic expiry**: it would quietly break legitimate links in already-sent mail and turn every late payer into a support call.
+
 ## Turning on Apple Pay
 
 Apple Pay is **scaffolded but off** until you provision it (it can't be tested on localhost — it needs Safari + a verified HTTPS domain + a real Apple Pay-capable device).
@@ -56,6 +70,10 @@ Apple Pay is **scaffolded but off** until you provision it (it can't be tested o
 ```
 PAYMOB_APPLE_PAY_INTEGRATION_ID=   # empty = Apple Pay button hidden
 APP_DEEP_LINK=                     # e.g. atriom://invoices ; empty = button hidden
+
+# Serialisation of gateway-session creation (rarely needs changing):
+PAYMOB_SESSION_LOCK_SECONDS=30       # lock TTL, held across the call to Paymob
+PAYMOB_SESSION_LOCK_WAIT_SECONDS=10  # how long a second, simultaneous tap waits to reuse it
 ```
 
 Verify Paymob credentials at any time (no charge): `php artisan integrations:check --paymob`.

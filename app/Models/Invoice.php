@@ -111,6 +111,34 @@ class Invoice extends Model
         return $this->payment_link_token;
     }
 
+    /**
+     * Mint a NEW pay token, killing every URL previously issued for this invoice.
+     *
+     * The pay link is a bearer credential: whoever holds the URL can read the
+     * tenant's name, the line items and the amounts, with no login and no expiry.
+     * That is fine while it sits in the addressee's inbox and useless afterwards —
+     * except links leak. They get forwarded, land in shared or wrong inboxes, sit
+     * in browser history on a shop-floor PC, and survive in screenshots.
+     *
+     * Without this there is no remedy for that: the operator cannot take the link
+     * back. Rotation is the remedy — and the reason it is not an expiry is that an
+     * expiry would silently kill legitimate links in already-sent emails, turning
+     * every late payer into a support call. Rotation is deliberate and per-invoice.
+     *
+     * Safe mid-payment: an in-flight Paymob session is keyed by the gateway's
+     * order id, not by this token, so rotating never strands a payment that is
+     * already at the gateway — the browser return resolves the CURRENT token.
+     */
+    public function rotatePaymentLinkToken(): string
+    {
+        // forceFill + save, matching paymentLinkToken(): the column is guarded, and
+        // this must persist even on an issued invoice (the immutability guard covers
+        // GL-identity fields, not the pay token).
+        $this->forceFill(['payment_link_token' => Str::random(48)])->save();
+
+        return $this->payment_link_token;
+    }
+
     /** Public, no-login URL a client can open to pay this invoice. */
     public function paymentLinkUrl(): string
     {
@@ -262,7 +290,7 @@ class Invoice extends Model
                 // the applications so their Dr Unearned / Cr AR entries void and the credit frees up again.
                 // Fires on ANY cancel path, not just VoidInvoiceService, so a credit can never strand on a
                 // voided invoice (else AR/Unearned would be left holding a reversed-but-still-applied credit).
-                foreach (\App\Models\TenantCreditApplication::where('invoice_id', $invoice->id)->get() as $app) {
+                foreach (TenantCreditApplication::where('invoice_id', $invoice->id)->get() as $app) {
                     $app->delete();
                 }
             }
@@ -285,7 +313,7 @@ class Invoice extends Model
     public function recomputeTotals(): void
     {
         $paid = (float) $this->payments()
-            ->whereIn('payments.status', \App\Models\Payment::RECEIVED_STATUSES)
+            ->whereIn('payments.status', Payment::RECEIVED_STATUSES)
             ->sum('invoice_payment.allocated_amount');
 
         // Applied credit notes settle AR too (they bump credit_applied_amount,
@@ -296,7 +324,7 @@ class Invoice extends Model
         // Applied tenant CREDIT (an on-account advance drawn onto this invoice) also settles AR.
         // It is its own document (Dr Unearned / Cr AR); soft-deleted (reversed) rows are excluded,
         // so reversing an application re-opens the AR here on the next recompute.
-        $paid += (float) \App\Models\TenantCreditApplication::where('invoice_id', $this->id)->sum('amount');
+        $paid += (float) TenantCreditApplication::where('invoice_id', $this->id)->sum('amount');
 
         $this->paid_amount = round($paid, 2);
         $this->balance = round(max(0, (float) $this->total - $this->paid_amount), 2);
@@ -335,7 +363,7 @@ class Invoice extends Model
         return round(
             (float) $this->paid_amount
             - (float) $this->credit_applied_amount
-            - (float) \App\Models\TenantCreditApplication::where('invoice_id', $this->id)->sum('amount'),
+            - (float) TenantCreditApplication::where('invoice_id', $this->id)->sum('amount'),
             2,
         );
     }

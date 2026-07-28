@@ -25,3 +25,33 @@ it('routes operational events to the ops channel and redacts secrets/PII', funct
         'meta' => ['hmac' => 'xyz', 'ok' => 'visible'],
     ]);
 });
+
+it('redacts every bearer-credential key, not just the ones spelled `token`', function () {
+    // REDACT matches keys EXACTLY — `in_array(strtolower($key), …)`, not a substring search. So
+    // `token` being on the list never covered `payment_token`, and a Paymob payment_token
+    // AUTHORISES A CHARGE. Found by writing a comment claiming these were already covered and
+    // then checking: they were not.
+    Log::shouldReceive('channel')->with('ops')->andReturnSelf();
+    Log::shouldReceive('warning')->once()->withArgs(function (string $event, array $context) {
+        foreach (['payment_token', 'payment_key', 'access_token', 'refresh_token', 'bearer'] as $key) {
+            expect($context[$key])->toBe('[redacted]', "[{$key}] must be redacted");
+        }
+
+        // Still keyed on the exact name — a key that merely CONTAINS a secret word is not
+        // assumed dangerous, so operationally useful fields keep their values.
+        expect($context['token_type'])->toBe('bearer-ish-but-not-a-secret')
+            ->and($context['order_id'])->toBe(4242);
+
+        return true;
+    });
+
+    OpsLog::warning('paymob.session_started', [
+        'payment_token' => 'pk_live_SECRET',
+        'payment_key' => 'pmk_SECRET',
+        'access_token' => 'at_SECRET',
+        'refresh_token' => 'rt_SECRET',
+        'bearer' => 'br_SECRET',
+        'token_type' => 'bearer-ish-but-not-a-secret',
+        'order_id' => 4242,
+    ]);
+});
