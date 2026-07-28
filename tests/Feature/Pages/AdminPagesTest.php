@@ -135,7 +135,7 @@ it('ArAging lists the selected bucket\'s invoices and totals them', function () 
     asTenant($this->asset, function () use ($invoice) {
         $component = Livewire::test(ArAging::class)->set('bucket', 'd_1_30');
 
-        expect(collect($component->instance()->getTableRecords())->pluck('id')->all())
+        expect(tableRows($component)->pluck('id')->all())
             ->toEqual([$invoice->id]);
 
         // The bucket total is stated on the page — it is what a collections
@@ -144,7 +144,7 @@ it('ArAging lists the selected bucket\'s invoices and totals them', function () 
 
         // A bucket the invoice does not belong in must come back empty.
         $other = Livewire::test(ArAging::class)->set('bucket', 'd_90_plus');
-        expect(collect($other->instance()->getTableRecords()))->toBeEmpty();
+        expect(tableRows($other))->toBeEmpty();
     });
 
     expect(ArAging::buckets())->toHaveCount(5);

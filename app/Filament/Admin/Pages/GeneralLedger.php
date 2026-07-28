@@ -22,6 +22,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
@@ -30,9 +31,13 @@ use Illuminate\Support\Collection;
  * posted line in date order with a running balance, plus opening and closing.
  *
  * The running balance is accumulated in order by the report service, so this
- * table is fed through `records()` and left unsorted and unpaginated on
- * purpose: re-ordering or splitting these rows would leave each line showing a
- * balance that does not follow from the line above it.
+ * table is fed through `records()` and left UNSORTED on purpose — re-ordering
+ * these rows would leave each line showing a balance that does not follow from
+ * the line above it.
+ *
+ * It does paginate, though. Splitting is safe where re-ordering is not:
+ * accountLedger() accumulates running_balance across the whole ordered set
+ * before anything slices it, so a row carries its correct balance on any page.
  */
 class GeneralLedger extends Page implements HasSchemas, HasTable
 {
@@ -160,9 +165,13 @@ class GeneralLedger extends Page implements HasSchemas, HasTable
         $locale = app()->getLocale();
 
         return $table
-            ->records(function () use ($locale): array {
+            // A records()-backed table does NOT paginate itself: Filament hands
+            // the closure `page` + `recordsPerPage` and expects it to slice.
+            // ->paginated() alone rendered all 411 lines of one account-year as
+            // a 24,000px page.
+            ->records(function (int $page, int|string $recordsPerPage) use ($locale): LengthAwarePaginator {
                 if (! $this->account()) {
-                    return [];
+                    return new LengthAwarePaginator([], 0, 50, $page);
                 }
 
                 $statement = $this->statement();
@@ -195,7 +204,21 @@ class GeneralLedger extends Page implements HasSchemas, HasTable
                     ];
                 }
 
-                return $records;
+                $total = count($records);
+
+                // "All" is a legitimate choice (printing a full statement); it
+                // is still returned AS a paginator so this closure has one
+                // return type rather than a paginator-or-array union.
+                $perPage = $recordsPerPage === 'all' ? max($total, 1) : (int) $recordsPerPage;
+
+                // Not preserve_keys: each row already carries its own `id`,
+                // which is what Filament keys an array record by.
+                return new LengthAwarePaginator(
+                    array_slice($records, ($page - 1) * $perPage, $perPage),
+                    $total,
+                    $perPage,
+                    $page,
+                );
             })
             ->columns([
                 TextColumn::make('entry_date')
@@ -227,8 +250,18 @@ class GeneralLedger extends Page implements HasSchemas, HasTable
                     ->alignEnd()
                     ->weight('bold'),
             ])
-            // Order carries meaning here (see the class docblock).
-            ->paginated(false)
+            // Paginated, but never re-sorted. Order carries meaning here, so the
+            // rows must not be re-ordered — but they can safely be SPLIT:
+            // accountLedger() accumulates running_balance over the whole ordered
+            // set before anything slices it, so every row carries its correct
+            // balance whichever page it lands on.
+            //
+            // It does have to paginate. One account-year of demo data is 400+
+            // lines — a 24,000px page — and a real mall's AR control account
+            // over a full year is far longer. The closing balance is in the
+            // sub-heading, so the figure being looked up is always in view.
+            ->paginated([50, 100, 250, 'all'])
+            ->defaultPaginationPageOption(50)
             ->emptyStateIcon('heroicon-o-book-open')
             ->emptyStateHeading(fn (): string => $this->account()
                 ? __('admin.reports.no_movements')

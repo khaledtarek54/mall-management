@@ -17,6 +17,7 @@
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Admin\Resources\Invoices\Pages\ListInvoices;
 use Database\Seeders\RolesPermissionsSeeder;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\ViewAction;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Tables\Table;
@@ -27,6 +28,34 @@ beforeEach(function () {
     $this->seed(RolesPermissionsSeeder::class);
     ensureAllPropertiesAsset();
 });
+
+/**
+ * The table's OWN ViewAction, or null.
+ *
+ * Recurses into ActionGroups. Filament wraps row actions in a group once a
+ * table has more than a couple, so a flat `instanceof` scan reports a table as
+ * missing its view the moment someone adds a third action — which is exactly
+ * what this test did when Roles and Users gained clone/suspend actions.
+ *
+ * Returns the action rather than a bool so assertions can be made against the
+ * one the app actually configured, not a freshly constructed default.
+ *
+ * @param  array<int, mixed>  $actions
+ */
+function vaFindViewAction(array $actions): ?ViewAction
+{
+    foreach ($actions as $action) {
+        if ($action instanceof ViewAction) {
+            return $action;
+        }
+
+        if ($action instanceof ActionGroup && ($found = vaFindViewAction($action->getActions())) !== null) {
+            return $found;
+        }
+    }
+
+    return null;
+}
 
 /** @return array<int, class-string> */
 function vaListPages(): array
@@ -69,10 +98,9 @@ it('offers a read-only view on every table whose resource has a form', function 
             /** @var Table $table */
             $table = Livewire::test($page)->instance()->getTable();
 
-            $hasView = collect($table->getRecordActions())
-                ->contains(fn ($action) => $action instanceof ViewAction);
-
-            $hasView ? $found++ : $missing[] = class_basename($page);
+            vaFindViewAction($table->getRecordActions()) !== null
+                ? $found++
+                : $missing[] = class_basename($page);
         }
     });
 
@@ -109,14 +137,16 @@ it('gives the view modal no way to write', function () {
             ->instance()
             ->getTable();
 
-        $view = collect($table->getRecordActions())
-            ->first(fn ($a) => $a instanceof ViewAction);
-
+        // The action the APP configured, not a fresh default — otherwise this
+        // asserts a property of Filament rather than of this table.
+        $view = vaFindViewAction($table->getRecordActions());
         expect($view)->not->toBeNull();
 
-        // No submit action on the modal — the structural reason a disabled
-        // schema cannot be turned into an edit by a crafted request.
+        // No submit action on the modal, and the schema is disabled — together,
+        // the structural reason a view cannot be turned into an edit by a
+        // crafted Livewire call.
         $view->record($invoice);
-        expect($view->getModalSubmitAction())->toBeNull();
+        expect($view->getModalSubmitAction())->toBeNull()
+            ->and($view->isSchemaDisabled())->toBeTrue();
     });
 });

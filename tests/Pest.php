@@ -3,12 +3,16 @@
 use App\Models\Asset;
 use App\Models\Invoice;
 use App\Models\Lease;
-use App\Models\TenantRequest;
 use App\Models\Tenant;
+use App\Models\TenantRequest;
+use App\Models\TenantUser;
 use App\Models\Unit;
 use App\Models\User;
 use Filament\Facades\Filament;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Collection;
+use Livewire\Features\SupportTesting\Testable;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -57,10 +61,33 @@ function ensureAllPropertiesAsset(): Asset
     );
 }
 
+/**
+ * The rows a Filament table actually returned.
+ *
+ * ALWAYS use this instead of `collect($page->getTableRecords())`. A table that
+ * paginates hands back a LengthAwarePaginator, and collect()ing a paginator
+ * wraps the paginator OBJECT rather than its items — so `->pluck('id')` yields
+ * a column of nulls and `->sum()` yields 0, silently, with no error. Several
+ * tests have been written wrong this way; this is the one correct accessor.
+ *
+ * @param  Testable|object  $component  a Livewire test handle or a page instance
+ */
+function tableRows(object $component): Collection
+{
+    $instance = method_exists($component, 'instance') ? $component->instance() : $component;
+    $records = $instance->getTableRecords();
+
+    if (method_exists($records, 'getCollection')) {
+        return $records->getCollection();
+    }
+
+    return $records instanceof Collection ? $records : collect($records);
+}
+
 function makeAsset(array $attrs = []): Asset
 {
     return Asset::create(array_merge([
-        'name' => 'Asset ' . uniqid(),
+        'name' => 'Asset '.uniqid(),
         'code' => strtoupper(substr(uniqid(), -6)),
         'type' => 'mall',
         'city' => 'Cairo',
@@ -76,7 +103,7 @@ function makeUnit(Asset $asset, array $attrs = []): Unit
 {
     return Unit::create(array_merge([
         'asset_id' => $asset->id,
-        'code' => 'U-' . uniqid(),
+        'code' => 'U-'.uniqid(),
         'area_sqm' => 100,
         'status' => 'vacant',
         'category' => 'retail',
@@ -86,20 +113,20 @@ function makeUnit(Asset $asset, array $attrs = []): Unit
 function makeTenant(array $attrs = []): Tenant
 {
     return Tenant::create(array_merge([
-        'name' => 'Tenant ' . uniqid(),
-        'email' => uniqid() . '@t.test',
+        'name' => 'Tenant '.uniqid(),
+        'email' => uniqid().'@t.test',
         'type' => 'company',
         'status' => 'active',
     ], $attrs));
 }
 
 /** A portal login for a tenant (admin by default). actingAs(.., 'portal'). */
-function makeTenantUser(Tenant $tenant, bool $isAdmin = true): \App\Models\TenantUser
+function makeTenantUser(Tenant $tenant, bool $isAdmin = true): TenantUser
 {
-    return \App\Models\TenantUser::create([
+    return TenantUser::create([
         'tenant_id' => $tenant->id,
-        'name' => $tenant->name . ' user',
-        'email' => 'tu' . uniqid() . '@test.local',
+        'name' => $tenant->name.' user',
+        'email' => 'tu'.uniqid().'@test.local',
         'password' => bcrypt('password'),
         'is_admin' => $isAdmin,
     ]);
@@ -110,7 +137,7 @@ function makeLease(Unit $unit, ?Tenant $tenant = null, array $attrs = []): Lease
     $tenant ??= makeTenant();
 
     return Lease::create(array_merge([
-        'reference' => 'L-' . uniqid(),
+        'reference' => 'L-'.uniqid(),
         'unit_id' => $unit->id,
         'tenant_id' => $tenant->id,
         'status' => 'active',
@@ -150,7 +177,7 @@ function makeTenantRequest(array $attrs = []): TenantRequest
     $tenant = makeTenant();
 
     return TenantRequest::create(array_merge([
-        'reference' => 'MR-' . uniqid(),
+        'reference' => 'MR-'.uniqid(),
         'unit_id' => $unit->id,
         'tenant_id' => $tenant->id,
         'title' => 'Test',
@@ -171,7 +198,7 @@ function makeTenantRequest(array $attrs = []): TenantRequest
  */
 function apiHeaders(Tenant $tenant, string $device = 'test-device'): array
 {
-    return ['Authorization' => 'Bearer ' . $tenant->createToken($device, ['tenant:*'])->plainTextToken];
+    return ['Authorization' => 'Bearer '.$tenant->createToken($device, ['tenant:*'])->plainTextToken];
 }
 
 function makeUser(string $role = 'manager', array $assetIds = []): User
@@ -179,8 +206,8 @@ function makeUser(string $role = 'manager', array $assetIds = []): User
     seedRoles();
 
     $user = User::create([
-        'name' => $role . ' user',
-        'email' => $role . uniqid() . '@test.local',
+        'name' => $role.' user',
+        'email' => $role.uniqid().'@test.local',
         'password' => bcrypt('password'),
     ]);
     $user->syncRoles([$role]);
@@ -222,7 +249,7 @@ function asTenant(Asset $tenant, callable $callback): mixed
  *
  * @param  class-string  $resourceClass
  */
-function scopedResourceQuery(string $resourceClass): \Illuminate\Database\Eloquent\Builder
+function scopedResourceQuery(string $resourceClass): Builder
 {
     $query = $resourceClass::getEloquentQuery();
 

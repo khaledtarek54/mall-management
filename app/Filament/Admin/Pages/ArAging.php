@@ -27,6 +27,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 
@@ -176,7 +177,23 @@ class ArAging extends Page implements HasSchemas, HasTable
     public function table(Table $table): Table
     {
         return $table
-            ->records(fn () => $this->invoices())
+            // Slices in the closure — a records()-backed table does not
+            // paginate itself (Filament passes page + recordsPerPage in and
+            // expects the closure to do it).
+            ->records(function (int $page, int|string $recordsPerPage) {
+                $invoices = $this->invoices();
+
+                if ($recordsPerPage === 'all') {
+                    return $invoices;
+                }
+
+                return new LengthAwarePaginator(
+                    $invoices->forPage($page, (int) $recordsPerPage),
+                    $invoices->count(),
+                    (int) $recordsPerPage,
+                    $page,
+                );
+            })
             ->columns([
                 TextColumn::make('number')
                     ->label(__('admin.tables.invoice.number'))
@@ -238,7 +255,12 @@ class ArAging extends Page implements HasSchemas, HasTable
                     ? InvoiceResource::getUrl('edit', ['record' => $record], tenant: $asset)
                     : null;
             })
-            ->paginated(false)
+            // Paginated: a bucket is unbounded — 90+ days on a mall in trouble
+            // is a long list. Safe to split because the bucket total in the
+            // sub-heading and the column summarizer are both computed over the
+            // WHOLE bucket, not the visible page, so the figure a collections
+            // run is prioritised by never changes as you page through it.
+            ->paginated([25, 50, 100, 'all'])
             ->emptyStateIcon('heroicon-o-check-circle')
             ->emptyStateHeading(__('admin.reports.no_invoices_in_bucket'));
     }

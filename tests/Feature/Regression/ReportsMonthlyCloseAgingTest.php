@@ -198,11 +198,11 @@ it('opens the drill-down on the ageing date the clicked card was computed at', f
             ->set('bucket', 'd_1_30')
             ->set('asOf', '2026-02-28');
 
-        expect(collect($page->instance()->getTableRecords())->sum('balance'))->toEqual(4000.0);
+        expect(tableRows($page)->sum('balance'))->toEqual(4000.0);
 
         // …while ageing at today (the old behaviour) would have put it in 90+.
         $page->set('asOf', '2026-06-15');
-        expect(collect($page->instance()->getTableRecords()))->toBeEmpty();
+        expect(tableRows($page))->toBeEmpty();
     });
 });
 

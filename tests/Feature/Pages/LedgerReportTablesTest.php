@@ -234,7 +234,7 @@ it('shows nothing until an account is chosen, then the account statement', funct
     asTenant($asset, function () {
         // No account picked → empty, with the "choose an account" prompt.
         $component = Livewire::test(GeneralLedger::class)->assertOk();
-        expect(collect($component->instance()->getTableRecords()))->toBeEmpty();
+        expect(tableRows($component))->toBeEmpty();
 
         // Pick the AR control account, which the invoice above debited.
         $account = LedgerAccount::query()
@@ -242,16 +242,20 @@ it('shows nothing until an account is chosen, then the account statement', funct
             ->firstOrFail();
 
         $component = Livewire::test(GeneralLedger::class)->set('accountId', $account->id);
-        $records = collect($component->instance()->getTableRecords());
+        $records = tableRows($component);
 
         // Opening balance is a real first row, so the running balance on line 1
         // follows from something visible.
         expect($records->first()['is_opening'])->toBeTrue();
-        expect($records)->toHaveCount(
-            app(LedgerReportService::class)->accountLedger(
-                $account, null, now()->startOfYear(), now()->endOfYear()
-            )['lines']->count() + 1
-        );
+        // Opening row + every line, on one page. The GL paginates at 50, so
+        // this fixture (a single invoice) stays well inside page one; asserting
+        // the count would be meaningless against a larger statement.
+        $lines = app(LedgerReportService::class)->accountLedger(
+            $account, null, now()->startOfYear(), now()->endOfYear()
+        )['lines']->count();
+
+        expect($lines)->toBeLessThan(50)
+            ->and($records)->toHaveCount($lines + 1);
 
         // The closing balance is surfaced on the page itself.
         expect($component->instance()->getSubheading())

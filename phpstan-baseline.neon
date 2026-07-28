@@ -2877,3 +2877,13 @@ parameters:
 			identifier: property.notFound
 			count: 1
 			path: app/Services/ReceiptPdfService.php
+
+		# PHPStan limitation, not a defect: LengthAwarePaginator's TValue template is not
+		# covariant, so returning exactly the declared type still errors — the message names
+		# the SAME type on both sides. GeneralLedger paginates inside records() because a
+		# records()-backed table does not paginate itself.
+		-
+			message: '#^Anonymous function should return Illuminate\\Pagination\\LengthAwarePaginator.*but returns Illuminate\\Pagination\\LengthAwarePaginator.*$#'
+			identifier: return.type
+			count: 1
+			path: app/Filament/Admin/Pages/GeneralLedger.php
