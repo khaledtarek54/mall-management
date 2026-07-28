@@ -211,7 +211,8 @@ class Reports extends Page implements HasSchemas, HasTable
     public static function parsePeriod(?string $period): CarbonImmutable
     {
         try {
-            return CarbonImmutable::createFromFormat('Y-m', (string) $period)->startOfMonth();
+            // !Y-m, not Y-m: with no day in the format, Carbon fills it from TODAY. On the 29th–31st that overflows a shorter month — "2026-02" parsed on the 29th becomes 1 March — so the period silently shifts by a month. The `!` resets every unspecified field, giving midnight on the 1st.
+            return CarbonImmutable::createFromFormat('!Y-m', (string) $period)->startOfMonth();
         } catch (\Throwable) {
             return CarbonImmutable::now()->startOfMonth();
         }

@@ -19,12 +19,14 @@ class RunMonthlyBillingCommand extends Command
 
         if ($this->option('queue')) {
             RunMonthlyBilling::dispatch($periodOption);
-            $this->info('Monthly billing job dispatched' . ($periodOption ? " for {$periodOption}" : '') . '.');
+            $this->info('Monthly billing job dispatched'.($periodOption ? " for {$periodOption}" : '').'.');
+
             return self::SUCCESS;
         }
 
         $period = $periodOption
-            ? CarbonImmutable::createFromFormat('Y-m', $periodOption)->startOfMonth()
+            // !Y-m, not Y-m: with no day in the format, Carbon fills it from TODAY. On the 29th–31st that overflows a shorter month — "2026-02" parsed on the 29th becomes 1 March — so the period silently shifts by a month. The `!` resets every unspecified field, giving midnight on the 1st.
+            ? CarbonImmutable::createFromFormat('!Y-m', $periodOption)->startOfMonth()
             : CarbonImmutable::now()->startOfMonth();
 
         $this->info("Running monthly billing for {$period->format('F Y')}...");
@@ -36,7 +38,8 @@ class RunMonthlyBillingCommand extends Command
         );
 
         if ($stats['failed'] > 0) {
-            $this->warn('Failed lease IDs: ' . implode(', ', $stats['failed_lease_ids']));
+            $this->warn('Failed lease IDs: '.implode(', ', $stats['failed_lease_ids']));
+
             return self::FAILURE;
         }
 

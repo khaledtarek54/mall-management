@@ -46,13 +46,13 @@ Two structural facts worth holding:
 
 | Item | What & why | Owner | Effort |
 | --- | --- | --- | --- |
-| ~~Decide: is CI a gate or a suggestion?~~ | ✅ **Decided 2026-07-18 — CI is a gate.** Push/PR triggers re-enabled in `.github/workflows/ci.yml`, so PHPUnit, PHPStan, Playwright and every conformance gate now block a merge. Enabling it surfaced that PHPStan had drifted **~208 errors above baseline** while auto-runs were off (219 → 427) — proof the gate had rotted precisely because it wasn't enforced. ~200 are the irreducible Filament `getOwnerRecord(): Model` false-positive class + nullsafe noise; the ~13 "always-true/false" logic smells were each reviewed (VendorBill's blank-money guard, an exhaustive `match` arm, a `getKey()` ternary — all `treatPhpDocTypesAsCertain` artifacts, no real bug). Baseline regenerated per the project's burn-down policy; two genuine ones in this session's own code fixed. **You cannot turn on a gate that is already red.** | ⚙️ | — |
+| ~~Decide: is CI a gate or a suggestion?~~ | ✅ **CI is a gate — re-enabled 2026-07-29** after a three-day pause (2026-07-26 → 07-29). `.github/workflows/ci.yml` fires on `push` + `pull_request` to `main`/`develop` plus `workflow_dispatch`; `composer audit`, PHPUnit, PHPStan and Playwright all block a merge, and the five conformance gates (PropertyIsolation, GlRegistry, MediaPrivacy, AdminSmokeManifest, DashboardLayout) enforce inside the test job. *Why the pause ended:* while auto-runs were off, a dashboard widget carrying no authorization gate shipped and published the property's receivables to the HR and marketing dashboards — exactly the class those gates exist to catch. An earlier pause had likewise let PHPStan drift ~208 errors above baseline. **A gate rots precisely when it is not enforced.** | ⚙️ | — |
 | **Keep `composer audit` green** | Now a CI job. Its first run (2026-07-16) found **22 advisories across 12 packages**, incl. two HIGH: Filament **MFA recovery codes reusable via concurrent submission**, and a medialibrary **file-upload restriction bypass** — plus a Filament **scope-enforcement** CVE landing directly on this project's property-isolation invariant. All fixed inside existing constraints (Filament 4.11.3→4.11.8, Laravel 13.11.2→13.20.0, medialibrary 11.22.1→11.23.2); 2283 tests green. Nobody knew because nothing looked — and a CVE lands with no change to your code, so only a scheduled check finds it. **This is the row most likely to bite again if CI stays manual.** | ⚙️ | S |
 | **ETA live credentials + signing certificate** | Real `client_id`/`client_secret` from the operator's ETA taxpayer profile **and** a CAdES signing certificate. ETA production **rejects unsigned B2B documents**. The pluggable signer seam + refuse-to-submit guard are ready (`config/eta.php:70-74`, `signing.enabled` defaults false). | 🔑 | M |
 | **ETA EGS codes + issuer identity** | Register real EGS item codes (base_rent, service_charge, utility, parking, percentage_rent) + issuer TRN/legal name/address. Placeholders still ship (`config/eta.php:36-46` — issuer TRN `100000000`; `:55-62` — EGS `EG-6820-001`). Wrong codes ⇒ rejection. All env-driven, no code change. | 🔑 | S |
 | **Flip ETA out of mock mode** | `EtaSettings.php:16` `$mock = true` submits to a fake endpoint — no legally-binding invoices. One-line flip, gated on the two rows above. | 🧑‍💻 | S |
 | **Paymob live cutover (KYC + live creds)** | Sandbox fully integrated and certified; no code changes. Operator completes KYC, re-issues all 4 live credentials, re-registers callbacks on the prod domain, runs one small real charge (`PAYMOB-SETUP.md §6`). | 🔑 | S |
-| **Database backups** | Documented only (`docs/INFRASTRUCTURE.md:267-286`) — no `spatie/laravel-backup`, nothing in `scripts/`, and **no deploy workflow exists at all**: `.github/workflows/ci.yml:6-11` is the only one and its triggers are commented out. Catastrophic data-loss risk for an ERP holding money, tax and contracts. | ⚙️ | S |
+| **Database backups** | 🟡 **In-app half done 2026-07-29** — `spatie/laravel-backup` runs nightly from the **scheduler** (backups belong to runtime, not to a build): `backup:clean` 01:00 → `backup:run` 01:15 → `backup:monitor` 07:30. Archives hold the DB plus `storage/app` (signed leases, tax cards, vendor documents, branding) and land on a dedicated git-ignored `backups` disk outside the backup source. `backup:monitor` is the dead-cron detector: it fails when the newest archive is older than a day. Guarded by `tests/Feature/BackupConfigurationTest.php`. **Still operator work:** set `BACKUP_DISKS="backups,s3"` (a copy on the same box as the DB dies with the box), `BACKUP_ARCHIVE_PASSWORD`, `BACKUP_ALERT_EMAIL` — and **test a restore**, which no code can assert for you. There is still **no deploy workflow**. | ⚙️/🔑 | S |
 | **Turn on the alerting you already have** | Code is **done** (2026-07-16); this is now two env vars. **Sentry** is wired and inert until `SENTRY_LARAVEL_DSN` is set (PII withheld — `send_default_pii=false` + a `before_send` reusing OpsLog's redaction; self-hostable if the data must stay in-country). **Slack** alerting needs `OPS_LOG_STACK="ops_daily,slack"` + `LOG_SLACK_WEBHOOK_URL`; the threshold is now `LOG_SLACK_LEVEL` (default `error`), decoupled from `LOG_LEVEL` so it can't page on every routine warning. Until both are set, every money/integration failure is visible only to someone SSH'd into the box. | ⚙️/🔑 | S |
 | **Rotate the seeded demo password** | Parametrized (`DemoSeeder.php:91`) but the default is still `password` and `.env.example:14` ships it. Now a deploy action, not a build task — rotate/delete demo accounts before the URL is shareable. | ⚙️ | S |
 | ~~Email (SMTP) cutover~~ | ✅ **Done 2026-07-24 — and not over SMTP.** Outbound mail runs on MailerSend's HTTPS API (`mailersend/laravel-driver`, `MAIL_MAILER=mailersend`) from the verified domain `tri-tech.net`: no SMTP egress rules, no long-lived socket, sending-scoped token. A real test message was delivered end-to-end. Two operator steps remain, both outside the code: **get the MailerSend account approved** (trial plans cap *unique recipients* — a second address 422s with `#MS42225`), and keep SPF/DKIM published for whichever domain production sends from. Preflight `integrations:check --mail` (sends nothing), live send `mail:test <inbox>`. `MAIL_ALWAYS_TO` protects non-production from the fake `@*.test` demo addresses. | 🔑 | — |
@@ -318,14 +318,22 @@ Acting on the first one would actively reintroduce a bug.
 `SENTRY_LARAVEL_DSN`, `OPS_LOG_STACK="ops_daily,slack"` + `LOG_SLACK_WEBHOOK_URL`, and
 `APP_TIMEZONE=Africa/Cairo`. Until they're set, every failure path is invisible off-box.
 
-1. **Gap-analyse modules 21–28** — the largest known blind spot (§1), containing every
-   GL-posting module. Two afternoons in it produced a money bug (SLA penalties never posting)
-   and two exposures (public-disk contracts, ungated portal writes). It is the highest
-   expected-value work left, and it is what the rest of this list is guessing at.
-2. **FRD Phase 4 (procurement)** — the next FRD phase, and the seam that clears the GRNI
-   account inventory receipts have been silently accumulating.
-3. **The remaining ⚙️ go-live rows** (§2) — backups and a deploy workflow. There is currently
-   **no deploy workflow at all**, which makes several other rows moot.
+1. **Gap-analyse modules 22–25** — inventory, fixed assets, HR/payroll, treasury. These are
+   the remainder of the old "21–28" row: 21, 26, 27, 28 and 29 have since been closed out and
+   carry close-out notes in their module docs, but 22–25 have only had a **UX pass**
+   (registers/CSV), not a correctness sweep. Every other module that got one produced a real
+   money or exposure bug, so this is still the highest expected-value work left.
+2. **The public payment surface** — `/pay/{token}` is unauthenticated, internet-facing and
+   takes money, yet `PaymobPaymentInitiator` has **zero logging** and there is **no
+   payment-link E2E spec at all** (`tests/e2e/13-*` is ETA). Missing tests: expired token,
+   concurrent attempts — the one revenue path with no E2E coverage at all.
+3. **A health check that checks something, and dead-cron detection** — `bootstrap/app.php`
+   still ships the stock `health: '/up'`, which returns 200 with the database down. The scheduler now
+   carries 25 entries (billing, GL sync, SLA scans, backups); a silently dead scheduler means
+   unbilled tenants and missed tax submissions. `backup:monitor` is the pattern to copy.
+4. **The remaining ⚙️ go-live rows** (§2) — backups are now half done in-app (2026-07-29);
+   what is left there is off-site copies, an archive password and **a tested restore**. There
+   is still **no deploy workflow at all**, which makes several other rows moot.
 
 > Before starting anything from §3, read the warning at the top of §6. Two of the first four
 > rows anyone verified were false.

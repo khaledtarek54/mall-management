@@ -266,26 +266,63 @@ different failure domain, and they double as staging refresh data.
 
 ## 7. Backups
 
-Defense in depth on top of the managed provider's own backups (paid plans only — the Aiven free
-tier has none, so on staging these dumps are the *only* backup). Nightly, to the **Hetzner Storage Box** via
-`restic` (dedup + encryption + easy retention):
+Two layers. The **in-app layer now exists in code**; the off-box layer below is still an
+operator task.
+
+### In-app (implemented) — `spatie/laravel-backup`
+
+Runs from the **scheduler** (`routes/console.php`), not from a CI/deploy workflow: a backup
+is a runtime concern, not a build one — it must keep running between deploys and on a box CI
+never touches. The scheduler already keeps billing and the GL current, so a backup rides on
+infrastructure whose failure is independently visible.
+
+| When | Command | Why |
+| --- | --- | --- |
+| 01:00 daily | `backup:clean` | Applies retention *before* the new archive is written — a full disk is how a backup run fails. |
+| 01:15 daily | `backup:run` | DB dump + uploads. |
+| 07:30 daily | `backup:monitor` | **The check that matters.** `backup:run` failing is loud; a backup job that silently *stopped* is not — and that is the state you discover on the day you need to restore. Fails when the newest archive is older than a day, on every destination. |
+
+**What is in the archive:** the database, plus `storage/app` — signed leases, tenant tax
+cards, vendor COI/CR documents, sales reports (every `useDisk('local')` collection) and
+per-property branding. **Not** the codebase: it is in git and redeployable, and including it
+makes archives large enough that retention becomes the thing that quietly gets cut.
+
+**Where archives go:** the `backups` disk (`storage/backups`), deliberately outside
+`storage/app`. Two reasons, both learned the hard way: a destination inside the backup
+*source* means every run sweeps in the previous archives, and the `local` disk is
+`serve => true` — a dump containing tax cards has no business on a disk the app can serve
+from. `storage/backups` is git-ignored.
+
+**Before go-live** (see `.env.example`):
+- `BACKUP_DISKS="backups,s3"` — a single copy on the same box as the database is **not a
+  backup**; it dies with the box.
+- `BACKUP_ARCHIVE_PASSWORD` — encrypts the archive. Set it before any copy leaves the box.
+- `BACKUP_ALERT_EMAIL` — failure mail. Unset means no mail is sent (the app still boots);
+  `backup:monitor`'s exit code is then the only signal.
+
+Configuration is guarded by `tests/Feature/BackupConfigurationTest.php`, which asserts the
+things that fail *silently*: that the uploads are actually covered, that the destination is
+not nested inside the source, and that archives never land on a servable disk.
+
+### Off-box (still an operator task)
+
+Defense in depth on top of the managed provider's own backups (paid plans only — the Aiven
+free tier has none). Nightly to the **Hetzner Storage Box** via `restic` (dedup + encryption
++ easy retention):
 
 ```bash
 # /usr/local/bin/atriom-backup.sh   (cron: 0 1 * * *)
 set -euo pipefail
 export RESTIC_REPOSITORY="sftp:uXXXXXX@uXXXXXX.your-storagebox.de:/atriom"
 export RESTIC_PASSWORD_FILE=/root/.restic-pass
-mysqldump --single-transaction --set-gtid-purged=OFF \
-  -h "$DB_HOST" -P "$DB_PORT" -u prod_u -p"$DB_PASS" atriom_prod \
-  | gzip > /tmp/atriom_prod.sql.gz
-restic backup /tmp/atriom_prod.sql.gz && rm -f /tmp/atriom_prod.sql.gz
-restic forget --keep-daily 14 --keep-weekly 8 --prune
+restic backup /path/to/storage/backups && restic forget --keep-daily 14 --keep-weekly 8 --prune
 ```
-- **App files** (uploads, generated invoice/GL PDFs) live in Hetzner Object Storage and are
-  versioned there; back up the bucket to the Storage Box on the same schedule if desired.
-- **Tested restore monthly** into a scratch DB — an untested backup is not a backup (runbook §5).
 
----
+Pointing `restic` at `storage/backups` reuses the archives the scheduler already produces,
+rather than running a second `mysqldump` with its own credentials.
+
+- **Tested restore monthly** into a scratch DB — an untested backup is not a backup
+  (runbook §5). Nothing in the app can assert this for you.
 
 ## 8. App file storage (Hetzner Object Storage, S3)
 

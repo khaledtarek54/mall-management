@@ -47,6 +47,23 @@ return [
             'report' => false,
         ],
 
+        /*
+         * Backup archives. Deliberately OUTSIDE storage/app, for two reasons:
+         *
+         *  - storage/app is the backup SOURCE, so a destination inside it means
+         *    every run sweeps in the previous archives and each backup is larger
+         *    than the last.
+         *  - the `local` disk above is `serve => true`; a database dump containing
+         *    tenant tax cards and signed leases has no business on a disk the app
+         *    can be asked to serve from.
+         */
+        'backups' => [
+            'driver' => 'local',
+            'root' => storage_path('backups'),
+            'throw' => false,
+            'report' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

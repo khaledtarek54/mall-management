@@ -17,6 +17,7 @@ class RunMonthlyBilling implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $timeout = 600;
+
     public int $tries = 1;
 
     public function __construct(public ?string $period = null) {}
@@ -28,13 +29,14 @@ class RunMonthlyBilling implements ShouldQueue
      */
     public function middleware(): array
     {
-        return [(new WithoutOverlapping('monthly-billing:' . ($this->period ?? 'current')))->dontRelease()];
+        return [(new WithoutOverlapping('monthly-billing:'.($this->period ?? 'current')))->dontRelease()];
     }
 
     public function handle(MonthlyBillingService $service): array
     {
         $period = $this->period
-            ? CarbonImmutable::createFromFormat('Y-m', $this->period)->startOfMonth()
+            // !Y-m, not Y-m: with no day in the format, Carbon fills it from TODAY. On the 29th–31st that overflows a shorter month — "2026-02" parsed on the 29th becomes 1 March — so the period silently shifts by a month. The `!` resets every unspecified field, giving midnight on the 1st.
+            ? CarbonImmutable::createFromFormat('!Y-m', $this->period)->startOfMonth()
             : CarbonImmutable::now()->startOfMonth();
 
         $stats = $service->runForPeriod($period);

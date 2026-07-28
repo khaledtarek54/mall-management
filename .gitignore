@@ -43,6 +43,9 @@ Thumbs.db
 *.sqlite
 !database/database.sqlite
 /storage/certs
+# Backup archives: a full database dump (tenant tax cards, signed leases, every
+# money record). Committing one would put all of it in the repo history forever.
+/storage/backups
 
 
 ca.pem

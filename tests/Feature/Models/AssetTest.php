@@ -1,7 +1,5 @@
 <?php
 
-use App\Models\Asset;
-
 it('flags the All Properties pseudo-asset', function () {
     $all = ensureAllPropertiesAsset();
     $hw = makeAsset(['code' => 'HW']);
@@ -77,15 +75,23 @@ it('exposes the units, leases, owners, and staff relationships', function () {
     expect($asset->leases)->toHaveCount(1);
 });
 
-it('staff() pivots through asset_user with the role + assigned_at attributes', function () {
+it('staff() pivots through asset_user carrying assignment TENURE', function () {
+    // `role` used to be asserted here and was dropped (2026_07_29_090000): nothing
+    // read it and its three writers each meant something different. What the pivot
+    // carries now is tenure — and that IS read, by AssignedAssets, which decides
+    // whether a user is scoped to a property or sees nothing.
     $asset = makeAsset();
     $user = makeUser('manager');
 
     $asset->staff()->attach($user->id, [
-        'role' => 'Senior Manager',
         'assigned_at' => '2026-01-01',
+        'ended_at' => null,
+        'notes' => 'Covering the north wing',
     ]);
 
     $pivot = $asset->staff()->first()->pivot;
-    expect($pivot->role)->toBe('Senior Manager');
+
+    expect($pivot->assigned_at)->not->toBeNull()
+        ->and($pivot->ended_at)->toBeNull()
+        ->and($pivot->notes)->toBe('Covering the north wing');
 });

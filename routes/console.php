@@ -193,3 +193,35 @@ Schedule::command('accounting:sync-ledger --all --scheduled')
     ->weeklyOn(5, '03:00')
     ->name('atriom-sync-ledger-full')
     ->withoutOverlapping();
+
+/*
+|--------------------------------------------------------------------------
+| Backups
+|--------------------------------------------------------------------------
+|
+| On the SCHEDULER rather than a CI/deploy workflow: a backup is a runtime
+| concern, not a build one — it has to keep running between deploys, and on a
+| box CI never touches. The scheduler already keeps billing and the GL current,
+| so a backup rides on infrastructure whose failure is independently visible.
+|
+| Order matters. Clean first so retention frees space before the new archive is
+| written (a full disk is how a backup run fails), then back up, then verify.
+*/
+Schedule::command('backup:clean')
+    ->dailyAt('01:00')
+    ->name('atriom-backup-clean')
+    ->withoutOverlapping();
+
+Schedule::command('backup:run')
+    ->dailyAt('01:15')
+    ->name('atriom-backup-run')
+    ->withoutOverlapping();
+
+// The check that actually matters. `backup:run` failing is loud, but a backup
+// job that silently STOPPED running is not — and that is the state you discover
+// on the day you need to restore. The monitor fails when the newest archive is
+// older than a day, on every configured destination, which detects both.
+Schedule::command('backup:monitor')
+    ->dailyAt('07:30')
+    ->name('atriom-backup-monitor')
+    ->withoutOverlapping();
