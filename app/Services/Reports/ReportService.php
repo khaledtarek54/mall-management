@@ -2,14 +2,15 @@
 
 namespace App\Services\Reports;
 
-use App\Models\Charge;
+use App\Models\CreditNote;
 use App\Models\Invoice;
+use App\Models\InvoiceItem;
 use App\Models\Lease;
 use App\Models\Payment;
 use App\Models\Tenant;
-use App\Models\Unit;
 use App\Support\TenantScope;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 /**
@@ -27,6 +28,7 @@ class ReportService
      *   invoices: array{count:int, total:float, vat:float, by_status:array<string,array{count:int,total:float}>},
      *   payments: array{count:int, total:float, by_method:array<string,float>},
      *   ar_aging: array<string,array{count:int,total:float}>,
+     *   ar_aging_as_of: string,
      *   outstanding_total: float,
      *   credit_notes: array{count:int, total_issued:float, total_applied:float},
      *   revenue_by_type: array<string,float>,
@@ -56,7 +58,7 @@ class ReportService
 
         $paymentsInMonth = TenantScope::applyTo(Payment::query(), 'invoices.lease.unit')
             ->whereBetween('payment_date', [$monthStart, $monthEnd])
-            ->whereIn('status', \App\Models\Payment::RECEIVED_STATUSES)
+            ->whereIn('status', Payment::RECEIVED_STATUSES)
             ->get();
 
         $paymentsByMethod = $paymentsInMonth
@@ -66,7 +68,13 @@ class ReportService
 
         $revenueByType = $this->revenueByType($monthStart, $monthEnd);
 
-        $arAging = $this->arAgingBuckets($monthEnd);
+        // Age the receivables as at the period close — but never past today. Month-end of the
+        // month currently being closed is a FUTURE date, and ageing to it declared invoices
+        // late that aren't due yet (on the demo books: 81 invoices / EGP 1.01m shown as
+        // "1–30 days" when only 2 were actually late). The drill-down ages as of a real day,
+        // so the un-clamped bucket totals also disagreed with the invoices behind them.
+        $agingAsOf = $monthEnd->isFuture() ? CarbonImmutable::now()->endOfDay() : $monthEnd;
+        $arAging = $this->arAgingBuckets($agingAsOf);
         $outstandingTotal = array_sum(array_column($arAging, 'total'));
 
         $creditNotes = $this->scopedCreditNotes()
@@ -95,6 +103,10 @@ class ReportService
                 'by_method' => $paymentsByMethod,
             ],
             'ar_aging' => $arAging,
+            // The day the buckets above were aged at — carried out of the service so the
+            // drill-down can be opened on the SAME day and list exactly the invoices the
+            // bucket counted, instead of re-ageing at "now".
+            'ar_aging_as_of' => $agingAsOf->toDateString(),
             'outstanding_total' => round($outstandingTotal, 2),
             'credit_notes' => [
                 'count' => $creditNotes->count(),
@@ -183,6 +195,7 @@ class ReportService
             ->filter(function (Invoice $invoice) use ($asOf, $min, $max) {
                 // Identical whole-day math to arAgingBuckets() — see the note there.
                 $days = (int) ($invoice->due_date?->startOfDay()->diffInDays($asOf->startOfDay(), false) ?? 0);
+
                 return $days >= $min && $days <= $max;
             })
             ->sortByDesc('balance')
@@ -227,11 +240,12 @@ class ReportService
 
     /**
      * Revenue billed per invoice-item type for a date range.
+     *
      * @return array<string,float>
      */
     private function revenueByType(CarbonImmutable $start, CarbonImmutable $end): array
     {
-        $query = \App\Models\InvoiceItem::query()
+        $query = InvoiceItem::query()
             ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
             ->whereBetween('invoices.issue_date', [$start, $end])
             ->whereNotIn('invoices.status', ['cancelled', 'draft']);
@@ -239,20 +253,20 @@ class ReportService
         if ($assetId = TenantScope::currentAssetId()) {
             $query->whereExists(function ($q) use ($assetId) {
                 $q->select(\DB::raw(1))
-                  ->from('leases')
-                  ->join('units', 'units.id', '=', 'leases.unit_id')
-                  ->whereColumn('leases.id', 'invoices.lease_id')
-                  ->where('units.asset_id', $assetId);
+                    ->from('leases')
+                    ->join('units', 'units.id', '=', 'leases.unit_id')
+                    ->whereColumn('leases.id', 'invoices.lease_id')
+                    ->where('units.asset_id', $assetId);
             });
         } elseif (($ids = TenantScope::visibleAssetIds()) !== null) {
             // "All Properties" for a RESTRICTED user — pin to their assigned set (else
             // this leaked every mall's revenue; mirrors TenantScope::applyTo's fallback).
             $query->whereExists(function ($q) use ($ids) {
                 $q->select(\DB::raw(1))
-                  ->from('leases')
-                  ->join('units', 'units.id', '=', 'leases.unit_id')
-                  ->whereColumn('leases.id', 'invoices.lease_id')
-                  ->whereIn('units.asset_id', $ids);
+                    ->from('leases')
+                    ->join('units', 'units.id', '=', 'leases.unit_id')
+                    ->whereColumn('leases.id', 'invoices.lease_id')
+                    ->whereIn('units.asset_id', $ids);
             });
         }
 
@@ -265,6 +279,7 @@ class ReportService
         foreach ($rows as $row) {
             $out[$row->type] = round((float) $row->subtotal, 2);
         }
+
         return $out;
     }
 
@@ -273,21 +288,21 @@ class ReportService
      * standalone (no lease_id) credit notes are tenant-level adjustments and
      * remain visible across properties.
      */
-    private function scopedCreditNotes(): \Illuminate\Database\Eloquent\Builder
+    private function scopedCreditNotes(): Builder
     {
-        $query = \App\Models\CreditNote::query();
+        $query = CreditNote::query();
 
         if ($assetId = TenantScope::currentAssetId()) {
             $query->where(function ($q) use ($assetId) {
                 $q->whereNull('lease_id')
-                  ->orWhereHas('lease.unit', fn ($q2) => $q2->where('asset_id', $assetId));
+                    ->orWhereHas('lease.unit', fn ($q2) => $q2->where('asset_id', $assetId));
             });
         } elseif (($ids = TenantScope::visibleAssetIds()) !== null) {
             // "All Properties" for a RESTRICTED user — pin lease-linked notes to their
             // assigned set (standalone notes stay portfolio-visible, per the resource).
             $query->where(function ($q) use ($ids) {
                 $q->whereNull('lease_id')
-                  ->orWhereHas('lease.unit', fn ($q2) => $q2->whereIn('asset_id', $ids));
+                    ->orWhereHas('lease.unit', fn ($q2) => $q2->whereIn('asset_id', $ids));
             });
         }
 

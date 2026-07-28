@@ -528,6 +528,7 @@ return [
         'ar_aging' => 'AR Aging',
         'bucket' => 'Bucket',
         'bucket_total' => 'Bucket total',
+        'aged_as_of' => 'Aged as of',
         'invoices_issued' => 'Invoices Issued',
         'payments_captured' => 'Payments Captured',
         'collections_rate' => 'Collections Rate',

@@ -3,8 +3,7 @@
 namespace App\Filament\Admin\Widgets;
 
 use App\Filament\Admin\Concerns\RoleScopedWidget;
-use App\Models\Invoice;
-use App\Support\TenantScope;
+use App\Services\Reports\ReportService;
 use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
 
@@ -31,65 +30,18 @@ class ArAging extends ChartWidget
 
     protected function getData(): array
     {
-        // Canonical AR only — open + owed (matches ReportService / BooksReconciliation);
-        // never count cancelled / credited / disputed / draft rows in the aging.
-        $base = fn () => TenantScope::applyTo(Invoice::query(), 'lease.unit')
-            ->whereIn('status', ['issued', 'partially_paid', 'overdue']);
-
-        $buckets = [
-            'current' => [
-                'amount' => (float) $base()->where('balance', '>', 0)
-                    ->where('due_date', '>=', now())
-                    ->sum('balance'),
-                'count' => $base()->where('balance', '>', 0)
-                    ->where('due_date', '>=', now())
-                    ->count(),
-            ],
-            '1_30' => [
-                'amount' => (float) $base()->where('balance', '>', 0)
-                    ->where('due_date', '<', now())
-                    ->where('due_date', '>=', now()->subDays(30))
-                    ->sum('balance'),
-                'count' => $base()->where('balance', '>', 0)
-                    ->where('due_date', '<', now())
-                    ->where('due_date', '>=', now()->subDays(30))
-                    ->count(),
-            ],
-            '31_60' => [
-                'amount' => (float) $base()->where('balance', '>', 0)
-                    ->where('due_date', '<', now()->subDays(30))
-                    ->where('due_date', '>=', now()->subDays(60))
-                    ->sum('balance'),
-                'count' => $base()->where('balance', '>', 0)
-                    ->where('due_date', '<', now()->subDays(30))
-                    ->where('due_date', '>=', now()->subDays(60))
-                    ->count(),
-            ],
-            '61_90' => [
-                'amount' => (float) $base()->where('balance', '>', 0)
-                    ->where('due_date', '<', now()->subDays(60))
-                    ->where('due_date', '>=', now()->subDays(90))
-                    ->sum('balance'),
-                'count' => $base()->where('balance', '>', 0)
-                    ->where('due_date', '<', now()->subDays(60))
-                    ->where('due_date', '>=', now()->subDays(90))
-                    ->count(),
-            ],
-            '90_plus' => [
-                'amount' => (float) $base()->where('balance', '>', 0)
-                    ->where('due_date', '<', now()->subDays(90))
-                    ->sum('balance'),
-                'count' => $base()->where('balance', '>', 0)
-                    ->where('due_date', '<', now()->subDays(90))
-                    ->count(),
-            ],
-        ];
+        // One bucket definition for the whole system: ReportService::arAgingBuckets() is what
+        // the monthly-close cards and the AR-ageing drill-down use. This widget used to carry
+        // its own copy — comparing a midnight `due_date` against a `now()` that has a TIME on
+        // it, so every invoice sitting exactly on a boundary (due today, or 30/60/90 days late)
+        // was pushed one bucket too far and the dashboard chart disagreed with the report.
+        $buckets = app(ReportService::class)->arAgingBuckets();
 
         return [
             'datasets' => [
                 [
                     'label' => __('admin.widgets.ar_aging.label'),
-                    'data' => array_map(fn ($b) => $b['amount'], array_values($buckets)),
+                    'data' => array_map(fn ($b) => $b['total'], array_values($buckets)),
                     'backgroundColor' => ['#3B8C5A', '#D8A53A', '#E37B36', '#C8453A', '#7A1F1F'],
                     'borderWidth' => 0,
                     'borderRadius' => 6,

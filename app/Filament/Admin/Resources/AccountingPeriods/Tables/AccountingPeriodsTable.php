@@ -9,6 +9,7 @@ use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class AccountingPeriodsTable
 {
@@ -51,7 +52,11 @@ class AccountingPeriodsTable
                     ->options(fn () => __('admin.statuses.period')),
                 SelectFilter::make('fiscal_year_id')
                     ->label(__('admin.fields.fiscal_year'))
-                    ->relationship('fiscalYear', 'year'),
+                    // Newest year first. Filament falls back to ordering a relationship
+                    // option list by its title attribute ASCENDING, which listed the years
+                    // oldest-first (2024, 2025, 2026) — the reverse of the year picker in
+                    // this page's own year-end-close modal and of every ledger report.
+                    ->relationship('fiscalYear', 'year', fn (Builder $query) => $query->orderByDesc('year')),
             ])
             ->recordActions([
                 Action::make('close_period')

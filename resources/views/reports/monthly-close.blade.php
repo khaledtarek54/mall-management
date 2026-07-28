@@ -204,7 +204,14 @@
 
 {{-- AR AGING --}}
 <div class="section">
-    <h2>{{ __('admin.reports.ar_aging') }}</h2>
+    {{-- Name the day the buckets were aged at: for a month already closed that is
+         month-end, for the month in progress it is today. A bucket like "31–60 days"
+         is meaningless without it, and this is what the on-screen drill-down uses. --}}
+    <h2>{{ __('admin.reports.ar_aging') }}
+        <span style="font-weight: normal; font-size: 9pt;">
+            — {{ __('admin.reports.aged_as_of') }} {{ \Illuminate\Support\Carbon::parse($report['ar_aging_as_of'])->format('d/m/Y') }}
+        </span>
+    </h2>
     <table class="data">
         <thead>
             <tr>

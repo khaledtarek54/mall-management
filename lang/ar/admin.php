@@ -528,6 +528,7 @@ return [
         'ar_aging' => 'أعمار الذمم',
         'bucket' => 'الفئة',
         'bucket_total' => 'إجمالي الفئة',
+        'aged_as_of' => 'محسوبة حتى تاريخ',
         'invoices_issued' => 'الفواتير الصادرة',
         'payments_captured' => 'المدفوعات المحصلة',
         'collections_rate' => 'معدل التحصيل',

@@ -56,6 +56,9 @@ daysOverdue = (int) due_date.startOfDay().diffInDays(asOf.startOfDay(), false)  
 
 - **Floor to start-of-day on BOTH sides.** `due_date` is a date (midnight) but `asOf` carries a time (`monthlyClose` passes `endOfMonth()` = 23:59:59), so a raw `diffInDays` returns N.99… . *(Fixed 2026-07-27 — the summary used the raw float and over-aged every whole-day boundary by a bucket: a 30-days-overdue invoice showed as 31–60, one due today as 1–30. The drilldown already used `(int)`, so the two didn't reconcile — and the Reports page links each bucket total to that drilldown.)*
 - **Summary (`arAgingBuckets`) and drilldown (`arAgingDrilldown`) use identical day-math + the same `issue_date <= asOf` inclusion cutoff**, so a bucket total always equals the sum of its drilldown rows. Guarded by `ReportAgingBoundaryTest`.
+- **`monthlyClose()` ages at `min(month-end, today)`** and returns that day as `ar_aging_as_of`. Month-end of the month *being closed* is a future date; ageing to it declared invoices late that weren't due yet. *(Fixed 2026-07-28 — on the demo books the "1–30 days" card read 81 invoices / EGP 1.01m while the drill-down behind it listed 2 / EGP 71k, because the card aged at month-end and the drill-down re-aged at `now()`.)*
+- **The ageing date travels with the drill-down.** `MonthlyCloseStats` puts `ar_aging_as_of` in each bucket link (`?bucket=…&asOf=YYYY-MM-DD`); the `ArAging` page ages at that date, shows it in the sub-heading and its own date picker, and puts it in the CSV filename. A bucket total and the worklist behind it can no longer describe different days. Guarded by `ReportsMonthlyCloseAgingTest`.
+- **One bucket definition system-wide.** The dashboard `ArAging` chart calls `arAgingBuckets()` too — it used to carry a private copy comparing a midnight `due_date` to a `now()` with a time on it, so boundary invoices landed a bucket too far and the dashboard disagreed with the report.
 - **Null due_date** treated as 0 days overdue (current).
 - **Paid/zero-balance invoices** excluded entirely.
 - **Bucket totals** = sum of `balance` (not total) for invoices in that bucket.
@@ -270,9 +273,20 @@ public function build(CarbonImmutable $period): string
 **Key UI elements:**
 - Period picker (Livewire live-binding to period).
 - KPI grid: invoices issued, payments captured, collections rate, outstanding AR.
-- AR aging buckets (5 cards); each is a link to ArAging page with bucket param.
+- AR aging buckets (5 cards); each links to the ArAging page with **`bucket` + `asOf`**.
 - Revenue by type table.
 - Download PDF button (gated on `reports.download`).
+
+**Widget wiring — two traps, both hit at once (fixed 2026-07-28):**
+- The cards are declared as a **`statsWidgets(Schema $schema): Schema`** rendered by
+  `ledger-report.blade.php`, **not** `getHeaderWidgets()`. Filament's page component renders
+  header widgets itself, above the page slot — registering them there *and* printing them in
+  the view rendered every card **twice**, and would put the cards above the picker driving them.
+- The selected period is published through **`getWidgetData()`**. It used to be spelled
+  `getHeaderWidgetsData()`, which Filament 4 never calls: the revenue table (reading
+  `$this->period` directly) followed the picker while the cards stayed pinned to the current
+  month, so one page described two months. `MonthlyCloseStats::$period` is `#[Reactive]` —
+  Livewire mounts a child once, so without it the cards freeze at first load.
 
 **Methods:**
 - `downloadMonthlyClose()`: builds PDF via `MonthlyCloseReportPdfService::build()`, streams with filename.
@@ -287,14 +301,20 @@ public function build(CarbonImmutable $period): string
 
 **Query params:**
 - `bucket`: one of {current, d_1_30, d_31_60, d_61_90, d_90_plus} (defaults d_1_30).
+- `asOf`: `Y-m-d` the receivables are aged at (defaults to today; junk falls back to today via
+  `ArAging::parseAsOf()`). Set by the monthly-close card that was clicked so the drill-down
+  lists exactly the invoices that card counted.
 
 **View data:**
-- `invoices`: result of `ReportService->arAgingDrilldown($bucket)` sorted by balance desc.
-- `bucket`, `buckets`, `totalBalance`.
+- `invoices`: result of `ReportService->arAgingDrilldown($bucket, $asOf)` sorted by balance desc.
+- `bucket`, `buckets`, `asOf`, `totalBalance`.
 
 **Key UI elements:**
-- Bucket picker (Livewire live-binding).
-- Invoice table: number, tenant, unit, due_date, balance, days_overdue, link to edit invoice.
+- Bucket picker + **as-of date picker** (both Livewire live-binding).
+- Sub-heading states the bucket total, the invoice count and the ageing date.
+- Invoice table: number, tenant, unit, due_date, balance, days_overdue (measured against
+  `asOf`, not `now()`), link to edit invoice.
+- CSV export; the filename carries the as-of date (`ar-aging-{bucket}-{Y-m-d}.csv`).
 
 ---
 
@@ -307,9 +327,10 @@ public function build(CarbonImmutable $period): string
 **Display:**
 - Bar chart with 5 aging buckets (colors: green current → red 90+).
 - Tooltip shows EGP amount + count of invoices.
-- Buckets calculated on-the-fly from `Invoice` queries.
-
-**Note:** Widget queries are separate from ReportService (not DRY); consider refactoring to use ReportService in future.
+- Buckets come from `ReportService::arAgingBuckets()` — the same call the monthly-close cards
+  and the drill-down use. *(Fixed 2026-07-28: it used to run its own `due_date` comparisons
+  against a timestamped `now()`, so an invoice due today, or exactly 30/60/90 days late, was
+  pushed one bucket too far and the dashboard contradicted the report.)*
 
 ---
 
@@ -376,11 +397,19 @@ public function build(CarbonImmutable $period): string
 - Called from both `Payment::saved()` hook AND after Filament form save (when pivot is synced).
 - **Gotcha:** If both occur in the same request, the second call sees the flag and returns early. Safe but watch for silent failures in logging.
 
-### Widget vs. Service calculations diverge
-- `ArAging` **widget** queries invoices directly (not using ReportService).
-- **Widget buckets** use `where('due_date', '<', now()->subDays(X))` (date-based).
-- **Service buckets** use `diffInDays(asOf, false)` (offset-based).
-- **Gotcha:** Widget and service may differ by ±1 day if run near midnight or if widget is cached. Consider refactoring widget to call ReportService in future.
+### Three surfaces, one set of buckets *(fixed 2026-07-28)*
+The same five ageing buckets are shown in three places — the dashboard chart, the
+monthly-close KPI cards, and the AR-ageing drill-down. All three disagreed:
+- The **dashboard chart** ran its own `where('due_date', '<', now()->subDays(X))` queries,
+  comparing a midnight `due_date` against a `now()` that carries a time — every boundary
+  invoice (due today, or exactly 30/60/90 days late) landed one bucket too far.
+- The **cards** aged at month-end; the **drill-down** re-aged at `now()`. On the demo books
+  the "1–30 days" card said 81 invoices / EGP 1.01m and opened onto 2 / EGP 71k.
+
+Now: the chart calls `arAgingBuckets()`; `monthlyClose()` ages at `min(month-end, today)` and
+publishes `ar_aging_as_of`; the cards pass that date to the drill-down in the link. **If you add
+a fourth surface, call `ReportService` and carry the as-of date — don't re-derive the buckets.**
+Guarded by `ReportsMonthlyCloseAgingTest` + `ReportAgingBoundaryTest`.
 
 ### Month boundary edge cases
 - Invoice issued on 2026-02-28 (last day) **is included** in Feb close.

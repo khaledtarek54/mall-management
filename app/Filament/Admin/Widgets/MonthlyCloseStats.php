@@ -8,6 +8,7 @@ use App\Services\Reports\ReportService;
 use Carbon\CarbonImmutable;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Livewire\Attributes\Reactive;
 
 /**
  * The month's headline numbers, plus the AR ageing buckets, for the monthly
@@ -23,7 +24,14 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
  */
 class MonthlyCloseStats extends StatsOverviewWidget
 {
-    /** Y-m of the period being closed; injected by the Reports page. */
+    /**
+     * Y-m of the period being closed; injected by the Reports page.
+     *
+     * `#[Reactive]` because Livewire only mounts a child once: without it the cards froze
+     * at the month the page first loaded while the revenue table below followed the picker,
+     * so the two halves of the page described different months.
+     */
+    #[Reactive]
     public ?string $period = null;
 
     protected int|string|array $columnSpan = 'full';
@@ -71,7 +79,13 @@ class MonthlyCloseStats extends StatsOverviewWidget
             )
                 ->description($row['count'].' '.__('admin.widgets.ar_aging.invoices'))
                 ->color($bucketColours[$key] ?? 'gray')
-                ->url(ArAging::getUrl(['bucket' => $key]));
+                // Hand the drill-down the SAME ageing date these buckets were computed at.
+                // Without it the page re-aged at "now" and listed a different set of
+                // invoices than the total on the card the operator just clicked.
+                ->url(ArAging::getUrl([
+                    'bucket' => $key,
+                    'asOf' => $report['ar_aging_as_of'],
+                ]));
         }
 
         return $stats;

@@ -11,6 +11,7 @@ use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
 use Filament\Schemas\Contracts\HasSchemas;
@@ -92,18 +93,30 @@ class Reports extends Page implements HasSchemas, HasTable
         return static::canAccess();
     }
 
-    /** @return array<class-string> */
-    protected function getHeaderWidgets(): array
+    /**
+     * The month's KPI + ageing cards.
+     *
+     * Declared as a schema rendered inside the page body — NOT via `getHeaderWidgets()`.
+     * Filament's page component renders header widgets itself, above the slot; registering
+     * them there *and* rendering them in the view printed every card twice, and would put
+     * the cards above the period picker that drives them.
+     */
+    public function statsWidgets(Schema $schema): Schema
     {
-        return [
-            MonthlyCloseStats::class,
-        ];
+        return $schema->components([
+            Grid::make(2)->schema($this->getWidgetsSchemaComponents([MonthlyCloseStats::class])),
+        ]);
     }
 
-    /** @return array<string, mixed> */
-    protected function getHeaderWidgetsData(): array
+    /**
+     * @return array<string, mixed>
+     *
+     * Filament passes this to every widget it renders. It used to be spelled
+     * `getHeaderWidgetsData()`, which Filament 4 never calls — so the picker moved the
+     * revenue table while the cards stayed pinned to the current month.
+     */
+    public function getWidgetData(): array
     {
-        // The stats follow the period picker rather than defaulting to "now".
         return ['period' => $this->period];
     }
 

@@ -12,7 +12,9 @@ use App\Services\Reports\ReportService;
 use App\Support\Modules;
 use App\Support\ReportCsv;
 use BackedEnum;
+use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
@@ -59,12 +61,32 @@ class ArAging extends Page implements HasSchemas, HasTable
 
     public string $bucket = 'd_1_30';
 
+    /**
+     * The day the receivables are aged at (`Y-m-d`).
+     *
+     * Carried in from the monthly-close stat card that was clicked: that card ages at the
+     * period being closed, so re-ageing here at "now" listed a different set of invoices
+     * than the bucket total counted. Defaults to today when the page is opened directly.
+     */
+    public string $asOf;
+
     public function mount(): void
     {
         $requested = (string) request()->query('bucket', 'd_1_30');
 
         // Only a known bucket — an unknown one makes the service throw.
         $this->bucket = array_key_exists($requested, self::buckets()) ? $requested : 'd_1_30';
+        $this->asOf = self::parseAsOf(request()->query('asOf'))->toDateString();
+    }
+
+    /** Parse a client-supplied `Y-m-d`, falling back to today. */
+    public static function parseAsOf(mixed $value): CarbonImmutable
+    {
+        try {
+            return CarbonImmutable::createFromFormat('Y-m-d', (string) $value)->endOfDay();
+        } catch (\Throwable) {
+            return CarbonImmutable::now()->endOfDay();
+        }
     }
 
     /** @return array<string, string> */
@@ -91,6 +113,13 @@ class ArAging extends Page implements HasSchemas, HasTable
                             ->options(fn (): array => self::buckets())
                             ->native(false)
                             ->live(),
+                        // The ageing date is part of the answer, not a hidden constant:
+                        // "31–60 days" only means something relative to a day. Showing it
+                        // makes the drill-down reconcilable against the card that opened it.
+                        DatePicker::make('asOf')
+                            ->label(__('admin.reports.aged_as_of'))
+                            ->native(false)
+                            ->live(),
                     ]),
             ]);
     }
@@ -106,7 +135,8 @@ class ArAging extends Page implements HasSchemas, HasTable
         $invoices = $this->invoices();
 
         return __('admin.reports.bucket_total').': EGP '.number_format((float) $invoices->sum('balance'), 2)
-            .' · '.$invoices->count().' '.__('admin.widgets.ar_aging.invoices');
+            .' · '.$invoices->count().' '.__('admin.widgets.ar_aging.invoices')
+            .' · '.__('admin.reports.aged_as_of').' '.self::parseAsOf($this->asOf)->format('d/m/Y');
     }
 
     protected function getHeaderActions(): array
@@ -123,7 +153,11 @@ class ArAging extends Page implements HasSchemas, HasTable
                 ->action(function () {
                     $csv = app(ReportCsvExporter::class)->arAging($this->invoices());
 
-                    return ReportCsv::stream("ar-aging-{$this->bucket}", $csv['headers'], $csv['rows']);
+                    // The as-of date is in the filename: an exported worklist is only
+                    // reconcilable if you can tell which day it was aged at.
+                    $asOf = self::parseAsOf($this->asOf)->toDateString();
+
+                    return ReportCsv::stream("ar-aging-{$this->bucket}-{$asOf}", $csv['headers'], $csv['rows']);
                 }),
         ];
     }
@@ -136,7 +170,7 @@ class ArAging extends Page implements HasSchemas, HasTable
     /** @return Collection<int, Invoice> */
     protected function invoices()
     {
-        return app(ReportService::class)->arAgingDrilldown($this->bucket);
+        return app(ReportService::class)->arAgingDrilldown($this->bucket, self::parseAsOf($this->asOf));
     }
 
     public function table(Table $table): Table
@@ -163,7 +197,11 @@ class ArAging extends Page implements HasSchemas, HasTable
                 TextColumn::make('days_overdue')
                     ->label(__('admin.reports.days_overdue'))
                     ->alignEnd()
-                    ->state(fn (Invoice $record): int => max(0, (int) $record->due_date->startOfDay()->diffInDays(now()->startOfDay(), false)))
+                    // Measured against the ageing date, not "now" — otherwise a row could
+                    // read "12 days" inside the 31–60 bucket it was correctly placed in.
+                    ->state(fn (Invoice $record): int => max(0, (int) $record->due_date
+                        ->startOfDay()
+                        ->diffInDays(self::parseAsOf($this->asOf)->startOfDay(), false)))
                     // Past 60 days is where a receivable stops being late and
                     // starts being a problem.
                     ->color(fn ($state): string => $state > 60 ? 'danger' : 'warning')

@@ -5,15 +5,18 @@
     the stats and the report itself are declared in PHP as a Schema, widgets and
     a Table, so there is no presentation markup here to drift out of the design
     system or miss dark mode.
+
+    Pages that show stat cards declare a `statsWidgets(Schema $schema): Schema`
+    rather than `getHeaderWidgets()`: Filament's page component renders header
+    widgets itself, so registering them there AND printing them here rendered
+    every card twice.
 --}}
 <x-filament-panels::page>
     {{ $this->filtersForm }}
 
-    <x-filament-widgets::widgets
-        :columns="$this->getHeaderWidgetsColumns()"
-        :data="$this->getWidgetData()"
-        :widgets="$this->getVisibleHeaderWidgets()"
-    />
+    @if (method_exists($this, 'statsWidgets'))
+        {{ $this->statsWidgets }}
+    @endif
 
     {{ $this->table }}
 </x-filament-panels::page>
