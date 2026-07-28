@@ -97,11 +97,11 @@ class RegisterProperty extends RegisterTenant
         $asset = Asset::create($data);
 
         if ($user = Auth::user()) {
+            // Assignment only. This used to also stamp a pivot `role` of "manager", which read
+            // like a per-property grant and was nothing of the sort — no code ever looked at it,
+            // and the creator's real authority comes from the Spatie role they already hold.
             $user->assignedAssets()->syncWithoutDetaching([
-                $asset->id => [
-                    'role' => 'manager',
-                    'assigned_at' => now(),
-                ],
+                $asset->id => ['assigned_at' => now()],
             ]);
         }
 

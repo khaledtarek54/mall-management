@@ -1,21 +1,21 @@
 name: CI
 
-# Auto-runs are PAUSED (2026-07-26, at the owner's request — "stop CI for now").
-# Only manual runs fire now (Actions tab → Run workflow, or `gh workflow run ci.yml`). While
-# paused, the self-enforcing conformance gates — PropertyIsolationConformanceTest,
-# GlRegistryConformanceTest, MediaPrivacyConformanceTest, GlRegistry/AdminSmokeManifestConformanceTest
-# — are ADVISORY again: nothing blocks a bad change from merging, so keep `pest --parallel`
-# green locally before pushing. Every one of those gates exists because the class of bug it
-# catches already shipped once.
+# Auto-runs are ON (re-enabled 2026-07-29 — they were paused 2026-07-26 through 2026-07-29).
 #
-# To RE-ENABLE auto-runs: uncomment the push/pull_request blocks below (and update the CLAUDE.md
-# CI note back to "ON").
+# Why they are back: the project now carries FIVE self-enforcing conformance gates —
+# PropertyIsolationConformanceTest, GlRegistryConformanceTest, MediaPrivacyConformanceTest,
+# AdminSmokeManifestConformanceTest and DashboardLayoutConformanceTest — and every one of them
+# exists because the class of bug it catches already shipped once. While auto-runs were paused
+# they were ADVISORY: they only ran when somebody remembered. In that window a widget with no
+# authorization gate at all reached production and published the property's receivables to the
+# HR and marketing dashboards — exactly the class the gates are for. A gate nobody runs is not
+# a gate.
 on:
   workflow_dispatch:
-  # push:
-  #   branches: [main, develop]
-  # pull_request:
-  #   branches: [main, develop]
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
 
 jobs:
   # Known-vulnerable dependencies. Cheap (no PHP deps needed beyond the lock file) and it

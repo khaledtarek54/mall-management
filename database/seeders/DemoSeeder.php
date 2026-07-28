@@ -1771,30 +1771,30 @@ class DemoSeeder extends Seeder
      */
     private function seedStaffAssignments(Asset $asset): void
     {
-        $assignments = [
-            ['email' => 'manager@mall.test',     'role' => 'Operations Manager'],
-            ['email' => 'leasing@mall.test',     'role' => 'Leasing Lead'],
-            ['email' => 'maintenance@mall.test', 'role' => 'Facilities Supervisor'],
-            ['email' => 'accounting@mall.test',  'role' => 'Accounting Lead'],
-            ['email' => 'marketing@mall.test',   'role' => 'Marketing Lead'],
-            ['email' => 'hr@mall.test',          'role' => 'HR Lead'],
+        // Which staff logins may operate on this property. A job title is deliberately NOT stored
+        // here — `employees.position` already models "who works here and as what", and the pivot
+        // column that used to duplicate it was never read by anything.
+        $emails = [
+            'manager@mall.test',
+            'leasing@mall.test',
+            'maintenance@mall.test',
+            'accounting@mall.test',
+            'marketing@mall.test',
+            'hr@mall.test',
             // The auditor was the one demo login with no property, so every page 404'd for it
             // and the role was untestable. (The owner reaches the property through asset_owner,
             // not this pivot, so it stays out of this list.)
-            ['email' => 'viewer@mall.test',      'role' => 'Auditor'],
+            'viewer@mall.test',
         ];
 
-        foreach ($assignments as $a) {
-            $user = User::where('email', $a['email'])->first();
+        foreach ($emails as $email) {
+            $user = User::where('email', $email)->first();
             if (! $user) {
                 continue;
             }
 
             $asset->staff()->syncWithoutDetaching([
-                $user->id => [
-                    'role' => $a['role'],
-                    'assigned_at' => now()->subMonths(6),
-                ],
+                $user->id => ['assigned_at' => now()->subMonths(6)],
             ]);
         }
 

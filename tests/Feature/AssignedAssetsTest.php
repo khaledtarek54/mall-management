@@ -31,7 +31,7 @@ class AssignedAssetsTest extends TestCase
         ]);
         $u->syncRoles([$role]);
         if ($assetIds) {
-            $u->assignedAssets()->sync(array_fill_keys($assetIds, ['role' => 'Test', 'assigned_at' => now()]));
+            $u->assignedAssets()->sync(array_fill_keys($assetIds, ['assigned_at' => now()]));
         }
         return $u;
     }

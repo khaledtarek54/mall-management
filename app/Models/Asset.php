@@ -124,7 +124,7 @@ class Asset extends Model implements HasMedia
     public function staff(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'asset_user')
-            ->withPivot(['role', 'assigned_at', 'ended_at', 'notes'])
+            ->withPivot(['assigned_at', 'ended_at', 'notes'])
             ->withTimestamps();
     }
 

@@ -232,7 +232,7 @@ class User extends Authenticatable implements FilamentUser, HasTenants
     public function assignedAssets(): BelongsToMany
     {
         return $this->belongsToMany(Asset::class, 'asset_user')
-            ->withPivot(['role', 'assigned_at', 'ended_at', 'notes'])
+            ->withPivot(['assigned_at', 'ended_at', 'notes'])
             ->withTimestamps();
     }
 
@@ -243,7 +243,7 @@ class User extends Authenticatable implements FilamentUser, HasTenants
     public function departments(): BelongsToMany
     {
         return $this->belongsToMany(Department::class, 'department_user')
-            ->withPivot(['role', 'assigned_at', 'ended_at', 'notes'])
+            ->withPivot(['assigned_at', 'ended_at', 'notes'])
             ->withTimestamps();
     }
 }

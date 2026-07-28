@@ -214,7 +214,6 @@ function makeUser(string $role = 'manager', array $assetIds = []): User
 
     if ($assetIds) {
         $user->assignedAssets()->sync(array_fill_keys($assetIds, [
-            'role' => 'Test',
             'assigned_at' => now(),
         ]));
     }
