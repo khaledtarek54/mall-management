@@ -3,14 +3,16 @@
 namespace App\Providers;
 
 use App\Models\Lease;
-use App\Observers\LeaseObserver;
 use App\Notifications\Channels\PushChannel;
+use App\Observers\LeaseObserver;
 use App\Services\Eta\Signing\EtaDocumentSigner;
 use App\Services\Eta\Signing\UnsignedEtaSigner;
 use App\Services\Paymob\PaymobClient;
 use App\Services\Push\FcmPushSender;
 use App\Services\Push\NullPushSender;
 use App\Services\Push\PushSender;
+use App\Support\LedgerRealtimeSync;
+use App\Support\TableDefaults;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Support\Facades\FilamentView;
@@ -46,7 +48,7 @@ class AppServiceProvider extends ServiceProvider
                 return new FcmPushSender($cfg['fcm']['credentials'], $cfg['fcm']['project_id'] ?? null);
             }
 
-            return new NullPushSender();
+            return new NullPushSender;
         });
 
         // The /owner panel was removed (2026-07-27): owners are admin-panel RBAC users
@@ -72,7 +74,7 @@ class AppServiceProvider extends ServiceProvider
         // --all still backstop everything. Gated by config so the test suite (which drives
         // sync/sweep explicitly for deterministic posting) isn't raced by the async job.
         if (config('accounting.realtime_ledger_sync')) {
-            \App\Support\LedgerRealtimeSync::register();
+            LedgerRealtimeSync::register();
         }
 
         $this->configureMailCatchAll();
@@ -90,6 +92,12 @@ class AppServiceProvider extends ServiceProvider
         // managers). A table re-shows it with `->visible(...)`.
         DeleteBulkAction::configureUsing(fn (DeleteBulkAction $action) => $action->hidden());
         ForceDeleteBulkAction::configureUsing(fn (ForceDeleteBulkAction $action) => $action->hidden());
+
+        // Panel-wide table UX floor — filter/search/sort persistence, the
+        // filter layout, striping, pagination sizes. Applied before each
+        // resource's own configure(), so a resource can still override any of
+        // it. See App\Support\TableDefaults for the reasoning per setting.
+        TableDefaults::register();
 
         FilamentView::registerRenderHook(
             PanelsRenderHook::TOPBAR_END,

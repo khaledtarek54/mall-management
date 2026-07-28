@@ -8,6 +8,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 
 class RolesTable
@@ -36,6 +37,19 @@ class RolesTable
                     ->badge()
                     ->color('gray'),
             ])
+            // RBAC hygiene: which roles did someone hand-roll, and which are dead weight.
+            // Both are questions an access-control review asks and neither was answerable.
+            ->filters([
+                Filter::make('custom')
+                    ->label(__('admin.tables.role.custom_only'))
+                    ->query(fn ($query) => $query->whereNotIn('name', array_keys(RolesPermissionsSeeder::ROLES))),
+                Filter::make('unassigned')
+                    ->label(__('admin.tables.role.unassigned_only'))
+                    ->query(fn ($query) => $query->whereDoesntHave('users')),
+            ])
+            ->emptyStateIcon('heroicon-o-shield-check')
+            ->emptyStateHeading(__('admin.empty.roles.heading'))
+            ->emptyStateDescription(__('admin.empty.roles.description'))
             ->recordActions([
                 // Navigate to the Edit PAGE (not a modal): the per-module permission
                 // CheckboxLists are dehydrated(false) and only EditRole::afterSave

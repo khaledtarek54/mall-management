@@ -260,6 +260,44 @@ return [
             'heading' => 'No common-area charges yet',
             'description' => 'When the mall closes its annual CAM reconciliation, your share will appear here with a full breakdown.',
         ],
+        'warehouses' => [
+            'heading' => 'No stores yet',
+            'description' => 'A store is where stock physically sits — the main store, a housekeeping cupboard, a maintenance workshop.',
+            'cta' => 'Add a store',
+        ],
+        'inventory_items' => [
+            'heading' => 'No stock items yet',
+            'description' => 'Consumables and spares — filters, lamps, cleaning supplies. Each item tracks quantity on hand against a reorder level.',
+            'cta' => 'Add a stock item',
+        ],
+        'departments' => [
+            'heading' => 'No departments yet',
+            'description' => 'Departments route requests and group staff. They are seeded with the system — run the roles/permissions seeder if this is empty.',
+        ],
+        'roles' => [
+            'heading' => 'No roles yet',
+            'description' => 'Roles carry the per-module permissions. They are seeded with the system — run the roles/permissions seeder if this is empty.',
+        ],
+        'custodies' => [
+            'heading' => 'No custody advances yet',
+            'description' => 'Cash advanced to a staff member (عهدة) to spend on the mall\'s behalf, settled later against receipts.',
+            'cta' => 'Advance custody',
+        ],
+        'announcements' => [
+            'heading' => 'No announcements yet',
+            'description' => 'Broadcast a notice to every tenant in this property — fire drills, holiday hours, works notices.',
+            'cta' => 'Compose an announcement',
+        ],
+        'employees' => [
+            'heading' => 'No employees yet',
+            'description' => 'Your own staff — the roster payroll runs from. Not tenants, and not their staff.',
+            'cta' => 'Add an employee',
+        ],
+        'fixed_assets' => [
+            'heading' => 'No fixed assets yet',
+            'description' => 'Capitalised equipment — chillers, generators, escalators. Each depreciates monthly into the general ledger.',
+            'cta' => 'Register a fixed asset',
+        ],
     ],
 
     'tooltips' => [
@@ -665,6 +703,7 @@ return [
             'head' => 'Department Head',
             'scope' => 'Scope',
             'global' => 'Global (all properties)',
+            'property_scoped' => 'This property only',
             'active' => 'Active',
             'sort_order' => 'Order',
             'description' => 'Description',
@@ -840,6 +879,8 @@ return [
         'role' => [
             'permissions' => 'Permissions',
             'users' => 'Users',
+            'custom_only' => 'Custom roles only',
+            'unassigned_only' => 'Not assigned to anyone',
         ],
         'user' => [
             'name' => 'Name',
@@ -2257,6 +2298,12 @@ return [
             'sent_at' => 'Sent',
             'created_by' => 'By',
         ],
+        'filters' => [
+            'sent' => 'Delivery',
+            'sent_all' => 'All announcements',
+            'sent_only' => 'Sent',
+            'pending_only' => 'Not sent yet',
+        ],
     ],
 
     'owner_statements' => [
@@ -2535,6 +2582,10 @@ return [
             'unit_cost' => 'Unit cost', 'reorder_level' => 'Reorder level', 'on_hand' => 'On hand',
             'warehouse' => 'Warehouse', 'item' => 'Item', 'type' => 'Type', 'quantity' => 'Quantity',
             'reference' => 'Reference', 'moved_on' => 'Date', 'moved_by' => 'By', 'value' => 'Value',
+            'total_value' => 'Total stock value',
+        ],
+        'filters' => [
+            'low_stock' => 'At or below reorder level',
         ],
         'types' => [
             'receipt' => 'Receipt', 'consumption' => 'Consumption', 'adjustment' => 'Adjustment',
@@ -2562,6 +2613,10 @@ return [
             'monthly' => 'Monthly deprec.', 'accumulated' => 'Accum. deprec.', 'net_book_value' => 'Net book value',
             'period' => 'Month', 'amount' => 'Amount', 'notes' => 'Notes', 'posted_by' => 'Posted by',
             'disposed_on' => 'Disposed on', 'proceeds' => 'Sale proceeds', 'proceeds_account' => 'Proceeds to',
+            'total_net_book_value' => 'Total net book value',
+        ],
+        'filters' => [
+            'fully_depreciated' => 'Fully depreciated',
         ],
         'statuses' => ['active' => 'Active', 'disposed' => 'Disposed'],
         'actions' => ['dispose' => 'Dispose', 'post_depreciation' => 'Post this month'],
@@ -2584,7 +2639,7 @@ return [
             'code' => 'Staff no.', 'name' => 'Name', 'national_id' => 'National ID', 'position' => 'Position',
             'property' => 'Property', 'department' => 'Department', 'hire_date' => 'Hired', 'base_salary' => 'Base salary',
             'payment_method' => 'Paid via', 'phone' => 'Phone', 'status' => 'Status', 'terminated_on' => 'Terminated on',
-            'notes' => 'Notes',
+            'notes' => 'Notes', 'total_base_salary' => 'Total base payroll',
         ],
         'statuses' => ['active' => 'Active', 'terminated' => 'Terminated'],
         'methods' => ['cash' => 'Cash', 'bank' => 'Bank'],
@@ -2696,6 +2751,10 @@ return [
             'custodian' => 'Custodian', 'reference' => 'Reference', 'amount' => 'Amount',
             'custody_date' => 'Date', 'paid_from' => 'Paid from', 'property' => 'Property',
             'purpose' => 'Purpose', 'settled' => 'Settled', 'outstanding' => 'Outstanding',
+            'total_outstanding' => 'Total outstanding',
+        ],
+        'filters' => [
+            'outstanding_only' => 'Outstanding only',
         ],
         'settlements' => 'Settlements',
         'txn_fields' => [

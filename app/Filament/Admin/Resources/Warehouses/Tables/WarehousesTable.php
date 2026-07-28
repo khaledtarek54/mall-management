@@ -3,11 +3,16 @@
 namespace App\Filament\Admin\Resources\Warehouses\Tables;
 
 use App\Filament\Admin\Resources\Warehouses\WarehouseResource;
+use App\Models\Warehouse;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 
 class WarehousesTable
@@ -34,6 +39,21 @@ class WarehousesTable
                     ->label(__('admin.inventory.fields.active'))
                     ->boolean(),
             ])
+            ->filters([
+                TernaryFilter::make('is_active')
+                    ->label(__('admin.inventory.fields.active')),
+                // Category is free-text on the form (with a "create" affordance), so the
+                // filter offers whatever is actually in use rather than a fixed list.
+                SelectFilter::make('category')
+                    ->label(__('admin.inventory.fields.category'))
+                    ->options(fn (): array => Warehouse::query()
+                        ->whereNotNull('category')
+                        ->distinct()
+                        ->orderBy('category')
+                        ->pluck('category', 'category')
+                        ->all()),
+                TrashedFilter::make(),
+            ])
             ->recordActions([
                 EditAction::make()->visible(fn ($record) => WarehouseResource::canEdit($record)),
             ])
@@ -41,6 +61,14 @@ class WarehousesTable
                 BulkActionGroup::make([
                     DeleteBulkAction::make()->visible(fn () => WarehouseResource::canDeleteAny()),
                 ]),
+            ])
+            ->emptyStateIcon('heroicon-o-building-storefront')
+            ->emptyStateHeading(__('admin.empty.warehouses.heading'))
+            ->emptyStateDescription(__('admin.empty.warehouses.description'))
+            ->emptyStateActions([
+                CreateAction::make()
+                    ->label(__('admin.empty.warehouses.cta'))
+                    ->icon('heroicon-o-plus'),
             ])
             ->defaultSort('name');
     }

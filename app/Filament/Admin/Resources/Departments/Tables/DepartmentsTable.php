@@ -11,6 +11,8 @@ use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
 
@@ -43,6 +45,31 @@ class DepartmentsTable
                     ->sortable(),
             ])
             ->defaultSort('sort_order')
+            ->filters([
+                TernaryFilter::make('is_active')
+                    ->label(__('admin.tables.department.active')),
+                // Departments are the one place where property scope is a real choice:
+                // asset_id NULL = an operator-wide department shared by every mall.
+                SelectFilter::make('scope')
+                    ->label(__('admin.tables.department.scope'))
+                    ->options([
+                        'global' => __('admin.tables.department.global'),
+                        'property' => __('admin.tables.department.property_scoped'),
+                    ])
+                    ->query(fn ($query, array $data) => match ($data['value'] ?? null) {
+                        'global' => $query->whereNull('asset_id'),
+                        'property' => $query->whereNotNull('asset_id'),
+                        default => $query,
+                    }),
+                SelectFilter::make('head_user_id')
+                    ->label(__('admin.tables.department.head'))
+                    ->relationship('head', 'name')
+                    ->searchable()
+                    ->preload(),
+            ])
+            ->emptyStateIcon('heroicon-o-building-office')
+            ->emptyStateHeading(__('admin.empty.departments.heading'))
+            ->emptyStateDescription(__('admin.empty.departments.description'))
             ->recordActions([
                 // Inter-department messaging (FR DEPT-2): notify this
                 // department's members via the bell.
