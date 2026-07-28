@@ -92,11 +92,32 @@ One cron entry runs every scheduled job (monthly billing, daily late-fees + over
 
 ## 5. Backups (REQUIRED — money/tax/contract data)
 
-Daily MySQL dump, ≥7-day retention, **tested restore**. Example (cron):
-```cron
-0 1 * * * mysqldump -u<user> -p<pass> atriom | gzip > /backups/atriom-$(date +\%F).sql.gz && find /backups -name 'atriom-*.sql.gz' -mtime +14 -delete
+**Now runs in-app, from the scheduler** (§4) — no separate cron, no second set of DB
+credentials:
+
+| When | Command |
+| --- | --- |
+| 01:00 | `backup:clean` — retention first, so space is freed before the new archive is written |
+| 01:15 | `backup:run` — database + `storage/app` (signed leases, tax cards, vendor documents, branding) |
+| 07:30 | `backup:monitor` — fails if the newest archive is older than a day |
+
+Archives land on the `backups` disk (`storage/backups`), which is git-ignored and outside the
+backup source.
+
+**Set before go-live:**
+```dotenv
+BACKUP_DISKS="backups,s3"        # a copy on the same box as the DB dies with the box
+BACKUP_ARCHIVE_PASSWORD=...      # the archive holds a full dump: tax cards, leases, money
+BACKUP_ALERT_EMAIL=ops@...       # unset ⇒ no mail is sent at all
 ```
-Plus storage/ (uploaded media/PDFs). Verify a restore into a scratch DB monthly.
+
+**Still yours to do: test a restore, monthly, into a scratch DB.** Nothing in the app can
+assert that an archive is restorable — only that one exists and is recent.
+
+```bash
+# restore drill
+unzip -p storage/backups/Atriom/<newest>.zip db-dumps/mysql-atriom.sql | mysql -u<user> -p atriom_scratch
+```
 
 ---
 
@@ -105,7 +126,18 @@ Plus storage/ (uploaded media/PDFs). Verify a restore into a scratch DB monthly.
 - **Error tracking**: `composer require sentry/sentry-laravel` → set `SENTRY_LARAVEL_DSN`. (No APM is wired today.)
 - **Ops events**: already routed via `App\Support\OpsLog` to the `ops` channel — point `OPS_LOG_STACK` at Slack (§1) so Paymob/ETA/billing failures page you.
 - **Failed jobs**: monitor the `failed_jobs` table (alert if > 0); `php artisan queue:retry all` to replay.
-- **Uptime**: external monitor (UptimeRobot/Pingdom) on `/up`.
+- **Uptime**: external monitor (UptimeRobot/Pingdom) on **`/health`**, not `/up`. `/up` is
+  Laravel's stock route and answers 200 with the database down, the queue stalled and the
+  scheduler dead. `/health` checks database, cache, queue depth, **scheduler heartbeat**,
+  **backup freshness** and storage, and answers 503 when any of them is wrong.
+  - Anonymous callers get `{"status":"ok"|"degraded"}` and nothing else; set `HEALTH_TOKEN`
+    and pass `?token=` (or `X-Health-Token`) to see which check failed.
+  - **Why it has to be external:** every scheduled monitor — `backup:monitor` included — can
+    only report a problem while the scheduler is running, so none of them can report that the
+    scheduler has *stopped*. A dead cron silences the billing run, the GL sync, the nightly
+    backup and every alarm at once, and looks exactly like a quiet night. Something off-box
+    has to ask.
+  - Same checks from the CLI, non-zero on failure: `php artisan atriom:health`.
 
 ---
 

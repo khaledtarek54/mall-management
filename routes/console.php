@@ -2,6 +2,7 @@
 
 use App\Jobs\ApplyLateFees;
 use App\Jobs\RunMonthlyBilling;
+use App\Support\Health;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -224,4 +225,27 @@ Schedule::command('backup:run')
 Schedule::command('backup:monitor')
     ->dailyAt('07:30')
     ->name('atriom-backup-monitor')
+    ->withoutOverlapping();
+
+/*
+|--------------------------------------------------------------------------
+| Scheduler heartbeat
+|--------------------------------------------------------------------------
+|
+| Stamps a file every minute so /health can tell whether cron is alive.
+|
+| This is the one check nothing else can make. Every scheduled monitor —
+| backup:monitor included — can only report a problem while the scheduler is
+| running, so none of them can report that the scheduler has STOPPED. A dead
+| cron silences the billing run, the GL sync, the nightly backup and every
+| alarm that would have told you, all at once, and looks exactly like a quiet
+| night.
+|
+| Writes a FILE, never the database or cache: both are database-backed here, so
+| a DB outage would otherwise also report "scheduler dead" and bury the real
+| fault under a second, wrong alarm.
+*/
+Schedule::call(fn () => Health::stampHeartbeat())
+    ->everyMinute()
+    ->name('atriom-scheduler-heartbeat')
     ->withoutOverlapping();

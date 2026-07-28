@@ -66,8 +66,8 @@ Ordered by real risk, not by age.
 
 | Item | What & why | Owner | Effort |
 | --- | --- | --- | --- |
-| **Failed-jobs + scheduler monitoring** | Prose only (`PRODUCTION-RUNBOOK.md:104`). No alert, dashboard, health script, or dead-cron detection. A silently-dead cron means tenants go unbilled and tax submissions are missed for days. Depends on the P0 logging row. | ⚙️ | S |
-| **Health check that checks something** | `bootstrap/app.php:13` `health: '/up'` is the stock default — no DB/queue/cache probe, no uptime monitor. A false 200 masks a DB outage. | ⚙️ | M |
+| ~~Failed-jobs + scheduler monitoring~~ | ✅ **Done 2026-07-29.** The scheduler stamps a heartbeat every minute and `/health` fails when it goes stale — dead-cron detection that does not itself depend on cron, which is what every scheduled monitor gets wrong. `/health` also fails on any `failed_jobs` row and on a queue backlog (a stopped worker). Thresholds in `config/health.php`. Still worth wiring `OPS_LOG_STACK`/Sentry so the 503 also *pages* someone. | ⚙️ | — |
+| ~~Health check that checks something~~ | ✅ **Done 2026-07-29.** `/health` checks database, cache, queue depth, **scheduler heartbeat**, **backup freshness** and storage, answering 503 when any fails; `php artisan atriom:health` does the same from the CLI. Anonymous callers get status only — `HEALTH_TOKEN` unlocks the detail. **Point the uptime monitor at `/health`, not `/up`.** | ⚙️ | — |
 | **Enforce 2FA on write roles** | Mechanism built (`config/security.php:19-22`) but ships `SECURITY_FORCE_2FA_ROLES=super_admin` — manager/accounting/leasing/operations/hr handle payments and tenant changes without it. The decision was deferred to an env var nobody set. | ⚙️ | S |
 | **Production env defaults** | Keys + guidance present, dev defaults still ship: `APP_TIMEZONE=UTC` (schedules fire at the wrong wall-clock — must be `Africa/Cairo`), `LOG_LEVEL=debug` (leaks SQL/PII, fills disk). No logrotate guidance. | ⚙️ | S |
 | **App-level HTTPS forcing** | Headers are done and tested (`SecurityHeaders.php` — XFO/nosniff/Referrer-Policy/HSTS + a strict CSP on `/pay/*`). **Missing: no `forceScheme`/`forceHttps` anywhere** — HTTPS relies entirely on the proxy. | 🧑‍💻 | S |
@@ -327,10 +327,9 @@ Acting on the first one would actively reintroduce a bug.
    takes money, yet `PaymobPaymentInitiator` has **zero logging** and there is **no
    payment-link E2E spec at all** (`tests/e2e/13-*` is ETA). Missing tests: expired token,
    concurrent attempts — the one revenue path with no E2E coverage at all.
-3. **A health check that checks something, and dead-cron detection** — `bootstrap/app.php`
-   still ships the stock `health: '/up'`, which returns 200 with the database down. The scheduler now
-   carries 25 entries (billing, GL sync, SLA scans, backups); a silently dead scheduler means
-   unbilled tenants and missed tax submissions. `backup:monitor` is the pattern to copy.
+3. **Point the uptime monitor at `/health`** — the endpoint exists as of 2026-07-29 and
+   already fails on a dead scheduler, a stale backup, a stopped worker or a DB outage. It is
+   worth nothing until something external polls it.
 4. **The remaining ⚙️ go-live rows** (§2) — backups are now half done in-app (2026-07-29);
    what is left there is off-site copies, an archive password and **a tested restore**. There
    is still **no deploy workflow at all**, which makes several other rows moot.

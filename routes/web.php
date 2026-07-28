@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\HealthController;
 use App\Http\Controllers\PaymentLinkController;
 use App\Http\Controllers\Paymob\CallbackController;
 use App\Http\Middleware\SetLocale;
@@ -9,6 +10,22 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     return view('welcome');
 });
+
+/*
+|--------------------------------------------------------------------------
+| Health
+|--------------------------------------------------------------------------
+| Deliberately unauthenticated and outside the panels: an uptime monitor has to
+| reach it while the app is broken. Laravel's stock `/up` (bootstrap/app.php)
+| only proves PHP rendered a route — it answers 200 with the database down, the
+| queue stalled and the scheduler dead. This one checks those.
+|
+| Throttled: it touches the DB and the filesystem, so it must not become a cheap
+| way to load the box.
+*/
+Route::get('/health', HealthController::class)
+    ->middleware('throttle:60,1')
+    ->name('health');
 
 Route::get('/locale/{locale}', function (string $locale) {
     if (in_array($locale, SetLocale::SUPPORTED, true)) {
