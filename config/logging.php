@@ -52,23 +52,39 @@ return [
 
     'channels' => [
 
+        /*
+         * Defaults to the ROTATING channel, not `single`.
+         *
+         * Laravel's stock default is `single` — one storage/logs/laravel.log that is appended to
+         * forever and never pruned. On a live box that file grows until the disk fills, and a
+         * full disk does not degrade this app, it stops it: MySQL cannot write, sessions cannot
+         * write, uploads cannot write. The failure arrives as a total outage with no warning
+         * shot, from a setting nobody thinks of as a setting.
+         *
+         * `daily` writes laravel-YYYY-MM-DD.log and prunes to LOG_DAILY_DAYS (14). That is the
+         * "logrotate guidance" the roadmap asked for: it does not need logrotate, it needs this
+         * default to be the safe one instead of a comment telling production to change it.
+         */
         'stack' => [
             'driver' => 'stack',
-            'channels' => explode(',', (string) env('LOG_STACK', 'single')),
+            'channels' => explode(',', (string) env('LOG_STACK', 'daily')),
             'ignore_exceptions' => false,
         ],
 
         'single' => [
             'driver' => 'single',
             'path' => storage_path('logs/laravel.log'),
-            'level' => env('LOG_LEVEL', 'debug'),
+            // `info`, not `debug`: debug is a development choice, and a default that is wrong
+            // unless production remembers an env var is the same fail-open shape as the timezone
+            // and the log channel above. Set LOG_LEVEL=debug locally when you want it.
+            'level' => env('LOG_LEVEL', 'info'),
             'replace_placeholders' => true,
         ],
 
         'daily' => [
             'driver' => 'daily',
             'path' => storage_path('logs/laravel.log'),
-            'level' => env('LOG_LEVEL', 'debug'),
+            'level' => env('LOG_LEVEL', 'info'),
             'days' => env('LOG_DAILY_DAYS', 14),
             'replace_placeholders' => true,
         ],

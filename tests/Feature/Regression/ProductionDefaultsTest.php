@@ -2,8 +2,13 @@
 
 /*
 |--------------------------------------------------------------------------
-| The application timezone is a MONEY setting
+| Production defaults must be safe when nobody sets anything
 |--------------------------------------------------------------------------
+| Two settings that shipped wrong-by-default with a comment telling production to override them.
+| A default that is only correct if someone remembers an env var is fail-OPEN: forget it once and
+| nothing fails, it just quietly costs you.
+|
+| 1. THE APPLICATION TIMEZONE IS A MONEY SETTING.
 | `config('app.timezone')` is what `now()` returns, so it decides which day — and therefore which
 | accounting period — a document belongs to. Egypt is UTC+2, UTC+3 in summer.
 |
@@ -60,4 +65,25 @@ it('leaves the scheduled jobs meaning what routes/console.php says they mean', f
     expect(substr_count($console, '->timezone('))->toBe(0,
         'A per-schedule ->timezone() would silently diverge from the app timezone this test pins.')
         ->and($console)->toContain('dailyAt(');
+});
+
+it('writes rotating, pruned logs by default — an unbounded file fills the disk and stops the app', function () {
+    // Laravel's stock `stack` resolves to `single`: one storage/logs/laravel.log, appended to
+    // forever, never pruned. On a live box that fills the disk, and a full disk does not slow this
+    // app down — it stops it, because MySQL, sessions and uploads all lose their writes.
+    //
+    // Asserted on the config source and the deploy template rather than the resolved value: the
+    // local .env deliberately sets LOG_STACK=single (fine for dev), so config('...') here reports
+    // the developer's choice, not the default a deploy inherits.
+    expect(file_get_contents(config_path('logging.php')))
+        ->toContain("env('LOG_STACK', 'daily')")
+        // debug is a development choice; a default that is wrong unless production remembers an
+        // env var is the same fail-open shape as the timezone.
+        ->toContain("env('LOG_LEVEL', 'info')");
+
+    // .env.example is what production actually copies — pinning `single` there would defeat the
+    // config default entirely, which is exactly what it used to do.
+    expect(file_get_contents(base_path('.env.example')))
+        ->toContain('LOG_STACK=daily')
+        ->not->toContain("\nLOG_STACK=single");
 });
