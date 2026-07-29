@@ -204,6 +204,30 @@ Used by: ScanMaintenanceSlaBreachesCommand, ScanOverdueInvoicesCommand for overs
 ]
 ```
 
+**Staff alerts that must leave the app** (added 2026-07-29 — see `App\Notifications\Concerns\AlsoSendsByMail`):
+
+Fourteen notifications shipped as `['database']` — the in-app bell and nothing else. A bell only
+alerts somebody who opens the app, and the person who can still act on a breached SLA is by
+definition not sitting in /admin. The **five with a clock on them** now mail as well:
+
+| Notification | Why it cannot wait for someone to log in |
+| --- | --- |
+| `LedgerSyncFailedNotification` | The GL is refusing documents. Every night it stays broken the books drift further from the operational data. Recipients are super_admin + `journal_entries.post` — a handful of people. |
+| `TenantRequestSlaBreachedNotification` | A contractual SLA has **already** been missed. |
+| `WorkOrderSlaBreachedNotification` | Same clock, corrective side. |
+| `VendorDocumentExpiringNotification` | A lapsed certificate means the vendor legally cannot be dispatched. |
+| `VendorContractRenewalDueNotification` | Past the notice deadline an auto-renewing contract commits another full term — the one alert here that **spends money** by being missed. |
+
+**The mail is derived from `toDatabase()`, never written twice.** Two hand-maintained copies of one
+alert drift, and then the email and the bell disagree about what happened. `AlsoSendsByMail::toMail()`
+reads the bell payload's `title`/`body`/`color`, so a change to the payload updates both; override
+`mailUrl()` to deep-link instead of landing on the panel root.
+
+**The other nine are in-app only on purpose.** Department messages, owner statements, sales
+declarations arriving, low stock — you read those when you next look, and mailing everything trains
+people to ignore the alerts that matter. `OffAppAlertsTest` guards *both* directions: the five must
+mail, and the quiet ones must not start mailing because someone copied the trait around.
+
 **Mail Channels** (tenant-facing + lock notifications only):
 - InvoiceIssuedNotification: view `emails.invoice-issued`, attaches invoice PDF
 - PaymentReceivedNotification: generic MailMessage with allocated invoices
