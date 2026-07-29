@@ -23,6 +23,42 @@
 Each question states **what the system does today**, so silence is a decision too — if you don't
 answer, that is what ships.
 
+## Status at a glance — reviewed 2026-07-29
+
+The list was consolidated 2026-07-18 and a lot shipped after it. This review re-checked every
+"what we do today" claim against the code, so a meeting is spent on questions that are still real.
+
+**Five rows were STALE and have been corrected** — do not ask the client about these as if nothing
+exists:
+
+| # | Was | Actually |
+|---|---|---|
+| A5.1 | "employer share + gratuity **not** recorded" 🔴 | Employer social insurance **is** recorded (`payrolls.employer_social_insurance` → Dr 51110001). Only **gratuity accrual** remains → narrowed to 🟠 |
+| A7.1 | "no cheque register — likely a **new module**" | **Module 33 shipped**: full PDC register, status lifecycle, bulk series lodging, maturity dashboard, GL posting. Only "hold security cheques separately?" remains |
+| A2.1 | "WHT **not modelled**" 🔴 | **Vendor side shipped** (per-supplier rate + withheld amount on payments, posting to GL). **Tenant-side withholding is still open** — that half stays 🔴 |
+| B.6 | "no disbursement/owner-statement module" | **Module 32 shipped**: statement runs, accrual GL spine, finalise/send, PDF, disbursements. What is missing is the **management fee**, which is blocked on B.4 |
+| C1.1 | "no floor-plan view" | **Occupancy map is built** — per-floor visual grid with status + tenant |
+
+**Genuinely still open, by who can answer it:**
+
+- **A · Accountant** — the whole of A1 (the tax numbers the billing engine computes from), A4 (the
+  real chart of accounts), A9.1/A9.2 (posting map + marketing-levy treatment), A3.7 (opening
+  balances). **This is the big block and the client already knows it.**
+- **B · Owner (Jawad)** — B.1/B.3/B.4/B.5 (how Eltizam is paid, whose account money lands in). B.4
+  is the one with a build waiting behind it: the owner-statement fee line.
+- **C · Eltizam operations** — C1.8 **(new, 🔴: does the final month of an expiring lease bill in
+  full or pro-rata — ~20,300 EGP per departing tenant on a 30k lease)**, plus the C4.10–C4.13 access
+  and alerting decisions added 2026-07-29.
+- **D · IT** — D.1 (ETA credentials), D.5/D.6 **(new: Paymob secret storage, and whether the app is
+  reachable outside the proxy)**.
+- **E** — five requirement clarifications, unchanged.
+
+**Not asked here because they are engineering decisions already taken:** CI runs on demand only;
+per-property roles deliberately not built (C4.10 records the trigger); the app timezone is
+`Africa/Cairo`; logs rotate daily.
+
+---
+
 **Sections:** [A · Accountant / Finance](#a--accountant--finance) · [B · Owner (Jawad) &
 ownership](#b--owner-jawad--ownership-structure) · [C · Eltizam operations](#c--eltizam-operations) ·
 [D · ETA / tax registration & IT](#d--eta--tax-registration--it) · [E · Requirements we cannot build
@@ -63,7 +99,7 @@ These are unverified assumptions. Plausible, consistent, never confirmed by anyo
 
 | # | Question | What we do today | | Answer |
 |---|---|---|---|---|
-| A2.1 | **Withholding tax (WHT):** do tenants withhold from rent (rate? WHT certificates)? Do **you** withhold when paying vendors/contractors (1%/3%/5% by service)? | Not modelled — a withheld payment looks like a shortfall in reconciliation | 🔴 | |
+| A2.1 | **Withholding tax (WHT) — the TENANT side only now:** do tenants withhold from rent, at what rate, and do they issue WHT certificates you must track? | 🟡 **Vendor side built (module 12):** `vendors.withholding_tax_rate` per supplier + `vendor_bill_payments.withholding_amount`, settings-driven, posting to the GL — so paying a contractor net of WHT no longer looks like a shortfall. **The tenant side is still unmodelled:** a tenant who withholds from rent still reconciles as an underpayment. | 🔴 | |
 | A2.2 | **Stamp tax (رسم دمغة)** — on lease contracts and/or invoices? Who calculates & remits? | Not modelled | 🟠 | |
 | A2.3 | **Real-estate / property tax (الضريبة العقارية)** — charged on units? Recharged to tenants or owner-borne? | Not modelled | 🟠 | |
 | A2.4 | **e-Receipts** (B2C / cash) needed, separate from B2B e-invoices? | Not built — only e-invoice exists | 🟠 | |
@@ -95,7 +131,7 @@ These are unverified assumptions. Plausible, consistent, never confirmed by anyo
 
 | # | Question | What we do today | | Answer |
 |---|---|---|---|---|
-| A5.1 | **Are the employer's own social-insurance contribution AND accruing end-of-service gratuity captured anywhere** (even a manual monthly expense entry)? | ⚠️ Payroll records **only the amount withheld from the employee.** The employer share + gratuity are **not** recorded. If they're captured nowhere, the P&L understates labour cost and the balance sheet understates liabilities. **This answer — not an Odoo comparison — sets its priority.** | 🔴 | |
+| A5.1 | **Is the accruing end-of-service gratuity captured anywhere** (even a manual monthly expense entry)? | 🟡 **Half resolved 2026-07-26.** The **employer's social-insurance contribution IS now recorded** (`payrolls.employer_social_insurance`, posting Dr SI Expense 51110001) — that part of the question is closed. **End-of-service gratuity is still not accrued** (see also A9.5); if it is captured nowhere, the balance sheet understates that liability. | 🟠 | |
 | A5.2 | Are the payroll **withholdings** (salary tax + social insurance) split the way you need? | Split into their own payable accounts | 🟡 | |
 | A5.3 | Are **statutory amounts** (tax brackets / insurance rates) something the system should compute, or will they always be keyed per run? | Keyed per line, not rate-driven | 🟡 | |
 
@@ -110,7 +146,7 @@ These are unverified assumptions. Plausible, consistent, never confirmed by anyo
 
 | # | Question | What we do today | | Answer |
 |---|---|---|---|---|
-| A7.1 | Do tenants pay via **post-dated cheques (PDCs)** for the term up front? Track each cheque's status (pending/deposited/cleared/bounced)? Hold **security cheques** separately? | No cheque register — likely a **new module** | 🟠 | |
+| A7.1 | Do tenants pay via **post-dated cheques (PDCs)** for the term up front? Hold **security cheques** separately from payment cheques? | ✅ **Built (module 33).** Full PDC register with status lifecycle (pending → deposited → cleared / bounced), bulk series lodging for a term paid up front, a maturity dashboard and GL posting. *Remaining question is narrow: do you need security cheques held as a separate class?* | 🟡 | |
 | A7.2 | Is the **security deposit** a pure liability (no VAT)? Refundable at exit minus deductions (unpaid rent, damages, restoration, cleaning)? | Liability, refundable; deposit ledger exists | 🟡 | |
 | A7.3 | Do you track **prepaid rent / advances** separately from the deposit? | Not separated | 🟠 | |
 | A7.4 | **Multi-currency:** any leases billed in **USD/EUR**, and how is FX handled? *(Q-F — also gates multi-currency treasury.)* | EGP only | 🟠 | |
@@ -153,7 +189,7 @@ New questions surfaced while writing the posting map, so the accountant can re-p
 | B.3 | On the %-split contract, are **"owner" and "Jawad" two different parties**, or the same owner? *(Q-G — affects the future owner-money data model.)* | Treated as one owner | 🟠 | |
 | B.4 | How is **Eltizam compensated** — % of collected rent, % of gross, fixed fee, or a mix? On rent only or all charges? Before/after VAT? Is the fee **VATable** and invoiced to the owner? | No management-fee engine | 🟠 | |
 | B.5 | Where do **tenant payments land** — Eltizam's account, the owner's, or a **trust/escrow per property**? | Not modelled | 🟠 | |
-| B.6 | Does Eltizam **remit net funds to the owner** (how often), and what is **deducted first** (fee, paid expenses, CAM, taxes, reserve)? Need an **Owner Statement** (opening → collections → expenses → fee → net payout → closing)? | No disbursement/owner-statement module | 🟠 | |
+| B.6 | Does Eltizam **remit net funds to the owner** (how often), and what is **deducted first** (fee, paid expenses, CAM, taxes, reserve)? | ✅ **Owner Statements + Disbursements are BUILT (module 32).** Per-property, per-period statement runs (opening → collections → expenses → net) with a three-tier accrual GL spine, finalise/send lifecycle and PDF. **What is still missing is the management FEE** — deferred in v1 pending B.4 — so a statement shows net-before-fee. Answer B.4 and the fee line can be switched on. | 🟠 | |
 | B.7 | Does Eltizam hold a **reserve/float per property** (starting amount + replenishment)? | Not tracked | 🟠 | |
 | B.8 | Is each mall a **separate legal entity / set of books**, or all **consolidated** under Eltizam? Any **inter-company** transactions to record? | Single-company GL, property-dimensioned | 🟠 | |
 | B.9 | Should the owner **see financial statements/disbursements** or stay **oversight-only** (current)? Does the owner **approve** anything before Eltizam acts (budgets, big expenses, new leases)? | Oversight + requests only | 🟠 | |
@@ -166,7 +202,7 @@ New questions surfaced while writing the posting map, so the accountant can re-p
 
 | # | Question | What we do today | | Answer |
 |---|---|---|---|---|
-| C1.1 | **Unit types** (Shop, Kiosk, F&B, Office, Clinic, Service, Storage, ATM…) and **statuses** (Vacant, Occupied, Under Maintenance, Reserved)? Need a **visual floor plan / occupancy map**? | Free-form; no floor-plan view | 🟡 | |
+| C1.1 | **Unit types** (Shop, Kiosk, F&B, Office, Clinic, Service, Storage, ATM…) and **statuses** (Vacant, Occupied, Under Maintenance, Reserved) — confirm the lists you actually use. | 🟡 Types/statuses are free-form (confirm the canonical set). **The occupancy map IS built** — a per-floor visual grid of every unit with its status and tenant. | 🟡 | |
 | C1.2 | **Standard lease duration** + typical mix? Do leases **auto-renew**, and do charges + escalation carry over on renewal? | Renew/escalate actions exist | 🟡 | |
 | C1.3 | **Annual escalation** rule — fixed % (7% default) or index-linked? | Fixed % via `escalate` | 🟡 | |
 | C1.4 | **Early termination** — penalty (X months), notice period, deposit forfeited? | `terminate` action exists | 🟡 | |
