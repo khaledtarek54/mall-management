@@ -1,0 +1,67 @@
+/*
+| Atriom panel theme — the ONE place panel density is set.
+|
+| Loaded by both /admin and /portal (see AdminPanelProvider + PortalPanelProvider,
+| ->viteTheme(...)). Nothing else in the app loads it, so the rules below cannot
+| leak onto the public pay pages or the marketing page.
+*/
+
+@import 'tailwindcss' source(none);
+@import '../../../vendor/filament/filament/resources/css/theme.css';
+
+@source '../../../app/Filament/**/*';
+@source '../../../app/Livewire/**/*';
+@source '../../../resources/views/filament/**/*';
+@source '../../../vendor/filament/**/*.blade.php';
+
+/*
+| ── DENSITY ──────────────────────────────────────────────────────────────────
+|
+| Filament sizes almost everything in `rem` — text, padding, gaps, control
+| heights, icon boxes. So the root font size is a single proportional scale for
+| the whole panel, and changing it here is worth more than hand-tuning a dozen
+| component classes: nothing can drift out of proportion with anything else, and
+| a component added next year inherits the scale for free.
+|
+|   100%    = 16px   Filament's stock spacing
+|   93.75%  = 15px   a gentle trim
+|   87.5%   = 14px   ← current: ~12% tighter, roughly one extra table row a screen
+|   81.25%  = 13px   maximum data density
+|
+| To change the whole panel's density, change this ONE number.
+|
+| Safe for responsive layout: inside a media query, `rem` resolves against the
+| browser's INITIAL font size, not this declaration (CSS spec). So Tailwind's
+| breakpoints stay where they are — the sidebar still collapses at the same
+| viewport width, and the mobile layout is untouched.
+|
+| Deliberately NOT set on `body`: `rem` is relative to the ROOT element, so a
+| body-level rule would scale the text and leave every padding and gap at full
+| size — which reads as broken rather than compact.
+*/
+:root {
+    font-size: 87.5%;
+}
+
+/*
+| Two places that must NOT follow the scale down.
+*/
+
+/* Form controls: below ~16px, iOS Safari zooms the viewport on focus and the
+   operator has to pinch back out after every field. Pinned in px so the density
+   knob above can never reintroduce that. */
+@media (max-width: 767px) {
+    .fi-input,
+    .fi-select-input,
+    .fi-textarea textarea {
+        font-size: 16px;
+    }
+}
+
+/* Arabic at 14px sits smaller than Latin at the same size — the script carries
+   more detail per glyph, and the panel is bilingual. Give the RTL side back the
+   difference so the two locales read as the same weight of interface. */
+:root:lang(ar),
+[dir='rtl'] {
+    font-size: 93.75%;
+}

@@ -50,11 +50,22 @@ Integration creds (see ETA-PAYMOB-CERTIFICATION.md): `PAYMOB_*` (live, after KYC
 ```
 git pull
 composer install --no-dev --optimize-autoloader
+npm ci && npm run build             # REQUIRED — see below
+php artisan filament:assets
 php artisan migrate --force
 php artisan config:cache && php artisan route:cache && php artisan view:cache
 php artisan storage:link            # once — PDFs/media links
 php artisan queue:restart           # workers pick up new code
 ```
+
+> **`npm run build` is not optional.** `public/build` is gitignored, so the compiled CSS
+> exists only where it was built. Since the panels moved to a custom Filament theme
+> (`resources/css/filament/theme.css`, which sets panel density in one place), Filament no
+> longer falls back to the stylesheet shipped inside the vendor package — **skip the build and
+> `/admin` and `/portal` render with no CSS at all**, as raw unstyled HTML. It fails loudly and
+> immediately, but only after the release is live, so it belongs in the sequence rather than in
+> someone's memory. `filament:assets` republishes the package's JS/icons after a Filament
+> upgrade.
 
 First deploy only: `php artisan key:generate`, `php artisan migrate --force --seed` is **NOT** for prod (DemoSeeder is demo data) — seed only `RolesPermissionsSeeder` + real data import.
 

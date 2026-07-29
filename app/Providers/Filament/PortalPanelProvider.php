@@ -26,6 +26,9 @@ class PortalPanelProvider extends PanelProvider
         return $panel
             ->id('portal')
             ->path('portal')
+            // One shared theme file sets panel density for BOTH panels — see
+            // resources/css/filament/theme.css for the single knob that controls it.
+            ->viteTheme('resources/css/filament/theme.css')
             ->login()
             // Tenant password lifecycle without an operator round-trip
             // (audit M02 F-8 / M11 F-44 / D-49). Requires MAIL_* env set in

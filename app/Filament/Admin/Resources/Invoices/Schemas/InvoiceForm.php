@@ -127,6 +127,15 @@ class InvoiceForm
                                 unset($options['draft']);
                             }
 
+                            // 'cancelled' is NOT a status you pick — it is the outcome of the
+                            // "Void invoice" action, which refuses when captured cash is still
+                            // allocated, returns any applied credit, reverses the GL entry and
+                            // records WHY in the audit trail. Offering it here let an operator
+                            // cancel a paid invoice with none of that: the cash stayed captured and
+                            // allocated while the AR simply disappeared. The model refuses it too
+                            // (Invoice::booted) — this only stops the UI inviting it.
+                            unset($options['cancelled']);
+
                             return $options;
                         })
                         ->required()

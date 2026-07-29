@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Admin\Pages\Auth\Login;
 use App\Filament\Admin\Pages\Dashboard;
 use App\Filament\Admin\Pages\Tenancy\RegisterProperty;
 use App\Http\Middleware\SetLocale;
@@ -31,7 +32,10 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->login(\App\Filament\Admin\Pages\Auth\Login::class)
+            // One shared theme file sets panel density for BOTH panels — see
+            // resources/css/filament/theme.css for the single knob that controls it.
+            ->viteTheme('resources/css/filament/theme.css')
+            ->login(Login::class)
             // Admin password lifecycle. Operators can recover access without
             // a super_admin reset, and can change their own password from the
             // top-bar avatar (audit M17 F-64 / D-49).

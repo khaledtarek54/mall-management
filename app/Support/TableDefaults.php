@@ -21,10 +21,17 @@ use Filament\Tables\Table;
  *   Filament stores these per-table in the session, so each list remembers its
  *   own state without polluting the URL.
  *
- * - filtersLayout(AboveContentCollapsible) + filtersFormColumns(2) — the
- *   default is a dropdown panel that hides which filters are even available.
- *   Above-content-collapsible keeps them one click away and shows the active
- *   set. Two columns because most of our tables now carry 3-6 filters.
+ * - filtersLayout(Dropdown) + filtersFormColumns(2) — filters open in a popover,
+ *   two columns wide, next to the search box.
+ *
+ *   This was AboveContentCollapsible first, on the reasoning that an inline panel
+ *   gives the wider tables (invoices carries 8 filters) more room than a popover.
+ *   Looking at it in a browser, that was wrong on the arithmetic: the inline panel
+ *   is COLLAPSED by default, so its extra room only appears once you click — while
+ *   its trigger occupies a full-width row of its own on every table, on every page
+ *   load, forever. Roughly 47px of permanent chrome bought a benefit that is only
+ *   ever conditional. The popover holds the same two-column form and the same 8
+ *   filters comfortably, so nothing was traded away for the row.
  *
  * - striped() — these are dense financial registers (invoice lines, GL rows,
  *   payroll); row banding is what makes a wide row scannable.
@@ -45,7 +52,7 @@ class TableDefaults
                 ->persistColumnSearchesInSession()
                 ->persistSortInSession()
                 ->persistColumnsInSession()
-                ->filtersLayout(FiltersLayout::AboveContentCollapsible)
+                ->filtersLayout(FiltersLayout::Dropdown)
                 ->filtersFormColumns(2)
                 ->striped()
                 ->defaultPaginationPageOption(25)

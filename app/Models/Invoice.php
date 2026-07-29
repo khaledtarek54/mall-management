@@ -280,6 +280,29 @@ class Invoice extends Model
         //      this event anyway).
         // Defense-in-depth behind the form lock — closes the JS-tamper / API / tinker path.
         static::updating(function (self $invoice) {
+            // Captured CASH blocks a cancel — on EVERY path, not just VoidInvoiceService, and
+            // in `updating` so the write is refused rather than merely reported.
+            //
+            // The service has always refused this; the status Select on the invoice form offered
+            // `cancelled` as a plain option and walked straight past it. Measured: an invoice with
+            // a captured 10,000 payment cancelled cleanly from the form — status=cancelled, balance
+            // forced to 0, payment still captured and still allocated 10,000, tenant credit 0. The
+            // money was neither receivable nor owed back; it had vanished from every
+            // operator-visible surface while the cash sat in the GL.
+            //
+            // (First written in the `updated` hook, which fires AFTER the row is persisted: the
+            // exception surfaced but the cancel still happened. The regression test caught it.)
+            //
+            // capturedCashPaid() is the same predicate VoidInvoiceService uses — paid, net of
+            // credit notes and applied tenant credit — named once so the two cannot drift.
+            // Reversible non-cash settlement nets to zero here and is allowed; only real cash
+            // refuses, and the remedy is to void/refund the payment first.
+            if ($invoice->status === 'cancelled'
+                && $invoice->getOriginal('status') !== 'cancelled'
+                && $invoice->capturedCashPaid() > 0) {
+                throw new \DomainException(__('admin.actions.cancel_blocked_captured_cash'));
+            }
+
             if ($invoice->getOriginal('status') === 'draft') {
                 return; // draft is freely editable (and draft→issued must be allowed)
             }

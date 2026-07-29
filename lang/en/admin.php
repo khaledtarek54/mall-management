@@ -1131,6 +1131,7 @@ return [
     ],
 
     'actions' => [
+        'cancel_blocked_captured_cash' => 'This invoice has a captured payment allocated to it, so it cannot be cancelled — the money would stop being receivable without ever being returned. Void or refund the payment first, then void the invoice.',
         'add_line' => 'Add line',
         'post_journal_entry' => 'Post',
         'post_journal_entry_confirm' => 'Posting validates the entry balances and locks it. Continue?',
