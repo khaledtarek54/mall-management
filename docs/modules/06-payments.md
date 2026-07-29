@@ -84,6 +84,36 @@ Guarded by tests: `PaymentScenarioTest` (HAPPY, STATE-TRANSITION, BOUNDARY, NEGA
 7. **Duplicate-allocation dedup** (close-out 2026-07-19): two repeater rows for the same invoice are **summed** in the pivot builder (was: the pivot is keyed by invoice id, so the second row silently overwrote the first → money stranded while the summary reported it allocated). Tested in `PaymentFormGuardsTest`.
 8. **Manual status restricted to the forward flow** (close-out 2026-07-19): the status Select offers only initiated + the received set; reversals route through the Void action (see §3 blockquote). Tested in `PaymentReceivedStatusesTest`.
 
+### Cancelling an invoice that holds captured cash — refused on every path
+
+`VoidInvoiceService` has always refused to void an invoice with a captured payment allocated to it:
+the money would stop being receivable without ever being returned. **The invoice form's status
+Select offered `cancelled` as a plain option and walked straight past that.** Measured on a 10,000
+invoice settled by a captured 10,000 payment:
+
+| | after a form cancel |
+| --- | --- |
+| invoice | `status=cancelled`, balance forced to **0** |
+| payment | `status=captured`, still allocated **10,000** |
+| tenant credit | **0** |
+
+The tenant's 10,000 was neither receivable nor owed back — gone from every operator-visible surface
+while the cash sat in the GL.
+
+- **The guard is on the model, in `updating`** (`Invoice::booted`), so the form, the API, a console
+  command and a tinker session all hit it — and the write is *refused*, not merely reported. *(It
+  was first written in the `updated` hook, which fires after the row is persisted: the exception
+  surfaced and the cancel still happened. The regression test caught it.)*
+- **It reuses `capturedCashPaid()`** — paid, net of credit notes and applied tenant credit — the
+  same predicate `VoidInvoiceService` uses, named once so the two cannot drift.
+- **Reversible non-cash settlement still cancels.** An invoice settled by a credit note or applied
+  tenant credit nets to zero cash, so it voids normally and the credit returns. Only real cash
+  refuses; the remedy is to void/refund the payment first.
+- **`cancelled` is no longer offered on the status Select.** Cancelling is the *outcome* of the
+  "Void invoice" action, which takes a reason and writes it to the audit trail. The model is the
+  gate; removing the option stops the UI inviting it.
+- **Test:** `CancelInvoiceCapturedCashTest`.
+
 ### Applying tenant credit (ApplyTenantCreditService)
 An overpayment leaves a **credit on account** (`Tenant::creditBalance()` = received-payment remainders − applied credit, both optionally property-scoped). The **Apply tenant credit** action on `EditInvoice` draws that down onto an open invoice.
 
