@@ -30,6 +30,13 @@ Schedule::job(new RunMonthlyBilling)
     ->name('atriom-monthly-billing')
     ->withoutOverlapping();
 
+// 04:00 — deliberately BEFORE the 05:00 ledger sweep, and that ordering is load-bearing.
+// A late fee mutates a posted invoice's total through recomputeTotals(), which saves quietly and
+// therefore does NOT fire the real-time GL hook (LedgerPoster::sync's docblock names this case and
+// chooses sweep-based self-healing over entangling the hooks with saveQuietly). So between the fee
+// landing and the sweep running, AR and the GL disagree by the fee. One hour is fine; moving this
+// AFTER 05:00 would silently stretch that to ~24 and put a month-end fee at risk of its period
+// closing before the entry is posted.
 Schedule::job(new ApplyLateFees)
     ->dailyAt('04:00')
     ->name('atriom-late-fees')
@@ -178,7 +185,9 @@ Schedule::command('marketing:ensure-budgets')
 
 // Post/reconcile general-ledger entries for the recent window (idempotent,
 // self-healing). Keeps the books current; the one-time historical backfill is
-// `accounting:sync-ledger --all`. Runs after monthly billing settles.
+// `accounting:sync-ledger --all`. Runs after monthly billing settles — and after the 04:00 late-fee
+// job, which mutates invoice totals without firing the real-time hook (see its note above). Keep
+// this LAST of the money jobs: everything upstream relies on it to reconcile what it changed.
 Schedule::command('accounting:sync-ledger')
     ->dailyAt('05:00')
     ->name('atriom-sync-ledger')

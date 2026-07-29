@@ -674,6 +674,31 @@ Late fees are NOT generated automatically by MonthlyBillingService; they are app
 
 ## 9. Gotchas, edge cases & recently-fixed bugs
 
+### A late fee does not post to the GL in real time — and the schedule ordering is why that is fine
+
+`LateFeeService::applyTo()` bumps `subtotal`/`total` and calls `recomputeTotals()`, which saves
+**quietly**. `saveQuietly()` skips model events, so the near-real-time GL hook
+(`LedgerRealtimeSync`) never fires. Measured end to end:
+
+| moment | GL | invoice |
+| --- | --- | --- |
+| after the initial post | 10,000 | 10,000 |
+| immediately after the late fee | **10,000** | **10,200** |
+| after `accounting:sync-ledger` | 10,200 | 10,200 |
+
+**This is deliberate, not a defect.** `LedgerPoster::sync()` names this exact case — *"entry differs
+(e.g. late fee bumped the total) → void the stale one + re-post"* — and chooses sweep-based
+self-healing over entangling the real-time hooks with the `recomputeTotals`/`saveQuietly` machinery.
+
+**What makes it safe is the schedule ordering, which is therefore load-bearing:**
+`ApplyLateFees` runs at **04:00**, `accounting:sync-ledger` at **05:00**. The drift lasts about an
+hour. Moving the fee job after the sweep would silently stretch that to ~24 hours and put a
+month-end fee at risk of its accounting period closing before the entry posts — at which point the
+re-post is refused and it surfaces as `LedgerSyncFailed` instead. Both `routes/console.php` entries
+now say so; don't reorder them without reading that note.
+
+
+
 ### 1. Proration factor precision
 
 **Gotcha:** Proration factor is rounded to 4 decimals in the service (`round($daysBilled / $daysInPeriod, 4)`). This is then multiplied by each charge amount, and the result rounded to 2 decimals. Rounding errors are minimal but possible over many prorated charges.
