@@ -79,21 +79,43 @@ This is the core AR (accounts receivable) engine; all recurring revenue flows th
    - **One-time** — applies only if start_date falls within the billing period
    - All frequencies respect `start_date` and `end_date` windows (if charge window ends before period or starts after, it doesn't apply)
 
-4. **Invoice number format:** `INV-{ASSET_CODE}-{YYYYMM}-{SEQNUM}` (e.g. `INV-AW-202603-0001`)
+4. **Invoice number allocation is serialised per prefix** (`App\Models\Concerns\AllocatesDocumentNumber`).
+   Allocation is read-`MAX(number)`-then-insert — check-then-act across a round-trip — and the
+   `->exists()` probe is **not** protection: it cannot see another connection's uncommitted row.
+   Demonstrated on the real database, two allocations with no insert between them both returned
+   `INV-AW-202607-0082`. Reachable because invoices are created by **five** services and three take
+   no lock (`BillMeterReadingService`, `BillViolationFineService`, `CamReconciliationService`), so
+   the nightly billing run racing a violation fine or a CAM reconciliation is exactly it.
+   - The lock is taken in `creating` and released in `created`, so it **spans the INSERT** — a lock
+     around only the arithmetic leaves the identical window (A computes 0082, releases, B computes
+     0082 before A's row lands).
+   - Keyed on the number **prefix** (`INV-AW-202607-`), so one property never blocks another and
+     invoices never block journal entries. `numberPrefix()` is the single definition of that string,
+     shared with `generateNumber()` — a lock keyed on a prefix that no longer matches the sequence
+     it guards protects nothing. *(Extracting it caught exactly that: Payroll's prefix is `PR-`, not
+     the `PAY-` a hand-copied key assumed.)*
+   - The `UNIQUE` index stays the final arbiter — this makes collisions not happen, it does not make
+     the index redundant. Before it, the index was doing the code's job and paying in availability:
+     a duplicate-key 500, or a scheduled billing job dying part-way through a month.
+   - **All seven numbered documents share this** — Invoice, JournalEntry, CreditNote, VendorBill,
+     Expense, DepositTransaction, Payroll. Guarded by `DocumentNumberAllocationTest`, which fails if
+     a new numbered document ships without the trait.
+
+5. **Invoice number format:** `INV-{ASSET_CODE}-{YYYYMM}-{SEQNUM}` (e.g. `INV-AW-202603-0001`)
    - Derived from Lease.unit.asset.code at invoice creation time (booted hook)
    - Sequence resets per month per asset
    - **Test:** `InvoiceTest::test_auto_generates_a_unique_invoice_number_with_the_asset_code_and_period`
 
 ### AR Reconciliation
 
-5. **Paid amount is the sum of two sources:**
+6. **Paid amount is the sum of two sources:**
    - Captured payments via the `invoice_payment` pivot: `sum(invoice_payment.allocated_amount where payments.status = 'captured')`
    - Credit notes applied durably via `invoices.credit_applied_amount`
    - **Formula (in Invoice::recomputeTotals()):** `paid_amount = sum(captured payments) + credit_applied_amount`
    - This ensures a credit note isn't erased by a later payment recompute
    - **Test:** `CreditNoteBalanceDriftTest::test_keeps_an_applied_credit_when_a_later_captured_payment_recomputes_the_invoice`
 
-6. **Balance is never negative:** `balance = max(0, total - paid_amount)` (rounded to 2 decimals)
+7. **Balance is never negative:** `balance = max(0, total - paid_amount)` (rounded to 2 decimals)
 
 ### Idempotency & lifecycle
 

@@ -13,6 +13,8 @@ use Spatie\Activitylog\Support\LogOptions;
 
 class CreditNote extends Model
 {
+    use \App\Models\Concerns\AllocatesDocumentNumber;
+
     use HasFactory, LogsActivity, SoftDeletes;
 
     public function getActivitylogOptions(): LogOptions
@@ -108,10 +110,21 @@ class CreditNote extends Model
         $this->balance = round((float) $this->total - (float) $this->applied_amount, 2);
     }
 
-    public static function generateNumber(string $assetCode = 'AW', ?\DateTimeInterface $issueDate = null): string
+    /**
+     * The number prefix for this document's sequence — ONE definition, used by generateNumber()
+     * and by the allocation lock key (see AllocatesDocumentNumber). Two copies would drift, and a
+     * lock keyed on a prefix that no longer matches the sequence it guards protects nothing.
+     */
+    public static function numberPrefix(string $assetCode = 'AW', ?\DateTimeInterface $issueDate = null): string
     {
         $issueDate = $issueDate ? Carbon::instance($issueDate) : now();
-        $prefix = sprintf('CN-%s-%s-', $assetCode, $issueDate->format('Ym'));
+
+        return sprintf('CN-%s-%s-', $assetCode, $issueDate->format('Ym'));
+    }
+
+    public static function generateNumber(string $assetCode = 'AW', ?\DateTimeInterface $issueDate = null): string
+    {
+        $prefix = static::numberPrefix($assetCode, $issueDate);
 
         $lastNumber = static::withTrashed()
             ->where('number', 'like', $prefix.'%')
@@ -130,7 +143,10 @@ class CreditNote extends Model
         static::creating(function (self $note) {
             if (empty($note->number)) {
                 $assetCode = $note->lease?->unit?->asset?->code ?: 'AW';
-                $note->number = static::generateNumber($assetCode, $note->issue_date);
+                $note->number = $note->allocateDocumentNumber(
+                    static::numberPrefix($assetCode, $note->issue_date),
+                    fn (): string => static::generateNumber($assetCode, $note->issue_date),
+                );
             }
             if (empty($note->currency)) {
                 $note->currency = 'EGP';

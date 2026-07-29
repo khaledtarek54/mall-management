@@ -18,6 +18,8 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class Payroll extends Model
 {
+    use \App\Models\Concerns\AllocatesDocumentNumber;
+
     use HasFactory, LogsActivity, SoftDeletes;
 
     protected $fillable = [
@@ -120,10 +122,21 @@ class Payroll extends Model
         return $this->status === 'approved';
     }
 
-    public static function generateNumber(string $assetCode = 'GEN', ?\DateTimeInterface $month = null): string
+    /**
+     * The number prefix for this document's sequence — ONE definition, used by generateNumber()
+     * and by the allocation lock key (see AllocatesDocumentNumber). Two copies would drift, and a
+     * lock keyed on a prefix that no longer matches the sequence it guards protects nothing.
+     */
+    public static function numberPrefix(string $assetCode = 'GEN', ?\DateTimeInterface $month = null): string
     {
         $month = $month ? Carbon::instance($month) : now();
-        $prefix = sprintf('PR-%s-%s-', $assetCode, $month->format('Ym'));
+
+        return sprintf('PR-%s-%s-', $assetCode, $month->format('Ym'));
+    }
+
+    public static function generateNumber(string $assetCode = 'GEN', ?\DateTimeInterface $month = null): string
+    {
+        $prefix = static::numberPrefix($assetCode, $month);
 
         $lastNumber = static::withTrashed()
             ->where('number', 'like', $prefix.'%')
@@ -157,7 +170,14 @@ class Payroll extends Model
 
         static::creating(function (self $payroll) {
             if (empty($payroll->number)) {
-                $payroll->number = static::generateNumber($payroll->asset?->code ?: 'GEN', $payroll->period_month);
+                // Resolved once: the prefix that keys the lock and the sequence the
+                // generator reads must be the same string, or the lock guards nothing.
+                $assetCode = $payroll->asset?->code ?: 'GEN';
+
+                $payroll->number = $payroll->allocateDocumentNumber(
+                    static::numberPrefix($assetCode, $payroll->period_month),
+                    fn (): string => static::generateNumber($assetCode, $payroll->period_month),
+                );
             }
         });
     }

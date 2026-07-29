@@ -19,6 +19,8 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class JournalEntry extends Model
 {
+    use \App\Models\Concerns\AllocatesDocumentNumber;
+
     use HasFactory, LogsActivity, SoftDeletes;
 
     protected $fillable = [
@@ -111,10 +113,21 @@ class JournalEntry extends Model
             : ($en !== '' ? $en : $ar);
     }
 
-    public static function generateNumber(?\DateTimeInterface $entryDate = null): string
+    /**
+     * The number prefix for this document's sequence — ONE definition, used by generateNumber()
+     * and by the allocation lock key (see AllocatesDocumentNumber). Two copies would drift, and a
+     * lock keyed on a prefix that no longer matches the sequence it guards protects nothing.
+     */
+    public static function numberPrefix(?\DateTimeInterface $entryDate = null): string
     {
         $entryDate = $entryDate ? Carbon::instance($entryDate) : now();
-        $prefix = sprintf('JE-%s-', $entryDate->format('Ym'));
+
+        return sprintf('JE-%s-', $entryDate->format('Ym'));
+    }
+
+    public static function generateNumber(?\DateTimeInterface $entryDate = null): string
+    {
+        $prefix = static::numberPrefix($entryDate);
 
         $lastNumber = static::withTrashed()
             ->where('number', 'like', $prefix.'%')
@@ -132,7 +145,10 @@ class JournalEntry extends Model
     {
         static::creating(function (self $entry) {
             if (empty($entry->number)) {
-                $entry->number = static::generateNumber($entry->entry_date);
+                $entry->number = $entry->allocateDocumentNumber(
+                    static::numberPrefix($entry->entry_date),
+                    fn (): string => static::generateNumber($entry->entry_date),
+                );
             }
             // is_manual is fully derived from the source link (no source = manual),
             // set in one place so the various creation paths can never disagree.

@@ -21,6 +21,8 @@ use Spatie\Activitylog\Support\LogOptions;
 
 class Invoice extends Model
 {
+    use \App\Models\Concerns\AllocatesDocumentNumber;
+
     use GuardsPostingDate, HasFactory, LogsActivity, SoftDeletes;
 
     /**
@@ -196,10 +198,21 @@ class Invoice extends Model
         return (int) $this->due_date->diffInDays(now());
     }
 
-    public static function generateNumber(string $assetCode = 'AW', ?\DateTimeInterface $issueDate = null): string
+    /**
+     * The number prefix for this document's sequence — ONE definition, used by generateNumber()
+     * and by the allocation lock key (see AllocatesDocumentNumber). Two copies would drift, and a
+     * lock keyed on a prefix that no longer matches the sequence it guards protects nothing.
+     */
+    public static function numberPrefix(string $assetCode = 'AW', ?\DateTimeInterface $issueDate = null): string
     {
         $issueDate = $issueDate ? Carbon::instance($issueDate) : now();
-        $prefix = sprintf('INV-%s-%s-', $assetCode, $issueDate->format('Ym'));
+
+        return sprintf('INV-%s-%s-', $assetCode, $issueDate->format('Ym'));
+    }
+
+    public static function generateNumber(string $assetCode = 'AW', ?\DateTimeInterface $issueDate = null): string
+    {
+        $prefix = static::numberPrefix($assetCode, $issueDate);
 
         $last = static::withTrashed()
             ->where('number', 'like', $prefix.'%')
@@ -240,7 +253,10 @@ class Invoice extends Model
             // prefix is the property's code (INV-AW-…), derived from the linked
             // lease's unit; falls back to AW when no lease is attached.
             $assetCode = $invoice->lease?->unit?->asset?->code ?: 'AW';
-            $invoice->number = static::generateUniqueNumber($assetCode, $invoice->issue_date);
+            $invoice->number = $invoice->allocateDocumentNumber(
+                static::numberPrefix($assetCode, $invoice->issue_date),
+                fn (): string => static::generateUniqueNumber($assetCode, $invoice->issue_date),
+            );
 
             if (empty($invoice->currency)) {
                 $invoice->currency = 'EGP';

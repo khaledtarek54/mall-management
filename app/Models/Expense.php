@@ -18,6 +18,8 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class Expense extends Model
 {
+    use \App\Models\Concerns\AllocatesDocumentNumber;
+
     use GuardsPostingDate, HasFactory, LogsActivity, SoftDeletes;
 
     /** The column this document's GL entry is dated from (LedgerRealtimeSync::SOURCE_DATE_COLUMNS). */
@@ -75,10 +77,21 @@ class Expense extends Model
         return $this->status === 'recorded';
     }
 
-    public static function generateNumber(string $assetCode = 'GEN', ?\DateTimeInterface $date = null): string
+    /**
+     * The number prefix for this document's sequence — ONE definition, used by generateNumber()
+     * and by the allocation lock key (see AllocatesDocumentNumber). Two copies would drift, and a
+     * lock keyed on a prefix that no longer matches the sequence it guards protects nothing.
+     */
+    public static function numberPrefix(string $assetCode = 'GEN', ?\DateTimeInterface $date = null): string
     {
         $date = $date ? Carbon::instance($date) : now();
-        $prefix = sprintf('EXP-%s-%s-', $assetCode, $date->format('Ym'));
+
+        return sprintf('EXP-%s-%s-', $assetCode, $date->format('Ym'));
+    }
+
+    public static function generateNumber(string $assetCode = 'GEN', ?\DateTimeInterface $date = null): string
+    {
+        $prefix = static::numberPrefix($assetCode, $date);
 
         $lastNumber = static::withTrashed()
             ->where('number', 'like', $prefix.'%')
@@ -108,7 +121,14 @@ class Expense extends Model
 
         static::creating(function (self $expense) {
             if (empty($expense->number)) {
-                $expense->number = static::generateNumber($expense->asset?->code ?: 'GEN', $expense->expense_date);
+                // Resolved once: the prefix that keys the lock and the sequence the
+                // generator reads must be the same string, or the lock guards nothing.
+                $assetCode = $expense->asset?->code ?: 'GEN';
+
+                $expense->number = $expense->allocateDocumentNumber(
+                    static::numberPrefix($assetCode, $expense->expense_date),
+                    fn (): string => static::generateNumber($assetCode, $expense->expense_date),
+                );
             }
         });
     }

@@ -18,6 +18,8 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class DepositTransaction extends Model
 {
+    use \App\Models\Concerns\AllocatesDocumentNumber;
+
     use GuardsPostingDate, HasFactory, LogsActivity, SoftDeletes;
 
     /** The column this document's GL entry is dated from (LedgerRealtimeSync::SOURCE_DATE_COLUMNS). */
@@ -76,10 +78,21 @@ class DepositTransaction extends Model
         return $this->status === 'recorded';
     }
 
-    public static function generateNumber(string $assetCode = 'GEN', ?\DateTimeInterface $date = null): string
+    /**
+     * The number prefix for this document's sequence — ONE definition, used by generateNumber()
+     * and by the allocation lock key (see AllocatesDocumentNumber). Two copies would drift, and a
+     * lock keyed on a prefix that no longer matches the sequence it guards protects nothing.
+     */
+    public static function numberPrefix(string $assetCode = 'GEN', ?\DateTimeInterface $date = null): string
     {
         $date = $date ? Carbon::instance($date) : now();
-        $prefix = sprintf('DEP-%s-%s-', $assetCode, $date->format('Ym'));
+
+        return sprintf('DEP-%s-%s-', $assetCode, $date->format('Ym'));
+    }
+
+    public static function generateNumber(string $assetCode = 'GEN', ?\DateTimeInterface $date = null): string
+    {
+        $prefix = static::numberPrefix($assetCode, $date);
 
         $lastNumber = static::withTrashed()
             ->where('number', 'like', $prefix.'%')
@@ -135,7 +148,10 @@ class DepositTransaction extends Model
                 $assetCode = $deposit->asset_id
                     ? Asset::whereKey($deposit->asset_id)->value('code')
                     : null;
-                $deposit->number = static::generateUniqueNumber($assetCode ?: 'GEN', $deposit->transaction_date);
+                $deposit->number = $deposit->allocateDocumentNumber(
+                    static::numberPrefix($assetCode ?: 'GEN', $deposit->transaction_date),
+                    fn (): string => static::generateUniqueNumber($assetCode ?: 'GEN', $deposit->transaction_date),
+                );
             }
         });
     }

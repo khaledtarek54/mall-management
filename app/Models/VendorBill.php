@@ -19,6 +19,8 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class VendorBill extends Model
 {
+    use \App\Models\Concerns\AllocatesDocumentNumber;
+
     use HasFactory, LogsActivity, SoftDeletes;
 
     public const CATEGORIES = ['maintenance', 'utilities', 'cleaning_security', 'marketing', 'admin', 'other'];
@@ -215,10 +217,21 @@ class VendorBill extends Model
         $this->saveQuietly();
     }
 
-    public static function generateNumber(string $assetCode = 'GEN', ?\DateTimeInterface $billDate = null): string
+    /**
+     * The number prefix for this document's sequence — ONE definition, used by generateNumber()
+     * and by the allocation lock key (see AllocatesDocumentNumber). Two copies would drift, and a
+     * lock keyed on a prefix that no longer matches the sequence it guards protects nothing.
+     */
+    public static function numberPrefix(string $assetCode = 'GEN', ?\DateTimeInterface $billDate = null): string
     {
         $billDate = $billDate ? Carbon::instance($billDate) : now();
-        $prefix = sprintf('BILL-%s-%s-', $assetCode, $billDate->format('Ym'));
+
+        return sprintf('BILL-%s-%s-', $assetCode, $billDate->format('Ym'));
+    }
+
+    public static function generateNumber(string $assetCode = 'GEN', ?\DateTimeInterface $billDate = null): string
+    {
+        $prefix = static::numberPrefix($assetCode, $billDate);
 
         $lastNumber = static::withTrashed()
             ->where('number', 'like', $prefix.'%')
@@ -268,7 +281,14 @@ class VendorBill extends Model
 
         static::creating(function (self $bill) {
             if (empty($bill->number)) {
-                $bill->number = static::generateNumber($bill->asset?->code ?: 'GEN', $bill->bill_date);
+                // Resolved once: the prefix that keys the lock and the sequence the
+                // generator reads must be the same string, or the lock guards nothing.
+                $assetCode = $bill->asset?->code ?: 'GEN';
+
+                $bill->number = $bill->allocateDocumentNumber(
+                    static::numberPrefix($assetCode, $bill->bill_date),
+                    fn (): string => static::generateNumber($assetCode, $bill->bill_date),
+                );
             }
             if (empty($bill->currency)) {
                 $bill->currency = 'EGP';
