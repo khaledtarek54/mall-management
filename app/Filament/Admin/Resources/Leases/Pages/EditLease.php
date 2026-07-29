@@ -118,6 +118,30 @@ class EditLease extends EditRecord
                     return;
                 }
 
+                // A refusal, not a failure — say which of the three it is, because "this lease
+                // cannot be billed" is useless without telling the operator whether to change the
+                // status, wait for commencement, or stop billing an ended lease.
+                if ($result['status'] === 'skipped' && ($result['reason'] ?? null) === 'lease_not_billable') {
+                    $why = match (true) {
+                        $record->status !== 'active' => __('admin.actions.not_billable_status', [
+                            'status' => __('admin.statuses.lease.'.$record->status, [], $record->status),
+                        ]),
+                        $record->expiry_date && $period->greaterThan(\Carbon\CarbonImmutable::instance($record->expiry_date)->endOfMonth())
+                            => __('admin.actions.not_billable_expired', ['date' => $record->expiry_date->format('d/m/Y')]),
+                        default => __('admin.actions.not_billable_not_started', [
+                            'date' => $record->commencement_date?->format('d/m/Y') ?? '—',
+                        ]),
+                    };
+
+                    Notification::make()
+                        ->title(__('admin.actions.not_billable_title', ['period' => $period->format('F Y')]))
+                        ->body($why)
+                        ->warning()
+                        ->send();
+
+                    return;
+                }
+
                 if ($result['status'] === 'skipped' && ($result['reason'] ?? null) === 'already_billed') {
                     Notification::make()
                         ->title(__('admin.actions.already_billed_title'))

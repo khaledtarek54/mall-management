@@ -345,6 +345,60 @@ class Lease extends Model implements HasMedia
     }
 
     /**
+     * Is this lease eligible to be billed for the given period at all?
+     *
+     * **One definition, two callers.** The scheduled run filters eligibility in its query
+     * (`scopeBillableForPeriod`); the manual "Generate Invoice" action operates on a lease the
+     * operator already picked, so it had no query to filter — and therefore applied NONE of these
+     * rules. Measured before this existed: the manual path happily created a real AR invoice (which
+     * posts to the GL) for a **terminated** lease, a **draft** lease, and a lease **two months past
+     * its expiry**, each of which the batch run correctly refused.
+     *
+     * Keeping the predicate here and the scope below in lockstep is the point: two copies of
+     * "which leases bill" is exactly how the two paths drifted apart in the first place.
+     */
+    public function isBillableForPeriod(CarbonImmutable $periodStart, CarbonImmutable $periodEnd): bool
+    {
+        if ($this->status !== 'active') {
+            return false;
+        }
+
+        // Not yet started: a lease commencing after the period ends bills nothing.
+        // blank(), not `=== null`: the column is NOT NULL today, so an explicit null comparison
+        // reads as always-true to static analysis — while still being the behaviour we want if the
+        // column is ever relaxed.
+        if (blank($this->commencement_date)
+            || CarbonImmutable::instance($this->commencement_date)->greaterThan($periodEnd)) {
+            return false;
+        }
+
+        // Already over: an open-ended lease (null expiry) never expires. A lease whose expiry falls
+        // before the period starts is finished — its holdover, if any, is the ActionRequired card's
+        // business, not a fresh invoice's.
+        if (filled($this->expiry_date)
+            && CarbonImmutable::instance($this->expiry_date)->lessThan($periodStart)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * The query form of {@see isBillableForPeriod()} — used by the scheduled run.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     */
+    public function scopeBillableForPeriod($query, CarbonImmutable $periodStart, CarbonImmutable $periodEnd)
+    {
+        return $query
+            ->where('status', 'active')
+            ->where('commencement_date', '<=', $periodEnd)
+            ->where(function ($q) use ($periodStart) {
+                $q->whereNull('expiry_date')->orWhere('expiry_date', '>=', $periodStart);
+            });
+    }
+
+    /**
      * True when the given billing period falls entirely inside the fit-out grace, so NOTHING bills.
      * fit_out_months = 0 → always false (today's behaviour). Shared by the monthly billing engine
      * and the ActionRequired "unbilled leases" card, so a lease in fit-out is neither billed nor nagged.

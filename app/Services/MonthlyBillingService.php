@@ -58,11 +58,9 @@ class MonthlyBillingService
         ];
 
         Lease::query()
-            ->where('status', 'active')
-            ->where('commencement_date', '<=', $periodEnd)
-            ->where(function ($q) use ($periodStart) {
-                $q->whereNull('expiry_date')->orWhere('expiry_date', '>=', $periodStart);
-            })
+            // The one definition of "which leases bill this period" — mirrored by
+            // Lease::isBillableForPeriod(), which the manual path checks. See that docblock.
+            ->billableForPeriod($periodStart, $periodEnd)
             ->with(['charges' => fn ($q) => $q->where('is_active', true)])
             ->chunkById(100, function ($leases) use (&$stats, $periodStart, $periodEnd) {
                 foreach ($leases as $lease) {
@@ -150,6 +148,14 @@ class MonthlyBillingService
     {
         $periodStart = $period;
         $periodEnd = $period->endOfMonth();
+
+        // The scheduled run filters eligibility in its QUERY; this path is handed a lease the
+        // operator picked, so it had no filter and applied none of those rules. Measured: it
+        // created a real AR invoice — which posts to the GL — for a terminated lease, a draft
+        // lease, and a lease two months past its expiry, all of which the batch run refused.
+        if (! $lease->isBillableForPeriod($periodStart, $periodEnd)) {
+            return ['status' => 'skipped', 'reason' => 'lease_not_billable', 'invoice' => null];
+        }
 
         if ($this->alreadyBilledForMonth($lease, $periodStart, $periodEnd)) {
             return ['status' => 'skipped', 'reason' => 'already_billed', 'invoice' => null];

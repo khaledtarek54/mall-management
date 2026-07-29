@@ -125,13 +125,40 @@ This is the core AR (accounts receivable) engine; all recurring revenue flows th
    - **The probe is `alreadyBilledForMonth()` — period-OVERLAP + item-type exclusion.** An invoice already-bills a month when its period overlaps that month (`period_start ≤ month-end AND period_end ≥ month-start`) AND it carries **none** of the special item types `[percentage_rent, cam_recovery, cam_admin_fee]`. The two invoice kinds that legitimately share a lease + period but are NOT the regular rent invoice — the annual **CAM year-end recovery** (`cam_recovery`/`cam_admin_fee` items) and the immediate **percentage-rent overage** (`percentage_rent` item) — are excluded by item type, so a back-filled/late run still bills the rent (a regular invoice never carries those types). *This item-type test replaced the old `period_end ≤ month-end` heuristic when quarterly/annual billing landed — a multi-month cycle invoice would have slipped past that heuristic and double-billed.* See module 09 § "The billing gap" and §14 below.
    - **Test:** `BillingScenarioTest::test_skips_with_already_billed_when_an_invoice_already_covers_the_period` + `Services/MonthlyBillingServiceTest::test_is_idempotent_a_second_run_for_the_same_period_creates_no_duplicates` + `PercentageRentImmediateBillingTest::the immediate overage invoice does not suppress that month's regular rent invoice`
 
-8. **Only active leases with overlapping commencement/expiry are billed by runForPeriod:**
+8. **Lease eligibility has ONE definition, applied by both entry points** —
+   `Lease::isBillableForPeriod()`, with `scopeBillableForPeriod()` as its query form:
+   - Status = `active` (not draft, terminated, etc.)
+   - `commencement_date` ≤ `period_end`
+   - `expiry_date` ≥ `period_start` *(the column is NOT NULL, so the open-ended branch both forms
+     carry is unreachable today — defence in case it is ever relaxed)*
+   - **The manual "Generate Invoice" action used to apply NONE of this.** `runForPeriod()` filters
+     eligibility in its query; the single-lease path is handed a lease the operator already picked,
+     so it had no filter. Measured: it created a real AR invoice — which posts to the GL — for a
+     **terminated** lease, a **draft** lease, and a lease **past its expiry**, each of which the
+     scheduled run refused. One click, a dead lease billed into the books.
+   - The one existing test that appeared to cover this asserted `no_applicable_charges` for a
+     terminated lease, and passed **by accident**: termination deactivates the charges, so the path
+     fell through to "nothing to bill" without ever asking whether the lease was billable. A
+     terminated lease still carrying one active charge would have billed. The reason is now
+     `lease_not_billable`, and the UI explains which of the three it is (wrong status / not yet
+     commenced / already ended) rather than showing a misleading "generation failed".
+   - **Test:** `ManualBillingEligibilityTest` (both paths agree, and the predicate agrees with the
+     scope) + `BillingScenarioTest` draft/terminated/expiry cases.
+
+9. **The final month of an expiring lease bills in FULL, not pro-rata.** Proration keys on
+   *commencement* only (§2), so a lease ending on the 10th is billed the whole month — the period
+   still overlaps its term. That is the system's rule rather than an oversight, and
+   `ManualBillingEligibilityTest` pins it so changing it is a decision rather than a surprise.
+   *(If the operator wants final-month proration, that is a business-rule change to §2, not a bug
+   fix — it would need an expiry-side factor alongside the commencement one.)*
+
+10. **Only active leases with overlapping commencement/expiry are billed by runForPeriod:**
    - Status = 'active' (not draft, terminated, etc.)
    - commencement_date ≤ period_end
    - expiry_date is null OR expiry_date ≥ period_start
    - **Test:** `BillingScenarioTest::test_runForPeriod_does_not_bill_a_draft_lease` + `test_runForPeriod_does_not_bill_a_terminated_lease` + `test_runForPeriod_does_not_bill_a_lease_whose_expiry_precedes_the_period`
 
-9. **Status auto-transitions (unless manually overridden to cancelled/disputed/credited):**
+11. **Status auto-transitions (unless manually overridden to cancelled/disputed/credited):**
    - `issued` (new invoices)
    - → `overdue` if due_date < today AND balance > 0
    - → `partially_paid` if 0 < paid_amount < total
@@ -141,7 +168,7 @@ This is the core AR (accounts receivable) engine; all recurring revenue flows th
 
 ### Due date & payment terms
 
-10. **Due date never lands in the past:** `due_date = max(issue_date, today) + lease.payment_terms_days` (default 7 if not set)
+12. **Due date never lands in the past:** `due_date = max(issue_date, today) + lease.payment_terms_days` (default 7 if not set)
     - `issue_date` stays at the period start (or the commencement, when prorated) — it is the GL `entry_date` and the `YYYYMM` segment of the invoice number, so it is *not* moved by a late run.
     - The due date instead anchors to when the tenant can actually receive the bill: the later of `issue_date` and today. For an on-time run (the invoice's period is the current month) this equals `issue_date + terms` as before; only a **late / back-filled / off-the-1st** run (a mid-month "Generate Invoice", or `monthly_billing_day > 1`) differs — and there the fix is what stops the invoice being *born overdue* (which would otherwise trip the overdue-scan + a same-day late fee).
     - **Tests:** `BillingScenarioTest::test_derives_the_due_date_as_period_start__payment_terms_days` (on-time) · `InvoiceDueDateNotBornOverdueTest` (late run not born overdue)

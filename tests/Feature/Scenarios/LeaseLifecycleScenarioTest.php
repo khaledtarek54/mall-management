@@ -259,17 +259,22 @@ it('termination stamps the end_date on every charge so a later billing run produ
         ->and($stats['created'])->toBe(0);
 });
 
-it('a direct single-lease billing call on a terminated lease yields no applicable charges', function () {
+it('a direct single-lease billing call on a terminated lease is refused for BEING terminated', function () {
     $lease = createLeaseVia($this->unit->id, ['commencement_date' => '2026-01-01']);
     app(LeaseTerminationService::class)->terminate($lease, ['termination_date' => '2026-02-10']);
 
-    // Charges are inactive → generateForLease loads only active charges and
-    // finds none applicable, returning a 'skipped/no_applicable_charges'.
     $result = app(\App\Services\MonthlyBillingService::class)
         ->generateForLease($lease->fresh(), CarbonImmutable::parse('2026-05-01'));
 
+    // This used to assert 'no_applicable_charges', and the reason it passed was an ACCIDENT:
+    // termination deactivates the charges, so the single-lease path fell through to "nothing to
+    // bill" without ever checking whether the lease itself was billable. A terminated lease that
+    // still carried one active charge — added later, or missed by termination — would have been
+    // billed. The manual path now applies the same eligibility rule as the scheduled run
+    // (Lease::isBillableForPeriod), so the refusal is principled rather than incidental.
+    // See ManualBillingEligibilityTest.
     expect($result['status'])->toBe('skipped')
-        ->and($result['reason'])->toBe('no_applicable_charges')
+        ->and($result['reason'])->toBe('lease_not_billable')
         ->and($result['invoice'])->toBeNull();
 });
 
