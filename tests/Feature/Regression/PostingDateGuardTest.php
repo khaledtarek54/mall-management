@@ -1,15 +1,24 @@
 <?php
 
+use App\Models\AccountingPeriod;
 use App\Models\Custody;
+use App\Models\CustodyTransaction;
 use App\Models\Employee;
 use App\Models\EmployeeAdvance;
+use App\Models\JournalEntry;
+use App\Models\Payroll;
 use App\Services\Accounting\FiscalCalendar;
 use App\Services\Accounting\PeriodService;
+use App\Services\GrantCustodyService;
+use App\Services\GrantEmployeeAdvanceService;
+use App\Services\PayrollService;
 use App\Services\RecordAdvanceRepaymentService;
 use App\Services\SettleCustodyService;
+use App\Support\PostingDate;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
+use Illuminate\Support\Carbon;
 
 /**
  * Regression — gap-analysis **F-93** (module 25, 🔴) and **F-89** (module 24).
@@ -33,7 +42,7 @@ use Database\Seeders\RolesPermissionsSeeder;
  * in an earlier period than the Dr grant — **a credit balance on an asset account** in that
  * month's trial balance. Nothing forbade it.
  *
- * Both services now refuse via {@see App\Support\PostingDate}, in the SERVICE — the form's
+ * Both services now refuse via {@see PostingDate}, in the SERVICE — the form's
  * minDate/maxDate is UX, and the API and console never see it.
  */
 beforeEach(function () {
@@ -60,14 +69,14 @@ function closePeriodFor(string $date): void
 {
     test()->artisan('accounting:sync-ledger', ['--all' => true])->assertExitCode(0);
 
-    $period = \App\Models\AccountingPeriod::forDate(\Illuminate\Support\Carbon::parse($date));
+    $period = AccountingPeriod::forDate(Carbon::parse($date));
     app(PeriodService::class)->closePeriod($period);
 }
 
 /** Granted through the real service, dated at the start of this month. */
 function pdgCustody(float $amount = 10000): Custody
 {
-    return app(\App\Services\GrantCustodyService::class)->grant(test()->employee, [
+    return app(GrantCustodyService::class)->grant(test()->employee, [
         'amount' => $amount,
         'custody_date' => now()->startOfMonth()->toDateString(),
         'paid_from' => 'cash',
@@ -78,7 +87,7 @@ function pdgCustody(float $amount = 10000): Custody
 /** Granted through the real service, dated at the start of this month. */
 function pdgAdvance(float $amount = 10000): EmployeeAdvance
 {
-    return app(\App\Services\GrantEmployeeAdvanceService::class)->grant(test()->employee, [
+    return app(GrantEmployeeAdvanceService::class)->grant(test()->employee, [
         'type' => 'advance',
         'amount' => $amount,
         'advance_date' => now()->startOfMonth()->toDateString(),
@@ -142,7 +151,7 @@ it('still accepts a settlement dated in an open period', function () {
 
     // And it genuinely reaches the ledger through the real path.
     $this->artisan('accounting:sync-ledger', ['--all' => true])->assertExitCode(0);
-    expect(\App\Models\JournalEntry::where('source_type', \App\Models\CustodyTransaction::class)
+    expect(JournalEntry::where('source_type', CustodyTransaction::class)
         ->where('status', 'posted')->exists())->toBeTrue();
 });
 
@@ -170,4 +179,117 @@ it('still accepts an advance repayment dated in an open period', function () {
     ]);
 
     expect((float) $advance->fresh()->outstanding())->toBe(6000.0);
+});
+
+/* ---- the GRANT side — the half the F-93/F-89 fix missed ------------------- */
+
+/**
+ * F-93 and F-89 guarded the money going OUT of these documents (settlement,
+ * repayment) and left the money going IN unguarded — the same silent divergence
+ * on the sibling half of the same document. Found in the module 24/25
+ * gap-analysis sweep (2026-07-29).
+ */
+it('refuses a custody GRANTED into a closed period', function () {
+    $inClosedMonth = now()->startOfMonth()->addDays(5)->toDateString();
+    closePeriodFor($inClosedMonth);
+
+    expect(fn () => app(GrantCustodyService::class)->grant($this->employee, [
+        'amount' => 10000,
+        'custody_date' => $inClosedMonth,
+        'paid_from' => 'cash',
+    ]))->toThrow(DomainException::class);
+
+    expect(Custody::count())->toBe(0, 'A custody was recorded that the books can never carry.');
+});
+
+it('leaves no unsettleable custody behind', function () {
+    // Why the grant side matters as much as the settlement side: an unguarded grant
+    // creates a عهدة the custodian is on the hook for, with no Dr Custodies / Cr Cash
+    // behind it — and the settlement guard then refuses every settlement (it may not
+    // predate its grant), so the custody is stuck: recorded, unbacked, unsettleable.
+    $inClosedMonth = now()->startOfMonth()->addDays(5)->toDateString();
+    closePeriodFor($inClosedMonth);
+
+    try {
+        app(GrantCustodyService::class)->grant($this->employee, [
+            'amount' => 10000, 'custody_date' => $inClosedMonth, 'paid_from' => 'cash',
+        ]);
+    } catch (DomainException) {
+        // expected
+    }
+
+    expect(Custody::count())->toBe(0);
+});
+
+it('still grants a custody in an open period', function () {
+    $custody = app(GrantCustodyService::class)->grant($this->employee, [
+        'amount' => 10000,
+        'custody_date' => now()->toDateString(),
+        'paid_from' => 'cash',
+    ]);
+
+    expect($custody->exists)->toBeTrue();
+});
+
+it('refuses an advance GRANTED into a closed period', function () {
+    $inClosedMonth = now()->startOfMonth()->addDays(5)->toDateString();
+    closePeriodFor($inClosedMonth);
+
+    expect(fn () => app(GrantEmployeeAdvanceService::class)->grant($this->employee, [
+        'amount' => 5000,
+        'advance_date' => $inClosedMonth,
+        'paid_from' => 'cash',
+    ]))->toThrow(DomainException::class);
+
+    // Otherwise the employee carries an outstanding balance with no Dr Employee
+    // Advances behind it, and the repayments that later relieve that receivable
+    // credit an account the grant never debited.
+    expect(EmployeeAdvance::count())->toBe(0);
+});
+
+it('still grants an advance in an open period', function () {
+    $advance = app(GrantEmployeeAdvanceService::class)->grant($this->employee, [
+        'amount' => 5000,
+        'advance_date' => now()->toDateString(),
+        'paid_from' => 'cash',
+    ]);
+
+    expect($advance->exists)->toBeTrue();
+});
+
+it('refuses APPROVING a payroll run whose month has closed', function () {
+    // A run can sit in draft across a month-end close. Approval is the moment it
+    // becomes GL-postable, so the check belongs there and not only at drafting:
+    // approving relieves every advance installment in the run and marks salaries
+    // paid, while Dr Salaries / Cr Cash silently fails in the best-effort job.
+    $month = now()->startOfMonth();
+
+    $payroll = Payroll::create([
+        'asset_id' => $this->asset->id,
+        'period_month' => $month->toDateString(),
+        'status' => 'draft',
+        'paid_from' => 'cash',
+        'gross_salaries' => 8000,
+        'net_paid' => 8000,
+    ]);
+
+    closePeriodFor($month->toDateString());
+
+    expect(fn () => app(PayrollService::class)->approve($payroll))
+        ->toThrow(DomainException::class);
+
+    expect($payroll->fresh()->status)->toBe('draft');
+});
+
+it('still approves a payroll run in an open month', function () {
+    $payroll = Payroll::create([
+        'asset_id' => $this->asset->id,
+        'period_month' => now()->startOfMonth()->toDateString(),
+        'status' => 'draft',
+        'paid_from' => 'cash',
+        'gross_salaries' => 8000,
+        'net_paid' => 8000,
+    ]);
+
+    expect(app(PayrollService::class)->approve($payroll)->status)->toBe('approved');
 });

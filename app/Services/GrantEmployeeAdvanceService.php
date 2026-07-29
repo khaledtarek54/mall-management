@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Employee;
 use App\Models\EmployeeAdvance;
+use App\Support\PostingDate;
 
 /**
  * Grants an advance/loan to an employee (module 24, Phase 2). Denormalises the
@@ -24,11 +25,18 @@ class GrantEmployeeAdvanceService
         $amount = round((float) ($data['amount'] ?? 0), 2);
         abort_unless($amount > 0, 422);
 
+        // `advance_date` is the grant entry's GL entry_date (EmployeeAdvanceJournalizer).
+        // The F-89 fix guarded the repayment (RecordAdvanceRepaymentService) and left the
+        // grant unguarded — so the employee's outstanding balance could exist with no
+        // Dr Employee Advances / Cr Cash behind it, and the repayments that later relieve
+        // that receivable would credit an account the grant never debited.
+        $advanceDate = PostingDate::assertOpen($data['advance_date'] ?? null, 'advance_date')->toDateString();
+
         return $employee->advances()->create([
             'asset_id' => $employee->asset_id, // denormalised — the books dimension
             'type' => ($data['type'] ?? 'advance') === 'loan' ? 'loan' : 'advance',
             'amount' => $amount,
-            'advance_date' => $data['advance_date'],
+            'advance_date' => $advanceDate,
             'paid_from' => ($data['paid_from'] ?? 'cash') === 'bank' ? 'bank' : 'cash',
             'notes' => $data['notes'] ?? null,
             'created_by_user_id' => auth()->id(),

@@ -307,3 +307,21 @@ tamper guard, `payrolls.edit` gating, and payslip download visibility.
 
 **Related:** 21 General Ledger (payroll posting + advances GL), 14 Departments
 (org units), 18 RBAC (the `hr` role), 01 Properties (asset scope).
+
+### Closed-period guard covers the GRANT side too (gap-analysis, 2026-07-29)
+
+F-89 guarded the money going **out** of an advance (`RecordAdvanceRepaymentService`) and left the
+money going **in** unguarded — the same silent divergence on the sibling half of the same document.
+Now guarded via `App\Support\PostingDate`:
+
+- **`GrantEmployeeAdvanceService`** — `advance_date` is the grant entry's `entry_date`. Unguarded,
+  an employee carried an outstanding balance with no *Dr Employee Advances / Cr Cash* behind it, and
+  the repayments that later relieve that receivable credited an account the grant never debited.
+- **`PayrollService::approve()`** — `period_month` dates the payroll entry, and **approval**, not
+  drafting, is the moment the run becomes GL-postable. A run can sit in draft across a month-end
+  close; approving it then relieves every advance installment in the run and marks salaries paid
+  while *Dr Salaries / Cr Cash* fails silently in the best-effort sync job. Approving is
+  irreversible in practice — `cancel()` voids the entry, but the installments have already counted.
+
+Tests: `tests/Feature/Regression/PostingDateGuardTest.php` (mutation-checked — removing the guards
+fails them).

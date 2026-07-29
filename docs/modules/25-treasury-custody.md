@@ -127,3 +127,16 @@ guard, and the `custodies.settle` gating.
 
 **Related:** 21 General Ledger (posting + the expense-category map), 24 HR / Employees (the
 custodian), 01 Properties (asset scope), 18 RBAC.
+
+### Closed-period guard covers the GRANT side too (gap-analysis, 2026-07-29)
+
+F-93 guarded the **settlement** of a عهدة and left the **grant** unguarded — same bug class, other
+half of the same document. `GrantCustodyService` now runs `custody_date` through
+`App\Support\PostingDate`.
+
+Why it matters as much as the settlement side: an unguarded grant created a custody the custodian
+is on the hook for, with no *Dr Custodies / Cr Cash* behind it — and the settlement guard then
+refused **every** settlement of it (a settlement may not predate its grant). The عهدة ended up
+stuck: recorded, unbacked in the books, and unsettleable.
+
+Tests: `tests/Feature/Regression/PostingDateGuardTest.php` (mutation-checked).

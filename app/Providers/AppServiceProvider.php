@@ -20,6 +20,7 @@ use Filament\View\PanelsRenderHook;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Number;
 use Illuminate\Support\ServiceProvider;
 
@@ -63,6 +64,23 @@ class AppServiceProvider extends ServiceProvider
         // otherwise emits Arabic-Indic digits under the 'ar' locale. Carbon's
         // bundled 'ar' locale already uses Western digits for dates.
         Number::useLocale('en');
+
+        // Absolute URLs must be https in production. TLS terminates at the proxy, so PHP sees a
+        // plain http request and every route()/url() call — the tenant payment link, password
+        // resets for /admin, /portal and the mobile API, the Paymob return URL, the "Open Atriom"
+        // button in an emailed alert — was built with http://.
+        //
+        // Forced rather than inferred from X-Forwarded-Proto on purpose: trusting that header
+        // means trusting whatever sits in front of the app to set it, and getting it silently
+        // wrong looks like nothing until a tenant clicks a payment link on a public network.
+        // Proxy trust is configured separately (bootstrap/app.php) for the client IP.
+        //
+        // HSTS is already sent by SecurityHeaders, but HSTS only protects a browser that has
+        // already made ONE successful https visit — it does nothing for the first click on a link
+        // in an email, which is exactly how payment links are opened.
+        if (config('security.force_https')) {
+            URL::forceScheme('https');
+        }
 
         Lease::observe(LeaseObserver::class);
 

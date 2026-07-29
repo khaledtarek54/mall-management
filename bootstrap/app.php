@@ -13,6 +13,26 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // The app always runs behind a TLS-terminating proxy (Herd locally, nginx / a load
+        // balancer in production). Without this, `$request->ip()` is the PROXY's address, not the
+        // caller's — which silently guts everything that keys on the client: login throttling
+        // (one shared bucket for the whole internet), the activity log's audit trail, and the
+        // Paymob callback's origin. `X-Forwarded-*` is also what tells Laravel the original
+        // request was https.
+        //
+        // `TRUSTED_PROXIES` defaults to `*` because the proxy's address is deployment-specific and
+        // usually not stable. That is safe ONLY because the app is not reachable except through
+        // that proxy — if it is ever exposed directly, pin this to the real addresses, or a caller
+        // can forge their own X-Forwarded-For and become un-throttleable.
+        $middleware->trustProxies(
+            at: env('TRUSTED_PROXIES', '*'),
+            headers: Request::HEADER_X_FORWARDED_FOR
+                | Request::HEADER_X_FORWARDED_HOST
+                | Request::HEADER_X_FORWARDED_PORT
+                | Request::HEADER_X_FORWARDED_PROTO
+                | Request::HEADER_X_FORWARDED_AWS_ELB,
+        );
+
         $middleware->web(append: [
             \App\Http\Middleware\SetLocale::class,
         ]);

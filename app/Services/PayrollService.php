@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\EmployeeAdvance;
 use App\Models\Payroll;
+use App\Support\PostingDate;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -26,6 +27,16 @@ class PayrollService
         if ((float) $payroll->net_paid < 0) {
             throw new \DomainException('Payroll deductions exceed gross salaries; fix the amounts before approving.');
         }
+
+        // Approval is the moment this run becomes GL-postable, dated at its period_month
+        // (PayrollJournalizer). So the period must be checked HERE, not only when the run
+        // was drafted — a run can sit in draft across a month-end close, and approving it
+        // then would relieve every employee advance in it and mark salaries paid while
+        // Dr Salaries / Cr Cash silently failed in the best-effort sync job.
+        //
+        // Approving is also irreversible in practice: cancel() voids the entry, but the
+        // advance installments this run consumed have already counted.
+        PostingDate::assertOpen($payroll->period_month, 'period_month');
 
         return DB::transaction(function () use ($payroll) {
             // Lock-safe advance re-check (Phase 4b): approving this run makes its advance
