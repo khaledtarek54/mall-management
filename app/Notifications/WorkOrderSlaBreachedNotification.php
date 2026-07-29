@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\MaintenanceWorkOrder;
+use App\Notifications\Concerns\AlsoSendsByMail;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
@@ -15,13 +16,18 @@ use Illuminate\Notifications\Notification;
  */
 class WorkOrderSlaBreachedNotification extends Notification
 {
+    use AlsoSendsByMail;
     use Queueable;
 
     public function __construct(public MaintenanceWorkOrder $order) {}
 
+    /**
+     * Mail as well as the bell. Same clock as the tenant-request breach — a corrective job past its target is a commitment
+     * already broken, not an FYI.
+     */
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['mail', 'database'];
     }
 
     public function toDatabase(object $notifiable): array

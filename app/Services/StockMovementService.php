@@ -20,6 +20,9 @@ use InvalidArgumentException;
  */
 class StockMovementService
 {
+    /** Movement types that relocate stock without changing the company's inventory value. */
+    public const TRANSFER_TYPES = ['transfer_in', 'transfer_out'];
+
     /**
      * Record one movement. `quantity` is coerced to the correct sign for its
      * type; an `adjustment` keeps the sign it is given (a signed correction).
@@ -49,7 +52,7 @@ class StockMovementService
         // caller supplies none (receipts must carry their own purchase cost) — so a
         // shrinkage write-off or a ticket consumption always hits the GL for its value.
         $unitCost = round((float) ($data['unit_cost'] ?? 0), 2);
-        if ($unitCost <= 0 && in_array($type, ['consumption', 'adjustment'], true)) {
+        if ($unitCost <= 0 && $type !== 'receipt') {
             $unitCost = round((float) (InventoryItem::find($data['inventory_item_id'])?->unit_cost ?? 0), 2);
         }
 
@@ -70,7 +73,18 @@ class StockMovementService
         // (see the `$quantity == 0.0 && $type !== 'adjustment'` guard above, and the
         // journalizer's "a zero-value movement has no GL effect"), and must stay legal. What
         // may never happen is stock physically moving without its value following.
-        if ($quantity != 0.0 && $unitCost <= 0) {
+        //
+        // Scoped to the types that actually POST. A transfer is an intra-company location
+        // move: InventoryMovementJournalizer returns null for it on purpose, because the
+        // company's inventory value has not changed. So a transfer carrying no value is not
+        // a GL leak — it is just an unvalued register row — whereas this guard's own message
+        // ("would post nothing to the general ledger") would have been a false explanation.
+        // Left unscoped, the guard made `transfer_in`/`transfer_out` IMPOSSIBLE to record
+        // unless the caller passed an explicit cost: the fallback above skipped them, so
+        // unit_cost stayed 0 and every transfer threw. A movement type that the migration,
+        // the model constants, the journalizer and the ledger's Transfers tab all support
+        // could not be created at all.
+        if ($quantity != 0.0 && $unitCost <= 0 && ! in_array($type, self::TRANSFER_TYPES, true)) {
             throw new InvalidArgumentException(
                 'Stock cannot move without a value: item #'.($data['inventory_item_id'] ?? '?')
                 .' has no unit cost, so this movement would post nothing to the general ledger. '
@@ -156,6 +170,82 @@ class StockMovementService
             'type' => 'adjustment',
             'quantity' => $signedQuantity,
         ], $extra));
+    }
+
+    /**
+     * Move stock between two warehouses as ONE atomic pair of movements.
+     *
+     * The ledger is append-only and on-hand is derived, so a relocation is not an
+     * edit — it is a `transfer_out` from the source and a `transfer_in` to the
+     * destination, both written inside a single transaction. That atomicity is the
+     * point: if the second leg failed on its own, the quantity would simply have
+     * vanished from the register with nothing to show where it went.
+     *
+     * Both legs go through record(), so the source leg inherits the overdraw guard
+     * (you cannot transfer out stock you do not have) and the closed-period check.
+     *
+     * @return array{out: StockMovement, in: StockMovement}
+     */
+    public function transfer(
+        Warehouse $from,
+        Warehouse $to,
+        InventoryItem $item,
+        float $quantity,
+        array $extra = [],
+    ): array {
+        $quantity = round(abs($quantity), 3);
+
+        if ($quantity == 0.0) {
+            throw new InvalidArgumentException('A transfer quantity must be greater than zero.');
+        }
+
+        if ($from->id === $to->id) {
+            throw new InvalidArgumentException('Source and destination warehouse must be different.');
+        }
+
+        // Same property only. A transfer posts NO journal entry by design — the company's
+        // inventory value has not changed, only its location. That reasoning holds strictly
+        // WITHIN a property: the GL dimensions every inventory entry by the warehouse's
+        // asset_id, so shipping stock from mall A's store to mall B's would move real value
+        // across the property boundary while both properties' Inventory balances stayed put
+        // — A overstated by what it no longer holds, B understated by what it now does, and
+        // no entry anywhere to explain it. Per-property owner statements are drawn off those
+        // balances, so this is a money bug, not a tidiness rule.
+        //
+        // Cross-property relocation is therefore deliberately NOT modelled as a transfer:
+        // record it as a shrinkage adjustment out of A and a receipt into B, which posts the
+        // value movement each property's books need.
+        if ((int) $from->asset_id !== (int) $to->asset_id) {
+            throw new InvalidArgumentException(
+                'Stock can only be transferred between warehouses in the same property. '
+                .'To move stock to another property, adjust it out of the source and receive it at the destination, '
+                .'so each property\'s books record the value leaving and arriving.'
+            );
+        }
+
+        $common = array_merge($extra, [
+            'inventory_item_id' => $item->id,
+            'quantity' => $quantity,
+        ]);
+
+        return DB::transaction(function () use ($common, $from, $to) {
+            // Out first: it carries the availability check, so an impossible transfer is
+            // refused before anything is written.
+            $out = $this->record(array_merge($common, [
+                'warehouse_id' => $from->id,
+                'type' => 'transfer_out',
+            ]));
+
+            $in = $this->record(array_merge($common, [
+                'warehouse_id' => $to->id,
+                'type' => 'transfer_in',
+                // Carry the source leg's resolved value so the two sides of one relocation
+                // agree in the register even if the item's standard cost changes later.
+                'unit_cost' => (float) $out->unit_cost,
+            ]));
+
+            return ['out' => $out, 'in' => $in];
+        });
     }
 
     /**

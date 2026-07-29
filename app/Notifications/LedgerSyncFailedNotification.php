@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Notifications\Concerns\AlsoSendsByMail;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
@@ -17,13 +18,22 @@ use Illuminate\Notifications\Notification;
  */
 class LedgerSyncFailedNotification extends Notification
 {
+    use AlsoSendsByMail;
     use Queueable;
 
     public function __construct(public int $failedCount) {}
 
+    /**
+     * Mail as well as the bell. This one is not "nice to know": the general ledger has stopped
+     * accepting documents, and every night it stays broken the books drift further from the
+     * operational data. It was reaching a bell that only shows to someone who happens to open
+     * /admin — the accountant who needs it may not log in for days. Recipients are just
+     * super_admin + whoever holds `journal_entries.post`, so this is a handful of people, not a
+     * broadcast.
+     */
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['mail', 'database'];
     }
 
     public function toDatabase(object $notifiable): array

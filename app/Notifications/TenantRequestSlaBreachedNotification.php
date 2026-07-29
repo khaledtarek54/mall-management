@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\TenantRequest;
+use App\Notifications\Concerns\AlsoSendsByMail;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
@@ -13,13 +14,18 @@ use Illuminate\Notifications\Notification;
  */
 class TenantRequestSlaBreachedNotification extends Notification
 {
+    use AlsoSendsByMail;
     use Queueable;
 
     public function __construct(public TenantRequest $request) {}
 
+    /**
+     * Mail as well as the bell. An SLA the operator is contractually on the hook for has ALREADY been missed; the person who
+     * can still limit the damage is not sitting in /admin watching a bell.
+     */
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['mail', 'database'];
     }
 
     public function toDatabase(object $notifiable): array

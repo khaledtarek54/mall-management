@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\VendorDocument;
+use App\Notifications\Concerns\AlsoSendsByMail;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
@@ -17,13 +18,18 @@ use Illuminate\Notifications\Notification;
  */
 class VendorDocumentExpiringNotification extends Notification
 {
+    use AlsoSendsByMail;
     use Queueable;
 
     public function __construct(public VendorDocument $document, public string $stage) {}
 
+    /**
+     * Mail as well as the bell. A lapsed certificate means the vendor legally cannot be dispatched. Finding that out when
+     * you next open the app is finding out too late.
+     */
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['mail', 'database'];
     }
 
     public function toDatabase(object $notifiable): array

@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\VendorContract;
+use App\Notifications\Concerns\AlsoSendsByMail;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
@@ -19,13 +20,18 @@ use Illuminate\Notifications\Notification;
  */
 class VendorContractRenewalDueNotification extends Notification
 {
+    use AlsoSendsByMail;
     use Queueable;
 
     public function __construct(public VendorContract $contract) {}
 
+    /**
+     * Mail as well as the bell. Past the notice deadline an auto-renewing contract commits the operator to another full
+     * term. This is the one alert here that spends money by being missed.
+     */
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['mail', 'database'];
     }
 
     public function toDatabase(object $notifiable): array

@@ -1353,6 +1353,10 @@ return [
     ],
 
     'notifications' => [
+        // Shared by every bell alert that is ALSO emailed (AlsoSendsByMail) — the mail reuses the
+        // bell's own title/body, so only the button and a fallback subject are new strings.
+        'mail_open_cta' => 'Open Atriom',
+        'mail_generic_subject' => 'Atriom notification',
         'journal_entry_posted' => 'Journal entry posted',
         'journal_entry_post_failed' => 'Could not post the entry',
         'ledger_posted' => 'Posted to the general ledger — the books are now up to date.',
@@ -2795,6 +2799,17 @@ return [
             'low_stock' => 'At or below reorder level',
         ],
         'transfers' => 'Transfers',
+        'transfer' => [
+            'action' => 'Transfer',
+            'from' => 'From warehouse',
+            'to' => 'To warehouse',
+            'hint' => 'Moves stock between stores in this property. Recorded as two linked movements, so the ledger shows what left and what arrived.',
+            'done' => 'Stock transferred',
+            'done_body' => ':quantity :unit of :item moved from :from to :to.',
+            'failed' => 'Transfer refused',
+        ],
+        'movement_failed' => 'Movement refused',
+        'insufficient_stock' => 'There is not enough stock on hand at that warehouse to cover this movement. Check the item\'s on-hand quantity and try a smaller amount.',
         'types' => [
             'receipt' => 'Receipt', 'consumption' => 'Consumption', 'adjustment' => 'Adjustment',
             'transfer_in' => 'Transfer in', 'transfer_out' => 'Transfer out',

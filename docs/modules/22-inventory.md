@@ -105,6 +105,17 @@ become under-reporting — a portfolio question deserves a portfolio answer).
 8. **Warehouse soft-delete is GL-safe** — `StockMovement::warehouse()` is `withTrashed`, so
    a live movement stays attributable (its journal entry isn't voided) after its warehouse
    is archived.
+9. **A transfer is an atomic pair, within one property.** `StockMovementService::transfer()`
+   writes the `transfer_out` and the `transfer_in` in **one transaction** — a half-written
+   transfer would delete stock from the register with nothing to show where it went — and the
+   out leg goes through `record()`, so it inherits the overdraw floor and the closed-period
+   check. **Both warehouses must belong to the same property.** A transfer posts *no* journal
+   entry (the value has not left the company), and that is only true inside one property's
+   books: the GL dimensions every inventory entry by the warehouse's `asset_id`, so a
+   cross-property move would shift real value with no entry anywhere — the source property's
+   Inventory balance keeping stock it no longer holds, and owner statements are drawn off those
+   balances. Move stock to another property as an adjustment out + a receipt in, which posts
+   the value movement each property's books need.
 
 > **Known limitation — standard costing, no variance layer.** Receipts load Inventory at
 > their entered purchase cost; consumption/adjustments relieve it at the item's *current*
@@ -154,8 +165,8 @@ actually defends against.
 ## 3. Services
 
 `app/Services/StockMovementService.php` — the single write path to the ledger:
-`record()` (sign-normalising create), `receive()`, `adjust()`, and `onHand()`
-(derived). Consumption (Phase 2) and GL posting (Phase 3) plug in on top without
+`record()` (sign-normalising create), `receive()`, `adjust()`, `transfer()`
+(atomic same-property pair), and `onHand()` (derived). Consumption (Phase 2) and GL posting (Phase 3) plug in on top without
 changing this API.
 
 ---
@@ -213,6 +224,37 @@ the portfolio sum), closes with a portfolio total, and the movement-ledger CSV i
   does NOT cascade), so it's a rare path — but consider switching these FKs to
   `restrictOnDelete` (force soft-delete + `is_active=false` instead) to protect the
   ledger, alongside the GL costing work.
+
+### Transfers were declared everywhere and creatable nowhere (gap-analysis, 2026-07-29)
+
+`transfer_in`/`transfer_out` were in the migration's type enum, in `ADDS_STOCK`/`REMOVES_STOCK`,
+had their own branch in `InventoryMovementJournalizer`, and had a **Transfers tab** on the
+movement ledger — and **no code path in the application created one.** The tab was permanently
+empty, and a storeman moving a part between two stores had to record it as a shrinkage plus a
+receipt, which posts GL entries for value that never left the company.
+
+Underneath it was worse: the F-83 "stock cannot move without a value" guard was not scoped to
+the types that actually post. Its standard-cost fallback covered only `consumption`/`adjustment`,
+so a transfer's `unit_cost` stayed 0 and the guard then rejected it — **`record()` refused every
+transfer that did not carry an explicit cost**, with an error message ("would post nothing to the
+general ledger") that is precisely what a transfer is *supposed* to do. The fallback now covers
+every type except `receipt` (which must carry its own purchase cost), and the hard refusal is
+scoped to the GL-posting types.
+
+Now: a **Transfer** action on the movement ledger, `StockMovementService::transfer()`, and
+`tests/Feature/Regression/StockTransferTest.php`.
+
+**A refusal is a toast, not an error page.** The service refuses things an operator can cause by
+typing — not enough on hand, a closed period, a cross-property transfer, an item with no cost.
+Uncaught, each replaced the screen with a raw 422/500 and lost the form; `runMovement()` on
+`ListStockMovements` turns them into a notification. `abort_unless(…, 422)` (the overdraw floor)
+carries no message worth showing, so it maps to a written explanation.
+
+**Testing note — the property guard needs a direct test.** Asserting that a Livewire dispatch with
+a foreign `warehouse_id` moves nothing proves *nothing about the guard*: Filament's scoped Select
+rejects the id first via its own `in:options` rule, and mutation-testing confirmed such a test keeps
+passing with `assertWarehouseVisible()` deleted. The guard is therefore exercised directly (and
+asserted not to refuse a *visible* warehouse, so a guard that refused everything would not pass).
 
 **Related:** 11 Maintenance (Phase 2 consumption), 12 Vendors (Phase 3 receipts),
 21 General Ledger (Phase 3 costing), 18 RBAC (Phase 1b), 01 Properties (asset scope).
