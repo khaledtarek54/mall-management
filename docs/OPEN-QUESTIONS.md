@@ -171,6 +171,7 @@ New questions surfaced while writing the posting map, so the accountant can re-p
 | C1.3 | **Annual escalation** rule — fixed % (7% default) or index-linked? | Fixed % via `escalate` | 🟡 | |
 | C1.4 | **Early termination** — penalty (X months), notice period, deposit forfeited? | `terminate` action exists | 🟡 | |
 | C1.5 | **Rent-free / grace / fit-out** periods at lease start? **One-off charges** (fit-out, key money, signage, parking, storage, fines)? | ✅ **Grace RESOLVED 2026-07-19:** `leases.fit_out_months` — a **FULL** grace (rent + service + CAM + marketing levy all suppressed) for that many whole months from the commencement month; billing starts after. Whole-month grace (no mid-month proration of the tail). *One-off charges still via ad-hoc Charge rows — separate item.* | 🟢 | |
+| C1.8 | **Final month of an expiring lease — full month or pro-rata?** A lease ending on the **10th** is billed the **whole month**. Proration keys on *commencement* only, so a mid-month move-IN is prorated but a mid-month move-OUT is not. On EGP 30,000/month that is **30,000 billed vs 9,677 pro-rata — a ~20,300 difference on every departing tenant.** If the lease says the tenant pays for occupied days, this is over-billing; if it says rent is due for any month in which the term runs, today's behaviour is correct. *(Found 2026-07-29 during the module-05 close-out; behaviour pinned by `ManualBillingEligibilityTest` so a change is deliberate.)* | Bills the FULL month | 🔴 | |
 | C1.6 | For **percentage rent**, how do tenants **report sales** (POS, manual monthly declaration, audited)? Do you **audit** them and what if under-reported? | Manual sales-declaration flow exists | 🟡 | |
 | C1.7 | **Multiple contacts per tenant** (owner + accountant + ops — different access)? Track **tenant insurance certificates** + expiry? | Multi portal-user support; no insurance-cert tracking | 🟡 | |
 | C1.8 | Need a **lease/contract PDF** + signature tracked in-system? | Not generated | 🟠 | |
@@ -209,6 +210,15 @@ New questions surfaced while writing the posting map, so the accountant can re-p
 | C4.2 | **Target go-live date**, parallel-run period, and the **client-side data-validation owner**? | Undefined | 🔴 | |
 | C4.3 | **Training** (on-site / remote / video) and for which roles? | Undefined | 🟡 | |
 
+**Staff access & alerting — added 2026-07-29 (found while closing out the dashboard + RBAC work):**
+
+| # | Question | What we do today | | Answer |
+|---|---|---|---|---|
+| C4.10 | **Should a role's authority differ per property?** Today a role is portfolio-wide: a `manager` is a manager at *every* property they are assigned to. Yardi/MRI/Entrata scope the role per property (manager at Mall A, viewer at Mall B). We deliberately did **not** build that — with 2 properties and **zero** staff assigned to both, it has no expressible case yet, and it reworks the layer above property isolation. **The trigger to revisit: the first time one person is assigned to both malls, does their authority need to differ?** | Role is global; property assignment is a separate list | 🟡 | |
+| C4.11 | **Which roles must have two-factor authentication?** Ships as `super_admin` only. `manager`, `accounting`, `leasing`, `operations` and `hr` handle payments and tenant data **without** 2FA. Turning it on forces those people through TOTP enrolment at next login — a real disruption to plan, not a silent flag. | `SECURITY_FORCE_2FA_ROLES=super_admin` | 🟠 | |
+| C4.12 | **A user with no property assigned — should they see nothing, or everything?** The two layers currently disagree: query scoping treats "no assignment" as *unrestricted* (single-mall back-compat), while the panel refuses entry to every property. The result was an account that could not open any page. We fixed the symptom by assigning the demo auditor, but the **policy** is unanswered: is an unassigned account a misconfiguration (see nothing) or a portfolio account (see all)? | Contradictory; fixed by assigning everyone | 🟠 | |
+| C4.13 | **Should a technician be emailed when work is assigned to them?** Assignment notifications are **in-app only**. The five alerts with a deadline (both SLA breaches, vendor certificate expiry, contract notice, ledger-sync failure) now also email; work assignment deliberately does not, because mailing everything trains people to ignore the alerts that matter. If technicians do not sit in the app, this is the one to add. | Bell only | 🟡 | |
+
 ---
 
 ## D · ETA / tax registration & IT
@@ -218,6 +228,8 @@ New questions surfaced while writing the posting map, so the accountant can re-p
 | D.1 | **ETA e-invoicing go-live:** provide live `ETA_CLIENT_ID/SECRET`, the **CAdES signing certificate** (HSM/USB token), registered **activity code (6820?)** and real **EGS/GS1 item codes** — all placeholders today. Submit **real-time or batched**? | ⚠️ Runs in **MOCK mode** (`ETA_MOCK=true`). Nothing has ever reached the real tax authority; signing is a no-op passthrough. **Not certified.** | 🔴 | |
 | D.2 | **Paymob** card payments — activate now or later? (Built, currently off.) | Off | 🟡 | |
 | D.3 | **ETA receiver address per tenant** — tenants have only a free-form `address`; real invoices need governorate/city fields (hardcoded to Giza / 6 October today). | Hardcoded buyer address | 🟠 | |
+| D.5 | **Where do live Paymob credentials live, and who rotates them?** The 4 live keys sit in plaintext `.env` with no vault and no rotation procedure. **A leaked HMAC secret lets someone forge a "paid" callback** — i.e. mark invoices settled without money arriving. Needs a decision on secret storage before the live cutover, not after. | Plaintext `.env` | 🟠 | |
+| D.6 | **Is the app reachable ONLY through the reverse proxy?** We now trust `X-Forwarded-*` from any proxy (`TRUSTED_PROXIES=*`), which is what makes login throttling and the audit trail see the real client IP instead of the proxy's. That is safe **only** if nothing can reach the app directly — otherwise a caller can forge `X-Forwarded-For` and become un-throttleable. If the app has a directly-reachable address, give us the proxy IPs to pin. | Trusts any proxy | 🟠 | |
 | D.4 | **Hosting** — cloud SaaS (we manage) or on-prem? Do they have an **IT team**? **Backup/DR** expectations? Need **2FA**? Account lifecycle when someone leaves (deactivate vs delete)? | Cloud-ready; 2FA not enabled | 🟡 | |
 
 ---
@@ -240,7 +252,7 @@ Each needs **one clarifying sentence** before we can build it.
 
 - Everything **🟡** ships as described — those are working defaults.
 - Everything **🟠** stays unbuilt (notably: no tenant-repair recharge, no owner money-flow, no cheque register, no bank reconciliation).
-- Everything **🔴** is the risk: Section A1 are the numbers the billing engine computes from, and most are unconfirmed assumptions; **A5.1 (employer social insurance/gratuity)** may mean the books are wrong today; **D.1 (ETA)** blocks legal e-invoicing. Sign these off before the first real invoice.
+- Everything **🔴** is the risk: Section A1 are the numbers the billing engine computes from, and most are unconfirmed assumptions; **A5.1 (employer social insurance/gratuity)** may mean the books are wrong today; **D.1 (ETA)** blocks legal e-invoicing; and **C1.8 (final-month proration)** over-bills every departing tenant by up to a month's rent if the lease says otherwise. Sign these off before the first real invoice.
 
 ## Sign-off
 
