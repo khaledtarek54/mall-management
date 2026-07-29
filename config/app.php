@@ -56,7 +56,7 @@ return [
 
     // Deep link the mobile app handles for password reset. The reset email's
     // button points here with ?token=&email= appended.
-    'mobile_reset_url' => env('APP_MOBILE_RESET_URL', env('APP_URL', 'http://localhost') . '/reset-password'),
+    'mobile_reset_url' => env('APP_MOBILE_RESET_URL', env('APP_URL', 'http://localhost').'/reset-password'),
 
     /*
     |--------------------------------------------------------------------------
@@ -69,9 +69,28 @@ return [
     |
     */
 
-    // Scheduled jobs (monthly billing, late fees, scans) fire on this wall-clock.
-    // Production should set APP_TIMEZONE=Africa/Cairo; default UTC keeps tests/CI stable.
-    'timezone' => env('APP_TIMEZONE', 'UTC'),
+    /*
+     * Africa/Cairo, not UTC — and this is a MONEY setting, not a display one.
+     *
+     * The app timezone is what `now()` returns, so it decides which day and which accounting
+     * period a document belongs to. Egypt is UTC+2 (UTC+3 in summer), so under UTC every
+     * document created between roughly 21:00 and midnight Cairo time is attributed to the
+     * PREVIOUS day: a payment taken at 00:30 Cairo on 1 August is stored as 2026-07-31 21:30, and
+     * its payment_date, its GL entry_date and its accounting period all land in July. Three hours
+     * every single day, silently, on a system whose invariants are all about period attribution
+     * (closed periods, month-end close, the GL tie-out).
+     *
+     * It also fixes what the comment here used to be about: ~20 scheduled jobs (monthly billing,
+     * late fees, the SLA scans) declare wall-clock times with no ->timezone(), so they inherit
+     * this. `monthlyOn(1, '05:00')` means 05:00 in Cairo now, which is what an operator reading
+     * routes/console.php assumes it means.
+     *
+     * This used to be `env('APP_TIMEZONE', 'UTC')` with a comment telling production to override
+     * it — a fail-OPEN default, where forgetting one env var costs you correct books. The test
+     * suite pins UTC explicitly in phpunit.xml so determinism is a stated choice rather than a
+     * side effect of the production default being wrong.
+     */
+    'timezone' => env('APP_TIMEZONE', 'Africa/Cairo'),
 
     /*
     |--------------------------------------------------------------------------

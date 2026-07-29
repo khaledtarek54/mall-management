@@ -47,6 +47,10 @@
     </source>
     <php>
         <env name="APP_ENV" value="testing"/>
+        <!-- Pinned, not inherited: the app default is Africa/Cairo (a money setting — see
+             config/app.php), and the suite asserts fixed dates, so it runs on a fixed
+             offset with no DST transitions to make February behave differently in July. -->
+        <env name="APP_TIMEZONE" value="UTC"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <!-- Keep the owner panel registered under test so its coverage runs. -->
         <env name="BCRYPT_ROUNDS" value="4"/>
