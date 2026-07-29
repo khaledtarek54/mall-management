@@ -265,6 +265,26 @@ Acting on the first one would actively reintroduce a bug.
   audits, in opposite directions, both get this wrong.
 - ❌ **"`PaymentLinkFlowTest` is happy-path only"** — it already covers unknown-token,
   settled, and gateway-down.
+- ✅ **"Gap-analyse modules 22–25"** — **done 2026-07-29.** Every one produced a real finding,
+  and the four together produced a systemic one.
+  - **22 Inventory** — `transfer_in`/`transfer_out` were in the migration's enum, the model
+    constants, the journalizer and the ledger's Transfers tab, and **nothing could create one**;
+    the tab was permanently empty. Underneath, the F-83 value guard was not scoped to the types
+    that post, so `record()` rejected every transfer that did not carry an explicit cost — the
+    type was unusable even from code. Built `transfer()` (atomic pair, same-property only,
+    because a transfer posts no GL entry and that is only true inside one property's books).
+  - **23 Fixed Assets** — three operator-typed dates became a GL `entry_date` with **no
+    closed-period guard at all**: `acquisition_date`, `disposed_on`, `--month`. Disposal is the
+    worst, being terminal.
+  - **24/25 HR + Treasury** — the F-93/F-89 fix had guarded the money going **out** (settlement,
+    repayment) and left the money going **in** unguarded. An unguarded custody grant was
+    self-trapping: recorded, unbacked in the books, and unsettleable, because the settlement
+    guard then refused every settlement of it.
+  - **The systemic finding** — that made six repeats of one bug class, so the answer stopped
+    being another fix: `App\Support\PostingDateGuards` + `PostingDateGuardConformanceTest` now
+    force every GL source to declare its guard. Building the registry immediately found four
+    more nobody had looked at (expenses, marketing spend, deposits, payment *edits*) and a fifth
+    in invoices. See **[modules/21 § Posting-date gate](modules/21-general-ledger.md)**.
 - ✅ **"The public payment surface is uninstrumented + untested"** — **done 2026-07-29.** Three
   distinct things came out of actually looking at it, and only one was the thing the row named:
   - **A real double-charge race.** `PaymobPaymentInitiator::start()` was check-then-act with a
@@ -336,15 +356,10 @@ Acting on the first one would actively reintroduce a bug.
 `SENTRY_LARAVEL_DSN`, `OPS_LOG_STACK="ops_daily,slack"` + `LOG_SLACK_WEBHOOK_URL`, and
 `APP_TIMEZONE=Africa/Cairo`. Until they're set, every failure path is invisible off-box.
 
-1. **Gap-analyse modules 22–25** — inventory, fixed assets, HR/payroll, treasury. These are
-   the remainder of the old "21–28" row: 21, 26, 27, 28 and 29 have since been closed out and
-   carry close-out notes in their module docs, but 22–25 have only had a **UX pass**
-   (registers/CSV), not a correctness sweep. Every other module that got one produced a real
-   money or exposure bug, so this is still the highest expected-value work left.
-2. **Point the uptime monitor at `/health`** — the endpoint exists as of 2026-07-29 and
+1. **Point the uptime monitor at `/health`** — the endpoint exists as of 2026-07-29 and
    already fails on a dead scheduler, a stale backup, a stopped worker or a DB outage. It is
    worth nothing until something external polls it.
-3. **The remaining ⚙️ go-live rows** (§2) — backups are now half done in-app (2026-07-29);
+2. **The remaining ⚙️ go-live rows** (§2) — backups are now half done in-app (2026-07-29);
    what is left there is off-site copies, an archive password and **a tested restore**. There
    is still **no deploy workflow at all**, which makes several other rows moot.
 
