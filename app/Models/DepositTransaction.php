@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\GuardsPostingDate;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -17,7 +18,13 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class DepositTransaction extends Model
 {
-    use HasFactory, LogsActivity, SoftDeletes;
+    use GuardsPostingDate, HasFactory, LogsActivity, SoftDeletes;
+
+    /** The column this document's GL entry is dated from (LedgerRealtimeSync::SOURCE_DATE_COLUMNS). */
+    public static function postingDateColumn(): string
+    {
+        return 'transaction_date';
+    }
 
     public const TYPES = ['receipt', 'refund', 'forfeit'];
 

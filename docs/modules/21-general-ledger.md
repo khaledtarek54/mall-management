@@ -667,3 +667,30 @@ large database) for pre-filing audits; the default `billing:reconcile` stays fas
 | Opening balances | أرصدة افتتاحية |
 </content>
 </invoke>
+
+## Posting-date gate (2026-07-29)
+
+`LedgerPoster::JOURNALIZERS` says *what* posts; `LedgerRealtimeSync::SOURCE_DATE_COLUMNS` says *what
+date* each entry carries. **`App\Support\PostingDateGuards::GUARDS` says who refuses that date when
+its period is closed** — and `PostingDateGuardConformanceTest` holds all three in step, so a new
+money source cannot ship without the question being answered.
+
+It exists because the answer was got wrong six times running — custody settlement and advance
+repayment (F-93/F-89), vendor bills, stock movements, procurement, PDC — each fixed as if it were
+that module's own bug, and each time the next module shipped with the same hole. The 2026-07-29
+sweep found five more: fixed-asset disposal, acquisition and depreciation, plus the **grant** halves
+of custody and advances that the very first fix had walked straight past. Then the registry itself
+found four more that no sweep had reached: expenses, marketing spend, deposits, and payment *edits*
+(payments were guarded on the admin create page only, so the edit form, the portal, the mobile API
+and the console all sailed through).
+
+Each entry is either a **guard class** or a **`system:` reason** stating why the date can never be
+operator-typed. The gate checks the declared class actually consults `PostingDate`, that a
+model-level guard names the same column the ledger dates from, and that no `system:` exemption is
+contradicted by a form offering a DatePicker for that column — the way such an exemption rots.
+
+Guard in the **service** where one exists (the refusal lands before any related work begins). Where
+a source has no create/update service — its Filament resource writes the model — the model's own
+save is the single choke point every path shares, and it uses `App\Models\Concerns\GuardsPostingDate`
+(dirty-only: the rule is "nobody MOVES an entry into a sealed period", not "old records are
+read-only").

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\GuardsPostingDate;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -14,7 +15,13 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class MarketingSpend extends Model
 {
-    use LogsActivity, SoftDeletes;
+    use GuardsPostingDate, LogsActivity, SoftDeletes;
+
+    /** The column this document's GL entry is dated from (LedgerRealtimeSync::SOURCE_DATE_COLUMNS). */
+    public static function postingDateColumn(): string
+    {
+        return 'spent_on';
+    }
 
     public const CATEGORIES = ['offer', 'promotion', 'event', 'printed_work', 'other'];
 

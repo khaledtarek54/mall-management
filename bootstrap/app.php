@@ -7,6 +7,7 @@ use App\Http\Middleware\SetApiLocale;
 use App\Http\Middleware\SetLocale;
 use App\Http\Middleware\SnakeCaseRequestKeys;
 use App\Support\KeyCase;
+use Filament\Notifications\Notification;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
@@ -129,5 +130,33 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             return response()->json(['message' => $message, 'statusCode' => $status], $status);
+        });
+
+        // A DomainException is a REFUSAL the operator caused and can act on — "that accounting
+        // period is closed", "this would over-apply the credit". It is not a fault, and it must
+        // not look like one: uncaught it renders the 500 page, which loses the form they filled
+        // in and reads as "the app broke" rather than "that is not allowed, here is why".
+        //
+        // Centrally, because the refusals now come from MODEL hooks as much as from services
+        // (App\Models\Concerns\GuardsPostingDate covers Invoice, Payment, Expense, MarketingSpend,
+        // DepositTransaction and FixedAsset at once). Handling it per-page would mean a catch on
+        // every Create page, every Edit page and every relation manager that can touch one of
+        // them — and the one everybody forgets is the one the operator finds.
+        //
+        // Pages that already catch it themselves keep working: they never reach here, and their
+        // message is usually more specific.
+        $exceptions->render(function (DomainException $e, Request $request) {
+            if ($request->is('api/*')) {
+                return null; // the JSON contract above owns these
+            }
+
+            Notification::make()
+                ->title(__('admin.posting.errors.refused'))
+                ->body($e->getMessage())
+                ->danger()
+                ->persistent()
+                ->send();
+
+            return back();
         });
     })->create();

@@ -9,6 +9,7 @@ use App\Services\Accounting\LedgerReportService;
 use App\Services\Accounting\PeriodService;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * GL integrity hardening — Phases 4/5 SCENARIO coverage: the period/year close gate
@@ -44,7 +45,7 @@ function scenarioGlInvoice(float $amount = 10000): Invoice
 }
 
 /** The current posted (non-void) entry for a source document, if any. */
-function scenarioCurrentEntry(\Illuminate\Database\Eloquent\Model $source): ?JournalEntry
+function scenarioCurrentEntry(Model $source): ?JournalEntry
 {
     return JournalEntry::where('source_type', $source->getMorphClass())
         ->where('source_id', $source->getKey())
@@ -79,13 +80,13 @@ it('refuses to close a period holding a drifted document and leaves it open', fu
     $period = AccountingPeriod::forDate(now());
 
     expect(fn () => app(PeriodService::class)->closePeriod($period))
-        ->toThrow(\DomainException::class);
+        ->toThrow(DomainException::class);
     // The gate is read-only — the period stays open and nothing was written.
     expect($period->fresh()->status)->toBe('open');
 
     // assertPeriodsReconciled surfaces the same block directly.
     expect(fn () => app(PeriodService::class)->assertPeriodsReconciled([$period->id]))
-        ->toThrow(\DomainException::class);
+        ->toThrow(DomainException::class);
 });
 
 it('closes the same period once the drift is re-synced to the ledger', function () {
@@ -95,7 +96,7 @@ it('closes the same period once the drift is re-synced to the ledger', function 
 
     $period = AccountingPeriod::forDate(now());
     expect(fn () => app(PeriodService::class)->closePeriod($period->fresh()))
-        ->toThrow(\DomainException::class);
+        ->toThrow(DomainException::class);
 
     // Re-sync heals the drift (void the stale entry, re-post the current split)…
     $this->artisan('accounting:sync-ledger --all')->assertSuccessful();
@@ -117,11 +118,43 @@ it('refuses to post a fresh document into a CLOSED period, leaving the trial bal
     $tbBefore = app(LedgerReportService::class)->trialBalance();
     expect($tbBefore['balanced'])->toBeTrue();
 
-    // A NEW document dated inside the now-closed period cannot post — JournalPostingService
-    // refuses (assertOpenPeriodFor throws). The sweep catches it and counts it 'failed';
-    // run it best-effort (--scheduled) so the command's exit code stays green while the
-    // ledger correctly rejects the entry.
-    $late = scenarioGlInvoice(7777);
+    // Two defences, and both are asserted here because they fail in different places.
+    //
+    // FIRST: since 2026-07-29 the document cannot even be CREATED with a date in a closed
+    // period — Invoice uses GuardsPostingDate, so the refusal reaches the operator instead of
+    // being logged in a queued job hours later. That is the defence that should normally fire.
+    expect(fn () => scenarioGlInvoice(7777))->toThrow(DomainException::class);
+
+    // SECOND: the ledger's own gate (JournalPostingService::assertOpenPeriodFor) still has to
+    // refuse a late document that arrives some other way — one created before the close, or
+    // written through a path that bypasses model events (saveQuietly, a raw insert, a
+    // migration). That is what this scenario was written to prove and it still holds, so the
+    // document is built quietly to get past the new front-line guard and exercise the back one.
+    $lease = makeLease(makeUnit(makeAsset()));
+    $late = Invoice::withoutEvents(function () use ($lease) {
+        $invoice = Invoice::create([
+            'lease_id' => $lease->id,
+            'tenant_id' => $lease->tenant_id,
+            'status' => 'issued',
+            'number' => 'INV-LATE-0001',
+            'issue_date' => now()->toDateString(),
+            'due_date' => now()->addDays(10)->toDateString(),
+            'period_start' => now()->startOfMonth()->toDateString(),
+            'period_end' => now()->endOfMonth()->toDateString(),
+            'subtotal' => 7777, 'vat_amount' => 0, 'total' => 7777,
+            'paid_amount' => 0, 'balance' => 7777, 'currency' => 'EGP',
+        ]);
+
+        $invoice->items()->create([
+            'type' => 'base_rent', 'description' => 'Rent', 'amount' => 7777,
+            'vat_rate' => 0, 'vat_amount' => 0, 'total' => 7777,
+        ]);
+
+        return $invoice;
+    });
+
+    // The sweep catches the refusal and counts it 'failed'; run it best-effort (--scheduled)
+    // so the command's exit code stays green while the ledger correctly rejects the entry.
     $this->artisan('accounting:sync-ledger --all --scheduled')->assertSuccessful();
 
     // The late invoice never made it onto the books…
@@ -142,7 +175,7 @@ it('gates a whole-fiscal-year close exactly like a single period', function () {
     // Drift a document that lives inside the year → the year-close gate refuses…
     $invoice->items()->first()->update(['type' => 'service_charge']);
     expect(fn () => app(PeriodService::class)->closeFiscalYear($year))
-        ->toThrow(\DomainException::class);
+        ->toThrow(DomainException::class);
     expect($year->fresh()->status)->toBe('open')
         ->and($year->periods()->where('status', 'closed')->count())->toBe(0);
 

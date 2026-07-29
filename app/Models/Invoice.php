@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\GuardsPostingDate;
 use App\Services\CreditNoteService;
 use BaconQrCode\Renderer\Image\SvgImageBackEnd;
 use BaconQrCode\Renderer\ImageRenderer;
@@ -20,7 +21,19 @@ use Spatie\Activitylog\Support\LogOptions;
 
 class Invoice extends Model
 {
-    use HasFactory, LogsActivity, SoftDeletes;
+    use GuardsPostingDate, HasFactory, LogsActivity, SoftDeletes;
+
+    /**
+     * The column this invoice's GL entry is dated from (LedgerRealtimeSync::SOURCE_DATE_COLUMNS).
+     *
+     * The finalisation guard below already freezes issue_date once an invoice is ISSUED, which
+     * covered the obvious hole — but not the one that remained: a DRAFT could be created with a
+     * back-dated issue_date and then issued, posting AR into a sealed month.
+     */
+    public static function postingDateColumn(): string
+    {
+        return 'issue_date';
+    }
 
     public function getActivitylogOptions(): LogOptions
     {

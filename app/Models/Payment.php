@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\GuardsPostingDate;
+use App\Notifications\PaymentReceivedNotification;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,7 +14,13 @@ use Spatie\Activitylog\Support\LogOptions;
 
 class Payment extends Model
 {
-    use HasFactory, LogsActivity, SoftDeletes;
+    use GuardsPostingDate, HasFactory, LogsActivity, SoftDeletes;
+
+    /** The column this document's GL entry is dated from (LedgerRealtimeSync::SOURCE_DATE_COLUMNS). */
+    public static function postingDateColumn(): string
+    {
+        return 'payment_date';
+    }
 
     public function getActivitylogOptions(): LogOptions
     {
@@ -25,8 +33,11 @@ class Payment extends Model
 
     /** Payment initiation channels — keep the online link + in-app flows separate. */
     public const CHANNEL_MOBILE = 'mobile_api';
+
     public const CHANNEL_PORTAL = 'portal';
+
     public const CHANNEL_LINK = 'payment_link';
+
     public const CHANNEL_ADMIN = 'admin';
 
     /**
@@ -99,7 +110,7 @@ class Payment extends Model
         }
 
         try {
-            $this->tenant->notifyPortal(new \App\Notifications\PaymentReceivedNotification($this));
+            $this->tenant->notifyPortal(new PaymentReceivedNotification($this));
             $this->forceFill(['receipt_notified_at' => now()])->saveQuietly();
         } catch (\Throwable $e) {
             \Log::warning('Payment received notification failed', [
@@ -117,13 +128,13 @@ class Payment extends Model
     public function invoices(): BelongsToMany
     {
         return $this->belongsToMany(Invoice::class)
-                    ->withPivot('allocated_amount')
-                    ->withTimestamps();
+            ->withPivot('allocated_amount')
+            ->withTimestamps();
     }
 
     public function receiver(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\User::class, 'received_by');
+        return $this->belongsTo(User::class, 'received_by');
     }
 
     public static function generateReference(): string

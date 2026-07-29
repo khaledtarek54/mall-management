@@ -2956,6 +2956,7 @@ return [
     // Shared guard for any user-supplied date a GL entry is dated from — App\Support\PostingDate.
     'posting' => [
         'errors' => [
+            'refused' => 'That change was not allowed',
             'date_missing' => 'A :field is required — it decides which accounting period this lands in.',
             'period_closed' => 'Accounting period :month is closed, so this cannot be posted to the ledger. Reopen it, or use a date in an open period.',
             'future' => 'The date cannot be in the future — money that has not moved yet cannot be recorded as having moved.',
