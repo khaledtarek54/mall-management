@@ -1,8 +1,22 @@
 <?php
 
+use App\Http\Middleware\CamelCaseResponseKeys;
+use App\Http\Middleware\RecordCoverage;
+use App\Http\Middleware\SecurityHeaders;
+use App\Http\Middleware\SetApiLocale;
+use App\Http\Middleware\SetLocale;
+use App\Http\Middleware\SnakeCaseRequestKeys;
+use App\Support\KeyCase;
+use Illuminate\Auth\AuthenticationException;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
+use Sentry\Laravel\Integration;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -34,7 +48,7 @@ return Application::configure(basePath: dirname(__DIR__))
         );
 
         $middleware->web(append: [
-            \App\Http\Middleware\SetLocale::class,
+            SetLocale::class,
         ]);
 
         // The mobile API is stateless (no session), so it resolves locale from
@@ -43,13 +57,13 @@ return Application::configure(basePath: dirname(__DIR__))
         // snake_case: requests are snake-cased on the way in, responses
         // camel-cased on the way out.
         $middleware->api(append: [
-            \App\Http\Middleware\SetApiLocale::class,
-            \App\Http\Middleware\SnakeCaseRequestKeys::class,
-            \App\Http\Middleware\CamelCaseResponseKeys::class,
+            SetApiLocale::class,
+            SnakeCaseRequestKeys::class,
+            CamelCaseResponseKeys::class,
         ]);
 
         // Baseline security headers on every response (+ a tight CSP on /pay/*).
-        $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
+        $middleware->append(SecurityHeaders::class);
 
         // The API does not use cookies/session — Sanctum tokens only. Disable
         // CSRF for /api/* (Laravel does this by default but spell it out).
@@ -62,8 +76,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // E2E coverage capture — only active when the server is booted with
         // COVERAGE=1. See app/Http/Middleware/RecordCoverage.php.
-        if (\App\Http\Middleware\RecordCoverage::shouldRecord()) {
-            $middleware->prepend(\App\Http\Middleware\RecordCoverage::class);
+        if (RecordCoverage::shouldRecord()) {
+            $middleware->prepend(RecordCoverage::class);
         }
     })
     // Scheduled jobs live in routes/console.php — see Schedule::job(...) and
@@ -77,38 +91,38 @@ return Application::configure(basePath: dirname(__DIR__))
         // No-ops without SENTRY_LARAVEL_DSN (the SDK's transport skips the send outright), so
         // this is inert in dev and tests and turns on with one env var. PII is withheld by
         // config/sentry.php — see send_default_pii + before_send there.
-        \Sentry\Laravel\Integration::handles($exceptions);
+        Integration::handles($exceptions);
 
         // Mobile API error contract: every /api/* failure renders as
         // { "message": "...", "statusCode": <int> } (+ "errors" for validation).
         // Keys are camelCased here too, since exception responses unwind
         // outside the CamelCaseResponseKeys middleware.
-        $exceptions->render(function (\Throwable $e, \Illuminate\Http\Request $request) {
+        $exceptions->render(function (Throwable $e, Request $request) {
             if (! $request->is('api/*')) {
                 return null;
             }
 
-            if ($e instanceof \Illuminate\Validation\ValidationException) {
+            if ($e instanceof ValidationException) {
                 return response()->json([
                     'message' => $e->validator->errors()->first(),
-                    'errors' => \App\Support\KeyCase::camelKeys($e->errors()),
+                    'errors' => KeyCase::camelKeys($e->errors()),
                     'statusCode' => 422,
                 ], 422);
             }
 
-            if ($e instanceof \Illuminate\Auth\AuthenticationException) {
+            if ($e instanceof AuthenticationException) {
                 return response()->json(['message' => 'Unauthenticated.', 'statusCode' => 401], 401);
             }
 
             $status = match (true) {
-                $e instanceof \Illuminate\Database\Eloquent\ModelNotFoundException => 404,
-                $e instanceof \Symfony\Component\HttpKernel\Exception\HttpExceptionInterface => $e->getStatusCode(),
+                $e instanceof ModelNotFoundException => 404,
+                $e instanceof HttpExceptionInterface => $e->getStatusCode(),
                 default => 500,
             };
 
-            $message = $e instanceof \Symfony\Component\HttpKernel\Exception\HttpExceptionInterface && $e->getMessage() !== ''
+            $message = $e instanceof HttpExceptionInterface && $e->getMessage() !== ''
                 ? $e->getMessage()
-                : (\Symfony\Component\HttpFoundation\Response::$statusTexts[$status] ?? 'Error');
+                : (Response::$statusTexts[$status] ?? 'Error');
 
             if ($status === 500 && ! config('app.debug')) {
                 $message = 'Server error';
