@@ -3,7 +3,9 @@
 namespace App\Console\Commands;
 
 use App\Services\DepreciationService;
+use App\Support\PostingDate;
 use Carbon\CarbonImmutable;
+use DomainException;
 use Illuminate\Console\Command;
 
 /**
@@ -28,6 +30,20 @@ class PostDepreciationCommand extends Command
         }
 
         $period = $month ? CarbonImmutable::parse($month.'-01') : CarbonImmutable::now();
+
+        // Each charge is dated at its period_month in the GL (DepreciationEntryJournalizer).
+        // Depreciating into a CLOSED month would write charges whose entries can never post —
+        // the register would show the month as depreciated while the books never saw it, and
+        // because the run is idempotent a later re-run would skip it, making the gap permanent.
+        // Only reachable via --month (the scheduler and the admin button both use now()), but
+        // that is exactly the backfill someone reaches for after a close.
+        try {
+            PostingDate::assertOpen($period, '--month');
+        } catch (DomainException $e) {
+            $this->error($e->getMessage());
+
+            return self::FAILURE;
+        }
 
         $count = $service->run($period);
 

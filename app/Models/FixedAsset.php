@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\PostingDate;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -90,6 +91,24 @@ class FixedAsset extends Model
                 if ($raw === null || $raw === '') {
                     $fixedAsset->{$column} = 0;
                 }
+            }
+
+            // `acquisition_date` is the acquisition entry's GL entry_date
+            // (FixedAssetAcquisitionJournalizer), and it is a freely-editable DatePicker.
+            // Back-dated into a CLOSED period, the register row commits while the Dr
+            // Furniture / Cr Cash entry is refused inside the best-effort sync job — the
+            // asset exists on the register and nowhere in the books.
+            //
+            // This module has no create/update service (the Filament resource writes the
+            // model), so the model's own save is the single choke point every path shares:
+            // form, console, seeder, factory, API.
+            //
+            // Only when the date is actually CHANGING. Re-checking on every save would
+            // make an asset acquired in a since-closed month uneditable — you could not
+            // fix its name or tag — which is a different rule from the one being enforced.
+            // What matters is nobody MOVING an entry into a sealed period.
+            if ($fixedAsset->isDirty('acquisition_date') && filled($fixedAsset->acquisition_date)) {
+                PostingDate::assertOpen($fixedAsset->acquisition_date, 'acquisition_date');
             }
         });
 

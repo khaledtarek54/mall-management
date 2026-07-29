@@ -78,7 +78,30 @@ book value and the P&L carries the monthly depreciation charge.
 8. **Property is scope-guarded on write** — create/edit re-validate the submitted `asset_id`
    against `visibleAssetIds()` server-side (`FixedAssetResource::assertAssetInScope`), closing
    the All-Properties-mode tamper hole even though the Select already scopes its options.
-9. **A disposed asset is terminal (immutable)** — once written off it can't be edited (the edit
+9. **Every date that becomes a GL entry_date is closed-period guarded** (gap-analysis,
+   2026-07-29). Three operator-typed dates in this module date a journal entry, and none was
+   checked: `acquisition_date` (acquisition entry), `disposed_on` (write-off entry) and
+   `period_month` (each depreciation charge). Dated into a **closed** period, the register row
+   commits and the operator is told it worked, while the journal entry is refused inside the
+   best-effort `SyncDocumentToLedger` job, which logs rather than retries — business state moves,
+   the GL does not. Now guarded via `App\Support\PostingDate`:
+   - **`disposed_on`** in `DisposeFixedAssetService`, *before* the transaction. The worst of the
+     three: a disposal is TERMINAL and cannot be re-run, so Furniture & Equipment goes on carrying
+     an asset the company has sold, Accumulated Depreciation is never cleared, and the gain/loss
+     never reaches the P&L. It is also the one most likely to be back-dated — the sale happens
+     before the paperwork reaches accounting.
+   - **`acquisition_date`** in `FixedAsset::saving()` — this module has no create/update service,
+     so the model's save is the single choke point every path shares. Fires **only when the date
+     is dirty**: re-checking every save would make an asset acquired in a since-closed month
+     uneditable (you could not fix its name), which is a different rule from the one intended.
+   - **`--month`** in `PostDepreciationCommand`. Only reachable from the console (the scheduler and
+     the admin button both use `now()`), but that is exactly the backfill someone reaches for after
+     a close — and because the run is idempotent, a later re-run would SKIP the month, making the
+     gap permanent.
+
+   A **MISSING** period stays legal (only a CLOSED one is refused), so installs without a chart of
+   accounts are unaffected. Tests: `tests/Feature/Regression/FixedAssetClosedPeriodTest.php`.
+10. **A disposed asset is terminal (immutable)** — once written off it can't be edited (the edit
    action is hidden + the edit page aborts 403) nor re-disposed. Editing a disposed asset's cost
    would strand its Furniture balance; as a model-level backstop, a change to `acquisition_cost`
    (or `asset_id`) re-flows to the child sources' GL via the parent-lifecycle cascade.
