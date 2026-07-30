@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Expenses\Tables;
 
 use App\Filament\Admin\Resources\Expenses\ExpenseResource;
+use App\Models\Expense;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -35,6 +36,15 @@ class ExpensesTable
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.enums.vendor_bill_category.{$state}"))
                     ->color('gray'),
+                // Fixed vs variable (FR-FIN-02) — derived from the category via App\Support\CostNature,
+                // so the register agrees with the weekly-spend report. Toggleable (off by default).
+                TextColumn::make('cost_nature')
+                    ->label(__('admin.fields.cost_nature'))
+                    ->badge()
+                    ->getStateUsing(fn (Expense $record): string => $record->costNature())
+                    ->formatStateUsing(fn (string $state) => __("admin.enums.cost_nature.{$state}"))
+                    ->color(fn (string $state) => $state === 'fixed' ? 'info' : 'warning')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('paid_from')
                     ->label(__('admin.fields.paid_from'))
                     ->badge()
@@ -77,6 +87,12 @@ class ExpensesTable
                 SelectFilter::make('category')
                     ->label(__('admin.fields.category'))
                     ->options(fn () => __('admin.enums.vendor_bill_category')),
+                SelectFilter::make('cost_nature')
+                    ->label(__('admin.fields.cost_nature'))
+                    ->options(fn () => __('admin.enums.cost_nature'))
+                    ->query(fn ($query, array $data) => filled($data['value'] ?? null)
+                        ? $query->ofNature($data['value'])
+                        : $query),
                 SelectFilter::make('paid_from')
                     ->label(__('admin.fields.paid_from'))
                     ->options(fn () => __('admin.enums.expense_paid_from')),

@@ -31,6 +31,7 @@ class Unit extends Model
         'area_sqm' => 'decimal:2',
     ];
 
+    /** @return BelongsTo<Asset, $this> */
     public function asset(): BelongsTo
     {
         return $this->belongsTo(Asset::class);

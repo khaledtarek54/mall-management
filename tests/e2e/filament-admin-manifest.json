@@ -332,6 +332,10 @@
         {
             "class": "TrialBalance",
             "slug": "trial-balance"
+        },
+        {
+            "class": "WeeklySpend",
+            "slug": "weekly-spend"
         }
     ]
 }

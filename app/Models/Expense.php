@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\GuardsPostingDate;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -29,6 +30,20 @@ class Expense extends Model
     }
 
     public const CATEGORIES = ['maintenance', 'utilities', 'cleaning_security', 'marketing', 'admin', 'other'];
+
+    /** This expense's fixed/variable cost nature (FR-FIN-02) — see App\Support\CostNature. */
+    public function costNature(): string
+    {
+        return \App\Support\CostNature::forCategory($this->category);
+    }
+
+    /** Constrain a query to expenses of one cost nature (fixed|variable). */
+    public function scopeOfNature(Builder $query, string $nature): Builder
+    {
+        // A never-matching sentinel when the nature is unknown, so a bad filter value shows
+        // nothing rather than everything.
+        return $query->whereIn('category', \App\Support\CostNature::categoriesOf($nature) ?: ['__none__']);
+    }
 
     protected $fillable = [
         'number',

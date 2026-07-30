@@ -3,13 +3,17 @@
 namespace App\Services\Reports;
 
 use App\Models\CreditNote;
+use App\Models\Expense;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Lease;
 use App\Models\Payment;
 use App\Models\Tenant;
+use App\Models\VendorBill;
+use App\Support\CostNature;
 use App\Support\TenantScope;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
@@ -115,6 +119,90 @@ class ReportService
             ],
             'revenue_by_type' => $revenueByType,
             'collections_rate' => $collectionsRate,
+        ];
+    }
+
+    /**
+     * Weekly operating-cost report (FR-FIN-02), split fixed vs variable.
+     *
+     * Reads the mall's direct expenses (Expense, dated `expense_date`) AND its vendor bills
+     * (VendorBill, dated `bill_date`) — both carry the same category set, classified by
+     * App\Support\CostNature — as the EX-VAT cost incurred (VAT is recoverable input tax, not a
+     * cost). Weeks are ISO (Mon–Sun) and the range is pre-seeded so a week with no spend reads as
+     * zero rather than vanishing from the trend. Property-scoped via TenantScope, so it respects
+     * the selected mall (and a restricted user's visible set in All-mode).
+     *
+     * @return array{
+     *   from:string, to:string,
+     *   weeks: array<int, array{week_start:string, label:string, fixed:float, variable:float, total:float}>,
+     *   totals: array{fixed:float, variable:float, total:float},
+     * }
+     */
+    public function weeklySpend(?CarbonImmutable $from = null, ?CarbonImmutable $to = null): array
+    {
+        $to = ($to ?? CarbonImmutable::now())->endOfWeek(CarbonInterface::SUNDAY);
+        // 12 ISO weeks by default. Force Monday-start so weeks are the business standard (and
+        // stable across the ar locale, whose default first-day would otherwise shift them).
+        $from = ($from ?? $to->subWeeks(11))->startOfWeek(CarbonInterface::MONDAY);
+
+        // Pre-seed every week in the range so gaps read as 0.
+        $weeks = [];
+        for ($cursor = $from; $cursor <= $to; $cursor = $cursor->addWeek()) {
+            $weeks[$cursor->format('o-\WW')] = [
+                'week_start' => $cursor->toDateString(),
+                'label' => $cursor->format('d/m').' – '.$cursor->endOfWeek(CarbonInterface::SUNDAY)->format('d/m'),
+                'fixed' => 0.0,
+                'variable' => 0.0,
+            ];
+        }
+
+        $add = function (mixed $date, ?string $category, float $cost) use (&$weeks): void {
+            $key = CarbonImmutable::parse((string) $date)->startOfWeek(CarbonInterface::MONDAY)->format('o-\WW');
+            if (! isset($weeks[$key])) {
+                return; // outside the seeded range — the queries are bounded, so a defensive no-op
+            }
+            // Explicit branch (not a dynamic `[$nature]` key) so the array shape stays resolvable.
+            if (CostNature::forCategory($category) === CostNature::FIXED) {
+                $weeks[$key]['fixed'] += $cost;
+            } else {
+                $weeks[$key]['variable'] += $cost;
+            }
+        };
+
+        TenantScope::applyTo(Expense::query())
+            ->where('status', 'recorded')
+            ->whereBetween('expense_date', [$from->toDateString(), $to->toDateString()])
+            ->get(['expense_date', 'category', 'amount'])
+            ->each(fn (Expense $e) => $add($e->expense_date, $e->category, round((float) $e->amount, 2)));
+
+        TenantScope::applyTo(VendorBill::query())
+            ->whereNotIn('status', VendorBill::NON_POSTABLE_STATUSES)
+            ->whereBetween('bill_date', [$from->toDateString(), $to->toDateString()])
+            ->get(['bill_date', 'category', 'total', 'vat_amount'])
+            ->each(fn (VendorBill $b) => $add($b->bill_date, $b->category, round((float) $b->total - (float) $b->vat_amount, 2)));
+
+        $rows = [];
+        foreach ($weeks as $w) {
+            $fixed = round($w['fixed'], 2);
+            $variable = round($w['variable'], 2);
+            $rows[] = [
+                'week_start' => $w['week_start'],
+                'label' => $w['label'],
+                'fixed' => $fixed,
+                'variable' => $variable,
+                'total' => round($fixed + $variable, 2),
+            ];
+        }
+
+        return [
+            'from' => $from->toDateString(),
+            'to' => $to->toDateString(),
+            'weeks' => $rows,
+            'totals' => [
+                'fixed' => round((float) array_sum(array_column($rows, 'fixed')), 2),
+                'variable' => round((float) array_sum(array_column($rows, 'variable')), 2),
+                'total' => round((float) array_sum(array_column($rows, 'total')), 2),
+            ],
         ];
     }
 

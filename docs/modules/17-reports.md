@@ -469,6 +469,29 @@ Guarded by `ReportsMonthlyCloseAgingTest` + `ReportAgingBoundaryTest`.
 - **[02-tenants.md](./02-tenants.md)**: Tenant domain (invoice.tenant_id parent, statement generation).
 
 
+## 11. Weekly spend — fixed vs variable (FR-FIN-02)
+
+A management view of where the money goes week to week, split **fixed** (committed costs that land
+whether the mall is busy or not — a security/cleaning contract, admin salaries/rent) vs **variable**
+(spend that tracks activity — utility consumption, ad-hoc repairs, discretionary marketing).
+
+- **The classification lives in `App\Support\CostNature`** — a single category→nature map read by
+  `Expense::costNature()`, the `Expense` register's nature column + filter (`scopeOfNature`), and the
+  report. `Expense` and `VendorBill` carry the **same** category set, so both are classified the same
+  way and the register can never disagree with the report. Coarse by category on purpose (the FRD asks
+  for a fixed/variable *report*, not per-line tagging); an unmapped category falls to `variable` (the
+  conservative default — an unclassified cost isn't treated as committed). Adjust the map as the
+  operator's contracts dictate.
+- **`ReportService::weeklySpend(from, to)`** sums Expense (`expense_date`, `recorded`) + VendorBill
+  (`bill_date`, not draft/cancelled) as the **ex-VAT** cost (input VAT is recoverable, not a cost),
+  grouped by **ISO week (Mon–Sun)**. The range is pre-seeded so a spend-free week reads as zero rather
+  than vanishing from the trend. Property-scoped via `TenantScope::applyTo` (direct `asset_id`), so it
+  respects the selected mall — the first weekly period anywhere in the app (every other report is
+  monthly / as-of). Surfaced on the `WeeklySpend` page (fixed/variable/total columns + summarised
+  totals + CSV), reusing the shared `ledger-report` view.
+- Pinned by `tests/Feature/WeeklySpendReportTest.php` (classification, the ex-VAT split across both
+  sources with property-scoping + cancelled-exclusion, and the zero-seeding).
+
 ## 9. UI architecture — native Filament, no hand-written report markup
 
 Every report surface in this module is a Filament **Page + Table**, not a Blade
