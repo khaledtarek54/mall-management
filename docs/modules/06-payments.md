@@ -114,6 +114,29 @@ while the cash sat in the GL.
   gate; removing the option stops the UI inviting it.
 - **Test:** `CancelInvoiceCapturedCashTest`.
 
+### Checked and covered — don't re-derive these (close-out 2026-07-30)
+
+Swept during the module-06 close-out and found sound. Recorded so the next pass spends its time
+elsewhere.
+
+- **Payment → GL tie-out, all 197 payments.** Every received payment has a posted entry whose debit
+  equals its amount; no entry survives on a payment that is not received. The three failure modes
+  (missing / stale-amount / orphaned) are all zero.
+- **Allocation invariants, all 197 payments and 279 invoices.** No over-allocation past the payment
+  amount, no row exceeding its invoice total, no cross-tenant allocation, no received payment
+  without an allocation, no negative tenant credit, and `paid_amount` matches the documented formula
+  on every invoice.
+- **Re-allocating a receipt between invoices re-opens the invoice that LOST it.** `EditPayment`
+  captures the previously-attached ids *before* the sync and recomputes the **union** of old and
+  new, so the detached invoice does not keep a stale `paid_amount`. Easy thing to get wrong; it is
+  right.
+- **Cash cannot be allocated to a cancelled invoice.** Not by one guard but by the same one at every
+  entry point — the repeater only offers invoices with `balance > 0` and caps each row at that
+  balance; `RecordDemoPaymentAction` aborts 422 on `balance <= 0`; `PostDatedChequeService::clear()`
+  allocates `min(cheque, balance)` and skips at zero; and the Paymob cancel-after-init race has its
+  own scenario test. Reachable only by calling `invoices()->attach()` directly, which no production
+  path does.
+
 ### Applying tenant credit (ApplyTenantCreditService)
 An overpayment leaves a **credit on account** (`Tenant::creditBalance()` = received-payment remainders − applied credit, both optionally property-scoped). The **Apply tenant credit** action on `EditInvoice` draws that down onto an open invoice.
 
