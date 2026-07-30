@@ -237,6 +237,24 @@ Schedule::command('backup:monitor')
     ->withoutOverlapping();
 
 /*
+ * The restore drill. backup:monitor checks an archive EXISTS and is recent; this one checks it can
+ * actually be restored — it opens the newest archive, replays its dump into a scratch database and
+ * confirms the tables the business cannot lose are there.
+ *
+ * Every way a backup dies looks identical to a healthy one from outside the file: a password nobody
+ * kept, a dump truncated when the disk filled, or no `mysqldump` on the box so the archive holds
+ * the uploads and no database at all (observed on this project — backup:run exits 127). monitor
+ * reports all three as healthy.
+ *
+ * Weekly, not nightly: it restores the whole database, so it is the most expensive scheduled job
+ * here. Sunday 03:00 — after the nightly backup, well clear of the billing window.
+ */
+Schedule::command('atriom:backup-verify')
+    ->weeklyOn(0, '03:00')
+    ->name('atriom-backup-verify')
+    ->withoutOverlapping();
+
+/*
 |--------------------------------------------------------------------------
 | Scheduler heartbeat
 |--------------------------------------------------------------------------

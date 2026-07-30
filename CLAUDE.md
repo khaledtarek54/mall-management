@@ -38,11 +38,12 @@ php artisan migrate:fresh --seed          # reset local demo data
 vendor/bin/pest --parallel                # test suite
 npx playwright test --project=chromium    # E2E (against Herd mall-management.test)
 npm run docs:dev                          # the visual handbook (docs/visual/)
+php artisan atriom:backup-verify          # restore drill: replay the newest backup into a scratch DB
 php artisan atriom:dump-system-census     # regenerate the census in docs/PROJECT-MAP.md
 php artisan atriom:dump-admin-manifest    # regenerate the E2E resource manifest
 ```
 **Never hand-type a count into a doc** — that's how PROJECT-MAP came to claim 28 models when there were 61. Run the census instead.
-Scheduled (`routes/console.php`): `requests:scan-sla-breaches` · `billing:scan-overdue-invoices` · `billing:apply-late-fees` · `requests:auto-close` · `maintenance:generate-preventive` · `maintenance:scan-wo-sla-breaches` · `vendors:expire-contracts` · `vendors:scan-document-expiry` · `vendors:scan-contract-renewals` · `cam:reconcile` · `accounting:sync-ledger` · `accounting:post-depreciation` · `leases:apply-escalations` · `pdc:scan-maturing` · `sales:scan-missing-declarations` · `backup:clean` · `backup:run` · `backup:monitor`. *(The tenant-request scans are `requests:*`; `maintenance:*` is now facility work-orders/plans only.)*
+Scheduled (`routes/console.php`): `requests:scan-sla-breaches` · `billing:scan-overdue-invoices` · `billing:apply-late-fees` · `requests:auto-close` · `maintenance:generate-preventive` · `maintenance:scan-wo-sla-breaches` · `vendors:expire-contracts` · `vendors:scan-document-expiry` · `vendors:scan-contract-renewals` · `cam:reconcile` · `accounting:sync-ledger` · `accounting:post-depreciation` · `leases:apply-escalations` · `pdc:scan-maturing` · `sales:scan-missing-declarations` · `backup:clean` · `backup:run` · `backup:monitor` · `atriom:backup-verify` (weekly restore drill — `backup:monitor` only checks an archive EXISTS). *(The tenant-request scans are `requests:*`; `maintenance:*` is now facility work-orders/plans only.)*
 
 ## Skills (`.claude/skills/`)
 - **`/new-module`** — scaffold a module the Atriom way (model+migration, service, RBAC + property-scoped Filament resource, permissions, doc, tests).
