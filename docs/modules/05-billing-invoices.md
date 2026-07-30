@@ -5,7 +5,7 @@
 
 The Billing module automates the monthly invoicing lifecycle for Eltizam operators. Each Eltizam manages leases on behalf of Jawad property owners; invoices are issued to Eltizam's tenants (retailers) for rent, service charges, utilities, and other recurring fees. The system:
 - Generates invoices idempotently from lease charges (avoiding duplicates within a period)
-- Applies 14% VAT only to service/utility charges (base rent is VAT-exempt per Egyptian law)
+- Applies VAT (standard rate, 14% today — settings-driven, see §8) only to service/utility charges (base rent is VAT-exempt per Egyptian law)
 - Supports proration for mid-month lease commencement
 - Enforces quarterly/annual charge cadences (e.g., calendar-month-agnostic quarterly billing)
 - Tracks payment status via a payment-allocation pivot and credit notes
@@ -21,7 +21,7 @@ This is the core AR (accounts receivable) engine; all recurring revenue flows th
 |-------|-------|------------|---------|
 | `invoices` | `Invoice` | `number` (unique, e.g. `INV-AW-202603-0001`), `lease_id`, `tenant_id`, `status` (enum: draft, issued, partially_paid, paid, overdue, disputed, cancelled, credited), `issue_date`, `due_date`, `period_start`, `period_end`, `subtotal`, `vat_amount`, `total`, `paid_amount`, `credit_applied_amount`, `balance`, `currency` (EGP), `eta_submission_id`, `eta_status`, `owner_overdue_notified_at` | One per lease per billing period; issue_date = period_start for full months or commencement for prorated first month. |
 | `invoice_items` | `InvoiceItem` | `invoice_id`, `charge_id` (nullable), `description`, `type` (enum: base_rent, service_charge, utility, parking, percentage_rent, late_fee, other), `amount`, `vat_rate`, `vat_amount`, `total` | Line items derived from Lease charges; one per applicable charge per invoice. |
-| `charges` | `Charge` | `lease_id`, `name`, `type`, `amount`, `currency` (EGP), `frequency` (enum: monthly, quarterly, annually, one_time), `vat_applicable` (boolean), `vat_rate` (default 14), `start_date`, `end_date`, `is_active` | Recurring billing items attached to a lease; defines what is billed and how often. |
+| `charges` | `Charge` | `lease_id`, `name`, `type`, `amount`, `currency` (EGP), `frequency` (enum: monthly, quarterly, annually, one_time), `vat_applicable` (boolean), `vat_rate` (defaults to the standard rate, §8), `start_date`, `end_date`, `is_active` | Recurring billing items attached to a lease; defines what is billed and how often. |
 | `payments` → `invoice_payment` (pivot) | Payment / Invoice | `invoices.invoice_payment.allocated_amount`, `payment.status` (captured, pending, failed, refunded) | Many-to-many junction; each payment can be allocated across multiple invoices. Only **captured** payments count toward AR settlement. |
 
 ### Relationships
@@ -384,7 +384,7 @@ billing:scan-overdue-invoices {--dry-run : Print without notifying}
    - `type` (required) — enum (base_rent/service_charge/utility/parking/percentage_rent/late_fee/other), default base_rent
    - `description` (required) — text
    - `amount` (required, ≥ 0) — numeric, live(onBlur), triggers recomputeItem()
-   - `vat_rate` (required, 0–100%) — numeric, default 14, live(onBlur), triggers recomputeItem()
+   - `vat_rate` (required, 0–100%) — numeric, defaults to `Vat::standardRate()` (§8), live(onBlur), triggers recomputeItem()
    - `total` — computed, disabled, shows amount + VAT
    - **Dynamic VAT:** Item auto-recalculates `vat_amount = amount * vat_rate / 100`, then `total = amount + vat_amount`
    - **Live recalculation:** Changes to amount or vat_rate trigger parent invoice totals update (subtotal, vat_amount, total, balance)
@@ -594,25 +594,30 @@ Used in form/table queries to auto-scope to the current property (Asset):
 
 ### Changing the VAT rate (globally or by tenant)
 
-**Global rate:** Currently hard-coded as 14% in migrations and Charge model defaults. To make it configurable:
+**Global rate: BUILT 2026-07-30 — this section used to describe it as future work.** The rate lives
+in `TaxSettings::vat_standard_rate` (alongside withholding tax — it is tax policy, not billing
+cadence), is edited at **/admin/settings → Tax**, and is read **only** through
+`App\Support\Vat`:
 
-1. Add to `BillingSettings`:
-   ```php
-   public float $vat_rate_percent = 14.0;
-   ```
+```php
+Vat::standardRate();          // the configured percentage, e.g. 14.0
+Vat::on($amount);             // VAT due on a taxable supply
+Vat::atRate($amount, $rate);  // VAT at a stored/frozen rate
+Vat::EXEMPT;                  // base rent, percentage rent, late fees, fines, marketing levy
+```
 
-2. Update `InvoiceForm` default:
-   ```php
-   TextInput::make('vat_rate')->default(fn () => settings('billing.vat_rate_percent'))
-   ```
+**Do not write a literal rate anywhere.** `VatRateSettingTest` scans `app/` and fails with the
+offending file:line if one reappears — that is how the previous eight copies were found.
 
-3. Update `MonthlyBillingService::generateInvoiceForLease()`:
-   ```php
-   $vatRate = $charge->vat_applicable ? (float) $charge->vat_rate : 0.0;
-   // No change needed — reads from Charge.vat_rate, which can be per-charge
-   ```
+**Only origination reads the setting.** Once a charge or invoice line exists it carries its own
+`vat_rate` column, and every downstream path (the monthly run, renewal, rent changes, credit notes,
+the ETA payload) reads that stored figure. This is deliberate and must not be "simplified": an
+invoice issued at 14% stays a 14% document forever. Changing the setting affects what is billed
+**next**, never what was already billed — otherwise a rate change would silently rewrite history and
+de-tie the books from returns already filed.
 
-4. Test the new setting value.
+**Per-tenant / per-supply rates** are already supported without touching the setting: `charges.vat_rate`
+is per-charge, and a CAM pool's `recovery_vat_rate` is frozen with its basis at reconciliation.
 
 **Per-tenant or per-lease rate:** Currently not supported. To add, store vat_override on Tenant or Lease and read it in MonthlyBillingService. This would be a larger feature (need UI, tests, migration).
 

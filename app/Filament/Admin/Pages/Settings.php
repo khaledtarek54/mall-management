@@ -106,6 +106,7 @@ class Settings extends Page implements HasSchemas
                 'issuer_tax_registration_number' => $eta->issuer_tax_registration_number,
             ],
             'tax' => [
+                'vat_standard_rate' => $tax->vat_standard_rate,
                 'wht_enabled' => $tax->wht_enabled,
                 'wht_default_rate' => $tax->wht_default_rate,
             ],
@@ -180,6 +181,7 @@ class Settings extends Page implements HasSchemas
         $eta->save();
 
         $tax = app(TaxSettings::class);
+        $tax->vat_standard_rate = (float) $state['tax']['vat_standard_rate'];
         $tax->wht_enabled = (bool) $state['tax']['wht_enabled'];
         $tax->wht_default_rate = (float) $state['tax']['wht_default_rate'];
         $tax->save();
@@ -299,6 +301,20 @@ class Settings extends Page implements HasSchemas
     private function taxFields(): array
     {
         return [
+            Section::make(__('admin.settings.sections.vat'))
+                ->description(__('admin.settings.sections.vat_description'))
+                ->columns(2)
+                ->components([
+                    TextInput::make('tax.vat_standard_rate')
+                        ->label(__('admin.settings.fields.vat_standard_rate'))
+                        ->helperText(__('admin.settings.fields.vat_standard_rate_helper'))
+                        ->suffix('%')
+                        ->numeric()
+                        ->minValue(0)
+                        ->maxValue(100)
+                        ->step('0.01')
+                        ->required(),
+                ]),
             Section::make(__('admin.settings.sections.wht'))
                 ->description(__('admin.settings.sections.wht_description'))
                 ->columns(2)

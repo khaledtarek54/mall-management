@@ -6,6 +6,7 @@ use App\Models\Charge;
 use App\Models\Lease;
 use App\Models\Tenant;
 use App\Models\Unit;
+use App\Support\Vat;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -106,7 +107,7 @@ class LeaseCreationService
                 'currency' => $lease->currency ?? 'EGP',
                 'frequency' => 'monthly',
                 'vat_applicable' => false,
-                'vat_rate' => 0,
+                'vat_rate' => Vat::EXEMPT,
                 'start_date' => $commencement,
                 'is_active' => true,
             ]);
@@ -121,7 +122,7 @@ class LeaseCreationService
                 'currency' => $lease->currency ?? 'EGP',
                 'frequency' => 'monthly',
                 'vat_applicable' => true,
-                'vat_rate' => 14.00,
+                'vat_rate' => Vat::standardRate(),
                 'start_date' => $commencement,
                 'is_active' => true,
             ]);

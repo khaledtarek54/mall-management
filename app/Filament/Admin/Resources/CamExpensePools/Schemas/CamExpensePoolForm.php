@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\CamExpensePools\Schemas;
 
 use App\Models\CamExpensePool;
+use App\Support\Vat;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -99,8 +100,11 @@ class CamExpensePoolForm
                         ->hint(fn (?CamExpensePool $record) => self::basisFrozen($record) ? __('admin.helpers.cam_basis_frozen') : null),
 
                     // VAT on the cost recovery (true-up + over-collection credit). Plain percentage
-                    // (14, not the fee's 0.10 fraction). Default 14% to match the monthly CAM estimate;
-                    // 0% for a genuinely non-taxable pass-through. Frozen once an allocation is billed.
+                    // (14, not the fee's 0.10 fraction). Defaults to the standard rate, matching the
+                    // monthly CAM estimate; set 0% for a genuinely non-taxable pass-through. Frozen
+                    // once an allocation is billed — so a later rate change never moves a pool that
+                    // has already billed, which is why this reads the setting only as a NEW pool's
+                    // starting point.
                     TextInput::make('recovery_vat_rate')
                         ->label(__('admin.fields.cam_recovery_vat_rate'))
                         ->suffix('%')
@@ -108,7 +112,7 @@ class CamExpensePoolForm
                         ->minValue(0)
                         ->maxValue(100)
                         ->step('0.01')
-                        ->default(14)
+                        ->default(fn () => Vat::standardRate())
                         ->required()
                         ->helperText(__('admin.helpers.cam_recovery_vat_rate'))
                         ->disabled(fn (?CamExpensePool $record) => self::basisFrozen($record))

@@ -61,7 +61,7 @@ Leases model the core revenue instrument of Egyptian mall operations. They bind 
 | **Unit occupancy is a lease-status projection.** Active lease → occupied. Draft/pending/renewed → reserved. Expired/terminated/cancelled → vacant. Maintenance overrides auto-projection. | `Unit::recomputeStatus()` (called by `LeaseObserver` on Lease create/update). | `LeaseObserverTest::*`, `MultiUnitLeaseDataScenarioTest::projects_*` |
 | **Master unit is authoritative & mirrored.** `leases.unit_id` always = the `is_master=true` unit in the `lease_unit` pivot. Single-unit code paths rely on this. | `LeaseObserver::ensureMasterPivot()` syncs the pivot; `Lease::syncUnits()` updates both pivot and `unit_id`. | `MultiUnitLeaseTest::mirrors_single_unit`, `demotes_the_old_master_and_mirrors_*` |
 | **Only one active lease per unit at a time.** Prevents double-booking. | Filament form validation + guard in `LeaseCreationService::create()`. | `LeaseForm::unit_id` rule checks uniqueness on status='active'. |
-| **Rent charges are VAT-exempt; service charges carry 14% VAT.** Egyptian tax rule. | `LeaseCreationService::seedStandardCharges()` creates: base_rent with `vat_applicable=false`, service with `vat_applicable=true, vat_rate=14`. | `LeaseLifecycleScenarioTest::creation_seeds_VAT_exempt_rent_*` |
+| **Rent charges are VAT-exempt; service charges carry 14% VAT.** Egyptian tax rule. | `LeaseCreationService::seedStandardCharges()` creates: base_rent with `vat_applicable=false`, service with `vat_applicable=true, vat_rate=Vat::standardRate()` (settings-driven). | `LeaseLifecycleScenarioTest::creation_seeds_VAT_exempt_rent_*` |
 | **Lease.base_rent_monthly & Charge.amount stay synchronized.** Prevents billing-amount drift between UI display and actual invoice generation. | `LeaseRentChangeService::apply()` updates both Lease field AND the matching Charge row(s). Form edit disables rent fields; only the service method changes them. | `LeaseRentChangeService` tests; `LeaseLifecycleScenarioTest::escalation_raises_base_rent_*` |
 | **Terminal leases are immutable.** Once `terminated`/`expired`/`cancelled`/`renewed`, a lease's commercial + state fields can't change (only notes/metadata + soft-delete/restore). Stops a terminated lease being re-opened and re-priced via the Edit form. | `Lease::updating` blocks any dirty field outside the allow-list once the ORIGINAL status is terminal (the transition INTO terminal is allowed); `EditLease` halts with a notice. | `Module04LeaseIntegrityTest` |
 | **Renewal carries forward the full unit set.** Multi-unit lease renewal does NOT drop additional units. | `LeaseRenewalService::renew()` calls `syncUnits()` with the original's full unit set. | `MultiUnitLeaseRenewalTest::renews_a_multi_unit_lease_carrying_*` |
@@ -117,7 +117,7 @@ foreach lease in unit.allLeases():
 3. Generates unique lease reference (asset code + year + sequence).
 4. Computes `expiry_date` as `commencement + term_months - 1 day`.
 5. Creates Lease row with status='active' (or as supplied).
-6. Seeds two standard Charges: base_rent (VAT-exempt) and service_charge (14% VAT).
+6. Seeds two standard Charges: base_rent (VAT-exempt) and service_charge (VAT at the standard rate — `TaxSettings::vat_standard_rate`, 14% today).
 
 **Related:** `LeaseCreationService::seedStandardCharges()` (static) — idempotent seed of rent + service-charge pair; skips if Charges already exist; used by CreateLease page afterCreate.
 

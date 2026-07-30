@@ -5,6 +5,7 @@ namespace App\Providers\Filament;
 use App\Filament\Admin\Pages\Auth\Login;
 use App\Filament\Admin\Pages\Dashboard;
 use App\Filament\Admin\Pages\Tenancy\RegisterProperty;
+use App\Http\Middleware\ForceTwoFactorForRoles;
 use App\Http\Middleware\SetLocale;
 use App\Models\Asset;
 use Filament\Facades\Filament;
@@ -55,14 +56,27 @@ class AdminPanelProvider extends PanelProvider
             // side; mail goes to the tenant-facing notifications.
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')
-            // TOTP 2FA via Google Authenticator etc. Enforced only on the
-            // super_admin role (full-system access); other roles can opt
+            // TOTP 2FA via Google Authenticator etc. Which roles are forced is
+            // decided per request in ForceTwoFactorForRoles; everyone else can opt
             // in via the top-bar menu item. Audit M17 F-65 / D-50.
+            //
+            // `condition: true` is load-bearing and must NOT become a closure again.
+            // The plugin evaluates this argument when the PANEL IS REGISTERED — at
+            // boot, before any request is authenticated — and stores a plain bool. The
+            // previous `fn () => auth()->user()?->hasAnyRole(...)` therefore evaluated
+            // against a null user, stored false, and the panel silently dropped the
+            // enforcement middleware: 2FA was enforced on NOBODY, super_admin included,
+            // while the config and the env var described a mechanism that was "built".
+            // Same trap as ->colors() below — a panel builder argument cannot depend on
+            // the current user. Pinned by TwoFactorEnforcementTest.
             ->plugin(
                 TwoFactorAuthenticationPlugin::make()
                     ->enableTwoFactorAuthentication()
                     ->addTwoFactorMenuItem()
-                    ->forceTwoFactorSetup(fn (): bool => auth()->user()?->hasAnyRole(config('security.force_2fa_roles', ['super_admin'])) === true)
+                    ->forceTwoFactorSetup(
+                        condition: true,
+                        middleware: ForceTwoFactorForRoles::class,
+                    )
             )
             // Branding resolves from the active property tenant when one is
             // set. Each Asset can carry its own logo (MediaLibrary `logo`

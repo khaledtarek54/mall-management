@@ -225,7 +225,7 @@ No explicit lifecycle; status is a projection of leases (immutable by recomputeS
 1. Creates or fetches tenant.
 2. Validates no active lease on the unit already (throws ValidationException).
 3. Creates lease with status='active', auto-generates reference (LSE-{ASSETCODE}-{YEAR}-{SEQ}).
-4. Seeds standard Egypt charges: Base Rent (VAT-exempt) + Service Charge (14% VAT).
+4. Seeds standard Egypt charges: Base Rent (VAT-exempt) + Service Charge (VAT at the settings-driven standard rate, 14% today).
 5. LeaseObserver mirror pivot row + recomputeStatus → unit becomes occupied.
 6. **Transaction:** Entire operation wrapped in DB::transaction.
 7. **Idempotency:** If lease already has charges, `seedStandardCharges()` skips seeding.

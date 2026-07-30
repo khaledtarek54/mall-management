@@ -9,6 +9,7 @@ use App\Models\CreditNote;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Lease;
+use App\Support\Vat;
 use App\Support\OpsLog;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -97,7 +98,7 @@ class CamReconciliationService
                 // admin_fee_pct (existing pools, no clause) yields 0 → byte-identical billing.
                 $adminFeePct = (float) ($pool->admin_fee_pct ?? 0);
                 $adminFee = round($adminFeePct * $cappedCost, 2);
-                $adminFeeVat = round($adminFee * 0.14, 2);
+                $adminFeeVat = Vat::on($adminFee);
 
                 // Lock the existing row inside the txn so the status check below
                 // sees committed truth — a concurrent bill() that flipped it to
@@ -520,6 +521,13 @@ class CamReconciliationService
         $name = "CAM Admin Fee — {$year}";
         $lineTotal = round($fee + $feeVat, 2);
 
+        // Derive the rate from the money that was actually computed, rather than reading the
+        // current setting. $feeVat was calculated at RECONCILE time; if the operator changes the
+        // standard rate before the allocation is billed, reading the setting here would stamp the
+        // line with a rate its own VAT amount contradicts — and that line is what the tenant's
+        // invoice, the credit note that reverses it, and the ETA payload all quote.
+        $feeVatRate = $fee > 0 ? round($feeVat / $fee * 100, 2) : Vat::EXEMPT;
+
         // Anchor charge — is_active=false + dated to the reconciled year so the monthly
         // engine never re-bills it, exactly like the cost charge above.
         $charge = Charge::create([
@@ -530,7 +538,7 @@ class CamReconciliationService
             'currency' => 'EGP',
             'frequency' => 'one_time',
             'vat_applicable' => true,
-            'vat_rate' => 14,
+            'vat_rate' => $feeVatRate,
             'start_date' => CarbonImmutable::create($year, 1, 1),
             'end_date' => CarbonImmutable::create($year, 12, 31),
             'is_active' => false,
@@ -561,7 +569,7 @@ class CamReconciliationService
             'description' => $name,
             'type' => 'cam_admin_fee',
             'amount' => $fee,
-            'vat_rate' => 14,
+            'vat_rate' => $feeVatRate,
             'vat_amount' => $feeVat,
             'total' => $lineTotal,
         ]);

@@ -329,7 +329,7 @@
 
 | # | السؤال / Question | دلوقتي / Today | أهمية | الإجابة |
 |---|---|---|---|---|
-| Q-TAX-1 | **ض.ق.م 14%** على الخدمات والمرافق والمواقف، و**الإيجار الأساسي معفى** — صح؟<br>14% VAT on services/utilities/parking; base rent exempt — correct? | كده | 🔴 | |
+| Q-TAX-1 | **ض.ق.م 14%** على الخدمات والمرافق والمواقف، و**الإيجار الأساسي معفى** — صح؟<br>14% VAT on services/utilities/parking; base rent exempt — correct? | كده — **والنسبة قابلة للتعديل من الإعدادات** (الإعدادات ← الضرائب) دون تغيير في البرنامج؛ التعديل يسري على ما يُفوتر بعده فقط، والفواتير الصادرة تحتفظ بنسبتها.<br>Rate is editable in Settings → Tax; applies going forward, issued invoices keep their rate. | 🔴 | |
 | Q-TAX-2 | **الإيجار النسبي** معفى من الضريبة؟ / Is percentage rent VAT-exempt? | 0% | 🔴 | |
 | Q-TAX-3 | **استرداد CAM ورسوم إدارة CAM** — معفيين ولا 14%؟<br>CAM recovery & CAM admin fee — exempt or 14%? | 0% (افتراض) | 🔴 | |
 | Q-TAX-4 | **غرامات التأخير** معفية (خارج نطاق الضريبة)؟ / Late fees VAT-exempt? | 0% | 🔴 | |

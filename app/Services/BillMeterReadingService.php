@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Support\Vat;
+
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Lease;
@@ -25,7 +27,6 @@ use Illuminate\Support\Facades\DB;
 class BillMeterReadingService
 {
     /** Utility recharge is a taxable supply (unlike base rent) — standard 14% output VAT. */
-    private const VAT_RATE = 14.0;
 
     /**
      * The lease that should be recharged for a reading — the one whose TERM CONTAINS the consumption
@@ -86,7 +87,7 @@ class BillMeterReadingService
                 throw new \DomainException(__('admin.utility.bill_failed_zero_cost'));
             }
 
-            $vat = round($amount * self::VAT_RATE / 100, 2);
+            $vat = Vat::on($amount);
             $now = now();
             $periodStart = $locked->reading_date->copy()->startOfMonth();
             $periodEnd = $locked->reading_date->copy()->endOfMonth();
@@ -119,7 +120,7 @@ class BillMeterReadingService
                 ]),
                 'type' => 'utility', // → utility_revenue in the GL journalizer
                 'amount' => $amount,
-                'vat_rate' => self::VAT_RATE,
+                'vat_rate' => Vat::standardRate(),
                 'vat_amount' => $vat,
                 'total' => round($amount + $vat, 2),
             ]);

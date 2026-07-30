@@ -80,7 +80,7 @@ These are unverified assumptions. Plausible, consistent, never confirmed by anyo
 
 | # | Question | What we do today | If different | | Answer |
 |---|---|---|---|---|---|
-| A1.1 | Is **14% the correct VAT rate** on service charges, utilities, parking — and is **base rent genuinely VAT-exempt**? | 14% on services; rent exempt | Every invoice has the wrong VAT | 🔴 | |
+| A1.1 | Is **14% the correct VAT rate** on service charges, utilities, parking — and is **base rent genuinely VAT-exempt**? | 14% on services; rent exempt. **The rate is now a SETTING** (/admin/settings → Tax, `TaxSettings::vat_standard_rate`) rather than a constant in the code — so a different answer is a one-field change your accountant makes, not a code release. Applies to what is billed from then on; already-issued invoices keep their rate. | Every invoice has the wrong VAT | 🔴 | |
 | A1.2 | Is **percentage rent VAT-exempt**? | 0% VAT | Every %-rent invoice under-charges VAT | 🔴 | |
 | A1.3 | Are **CAM true-up charges VAT-exempt**? | 0% VAT (our assumption) | Every reconciliation invoice under-charges VAT | 🔴 | |
 | A1.4 | Are **late fees VAT-exempt**? | 0% VAT (penalty outside VAT) | Every late fee under-charges VAT | 🔴 | |

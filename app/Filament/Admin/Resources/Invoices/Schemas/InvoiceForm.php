@@ -13,6 +13,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
+use App\Support\Vat;
 use Filament\Schemas\Schema;
 
 class InvoiceForm
@@ -198,9 +199,11 @@ class InvoiceForm
                                 ->live()
                                 // Base rent + percentage rent are VAT-EXEMPT (project invariant); a
                                 // manually-added line of those types must default to 0% VAT, not the
-                                // field's 14. Service charges / CAM stay taxable at 14.
+                                // standard rate. Service charges / CAM stay taxable.
                                 ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                    $set('vat_rate', in_array($state, ['base_rent', 'percentage_rent'], true) ? 0 : 14);
+                                    $set('vat_rate', in_array($state, ['base_rent', 'percentage_rent'], true)
+                                        ? Vat::EXEMPT
+                                        : Vat::standardRate());
                                     self::recomputeItem($set, $get);
                                 })
                                 ->columnSpan(3),
@@ -225,7 +228,9 @@ class InvoiceForm
                                 ->numeric()
                                 ->minValue(0)
                                 ->maxValue(100)
-                                ->default(14)
+                                // The operator can still type a different rate on the line — this is
+                                // only the starting point for a taxable supply.
+                                ->default(fn () => Vat::standardRate())
                                 ->required()
                                 ->live(onBlur: true)
                                 ->afterStateUpdated(fn (Set $set, Get $get) => self::recomputeItem($set, $get))
