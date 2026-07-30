@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Listeners\LogBackupFailures;
 use App\Models\Lease;
 use App\Notifications\Channels\PushChannel;
 use App\Observers\LeaseObserver;
@@ -20,6 +21,7 @@ use Filament\View\PanelsRenderHook;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Number;
 use Illuminate\Support\ServiceProvider;
@@ -81,6 +83,11 @@ class AppServiceProvider extends ServiceProvider
         if (config('security.force_https')) {
             URL::forceScheme('https');
         }
+
+        // A failed backup must leave a trace that does not depend on BACKUP_ALERT_EMAIL being set.
+        // With it unset — the shipped default — spatie's failure notification is routed to NO
+        // channel at all, so a nightly failure was completely silent. See the listener.
+        Event::subscribe(LogBackupFailures::class);
 
         Lease::observe(LeaseObserver::class);
 
