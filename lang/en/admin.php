@@ -61,6 +61,23 @@ return [
         'portfolio' => 'Portfolio',
     ],
 
+    'workflows' => [
+        'nav' => 'Workflows',
+        'title' => 'Workflows',
+        'subheading' => 'Every status and the statuses it can move to. A terminal status has none.',
+        'columns' => [
+            'workflow' => 'Workflow',
+            'state' => 'Status',
+            'transitions' => 'Can move to',
+            'terminal' => 'Terminal',
+        ],
+        'names' => [
+            'tenant_request' => 'Tenant Request',
+            'work_order' => 'Work Order',
+            'purchase_request' => 'Purchase Request',
+        ],
+    ],
+
     'settings' => [
         'page_title' => 'System Settings',
         'save' => 'Save settings',

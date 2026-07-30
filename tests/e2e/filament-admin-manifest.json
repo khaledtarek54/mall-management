@@ -336,6 +336,10 @@
         {
             "class": "WeeklySpend",
             "slug": "weekly-spend"
+        },
+        {
+            "class": "Workflows",
+            "slug": "workflows"
         }
     ]
 }

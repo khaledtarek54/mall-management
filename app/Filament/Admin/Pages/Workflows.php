@@ -1,0 +1,132 @@
+<?php
+
+namespace App\Filament\Admin\Pages;
+
+use App\Models\PurchaseRequest;
+use App\Services\MaintenanceWorkOrderService;
+use App\Services\TenantRequestService;
+use BackedEnum;
+use Filament\Pages\Page;
+use Filament\Schemas\Concerns\InteractsWithSchemas;
+use Filament\Schemas\Contracts\HasSchemas;
+use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Concerns\InteractsWithTable;
+use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Table;
+use Illuminate\Support\Facades\Auth;
+
+/**
+ * FR-FIN-04 — workflow visualization. A read-only reference of the system's state machines: for
+ * each workflow, every status and the statuses it may move to (a terminal status has none).
+ *
+ * Driven straight off the `TRANSITIONS` matrices that ENFORCE the flows (PurchaseRequest,
+ * MaintenanceWorkOrder, TenantRequest), so this can never document a transition the services don't
+ * actually allow — no domain change, just a rendering of the single source of truth.
+ */
+class Workflows extends Page implements HasSchemas, HasTable
+{
+    use InteractsWithSchemas;
+    use InteractsWithTable;
+
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowPathRoundedSquare;
+
+    protected static ?int $navigationSort = 90;
+
+    protected string $view = 'filament.pages.ledger-report';
+
+    protected static string $routePath = 'workflows';
+
+    public static function canAccess(): bool
+    {
+        // A harmless read-only reference — visible to anyone who works one of the workflows it maps.
+        return Auth::user()?->canAny(['requests.view', 'maintenance.view', 'procurement.view']) ?? false;
+    }
+
+    public static function getNavigationGroup(): ?string
+    {
+        return __('admin.groups.settings');
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return __('admin.workflows.nav');
+    }
+
+    public function getTitle(): string
+    {
+        return __('admin.workflows.title');
+    }
+
+    public function getSubheading(): ?string
+    {
+        return __('admin.workflows.subheading');
+    }
+
+    /** An empty filter strip — the shared report view renders `$this->filtersForm`. */
+    public function filtersForm(Schema $schema): Schema
+    {
+        return $schema->components([]);
+    }
+
+    /** @return array<string, array<string, list<string>>> workflow => (from => to-states) */
+    protected function workflows(): array
+    {
+        return [
+            'tenant_request' => TenantRequestService::TRANSITIONS,
+            'work_order' => MaintenanceWorkOrderService::TRANSITIONS,
+            'purchase_request' => PurchaseRequest::TRANSITIONS,
+        ];
+    }
+
+    private function humanize(string $state): string
+    {
+        return ucwords(str_replace('_', ' ', $state));
+    }
+
+    /** @return array<string, array<string, mixed>> keyed "workflow:from" so table rows are stable */
+    protected function rows(): array
+    {
+        $rows = [];
+        foreach ($this->workflows() as $workflow => $transitions) {
+            foreach ($transitions as $from => $tos) {
+                $rows["{$workflow}:{$from}"] = [
+                    'workflow' => (string) __("admin.workflows.names.{$workflow}"),
+                    'state' => $this->humanize((string) $from),
+                    'to' => array_map(fn (string $s) => $this->humanize($s), $tos),
+                    'terminal' => $tos === [],
+                ];
+            }
+        }
+
+        return $rows;
+    }
+
+    public function table(Table $table): Table
+    {
+        return $table
+            ->records(fn () => $this->rows())
+            ->columns([
+                TextColumn::make('workflow')
+                    ->label(__('admin.workflows.columns.workflow'))
+                    ->badge()
+                    ->color('primary'),
+                TextColumn::make('state')
+                    ->label(__('admin.workflows.columns.state'))
+                    ->badge()
+                    ->color('gray'),
+                TextColumn::make('to')
+                    ->label(__('admin.workflows.columns.transitions'))
+                    // An array state renders one badge per allowed next status; a terminal row is empty.
+                    ->badge()
+                    ->color('info')
+                    ->placeholder('—'),
+                IconColumn::make('terminal')
+                    ->label(__('admin.workflows.columns.terminal'))
+                    ->boolean(),
+            ])
+            ->paginated(false);
+    }
+}
