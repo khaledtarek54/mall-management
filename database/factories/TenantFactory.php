@@ -3,12 +3,13 @@
 namespace Database\Factories;
 
 use App\Models\Tenant;
+use App\Support\EgyptGovernorates;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 /**
- * @extends Factory<\App\Models\Tenant>
+ * @extends Factory<Tenant>
  */
 class TenantFactory extends Factory
 {
@@ -38,7 +39,7 @@ class TenantFactory extends Factory
 
         return [
             'name' => $companyName,
-            'legal_name' => $companyName . ' LLC',
+            'legal_name' => $companyName.' LLC',
             'type' => fake()->randomElement(['individual', 'company']),
             'email' => fake()->unique()->safeEmail(),
             'password' => static::$password ??= Hash::make('password'),
@@ -50,6 +51,12 @@ class TenantFactory extends Factory
             'national_id' => fake()->unique()->numerify('##############'),
             'commercial_register' => (string) fake()->unique()->numberBetween(10000, 999999),
             'address' => fake()->address(),
+            // Structured for ETA. A company factory tenant that lacked these would
+            // fail every e-invoice test for a reason unrelated to what it was testing.
+            'address_governorate' => fake()->randomElement(EgyptGovernorates::values()),
+            'address_city' => fake()->city(),
+            'address_street' => fake()->streetName(),
+            'address_building_number' => (string) fake()->numberBetween(1, 250),
             'contact_person' => fake()->name(),
             'contact_person_phone' => fake()->numerify('+2010########'),
             'status' => 'active',

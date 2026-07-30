@@ -226,6 +226,14 @@ class DemoSeeder extends Seeder
                 'phone' => '+201'.rand(100000000, 999999999),
                 'whatsapp' => '+201'.rand(100000000, 999999999),
                 'tax_id' => (string) rand(100000000, 999999999),
+                // The ETA receiver address, in the parts the tax authority validates.
+                // Seeded so the demo can actually submit an e-invoice — EtaJsonBuilder
+                // refuses a business submission without them, which is the point of it.
+                'address' => 'Unit '.($i + 1).', Atriom Walk, 6th of October City',
+                'address_governorate' => 'Giza',
+                'address_city' => '6th of October City',
+                'address_street' => 'Wahat Road',
+                'address_building_number' => (string) (100 + $i),
                 'contact_person' => $tenantData['contact'] ?? 'Owner',
                 'status' => 'active',
             ]);

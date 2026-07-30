@@ -117,6 +117,15 @@ function makeTenant(array $attrs = []): Tenant
         'email' => uniqid().'@t.test',
         'type' => 'company',
         'status' => 'active',
+        // The default is a COMPANY, and a company is what gets filed with ETA — which
+        // refuses a submission whose buyer address is incomplete. Seeded here so an
+        // e-invoicing test fails on the thing it is testing, not on fixture data.
+        // Pass explicit nulls to test the refusal itself.
+        'address' => '1 Test Street, Cairo',
+        'address_governorate' => 'Cairo',
+        'address_city' => 'Nasr City',
+        'address_street' => 'Test Street',
+        'address_building_number' => '1',
     ], $attrs));
 }
 

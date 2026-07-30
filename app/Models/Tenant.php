@@ -5,8 +5,8 @@ namespace App\Models;
 use App\Notifications\TenantResetPasswordNotification;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
-use Illuminate\Contracts\Auth\CanResetPassword as CanResetPasswordContract;
 use Illuminate\Auth\Passwords\CanResetPassword;
+use Illuminate\Contracts\Auth\CanResetPassword as CanResetPasswordContract;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
@@ -62,6 +62,10 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
         'national_id',
         'commercial_register',
         'address',
+        'address_governorate',
+        'address_city',
+        'address_street',
+        'address_building_number',
         'contact_person',
         'contact_person_phone',
         'status',
@@ -176,8 +180,8 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
      */
     /**
      * @param  array<int>|null  $assetIds  Restrict to these properties (pass visibleAssetIds() from
-     *   an admin surface so a property-restricted operator's view of a shared tenant excludes malls
-     *   they can't see). null (default) = whole company, for the tenant's own portal/API/statement.
+     *                                     an admin surface so a property-restricted operator's view of a shared tenant excludes malls
+     *                                     they can't see). null (default) = whole company, for the tenant's own portal/API/statement.
      */
     public function outstandingBalance(?array $assetIds = null): float
     {
@@ -249,7 +253,7 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
      */
     /**
      * @param  array<int>|null  $assetIds  See outstandingBalance() — scope to visible properties for
-     *   an admin surface, null (default) for the tenant's own whole-company view.
+     *                                     an admin surface, null (default) for the tenant's own whole-company view.
      */
     public function isDelinquent(?array $assetIds = null): bool
     {

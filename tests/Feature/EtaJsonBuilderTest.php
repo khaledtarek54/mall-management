@@ -31,6 +31,12 @@ class EtaJsonBuilderTest extends TestCase
             'email' => 'acme@test.local', 'tax_id' => '111-222-333',
             'type' => 'company', 'status' => 'active',
             'address' => '5 Tahrir St',
+            // ETA files the buyer address in parts and the builder refuses a business
+            // submission without them (see EtaReceiverAddressTest for why).
+            'address_governorate' => 'Cairo',
+            'address_city' => 'Downtown',
+            'address_street' => 'Tahrir Street',
+            'address_building_number' => '5',
         ]);
         $lease = Lease::create([
             'reference' => 'LSE-001', 'unit_id' => $unit->id, 'tenant_id' => $tenant->id,

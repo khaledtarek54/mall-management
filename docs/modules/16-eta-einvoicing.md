@@ -139,7 +139,14 @@ Codes are placeholders; once the taxpayer profile is registered with ETA, replac
 
 **Notes**:
 - Taxpayer activity code is hardcoded to '6820' (renting/operating real estate, line 58).
-- Receiver address defaults to "N/A" if tenant.address is null (line 48).
+- **Receiver address is the TENANT's, in parts (fixed 2026-07-30).** ETA files the buyer address as
+  `governate` / `regionCity` / `street` / `buildingNumber` and validates them. These used to be
+  **constants** — `'Giza'`, `'6th of October City'`, building `'1'`, with the tenant's whole freeform
+  address dropped into `street` — so every document filed for a tenant outside 6th of October declared
+  the wrong buyer address, and the building number was wrong for all of them. Mock mode hid it: the
+  fake endpoint accepts anything, so the first real filing would have been the test. `tenants` now
+  carries `address_governorate` / `address_city` / `address_street` / `address_building_number`
+  (additive — the freeform `address` still drives the PDF, the portal and the directory).
 - Receiver tax_id defaults to '000000000' for individuals without tax_id (line 52).
 - Receiver name falls back: legal_name → name → 'Unknown' (line 53).
 
@@ -289,6 +296,39 @@ Codes are placeholders; once the taxpayer profile is registered with ETA, replac
    ```
 3. **Test**: Submit an invoice from the admin table (action will POST to the real preprod endpoint).
 4. **Monitor eta_response**: Check the stored response for acceptance/rejection codes.
+
+### Three refusals, not three guesses
+
+`EtaJsonBuilder` refuses to build a document rather than filing invented data. Filing a guess on a
+legal tax document is worse than not filing:
+
+| Refused when | Why |
+|---|---|
+| A **business** tenant has no `tax_id` | ETA requires it for a `B` receiver. |
+| A **business** tenant's tax address is incomplete | The parts are validated. The message names the tenant *and* which parts are missing, so it is actionable — the operator fills four fields once. |
+| The invoice's **tenant is archived** | `invoices.tenant_id` is NOT NULL, but `Tenant` soft-deletes and the relation applies that scope, so `$invoice->tenant` resolves to `null`. The old code filed it anyway as buyer "Unknown", tax id `000000000` and the hardcoded address — a tax document naming a buyer that does not exist. |
+
+Individuals (`P`) are exempt from the address requirement: they are not address-validated by ETA and
+are not required to be filed at all. Their `street` falls back to the freeform address.
+
+**Governorate is a fixed list** (`App\Support\EgyptGovernorates`, 27 entries) because "Cairo",
+"cairo", "القاهرة" and "Cairo Governorate" are four spellings of one place and ETA accepts only some.
+The **key** is what is filed (English, ETA's spelling); the label follows the operator's UI language.
+A PHP constant rather than a settings table — the list changes when Egypt redraws its governorates,
+which is legislation, not operator configuration. Nothing migrates when it does: the column is a string.
+
+> ETA's own wire format misspells it `governate`. That is their contract — do not "fix" it.
+
+### Retry policy (asserted since 2026-07-30)
+
+`SubmitInvoiceToEta` carries `$tries = 3`, `backoff() = [60, 300, 900]` and a `failed()` that writes
+`eta.job_exhausted` to `ops.log`. All three were chosen for stated reasons and **no test read any of
+them** — a refactor could have dropped `$tries` (back to three attempts back-to-back within seconds,
+hammering ETA's OAuth endpoint and overwriting `eta_response` with each fresh error) and stayed green.
+Pinned by `tests/Feature/Regression/EtaRetryPolicyTest.php`, including that `handle()` lets the
+exception out (otherwise the retries never count) and that `SerializesModels` re-reads the invoice on
+retry — which is what lets an operator fix a rejected field between attempts, and the reason the
+backoff is minutes rather than seconds.
 
 ### Customize per-tenant address in ETA documents
 - Currently, `EtaJsonBuilder` uses `tenant.address` (line 48). To use a different field or derive address dynamically, edit `buildLines()` or the receiver address block (lines 43–50). Update the address derivation logic and add a test.

@@ -2,11 +2,13 @@
 
 namespace App\Filament\Admin\Resources\Tenants\Schemas;
 
+use App\Support\EgyptGovernorates;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 
 class TenantForm
@@ -32,6 +34,10 @@ class TenantForm
                         ])
                         ->default('company')
                         ->required()
+                        // Reactive: the tax-address section below is required for a
+                        // company and irrelevant for an individual, and both closures
+                        // read this value.
+                        ->live()
                         ->native(false),
                     Select::make('status')
                         ->label(__('admin.tables.common.status'))
@@ -84,8 +90,41 @@ class TenantForm
                         ->maxLength(20),
                     Textarea::make('address')
                         ->label(__('admin.fields.address'))
+                        ->helperText(__('admin.helpers.tenant_address'))
                         ->rows(2)
                         ->columnSpanFull(),
+                ]),
+            // ETA files the buyer's address in PARTS and validates them, so they cannot
+            // be carved out of the freeform address above at submission time. Required
+            // only for BUSINESS tenants — that is who gets filed (EtaJsonBuilder refuses
+            // a business submission without them, rather than filing a guess).
+            Section::make(__('admin.sections.tax_address'))
+                ->description(__('admin.sections.tax_address_description'))
+                ->collapsible()
+                // Collapsed for an individual tenant: nothing here applies to them.
+                ->collapsed(fn (Get $get) => $get('type') !== 'company')
+                ->columns(2)
+                ->components([
+                    Select::make('address_governorate')
+                        ->label(__('admin.fields.address_governorate'))
+                        // A fixed list, because "Cairo", "cairo" and "القاهرة" are three
+                        // spellings ETA does not treat alike.
+                        ->options(fn () => EgyptGovernorates::options())
+                        ->searchable()
+                        ->native(false)
+                        ->required(fn (Get $get) => $get('type') === 'company'),
+                    TextInput::make('address_city')
+                        ->label(__('admin.fields.address_city'))
+                        ->maxLength(255)
+                        ->required(fn (Get $get) => $get('type') === 'company'),
+                    TextInput::make('address_street')
+                        ->label(__('admin.fields.address_street'))
+                        ->maxLength(255)
+                        ->required(fn (Get $get) => $get('type') === 'company'),
+                    TextInput::make('address_building_number')
+                        ->label(__('admin.fields.address_building_number'))
+                        ->maxLength(50)
+                        ->required(fn (Get $get) => $get('type') === 'company'),
                 ]),
             Section::make(__('admin.sections.documents'))
                 ->description(__('admin.sections.documents_description'))
