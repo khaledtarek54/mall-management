@@ -61,10 +61,17 @@ class TenantRequestForm
                             if (! $tenant) {
                                 return [];
                             }
+                            // EVERY unit on the tenant's leases, via the pivot — a multi-unit
+                            // lease keeps its extra units there and only the master in
+                            // `leases.unit_id`, so listing the column alone hid half a
+                            // tenant's space and they could not report a fault in it.
                             return $tenant->leases()
-                                ->with('unit')
+                                ->with('units')
                                 ->get()
-                                ->pluck('unit.code', 'unit.id')
+                                ->flatMap(fn ($lease) => $lease->units)
+                                ->unique('id')
+                                ->sortBy('code')
+                                ->pluck('code', 'id')
                                 ->filter()
                                 ->all();
                         })

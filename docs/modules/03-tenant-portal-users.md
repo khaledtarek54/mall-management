@@ -230,6 +230,19 @@ Example: allow admins to upload a document to an invoice.
    ```
    The mobile API request-validators do this with `Rule::exists('leases', …)->where('tenant_id', …)`; the portal has no such rule, so the page/service MUST clamp. Guarded by `PortalCrossTenantWriteGuardTest`.
 
+   **Clamp to the PIVOT, not `leases.unit_id`.** A multi-unit lease keeps its additional units in
+   `lease_unit` and only the master in the column, so a column-only clamp is both too narrow and
+   silently wrong — it locked tenants out of their own extra units (mobile: 422; portal: fell
+   through to `activeLeases()->first()` and filed against the **wrong unit**). Match either:
+   ```php
+   $tenant->leases()->where(fn ($q) => $q
+       ->where('unit_id', $unitId)
+       ->orWhereHas('units', fn ($u) => $u->whereKey($unitId)))
+   ```
+   …and then use the unit the tenant NAMED (`$lease->units()->whereKey($unitId)->first()`), falling
+   back to the master — using `$lease->unit` unconditionally is what mislabelled the request.
+   Guarded by `MultiUnitRequestUnitTest`.
+
 3. **In the action handler**, validate and save the record, then call `notifyPortal()` if needed:
    ```php
    $invoice->update($data);
@@ -287,7 +300,7 @@ If the business later requires role-based permissions within a tenant (e.g., "Ac
 
 Two portal create paths trusted a **client-supplied lease_id / unit_id** — the form's `->options()` scope only the rendering, so a crafted Livewire submit could post another retailer's id:
 - **Sales declarations (HIGH).** `CreateTenantSalesDeclaration` left `lease_id` raw → mass-assigned. Tenant A could plant a declaration on tenant B's lease: it occupies B's `(lease_id, period_start)` unique slot (**DoS'ing B's own reporting**) and surfaces a fabricated report on that mall's admin queue (**potential misbilling**). The `period_start` `unique` rule *is* clamped via `clampLeaseId` — but that returns null for a foreign lease, so the rule matches nothing and passes, guarding the oracle but **not the write**. Fixed: `mutateFormDataBeforeCreate` clamps `lease_id` via `Portal::clampLeaseId` and 403s on null.
-- **Tenant requests (MED).** `TenantRequestService::create` used `$data['unit_id']` raw → a request with `tenant_id=A, unit_id=B's unit`, leaking B's unit code back through A's own request view and **misrouting** to B's property staff / area supervisors. Fixed in the service: unit + lease are derived from the tenant's own lease, never the payload.
+- **Tenant requests (MED).** `TenantRequestService::create` used `$data['unit_id']` raw → a request with `tenant_id=A, unit_id=B's unit`, leaking B's unit code back through A's own request view and **misrouting** to B's property staff / area supervisors. Fixed in the service: unit + lease are derived from the tenant's own lease, never the payload. **Follow-up 2026-07-30:** that clamp resolved the lease via `leases.unit_id` — the MASTER only — so it locked a multi-unit tenant out of their own additional units (real case: Cilantro leases A-01 + C-09, could only report faults for A-01). Now resolved through the `lease_unit` pivot on all three surfaces (service, mobile validator, portal picker), and the request is filed against the unit the tenant actually named rather than the lease's master. The cross-tenant clamp is unchanged and re-asserted.
 
 The mobile API already clamped both (`CreateSalesDeclarationAction`, `CreateTenantRequestRequest`); only the portal skipped it. **Lesson (now in §8):** every portal write must clamp its client-supplied foreign keys server-side — options are rendering, not authorization. Guarded by `PortalCrossTenantWriteGuardTest`.
 

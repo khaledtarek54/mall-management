@@ -50,12 +50,32 @@ class TenantRequestService
             // the request misroutes to that unit's PROPERTY staff / area supervisors. Deriving the
             // lease from the tenant's own row (never the client) keeps unit_id + lease_id consistent
             // and tenant-owned. Guard here, the single choke point for the portal + API create paths.
+            //
+            // Resolve through the lease_unit PIVOT, not `leases.unit_id`. A multi-unit lease keeps
+            // its additional units in the pivot and only the MASTER in the column, so a
+            // column-only lookup made a tenant's own extra units unreachable: the request either
+            // 422'd (mobile) or silently fell through to `activeLeases()->first()` and was filed
+            // against the WRONG unit (portal) — sending the crew to the wrong shop and routing to
+            // the wrong area supervisors. Real case: Cilantro leases A-01 + C-09 and could only
+            // report faults for A-01. Matching the column too is belt-and-braces for any lease
+            // whose master was never synced into the pivot.
             $requestedUnitId = isset($data['unit_id']) ? (int) $data['unit_id'] : null;
             $lease = ($requestedUnitId !== null
-                ? $tenant->leases()->where('unit_id', $requestedUnitId)->first()
+                ? $tenant->leases()
+                    ->where(fn ($q) => $q
+                        ->where('unit_id', $requestedUnitId)
+                        ->orWhereHas('units', fn ($u) => $u->whereKey($requestedUnitId)))
+                    ->first()
                 : null)
                 ?? $tenant->activeLeases()->first();
-            $unit = $lease?->unit;
+
+            // The unit the tenant actually ASKED about, when it belongs to the resolved lease —
+            // not that lease's master, which is what made a fault in the second shop arrive
+            // labelled as the first. Falls back to the master when the request named nothing, or
+            // named a unit that is not on this lease (i.e. someone else's — the clamp still holds).
+            $unit = $requestedUnitId !== null
+                ? ($lease?->units()->whereKey($requestedUnitId)->first() ?? $lease?->unit)
+                : $lease?->unit;
 
             $type = isset($data['request_type'])
                 ? TenantRequestType::from($data['request_type'])

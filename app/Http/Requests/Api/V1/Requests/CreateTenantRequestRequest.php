@@ -5,6 +5,7 @@ namespace App\Http\Requests\Api\V1\Requests;
 use App\Enums\TenantRequestType;
 use App\Models\TenantRequest;
 use Illuminate\Foundation\Http\FormRequest;
+use Closure;
 use Illuminate\Validation\Rule;
 
 class CreateTenantRequestRequest extends FormRequest
@@ -36,11 +37,28 @@ class CreateTenantRequestRequest extends FormRequest
             // If supplied, the unit must belong to one of THIS tenant's leases.
             // Prevents a tenant from filing against someone else's unit. When
             // omitted, the service derives it from the active lease.
+            // Matched against the lease_unit PIVOT, not just `leases.unit_id`: the column holds
+            // only a multi-unit lease's MASTER, so an exists-rule on it rejected a tenant's own
+            // additional units with "the selected unit id is invalid".
             'unit_id' => [
                 'sometimes',
                 'nullable',
                 'integer',
-                Rule::exists('leases', 'unit_id')->where('tenant_id', $this->user()->id),
+                function (string $attribute, mixed $value, Closure $fail): void {
+                    if ($value === null) {
+                        return;
+                    }
+
+                    $ownsUnit = $this->user()->leases()
+                        ->where(fn ($q) => $q
+                            ->where('unit_id', $value)
+                            ->orWhereHas('units', fn ($u) => $u->whereKey($value)))
+                        ->exists();
+
+                    if (! $ownsUnit) {
+                        $fail(__('validation.exists', ['attribute' => $attribute]));
+                    }
+                },
             ],
             // Optional photos / PDFs of the issue. Mirrors the portal upload
             // (images + PDF only, ≤10 MB each, ≤5 files) so what a tenant can
