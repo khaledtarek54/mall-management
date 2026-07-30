@@ -9,6 +9,7 @@ use App\Models\Unit;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
 class LeaseCreationService
 {
@@ -17,7 +18,7 @@ class LeaseCreationService
      * seed the standard Egypt charges (rent VAT-exempt + service charge 14% VAT),
      * and mark the unit as occupied.
      *
-     * @param array{tenant_mode:string, tenant_id?:int|null, tenant?:array, lease:array} $payload
+     * @param  array{tenant_mode:string, tenant_id?:int|null, tenant?:array, lease:array}  $payload
      */
     public function create(array $payload): Lease
     {
@@ -26,11 +27,19 @@ class LeaseCreationService
                 ? Tenant::findOrFail($payload['tenant_id'])
                 : $this->createTenant($payload['tenant']);
 
-            $unit = Unit::with('asset')->findOrFail($payload['lease']['unit_id']);
+            // lockForUpdate, not a plain read. The isActivelyLeased() check below is check-then-act:
+            // under MySQL's REPEATABLE READ a snapshot read cannot see another transaction's
+            // uncommitted lease, so two concurrent creates on the same unit — a double-clicked
+            // "Create lease", two leasing agents on the same shop — both find it free and both
+            // commit. There is no unique constraint to catch the second one; the result is a
+            // double-booked unit billed twice a month. Locking the unit row makes the guard
+            // authoritative: the second transaction waits, then sees the first lease and is
+            // refused. Same row the renewal path locks.
+            $unit = Unit::with('asset')->lockForUpdate()->findOrFail($payload['lease']['unit_id']);
 
             // Pivot-aware (master OR additional unit) — see Unit::isActivelyLeased().
             if ($unit->isActivelyLeased()) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
+                throw ValidationException::withMessages([
                     'lease.unit_id' => __('admin.validation.unit_has_active_lease'),
                 ]);
             }

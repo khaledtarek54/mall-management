@@ -439,6 +439,37 @@ Daily command (07:00) that reminds the tenant when an **active** lease's `expiry
 
 ---
 
+### Bug: two concurrent requests could double-book a unit (FIXED 2026-07-30)
+
+Two active leases on one shop is the single thing this module's invariants exist to prevent — it
+bills the shop twice a month, gives two tenants a claim on it, and corrupts every occupancy figure
+the owner sees.
+
+**`LeaseRenewalService` was the hole.** Its `status === 'active'` guard sat *outside* the
+transaction with no lock, so two requests that each loaded the lease before either committed —
+a double-clicked "Renew", two admins, a retried POST — both passed it and both created an `active`
+renewal. Reproduced: the unit was left carrying **two active leases** with the original in
+`renewed`.
+
+**`LeaseCreationService` had the same shape, weaker.** Its `isActivelyLeased()` guard is inside the
+transaction, but it read the unit with a plain `find()`. Under MySQL's REPEATABLE READ a snapshot
+read cannot see another transaction's uncommitted lease, so two concurrent creates on one unit both
+find it free — and there is no unique constraint to catch the loser.
+
+**The fix:** both services now `lockForUpdate()` **the unit row** before checking. Occupancy is the
+contended resource, so every path that can put an active lease on a unit contends on the same row
+and they serialise against each other, not merely against themselves. Renewal additionally
+re-reads and re-checks the original lease under its own lock.
+
+Adding a third activation path? Take the unit lock. `LeaseDoubleBookingTest` asserts every one of
+these services still calls `lockForUpdate` — a sequential test cannot reproduce a race, but it can
+hold the line that the lock protecting against it is still there.
+
+The `LeaseForm` `unit_id` rule (pivot-aware, excludes self) remains the UI-level guard; it is not a
+substitute for the service lock, because it validates before the write and outside the transaction.
+
+---
+
 ### Multi-unit occupancy: unit is occupied if ANY attached lease is active
 
 **Concurrency:** If a unit is part of multiple leases (which should not happen in normal flow due to the active-lease guard, but is theoretically possible if the guard is bypassed), the occupancy projection queries all leases on the unit and sees if any are active. One active lease is enough to mark occupied.
@@ -455,13 +486,24 @@ Daily command (07:00) that reminds the tenant when an **active** lease's `expiry
 
 ---
 
-### Escalation does NOT auto-apply
+### Escalation DOES auto-apply (this section used to say the opposite)
 
-**Note:** The lease model stores `escalation_rate`, `escalation_type`, and `next_escalation_date`, but escalation does NOT auto-fire on a schedule. It is the operator's responsibility to:
-1. Determine when the escalation is due (e.g., one year from commencement or last escalation).
-2. Call `LeaseRentChangeService::apply()` with the escalated rent amount and a reason like "Year-2 fixed 7% escalation".
+`RentEscalationService`, driven by the scheduled `leases:apply-escalations`, sweeps active leases
+with `next_escalation_date <= today` and applies the increase through `LeaseRentChangeService`
+(so the base-rent Charge and the marketing levy stay in lock-step), then rolls
+`next_escalation_date` forward a year.
 
-**Future:** A scheduled command (e.g., `ApplyLeaseEscalationsCommand`) could automate this by scanning all active leases where next_escalation_date ≤ now and applying the escalation_rate.
+- **Idempotent + concurrency-safe:** each lease is row-locked and its due-ness re-checked *inside*
+  the transaction; applying advances the date past today, so a re-run is a no-op.
+- **One step per run:** a multi-year backlog (from a mis-set date) catches up over successive runs
+  instead of compounding several years in one pass.
+- **CPI is deliberately skipped** — there is no index feed, and inventing a CPI number would be
+  inventing data. Only `fixed_percent` applies. Wiring CPI = §8 "Changing escalation logic".
+- A rate of `0` still rolls the date forward, so it is not reconsidered every single day.
+
+*(Until 2026-07-30 this section told you escalation was manual and invited you to build
+`ApplyLeaseEscalationsCommand`. It had already been built. Check `routes/console.php` before
+building anything this file calls "future".)*
 
 ---
 
@@ -500,6 +542,9 @@ Daily command (07:00) that reminds the tenant when an **active** lease's `expiry
 
 - **Regression:**
   - `tests/Feature/Regression/MultiUnitLeaseRenewalTest.php` — multi-unit renewal carrying full unit set.
+  - `tests/Feature/Regression/LeaseDoubleBookingTest.php` — a unit can never carry two active leases: the raced double-renewal, the occupied-unit create, and the standing assertion that both activation paths still lock the unit row.
+  - `tests/Feature/Regression/Module04HoldoverAlertTest.php` — an active lease past its end date is surfaced (see C1.10: it is alerted, not billed).
+  - `tests/Feature/Regression/Module04LeaseIntegrityTest.php` — cross-cutting lease integrity.
 
 ### Related modules
 

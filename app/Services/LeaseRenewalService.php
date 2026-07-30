@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Charge;
 use App\Models\Lease;
+use App\Models\Unit;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -14,10 +15,13 @@ class LeaseRenewalService
      * Renew an active lease: creates a new linked Lease and marks the original as 'renewed'.
      * Charges from the original are duplicated; base_rent and service_charge amounts pick up the new values.
      *
-     * @param array{new_term_months:int, new_rent:float, new_service_charge?:float, commencement_date?:string|\DateTimeInterface|null} $data
+     * @param  array{new_term_months:int, new_rent:float, new_service_charge?:float, commencement_date?:string|\DateTimeInterface|null}  $data
      */
     public function renew(Lease $original, array $data): Lease
     {
+        // Fast fail for the obvious case; the AUTHORITATIVE check is re-run under a row lock
+        // inside the transaction below — this one is only here so the common mistake gets a clear
+        // error without opening a transaction.
         if ($original->status !== 'active') {
             throw new InvalidArgumentException("Only active leases can be renewed (lease #{$original->id} is '{$original->status}').");
         }
@@ -35,6 +39,31 @@ class LeaseRenewalService
         $expiry = $commencement->addMonths($termMonths)->subDay();
 
         return DB::transaction(function () use ($original, $termMonths, $newRent, $newServiceCharge, $commencement, $expiry) {
+            // Re-read the original under a row lock and re-check its status HERE.
+            //
+            // The check above is check-then-act with a whole transaction in between: two requests
+            // that each loaded the lease before either committed — a double-click on "Renew", two
+            // admins, a retried POST — both saw `active`, both passed, and both created an `active`
+            // renewal. Measured: one unit left carrying TWO active leases, each billing it every
+            // month, with the original sitting in `renewed`. Double-booking is the one thing this
+            // module's invariants exist to prevent.
+            //
+            // Locking serialises them: the second request blocks until the first commits, then
+            // re-reads `renewed` and is refused. Same shape as the period lock in
+            // MonthlyBillingService and the session lock in PaymobPaymentInitiator.
+            // Lock the UNIT first. Occupancy is the contended resource, and every path that can
+            // put an active lease on a unit (here and LeaseCreationService) takes this same row —
+            // so they serialise against each other, not just against themselves.
+            Unit::query()->lockForUpdate()->find($original->unit_id);
+
+            $original = Lease::query()->lockForUpdate()->find($original->id);
+
+            if (! $original || $original->status !== 'active') {
+                throw new InvalidArgumentException(
+                    'This lease was renewed by another request a moment ago — reload it before renewing again.'
+                );
+            }
+
             $assetCode = $original->unit?->asset?->code ?? 'AW';
 
             $renewal = Lease::create([
@@ -113,7 +142,7 @@ class LeaseRenewalService
             // Resync the marketing levy to the renewal's (possibly escalated) rent
             // so it's 5% of the NEW base rent, not the copied original amount.
             if ($newRent > 0) {
-                app(\App\Services\MarketingLevyService::class)->createLevyCharge($renewal->fresh());
+                app(MarketingLevyService::class)->createLevyCharge($renewal->fresh());
             }
 
             $original->update(['status' => 'renewed']);
