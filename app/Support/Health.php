@@ -60,6 +60,7 @@ class Health
             'scheduler' => self::checkScheduler(),
             'backups' => self::checkBackups(),
             'storage' => self::checkStorage(),
+            'two_factor' => self::checkTwoFactor(),
         ];
 
         $ok = collect($checks)->every(fn (array $c): bool => $c['ok']);
@@ -68,6 +69,45 @@ class Health
             'status' => $ok ? 'ok' : 'degraded',
             'checks' => $checks,
         ];
+    }
+
+    /**
+     * Two-factor enforcement, on production only.
+     *
+     * Enforcement is opt-in (config/security.php, operator's call 2026-07-30), which means a
+     * production deploy where nobody set SECURITY_FORCE_2FA_ROLES runs with no second factor on
+     * the accounts that move money. That is precisely how enforcement sat broken here for months —
+     * "configured" somewhere nobody looked. So the off state is not allowed to be quiet: this
+     * fails the health check, naming the roles that should be covered.
+     *
+     * Local/testing are exempt: the demo logins and the Playwright suite need to stay unforced.
+     *
+     * @return array{ok: bool, detail: string}
+     */
+    private static function checkTwoFactor(): array
+    {
+        $forced = (array) config('security.force_2fa_roles', []);
+
+        if (in_array(config('app.env'), ['local', 'testing'], true)) {
+            return ['ok' => true, 'detail' => $forced === []
+                ? 'not enforced (local/testing — expected)'
+                : 'enforced for: '.implode(', ', $forced)];
+        }
+
+        if ($forced === []) {
+            return [
+                'ok' => false,
+                'detail' => 'NOT ENFORCED in production — set SECURITY_FORCE_2FA_ROLES="'
+                    .implode(',', SecurityDefaults::FORCE_2FA_ROLES).'"',
+            ];
+        }
+
+        // Enforced, but is it covering the accounts that matter?
+        $missing = array_values(array_diff(SecurityDefaults::FORCE_2FA_ROLES, $forced));
+
+        return $missing === []
+            ? ['ok' => true, 'detail' => 'enforced for '.count($forced).' role(s)']
+            : ['ok' => true, 'detail' => 'enforced, but these money-touching roles are not covered: '.implode(', ', $missing)];
     }
 
     /** @return array{ok: bool, detail: string} */

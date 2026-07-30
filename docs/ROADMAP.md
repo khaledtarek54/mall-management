@@ -270,10 +270,16 @@ Acting on the first one would actively reintroduce a bug.
   dropped the enforcement middleware entirely. Setting the env var, the fix this row proposed,
   would have changed nothing while leaving everyone believing the panel was protected. Same trap
   already documented on `->colors()`. The role decision now lives in
-  `App\Http\Middleware\ForceTwoFactorForRoles` (per request), the production default ships in
-  code (`App\Support\SecurityDefaults::FORCE_2FA_ROLES`) rather than waiting on an env var, and
-  local/testing force nobody so the demo logins and Playwright keep working — mirroring
-  `force_https`. Mutation-checked: restoring the old wiring fails 3 of the 8 tests.
+  `App\Http\Middleware\ForceTwoFactorForRoles` (per request). Mutation-checked: restoring the old
+  wiring fails 3 of the 8 tests.
+  **Posture changed the same day, operator's call: enforcement is OPT-IN.** It briefly defaulted ON
+  outside local/testing; it now forces nobody until `SECURITY_FORCE_2FA_ROLES` is set, because
+  switching it on marches every listed role through TOTP enrolment at their next login — a rollout
+  to schedule with staff, and pre-go-live it would block the very people doing data validation.
+  The mechanism is built and tested; only the switch is off. So that "off" can't repeat the months
+  of silent non-enforcement, `php artisan atriom:health` **FAILS** on a production environment with
+  no roles forced, and prints the exact line to paste. `SecurityDefaults::FORCE_2FA_ROLES` is now
+  the recommended list + the health check's yardstick rather than an automatic default.
 - ✅ **"ETA receiver address per tenant" + "ETA retry policy is untested"** — **both done
   2026-07-30.** The address one was worse than the row said: not just "wrong buyer address" but
   **four constants** (Giza / 6th of October City / building 1, with the freeform address stuffed

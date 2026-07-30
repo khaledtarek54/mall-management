@@ -29,6 +29,7 @@
  */
 
 use App\Http\Middleware\ForceTwoFactorForRoles;
+use App\Support\Health;
 use App\Support\SecurityDefaults;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
@@ -111,22 +112,45 @@ it('decides by role at request time, not at boot', function () {
 
 /* ---- the production default --------------------------------------------- */
 
-it('covers every money-touching role in the production default', function () {
-    // The list ships in config/security.php rather than an env var precisely
-    // because "the decision was deferred to an env var nobody set" is how this
-    // stayed open. If a role is added that handles money, it belongs here.
-    // Read from the constant the config itself uses — a hand-copied list here would
-    // drift the moment someone edited one of the two.
-    $productionDefault = SecurityDefaults::FORCE_2FA_ROLES;
+it('covers every money-touching role in the recommended list', function () {
+    // Enforcement is OPT-IN (operator's call 2026-07-30) — this constant is what you paste into
+    // SECURITY_FORCE_2FA_ROLES, and what the health check measures a production deploy against.
+    // If a role is added that handles money, it belongs here.
+    $recommended = SecurityDefaults::FORCE_2FA_ROLES;
 
     foreach (['super_admin', 'mall_admin', 'manager', 'accounting', 'leasing', 'operations'] as $role) {
-        expect(in_array($role, $productionDefault, true))->toBeTrue(
-            "{$role} can move money or change tenancies but is not forced into 2FA."
+        expect(in_array($role, $recommended, true))->toBeTrue(
+            "{$role} can move money or change tenancies but is missing from the recommended 2FA list."
         );
     }
 });
 
-it('leaves local and testing unforced, so the demo and E2E keep working', function () {
-    // Mirrors force_https: secure by default in production, out of the way locally.
+it('forces nobody until the operator opts in', function () {
+    // The deliberate default. Enrolment is a rollout to schedule with staff, so it must not
+    // start happening because of a deploy — including in production, unlike force_https.
     expect(config('security.force_2fa_roles'))->toBe([]);
+});
+
+it('does not quietly ship a production deploy with no second factor', function () {
+    // The counterweight to opting out. "Deferred to an env var nobody set" is how enforcement
+    // sat broken here for months; off is allowed, but never silent.
+    $check = new ReflectionMethod(Health::class, 'checkTwoFactor');
+    $check->setAccessible(true);
+
+    config()->set('app.env', 'production');
+
+    config()->set('security.force_2fa_roles', []);
+    $unset = $check->invoke(null);
+
+    config()->set('security.force_2fa_roles', SecurityDefaults::FORCE_2FA_ROLES);
+    $enforced = $check->invoke(null);
+
+    config()->set('app.env', 'testing');
+    config()->set('security.force_2fa_roles', []);
+    $local = $check->invoke(null);
+
+    expect($unset['ok'])->toBeFalse('a production deploy with no 2FA must fail the health check')
+        ->and($unset['detail'])->toContain('SECURITY_FORCE_2FA_ROLES')
+        ->and($enforced['ok'])->toBeTrue()
+        ->and($local['ok'])->toBeTrue('local/testing must stay unforced without failing health');
 });

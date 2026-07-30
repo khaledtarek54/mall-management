@@ -14,11 +14,24 @@ return [
     | it themselves — but they cannot reach an invoice, a payment or a lease until
     | a second factor exists.
     |
-    | Defaults to the write-capable operator roles OUTSIDE local/testing, so a
-    | production deploy is protected without anyone remembering an env var, and to
-    | NOBODY locally so the demo logins and the Playwright suite keep working. That
-    | mirrors force_https below. SECURITY_FORCE_2FA_ROLES overrides either way
-    | (comma-separated; an empty string disables it entirely).
+    | OFF BY DEFAULT — operator's call, 2026-07-30. Enforcement is opt-IN via
+    | SECURITY_FORCE_2FA_ROLES (comma-separated; empty or unset = nobody is forced).
+    | It previously defaulted ON outside local/testing.
+    |
+    | Why it is off: switching it on marches every listed role through TOTP enrolment
+    | at their next login. That is a rollout to schedule with the operator's staff, not
+    | something to have happen to them on a deploy they didn't plan — and pre-go-live it
+    | would block the very people doing the data validation. See OPEN-QUESTIONS C4.11.
+    |
+    | THE RISK THIS ACCEPTS, stated plainly: a production deploy where nobody sets the
+    | env var runs with NO second factor on accounts that move money. That is the exact
+    | failure this mechanism was built to fix — enforcement sat broken for months because
+    | it was "configured" somewhere nobody checked. So the off state is NOT silent:
+    | `php artisan atriom:health` FAILS on a production environment with no roles forced.
+    | Turn it on by pasting the recommended list (SecurityDefaults::FORCE_2FA_ROLES) into
+    | the env var:
+    |
+    |   SECURITY_FORCE_2FA_ROLES="super_admin,mall_admin,manager,accounting,leasing,operations,coordinator,hr,marketing"
     |
     | Deliberately excluded from the default: `viewer`, `owner`, `technician`,
     | `customer_service`, `vendor`. They hold few or no write permissions — but they
@@ -38,12 +51,10 @@ return [
 
     'force_2fa_roles' => array_values(array_filter(array_map(
         'trim',
-        explode(',', (string) env(
-            'SECURITY_FORCE_2FA_ROLES',
-            in_array(env('APP_ENV', 'production'), ['local', 'testing'], true)
-                ? ''
-                : implode(',', SecurityDefaults::FORCE_2FA_ROLES),
-        ))
+        // Default '' — nobody is forced until the operator opts in. Unlike force_https
+        // below, this one does NOT self-enable in production: see the note above, and
+        // the health check that refuses to call such a deploy healthy.
+        explode(',', (string) env('SECURITY_FORCE_2FA_ROLES', ''))
     ))),
 
     /*
