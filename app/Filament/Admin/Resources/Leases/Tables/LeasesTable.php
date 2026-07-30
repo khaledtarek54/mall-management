@@ -190,6 +190,10 @@ class LeasesTable
                     ->icon('heroicon-o-bolt')
                     ->color('primary')
                     ->visible(fn () => LeaseResource::canCreate())
+                    // Gated in BOTH, per the project invariant: visible() is the UI, authorize() is
+                    // the gate. quickLease creates a Lease + its Charges + optionally a whole
+                    // Tenant, and its action() guarded only property isolation, not permission.
+                    ->authorize(fn () => LeaseResource::canCreate())
                     ->modalHeading(__('admin.actions.quick_new_lease_modal_heading'))
                     ->modalSubmitActionLabel(__('admin.actions.quick_new_lease_submit'))
                     ->modalWidth('4xl')

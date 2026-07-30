@@ -93,6 +93,9 @@ class DepartmentsTable
                             ->rows(4),
                     ])
                     ->visible(fn ($record) => DepartmentResource::canEdit($record))
+                    // Fans a notification out to every member of the department — gate it, don't
+                    // merely hide the button.
+                    ->authorize(fn ($record) => DepartmentResource::canEdit($record))
                     ->action(function (Department $record, array $data) {
                         $count = app(DepartmentMessageService::class)->send($record, Auth::user(), $data['body']);
 

@@ -95,6 +95,9 @@ class TenantRequestCommentsRelationManager extends RelationManager
                     ->icon('heroicon-o-eye-slash')
                     ->color('gray')
                     ->visible(fn (RelationManager $livewire) => TenantRequestResource::canEdit($livewire->getOwnerRecord()))
+                    // Flipping is_internal PUBLISHES a staff note to the tenant's portal view — a
+                    // disclosure, not a cosmetic flag. Gated as well as hidden.
+                    ->authorize(fn (RelationManager $livewire) => TenantRequestResource::canEdit($livewire->getOwnerRecord()))
                     ->action(fn ($record) => $record->update(['is_internal' => ! $record->is_internal])),
             ])
             ->toolbarActions([])

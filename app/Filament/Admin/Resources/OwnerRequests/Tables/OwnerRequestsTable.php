@@ -118,6 +118,9 @@ class OwnerRequestsTable
                     ->modalHeading(fn (OwnerRequest $r) => $r->reference.' · '.$r->subject)
                     ->modalSubmitActionLabel(__('admin.owner_requests.actions.send'))
                     ->visible(fn (OwnerRequest $r) => OwnerRequestResource::canEdit($r) && ! $r->isTerminal())
+                    // A reply is published to the owner and can transition the request — gate it,
+                    // don't just hide it (the module-15 close-out logged this as a LOW nit).
+                    ->authorize(fn (OwnerRequest $r) => OwnerRequestResource::canEdit($r) && ! $r->isTerminal())
                     ->fillForm(fn (OwnerRequest $r) => ['status' => $r->status])
                     ->schema([
                         // The conversation so far — the original message + every reply, attributed and
