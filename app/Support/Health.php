@@ -59,6 +59,7 @@ class Health
             'queue' => self::checkQueue(),
             'scheduler' => self::checkScheduler(),
             'backups' => self::checkBackups(),
+            'backup_capability' => self::checkBackupCapability(),
             'storage' => self::checkStorage(),
             'two_factor' => self::checkTwoFactor(),
         ];
@@ -69,6 +70,111 @@ class Health
             'status' => $ok ? 'ok' : 'degraded',
             'checks' => $checks,
         ];
+    }
+
+    /**
+     * CAN a backup be taken, and would it survive the machine? Production only.
+     *
+     * The existing `backups` check looks at the newest archive's age, so it only speaks 24 hours
+     * after things break, and only if an archive was ever written. These two conditions are
+     * knowable immediately:
+     *
+     * 1. **No dump binary.** `backup:run` shells out to `mysqldump`; without it the command exits
+     *    127 and writes nothing. Found live on this project 2026-07-30 — the nightly job had been
+     *    failing since the schedule was added, and the only signal would have been the age check
+     *    a day later, going to a mail channel that was not configured.
+     *
+     * 2. **Every destination is a local disk.** A copy that lives on the same machine as the
+     *    database dies with the machine. That is the failure a backup exists to survive, so a
+     *    local-only configuration is not a backup — it is a convenience copy.
+     *
+     * Fails only outside local/testing: developers have neither an off-site disk nor a reason to
+     * install the client, and a check that cries wolf locally gets ignored in production.
+     *
+     * @return array{ok: bool, detail: string}
+     */
+    private static function checkBackupCapability(): array
+    {
+        $connection = config('database.default');
+
+        return self::backupCapability(
+            driver: config("database.connections.{$connection}.driver"),
+            dumpBinaryPath: (string) config("database.connections.{$connection}.dump.dump_binary_path", ''),
+            disks: (array) config('backup.backup.destination.disks', []),
+            environment: (string) config('app.env'),
+        );
+    }
+
+    /**
+     * The decision itself, taking its inputs explicitly.
+     *
+     * Separated from the config reading so it can be exercised for a mysql deployment without
+     * repointing `database.default` — doing that mid-test tears down the suite's own connection,
+     * which is how the first version of these tests failed for reasons unrelated to the check.
+     *
+     * @param  array<int, string>  $disks
+     * @return array{ok: bool, detail: string}
+     */
+    public static function backupCapability(?string $driver, string $dumpBinaryPath, array $disks, string $environment): array
+    {
+        $problems = [];
+
+        if (($binary = self::missingDumpBinary($driver, $dumpBinaryPath)) !== null) {
+            $problems[] = "no `{$binary}` on PATH — backup:run will exit 127 and write nothing";
+        }
+
+        if (self::backupDisksAreAllLocal($disks)) {
+            $problems[] = 'every BACKUP_DISKS destination is a local disk — the copy dies with the machine';
+        }
+
+        if (in_array($environment, ['local', 'testing'], true)) {
+            return ['ok' => true, 'detail' => $problems === []
+                ? 'able to back up'
+                : 'local/testing — not enforced ('.implode('; ', $problems).')'];
+        }
+
+        return $problems === []
+            ? ['ok' => true, 'detail' => 'dump binary present, at least one off-box destination']
+            : ['ok' => false, 'detail' => implode('; ', $problems)];
+    }
+
+    /** The dump binary this connection needs, if it is NOT reachable. Null when all is well. */
+    private static function missingDumpBinary(?string $driver, string $dumpBinaryPath): ?string
+    {
+        $binary = match ($driver) {
+            'mysql', 'mariadb' => 'mysqldump',
+            'pgsql' => 'pg_dump',
+            default => null,       // sqlite dumps in-process; nothing to find
+        };
+
+        if ($binary === null) {
+            return null;
+        }
+
+        // spatie honours an explicit directory; otherwise the binary must be on PATH.
+        if ($dumpBinaryPath !== '') {
+            return is_executable(rtrim($dumpBinaryPath, '/').'/'.$binary) ? null : $binary;
+        }
+
+        $found = @shell_exec('command -v '.escapeshellarg($binary).' 2>/dev/null');
+
+        return is_string($found) && trim($found) !== '' ? null : $binary;
+    }
+
+    /** True when no configured backup destination leaves the machine. */
+    private static function backupDisksAreAllLocal(array $disks): bool
+    {
+        if ($disks === []) {
+            return true;
+        }
+
+        foreach ($disks as $disk) {
+            if (config("filesystems.disks.{$disk}.driver") !== 'local') {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
