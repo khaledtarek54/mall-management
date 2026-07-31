@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\CamelCaseResponseKeys;
+use App\Http\Middleware\IgnoreStrayLivewireHeader;
 use App\Http\Middleware\RecordCoverage;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\SetApiLocale;
@@ -65,6 +66,13 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Baseline security headers on every response (+ a tight CSP on /pay/*).
         $middleware->append(SecurityHeaders::class);
+
+        // A `back()` issued to a Livewire fetch is followed by the browser with the
+        // `X-Livewire` header still attached, which makes Filament mis-read the page GET
+        // as a component update and 405. Runs first so nothing downstream sees the stray
+        // header. See the middleware's docblock — this is what keeps a DomainException
+        // refusal rendering as a toast rather than an error modal.
+        $middleware->prepend(IgnoreStrayLivewireHeader::class);
 
         // The API does not use cookies/session — Sanctum tokens only. Disable
         // CSRF for /api/* (Laravel does this by default but spell it out).
