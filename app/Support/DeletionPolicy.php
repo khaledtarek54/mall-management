@@ -89,10 +89,16 @@ class DeletionPolicy
             // + postDatedCheques: a NEVER-deletable money record a tenant can hold before any invoice
             // (a year of PDCs lodged up front) — omitting it left a tenant with only lodged cheques
             // deletable, stranding them on the maturity dashboard (pre-go-live review).
-            'blocked_by' => ['leases', 'invoices', 'payments', 'creditNotes', 'salesDeclarations', 'maintenanceRequests', 'postDatedCheques'],
+            // + violations: directly tenant-scoped (no lease link), restrictOnDelete at the FK — so
+            // a tenant with only violations was deletable-via-SQL-error rather than refused cleanly.
+            'blocked_by' => ['leases', 'invoices', 'payments', 'creditNotes', 'salesDeclarations', 'maintenanceRequests', 'postDatedCheques', 'violations'],
             'instead' => 'set the tenant to inactive — the history stays queryable and the AR still ties out',
         ],
         \App\Models\Vendor::class => [
+            // NOT `purchaseRequests`: a PR's vendor_id is nullable + nullOnDelete BY DESIGN — the
+            // vendor there is a pre-award suggestion, not a commitment, and PurchaseRequest is
+            // classified operational-ALLOWED. The actual AP obligation is the VendorBill, which
+            // blocks. A vendor with only PRs and no bills/contracts/documents never transacted.
             'blocked_by' => ['bills', 'contracts', 'maintenanceRequests', 'documents'],
             'instead' => 'set the vendor to inactive (or blacklisted) — it disappears from every assignment picker without losing its bills',
         ],
@@ -135,7 +141,10 @@ class DeletionPolicy
             'instead' => 'set the employee inactive — payroll history is a statutory record',
         ],
         \App\Models\LedgerAccount::class => [
-            'blocked_by' => ['lines', 'children'],
+            // + accountMappings: a source→account mapping (restrictOnDelete) is what makes an account
+            // a posting target BEFORE anything posts to it — without this, a mapped-but-unposted
+            // account failed on a DB constraint instead of the friendly refusal.
+            'blocked_by' => ['lines', 'children', 'accountMappings'],
             'instead' => 'deactivate the account — removing one that has been posted to breaks every prior statement',
         ],
         \App\Models\AccountingPeriod::class => [
@@ -147,7 +156,10 @@ class DeletionPolicy
             'instead' => 'void the allocations first — they are what tenants were billed from',
         ],
         \App\Models\Department::class => [
-            'blocked_by' => ['members'],
+            // members = app Users (RBAC); employees = HR staff. Two different dimensions — the
+            // employees.department_id FK is nullOnDelete, so a department with staff would be
+            // deletable and silently un-assign them. Both block.
+            'blocked_by' => ['members', 'employees'],
             'instead' => 'move its members first, then delete the empty department',
         ],
         \App\Models\Warehouse::class => [

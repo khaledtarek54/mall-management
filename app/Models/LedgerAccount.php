@@ -79,6 +79,18 @@ class LedgerAccount extends Model
         return $this->hasMany(JournalLine::class);
     }
 
+    /**
+     * The source→account mappings that post to this account. The FK is restrictOnDelete, so a
+     * mapped-but-unposted account (deletable under the lines/children blockers alone) would fail
+     * on a database constraint; blocking here turns that into the friendly "deactivate instead".
+     *
+     * @return HasMany<AccountMapping, $this>
+     */
+    public function accountMappings(): HasMany
+    {
+        return $this->hasMany(AccountMapping::class);
+    }
+
     /** The debit/credit side an account of this nature increases on. */
     public static function normalBalanceFor(string $type): string
     {

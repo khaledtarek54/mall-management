@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
@@ -71,6 +72,18 @@ class Department extends Model
         return $this->belongsToMany(User::class, 'department_user')
             ->withPivot(['role', 'assigned_at', 'ended_at', 'notes'])
             ->withTimestamps();
+    }
+
+    /**
+     * HR employees assigned to this department — a DIFFERENT dimension from `members` (which are
+     * the app Users with RBAC access). The employees.department_id FK is nullOnDelete, so deleting
+     * a department would silently un-assign its staff; this is why it blocks deletion (DeletionPolicy).
+     *
+     * @return HasMany<Employee, $this>
+     */
+    public function employees(): HasMany
+    {
+        return $this->hasMany(Employee::class);
     }
 
     /**

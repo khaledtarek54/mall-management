@@ -158,6 +158,19 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
         return $this->hasMany(CreditNote::class);
     }
 
+    /**
+     * Fines issued against this tenant. Directly tenant-scoped (the violations table has no
+     * lease_id — only tenant_id + asset_id), so a tenant can carry violations with no active
+     * lease; that is why it blocks deletion. The FK is restrictOnDelete, so without this blocker
+     * the operator gets a raw database constraint error instead of the friendly refusal.
+     *
+     * @return HasMany<Violation, $this>
+     */
+    public function violations(): HasMany
+    {
+        return $this->hasMany(Violation::class);
+    }
+
     public function deviceTokens(): HasMany
     {
         return $this->hasMany(DeviceToken::class);
