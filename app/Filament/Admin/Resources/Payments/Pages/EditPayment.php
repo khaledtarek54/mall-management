@@ -6,8 +6,6 @@ use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Models\Payment;
 use App\Services\VoidPaymentService;
 use Filament\Actions\Action;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\RestoreAction;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
@@ -53,8 +51,6 @@ class EditPayment extends EditRecord
                             ->send();
                     }
                 }),
-            DeleteAction::make(),
-            ForceDeleteAction::make(),
             RestoreAction::make(),
         ];
     }

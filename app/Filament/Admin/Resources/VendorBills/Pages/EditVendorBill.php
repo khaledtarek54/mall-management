@@ -6,7 +6,6 @@ use App\Filament\Admin\Resources\VendorBills\VendorBillResource;
 use App\Services\VendorBillService;
 use App\Support\PostingDate;
 use Filament\Actions\Action;
-use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
@@ -198,8 +197,6 @@ class EditVendorBill extends EditRecord
                             ->send();
                     }
                 }),
-
-            DeleteAction::make(),
         ];
     }
 }

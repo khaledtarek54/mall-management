@@ -1,6 +1,9 @@
 <?php
 
 return [
+    'errors' => [
+        'record_not_deletable' => 'A :record that is on the books cannot be deleted — :correction. The record stays, and the correction explains itself to an auditor.',
+    ],
     'owner_requests' => [
         'conversation' => 'Conversation',
         'replies' => 'Replies',
@@ -2465,6 +2468,7 @@ return [
             'portal_needs_tenant' => 'A portal request must have a tenant. For a walk-in or phone call from someone who is not a registered tenant, pick a staff channel instead.',
             'caller_or_tenant_required' => 'Select the tenant, or record the caller\'s name — a request must say who reported it.',
             'permit_validity_order' => 'The permit\'s valid-to date cannot be earlier than its valid-from date.',
+            'terminal_immutable' => 'A closed or cancelled request is immutable — reopen it first if it needs changes.',
         ],
         'caller' => [
             'section' => 'Caller (walk-in / not a registered tenant)',

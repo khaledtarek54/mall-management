@@ -5,7 +5,6 @@ namespace App\Filament\Admin\Resources\Payrolls\Pages;
 use App\Filament\Admin\Resources\Payrolls\PayrollResource;
 use App\Services\PayrollService;
 use Filament\Actions\Action;
-use Filament\Actions\DeleteAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Auth;
@@ -85,8 +84,6 @@ class EditPayroll extends EditRecord
                         ->success()
                         ->send();
                 }),
-
-            DeleteAction::make(),
         ];
     }
 }

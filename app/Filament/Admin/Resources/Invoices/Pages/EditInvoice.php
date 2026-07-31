@@ -10,8 +10,6 @@ use App\Services\VoidInvoiceService;
 use App\Support\OpsLog;
 use App\Support\TenantScope;
 use Filament\Actions\Action;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\RestoreAction;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Textarea;
@@ -215,8 +213,6 @@ class EditInvoice extends EditRecord
                             ->send();
                     }
                 }),
-            DeleteAction::make(),
-            ForceDeleteAction::make(),
             RestoreAction::make(),
         ];
     }

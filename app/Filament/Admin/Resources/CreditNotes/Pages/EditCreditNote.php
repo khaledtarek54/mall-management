@@ -7,7 +7,6 @@ use App\Models\Invoice;
 use App\Models\Lease;
 use App\Services\CreditNoteService;
 use Filament\Actions\Action;
-use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
@@ -237,8 +236,6 @@ class EditCreditNote extends EditRecord
 
             // Hidden once credit is applied — deleting would throw (the model refuses, to avoid AR
             // drift); the guided way out is Reverse (visible in that case). Delete stays super_admin-only.
-            DeleteAction::make()
-                ->hidden(fn () => (float) $this->record->applied_amount > 0),
         ];
     }
 }

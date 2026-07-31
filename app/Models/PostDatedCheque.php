@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -20,7 +21,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class PostDatedCheque extends Model
 {
-    use HasFactory, LogsActivity, SoftDeletes;
+    use RefusesDeletionOfCommittedRecords, HasFactory, LogsActivity, SoftDeletes;
 
     public const STATUS_HELD = 'held';           // received, awaiting maturity
     public const STATUS_DEPOSITED = 'deposited';  // presented to the bank

@@ -5,7 +5,6 @@ namespace App\Filament\Admin\Resources\JournalEntries\Pages;
 use App\Filament\Admin\Resources\JournalEntries\JournalEntryResource;
 use App\Services\Accounting\JournalPostingService;
 use Filament\Actions\Action;
-use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
@@ -88,9 +87,6 @@ class EditJournalEntry extends EditRecord
                     }
                 }),
 
-            DeleteAction::make()
-                ->visible(fn () => $this->record->status === 'draft'
-                    && JournalEntryResource::canDelete($this->record)),
         ];
     }
 

@@ -33,6 +33,7 @@ use App\Models\Asset;
 use App\Models\CreditNote;
 use App\Models\Department;
 use App\Models\Invoice;
+use App\Support\DeletionPolicy;
 use App\Models\Lease;
 use App\Models\TenantRequest;
 use App\Models\Payment;
@@ -95,21 +96,30 @@ const NON_ADMIN_ROLES = ['manager', 'viewer', 'owner', 'leasing', 'operations', 
 // HAPPY PATH (RBAC): super_admin can single-delete on every resource.
 // ---------------------------------------------------------------------------
 
-it('lets super_admin single-delete every resource', function () {
+it('lets super_admin single-delete every resource EXCEPT money records', function () {
+    // Money and audit records are never deletable as of 2026-07-31 — not even by super_admin.
+    // The exception is read from DeletionPolicy rather than restated here, so the two cannot
+    // drift: adding a model to the registry updates this test with it.
     $this->actingAs(makeUser('super_admin'));
 
     foreach (deleteAuthResources() as $label => [$resource, $record]) {
-        expect($resource::canDelete($record))
-            ->toBeTrue("super_admin should be able to delete {$label}");
+        $expected = ! DeletionPolicy::isNeverDeletable($resource::getModel());
+
+        expect($resource::canDelete($record))->toBe($expected, $expected
+            ? "super_admin should be able to delete {$label}"
+            : "{$label} is a money record — it must be corrected, not deleted");
     }
 });
 
-it('lets super_admin force-delete every resource', function () {
+it('lets super_admin force-delete every resource EXCEPT money records', function () {
     $this->actingAs(makeUser('super_admin'));
 
     foreach (forceDeleteAuthResources() as $label => [$resource, $record]) {
-        expect($resource::canForceDelete($record))
-            ->toBeTrue("super_admin should be able to force-delete {$label}");
+        $expected = ! DeletionPolicy::isNeverDeletable($resource::getModel());
+
+        expect($resource::canForceDelete($record))->toBe($expected, $expected
+            ? "super_admin should be able to force-delete {$label}"
+            : "{$label} is a money record — force delete destroys the row outright");
     }
 });
 
@@ -180,19 +190,22 @@ it('disables bulk delete on every resource for every non-super-admin role', func
 // ---------------------------------------------------------------------------
 
 it('still denies delete to a role even after it is granted the module.delete permission', function () {
-    // Grant manager the real invoices.delete + payments.delete permissions.
+    // `invoices.delete` / `payments.delete` no longer exist — money records are never deletable as
+    // of 2026-07-31 (DeletionPolicy), so granting them here now throws PermissionDoesNotExist.
+    // The property under test is unchanged and still worth pinning: holding {module}.delete does
+    // NOT grant delete, only super_admin does. Demonstrated on a module whose permission survives.
     $manager = Role::findByName('manager', 'web');
-    $manager->givePermissionTo('invoices.delete');
-    $manager->givePermissionTo('payments.delete');
+    $manager->givePermissionTo('tenants.delete');
     app(PermissionRegistrar::class)->forgetCachedPermissions();
 
     $user = makeUser('manager');
     $this->actingAs($user);
 
     // Sanity: the permission is genuinely present...
-    expect($user->can('invoices.delete'))->toBeTrue()
-        ->and($user->can('payments.delete'))->toBeTrue()
+    expect($user->can('tenants.delete'))->toBeTrue()
         // ...yet delete is still gated to super_admin only.
+        ->and(TenantResource::canDelete(new Tenant()))->toBeFalse()
+        // ...and it stays false for the money resources, whose permission is gone entirely.
         ->and(InvoiceResource::canDelete(new Invoice()))->toBeFalse()
         ->and(PaymentResource::canDelete(new Payment()))->toBeFalse()
         ->and(InvoiceResource::canForceDelete(new Invoice()))->toBeFalse()

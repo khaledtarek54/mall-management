@@ -5,7 +5,6 @@ namespace App\Filament\Admin\Resources\Expenses\Pages;
 use App\Filament\Admin\Resources\Expenses\ExpenseResource;
 use App\Services\ExpenseService;
 use Filament\Actions\Action;
-use Filament\Actions\DeleteAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Auth;
@@ -44,8 +43,6 @@ class EditExpense extends EditRecord
                         ->success()
                         ->send();
                 }),
-
-            DeleteAction::make(),
         ];
     }
 }

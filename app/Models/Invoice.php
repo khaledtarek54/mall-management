@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Models\Concerns\GuardsPostingDate;
 use App\Services\CreditNoteService;
 use BaconQrCode\Renderer\Image\SvgImageBackEnd;
@@ -21,7 +22,7 @@ use Spatie\Activitylog\Support\LogOptions;
 
 class Invoice extends Model
 {
-    use \App\Models\Concerns\AllocatesDocumentNumber;
+    use RefusesDeletionOfCommittedRecords, \App\Models\Concerns\AllocatesDocumentNumber;
 
     use GuardsPostingDate, HasFactory, LogsActivity, SoftDeletes;
 
@@ -419,4 +420,11 @@ class Invoice extends Model
             2,
         );
     }
+
+    /** A draft invoice has not been issued to anyone; anything past draft is on the books. */
+    public function isCommittedForDeletionPurposes(): bool
+    {
+        return $this->status !== 'draft';
+    }
+
 }

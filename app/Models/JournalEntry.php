@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -19,7 +20,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class JournalEntry extends Model
 {
-    use \App\Models\Concerns\AllocatesDocumentNumber;
+    use RefusesDeletionOfCommittedRecords, \App\Models\Concerns\AllocatesDocumentNumber;
 
     use HasFactory, LogsActivity, SoftDeletes;
 
@@ -155,4 +156,13 @@ class JournalEntry extends Model
             $entry->is_manual = empty($entry->source_type);
         });
     }
+    /**
+     * A draft entry has not been posted, so nothing is on the books yet. Anything else — posted or
+     * void — is permanent; correct it with a reversing entry.
+     */
+    public function isCommittedForDeletionPurposes(): bool
+    {
+        return $this->status !== 'draft';
+    }
+
 }

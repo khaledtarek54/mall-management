@@ -6,7 +6,6 @@ use App\Filament\Admin\Resources\DepositTransactions\DepositTransactionResource;
 use App\Models\Lease;
 use App\Services\DepositService;
 use Filament\Actions\Action;
-use Filament\Actions\DeleteAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Auth;
@@ -47,8 +46,6 @@ class EditDepositTransaction extends EditRecord
                         ->success()
                         ->send();
                 }),
-
-            DeleteAction::make(),
         ];
     }
 }

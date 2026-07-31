@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Models\Concerns\GuardsPostingDate;
 use App\Notifications\PaymentReceivedNotification;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -14,7 +15,7 @@ use Spatie\Activitylog\Support\LogOptions;
 
 class Payment extends Model
 {
-    use GuardsPostingDate, HasFactory, LogsActivity, SoftDeletes;
+    use RefusesDeletionOfCommittedRecords, GuardsPostingDate, HasFactory, LogsActivity, SoftDeletes;
 
     /** The column this document's GL entry is dated from (LedgerRealtimeSync::SOURCE_DATE_COLUMNS). */
     public static function postingDateColumn(): string
@@ -383,4 +384,14 @@ class Payment extends Model
 
         return $candidate;
     }
+
+    /**
+     * Only money actually received is permanent. An initiated/failed row — including the orphan
+     * CreatePayment rolls back when allocation fails — never became money.
+     */
+    public function isCommittedForDeletionPurposes(): bool
+    {
+        return $this->isReceived();
+    }
+
 }
