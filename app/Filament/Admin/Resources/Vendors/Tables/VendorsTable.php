@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\Vendors\Tables;
 
 use App\Filament\Admin\Resources\Vendors\VendorResource;
 use App\Models\Vendor;
+use App\Models\VendorDocument;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;
@@ -64,21 +65,21 @@ class VendorsTable
                     ->badge()
                     ->state(fn (Vendor $record) => match (true) {
                         $record->documents->isEmpty() => __('admin.vendors.compliance.none'),
-                        $record->documents->contains(fn ($d) => $d->isBlocking() && $d->hasExpired()) => __('admin.vendors.compliance.blocked'),
-                        $record->documents->contains(fn ($d) => $d->hasExpired()) => __('admin.vendors.compliance.expired'),
-                        $record->documents->contains(fn ($d) => $d->alertStage() !== null) => __('admin.vendors.compliance.expiring'),
+                        $record->documents->contains(fn (VendorDocument $d) => $d->isBlocking() && $d->hasExpired()) => __('admin.vendors.compliance.blocked'),
+                        $record->documents->contains(fn (VendorDocument $d) => $d->hasExpired()) => __('admin.vendors.compliance.expired'),
+                        $record->documents->contains(fn (VendorDocument $d) => $d->alertStage() !== null) => __('admin.vendors.compliance.expiring'),
                         default => __('admin.vendors.compliance.ok'),
                     })
                     ->color(fn (Vendor $record) => match (true) {
                         $record->documents->isEmpty() => 'gray',
-                        $record->documents->contains(fn ($d) => $d->hasExpired()) => 'danger',
-                        $record->documents->contains(fn ($d) => $d->alertStage() !== null) => 'warning',
+                        $record->documents->contains(fn (VendorDocument $d) => $d->hasExpired()) => 'danger',
+                        $record->documents->contains(fn (VendorDocument $d) => $d->alertStage() !== null) => 'warning',
                         default => 'success',
                     })
                     // Name the offending documents so the operator knows what to chase.
                     ->description(fn (Vendor $record) => $record->documents
-                        ->filter(fn ($d) => $d->alertStage() !== null)
-                        ->map(fn ($d) => __("admin.vendors.documents.types.{$d->type}"))
+                        ->filter(fn (VendorDocument $d) => $d->alertStage() !== null)
+                        ->map(fn (VendorDocument $d) => __("admin.vendors.documents.types.{$d->type}"))
                         ->join(', ') ?: null),
             ])
             ->filters([

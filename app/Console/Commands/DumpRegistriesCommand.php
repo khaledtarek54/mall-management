@@ -53,18 +53,19 @@ class DumpRegistriesCommand extends Command
         $guards = PostingDateGuards::GUARDS;
         $rows = [];
 
+        // Every JOURNALIZERS source is guaranteed a GUARDS entry and a SOURCE_DATE_COLUMNS entry —
+        // PostingDateGuardConformanceTest and GlRegistryConformanceTest fail the build otherwise —
+        // so both lookups always resolve (no `?? '—'` fallback needed).
         foreach (LedgerPoster::JOURNALIZERS as $source => $journalizer) {
-            $guard = $guards[$source] ?? '—';
+            $guard = $guards[$source];
 
             // Three shapes, and conflating them misleads: a service name, the SOURCE MODEL itself
             // (guarded with the GuardsPostingDate trait where there is no create/update service),
             // or a `system:` reason why the date can never be operator-typed.
-            if (is_string($guard) && str_starts_with($guard, PostingDateGuards::SYSTEM_PREFIX)) {
+            if (str_starts_with($guard, PostingDateGuards::SYSTEM_PREFIX)) {
                 $guard = '_system — '.substr($guard, strlen(PostingDateGuards::SYSTEM_PREFIX)).'_';
             } elseif ($guard === $source) {
                 $guard = 'on the model (`GuardsPostingDate`)';
-            } elseif ($guard === '—') {
-                $guard = '—';
             } else {
                 $guard = '`'.class_basename($guard).'`';
             }
@@ -73,7 +74,7 @@ class DumpRegistriesCommand extends Command
                 '| `%s` | `%s` | `%s` | %s |',
                 class_basename($source),
                 class_basename($journalizer),
-                $dates[$source] ?? '—',
+                $dates[$source],
                 $guard,
             );
         }
@@ -97,8 +98,8 @@ class DumpRegistriesCommand extends Command
         };
 
         $owned = array_keys(PropertyIsolation::OWNED);
-        $shared = array_values(PropertyIsolation::SHARED);
-        $self = array_values(PropertyIsolation::SELF);
+        $shared = PropertyIsolation::SHARED;
+        $self = PropertyIsolation::SELF;
 
         return "## Model classification\n\n"
             ."Generated from `App\\Support\\PropertyIsolation`. `PropertyIsolationConformanceTest` fails the\n"

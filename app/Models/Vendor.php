@@ -68,6 +68,7 @@ class Vendor extends Model
         return $this->hasMany(VendorBill::class);
     }
 
+    /** @return HasMany<VendorDocument, $this> */
     public function documents(): HasMany
     {
         return $this->hasMany(VendorDocument::class);

@@ -57,43 +57,56 @@ it('names a correction path for every never-deletable model', function () {
 /* ---- the UI layer --------------------------------------------------------- */
 
 it('exposes no delete action on any money resource', function () {
-    // Scans, rather than trusting a list someone remembers to extend.
+    // Derived from DeletionPolicy::NEVER_DELETABLE, not a directory list someone remembers to
+    // extend: every Filament resource whose model is never-deletable is scanned — resolved by its
+    // own ::getModel(), wherever the resource lives — so resource #42 built on a money record
+    // cannot quietly ship a Delete button under a name this test didn't anticipate.
     $offenders = [];
 
-    $resourceDirs = [
-        'Invoices', 'Payments', 'JournalEntries', 'CreditNotes',
-        'VendorBills', 'Expenses', 'DepositTransactions', 'Payrolls', 'PostDatedCheques',
-    ];
+    $resources = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator(app_path('Filament/Admin/Resources'))
+    );
 
-    foreach ($resourceDirs as $dir) {
-        $path = app_path("Filament/Admin/Resources/{$dir}");
-
-        if (! is_dir($path)) {
+    foreach ($resources as $file) {
+        if ($file->getExtension() !== 'php' || ! str_ends_with($file->getFilename(), 'Resource.php')) {
             continue;
         }
 
-        $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($path));
+        $class = 'App\\'.str_replace(['/', '.php'], ['\\', ''], substr($file->getPathname(), strlen(app_path()) + 1));
 
-        foreach ($files as $file) {
-            if ($file->getExtension() !== 'php') {
+        if (! class_exists($class) || ! is_subclass_of($class, Filament\Resources\Resource::class)) {
+            continue;
+        }
+
+        if (! DeletionPolicy::isNeverDeletable($class::getModel())) {
+            continue;
+        }
+
+        // A money resource — scan its whole tree (the Resource, its Pages/, Tables/, Schemas/).
+        // DeleteAction and ForceDeleteAction; RestoreAction is fine — bringing a soft-deleted
+        // record back destroys nothing.
+        $tree = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(dirname($file->getPathname())));
+
+        foreach ($tree as $inner) {
+            if ($inner->getExtension() !== 'php') {
                 continue;
             }
 
-            foreach (file($file->getPathname()) as $no => $line) {
+            foreach (file($inner->getPathname()) as $no => $line) {
                 $code = trim($line);
 
                 if ($code === '' || str_starts_with($code, '//') || str_starts_with($code, '*')) {
                     continue;
                 }
 
-                // DeleteAction and ForceDeleteAction. RestoreAction is fine — bringing a
-                // soft-deleted record back destroys nothing.
                 if (preg_match('/\b(Force)?DeleteAction::make\(/', $code)) {
-                    $offenders[] = str_replace(base_path().'/', '', $file->getPathname()).':'.($no + 1);
+                    $offenders[] = str_replace(base_path().'/', '', $inner->getPathname()).':'.($no + 1);
                 }
             }
         }
     }
+
+    $offenders = array_values(array_unique($offenders));
 
     expect($offenders)->toBe([], implode("\n", array_merge(
         ['A money resource offers deletion:'],
@@ -113,6 +126,31 @@ it('has retired the delete permissions rather than leaving them grantable', func
         ->all();
 
     expect($surviving)->toBe([], 'these delete permissions are still seeded: '.implode(', ', $surviving));
+});
+
+it('seeds no grantable delete permission for any never-deletable model', function () {
+    // The teeth the hardcoded RETIRED_PERMISSIONS list can't grow on its own. That const stays a
+    // concrete record of what was retired (the retire migration deletes exactly those rows); THIS
+    // derives the invariant straight from NEVER_DELETABLE, so a money model added later — whose
+    // scaffold seeds `{model}.{action}` by the standard plural-snake convention — is caught even if
+    // nobody remembers to extend RETIRED_PERMISSIONS.
+    $this->seed(Database\Seeders\RolesPermissionsSeeder::class);
+
+    $seeded = DB::table('permissions')->pluck('name')->all();
+    $live = [];
+
+    foreach (array_keys(DeletionPolicy::NEVER_DELETABLE) as $model) {
+        $permission = str(class_basename($model))->plural()->snake()->toString().'.delete';
+
+        if (in_array($permission, $seeded, true)) {
+            $live[] = $permission;
+        }
+    }
+
+    expect($live)->toBe([], implode('', [
+        'A never-deletable model still has a grantable delete permission: '.implode(', ', $live).'. ',
+        'Drop it from RolesPermissionsSeeder and add it to DeletionPolicy::RETIRED_PERMISSIONS so the migration retires it.',
+    ]));
 });
 
 /* ---- the behaviour, end to end -------------------------------------------- */

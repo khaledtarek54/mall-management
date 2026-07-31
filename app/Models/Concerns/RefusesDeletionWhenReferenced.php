@@ -34,8 +34,11 @@ trait RefusesDeletionWhenReferenced
     {
         static::deleting(function (self $model): void {
             // Force-deleting a record that was already soft-deleted is a purge of something the
-            // operator has already retired; the references were counted on the way in.
-            if (method_exists($model, 'isForceDeleting') && $model->isForceDeleting() && $model->trashed()) {
+            // operator has already retired; the references were counted on the way in. The
+            // method_exists guards are load-bearing: a WHEN_UNUSED model need not soft-delete
+            // (AccountingPeriod does not), and isForceDeleting()/trashed() exist only on SoftDeletes.
+            if (method_exists($model, 'isForceDeleting') && $model->isForceDeleting()
+                && method_exists($model, 'trashed') && $model->trashed()) {
                 return;
             }
 
