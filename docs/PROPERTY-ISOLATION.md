@@ -206,3 +206,23 @@ independent of the asset's soft-delete state.
 being soft-deleted, or the failure mode is silent privilege escalation rather
 than an error. Guarded by
 `tests/Feature/Regression/AssignedAssetsLapsedScopeTest.php`.
+
+<!-- GENERATED:isolation-classification — do not edit by hand; run `php artisan atriom:dump-registries` -->
+
+## Model classification
+
+Generated from `App\Support\PropertyIsolation`. `PropertyIsolationConformanceTest` fails the
+build if a model ships unclassified, so this list is complete by construction.
+
+**Property-owned (61)** — scoped to the selected property:
+
+`Announcement` · `Area` · `AssetOwner` · `CamAllocation` · `CamExpensePool` · `Charge` · `CreditNoteApplication` · `CreditNoteItem` · `CreditNote` · `CustodyTransaction` · `Custody` · `Department` · `DepositTransaction` · `DepreciationEntry` · `Disbursement` · `EmployeeAdvanceRepayment` · `EmployeeAdvance` · `Employee` · `Equipment` · `Expense` · `FixedAssetDisposal` · `FixedAsset` · `InvoiceItem` · `Invoice` · `JournalEntry` · `JournalLine` · `LeaseCamTerm` · `Lease` · `LowStockAlert` · `MaintenancePenalty` · `MaintenancePlan` · `MaintenanceWorkOrderItem` · `MaintenanceWorkOrderPart` · `MaintenanceWorkOrder` · `MarketingBudget` · `MarketingSpend` · `MeterReading` · `OwnerRequestReply` · `OwnerRequest` · `OwnerStatementRun` · `OwnerStatement` · `Payment` · `PayrollLine` · `Payroll` · `PostDatedCheque` · `PurchaseRequestLine` · `PurchaseRequest` · `SlaPolicy` · `StockMovement` · `TenantCreditApplication` · `TenantRequestComment` · `TenantRequest` · `TenantSalesDeclaration` · `Unit` · `UtilityMeter` · `VendorBillPayment` · `VendorBill` · `VendorContractAmendment` · `VendorContract` · `Violation` · `Warehouse`
+
+**Shared (15)** — portfolio-wide by design:
+
+`AccountMapping` · `AccountingPeriod` · `ApprovalRule` · `DeviceToken` · `FiscalYear` · `InventoryItem` · `LedgerAccount` · `Note` · `SystemSetting` · `TenantUser` · `Tenant` · `User` · `VendorContact` · `VendorDocument` · `Vendor`
+
+**Self (1)** — the property record itself:
+
+`Asset`
+<!-- /GENERATED:isolation-classification -->

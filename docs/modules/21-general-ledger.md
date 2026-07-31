@@ -711,3 +711,37 @@ button reappears on a money record.
 | `JournalLine` | Deletable (super_admin) | parent-managed: rebuilt when its entry is re-posted |
 | `LedgerAccount` | **Only while unreferenced** — blocked by `lines`, `children` | deactivate the account — removing one that has been posted to breaks every prior statement |
 | `AccountingPeriod` | **Only while unreferenced** — blocked by `entries` | a period that has been posted to is part of the books; close it rather than remove it |
+
+<!-- GENERATED:gl-sources — do not edit by hand; run `php artisan atriom:dump-registries` -->
+
+## Every GL posting source
+
+Generated from `LedgerPoster::JOURNALIZERS` — the single registry all four dispatch paths
+derive from (real-time hook · `accounting:sync-ledger` sweep · close gate · `billing:reconcile`
+drift check). **21 sources.** The `entry_date` column is what the sweep windows on, and what
+the posting-date guard checks against a closed period.
+
+| Source model | Journalizer | `entry_date` from | Posting-date guard |
+|---|---|---|---|
+| `Invoice` | `InvoiceJournalizer` | `issue_date` | on the model (`GuardsPostingDate`) |
+| `Payment` | `PaymentJournalizer` | `payment_date` | on the model (`GuardsPostingDate`) |
+| `CreditNote` | `CreditNoteJournalizer` | `issue_date` | `CreditNoteService` |
+| `VendorBill` | `VendorBillJournalizer` | `bill_date` | `VendorBillService` |
+| `VendorBillPayment` | `VendorBillPaymentJournalizer` | `payment_date` | `VendorBillService` |
+| `MaintenancePenalty` | `MaintenancePenaltyJournalizer` | `applied_at` | _system — applied_at is stamped now() at the moment the penalty is applied — a penalty cannot be applied into the past._ |
+| `Expense` | `ExpenseJournalizer` | `expense_date` | on the model (`GuardsPostingDate`) |
+| `Payroll` | `PayrollJournalizer` | `period_month` | `PayrollService` |
+| `DepositTransaction` | `DepositTransactionJournalizer` | `transaction_date` | on the model (`GuardsPostingDate`) |
+| `MarketingSpend` | `MarketingSpendJournalizer` | `spent_on` | on the model (`GuardsPostingDate`) |
+| `StockMovement` | `InventoryMovementJournalizer` | `moved_on` | `StockMovementService` |
+| `FixedAsset` | `FixedAssetAcquisitionJournalizer` | `acquisition_date` | on the model (`GuardsPostingDate`) |
+| `DepreciationEntry` | `DepreciationEntryJournalizer` | `period_month` | _system — period_month is set by DepreciationService::run from the month being posted; the operator-reachable inputs are the scheduler and the admin button (both now()) and PostDepreciationCommand --month, which is guarded there._ |
+| `FixedAssetDisposal` | `FixedAssetDisposalJournalizer` | `disposed_on` | `DisposeFixedAssetService` |
+| `EmployeeAdvance` | `EmployeeAdvanceJournalizer` | `advance_date` | `GrantEmployeeAdvanceService` |
+| `EmployeeAdvanceRepayment` | `EmployeeAdvanceRepaymentJournalizer` | `repaid_on` | `RecordAdvanceRepaymentService` |
+| `Custody` | `CustodyJournalizer` | `custody_date` | `GrantCustodyService` |
+| `CustodyTransaction` | `CustodyTransactionJournalizer` | `transaction_date` | `SettleCustodyService` |
+| `OwnerStatementRun` | `OwnerStatementRunJournalizer` | `posting_date` | `FinaliseOwnerStatementRunService` |
+| `Disbursement` | `DisbursementJournalizer` | `paid_on` | `DisbursementService` |
+| `TenantCreditApplication` | `TenantCreditApplicationJournalizer` | `entry_date` | _system — entry_date is deliberately stamped at application time, never the source receipt's date. That decoupling is the whole point: it lets an old overpayment settle a current invoice without ever posting into the closed period the overpayment came from._ |
+<!-- /GENERATED:gl-sources -->
