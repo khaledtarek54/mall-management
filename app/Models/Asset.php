@@ -139,6 +139,74 @@ class Asset extends Model implements HasMedia
         return $this->hasManyThrough(Lease::class, Unit::class);
     }
 
+    // History-bearing children with a direct asset_id — listed so DeletionPolicy's blocked_by can
+    // REFUSE deleting a property that carries money / GL / HR history. Without them, a property with
+    // financial history but no units was deletable, and a force-delete cascade-destroyed the money
+    // and statutory records outright (their asset_id FK is cascadeOnDelete — including a
+    // NEVER-deletable MaintenancePenalty — bypassing every model guard). journalEntries is the GL
+    // catch-all (every posting stamps asset_id); the direct money records are listed too so an
+    // UNposted one still blocks. Pre-go-live deletion-policy review.
+
+    public function journalEntries(): HasMany
+    {
+        return $this->hasMany(JournalEntry::class);
+    }
+
+    public function expenses(): HasMany
+    {
+        return $this->hasMany(Expense::class);
+    }
+
+    public function vendorBills(): HasMany
+    {
+        return $this->hasMany(VendorBill::class);
+    }
+
+    public function payrolls(): HasMany
+    {
+        return $this->hasMany(Payroll::class);
+    }
+
+    public function disbursements(): HasMany
+    {
+        return $this->hasMany(Disbursement::class);
+    }
+
+    public function maintenancePenalties(): HasMany
+    {
+        return $this->hasMany(MaintenancePenalty::class);
+    }
+
+    public function depositTransactions(): HasMany
+    {
+        return $this->hasMany(DepositTransaction::class);
+    }
+
+    public function postDatedCheques(): HasMany
+    {
+        return $this->hasMany(PostDatedCheque::class);
+    }
+
+    public function employees(): HasMany
+    {
+        return $this->hasMany(Employee::class);
+    }
+
+    public function fixedAssets(): HasMany
+    {
+        return $this->hasMany(FixedAsset::class);
+    }
+
+    public function marketingBudgets(): HasMany
+    {
+        return $this->hasMany(MarketingBudget::class);
+    }
+
+    public function violations(): HasMany
+    {
+        return $this->hasMany(Violation::class);
+    }
+
     // ============ Derived metrics ============
 
     public function occupancyRate(): float

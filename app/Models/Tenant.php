@@ -130,6 +130,14 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
         return $this->hasMany(Invoice::class);
     }
 
+    // NEVER-deletable money records a tenant can hold before any invoice — a year of post-dated
+    // cheques lodged up front. Listed so DeletionPolicy blocks deleting a tenant that holds them
+    // (pre-go-live review).
+    public function postDatedCheques(): HasMany
+    {
+        return $this->hasMany(PostDatedCheque::class);
+    }
+
     public function payments(): HasMany
     {
         return $this->hasMany(Payment::class);

@@ -86,7 +86,10 @@ class DeletionPolicy
      */
     public const WHEN_UNUSED = [
         \App\Models\Tenant::class => [
-            'blocked_by' => ['leases', 'invoices', 'payments', 'creditNotes', 'salesDeclarations', 'maintenanceRequests'],
+            // + postDatedCheques: a NEVER-deletable money record a tenant can hold before any invoice
+            // (a year of PDCs lodged up front) — omitting it left a tenant with only lodged cheques
+            // deletable, stranding them on the maturity dashboard (pre-go-live review).
+            'blocked_by' => ['leases', 'invoices', 'payments', 'creditNotes', 'salesDeclarations', 'maintenanceRequests', 'postDatedCheques'],
             'instead' => 'set the tenant to inactive — the history stays queryable and the AR still ties out',
         ],
         \App\Models\Vendor::class => [
@@ -94,7 +97,11 @@ class DeletionPolicy
             'instead' => 'set the vendor to inactive (or blacklisted) — it disappears from every assignment picker without losing its bills',
         ],
         \App\Models\Lease::class => [
-            'blocked_by' => ['invoices', 'charges', 'salesDeclarations', 'camAllocations', 'maintenanceRequests', 'renewals'],
+            // deposits + postDatedCheques are NEVER-deletable money records that reference the lease
+            // and can exist BEFORE any invoice (a deposit is taken at signing, a year of PDCs lodged
+            // up front) — so an invoices/charges-only list left a lease with a deposit or lodged
+            // cheque deletable, stranding the money record (pre-go-live review).
+            'blocked_by' => ['invoices', 'charges', 'salesDeclarations', 'camAllocations', 'maintenanceRequests', 'renewals', 'deposits', 'postDatedCheques'],
             'instead' => 'terminate the lease — that is the documented end of a tenancy, and it keeps the billing history',
         ],
         \App\Models\Unit::class => [
@@ -104,8 +111,24 @@ class DeletionPolicy
             'instead' => 'set the unit to maintenance if it is out of service — a unit that has been leased is part of the property record',
         ],
         \App\Models\Asset::class => [
-            'blocked_by' => ['units', 'leases', 'camPools', 'utilityMeters'],
-            'instead' => 'deactivate the property — deleting one would orphan every book that reports on it',
+            // The property is the ROOT of the GL isolation dimension, so it carries the widest
+            // history — and the financial/HR children's asset_id FKs are cascadeOnDelete, so a
+            // MISSING blocker doesn't just orphan on delete, a force-delete DESTROYS them outright,
+            // incl. a NEVER-deletable MaintenancePenalty, bypassing every model guard. journalEntries
+            // is the GL catch-all (every posting stamps asset_id); the direct money records are
+            // listed too so an UN-posted one still blocks. (Pre-go-live review — the original list of
+            // 4 physical relations left the whole money/HR/GL dimension un-guarded.)
+            // NB: NOT `owners` — archiving an owned property (the ownership pivot populated) is a
+            // legitimate, tested flow, and ownership is a relationship, not money/audit history the
+            // books depend on. The blockers below are the money/HR/register children whose loss
+            // corrupts or destroys the books.
+            'blocked_by' => [
+                'units', 'leases', 'camPools', 'utilityMeters',
+                'journalEntries', 'expenses', 'vendorBills', 'payrolls', 'disbursements',
+                'maintenancePenalties', 'depositTransactions', 'postDatedCheques',
+                'employees', 'fixedAssets', 'marketingBudgets', 'violations',
+            ],
+            'instead' => 'deactivate the property — deleting one would orphan (or cascade-destroy) every book, payroll, register and penalty that reports on it',
         ],
         \App\Models\Employee::class => [
             'blocked_by' => ['payrollLines', 'advances', 'custodies'],

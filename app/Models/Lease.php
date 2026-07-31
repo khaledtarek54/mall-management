@@ -257,6 +257,19 @@ class Lease extends Model implements HasMedia
         return $this->hasMany(Invoice::class);
     }
 
+    // NEVER-deletable money records that reference the lease directly and can exist BEFORE any
+    // invoice — a security deposit is recorded at signing, a year of post-dated cheques is lodged up
+    // front. Listed so DeletionPolicy blocks deleting a lease that carries them (pre-go-live review).
+    public function deposits(): HasMany
+    {
+        return $this->hasMany(DepositTransaction::class);
+    }
+
+    public function postDatedCheques(): HasMany
+    {
+        return $this->hasMany(PostDatedCheque::class);
+    }
+
     public function maintenanceRequests(): HasMany
     {
         return $this->hasMany(TenantRequest::class);

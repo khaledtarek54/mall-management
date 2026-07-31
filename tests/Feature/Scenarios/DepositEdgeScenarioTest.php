@@ -179,7 +179,9 @@ it('gates recording deposits on the deposit_transactions.create permission', fun
     expect(DepositTransactionResource::canCreate())->toBeFalse();
     expect(DepositTransactionResource::canViewAny())->toBeFalse();
 
-    // Delete is reserved for the platform owner regardless of the module permission.
+    // A deposit transaction is a NEVER-deletable money record (DeletionPolicy, "a financial record
+    // can no longer be deleted, only corrected") — deletion is refused for EVERY role, super_admin
+    // included; it is reversed, not removed.
     $deposit = DepositTransaction::create([
         'lease_id' => makeLease(makeUnit(makeAsset()))->id, 'type' => 'receipt', 'amount' => 1000,
         'transaction_date' => now()->toDateString(), 'method' => 'bank', 'status' => 'recorded',
@@ -187,5 +189,5 @@ it('gates recording deposits on the deposit_transactions.create permission', fun
     $this->actingAs(makeUser('accounting'));
     expect(DepositTransactionResource::canDelete($deposit))->toBeFalse();
     $this->actingAs(makeUser('super_admin'));
-    expect(DepositTransactionResource::canDelete($deposit))->toBeTrue();
+    expect(DepositTransactionResource::canDelete($deposit))->toBeFalse();
 });
