@@ -684,3 +684,9 @@ A bare annual figure is unverifiable (it's a share of a running yearly total), s
 ### Deferred (with triggers)
 - **Non-calendar % rent year + stub-year proration** — the annual cumulative is grouped by **Gregorian calendar year** (`whereYear`), and the breakpoint (and natural `base_rent × 12`) is a full-year figure. A lease whose % rent year runs on a **lease anniversary** (e.g. Apr→Mar) or a **fiscal** mall year would reset mid-year and mis-true; a lease **commencing/exiting mid-year** gets the full annual breakpoint against a partial year → under-bills the stub year. *Trigger: the first annual lease with a non-calendar % rent year, or one where the operator expects a prorated stub-year breakpoint.*
 - Structured sales-basis / exclusions · estimated/deemed-sales billing on chronic non-reporting · a tenant-facing % rent statement PDF. The stale "billed next monthly cycle" notification copy was corrected (it's immediate).
+
+---
+
+## Correction — the `visible()` dispatch premise (2026-07-31)
+
+**Correction 2026-07-31 — the "still dispatchable" half of this was WRONG on the version we ship.** `mountAction()` does check `isDisabled()`, and `CanBeDisabled::isDisabled()` returns true when `isHidden()` does (`vendor/filament/actions/src/Concerns/CanBeDisabled.php:24`), so on **Filament v4.11.8 a `visible()`-only action IS refused at dispatch**. Found by mutation-testing the module-08 fix: deleting CAM's `abort_unless` left `CamActionAuthzTest` fully green — those tests never exercised the gate they describe. **Double-gate anyway**, for a reason that survives the correction: `->authorize()` is a stated intent, while hidden-implies-disabled is an upstream implementation detail that can change in a release and would silently reopen every `visible()`-only write at once. `FilamentActionDispatchContractTest` pins that upstream behaviour so an upgrade that changes it turns the build red; `ActionAuthzConformanceTest` enforces the layer we control.

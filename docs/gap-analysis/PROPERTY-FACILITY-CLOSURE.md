@@ -104,6 +104,17 @@ park-with-trigger) when its owning module's close-out comes up.
 | **DEFER — auto-apply a credit on next invoice issuance** — hook the billing run, idempotent/lock-safe, on top of the now-built `TenantCreditApplication` apply source (manual apply ships today) | **business_logic** | 06 | prepayment volume makes hands-off desirable. |
 | **Autopay / recurring / stored card**, and **batch (lockbox) receipt entry** — card-only + one-receipt-per-form today | **parity/med-low** | 06 | online-collection volume (autopay), or a daily cash-batch intake process (lockbox), makes them worth it. |
 
+### Correction (2026-07-31) — the `visible()`-only dispatch findings were over-severe
+
+Modules **08 (CAM)** and **09 (Sales & % Rent)** each recorded a **CRITICAL/HIGH authz hole**: write actions gated only in `visible()`, described as dispatchable via `mountAction`, with "N mountAction negative tests" cited as proof of the fix. Re-verified against the shipped framework:
+
+- `mountAction()` refuses **disabled** actions, and `CanBeDisabled::isDisabled()` returns true when `isHidden()` does (`vendor/filament/actions/src/Concerns/CanBeDisabled.php:24`). On **Filament v4.11.8 — the version in use when those sweeps ran** — a `visible()`-only action is therefore **refused at dispatch**.
+- Proven by mutation: deleting CAM's `abort_unless(self::canGenerate(...))` leaves `CamActionAuthzTest` **5/5 green**. Those tests pass because `visible()` blocks the dispatch; they never exercised the gate they were written to prove.
+
+**What stands:** the `abort_unless`/`->authorize()` additions are correct and stay — `->authorize()` is a stated intent, whereas hidden-implies-disabled is an upstream implementation detail that a release could change, silently reopening every `visible()`-only write at once. **What does not stand:** the CRITICAL/HIGH severity, and the claim that those tests demonstrated exploitability. No exploit was ever reproduced for either module.
+
+**Now guarded both ways:** `FilamentActionDispatchContractTest` pins the upstream behaviour (an upgrade that decouples it turns the build red), and `ActionAuthzConformanceTest` enforces the layer we control. The lesson is the general one this ledger already states — *prove a finding by exploiting it, and prove a fix by reverting it and watching the test fail.* Neither was done here.
+
 ## Closure records
 
 _One section per module as it closes, most recent first._

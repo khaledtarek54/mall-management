@@ -509,3 +509,8 @@ Scoping is **not** "only when a single property is selected". In **All-Propertie
 | Scoping Tests | `tests/Feature/Scenarios/ScopingScenarioTest.php` | Cross-property isolation, picker helpers |
 | Deletion Tests | `tests/Feature/Scenarios/DeleteAuthorizationScenarioTest.php` | Super_admin only, bulk delete disabled |
 
+---
+
+## Correction — the `visible()` dispatch premise (2026-07-31)
+
+**Correction 2026-07-31 — the "still dispatchable" half of this was WRONG on the version we ship.** `mountAction()` does check `isDisabled()`, and `CanBeDisabled::isDisabled()` returns true when `isHidden()` does (`vendor/filament/actions/src/Concerns/CanBeDisabled.php:24`), so on **Filament v4.11.8 a `visible()`-only action IS refused at dispatch**. Found by mutation-testing the module-08 fix: deleting CAM's `abort_unless` left `CamActionAuthzTest` fully green — those tests never exercised the gate they describe. **Double-gate anyway**, for a reason that survives the correction: `->authorize()` is a stated intent, while hidden-implies-disabled is an upstream implementation detail that can change in a release and would silently reopen every `visible()`-only write at once. `FilamentActionDispatchContractTest` pins that upstream behaviour so an upgrade that changes it turns the build red; `ActionAuthzConformanceTest` enforces the layer we control.
