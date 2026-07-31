@@ -39,9 +39,13 @@ it('values the register at cost − accumulated depreciation, scoped to the user
     $asset = makeRegisterAsset($this->mallA->id, 'FA-A', 1000);   // 100/mo over 10 months
     makeRegisterAsset($this->mallB->id, 'FA-B', 5000);            // another mall
     // Post 3 months of depreciation for mall A's asset → accumulated 300, NBV 700.
-    app(DepreciationService::class)->run(now(), [$this->mallA->id]);
-    app(DepreciationService::class)->run(now()->subMonth(), [$this->mallA->id]);
-    app(DepreciationService::class)->run(now()->subMonths(2), [$this->mallA->id]);
+    // Anchor at startOfMonth BEFORE subtracting: on a 31st, now()->subMonth() overflows to the
+    // 1st of the SAME month (June 31 doesn't exist → rolls to July 1), so run(now()) and
+    // run(now()->subMonth()) would both hit July and the second is idempotently skipped → only 2
+    // months post. startOfMonth()->subMonths(n) is the 1st every time — three distinct months.
+    app(DepreciationService::class)->run(now()->startOfMonth(), [$this->mallA->id]);
+    app(DepreciationService::class)->run(now()->startOfMonth()->subMonth(), [$this->mallA->id]);
+    app(DepreciationService::class)->run(now()->startOfMonth()->subMonths(2), [$this->mallA->id]);
 
     $this->actingAs(makeUser('accounting', [$this->mallA->id]));
 

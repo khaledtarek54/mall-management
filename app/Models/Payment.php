@@ -211,6 +211,16 @@ class Payment extends Model
      * payment and clamp the allocation. This prevents a credit applied to the
      * invoice between session-init and the callback from over-allocating it.
      *
+     * The fittable figure MUST mirror the three AR settlement channels that
+     * Invoice::recomputeTotals() and assertInvoicesNotOverAllocated() both count —
+     * captured payments, applied credit NOTES (credit_applied_amount) AND applied
+     * on-account tenant CREDIT (TenantCreditApplication). Omitting the last let the
+     * gateway over-settle an invoice whose balance a tenant credit had reduced
+     * between session-init and callback (pre-go-live sweep, HIGH): the card money
+     * cleared full while the credit also settled AR, burying the excess as negative
+     * AR. Now the surplus stays unallocated (a recoverable overpayment), exactly as
+     * the form path's throw-guard would have forced.
+     *
      * Call INSIDE the capture transaction, BEFORE flipping status to captured
      * (so this payment is still excluded from the "captured" sum).
      */
@@ -228,8 +238,13 @@ class Payment extends Model
                     ->where('payments.id', '!=', $this->getKey())
                     ->sum('invoice_payment.allocated_amount');
 
+                $appliedTenantCredit = (float) TenantCreditApplication::where('invoice_id', $invoice->getKey())->sum('amount');
+
                 $fittable = max(0.0, round(
-                    (float) $invoice->total - (float) $invoice->credit_applied_amount - $otherCaptured,
+                    (float) $invoice->total
+                        - (float) $invoice->credit_applied_amount
+                        - $appliedTenantCredit
+                        - $otherCaptured,
                     2,
                 ));
             }
