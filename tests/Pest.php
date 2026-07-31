@@ -10,8 +10,10 @@ use App\Models\Unit;
 use App\Models\User;
 use Filament\Facades\Filament;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Event;
 use Livewire\Features\SupportTesting\Testable;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -268,6 +270,95 @@ function scopedResourceQuery(string $resourceClass): Builder
     }
 
     return $query;
+}
+
+/**
+ * Put a record into the trashed state WITHOUT going through the deletion policy.
+ *
+ * `DeletionPolicy` refuses `->delete()` on money records (`NEVER_DELETABLE`) and on
+ * master data that history points at (`WHEN_UNUSED`) — `RefusesDeletionOfCommittedRecords`
+ * and `RefusesDeletionWhenReferenced` throw from the `deleting` hook. That is the product
+ * decision and it is correct.
+ *
+ * It also means a test can no longer ARRANGE the trashed state through the normal path,
+ * and several behaviours that still have to work are only observable from it:
+ *
+ *   - rows trashed BEFORE the refusal shipped (2026-07-31) are still in the database, and
+ *     `accounting:sync-ledger` must still void their journal entries;
+ *   - cascade paths trash children with the parent's `deleted_at` (fixed-asset depreciation
+ *     charges, vendor-bill payments), and the windowed sweep must still find them;
+ *   - readers must degrade safely when a parent has gone missing — the occupancy map with no
+ *     property, a payslip line whose employee left, a stock movement whose warehouse is gone.
+ *
+ * So this drops the refusal listener for the duration of the delete and re-arms it straight
+ * after — deliberately NOT `withoutEvents()`, which would also suppress `deleted` and
+ * `restoring`. Those carry the soft-delete CASCADES (a vendor bill stamps its payments with
+ * its own `deleted_at`; a fixed asset stamps its depreciation charges), and the sweep tests
+ * exist precisely to prove the cascade reaches the GL. Muting them would leave those tests
+ * green over a cascade that never ran.
+ *
+ * The refusal trait is the only `deleting` listener on every model this applies to, so
+ * forgetting that one event key removes the refusal and nothing else.
+ *
+ * Use it ONLY to arrange. Never use it to assert that deleting is possible — that is what
+ * `DeletionPolicyConformanceTest` and the per-model refusal tests are for, and they must keep
+ * calling `->delete()` directly so the refusal stays proven.
+ *
+ * @template T of Model
+ *
+ * @param  T  $model
+ * @return T
+ */
+function trashBypassingDeletionPolicy(Model $model): Model
+{
+    return withoutDeletionRefusal($model, fn () => $model->delete());
+}
+
+/**
+ * The hard-delete sibling of {@see trashBypassingDeletionPolicy()}.
+ *
+ * Only for arranging the aftermath of a row that is genuinely gone — e.g. proving a pivot
+ * cascades via the database's own foreign key. Same rule: arrange only, never assert.
+ *
+ * @template T of Model
+ *
+ * @param  T  $model
+ * @return T
+ */
+function forceDeleteBypassingDeletionPolicy(Model $model): Model
+{
+    return withoutDeletionRefusal($model, fn () => $model->forceDelete());
+}
+
+/**
+ * Run $operation with the model's deletion-refusal listener detached, then re-arm it.
+ *
+ * Re-arming matters: a test that arranges a trashed row and then asserts the refusal still
+ * bites would otherwise be asserting against a model whose guard we had quietly removed.
+ *
+ * @template T of Model
+ *
+ * @param  T  $model
+ * @return T
+ */
+function withoutDeletionRefusal(Model $model, callable $operation): Model
+{
+    $event = 'eloquent.deleting: '.$model::class;
+
+    Event::forget($event);
+
+    try {
+        $operation();
+    } finally {
+        // The trait's own boot method re-registers the `deleting` hook.
+        foreach (['bootRefusesDeletionOfCommittedRecords', 'bootRefusesDeletionWhenReferenced'] as $boot) {
+            if (method_exists($model, $boot)) {
+                $model::{$boot}();
+            }
+        }
+    }
+
+    return $model;
 }
 
 /*

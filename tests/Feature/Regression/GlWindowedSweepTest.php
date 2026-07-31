@@ -131,7 +131,7 @@ it('voids a vendor-bill payment entry when the payment is soft-deleted (F7)', fu
     expect(currentEntry($payment))->not->toBeNull();
 
     // Soft-delete is now possible (F7) — the sweep must void the orphaned entry.
-    $payment->delete();
+    trashBypassingDeletionPolicy($payment);
     $this->artisan('accounting:sync-ledger')->assertSuccessful();
 
     $entries = JournalEntry::where('source_type', $payment->getMorphClass())
@@ -159,7 +159,7 @@ it('voids a bill AND its payments on the windowed sweep when the bill is soft-de
     // Soft-delete the whole bill. The delete cascade must trash the payment too, so the
     // DAILY windowed sweep voids BOTH the bill's Cr-AP entry and the payment's Dr-AP/
     // Cr-Cash entry — otherwise AP/cash are left understated (the reviewer's High find).
-    $bill->delete();
+    trashBypassingDeletionPolicy($bill);
     $this->artisan('accounting:sync-ledger')->assertSuccessful(); // windowed, not --all
 
     $voided = fn ($src) => JournalEntry::where('source_type', $src->getMorphClass())

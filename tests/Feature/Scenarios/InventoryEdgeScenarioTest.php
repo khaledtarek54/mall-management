@@ -143,7 +143,7 @@ it('leaves on-hand and the ledger intact after a warehouse is soft-deleted (move
     $item = InventoryItem::create(['sku' => 'CABLE-1', 'name' => 'Cable', 'unit' => 'm', 'unit_cost' => 4]);
 
     $this->stock->receive($warehouse, $item, 20, 4);
-    $warehouse->delete(); // soft delete
+    trashBypassingDeletionPolicy($warehouse); // soft delete
 
     // The movement is NOT cascaded away; on-hand still counts it and the movement
     // still resolves its (trashed) warehouse for GL attribution.

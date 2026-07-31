@@ -198,7 +198,7 @@ it('restores ONLY the cascade-trashed charges, not one removed independently', f
     [$chargeA, $chargeB] = [$charges[0], $charges[1]];
 
     // Independently remove charge A, back-dated so its deleted_at can't collide.
-    $chargeA->delete();
+    trashBypassingDeletionPolicy($chargeA);
     DB::table('depreciation_entries')->where('id', $chargeA->id)->update(['deleted_at' => now()->subDays(5)]);
 
     $fa->delete();   // cascade-trashes only the still-live charge B (with the parent's deleted_at)

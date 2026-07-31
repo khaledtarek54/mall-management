@@ -153,7 +153,7 @@ it('refuses an invoice whose tenant has been archived', function () {
     // applies that scope — so an archived tenant resolves to null here. The old
     // code filed the document anyway: buyer "Unknown", tax id 000000000, and the
     // hardcoded Giza address. A tax document naming a buyer that does not exist.
-    $this->tenant->delete();
+    trashBypassingDeletionPolicy($this->tenant);
 
     expect(fn () => app(EtaJsonBuilder::class)->build($this->invoice->fresh()))
         ->toThrow(RuntimeException::class);

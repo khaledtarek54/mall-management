@@ -34,7 +34,7 @@ it('cascades the pivot when a department is hard-deleted', function () {
     $dept->members()->attach($user->id);
     $deptId = $dept->id;
 
-    $dept->forceDelete();
+    forceDeleteBypassingDeletionPolicy($dept);
 
     expect(DB::table('department_user')->where('department_id', $deptId)->count())->toBe(0);
 });

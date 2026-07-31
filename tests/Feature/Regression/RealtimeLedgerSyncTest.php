@@ -53,7 +53,7 @@ it('voids the entry when the sync job runs for a soft-deleted document', functio
     $invoice = realtimeInvoice();
     (new SyncDocumentToLedger(Invoice::class, $invoice->id))->handle(app(LedgerPoster::class));
 
-    $invoice->delete();
+    trashBypassingDeletionPolicy($invoice);
     (new SyncDocumentToLedger(Invoice::class, $invoice->id))->handle(app(LedgerPoster::class));
 
     expect(JournalEntry::where('source_id', $invoice->id)->where('status', 'void')->count())->toBe(1);

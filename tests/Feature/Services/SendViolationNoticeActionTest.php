@@ -39,7 +39,7 @@ it('treats a missing tenant as a safe no-op (not a crash, nothing stamped)', fun
         'description' => 'x',
         'violation_date' => now()->toDateString(),
     ]);
-    $violation->tenant->delete(); // tenant gone
+    trashBypassingDeletionPolicy($violation->tenant); // tenant gone
 
     expect(app(SendViolationNoticeAction::class)->handle($violation->fresh()))->toBeFalse()
         ->and($violation->fresh()->notified_at)->toBeNull();

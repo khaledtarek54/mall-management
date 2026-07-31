@@ -39,7 +39,7 @@ it('voids a posted entry when its source document is soft-deleted', function () 
     $this->poster->sync($invoice->fresh());
     expect(JournalEntry::where('status', 'posted')->count())->toBe(1);
 
-    $invoice->delete(); // soft-delete: the in-memory instance is now trashed()
+    trashBypassingDeletionPolicy($invoice); // soft-delete: the in-memory instance is now trashed()
 
     expect($this->poster->sync($invoice))->toBeNull();
 
@@ -68,7 +68,7 @@ it('voids a deleted document from a closed period via the current open period', 
     // Close the invoice's own period; the current period stays open.
     app(PeriodService::class)->closePeriod(AccountingPeriod::forDate($pastDate));
 
-    $invoice->delete();
+    trashBypassingDeletionPolicy($invoice);
 
     // Like any reversal, the void posts into the current open period (the original is closed).
     expect($this->poster->sync($invoice))->toBeNull();
@@ -83,7 +83,7 @@ it('voids a deleted document from a closed period via the current open period', 
 it('is idempotent — re-syncing an already-voided deleted document does nothing new', function () {
     $invoice = voidTestInvoice();
     $this->poster->sync($invoice->fresh());
-    $invoice->delete();
+    trashBypassingDeletionPolicy($invoice);
     $this->poster->sync($invoice); // first sweep voids it
 
     $countAfterVoid = JournalEntry::count();

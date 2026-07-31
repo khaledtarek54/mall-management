@@ -92,7 +92,7 @@ it('posts a vendor bill + its payment then voids both when the bill is cancelled
 
     // Reverse the payment (soft-delete self-heals its entry — Phase 0 F7), then cancel
     // the now-unpaid bill.
-    $payment->delete();
+    trashBypassingDeletionPolicy($payment);
     app(VendorBillService::class)->cancel($bill->refresh());
 
     gps_sync();
@@ -122,7 +122,7 @@ it('self-heals a vendor-bill payment to a voided entry on soft-delete while the 
     expect(gps_postedEntries($payment))->toHaveCount(1);
     expect(gps_balanced())->toBeTrue();
 
-    $payment->delete();
+    trashBypassingDeletionPolicy($payment);
     gps_sync();
 
     expect(gps_voidedCount($payment))->toBe(1);
@@ -303,7 +303,7 @@ it('posts a stock receipt then voids it on soft-delete', function () {
     expect(gps_postedEntries($movement))->toHaveCount(1);
     expect(gps_balanced())->toBeTrue();
 
-    $movement->delete();
+    trashBypassingDeletionPolicy($movement);
     gps_sync();
 
     expect(gps_voidedCount($movement))->toBe(1);

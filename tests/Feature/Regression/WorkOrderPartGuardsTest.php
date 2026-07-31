@@ -82,7 +82,7 @@ it('stops charging the job for a draw whose movement was voided', function () {
 
     expect($this->order->partsCost())->toBe(500.0);
 
-    StockMovement::find($part->stock_movement_id)->delete(); // void
+    trashBypassingDeletionPolicy(StockMovement::find($part->stock_movement_id)); // void
 
     expect((float) StockMovement::where('warehouse_id', $this->wh->id)->sum('quantity'))->toBe(50.0);
     expect($this->order->partsCost())->toBe(0.0);

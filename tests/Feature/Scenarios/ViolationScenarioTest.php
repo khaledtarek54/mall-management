@@ -223,7 +223,7 @@ it('contains a send failure — a violation with no tenant is a safe no-op, neve
     $violation = makeViolation($this->asset->id, $tenant->id);
 
     // Remove the recipient: $violation->tenant now resolves to null (soft-deleted).
-    $tenant->delete();
+    trashBypassingDeletionPolicy($tenant);
 
     $this->actingAs(makeUser('operations', [$this->asset->id]));
     Filament::setCurrentPanel(Filament::getPanel('admin'));

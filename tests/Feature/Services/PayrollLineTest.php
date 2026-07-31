@@ -141,7 +141,7 @@ it('keeps a soft-deleted employee resolvable on their payslip line (reproducible
     $employee = lineEmployee($asset->id, ['name' => 'Departed Staff']);
     $line = draftRun($asset->id)->lines()->create(['employee_id' => $employee->id, 'gross' => 9000, 'salary_tax' => 800, 'social_insurance' => 600]);
 
-    $employee->delete(); // staff turnover after the run
+    trashBypassingDeletionPolicy($employee); // staff turnover after the run
 
     // The line still resolves the (trashed) employee, so the payslip isn't anonymous.
     expect($line->fresh()->employee)->not->toBeNull();

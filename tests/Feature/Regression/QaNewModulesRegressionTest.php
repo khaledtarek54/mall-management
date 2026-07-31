@@ -69,7 +69,7 @@ it('keeps a stock movement GL-attributable after its warehouse is soft-deleted',
     $poster = app(LedgerPoster::class);
     expect($poster->sync($receipt->fresh()))->not->toBeNull();
 
-    $w->delete(); // soft-delete the warehouse (movement stays live)
+    trashBypassingDeletionPolicy($w); // soft-delete the warehouse (movement stays live)
 
     // The movement still resolves its (trashed) warehouse → asset_id → the entry is NOT voided.
     expect($poster->sync($receipt->fresh()))->not->toBeNull();
@@ -84,7 +84,7 @@ it('stops depreciating fixed assets whose property was soft-deleted', function (
         'acquisition_cost' => 12000, 'salvage_value' => 0, 'useful_life_months' => 12, 'method' => 'straight_line', 'funded_from' => 'cash',
     ]);
 
-    $property->delete(); // soft-delete the mall
+    trashBypassingDeletionPolicy($property); // soft-delete the mall
 
     expect(app(DepreciationService::class)->run(CarbonImmutable::parse($fa->acquisition_date)))->toBe(0);
 });

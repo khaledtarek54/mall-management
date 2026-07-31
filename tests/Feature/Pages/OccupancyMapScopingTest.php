@@ -80,8 +80,8 @@ it('returns no units at all when no property resolves', function () {
     // empty for a super_admin, isolating the page's own guard rather than
     // AssignedAssets' scoping rules.
     $this->actingAs(makeUser('super_admin'));
-    $this->hw->delete();
-    $this->pa->delete();
+    trashBypassingDeletionPolicy($this->hw);
+    trashBypassingDeletionPolicy($this->pa);
 
     $component = Livewire::test(OccupancyMap::class);
 

@@ -56,7 +56,7 @@ it('still freezes the share basis when a participant lease is soft-deleted betwe
     $svc->generateAllocations($pool);
     $svc->bill($pool->allocations()->where('lease_id', $leaseA->id)->sole());
 
-    $leaseB->delete(); // soft-delete a participant
+    trashBypassingDeletionPolicy($leaseB); // soft-delete a participant
     $svc->generateAllocations($pool);
 
     // A's frozen 5000 is untouched; the pinned set + frozen shares keep the tie-out.

@@ -481,6 +481,25 @@ the right row so the *daily* sweep re-derives them:
   stays best-effort (exit 0) and a legacy un-postable doc can't turn the cron red; a human
   operator's `--all` still exits non-zero to surface failures loudly.
 
+**How void-on-delete relates to the deletion policy (2026-07-31).** Since
+`App\Support\DeletionPolicy` shipped, an operator can no longer soft-delete any of these
+sources — `Invoice`, `VendorBill`, `VendorBillPayment`, `StockMovement` and
+`DepreciationEntry` are `NEVER_DELETABLE`, so the documented correction is cancel / void /
+credit note, and the reversal is what moves the GL. Void-on-delete is therefore **not** dead
+code, but it is no longer reached from an operator action. It still has to work for exactly
+two inputs:
+
+- **rows trashed before the refusal shipped**, which are still in the database and must still
+  void on the next sweep;
+- **cascades**, which are the live path — a bill's `deleted` hook stamps its payments, a fixed
+  asset's stamps its depreciation charges, and the *windowed* sweep must find both.
+
+Tests therefore arrange this state through `trashBypassingDeletionPolicy()`
+(`tests/Pest.php`), which detaches only the model's `deleting` refusal and re-arms it after.
+It deliberately does **not** use `withoutEvents()` — that would also mute `deleted`, the
+cascade would never run, and every cascade-sweep assertion above would pass over nothing.
+`DeletionPolicyTestHelperTest` pins both halves of that contract.
+
 **Document immutability — finalized AR documents are locked (Phase 1 hardening):** a posted
 AR/GL document must not be silently rewritten — corrections go through a void / re-issue or a
 credit note. The admin forms lock the money-affecting fields once a document is finalized,

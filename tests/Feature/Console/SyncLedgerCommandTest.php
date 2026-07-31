@@ -160,7 +160,7 @@ it('voids the entry when an invoice is later soft-deleted', function () {
     $invoice = syncInvoice();
     $this->artisan('accounting:sync-ledger --all')->assertSuccessful();
 
-    $invoice->delete(); // soft-delete a posted document
+    trashBypassingDeletionPolicy($invoice); // soft-delete a posted document
 
     $this->artisan('accounting:sync-ledger --all')->assertSuccessful();
 

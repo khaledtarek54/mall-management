@@ -391,7 +391,7 @@ it('voids a stock movement entry when the movement is soft-deleted', function ()
     $movement = app(\App\Services\StockMovementService::class)->receive($w, $i, 10, 25);
     expect($this->poster->sync($movement->fresh()))->not->toBeNull();
 
-    $movement->delete();
+    trashBypassingDeletionPolicy($movement);
 
     expect($this->poster->sync($movement->fresh()))->toBeNull();
     $inventory = LedgerAccount::where('code', '11301001')->first();

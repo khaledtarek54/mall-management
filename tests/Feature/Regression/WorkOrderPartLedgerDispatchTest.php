@@ -122,7 +122,7 @@ it('reverses the ledger when an issued draw is voided', function () {
     $part = approvedDraw(5);
     $this->artisan('accounting:sync-ledger')->assertExitCode(0);
 
-    StockMovement::find($part->stock_movement_id)->delete(); // void
+    trashBypassingDeletionPolicy(StockMovement::find($part->stock_movement_id)); // void
     $this->artisan('accounting:sync-ledger')->assertExitCode(0);
 
     $entry = JournalEntry::where('source_type', StockMovement::class)
