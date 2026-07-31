@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\StockMovements\Pages\ListStockMovements;
 use App\Filament\Admin\Resources\StockMovements\Tables\StockMovementsTable;
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\StockMovement;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -24,12 +25,30 @@ class StockMovementResource extends Resource
     // Filament's auto tenancy (StockMovement has no direct `asset` relationship).
     use BypassesFilamentTenantAutoScope;
     use RoleGatedActions;
+    use SearchesNormalizedText;
 
     protected static ?string $model = StockMovement::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowsUpDown;
 
     protected static ?int $navigationSort = 3;
+
+    /**
+     * By source-document reference, or by the item or store it moved.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return [
+            'search_text',
+            'item.search_text',
+            'warehouse.search_text',
+        ];
+    }
 
     protected static function permissionModule(): string
     {

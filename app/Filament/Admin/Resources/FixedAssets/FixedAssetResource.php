@@ -9,6 +9,7 @@ use App\Filament\Admin\Resources\FixedAssets\Pages\EditFixedAsset;
 use App\Filament\Admin\Resources\FixedAssets\Pages\ListFixedAssets;
 use App\Filament\Admin\Resources\FixedAssets\Schemas\FixedAssetForm;
 use App\Filament\Admin\Resources\FixedAssets\Tables\FixedAssetsTable;
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\FixedAsset;
 use App\Services\DepreciationService;
 use App\Support\TenantScope;
@@ -35,6 +36,7 @@ class FixedAssetResource extends Resource
     // re-validated by assertAssetInScope() on create + edit.
     use BypassesFilamentTenantAutoScope;
     use RoleGatedActions;
+    use SearchesNormalizedText;
 
     protected static ?string $model = FixedAsset::class;
 
@@ -111,9 +113,19 @@ class FixedAssetResource extends Resource
         return $query;
     }
 
+    /**
+     * Searched through the fold-normalized blob, never a raw column.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
     public static function getGloballySearchableAttributes(): array
     {
-        return ['name', 'tag'];
+        return [
+            'search_text',
+        ];
     }
 
     /**

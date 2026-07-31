@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSearchText;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -18,7 +19,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class Custody extends Model
 {
-    use HasFactory, LogsActivity, SoftDeletes;
+    use HasFactory, HasSearchText, LogsActivity, SoftDeletes;
 
     protected $fillable = [
         'employee_id',
@@ -35,6 +36,19 @@ class Custody extends Model
         'custody_date' => 'date',
         'amount' => 'decimal:2',
     ];
+
+    /**
+     * The عهدة reference and what it was advanced for.
+     *
+     * @return array<int, string|int|float|null>
+     */
+    public function searchTextSources(): array
+    {
+        return [
+            $this->reference,
+            $this->purpose,
+        ];
+    }
 
     public function getActivitylogOptions(): LogOptions
     {

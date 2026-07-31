@@ -2,6 +2,7 @@
 
 namespace App\Filament\Portal\Resources\TenantRequests;
 
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Filament\Portal\Resources\TenantRequests\Pages\CreateTenantRequest;
 use App\Filament\Portal\Resources\TenantRequests\Pages\ListTenantRequests;
 use App\Filament\Portal\Resources\TenantRequests\Pages\ViewTenantRequest;
@@ -19,6 +20,8 @@ use Illuminate\Support\Facades\Auth;
 
 class TenantRequestResource extends Resource
 {
+    use SearchesNormalizedText;
+
     protected static ?string $slug = 'requests';
 
     protected static ?string $model = TenantRequest::class;
@@ -28,6 +31,21 @@ class TenantRequestResource extends Resource
     protected static ?int $navigationSort = 3;
 
     protected static ?string $recordTitleAttribute = 'title';
+
+    /**
+     * By reference or subject, by the tenant, or by the unit it was raised against.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return [
+            'search_text',
+        ];
+    }
 
     public static function getNavigationLabel(): string
     {

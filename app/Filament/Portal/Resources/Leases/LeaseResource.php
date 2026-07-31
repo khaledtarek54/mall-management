@@ -2,6 +2,7 @@
 
 namespace App\Filament\Portal\Resources\Leases;
 
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Filament\Portal\Resources\Leases\Pages\ListLeases;
 use App\Filament\Portal\Resources\Leases\Pages\ViewLease;
 use App\Filament\Portal\Resources\Leases\Schemas\LeaseInfolist;
@@ -25,11 +26,29 @@ use Illuminate\Database\Eloquent\Builder;
  */
 class LeaseResource extends Resource
 {
+    use SearchesNormalizedText;
+
     protected static ?string $model = Lease::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentText;
 
     protected static ?int $navigationSort = 1;
+
+    /**
+     * By lease reference, or by the tenant or unit an operator names instead.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return [
+            'search_text',
+            'unit.search_text',
+        ];
+    }
 
     public static function getNavigationLabel(): string
     {

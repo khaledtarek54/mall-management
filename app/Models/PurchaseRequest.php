@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSearchText;
 use App\Support\ApprovalPolicy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -26,7 +27,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class PurchaseRequest extends Model
 {
-    use HasFactory, LogsActivity, SoftDeletes;
+    use HasFactory, HasSearchText, LogsActivity, SoftDeletes;
 
     public const STATUS_REQUESTED = 'requested';
 
@@ -82,6 +83,20 @@ class PurchaseRequest extends Model
         'status' => self::STATUS_REQUESTED,
         'total_value' => 0,
     ];
+
+    /**
+     * The request reference, plus the order and PO numbers it turns into downstream.
+     *
+     * @return array<int, string|int|float|null>
+     */
+    public function searchTextSources(): array
+    {
+        return [
+            $this->reference,
+            $this->order_reference,
+            $this->po_number,
+        ];
+    }
 
     public function getActivitylogOptions(): LogOptions
     {

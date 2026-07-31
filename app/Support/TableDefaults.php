@@ -2,8 +2,11 @@
 
 namespace App\Support;
 
+use App\Models\Concerns\HasSearchText;
+use App\Support\Search\SearchText;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Panel-wide defaults for EVERY Filament table (admin + portal + relation
@@ -47,6 +50,8 @@ class TableDefaults
     {
         Table::configureUsing(function (Table $table): void {
             $table
+                ->searchable([self::blobSearch()])
+                ->searchPlaceholder(fn (): string => __('admin.search.table_placeholder'))
                 ->persistFiltersInSession()
                 ->persistSearchInSession()
                 ->persistColumnSearchesInSession()
@@ -58,5 +63,47 @@ class TableDefaults
                 ->defaultPaginationPageOption(25)
                 ->paginationPageOptions([10, 25, 50, 100]);
         });
+    }
+
+    /**
+     * The extra search constraint every table gets: the model's fold-normalized
+     * `search_text` blob, ORed with whatever columns the table marks searchable.
+     *
+     * Registered here rather than table by table because the failure mode is
+     * silent and the list is long. Before this, 5 tables rendered no search box
+     * at all and 17 more searched exactly one column — `VendorsTable` searched
+     * `name` while global search covered `legal_name`, `tax_id`, `email` and
+     * `phone`, so the search bar could find a vendor by tax ID that the vendor
+     * LIST could not. Doing it centrally means table #48 inherits correct search
+     * instead of inheriting whichever column its author remembered to mark.
+     *
+     * The blob is the same one global search uses, so a list search folds Arabic
+     * and ignores punctuation exactly like the top bar does — «شركه» finds
+     * «شركة», `INV2026` finds `INV-2026`. Column-level `->searchable()` still
+     * works and still matters: it is what powers per-column search boxes and what
+     * reaches THROUGH a relation (`tenant.name`), which the blob deliberately
+     * cannot (see `HasSearchText`).
+     *
+     * Guarded, not assumed: relation managers and any model without the trait
+     * simply contribute nothing here, which leaves that table exactly as it was.
+     */
+    protected static function blobSearch(): \Closure
+    {
+        return function (Builder $query, string $search): Builder {
+            $model = $query->getModel();
+
+            if (! in_array(HasSearchText::class, class_uses_recursive($model), true)) {
+                return $query;
+            }
+
+            // Qualified: a table search that joins (or is a relation manager's
+            // query) would otherwise hit an ambiguous `search_text` the moment
+            // two joined tables both carry the column.
+            foreach (SearchText::words($search) as $word) {
+                $query->where($query->qualifyColumn('search_text'), 'like', '%'.$word.'%');
+            }
+
+            return $query;
+        };
     }
 }

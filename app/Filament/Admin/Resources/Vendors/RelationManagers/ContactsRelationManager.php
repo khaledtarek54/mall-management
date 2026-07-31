@@ -37,6 +37,12 @@ class ContactsRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
+            // No search box: VendorContact carries no `search_text` blob (it is not a
+            // record anyone hunts for by name) and this table marks no column
+            // searchable. Without this, TableDefaults' blob search would still render
+            // the box — and a search box that always returns nothing is worse than
+            // none, because it reads as "no such row". See App\Support\SearchPolicy.
+            ->searchable(false)
             ->columns([
                 TextColumn::make('name')->label(__('admin.fields.contact_person'))->weight('bold'),
                 TextColumn::make('role')->placeholder('—')->color('gray'),

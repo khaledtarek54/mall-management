@@ -21,6 +21,13 @@ use Illuminate\Database\Eloquent\Builder;
 
 class CamExpensePoolResource extends Resource
 {
+    /**
+     * Deliberately absent from global search — the reason is stated in
+     * App\Support\SearchPolicy::GLOBAL_SEARCH_EXEMPT, which the conformance
+     * gate reads. Do not flip this without removing that entry.
+     */
+    protected static bool $isGloballySearchable = false;
+
     // NOT Filament auto-tenancy: asset_id is CLIENT-supplied (the operator picks the mall, and that
     // Select is enabled in All-Properties mode). Filament's ownership `creating` hook would force
     // asset_id to the current tenant — and in All-mode the tenant is the ALL pseudo-asset, silently

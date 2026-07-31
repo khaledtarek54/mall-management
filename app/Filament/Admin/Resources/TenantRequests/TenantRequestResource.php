@@ -13,6 +13,7 @@ use App\Filament\Admin\Resources\TenantRequests\Pages\EditTenantRequest;
 use App\Filament\Admin\Resources\TenantRequests\Pages\ListTenantRequests;
 use App\Filament\Admin\Resources\TenantRequests\Schemas\TenantRequestForm;
 use App\Filament\Admin\Resources\TenantRequests\Tables\TenantRequestsTable;
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\TenantRequest;
 use App\Support\AssignmentScope;
 use BackedEnum;
@@ -28,6 +29,7 @@ class TenantRequestResource extends Resource
     protected static ?string $slug = 'requests';
 
     use GuardsAssetInScope;
+    use SearchesNormalizedText;
     use RoleGatedActions {
         canEdit as protected roleGatedCanEdit;
     }
@@ -159,9 +161,21 @@ class TenantRequestResource extends Resource
         ];
     }
 
+    /**
+     * By reference or subject, by the tenant, or by the unit it was raised against.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
     public static function getGloballySearchableAttributes(): array
     {
-        return ['reference', 'title', 'tenant.name', 'unit.code'];
+        return [
+            'search_text',
+            'tenant.search_text',
+            'unit.search_text',
+        ];
     }
 
     public static function getGlobalSearchResultDetails(Model $record): array

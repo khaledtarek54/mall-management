@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSearchText;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -19,7 +20,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class OwnerStatementRun extends Model
 {
-    use HasFactory, LogsActivity, SoftDeletes;
+    use HasFactory, HasSearchText, LogsActivity, SoftDeletes;
 
     public const STATUS_DRAFT = 'draft';
     public const STATUS_FINALISED = 'finalised';
@@ -73,6 +74,18 @@ class OwnerStatementRun extends Model
         'version' => 1,
         'status' => self::STATUS_DRAFT,
     ];
+
+    /**
+     * The run reference.
+     *
+     * @return array<int, string|int|float|null>
+     */
+    public function searchTextSources(): array
+    {
+        return [
+            $this->reference,
+        ];
+    }
 
     protected static function booted(): void
     {

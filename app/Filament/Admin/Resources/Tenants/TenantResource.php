@@ -15,6 +15,7 @@ use App\Filament\Admin\Resources\Tenants\Pages\EditTenant;
 use App\Filament\Admin\Resources\Tenants\Pages\ListTenants;
 use App\Filament\Admin\Resources\Tenants\Schemas\TenantForm;
 use App\Filament\Admin\Resources\Tenants\Tables\TenantsTable;
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\Tenant;
 use App\Support\TenantScope;
 use BackedEnum;
@@ -29,6 +30,7 @@ class TenantResource extends Resource
 {
     use RoleGatedActions;
     use ScopesViaProperty;
+    use SearchesNormalizedText;
 
     protected static function tenantScopeRelation(): string
     {
@@ -122,9 +124,19 @@ class TenantResource extends Resource
         ];
     }
 
+    /**
+     * Searched through the fold-normalized blob, never a raw column.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
     public static function getGloballySearchableAttributes(): array
     {
-        return ['name', 'legal_name', 'email', 'phone', 'contact_person'];
+        return [
+            'search_text',
+        ];
     }
 
     public static function getGlobalSearchResultDetails(Model $record): array

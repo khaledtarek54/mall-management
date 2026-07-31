@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -21,7 +22,7 @@ class Payroll extends Model
 {
     use RefusesDeletionOfCommittedRecords, \App\Models\Concerns\AllocatesDocumentNumber;
 
-    use HasFactory, LogsActivity, SoftDeletes;
+    use HasFactory, HasSearchText, LogsActivity, SoftDeletes;
 
     protected $fillable = [
         'number',
@@ -55,6 +56,19 @@ class Payroll extends Model
         'employer_social_insurance' => 'decimal:2',
         'net_paid' => 'decimal:2',
     ];
+
+    /**
+     * Payroll run number and its description.
+     *
+     * @return array<int, string|int|float|null>
+     */
+    public function searchTextSources(): array
+    {
+        return [
+            $this->number,
+            $this->description,
+        ];
+    }
 
     public function getActivitylogOptions(): LogOptions
     {

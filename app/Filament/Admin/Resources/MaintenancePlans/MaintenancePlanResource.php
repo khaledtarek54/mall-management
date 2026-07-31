@@ -9,6 +9,7 @@ use App\Filament\Admin\Resources\MaintenancePlans\Pages\EditMaintenancePlan;
 use App\Filament\Admin\Resources\MaintenancePlans\Pages\ListMaintenancePlans;
 use App\Filament\Admin\Resources\MaintenancePlans\Schemas\MaintenancePlanForm;
 use App\Filament\Admin\Resources\MaintenancePlans\Tables\MaintenancePlansTable;
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\MaintenancePlan;
 use App\Support\TenantScope;
 use BackedEnum;
@@ -33,6 +34,7 @@ class MaintenancePlanResource extends Resource
     // re-validated by assertAssetInScope() on create + edit.
     use BypassesFilamentTenantAutoScope;
     use RoleGatedActions;
+    use SearchesNormalizedText;
 
     protected static ?string $model = MaintenancePlan::class;
 
@@ -101,9 +103,19 @@ class MaintenancePlanResource extends Resource
         ];
     }
 
+    /**
+     * Searched through the fold-normalized blob, never a raw column.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
     public static function getGloballySearchableAttributes(): array
     {
-        return ['title'];
+        return [
+            'search_text',
+        ];
     }
 
     /** Server-side guard against a tampered `asset_id` (All-Properties mode). */

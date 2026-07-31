@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSearchText;
 use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasTenants;
@@ -34,7 +35,7 @@ use Stephenjude\FilamentTwoFactorAuthentication\TwoFactorAuthenticatable;
 class User extends Authenticatable implements FilamentUser, HasTenants
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, HasRoles, LogsActivity, Notifiable, TwoFactorAuthenticatable;
+    use HasFactory, HasRoles, HasSearchText, LogsActivity, Notifiable, TwoFactorAuthenticatable;
 
     public const STATUS_ACTIVE = 'active';
 
@@ -47,6 +48,19 @@ class User extends Authenticatable implements FilamentUser, HasTenants
      * @var array<string>
      */
     public const STATUSES = [self::STATUS_ACTIVE, self::STATUS_SUSPENDED];
+
+    /**
+     * Operator name and login email.
+     *
+     * @return array<int, string|int|float|null>
+     */
+    public function searchTextSources(): array
+    {
+        return [
+            $this->name,
+            $this->email,
+        ];
+    }
 
     /**
      * Track create/edit/delete on staff accounts so the ActivityLog page

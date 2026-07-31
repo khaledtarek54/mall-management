@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSearchText;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -20,7 +21,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class MaintenancePlan extends Model
 {
-    use HasFactory, LogsActivity, SoftDeletes;
+    use HasFactory, HasSearchText, LogsActivity, SoftDeletes;
 
     /** FR-PPM-02 — `years` was added 2026-07; see advanceDue() for the trap it closed. */
     public const FREQUENCY_UNITS = ['days', 'weeks', 'months', 'years'];
@@ -74,6 +75,20 @@ class MaintenancePlan extends Model
     protected $attributes = [
         'maintenance_type' => self::MAINTENANCE_TYPE_ROUTINE,
     ];
+
+    /**
+     * Plan title and what it covers.
+     *
+     * @return array<int, string|int|float|null>
+     */
+    public function searchTextSources(): array
+    {
+        return [
+            $this->title,
+            $this->category,
+            $this->description,
+        ];
+    }
 
     public function getActivitylogOptions(): LogOptions
     {

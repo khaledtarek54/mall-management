@@ -2,6 +2,7 @@
 
 namespace App\Filament\Portal\Resources\Payments;
 
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Filament\Portal\Resources\Payments\Pages\ListPayments;
 use App\Filament\Portal\Resources\Payments\Pages\ViewPayment;
 use App\Filament\Portal\Resources\Payments\Schemas\PaymentInfolist;
@@ -17,6 +18,8 @@ use Illuminate\Support\Facades\Auth;
 
 class PaymentResource extends Resource
 {
+    use SearchesNormalizedText;
+
     protected static ?string $model = Payment::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCreditCard;
@@ -24,6 +27,21 @@ class PaymentResource extends Resource
     protected static ?int $navigationSort = 2;
 
     protected static ?string $recordTitleAttribute = 'reference';
+
+    /**
+     * By receipt reference, by the cheque or gateway id on the bank statement, or by who paid.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return [
+            'search_text',
+        ];
+    }
 
     public static function getNavigationLabel(): string
     {

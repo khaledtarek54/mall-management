@@ -19,6 +19,13 @@ use Illuminate\Support\Facades\Auth;
 
 class TenantSalesDeclarationResource extends Resource
 {
+    /**
+     * Deliberately absent from global search — the reason is stated in
+     * App\Support\SearchPolicy::GLOBAL_SEARCH_EXEMPT, which the conformance
+     * gate reads. Do not flip this without removing that entry.
+     */
+    protected static bool $isGloballySearchable = false;
+
     protected static ?string $model = TenantSalesDeclaration::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPresentationChartLine;

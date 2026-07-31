@@ -13,6 +13,12 @@ class CamAllocationsTable
     public static function configure(Table $table): Table
     {
         return $table
+            // No search box: CamAllocation carries no `search_text` blob (it is not a
+            // record anyone hunts for by name) and this table marks no column
+            // searchable. Without this, TableDefaults' blob search would still render
+            // the box — and a search box that always returns nothing is worse than
+            // none, because it reads as "no such row". See App\Support\SearchPolicy.
+            ->searchable(false)
             ->columns([
                 TextColumn::make('pool.period_year')
                     ->label(__('admin.fields.period_year'))

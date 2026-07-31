@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Disbursements\Pages\ListDisbursements;
 use App\Filament\Admin\Resources\Disbursements\Tables\DisbursementsTable;
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\Disbursement;
 use App\Support\TenantScope;
 use BackedEnum;
@@ -23,6 +24,7 @@ class DisbursementResource extends Resource
 {
     use BypassesFilamentTenantAutoScope;
     use RoleGatedActions;
+    use SearchesNormalizedText;
 
     protected static ?string $model = Disbursement::class;
 
@@ -31,6 +33,21 @@ class DisbursementResource extends Resource
     protected static ?int $navigationSort = 5;
 
     protected static ?string $recordTitleAttribute = 'reference';
+
+    /**
+     * Searched through the fold-normalized blob, never a raw column.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return [
+            'search_text',
+        ];
+    }
 
     protected static function permissionModule(): string
     {

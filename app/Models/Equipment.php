@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSearchText;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -29,7 +30,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class Equipment extends Model
 {
-    use HasFactory, LogsActivity, SoftDeletes;
+    use HasFactory, HasSearchText, LogsActivity, SoftDeletes;
 
     /** "equipment" is uncountable — Laravel would infer this, but the reader shouldn't have to know that. */
     protected $table = 'equipment';
@@ -56,6 +57,22 @@ class Equipment extends Model
     protected $attributes = [
         'is_active' => true,
     ];
+
+    /**
+     * Asset code, both names, and where the machine physically stands.
+     *
+     * @return array<int, string|int|float|null>
+     */
+    public function searchTextSources(): array
+    {
+        return [
+            $this->code,
+            $this->name_en,
+            $this->name_ar,
+            $this->category,
+            $this->location,
+        ];
+    }
 
     public function getActivitylogOptions(): LogOptions
     {

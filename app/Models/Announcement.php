@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Jobs\BroadcastAnnouncement;
+use App\Models\Concerns\HasSearchText;
 use App\Services\SendAnnouncementAction;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -17,7 +18,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 class Announcement extends Model
 {
-    use SoftDeletes;
+    use HasSearchText, SoftDeletes;
 
     protected $fillable = [
         'asset_id',
@@ -32,6 +33,19 @@ class Announcement extends Model
         'sent_at' => 'datetime',
         'recipients_count' => 'integer',
     ];
+
+    /**
+     * Headline and body — an operator looks for the announcement by what it said.
+     *
+     * @return array<int, string|int|float|null>
+     */
+    public function searchTextSources(): array
+    {
+        return [
+            $this->title,
+            $this->body,
+        ];
+    }
 
     public function asset(): BelongsTo
     {

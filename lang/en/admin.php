@@ -440,6 +440,16 @@ return [
         ],
     ],
 
+    /*
+     | Search. The placeholder is deliberately concrete rather than a bare
+     | "Search": every list now searches the record's whole identity — its name,
+     | its document number, its reference — so saying so is the difference
+     | between an operator trying one field and giving up, and using it.
+     */
+    'search' => [
+        'table_placeholder' => 'Search by name, number or reference…',
+    ],
+
     'tabs' => [
         'all' => 'All',
         'draft' => 'Draft',

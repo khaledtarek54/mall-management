@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Models\Concerns\GuardsPostingDate;
 use App\Notifications\PaymentReceivedNotification;
@@ -15,7 +16,22 @@ use Spatie\Activitylog\Support\LogOptions;
 
 class Payment extends Model
 {
-    use RefusesDeletionOfCommittedRecords, GuardsPostingDate, HasFactory, LogsActivity, SoftDeletes;
+    use RefusesDeletionOfCommittedRecords, GuardsPostingDate, HasFactory, HasSearchText, LogsActivity, SoftDeletes;
+
+    /**
+     * Receipt reference, the cheque it came on, and the gateway's own transaction id —
+     * the last is what an operator has in hand when reconciling a bank statement.
+     *
+     * @return array<int, string|int|float|null>
+     */
+    public function searchTextSources(): array
+    {
+        return [
+            $this->reference,
+            $this->cheque_number,
+            $this->gateway_transaction_id,
+        ];
+    }
 
     /** The column this document's GL entry is dated from (LedgerRealtimeSync::SOURCE_DATE_COLUMNS). */
     public static function postingDateColumn(): string

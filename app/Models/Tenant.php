@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Notifications\TenantResetPasswordNotification;
 use Filament\Models\Contracts\FilamentUser;
@@ -23,10 +24,34 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 
 class Tenant extends Authenticatable implements CanResetPasswordContract, FilamentUser, HasMedia
 {
-    use RefusesDeletionWhenReferenced, CanResetPassword, HasApiTokens, HasFactory, InteractsWithMedia, LogsActivity, Notifiable, SoftDeletes;
+    use RefusesDeletionWhenReferenced, CanResetPassword, HasApiTokens, HasFactory, HasSearchText, InteractsWithMedia, LogsActivity, Notifiable, SoftDeletes;
 
     /** Identity paperwork — commercial register, tax card, trade licence. */
     public const DOCUMENTS_COLLECTION = 'documents';
+
+    /**
+     * Trade name, legal name and the contact a leasing officer actually knows, plus the
+     * business identifiers on the file. `national_id` is deliberately absent: it identifies a
+     * person, not a business, and nobody hunts a retailer by it.
+     *
+     * @return array<int, string|int|float|null>
+     */
+    public function searchTextSources(): array
+    {
+        return [
+            $this->name,
+            $this->legal_name,
+            $this->contact_person,
+            $this->email,
+            $this->phone,
+            $this->whatsapp,
+            $this->tax_id,
+            $this->commercial_register,
+            self::digitsOf($this->phone),
+            self::digitsOf($this->whatsapp),
+            self::digitsOf($this->contact_person_phone),
+        ];
+    }
 
     /**
      * Tenant documents live on a PRIVATE disk (not web-accessible). These are the

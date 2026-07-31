@@ -10,6 +10,7 @@ use App\Filament\Admin\Resources\PurchaseRequests\Pages\EditPurchaseRequest;
 use App\Filament\Admin\Resources\PurchaseRequests\Pages\ListPurchaseRequests;
 use App\Filament\Admin\Resources\PurchaseRequests\Schemas\PurchaseRequestForm;
 use App\Filament\Admin\Resources\PurchaseRequests\Tables\PurchaseRequestsTable;
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\PurchaseRequest;
 use App\Support\TenantScope;
 use BackedEnum;
@@ -33,6 +34,7 @@ class PurchaseRequestResource extends Resource
     // re-validated by assertAssetInScope() on create + edit.
     use BypassesFilamentTenantAutoScope;
     use RoleGatedActions;
+    use SearchesNormalizedText;
 
     protected static ?string $model = PurchaseRequest::class;
 
@@ -108,9 +110,19 @@ class PurchaseRequestResource extends Resource
         ];
     }
 
+    /**
+     * Searched through the fold-normalized blob, never a raw column.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
     public static function getGloballySearchableAttributes(): array
     {
-        return ['reference', 'order_reference'];
+        return [
+            'search_text',
+        ];
     }
 
     public static function assertAssetInScope(mixed $assetId): void

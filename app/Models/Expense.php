@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Models\Concerns\GuardsPostingDate;
 use Illuminate\Database\Eloquent\Builder;
@@ -22,7 +23,21 @@ class Expense extends Model
 {
     use RefusesDeletionOfCommittedRecords, \App\Models\Concerns\AllocatesDocumentNumber;
 
-    use GuardsPostingDate, HasFactory, LogsActivity, SoftDeletes;
+    use GuardsPostingDate, HasFactory, HasSearchText, LogsActivity, SoftDeletes;
+
+    /**
+     * Expense number, the external reference on the receipt, and what it was for.
+     *
+     * @return array<int, string|int|float|null>
+     */
+    public function searchTextSources(): array
+    {
+        return [
+            $this->number,
+            $this->reference,
+            $this->description,
+        ];
+    }
 
     /** The column this document's GL entry is dated from (LedgerRealtimeSync::SOURCE_DATE_COLUMNS). */
     public static function postingDateColumn(): string

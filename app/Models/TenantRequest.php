@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\TenantRequestType;
+use App\Models\Concerns\HasSearchText;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,7 +17,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 
 class TenantRequest extends Model implements HasMedia
 {
-    use HasFactory, InteractsWithMedia, LogsActivity, SoftDeletes;
+    use HasFactory, HasSearchText, InteractsWithMedia, LogsActivity, SoftDeletes;
 
     public const STATUSES = [
         'submitted',
@@ -41,6 +42,24 @@ class TenantRequest extends Model implements HasMedia
     ];
 
     public const OPEN_STATUSES = ['submitted', 'acknowledged', 'in_progress', 'awaiting_tenant'];
+
+    /**
+     * Reference and subject, plus the caller's name and number for a request phoned in
+     * by someone who is not a portal user — `caller_name` is the only identity those carry.
+     *
+     * @return array<int, string|int|float|null>
+     */
+    public function searchTextSources(): array
+    {
+        return [
+            $this->reference,
+            $this->title,
+            $this->description,
+            $this->caller_name,
+            $this->caller_phone,
+            self::digitsOf($this->caller_phone),
+        ];
+    }
 
     public function getActivitylogOptions(): LogOptions
     {

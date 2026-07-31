@@ -10,6 +10,7 @@ use App\Filament\Admin\Resources\Payrolls\Pages\EditPayroll;
 use App\Filament\Admin\Resources\Payrolls\Pages\ListPayrolls;
 use App\Filament\Admin\Resources\Payrolls\Schemas\PayrollForm;
 use App\Filament\Admin\Resources\Payrolls\Tables\PayrollsTable;
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\Payroll;
 use App\Models\PayrollLine;
 use BackedEnum;
@@ -29,6 +30,7 @@ class PayrollResource extends Resource
     use BypassesFilamentTenantAutoScope;
     use GuardsAssetInScope;
     use RoleGatedActions;
+    use SearchesNormalizedText;
 
     protected static ?string $model = Payroll::class;
 
@@ -99,9 +101,19 @@ class PayrollResource extends Resource
         return $query;
     }
 
+    /**
+     * Searched through the fold-normalized blob, never a raw column.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
     public static function getGloballySearchableAttributes(): array
     {
-        return ['number'];
+        return [
+            'search_text',
+        ];
     }
 
     /**

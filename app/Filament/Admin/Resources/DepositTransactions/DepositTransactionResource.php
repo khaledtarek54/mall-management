@@ -10,6 +10,7 @@ use App\Filament\Admin\Resources\DepositTransactions\Pages\EditDepositTransactio
 use App\Filament\Admin\Resources\DepositTransactions\Pages\ListDepositTransactions;
 use App\Filament\Admin\Resources\DepositTransactions\Schemas\DepositTransactionForm;
 use App\Filament\Admin\Resources\DepositTransactions\Tables\DepositTransactionsTable;
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\DepositTransaction;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -29,6 +30,7 @@ class DepositTransactionResource extends Resource
     use BypassesFilamentTenantAutoScope;
     use GuardsAssetInScope;
     use RoleGatedActions;
+    use SearchesNormalizedText;
 
     protected static ?string $model = DepositTransaction::class;
 
@@ -98,8 +100,19 @@ class DepositTransactionResource extends Resource
         return $query;
     }
 
+    /**
+     * By transaction number or by the lease the deposit sits against.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
     public static function getGloballySearchableAttributes(): array
     {
-        return ['number'];
+        return [
+            'search_text',
+            'lease.search_text',
+        ];
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSearchText;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,7 +16,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class OwnerRequest extends Model
 {
-    use HasFactory, LogsActivity, SoftDeletes;
+    use HasFactory, HasSearchText, LogsActivity, SoftDeletes;
 
     public const STATUSES = ['open', 'in_progress', 'resolved', 'closed', 'cancelled'];
 
@@ -24,6 +25,19 @@ class OwnerRequest extends Model
     public const RECIPIENTS = ['operator', 'owner'];
 
     public const PRIORITIES = ['low', 'medium', 'high'];
+
+    /**
+     * Reference and subject.
+     *
+     * @return array<int, string|int|float|null>
+     */
+    public function searchTextSources(): array
+    {
+        return [
+            $this->reference,
+            $this->subject,
+        ];
+    }
 
     public function getActivitylogOptions(): LogOptions
     {

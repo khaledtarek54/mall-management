@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSearchText;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class UtilityMeter extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, HasSearchText, SoftDeletes;
 
     public const TYPES = ['electric', 'water', 'gas'];
 
@@ -26,6 +27,19 @@ class UtilityMeter extends Model
         'unit_of_measurement',
         'rate_per_unit',
     ];
+
+    /**
+     * The number stamped on the meter, and the utility provider.
+     *
+     * @return array<int, string|int|float|null>
+     */
+    public function searchTextSources(): array
+    {
+        return [
+            $this->meter_number,
+            $this->provider,
+        ];
+    }
 
     public function asset(): BelongsTo
     {

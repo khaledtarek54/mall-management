@@ -7,6 +7,7 @@ use App\Filament\Admin\Resources\Users\Pages\EditUser;
 use App\Filament\Admin\Resources\Users\Pages\ListUsers;
 use App\Filament\Admin\Resources\Users\Schemas\UserForm;
 use App\Filament\Admin\Resources\Users\Tables\UsersTable;
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\User;
 use App\Support\AccessControlAudit;
 use BackedEnum;
@@ -14,11 +15,14 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 
 class UserResource extends Resource
 {
+    use SearchesNormalizedText;
+
     protected static ?string $model = User::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUsers;
@@ -181,9 +185,19 @@ class UserResource extends Resource
         ];
     }
 
+    /**
+     * Searched through the fold-normalized blob, never a raw column.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
     public static function getGloballySearchableAttributes(): array
     {
-        return ['name', 'email'];
+        return [
+            'search_text',
+        ];
     }
 
     public static function getGlobalSearchResultDetails(Model $record): array
@@ -192,5 +206,15 @@ class UserResource extends Resource
             __('admin.fields.email') => $record->email,
             __('admin.users.role') => $record->roles->pluck('name')->map(fn ($r) => __("admin.users.roles_list.{$r}", [], $r))->implode(', '),
         ];
+    }
+
+    /**
+     * Eager-load the roles the details above read. `$record->roles` is a
+     * many-to-many, so without this each result row costs its own pivot query on
+     * every keystroke.
+     */
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->with(['roles']);
     }
 }

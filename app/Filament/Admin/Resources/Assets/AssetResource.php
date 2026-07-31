@@ -8,6 +8,7 @@ use App\Filament\Admin\Resources\Assets\Pages\ListAssets;
 use App\Filament\Admin\Resources\Assets\Schemas\AssetForm;
 use App\Filament\Admin\Resources\Assets\Tables\AssetsTable;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\Asset;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -21,6 +22,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 class AssetResource extends Resource
 {
     use RoleGatedActions;
+    use SearchesNormalizedText;
 
     protected static ?string $model = Asset::class;
 
@@ -130,9 +132,19 @@ class AssetResource extends Resource
         return static::hasPermission('create');
     }
 
+    /**
+     * Searched through the fold-normalized blob, never a raw column.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
     public static function getGloballySearchableAttributes(): array
     {
-        return ['name', 'code', 'city'];
+        return [
+            'search_text',
+        ];
     }
 
     public static function getGlobalSearchResultDetails(Model $record): array

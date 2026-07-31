@@ -11,6 +11,7 @@ use App\Filament\Admin\Resources\MaintenanceWorkOrders\Pages\EditMaintenanceWork
 use App\Filament\Admin\Resources\MaintenanceWorkOrders\Pages\ListMaintenanceWorkOrders;
 use App\Filament\Admin\Resources\MaintenanceWorkOrders\Schemas\MaintenanceWorkOrderForm;
 use App\Filament\Admin\Resources\MaintenanceWorkOrders\Tables\MaintenanceWorkOrdersTable;
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\MaintenanceWorkOrder;
 use App\Support\AssignmentScope;
 use App\Support\TenantScope;
@@ -20,6 +21,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Preventive-maintenance work orders (module 26) — the operational surface: the raised
@@ -37,6 +39,7 @@ class MaintenanceWorkOrderResource extends Resource
     // re-validated by assertAssetInScope() on create + edit.
     use BypassesFilamentTenantAutoScope;
     use RoleGatedActions;
+    use SearchesNormalizedText;
 
     protected static ?string $model = MaintenanceWorkOrder::class;
 
@@ -125,9 +128,21 @@ class MaintenanceWorkOrderResource extends Resource
         return AssignmentScope::apply($query, 'preventive_maintenance', 'assigned_to_user_id');
     }
 
+    /**
+     * By work-order reference or subject, or by the equipment or zone it targets.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
     public static function getGloballySearchableAttributes(): array
     {
-        return ['reference', 'title'];
+        return [
+            'search_text',
+            'equipment.search_text',
+            'area.search_text',
+        ];
     }
 
     public static function assertAssetInScope(mixed $assetId): void
@@ -137,4 +152,34 @@ class MaintenanceWorkOrderResource extends Resource
             abort(403);
         }
     }
+    /**
+     * Context under the title. A bare reference does not tell an operator whether the
+     * row in front of them is the one they were hunting for.
+     *
+     * @param  MaintenanceWorkOrder  $record  Narrowed from Filament's Model signature so static analysis
+     *                    can see the columns — the alternative was ten baseline entries.
+     */
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        /** @var \App\Models\Unit|null $unit */
+        $unit = $record->unit;
+        /** @var \App\Models\Area|null $area */
+        $area = $record->area;
+
+        return [
+            __('admin.fields.category') => $record->category,
+            __('admin.tables.common.unit') => $unit->code ?? $area?->name,
+            __('admin.fields.priority') => $record->priority,
+        ];
+    }
+
+    /**
+     * Eager-load exactly what getGlobalSearchResultDetails() reaches for. Without this
+     * the details above fire one query per row, per keystroke, on top of the search.
+     */
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->with(['unit', 'area']);
+    }
+
 }

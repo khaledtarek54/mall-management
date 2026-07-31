@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -18,7 +19,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class InventoryItem extends Model
 {
-    use RefusesDeletionWhenReferenced, HasFactory, LogsActivity, SoftDeletes;
+    use RefusesDeletionWhenReferenced, HasFactory, HasSearchText, LogsActivity, SoftDeletes;
 
     protected $fillable = [
         'sku',
@@ -35,6 +36,20 @@ class InventoryItem extends Model
         'reorder_level' => 'decimal:3',
         'is_active' => 'boolean',
     ];
+
+    /**
+     * SKU and item name.
+     *
+     * @return array<int, string|int|float|null>
+     */
+    public function searchTextSources(): array
+    {
+        return [
+            $this->sku,
+            $this->name,
+            $this->category,
+        ];
+    }
 
     public function getActivitylogOptions(): LogOptions
     {

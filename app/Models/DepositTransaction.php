@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Models\Concerns\GuardsPostingDate;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -21,7 +22,19 @@ class DepositTransaction extends Model
 {
     use RefusesDeletionOfCommittedRecords, \App\Models\Concerns\AllocatesDocumentNumber;
 
-    use GuardsPostingDate, HasFactory, LogsActivity, SoftDeletes;
+    use GuardsPostingDate, HasFactory, HasSearchText, LogsActivity, SoftDeletes;
+
+    /**
+     * The transaction number.
+     *
+     * @return array<int, string|int|float|null>
+     */
+    public function searchTextSources(): array
+    {
+        return [
+            $this->number,
+        ];
+    }
 
     /** The column this document's GL entry is dated from (LedgerRealtimeSync::SOURCE_DATE_COLUMNS). */
     public static function postingDateColumn(): string

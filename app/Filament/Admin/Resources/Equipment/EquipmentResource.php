@@ -10,6 +10,7 @@ use App\Filament\Admin\Resources\Equipment\Pages\EditEquipment;
 use App\Filament\Admin\Resources\Equipment\Pages\ListEquipment;
 use App\Filament\Admin\Resources\Equipment\Schemas\EquipmentForm;
 use App\Filament\Admin\Resources\Equipment\Tables\EquipmentTable;
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\Equipment;
 use App\Support\TenantScope;
 use BackedEnum;
@@ -18,6 +19,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * The maintainable-asset register (FR-PPM-03/04/05) — scoped to the current property
@@ -36,6 +38,7 @@ class EquipmentResource extends Resource
     use BypassesFilamentTenantAutoScope;
     use GuardsAssetInScope;
     use RoleGatedActions;
+    use SearchesNormalizedText;
 
     protected static ?string $model = Equipment::class;
 
@@ -104,8 +107,33 @@ class EquipmentResource extends Resource
         ];
     }
 
+    /**
+     * Searched through the fold-normalized blob, never a raw column.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
     public static function getGloballySearchableAttributes(): array
     {
-        return ['code', 'name_en', 'name_ar'];
+        return [
+            'search_text',
+        ];
     }
+    /**
+     * Context under the title. A bare reference does not tell an operator whether the
+     * row in front of them is the one they were hunting for.
+     *
+     * @param  Equipment  $record  Narrowed from Filament's Model signature so static analysis
+     *                    can see the columns — the alternative was ten baseline entries.
+     */
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        return [
+            __('admin.fields.category') => $record->category,
+            __('admin.tables.meter.location') => $record->location,
+        ];
+    }
+
 }

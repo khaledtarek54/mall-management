@@ -9,6 +9,7 @@ use App\Filament\Admin\Resources\Announcements\Tables\AnnouncementsTable;
 use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\Announcement;
 use App\Support\TenantScope;
 use BackedEnum;
@@ -17,6 +18,8 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 /**
  * Operator broadcasts to a property's active tenants (bell + mobile push).
@@ -39,6 +42,7 @@ class AnnouncementResource extends Resource
     use BypassesFilamentTenantAutoScope;
     use GuardsAssetInScope;
     use RoleGatedActions;
+    use SearchesNormalizedText;
 
     protected static ?string $model = Announcement::class;
 
@@ -107,8 +111,32 @@ class AnnouncementResource extends Resource
         ];
     }
 
+    /**
+     * Searched through the fold-normalized blob, never a raw column.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
     public static function getGloballySearchableAttributes(): array
     {
-        return ['title', 'body'];
+        return [
+            'search_text',
+        ];
     }
+    /**
+     * Context under the title. A bare reference does not tell an operator whether the
+     * row in front of them is the one they were hunting for.
+     *
+     * @param  Announcement  $record  Narrowed from Filament's Model signature so static analysis
+     *                    can see the columns — the alternative was ten baseline entries.
+     */
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        return [
+            __('admin.fields.description') => Str::limit((string) $record->body, 80),
+        ];
+    }
+
 }

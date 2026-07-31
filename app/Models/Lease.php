@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -18,13 +19,26 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 
 class Lease extends Model implements HasMedia
 {
-    use RefusesDeletionWhenReferenced, HasFactory, InteractsWithMedia, LogsActivity, SoftDeletes;
+    use RefusesDeletionWhenReferenced, HasFactory, HasSearchText, InteractsWithMedia, LogsActivity, SoftDeletes;
 
     /** The signed contract + supporting paperwork. */
     public const DOCUMENTS_COLLECTION = 'documents';
 
     /** Terminal lease states — immutable once reached (CLAUDE.md invariant). */
     public const TERMINAL_STATUSES = ['terminated', 'expired', 'cancelled', 'renewed'];
+
+    /**
+     * A lease is found by its reference. Tenant and unit are reached through relation
+     * search against THEIR blobs — never copied into this one (see the trait docblock).
+     *
+     * @return array<int, string|int|float|null>
+     */
+    public function searchTextSources(): array
+    {
+        return [
+            $this->reference,
+        ];
+    }
 
     protected static function booted(): void
     {

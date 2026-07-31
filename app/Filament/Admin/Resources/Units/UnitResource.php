@@ -10,6 +10,7 @@ use App\Filament\Admin\Resources\Units\Pages\EditUnit;
 use App\Filament\Admin\Resources\Units\Pages\ListUnits;
 use App\Filament\Admin\Resources\Units\Schemas\UnitForm;
 use App\Filament\Admin\Resources\Units\Tables\UnitsTable;
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\Unit;
 use App\Support\TenantScope;
 use BackedEnum;
@@ -31,6 +32,7 @@ class UnitResource extends Resource
     use BypassesFilamentTenantAutoScope;
     use GuardsAssetInScope;
     use RoleGatedActions;
+    use SearchesNormalizedText;
 
     protected static ?string $model = Unit::class;
 
@@ -39,6 +41,23 @@ class UnitResource extends Resource
     protected static ?int $navigationSort = 2;
 
     protected static ?string $recordTitleAttribute = 'code';
+
+    /**
+     * By unit code, by property, or by whoever is trading there right now.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return [
+            'search_text',
+            'asset.search_text',
+            'activeLease.tenant.search_text',
+        ];
+    }
 
     /** Property-scope the list ourselves (Filament auto-tenancy is off — see the trait note above). */
     public static function getEloquentQuery(): Builder
@@ -127,11 +146,6 @@ class UnitResource extends Resource
     public static function getNavigationBadgeColor(): ?string
     {
         return 'danger';
-    }
-
-public static function getGloballySearchableAttributes(): array
-    {
-        return ['code', 'asset.name', 'activeLease.tenant.name'];
     }
 
     public static function getGlobalSearchResultDetails(Model $record): array

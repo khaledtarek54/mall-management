@@ -9,6 +9,7 @@ use App\Filament\Admin\Resources\Departments\Pages\EditDepartment;
 use App\Filament\Admin\Resources\Departments\Pages\ListDepartments;
 use App\Filament\Admin\Resources\Departments\Schemas\DepartmentForm;
 use App\Filament\Admin\Resources\Departments\Tables\DepartmentsTable;
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\Department;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -22,6 +23,7 @@ class DepartmentResource extends Resource
 {
     use GuardsAssetInScope;
     use RoleGatedActions;
+    use SearchesNormalizedText;
 
     protected static ?string $model = Department::class;
 
@@ -119,8 +121,18 @@ class DepartmentResource extends Resource
             ->withoutGlobalScopes([SoftDeletingScope::class]);
     }
 
+    /**
+     * Searched through the fold-normalized blob, never a raw column.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
     public static function getGloballySearchableAttributes(): array
     {
-        return ['name', 'code'];
+        return [
+            'search_text',
+        ];
     }
 }

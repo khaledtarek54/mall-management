@@ -9,6 +9,7 @@ use App\Filament\Admin\Resources\Warehouses\Pages\EditWarehouse;
 use App\Filament\Admin\Resources\Warehouses\Pages\ListWarehouses;
 use App\Filament\Admin\Resources\Warehouses\Schemas\WarehouseForm;
 use App\Filament\Admin\Resources\Warehouses\Tables\WarehousesTable;
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\Warehouse;
 use App\Support\TenantScope;
 use BackedEnum;
@@ -32,6 +33,7 @@ class WarehouseResource extends Resource
     // re-validated by assertAssetInScope() on create + edit.
     use BypassesFilamentTenantAutoScope;
     use RoleGatedActions;
+    use SearchesNormalizedText;
 
     protected static ?string $model = Warehouse::class;
 
@@ -100,9 +102,19 @@ class WarehouseResource extends Resource
         ];
     }
 
+    /**
+     * Searched through the fold-normalized blob, never a raw column.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
     public static function getGloballySearchableAttributes(): array
     {
-        return ['name', 'code'];
+        return [
+            'search_text',
+        ];
     }
 
     /**

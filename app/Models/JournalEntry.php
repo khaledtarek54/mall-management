@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -22,7 +23,7 @@ class JournalEntry extends Model
 {
     use RefusesDeletionOfCommittedRecords, \App\Models\Concerns\AllocatesDocumentNumber;
 
-    use HasFactory, LogsActivity, SoftDeletes;
+    use HasFactory, HasSearchText, LogsActivity, SoftDeletes;
 
     protected $fillable = [
         'number',
@@ -49,6 +50,20 @@ class JournalEntry extends Model
         'posted_at' => 'datetime',
         'voided_at' => 'datetime',
     ];
+
+    /**
+     * Entry number and its bilingual narration — an accountant searches the narration.
+     *
+     * @return array<int, string|int|float|null>
+     */
+    public function searchTextSources(): array
+    {
+        return [
+            $this->number,
+            $this->description_en,
+            $this->description_ar,
+        ];
+    }
 
     public function getActivitylogOptions(): LogOptions
     {

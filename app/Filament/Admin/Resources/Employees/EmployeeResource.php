@@ -9,6 +9,7 @@ use App\Filament\Admin\Resources\Employees\Pages\EditEmployee;
 use App\Filament\Admin\Resources\Employees\Pages\ListEmployees;
 use App\Filament\Admin\Resources\Employees\Schemas\EmployeeForm;
 use App\Filament\Admin\Resources\Employees\Tables\EmployeesTable;
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\Employee;
 use App\Support\TenantScope;
 use BackedEnum;
@@ -17,6 +18,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Employee master (module 24 — HR), scoped to the current property (direct
@@ -33,6 +35,7 @@ class EmployeeResource extends Resource
     // re-validated by assertAssetInScope() on create + edit.
     use BypassesFilamentTenantAutoScope;
     use RoleGatedActions;
+    use SearchesNormalizedText;
 
     protected static ?string $model = Employee::class;
 
@@ -108,9 +111,20 @@ class EmployeeResource extends Resource
         ];
     }
 
+    /**
+     * By name, staff code or national id, or by department.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
     public static function getGloballySearchableAttributes(): array
     {
-        return ['name', 'code', 'national_id'];
+        return [
+            'search_text',
+            'department.search_text',
+        ];
     }
 
     /**
@@ -126,4 +140,32 @@ class EmployeeResource extends Resource
             abort(403);
         }
     }
+    /**
+     * Context under the title. A bare reference does not tell an operator whether the
+     * row in front of them is the one they were hunting for.
+     *
+     * @param  Employee  $record  Narrowed from Filament's Model signature so static analysis
+     *                    can see the columns — the alternative was ten baseline entries.
+     */
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        /** @var \App\Models\Department|null $department */
+        $department = $record->department;
+
+        return [
+            __('admin.fields.reference') => $record->code,
+            __('admin.fields.role') => $record->position,
+            __('admin.tables.department.name') => $department?->name,
+        ];
+    }
+
+    /**
+     * Eager-load exactly what getGlobalSearchResultDetails() reaches for. Without this
+     * the details above fire one query per row, per keystroke, on top of the search.
+     */
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->with(['department']);
+    }
+
 }

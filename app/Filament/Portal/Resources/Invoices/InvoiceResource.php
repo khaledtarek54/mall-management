@@ -2,6 +2,7 @@
 
 namespace App\Filament\Portal\Resources\Invoices;
 
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Filament\Portal\Resources\Invoices\Pages\ListInvoices;
 use App\Filament\Portal\Resources\Invoices\Pages\ViewInvoice;
 use App\Filament\Portal\Resources\Invoices\Schemas\InvoiceInfolist;
@@ -17,6 +18,8 @@ use Illuminate\Support\Facades\Auth;
 
 class InvoiceResource extends Resource
 {
+    use SearchesNormalizedText;
+
     protected static ?string $model = Invoice::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBanknotes;
@@ -24,6 +27,21 @@ class InvoiceResource extends Resource
     protected static ?int $navigationSort = 1;
 
     protected static ?string $recordTitleAttribute = 'number';
+
+    /**
+     * An invoice is hunted by its number, but just as often by who it is for or which unit it billed.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return [
+            'search_text',
+        ];
+    }
 
     public static function getNavigationLabel(): string
     {

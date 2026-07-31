@@ -5,6 +5,7 @@ namespace App\Providers\Filament;
 use App\Filament\Portal\Widgets\AccountBalance;
 use App\Filament\Portal\Widgets\OpenTenantRequests;
 use App\Http\Middleware\SetLocale;
+use App\Support\Search\AtriomGlobalSearchProvider;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -48,6 +49,18 @@ class PortalPanelProvider extends PanelProvider
             ->brandLogoHeight('2.5rem')
             ->favicon(asset('atriom-favicon.svg'))
             ->authGuard('portal')
+            // The portal had a live global search bar that nobody had configured:
+            // whichever of its resources happened to carry a $recordTitleAttribute
+            // was searchable, the other three were not, and a tenant typing one
+            // character triggered a scan of every one of them. Same provider as
+            // the admin panel, so the length floor, the ordering and the
+            // exact-match promotion behave identically on both sides. Tenant
+            // scoping is unaffected — it lives in each resource's
+            // getEloquentQuery(), which global search runs through.
+            ->globalSearch(AtriomGlobalSearchProvider::class)
+            ->globalSearchKeyBindings(['command+k', 'ctrl+k'])
+            ->globalSearchFieldKeyBindingSuffix()
+            ->globalSearchDebounce('400ms')
             ->discoverResources(in: app_path('Filament/Portal/Resources'), for: 'App\\Filament\\Portal\\Resources')
             ->discoverPages(in: app_path('Filament/Portal/Pages'), for: 'App\\Filament\\Portal\\Pages')
             ->pages([

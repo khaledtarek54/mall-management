@@ -10,6 +10,7 @@ use App\Filament\Admin\Resources\CreditNotes\Tables\CreditNotesTable;
 use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\CreditNote;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -25,6 +26,7 @@ class CreditNoteResource extends Resource
     use BypassesFilamentTenantAutoScope;
     use GuardsAssetInScope;
     use RoleGatedActions;
+    use SearchesNormalizedText;
 
     protected static ?string $model = CreditNote::class;
 
@@ -104,9 +106,21 @@ class CreditNoteResource extends Resource
         return $query;
     }
 
+    /**
+     * By note number, by tenant, or by the invoice it credits.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
     public static function getGloballySearchableAttributes(): array
     {
-        return ['number', 'tenant.name', 'invoice.number'];
+        return [
+            'search_text',
+            'tenant.search_text',
+            'invoice.search_text',
+        ];
     }
 
     public static function getGlobalSearchResultDetails(Model $record): array
@@ -116,6 +130,15 @@ class CreditNoteResource extends Resource
             __('admin.tables.credit_note.total') => 'EGP ' . number_format((float) $record->total, 2),
             __('admin.tables.common.status') => __("admin.statuses.credit_note.{$record->status}"),
         ];
+    }
+
+    /**
+     * Eager-load the tenant the details above name. Without it, the detail line
+     * fires one query per result row on every keystroke.
+     */
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->with(['tenant']);
     }
 
     public static function getNavigationBadge(): ?string

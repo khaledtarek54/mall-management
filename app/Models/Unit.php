@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -13,7 +14,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Unit extends Model
 {
-    use RefusesDeletionWhenReferenced, HasFactory, SoftDeletes;
+    use RefusesDeletionWhenReferenced, HasFactory, HasSearchText, SoftDeletes;
 
     protected $fillable = [
         'asset_id',
@@ -31,6 +32,20 @@ class Unit extends Model
         'features' => 'array',
         'area_sqm' => 'decimal:2',
     ];
+
+    /**
+     * Unit code is the whole identity of a unit — `A-102`, `G-15`. Floor rides along so
+     * "ground A-1" narrows the way an operator says it.
+     *
+     * @return array<int, string|int|float|null>
+     */
+    public function searchTextSources(): array
+    {
+        return [
+            $this->code,
+            $this->floor,
+        ];
+    }
 
     /** @return BelongsTo<Asset, $this> */
     public function asset(): BelongsTo

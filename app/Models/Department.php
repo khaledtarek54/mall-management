@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Support\AccessControlAudit;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -24,7 +25,20 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class Department extends Model
 {
-    use RefusesDeletionWhenReferenced, HasFactory, LogsActivity, SoftDeletes;
+    use RefusesDeletionWhenReferenced, HasFactory, HasSearchText, LogsActivity, SoftDeletes;
+
+    /**
+     * Department name and code.
+     *
+     * @return array<int, string|int|float|null>
+     */
+    public function searchTextSources(): array
+    {
+        return [
+            $this->name,
+            $this->code,
+        ];
+    }
 
     public function getActivitylogOptions(): LogOptions
     {

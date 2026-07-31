@@ -27,9 +27,9 @@ Sanctum (mobile API auth) · Spatie (permissions, media, activity-log, settings)
 
 | | | | |
 |---|---|---|---|
-| **77** models | **104** services | **42** admin resources | **6** portal resources |
-| **39** API controllers | **17** dashboard widgets | **31** console commands | **6** queued jobs |
-| **28** notifications | **152** migrations | **33** module docs | **485** test files |
+| **77** models | **105** services | **42** admin resources | **6** portal resources |
+| **39** API controllers | **17** dashboard widgets | **34** console commands | **6** queued jobs |
+| **28** notifications | **153** migrations | **34** module docs | **491** test files |
 
 ### Coverage — what the gates actually enforce
 
@@ -38,7 +38,7 @@ Sanctum (mobile API auth) · Spatie (permissions, media, activity-log, settings)
 | **Property isolation** | 77 models classified — 61 property-owned, 15 shared, 1 self. Gated by `PropertyIsolationConformanceTest`. |
 | **General ledger** | 21 posting sources, 21 journalizer classes — every one registered. One registry (`LedgerPoster::JOURNALIZERS`) that all four dispatch paths derive from; gated by `GlRegistryConformanceTest`. |
 | **E2E smoke** | Every admin resource + page, from `tests/e2e/filament-admin-manifest.json`; 22 specs. Gated by `AdminSmokeManifestConformanceTest`. |
-| **Tests** | 485 files — 85 scenario, 181 regression. |
+| **Tests** | 491 files — 87 scenario, 185 regression. |
 | **Module flags** | 16 toggleable modules (`App\Support\Modules`). |
 
 **Scheduled automation** — commands: `cam:reconcile` · `accounting:post-depreciation` · `vendors:expire-contracts` · `vendors:scan-document-expiry` · `vendors:scan-contract-renewals` · `activitylog:clean` · `requests:auto-close` · `maintenance:generate-preventive` · `requests:scan-sla-breaches` · `maintenance:scan-wo-sla-breaches` · `billing:scan-overdue-invoices` · `sales:scan-missing-declarations` · `inventory:scan-low-stock` · `leases:apply-escalations` · `pdc:scan-maturing` · `billing:remind-overdue-tenants` · `leases:remind-expiring` · `marketing:ensure-budgets` · `accounting:sync-ledger` · `accounting:sync-ledger --all --scheduled` · `backup:clean` · `backup:run` · `backup:monitor` · `atriom:backup-verify`
@@ -46,9 +46,9 @@ Sanctum (mobile API auth) · Spatie (permissions, media, activity-log, settings)
 
 ### Gap-analysis coverage
 
-**29 of 33** modules have ever been gap-analysed (`docs/gap-analysis/NN-*.md`). A module with a doc but no gap analysis has been *described*, never *audited* — and round 2 found six 🔴 money bugs in the eight modules that were in exactly that state.
+**29 of 34** modules have ever been gap-analysed (`docs/gap-analysis/NN-*.md`). A module with a doc but no gap analysis has been *described*, never *audited* — and round 2 found six 🔴 money bugs in the eight modules that were in exactly that state.
 
-**Never gap-analysed:** 30 — Areas · 31 — Violations · 32 — Owner Statements · 33 — Post Dated Cheques — see [gap-analysis/000-progress.md](gap-analysis/000-progress.md).
+**Never gap-analysed:** 30 — Areas · 31 — Violations · 32 — Owner Statements · 33 — Post Dated Cheques · 34 — Search — see [gap-analysis/000-progress.md](gap-analysis/000-progress.md).
 
 <!-- census:end -->
 

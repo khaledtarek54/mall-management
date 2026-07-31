@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSearchText;
 use App\Support\PostingDate;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -21,7 +22,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class FixedAsset extends Model
 {
-    use HasFactory, LogsActivity, SoftDeletes;
+    use HasFactory, HasSearchText, LogsActivity, SoftDeletes;
 
     protected $fillable = [
         'asset_id',
@@ -46,6 +47,20 @@ class FixedAsset extends Model
         'salvage_value' => 'decimal:2',
         'useful_life_months' => 'integer',
     ];
+
+    /**
+     * Asset name and the tag physically stuck on it.
+     *
+     * @return array<int, string|int|float|null>
+     */
+    public function searchTextSources(): array
+    {
+        return [
+            $this->name,
+            $this->tag,
+            $this->category,
+        ];
+    }
 
     public function getActivitylogOptions(): LogOptions
     {

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Models\Concerns\GuardsPostingDate;
 use App\Services\CreditNoteService;
@@ -24,7 +25,20 @@ class Invoice extends Model
 {
     use RefusesDeletionOfCommittedRecords, \App\Models\Concerns\AllocatesDocumentNumber;
 
-    use GuardsPostingDate, HasFactory, LogsActivity, SoftDeletes;
+    use GuardsPostingDate, HasFactory, HasSearchText, LogsActivity, SoftDeletes;
+
+    /**
+     * The invoice number, and nothing else. Everything an operator might otherwise search
+     * (tenant, unit, lease) belongs to another record and is reached by relation search.
+     *
+     * @return array<int, string|int|float|null>
+     */
+    public function searchTextSources(): array
+    {
+        return [
+            $this->number,
+        ];
+    }
 
     /**
      * The column this invoice's GL entry is dated from (LedgerRealtimeSync::SOURCE_DATE_COLUMNS).

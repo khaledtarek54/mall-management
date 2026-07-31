@@ -10,6 +10,7 @@ use App\Filament\Admin\Resources\Areas\Tables\AreaTable;
 use App\Filament\Admin\Resources\Concerns\BypassesFilamentTenantAutoScope;
 use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\Area;
 use App\Models\User;
 use App\Support\TenantScope;
@@ -37,6 +38,7 @@ class AreaResource extends Resource
     use BypassesFilamentTenantAutoScope;
     use GuardsAssetInScope;
     use RoleGatedActions;
+    use SearchesNormalizedText;
 
     protected static ?string $model = Area::class;
 
@@ -105,9 +107,19 @@ class AreaResource extends Resource
         ];
     }
 
+    /**
+     * Searched through the fold-normalized blob, never a raw column.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
     public static function getGloballySearchableAttributes(): array
     {
-        return ['name', 'code'];
+        return [
+            'search_text',
+        ];
     }
 
     /**

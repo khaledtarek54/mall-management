@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -24,7 +25,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class StockMovement extends Model
 {
-    use RefusesDeletionOfCommittedRecords, HasFactory, LogsActivity, SoftDeletes;
+    use RefusesDeletionOfCommittedRecords, HasFactory, HasSearchText, LogsActivity, SoftDeletes;
 
     /** Positive movements ADD stock; negative movements REMOVE it. */
     public const TYPES = ['receipt', 'consumption', 'adjustment', 'transfer_in', 'transfer_out'];
@@ -52,6 +53,18 @@ class StockMovement extends Model
         'unit_cost' => 'decimal:2',
         'moved_on' => 'date',
     ];
+
+    /**
+     * The source document reference the movement came from.
+     *
+     * @return array<int, string|int|float|null>
+     */
+    public function searchTextSources(): array
+    {
+        return [
+            $this->reference,
+        ];
+    }
 
     public function getActivitylogOptions(): LogOptions
     {

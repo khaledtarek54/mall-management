@@ -10,6 +10,7 @@ use App\Filament\Admin\Resources\Vendors\RelationManagers\ContactsRelationManage
 use App\Filament\Admin\Resources\Vendors\RelationManagers\ContractsRelationManager;
 use App\Filament\Admin\Resources\Vendors\Schemas\VendorForm;
 use App\Filament\Admin\Resources\Vendors\Tables\VendorsTable;
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\Vendor;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -23,6 +24,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 class VendorResource extends Resource
 {
     use RoleGatedActions;
+    use SearchesNormalizedText;
 
     protected static ?string $model = Vendor::class;
 
@@ -98,9 +100,19 @@ class VendorResource extends Resource
             ->withoutGlobalScopes([SoftDeletingScope::class]);
     }
 
+    /**
+     * Searched through the fold-normalized blob, never a raw column.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
     public static function getGloballySearchableAttributes(): array
     {
-        return ['name', 'legal_name', 'tax_id', 'email', 'phone'];
+        return [
+            'search_text',
+        ];
     }
 
     public static function getGlobalSearchResultDetails(Model $record): array

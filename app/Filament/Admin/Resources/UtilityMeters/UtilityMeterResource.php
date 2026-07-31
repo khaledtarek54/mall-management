@@ -10,6 +10,7 @@ use App\Filament\Admin\Resources\UtilityMeters\Pages\EditUtilityMeter;
 use App\Filament\Admin\Resources\UtilityMeters\Pages\ListUtilityMeters;
 use App\Filament\Admin\Resources\UtilityMeters\Schemas\UtilityMeterForm;
 use App\Filament\Admin\Resources\UtilityMeters\Tables\UtilityMetersTable;
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\UtilityMeter;
 use App\Support\TenantScope;
 use BackedEnum;
@@ -18,6 +19,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 class UtilityMeterResource extends Resource
 {
@@ -30,12 +32,29 @@ class UtilityMeterResource extends Resource
     use BypassesFilamentTenantAutoScope;
     use GuardsAssetInScope;
     use RoleGatedActions;
+    use SearchesNormalizedText;
 
     protected static ?string $model = UtilityMeter::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBolt;
 
     protected static ?int $navigationSort = 7;
+
+    /**
+     * By the number stamped on the meter, or by the unit it serves.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return [
+            'search_text',
+            'unit.search_text',
+        ];
+    }
 
     public static function getNavigationLabel(): string
     {
@@ -97,4 +116,32 @@ class UtilityMeterResource extends Resource
 
         return $query;
     }
+    /**
+     * Context under the title. A bare reference does not tell an operator whether the
+     * row in front of them is the one they were hunting for.
+     *
+     * @param  UtilityMeter  $record  Narrowed from Filament's Model signature so static analysis
+     *                    can see the columns — the alternative was ten baseline entries.
+     */
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        /** @var \App\Models\Unit|null $unit */
+        $unit = $record->unit;
+
+        return [
+            __('admin.tables.common.unit') => $unit?->code,
+            __('admin.fields.meter_type') => $record->type,
+            __('admin.fields.meter_provider') => $record->provider,
+        ];
+    }
+
+    /**
+     * Eager-load exactly what getGlobalSearchResultDetails() reaches for. Without this
+     * the details above fire one query per row, per keystroke, on top of the search.
+     */
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->with(['unit']);
+    }
+
 }

@@ -10,6 +10,7 @@ use App\Filament\Admin\Resources\Expenses\Pages\EditExpense;
 use App\Filament\Admin\Resources\Expenses\Pages\ListExpenses;
 use App\Filament\Admin\Resources\Expenses\Schemas\ExpenseForm;
 use App\Filament\Admin\Resources\Expenses\Tables\ExpensesTable;
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\Expense;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -17,6 +18,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * مصروف مباشر — direct / petty-cash expenses paid immediately from cash or bank
@@ -28,6 +30,7 @@ class ExpenseResource extends Resource
     use BypassesFilamentTenantAutoScope;
     use GuardsAssetInScope;
     use RoleGatedActions;
+    use SearchesNormalizedText;
 
     protected static ?string $model = Expense::class;
 
@@ -97,8 +100,34 @@ class ExpenseResource extends Resource
         return $query;
     }
 
+    /**
+     * Searched through the fold-normalized blob, never a raw column.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
     public static function getGloballySearchableAttributes(): array
     {
-        return ['number', 'reference'];
+        return [
+            'search_text',
+        ];
     }
+    /**
+     * Context under the title. A bare reference does not tell an operator whether the
+     * row in front of them is the one they were hunting for.
+     *
+     * @param  Expense  $record  Narrowed from Filament's Model signature so static analysis
+     *                    can see the columns — the alternative was ten baseline entries.
+     */
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        return [
+            __('admin.fields.category') => $record->category,
+            __('admin.fields.total') => 'EGP '.number_format((float) $record->total, 2),
+            __('admin.fields.expense_date') => $record->expense_date->format('d/m/Y'),
+        ];
+    }
+
 }

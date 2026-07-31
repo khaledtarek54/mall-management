@@ -10,6 +10,7 @@ use App\Filament\Admin\Resources\Payments\Pages\EditPayment;
 use App\Filament\Admin\Resources\Payments\Pages\ListPayments;
 use App\Filament\Admin\Resources\Payments\Schemas\PaymentForm;
 use App\Filament\Admin\Resources\Payments\Tables\PaymentsTable;
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\Payment;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -25,6 +26,23 @@ class PaymentResource extends Resource
     use GuardsAssetInScope;
     use RoleGatedActions;
     use ScopesViaProperty;
+    use SearchesNormalizedText;
+
+    /**
+     * By receipt reference, by the cheque or gateway id on the bank statement, or by who paid.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return [
+            'search_text',
+            'tenant.search_text',
+        ];
+    }
 
     protected static function tenantScopeRelation(): string
     {
@@ -83,11 +101,6 @@ class PaymentResource extends Resource
             'create' => CreatePayment::route('/create'),
             'edit' => EditPayment::route('/{record}/edit'),
         ];
-    }
-
-public static function getGloballySearchableAttributes(): array
-    {
-        return ['reference', 'tenant.name'];
     }
 
     public static function getGlobalSearchResultDetails(Model $record): array

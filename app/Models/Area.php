@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSearchText;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -24,7 +25,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class Area extends Model
 {
-    use HasFactory, LogsActivity, SoftDeletes;
+    use HasFactory, HasSearchText, LogsActivity, SoftDeletes;
 
     protected $fillable = [
         'asset_id',
@@ -42,6 +43,19 @@ class Area extends Model
     protected $attributes = [
         'is_active' => true,
     ];
+
+    /**
+     * Zone name and code — 'Zone B', 'FC-01'.
+     *
+     * @return array<int, string|int|float|null>
+     */
+    public function searchTextSources(): array
+    {
+        return [
+            $this->name,
+            $this->code,
+        ];
+    }
 
     public function getActivitylogOptions(): LogOptions
     {

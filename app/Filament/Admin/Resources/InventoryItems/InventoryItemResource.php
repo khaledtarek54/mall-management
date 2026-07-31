@@ -9,6 +9,7 @@ use App\Filament\Admin\Resources\InventoryItems\Pages\EditInventoryItem;
 use App\Filament\Admin\Resources\InventoryItems\Pages\ListInventoryItems;
 use App\Filament\Admin\Resources\InventoryItems\Schemas\InventoryItemForm;
 use App\Filament\Admin\Resources\InventoryItems\Tables\InventoryItemsTable;
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\InventoryItem;
 use App\Models\Warehouse;
 use App\Support\TenantScope;
@@ -29,6 +30,7 @@ class InventoryItemResource extends Resource
     // Global catalog — not property-scoped; opt out of Filament's asset tenancy.
     use BypassesFilamentTenantAutoScope;
     use RoleGatedActions;
+    use SearchesNormalizedText;
 
     protected static ?string $model = InventoryItem::class;
 
@@ -116,9 +118,19 @@ class InventoryItemResource extends Resource
         ], 'quantity');
     }
 
+    /**
+     * Searched through the fold-normalized blob, never a raw column.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
     public static function getGloballySearchableAttributes(): array
     {
-        return ['sku', 'name'];
+        return [
+            'search_text',
+        ];
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -19,7 +20,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class Warehouse extends Model
 {
-    use RefusesDeletionWhenReferenced, HasFactory, LogsActivity, SoftDeletes;
+    use RefusesDeletionWhenReferenced, HasFactory, HasSearchText, LogsActivity, SoftDeletes;
 
     protected $fillable = [
         'asset_id',
@@ -33,6 +34,19 @@ class Warehouse extends Model
     protected $casts = [
         'is_active' => 'boolean',
     ];
+
+    /**
+     * Store name and code.
+     *
+     * @return array<int, string|int|float|null>
+     */
+    public function searchTextSources(): array
+    {
+        return [
+            $this->name,
+            $this->code,
+        ];
+    }
 
     public function getActivitylogOptions(): LogOptions
     {

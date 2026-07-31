@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -20,7 +21,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class Employee extends Model
 {
-    use RefusesDeletionWhenReferenced, HasFactory, LogsActivity, SoftDeletes;
+    use RefusesDeletionWhenReferenced, HasFactory, HasSearchText, LogsActivity, SoftDeletes;
 
     protected $fillable = [
         'asset_id',
@@ -49,6 +50,24 @@ class Employee extends Model
     protected $attributes = [
         'status' => 'active',
     ];
+
+    /**
+     * Name, staff code, position and contact. `national_id` stays searchable because HR
+     * genuinely looks staff up by it when reconciling payroll against the tax file.
+     *
+     * @return array<int, string|int|float|null>
+     */
+    public function searchTextSources(): array
+    {
+        return [
+            $this->name,
+            $this->code,
+            $this->national_id,
+            $this->position,
+            $this->phone,
+            self::digitsOf($this->phone),
+        ];
+    }
 
     public function getActivitylogOptions(): LogOptions
     {

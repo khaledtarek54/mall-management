@@ -10,6 +10,7 @@ use App\Filament\Admin\Resources\Violations\Pages\EditViolation;
 use App\Filament\Admin\Resources\Violations\Pages\ListViolations;
 use App\Filament\Admin\Resources\Violations\Schemas\ViolationForm;
 use App\Filament\Admin\Resources\Violations\Tables\ViolationTable;
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\Violation;
 use App\Support\TenantScope;
 use BackedEnum;
@@ -40,6 +41,7 @@ class ViolationResource extends Resource
     use BypassesFilamentTenantAutoScope;
     use GuardsAssetInScope;
     use RoleGatedActions;
+    use SearchesNormalizedText;
 
     protected static ?string $model = Violation::class;
 
@@ -133,8 +135,47 @@ class ViolationResource extends Resource
         ];
     }
 
+    /**
+     * By the VIO- reference printed on the notice, by what was breached, or by tenant.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
     public static function getGloballySearchableAttributes(): array
     {
-        return ['description'];
+        return [
+            'search_text',
+            'tenant.search_text',
+        ];
     }
+    /**
+     * Context under the title. A bare reference does not tell an operator whether the
+     * row in front of them is the one they were hunting for.
+     *
+     * @param  Violation  $record  Narrowed from Filament's Model signature so static analysis
+     *                    can see the columns — the alternative was ten baseline entries.
+     */
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        /** @var \App\Models\Tenant|null $tenant */
+        $tenant = $record->tenant;
+
+        return [
+            __('admin.tables.common.tenant') => $tenant?->name,
+            __('admin.fields.category') => $record->category,
+            __('admin.fields.amount') => 'EGP '.number_format((float) $record->fine_amount, 2),
+        ];
+    }
+
+    /**
+     * Eager-load exactly what getGlobalSearchResultDetails() reaches for. Without this
+     * the details above fire one query per row, per keystroke, on top of the search.
+     */
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->with(['tenant']);
+    }
+
 }

@@ -10,6 +10,7 @@ use App\Filament\Admin\Resources\Invoices\Pages\EditInvoice;
 use App\Filament\Admin\Resources\Invoices\Pages\ListInvoices;
 use App\Filament\Admin\Resources\Invoices\Schemas\InvoiceForm;
 use App\Filament\Admin\Resources\Invoices\Tables\InvoicesTable;
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\Invoice;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -25,6 +26,7 @@ class InvoiceResource extends Resource
     use GuardsAssetInScope;
     use RoleGatedActions;
     use ScopesViaProperty;
+    use SearchesNormalizedText;
 
     protected static function tenantScopeRelation(): string
     {
@@ -104,9 +106,22 @@ class InvoiceResource extends Resource
         return 'danger';
     }
 
+    /**
+     * An invoice is hunted by its number, but just as often by who it is for or which unit it billed.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
     public static function getGloballySearchableAttributes(): array
     {
-        return ['number', 'tenant.name', 'lease.unit.code', 'lease.reference'];
+        return [
+            'search_text',
+            'tenant.search_text',
+            'lease.search_text',
+            'lease.unit.search_text',
+        ];
     }
 
     public static function getGlobalSearchResultDetails(Model $record): array

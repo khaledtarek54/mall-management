@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSearchText;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -32,7 +33,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  */
 class Violation extends Model implements HasMedia
 {
-    use HasFactory, InteractsWithMedia, LogsActivity, SoftDeletes;
+    use HasFactory, HasSearchText, InteractsWithMedia, LogsActivity, SoftDeletes;
 
     public const STATUS_OPEN = 'open';
 
@@ -94,6 +95,24 @@ class Violation extends Model implements HasMedia
     protected $attributes = [
         'status' => self::STATUS_OPEN,
     ];
+
+    /**
+     * Category and description, plus the VIO- reference. That reference is an ACCESSOR
+     * derived from the id, not a column, which is why it can only be folded after the insert —
+     * see the `created` hook in HasSearchText. It is also the only identifier printed on the
+     * notice handed to the tenant, so leaving it unsearchable would mean an operator holding the
+     * notice could not find the record.
+     *
+     * @return array<int, string|int|float|null>
+     */
+    public function searchTextSources(): array
+    {
+        return [
+            $this->category,
+            $this->description,
+            $this->reference,
+        ];
+    }
 
     public function registerMediaCollections(): void
     {

@@ -8,6 +8,7 @@ use App\Filament\Admin\Pages\Tenancy\RegisterProperty;
 use App\Http\Middleware\ForceTwoFactorForRoles;
 use App\Http\Middleware\SetLocale;
 use App\Models\Asset;
+use App\Support\Search\AtriomGlobalSearchProvider;
 use Filament\Facades\Filament;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -88,6 +89,23 @@ class AdminPanelProvider extends PanelProvider
             ->darkModeBrandLogo(fn (): string => self::resolveBrandLogo(dark: true))
             ->brandLogoHeight('2.5rem')
             ->favicon(fn (): string => self::resolveFavicon())
+            // Global search. The provider is ours (see the class for why) —
+            // Filament's stock one has no floor on the query length, so a single
+            // keystroke fanned out ~35 full table scans, and it ordered categories
+            // by a per-resource integer nobody had set.
+            //
+            // ⌘K / Ctrl+K because that is what every tool an operator already has
+            // open uses for the same gesture. The suffix renders the binding
+            // inside the field, which is the only thing that makes a keyboard
+            // shortcut discoverable to someone who never reads release notes.
+            //
+            // 400ms rather than Filament's 500ms: with the length floor and a
+            // 5-row cap per resource, the query is cheap enough to run sooner,
+            // and the gap between "typed" and "answered" is what this feels like.
+            ->globalSearch(AtriomGlobalSearchProvider::class)
+            ->globalSearchKeyBindings(['command+k', 'ctrl+k'])
+            ->globalSearchFieldKeyBindingSuffix()
+            ->globalSearchDebounce('400ms')
             ->tenant(Asset::class, slugAttribute: 'code')
             ->tenantRegistration(RegisterProperty::class)
             ->discoverResources(in: app_path('Filament/Admin/Resources'), for: 'App\\Filament\\Admin\\Resources')

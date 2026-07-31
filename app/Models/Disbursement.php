@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -18,7 +19,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class Disbursement extends Model
 {
-    use RefusesDeletionOfCommittedRecords, HasFactory, LogsActivity, SoftDeletes;
+    use RefusesDeletionOfCommittedRecords, HasFactory, HasSearchText, LogsActivity, SoftDeletes;
 
     public const STATUS_SCHEDULED = 'scheduled';
     public const STATUS_APPROVED = 'approved';
@@ -57,6 +58,19 @@ class Disbursement extends Model
         'method' => self::METHOD_BANK_TRANSFER,
         'status' => self::STATUS_SCHEDULED,
     ];
+
+    /**
+     * Our payout reference and the bank's external reference.
+     *
+     * @return array<int, string|int|float|null>
+     */
+    public function searchTextSources(): array
+    {
+        return [
+            $this->reference,
+            $this->external_reference,
+        ];
+    }
 
     protected static function booted(): void
     {

@@ -8,6 +8,7 @@ use App\Filament\Admin\Resources\OwnerRequests\Pages\CreateOwnerRequest;
 use App\Filament\Admin\Resources\OwnerRequests\Pages\ListOwnerRequests;
 use App\Filament\Admin\Resources\OwnerRequests\Schemas\OwnerRequestForm;
 use App\Filament\Admin\Resources\OwnerRequests\Tables\OwnerRequestsTable;
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\OwnerRequest;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -21,6 +22,7 @@ class OwnerRequestResource extends Resource
 {
     use GuardsAssetInScope;
     use RoleGatedActions;
+    use SearchesNormalizedText;
 
     protected static ?string $model = OwnerRequest::class;
 
@@ -31,6 +33,21 @@ class OwnerRequestResource extends Resource
     protected static ?string $recordTitleAttribute = 'reference';
 
     protected static bool $isScopedToTenant = false;
+
+    /**
+     * Searched through the fold-normalized blob, never a raw column.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return [
+            'search_text',
+        ];
+    }
 
     public static function getNavigationLabel(): string
     {

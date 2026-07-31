@@ -7,6 +7,7 @@ use App\Filament\Admin\Resources\Concerns\GuardsAssetInScope;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\OwnerStatementRuns\Pages\ListOwnerStatementRuns;
 use App\Filament\Admin\Resources\OwnerStatementRuns\Tables\OwnerStatementRunsTable;
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\OwnerStatementRun;
 use App\Support\TenantScope;
 use BackedEnum;
@@ -29,6 +30,7 @@ class OwnerStatementRunResource extends Resource
     use BypassesFilamentTenantAutoScope;
     use GuardsAssetInScope;
     use RoleGatedActions;
+    use SearchesNormalizedText;
 
     protected static ?string $model = OwnerStatementRun::class;
 
@@ -37,6 +39,21 @@ class OwnerStatementRunResource extends Resource
     protected static ?int $navigationSort = 4;
 
     protected static ?string $recordTitleAttribute = 'reference';
+
+    /**
+     * Searched through the fold-normalized blob, never a raw column.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return [
+            'search_text',
+        ];
+    }
 
     protected static function permissionModule(): string
     {

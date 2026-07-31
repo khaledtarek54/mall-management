@@ -10,6 +10,7 @@ use App\Filament\Admin\Resources\Leases\Pages\EditLease;
 use App\Filament\Admin\Resources\Leases\Pages\ListLeases;
 use App\Filament\Admin\Resources\Leases\Schemas\LeaseForm;
 use App\Filament\Admin\Resources\Leases\Tables\LeasesTable;
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\Lease;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -25,6 +26,7 @@ class LeaseResource extends Resource
     use GuardsAssetInScope;
     use RoleGatedActions;
     use ScopesViaProperty;
+    use SearchesNormalizedText;
 
     protected static function tenantScopeRelation(): string
     {
@@ -87,9 +89,21 @@ class LeaseResource extends Resource
         ];
     }
 
+    /**
+     * By lease reference, or by the tenant or unit an operator names instead.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
     public static function getGloballySearchableAttributes(): array
     {
-        return ['reference', 'tenant.name', 'unit.code'];
+        return [
+            'search_text',
+            'tenant.search_text',
+            'unit.search_text',
+        ];
     }
 
     public static function getGlobalSearchResultDetails(Model $record): array

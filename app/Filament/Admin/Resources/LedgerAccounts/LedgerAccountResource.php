@@ -9,6 +9,7 @@ use App\Filament\Admin\Resources\LedgerAccounts\Pages\EditLedgerAccount;
 use App\Filament\Admin\Resources\LedgerAccounts\Pages\ListLedgerAccounts;
 use App\Filament\Admin\Resources\LedgerAccounts\Schemas\LedgerAccountForm;
 use App\Filament\Admin\Resources\LedgerAccounts\Tables\LedgerAccountsTable;
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\LedgerAccount;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -25,6 +26,7 @@ class LedgerAccountResource extends Resource
 {
     use BypassesFilamentTenantAutoScope;
     use RoleGatedActions;
+    use SearchesNormalizedText;
 
     protected static ?string $model = LedgerAccount::class;
 
@@ -80,8 +82,18 @@ class LedgerAccountResource extends Resource
         ];
     }
 
+    /**
+     * Searched through the fold-normalized blob, never a raw column.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
     public static function getGloballySearchableAttributes(): array
     {
-        return ['code', 'name_en', 'name_ar'];
+        return [
+            'search_text',
+        ];
     }
 }

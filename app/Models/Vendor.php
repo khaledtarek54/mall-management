@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -15,11 +16,29 @@ use Spatie\Activitylog\Support\LogOptions;
 
 class Vendor extends Model
 {
-    use RefusesDeletionWhenReferenced, HasFactory, LogsActivity, SoftDeletes;
+    use RefusesDeletionWhenReferenced, HasFactory, HasSearchText, LogsActivity, SoftDeletes;
 
     public const STATUS_ACTIVE = 'active';
     public const STATUS_INACTIVE = 'inactive';
     public const STATUS_BLACKLISTED = 'blacklisted';
+
+    /**
+     * Trading and legal name, tax id, and how to reach them.
+     *
+     * @return array<int, string|int|float|null>
+     */
+    public function searchTextSources(): array
+    {
+        return [
+            $this->name,
+            $this->legal_name,
+            $this->tax_id,
+            $this->email,
+            $this->phone,
+            $this->city,
+            self::digitsOf($this->phone),
+        ];
+    }
 
     public function getActivitylogOptions(): LogOptions
     {

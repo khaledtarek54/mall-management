@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -21,7 +22,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class PostDatedCheque extends Model
 {
-    use RefusesDeletionOfCommittedRecords, HasFactory, LogsActivity, SoftDeletes;
+    use RefusesDeletionOfCommittedRecords, HasFactory, HasSearchText, LogsActivity, SoftDeletes;
 
     public const STATUS_HELD = 'held';           // received, awaiting maturity
     public const STATUS_DEPOSITED = 'deposited';  // presented to the bank
@@ -58,6 +59,21 @@ class PostDatedCheque extends Model
         'currency' => 'EGP',
         'status' => self::STATUS_HELD,
     ];
+
+    /**
+     * Our reference plus what is written on the cheque itself — an operator holding the
+     * physical cheque has the cheque number and the bank, not our reference.
+     *
+     * @return array<int, string|int|float|null>
+     */
+    public function searchTextSources(): array
+    {
+        return [
+            $this->reference,
+            $this->cheque_number,
+            $this->bank_name,
+        ];
+    }
 
     protected static function booted(): void
     {

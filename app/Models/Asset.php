@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -16,7 +17,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 
 class Asset extends Model implements HasMedia
 {
-    use RefusesDeletionWhenReferenced, HasFactory, InteractsWithMedia, LogsActivity, SoftDeletes;
+    use RefusesDeletionWhenReferenced, HasFactory, HasSearchText, InteractsWithMedia, LogsActivity, SoftDeletes;
 
     /**
      * Reserved code for the synthetic "All Properties" tenant — the
@@ -25,6 +26,22 @@ class Asset extends Model implements HasMedia
      * resolve it from the URL slug.
      */
     public const ALL_PROPERTIES_CODE = 'ALL';
+
+    /**
+     * The property's name, its short code (which appears in every document number) and
+     * where it is.
+     *
+     * @return array<int, string|int|float|null>
+     */
+    public function searchTextSources(): array
+    {
+        return [
+            $this->name,
+            $this->code,
+            $this->city,
+            $this->address,
+        ];
+    }
 
     public function getActivitylogOptions(): LogOptions
     {

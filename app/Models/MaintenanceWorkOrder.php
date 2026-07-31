@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSearchText;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -21,7 +22,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class MaintenanceWorkOrder extends Model
 {
-    use HasFactory, LogsActivity, SoftDeletes;
+    use HasFactory, HasSearchText, LogsActivity, SoftDeletes;
 
     public const STATUSES = ['open', 'in_progress', 'done', 'cancelled'];
 
@@ -82,6 +83,21 @@ class MaintenanceWorkOrder extends Model
     public const BEARER_TENANT = 'tenant';
 
     public const COST_BEARERS = [self::BEARER_MALL, self::BEARER_TENANT];
+
+    /**
+     * Work-order reference and what the job is.
+     *
+     * @return array<int, string|int|float|null>
+     */
+    public function searchTextSources(): array
+    {
+        return [
+            $this->reference,
+            $this->title,
+            $this->description,
+            $this->category,
+        ];
+    }
 
     /**
      * FR-CM-13: the bearer is decided "based on who caused the damage" — so it is *derived*, not

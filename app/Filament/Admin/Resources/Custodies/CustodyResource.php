@@ -9,6 +9,7 @@ use App\Filament\Admin\Resources\Custodies\Pages\EditCustody;
 use App\Filament\Admin\Resources\Custodies\Pages\ListCustodies;
 use App\Filament\Admin\Resources\Custodies\Schemas\CustodyForm;
 use App\Filament\Admin\Resources\Custodies\Tables\CustodiesTable;
+use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\Custody;
 use App\Support\TenantScope;
 use BackedEnum;
@@ -31,6 +32,7 @@ class CustodyResource extends Resource
     // field, so no create-guard is needed; reads are scoped in getEloquentQuery() below.
     use BypassesFilamentTenantAutoScope;
     use RoleGatedActions;
+    use SearchesNormalizedText;
 
     protected static ?string $model = Custody::class;
 
@@ -106,9 +108,20 @@ class CustodyResource extends Resource
         return $query;
     }
 
+    /**
+     * By عهدة reference or by the employee holding it.
+     *
+     * Every path ends in `search_text` on purpose — see
+     * App\Filament\Concerns\SearchesNormalizedText.
+     *
+     * @return array<string>
+     */
     public static function getGloballySearchableAttributes(): array
     {
-        return ['reference'];
+        return [
+            'search_text',
+            'employee.search_text',
+        ];
     }
 
     /**

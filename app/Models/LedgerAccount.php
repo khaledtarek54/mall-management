@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -21,7 +22,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class LedgerAccount extends Model
 {
-    use RefusesDeletionWhenReferenced, HasFactory, LogsActivity, SoftDeletes;
+    use RefusesDeletionWhenReferenced, HasFactory, HasSearchText, LogsActivity, SoftDeletes;
 
     public const TYPES = ['asset', 'liability', 'equity', 'revenue', 'expense'];
 
@@ -54,6 +55,20 @@ class LedgerAccount extends Model
         'is_postable' => 'boolean',
         'is_active' => 'boolean',
     ];
+
+    /**
+     * Account code and both names. The code is what an accountant types.
+     *
+     * @return array<int, string|int|float|null>
+     */
+    public function searchTextSources(): array
+    {
+        return [
+            $this->code,
+            $this->name_en,
+            $this->name_ar,
+        ];
+    }
 
     public function getActivitylogOptions(): LogOptions
     {
