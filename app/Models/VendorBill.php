@@ -279,6 +279,26 @@ class VendorBill extends Model
             }
         });
 
+        // A bill past draft is FINALIZED — it posts (Dr Expense/Cr AP) to the GL. Its money-material
+        // and counterparty fields are then immutable: the AP mirror of Invoice's updating guard,
+        // closing the JS-tamper / API / console path BEHIND the form's disabled() lock. Off-form,
+        // editing a paid/cancelled bill's subtotal re-derives the GL at the inflated total via the
+        // sweep while the payment stays applied → overstated expense/AP + a phantom re-opened balance
+        // on a "paid" bill. The remedy for a wrong posted bill is to cancel + re-enter, never edit it.
+        // Derived fields (paid_amount/balance/penalty via recompute()'s saveQuietly) don't fire this,
+        // and status progression (draft→approved→paid, cancel) doesn't dirty the frozen set. Pre-go-live
+        // sweep (terminal-state) — VendorBill was the one money model missing the peer AR/lease guard.
+        static::updating(function (self $bill) {
+            if ($bill->getOriginal('status') === 'draft') {
+                return; // draft is freely editable, including draft→approved
+            }
+            foreach (['subtotal', 'vat_amount', 'vendor_id', 'category', 'purchase_request_id'] as $field) {
+                if ($bill->isDirty($field)) {
+                    throw new \DomainException('A finalized vendor bill is immutable — cancel and re-enter it instead of editing its amount, vendor, category, or purchase link.');
+                }
+            }
+        });
+
         static::creating(function (self $bill) {
             if (empty($bill->number)) {
                 // Resolved once: the prefix that keys the lock and the sequence the
