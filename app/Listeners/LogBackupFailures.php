@@ -68,7 +68,7 @@ class LogBackupFailures
             'disk' => $event->diskName,
             'backup' => $event->backupName,
             'failures' => $event->failureMessages
-                ->map(fn (array $f): string => ($f['check'] ?? '?').': '.($f['message'] ?? ''))
+                ->map(fn (array $f): string => $f['check'].': '.$f['message'])
                 ->all(),
         ]);
     }

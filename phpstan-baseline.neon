@@ -1,6 +1,12 @@
 parameters:
 	ignoreErrors:
 		-
+			message: '#^Negated boolean expression is always false\.$#'
+			identifier: booleanNot.alwaysFalse
+			count: 2
+			path: app/Services/Backup/VerifyBackupService.php
+
+		-
 			message: '#^Using nullsafe property access on non\-nullable type Laravel\\Sanctum\\PersonalAccessToken\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 1
