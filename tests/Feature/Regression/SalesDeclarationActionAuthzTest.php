@@ -12,10 +12,12 @@ use Livewire\Livewire;
 
 /**
  * The lock / dispute / voidLocked actions gated permission + status ONLY in visible(). Filament's
- * mountAction() never checks isVisible(), and the seeded `viewer` + `owner` roles hold every .view
+ * mountAction() was believed never to check isVisible() — it does, indirectly: a hidden action is
  * (incl. tenant_sales.view) — so the list renders and a crafted dispatch ran the action: a read-only
  * auditor or owner Jawad could LOCK (bill an overage invoice + post GL), DISPUTE, or VOID a locked
- * declaration. These pin the abort_unless gate in action() via mountAction+callMountedAction (NOT
+ * declaration. CORRECTED 2026-07-31: `isDisabled()` returns true for a hidden action, so the
+ * mountAction tests below exercise visible() ONLY — deleting the abort_unless left them green.
+ * The direct-call tests at the bottom reach the actual gate. See FilamentActionDispatchContractTest.
  * callAction / assertTableActionHidden, which check only visible() and would false-pass). Mirrors
  * CamActionAuthzTest.
  */
@@ -36,6 +38,24 @@ beforeEach(function () {
 });
 
 afterEach(fn () => Filament::setTenant(null, isQuiet: true));
+
+/**
+ * Invoke a table action's own closure, bypassing the visibility/disabled short-circuit.
+ *
+ * mountAction() refuses DISABLED actions, and an action hidden by visible() is disabled
+ * (CanBeDisabled::isDisabled → isHidden), so a mountAction test never reaches the abort_unless
+ * inside action(). Action::call() evaluates the closure directly, which does.
+ */
+function callSalesAction(string $name, TenantSalesDeclaration $declaration): void
+{
+    $component = Livewire::test(ListTenantSalesDeclarations::class)->instance();
+
+    $action = $component->getTable()->getAction($name);
+    expect($action)->not->toBeNull("action [{$name}] not found on the declarations table");
+
+    $action->record($declaration)->call();
+}
+
 
 function salesActAs(string $role): void
 {
@@ -81,4 +101,36 @@ it('refuses a read-only VIEWER voiding a LOCKED declaration (would cancel its in
 
     expect($this->decl->fresh()->status)->toBe('locked')      // still locked
         ->and($invoice->fresh()->status)->toBe('issued');     // invoice not cancelled
+});
+
+/* ---- the abort_unless inside action(), reached directly -------------------- */
+
+it('refuses a viewer locking a declaration when the action closure is reached directly', function () {
+    // Locking bills an overage invoice, so this is the gate that matters. visible() cannot help
+    // here — the closure is invoked directly.
+    salesActAs('viewer');
+
+    expect(fn () => callSalesAction('lock', $this->decl))
+        ->toThrow(Symfony\Component\HttpKernel\Exception\HttpException::class);
+
+    expect($this->decl->fresh()->status)->not->toBe('locked');
+});
+
+it('refuses a viewer disputing a declaration when the action closure is reached directly', function () {
+    salesActAs('viewer');
+
+    expect(fn () => callSalesAction('dispute', $this->decl))
+        ->toThrow(Symfony\Component\HttpKernel\Exception\HttpException::class);
+
+    expect($this->decl->fresh()->status)->not->toBe('disputed');
+});
+
+it('control: an authorised user CAN lock through the same path', function () {
+    // Proves call() actually runs the closure — without it the refusals above prove nothing.
+    // `leasing` is the role that holds tenant_sales.lock (RolesPermissionsSeeder), not accounting.
+    salesActAs('leasing');
+
+    callSalesAction('lock', $this->decl);
+
+    expect($this->decl->fresh()->status)->toBe('locked');
 });
