@@ -113,6 +113,10 @@ Modules **08 (CAM)** and **09 (Sales & % Rent)** each recorded a **CRITICAL/HIGH
 
 **What stands:** the `abort_unless`/`->authorize()` additions are correct and stay — `->authorize()` is a stated intent, whereas hidden-implies-disabled is an upstream implementation detail that a release could change, silently reopening every `visible()`-only write at once. **What does not stand:** the CRITICAL/HIGH severity, and the claim that those tests demonstrated exploitability. No exploit was ever reproduced for either module.
 
+**It was already known, in one file, and did not propagate.** `TenantRequestActionAuthzTest`'s header has said since **2026-07-26** that "in the INSTALLED Filament version, mountAction()/TestAction DOES respect visible()" — five days before this correction. That finding stayed inside the one test file it was discovered in while CLAUDE.md, three module docs and this ledger went on asserting the opposite, and later close-outs went on citing mountAction tests as proof of exploitability. A correction that lives only where it was found is not a correction. **When a shared premise turns out to be wrong, fix it where the premise is STATED, not only where it was noticed.**
+
+**All four affected test files are now load-bearing** (mutation-checked — delete the gate, watch it go red): `CamActionAuthzTest` (fails 1/8), `SalesDeclarationActionAuthzTest` (1/6), `PortalReadOnlyDispatchGuardTest` (2/7 — the file CLAUDE.md cites as the canonical pattern, which was itself false-passing with BOTH portal guards deleted), `FirstEightActionAuthzTest` (1/4). Each reaches the `abort_unless` through `Action::call()`, which evaluates the closure directly, and each pairs its refusal with an authorised control.
+
 **Now guarded both ways:** `FilamentActionDispatchContractTest` pins the upstream behaviour (an upgrade that decouples it turns the build red), and `ActionAuthzConformanceTest` enforces the layer we control. The lesson is the general one this ledger already states — *prove a finding by exploiting it, and prove a fix by reverting it and watching the test fail.* Neither was done here.
 
 ## Closure records

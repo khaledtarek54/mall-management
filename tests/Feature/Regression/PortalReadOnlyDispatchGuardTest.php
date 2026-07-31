@@ -45,7 +45,15 @@ beforeEach(function () {
     Filament::setCurrentPanel(Filament::getPanel('portal'));
 });
 
-/** Dispatch an action the way the runtime does, bypassing the UI. Swallows the abort. */
+/**
+ * Dispatch through mountAction, the way the runtime does.
+ *
+ * IMPORTANT (2026-07-31): this proves the action is not reachable, but it does NOT prove the
+ * `abort_unless` inside `action()`. mountAction() refuses DISABLED actions, and an action hidden
+ * by `visible()` is disabled (CanBeDisabled::isDisabled → isHidden), so the closure is never
+ * entered. Verified by mutation: deleting BOTH portal guards left this file 4/4 green. Use
+ * callPortalActionDirectly() below for the gate itself.
+ */
 function dispatchPortalAction(string $page, string $record, string $action): void
 {
     try {
@@ -55,6 +63,22 @@ function dispatchPortalAction(string $page, string $record, string $action): voi
     } catch (HttpException) {
         // Expected once guarded — the assertion is the absent side effect.
     }
+}
+
+/**
+ * Invoke the action's own closure, bypassing the visibility/disabled short-circuit.
+ *
+ * `Action::call()` evaluates the action function directly (Action.php:666), which is the only path
+ * that reaches an `abort_unless` inside `action()`.
+ */
+function callPortalActionDirectly(string $page, string $record, string $action, array $data = []): void
+{
+    $component = Livewire::test($page, ['record' => $record])->instance();
+
+    $resolved = $component->getAction($action);
+    expect($resolved)->not->toBeNull("action [{$action}] not found on {$page}");
+
+    $resolved->arguments([])->data($data)->call($data);
 }
 
 it('refuses a read-only tenant user cancelling a request, even dispatched directly', function () {
@@ -98,4 +122,37 @@ it('still lets an admin tenant user comment and cancel', function () {
         ->callAction('cancel');
 
     expect($this->request->fresh()->status)->toBe('cancelled');
+});
+
+/* ---- the abort_unless inside action(), reached directly -------------------- */
+
+it('refuses a read-only tenant user cancelling when the action closure is reached directly', function () {
+    // The gate the mountAction tests were named for. visible() cannot help here.
+    $this->actingAs(makeTenantUser($this->tenant, isAdmin: false), 'portal');
+
+    expect(fn () => callPortalActionDirectly(ViewTenantRequest::class, $this->request->getRouteKey(), 'cancel'))
+        ->toThrow(HttpException::class);
+
+    expect($this->request->fresh()->status)->toBe('submitted');
+});
+
+it('refuses a read-only tenant user commenting when the action closure is reached directly', function () {
+    $this->actingAs(makeTenantUser($this->tenant, isAdmin: false), 'portal');
+
+    expect(fn () => callPortalActionDirectly(
+        ViewTenantRequest::class, $this->request->getRouteKey(), 'addComment', ['body' => 'Injected.']
+    ))->toThrow(HttpException::class);
+
+    expect($this->request->fresh()->comments()->count())->toBe(0);
+});
+
+it('control: an admin tenant user CAN comment through the same direct path', function () {
+    // Without this the two refusals above would pass identically if call() never ran the closure.
+    $this->actingAs(makeTenantUser($this->tenant, isAdmin: true), 'portal');
+
+    callPortalActionDirectly(
+        ViewTenantRequest::class, $this->request->getRouteKey(), 'addComment', ['body' => 'Any update?']
+    );
+
+    expect($this->request->fresh()->comments()->count())->toBe(1);
 });
