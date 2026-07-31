@@ -172,3 +172,107 @@ it('still allows discarding a draft journal entry but refuses a posted one', fun
 
     expect(fn () => $posted->delete())->toThrow(DomainException::class);
 });
+
+/* ---- Tier B: master data with history ------------------------------------- */
+
+it('guards every when-unused model at the model layer', function () {
+    $unguarded = [];
+
+    foreach (array_keys(DeletionPolicy::WHEN_UNUSED) as $model) {
+        if (! in_array(App\Models\Concerns\RefusesDeletionWhenReferenced::class, class_uses_recursive($model), true)) {
+            $unguarded[] = class_basename($model);
+        }
+    }
+
+    expect($unguarded)->toBe([], 'missing RefusesDeletionWhenReferenced: '.implode(', ', $unguarded));
+});
+
+it('declares only relations that actually exist', function () {
+    // The one that matters most. A mistyped relation name blocks NOTHING and looks exactly like a
+    // working guard — the registry would claim a tenant's invoices are checked while the guard
+    // silently skipped them. Same class of silent failure as everything else corrected this week.
+    $bogus = [];
+
+    foreach (DeletionPolicy::WHEN_UNUSED as $model => $config) {
+        $instance = new $model;
+
+        foreach ($config['blocked_by'] as $relation) {
+            if (! method_exists($instance, $relation)) {
+                $bogus[] = class_basename($model)."::{$relation}()";
+
+                continue;
+            }
+
+            // Exists, but is it a relation? A scope or accessor would blow up at delete time.
+            if (! $instance->{$relation}() instanceof Illuminate\Database\Eloquent\Relations\Relation) {
+                $bogus[] = class_basename($model)."::{$relation}() is not a relation";
+            }
+        }
+    }
+
+    expect($bogus)->toBe([], 'DeletionPolicy names relations that do not exist: '.implode(', ', $bogus));
+});
+
+it('states what to do instead for every when-unused model', function () {
+    $missing = [];
+
+    foreach (DeletionPolicy::WHEN_UNUSED as $model => $config) {
+        if (trim($config['instead'] ?? '') === '') {
+            $missing[] = class_basename($model);
+        }
+    }
+
+    expect($missing)->toBe([], 'no deactivation path stated for: '.implode(', ', $missing));
+});
+
+it('refuses to delete a tenant that has history, and names what is holding it', function () {
+    $tenant = makeTenant();
+    $lease = makeLease(makeUnit(makeAsset()), $tenant, ['status' => 'active']);
+    makeInvoice($lease, ['status' => 'issued']);
+
+    expect(fn () => $tenant->delete())->toThrow(DomainException::class);
+
+    // The message has to be actionable — an operator who cannot find the blocker works around it.
+    try {
+        $tenant->delete();
+    } catch (DomainException $e) {
+        expect($e->getMessage())->toContain('invoice')
+            ->and($e->getMessage())->toContain('inactive');
+    }
+
+    expect(App\Models\Tenant::whereKey($tenant->id)->exists())->toBeTrue();
+});
+
+it('still deletes a tenant that has no history at all', function () {
+    // A record typed in by mistake must stay removable, or the operator's lists fill with rubbish
+    // they cannot clear — which is how people end up wanting a delete button that ignores history.
+    $tenant = makeTenant();
+
+    $tenant->delete();
+
+    expect(App\Models\Tenant::whereKey($tenant->id)->exists())->toBeFalse();
+});
+
+it('counts a soft-deleted child as history', function () {
+    // A cancelled invoice is exactly what an auditor asks about, so a tenant whose only invoice was
+    // soft-deleted is not a clean record.
+    $tenant = makeTenant();
+    $lease = makeLease(makeUnit(makeAsset()), $tenant, ['status' => 'active']);
+    $invoice = makeInvoice($lease, ['status' => 'draft']);
+    $invoice->delete();   // draft, so the money guard allows it
+
+    expect(fn () => $tenant->delete())->toThrow(DomainException::class);
+});
+
+it('sees a unit leased only through the pivot', function () {
+    // allLeases, not leases: a multi-unit lease keeps its extra units in lease_unit, so the
+    // master-only relation would report a leased unit as never used. This trap has bitten three
+    // times already.
+    $asset = makeAsset();
+    $master = makeUnit($asset, ['code' => 'DP-M']);
+    $extra = makeUnit($asset, ['code' => 'DP-X']);
+    $lease = makeLease($master, makeTenant(), ['status' => 'active']);
+    $lease->units()->syncWithoutDetaching([$extra->id]);
+
+    expect(fn () => $extra->delete())->toThrow(DomainException::class);
+});

@@ -3,6 +3,7 @@
 return [
     'errors' => [
         'record_not_deletable' => 'A :record that is on the books cannot be deleted — :correction. The record stays, and the correction explains itself to an auditor.',
+        'record_still_referenced' => 'This :record cannot be deleted — :blockers still reference it. :instead.',
     ],
     'owner_requests' => [
         'conversation' => 'Conversation',

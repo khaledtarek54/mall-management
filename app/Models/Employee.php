@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -19,7 +20,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class Employee extends Model
 {
-    use HasFactory, LogsActivity, SoftDeletes;
+    use RefusesDeletionWhenReferenced, HasFactory, LogsActivity, SoftDeletes;
 
     protected $fillable = [
         'asset_id',
@@ -66,6 +67,17 @@ class Employee extends Model
     public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class);
+    }
+
+    /**
+     * Payslip lines this employee appears on.
+     *
+     * `payroll_lines.employee_id` existed with no inverse, so an employee who has been paid looked
+     * exactly like one who never has.
+     */
+    public function payrollLines(): HasMany
+    {
+        return $this->hasMany(PayrollLine::class);
     }
 
     public function advances(): HasMany

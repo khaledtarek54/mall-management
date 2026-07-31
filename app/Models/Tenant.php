@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Notifications\TenantResetPasswordNotification;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
@@ -22,7 +23,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 
 class Tenant extends Authenticatable implements CanResetPasswordContract, FilamentUser, HasMedia
 {
-    use CanResetPassword, HasApiTokens, HasFactory, InteractsWithMedia, LogsActivity, Notifiable, SoftDeletes;
+    use RefusesDeletionWhenReferenced, CanResetPassword, HasApiTokens, HasFactory, InteractsWithMedia, LogsActivity, Notifiable, SoftDeletes;
 
     /** Identity paperwork — commercial register, tax card, trade licence. */
     public const DOCUMENTS_COLLECTION = 'documents';

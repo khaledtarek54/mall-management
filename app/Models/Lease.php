@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -17,7 +18,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 
 class Lease extends Model implements HasMedia
 {
-    use HasFactory, InteractsWithMedia, LogsActivity, SoftDeletes;
+    use RefusesDeletionWhenReferenced, HasFactory, InteractsWithMedia, LogsActivity, SoftDeletes;
 
     /** The signed contract + supporting paperwork. */
     public const DOCUMENTS_COLLECTION = 'documents';

@@ -3,6 +3,7 @@
 return [
     'errors' => [
         'record_not_deletable' => 'لا يمكن حذف :record بعد قيده في الدفاتر — :correction. يبقى السجل كما هو، ويظل التصحيح موثَّقًا ومفهومًا لأي مراجع.',
+        'record_still_referenced' => 'لا يمكن حذف :record — ما زال مرتبطًا بـ :blockers. :instead.',
     ],
     'owner_requests' => [
         'conversation' => 'المحادثة',

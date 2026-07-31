@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -14,7 +15,7 @@ use Spatie\Activitylog\Support\LogOptions;
 
 class Vendor extends Model
 {
-    use HasFactory, LogsActivity, SoftDeletes;
+    use RefusesDeletionWhenReferenced, HasFactory, LogsActivity, SoftDeletes;
 
     public const STATUS_ACTIVE = 'active';
     public const STATUS_INACTIVE = 'inactive';
@@ -56,6 +57,17 @@ class Vendor extends Model
     // ============ Compliance gate (reads vendor_documents) ============
 
     /** @return \Illuminate\Database\Eloquent\Relations\HasMany<VendorDocument, $this> */
+    /**
+     * Bills raised against this vendor.
+     *
+     * `vendor_bills.vendor_id` has always existed; the inverse had not, so nothing could ask
+     * whether a vendor carries financial history — which is what makes deleting one unsafe.
+     */
+    public function bills(): HasMany
+    {
+        return $this->hasMany(VendorBill::class);
+    }
+
     public function documents(): HasMany
     {
         return $this->hasMany(VendorDocument::class);
