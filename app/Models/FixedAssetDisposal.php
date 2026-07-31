@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -22,7 +23,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class FixedAssetDisposal extends Model
 {
-    use HasFactory, LogsActivity, SoftDeletes;
+    use RefusesDeletionOfCommittedRecords, HasFactory, LogsActivity, SoftDeletes;
 
     protected $fillable = [
         'fixed_asset_id',

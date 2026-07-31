@@ -276,3 +276,80 @@ it('sees a unit leased only through the pivot', function () {
 
     expect(fn () => $extra->delete())->toThrow(DomainException::class);
 });
+
+/* ---- completeness: the register must grow with the codebase ---------------- */
+
+it('classifies every model', function () {
+    // The failure this closes is the one the rest of this week was spent on: a register that only
+    // covers what someone remembered to add. The first version of THIS file listed 15 models out
+    // of 77 and enforced nothing about the other 62 — the same shape as the delete test covering
+    // 10 of 41 resources, and "the first eight" authz test.
+    //
+    // "Nobody classified this yet" and "we decided this is fine" look identical from outside.
+    // Only one of them is a money record waiting to be deletable by accident.
+    $classified = array_merge(
+        array_keys(DeletionPolicy::NEVER_DELETABLE),
+        array_keys(DeletionPolicy::WHEN_UNUSED),
+        array_keys(DeletionPolicy::ALLOWED),
+    );
+
+    $unclassified = [];
+
+    foreach (glob(app_path('Models/*.php')) as $file) {
+        $model = 'App\\Models\\'.basename($file, '.php');
+
+        if (! class_exists($model) || ! is_subclass_of($model, Illuminate\Database\Eloquent\Model::class)) {
+            continue;
+        }
+
+        if ((new ReflectionClass($model))->isAbstract() || in_array($model, $classified, true)) {
+            continue;
+        }
+
+        $unclassified[] = class_basename($model);
+    }
+
+    sort($unclassified);
+
+    expect($unclassified)->toBe([], implode("\n", array_merge(
+        ['These models are not classified in App\\Support\\DeletionPolicy:'],
+        array_map(fn (string $m): string => '  - '.$m, $unclassified),
+        [
+            '',
+            'Decide which register it belongs in:',
+            '  NEVER_DELETABLE — money or audit record; name the correction path instead',
+            '  WHEN_UNUSED     — master data; name the relations that count as history',
+            '  ALLOWED         — safe to delete; say WHY (parent-managed / configuration / operational)',
+            '',
+            'Check for a real deletion call site in app/ before choosing NEVER — guarding a row that',
+            'a service legitimately deletes breaks the workflow rather than protecting it.',
+        ],
+    )));
+});
+
+it('classifies each model exactly once', function () {
+    // A model in two registers is an unresolved disagreement, and which one wins depends on
+    // lookup order — i.e. on nothing anybody decided.
+    $all = array_merge(
+        array_keys(DeletionPolicy::NEVER_DELETABLE),
+        array_keys(DeletionPolicy::WHEN_UNUSED),
+        array_keys(DeletionPolicy::ALLOWED),
+    );
+
+    $duplicates = array_keys(array_filter(array_count_values($all), fn (int $n): bool => $n > 1));
+
+    expect($duplicates)->toBe([], 'classified in more than one register: '.implode(', ', array_map('class_basename', $duplicates)));
+});
+
+it('states a reason for every allowed model', function () {
+    // "ALLOWED => ''" is an unclassified model wearing a badge.
+    $blank = [];
+
+    foreach (DeletionPolicy::ALLOWED as $model => $reason) {
+        if (trim($reason) === '') {
+            $blank[] = class_basename($model);
+        }
+    }
+
+    expect($blank)->toBe([], 'no reason given for: '.implode(', ', $blank));
+});

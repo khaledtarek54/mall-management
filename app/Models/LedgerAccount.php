@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -20,7 +21,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class LedgerAccount extends Model
 {
-    use HasFactory, LogsActivity, SoftDeletes;
+    use RefusesDeletionWhenReferenced, HasFactory, LogsActivity, SoftDeletes;
 
     public const TYPES = ['asset', 'liability', 'equity', 'revenue', 'expense'];
 

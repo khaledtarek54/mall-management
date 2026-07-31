@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Support\AccessControlAudit;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -22,7 +23,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class Department extends Model
 {
-    use HasFactory, LogsActivity, SoftDeletes;
+    use RefusesDeletionWhenReferenced, HasFactory, LogsActivity, SoftDeletes;
 
     public function getActivitylogOptions(): LogOptions
     {

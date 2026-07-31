@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,7 +13,7 @@ use Spatie\Activitylog\Support\LogOptions;
 
 class CamExpensePool extends Model
 {
-    use HasFactory, LogsActivity, SoftDeletes;
+    use RefusesDeletionWhenReferenced, HasFactory, LogsActivity, SoftDeletes;
 
     public const STATUSES = ['draft', 'reconciling', 'reconciled', 'closed'];
 

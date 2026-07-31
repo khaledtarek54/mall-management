@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -23,7 +24,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class MaintenancePenalty extends Model
 {
-    use HasFactory, LogsActivity;
+    use RefusesDeletionOfCommittedRecords, HasFactory, LogsActivity;
 
     /**
      * FR-CM-08 never says on what basis a penalty is computed, and the three readings behave

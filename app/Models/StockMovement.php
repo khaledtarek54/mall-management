@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -23,7 +24,7 @@ use Spatie\Activitylog\Support\LogOptions;
  */
 class StockMovement extends Model
 {
-    use HasFactory, LogsActivity, SoftDeletes;
+    use RefusesDeletionOfCommittedRecords, HasFactory, LogsActivity, SoftDeletes;
 
     /** Positive movements ADD stock; negative movements REMOVE it. */
     public const TYPES = ['receipt', 'consumption', 'adjustment', 'transfer_in', 'transfer_out'];
