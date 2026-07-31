@@ -29,7 +29,7 @@ class StockMovementResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowsUpDown;
 
-    protected static ?int $navigationSort = 42;
+    protected static ?int $navigationSort = 3;
 
     protected static function permissionModule(): string
     {
@@ -53,7 +53,7 @@ class StockMovementResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('admin.inventory.group');
+        return __('admin.groups.inventory_assets');
     }
 
     public static function table(Table $table): Table

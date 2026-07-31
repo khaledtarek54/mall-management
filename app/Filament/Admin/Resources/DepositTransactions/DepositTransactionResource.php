@@ -34,7 +34,7 @@ class DepositTransactionResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedShieldCheck;
 
-    protected static ?int $navigationSort = 30;
+    protected static ?int $navigationSort = 5;
 
     protected static ?string $recordTitleAttribute = 'number';
 
@@ -55,7 +55,7 @@ class DepositTransactionResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('admin.groups.accounting');
+        return __('admin.groups.receivables');
     }
 
     public static function form(Schema $schema): Schema

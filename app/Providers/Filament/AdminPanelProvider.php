@@ -103,13 +103,23 @@ class AdminPanelProvider extends PanelProvider
             // which is how the monthly-close receivables reached HR and marketing.
             ->widgets([])
             ->navigationGroups([
-                // Sidebar organized by department (FR DEPT). Access to each
-                // resource is still RBAC; this is just the grouping.
+                // Ordered as the money actually moves, which is how an accountant reads a system:
+                // the tenancy that creates the obligation, then what is owed TO us, then what WE
+                // owe, then the ledger those two land in. Ten groups were previously declared as
+                // six, so the four undeclared ones (Facility, Inventory, Treasury, Fixed Assets)
+                // fell wherever Filament happened to encounter them — and a single 14-item
+                // "Accounting" group mixed AR, AP, the general ledger and payroll together.
+                //
+                // Access is still RBAC; a group a role cannot see never renders.
                 NavigationGroup::make('Leasing')->label(fn () => __('admin.groups.leasing')),
+                NavigationGroup::make('Receivables')->label(fn () => __('admin.groups.receivables')),
+                NavigationGroup::make('Payables')->label(fn () => __('admin.groups.payables')),
+                NavigationGroup::make('General Ledger')->label(fn () => __('admin.groups.general_ledger')),
                 NavigationGroup::make('Operations')->label(fn () => __('admin.groups.operations')),
-                NavigationGroup::make('Accounting')->label(fn () => __('admin.groups.accounting')),
+                NavigationGroup::make('Facility')->label(fn () => __('admin.groups.facility')),
+                NavigationGroup::make('Inventory & Assets')->label(fn () => __('admin.groups.inventory_assets')),
+                NavigationGroup::make('HR & Payroll')->label(fn () => __('admin.groups.hr_payroll')),
                 NavigationGroup::make('Marketing')->label(fn () => __('admin.groups.marketing')),
-                NavigationGroup::make('HR')->label(fn () => __('admin.groups.hr')),
                 NavigationGroup::make('Settings')->label(fn () => __('admin.groups.settings')),
             ])
             ->sidebarCollapsibleOnDesktop()

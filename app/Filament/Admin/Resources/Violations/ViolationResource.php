@@ -45,7 +45,7 @@ class ViolationResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedExclamationTriangle;
 
-    protected static ?int $navigationSort = 30;
+    protected static ?int $navigationSort = 3;
 
     protected static ?string $recordTitleAttribute = 'reference';
 

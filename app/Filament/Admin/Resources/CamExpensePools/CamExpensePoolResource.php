@@ -40,7 +40,7 @@ class CamExpensePoolResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingOffice2;
 
-    protected static ?int $navigationSort = 7;
+    protected static ?int $navigationSort = 6;
 
     /** Property-scope the list ourselves (Filament auto-tenancy is off — see the trait note above). */
     public static function getEloquentQuery(): Builder
@@ -74,7 +74,7 @@ class CamExpensePoolResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('admin.groups.accounting');
+        return __('admin.groups.receivables');
     }
 
     public static function form(Schema $schema): Schema

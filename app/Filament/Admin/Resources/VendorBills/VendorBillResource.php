@@ -34,7 +34,7 @@ class VendorBillResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentText;
 
-    protected static ?int $navigationSort = 26;
+    protected static ?int $navigationSort = 1;
 
     protected static ?string $recordTitleAttribute = 'number';
 
@@ -55,7 +55,7 @@ class VendorBillResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('admin.groups.accounting');
+        return __('admin.groups.payables');
     }
 
     public static function form(Schema $schema): Schema

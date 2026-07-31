@@ -56,7 +56,7 @@ class PaymentResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('admin.groups.accounting');
+        return __('admin.groups.receivables');
     }
 
     public static function form(Schema $schema): Schema

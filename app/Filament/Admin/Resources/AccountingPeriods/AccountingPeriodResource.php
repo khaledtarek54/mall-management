@@ -30,7 +30,7 @@ class AccountingPeriodResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedLockClosed;
 
-    protected static ?int $navigationSort = 28;
+    protected static ?int $navigationSort = 3;
 
     protected static ?string $recordTitleAttribute = 'period_no';
 
@@ -51,7 +51,7 @@ class AccountingPeriodResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('admin.groups.accounting');
+        return __('admin.groups.general_ledger');
     }
 
     public static function form(Schema $schema): Schema

@@ -41,7 +41,7 @@ class EquipmentResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCog6Tooth;
 
-    protected static ?int $navigationSort = 28;
+    protected static ?int $navigationSort = 3;
 
     protected static ?string $recordTitleAttribute = 'code';
 

@@ -54,6 +54,12 @@ return [
     ],
 
     'groups' => [
+        'receivables' => 'الحسابات المدينة',
+        'payables' => 'الحسابات الدائنة',
+        'general_ledger' => 'دفتر الأستاذ العام',
+        'inventory_assets' => 'المخازن والأصول',
+        'hr_payroll' => 'الموارد البشرية والرواتب',
+        'facility' => 'المرافق والصيانة',
         'operations' => 'العمليات',
         'leasing' => 'التأجير',
         'accounting' => 'المحاسبة',

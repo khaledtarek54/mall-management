@@ -40,7 +40,7 @@ class FixedAssetResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingOffice2;
 
-    protected static ?int $navigationSort = 43;
+    protected static ?int $navigationSort = 4;
 
     protected static ?string $recordTitleAttribute = 'name';
 
@@ -66,7 +66,7 @@ class FixedAssetResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('admin.fixed_assets.group');
+        return __('admin.groups.inventory_assets');
     }
 
     public static function form(Schema $schema): Schema

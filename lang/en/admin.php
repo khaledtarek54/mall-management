@@ -54,6 +54,12 @@ return [
     ],
 
     'groups' => [
+        'receivables' => 'Receivables',
+        'payables' => 'Payables',
+        'general_ledger' => 'General Ledger',
+        'inventory_assets' => 'Inventory & Assets',
+        'hr_payroll' => 'HR & Payroll',
+        'facility' => 'Facility',
         'operations' => 'Operations',
         'leasing' => 'Leasing',
         'accounting' => 'Accounting',

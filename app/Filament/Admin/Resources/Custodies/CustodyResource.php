@@ -36,7 +36,7 @@ class CustodyResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedWallet;
 
-    protected static ?int $navigationSort = 45;
+    protected static ?int $navigationSort = 4;
 
     protected static ?string $recordTitleAttribute = 'reference';
 
@@ -62,7 +62,7 @@ class CustodyResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('admin.custodies.group');
+        return __('admin.groups.hr_payroll');
     }
 
     public static function form(Schema $schema): Schema

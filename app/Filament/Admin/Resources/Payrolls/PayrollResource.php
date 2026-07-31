@@ -34,7 +34,7 @@ class PayrollResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUsers;
 
-    protected static ?int $navigationSort = 29;
+    protected static ?int $navigationSort = 3;
 
     protected static ?string $recordTitleAttribute = 'number';
 
@@ -55,7 +55,7 @@ class PayrollResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('admin.groups.accounting');
+        return __('admin.groups.hr_payroll');
     }
 
     public static function form(Schema $schema): Schema

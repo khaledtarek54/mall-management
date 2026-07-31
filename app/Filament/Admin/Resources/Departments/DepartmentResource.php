@@ -27,7 +27,7 @@ class DepartmentResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUserGroup;
 
-    protected static ?int $navigationSort = 7;
+    protected static ?int $navigationSort = 2;
 
     protected static ?string $recordTitleAttribute = 'name';
 
@@ -69,7 +69,7 @@ class DepartmentResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('admin.groups.hr');
+        return __('admin.groups.hr_payroll');
     }
 
     public static function form(Schema $schema): Schema

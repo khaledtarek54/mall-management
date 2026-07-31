@@ -33,7 +33,7 @@ class JournalEntryResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBookOpen;
 
-    protected static ?int $navigationSort = 21;
+    protected static ?int $navigationSort = 2;
 
     protected static ?string $recordTitleAttribute = 'number';
 
@@ -54,7 +54,7 @@ class JournalEntryResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('admin.groups.accounting');
+        return __('admin.groups.general_ledger');
     }
 
     public static function form(Schema $schema): Schema

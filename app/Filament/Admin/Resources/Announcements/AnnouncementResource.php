@@ -44,7 +44,7 @@ class AnnouncementResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedMegaphone;
 
-    protected static ?int $navigationSort = 90;
+    protected static ?int $navigationSort = 2;
 
     protected static ?string $recordTitleAttribute = 'title';
 
@@ -85,7 +85,7 @@ class AnnouncementResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('admin.announcements.group');
+        return __('admin.groups.marketing');
     }
 
     public static function form(Schema $schema): Schema

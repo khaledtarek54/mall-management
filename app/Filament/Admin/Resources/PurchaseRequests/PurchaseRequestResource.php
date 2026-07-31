@@ -38,7 +38,7 @@ class PurchaseRequestResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedShoppingCart;
 
-    protected static ?int $navigationSort = 48;
+    protected static ?int $navigationSort = 3;
 
     protected static ?string $recordTitleAttribute = 'reference';
 
@@ -79,7 +79,7 @@ class PurchaseRequestResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('admin.procurement.group');
+        return __('admin.groups.payables');
     }
 
     public static function form(Schema $schema): Schema

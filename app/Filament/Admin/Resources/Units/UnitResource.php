@@ -57,7 +57,7 @@ class UnitResource extends Resource
 
     public static function getNavigationLabel(): string
     {
-        return __('admin.navigation.tenant_directory');
+        return __('admin.resources.unit.plural');
     }
 
     public static function getModelLabel(): string

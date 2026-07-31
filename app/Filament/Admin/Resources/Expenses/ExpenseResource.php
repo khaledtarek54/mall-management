@@ -33,7 +33,7 @@ class ExpenseResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBanknotes;
 
-    protected static ?int $navigationSort = 27;
+    protected static ?int $navigationSort = 2;
 
     protected static ?string $recordTitleAttribute = 'number';
 
@@ -54,7 +54,7 @@ class ExpenseResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('admin.groups.accounting');
+        return __('admin.groups.payables');
     }
 
     public static function form(Schema $schema): Schema

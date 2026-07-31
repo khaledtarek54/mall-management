@@ -37,7 +37,7 @@ class WarehouseResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingStorefront;
 
-    protected static ?int $navigationSort = 40;
+    protected static ?int $navigationSort = 1;
 
     protected static ?string $recordTitleAttribute = 'name';
 
@@ -78,7 +78,7 @@ class WarehouseResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('admin.inventory.group');
+        return __('admin.groups.inventory_assets');
     }
 
     public static function form(Schema $schema): Schema

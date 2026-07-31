@@ -39,7 +39,7 @@ class SlaPolicyResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClock;
 
-    protected static ?int $navigationSort = 49;
+    protected static ?int $navigationSort = 4;
 
     protected static ?string $recordTitleAttribute = 'priority';
 

@@ -48,7 +48,7 @@ class UserResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('admin.groups.hr');
+        return __('admin.groups.settings');
     }
 
     // Users is the HR department's resource: access/create/edit are gated on

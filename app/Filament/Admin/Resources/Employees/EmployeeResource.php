@@ -38,7 +38,7 @@ class EmployeeResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedIdentification;
 
-    protected static ?int $navigationSort = 44;
+    protected static ?int $navigationSort = 1;
 
     protected static ?string $recordTitleAttribute = 'name';
 
@@ -79,7 +79,7 @@ class EmployeeResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('admin.employees.group');
+        return __('admin.groups.hr_payroll');
     }
 
     public static function form(Schema $schema): Schema

@@ -34,7 +34,7 @@ class OwnerStatementRunResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentText;
 
-    protected static ?int $navigationSort = 45;
+    protected static ?int $navigationSort = 4;
 
     protected static ?string $recordTitleAttribute = 'reference';
 
@@ -45,7 +45,7 @@ class OwnerStatementRunResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('admin.groups.accounting');
+        return __('admin.groups.general_ledger');
     }
 
     public static function getNavigationLabel(): string

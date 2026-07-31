@@ -35,7 +35,7 @@ class UtilityMeterResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBolt;
 
-    protected static ?int $navigationSort = 8;
+    protected static ?int $navigationSort = 7;
 
     public static function getNavigationLabel(): string
     {
@@ -54,7 +54,7 @@ class UtilityMeterResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('admin.groups.operations');
+        return __('admin.groups.receivables');
     }
 
     public static function form(Schema $schema): Schema
