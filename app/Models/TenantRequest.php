@@ -138,6 +138,31 @@ class TenantRequest extends Model implements HasMedia
             }
         });
 
+        // A CLOSED / CANCELLED request is terminal — its descriptive + routing fields freeze at the
+        // model layer (mirrors Lease/Invoice; closes the API/console/Edit-form path behind the UI,
+        // which the generic admin Edit page otherwise left open). Keyed on the ORIGINAL status so the
+        // transition INTO closed — which sets resolution_notes — is allowed, and post-close CSAT
+        // (csat_rating/csat_comment via rate(); a closed request stays rateable) + soft-delete/restore
+        // stay allowed. Terminal statuses have no outgoing transition anyway (the service matrix).
+        // Pre-go-live sweep (terminal-state) — the money-free peer of the VendorBill immutability gap.
+        static::updating(function (self $request) {
+            if (! in_array($request->getOriginal('status'), ['closed', 'cancelled'], true)) {
+                return;
+            }
+            $frozen = [
+                'request_type', 'title', 'description', 'priority', 'category',
+                'assigned_to', 'assigned_to_vendor_id', 'department_id', 'area_id',
+                'unit_id', 'lease_id', 'tenant_id',
+                'target_resolution_at', 'scheduled_from', 'scheduled_to', 'valid_from', 'valid_to',
+                'resolution_notes',
+            ];
+            foreach ($frozen as $field) {
+                if ($request->isDirty($field)) {
+                    throw new \DomainException(__('admin.maintenance.errors.terminal_immutable'));
+                }
+            }
+        });
+
         // Area routing (module 30 → 11), derived in the model so admin + portal + API all inherit
         // it. A request lives in its unit's facility zone: if no area was set explicitly, inherit
         // the unit's. An explicitly-set area_id is never overridden (a caller may target a zone

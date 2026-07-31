@@ -486,6 +486,14 @@ cancelled        → (terminal, no successors)
 1. **DO NOT** — the constraint is a design requirement (FR REQ-3).
 2. If a closed request must be re-opened, add a new status or explicitly document the exception.
 
+**Terminal immutability is now a MODEL guard, not just `canEdit()` UI (pre-go-live sweep, 2026-07-31).**
+`canEdit()` hides the Edit button for a terminal request, but that only gates the UI — the generic
+admin Edit page's save path was still reachable (mountAction / crafted request), so a closed/cancelled
+request's descriptive + routing fields could be rewritten off-form. `TenantRequest::booted()` now has a
+`static::updating` guard (mirrors Lease/Invoice) that freezes them, keyed on the **original** status so
+the transition INTO closed is allowed; **post-close CSAT** (`csat_rating`/`csat_comment` via `rate()`) and
+soft-delete/restore stay allowed. Pinned by `TenantRequestTerminalImmutableTest`.
+
 **To add media attachments to comments**:
 1. Add HasMedia trait to MaintenanceRequestComment model.
 2. Add Spatie file upload to comments relation manager.
