@@ -258,3 +258,19 @@ asserted not to refuse a *visible* warehouse, so a guard that refused everything
 
 **Related:** 11 Maintenance (Phase 2 consumption), 12 Vendors (Phase 3 receipts),
 21 General Ledger (Phase 3 costing), 18 RBAC (Phase 1b), 01 Properties (asset scope).
+
+---
+
+## Deletion policy
+
+Operator decision 2026-07-31, following Yardi/MRI/Entrata: a record that carries history is
+**refused**, not warned about — the damage lands on the reports and audit trail that referenced
+it, none of which are in front of whoever clicks the button. The single register is
+[`App\Support\DeletionPolicy`](../../app/Support/DeletionPolicy.php); `DeletionPolicyConformanceTest` fails the build if a model here ships unclassified or a Delete
+button reappears on a money record.
+
+| Model | Rule | Instead / why |
+|---|---|---|
+| `StockMovement` | **Never deletable** | post a correcting movement; the original is what the GL was built from |
+| `InventoryItem` | **Only while unreferenced** — blocked by `movements` | deactivate the item — its movements are what the stock valuation was built from |
+| `Warehouse` | **Only while unreferenced** — blocked by `movements` | a warehouse with stock history is part of the inventory record |

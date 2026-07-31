@@ -215,3 +215,19 @@ windowed sweep on soft-delete, and the terminal-disposal guard (no second dispos
 
 **Related:** 21 General Ledger (Phase 2 posting), 01 Properties (asset scope),
 22 Inventory (sibling module, same ledger patterns), 18 RBAC (Phase 1b).
+
+---
+
+## Deletion policy
+
+Operator decision 2026-07-31, following Yardi/MRI/Entrata: a record that carries history is
+**refused**, not warned about — the damage lands on the reports and audit trail that referenced
+it, none of which are in front of whoever clicks the button. The single register is
+[`App\Support\DeletionPolicy`](../../app/Support/DeletionPolicy.php); `DeletionPolicyConformanceTest` fails the build if a model here ships unclassified or a Delete
+button reappears on a money record.
+
+| Model | Rule | Instead / why |
+|---|---|---|
+| `FixedAsset` | Deletable (super_admin) | operational: soft-delete IS the retirement path — the sweep voids the asset's entire GL footprint, which a scenario test pins |
+| `DepreciationEntry` | **Never deletable** | reverse the depreciation run |
+| `FixedAssetDisposal` | **Never deletable** | reverse the disposal |

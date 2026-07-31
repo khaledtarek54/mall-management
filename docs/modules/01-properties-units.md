@@ -586,3 +586,17 @@ php artisan test tests/Feature/Scenarios/MultiUnitLeaseDataScenarioTest.php --fi
 
 The Properties & Units module is the spatial and organizational backbone of the mall-management ERP. It maps real-world properties and their subdivisions, projects occupancy from lease lifecycles (via the `lease_unit` pivot and `LeaseObserver`), and scopes all operations to the active property context (or All Properties for cross-property views). Every change to properties, units, or lease assignments must respect the immutability of unit occupancy projection (only manual 'maintenance' override is sticky) and the denormalised master unit pointer in `leases.unit_id`. Comprehensive test coverage in `MultiUnitLeaseDataScenarioTest.php` guards against occupancy regressions; always run the full test suite before modifying asset/unit/occupancy logic.
 
+---
+
+## Deletion policy
+
+Operator decision 2026-07-31, following Yardi/MRI/Entrata: a record that carries history is
+**refused**, not warned about — the damage lands on the reports and audit trail that referenced
+it, none of which are in front of whoever clicks the button. The single register is
+[`App\Support\DeletionPolicy`](../../app/Support/DeletionPolicy.php); `DeletionPolicyConformanceTest` fails the build if a model here ships unclassified or a Delete
+button reappears on a money record.
+
+| Model | Rule | Instead / why |
+|---|---|---|
+| `Unit` | **Only while unreferenced** — blocked by `allLeases`, `maintenanceRequests`, `utilityMeters` | set the unit to maintenance if it is out of service — a unit that has been leased is part of the property record |
+| `Asset` | **Only while unreferenced** — blocked by `units`, `leases`, `camPools`, `utilityMeters`, `owners`, `journalEntries`, `expenses`, `vendorBills`, `payrolls`, `disbursements`, `maintenancePenalties`, `depositTransactions`, `postDatedCheques`, `employees`, `fixedAssets`, `marketingBudgets`, `violations` | deactivate the property — deleting one would orphan (or cascade-destroy) every book, payroll, register and penalty that reports on it |

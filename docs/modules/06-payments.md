@@ -468,3 +468,18 @@ Payments carry a **`channel`** (`payments.channel`): `payment_link` (public `/pa
 **Last updated:** 2026-06-27  
 **Module code:** M06  
 **Key decision points:** Audit M06 F-25, F-26 (allocation guards); M11 F-42 (Paymob session reuse).
+
+---
+
+## Deletion policy
+
+Operator decision 2026-07-31, following Yardi/MRI/Entrata: a record that carries history is
+**refused**, not warned about — the damage lands on the reports and audit trail that referenced
+it, none of which are in front of whoever clicks the button. The single register is
+[`App\Support\DeletionPolicy`](../../app/Support/DeletionPolicy.php); `DeletionPolicyConformanceTest` fails the build if a model here ships unclassified or a Delete
+button reappears on a money record.
+
+| Model | Rule | Instead / why |
+|---|---|---|
+| `Payment` | **Never deletable** | void the payment (VoidPaymentService) — it reverses the GL and re-opens the invoice |
+| `TenantCreditApplication` | Deletable (super_admin) | parent-managed: soft-deleted to reverse an applied tenant credit |

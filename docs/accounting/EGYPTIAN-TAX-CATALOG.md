@@ -74,7 +74,12 @@ Map families to accounts through `AccountMapping` (semantic role, per the one-re
 ## Relationship to other work
 
 - **Unblocks the deferred owner-statement management fee** — its VAT-on-fee toggle would select a VAT code
-  from this catalog instead of a hardcoded 14%. See [docs/plans/04-owner-statements-disbursements.md](../plans/04-owner-statements-disbursements.md).
-- **Supersedes** the hardcoded VAT/marketing-levy constants once built (a migration/backfill, not a rewrite).
+  from this catalog. See [docs/plans/04-owner-statements-disbursements.md](../plans/04-owner-statements-disbursements.md).
+- **PARTLY SHIPPED 2026-07-30 — the standard VAT rate is no longer hardcoded.** It lives in
+  `TaxSettings::vat_standard_rate` and is read only through `App\Support\Vat`; `VatRateSettingTest`
+  fails the build if a literal rate reappears. The marketing levy was already settings-driven
+  (`MarketingSettings::levy_rate_percent`). What this catalog would still add is a *catalog* — multiple
+  named codes with their own rates and effective dates — rather than one standard rate plus per-charge
+  overrides. Scope the remaining work against what exists, not against the old hardcoded state.
 - **Cross-cutting** — a config/settings feature, not part of the owner-statements build. Needs the
   accountant's sign-off on treatment (especially withholding mechanics + stamp applicability) first.

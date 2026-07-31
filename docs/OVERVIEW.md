@@ -96,10 +96,10 @@ purpose, domain model, business rules, lifecycle/state-machine, services, Filame
 
 | Rule | Value | Where |
 |---|---|---|
-| VAT | **14%** on service charges; **base rent is VAT-exempt** | Billing |
+| VAT | Standard rate (**14%** today) on service charges; **base rent is VAT-exempt**. Settings-driven — `TaxSettings::vat_standard_rate` via `App\Support\Vat`; only origination reads it, so an issued invoice keeps the rate it was billed at | Billing / Settings → Tax |
 | Marketing levy | **5%** of base rent (configurable, captured per-charge) | Marketing |
 | AR balance | `paid_amount = captured payments + credit_applied_amount`; `balance = total − paid` | Invoice::recomputeTotals |
-| Delete | **super_admin only**; bulk-delete disabled project-wide | RBAC |
+| Delete | **Money records are never deletable — not even by super_admin** (invoice, payment, journal entry, credit note, vendor bill, expense, deposit txn, payroll, cheque): correct via cancel / void / credit note. **Master data with history is refused too** (tenant, vendor, lease, unit, property, employee) — deactivate instead. Everything else: super_admin only, bulk-delete off | `App\Support\DeletionPolicy` |
 | Tenant writes | **only admin `TenantUser`s** submit/pay in the portal; others read-only | Portal |
 | Terminal work-orders | closed/cancelled maintenance + responded owner-requests are **immutable** | Maintenance / Owner Requests |
 | Cross-tenant API | returns **404** (not 403) — no existence enumeration | Mobile API |

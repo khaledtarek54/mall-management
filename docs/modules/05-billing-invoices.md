@@ -915,3 +915,19 @@ $dueDate = $issueDate->addDays($lease->payment_terms_days ?? 7);
 ## Summary
 
 The Billing & Invoices module is the core AR engine of the platform. It automates monthly invoice generation from lease charges, enforces Egyptian tax compliance (14% VAT on service charges only), supports lease commencement proration, and reconciles payments + credit notes durably. The system is designed for idempotency (safe to re-run) and includes extensive tests covering edge cases (quarterly billing cadence, credit + payment drift, proration precision). Key extension points are adding charge types/frequencies and integrating external payment gateways. Recently fixed bugs include quarterly charge timing (day-of-month agnostic calendar delta) and credit note AR drift (via credit_applied_amount column), both of which are regression-tested.
+
+---
+
+## Deletion policy
+
+Operator decision 2026-07-31, following Yardi/MRI/Entrata: a record that carries history is
+**refused**, not warned about — the damage lands on the reports and audit trail that referenced
+it, none of which are in front of whoever clicks the button. The single register is
+[`App\Support\DeletionPolicy`](../../app/Support/DeletionPolicy.php); `DeletionPolicyConformanceTest` fails the build if a model here ships unclassified or a Delete
+button reappears on a money record.
+
+| Model | Rule | Instead / why |
+|---|---|---|
+| `Invoice` | **Never deletable** | cancel the invoice, or issue a credit note |
+| `Charge` | Deletable (super_admin) | configuration: a recurring billing line; issued invoices keep their own copy |
+| `InvoiceItem` | Deletable (super_admin) | parent-managed: rebuilt whenever the invoice is recomputed |

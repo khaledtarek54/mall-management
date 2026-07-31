@@ -278,8 +278,9 @@ then administered.** Only `super_admin`, `manager` and `mall_admin` hold `assets
 
 The page now serves two audiences: the form for those who may create, and a "no property assigned
 yet — ask an administrator" explanation for everyone else (who previously got a bare 404 with no
-hint what to do). The gate is in `handleRegistration()`, not in the form's visibility — a hidden
-form is still dispatchable over Livewire.
+hint what to do). The gate is in `handleRegistration()`, not in the form's visibility — visibility is a UI
+decision, and the handler is where the authorization belongs regardless of whether hiding
+happens to block a given Livewire entrypoint (see the correction at the end of this doc).
 
 ### Cloning a role
 

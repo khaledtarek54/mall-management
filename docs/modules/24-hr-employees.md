@@ -325,3 +325,21 @@ Now guarded via `App\Support\PostingDate`:
 
 Tests: `tests/Feature/Regression/PostingDateGuardTest.php` (mutation-checked — removing the guards
 fails them).
+
+---
+
+## Deletion policy
+
+Operator decision 2026-07-31, following Yardi/MRI/Entrata: a record that carries history is
+**refused**, not warned about — the damage lands on the reports and audit trail that referenced
+it, none of which are in front of whoever clicks the button. The single register is
+[`App\Support\DeletionPolicy`](../../app/Support/DeletionPolicy.php); `DeletionPolicyConformanceTest` fails the build if a model here ships unclassified or a Delete
+button reappears on a money record.
+
+| Model | Rule | Instead / why |
+|---|---|---|
+| `Payroll` | **Never deletable** | cancel the run — payslips and their GL entries follow it |
+| `PayrollLine` | Deletable (super_admin) | parent-managed: rebuilt when payslips are regenerated |
+| `Employee` | **Only while unreferenced** — blocked by `payrollLines`, `advances`, `custodies` | set the employee inactive — payroll history is a statutory record |
+| `EmployeeAdvance` | Deletable (super_admin) | operational: reversed rather than removed |
+| `EmployeeAdvanceRepayment` | Deletable (super_admin) | parent-managed: deleted to reverse a repayment |

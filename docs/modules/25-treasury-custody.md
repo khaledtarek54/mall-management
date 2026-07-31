@@ -140,3 +140,19 @@ refused **every** settlement of it (a settlement may not predate its grant). The
 stuck: recorded, unbacked in the books, and unsettleable.
 
 Tests: `tests/Feature/Regression/PostingDateGuardTest.php` (mutation-checked).
+
+---
+
+## Deletion policy
+
+Operator decision 2026-07-31, following Yardi/MRI/Entrata: a record that carries history is
+**refused**, not warned about — the damage lands on the reports and audit trail that referenced
+it, none of which are in front of whoever clicks the button. The single register is
+[`App\Support\DeletionPolicy`](../../app/Support/DeletionPolicy.php); `DeletionPolicyConformanceTest` fails the build if a model here ships unclassified or a Delete
+button reappears on a money record.
+
+| Model | Rule | Instead / why |
+|---|---|---|
+| `DepositTransaction` | **Never deletable** | reverse the deposit transaction |
+| `Custody` | Deletable (super_admin) | operational: settled through SettleCustodyService |
+| `CustodyTransaction` | Deletable (super_admin) | parent-managed: removed on settlement |

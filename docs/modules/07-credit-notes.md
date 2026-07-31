@@ -366,3 +366,17 @@ The property+facility close-out (see [gap-analysis](../gap-analysis/PROPERTY-FAC
 ### Operator UX pass (2026-07-22)
 A UX audit fixed: **(catch)** the `issue` action + create-into-a-posting-status threw an uncaught `DomainException` (a **closed period**) → Livewire 500; both now catch it as a clean localized toast, matching `apply`/`void` — and `DeleteAction` is hidden once credit is applied (the guided way out is Reverse). **(verifiable applied_amount)** a read-only **`CreditNoteApplicationsRelationManager`** now lists which invoices consumed the credit (invoice · amount · when · by), with a per-row **un-apply** backed by the new granular `CreditNoteService::reverseApplication()` (the counterpart to all-or-nothing `reverseAllApplications`). **(guided apply)** the apply modal's invoice select is `live()` and pre-fills + caps the amount at `min(note balance, invoice balance)`; the `issue` confirm gained a description. Native Filament (no Blade); i18n EN+AR. Tests: `CreditNoteApplicationsUxTest`.
 
+---
+
+## Deletion policy
+
+Operator decision 2026-07-31, following Yardi/MRI/Entrata: a record that carries history is
+**refused**, not warned about — the damage lands on the reports and audit trail that referenced
+it, none of which are in front of whoever clicks the button. The single register is
+[`App\Support\DeletionPolicy`](../../app/Support/DeletionPolicy.php); `DeletionPolicyConformanceTest` fails the build if a model here ships unclassified or a Delete
+button reappears on a money record.
+
+| Model | Rule | Instead / why |
+|---|---|---|
+| `CreditNote` | **Never deletable** | cancel the note — it un-applies against the original invoice |
+| `CreditNoteApplication` | Deletable (super_admin) | parent-managed: deleted to UN-APPLY a credit note |

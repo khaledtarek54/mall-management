@@ -92,3 +92,17 @@ close-out (2026-07-27) cases: two cheques don't over-settle one invoice, a cross
 refused (and the `tenant_id`-edit trigger), a voided clearing payment reverses the cheque to `bounced`. Conformance:
 `PropertyIsolationConformanceTest` (the create form guards `asset_id`), `TranslationCoverageTest`,
 `ModuleLabelCoverageTest`, `AdminSmokeManifestConformanceTest`.
+
+---
+
+## Deletion policy
+
+Operator decision 2026-07-31, following Yardi/MRI/Entrata: a record that carries history is
+**refused**, not warned about — the damage lands on the reports and audit trail that referenced
+it, none of which are in front of whoever clicks the button. The single register is
+[`App\Support\DeletionPolicy`](../../app/Support/DeletionPolicy.php); `DeletionPolicyConformanceTest` fails the build if a model here ships unclassified or a Delete
+button reappears on a money record.
+
+| Model | Rule | Instead / why |
+|---|---|---|
+| `PostDatedCheque` | **Never deletable** | cancel or bounce the cheque |

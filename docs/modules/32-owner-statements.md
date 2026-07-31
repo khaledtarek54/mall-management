@@ -147,3 +147,19 @@ gets the operator actions; manager auto-gets the non-delete set.
   the PDF, Send-bells-the-owner).
 - **Conformance gates** that apply: `GlRegistryConformanceTest`, `PropertyIsolationConformanceTest`,
   `ChartOfAccountsConformanceTest`, `AdminSmokeManifestConformanceTest`, `TranslationCoverageTest`.
+
+---
+
+## Deletion policy
+
+Operator decision 2026-07-31, following Yardi/MRI/Entrata: a record that carries history is
+**refused**, not warned about — the damage lands on the reports and audit trail that referenced
+it, none of which are in front of whoever clicks the button. The single register is
+[`App\Support\DeletionPolicy`](../../app/Support/DeletionPolicy.php); `DeletionPolicyConformanceTest` fails the build if a model here ships unclassified or a Delete
+button reappears on a money record.
+
+| Model | Rule | Instead / why |
+|---|---|---|
+| `Disbursement` | **Never deletable** | cancel the disbursement — it is a GL source and an owner payout |
+| `OwnerStatementRun` | Deletable (super_admin) | operational: superseded by a new version rather than removed |
+| `OwnerStatement` | Deletable (super_admin) | parent-managed: force-deleted when its run is rebuilt |

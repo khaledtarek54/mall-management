@@ -694,3 +694,20 @@ a source has no create/update service — its Filament resource writes the model
 save is the single choke point every path shares, and it uses `App\Models\Concerns\GuardsPostingDate`
 (dirty-only: the rule is "nobody MOVES an entry into a sealed period", not "old records are
 read-only").
+
+---
+
+## Deletion policy
+
+Operator decision 2026-07-31, following Yardi/MRI/Entrata: a record that carries history is
+**refused**, not warned about — the damage lands on the reports and audit trail that referenced
+it, none of which are in front of whoever clicks the button. The single register is
+[`App\Support\DeletionPolicy`](../../app/Support/DeletionPolicy.php); `DeletionPolicyConformanceTest` fails the build if a model here ships unclassified or a Delete
+button reappears on a money record.
+
+| Model | Rule | Instead / why |
+|---|---|---|
+| `JournalEntry` | **Never deletable** | post a reversing entry; a posted entry is never removed |
+| `JournalLine` | Deletable (super_admin) | parent-managed: rebuilt when its entry is re-posted |
+| `LedgerAccount` | **Only while unreferenced** — blocked by `lines`, `children` | deactivate the account — removing one that has been posted to breaks every prior statement |
+| `AccountingPeriod` | **Only while unreferenced** — blocked by `entries` | a period that has been posted to is part of the books; close it rather than remove it |
