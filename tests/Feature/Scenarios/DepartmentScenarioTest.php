@@ -25,6 +25,7 @@ use App\Filament\Admin\Resources\Tenants\TenantResource;
 use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Filament\Admin\Resources\UtilityMeters\UtilityMeterResource;
 use App\Models\Department;
+use Filament\Facades\Filament;
 use App\Notifications\DepartmentMessageNotification;
 use App\Services\DepartmentMessageService;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -236,36 +237,65 @@ it('persists a department message as a database bell notification', function () 
 
 /*
 |--------------------------------------------------------------------------
-| Navigation-group ⇄ department alignment
-| __('admin.groups.{slug}') resolves to the department's display name, so a
-| resource owned by department D groups under D's name.
+| Navigation grouping — the sidebar reads the way money moves
 |--------------------------------------------------------------------------
+| The 2026-07-31 reorg (feat(nav): reorganise the sidebar the way an accountant reads a
+| system) deliberately RETIRED the old department-aligned grouping: a resource no longer
+| groups under its owning department's name but under the money-flow stage it belongs to
+| (leasing → receivables → payables → general ledger). Grouping is presentation now;
+| department slugs still drive RBAC — see the slug-translation test below, which is why
+| that one is unchanged. What these pin is that each resource still declares its INTENDED
+| group, and that the group is one the panel actually declares — the bug the reorg fixed
+| was resources rendering wherever Filament happened to encounter them.
 */
 
-it('aligns each department-owned resource navigation group with its department name', function () {
-    // resource class => owning department display name (also the group label)
+it('files each resource under its intended money-flow navigation group', function () {
+    // resource class => the sidebar group it belongs to (money-flow stage, not department)
     $map = [
-        InvoiceResource::class => 'Accounting',
-        PaymentResource::class => 'Accounting',
-        CreditNoteResource::class => 'Accounting',
-        CamExpensePoolResource::class => 'Accounting',
+        InvoiceResource::class => 'Receivables',
+        PaymentResource::class => 'Receivables',
+        CreditNoteResource::class => 'Receivables',
+        CamExpensePoolResource::class => 'Receivables',
+        UtilityMeterResource::class => 'Receivables',   // recharges bill the tenant → AR
         LeaseResource::class => 'Leasing',
         TenantResource::class => 'Leasing',
         UnitResource::class => 'Leasing',
         TenantRequestResource::class => 'Operations',
-        UtilityMeterResource::class => 'Operations',
         MarketingBudgetResource::class => 'Marketing',
+        // The Departments admin (org-structure management) sits with HR & Payroll.
+        DepartmentResource::class => 'HR & Payroll',
     ];
 
-    foreach ($map as $resource => $department) {
+    foreach ($map as $resource => $group) {
         expect($resource::getNavigationGroup())
-            ->toBe($department, "{$resource} should group under {$department}");
+            ->toBe($group, "{$resource} should group under {$group}");
     }
 });
 
-it('groups the department registry itself under HR', function () {
-    // The Departments admin (org-structure management) lives in HR's group.
-    expect(DepartmentResource::getNavigationGroup())->toBe('HR');
+it('files every resource under a navigation group the panel declares (no scatter)', function () {
+    // The actual regression the reorg fixed: ten groups existed but only six were declared in
+    // the panel, so five resources rendered wherever Filament happened to encounter them. The
+    // allowed set is derived from the panel, so this holds as groups are added or renamed —
+    // a resource assigned to an undeclared group turns this red rather than silently scattering.
+    $panel = Filament::getPanel('admin');
+
+    $declared = collect($panel->getNavigationGroups())
+        ->map(fn ($group) => is_string($group) ? $group : $group->getLabel())
+        ->filter()
+        ->values()
+        ->all();
+
+    $scattered = [];
+
+    foreach ($panel->getResources() as $resource) {
+        $group = $resource::getNavigationGroup();
+
+        if ($group !== null && ! in_array($group, $declared, true)) {
+            $scattered[] = class_basename($resource)." → {$group}";
+        }
+    }
+
+    expect($scattered)->toBe([], "these resources sit in a group the panel never declares:\n  ".implode("\n  ", $scattered));
 });
 
 it('resolves the group label from the department slug translation key', function () {
