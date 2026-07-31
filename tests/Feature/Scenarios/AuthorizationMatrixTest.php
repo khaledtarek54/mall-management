@@ -120,14 +120,17 @@ it('super_admin can view + create every resource', function () {
     }
 });
 
-it('super_admin is the only role that can single-delete', function () {
+it('super_admin single-deletes a deletable record; money records are never deletable', function () {
     $lease = makeLease(makeUnit(makeAsset()));
     $invoice = makeInvoice($lease);
 
     $this->actingAs(makeUser('super_admin'));
-    expect(InvoiceResource::canDelete($invoice))->toBeTrue()
-        ->and(LeaseResource::canDelete($lease))->toBeTrue()
-        ->and(TenantResource::canDelete($lease->tenant))->toBeTrue();
+    // super_admin single-deletes DELETABLE records (delete is super_admin-only, project-wide)…
+    expect(LeaseResource::canDelete($lease))->toBeTrue()
+        ->and(TenantResource::canDelete($lease->tenant))->toBeTrue()
+        // …but a money / audit record is NEVER deletable, not even by super_admin — it is corrected
+        // (cancel / void / credit note), not deleted. See App\Support\DeletionPolicy.
+        ->and(InvoiceResource::canDelete($invoice))->toBeFalse();
 });
 
 /*
