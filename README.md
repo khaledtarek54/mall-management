@@ -89,7 +89,8 @@ Hitting `/admin` bare redirects to `/admin/{first-property}/...`. Users with mor
 | Doc | When to read it |
 |---|---|
 | [INFRA.md](INFRA.md) | Production runbook / hosting |
-| [PAYMOB-SETUP.md](PAYMOB-SETUP.md) · [PAYMOB-FLUTTER.md](PAYMOB-FLUTTER.md) | Paymob gateway setup + Flutter integration |
+| [docs/integrations/PAYMOB.md](docs/integrations/PAYMOB.md) | **Paymob: the complete implementation reference** (every rule, file, API body, gotcha + a port checklist for another system) |
+| [PAYMOB-SETUP.md](PAYMOB-SETUP.md) · [PAYMOB-FLUTTER.md](PAYMOB-FLUTTER.md) | Paymob operator setup + Flutter/mobile integration |
 | [MOBILE-APP-BRIEF.md](MOBILE-APP-BRIEF.md) | Business briefing for the mobile developer |
 | [docs/api/](docs/api/) | Mobile API reference + v1 architecture |
 | [docs/gap-analysis/](docs/gap-analysis/) | Per-feature technical gap analysis + deferred backlog + production checklist |

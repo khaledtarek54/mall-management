@@ -357,8 +357,11 @@ Returns a Paymob session (`paymentToken` + `iframeUrl`) tagged with the
 Apple/Google Pay) or open `iframeUrl` in a WebView. The authoritative result
 comes from the S2S webhook — **poll `GET /me/invoices/{id}`** for the invoice to
 flip to `paid`; don't trust the SDK's local result. Errors: `404` not yours,
-`409` Paymob disabled, `422` nothing payable, `429` throttled (5/min), `502`
-upstream. (Alternatively, share `invoice.paymentLinkUrl` — a no-login web link.)
+`409` Paymob disabled, `422` nothing payable, `429` throttled (the surface's
+60/min), `502` upstream. Idempotent — repeat taps inside 45 min return the same
+session (`reused: true`), so no double-tap guard is needed. (Alternatively,
+share `invoice.paymentLinkUrl` — a no-login web link.) Full contract +
+server-side rules: [docs/integrations/PAYMOB.md](../integrations/PAYMOB.md).
 
 #### 🔒 `POST /me/invoices/{id}/pay-demo` — simulate a payment (Paymob disabled only)
 Marks the invoice paid through the real capture path (no gateway). Returns `409`

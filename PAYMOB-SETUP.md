@@ -5,6 +5,11 @@ gets you all the way to a card form and a server-to-server callback that
 flips an invoice to `paid`; production is the same flow with different
 credentials.
 
+> **Engineers / porting to another system:** this doc is the *operator*
+> walkthrough. The complete implementation reference — every rule, file,
+> API body, HMAC field order, concurrency lock and gotcha — is
+> [`docs/integrations/PAYMOB.md`](docs/integrations/PAYMOB.md).
+
 You need 4 credentials from your Paymob dashboard:
 
 | .env variable          | Where in the dashboard                                              |
@@ -57,6 +62,14 @@ PAYMOB_INTEGRATION_ID=<paste from step 2.2>
 PAYMOB_IFRAME_ID=<paste from step 2.3>
 PAYMOB_HMAC_SECRET=<paste from step 2.4>
 PAYMOB_CURRENCY=EGP
+
+# Session concurrency lock — leave the defaults unless Paymob is slow for you.
+PAYMOB_SESSION_LOCK_SECONDS=30
+PAYMOB_SESSION_LOCK_WAIT_SECONDS=10
+
+# Apple Pay is a SEPARATE Paymob integration + needs a verified domain.
+# Empty = the Apple Pay button stays hidden; card payments are unaffected.
+PAYMOB_APPLE_PAY_INTEGRATION_ID=
 ```
 
 Then:
@@ -66,7 +79,16 @@ php artisan config:clear
 ```
 
 `PAYMOB_ENABLED=false` (the default) hides the Pay Now action everywhere so
-the demo can run without a live integration.
+the demo can run without a live integration — and activates the demo-pay
+shortcut (`POST /api/v1/me/invoices/{id}/pay-demo`) so the mobile app can be
+built end-to-end before KYC clears.
+
+**There are two switches, and they are asymmetric.** `.env` says *credentials are
+provisioned*; the toggle at **/admin/settings → Integrations** says *collect right
+now*. They're ANDed, so the UI toggle is a **kill switch**: an operator can stop
+card collection instantly during a Paymob outage or a fraud incident, but cannot
+turn payments on without the credentials below. See
+[`docs/integrations/PAYMOB.md` §5a](docs/integrations/PAYMOB.md#5a-environment-variables).
 
 ## 4. Register the callback URLs
 
@@ -136,8 +158,15 @@ When you're ready to take real money:
   callback (HMAC-verified, CSRF-exempt) and the browser return URL.
 - The Pay Now action in the portal `Invoices` table and view page calls the
   initiator and redirects to the iframe.
+- `app/Http/Controllers/PaymentLinkController.php` is the **public, no-login**
+  channel: `/pay/{token}` → Paymob → `/pay/{token}/status`. Each invoice carries
+  a rotatable `payment_link_token`; rotation kills every URL previously issued.
 - Invoice totals + tenant notifications fire from the existing
   `Payment::saved` hook once the callback flips status to `captured`.
+
+Full implementation detail (session reuse, the concurrency lock, the capture
+clamp, HMAC field order, the mobile contract):
+[`docs/integrations/PAYMOB.md`](docs/integrations/PAYMOB.md).
 
 ## Mobile (Flutter) integration
 
@@ -146,7 +175,7 @@ The mobile-facing endpoint and contract are documented in
 dev. Quick summary for operators:
 
 - The Flutter app never holds the Paymob API key or HMAC secret.
-- It calls `POST /api/v1/invoices/{invoice}/paymob-session` (Sanctum
+- It calls `POST /api/v1/me/invoices/{invoice}/paymob-session` (Sanctum
   bearer auth) to get a short-lived session, then opens either the
   iframe URL in a WebView or hands the payment token to the Paymob SDK.
 - Repeat taps inside 45 minutes return the cached session (`reused: true`)
@@ -154,4 +183,6 @@ dev. Quick summary for operators:
 - The S2S `/paymob/callback` webhook is still the authoritative source
   of truth for the `paid` status. The mobile client refreshes the invoice
   after the payment UI dismisses; it never trusts the SDK's local result.
-- Rate limit: 5 fresh sessions per minute per tenant token.
+- Rate limit: the authenticated API surface's 60 requests per minute per
+  tenant token (the session endpoint has no tighter limit of its own — the
+  45-minute reuse window is what stops repeat taps burning Paymob orders).

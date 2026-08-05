@@ -156,6 +156,12 @@ An overpayment leaves a **credit on account** (`Tenant::creditBalance()` = recei
 - Tested in `LateFeeServiceTest`.
 
 ### Paymob Gateway Rules (audit M11 F-42 / D-33)
+
+> Full implementation reference — every API body, the HMAC field order, the
+> channel model, the capture clamp, the mobile contract, the known gotchas, and
+> a checklist for porting it to another system:
+> [`docs/integrations/PAYMOB.md`](../integrations/PAYMOB.md).
+
 - Session reuse window: 2700 seconds (< 3600s token TTL) so reuse margin exists for user to fill the card form.
 - Reuse only if: payment is `initiated`, same invoice, same amount (rounded to 2 decimals). A credit/partial payment drops balance → fresh session forced.
 - Capture: `success = true AND NOT is_voided`. Voided transactions are treated as failed.

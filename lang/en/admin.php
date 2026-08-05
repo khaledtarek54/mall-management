@@ -151,9 +151,9 @@ return [
             'eta_issuer_name' => 'Issuer name',
             'eta_issuer_trn' => 'Issuer tax registration number',
             'paymob_enabled' => 'Paymob payments enabled',
-            'paymob_enabled_helper' => 'Shows the "Pay Now" action on invoices once Paymob credentials are configured.',
+            'paymob_enabled_helper' => 'Switch card collection off across the portal, the mobile app and every payment link — takes effect immediately. It cannot switch payments ON: that needs Paymob credentials in the server configuration (PAYMOB_ENABLED). While those are absent this toggle has nothing to disable.',
             'whatsapp_enabled' => 'WhatsApp messaging enabled',
-            'whatsapp_enabled_helper' => 'Shows the WhatsApp send action on invoices.',
+            'whatsapp_enabled_helper' => 'Switch the WhatsApp send action off on invoices. It cannot switch it ON — that needs WhatsApp credentials in the server configuration.',
         ],
     ],
 

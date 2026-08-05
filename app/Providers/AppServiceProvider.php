@@ -9,6 +9,7 @@ use App\Observers\LeaseObserver;
 use App\Services\Eta\Signing\EtaDocumentSigner;
 use App\Services\Eta\Signing\UnsignedEtaSigner;
 use App\Services\Paymob\PaymobClient;
+use App\Settings\IntegrationsSettings;
 use App\Services\Push\FcmPushSender;
 use App\Services\Push\NullPushSender;
 use App\Services\Push\PushSender;
@@ -83,6 +84,8 @@ class AppServiceProvider extends ServiceProvider
         if (config('security.force_https')) {
             URL::forceScheme('https');
         }
+
+        $this->applyIntegrationKillSwitches();
 
         // A failed backup must leave a trace that does not depend on BACKUP_ALERT_EMAIL being set.
         // With it unset — the shipped default — spatie's failure notification is routed to NO
@@ -164,6 +167,67 @@ class AppServiceProvider extends ServiceProvider
 
         if (filled($to = config('mail.always_to'))) {
             Mail::alwaysTo($to);
+        }
+    }
+
+    /**
+     * The operator's runtime kill switch for Paymob + WhatsApp, folded into the
+     * config the whole codebase already reads.
+     *
+     * **Two switches, deliberately asymmetric.** `.env` (`PAYMOB_ENABLED`) means
+     * *"credentials are provisioned"* — a deploy-time fact. The stored setting at
+     * /admin/settings means *"collect right now"* — an operator decision. They are
+     * ANDed, so the UI toggle can only ever DISABLE. Turning it on cannot conjure
+     * credentials, and an operator can stop card collection during a Paymob outage
+     * or a fraud incident without an SSH session and a `config:clear`.
+     *
+     * **What this fixes.** Until 2026-08-05 the Settings page wrote
+     * `IntegrationsSettings::$paymob_enabled` and *nothing read it*; every gate read
+     * `config('integrations.paymob.enabled')` straight from env. An operator who
+     * switched Paymob off in the UI saw it save, and the mall kept taking cards.
+     * A kill switch that silently does nothing is worse than no kill switch — the
+     * operator stops looking for another way to stop it. (Same bug on WhatsApp.)
+     *
+     * Reads the settings table only when config is already true, so a deployment
+     * without Paymob pays nothing for this. Failures are swallowed on purpose: mid
+     * `migrate:fresh` the settings table does not exist yet, and boot must not die
+     * for a switch that only ever narrows an already-configured integration.
+     *
+     * Public so it can be exercised in isolation — re-running the whole boot()
+     * would re-register observers and render hooks.
+     */
+    public function applyIntegrationKillSwitches(): void
+    {
+        // config key => the IntegrationsSettings property that can switch it off.
+        $switches = [
+            'integrations.paymob.enabled' => 'paymob_enabled',
+            'integrations.whatsapp.enabled' => 'whatsapp_enabled',
+        ];
+
+        // Only an integration env has already enabled can be narrowed — and only
+        // then is the settings table worth touching.
+        $live = array_filter($switches, fn (string $configKey) => (bool) config($configKey), ARRAY_FILTER_USE_KEY);
+
+        if ($live === []) {
+            return;
+        }
+
+        try {
+            $settings = $this->app->make(IntegrationsSettings::class);
+
+            foreach ($live as $configKey => $property) {
+                // The DB read happens on property ACCESS, not on make() — spatie loads
+                // a settings class lazily. Both have to sit inside the try, or a missing
+                // settings table takes the whole boot down.
+                if (! $settings->{$property}) {
+                    config([$configKey => false]);
+                }
+            }
+        } catch (\Throwable) {
+            // Settings unavailable (e.g. mid `migrate:fresh`) — leave env's value
+            // standing. Deliberately fails OPEN: this switch only ever narrows an
+            // integration whose credentials are already provisioned, and refusing to
+            // boot the app over an unreadable toggle is the worse outcome.
         }
     }
 }

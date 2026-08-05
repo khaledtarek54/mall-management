@@ -153,11 +153,11 @@ the internal snake_case Resource on the way out):
 | Status | `error`                  | What happened                                | UX             |
 |--------|--------------------------|----------------------------------------------|----------------|
 | 401    | —                        | Token missing / expired                      | Re-auth        |
-| 403    | —                        | Invoice belongs to another tenant            | Error toast    |
+| 404    | —                        | Unknown invoice **or** one belonging to another tenant (deliberately indistinguishable — no ID enumeration) | Error toast |
 | 409    | `paymob_disabled`        | Backend has Paymob switched off              | Hide Pay Now   |
 | 422    | `no_balance`             | Invoice is already paid                      | "Already paid" |
 | 422    | `invoice_not_payable`    | Invoice cancelled / credited                 | Hide Pay Now   |
-| 429    | —                        | More than 60 calls/min on the auth'd surface | "Try again in 1 min" |
+| 429    | —                        | More than 60 calls/min on the authenticated surface (shared across all `/api/v1` calls) | "Try again in 1 min" |
 | 502    | `paymob_upstream_error`  | Paymob returned an error                     | "Try again later" |
 
 ### Idempotency
@@ -475,9 +475,11 @@ No. Once captured, the invoice's `balance` is 0 and a second session
 attempt returns `422 no_balance`.
 
 **Q: What happens if the user closes the WebView mid-payment?**
-The Payment row stays in `initiated` state on the backend. It auto-expires
-after 24 hours. The user can tap Pay Now again — within 45 minutes they'll
-get the same session (idempotent), after that a fresh one.
+The Payment row stays in `initiated` state on the backend, indefinitely —
+there is no expiry job, and it needs none: an `initiated` payment has **zero**
+effect on the invoice balance or the ledger. The user can tap Pay Now again —
+within 45 minutes they get the same session (idempotent), after that a fresh
+one. Don't surface `initiated` rows as "pending payments" in the app.
 
 **Q: How do refunds work?**
 Currently manual through the admin panel — a tenant who wants a refund
@@ -505,7 +507,11 @@ session is still valid (it's the same iframe URL you got the first time).
 
 ## 10. Questions / blockers
 
-Backend contact: Khaled (gpt@getpayin.com)
+Ask the backend team.
 
-Full operator-side setup docs (env vars, Paymob dashboard config, how the
-webhook works on the server): see `PAYMOB-SETUP.md` in the repo root.
+- Operator-side setup (env vars, Paymob dashboard config, callback URLs, going
+  live): [`PAYMOB-SETUP.md`](./PAYMOB-SETUP.md).
+- The complete implementation reference — every server-side rule, file, API
+  body, HMAC field order, the concurrency lock, the capture clamp, and a port
+  checklist for another system:
+  [`docs/integrations/PAYMOB.md`](./docs/integrations/PAYMOB.md).

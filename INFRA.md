@@ -113,7 +113,8 @@ Production `.env` must set:
 | Mail | `MAIL_MAILER`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_ENCRYPTION`, `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME` |
 | Seed password | `DEMO_USER_PASSWORD` — rotate from `'password'` BEFORE the URL is shared (audit M17 F-63) |
 | ETA | `ETA_MOCK=false`, `ETA_ENDPOINT`, `ETA_AUTH_ENDPOINT`, `ETA_CLIENT_ID`, `ETA_CLIENT_SECRET` (cf. [08-eta.md §5](docs/gap-analysis/08-eta.md)) |
-| Integrations | `INTEGRATIONS_PAYMOB_ENABLED`, `INTEGRATIONS_WHATSAPP_ENABLED` — both `false` until creds land |
+| Paymob | `PAYMOB_ENABLED` (`false` until creds land), `PAYMOB_API_KEY`, `PAYMOB_INTEGRATION_ID`, `PAYMOB_IFRAME_ID`, `PAYMOB_HMAC_SECRET`, `PAYMOB_CURRENCY`. Needs HTTPS + a lock-capable cache driver — see [docs/integrations/PAYMOB.md §5b](docs/integrations/PAYMOB.md#5b-hard-runtime-requirements) |
+| Integrations | `WHATSAPP_ENABLED` — `false` until creds land |
 | Sanctum | `SANCTUM_STATEFUL_DOMAINS` includes the production frontend domain(s) |
 
 ## Day-to-day operations
