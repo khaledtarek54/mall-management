@@ -78,15 +78,16 @@ derived; the rent roll can report EGP/m²/yr for every lease.
 
 ---
 
-### LS-05 🟠 Free rent that is per-charge, not all-or-nothing
+### LS-05 🔴 Free rent that is per-charge, not all-or-nothing
 **As a** Leasing Manager **I want** to abate specific charges for a period **so that** I can give
 3 months rent-free while the service charge and marketing levy remain payable.
 
 **Acceptance**
 - Abatement is expressed as a schedule row (amount 0, or a negative abatement row) on the specific
   charge type, over a date range.
-- The existing `fit_out_months` full-invoice grace remains available and remains the default —
-  **this story adds an option; it does not change the operator's 2026-07-19 decision.**
+- Abatement is per charge type, and **new leases default to rent-only (net abatement), which is the
+  industry standard** — see [the phase plan §1 Q2](07-phase-plan.md). Existing leases keep the
+  full-invoice (gross) grace they were actually billed under; nothing is retroactively rebilled.
 - The lease view shows total abatement value over the term.
 
 **Today:** `Lease::periodInFitOut()` suppresses the **entire invoice** — rent, service charge, CAM
@@ -327,15 +328,20 @@ aging; the tenant portal shows the dispute state.
 
 ## Epic RA — Revenue accounting *(phase 5, gated on the accountant's ruling)*
 
-### RA-01 🔴 *(decision, not code)* Rule on straight-line rent
+### RA-01 🔴 *(a switch, not a blocker)* The accountant enables straight-line rent
 **As a** Finance Manager **I want** a written ruling on whether the owner's books recognise lease
 income on a straight-line basis under EAS 49 / IFRS 16 **so that** the GL is either right or
 knowingly simplified.
 
-**Acceptance:** the question, the worked example from
-[02 §7](02-yardi-money-flow.md#7-straight-line-rent--the-lessors-revenue-recognition) and the
-decision are recorded in [`docs/accounting/ACCOUNTANT-BRIEFING.md`](../../accounting/ACCOUNTANT-BRIEFING.md)
-and in `docs/BUSINESS-RULES.md`. **A "no" is a complete answer** and closes the epic.
+**Resolved to the standard:** EAS 49 requires it, so RA-02 gets **built** — but it ships behind a
+setting defaulted **OFF**, because enabling it restates the trial balance and Atriom is single-book
+(Egyptian tax follows the invoices). See [the phase plan §1 Q1](07-phase-plan.md).
+
+**Acceptance:** the worked example from
+[02 §7](02-yardi-money-flow.md#7-straight-line-rent--the-lessors-revenue-recognition), a before/after
+the accountant can read, and their eventual ruling recorded in
+[`docs/accounting/ACCOUNTANT-BRIEFING.md`](../../accounting/ACCOUNTANT-BRIEFING.md) and
+`docs/BUSINESS-RULES.md`.
 
 ---
 
@@ -435,7 +441,9 @@ headroom **so that** the cap matches the clause.
 lease says so, with a year-end reconciliation **so that** seasonal tenants are not over-billed.
 
 **Acceptance**
-- `percentage_rent_basis`: `period` (today's behaviour, the default) or `cumulative`.
+- `percentage_rent_basis`: `cumulative` (**the industry standard, and the default for new leases**
+  — see [the phase plan §1 Q3](07-phase-plan.md)) or `period` (today's behaviour, kept because some
+  leases do say monthly). Existing leases keep `period` until their clause is reviewed.
 - Cumulative: overage = `max(0, YTD calc − YTD already billed)`; a month can bill **zero**, never
   negative.
 - A year-end reconciliation compares annual calc to annual billed and issues the true-up or the

@@ -28,43 +28,84 @@ upstream, in lease → charge. It is not downstream, in charge → invoice → c
 
 ---
 
-## 1. Two decisions before any code
+## 1. The three questions — RESOLVED to the standard (2026-08-08)
 
-These are business rulings. Neither is an engineering question, and the plan below assumes an
-answer to both.
+The operator's instruction was *"answer them from Yardi — I want the system to work as standard
+systems do."* For two of the three there is a clear industry standard, so they stop being blocking
+decisions: **implement the standard as the default, support the alternative, let the lease decide
+per tenant.** That is exactly Yardi's model.
 
-### Q1 — Straight-line rent (for the accountant) 🔴
+### Q1 — Straight-line rent → **BUILD IT, SHIP IT OFF**
 
-> Under IFRS 16 / **EAS 49**, a lessor recognises operating-lease income on a **straight-line
-> basis** over the term. Every Atriom lease has escalation *and* fit-out grace by default, so
-> Atriom's "revenue = invoice as issued" **systematically** understates early-term revenue and
-> overstates late-term revenue. On the worked example in
-> [02 §7](02-yardi-money-flow.md#7-straight-line-rent--the-lessors-revenue-recognition), one lease
-> carries a 296,490 EGP peak difference.
->
-> **Does Jawad's statutory book straight-line lease income, or is it kept on a billed basis with
-> the adjustment made (if at all) at audit time?**
+**EAS 49** (Egypt's leases standard, issued 2020, aligned with IFRS 16, effective for periods from
+January 2021) recognises lessor **operating-lease income on a straight-line basis**. Yardi
+implements it as a core function. So the standard answer is yes.
 
-Note: the tenant's invoice, the VAT and the ETA filing are **unaffected** either way — this is a
-GL-only accrual. **"No" is a complete and legitimate answer**, and it closes epic RA entirely.
-Route it through [`docs/accounting/ACCOUNTANT-BRIEFING.md`](../../accounting/ACCOUNTANT-BRIEFING.md)
-with the worked example attached.
+**The caveat that shapes the build:** EAS 49 governs the *financial statements*; Egyptian **tax**
+generally follows the invoices issued. Standard systems reconcile this with **multiple books** —
+Yardi posts straight-line rent to the accrual book and not the cash/tax book. **Atriom is
+single-book** and [deliberately staying that way](06-atriom-gap-analysis.md).
 
-### Q2 — Fit-out grace: all-or-nothing? (for Eltizam) 🟠
+**Decision:** build the straight-line schedule + posting as its own **registered GL source**
+(`Deferred Rent Receivable`), clearly labelled and separately reportable so a tax view can exclude
+it, **behind a setting that ships OFF**. This *is* the standard behaviour for a system: straight-line
+posting is something a Yardi install **enables**, not something that happens to it. Nobody's trial
+balance is silently restated, and the capability is there the day the accountant wants it.
 
-> Today `fit_out_months` suppresses the **whole invoice** — rent, service charge, CAM and marketing
-> levy (operator decision 2026-07-19). The standard mall deal is *rent-free, service charge
-> payable*: the tenant is still consuming cleaning, security and A/C during fit-out.
->
-> **Is full grace what Eltizam's leases actually say, or was it a simplification?**
+**Still needs a human — but not blocking:** the accountant flips the switch, given a before/after.
 
-If it was a simplification, the mall is giving away service-charge revenue on every new tenancy,
-and LS-05 becomes 🔴 rather than 🟠.
+### Q2 — Fit-out grace → **STANDARD IS RENT-ONLY. Today's behaviour gives revenue away.**
 
-**A third question worth asking at the same time, because it changes PR-01's priority:**
-**do the percentage-rent clauses compute on a monthly (period) or annual cumulative basis?**
-[S12](04-scenarios.md#s12--percentage-rent-for-a-seasonal-tenant) shows the same tenant billed
-160,000 or 0 depending on the answer.
+The industry terms are **net abatement** (base rent free; tenant still pays CAM / service charge /
+taxes / insurance) and **gross abatement** (everything free). **Net is the norm**, because the
+landlord is still incurring those costs while the tenant fits out. Lease-drafting guidance is
+explicit: *"if the word CAM or operating expenses does not appear in the abatement clause, those
+obligations are almost certainly continuing."*
+
+Atriom implements **gross** abatement — `fit_out_months` suppresses the entire invoice — and cannot
+express net at all. On a 36,000/month service charge with 3 fit-out months that is ~**108,000 per
+new tenant** the operator is likely entitled to and does not bill.
+
+**Decision:** make abatement **per-charge** (the Yardi model, story LS-05), and default new leases
+to **rent-only**. **Existing leases keep the full-grace behaviour they were actually billed under**
+— no retroactive rebilling. LS-05 is promoted 🟠 → 🔴.
+
+**Worth a human check, not blocking:** read the fit-out clause in one recently-signed lease. If it
+is silent on the service charge, the standard says it is chargeable.
+
+### Q3 — Percentage rent → **STANDARD IS CUMULATIVE YTD + ANNUAL RECONCILIATION**
+
+The normal retail structure: tenant **reports sales monthly** · landlord **bills monthly or
+quarterly on account** · **reconcile cumulatively year-to-date** at lease-year end, with a balance
+due or a credit back. And specifically for seasonality: *"in highly seasonal businesses it may be
+more appropriate to structure breakpoints on a quarterly or annual basis"*; Q4-heavy retailers
+negotiate higher artificial breakpoints. Ramadan/Eid concentration makes Egypt more seasonal than
+most markets.
+
+Atriom is period-only with no settle-up, so it sits on the **over-billing** side of
+[S12](04-scenarios.md#s12--percentage-rent-for-a-seasonal-tenant) (160,000 vs 0 on the same sales).
+
+**Decision:** build cumulative YTD + the annual reconciliation (PR-01), **default new leases to
+cumulative**, keep `period` as a per-lease option because some leases do say monthly. This is the
+same estimate → reconcile → true-up shape CAM already implements, so the pattern exists.
+
+**Flag:** if an existing lease's clause says cumulative, that tenant has been over-billed. Worth
+reviewing the percentage-rent clauses before the next reconciliation — a restitution question, not
+an engineering one.
+
+### The principle these three share
+
+**The system implements the standard as the default and supports the alternative; the lease
+decides.** A single hard-coded behaviour — gross abatement, period-only percentage rent, billed-basis
+revenue — is what made each of these a blocking question in the first place. Making each one a
+recorded lease term is what makes it stop being one.
+
+### Sources
+
+- [EAS 49 / IFRS 16 in Egypt — Andersen](https://eg.andersen.com/financial-leasing-in-egypt/) · [Mondaq](https://www.mondaq.com/accounting-standards/1593126/financial-leasing-in-egypt-ifrs-16-and-accounting-standards) — EAS 49 issued 2020, aligned with IFRS 16, effective from Jan 2021; lessor operating-lease income recognised straight-line
+- [Rent abatement clauses & CAM impact — CAMAudit](https://www.camaudit.io/resources/lease-language/rent-abatement-clause) · [Austin Tenant Advisors](https://www.austintenantadvisors.com/blog/what-is-rent-abatement-in-commercial-leases-how-to-get-it/) — net vs gross abatement; CAM continues unless explicitly abated
+- [Percentage rent guide — Nakisa](https://nakisa.com/resources/guide-to-percentage-rent-leases-in-retail/) · [REA](https://rea.co/percentage-rent-calculations-commercial-landlords-step-breakdown/) — monthly/quarterly on account, cumulative YTD annual reconciliation; seasonal breakpoint structuring
+- [Yardi Commercial Suite brochure](https://resources.yardi.com/documents/commercial-suite-brochure/) — straight-line rent, IFRS
 
 ---
 
@@ -181,7 +222,7 @@ is a reasonable interim.
 
 ---
 
-### Phase 5 — Revenue recognition ❓ *(only if Q1 = yes)*
+### Phase 5 — Revenue recognition ➕ *(build it; ships switched off)*
 
 **Stories:** RA-02.
 
@@ -190,8 +231,9 @@ posting the monthly difference to deferred rent as a **registered GL source**. A
 **forward only** — never a retrospective restatement of a closed period. Prove that invoices, VAT
 and ETA output are bit-identical before and after.
 
-**If Q1 = no, skip this phase entirely and record the ruling** in `docs/BUSINESS-RULES.md` so it is
-not re-litigated every audit.
+**Ships behind a setting, defaulted OFF** (Q1). Enabling it is the accountant's call, made against
+a before/after they can read; record the ruling in `docs/BUSINESS-RULES.md` either way so it is not
+re-litigated every audit.
 
 ---
 
@@ -259,7 +301,7 @@ Blade view pages.
 ```
 NOW      MF-09  CAM area bug              ← mis-billing today
          MF-01  bulk-run proration        ← over-billing today
-         Q1 + Q2 + the %-rent basis question sent out
+         (Q1–Q3 resolved to the standard — see §1; no longer blocking)
 
 CYCLE    UX-05/03/04  billing preview + AR dashboard + month-end close   ← data already exists
          Phase 1   charge schedule        ← the foundation; everything waits here
@@ -269,7 +311,7 @@ CYCLE    UX-05/03/04  billing preview + AR dashboard + month-end close   ← dat
          Phase 7a  rent roll + occupancy cost %
          Phase 8   the UI stories that attach to each phase above
 
-NEXT     Phase 5   straight-line rent     (only if Q1 = yes)
+NEXT     Phase 5   straight-line rent     (build; ships off, accountant enables)
          Phase 6   recoveries + % rent depth
          Phase 7b  the rest of the reports
 ```

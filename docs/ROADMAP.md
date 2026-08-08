@@ -28,8 +28,14 @@ keeps the accounting capability matrix. This file is the priority call across al
 > bulk billing run never prorates** (every mid-month commencement over-charged) — both fix now,
 > outside the phases. Full write-up, scenarios, user stories and the sequenced plan:
 > **[docs/benchmarks/yardi/](benchmarks/yardi/README.md)** → start at
-> [the phase plan](benchmarks/yardi/07-phase-plan.md). Two rulings block it: **straight-line rent
-> under EAS 49** (accountant) and **is fit-out grace really all-or-nothing** (Eltizam).
+> [the phase plan](benchmarks/yardi/07-phase-plan.md). **The three open questions are resolved to the
+> industry standard** (2026-08-08, owner's instruction — "work as standard systems do"): straight-line
+> rent per **EAS 49** gets built but ships **switched off** (single-book; tax follows invoices, the
+> accountant flips it); fit-out grace becomes **per-charge, defaulting to rent-only** — *net* abatement
+> is the norm and today's gross grace likely gives away ~108k of service charge per new tenant; and
+> percentage rent becomes **cumulative YTD with an annual reconciliation**, the retail standard, where
+> Atriom's period-only basis currently **over-bills** seasonal tenants. In each case the standard is
+> the default, the alternative is supported, and the lease decides.
 
 ---
 
