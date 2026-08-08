@@ -214,6 +214,25 @@ guard. All four are hard-won and correct.
 
 ---
 
+### Phase 8 — UI/UX ➕ *(runs alongside, not after)*
+
+**Stories:** UX-01…UX-12, in [08-yardi-ui-ux.md](08-yardi-ui-ux.md).
+
+The operator asked for "the same Yardi UI/UX". The honest answer is **half yes**: copy Yardi's
+*information architecture* — the record hub, drill-down on every number, dashboard-centric landing,
+batch-review-before-post — and **not** its interface, which 77% of its own usability reviews call
+unintuitive and which Voyager 8 is itself replacing. Atriom's Filament 4 shell, with EN/AR + RTL, a
+tenant portal and a mobile API, is already the better surface.
+
+**Three ship now, before phase 1, because the data already exists:** **UX-05** billing-run preview
+(the control that stops a bad escalation reaching 400 tenants — the service already returns every
+skip reason it needs), **UX-03** AR/collections dashboard (an upgrade to the existing `ArAging`
+page), **UX-04** month-end close dashboard (assembly over `AccountingPeriod`, the close PDF and the
+books tie-out). The rest attach to the phase that produces their data — UX-01/02 to phase 1, UX-09
+to phase 3, UX-06 to phase 7, UX-08 to phase 6.
+
+---
+
 ### Phase 7 — The reports that make it visible ➕
 
 **Stories:** RR-01 (rent roll), RR-02 (expiration schedule), RR-04 (occupancy cost %), then RR-03,
@@ -236,11 +255,13 @@ NOW      MF-09  CAM area bug              ← mis-billing today
          MF-01  bulk-run proration        ← over-billing today
          Q1 + Q2 + the %-rent basis question sent out
 
-CYCLE    Phase 1   charge schedule        ← the foundation; everything waits here
+CYCLE    UX-05/03/04  billing preview + AR dashboard + month-end close   ← data already exists
+         Phase 1   charge schedule        ← the foundation; everything waits here
          Phase 3   options & critical dates   (may jump ahead of 2 — lowest risk, high value)
          Phase 2   lease events & amendments
          Phase 4   money-flow completion  (write-off, move-out, trailing proration)
          Phase 7a  rent roll + occupancy cost %
+         Phase 8   the UI stories that attach to each phase above
 
 NEXT     Phase 5   straight-line rent     (only if Q1 = yes)
          Phase 6   recoveries + % rent depth

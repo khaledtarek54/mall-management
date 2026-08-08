@@ -21,13 +21,17 @@
 | 01 | [Lease administration](01-yardi-lease-administration.md) | How Yardi models a lease: entities, the lease record, charge schedules, escalations, amendments, options & critical dates, the deal pipeline |
 | 02 | [Money flow](02-yardi-money-flow.md) | Charge → AR → cash → GL. Posting, receipts, open credits, deposits, write-offs, post month, books, straight-line rent, month-end |
 | 03 | [Recoveries & percentage rent](03-yardi-recoveries-percentage-rent.md) | Expense pools, gross-up, caps, base years, admin fees, estimate→reconcile→re-estimate; sales, breakpoints, overage, settle-up |
-| 04 | [Scenarios](04-scenarios.md) | 14 end-to-end scenarios with real numbers — what Yardi does, what Atriom does today, what breaks |
+| 04 | [Scenarios](04-scenarios.md) | 15 end-to-end scenarios with real numbers — what Yardi does, what Atriom does today, what breaks |
 | 05 | [User stories](05-user-stories.md) | The backlog, as user stories with acceptance criteria, by role |
 | 06 | [Gap analysis](06-atriom-gap-analysis.md) | Row-by-row Atriom vs Yardi, with a **keep / extend / rebuild** verdict and severity on each |
 | 07 | [Phase plan](07-phase-plan.md) | **The recommendation** — what to do in this cycle, in what order, and what to leave alone |
+| 08 | [UI/UX](08-yardi-ui-ux.md) | What to copy from Yardi's screens (the information architecture) and what not to (the look — 77% of its usability reviews are negative), as 12 concrete Filament stories |
 
 If you read one file, read [07-phase-plan.md](07-phase-plan.md). If you read two, read
-[06-atriom-gap-analysis.md](06-atriom-gap-analysis.md) first.
+[06-atriom-gap-analysis.md](06-atriom-gap-analysis.md) first. For the screens, go to
+[08-yardi-ui-ux.md](08-yardi-ui-ux.md) — its headline is that **Atriom should reach Yardi's
+completeness on Filament's better-looking surface, not import Voyager's interface**, which Yardi's
+own users rate poorly and which Voyager 8 is itself moving away from.
 
 ---
 
