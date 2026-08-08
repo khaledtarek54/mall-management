@@ -289,11 +289,16 @@ it('does not rewrite a historical accrual when the levy rate later changes', fun
     expect((float) $marchItem->fresh()->amount)->toBe(500.0)
         ->and((float) MarketingBudget::forPeriod($lease->unit->asset_id, 2026)->refresh()->accrued_amount)->toBe(500.0);
 
-    // Re-sync the lease's marketing charge to the NEW rate, then bill April → +800.
+    // Re-sync the lease's marketing charge to the NEW rate EFFECTIVE APRIL, then bill April → +800.
+    //
+    // The effective date is explicit now, because the levy is a date-ranged schedule like the rent
+    // it derives from: re-syncing closes the 5% row at 31 March and opens an 8% row from 1 April.
+    // Without a date it would default to the current month and April would still bill 5% — which
+    // is correct behaviour, and precisely why the date has to be stated.
     // Use a freshly-loaded lease so billing reads the re-synced charge, not the
     // 5% charge the March run cached onto the original instance.
     $lease = $lease->fresh();
-    app(MarketingLevyService::class)->createLevyCharge($lease);
+    app(MarketingLevyService::class)->createLevyCharge($lease, CarbonImmutable::parse('2026-04-01'));
     app(MonthlyBillingService::class)->generateForLease($lease, CarbonImmutable::parse('2026-04-01'));
 
     expect((float) MarketingBudget::forPeriod($lease->unit->asset_id, 2026)->refresh()->accrued_amount)->toBe(1300.0)
@@ -317,11 +322,20 @@ it('captures the rate on the marketing Charge so a later rate change does not al
     // The existing charge row is unchanged until it is explicitly re-synced.
     expect((float) $charge->fresh()->amount)->toBe(500.0);
 
-    // Re-syncing (idempotent updateOrCreate) re-captures at the NEW rate,
-    // still as a single charge — proving capture happens at write time.
+    // Re-syncing re-captures at the NEW rate — proving capture happens at write time — and now
+    // does so by CLOSING the 5% row and OPENING a 10% one rather than overwriting the amount. Two
+    // rows, not one: the levy is a schedule, so what was billed at 5% stays readable. (This test
+    // asserted `count() === 1` under the old one-row-per-lease model.)
     $resynced = $svc->createLevyCharge($lease->fresh());
+    $schedule = Charge::where('lease_id', $lease->id)->where('type', 'marketing')
+        ->orderBy('start_date')->orderBy('id')->get();
+
     expect((float) $resynced->amount)->toBe(1000.0)
-        ->and(Charge::where('lease_id', $lease->id)->where('type', 'marketing')->count())->toBe(1);
+        ->and($schedule)->toHaveCount(2)
+        ->and((float) $schedule->first()->amount)->toBe(500.0)
+        ->and($schedule->first()->end_date)->not->toBeNull()
+        ->and($schedule->last()->id)->toBe($resynced->id)
+        ->and($schedule->last()->end_date)->toBeNull();
 });
 
 it('applies the current rate to NEW billing while leaving prior accruals intact', function () {

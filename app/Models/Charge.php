@@ -21,10 +21,29 @@ class Charge extends Model
             ->useLogName('charge');
     }
 
+    /**
+     * Where a schedule row came from.
+     *
+     * A lease's rent is a date-ranged SCHEDULE, not a single mutable amount: a change closes the
+     * current row and opens the next. Once several rows can exist per type, "why does this lease
+     * have four rent rows" must be answerable from the data. See
+     * docs/benchmarks/yardi/01-yardi-lease-administration.md §3.2.
+     */
+    public const ORIGIN_SEED = 'seed';            // written when the lease was created
+
+    public const ORIGIN_MANUAL = 'manual';        // an operator changed the rent
+
+    public const ORIGIN_ESCALATION = 'escalation'; // the annual escalation sweep
+
+    public const ORIGIN_RENEWAL = 'renewal';      // carried onto a renewal lease
+
+    public const ORIGIN_LEVY = 'levy';            // derived from base rent (marketing levy)
+
     protected $fillable = [
         'lease_id',
         'name',
         'type',
+        'origin',
         'amount',
         'currency',
         'frequency',
@@ -47,6 +66,30 @@ class Charge extends Model
     public function lease(): BelongsTo
     {
         return $this->belongsTo(Lease::class);
+    }
+
+    /**
+     * Active rows whose date range covers the given day — the schedule row in force then.
+     *
+     * Open-ended on either side counts as covering, which is what makes the pre-schedule rows
+     * (`start_date` = commencement, `end_date` = null) behave exactly as they always have.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     */
+    public function scopeEffectiveOn($query, \DateTimeInterface $date)
+    {
+        $d = \Illuminate\Support\Carbon::instance($date)->toDateString();
+
+        return $query
+            ->where('is_active', true)
+            ->where(fn ($q) => $q->whereNull('start_date')->orWhereDate('start_date', '<=', $d))
+            ->where(fn ($q) => $q->whereNull('end_date')->orWhereDate('end_date', '>=', $d));
+    }
+
+    /** True when this row is still open-ended — the last one in its schedule. */
+    public function isOpenEnded(): bool
+    {
+        return $this->end_date === null;
     }
 
     public function calculateVat(): float

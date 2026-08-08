@@ -141,21 +141,44 @@ it('an escalation raises base rent on schedule and the base_rent charge tracks i
         'reason' => 'Year-2 fixed 7% escalation',
     ]);
 
-    // Lease field AND the active base_rent charge both move to the new rent —
-    // no drift between the widget value and what billing reads.
+    // Lease field AND the base-rent row IN FORCE both move to the new rent — no drift between
+    // the widget value and what billing reads.
     $lease->refresh();
+    $today = \Carbon\CarbonImmutable::now();
+    $inForce = app(\App\Services\ChargeScheduleService::class)->rowInForce($lease, 'base_rent', $today);
+
     expect((float) $lease->base_rent_monthly)->toBe(10700.0)
-        ->and((float) $lease->charges()->where('type', 'base_rent')->where('is_active', true)->sole()->amount)->toBe(10700.0)
+        ->and((float) $inForce->amount)->toBe(10700.0)
         ->and($lease->notes)->toContain('Year-2 fixed 7% escalation');
 
-    // The service charge is untouched by a rent-only escalation.
+    // …and the OLD rent is still readable. This is the change: a rent increase closes the
+    // previous schedule row rather than overwriting its amount, so what the tenant was billed
+    // last year survives (docs/benchmarks/yardi — story LS-03). Before, this row was destroyed.
+    $schedule = $lease->charges()->where('type', 'base_rent')->orderBy('start_date')->get();
+    expect($schedule)->toHaveCount(2)
+        ->and((float) $schedule->first()->amount)->toBe(10000.0)
+        ->and($schedule->first()->end_date)->not->toBeNull()
+        // Closed on the last day of the PREVIOUS month, and the new row opens on the 1st: a
+        // schedule change snaps to the billing month, because the engine bills one amount per
+        // charge type per month and a row starting mid-month would leave that month ambiguous.
+        ->and($schedule->first()->end_date->toDateString())
+        ->toBe($today->startOfMonth()->subDay()->toDateString())
+        ->and($schedule->last()->start_date->toDateString())->toBe($today->startOfMonth()->toDateString())
+        ->and($schedule->last()->end_date)->toBeNull(); // the open-ended current row
+
+    // The service charge is untouched by a rent-only escalation — still exactly one row.
     expect((float) $lease->charges()->where('type', 'service_charge')->sole()->amount)->toBe(2000.0);
 
-    // Next month's invoice bills the escalated rent.
-    $result = app(\App\Services\MonthlyBillingService::class)
-        ->generateForLease($lease, CarbonImmutable::parse('2026-02-01'));
-    $rentItem = $result['invoice']->items()->where('type', 'base_rent')->sole();
-    expect((float) $rentItem->amount)->toBe(10700.0);
+    // A month ON or AFTER the change bills the escalated rent.
+    $billing = app(\App\Services\MonthlyBillingService::class);
+    $after = $billing->generateForLease($lease, $today->startOfMonth());
+    expect((float) $after['invoice']->items()->where('type', 'base_rent')->sole()->amount)->toBe(10700.0);
+
+    // …and a month BEFORE it still bills what was in force then. This is the schedule's whole
+    // point, and it is a behaviour change: under the old overwrite model, re-billing a past month
+    // charged that month at TODAY's rent, because the only row that existed held today's amount.
+    $before = $billing->generateForLease($lease, CarbonImmutable::parse('2026-02-01'));
+    expect((float) $before['invoice']->items()->where('type', 'base_rent')->sole()->amount)->toBe(10000.0);
 });
 
 it('escalation guard: a fixed_percent raise cannot be applied to a terminated lease', function () {

@@ -2,17 +2,34 @@
 
 > A lease is a binding occupancy contract between a tenant and a unit (or units) with linked charges (rent + service fees), escalation terms, optional percentage rent, and a multi-state lifecycle from draft through expiry/renewal/termination.
 
-> **⚠️ Read before changing this module (2026-08-08).** A benchmark against Yardi Voyager Commercial
-> found **one structural defect here**: this module stores the lease's *current state* and mutates
-> it (`LeaseRentChangeService` overwrites `Charge.amount`; `RentEscalationService` overwrites it
-> again every year), where the market model is a **date-ranged charge schedule** written once and
-> read per period. Seven of fifteen benchmark scenarios break on that difference — no forward rent
-> visibility, no rent history, no amendments, no straight-line rent, no rent roll. The storage
-> already supports the fix (`charges.start_date`/`end_date` are honoured by
-> `MonthlyBillingService::chargeAppliesToPeriod()`); **nothing writes more than one row.**
-> Full analysis, scenarios and the sequenced plan: [`docs/benchmarks/yardi/`](../benchmarks/yardi/README.md).
-> Also open here: no lease options / notice-window alerts, no trailing proration, holdover is
-> alerted but never billed.
+> **⚠️ The rent is a SCHEDULE now (2026-08-08).** A benchmark against Yardi Voyager Commercial
+> found one structural defect here: this module stored the lease's *current state* and mutated it.
+> `LeaseRentChangeService` overwrote `Charge.amount` and `RentEscalationService` overwrote it again
+> every year, so the system knew what the rent *is* and had no structured memory of what it *was*.
+>
+> **Phase 1 inverted the write path.** A rent change now **closes the row in force the day before
+> the new one starts and opens the next** — [`ChargeScheduleService`](../../app/Services/ChargeScheduleService.php)
+> is the one place that happens, and `charges.origin` records whether a row was seeded, typed,
+> escalated or carried on renewal. Consequences you must know before touching this module:
+>
+> - **A charge type can have MANY rows.** Anything that assumed one row per `(lease, type)` is
+>   wrong. `LeaseRenewalService` carried *every* active row onto the renewal — with a schedule that
+>   is three overlapping rent rows billing the tenant three times a month; it now carries only the
+>   row in force. `MarketingLevyService` had the same assumption baked into an `updateOrCreate`.
+> - **Exactly one recurring row per type may cover a billing period.** Two is an overlapping
+>   schedule, and `MonthlyBillingService::assertScheduleUnambiguous()` refuses the lease loudly
+>   rather than putting two rent lines on one invoice. One-off charges are exempt.
+> - **Effective dates snap to the billing month.** The engine bills one amount per type per month,
+>   so a mid-month change starts on the 1st — which also reproduces the old overwrite behaviour
+>   exactly. Mid-month proration of a rent change is deliberately future work.
+> - **Billing a past month now bills what was in force THEN**, not today's amount. That is a
+>   behaviour change, and it is the point.
+> - `Lease::base_rent_monthly` still tracks the rent in force; nothing downstream moved.
+>
+> Full analysis and the remaining phases: [`docs/benchmarks/yardi/`](../benchmarks/yardi/README.md).
+> **Still open here:** the full term is not yet written at creation (LS-01), abatement is still
+> all-or-nothing (LS-05), no lease options / notice-window alerts, no trailing proration, holdover
+> is alerted but never billed.
 
 ## 1. Purpose & business context
 

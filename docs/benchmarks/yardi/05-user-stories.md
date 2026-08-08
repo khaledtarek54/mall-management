@@ -34,7 +34,7 @@ one row.**
 
 ---
 
-### LS-02 🔴 Bill from the schedule, never from a mutated row
+### LS-02 ✅ Bill from the schedule, never from a mutated row — **SHIPPED 2026-08-08**
 **As a** Property Accountant **I want** the monthly run to bill whichever schedule row covers the
 period **so that** a rent step takes effect on its own date with no nightly job touching live data.
 
@@ -50,7 +50,7 @@ about *removing* the assumption that only one row per type exists.
 
 ---
 
-### LS-03 🔴 Escalation generates the next row instead of overwriting this one
+### LS-03 ✅ Escalation generates the next row instead of overwriting this one — **SHIPPED 2026-08-08**
 **As a** Finance Manager **I want** the escalation sweep to *append* the next schedule row **so
 that** the rent history is intact and next year's rent is visible and reviewable before it bills.
 

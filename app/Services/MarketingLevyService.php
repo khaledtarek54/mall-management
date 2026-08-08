@@ -6,6 +6,7 @@ use App\Models\Charge;
 use App\Models\Lease;
 use App\Models\MarketingBudget;
 use App\Settings\MarketingSettings;
+use Carbon\CarbonImmutable;
 
 /**
  * Computes and applies the marketing levy (FR MKT-2): a percentage of a lease's
@@ -49,28 +50,35 @@ class MarketingLevyService
      *  - otherwise → active at the lease's rate (override or global default) × base rent, VAT-exempt.
      * Re-called on create, renewal, rent-change, and lease edit so a toggle/rate change takes effect.
      */
-    public function createLevyCharge(Lease $lease): ?Charge
+    public function createLevyCharge(Lease $lease, ?CarbonImmutable $effectiveFrom = null): ?Charge
     {
         $rate = $this->ratePercent($lease);
 
         if (! $lease->has_marketing_levy || $rate <= 0) {
+            // Deactivate EVERY row in the levy's schedule, not just the current one — billing
+            // filters on is_active, so a stale open row would keep billing a levy that was
+            // turned off. Kept, not deleted: what it already billed is history.
             Charge::where('lease_id', $lease->id)->where('type', 'marketing')->update(['is_active' => false]);
 
             return null;
         }
 
-        return Charge::updateOrCreate(
-            ['lease_id' => $lease->id, 'type' => 'marketing'],
+        // The levy is a percentage of base rent, so it is a SCHEDULE for the same reason the rent
+        // is: a past month must bill the levy that was in force then, not the one derived from
+        // today's rent. `updateOrCreate` on (lease, type) used to enforce exactly one row, which
+        // is the assumption a schedule breaks.
+        return app(ChargeScheduleService::class)->setAmount(
+            $lease,
+            'marketing',
+            $this->amountFor($lease),
+            $effectiveFrom ?? CarbonImmutable::now()->startOfDay(),
             [
                 'name' => 'Marketing Levy',
-                'amount' => $this->amountFor($lease),
-                'currency' => $lease->currency ?? 'EGP',
                 'frequency' => 'monthly',
                 'vat_applicable' => false,
                 'vat_rate' => 0,
-                'start_date' => $lease->commencement_date,
-                'is_active' => true,
             ],
+            Charge::ORIGIN_LEVY,
         );
     }
 }

@@ -109,14 +109,20 @@ class LeaseRenewalService
                 $renewal->syncUnits($unitIds, $original->unit_id);
             }
 
-            foreach ($original->charges as $charge) {
-                // Only carry RECURRING, ACTIVE charges into the renewal. A one_time charge
-                // (a locked percentage-rent, a CAM true-up already billed on the original)
-                // must not be re-dated + re-billed on the renewal, and a deactivated charge
-                // must not be silently resurrected (is_active forced true below).
-                if (! $charge->is_active || $charge->frequency === 'one_time') {
-                    continue;
-                }
+            // Carry ONE row per charge type: the one in force at renewal.
+            //
+            // A charge type is now a date-ranged SCHEDULE (ChargeScheduleService), so a lease
+            // three years into a 7%-escalating tenancy has three `base_rent` rows. Copying them
+            // all — which is what iterating $original->charges did — would put three overlapping
+            // open-ended rent rows on the renewal and bill the tenant three times a month. The
+            // renewal starts a fresh schedule from its own commencement.
+            $carried = $original->charges
+                ->filter(fn (Charge $c) => $c->is_active && $c->frequency !== 'one_time')
+                ->sortBy([['start_date', 'asc'], ['id', 'asc']])
+                // keyBy on type keeps the LAST (latest-starting) row per type — the one in force.
+                ->keyBy('type');
+
+            foreach ($carried as $charge) {
 
                 $amount = match ($charge->type) {
                     'base_rent' => $newRent,

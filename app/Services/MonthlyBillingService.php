@@ -345,6 +345,8 @@ class MonthlyBillingService
             return $nothing('no_applicable_charges');
         }
 
+        $this->assertScheduleUnambiguous($lease, $applicableCharges, $periodStart);
+
         // Pro-rate only if the lease commences mid-period and the caller asked for it.
         $factor = 1.0;
         $effectivePeriodStart = $periodStart;
@@ -536,6 +538,42 @@ class MonthlyBillingService
             'vat_amount' => $plan['vat_amount'],
             'total' => $plan['total'],
         ];
+    }
+
+    /**
+     * Exactly ONE recurring row per charge type may cover a billing period.
+     *
+     * A charge type is a date-ranged schedule now (ChargeScheduleService closes one row the day
+     * before the next begins), so two rows covering the same month means the schedule has an
+     * OVERLAP — from a bad import, a hand-edited date, or a bug in something that writes it. The
+     * old single-row world could not express that; this one can, and if it goes unnoticed the
+     * tenant is billed the same rent twice on one invoice.
+     *
+     * Refuse loudly instead. `runForPeriod()` catches per lease, so one broken schedule is one
+     * failed lease in the run summary — not a silent double charge, and not an aborted run.
+     *
+     * One-off charges are exempt: several genuinely can land in one month (a CAM true-up, a
+     * percentage-rent overage, a utility recharge), and they are not a schedule.
+     *
+     * @param  \Illuminate\Support\Collection<int, Charge>  $applicable
+     */
+    private function assertScheduleUnambiguous(Lease $lease, $applicable, CarbonImmutable $periodStart): void
+    {
+        $clashes = $applicable
+            ->filter(fn (Charge $c) => $c->frequency !== 'one_time')
+            ->groupBy('type')
+            ->filter(fn ($rows) => $rows->count() > 1);
+
+        if ($clashes->isEmpty()) {
+            return;
+        }
+
+        $detail = $clashes->map(fn ($rows, $type) => $type.' ('.$rows->pluck('id')->implode(', ').')')->implode('; ');
+
+        throw new \DomainException(
+            "Lease {$lease->reference} has overlapping charge-schedule rows for {$periodStart->format('F Y')}: {$detail}. "
+            .'Exactly one row per charge type may cover a period — close the earlier row before the later one starts.'
+        );
     }
 
     /**

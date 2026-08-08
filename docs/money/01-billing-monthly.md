@@ -396,3 +396,34 @@ with `period_start = 2026-06-16` ∈ `[2026-06-01, 2026-06-30]` and **skips** th
 - `docs/modules/08-cam.md` — CAM annual reconciliation and positive/negative true-ups (separate scheduled run).
 - `config/billing.php` — schedule + late-fee policy.
 - `docs/qa/HARDENING-BACKLOG.md` — the outstanding `(lease_id, period)` unique-constraint item.
+
+---
+
+## The charge schedule (2026-08-08)
+
+A charge type is a **date-ranged schedule**, not one mutable amount. A rent change closes the row
+in force at the end of the previous month and opens the next from the 1st
+([`ChargeScheduleService`](../../app/Services/ChargeScheduleService.php)); the escalation sweep
+appends rather than overwrites.
+
+What this changes for billing:
+
+- **`chargeAppliesToPeriod()` already did the right thing** — it filtered on `start_date`/`end_date`
+  long before anything wrote more than one row. The read path did not change.
+- **Billing a past month bills the amount in force in that month.** Under the old model, re-billing
+  March charged March at *today's* rent, because the single row held today's amount.
+- **Exactly one recurring row per charge type may cover a period.** Two rows means an overlapping
+  schedule — a bad import, a hand-edited date, a bug in a writer — and
+  `assertScheduleUnambiguous()` throws a `DomainException` naming the rows. `runForPeriod()` catches
+  per lease, so it is one failed lease in the run summary, never a silent double charge. **One-off
+  charges are exempt**: a CAM true-up, a percentage-rent overage and a utility recharge can all
+  genuinely land in one month.
+- **Effective dates snap to the start of the billing month** (`ChargeScheduleService::billingBoundary()`),
+  because the engine bills one amount per type per month. This reproduces the old behaviour exactly
+  — overwriting an amount mid-month always billed that whole month at the new rate.
+- **The marketing levy moves with the rent, on the same effective date.** It is a percentage of base
+  rent, so leaving it single-row would have billed a past month's rent correctly beside a levy
+  derived from today's — a worse inconsistency than the one the schedule set out to fix.
+
+Tests: `tests/Feature/Regression/ChargeScheduleTest.php` — including the two silent-money traps
+(a renewal copying the whole history, and a month covered by two rows), both mutation-verified.

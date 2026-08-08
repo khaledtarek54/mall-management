@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Charge;
 use App\Models\Lease;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -21,8 +22,10 @@ use InvalidArgumentException;
  */
 class LeaseRentChangeService
 {
+    public function __construct(private ChargeScheduleService $schedule) {}
+
     /**
-     * @param  array{base_rent_monthly:float, service_charge_monthly?:float|null, reason?:string|null}  $data
+     * @param  array{base_rent_monthly:float, service_charge_monthly?:float|null, reason?:string|null, effective_from?:string|\DateTimeInterface|null, origin?:string|null}  $data
      */
     public function apply(Lease $lease, array $data): Lease
     {
@@ -43,7 +46,15 @@ class LeaseRentChangeService
             throw new InvalidArgumentException('service_charge_monthly must be ≥ 0.');
         }
 
-        return DB::transaction(function () use ($lease, $newRent, $newService, $hasServiceUpdate, $data) {
+        // The date the new amount takes effect. Defaults to today, which reproduces the old
+        // overwrite-now behaviour; the escalation sweep passes the anniversary, and an operator can
+        // schedule a change ahead of time.
+        $effectiveFrom = isset($data['effective_from']) && $data['effective_from']
+            ? CarbonImmutable::parse($data['effective_from'])->startOfDay()
+            : CarbonImmutable::now()->startOfDay();
+        $origin = $data['origin'] ?? Charge::ORIGIN_MANUAL;
+
+        return DB::transaction(function () use ($lease, $newRent, $newService, $hasServiceUpdate, $data, $effectiveFrom, $origin) {
             $existingNotes = $lease->notes ? rtrim($lease->notes) . "\n\n" : '';
             $stamp = now()->format('Y-m-d');
             $reason = isset($data['reason']) ? trim((string) $data['reason']) : '';
@@ -60,85 +71,36 @@ class LeaseRentChangeService
             }
             $lease->update($updates);
 
-            // Sync the most-recent active base_rent Charge. If none exists
-            // yet (e.g. lease created via form before charges were seeded
-            // and LeaseObserver hadn't fired), we create one now.
-            $this->syncCharge(
-                $lease,
-                type: 'base_rent',
-                amount: $newRent,
-                name: 'Base Rent',
-                vatApplicable: false,
-                vatRate: 0,
-            );
+            // The rent schedule: CLOSE the row in force and OPEN the next one from the effective
+            // date — never overwrite an amount. That is the whole point of the change; see
+            // ChargeScheduleService. If no row exists yet (a lease created via the form before
+            // charges were seeded), the first one is opened dated to the commencement, as before.
+            $this->schedule->setAmount($lease, 'base_rent', $newRent, $effectiveFrom, [
+                'name' => 'Base Rent',
+                'vat_applicable' => false,
+                'vat_rate' => 0,
+            ], $origin);
 
             if ($hasServiceUpdate) {
-                $this->syncCharge(
-                    $lease,
-                    type: 'service_charge',
-                    amount: $newService,
-                    name: 'Service Charge',
-                    vatApplicable: true,
-                    vatRate: 14.00,
-                    createIfZero: false,
-                );
+                $this->schedule->setAmount($lease, 'service_charge', $newService, $effectiveFrom, [
+                    'name' => 'Service Charge',
+                    'vat_applicable' => true,
+                    'vat_rate' => \App\Support\Vat::standardRate(),
+                    // Toggling a service charge OFF must not mint a zero row on a lease that never
+                    // had one — the pre-schedule createIfZero:false rule, preserved.
+                    'skip_if_zero' => true,
+                ], $origin);
             }
 
-            // The marketing levy is 5% of base rent — keep it in lock-step so the
-            // next bill (and the marketing fund) reflects the new rent.
+            // The marketing levy is a percentage of base rent, so it moves WITH the rent and on the
+            // SAME effective date — otherwise a past month would bill the historically-correct rent
+            // beside a levy computed from today's, which is a worse inconsistency than the one this
+            // change set out to fix.
             if ($newRent > 0) {
-                app(\App\Services\MarketingLevyService::class)->createLevyCharge($lease->fresh());
+                app(MarketingLevyService::class)->createLevyCharge($lease->fresh(), $effectiveFrom);
             }
 
             return $lease->fresh();
         });
-    }
-
-    /**
-     * Idempotent: updates the most-recent active row matching the type, or
-     * creates one if none exists (unless $createIfZero is false and the
-     * amount is 0 — used by service-charge to allow toggling off).
-     */
-    private function syncCharge(
-        Lease $lease,
-        string $type,
-        float $amount,
-        string $name,
-        bool $vatApplicable,
-        float $vatRate,
-        bool $createIfZero = true,
-    ): void {
-        $existing = Charge::where('lease_id', $lease->id)
-            ->where('type', $type)
-            ->where('is_active', true)
-            ->latest('id')
-            ->first();
-
-        if ($existing) {
-            $existing->update(['amount' => $amount]);
-
-            return;
-        }
-
-        if ($amount <= 0 && ! $createIfZero) {
-            return;
-        }
-
-        Charge::create([
-            'lease_id' => $lease->id,
-            'name' => $name,
-            'type' => $type,
-            'amount' => $amount,
-            'currency' => $lease->currency ?? 'EGP',
-            'frequency' => 'monthly',
-            'vat_applicable' => $vatApplicable,
-            'vat_rate' => $vatRate,
-            // Date the (edge-case) newly-created charge to the lease commencement —
-            // consistent with LeaseCreationService/LeaseRenewalService, so a missing
-            // charge recreated here bills the lease's term correctly rather than only
-            // from the current month.
-            'start_date' => $lease->commencement_date,
-            'is_active' => true,
-        ]);
     }
 }

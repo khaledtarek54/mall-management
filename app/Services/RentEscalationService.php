@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Charge;
 use App\Models\Lease;
 use App\Support\OpsLog;
 use Carbon\CarbonImmutable;
@@ -14,6 +15,11 @@ use Illuminate\Support\Facades\DB;
  * [docs/gap-analysis/competitors/01-lease-billing.md]). This sweep applies the increase through
  * `LeaseRentChangeService` (which keeps the base-rent Charge + marketing levy in lock-step) and
  * rolls `next_escalation_date` forward a year.
+ *
+ * **What changed 2026-08-08:** applying an escalation no longer OVERWRITES the rent. It closes
+ * the current schedule row the day before the anniversary and opens the next one
+ * (ChargeScheduleService) — so what the rent was last year is still readable, and a step is dated
+ * to the contract's anniversary rather than to whichever night the sweep managed to run.
  *
  * Idempotent + lock-safe: each lease is row-locked and its due-ness re-checked inside the
  * transaction, and applying advances `next_escalation_date` past today so a re-run is a no-op.
@@ -87,6 +93,11 @@ class RentEscalationService
             $this->rentChange->apply($lease, [
                 'base_rent_monthly' => $newRent,
                 'reason' => "Automatic rent escalation +{$rate}%",
+                // The step takes effect on the ANNIVERSARY, not the night the sweep happens to
+                // run. A sweep delayed by a weekend or a failed cron used to silently move the
+                // increase; now the schedule row starts where the contract says it starts.
+                'effective_from' => $lease->next_escalation_date,
+                'origin' => Charge::ORIGIN_ESCALATION,
             ]);
 
             // Advance one year (the base_rent Charge + marketing levy were synced by apply()).
