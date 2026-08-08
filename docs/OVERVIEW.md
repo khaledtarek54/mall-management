@@ -139,6 +139,7 @@ Demo logins (password `password`): `admin@mall.test` (super_admin) · `manager@/
 | [docs/VALIDATION-GUIDE.md](VALIDATION-GUIDE.md) | How to validate each feature in the app |
 | [docs/api/](api/) | Mobile API reference |
 | [docs/gap-analysis/](gap-analysis/) | Per-feature technical gap analysis + deferred backlog + production checklist |
+| [docs/benchmarks/yardi/](benchmarks/yardi/README.md) | **How Yardi Voyager Commercial does leasing & money flow**, the Atriom gap analysis against it (keep / extend / rebuild per row), scenarios, user stories, and the sequenced phase plan for the 2026-08 cycle |
 | [INFRA.md](../INFRA.md) · [PAYMOB-SETUP.md](../PAYMOB-SETUP.md) · [PAYMOB-FLUTTER.md](../PAYMOB-FLUTTER.md) · [MOBILE-APP-BRIEF.md](../MOBILE-APP-BRIEF.md) | Ops / integration / mobile |
 | [integrations/PAYMOB.md](integrations/PAYMOB.md) | **Paymob, end to end** — the complete implementation reference + port checklist for another system |
 

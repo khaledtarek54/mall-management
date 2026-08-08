@@ -18,6 +18,19 @@ the operator) · ⚙️ ops (deploy/infra).
 keeps the per-phase implementation detail; [docs/accounting/GAP-ANALYSIS.md](accounting/GAP-ANALYSIS.md)
 keeps the accounting capability matrix. This file is the priority call across all of them.
 
+> **⚠️ New cycle, 2026-08-08 — leasing & money flow, benchmarked against Yardi.** The owner asked
+> whether the lease → charge → invoice → GL chain is modelled on the wrong business. It is, in
+> exactly one place: **Atriom stores the lease's current state and mutates it; Yardi stores a
+> date-ranged charge schedule and reads it.** Seven of fifteen benchmark scenarios break on that
+> one difference. The money core (`recomputeTotals`, the GL registry, the deletion policy) is at or
+> above the benchmark and must **not** be rebuilt. Two live defects were found while writing it:
+> **CAM allocates on the master unit's area only** (every multi-unit lease under-charged) and **the
+> bulk billing run never prorates** (every mid-month commencement over-charged) — both fix now,
+> outside the phases. Full write-up, scenarios, user stories and the sequenced plan:
+> **[docs/benchmarks/yardi/](benchmarks/yardi/README.md)** → start at
+> [the phase plan](benchmarks/yardi/07-phase-plan.md). Two rulings block it: **straight-line rent
+> under EAS 49** (accountant) and **is fit-out grace really all-or-nothing** (Eltizam).
+
 ---
 
 ## 1. Where the project actually is

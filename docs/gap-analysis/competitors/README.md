@@ -15,6 +15,20 @@
 > Each of the six domain deep-dives (linked in §6) carries the full capability matrix, an
 > architecture read, and its own top-5 gaps. Competitor claims are edition/region/version-sensitive
 > and marked *(verify)* in the source docs; the Atriom side is grounded in the code and module docs.
+>
+> ---
+>
+> **⚠️ SUPERSEDED for leasing & money flow (2026-08-08).** [`docs/benchmarks/yardi/`](../../benchmarks/yardi/README.md)
+> replaces domains **01 (lease & billing)** and the recovery/turnover half of **02** with a deeper,
+> code-grounded read against Yardi Voyager Commercial. **Two rows here are now stale** — believing
+> them costs more than a missing row would:
+> - *"Rent escalation — automated application ❌ manual only"* — **wrong since 2026-07-19.**
+>   `RentEscalationService` + `leases:apply-escalations` is scheduled, idempotent and lock-safe.
+> - *"Recovery caps ❌"* and *"capped-tenant handling ❌"* — **wrong.** `LeaseCamTerm` ships
+>   absolute / YoY / base-year / compounding caps, effective-dated, with the landlord explicitly
+>   absorbing the excess; the CAM **admin fee** ships too, applied to the capped cost.
+>
+> The rest of this folder (facility, vendors, assets, portal/owner) stands.
 
 ---
 
