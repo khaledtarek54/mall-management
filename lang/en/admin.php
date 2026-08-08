@@ -53,6 +53,19 @@ return [
         'annual' => 'Annual (yearly)',
     ],
 
+    'collections' => [
+        'nav_label' => 'AR Collections',
+        'title' => 'AR Collections — worklist',
+        'subheading' => ':tenants tenants owe :total · aged as at :as_of',
+        'total_owed' => 'Total owed',
+        'invoices' => 'Invoices',
+        'invoice_count' => '{1} 1 invoice|[2,*] :count invoices',
+        'oldest_days' => 'Oldest (days)',
+        'last_payment' => 'Last payment',
+        'never_paid' => 'Never paid',
+        'download_statement' => 'Statement',
+        'empty' => 'Nothing outstanding — every tenant is settled.',
+    ],
     'month_end' => [
         'nav_label' => 'Month-End Close',
         'title' => 'Month-End Close',

@@ -95,12 +95,27 @@ show it if legacy data has one). Inline add/close-and-open-next, never a raw amo
 
 ---
 
-### UX-03 🔴 The AR / collections dashboard
-Voyager 8's A/R and receivables dashboards, done once: aging buckets → drill to invoices → drill to
-the tenant. Grouped by **charge type once MF-06 lands** (RR-03). Actions inline: send statement,
-apply credit, record payment, flag disputed.
+### UX-03 ✅ The AR / collections dashboard — **SHIPPED 2026-08-08**
+Shipped as `/admin/ar-collections`. The existing `ArAging` page answers the **accountant's**
+question — *"how much is 31–60 days late"* — and drills into one bucket. The **collections**
+question had no screen at all: *"who do I call this morning, and about what."*
 
-**Today:** `ArAging` exists as a page — this is an upgrade, not a new build.
+One row per tenant, their outstanding split across every bucket at once, **worst-first — deepest
+bucket, then size**, because a tenant 120 days late for 10k needs the call before one 5 days late
+for 100k. Plus invoice count, oldest item in days, and **when they last actually paid** (or a red
+"never paid") — the single best signal for slow-payer vs stopped-payer. Statement download per row,
+CSV export, property-scoped, EN + AR.
+
+**The refactor that came with it:** the aging boundary arithmetic was copied between
+`arAgingBuckets()` and `arAgingDrilldown()` with a comment asking them to stay identical — a
+promise a comment cannot keep. A third copy for the worklist would have been the one that finally
+disagreed, and *a bucket total that disagrees with the list behind it destroys trust in both*. It
+now lives once in `ReportService::agingBucketKey()` against a single `AGING_BUCKETS` register, and
+`ArCollectionsTest` holds all three views to the same answer on the exact day boundaries where an
+off-by-one hides.
+
+**Still open:** grouping by charge type (RR-03) waits on item-level allocation (MF-06); inline
+apply-credit / record-payment / flag-disputed are not there yet.
 
 ---
 
@@ -250,16 +265,16 @@ depends on the phase that produces its data:
 
 | UI story | Ships with |
 |---|---|
-| ~~UX-05 billing preview~~ ✅ · ~~UX-04 month-end close~~ ✅ · UX-03 AR dashboard | **now** — the data already exists |
+| ~~UX-05 billing preview~~ ✅ · ~~UX-04 month-end close~~ ✅ · ~~UX-03 AR collections~~ ✅ | **all three shipped 2026-08-08** |
 | UX-01 lease hub · UX-02 rent schedule grid | phase 1 (charge schedule) |
 | UX-09 critical dates | phase 3 (options) |
 | UX-06 rent roll / expiry | phase 7 (reports) |
 | UX-08 CAM workbench | phase 6 (recoveries) |
 | UX-07 tenant 360 · UX-10 search · UX-11 saved views · UX-12 drill-down audit | opportunistic |
 
-**UX-05 and UX-04 shipped 2026-08-08; UX-03 is next.** All three are assembly over data that
-already exists, none waits on the schedule rebuild, and each removes a class of operator anxiety on
-its own.
+**UX-05, UX-04 and UX-03 all shipped 2026-08-08.** All three were assembly over data that already
+existed, none waited on the schedule rebuild, and each removed a class of operator anxiety on its
+own. **UX-01/UX-02 are next, and they wait on phase 1.**
 
 ---
 

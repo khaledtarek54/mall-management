@@ -25,6 +25,20 @@ use Illuminate\Support\Collection;
 class ReportService
 {
     /**
+     * The aging buckets, in order, and their day ranges (inclusive; `null` = unbounded).
+     *
+     * The single register the summary, the drill-down and the collections worklist all read —
+     * see {@see agingBucketKey()} for why this is not allowed to be copied.
+     */
+    public const AGING_BUCKETS = [
+        'current' => [null, 0],
+        'd_1_30' => [1, 30],
+        'd_31_60' => [31, 60],
+        'd_61_90' => [61, 90],
+        'd_90_plus' => [91, null],
+    ];
+
+    /**
      * Snapshot of a single month for the finance team's monthly close.
      *
      * @return array{
@@ -222,28 +236,13 @@ class ReportService
             ->whereDate('issue_date', '<=', $asOf)
             ->get();
 
-        $buckets = [
-            'current' => ['count' => 0, 'total' => 0.0],
-            'd_1_30' => ['count' => 0, 'total' => 0.0],
-            'd_31_60' => ['count' => 0, 'total' => 0.0],
-            'd_61_90' => ['count' => 0, 'total' => 0.0],
-            'd_90_plus' => ['count' => 0, 'total' => 0.0],
-        ];
+        $buckets = array_map(
+            fn () => ['count' => 0, 'total' => 0.0],
+            self::AGING_BUCKETS,
+        );
 
         foreach ($openInvoices as $invoice) {
-            // Whole-day overdue, floored to start-of-day on BOTH sides. `due_date` is a date (00:00)
-            // but `$asOf` carries a time, so a raw diffInDays returns N.99… — and the float `match`
-            // below then over-aged every whole-day boundary by one bucket (a 30-days-overdue invoice
-            // fell into 31–60; one due *today* into 1–30). Computed identically to arAgingDrilldown()
-            // so a summary bucket and its clickable drilldown always agree.
-            $daysOverdue = (int) ($invoice->due_date?->startOfDay()->diffInDays($asOf->startOfDay(), false) ?? 0);
-            $key = match (true) {
-                $daysOverdue <= 0 => 'current',
-                $daysOverdue <= 30 => 'd_1_30',
-                $daysOverdue <= 60 => 'd_31_60',
-                $daysOverdue <= 90 => 'd_61_90',
-                default => 'd_90_plus',
-            };
+            $key = self::agingBucketKey($invoice, $asOf);
             $buckets[$key]['count']++;
             $buckets[$key]['total'] += (float) $invoice->balance;
         }
@@ -261,33 +260,112 @@ class ReportService
      */
     public function arAgingDrilldown(string $bucket, ?CarbonImmutable $asOf = null): Collection
     {
+        if (! array_key_exists($bucket, self::AGING_BUCKETS)) {
+            throw new \InvalidArgumentException("Unknown bucket: {$bucket}");
+        }
+
         $asOf = $asOf ?? CarbonImmutable::now()->endOfDay();
 
-        [$min, $max] = match ($bucket) {
-            'current' => [PHP_INT_MIN, 0],
-            'd_1_30' => [1, 30],
-            'd_31_60' => [31, 60],
-            'd_61_90' => [61, 90],
-            'd_90_plus' => [91, PHP_INT_MAX],
-            default => throw new \InvalidArgumentException("Unknown bucket: {$bucket}"),
-        };
+        return $this->openInvoicesAsOf($asOf)
+            ->filter(fn (Invoice $invoice) => self::agingBucketKey($invoice, $asOf) === $bucket)
+            ->sortByDesc('balance')
+            ->values();
+    }
 
+    /**
+     * The collections worklist: one row per tenant, their outstanding split across the buckets.
+     *
+     * The aging *summary* answers "how much is late"; this answers "who do I call, and about
+     * what" — which is the question a collections clerk actually has. Sorted worst-first: deepest
+     * bucket, then size.
+     *
+     * @return Collection<int, array{tenant:?\App\Models\Tenant, tenant_id:int, total:float, buckets:array<string,float>, invoice_count:int, oldest_days:int, last_payment_at:?\Illuminate\Support\Carbon}>
+     */
+    public function arCollectionsByTenant(?CarbonImmutable $asOf = null): Collection
+    {
+        $asOf = $asOf ?? CarbonImmutable::now()->endOfDay();
+
+        return $this->openInvoicesAsOf($asOf)
+            ->groupBy('tenant_id')
+            ->map(function (Collection $invoices, $tenantId) use ($asOf) {
+                $buckets = array_fill_keys(array_keys(self::AGING_BUCKETS), 0.0);
+                $oldest = 0;
+
+                foreach ($invoices as $invoice) {
+                    $buckets[self::agingBucketKey($invoice, $asOf)] += (float) $invoice->balance;
+                    $oldest = max($oldest, self::daysOverdue($invoice, $asOf));
+                }
+
+                return [
+                    'tenant_id' => (int) $tenantId,
+                    'tenant' => $invoices->first()->tenant,
+                    'total' => round((float) $invoices->sum('balance'), 2),
+                    'buckets' => array_map(fn (float $v) => round($v, 2), $buckets),
+                    'invoice_count' => $invoices->count(),
+                    'oldest_days' => $oldest,
+                    // When they last actually paid anything — the single most useful signal for
+                    // whether this is a slow payer or a stopped one.
+                    'last_payment_at' => Payment::query()
+                        ->where('tenant_id', $tenantId)
+                        ->whereIn('status', Payment::RECEIVED_STATUSES)
+                        ->max('payment_date'),
+                ];
+            })
+            // Worst first: how deep, then how much. A tenant 120 days late for 10k needs the call
+            // before one 5 days late for 100k.
+            ->sortByDesc(fn (array $row) => [$row['oldest_days'], $row['total']])
+            ->values();
+    }
+
+    /**
+     * Open, aged-in receivables as at a date — the ONE query every aging view starts from.
+     *
+     * @return Collection<int, Invoice>
+     */
+    private function openInvoicesAsOf(CarbonImmutable $asOf): Collection
+    {
         return TenantScope::applyTo(Invoice::query(), 'lease.unit')
             ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
             ->where('balance', '>', 0)
-            // Same inclusion cutoff as the summary (arAgingBuckets) so the drilldown can't surface an
-            // invoice the bucket total didn't count.
+            // The same inclusion cutoff for every view, so a drill-down can never surface an
+            // invoice its own summary bucket did not count.
             ->whereDate('issue_date', '<=', $asOf)
             ->with(['tenant', 'lease.unit'])
-            ->get()
-            ->filter(function (Invoice $invoice) use ($asOf, $min, $max) {
-                // Identical whole-day math to arAgingBuckets() — see the note there.
-                $days = (int) ($invoice->due_date?->startOfDay()->diffInDays($asOf->startOfDay(), false) ?? 0);
+            ->get();
+    }
 
-                return $days >= $min && $days <= $max;
-            })
-            ->sortByDesc('balance')
-            ->values();
+    /**
+     * Whole days an invoice is overdue as at a date. Negative/zero = not yet due.
+     *
+     * Floored to start-of-day on BOTH sides: `due_date` is a date (00:00) while `$asOf` carries a
+     * time, so a raw diffInDays returns N.99… and every whole-day boundary ages one bucket too far
+     * — an invoice 30 days overdue fell into 31–60, one due *today* into 1–30.
+     */
+    public static function daysOverdue(Invoice $invoice, CarbonImmutable $asOf): int
+    {
+        return (int) ($invoice->due_date?->startOfDay()->diffInDays($asOf->startOfDay(), false) ?? 0);
+    }
+
+    /**
+     * Which aging bucket an invoice falls in as at a date.
+     *
+     * **One definition, every caller.** The summary, the drill-down and the collections worklist
+     * all route through this — the boundary arithmetic used to be copied between the first two
+     * with a comment asking them to stay identical, which is a promise a comment cannot keep. A
+     * third copy for the worklist would have been the one that finally disagreed, and a bucket
+     * total that disagrees with the list behind it destroys the operator's trust in both.
+     */
+    public static function agingBucketKey(Invoice $invoice, CarbonImmutable $asOf): string
+    {
+        $days = self::daysOverdue($invoice, $asOf);
+
+        return match (true) {
+            $days <= 0 => 'current',
+            $days <= 30 => 'd_1_30',
+            $days <= 60 => 'd_31_60',
+            $days <= 90 => 'd_61_90',
+            default => 'd_90_plus',
+        };
     }
 
     /**

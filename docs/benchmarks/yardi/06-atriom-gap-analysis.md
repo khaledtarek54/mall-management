@@ -99,7 +99,7 @@
 | Bank deposit batches | ✅ | ❌ | ⏭️ **DECLINE** — PDCs and transfers dominate here (XX-06) | ⚪ |
 | Post-dated cheques | 🟡 regional builds | ✅ full register, lodging, maturity, clear/bounce, invoice-lock + over-allocation backstop | ✅ **KEEP — exceeds Yardi for this market** | ⚪ |
 | Tenant statement | ✅ | ✅ `TenantStatementPdfService` | ✅ KEEP | ⚪ |
-| AR aging | ✅ by charge code | 🟡 `ArAging` page, invoice-level | ➕ EXTEND (RR-03), after MF-06 | 🟡 |
+| AR aging | ✅ by charge code | ✅ bucket summary + drill-down (`ArAging`) **and a per-tenant collections worklist** (`ArCollections`, shipped 2026-08-08) — still invoice-level, not charge-level | ➕ EXTEND (RR-03) once MF-06 lands | 🟡 |
 
 ---
 

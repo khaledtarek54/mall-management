@@ -53,6 +53,19 @@ return [
         'annual' => 'سنوي',
     ],
 
+    'collections' => [
+        'nav_label' => 'تحصيل الذمم',
+        'title' => 'تحصيل الذمم المدينة — قائمة المتابعة',
+        'subheading' => ':tenants مستأجر عليهم :total · بتاريخ :as_of',
+        'total_owed' => 'إجمالي المستحق',
+        'invoices' => 'الفواتير',
+        'invoice_count' => '{1} فاتورة واحدة|[2,*] :count فواتير',
+        'oldest_days' => 'الأقدم (أيام)',
+        'last_payment' => 'آخر دفعة',
+        'never_paid' => 'لم يدفع مطلقًا',
+        'download_statement' => 'كشف حساب',
+        'empty' => 'لا توجد مستحقات — جميع المستأجرين مسددون.',
+    ],
     'month_end' => [
         'nav_label' => 'إقفال الشهر',
         'title' => 'إقفال نهاية الشهر',

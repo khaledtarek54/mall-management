@@ -542,3 +542,29 @@ above it.
 Related: `tests/Feature/Pages/LedgerReportTablesTest.php` asserts each page's
 rows and totals against the report service rather than merely that the page
 renders.
+
+---
+
+## AR collections worklist
+
+`/admin/ar-collections` ([`ArCollections`](../../app/Filament/Admin/Pages/ArCollections.php)) —
+one row per tenant, outstanding split across every aging bucket at once, sorted **worst-first
+(deepest bucket, then size)**, with invoice count, oldest item in days, last payment date (or a red
+"never paid"), a statement download per row and a CSV export. Property-scoped, EN + AR.
+
+It is the **collections** question — *who do I call, and about what* — as distinct from
+[`ArAging`](../../app/Filament/Admin/Pages/ArAging.php), which is the accountant's *how much is
+31–60 days late* and drills into one bucket.
+
+### The one rule for anything that ages a receivable
+
+**Bucket boundaries live in `ReportService::agingBucketKey()`, against the `AGING_BUCKETS`
+register. Never re-derive them.** The arithmetic used to be copied between `arAgingBuckets()` and
+`arAgingDrilldown()` with a comment asking the two to stay identical; the collections worklist
+would have been a third copy. A bucket total that disagrees with the list behind it destroys the
+operator's trust in both numbers, and the day-boundary cases (due today; exactly 30/60/90 days) are
+where that disagreement hides — `ArCollectionsTest` pins all three views to the same answer on
+exactly those days.
+
+`ReportService::openInvoicesAsOf()` is likewise the single query every aging view starts from, so a
+drill-down can never surface an invoice its own summary did not count.

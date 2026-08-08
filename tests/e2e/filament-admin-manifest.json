@@ -298,6 +298,10 @@
             "slug": "ar-aging"
         },
         {
+            "class": "ArCollections",
+            "slug": "ar-collections"
+        },
+        {
             "class": "BalanceSheet",
             "slug": "balance-sheet"
         },
