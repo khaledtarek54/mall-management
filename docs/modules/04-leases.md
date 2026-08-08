@@ -45,6 +45,12 @@
 > already in force, adds no row, and advances `base_rent_monthly` + `next_escalation_date`. A
 > projected lease and a swept one converge on identical rows.
 >
+> **Where you SEE it:** the **Charge schedule** panel on the lease
+> ([`ChargeScheduleRelationManager`](../../app/Filament/Admin/RelationManagers/ChargeScheduleRelationManager.php))
+> — every row, its date range, whether it is billing now / scheduled / ended, and why it exists.
+> The heading says what is billing today and when it next changes. **Read-only on purpose:** rent
+> changes go through the Change Rent action so the schedule is written by one service.
+>
 > Full analysis and the remaining phases: [`docs/benchmarks/yardi/`](../benchmarks/yardi/README.md).
 > **Still open here:** no lease options / notice-window alerts, no trailing proration, holdover is
 > alerted but never billed. Note `LeaseCreationService` hard-codes `escalation_type =

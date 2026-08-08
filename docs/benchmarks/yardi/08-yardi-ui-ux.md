@@ -87,11 +87,22 @@ in one click; EN + AR; property-scoped; `->authorize()` on every action in it.
 
 ---
 
-### UX-02 🔴 The rent-schedule grid
-The visual counterpart to LS-01, and the screen that makes the schedule model *legible*: a timeline
-strip plus a table. It must make three things obvious at a glance — **which row is billing now**,
-**what changes next and when**, and **where a gap or overlap exists** (refused at write time, but
-show it if legacy data has one). Inline add/close-and-open-next, never a raw amount edit.
+### UX-02 ✅ The rent-schedule grid — **SHIPPED 2026-08-08**
+Shipped as a **Charge schedule** panel on the lease (`ChargeScheduleRelationManager`) — Yardi's
+Charges grid on the lease record. One row per charge type per date range, with the three things an
+operator scans for: **which row is billing now** (green, bold amount), **what is still scheduled**
+(blue), and **why each row exists** (`origin`: set at creation · changed by an operator ·
+contracted escalation · carried on renewal · derived from base rent). The panel heading states what
+is billing today and when it next changes, so the answer is readable without opening anything.
+
+**Read-only, deliberately.** Rent changes route through the "Change Rent" action →
+`LeaseRentChangeService` → `ChargeScheduleService`, which closes the current row and opens the
+next, moves the marketing levy with it, and keeps `Lease::base_rent_monthly` in step. An editable
+amount cell would reintroduce exactly the drift that service exists to prevent — the same reason
+the rent fields on the lease form are disabled. A test asserts the table exposes no actions.
+
+**Still to come:** the timeline strip, and surfacing a gap/overlap in legacy data (write-time
+refusal and the billing guard both exist; nothing draws it yet).
 
 ---
 

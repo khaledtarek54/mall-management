@@ -74,6 +74,9 @@ class LeaseResource extends Resource
     public static function getRelations(): array
     {
         return [
+            // The charge schedule first: it is what the lease bills, and phase 1 made it a
+            // ladder rather than a single number.
+            \App\Filament\Admin\RelationManagers\ChargeScheduleRelationManager::class,
             \App\Filament\Admin\RelationManagers\LeaseInvoicesRelationManager::class,
             \App\Filament\Admin\RelationManagers\LeaseCamTermsRelationManager::class,
             \App\Filament\Admin\RelationManagers\ActivitiesRelationManager::class,
