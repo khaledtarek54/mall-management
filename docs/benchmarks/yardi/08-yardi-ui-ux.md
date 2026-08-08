@@ -63,7 +63,7 @@ ships EN + AR keys in the same change.
 
 ---
 
-## 4. The UI work-list — stories UX-01…UX-12
+## 4. The UI work-list — stories UX-01…UX-13
 
 Priorities as elsewhere: 🔴 must · 🟠 should · 🟡 later.
 
@@ -168,13 +168,53 @@ pack becomes one click.
 
 ---
 
+### UX-13 🔴 Tabbed forms for every multi-concern resource *(operator directive, 2026-08-08)*
+**As an** operator **I want** a long resource form split into tabs, each tab one group of related
+settings **so that** I am looking at one concern at a time instead of scrolling thirty fields.
+
+**The standard.** A resource form covering more than ~3 distinct concerns is built as
+`Tabs` → one tab per concern, via **`App\Support\FormTab::make(label, [...])`** — never a bare
+`Tab::make()`.
+
+**Why the helper is mandatory, not a convenience.** Tabs introduce one failure the long scroll did
+not have: submit from tab 1 with a required field blank on tab 4, and the form refuses with the
+error rendered on a panel nobody can see. **Filament v4.11.8 ships no validation-error indicator on
+`Tabs`** — the word "error" does not appear in `Tabs.php`, `Tab.php` or their Blade. `FormTab` adds
+a danger badge counting the errors *inside that tab*, derived at render time from the tab's own
+fields (`getChildComponentContainers()` → `getFlatFields()` → `getStatePath()` vs the error bag), so
+it can never drift from the fields the tab actually holds. Without it, a tabbed form is strictly
+worse than the scroll it replaced.
+
+**Reference implementation:** [`LeaseForm`](../../../app/Filament/Admin/Resources/Leases/Schemas/LeaseForm.php)
+— 30 fields, 6 sections → 5 tabs (Lease details · Term · Financial terms · Percentage rent ·
+Notes & documents), with `persistTabInQueryString()` so a link can point at a tab.
+Tests: `FormTabErrorBadgeTest` (badge is per-tab, and mutation-verified against an upstream API
+change).
+
+**Remaining candidates, worst first** (fields / sections, measured 2026-08-08):
+
+| Form | Fields | Sections |
+|---|---|---|
+| ~~`LeaseForm`~~ | ~~30~~ | ✅ **done** |
+| `TenantRequestForm` | 24 | 6 |
+| `InvoiceForm` | 19 | 4 |
+| `TenantForm` | 18 | 4 |
+| `CreditNoteForm` | 18 | 4 |
+| `VendorBillForm` | 15 | 2 |
+| `MaintenancePlanForm` | 15 | 0 |
+| `PaymentForm` | 14 | 4 |
+
+Below ~12 fields a tab strip costs more than it saves — leave those as sections.
+
+---
+
 ### UX-12 🟡 Drill-down audit
 A sweep with one rule: **every money figure on every dashboard and report links to the records
 behind it.** Cheap per widget, and it is what makes an operator trust the number.
 
 ---
 
-## 5. The five UX rules to hold while building these
+## 5. The six UX rules to hold while building these
 
 1. **Click budget.** The most-repeated task each role does must be ≤ 3 clicks from their landing
    page. This is the specific thing Voyager is criticised for; do not import the defect.
@@ -183,9 +223,11 @@ behind it.** Cheap per widget, and it is what makes an operator trust the number
 3. **Refusals explain themselves.** A `DomainException` already renders as a message, not a 500 —
    make the message say *what to do next*, not just what went wrong. The skip **reasons** the
    billing service returns are the model: `fit_out` beats "no charges".
-4. **Bilingual and RTL from the first commit.** EN + AR keys in the same change, never a follow-up.
+4. **One concern per screen.** A form covering many concerns is tabs, not a scroll (UX-13) — and a
+   tab strip without a per-tab error badge is a regression, not a feature.
+5. **Bilingual and RTL from the first commit.** EN + AR keys in the same change, never a follow-up.
    An Arabic-first operator is the primary user.
-5. **Feedback carries state.** After an action, say what changed and link to it — "3 invoices
+6. **Feedback carries state.** After an action, say what changed and link to it — "3 invoices
    created, 1 skipped (fit-out) → view run".
 
 ---

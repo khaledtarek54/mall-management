@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\Leases\Schemas;
 
 use App\Models\Lease;
 use App\Models\Unit;
+use App\Support\FormTab;
 use App\Support\TenantScope;
 use Closure;
 use Filament\Forms\Components\DatePicker;
@@ -12,7 +13,7 @@ use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
-use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 
@@ -20,10 +21,17 @@ class LeaseForm
 {
     public static function configure(Schema $schema): Schema
     {
+        // Thirty fields across six concerns is a scroll, not a form. Each concern is now a tab —
+        // one coherent group of settings per screen (operator decision 2026-08-08). Tabs are built
+        // through App\Support\FormTab so each one carries a badge counting the validation errors
+        // inside it: Filament v4 ships no error indicator on Tabs, and without one a required field
+        // left blank on a tab you are not looking at refuses the form with nothing visible to fix.
         return $schema->columns(1)->components([
-            Section::make(__('admin.sections.lease_details'))
-                ->columns(3)
-                ->components([
+            Tabs::make('lease')
+                ->columnSpanFull()
+                ->persistTabInQueryString()
+                ->tabs([
+            FormTab::make(__('admin.sections.lease_details'), [
                     TextInput::make('reference')
                         ->label(__('admin.fields.reference'))
                         ->default(fn () => Lease::generateReference('AW'))
@@ -156,11 +164,9 @@ class LeaseForm
                         ->dehydrated(false)
                         ->default(false)
                         ->columnSpan(2),
-                ]),
+            ])->columns(3),
 
-            Section::make(__('admin.sections.term'))
-                ->columns(3)
-                ->components([
+            FormTab::make(__('admin.sections.term'), [
                     DatePicker::make('commencement_date')
                         ->label(__('admin.fields.commencement_date'))
                         ->required()
@@ -179,11 +185,9 @@ class LeaseForm
                         ->required()
                         ->after('commencement_date')
                         ->native(false),
-                ]),
+            ])->columns(3),
 
-            Section::make(__('admin.sections.financial_terms'))
-                ->columns(3)
-                ->components([
+            FormTab::make(__('admin.sections.financial_terms'), [
                     // Rent fields are read-only on Edit. Operators change them
                     // through the "Change rent" record action so the matching
                     // Charge.amount stays in sync (audit M04 F-20 / D-13). On
@@ -291,14 +295,9 @@ class LeaseForm
                     Toggle::make('security_deposit_received')
                         ->label(__('admin.fields.security_deposit_received'))
                         ->columnSpanFull(),
-                ]),
+            ])->columns(3),
 
-            Section::make(__('admin.sections.percentage_rent'))
-                ->description(__('admin.sections.percentage_rent_description'))
-                ->columns(3)
-                ->collapsed()
-                ->collapsible()
-                ->components([
+            FormTab::make(__('admin.sections.percentage_rent'), [
                     Toggle::make('has_percentage_rent')
                         ->live()
                         ->columnSpanFull(),
@@ -353,22 +352,13 @@ class LeaseForm
                         ->maxValue(100)
                         ->helperText(__('admin.helpers.percentage_rent_rate'))
                         ->visible(fn ($get) => (bool) $get('has_percentage_rent')),
-                ]),
+            ])->columns(3),
 
-            Section::make(__('admin.sections.notes'))
-                ->collapsed()
-                ->collapsible()
-                ->components([
+            FormTab::make(__('admin.sections.documents'), [
                     Textarea::make('notes')
                         ->label(__('admin.fields.notes'))
                         ->rows(3)
                         ->columnSpanFull(),
-                ]),
-
-            Section::make(__('admin.sections.documents'))
-                ->description(__('admin.sections.documents_description'))
-                ->collapsible()
-                ->components([
                     SpatieMediaLibraryFileUpload::make('documents')
                         ->label(__('admin.fields.documents'))
                         ->collection('documents')
@@ -381,6 +371,7 @@ class LeaseForm
                         ->acceptedFileTypes(['application/pdf', 'image/*', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])
                         ->maxSize(10240)
                         ->columnSpanFull(),
+            ])->columns(1),
                 ]),
         ]);
     }

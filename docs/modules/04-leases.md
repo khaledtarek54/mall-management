@@ -242,7 +242,19 @@ Daily command (07:00) that reminds the tenant when an **active** lease's `expiry
 
 ### LeaseForm (Schemas/LeaseForm.php)
 
-**Sections:**
+**Tabbed, not scrolled (2026-08-08).** Thirty fields across six concerns is a scroll, not a form, so
+the sections below are now **tabs** — one concern per screen (operator directive; standard recorded
+as UX-13 in [the UI/UX benchmark](../benchmarks/yardi/08-yardi-ui-ux.md)). Notes and Documents are
+merged into one tab; `persistTabInQueryString()` lets a link point at a tab.
+
+Tabs are built with **`App\Support\FormTab::make(label, [...])`, never a bare `Tab::make()`** —
+`FormTab` adds a danger badge counting the validation errors *inside that tab*, because Filament
+v4.11.8 has no error indicator on `Tabs` and a required field left blank on a tab you are not
+looking at would otherwise refuse the form with nothing visible to fix. The count is derived from
+the tab's own fields at render time, so it cannot drift from what the tab contains. Tests:
+`tests/Feature/Regression/FormTabErrorBadgeTest.php`.
+
+**Tabs:**
 
 1. **Lease Details** (3 cols)
    - `reference` (TextInput, disabled, dehydrated) — auto-generated, read-only.

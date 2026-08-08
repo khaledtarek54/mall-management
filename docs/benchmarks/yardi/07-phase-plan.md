@@ -216,13 +216,19 @@ guard. All four are hard-won and correct.
 
 ### Phase 8 — UI/UX ➕ *(runs alongside, not after)*
 
-**Stories:** UX-01…UX-12, in [08-yardi-ui-ux.md](08-yardi-ui-ux.md).
+**Stories:** UX-01…UX-13, in [08-yardi-ui-ux.md](08-yardi-ui-ux.md).
 
 The operator asked for "the same Yardi UI/UX". The honest answer is **half yes**: copy Yardi's
 *information architecture* — the record hub, drill-down on every number, dashboard-centric landing,
 batch-review-before-post — and **not** its interface, which 77% of its own usability reviews call
 unintuitive and which Voyager 8 is itself replacing. Atriom's Filament 4 shell, with EN/AR + RTL, a
 tenant portal and a mobile API, is already the better surface.
+
+**UX-13 is a standing standard, not a one-off:** a resource form covering more than ~3 concerns is
+built as tabs via `App\Support\FormTab` (operator directive 2026-08-08). The helper is mandatory
+because Filament v4 ships no validation-error indicator on `Tabs`, and a tabbed form where the error
+is on a panel you cannot see is worse than the scroll it replaced. `LeaseForm` is the reference
+implementation; seven more forms are queued in UX-13's table.
 
 **Three ship now, before phase 1, because the data already exists:** **UX-05** billing-run preview
 (the control that stops a bad escalation reaching 400 tenants — the service already returns every

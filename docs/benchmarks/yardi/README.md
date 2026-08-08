@@ -25,7 +25,7 @@
 | 05 | [User stories](05-user-stories.md) | The backlog, as user stories with acceptance criteria, by role |
 | 06 | [Gap analysis](06-atriom-gap-analysis.md) | Row-by-row Atriom vs Yardi, with a **keep / extend / rebuild** verdict and severity on each |
 | 07 | [Phase plan](07-phase-plan.md) | **The recommendation** — what to do in this cycle, in what order, and what to leave alone |
-| 08 | [UI/UX](08-yardi-ui-ux.md) | What to copy from Yardi's screens (the information architecture) and what not to (the look — 77% of its usability reviews are negative), as 12 concrete Filament stories |
+| 08 | [UI/UX](08-yardi-ui-ux.md) | What to copy from Yardi's screens (the information architecture) and what not to (the look — 77% of its usability reviews are negative), as 13 concrete Filament stories |
 
 If you read one file, read [07-phase-plan.md](07-phase-plan.md). If you read two, read
 [06-atriom-gap-analysis.md](06-atriom-gap-analysis.md) first. For the screens, go to
