@@ -98,6 +98,87 @@ class ChargeScheduleService
     }
 
     /**
+     * Write the whole term's contracted rent steps up front (story LS-01).
+     *
+     * **Why at signing rather than one anniversary at a time.** Until now the only rent that
+     * existed was this year's; next year's appeared on the night a sweep created it. So nobody
+     * could budget, no owner report could project, no rent roll could show a step, and an operator
+     * could not review an increase before it billed four hundred tenants. Yardi writes the whole
+     * ladder when the lease is abstracted (docs/benchmarks/yardi/01-yardi-lease-administration.md
+     * §3.2); this does the same from the escalation terms already on the lease.
+     *
+     * **It does not fight the sweep.** `leases:apply-escalations` still runs each anniversary,
+     * recomputes the same amount, and `setAmount()` finds that amount already in force — a no-op.
+     * What the sweep keeps doing is advancing `Lease::base_rent_monthly` and
+     * `next_escalation_date`, so "the rent in force" stays correct without a second writer of the
+     * schedule. A projected lease and a swept one converge on identical rows.
+     *
+     * Only `fixed_percent` is projected: CPI has no index feed, and inventing the number here
+     * would be inventing data — the same reason the sweep skips it.
+     *
+     * The marketing levy is projected in lock-step because it is a percentage of base rent; a
+     * complete rent schedule beside a single-row levy would bill a future month's rent correctly
+     * next to a levy derived from year one.
+     *
+     * @return int rows created (rent + levy)
+     */
+    public function projectTermEscalations(Lease $lease): int
+    {
+        if ($lease->escalation_type !== 'fixed_percent'
+            || (float) $lease->escalation_rate <= 0
+            || ! $lease->commencement_date
+            || ! $lease->expiry_date) {
+            return 0;
+        }
+
+        $rate = (float) $lease->escalation_rate;
+        $commencement = CarbonImmutable::instance($lease->commencement_date);
+        $expiry = CarbonImmutable::instance($lease->expiry_date);
+        $rent = (float) $lease->base_rent_monthly;
+
+        if ($rent <= 0) {
+            return 0;
+        }
+
+        $levyService = app(MarketingLevyService::class);
+        $levyRate = $lease->has_marketing_levy ? $levyService->ratePercent($lease) : 0.0;
+
+        $created = 0;
+
+        // Anniversaries inside the term. The first step is one year after commencement; the last
+        // is whichever anniversary still starts before expiry — a lease ending mid-year gets no
+        // step it will never reach.
+        for ($year = 1; ; $year++) {
+            $effective = self::billingBoundary($commencement->addYears($year));
+
+            if ($effective->greaterThan($expiry)) {
+                break;
+            }
+
+            $rent = round($rent * (1 + $rate / 100), 2);
+
+            if ($this->setAmount($lease, 'base_rent', $rent, $effective, [
+                'name' => 'Base Rent',
+                'vat_applicable' => false,
+                'vat_rate' => 0,
+            ], Charge::ORIGIN_ESCALATION)) {
+                $created++;
+            }
+
+            if ($levyRate > 0 && $this->setAmount($lease, 'marketing', round($rent * $levyRate / 100, 2), $effective, [
+                'name' => 'Marketing Levy',
+                'frequency' => 'monthly',
+                'vat_applicable' => false,
+                'vat_rate' => 0,
+            ], Charge::ORIGIN_LEVY)) {
+                $created++;
+            }
+        }
+
+        return $created;
+    }
+
+    /**
      * The schedule for a charge type, oldest first — the operator-facing view of "what has this
      * lease been billed, and what will it be billed".
      *

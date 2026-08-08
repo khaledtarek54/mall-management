@@ -425,5 +425,11 @@ What this changes for billing:
   rent, so leaving it single-row would have billed a past month's rent correctly beside a levy
   derived from today's — a worse inconsistency than the one the schedule set out to fix.
 
+**The whole term is projected at signing.** `ChargeScheduleService::projectTermEscalations()` writes
+every contracted `fixed_percent` step when a lease (or renewal) is created, so billing any future
+month reads a real contracted amount rather than waiting for a nightly job to invent it. The
+marketing levy is projected in lock-step, so a future month bills that year's rent beside that
+year's levy. The escalation sweep still runs and is a no-op against a projected row.
+
 Tests: `tests/Feature/Regression/ChargeScheduleTest.php` — including the two silent-money traps
 (a renewal copying the whole history, and a month covered by two rows), both mutation-verified.

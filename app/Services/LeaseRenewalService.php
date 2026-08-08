@@ -153,6 +153,10 @@ class LeaseRenewalService
 
             $original->update(['status' => 'renewed']);
 
+            // A renewal is a fresh term with its own escalation clause, so it gets its own full
+            // ladder written up front — same reason as a new lease.
+            app(ChargeScheduleService::class)->projectTermEscalations($renewal->fresh());
+
             return $renewal;
         });
     }

@@ -85,12 +85,23 @@ it('creates renewal with new amounts, marks original renewed, clones charges wit
     expect((bool) $renewal->security_deposit_received)->toBeTrue();
     expect((float) $renewal->escalation_rate)->toBe(7.0);
 
-    // Charges: 3 cloned (base_rent + service_charge at new values, parking unchanged)
-    // + the marketing levy resynced to 5% of the new base rent.
+    // Charges: 3 cloned (base_rent + service_charge at new values, parking unchanged) + the
+    // marketing levy resynced to 5% of the new base rent + the renewal's own contracted
+    // escalation ladder, written up front (LS-01). The 24-month term carries one anniversary, so
+    // that is one extra rent row and one extra levy row: 6.
     $charges = Charge::where('lease_id', $renewal->id)->get();
-    expect($charges)->toHaveCount(4);
+    expect($charges)->toHaveCount(6);
 
-    $rent = $charges->firstWhere('type', 'base_rent');
+    // The rent row IN FORCE at commencement is the new rent; the year-2 step sits ahead of it.
+    $rentRows = $charges->where('type', 'base_rent')->sortBy('start_date')->values();
+    expect($rentRows)->toHaveCount(2)
+        ->and((float) $rentRows[0]->amount)->toBe(12000.0)
+        ->and($rentRows[0]->start_date->toDateString())->toBe('2027-01-01')
+        // 12,000 + 7% = 12,840, effective on the first anniversary.
+        ->and((float) $rentRows[1]->amount)->toBe(12840.0)
+        ->and($rentRows[1]->start_date->toDateString())->toBe('2028-01-01');
+
+    $rent = $rentRows[0];
     expect((float) $rent->amount)->toBe(12000.0);
 
     $svc = $charges->firstWhere('type', 'service_charge');

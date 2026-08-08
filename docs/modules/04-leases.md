@@ -36,9 +36,20 @@
 > without their own copy of the rule. Use `inFitOutWindow()` for "is the rent free" and
 > `periodInFitOut()` for "does nothing bill" — they are different questions under net abatement.
 >
+> **The whole term is written at signing (LS-01).** A lease created with a `fixed_percent`
+> escalation gets its entire rent ladder up front — a five-year 7% lease is five rent rows the day
+> it is signed, so the mall's future revenue is a recorded fact and an operator can review an
+> increase before it bills. Renewals project their own ladder. **CPI is not projected** (no index
+> feed; inventing the number would be inventing data — the same reason the sweep skips it), and
+> `leases:apply-escalations` still runs each anniversary: it recomputes the same amount, finds it
+> already in force, adds no row, and advances `base_rent_monthly` + `next_escalation_date`. A
+> projected lease and a swept one converge on identical rows.
+>
 > Full analysis and the remaining phases: [`docs/benchmarks/yardi/`](../benchmarks/yardi/README.md).
-> **Still open here:** the full term is not yet written at creation (LS-01), no lease options /
-> notice-window alerts, no trailing proration, holdover is alerted but never billed.
+> **Still open here:** no lease options / notice-window alerts, no trailing proration, holdover is
+> alerted but never billed. Note `LeaseCreationService` hard-codes `escalation_type =
+> 'fixed_percent'` and ignores the caller's value — a CPI lease can only be made by editing one
+> after creation.
 
 ## 1. Purpose & business context
 

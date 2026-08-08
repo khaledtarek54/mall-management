@@ -287,3 +287,148 @@ it('reads the row in force on a date', function () {
         ->and((float) $schedule->rowInForce($lease, 'base_rent', CarbonImmutable::parse('2026-06-15'))->amount)->toBe(12000.0)
         ->and((float) $schedule->rowInForce($lease, 'base_rent', CarbonImmutable::parse('2030-01-01'))->amount)->toBe(12000.0);
 });
+
+/* ---- LS-01: the whole term, written at signing ----------------------------- */
+
+it('writes the whole term\'s contracted rent steps when the lease is created', function () {
+    CarbonImmutable::setTestNow('2026-01-05');
+
+    $lease = app(\App\Services\LeaseCreationService::class)->create([
+        'tenant_mode' => 'existing',
+        'tenant_id' => makeTenant()->id,
+        'lease' => [
+            'unit_id' => makeUnit(makeAsset())->id,
+            'commencement_date' => '2026-01-01',
+            'term_months' => 60,
+            'base_rent_monthly' => 100000,
+            'service_charge_monthly' => 0,
+            'escalation_type' => 'fixed_percent',
+            'escalation_rate' => 7,
+            'has_marketing_levy' => false,
+        ],
+    ])->fresh();
+
+    // Five-year term, 7% a year: the ladder exists the day it is signed — nobody waits for a
+    // nightly job to reveal 2030's rent.
+    expect(rentSchedule($lease)->map(fn ($c) => (float) $c->amount)->all())
+        ->toBe([100000.0, 107000.0, 114490.0, 122504.3, 131079.6]);
+
+    $rows = rentSchedule($lease);
+    expect($rows[1]->start_date->toDateString())->toBe('2027-01-01')
+        ->and($rows[0]->end_date->toDateString())->toBe('2026-12-31')
+        ->and($rows[1]->origin)->toBe(Charge::ORIGIN_ESCALATION)
+        // The last step still starts inside the term, and the term-end row stays open.
+        ->and($rows[4]->start_date->toDateString())->toBe('2030-01-01');
+});
+
+it('bills each year of a projected term at its own contracted rent, with no sweep run at all', function () {
+    CarbonImmutable::setTestNow('2026-01-05');
+
+    $lease = app(\App\Services\LeaseCreationService::class)->create([
+        'tenant_mode' => 'existing',
+        'tenant_id' => makeTenant()->id,
+        'lease' => [
+            'unit_id' => makeUnit(makeAsset())->id,
+            'commencement_date' => '2026-01-01',
+            'term_months' => 36,
+            'base_rent_monthly' => 100000,
+            'service_charge_monthly' => 0,
+            'escalation_type' => 'fixed_percent',
+            'escalation_rate' => 7,
+            'has_marketing_levy' => false,
+        ],
+    ])->fresh();
+
+    $billing = app(MonthlyBillingService::class);
+
+    expect((float) $billing->generateForLease($lease, CarbonImmutable::parse('2026-06-01'))['invoice']
+        ->items()->where('type', 'base_rent')->sole()->amount)->toBe(100000.0)
+        ->and((float) $billing->generateForLease($lease->fresh(), CarbonImmutable::parse('2027-06-01'))['invoice']
+            ->items()->where('type', 'base_rent')->sole()->amount)->toBe(107000.0)
+        ->and((float) $billing->generateForLease($lease->fresh(), CarbonImmutable::parse('2028-06-01'))['invoice']
+            ->items()->where('type', 'base_rent')->sole()->amount)->toBe(114490.0);
+});
+
+it('does not fight the escalation sweep — a projected lease and a swept one converge', function () {
+    // THE interaction risk of writing the ladder up front: the sweep still runs every anniversary.
+    // It recomputes the same amount, setAmount() finds it already in force, and no row is added.
+    // What the sweep keeps doing is advancing base_rent_monthly and next_escalation_date.
+    CarbonImmutable::setTestNow('2026-01-05');
+
+    $lease = app(\App\Services\LeaseCreationService::class)->create([
+        'tenant_mode' => 'existing',
+        'tenant_id' => makeTenant()->id,
+        'lease' => [
+            'unit_id' => makeUnit(makeAsset())->id,
+            'commencement_date' => '2026-01-01',
+            'term_months' => 36,
+            'base_rent_monthly' => 100000,
+            'service_charge_monthly' => 0,
+            'escalation_type' => 'fixed_percent',
+            'escalation_rate' => 7,
+            'has_marketing_levy' => false,
+        ],
+    ])->fresh();
+
+    $before = rentSchedule($lease)->count();
+
+    CarbonImmutable::setTestNow('2027-01-02');
+    app(RentEscalationService::class)->runForToday(CarbonImmutable::parse('2027-01-02'));
+
+    expect(rentSchedule($lease->fresh())->count())->toBe($before)          // no duplicate row
+        ->and((float) $lease->fresh()->base_rent_monthly)->toBe(107000.0)  // …but the rent in force moved
+        ->and($lease->fresh()->next_escalation_date->toDateString())->toBe('2028-01-01');
+});
+
+it('projects the marketing levy in lock-step so a future month is internally consistent', function () {
+    CarbonImmutable::setTestNow('2026-01-05');
+
+    $lease = app(\App\Services\LeaseCreationService::class)->create([
+        'tenant_mode' => 'existing',
+        'tenant_id' => makeTenant()->id,
+        'lease' => [
+            'unit_id' => makeUnit(makeAsset())->id,
+            'commencement_date' => '2026-01-01',
+            'term_months' => 24,
+            'base_rent_monthly' => 100000,
+            'service_charge_monthly' => 0,
+            'escalation_type' => 'fixed_percent',
+            'escalation_rate' => 10,
+            'has_marketing_levy' => true,
+            'marketing_levy_rate' => 5,
+        ],
+    ])->fresh();
+
+    // Billing 2027 must charge 2027's rent beside 2027's levy — not year-one's levy.
+    $invoice = app(MonthlyBillingService::class)
+        ->generateForLease($lease, CarbonImmutable::parse('2027-06-01'))['invoice'];
+
+    expect((float) $invoice->items()->where('type', 'base_rent')->sole()->amount)->toBe(110000.0)
+        ->and((float) $invoice->items()->where('type', 'marketing')->sole()->amount)->toBe(5500.0);
+});
+
+it('projects nothing for CPI, because there is no index to project from', function () {
+    CarbonImmutable::setTestNow('2026-01-05');
+
+    // Built directly rather than through LeaseCreationService, which HARD-CODES
+    // escalation_type => 'fixed_percent' (LeaseCreationService.php:70) and ignores whatever the
+    // caller passes — so a CPI lease can only exist by editing one after creation. Worth knowing;
+    // it is not this change's to fix.
+    $lease = scheduledLease([
+        'escalation_type' => 'cpi',
+        'escalation_rate' => 7,
+        'expiry_date' => '2030-12-31',
+    ], 100000);
+
+    // Inventing a CPI step here would be inventing data — the same reason the sweep skips CPI.
+    expect(app(ChargeScheduleService::class)->projectTermEscalations($lease))->toBe(0)
+        ->and(rentSchedule($lease->fresh()))->toHaveCount(1);
+});
+
+it('projects nothing when the lease has no escalation configured', function () {
+    CarbonImmutable::setTestNow('2026-01-05');
+    $lease = scheduledLease(['escalation_type' => 'none', 'escalation_rate' => 0]);
+
+    expect(app(ChargeScheduleService::class)->projectTermEscalations($lease))->toBe(0)
+        ->and(rentSchedule($lease->fresh()))->toHaveCount(1);
+});

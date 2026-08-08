@@ -73,6 +73,11 @@ class LeaseCreationService
 
             self::seedStandardCharges($lease, $rent, $service, $commencement);
 
+            // Write the whole term's contracted rent steps now, not one anniversary at a time —
+            // so the mall's future revenue is a recorded fact the day the lease is signed, and an
+            // operator can review an increase before it bills. See ChargeScheduleService.
+            app(ChargeScheduleService::class)->projectTermEscalations($lease->fresh());
+
             // Unit status is projected by LeaseObserver from the lease's
             // 'active' status — no explicit flip needed here.
 

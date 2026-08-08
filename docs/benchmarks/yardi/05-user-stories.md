@@ -15,7 +15,7 @@
 
 ## Epic LS — The charge schedule *(phase 1 — the foundation)*
 
-### LS-01 🔴 See the whole term's rent the day the lease is signed
+### LS-01 ✅ See the whole term's rent the day the lease is signed — **SHIPPED 2026-08-08**
 **As a** Leasing Manager **I want** to enter the full rent schedule — every step, every date range —
 when I create the lease **so that** the mall's future revenue is a recorded fact, not a projection
 someone re-derives every year.
