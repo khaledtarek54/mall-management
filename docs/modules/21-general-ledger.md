@@ -764,3 +764,30 @@ the posting-date guard checks against a closed period.
 | `Disbursement` | `DisbursementJournalizer` | `paid_on` | `DisbursementService` |
 | `TenantCreditApplication` | `TenantCreditApplicationJournalizer` | `entry_date` | _system — entry_date is deliberately stamped at application time, never the source receipt's date. That decoupling is the whole point: it lets an old overpayment settle a current invoice without ever posting into the closed period the overpayment came from._ |
 <!-- /GENERATED:gl-sources -->
+
+---
+## Month-end close checklist
+
+`/admin/month-end-close` ([`MonthEndClose`](../../app/Filament/Admin/Pages/MonthEndClose.php) +
+[`MonthEndReadinessService`](../../app/Services/Accounting/MonthEndReadinessService.php)) answers
+"is this month ready to close?" in seven ordered rows: billing posted · sales declarations received ·
+payments settled · vendor bills posted · **ledger in sync** · books tie out · period closed.
+
+Two rules it is built on:
+
+1. **It derives, it does not re-implement.** Every count comes from the service that already owns
+   that decision — `MonthlyBillingService::previewForPeriod()`, `Lease::missingSalesDeclarationsFor()`,
+   `PeriodService::assertPeriodsReconciled()`, `BooksReconciliationService::run()`. A checklist that
+   re-implements "is billing done" is a checklist that can say done when it isn't.
+2. **The `ledger_in_sync` row is the real close gate** — it catches the *same* assertion
+   `PeriodService::closePeriod()` throws, so a green checklist means the close will succeed rather
+   than failing at the last click, and a red one shows the service's own message.
+
+**Closing still happens in the Accounting Periods resource.** This page links there; it does not
+re-implement the close. One place to close a period, one gate to pass.
+
+**Watch for green-for-the-wrong-reason.** A status row that cannot read its input must report a
+FAILURE, never a pass — `MonthEndCloseTest` asserts every row goes red when its condition is
+genuinely outstanding, and is mutation-verified against the one instance of this bug that shipped
+(a `$check['ok']` read of a key `BooksReconciliationService` does not emit).
+

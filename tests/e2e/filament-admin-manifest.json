@@ -322,6 +322,10 @@
             "slug": "income-statement"
         },
         {
+            "class": "MonthEndClose",
+            "slug": "month-end-close"
+        },
+        {
             "class": "OccupancyMap",
             "slug": "occupancy-map"
         },

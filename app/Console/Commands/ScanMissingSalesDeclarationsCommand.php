@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Lease;
+use Carbon\CarbonImmutable;
 use App\Notifications\SalesDeclarationReminderNotification;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
@@ -54,20 +55,12 @@ class ScanMissingSalesDeclarationsCommand extends Command
         $periodKey = $periodStart->format('Y-m');
         $periodLabel = $periodStart->format('F Y');
 
-        $leases = Lease::query()
-            ->where('status', 'active')
-            ->where('has_percentage_rent', true)
-            ->whereNotNull('commencement_date')
-            ->whereDate('commencement_date', '<=', $periodEnd)
-            ->whereDoesntHave('salesDeclarations', fn ($q) => $q->whereDate('period_start', $periodStart))
-            ->with('tenant')
-            ->get()
-            // Skip a lease still inside its fit-out grace for the target month (not yet billable).
-            ->filter(function (Lease $lease) use ($periodStart) {
-                $firstBillable = $lease->firstBillableMonth();
-
-                return $firstBillable === null || $firstBillable->lessThanOrEqualTo($periodStart);
-            });
+        // One definition of "owes a declaration", shared with the month-end close checklist —
+        // see Lease::missingSalesDeclarationsFor().
+        $leases = Lease::missingSalesDeclarationsFor(
+            CarbonImmutable::instance($periodStart),
+            CarbonImmutable::instance($periodEnd),
+        );
 
         if ($leases->isEmpty()) {
             $this->info("No missing percentage-rent declarations for {$periodLabel}.");

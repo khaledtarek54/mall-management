@@ -449,6 +449,39 @@ class Lease extends Model implements HasMedia
     }
 
     /**
+     * Active percentage-rent leases that owe a sales declaration for the period and have not filed
+     * one — past their fit-out grace, so a lease that isn't billable yet isn't chased either.
+     *
+     * ONE definition, two callers: `sales:scan-missing-declarations` (which chases the tenant) and
+     * the month-end close checklist (which counts them as an outstanding task). The same rule
+     * lived only inside the command until 2026-08-08; a second copy in the checklist would have
+     * been the third place "which leases owe a declaration" was written down, and the first place
+     * it silently disagreed. Same reasoning as `isBillableForPeriod()`/`scopeBillableForPeriod()`
+     * above.
+     *
+     * @return \Illuminate\Support\Collection<int, static>
+     */
+    public static function missingSalesDeclarationsFor(
+        CarbonImmutable $periodStart,
+        CarbonImmutable $periodEnd,
+        ?int $assetId = null,
+    ): \Illuminate\Support\Collection {
+        return static::query()
+            ->where('status', 'active')
+            ->where('has_percentage_rent', true)
+            ->whereNotNull('commencement_date')
+            ->whereDate('commencement_date', '<=', $periodEnd)
+            ->whereDoesntHave('salesDeclarations', fn ($q) => $q->whereDate('period_start', $periodStart))
+            ->when($assetId, fn ($q) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)))
+            ->with('tenant')
+            ->get()
+            // Fit-out is a model-level rule, not SQL — a lease still inside its grace is not yet
+            // billable, so it is not yet chaseable either.
+            ->reject(fn (self $lease) => $lease->periodInFitOut($periodEnd))
+            ->values();
+    }
+
+    /**
      * True when the given billing period falls entirely inside the fit-out grace, so NOTHING bills.
      * fit_out_months = 0 → always false (today's behaviour). Shared by the monthly billing engine
      * and the ActionRequired "unbilled leases" card, so a lease in fit-out is neither billed nor nagged.

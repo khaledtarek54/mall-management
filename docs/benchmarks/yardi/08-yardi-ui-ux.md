@@ -104,15 +104,26 @@ apply credit, record payment, flag disputed.
 
 ---
 
-### UX-04 🔴 The Month-End Close dashboard
+### UX-04 ✅ The Month-End Close dashboard — **SHIPPED 2026-08-08**
 A checklist that knows its own state, in the order from
 [02 §9](02-yardi-money-flow.md#9-month-end-close): billing posted · recoveries/percentage rent
 posted · receipts entered · AP posted · automated journals posted · GL tie-out clean · period
 closed. Each row shows ✅/⚠️, the count outstanding, and a link to the thing to fix.
 
-**Everything it needs already exists** — `AccountingPeriod`, the monthly-close PDF, the books
-tie-out, `PostingDateGuards`. This is assembly, and it is what turns a close from tribal knowledge
-into a screen.
+**Everything it needed already existed** — `AccountingPeriod`, the books tie-out,
+`PeriodService`. Shipped as `/admin/month-end-close`, backed by
+[`MonthEndReadinessService`](../../../app/Services/Accounting/MonthEndReadinessService.php), which
+derives every number from the service that already owns that decision rather than re-implementing
+it. The `ledger_in_sync` row runs the **same assertion `PeriodService::closePeriod()` runs**, so a
+green checklist means the close will actually go through. Closing itself stays in the Accounting
+Periods resource — one place to close a period, one gate.
+
+**The failure mode this screen has and no other screen does: being green for the wrong reason.**
+One instance was caught while building it — the books-tie-out row read a `$check['ok']` key that
+`BooksReconciliationService` does not emit (it emits `passed`), so `?? true` would have reported
+clean on every month forever. It now treats an unreadable result as a failure, and
+`MonthEndCloseTest` asserts each row goes **red when its condition is genuinely outstanding**, not
+merely that the page loads. Mutation-verified against that exact bug.
 
 ---
 
@@ -239,15 +250,16 @@ depends on the phase that produces its data:
 
 | UI story | Ships with |
 |---|---|
-| UX-05 billing preview · UX-03 AR dashboard · UX-04 month-end close | **now** — the data already exists |
+| ~~UX-05 billing preview~~ ✅ · ~~UX-04 month-end close~~ ✅ · UX-03 AR dashboard | **now** — the data already exists |
 | UX-01 lease hub · UX-02 rent schedule grid | phase 1 (charge schedule) |
 | UX-09 critical dates | phase 3 (options) |
 | UX-06 rent roll / expiry | phase 7 (reports) |
 | UX-08 CAM workbench | phase 6 (recoveries) |
 | UX-07 tenant 360 · UX-10 search · UX-11 saved views · UX-12 drill-down audit | opportunistic |
 
-**Start with UX-05, UX-03 and UX-04.** All three are assembly over data that already exists, none
-of them waits on the schedule rebuild, and each removes a class of operator anxiety on its own.
+**UX-05 and UX-04 shipped 2026-08-08; UX-03 is next.** All three are assembly over data that
+already exists, none waits on the schedule rebuild, and each removes a class of operator anxiety on
+its own.
 
 ---
 
