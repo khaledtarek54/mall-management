@@ -109,6 +109,8 @@ return [
         'gross' => 'كل شيء (الإيجار ورسوم الخدمة والصيانة والتسويق)',
     ],
     'charge_schedule' => [
+        'from_commencement' => 'من بداية العقد',
+        'unprojected_escalation' => 'زيادة تعاقدية :rate% مستحقة في :date، لم تُجدول بعد',
         'frequency' => 'التكرار',
         'state' => 'الحالة',
         'frequencies' => [

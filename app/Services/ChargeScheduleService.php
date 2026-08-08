@@ -132,9 +132,20 @@ class ChargeScheduleService
         }
 
         $rate = (float) $lease->escalation_rate;
-        $commencement = CarbonImmutable::instance($lease->commencement_date);
         $expiry = CarbonImmutable::instance($lease->expiry_date);
         $rent = (float) $lease->base_rent_monthly;
+
+        // Anchor on the lease's OWN next anniversary, not on commencement + N.
+        //
+        // For a lease being created the two are identical (Lease::creating arms
+        // next_escalation_date = commencement + 1yr). They diverge for a lease already part-way
+        // through its term — `base_rent_monthly` is the rent reached so far and
+        // `next_escalation_date` is the next step due — which is exactly the case a backfill of
+        // the existing portfolio hits. Projecting from commencement there would re-apply years
+        // that have already been applied and date every step wrongly.
+        $firstStep = $lease->next_escalation_date
+            ? CarbonImmutable::instance($lease->next_escalation_date)
+            : CarbonImmutable::instance($lease->commencement_date)->addYear();
 
         if ($rent <= 0) {
             return 0;
@@ -148,8 +159,8 @@ class ChargeScheduleService
         // Anniversaries inside the term. The first step is one year after commencement; the last
         // is whichever anniversary still starts before expiry — a lease ending mid-year gets no
         // step it will never reach.
-        for ($year = 1; ; $year++) {
-            $effective = self::billingBoundary($commencement->addYears($year));
+        for ($year = 0; ; $year++) {
+            $effective = self::billingBoundary($firstStep->addYears($year));
 
             if ($effective->greaterThan($expiry)) {
                 break;

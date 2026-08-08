@@ -41,6 +41,7 @@ npx playwright test --project=chromium    # E2E (against Herd mall-management.te
 npm run docs:dev                          # the visual handbook (docs/visual/)
 php artisan atriom:backup-verify          # restore drill: replay the newest backup into a scratch DB
 php artisan atriom:rebuild-search         # re-fold every search_text blob (after changing SearchText or a searchTextSources())
+php artisan atriom:project-lease-schedules # backfill the contracted rent ladder onto pre-schedule leases (dry-run; --commit to write)
 php artisan atriom:dump-system-census     # regenerate the census in docs/PROJECT-MAP.md
 php artisan atriom:dump-registries        # regenerate the registry-derived doc sections (GL sources, isolation)
 php artisan atriom:dump-admin-manifest    # regenerate the E2E resource manifest

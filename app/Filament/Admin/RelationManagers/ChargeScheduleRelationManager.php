@@ -77,7 +77,10 @@ class ChargeScheduleRelationManager extends RelationManager
                 TextColumn::make('start_date')
                     ->label(__('admin.charge_schedule.from'))
                     ->date('d/m/Y')
-                    ->placeholder('—'),
+                    // A null start_date means "from the beginning of the lease" — billing treats
+                    // it as always-covered. Showing "—" read as *unknown*, which is a different
+                    // and worse thing to tell an operator.
+                    ->placeholder(__('admin.charge_schedule.from_commencement')),
                 TextColumn::make('end_date')
                     ->label(__('admin.charge_schedule.to'))
                     ->date('d/m/Y')
@@ -147,6 +150,24 @@ class ChargeScheduleRelationManager extends RelationManager
         ]);
 
         if (! $next) {
+            // "No further steps" is only true if there is no escalation CLAUSE either. A lease
+            // that has one but no projected ladder (signed before projection existed) must say so
+            // — telling the operator no increase is coming when the contract says otherwise is an
+            // answer, and a wrong one. Backfill with `atriom:project-lease-schedules`.
+            //
+            // Only when the step is still in the FUTURE. A next_escalation_date in the past means
+            // the sweep is behind, which is a different problem — saying "not yet scheduled"
+            // about an overdue escalation would be a second wrong answer.
+            if ($lease->escalation_type === 'fixed_percent'
+                && (float) $lease->escalation_rate > 0
+                && $lease->next_escalation_date
+                && CarbonImmutable::instance($lease->next_escalation_date)->greaterThanOrEqualTo($today)) {
+                return $current.' · '.__('admin.charge_schedule.unprojected_escalation', [
+                    'rate' => rtrim(rtrim((string) $lease->escalation_rate, '0'), '.'),
+                    'date' => CarbonImmutable::instance($lease->next_escalation_date)->format('d/m/Y'),
+                ]);
+            }
+
             return $current.' · '.__('admin.charge_schedule.no_further_steps');
         }
 

@@ -109,6 +109,8 @@ return [
         'gross' => 'Everything (rent, service charge, CAM and levy)',
     ],
     'charge_schedule' => [
+        'from_commencement' => 'From commencement',
+        'unprojected_escalation' => 'a contracted :rate% escalation is due :date, not yet scheduled',
         'frequency' => 'Frequency',
         'state' => 'Status',
         'frequencies' => [

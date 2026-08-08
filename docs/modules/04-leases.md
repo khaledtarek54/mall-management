@@ -51,6 +51,12 @@
 > The heading says what is billing today and when it next changes. **Read-only on purpose:** rent
 > changes go through the Change Rent action so the schedule is written by one service.
 >
+> **Leases signed before projection existed** carry a single open-ended rent row and no ladder.
+> `php artisan atriom:project-lease-schedules` backfills them (dry-run by default, `--commit` to
+> write); it anchors on each lease's own `next_escalation_date`, so a mid-term lease gets its steps
+> on the contract's dates and an already-billed month is never re-dated. Until a lease is
+> backfilled its Charge schedule says so explicitly rather than claiming no increase is coming.
+>
 > Full analysis and the remaining phases: [`docs/benchmarks/yardi/`](../benchmarks/yardi/README.md).
 > **Still open here:** no lease options / notice-window alerts, no trailing proration, holdover is
 > alerted but never billed. Note `LeaseCreationService` hard-codes `escalation_type =

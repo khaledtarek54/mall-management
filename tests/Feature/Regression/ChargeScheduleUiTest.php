@@ -103,6 +103,9 @@ it('headlines what is billing now and when it next changes', function () {
 });
 
 it('says there are no further steps when the ladder has run out', function () {
+    // Also pins the narrower rule: this lease's next_escalation_date is in the PAST here (the
+    // sweep never ran), and an overdue escalation must NOT be described as "not yet scheduled" —
+    // that is a different problem and would be a second wrong answer.
     CarbonImmutable::setTestNow('2031-06-10');
     $lease = ladderLease();
 
@@ -127,4 +130,34 @@ it('is read-only — rent changes go through the service, never a cell edit', fu
 
     expect($table->getActions())->toBe([])
         ->and($table->getHeaderActions())->toBe([]);
+});
+
+it('warns when a contracted escalation is due but has never been scheduled', function () {
+    // The state every lease signed before projection existed is in: one open-ended rent row and a
+    // contracted increase the schedule knows nothing about. Saying "no further steps scheduled"
+    // there tells the operator no increase is coming when the contract says one is.
+    CarbonImmutable::setTestNow('2026-08-08');
+
+    $lease = makeLease(makeUnit($this->asset), null, [
+        'status' => 'active',
+        'commencement_date' => '2026-03-01',
+        'expiry_date' => '2029-03-01',
+        'base_rent_monthly' => 66000,
+        'escalation_type' => 'fixed_percent',
+        'escalation_rate' => 7,
+        'next_escalation_date' => '2027-03-01',
+    ]);
+    \App\Models\Charge::create([
+        'lease_id' => $lease->id, 'name' => 'Base Rent', 'type' => 'base_rent',
+        'origin' => \App\Models\Charge::ORIGIN_SEED, 'amount' => 66000, 'currency' => 'EGP',
+        'frequency' => 'monthly', 'vat_applicable' => false, 'vat_rate' => 0, 'is_active' => true,
+    ]);
+
+    $description = Livewire::test(ChargeScheduleRelationManager::class, [
+        'ownerRecord' => $lease->fresh(),
+        'pageClass' => EditLease::class,
+    ])->instance()->getTableDescription();
+
+    expect($description)->toContain('01/03/2027')
+        ->and($description)->not->toContain(__('admin.charge_schedule.no_further_steps'));
 });
