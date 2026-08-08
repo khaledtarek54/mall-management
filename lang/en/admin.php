@@ -104,6 +104,10 @@ return [
             'period_closed' => 'Once closed, nothing can post into this month without reopening it.',
         ],
     ],
+    'fit_out_scope' => [
+        'rent_only' => 'Base rent only (service charge still payable)',
+        'gross' => 'Everything (rent, service charge, CAM and levy)',
+    ],
     'billing_preview' => [
         'nav_label' => 'Billing Run Preview',
         'title' => 'Billing Run Preview',
@@ -1707,6 +1711,7 @@ return [
         'service_charge_monthly' => 'Service Charge (Monthly)',
         'has_marketing_levy' => 'Charge marketing levy',
         'marketing_levy_rate' => 'Marketing Levy Rate',
+        'fit_out_scope' => 'Fit-out grace covers',
         'fit_out_months' => 'Fit-out / rent-free months',
         'billing_frequency' => 'Billing frequency',
         'security_deposit' => 'Security Deposit',
@@ -1864,6 +1869,7 @@ return [
     ],
 
     'helpers' => [
+        'fit_out_scope' => 'The market standard is base rent only — the mall is still cleaning, securing and cooling the unit while it is fitted out, so those reimbursements normally continue. Choose Everything only if the signed lease says so.',
         'bill_purchase_request' => 'Link this bill to the purchase it pays for, and its goods clear Goods Received Not Invoiced instead of charging the expense a second time — the receipt already took the stock into Inventory. Leave empty for a general expense. Only received purchases from the same vendor and property are listed.',
         'inventory_unit_cost' => 'The standard cost used to value every consumption and write-off of this item. It must be positive: at 0 the stock would leave the warehouse without posting anything to the ledger, and a part draw would ask the approval ladder for its lowest tier.',
         'account_type' => 'Asset / Liability / Equity / Revenue / Expense — sets the debit/credit side.',

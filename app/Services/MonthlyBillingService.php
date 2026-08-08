@@ -208,7 +208,15 @@ class MonthlyBillingService
         }
 
         if (! $invoice) {
-            return ['status' => 'skipped', 'reason' => 'no_applicable_charges', 'invoice' => null];
+            // Report the plan's OWN reason rather than flattening every empty invoice to
+            // "no applicable charges". Since the decision was extracted into planInvoiceForLease()
+            // the real reason is knowable — `fit_out` when a net-abated lease's every charge is
+            // abated, for instance — and "in fit-out grace" is an answer where "no charges" is a
+            // riddle. Re-planning a lease that produced nothing is a read; it writes nothing.
+            $reason = $this->planInvoiceForLease($lease, $period, $period->endOfMonth(), $prorate)['reason']
+                ?? 'no_applicable_charges';
+
+            return ['status' => 'skipped', 'reason' => $reason, 'invoice' => null];
         }
 
         $this->notifyInvoiceIssued($invoice);
@@ -343,6 +351,22 @@ class MonthlyBillingService
 
         if ($applicableCharges->isEmpty()) {
             return $nothing('no_applicable_charges');
+        }
+
+        // Per-charge fit-out abatement. A `gross` lease never reaches here (its whole invoice was
+        // suppressed above); a `rent_only` lease bills everything EXCEPT the abated types, which is
+        // the standard "rent free, service charge payable" deal Atriom previously could not express.
+        $abated = $lease->abatedChargeTypesFor($periodEnd);
+        if ($abated !== []) {
+            $applicableCharges = $applicableCharges->reject(
+                fn (Charge $c) => in_array($c->type, $abated, true)
+            );
+
+            // Everything this lease bills happens to be abated — nothing to invoice, and `fit_out`
+            // is the honest reason.
+            if ($applicableCharges->isEmpty()) {
+                return $nothing('fit_out');
+            }
         }
 
         $this->assertScheduleUnambiguous($lease, $applicableCharges, $periodStart);

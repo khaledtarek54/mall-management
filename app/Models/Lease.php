@@ -24,6 +24,16 @@ class Lease extends Model implements HasMedia
     /** The signed contract + supporting paperwork. */
     public const DOCUMENTS_COLLECTION = 'documents';
 
+    /** Fit-out grace suppresses the ENTIRE invoice — rent, service charge, CAM, levy. */
+    public const FIT_OUT_GROSS = 'gross';
+
+    /**
+     * Fit-out grace abates **base rent only**; the tenant still pays the service charge and every
+     * other reimbursement, because the landlord is still incurring those costs while the unit is
+     * fitted out. This is the industry standard ("net abatement") and the default for new leases.
+     */
+    public const FIT_OUT_RENT_ONLY = 'rent_only';
+
     /** Terminal lease states — immutable once reached (CLAUDE.md invariant). */
     public const TERMINAL_STATUSES = ['terminated', 'expired', 'cancelled', 'renewed'];
 
@@ -120,6 +130,7 @@ class Lease extends Model implements HasMedia
         'has_marketing_levy',
         'marketing_levy_rate',
         'fit_out_months',
+        'fit_out_scope',
         'billing_frequency',
         'currency',
         'security_deposit',
@@ -145,6 +156,11 @@ class Lease extends Model implements HasMedia
         'has_percentage_rent' => false,
         'has_marketing_levy' => true, // preserve today's behaviour: every lease gets the levy by default
         'fit_out_months' => 0,        // no rent-free grace unless explicitly set
+        // NEW leases default to the STANDARD (net) abatement — base rent free, service charge
+        // still payable. The COLUMN default is `gross`, so every lease that already existed keeps
+        // the grace it was actually billed under; retroactively re-billing a live tenancy is not a
+        // migration. See the migration and docs/benchmarks/yardi/07-phase-plan.md §1 Q2.
+        'fit_out_scope' => self::FIT_OUT_RENT_ONLY,
         'billing_frequency' => 'monthly', // bill monthly unless set to quarterly/semiannual/annual
         'percentage_rent_frequency' => 'monthly', // fresh monthly breakpoint unless set to annual (cumulative)
         'security_deposit_received' => false,
@@ -389,9 +405,60 @@ class Lease extends Model implements HasMedia
             return null;
         }
 
-        return CarbonImmutable::instance($this->commencement_date)
+        $commencement = CarbonImmutable::instance($this->commencement_date)->startOfMonth();
+
+        // Under NET abatement only the rent is free — the service charge still bills — so the
+        // lease's first billable month is its commencement, not the end of the fit-out window.
+        // Deriving it here means `periodInFitOut()` (nothing bills), the quarterly cycle anchor
+        // and the ActionRequired "unbilled leases" card all follow automatically, instead of each
+        // growing its own copy of the rule.
+        if ($this->fit_out_scope === self::FIT_OUT_RENT_ONLY) {
+            return $commencement;
+        }
+
+        return $commencement->addMonths((int) $this->fit_out_months);
+    }
+
+    /**
+     * Is this period inside the rent-free fit-out window at all — regardless of what that grace
+     * abates?
+     *
+     * Distinct from {@see periodInFitOut()}, which asks the narrower question "does NOTHING bill".
+     * Under net abatement the answer to that is no while this is still yes, and it is this one the
+     * per-charge abatement filter needs.
+     */
+    public function inFitOutWindow(CarbonImmutable $periodEnd): bool
+    {
+        if (! $this->commencement_date || (int) $this->fit_out_months <= 0) {
+            return false;
+        }
+
+        $graceEnds = CarbonImmutable::instance($this->commencement_date)
             ->startOfMonth()
             ->addMonths((int) $this->fit_out_months);
+
+        return $periodEnd->lessThan($graceEnds);
+    }
+
+    /**
+     * Charge types abated for this period — free to the tenant, so they produce no invoice line.
+     *
+     * Empty for every lease outside its fit-out window, and for `gross` leases (whose grace
+     * suppresses the whole invoice before this is ever consulted).
+     *
+     * **Base rent only, deliberately.** "Net abatement" in the market means the tenant keeps paying
+     * the operating-cost reimbursements; the service charge, CAM and the marketing levy are all
+     * costs the landlord is genuinely incurring while the unit is fitted out.
+     *
+     * @return array<int, string>
+     */
+    public function abatedChargeTypesFor(CarbonImmutable $periodEnd): array
+    {
+        if ($this->fit_out_scope !== self::FIT_OUT_RENT_ONLY || ! $this->inFitOutWindow($periodEnd)) {
+            return [];
+        }
+
+        return ['base_rent'];
     }
 
     /**

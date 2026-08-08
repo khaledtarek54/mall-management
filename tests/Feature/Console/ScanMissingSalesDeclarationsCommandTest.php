@@ -65,6 +65,8 @@ it('does not remind a lease still inside its fit-out grace for the period', func
     $lease = pctLease([
         'commencement_date' => now()->subMonthNoOverflow()->startOfMonth()->toDateString(),
         'fit_out_months' => 3,
+        // Gross grace: the lease bills nothing, so it is not chased for a declaration either.
+        'fit_out_scope' => \App\Models\Lease::FIT_OUT_GROSS,
     ]);
 
     $this->artisan('sales:scan-missing-declarations')->assertSuccessful();

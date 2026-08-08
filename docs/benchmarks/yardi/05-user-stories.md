@@ -78,7 +78,7 @@ derived; the rent roll can report EGP/m²/yr for every lease.
 
 ---
 
-### LS-05 🔴 Free rent that is per-charge, not all-or-nothing
+### LS-05 ✅ Free rent that is per-charge, not all-or-nothing — **SHIPPED 2026-08-08**
 **As a** Leasing Manager **I want** to abate specific charges for a period **so that** I can give
 3 months rent-free while the service charge and marketing levy remain payable.
 

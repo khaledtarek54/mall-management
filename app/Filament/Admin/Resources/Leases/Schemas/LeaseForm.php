@@ -242,7 +242,21 @@ class LeaseForm
                         ->default(0)
                         // NOT-NULL column — a blank field must send 0, never null.
                         ->dehydrateStateUsing(fn ($state) => $state ?? 0)
+                        ->live()
                         ->helperText(__('admin.helpers.fit_out_months')),
+                    Select::make('fit_out_scope')
+                        ->label(__('admin.fields.fit_out_scope'))
+                        ->options([
+                            \App\Models\Lease::FIT_OUT_RENT_ONLY => __('admin.fit_out_scope.rent_only'),
+                            \App\Models\Lease::FIT_OUT_GROSS => __('admin.fit_out_scope.gross'),
+                        ])
+                        ->native(false)
+                        // The industry standard is net abatement: rent free, service charge still
+                        // payable. Existing leases keep whatever they were billed under (the column
+                        // default is gross); this is the default for NEW deals only.
+                        ->default(\App\Models\Lease::FIT_OUT_RENT_ONLY)
+                        ->visible(fn ($get) => (int) $get('fit_out_months') > 0)
+                        ->helperText(__('admin.helpers.fit_out_scope')),
                     Select::make('billing_frequency')
                         ->label(__('admin.fields.billing_frequency'))
                         ->options([

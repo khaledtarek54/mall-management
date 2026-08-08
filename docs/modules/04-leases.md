@@ -26,10 +26,19 @@
 >   behaviour change, and it is the point.
 > - `Lease::base_rent_monthly` still tracks the rent in force; nothing downstream moved.
 >
+> **Fit-out grace is per-charge now (LS-05).** `fit_out_scope` decides what the grace abates:
+> `rent_only` (**the new default** — base rent free, service charge and every other reimbursement
+> still payable; the industry standard, "net abatement") or `gross` (the whole invoice, the
+> 2026-07-19 operator decision). **The column default is `gross` and the MODEL default is
+> `rent_only`** — that split is the migration: existing leases keep the grace they were actually
+> billed under, new leases get the standard. `Lease::firstBillableMonth()` derives from the scope,
+> so `periodInFitOut()`, the quarterly cycle anchor and the "unbilled leases" card all follow
+> without their own copy of the rule. Use `inFitOutWindow()` for "is the rent free" and
+> `periodInFitOut()` for "does nothing bill" — they are different questions under net abatement.
+>
 > Full analysis and the remaining phases: [`docs/benchmarks/yardi/`](../benchmarks/yardi/README.md).
-> **Still open here:** the full term is not yet written at creation (LS-01), abatement is still
-> all-or-nothing (LS-05), no lease options / notice-window alerts, no trailing proration, holdover
-> is alerted but never billed.
+> **Still open here:** the full term is not yet written at creation (LS-01), no lease options /
+> notice-window alerts, no trailing proration, holdover is alerted but never billed.
 
 ## 1. Purpose & business context
 

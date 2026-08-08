@@ -121,6 +121,8 @@ it('uses the same definition of "owes a declaration" as the reminder scan', func
         'has_percentage_rent' => true,
         'commencement_date' => '2026-06-01',
         'fit_out_months' => 6,
+        // Gross grace: nothing bills, so nothing is chased.
+        'fit_out_scope' => Lease::FIT_OUT_GROSS,
     ]);
 
     expect(stepCount(readinessFor($this->asset->id), 'sales_declared'))->toBe(0);

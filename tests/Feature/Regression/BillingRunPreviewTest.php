@@ -69,7 +69,10 @@ it('names the reason a lease is not billing rather than silently omitting it', f
     $asset = makeAsset();
 
     $billing = previewLease($asset);
-    $fitOut = previewLease($asset, ['commencement_date' => '2026-06-01', 'fit_out_months' => 3]);
+    $fitOut = previewLease($asset, ['commencement_date' => '2026-06-01', 'fit_out_months' => 3,
+        // Gross grace: nothing bills, so the preview's reason is `fit_out`. A net-abated lease
+        // WOULD bill its service charge — covered in FitOutAbatementScopeTest.
+        'fit_out_scope' => \App\Models\Lease::FIT_OUT_GROSS]);
     $quarterly = previewLease($asset, ['commencement_date' => '2026-01-01', 'billing_frequency' => 'quarterly']);
     $noCharges = makeLease(makeUnit($asset), null, ['commencement_date' => '2026-01-01', 'expiry_date' => '2028-12-31']);
 

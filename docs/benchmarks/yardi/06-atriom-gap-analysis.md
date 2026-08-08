@@ -47,7 +47,7 @@
 | Escalation: stored | ✅ %, amount, index, **floor/ceiling**, compounding | `escalation_rate`, `escalation_type` (none/fixed_percent/cpi), `next_escalation_date` | ➕ EXTEND — floor/ceiling are mandatory for any CPI work | 🟠 |
 | Escalation: applied automatically | ✅ generates the future row | ✅ `leases:apply-escalations` — idempotent, row-locked, re-checked in-transaction, one step per run, CPI deliberately skipped | ♻️ **REBUILD the effect, KEEP the sweep** — it must append a row, not overwrite one | 🔴 |
 | CPI / index escalation | ✅ with an index source | Skipped by design (no feed; refuses to invent a number) | ➕ EXTEND — index register + **collar**, or leave it out honestly | 🟡 |
-| Free rent / abatement | Per charge code, date-ranged, feeds straight-line | `fit_out_months` suppresses the **entire** invoice | ➕ EXTEND (LS-05) — and **re-validate the all-or-nothing rule with Eltizam** | 🟠 |
+| Free rent / abatement | Per charge code, date-ranged, feeds straight-line | ✅ `fit_out_scope` — `rent_only` (net abatement, **default for new leases**) or `gross`; existing leases keep gross | ✅ **KEEP** — per-charge-code abatement rows remain future work | ⚪ |
 | Billing frequency | Per charge row | Per lease (`monthly`/`quarterly`/`semiannual`/`annual`), cycle-anchored, billed in advance, capped at expiry | ✅ **KEEP** — genuinely careful work | ⚪ |
 | Proration — commencement | ✅ | ✅ correct arithmetic… but **the bulk run never prorates** | ➕ EXTEND (MF-01) | 🔴 |
 | Proration — termination/expiry | ✅ | ❌ none | ➕ EXTEND (MF-02) | 🔴 |
