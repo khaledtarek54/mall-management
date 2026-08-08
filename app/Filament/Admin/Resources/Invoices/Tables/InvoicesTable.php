@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Invoices\Tables;
 
+use App\Filament\Admin\Pages\BillingRunPreview;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Exports\InvoiceExporter;
 use App\Jobs\SubmitInvoiceToEta;
@@ -212,6 +213,16 @@ class InvoicesTable
                     ->label(__('admin.actions.export'))
                     ->icon('heroicon-o-arrow-down-tray')
                     ->color('gray'),
+                // Preview first. Posting a month bills every active lease in the mall, and a
+                // confirmation modal asks "are you sure" without showing what you are being sure
+                // about — so this is the route an operator should take, and the blind run below
+                // stays as the express path for someone who already knows.
+                Action::make('previewMonthlyBilling')
+                    ->label(__('admin.billing_preview.nav_label'))
+                    ->icon('heroicon-o-clipboard-document-check')
+                    ->color('gray')
+                    ->url(fn (): string => BillingRunPreview::getUrl())
+                    ->visible(fn () => BillingRunPreview::canAccess()),
                 Action::make('runMonthlyBilling')
                     ->label(__('admin.actions.run_monthly_billing'))
                     ->icon('heroicon-o-play')

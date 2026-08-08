@@ -235,6 +235,24 @@ public function runForPeriod(?CarbonImmutable $period = null): array
 
 **When it runs:** Typically via `RunMonthlyBillingCommand` triggered by a scheduler or admin action in Filament (see Tables section). Can also be queued via `--queue` flag.
 
+#### previewForPeriod(?CarbonImmutable $period = null, ?int $assetId = null): array
+
+The **dry run** behind the Billing Run Preview page (`/admin/billing-run-preview`). Returns
+`{period, rows[], totals}` — one row per eligible lease with what it *would* be billed, or the
+**reason** it would not (`fit_out` · `off_cycle` · `no_applicable_charges` · `already_billed`).
+Writes nothing.
+
+**Why it cannot lie:** every row is produced by `planInvoiceForLease()` — the same method
+`generateInvoiceForLease()` persists verbatim — and the lease set comes from the same
+`billableForPeriod()` scope and the same already-billed probe. A preview computed by a second
+implementation is a preview that can drift from the run; this one is the run, minus the writes.
+
+`$assetId` scopes to one property. The scheduled job and the CLI pass null (portfolio-wide,
+unchanged); the admin page passes the property the operator is in, and `runForPeriod()` accepts the
+same argument so **what gets posted is exactly what was previewed**. Tests:
+`tests/Feature/Regression/BillingRunPreviewTest.php` (preview == run, line for line) and
+`BillingRunPreviewAuthzTest.php` (posting is gated on `invoices.create`, mutation-verified).
+
 #### generateForLease(Lease $lease, ?CarbonImmutable $period = null, bool $prorate = false): array
 
 Generates a single invoice for one lease for a given month. Used by the Filament UI to issue an invoice for a specific lease on demand.

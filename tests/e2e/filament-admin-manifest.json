@@ -302,6 +302,10 @@
             "slug": "balance-sheet"
         },
         {
+            "class": "BillingRunPreview",
+            "slug": "billing-run-preview"
+        },
+        {
             "class": "CashFlow",
             "slug": "cash-flow"
         },

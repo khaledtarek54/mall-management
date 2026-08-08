@@ -24,15 +24,18 @@ class MonthlyBillingService
      *
      * @return array{period:string, leases_considered:int, created:int, skipped:int, failed:int, failed_lease_ids:int[]}
      */
-    public function runForPeriod(?CarbonImmutable $period = null): array
+    public function runForPeriod(?CarbonImmutable $period = null, ?int $assetId = null): array
     {
         $period = ($period ?? CarbonImmutable::now())->startOfMonth();
 
         // Serialise concurrent runs for the same period so a manual CLI run can't
         // race the scheduled job and double-bill. (The queued job also carries
         // WithoutOverlapping; this lock also covers the synchronous path.)
+        //
+        // The lock key is deliberately NOT scoped by asset: a property-scoped run must still
+        // serialise against the portfolio-wide scheduled job, whose lease set contains its own.
         $result = Cache::lock('billing:run:' . $period->format('Y-m'), 900)
-            ->get(fn () => $this->billForPeriod($period));
+            ->get(fn () => $this->billForPeriod($period, $assetId));
 
         if ($result === false) {
             OpsLog::warning('Monthly billing skipped — a run for this period is already in progress', ['period' => $period->format('Y-m')]);
@@ -43,7 +46,7 @@ class MonthlyBillingService
         return $result;
     }
 
-    private function billForPeriod(CarbonImmutable $period): array
+    private function billForPeriod(CarbonImmutable $period, ?int $assetId = null): array
     {
         $periodStart = $period;
         $periodEnd = $period->endOfMonth();
@@ -61,6 +64,10 @@ class MonthlyBillingService
             // The one definition of "which leases bill this period" — mirrored by
             // Lease::isBillableForPeriod(), which the manual path checks. See that docblock.
             ->billableForPeriod($periodStart, $periodEnd)
+            // Optional property scope. Null = portfolio-wide, which is what the scheduled job and
+            // the CLI pass (unchanged). The admin preview passes the property the operator is in,
+            // so a manual post bills the mall they are looking at and not the one next door.
+            ->when($assetId, fn ($q) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)))
             ->with(['charges' => fn ($q) => $q->where('is_active', true)])
             ->chunkById(100, function ($leases) use (&$stats, $periodStart, $periodEnd) {
                 foreach ($leases as $lease) {
@@ -230,11 +237,76 @@ class MonthlyBillingService
 
     private function generateInvoiceForLease(Lease $lease, CarbonImmutable $periodStart, CarbonImmutable $periodEnd, bool $prorate = false): ?Invoice
     {
+        $plan = $this->planInvoiceForLease($lease, $periodStart, $periodEnd, $prorate);
+
+        if (! $plan['billable']) {
+            return null;
+        }
+
+        $invoice = Invoice::create([
+            'lease_id' => $lease->id,
+            'tenant_id' => $lease->tenant_id,
+            'status' => 'issued',
+            'issue_date' => $plan['issue_date'],
+            'due_date' => $plan['due_date'],
+            'period_start' => $plan['period_start'],
+            'period_end' => $plan['period_end'],
+            'subtotal' => $plan['subtotal'],
+            'vat_amount' => $plan['vat_amount'],
+            'total' => $plan['total'],
+            'paid_amount' => 0,
+            'balance' => $plan['total'],
+            'currency' => $lease->currency ?? 'EGP',
+        ]);
+
+        foreach ($plan['items'] as $item) {
+            InvoiceItem::create($item + ['invoice_id' => $invoice->id]);
+        }
+
+        // The marketing levy is now a real line item (charged to the tenant) and
+        // funds the property's marketing budget via InvoiceItem's saved hook
+        // (MarketingBudget::recomputeAccrued) — derived from source, not incremented.
+
+        return $invoice;
+    }
+
+    /**
+     * Decide what this lease WOULD be billed for the period, and compute every line — without
+     * writing anything.
+     *
+     * This is the whole of the billing decision: fit-out grace, the billing cycle, which charges
+     * apply, proration, the line amounts, VAT, the header totals and the dates. `generateInvoiceForLease()`
+     * persists its output verbatim and `previewForPeriod()` renders it. **That shared path is the
+     * point** — a preview computed by a second implementation is a preview that can lie, and the one
+     * thing an operator must be able to trust about a dry run is that it is the run.
+     *
+     * `reason` mirrors the skip reasons the single-lease path already returns (`fit_out`,
+     * `off_cycle`, `no_applicable_charges`) so the UI can say *why* nothing bills rather than
+     * showing an unexplained blank.
+     *
+     * @return array{billable:bool, reason:?string, period_start:CarbonImmutable, period_end:CarbonImmutable, issue_date:?CarbonImmutable, due_date:?CarbonImmutable, factor:float, cycle_months:int, items:array<int,array<string,mixed>>, subtotal:float, vat_amount:float, total:float}
+     */
+    public function planInvoiceForLease(Lease $lease, CarbonImmutable $periodStart, CarbonImmutable $periodEnd, bool $prorate = false): array
+    {
+        $nothing = fn (string $reason): array => [
+            'billable' => false,
+            'reason' => $reason,
+            'period_start' => $periodStart,
+            'period_end' => $periodEnd,
+            'issue_date' => null,
+            'due_date' => null,
+            'factor' => 1.0,
+            'cycle_months' => $lease->billingCycleMonths(),
+            'items' => [],
+            'subtotal' => 0.0,
+            'vat_amount' => 0.0,
+            'total' => 0.0,
+        ];
+
         // Fit-out / rent-free grace: suppress the ENTIRE invoice for periods inside the grace
         // window (operator decision 2026-07-19, OPEN-QUESTIONS C1.5 = full grace on all charges).
-        // Returns null → the run counts it as skipped (no applicable charges), same as an off-month.
         if ($lease->periodInFitOut($periodEnd)) {
-            return null;
+            return $nothing('fit_out');
         }
 
         // Billing cadence (operator decision 2026-07-19): a quarterly/annual lease bills only on a
@@ -245,7 +317,7 @@ class MonthlyBillingService
         $cycleMonths = $lease->billingCycleMonths();
         if ($cycleMonths > 1) {
             if (! $lease->isBillingCycleStart($periodStart)) {
-                return null;
+                return $nothing('off_cycle');
             }
             $cycleEnd = $periodStart->addMonths($cycleMonths - 1)->endOfMonth();
             // Never bill whole months AFTER the lease has ended. Cap the cycle at the expiry month,
@@ -270,7 +342,7 @@ class MonthlyBillingService
         );
 
         if ($applicableCharges->isEmpty()) {
-            return null;
+            return $nothing('no_applicable_charges');
         }
 
         // Pro-rate only if the lease commences mid-period and the caller asked for it.
@@ -346,31 +418,124 @@ class MonthlyBillingService
         $dueBasis = $issueDate->greaterThan($today) ? $issueDate : $today;
         $dueDate = $dueBasis->addDays($lease->payment_terms_days ?? 7);
 
-        $invoice = Invoice::create([
-            'lease_id' => $lease->id,
-            'tenant_id' => $lease->tenant_id,
-            'status' => 'issued',
-            'issue_date' => $issueDate,
-            'due_date' => $dueDate,
+        return [
+            'billable' => true,
+            'reason' => null,
             'period_start' => $effectivePeriodStart,
             'period_end' => $periodEnd,
+            'issue_date' => $issueDate,
+            'due_date' => $dueDate,
+            'factor' => $factor,
+            'cycle_months' => $cycleMonths,
+            'items' => $items->all(),
             'subtotal' => $subtotal,
             'vat_amount' => $vatAmount,
             'total' => $total,
-            'paid_amount' => 0,
-            'balance' => $total,
-            'currency' => $lease->currency ?? 'EGP',
-        ]);
+        ];
+    }
 
-        foreach ($items as $item) {
-            InvoiceItem::create($item + ['invoice_id' => $invoice->id]);
+    /**
+     * A DRY RUN of runForPeriod(): what would bill, what would be skipped, and why — writing nothing.
+     *
+     * Every row comes from the same `planInvoiceForLease()` the real run persists, and the lease set
+     * comes from the same `billableForPeriod()` scope, so the preview cannot disagree with the run.
+     * The already-billed probe is the same one too, which is what lets a re-preview after posting
+     * show every lease as `already_billed` rather than proposing the invoices a second time.
+     *
+     * `$assetId` scopes to one property. The scheduled job and the CLI pass null (portfolio-wide,
+     * unchanged); the admin preview passes the property the operator is in, because posting charges
+     * is a per-property act everywhere else in this system.
+     *
+     * @return array{period:string, rows:array<int,array<string,mixed>>, totals:array{will_bill:int,skipped:int,subtotal:float,vat_amount:float,total:float}}
+     */
+    public function previewForPeriod(?CarbonImmutable $period = null, ?int $assetId = null): array
+    {
+        $periodStart = ($period ?? CarbonImmutable::now())->startOfMonth();
+        $periodEnd = $periodStart->endOfMonth();
+
+        $rows = [];
+        $totals = ['will_bill' => 0, 'skipped' => 0, 'subtotal' => 0.0, 'vat_amount' => 0.0, 'total' => 0.0];
+
+        Lease::query()
+            ->billableForPeriod($periodStart, $periodEnd)
+            ->when($assetId, fn ($q) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)))
+            ->with(['tenant', 'unit', 'charges' => fn ($q) => $q->where('is_active', true)])
+            ->chunkById(200, function ($leases) use (&$rows, &$totals, $periodStart, $periodEnd) {
+                foreach ($leases as $lease) {
+                    if ($this->alreadyBilledForMonth($lease, $periodStart, $periodEnd)) {
+                        $rows[] = $this->previewRow($lease, ['billable' => false, 'reason' => 'already_billed'] + $this->emptyPlan($lease, $periodStart, $periodEnd));
+                        $totals['skipped']++;
+
+                        continue;
+                    }
+
+                    // prorate: true — mirrors what billForPeriod() now passes, so a mid-month
+                    // commencement previews the same prorated amount it will bill.
+                    $plan = $this->planInvoiceForLease($lease, $periodStart, $periodEnd, prorate: true);
+                    $rows[] = $this->previewRow($lease, $plan);
+
+                    if ($plan['billable']) {
+                        $totals['will_bill']++;
+                        $totals['subtotal'] += $plan['subtotal'];
+                        $totals['vat_amount'] += $plan['vat_amount'];
+                        $totals['total'] += $plan['total'];
+                    } else {
+                        $totals['skipped']++;
+                    }
+                }
+            });
+
+        foreach (['subtotal', 'vat_amount', 'total'] as $key) {
+            $totals[$key] = round($totals[$key], 2);
         }
 
-        // The marketing levy is now a real line item (charged to the tenant) and
-        // funds the property's marketing budget via InvoiceItem's saved hook
-        // (MarketingBudget::recomputeAccrued) — derived from source, not incremented.
+        return ['period' => $periodStart->format('Y-m'), 'rows' => $rows, 'totals' => $totals];
+    }
 
-        return $invoice;
+    /** @return array<string, mixed> */
+    private function emptyPlan(Lease $lease, CarbonImmutable $periodStart, CarbonImmutable $periodEnd): array
+    {
+        return [
+            'period_start' => $periodStart,
+            'period_end' => $periodEnd,
+            'issue_date' => null,
+            'due_date' => null,
+            'factor' => 1.0,
+            'cycle_months' => $lease->billingCycleMonths(),
+            'items' => [],
+            'subtotal' => 0.0,
+            'vat_amount' => 0.0,
+            'total' => 0.0,
+        ];
+    }
+
+    /**
+     * One preview row, flattened for the table.
+     *
+     * @param  array<string, mixed>  $plan
+     * @return array<string, mixed>
+     */
+    private function previewRow(Lease $lease, array $plan): array
+    {
+        return [
+            'lease_id' => $lease->id,
+            'lease_reference' => $lease->reference,
+            'tenant_name' => $lease->tenant?->name,
+            'unit_code' => $lease->unit?->code,
+            'billable' => $plan['billable'],
+            'reason' => $plan['reason'],
+            'prorated' => $plan['billable'] && $plan['factor'] < 1,
+            'factor' => $plan['factor'],
+            'cycle_months' => $plan['cycle_months'],
+            'period_start' => $plan['period_start'],
+            'period_end' => $plan['period_end'],
+            'due_date' => $plan['due_date'],
+            'items' => $plan['items'],
+            'line_count' => count($plan['items']),
+            'subtotal' => $plan['subtotal'],
+            'vat_amount' => $plan['vat_amount'],
+            'total' => $plan['total'],
+        ];
     }
 
     /**
