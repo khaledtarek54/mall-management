@@ -270,8 +270,10 @@ becomes a credit note auto-applied FIFO and a positive one bills immediately on 
 **Delta.** Steps 1, 2, 3 and 7:
 1. `total_actual_expense` and `total_estimated_collected` are **two numbers typed into a form**. No
    GL link, no drill-down, no audit trail for a tenant exercising an audit right.
-2. No gross-up, and no GLA figure anywhere to gross up to.
-3. Denominator hard-coded to **occupied** area — the landlord can never elect to absorb vacancy.
+2. No gross-up — though `Asset` already holds GLA (`totalUnitAreaSqm()`, `occupiedAreaSqm()`,
+   `areaOccupancyRate()`, and declared `leasable_area_sqm`); the CAM service just never reads them.
+3. Denominator hard-coded to **occupied active-lease** area — the landlord can never elect to
+   absorb vacancy, even though the GLA figure to absorb it against is sitting on `Asset`.
 4. No re-estimate loop, and the estimate *billed* (the lease's service charge) is disconnected from
    the estimate *reconciled* (`total_estimated_collected`) — two numbers a human must keep equal.
 5. One pool per property per year; no per-category pools.

@@ -194,6 +194,28 @@ class Lease extends Model implements HasMedia
     }
 
     /**
+     * The lease's TOTAL leased area — every unit on the lease, not just the master.
+     *
+     * Anything that apportions a cost by floor area (CAM, and any future recovery basis) must use
+     * this, never `$lease->unit->area_sqm`. Reading the master alone understates a multi-unit
+     * lease by its whole non-master footprint, and because the CAM denominator is built the same
+     * way the shares still sum to 100% — so Σ(allocated) = total_actual_expense stays green while
+     * the DISTRIBUTION between tenants is wrong. A tie-out assertion cannot see that; assert the
+     * SHARE. (Found by the Yardi benchmark, docs/benchmarks/yardi/04-scenarios.md S5.)
+     *
+     * Falls back to the master unit when the pivot is empty — pre-observer rows, and any lease
+     * built in a test without going through LeaseObserver::ensureMasterPivot().
+     */
+    public function totalAreaSqm(): float
+    {
+        $this->loadMissing('units');
+
+        $fromPivot = (float) $this->units->sum(fn (Unit $unit) => (float) ($unit->area_sqm ?? 0));
+
+        return $fromPivot > 0 ? $fromPivot : (float) ($this->unit?->area_sqm ?? 0);
+    }
+
+    /**
      * Set the full unit set for this lease and designate one master, keeping
      * leases.unit_id (= master) in sync and recomputing occupancy for every
      * affected unit. The master defaults to the first id when not supplied.

@@ -34,15 +34,15 @@ There are two phases: **(A) allocate** (compute each tenant's numbers) and **(B)
 | `pool.asset_id` | `CamExpensePool.asset_id` | The property the pool covers. One pool per `(asset_id, period_year)` — enforced by the unique index `cam_pool_asset_year_unique` (`database/migrations/2026_05_23_164627_create_cam_expense_pools_table.php`). |
 | `pool.period_year` | `CamExpensePool.period_year` (unsigned smallint, e.g. `2025`) | The calendar year being reconciled. |
 | Eligible leases | `Lease` where `status = 'active'` **and** `unit.asset_id = pool.asset_id` | Only **active** leases on the pool's own property. See `generateAllocations()` lines 30–34. |
-| `lease.unit.area_sqm` | `Unit.area_sqm` (the lease's master unit) | The leased floor area used for the pro-rata weight. Null/0 area ⇒ the lease is skipped (lines 46–49). |
+| `lease.totalAreaSqm()` | Σ `Unit.area_sqm` over **every** unit on the lease (the `lease_unit` pivot), falling back to the master unit when the pivot is empty | The leased floor area used for the pro-rata weight. Null/0 area ⇒ the lease is skipped. **Corrected 2026-08-08:** this read the **master unit only**, on both the numerator and the denominator, so every multi-unit lease was under-charged by its non-master footprint and single-unit tenants absorbed the shortfall. Because both sides were wrong the same way the shares still summed to 100% and Σ(allocated) = total_actual_expense stayed green — *a tie-out cannot see a distribution error; assert the share.* Regression: `tests/Feature/Regression/CamMultiUnitAreaTest.php`. |
 
 ### Phase A — `generateAllocations(CamExpensePool $pool): int`
 `app/Services/CamReconciliationService.php:28-89`
 
-1. Load eligible leases (active, on this asset), eager-loading `unit` (lines 30–34).
-2. Compute `totalSqm = Σ lease.unit.area_sqm` over those leases (line 36). **If `totalSqm <= 0`, return `0` — a complete no-op** (lines 38–40). This is the guard for "no active tenants / no areas recorded."
-3. Open a DB transaction (line 42). For each lease:
-   - `sqm = lease.unit.area_sqm`; if `sqm <= 0`, **skip this lease** (lines 46–49).
+1. Load eligible leases (active, on this asset), eager-loading `unit` **and `units`** (the pivot).
+2. Compute `totalSqm = Σ lease.totalAreaSqm()` over those leases. **If `totalSqm <= 0`, return `0` — a complete no-op.** This is the guard for "no active tenants / no areas recorded."
+3. Open a DB transaction. For each lease:
+   - `sqm = lease.totalAreaSqm()`; if `sqm <= 0`, **skip this lease**.
    - `share = sqm / totalSqm` (a fraction in `[0,1]`, line 51).
    - `allocated_amount = round(pool.total_actual_expense * share, 2)` (line 52).
    - `estimated_paid   = round(pool.total_estimated_collected * share, 2)` (line 53).
@@ -180,7 +180,7 @@ Contrast with the old (buggy) design: a `−150,000` charge dropped onto a Janua
 | Edge case | Behaviour | Where |
 |-----------|-----------|-------|
 | **No active leases / total area = 0** | `generateAllocations()` returns `0`; no rows written. Pool status unchanged in `autoTrueUpForYear()` (the `default => $pool->status` arm). | `:38-40`, `:128-132` |
-| **A single lease has `area_sqm = 0` or null** | That lease is **skipped** (not allocated, doesn't draw a share); the other leases still split 100% of the pool. | `:46-49` |
+| **A single lease has no recorded area on any of its units** | That lease is **skipped** (not allocated, doesn't draw a share); the other leases still split 100% of the pool. | `generateAllocations()` |
 | **Re-running `generateAllocations()` (idempotency)** | Existing rows are updated in place (unique `(pool,lease)` index). A row already `billed`/`disputed`/`closed` is **left untouched and uncounted** (status guard under `lockForUpdate`). | `:60-69` |
 | **Re-running `bill()` on a billed allocation** | No-op: re-read under lock, `status === 'billed'` ⇒ return immediately. No second charge/credit. | `:188-192` |
 | **Two concurrent `generateAllocations()` + `bill()`** | The `lockForUpdate` in `generateAllocations` reads committed truth, so it can't clobber a freshly-`billed` row back to `pending`. `bill()` re-checks status under its own lock. No double-bill. | `:60-69`, `:185-192` |

@@ -85,7 +85,13 @@ restates *variable* expenses to what they would have been at an assumed occupanc
 then allocates on the same assumption. Fixed expenses are not grossed up — hence the per-account
 classification in A2.
 
-Atriom has no gross-up and no GLA/occupancy denominator at all to gross up *to*.
+Atriom has no gross-up — **but the inputs already exist**, which makes this cheaper than it looks.
+`Asset` carries declared `total_area_sqm` and `leasable_area_sqm`, plus `totalUnitAreaSqm()` and
+`occupiedAreaSqm()` summed bottom-up from the units ([`Asset.php:262-280`](../../../app/Models/Asset.php#L262)),
+and `areaOccupancyRate()` is already the area-weighted occupancy a gross-up needs. **What is
+missing is that `CamReconciliationService` never looks at any of them** — it builds its own
+denominator from active leases. Gross-up and the configurable denominator (RC-03/RC-04) are wiring
+existing numbers into the recovery calculation, not producing new ones.
 
 ## A5. Caps, base years and expense stops
 

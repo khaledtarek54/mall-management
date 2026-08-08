@@ -38,13 +38,13 @@ Mall owners (Jawad) collect estimated CAM charges monthly throughout a calendar 
 
 ### Core allocation formula
 ```
-pro_rata_share_pct = (lease_unit.area_sqm / total_leased_sqm) * 100
+pro_rata_share_pct = (lease.totalAreaSqm() / total_leased_sqm) * 100   # ALL units on the lease
 allocated_amount    = pro_rata_share_pct% * pool.total_actual_expense
 estimated_paid      = pro_rata_share_pct% * pool.total_estimated_collected
 true_up_amount      = allocated_amount - estimated_paid
 ```
 
-**In words**: Each lease's share of the pool's actual and estimated amounts is weighted by its unit's leased area (in sqm) as a fraction of the asset's total leased sqm. True-up is the difference: positive (tenant under-paid), negative (tenant over-paid).
+**In words**: Each lease's share of the pool's actual and estimated amounts is weighted by its **total** leased area — summed over every unit on the lease via the `lease_unit` pivot (`Lease::totalAreaSqm()`), not the master unit alone — as a fraction of the asset's total leased sqm. True-up is the difference: positive (tenant under-paid), negative (tenant over-paid).
 
 **Tests guard**:
 - `CamScenarioTest::it('generates one pro-rata allocation per active lease...')` — core math
@@ -157,10 +157,10 @@ pool.variance() = total_actual_expense - total_estimated_collected
 **Returns**: Count of allocations created/updated (not including skipped billed ones).
 
 **Behaviour**:
-1. Queries all `Lease` records with `status='active'` and `unit.asset_id = $pool->asset_id`, pre-loads units.
-2. Sums leased sqm. If ≤ 0, return 0 (no-op).
+1. Queries all `Lease` records with `status='active'` and `unit.asset_id = $pool->asset_id`, pre-loading `unit` **and `units`** (the pivot).
+2. Sums leased sqm via `Lease::totalAreaSqm()`. If ≤ 0, return 0 (no-op).
 3. For each lease (within a DB transaction):
-   - Calculate pro-rata share = `(lease.unit.area_sqm / total_sqm) * 100`, round to 4 decimals.
+   - Calculate pro-rata share = `(lease.totalAreaSqm() / total_sqm) * 100`, round to 4 decimals.
    - Calculate allocated = `round(pool.total_actual_expense * share, 2)`.
    - Calculate estimated = `round(pool.total_estimated_collected * share, 2)`.
    - Calculate true_up = `round(allocated - estimated, 2)`.
@@ -443,7 +443,7 @@ Embedded on the pool's edit page. Shows all allocations in this pool.
 
 1. **Modify allocation formula** in `CamReconciliationService::generateAllocations()`. The key lines are:
    ```php
-   $sqm = (float) ($lease->unit?->area_sqm ?? 0);
+   $sqm = $lease->totalAreaSqm();   // ALL units on the lease, never $lease->unit->area_sqm
    if ($sqm <= 0) continue;
    $share = $sqm / $totalSqm;
    ```

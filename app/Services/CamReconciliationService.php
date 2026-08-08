@@ -20,8 +20,12 @@ class CamReconciliationService
      * Generate one CamAllocation per active lease in the pool's asset,
      * with each lease's pro-rata share computed from leased sqm.
      *
-     * Allocated amount = (lease unit sqm / total leased sqm) * total_actual_expense.
-     * Estimated paid = (lease unit sqm / total leased sqm) * total_estimated_collected.
+     * Area is the lease's TOTAL over every unit on it (Lease::totalAreaSqm()), not the master
+     * unit's — see that method for why reading the master alone mis-distributes the pool while
+     * leaving the tie-out green.
+     *
+     * Allocated amount = (lease total sqm / total leased sqm) * total_actual_expense.
+     * Estimated paid = (lease total sqm / total leased sqm) * total_estimated_collected.
      * True-up = allocated - estimated. Positive means under-collected (tenant owes more).
      *
      * Idempotent: existing allocations are updated, not duplicated.
@@ -40,11 +44,11 @@ class CamReconciliationService
         $isRerun = ! empty($existingLeaseIds);
 
         $leases = $isRerun
-            ? Lease::query()->whereIn('id', $existingLeaseIds)->with('unit')->get()
+            ? Lease::query()->whereIn('id', $existingLeaseIds)->with('unit', 'units')->get()
             : Lease::query()
                 ->whereHas('unit', fn ($q) => $q->where('asset_id', $pool->asset_id))
                 ->where('status', 'active')
-                ->with('unit')
+                ->with('unit', 'units')
                 ->get();
 
         // Frozen shares (as a fraction) for the re-run path; the sqm denominator for the first run.
@@ -52,7 +56,7 @@ class CamReconciliationService
             ? $pool->allocations()->pluck('pro_rata_share_pct', 'lease_id')
             : collect();
 
-        $totalSqm = $isRerun ? 0.0 : (float) $leases->sum(fn (Lease $l) => (float) ($l->unit?->area_sqm ?? 0));
+        $totalSqm = $isRerun ? 0.0 : (float) $leases->sum(fn (Lease $l) => $l->totalAreaSqm());
 
         if (! $isRerun && $totalSqm <= 0) {
             return 0;
@@ -69,7 +73,7 @@ class CamReconciliationService
                         continue;
                     }
                 } else {
-                    $sqm = (float) ($lease->unit?->area_sqm ?? 0);
+                    $sqm = $lease->totalAreaSqm();
                     if ($sqm <= 0) {
                         continue;
                     }

@@ -73,7 +73,17 @@ class MonthlyBillingService
 
                     try {
                         $invoice = DB::transaction(function () use ($lease, $periodStart, $periodEnd) {
-                            return $this->generateInvoiceForLease($lease, $periodStart, $periodEnd);
+                            // Prorate the commencement month. Until 2026-08-08 the bulk run passed
+                            // the default `false` here, so the ONLY path that ever prorated was the
+                            // manual per-lease "Generate Invoice" action — meaning every mid-month
+                            // move-in the scheduled run reached first was billed a FULL month, and
+                            // the overcharge landed on exactly the leases nobody was watching.
+                            //
+                            // This is not a behaviour change for a normal lease: generateInvoiceForLease
+                            // only applies a factor when the commencement falls strictly INSIDE the
+                            // period, so a lease commencing on the 1st (and every lease past its
+                            // first month) still bills at 1.0.
+                            return $this->generateInvoiceForLease($lease, $periodStart, $periodEnd, prorate: true);
                         });
                         // A null invoice = the lease had no applicable charges this period (e.g. all
                         // charges inactive, or only quarterly/annual charges in an off-month). Count it

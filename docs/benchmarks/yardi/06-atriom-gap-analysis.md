@@ -123,7 +123,7 @@
 | Pool sourced from GL expense accounts | ✅ with drill-down | ❌ two hand-keyed totals | ➕ EXTEND (RC-01) | 🟠 |
 | Multiple pools per property | ✅ | ❌ one per `(asset_id, period_year)` | ➕ EXTEND (RC-02) | 🟠 |
 | Configurable denominator | ✅ GLA / occupied / fixed / stated | ❌ hard-coded **occupied** | ➕ EXTEND (RC-03) | 🟠 |
-| Gross-up | ✅ | ❌ (no GLA figure exists to gross up to) | ➕ EXTEND (RC-04) | 🟡 |
+| Gross-up | ✅ | ❌ — **but the inputs exist**: `Asset::totalUnitAreaSqm()`, `occupiedAreaSqm()`, `areaOccupancyRate()` and the declared `leasable_area_sqm`. The CAM service simply never reads them | ➕ EXTEND (RC-04) — wiring, not new data | 🟡 |
 | Caps: absolute, YoY, base year, compounding | ✅ | ✅ **`LeaseCamTerm`, effective-dated, tighter ceiling wins, landlord absorbs `cap_absorbed`** | ✅ **KEEP** — *the 2026-07-18 doc calling this absent is stale* | ⚪ |
 | Cap scoped to controllable expenses; cumulative headroom | ✅ | ❌ caps the whole share | ➕ EXTEND (RC-07) | 🟡 |
 | Admin / management fee | ✅ | ✅ `admin_fee_pct` per pool, applied to the **capped** cost so it cannot re-breach the cap, VAT-rated per pool | ✅ **KEEP** | ⚪ |

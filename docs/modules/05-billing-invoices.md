@@ -67,7 +67,8 @@ This is the core AR (accounts receivable) engine; all recurring revenue flows th
 2. **Proration:** When a lease commences mid-month and proration is enabled, charges are scaled by factor = `daysBilled / daysInPeriod` (inclusive). VAT is recalculated on the prorated amount.
    - **Formula:** factor = `(periodEnd.diffInDays(commencement) + 1) / (periodEnd.diffInDays(periodStart) + 1)`
    - **Test:** `BillingScenarioTest::test_pro_rates_the_first_partial_month_when_prorate_is_requested` pins 16 days in March from 15th = 16/30 = 0.5333
-   - **Gotcha:** Proration only applies if (a) flag is true AND (b) commencement is between periodStart and periodEnd AND (c) commencement > periodStart. A mid-month commencement can be billed full-month if prorate=false (UI default).
+   - **Gotcha:** Proration only applies if (a) the flag is true AND (b) commencement is between periodStart and periodEnd AND (c) commencement > periodStart. **The bulk run passes the flag as of 2026-08-08** — before that it took the default `false`, so a mid-month move-in billed by the scheduled run was charged a full month (`BulkBillingProratesCommencementTest`). The flag remains on the single-lease action as an override, for a contract that bills the first month in full.
+   - **Still open:** there is **no trailing proration**. A lease terminating or expiring mid-month bills the whole month — see [the Yardi benchmark, S8](../benchmarks/yardi/04-scenarios.md#s8--termination-mid-month-and-the-final-account) (story MF-02).
 
 3. **Charge frequency & applicability:**
    - **Monthly** — always applies (if active in the period)
@@ -733,9 +734,12 @@ now say so; don't reorder them without reading that note.
 
 ### 1. Proration factor precision
 
-**Gotcha:** Proration factor is rounded to 4 decimals in the service (`round($daysBilled / $daysInPeriod, 4)`). This is then multiplied by each charge amount, and the result rounded to 2 decimals. Rounding errors are minimal but possible over many prorated charges.
+**Gotcha (corrected):** the factor is **NOT** rounded — it is kept at full precision and only the
+per-line *money* is rounded to 2 dp (`round($charge->amount * $multiplier, 2)`). Rounding the factor
+was the earlier behaviour and it undercharged: a clean fraction like 1 day of 30 billed 999 instead
+of 1000. Round the amount, never the ratio.
 
-**Example:** 16 / 30 = 0.5333... rounded to 4 decimals = 0.5333. × 10000 = 5333.00. Matches test expectation.
+**Example:** 16 / 30 = 0.5333… kept in full. × 10,000 = 5,333.33 (not 5,333.00).
 
 **Impact:** Minimal; only visible in edge cases with many fractional cents. The 2-decimal rounding per item absorbs most variance.
 

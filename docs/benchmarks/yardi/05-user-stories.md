@@ -395,6 +395,10 @@ statement names the basis used; existing pools default to **occupied** so nothin
 **Acceptance:** per-account fixed/variable classification; a gross-up % per pool; the statement
 shows the gross-up line.
 
+**Note:** the occupancy inputs already exist — `Asset::totalUnitAreaSqm()`, `occupiedAreaSqm()`,
+`areaOccupancyRate()` and the declared `leasable_area_sqm`. `CamReconciliationService` just never
+reads them. This is wiring, not new data.
+
 ---
 
 ### RC-05 🔴 Re-estimate next year

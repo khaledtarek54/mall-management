@@ -128,7 +128,7 @@ returns `status: 'skipped', reason: 'no_applicable_charges'`
 Proration applies **only** when **all** of these are true
 (`MonthlyBillingService.php:206`):
 
-1. The caller passed `prorate = true`. **The bulk run never sets this** — `billForPeriod()` calls `generateInvoiceForLease($lease, $periodStart, $periodEnd)` with the default `$prorate = false` (`MonthlyBillingService.php:87`, default at `:189`). Proration is only reachable through the **single-lease** action `generateForLease(..., $prorate)` (`:127`, `:149`). So the scheduled/CLI portfolio run produces **full-month** invoices; mid-month proration is a deliberate per-lease admin action.
+1. The caller passed `prorate = true`. **The bulk run now passes it (fixed 2026-08-08).** `billForPeriod()` calls `generateInvoiceForLease(..., prorate: true)`, so the scheduled/CLI portfolio run prorates a commencement month like the single-lease action always did. *Until that fix the bulk run took the default `false`, so a mid-month move-in the nightly run reached first was billed a **full month** — an overcharge that landed on exactly the leases nobody was watching. Regression: `tests/Feature/Regression/BulkBillingProratesCommencementTest.php`.* The `$prorate` argument survives as the single-lease **override** (`generateForLease(..., $prorate)`), for a lease whose contract bills the first month in full.
 2. The lease has a `commencement_date`.
 3. `commencement` is **within** the billing month: `commencement->between(periodStart, periodEnd)`.
 4. `commencement` is **strictly after** the month start: `commencement->greaterThan(periodStart)`. (A 1st-of-month commencement bills the full month — factor stays `1.0`.)
