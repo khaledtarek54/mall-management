@@ -123,6 +123,23 @@
     @endif
 </div>
 
+@if ($facts['gross_up_pct'] !== null
+    && $facts['grossed_up_expense'] !== null
+    && round($facts['grossed_up_expense'], 2) != round($facts['pool_total'], 2))
+    {{-- The gross-up, shown ONLY when one actually changed the number. A no-op line on every
+         statement in the mall is noise; a line that moved the tenant's bill is the one thing they
+         are most likely to query. --}}
+    <table class="rows" style="margin-top:8px">
+        <tr>
+            <td class="k">
+                {{ __('admin.cam_statement.grossed_up', ['pct' => rtrim(rtrim(number_format($facts['gross_up_pct'], 2), '0'), '.')]) }}
+                <div class="note">{{ __('admin.cam_statement.grossed_up_note') }}</div>
+            </td>
+            <td class="v">{{ $money($facts['grossed_up_expense']) }}</td>
+        </tr>
+    </table>
+@endif
+
 {{-- 2 · HOW MUCH OF IT IS YOURS. The denominator is the number tenants argue about, so it is
      stated explicitly rather than left implicit in a percentage. --}}
 <h2>{{ __('admin.cam_statement.your_share') }}</h2>

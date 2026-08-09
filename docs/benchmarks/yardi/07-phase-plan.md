@@ -315,12 +315,12 @@ re-litigated every audit.
 
 ### Phase 6 — Recoveries & percentage-rent depth ➕
 
-**Recoveries:** RC-01 ✅ → RC-05 ✅ → RC-06 ✅ → RC-03 ✅ *(all shipped 2026-08-09)* →
-RC-02 (multi-pool) → RC-04/RC-07 (gross-up, controllable caps) as needed.
+**Recoveries:** RC-01 ✅ → RC-05 ✅ → RC-06 ✅ → RC-03 ✅ → RC-04 ✅ *(all shipped 2026-08-09)* →
+remaining: RC-02 (multi-pool), RC-07 (controllable caps + carry-forward).
 
-**RC-04 (gross-up) is now the natural next one** and is cheaper than it looks: `denominator_basis =
-gla` already puts the vacancy on the landlord and RECORDS it as `landlord_unrecovered_amount`, so
-grossing up is a percentage applied to that number rather than a new calculation path.
+RC-04 landed cheaply exactly as predicted, for the reason the note gave: the occupancy inputs were
+already there and RC-03 had just made the denominator explicit, so gross-up became one method on the
+pool rather than a new calculation path.
 
 RC-01 and RC-05 together closed the loop that was open: the estimate *billed* and the estimate
 *reconciled* were two numbers a human kept equal. RC-05 landed exactly as predicted — a re-estimate

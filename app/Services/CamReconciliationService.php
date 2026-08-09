@@ -74,7 +74,27 @@ class CamReconciliationService
             return 0;
         }
 
-        return DB::transaction(function () use ($pool, $leases, $totalSqm, $isRerun, $frozenShares, $periodStart, $periodEnd) {
+        // The expense the shares apportion over (story RC-04). Identical to `total_actual_expense`
+        // unless the pool grosses up, which is every pool that exists today. Occupancy is measured
+        // as the participants' area over the denominator actually used — the same two numbers the
+        // shares divide, so the gross-up can never disagree with the apportionment it feeds.
+        // On a RE-RUN the denominator is frozen with the shares, so occupancy is measured against
+        // the stored one; a pool reconciled before RC-03 has none, which reads as 0 and grosses
+        // nothing. Either way the basis is recomputed from the CURRENT expense.
+        //
+        // Re-using the stored `grossed_up_expense` here would have been the obvious shortcut and it
+        // was wrong: the frozen-share guard freezes the AREA basis so a unit-area edit cannot
+        // re-cut anybody's share, but a REVISED POOL EXPENSE is exactly what a re-run exists to
+        // push through. Caught by `CamScenarioTest`, which pins that revision.
+        $referenceSqm = $isRerun ? (float) $pool->denominator_used_sqm : $totalSqm;
+
+        $occupancyPct = $referenceSqm > 0
+            ? $this->occupiedDenominator($leases, $periodStart, $periodEnd) / $referenceSqm * 100
+            : 0.0;
+
+        $basis = $pool->apportionmentBasis($occupancyPct);
+
+        return DB::transaction(function () use ($pool, $leases, $totalSqm, $isRerun, $frozenShares, $periodStart, $periodEnd, $basis) {
             $count = 0;
             $allocatedTotal = 0.0;
 
@@ -102,7 +122,7 @@ class CamReconciliationService
                     }
                 }
 
-                $allocated = round((float) $pool->total_actual_expense * $share, 2);
+                $allocated = round($basis * $share, 2);
                 // What this tenant actually paid in estimates (story RC-05). On `billed` the
                 // figure comes from the invoices themselves, so the estimate RECONCILED and the
                 // estimate BILLED are the same number by construction. On `stated` — every pool
@@ -188,12 +208,25 @@ class CamReconciliationService
             //
             // A NEGATIVE value means the pool over-recovered — stated shares that sum past 100%.
             // That is a data problem worth seeing, so it is recorded rather than clamped to zero.
+            // The basis actually applied and what the landlord bore are OUTPUTS of this run, so
+            // they are rewritten every time — including a re-run, which exists precisely to push a
+            // revised expense through. Leaving them frozen would have left
+            // `Σ allocated + unrecovered = total` failing after any revision, silently.
+            //
+            // `denominator_used_sqm` is the exception: it is the frozen area basis, and re-deriving
+            // it would let a unit-area edit re-cut shares the guard exists to protect.
+            $written = [
+                'grossed_up_expense' => round($basis, 2),
+                // Measured against what the landlord ACTUALLY SPENT, never against the grossed
+                // basis: gross-up changes how the cost is shared, not how much of it exists.
+                'landlord_unrecovered_amount' => round((float) $pool->total_actual_expense - $allocatedTotal, 2),
+            ];
+
             if (! $isRerun) {
-                $pool->forceFill([
-                    'denominator_used_sqm' => round($totalSqm, 2),
-                    'landlord_unrecovered_amount' => round((float) $pool->total_actual_expense - $allocatedTotal, 2),
-                ])->save();
+                $written['denominator_used_sqm'] = round($totalSqm, 2);
             }
+
+            $pool->forceFill($written)->save();
 
             return $count;
         });

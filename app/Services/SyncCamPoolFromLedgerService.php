@@ -101,6 +101,48 @@ class SyncCamPoolFromLedgerService
     }
 
     /**
+     * The variable fraction of a ledger-sourced pool (story RC-04).
+     *
+     * Posted spend on the accounts marked `variable` over posted spend on all of them, so the split
+     * follows the money rather than a count of accounts — one big variable account and nine tiny
+     * fixed ones is a mostly-variable pool.
+     *
+     * An account with no nature reads as FIXED (the pivot default), which is the conservative
+     * reading for this purpose: it grosses nothing and charges tenants nothing extra.
+     */
+    public function variableShareFromLedger(CamExpensePool $pool): float
+    {
+        $variableIds = $pool->ledgerAccounts
+            ->filter(fn ($a) => $a->getAttribute('pivot')?->getAttribute('cost_nature') === 'variable')
+            ->pluck('id');
+
+        if ($variableIds->isEmpty()) {
+            return 0.0;
+        }
+
+        $total = $this->actualFromLedger($pool);
+
+        if ($total <= 0) {
+            return 0.0;
+        }
+
+        $start = CarbonImmutable::create((int) $pool->period_year, 1, 1)->toDateString();
+        $end = CarbonImmutable::create((int) $pool->period_year, 12, 31)->toDateString();
+
+        $variable = JournalLine::query()
+            ->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.journal_entry_id')
+            ->whereIn('journal_lines.ledger_account_id', $variableIds)
+            ->where('journal_entries.status', 'posted')
+            ->where('journal_lines.asset_id', $pool->asset_id)
+            ->whereDate('journal_entries.entry_date', '>=', $start)
+            ->whereDate('journal_entries.entry_date', '<=', $end)
+            ->selectRaw('sum(journal_lines.debit) - sum(journal_lines.credit) as net')
+            ->value('net');
+
+        return max(0.0, min(1.0, (float) $variable / $total));
+    }
+
+    /**
      * What the mall actually invoiced its tenants as service charge during the year.
      *
      * This is the number the reconciliation should compare against, and it was never available:

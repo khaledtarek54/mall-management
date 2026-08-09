@@ -439,7 +439,7 @@ on a screen instead of drift in a report. Verified against the real service on a
 
 ---
 
-### RC-04 🟡 Gross-up
+### RC-04 ✅ Gross-up *(shipped 2026-08-09)*
 **As a** Property Accountant **I want** variable expenses grossed up to an occupancy assumption
 **so that** the landlord is not under-recovered on a partly-vacant mall.
 
@@ -449,6 +449,25 @@ shows the gross-up line.
 **Note:** the occupancy inputs already exist — `Asset::totalUnitAreaSqm()`, `occupiedAreaSqm()`,
 `areaOccupancyRate()` and the declared `leasable_area_sqm`. `CamReconciliationService` just never
 reads them. This is wiring, not new data.
+
+**Shipped.** `gross_up_pct` on the pool, `variable_pct` (or per-account `cost_nature` on the pivot
+when the expense comes from the ledger), and `grossed_up_expense` stored so a statement replays the
+basis rather than re-deriving it. `basis = fixed + variable × (assumption ÷ actual occupancy)`.
+
+Four rules, all pinned:
+- **Only when the denominator includes vacancy.** Under `occupied` the shares already sum to 100%,
+  so grossing up would bill tenants MORE than the landlord spent — refused, not quietly applied.
+- **Never recovers more than was spent**, whatever the settings say. The most aggressive
+  combination the form allows (100% variable, 100% assumption) still leaves the landlord whole.
+- **Never scales DOWN** a centre fuller than the clause contemplated — that would hand tenants a
+  discount the lease never promised.
+- **`cost_nature` defaults to FIXED on the pivot** — the opposite of `App\Support\CostNature`'s
+  default, on purpose. There "variable" is the conservative reading of an unclassified cost; here
+  the same word is the aggressive one, because it grosses the account up and charges tenants more.
+  An unclassified account must not quietly raise every bill the day gross-up is switched on.
+
+Occupancy is measured as participants' area ÷ the denominator actually used — the same two numbers
+the shares divide, so the gross-up cannot disagree with the apportionment it feeds.
 
 ---
 

@@ -122,6 +122,27 @@ class CamExpensePoolForm
                         ->suffix('m²')
                         ->visible(fn ($get) => $get('denominator_basis') === CamExpensePool::DENOMINATOR_FIXED)
                         ->disabled(fn (?CamExpensePool $record) => self::basisFrozen($record)),
+                    // RC-04. Hidden on `occupied`, where the shares already sum to 100% and
+                    // grossing up would bill tenants more than the landlord spent.
+                    TextInput::make('gross_up_pct')
+                        ->label(__('admin.cam.gross_up_pct'))
+                        ->helperText(__('admin.cam.gross_up_pct_help'))
+                        ->numeric()
+                        ->minValue(0)
+                        ->maxValue(100)
+                        ->suffix('%')
+                        ->visible(fn ($get) => $get('denominator_basis') !== CamExpensePool::DENOMINATOR_OCCUPIED)
+                        ->disabled(fn (?CamExpensePool $record) => self::basisFrozen($record)),
+                    TextInput::make('variable_pct')
+                        ->label(__('admin.cam.variable_pct'))
+                        ->helperText(__('admin.cam.variable_pct_help'))
+                        ->numeric()
+                        ->minValue(0)
+                        ->maxValue(100)
+                        ->suffix('%')
+                        ->visible(fn ($get) => $get('denominator_basis') !== CamExpensePool::DENOMINATOR_OCCUPIED
+                            && $get('expense_basis') !== CamExpensePool::BASIS_LEDGER)
+                        ->disabled(fn (?CamExpensePool $record) => self::basisFrozen($record)),
                     TextInput::make('total_actual_expense')
                         ->label(__('admin.fields.total_actual_expense'))
                         ->prefix('EGP')

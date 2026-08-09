@@ -122,6 +122,12 @@ class CamStatementPdfService
                     ->map(fn ($a) => "{$a->code} · ".(app()->getLocale() === 'ar' ? $a->name_ar : $a->name_en))
                     ->all()
                 : [],
+            // The gross-up, when one applied (RC-04). Null when it did not, so the statement can
+            // omit the section rather than printing a no-op line on every document in the mall.
+            'gross_up_pct' => $pool?->gross_up_pct !== null ? (float) $pool->gross_up_pct : null,
+            'grossed_up_expense' => $pool?->grossed_up_expense !== null
+                ? (float) $pool->grossed_up_expense
+                : null,
             'area_sqm' => $area,
             'denominator_sqm' => $denominator,
             'denominator_basis' => $pool?->denominator_basis ?? CamExpensePool::DENOMINATOR_OCCUPIED,

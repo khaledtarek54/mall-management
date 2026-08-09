@@ -62,6 +62,35 @@ Some leases say exactly that; many say share of GROSS leasable area.
   simply name the percentage. A stated share beats any derived one, and it does **not** inflate its
   neighbours: the others keep their area-derived shares and less of the pool is recovered.
 
+**Gross-up (2026-08-09, story RC-04).** A GLA denominator leaves vacancy with the landlord — right,
+but it over-corrects on the VARIABLE half: a mall at 40% occupancy spends less on cleaning and
+common-area power than a full one, while its trading tenants consume those services at full
+intensity. Left alone they pay 40% of a deflated number, which is LESS than they would pay in a busy
+mall.
+
+    basis = fixed + variable × (gross_up_pct ÷ actual occupancy)
+
+`gross_up_pct` is the assumption (typically 95%); the variable share comes from `variable_pct`, or
+per-account from `cam_pool_accounts.cost_nature` when the expense is ledger-sourced. The applied
+basis is stored as `grossed_up_expense` so the tenant statement replays it. Occupancy is measured as
+participants' area ÷ `denominator_used_sqm` — the same two numbers the shares divide, so the
+gross-up can never disagree with the apportionment it feeds.
+
+Four rules, each with a test:
+
+- **Only when the denominator includes vacancy.** Under `occupied` the shares already sum to 100%,
+  so grossing up would bill tenants MORE than the landlord spent. Refused, not silently applied —
+  the form hides the field there too.
+- **Never recovers more than was spent.** Algebraically `occupancy × fixed + variable × assumption
+  ≤ pool` for any assumption ≤ 100%, and the most aggressive settings the form allows are pinned.
+- **Never scales DOWN.** A centre fuller than the clause contemplated already shows that in the
+  tenants' own shares; scaling down would be a discount the lease never promised.
+- **`cost_nature` defaults to FIXED** — deliberately the opposite of `App\Support\CostNature`,
+  whose default is `variable`. There, "variable" is the CONSERVATIVE reading of an unclassified cost
+  (not a committed obligation). Here the same word is the AGGRESSIVE one: it grosses the account up
+  and charges tenants more. The safe default flips with the question being asked, and an
+  unclassified account must never quietly raise every bill the day gross-up is switched on.
+
 **`landlord_unrecovered_amount` is what keeps the books honest — read this before touching either.**
 `Σ allocated_amount = total_actual_expense` is a hard tie-out in `BooksReconciliationService`, and
 it silently encoded *"the pool is always fully recovered"*, which is true only under `occupied`.
