@@ -52,6 +52,15 @@ class ChartOfAccountsSeeder extends Seeder
         ['115', 'Prepaid Expenses', 'المصروفات المدفوعة مقدماً', 'asset', false],
         ['11501', 'Prepaid Expenses', 'مصروفات مدفوعة مقدماً', 'asset', false],
         ['11501001', 'Prepaid Expenses', 'مصروفات مدفوعة مقدماً', 'asset', true],
+        // Straight-line rent (RA-02). The cumulative difference between rent RECOGNISED on a
+        // straight-line basis and rent BILLED on the contracted ladder. It runs positive early in
+        // a stepped lease (recognising more than billed) and unwinds to zero at expiry.
+        // ONE account rather than a receivable and a liability: the balance is a single running
+        // difference, and splitting it would mean reclassifying every lease that crosses over
+        // mid-term for no gain in what the balance sheet says.
+        ['117', 'Deferred Rent', 'الإيجار المؤجل', 'asset', false],
+        ['11701', 'Deferred Rent', 'إيجار مؤجل', 'asset', false],
+        ['11701001', 'Deferred Rent', 'إيجار مؤجل', 'asset', true],
         // Eltizam (operator) ↔ Jawad (owner) and any affiliate settlements.
         ['116', 'Due from Related Parties', 'المستحق من أطراف ذات علاقة', 'asset', false],
         ['11601', 'Due from Related Parties', 'المستحق من أطراف ذات علاقة', 'asset', false],

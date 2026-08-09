@@ -737,7 +737,7 @@ button reappears on a money record.
 
 Generated from `LedgerPoster::JOURNALIZERS` — the single registry all four dispatch paths
 derive from (real-time hook · `accounting:sync-ledger` sweep · close gate · `billing:reconcile`
-drift check). **23 sources.** The `entry_date` column is what the sweep windows on, and what
+drift check). **24 sources.** The `entry_date` column is what the sweep windows on, and what
 the posting-date guard checks against a closed period.
 
 | Source model | Journalizer | `entry_date` from | Posting-date guard |
@@ -764,10 +764,51 @@ the posting-date guard checks against a closed period.
 | `Disbursement` | `DisbursementJournalizer` | `paid_on` | `DisbursementService` |
 | `TenantCreditApplication` | `TenantCreditApplicationJournalizer` | `entry_date` | _system — entry_date is deliberately stamped at application time, never the source receipt's date. That decoupling is the whole point: it lets an old overpayment settle a current invoice without ever posting into the closed period the overpayment came from._ |
 | `DepositApplication` | `DepositApplicationJournalizer` | `entry_date` | _system — entry_date is stamped at application time by ApplyDepositToInvoiceService and is not operator-typable. Same decoupling as the tenant credit above: a deposit taken three years ago settles a current invoice without posting into the sealed period it was received in._ |
+| `StraightLineRentAdjustment` | `StraightLineRentAdjustmentJournalizer` | `entry_date` | _system — entry_date is the last day of the month being recognised, derived by PostStraightLineRentService and never operator-typed. The sweep refuses to post into a closed period, which is also what makes an amendment forward-only: months already recognised are left exactly as they were._ |
 | `InvoiceWriteOff` | `InvoiceWriteOffJournalizer` | `entry_date` | `WriteOffInvoiceService` |
 <!-- /GENERATED:gl-sources -->
 
 ---
+## Straight-line rent recognition (RA-02, 2026-08-09) — **ships OFF**
+
+`BillingSettings::straight_line_rent_enabled` is **false**, and while it is, nothing here runs.
+
+**What it does when enabled.** A stepped or abated lease bills a different amount most years; EAS 49
+/ IFRS 16 say the lessor recognises the total consideration evenly across the term. So the P&L shows
+a flat rent, the tenant keeps being invoiced the contracted ladder, and the running difference sits
+in **Deferred Rent** (`11701001`).
+
+    Dr Deferred Rent  / Cr Rental Income   — recognising MORE than billed (early in a stepped lease)
+    Dr Rental Income  / Cr Deferred Rent   — once the ladder overtakes the average
+
+**One account, not two.** The balance is a single running difference; splitting it into a receivable
+and a liability would mean reclassifying every lease that crosses over mid-term for no gain in what
+the balance sheet says.
+
+**Only possible because of the charge schedule.** The whole contracted ladder exists as rows the day
+a lease is signed, so "total rent over the term" is a query. On the pre-2026-08-08 model — one
+mutable amount — the future was unknowable and averaging it would have meant inventing it.
+
+Four rules worth keeping:
+
+- **Rent-free months count in the DENOMINATOR, not the numerator.** That is what spreads a fit-out
+  abatement across the term instead of leaving a hole in the first quarter. Read through
+  `Lease::periodInFitOut()` / `abatedChargeTypesFor()` — the same predicates the billing engine uses,
+  so the two cannot disagree about which months are free.
+- **Billed is read from the SCHEDULE, not from invoices.** The adjustment must be computable before
+  a month's invoice exists, and a cancelled or re-issued invoice must not move revenue recognition.
+- **`entry_date` is the last day of the month being recognised**, never the day the job ran — a
+  recognition entry belongs in the period it recognises.
+- **Forward-only.** `PostStraightLineRentService::reverseFrom()` drops adjustments from a date onward
+  so the next run re-derives them against amended terms, and **skips any month whose period has
+  closed**. A reversed month is soft-deleted but still holds its `unique(lease_id, period)` slot, so
+  the writer looks up `withTrashed()` and RESTORES rather than inserting — otherwise re-deriving
+  collides with its own tombstone, which is exactly what happened the first time it was built.
+
+**It changes nothing a tenant sees**, and that is asserted rather than assumed: `StraightLineRentTest`
+bills the same month with the setting on and off and compares the invoices field by field.
+
+
 ## Month-end close checklist
 
 `/admin/month-end-close` ([`MonthEndClose`](../../app/Filament/Admin/Pages/MonthEndClose.php) +

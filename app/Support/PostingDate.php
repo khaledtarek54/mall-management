@@ -80,6 +80,27 @@ class PostingDate
     }
 
     /**
+     * Is this date's accounting period SEALED?
+     *
+     * The question `assertOpen()` answers as a refusal, asked as a boolean — for callers that must
+     * branch rather than throw, like the forward-only re-derivation of straight-line rent, which
+     * skips a closed month instead of failing the whole run. Same rule, one definition: a MISSING
+     * period is not closed (see `assertOpen()` for why the two are opposites).
+     */
+    public static function isClosed(mixed $date): bool
+    {
+        $parsed = self::parse($date);
+
+        if ($parsed === null) {
+            return false;
+        }
+
+        $period = AccountingPeriod::forDate($parsed);
+
+        return $period !== null && ! $period->isOpen();
+    }
+
+    /**
      * Assert a date is not in the future. Money that has not moved yet cannot be recorded as
      * having moved — and a future date posts into a period that will later close around it.
      *

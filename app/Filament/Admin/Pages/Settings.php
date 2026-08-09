@@ -88,6 +88,7 @@ class Settings extends Page implements HasSchemas
                 'cam_reconciliation_month' => $billing->cam_reconciliation_month,
                 'cam_reconciliation_day' => $billing->cam_reconciliation_day,
                 'cam_reconciliation_time' => $billing->cam_reconciliation_time,
+                'straight_line_rent_enabled' => $billing->straight_line_rent_enabled,
             ],
             'maintenance' => [
                 'sla_urgent_hours' => $maint->sla_urgent_hours,
@@ -156,6 +157,7 @@ class Settings extends Page implements HasSchemas
         $billing->late_fee_minimum = (float) $state['billing']['late_fee_minimum'];
         $billing->monthly_billing_day = (int) $state['billing']['monthly_billing_day'];
         $billing->monthly_billing_time = (string) $state['billing']['monthly_billing_time'];
+        $billing->straight_line_rent_enabled = (bool) ($state['billing']['straight_line_rent_enabled'] ?? false);
         $billing->cam_reconciliation_month = (int) $state['billing']['cam_reconciliation_month'];
         $billing->cam_reconciliation_day = (int) $state['billing']['cam_reconciliation_day'];
         $billing->cam_reconciliation_time = (string) $state['billing']['cam_reconciliation_time'];
@@ -208,6 +210,16 @@ class Settings extends Page implements HasSchemas
     private function billingFields(): array
     {
         return [
+            // The accountant's switch (RA-02). Off until they rule on it — flipping it changes what
+            // the P&L says about every stepped or abated lease, and changes NOTHING about what any
+            // tenant is invoiced. Placed first because it is the highest-consequence toggle here.
+            Section::make(__('admin.settings.sections.revenue_recognition'))
+                ->description(__('admin.settings.sections.revenue_recognition_description'))
+                ->components([
+                    Toggle::make('billing.straight_line_rent_enabled')
+                        ->label(__('admin.settings.fields.straight_line_rent_enabled'))
+                        ->helperText(__('admin.settings.fields.straight_line_rent_enabled_help')),
+                ]),
             Section::make(__('admin.settings.sections.late_fees'))
                 ->description(__('admin.settings.sections.late_fees_description'))
                 ->columns(3)

@@ -166,6 +166,7 @@ class PropertyIsolation
         OwnerStatementRun::class => null,      // owner statement run — one property's period statement (module 32)
         TenantCreditApplication::class => null, // applying on-account credit to an invoice; asset = the invoice's property; service-created, no Filament resource
         DepositApplication::class => null,        // netting a deposit against an invoice; asset = the invoice's property; service-created, no Filament resource
+        \App\Models\StraightLineRentAdjustment::class => null, // monthly rent-recognition adjustment; asset = the lease's property; service-created, no Filament resource
         OwnerStatement::class => null,         // per-owner child; asset_id denormalized for uniform auto-scope
         Disbursement::class => null,           // owner payout; asset_id denormalized (journalizer reads own row)
         PostDatedCheque::class => null,        // a tenant's forward cheque, pinned to the property it relates to (module 33)

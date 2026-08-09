@@ -37,6 +37,8 @@ class AccountMappingSeeder extends Seeder
         // reclassifies as needed (penalties fund / other income / expense-reduction).
         'employee_deductions_payable' => '21602001',
         'unearned_revenue' => '21501001',
+        // Straight-line rent (RA-02) — see the chart seeder for why it is one swinging account.
+        'deferred_rent' => '11701001',
         'capital' => '31101001',
         'retained_earnings' => '32101001',
         // Owner statements + disbursements (module 27). `owner_distributions` is the

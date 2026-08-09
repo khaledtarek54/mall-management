@@ -386,7 +386,7 @@ which is exactly why a wrong distribution stayed invisible.
 
 ## Epic RA — Revenue accounting *(phase 5, gated on the accountant's ruling)*
 
-### RA-01 🔴 *(a switch, not a blocker)* The accountant enables straight-line rent
+### RA-01 ✅ *(decided 2026-08-09 — built, ships OFF)* The accountant enables straight-line rent
 **As a** Finance Manager **I want** a written ruling on whether the owner's books recognise lease
 income on a straight-line basis under EAS 49 / IFRS 16 **so that** the GL is either right or
 knowingly simplified.
@@ -403,7 +403,7 @@ the accountant can read, and their eventual ruling recorded in
 
 ---
 
-### RA-02 🟠 *(only if RA-01 = yes)* Straight-line rent schedule & posting
+### RA-02 ✅ Straight-line rent schedule & posting *(shipped 2026-08-09, defaulted OFF)*
 **As an** Auditor **I want** lease income recognised evenly over the term **so that** the financial
 statements comply.
 

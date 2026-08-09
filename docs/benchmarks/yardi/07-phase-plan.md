@@ -296,9 +296,33 @@ is a reasonable interim.
 
 ---
 
-### Phase 5 — Revenue recognition ➕ *(build it; ships switched off)*
+### Phase 5 — Revenue recognition ➕ — **SHIPPED 2026-08-09, defaulted OFF**
 
-**Stories:** RA-02.
+**Stories:** RA-02 ✅.
+
+**What shipped.** `StraightLineRentService` averages the whole contracted ladder over the term —
+possible only because phase 1 writes the entire ladder at signing, so "total rent over the term" is
+a query rather than a projection. Rent-free months count in the DENOMINATOR but contribute nothing
+to the numerator, which is what spreads an abatement across the term instead of leaving a hole in
+the first quarter. `PostStraightLineRentService` writes one adjustment per lease per month, posted
+Dr Deferred Rent / Cr Rental Income (and the reverse once the ladder overtakes the average) as a
+fully registered GL source.
+
+**The two claims that carry it, both asserted:**
+- **Invoices are byte-identical with the setting on and off.** Nothing about billing, VAT or the ETA
+  payload is touched. That is what makes shipping ahead of the ruling safe.
+- **The adjustments sum to zero over a full term** and Deferred Rent unwinds to nil — any error in
+  the averaging shows up there as a residue.
+
+**Forward-only** is `reverseFrom()`: it drops the adjustments from a date onward so the next run
+re-derives them against amended terms, and **skips any month whose period has closed**. One
+account, not a receivable and a liability, because the balance is a single running difference and
+splitting it would mean reclassifying every lease that crosses over mid-term.
+
+`accounting:post-straight-line-rent` is on the schedule from day one and is a no-op while the
+setting is off — so enabling it is a click, not a deploy.
+
+**Original plan below, for the record.**
 
 A per-lease straight-line schedule derived from the phase-1 charge schedule (steps + abatements),
 posting the monthly difference to deferred rent as a **registered GL source**. Amendments recalculate

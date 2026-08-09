@@ -23,6 +23,7 @@ use App\Models\Payroll;
 use App\Models\StockMovement;
 use App\Models\InvoiceWriteOff;
 use App\Models\DepositApplication;
+use App\Models\StraightLineRentAdjustment;
 use App\Models\TenantCreditApplication;
 use App\Models\VendorBill;
 use App\Models\VendorBillPayment;
@@ -47,6 +48,7 @@ use App\Services\Accounting\Journalizers\PaymentJournalizer;
 use App\Services\Accounting\Journalizers\PayrollJournalizer;
 use App\Services\Accounting\Journalizers\InvoiceWriteOffJournalizer;
 use App\Services\Accounting\Journalizers\DepositApplicationJournalizer;
+use App\Services\Accounting\Journalizers\StraightLineRentAdjustmentJournalizer;
 use App\Services\Accounting\Journalizers\TenantCreditApplicationJournalizer;
 use App\Services\Accounting\Journalizers\VendorBillJournalizer;
 use App\Services\Accounting\Journalizers\VendorBillPaymentJournalizer;
@@ -107,6 +109,7 @@ class LedgerPoster
         Disbursement::class => DisbursementJournalizer::class,
         TenantCreditApplication::class => TenantCreditApplicationJournalizer::class,
         DepositApplication::class => DepositApplicationJournalizer::class,
+        StraightLineRentAdjustment::class => StraightLineRentAdjustmentJournalizer::class,
         InvoiceWriteOff::class => InvoiceWriteOffJournalizer::class,
     ];
 

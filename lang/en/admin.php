@@ -482,6 +482,8 @@ return [
             'integrations' => 'Integrations',
         ],
         'sections' => [
+            'revenue_recognition' => 'Revenue recognition',
+            'revenue_recognition_description' => 'How rent is recognised in the books. This does not change what any tenant is invoiced.',
             'modules' => 'Toggle Modules',
             'modules_description' => 'Turn entire modules on or off. Disabled modules disappear from the sidebar, block direct URL access, and hide their dashboard widgets. Core modules (Properties, Units, Tenants, Leases, Invoices, Payments, Users, Roles, Settings) cannot be disabled.',
             'late_fees' => 'Late Fees',
@@ -502,6 +504,8 @@ return [
             'messaging' => 'Messaging',
         ],
         'fields' => [
+            'straight_line_rent_enabled' => 'Recognise rent on a straight-line basis',
+            'straight_line_rent_enabled_help' => 'Spreads the total contracted rent evenly over each lease term (EAS 49 / IFRS 16), posting the monthly difference to Deferred Rent. Steps and rent-free periods stop landing in the month they fall. Billing, VAT and e-invoicing are unaffected. Leave off until your accountant has signed it off.',
             'late_fee_percent' => 'Late fee percentage',
             'late_fee_grace_days' => 'Grace period (days)',
             'late_fee_minimum' => 'Minimum late fee',

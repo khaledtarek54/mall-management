@@ -64,6 +64,9 @@ class LedgerRealtimeSync
         // Same decoupling, same reason: a deposit taken three years ago must be able to settle a
         // current invoice without stranding its entry in a closed period.
         \App\Models\DepositApplication::class => 'entry_date',
+        // Dated at the END of the month being recognised, never today: a recognition entry belongs
+        // in the period it recognises or the P&L for that month is wrong.
+        \App\Models\StraightLineRentAdjustment::class => 'entry_date',
         \App\Models\InvoiceWriteOff::class => 'entry_date',
     ];
 

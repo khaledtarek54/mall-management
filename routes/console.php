@@ -43,6 +43,14 @@ Schedule::job(new ApplyLateFees)
     ->name('atriom-late-fees')
     ->withoutOverlapping();
 
+// Straight-line rent recognition (RA-02). Scheduled from day one and a NO-OP until the accountant
+// enables it in Settings → Billing — so switching it on needs a click, not a deploy. Runs on the
+// 2nd so the month it recognises has closed and its invoices exist.
+Schedule::command('accounting:post-straight-line-rent')
+    ->monthlyOn(2, '04:00')
+    ->name('atriom-straight-line-rent')
+    ->withoutOverlapping();
+
 Schedule::command('cam:reconcile')
     ->yearlyOn(
         (int) ScheduleSetting::billing('cam_reconciliation_month', 'billing.cam_reconciliation_month', 1),

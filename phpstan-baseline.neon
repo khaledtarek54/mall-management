@@ -2365,6 +2365,12 @@ parameters:
 			path: app/Services/StockMovementService.php
 
 		-
+			message: '#^Using nullsafe property access "\?\-\>amount" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 2
+			path: app/Services/StraightLineRentService.php
+
+		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
 			identifier: property.notFound
 			count: 1

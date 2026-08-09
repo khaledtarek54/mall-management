@@ -28,6 +28,16 @@ class BillingSettings extends Settings
      */
     public float $holdover_default_rate_pct = 150.0;
 
+    /**
+     * Recognise rent on a STRAIGHT-LINE basis over the lease term (story RA-02, EAS 49 / IFRS 16).
+     *
+     * **Ships OFF.** Enabling it changes what the P&L says about every stepped or abated lease —
+     * revenue is recognised evenly while billing stays on the contracted ladder — and that is the
+     * accountant's ruling, made against a before/after they can read. It changes NOTHING about what
+     * a tenant is invoiced, and the tests prove invoices are byte-identical either way.
+     */
+    public bool $straight_line_rent_enabled = false;
+
     public int $cam_reconciliation_month = 1;
     public int $cam_reconciliation_day = 15;
     public string $cam_reconciliation_time = '03:00';

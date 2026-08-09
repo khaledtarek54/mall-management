@@ -22,6 +22,7 @@ use App\Models\Payment;
 use App\Models\Payroll;
 use App\Models\StockMovement;
 use App\Models\DepositApplication;
+use App\Models\StraightLineRentAdjustment;
 use App\Models\TenantCreditApplication;
 use App\Models\VendorBill;
 use App\Models\VendorBillPayment;
@@ -117,6 +118,12 @@ class PostingDateGuards
             'entry_date is deliberately stamped at application time, never the source receipt\'s '.
             'date. That decoupling is the whole point: it lets an old overpayment settle a current '.
             'invoice without ever posting into the closed period the overpayment came from.',
+
+        StraightLineRentAdjustment::class => self::SYSTEM_PREFIX.
+            'entry_date is the last day of the month being recognised, derived by '.
+            'PostStraightLineRentService and never operator-typed. The sweep refuses to post into a '.
+            'closed period, which is also what makes an amendment forward-only: months already '.
+            'recognised are left exactly as they were.',
 
         DepositApplication::class => self::SYSTEM_PREFIX.
             'entry_date is stamped at application time by ApplyDepositToInvoiceService and is not '.
