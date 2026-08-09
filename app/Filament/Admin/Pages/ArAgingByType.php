@@ -1,0 +1,192 @@
+<?php
+
+namespace App\Filament\Admin\Pages;
+
+use App\Services\Reports\ReportService;
+use App\Support\Modules;
+use App\Support\ReportCsv;
+use BackedEnum;
+use Carbon\CarbonImmutable;
+use Filament\Actions\Action;
+use Filament\Forms\Components\DatePicker;
+use Filament\Pages\Page;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Concerns\InteractsWithSchemas;
+use Filament\Schemas\Contracts\HasSchemas;
+use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Concerns\InteractsWithTable;
+use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Table;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
+
+/**
+ * AR aging split by WHAT is owed (story RR-03).
+ *
+ * **The report exists because a single aging total is ambiguous.** "EGP 400k over 90 days" reads as
+ * delinquent rent and prompts a collections call; if most of it is a service-charge line the tenant
+ * has formally disputed, the call is the wrong action and the number is the wrong alarm. This is the
+ * same money as the AR aging summary, re-cut by charge type, so the grand total ties exactly.
+ *
+ * Built on `InvoiceItemSettlement` (MF-06), which derives every per-line figure from
+ * `invoices.paid_amount` — so these rows sum back to the invoice balances by construction.
+ */
+class ArAgingByType extends Page implements HasSchemas, HasTable
+{
+    use InteractsWithSchemas;
+    use InteractsWithTable;
+
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleGroup;
+
+    protected static ?int $navigationSort = 6;
+
+    protected string $view = 'filament.pages.ledger-report';
+
+    protected static string $routePath = 'ar-aging-by-type';
+
+    /** The day the debt is aged at (`Y-m-d`). */
+    public string $asOf;
+
+    private ?array $report = null;
+
+    public static function canAccess(): bool
+    {
+        return Modules::enabled('reports') && (Auth::user()?->can('reports.view') ?? false);
+    }
+
+    public function mount(): void
+    {
+        $this->asOf = ArAging::parseAsOf(request()->query('asOf'))->toDateString();
+    }
+
+    public function filtersForm(Schema $schema): Schema
+    {
+        return $schema->components([
+            Section::make()
+                ->columns(['sm' => 2, 'lg' => 3])
+                ->schema([
+                    // The ageing date is part of the answer, not a hidden constant: "31–60 days"
+                    // only means something relative to a day.
+                    DatePicker::make('asOf')
+                        ->label(__('admin.reports.aged_as_of'))
+                        ->native(false)
+                        ->live()
+                        ->afterStateUpdated(fn () => $this->report = null),
+                ]),
+        ]);
+    }
+
+    public function getTitle(): string
+    {
+        return __('admin.ar_aging_by_type.title');
+    }
+
+    public function getSubheading(): ?string
+    {
+        return __('admin.reports.bucket_total').': EGP '.number_format($this->report()['total'], 2)
+            .' · '.__('admin.reports.aged_as_of').' '
+            .ArAging::parseAsOf($this->asOf)->format('d/m/Y');
+    }
+
+    public static function getNavigationGroup(): ?string
+    {
+        return __('admin.groups.accounting');
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return __('admin.ar_aging_by_type.nav_label');
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('export_csv')
+                ->label(__('admin.reports.csv.export'))
+                ->icon('heroicon-o-table-cells')
+                ->color('gray')
+                ->visible(fn (): bool => Auth::user()?->can('reports.view') ?? false)
+                ->authorize(fn (): bool => Auth::user()?->can('reports.view') ?? false)
+                ->action(function () {
+                    $buckets = ArAging::buckets();
+
+                    $headers = [__('admin.reports.charge_type'), ...array_values($buckets), __('admin.reports.grand_total')];
+
+                    $rows = $this->rows()->map(fn (array $r): array => [
+                        self::typeLabel($r['type']),
+                        ...array_map(fn (string $k) => $r['buckets'][$k], array_keys($buckets)),
+                        $r['total'],
+                    ])->all();
+
+                    return ReportCsv::stream("ar-aging-by-type-{$this->asOf}", $headers, $rows);
+                }),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    protected function report(): array
+    {
+        return $this->report ??= app(ReportService::class)
+            ->arAgingByChargeType(ArAging::parseAsOf($this->asOf)->endOfDay());
+    }
+
+    /** @return Collection<int, array<string, mixed>> */
+    protected function rows(): Collection
+    {
+        return $this->report()['rows'];
+    }
+
+    /**
+     * An array lookup, not an interpolated translation key.
+     *
+     * `__('admin.enums.invoice_item_type.'.$type)` cannot be verified by the translation-coverage
+     * gate, and a type with no entry would render the raw key at the operator instead of a label.
+     */
+    private static function typeLabel(string $type): string
+    {
+        /** @var array<string, string> $labels */
+        $labels = __('admin.enums.invoice_item_type');
+
+        return $labels[$type] ?? $type;
+    }
+
+    public function table(Table $table): Table
+    {
+        $bucketColumns = collect(ArAging::buckets())
+            ->map(fn (string $label, string $key) => TextColumn::make("buckets.{$key}")
+                ->label($label)
+                ->money('EGP')
+                ->alignEnd()
+                // Zero in a bucket is information — it says this charge type is NOT the late money.
+                ->placeholder('—')
+                ->color(fn ($state): string => match (true) {
+                    (float) $state <= 0 => 'gray',
+                    in_array($key, ['d_61_90', 'd_90_plus'], true) => 'danger',
+                    default => 'warning',
+                }))
+            ->values()
+            ->all();
+
+        return $table
+            ->records(fn (): Collection => $this->rows())
+            ->searchable(false)
+            ->paginated(false)
+            ->columns([
+                TextColumn::make('type')
+                    ->label(__('admin.reports.charge_type'))
+                    ->badge()
+                    ->formatStateUsing(fn ($state): string => self::typeLabel((string) $state))
+                    ->color('gray'),
+                ...$bucketColumns,
+                TextColumn::make('total')
+                    ->label(__('admin.reports.grand_total'))
+                    ->money('EGP')
+                    ->weight('bold')
+                    ->alignEnd(),
+            ])
+            ->emptyStateHeading(__('admin.ar_aging_by_type.empty'))
+            ->emptyStateDescription(__('admin.ar_aging_by_type.empty_description'));
+    }
+}

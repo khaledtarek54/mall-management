@@ -12,6 +12,7 @@ use App\Models\Tenant;
 use App\Models\VendorBill;
 use App\Support\CostNature;
 use App\Services\ChargeScheduleService;
+use App\Support\InvoiceItemSettlement;
 use App\Support\TenantScope;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -253,6 +254,69 @@ class ReportService
         }
 
         return $buckets;
+    }
+
+    /**
+     * AR aging split by WHAT is owed, not just by how late it is (story RR-03).
+     *
+     * **Why this is a different report and not a column.** A headline "EGP 400k over 90 days" reads
+     * as delinquent rent and prompts a collections call. If most of it is a service-charge line the
+     * tenant has formally disputed, the call is the wrong action and the number is the wrong alarm.
+     * Splitting the same money by charge type is what tells those two apart.
+     *
+     * **It re-buckets the same invoices the aging summary counts**, so the grand total ties to
+     * `arAgingBuckets()` exactly. The per-type split comes from `InvoiceItemSettlement`, which
+     * derives everything from `invoices.paid_amount` — so the rows sum back to the invoice balances
+     * by construction rather than by a reconciliation somebody has to run.
+     *
+     * @return array{rows: Collection<int, array{type: string, buckets: array<string, float>, total: float}>, totals: array<string, float>, total: float}
+     */
+    public function arAgingByChargeType(?CarbonImmutable $asOf = null): array
+    {
+        $asOf = $asOf ?? CarbonImmutable::now()->endOfDay();
+
+        $invoices = $this->openInvoicesAsOf($asOf);
+        $splits = InvoiceItemSettlement::forMany($invoices);
+
+        /** @var array<string, array<string, float>> $byType */
+        $byType = [];
+
+        foreach ($invoices as $invoice) {
+            $bucket = self::agingBucketKey($invoice, $asOf);
+
+            foreach ($splits[$invoice->id] ?? [] as $line) {
+                if ($line['outstanding'] <= 0) {
+                    continue;
+                }
+
+                $byType[$line['type']] ??= array_fill_keys(array_keys(self::AGING_BUCKETS), 0.0);
+                $byType[$line['type']][$bucket] += $line['outstanding'];
+            }
+        }
+
+        $rows = collect($byType)
+            ->map(fn (array $buckets, string $type) => [
+                'type' => $type,
+                'buckets' => array_map(fn (float $v) => round($v, 2), $buckets),
+                'total' => round(array_sum($buckets), 2),
+            ])
+            // Biggest exposure first — the row a finance manager acts on.
+            ->sortByDesc('total')
+            ->values();
+
+        $totals = array_fill_keys(array_keys(self::AGING_BUCKETS), 0.0);
+
+        foreach ($rows as $row) {
+            foreach ($row['buckets'] as $bucket => $amount) {
+                $totals[$bucket] = round($totals[$bucket] + $amount, 2);
+            }
+        }
+
+        return [
+            'rows' => $rows,
+            'totals' => $totals,
+            'total' => round((float) $rows->sum('total'), 2),
+        ];
     }
 
     /**

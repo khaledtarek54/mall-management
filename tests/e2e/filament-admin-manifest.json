@@ -298,6 +298,10 @@
             "slug": "ar-aging"
         },
         {
+            "class": "ArAgingByType",
+            "slug": "ar-aging-by-type"
+        },
+        {
             "class": "ArCollections",
             "slug": "ar-collections"
         },

@@ -128,6 +128,17 @@ class Invoice extends Model
             ->withTimestamps();
     }
 
+    /**
+     * Only the payments whose money is actually on the books.
+     *
+     * The same `RECEIVED_STATUSES` filter `recomputeTotals()` applies — anything that offers to
+     * settle an invoice LINE (story MF-06) must not offer a payment this invoice does not count.
+     */
+    public function receivedPayments(): BelongsToMany
+    {
+        return $this->payments()->whereIn('payments.status', Payment::RECEIVED_STATUSES);
+    }
+
     // ============ Online payment link ============
 
     /**

@@ -64,6 +64,18 @@ daysOverdue = (int) due_date.startOfDay().diffInDays(asOf.startOfDay(), false)  
 - **Bucket totals** = sum of `balance` (not total) for invoices in that bucket.
 - **Outstanding_total** = sum of all bucket totals; must equal AR at close date.
 
+### AR aging by charge type (RR-03)
+
+`ReportService::arAgingByChargeType()` re-cuts the same open invoices `arAgingBuckets()` counts, by
+what is owed rather than only by how late it is — so the grand total ties to the aging summary
+exactly. Surfaced as the **Aging by charge type** page (`ArAgingByType`), CSV and EN/AR.
+
+One aging total is ambiguous: "EGP 400k over 90 days" reads as delinquent rent and prompts a
+collections call, when most of it may be a service charge the tenant has formally disputed. The
+per-type split comes from `App\Support\InvoiceItemSettlement` (MF-06), which derives from
+`invoices.paid_amount` — so the rows sum back to the invoice balances by construction, not by a
+reconciliation somebody has to run.
+
 ### Monthly Close
 - **Period** is month-to-month; `monthlyClose(CarbonImmutable $period)` defaults to current month.
 - **Invoices included** if `issue_date BETWEEN period.startOfMonth() AND period.endOfMonth()`.

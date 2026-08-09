@@ -8,6 +8,7 @@ use App\Filament\Exports\InvoiceExporter;
 use App\Jobs\SubmitInvoiceToEta;
 use App\Models\Invoice;
 use App\Models\Unit;
+use App\Services\AllocatePaymentToInvoiceItemsService;
 use App\Services\InvoicePdfService;
 use App\Services\MonthlyBillingService;
 use App\Support\Modules;
@@ -26,6 +27,8 @@ use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
@@ -37,6 +40,56 @@ use Illuminate\Database\Eloquent\Builder;
 
 class InvoicesTable
 {
+    /**
+     * The "which lines did this payment settle?" form (MF-06).
+     *
+     * A method rather than an inline closure so the collections can carry the `@var` annotations
+     * `Invoice::payments()` / `items()` do not — otherwise every property read here is a
+     * static-analysis error against a bare `Model`.
+     *
+     * @return array<int, \Filament\Forms\Components\Field>
+     */
+    private static function paymentSplitSchema(Invoice $record): array
+    {
+        /** @var \Illuminate\Support\Collection<int, \App\Models\Payment> $payments */
+        $payments = $record->receivedPayments()->get();
+
+        /** @var \Illuminate\Support\Collection<int, \App\Models\InvoiceItem> $items */
+        $items = $record->items;
+
+        // Read the allocation from the pivot table rather than the loaded `pivot` attribute: it is
+        // one query either way, and the relation carries no declared pivot type to read through.
+        $allocated = \Illuminate\Support\Facades\DB::table('invoice_payment')
+            ->where('invoice_id', $record->id)
+            ->pluck('allocated_amount', 'payment_id');
+
+        $options = $payments->mapWithKeys(fn (\App\Models\Payment $p): array => [
+            $p->id => $p->reference.' · EGP '
+                .number_format((float) ($allocated[$p->id] ?? 0), 2)
+                .' · '.$p->payment_date->format('d/m/Y'),
+        ])->all();
+
+        return [
+            Select::make('payment_id')
+                ->label(__('admin.resources.payment.singular'))
+                ->options($options)
+                ->native(false)
+                ->required(),
+            ...$items->map(fn (\App\Models\InvoiceItem $item): TextInput => TextInput::make("items.{$item->id}")
+                ->label($item->description)
+                ->prefix('EGP')
+                ->numeric()
+                ->minValue(0)
+                ->maxValue((float) $item->total)
+                // Blank, not prefilled: a prefilled figure is a claim about what the tenant paid
+                // for, and inventing that claim is the bug this action exists to fix.
+                ->placeholder(number_format((float) $item->total, 2))
+                ->helperText(__('admin.actions.allocate_to_lines_line_hint', [
+                    'total' => number_format((float) $item->total, 2),
+                ])))->values()->all(),
+        ];
+    }
+
     public static function configure(Table $table): Table
     {
         return $table
@@ -275,6 +328,40 @@ class InvoicesTable
                             $svc->filename($record),
                             ['Content-Type' => 'application/pdf'],
                         );
+                    }),
+                // ── Which lines did this payment settle? (MF-06) ──────────────────────────────
+                // Without this the item split exists only in the service, and the aging-by-charge-type
+                // report can only ever show the priority order's guess. The operator types what the
+                // remittance advice said — "this is the CAM, we are still arguing about the rent" —
+                // and the aging stops blaming the wrong line.
+                Action::make('allocateToLines')
+                    ->label(__('admin.actions.allocate_to_lines'))
+                    ->icon('heroicon-o-scale')
+                    ->color('gray')
+                    ->modalHeading(fn (Invoice $record) => __('admin.actions.allocate_to_lines').' · '.$record->number)
+                    ->modalDescription(__('admin.actions.allocate_to_lines_hint'))
+                    ->visible(fn (Invoice $record): bool => (auth()->user()?->can('invoices.edit') ?? false)
+                        && $record->receivedPayments()->exists())
+                    ->authorize(fn (): bool => auth()->user()?->can('invoices.edit') ?? false)
+                    ->schema(fn (Invoice $record): array => self::paymentSplitSchema($record))
+                    ->action(function (Invoice $record, array $data) {
+                        abort_unless(auth()->user()?->can('invoices.edit') ?? false, 403);
+
+                        $payment = \App\Models\Payment::findOrFail($data['payment_id']);
+
+                        try {
+                            app(AllocatePaymentToInvoiceItemsService::class)
+                                ->apply($payment, $record, $data['items'] ?? []);
+                        } catch (\DomainException $e) {
+                            Notification::make()->danger()->title($e->getMessage())->send();
+
+                            return;
+                        }
+
+                        Notification::make()
+                            ->success()
+                            ->title(__('admin.actions.allocate_to_lines_saved'))
+                            ->send();
                     }),
                 Action::make('paymentLink')
                     ->label(__('admin.actions.payment_link'))

@@ -375,7 +375,7 @@ see [07 §Sequencing risks](07-phase-plan.md).
 
 ---
 
-### MF-06 🟠 Payments allocate to invoice items
+### MF-06 ✅ Payments allocate to invoice items — **SHIPPED 2026-08-09**
 **As a** Property Accountant **I want** to record which lines a payment settles **so that** a
 disputed CAM line ages separately from the rent that was paid.
 
@@ -385,6 +385,32 @@ disputed CAM line ages separately from the rent that was paid.
   item allocation is detail beneath it, never a second truth.
 - AR aging can be grouped by item type.
 - Unallocated payments still behave exactly as today.
+
+**Shipped:** `invoice_item_payment` + `AllocatePaymentToInvoiceItemsService` + the **Payment split**
+action on the invoice, with `App\Support\InvoiceItemSettlement` as the read model.
+
+**Nothing per-item is stored as a balance, and that is the whole design.** The obvious shape — a
+settled/outstanding column on each line — would have been a second truth about the same money,
+reconciled by hand, and the first credit note applied without an item breakdown would have
+desynchronised it silently. Instead every per-line figure is DERIVED from `invoices.paid_amount`, so
+**the item outstandings always sum back to `invoices.balance`** by construction. Adding a fifth
+settlement channel later changes nothing here.
+
+**Two ways a line gets settled.** Explicitly, when the operator typed what the remittance advice
+said; and otherwise by charge-type priority, which is what Voyager does (02-yardi-money-flow.md §4).
+Atriom's order is rent → service charge → marketing → utility → parking → % rent → other → **late
+fee last**, so a partial payment is never eaten by a penalty and a disputed fee stays visible in
+aging as a fee.
+
+**Deviation from Yardi, stated:** Voyager makes that order configurable per AR settings. Atriom's is
+a constant. Nobody has asked to tune it, and a settings screen nothing reads is worse than an
+explicit constant — this project has shipped that bug twice.
+
+**A mutation test caught a false pass here.** The obvious "a refunded payment's split stops counting"
+test passed with the received-status filter deleted, because the pool had gone to zero and the
+scaling cap covered it. The case that actually needs the filter is a refunded payment *beside a live
+one* — without it, the live money spreads across both splits and reports the CAM as part-paid when it
+was paid in full. `tests/Feature/Regression/InvoiceItemAllocationTest.php`.
 
 ---
 
@@ -688,11 +714,18 @@ today's income.
 
 ---
 
-### RR-03 🟠 AR aging by charge type
+### RR-03 ✅ AR aging by charge type — **SHIPPED 2026-08-09**
 **As a** Finance Manager **I want** aging split by what is owed **so that** disputed CAM does not
 look like delinquent rent. *(Depends on MF-06.)*
 
-**Today:** `ArAging` page ages the invoice as a whole.
+**Shipped:** `ReportService::arAgingByChargeType()` + the **Aging by charge type** page, CSV and
+EN/AR. It re-buckets the same invoices `arAgingBuckets()` counts, so the grand total ties exactly;
+the per-type split comes from `InvoiceItemSettlement`, so the rows sum back to the invoice balances
+by construction rather than by a reconciliation somebody has to run.
+
+The report exists because one aging total is ambiguous. "EGP 400k over 90 days" reads as delinquent
+rent and prompts a collections call — if most of it is a service charge the tenant has formally
+disputed, the call is the wrong action and the number is the wrong alarm.
 
 ---
 

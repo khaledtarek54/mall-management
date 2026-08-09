@@ -3,6 +3,11 @@
 return [
     'errors' => [
         'charge_schedule_overlap' => 'سطر :type (:start → :end) يتداخل مع السطر القائم :other_start → :other_end. وجود سطرين يغطيان الشهر نفسه يعني احتساب الرسم مرتين — أغلق السطر الأقدم قبل بداية الأحدث بيوم.',
+        'item_allocation_payment_not_received' => 'هذه الدفعة ليست أموالًا مُحصَّلة، لذلك لا يمكنها تسوية أي بند.',
+        'item_allocation_payment_not_on_invoice' => 'هذه الدفعة غير مخصصة لهذه الفاتورة.',
+        'item_allocation_foreign_item' => 'أحد هذه البنود لا يخص هذه الفاتورة.',
+        'item_allocation_exceeds_line' => 'المبلغ المخصص لـ ":line" أكبر من البند نفسه (:total جنيه).',
+        'item_allocation_exceeds_payment' => 'مجموع البنود :total جنيه، وهو أكبر من :allocated جنيه التي دفعتها هذه الدفعة لهذه الفاتورة.',
         'charge_schedule_inverted' => 'سطر :type ينتهي (:end) قبل أن يبدأ (:start).',
         'percentage_rent_tier_overlap' => 'الشريحة :from → :to تتداخل مع الشريحة :other_from → :other_to. الشرائح المتداخلة تحتسب المبيعات نفسها مرتين — اجعل نهاية الشريحة هي بداية التالية بالضبط.',
         'percentage_rent_tier_inverted' => 'الشريحة :from → :to تنتهي عند بدايتها أو قبلها.',
@@ -889,7 +894,15 @@ return [
         'vendor_contracts_expiring' => 'عقود موردين ستنتهي خلال 30 يومًا.',
     ],
 
+    'ar_aging_by_type' => [
+        'title' => 'أعمار الذمم حسب نوع الرسم',
+        'nav_label' => 'الأعمار حسب نوع الرسم',
+        'empty' => 'لا توجد مبالغ مستحقة',
+        'empty_description' => 'لا توجد فاتورة مفتوحة عليها رصيد في هذا التاريخ.',
+    ],
     'reports' => [
+        'charge_type' => 'نوع الرسم',
+        'grand_total' => 'إجمالي المستحق',
         'csv' => [
             'export' => 'تصدير CSV',
             'account_code' => 'رمز الحساب',
@@ -1609,6 +1622,10 @@ return [
         'send_whatsapp' => 'واتساب',
         'pay_now' => 'ادفع الآن',
         'payment_link' => 'رابط الدفع',
+        'allocate_to_lines' => 'توزيع الدفعة على البنود',
+        'allocate_to_lines_hint' => 'سجّل البنود التي سدّدتها الدفعة — اترك البند فارغًا ليتبع الترتيب القياسي (الإيجار أولًا وغرامات التأخير أخيرًا).',
+        'allocate_to_lines_line_hint' => 'إجمالي البند :total جنيه',
+        'allocate_to_lines_saved' => 'تم تسجيل توزيع الدفعة.',
         'payment_link_hint' => 'شارك هذا الرابط مع العميل لدفع هذه الفاتورة عبر الإنترنت:',
         'regenerate_payment_link' => 'إنشاء رابط دفع جديد',
         'regenerate_payment_link_confirm' => 'سيتم إبطال الرابط الحالي فورًا. كل من يملك الرابط القديم — رسالة محوَّلة أو بريد مشترك أو لقطة شاشة — سيفقد الوصول، ويجب إرسال الرابط الجديد إلى العميل. استخدم هذا عند وصول الرابط إلى جهة غير مقصودة.',

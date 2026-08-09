@@ -74,6 +74,28 @@ balance = MAX(0, total - paid_amount)   /* never negative */
 
 Guarded by tests: `PaymentScenarioTest` (HAPPY, STATE-TRANSITION, BOUNDARY, NEGATIVE, STATE).
 
+### Which LINES a payment settled (MF-06)
+
+`invoice_item_payment` records an optional split of a payment across the invoice's lines, written by
+`AllocatePaymentToInvoiceItemsService` and surfaced as the **Payment split** action on the invoice.
+It moves no money and posts nothing: the payment's allocation to the invoice is already on
+`invoice_payment` and already counted by `recomputeTotals()`.
+
+**Nothing per-item is stored as a balance.** `App\Support\InvoiceItemSettlement` DERIVES every
+per-line figure from `invoices.paid_amount`, so **the item outstandings always sum back to
+`invoices.balance`**. A stored per-item balance would be a second truth about the same money, and the
+first credit note applied without an item breakdown would desynchronise it silently. This is also why
+a fifth AR settlement channel would need no change here.
+
+A line settles either **explicitly** (the operator typed what the remittance advice said) or by
+**charge-type priority** — `InvoiceItemSettlement::TYPE_PRIORITY`, rent first and **late fees last**,
+so a partial payment is never eaten by a penalty. Yardi makes that order configurable per AR
+settings; Atriom's is a constant until an operator asks (see the class docblock).
+
+Explicit rows are counted only for payments in `RECEIVED_STATUSES`. That filter matters most when a
+refunded payment sits *beside* a live one: without it the live money spreads across both splits and
+reports a line as part-paid when it was paid in full.
+
 ### Payment Allocation Guards
 1. **Cross-tenant barrier** (audit M06 F-26 / D-19): `Payment::assertInvoicesShareTenant()` throws `DomainException` if any invoice belongs to a different tenant. Called by Create/Edit pages after pivot sync; tested in `PaymentAllocationGuardsTest`.
 2. **Per-row allocation cap** (audit M06 F-25 / D-18): Form validation ensures allocated amount ≤ invoice balance (+ existing row allocation when editing). Prevents over-allocation that the total-only guard would miss.

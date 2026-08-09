@@ -3,6 +3,11 @@
 return [
     'errors' => [
         'charge_schedule_overlap' => 'This :type row (:start → :end) overlaps the existing row :other_start → :other_end. Two rows covering the same month would bill the charge twice — close the earlier row the day before the later one starts.',
+        'item_allocation_payment_not_received' => 'That payment is not received money, so it cannot settle any line.',
+        'item_allocation_payment_not_on_invoice' => 'That payment is not allocated to this invoice.',
+        'item_allocation_foreign_item' => 'One of those lines does not belong to this invoice.',
+        'item_allocation_exceeds_line' => 'The amount allocated to ":line" is more than the line itself (EGP :total).',
+        'item_allocation_exceeds_payment' => 'The lines add up to EGP :total, which is more than the EGP :allocated this payment gave the invoice.',
         'charge_schedule_inverted' => 'This :type row ends (:end) before it starts (:start).',
         'percentage_rent_tier_overlap' => 'The band :from → :to overlaps the existing band :other_from → :other_to. Overlapping bands charge the same sales twice — make them meet exactly, e.g. one ends where the next begins.',
         'percentage_rent_tier_inverted' => 'The band :from → :to ends at or before it starts.',
@@ -897,7 +902,15 @@ return [
         'vendor_contracts_expiring' => 'Vendor contracts expiring within 30 days.',
     ],
 
+    'ar_aging_by_type' => [
+        'title' => 'AR aging by charge type',
+        'nav_label' => 'Aging by charge type',
+        'empty' => 'Nothing outstanding',
+        'empty_description' => 'No open invoice carries a balance at this date.',
+    ],
     'reports' => [
+        'charge_type' => 'Charge type',
+        'grand_total' => 'Total outstanding',
         'ledger_last_synced' => 'Ledger last synced :time',
         'ledger_never_synced' => 'Ledger not yet synced — click “Post to GL now”.',
         'ledger_sync_failures' => '⚠ :count document(s) could not be posted — reopen the affected period, then “Post to GL now”.',
@@ -1617,6 +1630,10 @@ return [
         'send_whatsapp' => 'WhatsApp',
         'pay_now' => 'Pay Now',
         'payment_link' => 'Payment link',
+        'allocate_to_lines' => 'Payment split',
+        'allocate_to_lines_hint' => 'Record which lines a payment settled — leave a line blank and it follows the standard order (rent first, late fees last).',
+        'allocate_to_lines_line_hint' => 'Line total EGP :total',
+        'allocate_to_lines_saved' => 'Payment split recorded.',
         'payment_link_hint' => 'Share this link with the client to pay this invoice online:',
         'regenerate_payment_link' => 'Regenerate payment link',
         'regenerate_payment_link_confirm' => 'This immediately kills the current link. Anyone who already has the old URL — a forwarded email, a shared inbox, a screenshot — loses access, and the client must be sent the new link. Use this when a link has gone somewhere it should not have.',
