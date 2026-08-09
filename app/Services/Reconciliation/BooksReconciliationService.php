@@ -287,7 +287,10 @@ class BooksReconciliationService
         $glAr = round($this->reports->accountLedger($arAccount)['closing'], 2);
         // Exclude DRAFT invoices — the InvoiceJournalizer recognises revenue only at issue,
         // so a draft's balance is not on the GL; counting it here would raise a false AR delta.
-        $invoiceBalances = round((float) Invoice::whereNotIn('status', ['cancelled', 'credited', 'draft'])->sum('balance'), 2);
+        // 'written_off' joins the exclusions for the same reason as 'credited': the GL side has
+        // already been relieved (Dr Bad Debt / Cr AR), so counting the invoice's untouched balance
+        // here would raise a false AR delta on every written-off debt.
+        $invoiceBalances = round((float) Invoice::whereNotIn('status', ['cancelled', 'credited', 'draft', 'written_off'])->sum('balance'), 2);
         $outstandingCredits = round((float) CreditNote::whereIn('status', ['issued', 'applied'])->sum('balance'), 2);
         $expectedAr = round($invoiceBalances - $outstandingCredits, 2);
 

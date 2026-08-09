@@ -171,6 +171,14 @@ return [
         'empty' => 'No leases live on this date.',
         'empty_description' => 'The rent roll shows tenancies that had commenced and had not yet ended on the chosen day. Try another date.',
     ],
+    'write_off_reasons' => [
+        'tenant_insolvent' => 'Tenant insolvent',
+        'tenant_absconded' => 'Tenant absconded',
+        'legally_unrecoverable' => 'Legally unrecoverable',
+        'uneconomic_to_pursue' => 'Uneconomic to pursue',
+        'settled_short' => 'Settled for less',
+        'other' => 'Other',
+    ],
     'charge_schedule' => [
         'from_commencement' => 'From commencement',
         'unprojected_escalation' => 'a contracted :rate% escalation is due :date, not yet scheduled',
@@ -1357,6 +1365,8 @@ return [
     ],
 
     'actions' => [
+        'write_off_invoice' => 'Write off as bad debt',
+        'write_off_invoice_confirm' => 'This accepts the debt will not be paid. The revenue stays in the period it was earned; the loss is booked to Bad Debt Expense on the date you choose. Use this instead of voiding — voiding would reverse the revenue in the current period.',
         'cancel_blocked_captured_cash' => 'This invoice has a captured payment allocated to it, so it cannot be cancelled — the money would stop being receivable without ever being returned. Void or refund the payment first, then void the invoice.',
         'add_line' => 'Add line',
         'post_journal_entry' => 'Post',
@@ -1584,6 +1594,8 @@ return [
     ],
 
     'notifications' => [
+        'invoice_written_off' => 'Debt written off.',
+        'invoice_write_off_failed' => 'Could not write off this invoice',
         'lease_option_opening_title' => ':type window opens',
         'lease_option_opening_body' => 'Notice may now be served on the :type for :tenant (:lease, unit :unit). The window runs :earliest → :deadline.',
         'lease_option_closing_title' => ':type deadline approaching',
@@ -1743,6 +1755,9 @@ return [
     ],
 
     'fields' => [
+        'write_off_amount' => 'Amount to write off',
+        'write_off_date' => 'Write-off date',
+        'write_off_reason' => 'Reason',
         'status' => 'Status',
         'notice_given_at' => 'Notice served on',
         'area' => 'Area',
@@ -1975,6 +1990,7 @@ return [
     ],
 
     'helpers' => [
+        'write_off_date' => 'The date the loss is recognised. It posts to the general ledger on this date, so it must fall in an open accounting period.',
         'lease_option_latest_notice' => 'The deadline. After this date the right is gone — the daily scan warns ahead of it and records the option as lapsed once it passes.',
         'lease_option_encumbers' => 'Flags this unit as spoken for, so it is not promised to another tenant while the option is live.',
         'fit_out_scope' => 'The market standard is base rent only — the mall is still cleaning, securing and cooling the unit while it is fitted out, so those reimbursements normally continue. Choose Everything only if the signed lease says so.',

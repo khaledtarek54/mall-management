@@ -737,7 +737,7 @@ button reappears on a money record.
 
 Generated from `LedgerPoster::JOURNALIZERS` — the single registry all four dispatch paths
 derive from (real-time hook · `accounting:sync-ledger` sweep · close gate · `billing:reconcile`
-drift check). **21 sources.** The `entry_date` column is what the sweep windows on, and what
+drift check). **22 sources.** The `entry_date` column is what the sweep windows on, and what
 the posting-date guard checks against a closed period.
 
 | Source model | Journalizer | `entry_date` from | Posting-date guard |
@@ -763,6 +763,7 @@ the posting-date guard checks against a closed period.
 | `OwnerStatementRun` | `OwnerStatementRunJournalizer` | `posting_date` | `FinaliseOwnerStatementRunService` |
 | `Disbursement` | `DisbursementJournalizer` | `paid_on` | `DisbursementService` |
 | `TenantCreditApplication` | `TenantCreditApplicationJournalizer` | `entry_date` | _system — entry_date is deliberately stamped at application time, never the source receipt's date. That decoupling is the whole point: it lets an old overpayment settle a current invoice without ever posting into the closed period the overpayment came from._ |
+| `InvoiceWriteOff` | `InvoiceWriteOffJournalizer` | `entry_date` | `WriteOffInvoiceService` |
 <!-- /GENERATED:gl-sources -->
 
 ---

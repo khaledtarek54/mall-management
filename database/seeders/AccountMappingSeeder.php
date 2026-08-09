@@ -54,6 +54,8 @@ class AccountMappingSeeder extends Seeder
         'marketing_revenue' => '41106001',
         'late_fee_income' => '41107001',
         'misc_income' => '42101001',
+        // The P&L home of an accepted-uncollectible receivable (InvoiceWriteOffJournalizer).
+        'bad_debt_expense' => '51109001',
         'sales_returns' => '43101001',
         'salaries_expense' => '51101001',
         // Employer's social-insurance contribution (module 24, Phase 4a) — a company cost,

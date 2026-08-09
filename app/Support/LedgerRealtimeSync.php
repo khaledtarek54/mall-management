@@ -61,6 +61,7 @@ class LedgerRealtimeSync
         // Applied at application time (an open period), never the source receipt's date — that
         // decoupling is what lets an old overpayment settle a current invoice without stranding the GL.
         \App\Models\TenantCreditApplication::class => 'entry_date',
+        \App\Models\InvoiceWriteOff::class => 'entry_date',
     ];
 
     public static function register(): void

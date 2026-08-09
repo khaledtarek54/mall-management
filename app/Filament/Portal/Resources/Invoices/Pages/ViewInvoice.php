@@ -113,6 +113,6 @@ class ViewInvoice extends ViewRecord
         return Portal::isAdmin()
             && ! config('integrations.paymob.enabled')
             && (float) $this->record->balance > 0
-            && ! in_array($this->record->status, ['cancelled', 'credited'], true);
+            && ! in_array($this->record->status, ['cancelled', 'credited', 'written_off'], true);
     }
 }

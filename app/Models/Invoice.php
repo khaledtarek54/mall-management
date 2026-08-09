@@ -192,7 +192,7 @@ class Invoice extends Model
     /** Whether there is still a balance that can be collected online. */
     public function isPayable(): bool
     {
-        return ! in_array($this->status, ['cancelled', 'credited'], true)
+        return ! in_array($this->status, ['cancelled', 'credited', 'written_off'], true)
             && round((float) $this->balance, 2) > 0;
     }
 
@@ -404,7 +404,10 @@ class Invoice extends Model
         }
 
         // Auto-status: don't override manual overrides like 'cancelled' / 'credited' / 'disputed'.
-        if (! in_array($this->status, ['cancelled', 'credited', 'disputed'])) {
+        // 'written_off' joins the manual overrides: a debt accepted as uncollectible must not be
+        // dragged back to 'overdue' by the next recompute. Reversing a write-off is what re-opens
+        // it (WriteOffInvoiceService::reverse), not a side effect of recalculating a balance.
+        if (! in_array($this->status, ['cancelled', 'credited', 'disputed', 'written_off'])) {
             if ($this->balance <= 0 && $this->paid_amount > 0) {
                 $this->status = 'paid';
             } elseif ($this->paid_amount > 0) {

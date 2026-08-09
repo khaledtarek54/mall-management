@@ -49,7 +49,7 @@ class DemoPayInvoiceController extends ApiController
             abort(404);
         }
 
-        if (in_array($invoice->status, ['cancelled', 'credited'], true)) {
+        if (in_array($invoice->status, ['cancelled', 'credited', 'written_off'], true)) {
             return response()->json([
                 'message' => __('admin.notifications.pay_now_failed_body'),
                 'error' => 'invoice_not_payable',

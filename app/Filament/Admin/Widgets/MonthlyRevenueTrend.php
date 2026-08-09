@@ -56,7 +56,7 @@ class MonthlyRevenueTrend extends ChartWidget
         $billed = (clone $invoiceBase)
             ->selectRaw(''.$monthExpr('period_start').' as ym, SUM(total) as amount')
             ->whereBetween('period_start', [$start, $end])
-            ->whereNotIn('status', ['cancelled', 'credited'])
+            ->whereNotIn('status', ['cancelled', 'credited', 'written_off'])
             ->groupBy('ym')
             ->pluck('amount', 'ym');
 
@@ -79,7 +79,7 @@ class MonthlyRevenueTrend extends ChartWidget
             ->join('payments', 'payments.id', '=', 'invoice_payment.payment_id')
             ->whereIn('payments.status', Payment::RECEIVED_STATUSES)
             ->whereBetween('invoices.period_start', [$start, $end])
-            ->whereNotIn('invoices.status', ['cancelled', 'credited']);
+            ->whereNotIn('invoices.status', ['cancelled', 'credited', 'written_off']);
 
         if ($assetIds !== null) {
             $paidPerMonthQuery->join('leases', 'leases.id', '=', 'invoices.lease_id')

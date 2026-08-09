@@ -77,6 +77,7 @@ class PostingDateGuards
     public const GUARDS = [
         // --- guarded in a service (preferred) ---
         CreditNote::class => CreditNoteService::class,
+        \App\Models\InvoiceWriteOff::class => \App\Services\WriteOffInvoiceService::class,
         VendorBill::class => VendorBillService::class,
         VendorBillPayment::class => VendorBillService::class,
         Payroll::class => PayrollService::class,

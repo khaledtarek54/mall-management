@@ -26,7 +26,7 @@ class TenantStatementPdfService
 
         $invoicesAll = $tenant->invoices()
             ->with('lease.unit')
-            ->whereNotIn('status', ['cancelled', 'credited'])
+            ->whereNotIn('status', ['cancelled', 'credited', 'written_off'])
             ->when($visibleAssetIds !== null, fn ($q) => $q->whereHas('lease.unit', fn ($u) => $u->whereIn('asset_id', $visibleAssetIds)))
             ->get();
 

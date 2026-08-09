@@ -953,3 +953,36 @@ button reappears on a money record.
 | `Invoice` | **Never deletable** | cancel the invoice, or issue a credit note |
 | `Charge` | Deletable (super_admin) | configuration: a recurring billing line; issued invoices keep their own copy |
 | `InvoiceItem` | Deletable (super_admin) | parent-managed: rebuilt whenever the invoice is recomputed |
+
+---
+
+## Bad-debt write-off (2026-08-09)
+
+An uncollectible receivable had two homes before this, and **both were wrong**:
+
+- **Cancel** reverses the revenue in the *current* period — including revenue earned and recognised
+  in a prior year. The year it was actually earned ends up understated, this year overstated, and
+  the bad debt never appears as bad debt at all; it hides as a revenue reduction.
+- **Leave it** and AR aging carries fiction forever, so every collections figure lies.
+
+`WriteOffInvoiceService::write()` keeps the revenue where it was earned, credits AR, and debits
+Bad Debt Expense **dated at the decision** — [`InvoiceWriteOff`](../../app/Models/InvoiceWriteOff.php)
+is its own document with its own date, reason and author, because a column would have left the GL
+with nothing to post and no date to post it on.
+
+| Rule | Why |
+|---|---|
+| Status becomes **`written_off`**, never `cancelled` | `cancelled` means *this should never have been billed*; `written_off` means *it was rightly billed and will not be paid*. Different facts, different accounting |
+| `balance` is **left standing** | It is derived by `recomputeTotals()` from payments and applied credit, and a write-off is neither. The balance is the record of *what was written off*; the **status** is what takes it out of AR |
+| `written_off` joins the `recomputeTotals()` overrides | otherwise the next recompute drags an accepted-uncollectible debt back to `overdue` |
+| `written_off` is excluded from the **AR tie-out expectation** | the GL side has already been relieved, so counting the untouched balance would raise a false AR delta on every written-off debt (mutation-verified) |
+| A **partial** write-off leaves the invoice live | writing off 5,000 of a 20,000 debt does not mean the other 15,000 stopped being owed |
+| Reversal is a **soft-delete**, not an edit | a recovered debt; the sweep voids the entry and *both* decisions stay on the record. This is also why the model is parent-managed rather than `NEVER_DELETABLE` — classifying it `NEVER` would have broken the recovery path, the exact trap `CLAUDE.md` warns about |
+| The date is guarded in the **service** | it is operator-typed and becomes a journal `entry_date`; without the guard the row commits, the operator sees "Saved", and the entry is refused inside the best-effort sync job that only logs |
+
+Registered as a GL source (`LedgerPoster::JOURNALIZERS` + `LedgerRealtimeSync::SOURCE_DATE_COLUMNS`
++ `PostingDateGuards::GUARDS`), and its tie-out test drives the **real service and the real
+`accounting:sync-ledger` sweep** — a test that calls `LedgerPoster::post()` directly would prove
+only the journalizer's arithmetic.
+
+Tests: `tests/Feature/Regression/InvoiceWriteOffTest.php`.

@@ -20,7 +20,7 @@ class VoidInvoiceService
 {
     public function void(Invoice $invoice, ?string $reason = null): Invoice
     {
-        if (in_array($invoice->status, ['cancelled', 'credited'], true)) {
+        if (in_array($invoice->status, ['cancelled', 'credited', 'written_off'], true)) {
             return $invoice; // already terminal — nothing to do
         }
         if ($invoice->status === 'draft') {
@@ -49,7 +49,7 @@ class VoidInvoiceService
             // CreditNoteService::applyToInvoice. The blocked second void then re-reads the
             // committed 'cancelled' state and no-ops.
             $invoice = Invoice::query()->lockForUpdate()->find($invoice->id);
-            if (! $invoice || in_array($invoice->status, ['cancelled', 'credited'], true)) {
+            if (! $invoice || in_array($invoice->status, ['cancelled', 'credited', 'written_off'], true)) {
                 return $invoice; // already voided by a racing request — nothing to do
             }
             // Re-check the terminal/blocking guards under the lock (state may have moved).

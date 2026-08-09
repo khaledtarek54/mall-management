@@ -21,6 +21,7 @@ use App\Models\OwnerStatementRun;
 use App\Models\Payment;
 use App\Models\Payroll;
 use App\Models\StockMovement;
+use App\Models\InvoiceWriteOff;
 use App\Models\TenantCreditApplication;
 use App\Models\VendorBill;
 use App\Models\VendorBillPayment;
@@ -43,6 +44,7 @@ use App\Services\Accounting\Journalizers\MarketingSpendJournalizer;
 use App\Services\Accounting\Journalizers\OwnerStatementRunJournalizer;
 use App\Services\Accounting\Journalizers\PaymentJournalizer;
 use App\Services\Accounting\Journalizers\PayrollJournalizer;
+use App\Services\Accounting\Journalizers\InvoiceWriteOffJournalizer;
 use App\Services\Accounting\Journalizers\TenantCreditApplicationJournalizer;
 use App\Services\Accounting\Journalizers\VendorBillJournalizer;
 use App\Services\Accounting\Journalizers\VendorBillPaymentJournalizer;
@@ -102,6 +104,7 @@ class LedgerPoster
         OwnerStatementRun::class => OwnerStatementRunJournalizer::class,
         Disbursement::class => DisbursementJournalizer::class,
         TenantCreditApplication::class => TenantCreditApplicationJournalizer::class,
+        InvoiceWriteOff::class => InvoiceWriteOffJournalizer::class,
     ];
 
     public function __construct(

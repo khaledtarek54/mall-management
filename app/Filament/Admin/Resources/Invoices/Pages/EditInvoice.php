@@ -183,6 +183,62 @@ class EditInvoice extends EditRecord
                 }),
             // Void (cancel) an issued invoice — the supported correction now that editing is
             // locked. Reverses any applied credit + voids the GL entry; captured cash blocks it.
+            // Write off, NOT void. Voiding reverses the revenue in the current period — including
+            // revenue earned in a prior year — so the year it was actually earned is understated
+            // and the loss never appears as bad debt. A write-off keeps the revenue where it was
+            // earned and books the loss where it was recognised.
+            Action::make('write_off')
+                ->label(__('admin.actions.write_off_invoice'))
+                ->icon('heroicon-o-receipt-percent')
+                ->color('danger')
+                ->visible(fn () => (float) $this->record->balance > 0
+                    && ! in_array($this->record->status, ['draft', 'cancelled', 'written_off'], true)
+                    && (Auth::user()?->can('invoices.void') ?? false))
+                ->authorize(fn () => Auth::user()?->can('invoices.void') ?? false)
+                ->modalDescription(__('admin.actions.write_off_invoice_confirm'))
+                ->schema([
+                    \Filament\Forms\Components\TextInput::make('amount')
+                        ->label(__('admin.fields.write_off_amount'))
+                        ->numeric()
+                        ->prefix('EGP')
+                        ->minValue(0.01)
+                        // Defaults to the whole outstanding balance; a partial write-off leaves the
+                        // rest live and still collectable.
+                        ->default(fn () => (float) $this->record->balance)
+                        ->maxValue(fn () => (float) $this->record->balance)
+                        ->required(),
+                    \Filament\Forms\Components\DatePicker::make('entry_date')
+                        ->label(__('admin.fields.write_off_date'))
+                        ->native(false)
+                        ->default(now())
+                        ->required()
+                        ->helperText(__('admin.helpers.write_off_date')),
+                    \Filament\Forms\Components\Select::make('reason')
+                        ->label(__('admin.fields.write_off_reason'))
+                        ->options(collect(\App\Models\InvoiceWriteOff::REASONS)
+                            ->mapWithKeys(fn (string $r) => [$r => __("admin.write_off_reasons.{$r}")])->all())
+                        ->native(false)
+                        ->required(),
+                    Textarea::make('notes')
+                        ->label(__('admin.fields.notes'))
+                        ->maxLength(500),
+                ])
+                ->action(function (array $data): void {
+                    // action() is the real gate; visible() is the UI.
+                    abort_unless(Auth::user()?->can('invoices.void') ?? false, 403);
+
+                    try {
+                        app(\App\Services\WriteOffInvoiceService::class)->write($this->record, $data);
+                        $this->refreshFormData(['status', 'balance']);
+                        Notification::make()->title(__('admin.notifications.invoice_written_off'))->success()->send();
+                    } catch (\DomainException $e) {
+                        Notification::make()
+                            ->title(__('admin.notifications.invoice_write_off_failed'))
+                            ->body($e->getMessage())
+                            ->danger()
+                            ->send();
+                    }
+                }),
             Action::make('void_invoice')
                 ->label(__('admin.actions.void_invoice'))
                 ->icon('heroicon-o-x-circle')

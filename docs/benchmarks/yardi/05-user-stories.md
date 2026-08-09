@@ -245,7 +245,7 @@ place.
 
 ---
 
-### MF-04 🔴 Write off a bad debt as a bad debt
+### MF-04 ✅ Write off a bad debt as a bad debt — **SHIPPED 2026-08-09**
 **As a** Finance Manager **I want** to write off an uncollectible receivable **so that** the loss
 lands in bad-debt expense and the earned revenue stays in the period it was earned.
 

@@ -93,7 +93,7 @@
 | Automatic receipt application order | ✅ credits → priority → oldest | ❌ manual allocation | ➕ EXTEND | 🟡 |
 | Item-level payment allocation | ✅ (charge-level natively) | ❌ | ➕ EXTEND (MF-06) | 🟠 |
 | Line-level dispute | ✅ | ❌ invoice-level `disputed` only | ➕ EXTEND (MF-07) | 🟠 |
-| **Bad-debt write-off** | ✅ `WRTOFF` → bad-debt expense | ❌ **absent** — cancel reverses revenue in the wrong period | ➕ EXTEND (MF-04) | 🔴 |
+| **Bad-debt write-off** | ✅ `WRTOFF` → bad-debt expense | ✅ `InvoiceWriteOff` + `WriteOffInvoiceService`, own GL source, reversible (shipped 2026-08-09) | ✅ **KEEP** | ⚪ |
 | Late fees | per charge code, per-lease override | ✅ idempotent + lock-safe, but **config-global** | ➕ EXTEND (MF-08) | 🟡 |
 | Bounced / NSF | ✅ reverses + fees | ✅ `Payment.status = bounced` + module 33 PDC lifecycle | ✅ **KEEP** — no NSF fee, minor | ⚪ |
 | Bank deposit batches | ✅ | ❌ | ⏭️ **DECLINE** — PDCs and transfers dominate here (XX-06) | ⚪ |
@@ -201,7 +201,7 @@ allocations and the invoice total can ever disagree, the design is wrong.
 | Multiple books | ✅ | ❌ single book | ⏭️ **DECLINE** (XX-02) | ⚪ |
 | Charge code → GL account as data | ✅ | 🟡 `AccountMapping` (key → account, per-property override) exists, but the item-type → key map is hard-coded | ➕ EXTEND — join the two | 🟠 |
 | **Straight-line rent / deferred rent** | ✅ | ❌ revenue = as billed | ❓ **DECIDE (RA-01)**, then EXTEND (RA-02) | 🔴 |
-| Bad-debt expense | ✅ | ❌ | ➕ EXTEND (MF-04) | 🔴 |
+| Bad-debt expense | ✅ | ✅ `bad_debt_expense` role, posted by `InvoiceWriteOffJournalizer` | ✅ **KEEP** | ⚪ |
 | VAT | region packs | ✅ settings-driven, origination-only, literal-banned by a gate | ✅ KEEP | ⚪ |
 | Money-record deletion | soft controls | ✅ **refused at the model, gated in CI, with a stated reason per model** | ✅ **KEEP — exceeds the benchmark** | ⚪ |
 

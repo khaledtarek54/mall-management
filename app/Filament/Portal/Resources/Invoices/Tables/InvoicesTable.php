@@ -199,7 +199,7 @@ class InvoicesTable
                     ->visible(fn (Invoice $record) => Portal::isAdmin()
                         && ! config('integrations.paymob.enabled')
                         && (float) $record->balance > 0
-                        && ! in_array($record->status, ['cancelled', 'credited'], true))
+                        && ! in_array($record->status, ['cancelled', 'credited', 'written_off'], true))
                     ->requiresConfirmation()
                     ->modalHeading(fn (Invoice $record) => __('admin.actions.pay_now').' · '.$record->number)
                     ->modalDescription(fn (Invoice $record) => __('admin.actions.pay_demo_modal_body', [
