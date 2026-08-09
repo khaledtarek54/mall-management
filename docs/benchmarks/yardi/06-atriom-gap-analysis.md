@@ -19,6 +19,15 @@
 **Severity** — 🔴 wrong money or a blocked workflow · 🟠 real operator pain or misstatement ·
 🟡 capability gap · ⚪ cosmetic/none
 
+> **Verified against the code on 2026-08-09.** Every remaining open row in this file was checked by
+> grepping the source, not by re-reading a module doc. That pass exists because this analysis had
+> already produced **two false gaps** — CAM caps (which ship) and cumulative percentage rent (which
+> ships) — and both came from trusting documentation. Three further rows were stale in the other
+> direction: they described work this cycle had since completed.
+>
+> **A gap row is a claim about code. Check it against code.** If you add a row here, grep first and
+> say what you grepped.
+
 ---
 
 ## 1. The lease record
@@ -49,10 +58,10 @@
 | CPI / index escalation | ✅ with an index source | Skipped by design (no feed; refuses to invent a number) | ➕ EXTEND — index register + **collar**, or leave it out honestly | 🟡 |
 | Free rent / abatement | Per charge code, date-ranged, feeds straight-line | ✅ `fit_out_scope` — `rent_only` (net abatement, **default for new leases**) or `gross`; existing leases keep gross | ✅ **KEEP** — per-charge-code abatement rows remain future work | ⚪ |
 | Billing frequency | Per charge row | Per lease (`monthly`/`quarterly`/`semiannual`/`annual`), cycle-anchored, billed in advance, capped at expiry | ✅ **KEEP** — genuinely careful work | ⚪ |
-| Proration — commencement | ✅ | ✅ correct arithmetic… but **the bulk run never prorates** | ➕ EXTEND (MF-01) | 🔴 |
+| Proration — commencement | ✅ | ✅ **fixed 2026-08-08** — `billForPeriod()` passes `prorate: true`; the flag survives as the single-lease override | ✅ **KEEP** | ⚪ |
 | Proration — termination/expiry | ✅ | ❌ none | ➕ EXTEND (MF-02) | 🔴 |
-| Holdover billing | ✅ amendment at 125–200% | Alerted, never billed | ➕ EXTEND (LE-04) | 🔴 |
-| Batch review before posting | ✅ edit/delete the proposed charges before commit | Direct create; guarded by a run lock + period-overlap idempotency | ➕ EXTEND — a dry-run preview | 🟡 |
+| Holdover billing | ✅ amendment at 125–200% | Alerted + filterable, **never billed** — and the code records this as a *deferred operator decision*, not an oversight (`Lease.php:390`). Confirm the operator still wants it deferred before building | ➕ EXTEND (LE-04) — ❓ confirm first | 🟠 |
+| Batch review before posting | ✅ edit/delete the proposed charges before commit | ✅ `/admin/billing-run-preview` — a dry run computed by the same `planInvoiceForLease()` the post persists (2026-08-08). Yardi still lets you EDIT the batch; Atriom's is review-then-commit | ✅ **KEEP** | ⚪ |
 | Double-bill prevention | Batch + post month | ✅ `Cache::lock` on the period + `WithoutOverlapping` + period-overlap guard, and the manual action **contends on the same lock** | ✅ **KEEP** — triple defence, above benchmark | ⚪ |
 
 ---
@@ -131,7 +140,7 @@
 | True-up settlement | ✅ | ✅ positive bills immediately on its own invoice (correct — the lease may have ended); negative becomes a credit auto-applied FIFO | ✅ **KEEP — hard-won, do not re-open** | ⚪ |
 | **Re-estimate next year** | ✅ | ❌ and the estimate *billed* ≠ the estimate *reconciled* — two hand-kept numbers | ➕ EXTEND (RC-05) | 🟠 |
 | Tenant reconciliation statement | ✅ auditable | ❌ an invoice line | ➕ EXTEND (RC-06) | 🟠 |
-| **CAM area = summed lease area** | ✅ | ❌ **master unit only, both sides — a live money bug** | ➕ EXTEND (MF-09) — *fix independently* | 🔴 |
+| **CAM area = summed lease area** | ✅ | ✅ **fixed 2026-08-08** — `Lease::totalAreaSqm()` sums the `lease_unit` pivot on both numerator and denominator | ✅ **KEEP** | ⚪ |
 | % rent: natural + artificial breakpoint | ✅ | ✅ both | ✅ KEEP | ⚪ |
 | % rent: **cumulative YTD + annual settle-up** | ✅ | ✅ **`percentage_rent_frequency = 'annual'`** — canonical chronological marginals (`overage(YTD) − overage(prior YTD)`, each floored at 0) that sum to the year's overage, with `retrueAnnualYear()` re-attributing every month on any lock/void. Settable on the lease form. *This row said "period basis only" until 2026-08-09 — it was **WRONG**, read off a stale doc line instead of the code* | ✅ **KEEP** | ⚪ |
 | % rent: tiers | ✅ | ✅ `LeasePercentageRentTier` ladder, each band charging only the sales within it (shipped 2026-08-09) | ✅ **KEEP** | ⚪ |
