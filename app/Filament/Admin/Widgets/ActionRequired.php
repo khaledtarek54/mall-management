@@ -96,9 +96,12 @@ class ActionRequired extends Widget
         $overdueCount = $invoiceBase()->where('balance', '>', 0)->where('due_date', '<', $now)->count();
         $overdueAmount = $invoiceBase()->where('balance', '>', 0)->where('due_date', '<', $now)->sum('balance');
 
-        // Holdover: active leases PAST their end date — billing has silently stopped (rent-free
-        // holdover), so surface it prominently. Reuses Lease::scopeHoldover().
-        $holdoverCount = $leaseBase()->holdover()->count();
+        // Holdover: active leases PAST their end date whose billing has silently stopped, so
+        // surface it prominently. `holdoverNeedingAction()`, not `holdover()`: once an operator has
+        // converted the lease to holdover billing (LE-04) the decision has been made and the rent
+        // is flowing again — leaving it here would train everyone to ignore a card that never
+        // empties. The lease is still findable under the table's Holdover filter.
+        $holdoverCount = $leaseBase()->holdoverNeedingAction()->count();
 
         // Vendors are a SHARED portfolio catalog, so "whose problem is it" comes from engagement:
         // only certs on vendors under an active contract at a property this user can see. Counting

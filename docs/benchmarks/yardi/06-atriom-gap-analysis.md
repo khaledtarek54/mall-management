@@ -36,7 +36,7 @@
 |---|---|---|---|---|
 | Lease lifecycle states | Status (Future/Current/Notice/Past) **and** type (new/renewal/expansion/holdover) as separate axes | One 7-state enum; `renewed` is a *status* | ➕ EXTEND — add `lease_type` alongside status | 🟡 |
 | Occupancy as a projection of lease state | ✅ | ✅ `LeaseObserver` → `Unit::recomputeStatus()`, idempotent, observer-driven | ✅ **KEEP** — clean, and better factored than most | ⚪ |
-| Multi-unit / multi-space lease | Space links are **date-ranged**, each with its own area | `lease_unit` pivot with one `is_master`, mirrored to `leases.unit_id`; renewal carries the full set | ➕ EXTEND — pivot needs effective dates (LE-02) | 🟠 |
+| Multi-unit / multi-space lease | Space links are **date-ranged**, each with its own area | ✅ `lease_unit` carries `effective_from`/`effective_to`; `LeaseSpaceChangeService` opens and closes them, CAM apportions on time-weighted area | ✅ SHIPPED (LE-02) | ✅ |
 | Per-space rent | Rent per space, or a rate × area | One blended `base_rent_monthly` for all units | ➕ EXTEND (LS-04) | 🟡 |
 | The six dates (sign / possession / rent commencement / term commencement / expiry / move-out) | ✅ | Two: `commencement_date`, `expiry_date`; fit-out is an integer month count | ➕ EXTEND — possession + rent-commencement are the two that matter | 🟠 |
 | Area as a first-class, date-ranged number | ✅ drives rent, recoveries, breakpoints | `units.area_sqm`, static, used only by CAM | ➕ EXTEND | 🟠 |
@@ -60,7 +60,7 @@
 | Billing frequency | Per charge row | Per lease (`monthly`/`quarterly`/`semiannual`/`annual`), cycle-anchored, billed in advance, capped at expiry | ✅ **KEEP** — genuinely careful work | ⚪ |
 | Proration — commencement | ✅ | ✅ **fixed 2026-08-08** — `billForPeriod()` passes `prorate: true`; the flag survives as the single-lease override | ✅ **KEEP** | ⚪ |
 | Proration — termination/expiry | ✅ | ❌ none | ➕ EXTEND (MF-02) | 🔴 |
-| Holdover billing | ✅ amendment at 125–200% | Alerted + filterable, **never billed** — and the code records this as a *deferred operator decision*, not an oversight (`Lease.php:390`). Confirm the operator still wants it deferred before building | ➕ EXTEND (LE-04) — ❓ confirm first | 🟠 |
+| Holdover billing | ✅ amendment at 125–200% | ✅ `ConvertLeaseToHoldoverService` bills a month-to-month row at the contracted multiple (default 150%, settings-driven). Operator-confirmed, never automatic | ✅ SHIPPED (LE-04) | ✅ |
 | Batch review before posting | ✅ edit/delete the proposed charges before commit | ✅ `/admin/billing-run-preview` — a dry run computed by the same `planInvoiceForLease()` the post persists (2026-08-08). Yardi still lets you EDIT the batch; Atriom's is review-then-commit | ✅ **KEEP** | ⚪ |
 | Double-bill prevention | Batch + post month | ✅ `Cache::lock` on the period + `WithoutOverlapping` + period-overlap guard, and the manual action **contends on the same lock** | ✅ **KEEP** — triple defence, above benchmark | ⚪ |
 
@@ -70,8 +70,8 @@
 
 | Capability | Yardi | Atriom today | Verdict | Sev |
 |---|---|---|---|---|
-| Mid-term amendment as a first-class record | ✅ expansion/contraction/relocation/holdover/rent-mod, with effective date, reason, document | ❌ a sentence appended to `leases.notes` | ♻️ **REBUILD** (LE-01) | 🔴 |
-| Point-in-time reconstruction of a lease | ✅ | ❌ | follows from LE-01 | 🟠 |
+| Mid-term amendment as a first-class record | ✅ expansion/contraction/relocation/holdover/rent-mod, with effective date, reason, document | ✅ append-only `lease_events` with all five, plus abatement and termination; the `notes` append is gone | ✅ SHIPPED (LE-01) | ✅ |
+| Point-in-time reconstruction of a lease | ✅ | ✅ `Lease::eventsAsOf($date)` + the date-ranged charge schedule and premises | ✅ SHIPPED | ✅ |
 | Renewal | Amendment **or** new record (configurable) | New lease chained by `previous_lease_id`, carrying the full unit set and duplicating charges; original → `renewed` | ✅ **KEEP** — defensible and arguably cleaner for a mall. **The gap is amendments, not renewal** | ⚪ |
 | Termination | ✅ with a final account | ✅ deactivates charges, cancels only **fully-unpaid** invoices (correctly refusing partially-paid ones) | ➕ EXTEND with MF-02 + MF-03 | 🟠 |
 

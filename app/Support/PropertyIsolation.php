@@ -170,6 +170,7 @@ class PropertyIsolation
         LeaseCamTerm::class => 'lease.unit',
         \App\Models\LeaseOption::class => 'lease.unit',
         \App\Models\LeasePercentageRentTier::class => 'lease.unit',
+        \App\Models\LeaseEvent::class => 'lease.unit',
         \App\Models\InvoiceWriteOff::class => 'asset',
         Payment::class => 'invoices.lease.unit',
         CreditNote::class => 'lease.unit',

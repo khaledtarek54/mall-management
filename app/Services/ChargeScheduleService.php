@@ -190,6 +190,156 @@ class ChargeScheduleService
     }
 
     /**
+     * Overlay a BOUNDED window on a charge type's schedule, so the schedule resumes by itself
+     * afterwards (story LE-03).
+     *
+     * **The problem this solves.** A six-month rent relief was indistinguishable from a permanent
+     * rent cut: an operator changed the rent down in July and kept a diary note to change it back
+     * in January. If the diary failed, the tenant paid half rent forever and nothing in the system
+     * objected. A bounded window ends on its own date, which is the whole point.
+     *
+     * **Why it is not just "setAmount twice".** The window can span a contracted step. A relief
+     * running Jul–Dec over a schedule that steps up on 1 October must produce *two* relief rows —
+     * one per underlying segment, each derived from the amount that segment would have billed —
+     * and must resume in January at the **post-step** amount, not at the pre-July one. Closing the
+     * row in force and re-opening it after the window would silently delete that October step and
+     * under-bill the tenant for the rest of the term.
+     *
+     * So each overlapping row is trimmed around the window rather than replaced:
+     *   - spans the whole window → closed before it, and a copy re-opened after it;
+     *   - ends inside it         → simply closed before it;
+     *   - starts inside it       → its start pushed past it;
+     *   - wholly inside it       → deactivated, its money carried by the relief row that covers it.
+     *
+     * Originals are all mutated BEFORE any new row is created, so the write-time overlap guard on
+     * `Charge` never sees a moment where two rows cover one month.
+     *
+     * @param  callable(float): float  $amountFor  the relieved amount, given what the segment would have billed
+     * @return array{relief: list<Charge>, resumed: ?Charge}
+     */
+    public function overlayWindow(
+        Lease $lease,
+        string $type,
+        CarbonImmutable $from,
+        CarbonImmutable $to,
+        callable $amountFor,
+        string $origin = Charge::ORIGIN_MANUAL,
+    ): array {
+        $from = self::billingBoundary($from);
+        // The window ends at a MONTH boundary too: the engine bills one amount per type per month,
+        // so a window ending on the 10th would leave that month covered by both the relief row and
+        // the resumed one — the ambiguity `assertScheduleUnambiguous()` refuses.
+        $to = $to->endOfMonth();
+
+        if ($to->lessThan($from)) {
+            throw new \DomainException(__('admin.errors.relief_window_inverted'));
+        }
+
+        $overlapping = Charge::query()
+            ->where('lease_id', $lease->id)
+            ->where('type', $type)
+            ->where('is_active', true)
+            ->where('frequency', '!=', 'one_time')
+            ->get()
+            ->filter(function (Charge $c) use ($from, $to): bool {
+                $s = $c->start_date ? CarbonImmutable::instance($c->start_date) : null;
+                $e = $c->end_date ? CarbonImmutable::instance($c->end_date) : null;
+
+                return ! ($e && $e->lessThan($from)) && ! ($s && $s->greaterThan($to));
+            })
+            ->sortBy(fn (Charge $c) => $c->start_date?->timestamp ?? 0)
+            ->values();
+
+        if ($overlapping->isEmpty()) {
+            throw new \DomainException(__('admin.errors.relief_no_schedule', ['type' => $type]));
+        }
+
+        // Plan first, write second. Reading every segment's amount before anything is mutated is
+        // what makes the step-spanning case correct — once a row is trimmed, its amount is still
+        // there, but its dates no longer say which months it governed.
+        $plan = $overlapping->map(function (Charge $c) use ($from, $to): array {
+            $s = $c->start_date ? CarbonImmutable::instance($c->start_date) : null;
+            $e = $c->end_date ? CarbonImmutable::instance($c->end_date) : null;
+
+            return [
+                'row' => $c,
+                'segment_start' => $s && $s->greaterThan($from) ? $s : $from,
+                'segment_end' => $e && $e->lessThan($to) ? $e : $to,
+                'starts_before' => $s === null || $s->lessThan($from),
+                'ends_after' => $e === null || $e->greaterThan($to),
+                'inherited_end' => $e,
+                'amount' => (float) $c->amount,
+            ];
+        })->all();
+
+        $resumeAfter = null;
+
+        foreach ($plan as $step) {
+            /** @var Charge $row */
+            $row = $step['row'];
+
+            if ($step['starts_before'] && $step['ends_after']) {
+                $row->update(['end_date' => $from->subDay()->toDateString()]);
+                $resumeAfter = $step;
+            } elseif ($step['starts_before']) {
+                $row->update(['end_date' => $from->subDay()->toDateString()]);
+            } elseif ($step['ends_after']) {
+                $row->update(['start_date' => $to->addDay()->toDateString()]);
+            } else {
+                // Wholly inside the window: the relief row bills these months instead. Deactivated
+                // rather than deleted — the contracted step stays legible in the schedule, and the
+                // event payload names it.
+                $row->update(['is_active' => false]);
+            }
+        }
+
+        $relief = [];
+        foreach ($plan as $step) {
+            /** @var Charge $row */
+            $row = $step['row'];
+
+            $relief[] = Charge::create([
+                'lease_id' => $lease->id,
+                'name' => $row->name,
+                'type' => $type,
+                'origin' => $origin,
+                'amount' => round($amountFor($step['amount']), 2),
+                'currency' => $lease->currency ?? 'EGP',
+                'frequency' => $row->frequency,
+                'vat_applicable' => $row->vat_applicable,
+                'vat_rate' => $row->vat_rate,
+                'start_date' => $step['segment_start']->toDateString(),
+                'end_date' => $step['segment_end']->toDateString(),
+                'is_active' => true,
+            ]);
+        }
+
+        $resumed = null;
+
+        if ($resumeAfter !== null) {
+            /** @var Charge $row */
+            $row = $resumeAfter['row'];
+
+            $resumed = Charge::create([
+                'lease_id' => $lease->id,
+                'name' => $row->name,
+                'type' => $type,
+                'origin' => $origin,
+                'amount' => $resumeAfter['amount'],
+                'currency' => $lease->currency ?? 'EGP',
+                'frequency' => $row->frequency,
+                'vat_applicable' => $row->vat_applicable,
+                'vat_rate' => $row->vat_rate,
+                'start_date' => $to->addDay()->toDateString(),
+                'end_date' => $resumeAfter['inherited_end']?->toDateString(),
+                'is_active' => true,
+            ]);
+        }
+
+        return ['relief' => $relief, 'resumed' => $resumed];
+    }
+
+    /**
      * The schedule for a charge type, oldest first — the operator-facing view of "what has this
      * lease been billed, and what will it be billed".
      *

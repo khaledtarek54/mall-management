@@ -44,7 +44,15 @@ estimated_paid      = pro_rata_share_pct% * pool.total_estimated_collected
 true_up_amount      = allocated_amount - estimated_paid
 ```
 
-**In words**: Each lease's share of the pool's actual and estimated amounts is weighted by its **total** leased area — summed over every unit on the lease via the `lease_unit` pivot (`Lease::totalAreaSqm()`), not the master unit alone — as a fraction of the asset's total leased sqm. True-up is the difference: positive (tenant under-paid), negative (tenant over-paid).
+**In words**: Each lease's share of the pool's actual and estimated amounts is weighted by its **total** leased area — summed over every unit on the lease via the `lease_unit` pivot, not the master unit alone — as a fraction of the asset's total leased sqm. True-up is the difference: positive (tenant under-paid), negative (tenant over-paid).
+
+**The area is TIME-WEIGHTED over the pool year** (`Lease::totalAreaSqmForPeriod()`, 2026-08-09).
+A tenant who took an extra 300 m² on 1 November has not occupied it for the year and must not carry
+a year of its CAM; a tenant who handed 300 m² back in July must still carry the half-year they had
+it. Both sides of the fraction use the same basis, so the tie-out is untouched. **For every lease
+whose `lease_unit` rows carry no dates — all of them until an expansion or contraction is recorded
+— this is arithmetically identical to the flat total**, which is what makes the change safe for
+existing pools; `LeaseSpaceChangeTest` pins that equality.
 
 **Tests guard**:
 - `CamScenarioTest::it('generates one pro-rata allocation per active lease...')` — core math

@@ -149,7 +149,8 @@ it('an escalation raises base rent on schedule and the base_rent charge tracks i
 
     expect((float) $lease->base_rent_monthly)->toBe(10700.0)
         ->and((float) $inForce->amount)->toBe(10700.0)
-        ->and($lease->notes)->toContain('Year-2 fixed 7% escalation');
+        // The reason lives on a lease EVENT now, not appended to `leases.notes` (story LE-01).
+        ->and($lease->events()->first()?->reason)->toContain('Year-2 fixed 7% escalation');
 
     // …and the OLD rent is still readable. This is the change: a rent increase closes the
     // previous schedule row rather than overwriting its amount, so what the tenant was billed

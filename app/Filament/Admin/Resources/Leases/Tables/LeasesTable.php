@@ -7,9 +7,12 @@ use App\Filament\Exports\LeaseExporter;
 use App\Models\Lease;
 use App\Models\Tenant;
 use App\Models\Unit;
+use App\Services\ConvertLeaseToHoldoverService;
 use App\Services\LeaseCreationService;
+use App\Services\LeaseReliefService;
 use App\Services\LeaseRenewalService;
 use App\Services\LeaseRentChangeService;
+use App\Services\LeaseSpaceChangeService;
 use App\Services\LeaseTerminationService;
 use App\Support\TenantScope;
 use Carbon\Carbon;
@@ -449,10 +452,26 @@ class LeasesTable
                             ->numeric()
                             ->minValue(0)
                             ->required(),
+                        // The date the new rent TAKES EFFECT. The schedule has supported this since
+                        // phase 1 — nothing exposed it, so every operator change silently landed on
+                        // "today" and a rent agreed in advance could not be entered in advance.
+                        DatePicker::make('effective_from')
+                            ->label(__('admin.actions.change_rent_effective_from'))
+                            ->helperText(__('admin.actions.change_rent_effective_from_hint'))
+                            ->default(now()->startOfMonth())
+                            ->required(),
+                        // Required, not optional: this is where story LE-01's "a rent change cannot
+                        // happen without a reason" is enforced, because the form is the only path
+                        // with a human present to give one.
                         Textarea::make('reason')
                             ->label(__('admin.actions.change_rent_reason'))
                             ->placeholder(__('admin.actions.change_rent_reason_placeholder'))
-                            ->rows(2),
+                            ->rows(2)
+                            ->required(),
+                        TextInput::make('document_reference')
+                            ->label(__('admin.lease_events.document'))
+                            ->helperText(__('admin.lease_events.document_hint'))
+                            ->maxLength(255),
                     ])
                     ->action(function (Lease $record, array $data) {
                         try {
@@ -469,6 +488,248 @@ class LeasesTable
                                 'ref' => $updated->reference,
                                 'rent' => 'EGP '.number_format((float) $updated->base_rent_monthly, 2),
                                 'service' => 'EGP '.number_format((float) $updated->service_charge_monthly, 2),
+                            ]))
+                            ->success()
+                            ->send();
+                    }),
+                // Temporary relief (LE-03) is deliberately its own action rather than a checkbox on
+                // "Change Rent": a concession and a renegotiation are different deals with
+                // different consequences, and the whole point of the story is that the system can
+                // finally tell them apart.
+                Action::make('grantRelief')
+                    ->label(__('admin.actions.grant_relief'))
+                    ->icon('heroicon-o-receipt-percent')
+                    ->color('warning')
+                    ->visible(fn (Lease $record) => in_array($record->status, ['active', 'pending_approval'], true) && LeaseResource::canEdit($record))
+                    ->authorize(fn () => auth()->user()?->can('leases.edit') ?? false)
+                    ->modalHeading(fn (Lease $record) => __('admin.actions.grant_relief_modal_heading', ['ref' => $record->reference]))
+                    ->modalDescription(__('admin.actions.grant_relief_modal_description'))
+                    ->schema([
+                        Select::make('type')
+                            ->label(__('admin.fields.type'))
+                            ->options([
+                                'base_rent' => __('admin.fields.base_rent_monthly'),
+                                'service_charge' => __('admin.fields.service_charge_monthly'),
+                            ])
+                            ->default('base_rent')
+                            ->required(),
+                        Select::make('basis')
+                            ->label(__('admin.actions.relief_basis'))
+                            ->options([
+                                'percent' => __('admin.actions.relief_basis_percent'),
+                                'amount' => __('admin.actions.relief_basis_amount'),
+                            ])
+                            ->default('percent')
+                            ->live()
+                            ->required(),
+                        TextInput::make('percent_off')
+                            ->label(__('admin.actions.relief_percent_off'))
+                            ->suffix('%')
+                            ->numeric()
+                            ->minValue(0.01)
+                            ->maxValue(100)
+                            ->visible(fn (Get $get) => $get('basis') === 'percent')
+                            ->required(fn (Get $get) => $get('basis') === 'percent'),
+                        TextInput::make('amount')
+                            ->label(__('admin.actions.relief_amount'))
+                            ->prefix('EGP')
+                            ->numeric()
+                            ->minValue(0)
+                            ->visible(fn (Get $get) => $get('basis') === 'amount')
+                            ->required(fn (Get $get) => $get('basis') === 'amount'),
+                        DatePicker::make('from')
+                            ->label(__('admin.actions.relief_from'))
+                            ->default(now()->startOfMonth())
+                            ->required(),
+                        DatePicker::make('to')
+                            ->label(__('admin.actions.relief_to'))
+                            ->helperText(__('admin.actions.relief_to_hint'))
+                            ->required()
+                            ->after('from'),
+                        Textarea::make('reason')
+                            ->label(__('admin.actions.change_rent_reason'))
+                            ->rows(2)
+                            ->required(),
+                        TextInput::make('document_reference')
+                            ->label(__('admin.lease_events.document'))
+                            ->helperText(__('admin.lease_events.document_hint'))
+                            ->maxLength(255),
+                    ])
+                    ->action(function (Lease $record, array $data) {
+                        // The basis selector is UI only — the service takes whichever of the two
+                        // numbers was filled, so send exactly one and let it validate.
+                        $payload = $data;
+                        unset($payload['basis']);
+                        if (($data['basis'] ?? 'percent') === 'percent') {
+                            $payload['amount'] = null;
+                        } else {
+                            $payload['percent_off'] = null;
+                        }
+
+                        try {
+                            $result = app(LeaseReliefService::class)->grant($record, $payload);
+                        } catch (\InvalidArgumentException $e) {
+                            Notification::make()->danger()->title($e->getMessage())->send();
+
+                            return;
+                        }
+
+                        $reverts = $result['resumed'];
+
+                        Notification::make()
+                            ->title(__('admin.actions.relief_granted'))
+                            ->body(__('admin.actions.relief_granted_body', [
+                                'ref' => $record->reference,
+                                'amount' => 'EGP '.number_format((float) ($result['relief'][0]->amount ?? 0), 2),
+                                'until' => $result['relief'] ? end($result['relief'])->end_date->format('d/m/Y') : '—',
+                                'reverts' => $reverts
+                                    ? 'EGP '.number_format((float) $reverts->amount, 2)
+                                    : __('admin.actions.relief_no_reversion'),
+                            ]))
+                            ->success()
+                            ->send();
+                    }),
+                // Premises changes (LE-02). Space and money move on ONE date through one service —
+                // the old way was "add a pivot row, then run Change Rent", two undated steps that
+                // could disagree about when the deal changed.
+                Action::make('changePremises')
+                    ->label(__('admin.actions.change_premises'))
+                    ->icon('heroicon-o-squares-plus')
+                    ->color('info')
+                    ->visible(fn (Lease $record) => in_array($record->status, ['active', 'pending_approval'], true) && LeaseResource::canEdit($record))
+                    ->authorize(fn () => auth()->user()?->can('leases.edit') ?? false)
+                    ->modalHeading(fn (Lease $record) => __('admin.actions.change_premises_modal_heading', ['ref' => $record->reference]))
+                    ->modalDescription(__('admin.actions.change_premises_modal_description'))
+                    ->schema([
+                        Select::make('direction')
+                            ->label(__('admin.actions.premises_direction'))
+                            ->options([
+                                'expand' => __('admin.actions.premises_expand'),
+                                'contract' => __('admin.actions.premises_contract'),
+                            ])
+                            ->default('expand')
+                            ->live()
+                            ->required(),
+                        Select::make('unit_ids')
+                            ->label(__('admin.actions.premises_units'))
+                            ->multiple()
+                            ->required()
+                            // Expanding offers vacant units in THIS lease's property only —
+                            // scoped through TenantScope, never a bare Unit::all().
+                            ->options(function (Get $get, Lease $record) {
+                                if ($get('direction') === 'contract') {
+                                    return $record->unitsOn(\Carbon\CarbonImmutable::now())
+                                        ->reject(fn (Unit $u) => (int) $u->id === (int) $record->unit_id)
+                                        ->pluck('code', 'id')
+                                        ->all();
+                                }
+
+                                return Unit::query()
+                                    ->whereIn('asset_id', TenantScope::visibleAssetIds())
+                                    ->when($record->unit?->asset_id, fn ($q, $id) => $q->where('asset_id', $id))
+                                    ->whereNotIn('id', $record->units->pluck('id'))
+                                    ->orderBy('code')
+                                    ->get()
+                                    ->reject(fn (Unit $u) => $u->isActivelyLeased($record->id))
+                                    ->pluck('code', 'id')
+                                    ->all();
+                            }),
+                        DatePicker::make('effective_from')
+                            ->label(__('admin.actions.premises_effective_from'))
+                            ->helperText(__('admin.actions.premises_effective_from_hint'))
+                            ->default(now()->addMonth()->startOfMonth())
+                            ->required(),
+                        TextInput::make('new_total_rent')
+                            ->label(__('admin.actions.premises_new_total_rent'))
+                            ->helperText(__('admin.actions.premises_new_total_rent_hint'))
+                            ->prefix('EGP')
+                            ->numeric()
+                            ->minValue(0),
+                        Textarea::make('reason')
+                            ->label(__('admin.actions.change_rent_reason'))
+                            ->rows(2)
+                            ->required(),
+                        TextInput::make('document_reference')
+                            ->label(__('admin.lease_events.document'))
+                            ->helperText(__('admin.lease_events.document_hint'))
+                            ->maxLength(255),
+                    ])
+                    ->action(function (Lease $record, array $data) {
+                        $service = app(LeaseSpaceChangeService::class);
+
+                        try {
+                            $updated = ($data['direction'] ?? 'expand') === 'contract'
+                                ? $service->contract($record, $data)
+                                : $service->expand($record, $data);
+                        } catch (\InvalidArgumentException $e) {
+                            Notification::make()->danger()->title($e->getMessage())->send();
+
+                            return;
+                        }
+
+                        Notification::make()
+                            ->title(__('admin.actions.premises_changed'))
+                            ->body(__('admin.actions.premises_changed_body', [
+                                'ref' => $updated->reference,
+                                'area' => number_format($updated->totalAreaSqmOn(\Carbon\CarbonImmutable::parse($data['effective_from'])), 0),
+                                'from' => \Carbon\CarbonImmutable::parse($data['effective_from'])->startOfMonth()->format('d/m/Y'),
+                            ]))
+                            ->success()
+                            ->send();
+                    }),
+                // Holdover conversion (LE-04). Visible only on a lease that has actually expired
+                // and has not been converted — this is the action the ActionRequired card exists to
+                // prompt, and until it existed the card was the end of the story.
+                Action::make('convertToHoldover')
+                    ->label(__('admin.actions.convert_to_holdover'))
+                    ->icon('heroicon-o-clock')
+                    ->color('gray')
+                    ->requiresConfirmation()
+                    ->visible(fn (Lease $record) => $record->isHoldover() && ! $record->isConvertedHoldover() && LeaseResource::canEdit($record))
+                    ->authorize(fn () => auth()->user()?->can('leases.edit') ?? false)
+                    ->modalHeading(fn (Lease $record) => __('admin.actions.convert_to_holdover_modal_heading', ['ref' => $record->reference]))
+                    ->modalDescription(__('admin.actions.convert_to_holdover_modal_description'))
+                    ->fillForm(fn (Lease $record) => [
+                        'rate_pct' => (float) app(\App\Settings\BillingSettings::class)->holdover_default_rate_pct,
+                        // visible() already proved the lease expired, so expiry_date is present here.
+                        'effective_from' => $record->expiry_date->copy()->addDay()->startOfMonth(),
+                    ])
+                    ->schema([
+                        TextInput::make('rate_pct')
+                            ->label(__('admin.actions.holdover_rate'))
+                            ->helperText(__('admin.actions.holdover_rate_hint'))
+                            ->suffix('%')
+                            ->numeric()
+                            ->minValue(1)
+                            ->required(),
+                        DatePicker::make('effective_from')
+                            ->label(__('admin.actions.holdover_from'))
+                            ->helperText(__('admin.actions.holdover_from_hint'))
+                            ->required(),
+                        Textarea::make('reason')
+                            ->label(__('admin.actions.change_rent_reason'))
+                            ->rows(2)
+                            ->required(),
+                        TextInput::make('document_reference')
+                            ->label(__('admin.lease_events.document'))
+                            ->helperText(__('admin.lease_events.document_hint'))
+                            ->maxLength(255),
+                    ])
+                    ->action(function (Lease $record, array $data) {
+                        try {
+                            $updated = app(ConvertLeaseToHoldoverService::class)->convert($record, $data);
+                        } catch (\InvalidArgumentException $e) {
+                            Notification::make()->danger()->title($e->getMessage())->send();
+
+                            return;
+                        }
+
+                        Notification::make()
+                            ->title(__('admin.actions.holdover_converted'))
+                            ->body(__('admin.actions.holdover_converted_body', [
+                                'ref' => $updated->reference,
+                                'rent' => 'EGP '.number_format((float) $updated->base_rent_monthly, 2),
+                                'from' => $updated->holdover_from->format('d/m/Y'),
                             ]))
                             ->success()
                             ->send();

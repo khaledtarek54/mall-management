@@ -85,8 +85,12 @@ class Unit extends Model
      */
     public function isActivelyLeased(?int $excludeLeaseId = null): bool
     {
-        return $this->allLeases()
-            ->where('leases.status', 'active')
+        // NOT-YET-RELEASED, not currently-held: a future-dated expansion has already spoken for
+        // the unit even though nobody occupies it yet, and letting a second lease take it in the
+        // gap is exactly the double-booking this guard exists to stop.
+        return Lease::constrainToNotYetReleased(
+            $this->allLeases()->where('leases.status', 'active')
+        )
             ->when($excludeLeaseId, fn ($q, $id) => $q->where('leases.id', '!=', $id))
             ->exists();
     }
@@ -124,11 +128,18 @@ class Unit extends Model
             return;
         }
 
-        $statuses = $this->allLeases()->pluck('leases.status');
+        // Two questions, two predicates (LE-02). CURRENTLY HELD decides occupancy: a unit released
+        // by a contraction is vacant even though the lease that held it is still active on its
+        // remaining units. NOT YET RELEASED decides whether it is spoken for: space an expansion
+        // takes in November is not occupied in September, but it is not free either — it is
+        // RESERVED, which is what a leasing manager needs to see before marketing it.
+        $statuses = Lease::constrainToCurrentlyHeld($this->allLeases())->pluck('leases.status');
+        $committed = Lease::constrainToNotYetReleased($this->allLeases())->pluck('leases.status');
 
         $target = match (true) {
             $statuses->contains('active') => 'occupied',
             $statuses->intersect(['draft', 'pending_approval', 'renewed'])->isNotEmpty() => 'reserved',
+            $committed->intersect(['active', 'draft', 'pending_approval', 'renewed'])->isNotEmpty() => 'reserved',
             default => 'vacant',
         };
 

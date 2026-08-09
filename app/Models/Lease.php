@@ -123,6 +123,8 @@ class Lease extends Model implements HasMedia
         'status',
         'commencement_date',
         'expiry_date',
+        'holdover_rate_pct',
+        'holdover_from',
         'expiry_reminder_notified_at',
         'term_months',
         'base_rent_monthly',
@@ -171,6 +173,8 @@ class Lease extends Model implements HasMedia
         'percentage_rent_deductible_types' => 'array',
         'commencement_date' => 'date',
         'expiry_date' => 'date',
+        'holdover_rate_pct' => 'decimal:2',
+        'holdover_from' => 'date',
         'expiry_reminder_notified_at' => 'datetime',
         'next_escalation_date' => 'date',
         'billing_day' => 'date',
@@ -202,8 +206,99 @@ class Lease extends Model implements HasMedia
     public function units(): BelongsToMany
     {
         return $this->belongsToMany(Unit::class, 'lease_unit')
-            ->withPivot('is_master')
+            // The premises are date-ranged, like the rent (LE-02). NULL on either side means
+            // unbounded, which is what every pre-existing pivot row means.
+            ->withPivot('is_master', 'effective_from', 'effective_to')
             ->withTimestamps();
+    }
+
+    /**
+     * The units this lease held on a given day.
+     *
+     * @return \Illuminate\Support\Collection<int, Unit>
+     */
+    public function unitsOn(CarbonImmutable $on): \Illuminate\Support\Collection
+    {
+        $this->loadMissing('units');
+
+        /** @var \Illuminate\Support\Collection<int, Unit> $units */
+        $units = collect($this->units->all());
+
+        return $units->filter(fn (Unit $unit): bool => self::pivotCovers($unit, $on))->values();
+    }
+
+    /**
+     * Does this unit's `lease_unit` window cover the given day? NULL on either side is unbounded,
+     * which is what every pivot row written before LE-02 means.
+     *
+     * The pivot is read through `getAttribute()` rather than `->pivot` so the access is one static
+     * analysis can see; it is a dynamic relation attribute either way.
+     */
+    private static function pivotCovers(Unit $unit, CarbonImmutable $on): bool
+    {
+        [$from, $to] = self::pivotWindow($unit);
+
+        return ! ($from && $from->greaterThan($on)) && ! ($to && $to->lessThan($on));
+    }
+
+    /** @return array{0: CarbonImmutable|null, 1: CarbonImmutable|null} */
+    private static function pivotWindow(Unit $unit): array
+    {
+        $pivot = $unit->getAttribute('pivot');
+
+        $from = $pivot?->getAttribute('effective_from');
+        $to = $pivot?->getAttribute('effective_to');
+
+        return [
+            $from ? CarbonImmutable::parse($from) : null,
+            $to ? CarbonImmutable::parse($to) : null,
+        ];
+    }
+
+    /**
+     * Constrain a `lease_unit` query to the pivot rows in force TODAY (LE-02).
+     *
+     * Lives on Lease rather than Unit because `Unit::allLeases()` is a BelongsToMany whose builder
+     * resolves against THIS model — a scope on Unit is unreachable from it.
+     *
+     * The premises are date-ranged now, so a unit handed back in a contraction has a pivot row that
+     * has closed. Occupancy and the double-booking guard must read only the rows still in force, or
+     * released space stays permanently unlettable and the mall cannot re-let its own unit.
+     * `Unit::allLeases()` itself stays UNFILTERED on purpose: DeletionPolicy uses it to mean "was
+     * this unit ever leased", and a unit with history must stay undeletable forever.
+     *
+     * Every pivot row that exists today has NULL on both sides, so this matches all of them.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Eloquent\Relations\BelongsToMany  $query
+     */
+    public static function constrainToCurrentlyHeld($query)
+    {
+        $today = now()->toDateString();
+
+        return $query
+            ->where(fn ($q) => $q->whereNull('lease_unit.effective_from')->orWhere('lease_unit.effective_from', '<=', $today))
+            ->where(fn ($q) => $q->whereNull('lease_unit.effective_to')->orWhere('lease_unit.effective_to', '>=', $today));
+    }
+
+    /**
+     * Constrain a `lease_unit` query to rows that have not been RELEASED — in force today **or
+     * starting in the future**. This is the double-booking question, and it is deliberately a
+     * different predicate from {@see constrainToCurrentlyHeld()}.
+     *
+     * An expansion agreed in September to take effect in November leaves the unit unoccupied until
+     * November — so occupancy says vacant, correctly. But the space is **spoken for**, and asking
+     * the occupancy question at the booking guard would let a second lease take it in October and
+     * collide with the expansion on 1 November. Only a row whose `effective_to` has PASSED — space
+     * genuinely handed back — frees a unit.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Eloquent\Relations\BelongsToMany  $query
+     */
+    public static function constrainToNotYetReleased($query)
+    {
+        return $query->where(
+            fn ($q) => $q->whereNull('lease_unit.effective_to')
+                ->orWhere('lease_unit.effective_to', '>=', now()->toDateString())
+        );
     }
 
     /** The master unit — the lease's primary unit (= leases.unit_id). */
@@ -227,11 +322,57 @@ class Lease extends Model implements HasMedia
      */
     public function totalAreaSqm(): float
     {
-        $this->loadMissing('units');
+        return $this->totalAreaSqmOn(CarbonImmutable::now());
+    }
 
-        $fromPivot = (float) $this->units->sum(fn (Unit $unit) => (float) ($unit->area_sqm ?? 0));
+    /** The lease's total leased area as it stood on a given day (LE-02). */
+    public function totalAreaSqmOn(CarbonImmutable $on): float
+    {
+        $fromPivot = (float) $this->unitsOn($on)->sum(fn (Unit $unit) => (float) ($unit->area_sqm ?? 0));
 
         return $fromPivot > 0 ? $fromPivot : (float) ($this->unit?->area_sqm ?? 0);
+    }
+
+    /**
+     * The lease's **time-weighted** area across a period — the basis a recovery reconciliation
+     * must apportion on.
+     *
+     * A tenant who took an extra 300 m² on 1 November has not occupied it for the year, and should
+     * not carry a whole year of that space's CAM. Yardi re-bases the share from the amendment date;
+     * over an annual pool that is the same thing as weighting each unit by the days it was held.
+     *
+     * For every lease whose pivot rows are unbounded — which is all of them until an expansion or
+     * contraction is recorded — this returns exactly `totalAreaSqm()`, so nothing that exists today
+     * changes basis.
+     */
+    public function totalAreaSqmForPeriod(CarbonImmutable $start, CarbonImmutable $end): float
+    {
+        $this->loadMissing('units');
+
+        $days = $start->diffInDays($end) + 1;
+
+        if ($days <= 0) {
+            return $this->totalAreaSqmOn($start);
+        }
+
+        $weighted = 0.0;
+
+        foreach ($this->units as $unit) {
+            /** @var Unit $unit */
+            [$from, $to] = self::pivotWindow($unit);
+
+            $heldFrom = $from && $from->greaterThan($start) ? $from : $start;
+            $heldTo = $to && $to->lessThan($end) ? $to : $end;
+
+            if ($heldTo->lessThan($heldFrom)) {
+                continue;   // not held at any point in this period
+            }
+
+            $held = $heldFrom->diffInDays($heldTo) + 1;
+            $weighted += (float) ($unit->area_sqm ?? 0) * ($held / $days);
+        }
+
+        return $weighted > 0 ? round($weighted, 4) : (float) ($this->unit?->area_sqm ?? 0);
     }
 
     /**
@@ -306,6 +447,38 @@ class Lease extends Model implements HasMedia
     public function options(): HasMany
     {
         return $this->hasMany(LeaseOption::class);
+    }
+
+    /**
+     * The lease's commercial history, newest first — every dated, reasoned change (story LE-01).
+     *
+     * Newest first because that is the question the timeline answers: "what happened to this lease
+     * recently". The reconstruct-a-past-date question sorts the other way and is served by
+     * {@see eventsAsOf()}.
+     *
+     * @return HasMany<LeaseEvent, $this>
+     */
+    public function events(): HasMany
+    {
+        return $this->hasMany(LeaseEvent::class)
+            ->orderByDesc('effective_date')
+            ->orderByDesc('id');
+    }
+
+    /**
+     * The history as it stood on a past date — the auditor's view.
+     *
+     * @return \Illuminate\Support\Collection<int, LeaseEvent>
+     */
+    public function eventsAsOf(CarbonImmutable $on): \Illuminate\Support\Collection
+    {
+        return $this->events
+            ->filter(fn (LeaseEvent $e) => $e->effectiveOn()->lte($on))
+            ->sortBy([
+                fn (LeaseEvent $a, LeaseEvent $b) => $a->effective_date <=> $b->effective_date,
+                fn (LeaseEvent $a, LeaseEvent $b) => $a->id <=> $b->id,
+            ])
+            ->values();
     }
 
     public function camTerms(): HasMany
@@ -404,6 +577,23 @@ class Lease extends Model implements HasMedia
         return $query->where('status', 'active')
             ->whereNotNull('expiry_date')
             ->whereDate('expiry_date', '<', now()->toDateString());
+    }
+
+    /**
+     * Holdovers nobody has dealt with yet — the dashboard's question, which is not the same as the
+     * table filter's.
+     *
+     * `holdover()` is a STATE: past expiry, still active, still occupied. That state persists after
+     * an operator converts the lease to holdover billing, and the filter should keep showing it.
+     * The ActionRequired card asks something narrower — "what still needs a decision" — and a
+     * converted holdover has had its decision. Leaving it on the card would train operators to
+     * ignore a card that never empties.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     */
+    public function scopeHoldoverNeedingAction($query)
+    {
+        return $this->scopeHoldover($query)->whereNull('holdover_from');
     }
 
     public function isHoldover(): bool
@@ -514,14 +704,32 @@ class Lease extends Model implements HasMedia
         }
 
         // Already over: an open-ended lease (null expiry) never expires. A lease whose expiry falls
-        // before the period starts is finished — its holdover, if any, is the ActionRequired card's
-        // business, not a fresh invoice's.
+        // before the period starts is finished and bills nothing.
+        //
+        // …UNLESS an operator has converted it to holdover (story LE-04). Then the parties have
+        // continued past expiry, the tenant is in the space, and the mall bills for it from the
+        // conversion date. Before this, a held-over tenant traded rent-free and the only response
+        // was a dashboard card.
         if (filled($this->expiry_date)
-            && CarbonImmutable::instance($this->expiry_date)->lessThan($periodStart)) {
+            && CarbonImmutable::instance($this->expiry_date)->lessThan($periodStart)
+            && ! $this->isBillableHoldoverFor($periodEnd)) {
             return false;
         }
 
         return true;
+    }
+
+    /** Has this lease been converted to holdover, effective on or before the given period? */
+    public function isBillableHoldoverFor(CarbonImmutable $periodEnd): bool
+    {
+        return filled($this->holdover_from)
+            && CarbonImmutable::instance($this->holdover_from)->lessThanOrEqualTo($periodEnd);
+    }
+
+    /** Converted to holdover and still running — the state the dashboard should stop nagging about. */
+    public function isConvertedHoldover(): bool
+    {
+        return filled($this->holdover_from);
     }
 
     /**
@@ -534,8 +742,14 @@ class Lease extends Model implements HasMedia
         return $query
             ->where('status', 'active')
             ->where('commencement_date', '<=', $periodEnd)
-            ->where(function ($q) use ($periodStart) {
-                $q->whereNull('expiry_date')->orWhere('expiry_date', '>=', $periodStart);
+            ->where(function ($q) use ($periodStart, $periodEnd) {
+                $q->whereNull('expiry_date')
+                    ->orWhere('expiry_date', '>=', $periodStart)
+                    // The query half of the holdover exemption above. Kept in lockstep by hand
+                    // because that is what this pair is: two copies of "which leases bill", which
+                    // is exactly how the manual and scheduled paths drifted apart before.
+                    ->orWhere(fn ($h) => $h->whereNotNull('holdover_from')
+                        ->where('holdover_from', '<=', $periodEnd));
             });
     }
 

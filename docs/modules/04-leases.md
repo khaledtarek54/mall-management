@@ -2,6 +2,51 @@
 
 > A lease is a binding occupancy contract between a tenant and a unit (or units) with linked charges (rent + service fees), escalation terms, optional percentage rent, and a multi-state lifecycle from draft through expiry/renewal/termination.
 
+> **⚠️ Every commercial change is an EVENT now (2026-08-09, phase 2).** Phase 1 gave the rent a
+> schedule, so the system could answer *what* it was and *when* it changed. It still could not
+> answer **why** — a negotiated reduction, an expansion and a typo were all just rows with dates,
+> and the only trace of intent was a sentence appended to `leases.notes`.
+>
+> [`LeaseEvent`](../../app/Models/LeaseEvent.php) is the append-only record: *type · effective date ·
+> reason · actor · document reference · payload*. [`RecordLeaseEventService`](../../app/Services/RecordLeaseEventService.php)
+> is the one writer, and it is called **inside** each change's transaction so a change and its
+> history commit or fail together. What you must know:
+>
+> - **Events are immutable, both ways.** `updating` and `deleting` are refused at the model. An
+>   editable audit record is not an audit record; correct a mistake by recording the correcting
+>   event, the same discipline as void / credit-note on the money records.
+> - **The actor comes from the session, never from a caller.** A sweep under `artisan` has no
+>   authenticated user, so the timeline says "System" — which is true. Letting callers pass an actor
+>   would eventually put a human's name against an automated escalation.
+> - **The `leases.notes` append is gone.** `notes` is the operator's own field again.
+> - **Four services record events**: `LeaseRentChangeService` (rent_modification),
+>   `LeaseReliefService` (abatement), `ConvertLeaseToHoldoverService` (holdover),
+>   `LeaseSpaceChangeService` (expansion / contraction). A new commercial change should record one
+>   too — that is what makes the timeline complete rather than decorative.
+> - **Relief is bounded and reverts by itself.** `ChargeScheduleService::overlayWindow()` trims the
+>   underlying rows around the window instead of replacing them, so a relief spanning a contracted
+>   step produces one relief row per segment and resumes at the **post-step** amount. Contracted
+>   `base_rent_monthly` does NOT move (a concession is not a renegotiation) and the marketing levy
+>   does not follow it — unlike a rent change, where both do.
+> - **Holdover bills, but only when an operator says so.** `holdover_from` is what lets
+>   `isBillableForPeriod()` past expiry; `holdover_rate_pct` (default 150%, `BillingSettings`) is
+>   applied to the row in force **at expiry**, not to a projected step the term never reached.
+>   Nothing auto-converts — "the tenant is still in the unit" is a fact only a human knows.
+> - **The premises are date-ranged too.** `lease_unit` carries `effective_from`/`effective_to`, both
+>   NULL on every row written before this (= "held for the whole lease"). A contraction CLOSES the
+>   row, never deletes it, or the months the tenant actually held the space vanish from the next CAM
+>   reconciliation. `Unit::allLeases()` stays UNFILTERED because DeletionPolicy uses it to mean "was
+>   this unit ever leased".
+> - **"Occupied" and "leased" are now DIFFERENT questions, and mixing them double-books space.**
+>   `Lease::constrainToCurrentlyHeld()` (rows in force today) drives occupancy; a unit released by a
+>   contraction is vacant even while the lease stays active on its other units.
+>   `Lease::constrainToNotYetReleased()` (rows that have not ENDED) drives the double-booking guard,
+>   because an expansion agreed in September for 1 November has already claimed the unit — reading
+>   the occupancy question there let a second lease take it through October and collide on the day
+>   the expansion landed. Such a unit reports **`reserved`**: not occupied, not free.
+> - **The master unit cannot be given back.** It is the lease's identity (`leases.unit_id`). Moving
+>   out of it is a *relocation* — an event type with no service yet.
+
 > **⚠️ The rent is a SCHEDULE now (2026-08-08).** A benchmark against Yardi Voyager Commercial
 > found one structural defect here: this module stored the lease's *current state* and mutated it.
 > `LeaseRentChangeService` overwrote `Charge.amount` and `RentEscalationService` overwrote it again

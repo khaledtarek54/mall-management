@@ -21,6 +21,13 @@ class BillingSettings extends Settings
     public int $monthly_billing_day = 1;
     public string $monthly_billing_time = '02:00';
 
+    /**
+     * The multiple of last rent a held-over tenant pays, as a percentage. 150% is the standard
+     * Egyptian commercial default and is a deterrent by design: holdover should cost more than
+     * renewing. Per-lease terms override it — this is only what the conversion form proposes.
+     */
+    public float $holdover_default_rate_pct = 150.0;
+
     public int $cam_reconciliation_month = 1;
     public int $cam_reconciliation_day = 15;
     public string $cam_reconciliation_time = '03:00';

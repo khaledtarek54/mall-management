@@ -77,6 +77,9 @@ class LeaseResource extends Resource
             // The charge schedule first: it is what the lease bills, and phase 1 made it a
             // ladder rather than a single number.
             \App\Filament\Admin\RelationManagers\ChargeScheduleRelationManager::class,
+            // The schedule says what the rent is and when it changed; the history says why, on
+            // whose authority, and against which document (LE-01). They belong side by side.
+            \App\Filament\Admin\RelationManagers\LeaseHistoryRelationManager::class,
             \App\Filament\Admin\RelationManagers\LeaseOptionsRelationManager::class,
             \App\Filament\Admin\RelationManagers\PercentageRentTiersRelationManager::class,
             \App\Filament\Admin\RelationManagers\LeaseInvoicesRelationManager::class,

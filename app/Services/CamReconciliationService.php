@@ -56,13 +56,21 @@ class CamReconciliationService
             ? $pool->allocations()->pluck('pro_rata_share_pct', 'lease_id')
             : collect();
 
-        $totalSqm = $isRerun ? 0.0 : (float) $leases->sum(fn (Lease $l) => $l->totalAreaSqm());
+        // The pool covers a YEAR, so the area basis is the TIME-WEIGHTED area over that year
+        // (LE-02): a tenant who took an extra 300 m² on 1 November has not occupied it for the
+        // year and must not carry a whole year of its CAM. For every lease whose premises are
+        // undated — all of them until an expansion or contraction is recorded — this is identical
+        // to the flat total, so no existing pool changes basis.
+        $periodStart = CarbonImmutable::create((int) $pool->period_year, 1, 1)->startOfDay();
+        $periodEnd = $periodStart->endOfYear()->startOfDay();
+
+        $totalSqm = $isRerun ? 0.0 : (float) $leases->sum(fn (Lease $l) => $l->totalAreaSqmForPeriod($periodStart, $periodEnd));
 
         if (! $isRerun && $totalSqm <= 0) {
             return 0;
         }
 
-        return DB::transaction(function () use ($pool, $leases, $totalSqm, $isRerun, $frozenShares) {
+        return DB::transaction(function () use ($pool, $leases, $totalSqm, $isRerun, $frozenShares, $periodStart, $periodEnd) {
             $count = 0;
 
             foreach ($leases as $lease) {
@@ -73,7 +81,7 @@ class CamReconciliationService
                         continue;
                     }
                 } else {
-                    $sqm = $lease->totalAreaSqm();
+                    $sqm = $lease->totalAreaSqmForPeriod($periodStart, $periodEnd);
                     if ($sqm <= 0) {
                         continue;
                     }

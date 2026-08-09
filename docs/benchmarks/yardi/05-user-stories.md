@@ -110,7 +110,7 @@ exactly what it bills today **so that** nothing re-prices on deploy night.
 
 ## Epic LE — Lease events & amendments *(phase 2)*
 
-### LE-01 🔴 Every commercial change is a dated, reasoned event
+### LE-01 ✅ Every commercial change is a dated, reasoned event *(shipped 2026-08-09)*
 **As an** Auditor **I want** every change to a lease's money or premises recorded as an event with
 an effective date, a reason and an actor **so that** I can reconstruct the lease as it stood on any
 past date.
@@ -123,30 +123,40 @@ past date.
 - The lease view shows a chronological event timeline.
 - A rent change made through the UI **cannot** happen without producing an event.
 
-**Today:** `LeaseRentChangeService` appends a sentence to `leases.notes`. The activity log records
-the column change but not the business meaning, the effective date or the document.
+**Shipped:** append-only `lease_events` (`App\Models\LeaseEvent` + `RecordLeaseEventService`),
+written inside each change's transaction. The model refuses updates *and* deletes — an editable
+audit record is not an audit record. The `leases.notes` append is gone, and the rent-change form now
+requires a reason and exposes the effective date the schedule always supported.
 
 ---
 
-### LE-02 🟠 Mid-term expansion adds area and money from an effective date
+### LE-02 ✅ Mid-term expansion adds area and money from an effective date *(shipped 2026-08-09)*
 **As a** Leasing Manager **I want** to add a unit to a live lease effective on a date **so that**
 rent, CAM share and occupancy all change on that date and not before.
 
 **Acceptance:** the `lease_unit` pivot gains effective dates; new schedule rows open on the same
 date; CAM allocation reads the summed area (see MF-09); the event is recorded per LE-01.
 
+**Shipped:** `LeaseSpaceChangeService::expand()/contract()`. A contraction CLOSES the pivot row
+rather than deleting it, and CAM apportions on **time-weighted** area over the pool year — two
+months of extra space is not a year of it.
+
 ---
 
-### LE-03 🟠 Temporary relief that reverts by itself
+### LE-03 ✅ Temporary relief that reverts by itself *(shipped 2026-08-09)*
 **As a** Finance Manager **I want** a temporary rent reduction to carry an end date **so that** the
 original rent resumes automatically.
 
 **Acceptance:** the relief is a bounded schedule row; the original schedule resumes the day after;
 a test proves the reversion bills without human action ([S6](04-scenarios.md#s6--negotiated-mid-term-relief)).
 
+**Shipped:** `LeaseReliefService` over `ChargeScheduleService::overlayWindow()`. A window spanning a
+contracted step produces one relief row per underlying segment and resumes at the **post-step**
+amount, so the relief cannot swallow an escalation.
+
 ---
 
-### LE-04 🟠 Holdover bills
+### LE-04 ✅ Holdover bills *(shipped 2026-08-09)*
 **As a** Property Accountant **I want** an expired-but-occupied lease to bill holdover rent at the
 contracted multiple **so that** the mall is paid for the space it is providing.
 
@@ -157,7 +167,9 @@ contracted multiple **so that** the mall is paid for the space it is providing.
 - Nothing auto-converts: the operator confirms. The existing holdover **alert** becomes the prompt
   for that action rather than the end of the story.
 
-**Today:** surfaced, never billed (`Module04HoldoverAlertTest`) — see [S9](04-scenarios.md#s9--holdover).
+**Shipped:** `ConvertLeaseToHoldoverService`. The rent is a multiple of the row in force **at
+expiry**, not of a projected step the term never reached. A converted lease leaves the
+ActionRequired card (the decision is made) but stays under the table's Holdover filter.
 
 ---
 

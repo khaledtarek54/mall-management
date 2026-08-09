@@ -25,7 +25,7 @@ class LeaseRentChangeService
     public function __construct(private ChargeScheduleService $schedule) {}
 
     /**
-     * @param  array{base_rent_monthly:float, service_charge_monthly?:float|null, reason?:string|null, effective_from?:string|\DateTimeInterface|null, origin?:string|null}  $data
+     * @param  array{base_rent_monthly:float, service_charge_monthly?:float|null, reason?:string|null, document_reference?:string|null, effective_from?:string|\DateTimeInterface|null, origin?:string|null}  $data
      */
     public function apply(Lease $lease, array $data): Lease
     {
@@ -55,17 +55,9 @@ class LeaseRentChangeService
         $origin = $data['origin'] ?? Charge::ORIGIN_MANUAL;
 
         return DB::transaction(function () use ($lease, $newRent, $newService, $hasServiceUpdate, $data, $effectiveFrom, $origin) {
-            $existingNotes = $lease->notes ? rtrim($lease->notes) . "\n\n" : '';
-            $stamp = now()->format('Y-m-d');
-            $reason = isset($data['reason']) ? trim((string) $data['reason']) : '';
-            $line = $reason !== ''
-                ? "Rent updated on {$stamp}: {$reason}"
-                : "Rent updated on {$stamp}.";
+            $previousRent = (float) $lease->base_rent_monthly;
 
-            $updates = [
-                'base_rent_monthly' => $newRent,
-                'notes' => $existingNotes . $line,
-            ];
+            $updates = ['base_rent_monthly' => $newRent];
             if ($hasServiceUpdate) {
                 $updates['service_charge_monthly'] = $newService;
             }
@@ -75,7 +67,7 @@ class LeaseRentChangeService
             // date — never overwrite an amount. That is the whole point of the change; see
             // ChargeScheduleService. If no row exists yet (a lease created via the form before
             // charges were seeded), the first one is opened dated to the commencement, as before.
-            $this->schedule->setAmount($lease, 'base_rent', $newRent, $effectiveFrom, [
+            $opened = $this->schedule->setAmount($lease, 'base_rent', $newRent, $effectiveFrom, [
                 'name' => 'Base Rent',
                 'vat_applicable' => false,
                 'vat_rate' => 0,
@@ -99,6 +91,27 @@ class LeaseRentChangeService
             if ($newRent > 0) {
                 app(MarketingLevyService::class)->createLevyCharge($lease->fresh(), $effectiveFrom);
             }
+
+            // The history entry (story LE-01) — written INSIDE this transaction, so a change and
+            // its record commit or fail together. Until now this was a sentence appended to
+            // `leases.notes`: unqueryable, unreportable, unattributable, and it polluted a field
+            // operators use for their own notes. The event replaces it.
+            //
+            // No reason supplied means a sweep did this (the escalation run passes one; a bare
+            // programmatic call does not), and a factual sentence is more honest than refusing the
+            // change or storing an empty string. The FORM requires the operator to type one — that
+            // is where "a rent change cannot happen without a reason" is enforced, because that is
+            // the only path where a human is present to give one.
+            app(RecordLeaseEventService::class)->record(
+                $lease,
+                \App\Models\LeaseEvent::TYPE_RENT_MODIFICATION,
+                $effectiveFrom,
+                isset($data['reason']) && trim((string) $data['reason']) !== ''
+                    ? trim((string) $data['reason'])
+                    : 'Rent changed from ' . number_format($previousRent, 2) . ' to ' . number_format($newRent, 2) . '.',
+                RecordLeaseEventService::scheduleChangePayload('base_rent', $previousRent, $newRent, [$opened]),
+                $data['document_reference'] ?? null,
+            );
 
             return $lease->fresh();
         });

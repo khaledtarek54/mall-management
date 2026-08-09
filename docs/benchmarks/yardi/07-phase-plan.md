@@ -170,9 +170,40 @@ the byte-identical migration test and by shipping the *read* tolerance (many row
 
 ---
 
-### Phase 2 — Lease events & amendments ♻️
+### Phase 2 — Lease events & amendments ♻️ — **SHIPPED 2026-08-09**
 
-**Stories:** LE-01, LE-02, LE-03, LE-04.
+**Stories:** LE-01 ✅, LE-02 ✅, LE-03 ✅, LE-04 ✅.
+
+**What shipped**
+
+- **`lease_events`** — append-only, `type · effective_date · reason · actor · document_reference ·
+  payload`. The model refuses updates *and* deletes: an editable audit record is not an audit
+  record, and a mistake is corrected by recording the correcting event. Written INSIDE each change's
+  transaction, so a change and its history commit or fail together.
+  `LeaseRentChangeService` no longer appends prose to `leases.notes`; the reason is a queryable,
+  attributable row, and the form now requires one plus an **effective date** (which the schedule has
+  supported since phase 1 but nothing exposed — every operator rent change silently landed on
+  "today"). Timeline = `LeaseHistoryRelationManager`, read-only by construction.
+- **`ChargeScheduleService::overlayWindow()` + `LeaseReliefService`** — bounded relief that reverts
+  by itself. The hard part is a window spanning a contracted step: the relief becomes *two* rows,
+  one per underlying segment, and January resumes at the **post-step** amount. Contracted rent does
+  not move (a concession is not a renegotiation), and the marketing levy deliberately does not
+  follow it.
+- **`ConvertLeaseToHoldoverService`** — holdover bills at a multiple of the last rent in force **at
+  expiry** (not a projected step the term never reached), month to month, open-ended. Nothing
+  auto-converts; the ActionRequired card is now the prompt for an action rather than the end of the
+  story, and a converted lease drops off that card while staying under the table's Holdover filter.
+- **`lease_unit` effective dates + `LeaseSpaceChangeService`** — expansion opens a pivot row on its
+  date, contraction *closes* one (never deletes it, or the tenant's months in the space vanish from
+  the next reconciliation). CAM re-bases on **time-weighted** area over the pool year, so two months
+  of extra space is not a year of it. Released space becomes re-lettable — `Unit::isActivelyLeased()`
+  and `recomputeStatus()` now read only the pivot rows in force.
+
+**Deliberately not built:** relocation and extension exist as event types but have no dedicated
+service — neither has been asked for, and both are expressible today as a contraction plus an
+expansion, or a renewal.
+
+**Original plan below, for the record.**
 
 Append-only `lease_events`: type · effective date · reason · actor · document reference · the
 schedule rows opened and closed. Every commercial change routes through it — a rent change that
@@ -185,7 +216,10 @@ billable conversion rather than an alert.
 
 **Definition of done:** the lease view shows a timeline; a terminated lease's history is
 reconstructible at any past date; [S5](04-scenarios.md#s5--mid-term-expansion) and
-[S6](04-scenarios.md#s6--negotiated-mid-term-relief) both pass as scenario tests.
+[S6](04-scenarios.md#s6--negotiated-mid-term-relief) both pass as scenario tests. ✅ All met —
+`Lease::eventsAsOf()` answers the point-in-time question, and S5/S6/S9 are pinned in
+`tests/Feature/Regression/LeaseSpaceChangeTest.php`, `LeaseReliefTest.php` and
+`LeaseHoldoverBillingTest.php`.
 
 ---
 

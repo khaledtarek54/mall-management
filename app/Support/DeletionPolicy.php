@@ -61,6 +61,7 @@ class DeletionPolicy
         \App\Models\VendorBillPayment::class => 'void the payment — money left the bank',
         \App\Models\FixedAssetDisposal::class => 'reverse the disposal',
         \App\Models\MaintenancePenalty::class => 'waive or release the penalty — it feeds the vendor bill',
+        \App\Models\LeaseEvent::class => 'record the correcting event — a lease event is an assertion about something that happened, and the model refuses updates and deletes outright (no deletion call site exists in app/, so guarding it removes nothing that works)',
     ];
 
 
@@ -107,7 +108,10 @@ class DeletionPolicy
             // and can exist BEFORE any invoice (a deposit is taken at signing, a year of PDCs lodged
             // up front) — so an invoices/charges-only list left a lease with a deposit or lodged
             // cheque deletable, stranding the money record (pre-go-live review).
-            'blocked_by' => ['invoices', 'charges', 'salesDeclarations', 'camAllocations', 'maintenanceRequests', 'renewals', 'deposits', 'postDatedCheques'],
+            // 'events' because LeaseEvent is NEVER_DELETABLE: without it, force-deleting a lease
+            // would cascade away the very audit records this registry promises to keep — the exact
+            // shape of the Asset/financial-dimension omission found in the deletion-policy review.
+            'blocked_by' => ['invoices', 'charges', 'salesDeclarations', 'camAllocations', 'maintenanceRequests', 'renewals', 'deposits', 'postDatedCheques', 'events'],
             'instead' => 'terminate the lease — that is the documented end of a tenancy, and it keeps the billing history',
         ],
         \App\Models\Unit::class => [

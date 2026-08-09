@@ -82,7 +82,14 @@ it('updates lease columns AND the matching base_rent + service_charge Charge row
     expect(Charge::where('lease_id', $this->lease->id)->where('type', 'service_charge')->where('is_active', true)->first()->amount)
         ->toEqual(9000);
 
-    expect($this->lease->fresh()->notes)->toContain('Year-2 escalation');
+    // The reason now lands on a queryable, attributable lease EVENT rather than being appended as
+    // prose to `leases.notes` — a field operators use for their own notes (story LE-01).
+    $event = $this->lease->fresh()->events()->first();
+    expect($event)->not->toBeNull()
+        ->and($event->type)->toBe(\App\Models\LeaseEvent::TYPE_RENT_MODIFICATION)
+        ->and($event->reason)->toBe('Year-2 escalation')
+        ->and($event->payload['amount_from'])->toEqual(50000)
+        ->and($event->payload['amount_to'])->toEqual(60000);
 });
 
 it('does not touch non-rent charges on the same lease', function () {
