@@ -163,7 +163,7 @@ contracted multiple **so that** the mall is paid for the space it is providing.
 
 ## Epic OP — Options & critical dates *(phase 3 — cheapest high value)*
 
-### OP-01 🔴 Record the options in the lease
+### OP-01 ✅ Record the options in the lease — **SHIPPED 2026-08-09**
 **As a** Leasing Manager **I want** to record renewal / termination / expansion / ROFR options with
 their notice windows **so that** the contract's optionality is in the system, not only in the PDF.
 
@@ -173,7 +173,7 @@ waived) · notes. Visible on the lease and in a portfolio list.
 
 ---
 
-### OP-02 🔴 Be warned before the notice window opens, not after it shuts
+### OP-02 ✅ Be warned before the notice window opens, not after it shuts — **SHIPPED 2026-08-09**
 **As a** Leasing Manager **I want** an alert ahead of the **earliest** notice date **so that** the
 option can actually be exercised.
 

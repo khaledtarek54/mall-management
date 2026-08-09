@@ -66,6 +66,11 @@ class ChargeScheduleRelationManager extends RelationManager
             // The hard orderBy that used to live in modifyQueryUsing is gone: it was applied
             // BEFORE the table's own sort, so every column header appended a last-place sort key
             // and clicking one did nothing. Ordering belongs to the table, not to the query.
+            // No search box: Charge carries no search_text blob, so the field Filament renders by
+            // default could never match anything — a box that always returns nothing teaches an
+            // operator the data is missing. A lease's schedule is a handful of rows anyway; the
+            // type filter is the useful narrowing. (SearchPolicyConformanceTest enforces this.)
+            ->searchable(false)
             ->defaultSort('start_date', 'asc')
             ->groups([
                 Group::make('type')

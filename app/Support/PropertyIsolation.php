@@ -168,6 +168,7 @@ class PropertyIsolation
         InvoiceItem::class => 'invoice.lease.unit',
         Charge::class => 'lease.unit',
         LeaseCamTerm::class => 'lease.unit',
+        \App\Models\LeaseOption::class => 'lease.unit',
         Payment::class => 'invoices.lease.unit',
         CreditNote::class => 'lease.unit',
         CreditNoteItem::class => 'creditNote.lease.unit',

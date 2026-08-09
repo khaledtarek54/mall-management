@@ -175,6 +175,15 @@ Schedule::command('leases:remind-expiring')
     ->name('atriom-remind-expiring-leases')
     ->withoutOverlapping();
 
+// Lease-option notice windows. Runs BEFORE the expiry reminder above in the day's order for a
+// reason worth stating: the expiry reminder speaks 90 days before the lease ends, by which point a
+// typical notice window ("no later than 9 months before expiry") has been shut for months. This is
+// the alert that arrives while the leasing team can still act.
+Schedule::command('leases:scan-option-windows')
+    ->dailyAt('06:45')
+    ->name('atriom-scan-lease-option-windows')
+    ->withoutOverlapping();
+
 // Daily auto-provision of the current year's marketing budget for every
 // property (idempotent). Users never hand-create budgets — they appear here,
 // funded by the levy, and at year rollover the new year's budgets show up.

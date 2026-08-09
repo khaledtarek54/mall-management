@@ -72,8 +72,8 @@
 
 | Capability | Yardi | Atriom today | Verdict | Sev |
 |---|---|---|---|---|
-| Renewal / termination / expansion / ROFR options with notice windows | ✅ | ❌ nothing | ➕ EXTEND (OP-01) — new, but small | 🔴 |
-| Alert before the **earliest notice date** | ✅ | ❌ `leases:remind-expiring` fires 90 days before **expiry** — after the window closed | ➕ EXTEND (OP-02) | 🔴 |
+| Renewal / termination / expansion / ROFR options with notice windows | ✅ | ✅ `LeaseOption` + panel on the lease (shipped 2026-08-09) | ✅ **KEEP** | ⚪ |
+| Alert before the **earliest notice date** | ✅ | ✅ `leases:scan-option-windows` daily — opening · closing · lapsed | ✅ **KEEP** | ⚪ |
 | Space encumbrance | ✅ | ❌ | ➕ EXTEND (OP-03) | 🟠 |
 | Insurance-certificate expiry on the tenant | ✅ | 🟡 exists for **vendors** (`VendorDocument` + expiry scan); not for tenants | ➕ EXTEND — reuse the vendor pattern | 🟠 |
 | Clause abstract (co-tenancy, kick-out, exclusivity, radius) | ✅ | ❌ PDF only | ➕ EXTEND, later | 🟡 |

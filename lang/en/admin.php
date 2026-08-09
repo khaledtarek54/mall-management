@@ -108,6 +108,49 @@ return [
         'rent_only' => 'Base rent only (service charge still payable)',
         'gross' => 'Everything (rent, service charge, CAM and levy)',
     ],
+    'lease_options' => [
+        'rent_basis' => 'Rent basis',
+        'title' => 'Options & critical dates',
+        'types' => [
+            'renewal' => 'Renewal option',
+            'termination' => 'Termination (break) option',
+            'expansion' => 'Expansion option',
+            'contraction' => 'Contraction option',
+            'rofr' => 'Right of first refusal',
+            'rofo' => 'Right of first offer',
+            'purchase' => 'Purchase option',
+        ],
+        'statuses' => [
+            'open' => 'Open',
+            'exercised' => 'Exercised',
+            'lapsed' => 'Lapsed',
+            'waived' => 'Waived',
+        ],
+        'rent_bases' => [
+            'fixed' => 'Fixed rent',
+            'uplift_percent' => 'Uplift %',
+            'market' => 'Market review',
+            'cpi' => 'CPI-linked',
+        ],
+        'earliest_notice_date' => 'Notice from',
+        'latest_notice_date' => 'Notice by',
+        'window' => 'Notice window',
+        'days_left' => 'Days left',
+        'encumbers' => 'Encumbers',
+        'projected_rent' => 'Rent if exercised',
+        'penalty_amount' => 'Penalty',
+        'exercise' => 'Mark exercised',
+        'waive' => 'Mark waived',
+        'exercised_notice' => 'Option marked exercised.',
+        'waived_notice' => 'Option marked waived.',
+        'empty' => 'No options recorded on this lease.',
+        'empty_description' => 'Renewal, termination, expansion and first-refusal rights — with the window in which notice must be served. Nothing alerts on an option that is not recorded here.',
+        'window_open' => 'Open now',
+        'window_not_yet' => 'Not yet',
+        'window_closed' => 'Closed',
+        'no_deadline' => 'No deadline',
+        'action_required' => 'Lease options needing action',
+    ],
     'charge_schedule' => [
         'from_commencement' => 'From commencement',
         'unprojected_escalation' => 'a contracted :rate% escalation is due :date, not yet scheduled',
@@ -1521,6 +1564,12 @@ return [
     ],
 
     'notifications' => [
+        'lease_option_opening_title' => ':type window opens',
+        'lease_option_opening_body' => 'Notice may now be served on the :type for :tenant (:lease, unit :unit). The window runs :earliest → :deadline.',
+        'lease_option_closing_title' => ':type deadline approaching',
+        'lease_option_closing_body' => 'The :type for :tenant (:lease, unit :unit) must be exercised by :deadline — :days days left. After that the right is gone.',
+        'lease_option_lapsed_title' => ':type has lapsed',
+        'lease_option_lapsed_body' => 'The notice window for the :type on :lease (:tenant, unit :unit) closed on :deadline without notice being served. It is now recorded as lapsed.',
         // Shared by every bell alert that is ALSO emailed (AlsoSendsByMail) — the mail reuses the
         // bell's own title/body, so only the button and a fallback subject are new strings.
         'mail_open_cta' => 'Open Atriom',
@@ -1674,6 +1723,8 @@ return [
     ],
 
     'fields' => [
+        'status' => 'Status',
+        'notice_given_at' => 'Notice served on',
         'area' => 'Area',
         'area_auto' => 'Inherited from the unit',
         'purchase_request' => 'Purchase (clears GRNI)',
@@ -1904,6 +1955,8 @@ return [
     ],
 
     'helpers' => [
+        'lease_option_latest_notice' => 'The deadline. After this date the right is gone — the daily scan warns ahead of it and records the option as lapsed once it passes.',
+        'lease_option_encumbers' => 'Flags this unit as spoken for, so it is not promised to another tenant while the option is live.',
         'fit_out_scope' => 'The market standard is base rent only — the mall is still cleaning, securing and cooling the unit while it is fitted out, so those reimbursements normally continue. Choose Everything only if the signed lease says so.',
         'bill_purchase_request' => 'Link this bill to the purchase it pays for, and its goods clear Goods Received Not Invoiced instead of charging the expense a second time — the receipt already took the stock into Inventory. Leave empty for a general expense. Only received purchases from the same vendor and property are listed.',
         'inventory_unit_cost' => 'The standard cost used to value every consumption and write-off of this item. It must be positive: at 0 the stock would leave the warehouse without posting anything to the ledger, and a part draw would ask the approval ladder for its lowest tier.',

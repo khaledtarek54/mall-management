@@ -663,3 +663,44 @@ button reappears on a money record.
 | Model | Rule | Instead / why |
 |---|---|---|
 | `Lease` | **Only while unreferenced** — blocked by `invoices`, `charges`, `salesDeclarations`, `camAllocations`, `maintenanceRequests`, `renewals`, `deposits`, `postDatedCheques` | terminate the lease — that is the documented end of a tenancy, and it keeps the billing history |
+
+---
+
+## Options & critical dates (2026-08-09)
+
+A commercial lease is a bundle of options, and options are money. Atriom recorded none of them: a
+renewal right at a contracted uplift existed only inside the uploaded PDF, so nothing could alert
+on it, report it, or stop the space being promised to somebody else.
+
+**The gap that made this urgent.** The only lease-date alert was `leases:remind-expiring`, firing
+90 days before **expiry**. A typical clause reads *"notice no earlier than 12 and no later than 9
+months before expiry"* — so that reminder arrived three to six months **after** the right had
+already been lost. The system reliably spoke too late to act, which is worse than not speaking: it
+feels like coverage.
+
+| Piece | What it does |
+|---|---|
+| [`LeaseOption`](../../app/Models/LeaseOption.php) | renewal · termination · expansion · contraction · ROFR · ROFO · purchase, each with **both ends** of its notice window, the rent basis it would produce, a termination penalty, and the unit it encumbers |
+| [`LeaseOptionsRelationManager`](../../app/Filament/Admin/RelationManagers/LeaseOptionsRelationManager.php) | the panel on the lease, sorted **soonest deadline first**, with a live days-left badge and Exercise / Waive actions |
+| `leases:scan-option-windows` (daily 06:45) | alerts **before the window opens**, **before it closes**, and records a missed one as **lapsed** |
+
+**Three moments, not one**, because each needs a different action: *opening* → start the
+conversation; *closing* → decide; *lapsed* → stop planning around a right that is gone.
+
+### Rules worth knowing before you change this
+
+- **An option not recorded here is an option nothing will ever remind anyone about.** The scan reads
+  these rows and nothing else.
+- **Encumbrance only applies while an option is OPEN.** An exercised, waived or lapsed option ties
+  up nothing — treating it as if it did would block space the mall is free to let.
+- **`projectedRent()` refuses to invent a number.** A `market` review needs a valuation and `cpi`
+  needs an index feed, so both return null — the same rule the escalation sweep follows.
+- Idempotent + lock-safe like every other scheduled scan: row-locked, stamp re-checked **inside**
+  the transaction. Delivery failures warn but still stamp, because the panel reads the window live
+  and independently of the stamps — a dropped email cannot make a deadline invisible.
+- Write access rides on `leases.edit`, gated in **both** `visible()` and the action closure
+  (mutation-verified).
+
+**Still open:** the encumbrance is recorded but not yet surfaced in the unit picker when letting a
+space (OP-03), and there is no portfolio-wide critical-dates work-list (UX-09) — today the alerts
+are the delivery mechanism.

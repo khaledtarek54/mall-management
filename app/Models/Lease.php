@@ -284,6 +284,12 @@ class Lease extends Model implements HasMedia
         return $this->hasMany(Charge::class);
     }
 
+    /** Options recorded on this lease — renewal, termination, expansion, first refusal. */
+    public function options(): HasMany
+    {
+        return $this->hasMany(LeaseOption::class);
+    }
+
     public function camTerms(): HasMany
     {
         return $this->hasMany(LeaseCamTerm::class);

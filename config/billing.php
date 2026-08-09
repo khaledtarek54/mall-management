@@ -45,4 +45,11 @@ return [
     | widget window. Each lease reminds once (expiry_reminder_notified_at).
     */
     'lease_expiry_reminder_days' => env('LEASE_EXPIRY_REMINDER_DAYS', 90),
+
+    /*
+     * Days of warning before a lease-option notice window opens or closes. 30 by default: enough
+     * to get a decision made, short enough that the alert still feels like news. The window itself
+     * is on the option, not here — this is only the run-up.
+     */
+    'lease_option_notice_lead_days' => (int) env('LEASE_OPTION_NOTICE_LEAD_DAYS', 30),
 ];
