@@ -49,3 +49,5 @@ Thumbs.db
 
 
 ca.pem
+# Ephemeral agent worktrees — a nested git repo, never part of this one.
+.claude/worktrees/
