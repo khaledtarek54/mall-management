@@ -136,7 +136,7 @@ Sequenced so that each one is shippable on its own and each unlocks the next. Ef
 
 ### Phase 1 — The charge schedule ♻️ *(the foundation — everything else waits on this)*
 
-**Stories:** LS-01, LS-02, LS-03, LS-06 · then LS-04, LS-05 if Q2 says so.
+**Stories:** LS-01, LS-02, LS-03, LS-06 · then LS-04, LS-05 *(both shipped — Q2 was answered from the Yardi standard: rent is priced per m² there, so Atriom offers it too, with `flat` as the default so nothing existing re-prices)*.
 
 **What changes**
 

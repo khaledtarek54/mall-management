@@ -131,7 +131,8 @@ class RentRoll extends Page implements HasSchemas, HasTable
                         __('admin.tables.lease.reference'), __('admin.rent_roll.area'),
                         __('admin.fields.commencement_date'), __('admin.fields.expiry_date'),
                         __('admin.rent_roll.months_remaining'), __('admin.rent_roll.base_rent'),
-                        __('admin.rent_roll.per_sqm'), __('admin.fields.service_charge_monthly'),
+                        __('admin.rent_roll.per_sqm'), __('admin.rent_roll.contracted_rate_header'),
+                        __('admin.fields.service_charge_monthly'),
                         __('admin.rent_roll.marketing'), __('admin.rent_roll.total_monthly'),
                         __('admin.fields.escalation_rate'), __('admin.rent_roll.next_step'),
                         __('admin.rent_roll.next_option'), __('admin.fields.security_deposit'),
@@ -141,6 +142,7 @@ class RentRoll extends Page implements HasSchemas, HasTable
                         $r['units'], $r['tenant'], $r['reference'], $r['area_sqm'],
                         $r['commencement_date']?->toDateString(), $r['expiry_date']?->toDateString(),
                         $r['months_remaining'], $r['base_rent'], $r['rent_per_sqm_year'],
+                        $r['contracted_rate_per_sqm_year'],
                         $r['service_charge'], $r['marketing'], $r['total_monthly'],
                         $r['escalation_rate'],
                         $r['next_step_date'] ? $r['next_step_date']->toDateString().' → '.$r['next_step_amount'] : '',
@@ -199,7 +201,16 @@ class RentRoll extends Page implements HasSchemas, HasTable
                     ->numeric(2)
                     ->alignEnd()
                     // The number that lets two deals be compared at all.
-                    ->placeholder('—'),
+                    ->placeholder('—')
+                    // On a rate-priced lease (LS-04) the contracted rate sits underneath, so a gap
+                    // between signed and effective — an abatement, a step, a hand edit — is visible
+                    // rather than something you would have to open the lease to find.
+                    ->description(fn (array $record): ?string => $record['contracted_rate_per_sqm_year']
+                        && round((float) $record['contracted_rate_per_sqm_year'], 2) !== round((float) $record['rent_per_sqm_year'], 2)
+                            ? __('admin.rent_roll.contracted_rate', [
+                                'rate' => number_format((float) $record['contracted_rate_per_sqm_year'], 2),
+                            ])
+                            : null),
                 TextColumn::make('total_monthly')
                     ->label(__('admin.rent_roll.total_monthly'))
                     ->money('EGP')

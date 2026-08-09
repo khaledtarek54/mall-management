@@ -37,7 +37,7 @@
 | Lease lifecycle states | Status (Future/Current/Notice/Past) **and** type (new/renewal/expansion/holdover) as separate axes | One 7-state enum; `renewed` is a *status* | ➕ EXTEND — add `lease_type` alongside status | 🟡 |
 | Occupancy as a projection of lease state | ✅ | ✅ `LeaseObserver` → `Unit::recomputeStatus()`, idempotent, observer-driven | ✅ **KEEP** — clean, and better factored than most | ⚪ |
 | Multi-unit / multi-space lease | Space links are **date-ranged**, each with its own area | ✅ `lease_unit` carries `effective_from`/`effective_to`; `LeaseSpaceChangeService` opens and closes them, CAM apportions on time-weighted area | ✅ SHIPPED (LE-02) | ✅ |
-| Per-space rent | Rent per space, or a rate × area | One blended `base_rent_monthly` for all units | ➕ EXTEND (LS-04) | 🟡 |
+| Per-space rent | Rent per space, or a rate × area | Flat amount **or** EGP/m²/yr, re-derived when the area moves | ✅ CLOSED (LS-04) | 🟢 |
 | The six dates (sign / possession / rent commencement / term commencement / expiry / move-out) | ✅ | Two: `commencement_date`, `expiry_date`; fit-out is an integer month count | ➕ EXTEND — possession + rent-commencement are the two that matter | 🟠 |
 | Area as a first-class, date-ranged number | ✅ drives rent, recoveries, breakpoints | `units.area_sqm`, static, used only by CAM | ➕ EXTEND | 🟠 |
 | Double-booking prevention | ✅ | ✅ `lockForUpdate()` on the **contended unit row** in both activation paths, with a standing test that the lock is still there | ✅ **KEEP** — this is better than the benchmark deserves credit for | ⚪ |

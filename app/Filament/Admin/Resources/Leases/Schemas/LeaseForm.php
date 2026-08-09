@@ -14,7 +14,9 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Tabs;
+use Filament\Forms\Components\Radio;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 
 class LeaseForm
@@ -140,7 +142,10 @@ class LeaseForm
                                     __("admin.statuses.unit.{$u->status}"),
                                     $u->isEncumbered($record?->id) ? ' · ⚠ '.__('admin.lease_options.encumbered') : '',
                                 )]);
-                        }),
+                        })
+                        // Live so a rate-priced lease re-derives its rent the moment the let area
+                        // changes (LS-04) — the operator sees the money move as they pick space.
+                        ->live(),
                     Select::make('tenant_id')
                         ->label(__('admin.resources.tenant.singular'))
                         // Scope the picker to tenants in the user's visible properties
@@ -205,17 +210,55 @@ class LeaseForm
                     // Charge.amount stays in sync (audit M04 F-20 / D-13). On
                     // Create the LeaseObserver seeds the charges from these
                     // values, so they remain editable here.
+                    // ── How the rent is priced (LS-04) ────────────────────────────────────────
+                    // Commercial rent is negotiated per m² per year almost everywhere, and until
+                    // now `units.area_sqm` priced nothing. Choosing `rate` makes the monthly figure
+                    // DERIVED — which is what lets an expansion re-price the lease by itself, and
+                    // lets two deals be compared on the only basis that makes them comparable.
+                    Radio::make('rent_pricing_basis')
+                        ->label(__('admin.fields.rent_pricing_basis'))
+                        ->options(fn () => __('admin.enums.rent_pricing_basis'))
+                        ->default(Lease::RENT_FLAT)
+                        ->inline()
+                        ->inlineLabel(false)
+                        ->live()
+                        ->afterStateUpdated(fn (Get $get, Set $set) => self::deriveRentInto($get, $set))
+                        ->disabled(fn (string $operation): bool => $operation === 'edit')
+                        ->dehydrated()
+                        ->helperText(__('admin.helpers.rent_pricing_basis')),
+                    TextInput::make('base_rent_rate_per_sqm_year')
+                        ->label(__('admin.fields.base_rent_rate_per_sqm_year'))
+                        ->prefix('EGP')
+                        ->suffix('/m²/'.__('admin.fields.per_year_suffix'))
+                        ->numeric()
+                        ->minValue(0)
+                        ->live(onBlur: true)
+                        ->afterStateUpdated(fn (Get $get, Set $set) => self::deriveRentInto($get, $set))
+                        ->required(fn (Get $get): bool => $get('rent_pricing_basis') === Lease::RENT_RATE)
+                        ->visible(fn (Get $get): bool => $get('rent_pricing_basis') === Lease::RENT_RATE)
+                        ->disabled(fn (string $operation): bool => $operation === 'edit')
+                        ->dehydrated()
+                        ->helperText(fn (Get $get): string => __('admin.helpers.base_rent_rate_per_sqm_year', [
+                            'area' => number_format(self::formArea($get), 2),
+                        ])),
                     TextInput::make('base_rent_monthly')
                         ->label(__('admin.fields.base_rent_monthly'))
                         ->prefix('EGP')
                         ->numeric()
-                        ->required()
+                        ->required(fn (Get $get): bool => $get('rent_pricing_basis') !== Lease::RENT_RATE)
                         ->minValue(0)
-                        ->disabled(fn (string $operation): bool => $operation === 'edit')
+                        // Read-only on Edit (rent changes go through the "Change rent" action so the
+                        // schedule stays in step), and read-only on a rate-priced lease because it
+                        // is derived — `Lease::deriveBaseRentFromRate()` is the authority either way.
+                        ->disabled(fn (string $operation, Get $get): bool => $operation === 'edit'
+                            || $get('rent_pricing_basis') === Lease::RENT_RATE)
                         ->dehydrated()
-                        ->helperText(fn (string $operation): string => $operation === 'edit'
-                            ? __('admin.helpers.base_rent_monthly_edit_lock')
-                            : __('admin.helpers.base_rent_monthly')),
+                        ->dehydrateStateUsing(fn ($state) => $state ?? 0)
+                        ->helperText(fn (string $operation, Get $get): string => match (true) {
+                            $operation === 'edit' => __('admin.helpers.base_rent_monthly_edit_lock'),
+                            $get('rent_pricing_basis') === Lease::RENT_RATE => __('admin.helpers.base_rent_monthly_derived'),
+                            default => __('admin.helpers.base_rent_monthly'),
+                        }),
                     TextInput::make('service_charge_monthly')
                         ->label(__('admin.fields.service_charge_monthly'))
                         ->prefix('EGP')
@@ -445,5 +488,45 @@ class LeaseForm
             ])->columns(1),
                 ]),
         ]);
+    }
+
+    /**
+     * The area the form is currently letting — master unit plus any additional ones (LS-04).
+     *
+     * Read from the FORM rather than the saved lease so the derived rent tracks the space the
+     * operator is picking right now, before anything is written.
+     */
+    private static function formArea(Get $get): float
+    {
+        $ids = array_filter(array_merge(
+            [$get('unit_id')],
+            (array) ($get('additional_unit_ids') ?? []),
+        ));
+
+        if ($ids === []) {
+            return 0.0;
+        }
+
+        // Clamped, like every other query keyed on a client-supplied unit id here: this runs on
+        // `afterStateUpdated`, BEFORE validation, so a posted id from another property would
+        // otherwise have its area readable through the rent the form derives from it.
+        return (float) Unit::whereIn('id', $ids)
+            ->when(TenantScope::visibleAssetIds(), fn ($q, $assetIds) => $q->whereIn('asset_id', $assetIds))
+            ->sum('area_sqm');
+    }
+
+    /** Show the monthly rent a per-m² rate implies, live, as the deal is typed. */
+    private static function deriveRentInto(Get $get, Set $set): void
+    {
+        if ($get('rent_pricing_basis') !== Lease::RENT_RATE) {
+            return;
+        }
+
+        $area = self::formArea($get);
+        $rate = (float) $get('base_rent_rate_per_sqm_year');
+
+        if ($area > 0 && $rate > 0) {
+            $set('base_rent_monthly', round($rate * $area / 12, 2));
+        }
     }
 }

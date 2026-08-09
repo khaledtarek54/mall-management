@@ -185,6 +185,8 @@ Leases model the core revenue instrument of Egyptian mall operations. They bind 
 | | | `expiry_reminder_notified_at` (timestamp, nullable) | Idempotency stamp for the tenant lease-expiry reminder (`leases:remind-expiring`); NULL until the tenant has been reminded once for this lease's expiry. |
 | | | `term_months` (unsigned small int) | Contract duration in months (1–120). |
 | | | `base_rent_monthly` (decimal 12,2) | Monthly rent amount (EGP), before VAT. Core revenue stream. Read-only on edit; changed via `LeaseRentChangeService::apply()` to keep `Charge.amount` synchronized. |
+| | | `rent_pricing_basis` (string, NOT NULL, default `flat`) | How the rent was priced: `flat` (a typed monthly amount) or `rate` (EGP/m²/year). `flat` is the column default, so no lease written before LS-04 re-prices. |
+| | | `base_rent_rate_per_sqm_year` (decimal 12,2, nullable) | The contracted rate, where the lease is priced per m². `Lease::deriveBaseRentFromRate()` turns it into the monthly figure; the model enforces it on save so no writer can drift. |
 | | | `service_charge_monthly` (decimal 12,2) | Monthly service charge (EGP), VAT-applicable (14% in Egypt). Default 0. |
 | | | `has_marketing_levy` (boolean, NOT NULL, default **true**) | Whether the tenant pays the marketing-fund contribution (a `marketing` charge = % of base rent, billed monthly). Default true preserves today's behaviour; turn off for tenants who negotiated out. Carried forward on renewal. |
 | | | `marketing_levy_rate` (decimal 5,2, nullable) | Per-lease override of the marketing levy %. Blank = the mall default (`MarketingSettings`, 5%). Carried forward on renewal. |
@@ -227,6 +229,7 @@ Leases model the core revenue instrument of Egyptian mall operations. They bind 
 | **Master unit is authoritative & mirrored.** `leases.unit_id` always = the `is_master=true` unit in the `lease_unit` pivot. Single-unit code paths rely on this. | `LeaseObserver::ensureMasterPivot()` syncs the pivot; `Lease::syncUnits()` updates both pivot and `unit_id`. | `MultiUnitLeaseTest::mirrors_single_unit`, `demotes_the_old_master_and_mirrors_*` |
 | **Only one active lease per unit at a time.** Prevents double-booking. | Filament form validation + guard in `LeaseCreationService::create()`. | `LeaseForm::unit_id` rule checks uniqueness on status='active'. |
 | **Rent charges are VAT-exempt; service charges carry 14% VAT.** Egyptian tax rule. | `LeaseCreationService::seedStandardCharges()` creates: base_rent with `vat_applicable=false`, service with `vat_applicable=true, vat_rate=Vat::standardRate()` (settings-driven). | `LeaseLifecycleScenarioTest::creation_seeds_VAT_exempt_rent_*` |
+| **A rate-priced lease re-derives its own rent when the let area moves.** Commercial rent is negotiated per m² almost everywhere; recomputing `area × rate ÷ 12` by hand is how the wrong rent gets billed for the rest of a term. | `Lease::deriveBaseRentFromRate()` is the single authority, enforced in the model's `saving` hook so a form, an import or a future screen cannot disagree with it. `LeaseSpaceChangeService::applyRentChange()` falls back to it when the caller states no rent. A stated `new_total_rent` still wins — a blended rate for enlarged premises is a real negotiation. | `RateBasedRentTest` |
 | **Lease.base_rent_monthly & Charge.amount stay synchronized.** Prevents billing-amount drift between UI display and actual invoice generation. | `LeaseRentChangeService::apply()` updates both Lease field AND the matching Charge row(s). Form edit disables rent fields; only the service method changes them. | `LeaseRentChangeService` tests; `LeaseLifecycleScenarioTest::escalation_raises_base_rent_*` |
 | **Terminal leases are immutable.** Once `terminated`/`expired`/`cancelled`/`renewed`, a lease's commercial + state fields can't change (only notes/metadata + soft-delete/restore). Stops a terminated lease being re-opened and re-priced via the Edit form. | `Lease::updating` blocks any dirty field outside the allow-list once the ORIGINAL status is terminal (the transition INTO terminal is allowed); `EditLease` halts with a notice. | `Module04LeaseIntegrityTest` |
 | **Renewal carries forward the full unit set.** Multi-unit lease renewal does NOT drop additional units. | `LeaseRenewalService::renew()` calls `syncUnits()` with the original's full unit set. | `MultiUnitLeaseRenewalTest::renews_a_multi_unit_lease_carrying_*` |
@@ -423,7 +426,9 @@ the tab's own fields at render time, so it cannot drift from what the tab contai
    - `expiry_date` (DatePicker, required).
 
 3. **Financial Terms** (3 cols)
-   - `base_rent_monthly` (TextInput, numeric, ≥0, required; disabled on edit, dehydrated) — read-only on edit to enforce use of LeaseRentChangeService.
+   - `rent_pricing_basis` (Radio: flat | rate; disabled on edit) — choosing `rate` reveals the rate field and makes the monthly figure derived.
+   - `base_rent_rate_per_sqm_year` (TextInput, EGP/m²/yr; required + visible only when the basis is `rate`) — the helper text shows the let area the derivation is using, updated live as units are picked.
+   - `base_rent_monthly` (TextInput, numeric, ≥0; disabled on edit **and** on a rate-priced lease, dehydrated) — read-only on edit to enforce use of LeaseRentChangeService, read-only on `rate` because it is derived.
    - `service_charge_monthly` (TextInput, numeric, ≥0; disabled on edit, dehydrated) — helper text on edit warns "use Change Rent action".
    - `has_marketing_levy` (Toggle, live, default true) — whether the marketing levy is billed to this tenant. `EditLease::afterSave()` re-syncs the `marketing` charge via `MarketingLevyService::createLevyCharge()` so a toggle change takes effect on the next run.
    - `marketing_levy_rate` (TextInput, numeric, 0–100, suffix '%', visible if has_marketing_levy) — per-lease rate override; placeholder shows the mall default; blank = default.
@@ -467,7 +472,7 @@ the tab's own fields at render time, so it cannot drift from what the tab contai
 
 **Custom actions:**
 - **Generate Invoice** (action, visible if status='active'): Modal schema collects period (month-picker) and prorate flag, calls `MonthlyBillingService::generateForLease()`.
-- **Change Rent** (action, visible if status='active'): Modal collects new base_rent, optional new service_charge, and reason; calls `LeaseRentChangeService::apply()`.
+- **Change Rent** (action, visible if status='active'): Modal collects new base_rent, optional new service_charge, an effective date and a reason; calls `LeaseRentChangeService::apply()`. On a **rate-priced** lease (LS-04) the modal asks for the new **rate** instead of the amount — two editable fields deriving from each other is how they end up disagreeing — and the service re-derives the monthly figure. Where only a rent is stated (the escalation sweep), the rate is re-derived from it, so a 7% step raises both by 7% and the lease never advertises a rate it no longer bills.
 
 ---
 
@@ -539,7 +544,10 @@ the tab's own fields at render time, so it cannot drift from what the tab contai
 
 ### Supporting multi-unit lease rent differentiation (per-unit rents)
 
-**Current design:** Single base_rent_monthly applies to all units in the lease. If per-unit rent allocation is needed:
+**Current design:** Single base_rent_monthly applies to all units in the lease. Since LS-04 a lease may
+instead be priced at EGP/m²/year, which covers the common case — the money follows the summed area,
+so adding or giving back a unit re-prices the lease without anyone allocating anything per unit.
+Genuinely *different* rates for different units in one lease still need the work below:
 
 1. Add `lease_unit.rent_allocation_factor` (decimal) column — proportional share of base rent per unit.
 2. Modify `LeaseCreationService::seedStandardCharges()` or create a new `allocateChargesPerUnit()` method to split the base-rent Charge across units proportionally.
@@ -589,6 +597,27 @@ the tab's own fields at render time, so it cannot drift from what the tab contai
 **Lesson:** Always re-read (fresh()) service-created models before cascading operations, or ensure model defaults cover all NOT NULL columns.
 
 ---
+
+### Legacy charge rows: the schedule rollout's blind spot
+
+**Issue (LS-06):** phase 1 made the charge schedule authoritative, and
+`MonthlyBillingService::assertScheduleUnambiguous()` now refuses two active rows of the same type
+covering one period. Under the old model that shape billed **both** rows — a quiet over-bill. Under
+the new one the refusal is caught and reported, so the lease produces **no invoice at all**: quieter,
+and worse. `Charge` also gained a model-level overlap guard, so the shape can no longer be created —
+which confines the hazard to rows already in the database when phase 1 shipped, and means nothing in
+the code path will ever surface them.
+
+**Run `php artisan atriom:audit-charge-schedules` before a deploy and after every data import.** It
+is read-only and exits non-zero on any finding, so it can gate a pipeline rather than be a report
+someone remembers to read. It reports overlaps (bills nothing), gaps (a month with no rent line) and
+undated rows (harmless to billing; inconsistent to sort).
+
+**A null `start_date` bills identically to a commencement-dated one** — `chargeAppliesToPeriod()`
+skips the comparison entirely when the column is null. The LS-06 migration stamps it anyway, because
+null sorts first on MySQL and last on SQLite, so "the row in force" could answer differently on the
+two databases we run. `end_date` is deliberately left open: Atriom bills holdover from the same
+rows, so stamping the expiry would stop the rent the day the term ended.
 
 ### Rent change must stay atomic with Charge sync
 

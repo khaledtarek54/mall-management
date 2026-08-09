@@ -391,6 +391,12 @@ class ReportService
                 // The comparison number for any commercial portfolio. Null rather than a division
                 // by zero when the unit has no recorded area.
                 'rent_per_sqm_year' => $area > 0 ? round($rent * 12 / $area, 2) : null,
+                // The rate the lease was actually SIGNED at, where it was priced that way (LS-04).
+                // Shown beside the effective figure above so the two can be compared: they agree on
+                // a rate-priced lease, and a gap means an abatement, a step, or a hand edit.
+                'contracted_rate_per_sqm_year' => $lease->rent_pricing_basis === \App\Models\Lease::RENT_RATE
+                    ? (float) $lease->base_rent_rate_per_sqm_year
+                    : null,
                 'service_charge' => $service,
                 'marketing' => $marketing,
                 'total_monthly' => round($rent + $service + $marketing, 2),

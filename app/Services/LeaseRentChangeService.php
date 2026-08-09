@@ -25,7 +25,20 @@ class LeaseRentChangeService
     public function __construct(private ChargeScheduleService $schedule) {}
 
     /**
-     * @param  array{base_rent_monthly:float, service_charge_monthly?:float|null, reason?:string|null, document_reference?:string|null, effective_from?:string|\DateTimeInterface|null, origin?:string|null}  $data
+     * The date the change takes effect. Defaults to today, which reproduces the old
+     * overwrite-now behaviour; the escalation sweep passes the anniversary.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function effectiveDate(array $data): CarbonImmutable
+    {
+        return isset($data['effective_from']) && $data['effective_from']
+            ? CarbonImmutable::parse($data['effective_from'])->startOfDay()
+            : CarbonImmutable::now()->startOfDay();
+    }
+
+    /**
+     * @param  array{base_rent_monthly?:float|null, base_rent_rate_per_sqm_year?:float|null, service_charge_monthly?:float|null, reason?:string|null, document_reference?:string|null, effective_from?:string|\DateTimeInterface|null, origin?:string|null}  $data
      */
     public function apply(Lease $lease, array $data): Lease
     {
@@ -33,6 +46,30 @@ class LeaseRentChangeService
             throw new InvalidArgumentException(
                 "Lease #{$lease->id} is '{$lease->status}'; only active or pending leases can have their rent changed."
             );
+        }
+
+        // ── A rate-priced lease is re-rated, not just re-priced (LS-04) ────────────────────────
+        // The operator may state the new RATE, in which case it is the authority and the monthly
+        // figure follows. Where only a rent is stated — which is what the escalation sweep does —
+        // the rate is re-derived from it, so a 7% step raises the contracted rate by 7% too. Left
+        // alone, the lease would carry a rate that no longer describes what it bills, and the rent
+        // roll would show a gap that means nothing.
+        $newRate = null;
+
+        if ($lease->rent_pricing_basis === Lease::RENT_RATE) {
+            $area = $lease->totalAreaSqmOn($this->effectiveDate($data));
+
+            // The caller may legitimately state only a rate — the Change Rent modal hides the
+            // amount on a rate-priced lease, because two editable fields that derive from each
+            // other is how they end up disagreeing. Hold the current rent until it is re-derived.
+            $data['base_rent_monthly'] ??= (float) $lease->base_rent_monthly;
+
+            if (isset($data['base_rent_rate_per_sqm_year']) && $area > 0) {
+                $newRate = round((float) $data['base_rent_rate_per_sqm_year'], 2);
+                $data['base_rent_monthly'] = round($newRate * $area / 12, 2);
+            } elseif ($area > 0) {
+                $newRate = round(((float) $data['base_rent_monthly']) * 12 / $area, 2);
+            }
         }
 
         $newRent = round((float) $data['base_rent_monthly'], 2);
@@ -46,18 +83,16 @@ class LeaseRentChangeService
             throw new InvalidArgumentException('service_charge_monthly must be ≥ 0.');
         }
 
-        // The date the new amount takes effect. Defaults to today, which reproduces the old
-        // overwrite-now behaviour; the escalation sweep passes the anniversary, and an operator can
-        // schedule a change ahead of time.
-        $effectiveFrom = isset($data['effective_from']) && $data['effective_from']
-            ? CarbonImmutable::parse($data['effective_from'])->startOfDay()
-            : CarbonImmutable::now()->startOfDay();
+        $effectiveFrom = $this->effectiveDate($data);
         $origin = $data['origin'] ?? Charge::ORIGIN_MANUAL;
 
-        return DB::transaction(function () use ($lease, $newRent, $newService, $hasServiceUpdate, $data, $effectiveFrom, $origin) {
+        return DB::transaction(function () use ($lease, $newRent, $newRate, $newService, $hasServiceUpdate, $data, $effectiveFrom, $origin) {
             $previousRent = (float) $lease->base_rent_monthly;
 
             $updates = ['base_rent_monthly' => $newRent];
+            if ($newRate !== null) {
+                $updates['base_rent_rate_per_sqm_year'] = $newRate;
+            }
             if ($hasServiceUpdate) {
                 $updates['service_charge_monthly'] = $newService;
             }

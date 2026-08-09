@@ -67,14 +67,32 @@ most-recent active `Charge.amount`; the escalation sweep calls it.
 
 ---
 
-### LS-04 🟠 Rate-based charges (EGP/m²/year)
+### LS-04 ✅ Rate-based charges (EGP/m²/year) — **SHIPPED 2026-08-09**
 **As a** Leasing Manager **I want** to enter rent as a rate per m² per year **so that** the money
 re-derives when the let area changes and I can compare deals per m².
 
 **Acceptance:** a schedule row stores either a flat amount or `rate × area`; the billed amount is
 derived; the rent roll can report EGP/m²/yr for every lease.
 
-**Today:** flat amounts only. Area lives on `units.area_sqm` and is never used to price anything.
+**Shipped:** `leases.rent_pricing_basis` (`flat` | `rate`) + `base_rent_rate_per_sqm_year`, with
+`Lease::deriveBaseRentFromRate()` as the one authority. Choosing `rate` makes the monthly figure
+derived, and `LeaseSpaceChangeService` re-prices the lease from the rate when an expansion or a
+contraction moves the let area — the operator no longer recomputes `area × rate ÷ 12` by hand.
+
+**The rate lives on the LEASE; the schedule keeps storing amounts.** That split is the phase-1
+invariant, not an implementation shortcut: a schedule row records what was actually in force for
+its months, so it must hold a number rather than a formula that would re-answer differently later.
+The rate is the *term* the number was derived from.
+
+**Two deliberate limits.** A stated `new_total_rent` still wins — the derivation is a default, not
+a cage, and a blended rate for enlarged premises is a real negotiation. And the derivation is
+enforced in the model, not the form, so an import or a future screen cannot leave a lease carrying
+a monthly amount that disagrees with its own rate and area.
+
+`flat` is the COLUMN default, so nothing written before this re-prices on deploy. The rent roll
+shows the contracted rate beneath the effective EGP/m²/yr, and a gap between them — an abatement, a
+step, a hand edit — is visible without opening the lease.
+`tests/Feature/Regression/RateBasedRentTest.php`.
 
 ---
 
@@ -95,7 +113,7 @@ and marketing levy together ([S1](04-scenarios.md#s1--new-lease-fit-out-grace--s
 
 ---
 
-### LS-06 🔴 Migrate existing leases with zero behaviour change
+### LS-06 ✅ Migrate existing leases with zero behaviour change — **SHIPPED 2026-08-09**
 **As a** Property Accountant **I want** the schedule rollout to leave every existing lease billing
 exactly what it bills today **so that** nothing re-prices on deploy night.
 
@@ -105,6 +123,29 @@ exactly what it bills today **so that** nothing re-prices on deploy night.
 - A before/after test bills the *same* month on the *same* fixture pre- and post-migration and
   asserts byte-identical invoices.
 - The migration is reversible.
+
+**Shipped:** a migration that stamps `start_date` where it is null, and
+`atriom:audit-charge-schedules`, which is the part that actually makes deploy night safe.
+
+**The dates were never the risk — the duplicates were.** Under the old model two active `base_rent`
+rows meant the run billed *both*: a quiet over-bill somebody noticed a month later. Phase 1's
+`assertScheduleUnambiguous()` refuses that shape, which is the right call and a far better failure —
+but the refusal is caught and reported, so the lease produces **no invoice at all** and nothing
+crashes. Quieter, and worse. Nothing had ever checked whether such leases exist; the audit reports
+overlaps, gaps and undated rows, and **exits non-zero**, so it can gate a deploy or a data import
+rather than be a report someone remembers to read. Run it before go-live and after every import.
+
+**`end_date` is deliberately left open** — a deviation from the acceptance above. Atriom bills
+holdover from the same charge rows, so stamping the lease expiry would stop the rent on the day the
+term ended, which is precisely the behaviour change this story exists to prevent.
+
+**Two things the work found.** `Charge` already refuses to *create* an overlapping row, so the
+hazard is confined to rows written before that guard — the test fixtures insert raw rows because
+that is the only honest way to reproduce them. And the first draft of the migration used
+`->join(...)->update(...)`, which runs on MySQL and fails on SQLite (the `SET` clause cannot see the
+joined table): green on a laptop, red everywhere else — the same class of cross-database difference
+the stamping exists to remove. It is a correlated subquery now.
+`tests/Feature/Regression/LegacyChargeScheduleMigrationTest.php`.
 
 ---
 

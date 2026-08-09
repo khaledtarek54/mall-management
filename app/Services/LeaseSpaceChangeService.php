@@ -210,7 +210,10 @@ class LeaseSpaceChangeService
             isset($data['new_total_rent']) => (float) $data['new_total_rent'],
             isset($data['rent_increment']) => $current + (float) $data['rent_increment'],
             isset($data['rent_decrement']) => $current - (float) $data['rent_decrement'],
-            default => null,
+            // A lease priced per m² re-prices ITSELF when the area moves (story LS-04) — that is
+            // the whole reason to hold a rate rather than an amount. Derived at the effective date,
+            // so it reflects the premises as they stand from that day and not as they stand now.
+            default => $lease->deriveBaseRentFromRate($effectiveFrom),
         };
 
         if ($newTotal === null) {

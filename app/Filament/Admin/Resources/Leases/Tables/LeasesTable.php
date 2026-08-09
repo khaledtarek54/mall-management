@@ -474,15 +474,32 @@ class LeasesTable
                     ->modalDescription(__('admin.actions.change_rent_modal_description'))
                     ->fillForm(fn (Lease $record) => [
                         'base_rent_monthly' => (float) $record->base_rent_monthly,
+                        'base_rent_rate_per_sqm_year' => (float) $record->base_rent_rate_per_sqm_year,
                         'service_charge_monthly' => (float) $record->service_charge_monthly,
                     ])
                     ->schema([
+                        // A rate-priced lease (LS-04) is re-RATED, not re-priced: the manager
+                        // negotiated a rate, so that is what they type, and the monthly figure
+                        // follows. Shown instead of the amount rather than beside it — two editable
+                        // fields that derive from each other is how they end up disagreeing.
+                        TextInput::make('base_rent_rate_per_sqm_year')
+                            ->label(__('admin.fields.base_rent_rate_per_sqm_year'))
+                            ->prefix('EGP')
+                            ->suffix('/m²/'.__('admin.fields.per_year_suffix'))
+                            ->numeric()
+                            ->minValue(0)
+                            ->required()
+                            ->helperText(fn (Lease $record) => __('admin.helpers.base_rent_rate_per_sqm_year', [
+                                'area' => number_format($record->totalAreaSqm(), 2),
+                            ]))
+                            ->visible(fn (Lease $record) => $record->rent_pricing_basis === Lease::RENT_RATE),
                         TextInput::make('base_rent_monthly')
                             ->label(__('admin.fields.base_rent_monthly'))
                             ->prefix('EGP')
                             ->numeric()
                             ->minValue(0)
-                            ->required(),
+                            ->required(fn (Lease $record) => $record->rent_pricing_basis !== Lease::RENT_RATE)
+                            ->visible(fn (Lease $record) => $record->rent_pricing_basis !== Lease::RENT_RATE),
                         TextInput::make('service_charge_monthly')
                             ->label(__('admin.fields.service_charge_monthly'))
                             ->prefix('EGP')

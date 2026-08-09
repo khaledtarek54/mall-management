@@ -69,6 +69,35 @@ class Lease extends Model implements HasMedia
             }
         });
 
+        // ── Rate-priced rent is DERIVED, from every writer ─────────────────────────────────────
+        // A lease priced per m² must never carry a monthly figure that disagrees with its own rate
+        // and area. Enforced here rather than in the form so an import, a service or a future
+        // screen cannot drift — the same reason the NOT-NULL coercions live at this layer.
+        //
+        // Only on CREATE and when the rate or basis actually changed: re-deriving on every save
+        // would silently overwrite an amount a later expansion legitimately set for a period, and
+        // the schedule — not this column — is the record of what billed.
+        static::saving(function (self $lease) {
+            if ($lease->rent_pricing_basis !== self::RENT_RATE) {
+                return;
+            }
+
+            // On CREATE always — a typed monthly figure cannot outrank the rate the deal was
+            // struck at. On UPDATE only when the rate moved and the caller did NOT state a rent in
+            // the same save: `LeaseRentChangeService` re-rates and re-prices together, on an
+            // effective date this hook knows nothing about, and must not be second-guessed.
+            $stated = $lease->exists && $lease->isDirty('base_rent_monthly');
+
+            if (! $lease->exists
+                || ($lease->isDirty(['base_rent_rate_per_sqm_year', 'rent_pricing_basis']) && ! $stated)) {
+                $derived = $lease->deriveBaseRentFromRate();
+
+                if ($derived !== null) {
+                    $lease->base_rent_monthly = $derived;
+                }
+            }
+        });
+
         // ── Terminal leases are immutable ──────────────────────────────────────────────────────
         // Once a lease is terminated/expired/cancelled/renewed its fields can't change — only
         // soft-delete/restore (deleted_at). The transition INTO a terminal state is allowed (checked
@@ -128,6 +157,8 @@ class Lease extends Model implements HasMedia
         'expiry_reminder_notified_at',
         'term_months',
         'base_rent_monthly',
+        'rent_pricing_basis',
+        'base_rent_rate_per_sqm_year',
         'service_charge_monthly',
         'has_marketing_levy',
         'marketing_levy_rate',
@@ -177,6 +208,7 @@ class Lease extends Model implements HasMedia
         'commencement_date' => 'date',
         'expiry_date' => 'date',
         'holdover_rate_pct' => 'decimal:2',
+        'base_rent_rate_per_sqm_year' => 'decimal:2',
         'late_fee_percent' => 'decimal:2',
         'late_fee_grace_days' => 'integer',
         'late_fee_minimum' => 'decimal:2',
@@ -329,6 +361,33 @@ class Lease extends Model implements HasMedia
     public function totalAreaSqm(): float
     {
         return $this->totalAreaSqmOn(CarbonImmutable::now());
+    }
+
+    /** Rent typed as a flat monthly figure — the default, and every lease written before LS-04. */
+    public const RENT_FLAT = 'flat';
+
+    /** Rent negotiated as a rate per m² per year; the monthly figure is DERIVED from the area. */
+    public const RENT_RATE = 'rate';
+
+    /**
+     * The monthly base rent implied by a per-m² rate (story LS-04).
+     *
+     * `rate × area ÷ 12`. Null unless the lease is actually priced that way, so a caller cannot
+     * accidentally re-price a flat lease from an area that was never part of its deal.
+     */
+    public function deriveBaseRentFromRate(?CarbonImmutable $on = null): ?float
+    {
+        if ($this->rent_pricing_basis !== self::RENT_RATE || (float) $this->base_rent_rate_per_sqm_year <= 0) {
+            return null;
+        }
+
+        $area = $this->totalAreaSqmOn($on ?? CarbonImmutable::now());
+
+        if ($area <= 0) {
+            return null;
+        }
+
+        return round((float) $this->base_rent_rate_per_sqm_year * $area / 12, 2);
     }
 
     /** The lease's total leased area as it stood on a given day (LE-02). */
