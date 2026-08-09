@@ -89,7 +89,14 @@ class CamReconciliationService
                 }
 
                 $allocated = round((float) $pool->total_actual_expense * $share, 2);
-                $estimated = round((float) $pool->total_estimated_collected * $share, 2);
+                // What this tenant actually paid in estimates (story RC-05). On `billed` the
+                // figure comes from the invoices themselves, so the estimate RECONCILED and the
+                // estimate BILLED are the same number by construction. On `stated` — every pool
+                // that already exists — it stays the pro-rata slice of a hand-typed total, which
+                // is what those years were reconciled against and must keep being.
+                $estimated = $pool->estimate_basis === CamExpensePool::BASIS_BILLED
+                    ? app(SyncCamPoolFromLedgerService::class)->estimateBilledFor($pool, $lease)
+                    : round((float) $pool->total_estimated_collected * $share, 2);
 
                 // Cap: a ceiling the tenant's CAM cost share can't exceed this year. It hits ONLY
                 // the true-up + the admin-fee base — allocated_amount stays uncapped, so the
@@ -142,6 +149,15 @@ class CamReconciliationService
                     'true_up_amount' => $trueUp,
                     'admin_fee_amount' => $adminFee,
                     'admin_fee_vat_amount' => $adminFeeVat,
+                    // Next year's proposed monthly estimate (story RC-05). Proposing is not
+                    // applying: it is written here so the operator can review the whole mall's
+                    // proposals side by side, and `ApplyCamEstimateService` is what puts an
+                    // accepted one on the lease's charge schedule.
+                    //
+                    // Based on the CAPPED cost — what the tenant actually bears — not the uncapped
+                    // allocation, or a capped tenant would be asked to pre-pay an amount their own
+                    // clause forbids the landlord to charge.
+                    'proposed_monthly_estimate' => round($cappedCost / 12, 2),
                     'status' => 'pending',
                 ]);
                 $allocation->save();

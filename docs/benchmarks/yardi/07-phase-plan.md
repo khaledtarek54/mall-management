@@ -315,12 +315,18 @@ re-litigated every audit.
 
 ### Phase 6 — Recoveries & percentage-rent depth ➕
 
-**Recoveries:** RC-01 (pool from the GL) → RC-05 (re-estimate) → RC-06 (tenant statement) →
+**Recoveries:** RC-01 ✅ → RC-05 ✅ *(both shipped 2026-08-09)* → RC-06 (tenant statement) →
 RC-02/RC-03 (multi-pool, denominator) → RC-04/RC-07 (gross-up, controllable caps) as needed.
 
-RC-01 and RC-05 together close the loop that is currently open: the estimate *billed* and the
-estimate *reconciled* stop being two numbers a human keeps equal. RC-05 lands naturally once phase 1
-exists, because a re-estimate is just a new schedule row effective next January.
+RC-01 and RC-05 together closed the loop that was open: the estimate *billed* and the estimate
+*reconciled* were two numbers a human kept equal. RC-05 landed exactly as predicted — a re-estimate
+turned out to be nothing but a new schedule row effective next January, which is phase 1 paying for
+itself a third time.
+
+**The safety property is the part to preserve:** both `expense_basis` and `estimate_basis` default
+to `stated` on the COLUMN, so every pool that already exists reconciles on the basis it was
+reconciled against. Only a NEW pool is created on the derived bases. A test pins this, because
+getting it wrong restates closed years.
 
 **Percentage rent:** PR-01 (cumulative basis + annual settle-up) is the money item and should ship
 first — it is the deferred annual reconciliation module 09 already flagged. Then PR-02 (tiers),

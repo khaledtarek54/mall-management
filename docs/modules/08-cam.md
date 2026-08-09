@@ -46,6 +46,38 @@ true_up_amount      = allocated_amount - estimated_paid
 
 **In words**: Each lease's share of the pool's actual and estimated amounts is weighted by its **total** leased area — summed over every unit on the lease via the `lease_unit` pivot, not the master unit alone — as a fraction of the asset's total leased sqm. True-up is the difference: positive (tenant under-paid), negative (tenant over-paid).
 
+**The pool's two totals are DERIVED now, not typed (2026-08-09, stories RC-01/RC-05).**
+
+- `expense_basis = ledger` → `total_actual_expense` is the sum of POSTED journal lines on the
+  accounts attached via `cam_pool_accounts`, for this pool's property and year, **debits less
+  credits** (a vendor credit note reduces the pool rather than being recovered from tenants). Run by
+  `SyncCamPoolFromLedgerService`, which **writes** the total rather than exposing a live query: a
+  bill that arrives in March for December must not silently restate allocations already billed to
+  tenants. A `reconciled` or `closed` pool refuses to re-source.
+- `estimate_basis = billed` → `estimated_paid` on each allocation is the **service charge that lease
+  was actually invoiced** during the year, not a pro-rata slice of a hand-typed portfolio figure.
+  This is what closes the loop: the estimate reconciled and the estimate billed become the same
+  number by construction rather than by diligence. Only `service_charge` counts —
+  `cam_recovery` and `cam_admin_fee` are the RESULT of a reconciliation, and counting them would let
+  last year's true-up inflate this year's estimate.
+
+**Both bases default to `stated` on the COLUMN**, so every pool that already exists reconciles on
+exactly the basis it was reconciled against; only a NEW pool is created on the derived bases (the
+same split-default pattern as `Lease::$fit_out_scope`). `CamPoolFromLedgerTest` pins that, because
+getting it wrong restates closed years.
+
+**Next year's estimate is proposed, then applied (RC-05).** `generateAllocations()` writes
+`proposed_monthly_estimate = capped_cost ÷ 12` — the **capped** cost, because a capped tenant must
+not be asked to pre-pay an amount their own clause forbids the landlord to charge.
+`ApplyCamEstimateService` opens the new `service_charge` schedule row effective **1 January of the
+following year**, records it as a lease event, and is idempotent (`estimate_applied_at`). Proposing
+and applying are separate acts: an operator who disagrees never applies, and the proposal stays on
+the record as what the arithmetic suggested. Leases that have ended are skipped rather than having
+their billing resurrected.
+
+Before this, nothing ever moved the monthly estimate — so the reconciliation discovered the same
+shortfall every single year.
+
 **The area is TIME-WEIGHTED over the pool year** (`Lease::totalAreaSqmForPeriod()`, 2026-08-09).
 A tenant who took an extra 300 m² on 1 November has not occupied it for the year and must not carry
 a year of its CAM; a tenant who handed 300 m² back in July must still carry the half-year they had

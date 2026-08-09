@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\CamExpensePools\Schemas;
 
 use App\Models\CamExpensePool;
 use App\Support\Vat;
+use App\Models\LedgerAccount;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -57,6 +58,46 @@ class CamExpensePoolForm
                         ->default('draft')
                         ->required()
                         ->native(false),
+                    // Where each total comes from (RC-01 / RC-05). BOTH default to `stated` on the
+                    // COLUMN so no pool that already exists changes basis, while a NEW pool is
+                    // created on the derived bases — the same split-default pattern as
+                    // Lease::$fit_out_scope, and for the same reason: existing years must keep the
+                    // basis they were reconciled against.
+                    Select::make('expense_basis')
+                        ->label(__('admin.cam.expense_basis'))
+                        ->options([
+                            CamExpensePool::BASIS_STATED => __('admin.cam.basis_stated'),
+                            CamExpensePool::BASIS_LEDGER => __('admin.cam.basis_ledger'),
+                        ])
+                        ->default(CamExpensePool::BASIS_LEDGER)
+                        ->required()
+                        ->live()
+                        ->native(false)
+                        ->disabled(fn (?CamExpensePool $record) => self::basisFrozen($record)),
+                    Select::make('estimate_basis')
+                        ->label(__('admin.cam.estimate_basis'))
+                        ->options([
+                            CamExpensePool::BASIS_STATED => __('admin.cam.basis_stated'),
+                            CamExpensePool::BASIS_BILLED => __('admin.cam.basis_billed'),
+                        ])
+                        ->default(CamExpensePool::BASIS_BILLED)
+                        ->required()
+                        ->native(false)
+                        ->disabled(fn (?CamExpensePool $record) => self::basisFrozen($record)),
+                    Select::make('ledgerAccounts')
+                        ->label(__('admin.cam.ledger_accounts'))
+                        ->helperText(__('admin.cam.ledger_accounts_help'))
+                        ->relationship('ledgerAccounts', 'name_en', fn ($query) => $query
+                            ->where('type', 'expense')
+                            ->where('is_postable', true)
+                            ->orderBy('code'))
+                        ->getOptionLabelFromRecordUsing(fn (LedgerAccount $record) => "{$record->code} · {$record->name_en}")
+                        ->multiple()
+                        ->preload()
+                        ->searchable()
+                        ->columnSpanFull()
+                        ->visible(fn ($get) => $get('expense_basis') === CamExpensePool::BASIS_LEDGER)
+                        ->disabled(fn (?CamExpensePool $record) => self::basisFrozen($record)),
                     TextInput::make('total_actual_expense')
                         ->label(__('admin.fields.total_actual_expense'))
                         ->prefix('EGP')

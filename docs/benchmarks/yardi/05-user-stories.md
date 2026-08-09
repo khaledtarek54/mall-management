@@ -389,7 +389,7 @@ statements comply.
 
 ## Epic RC — Recoveries depth *(phase 6)*
 
-### RC-01 🔴 The pool is sourced from the GL
+### RC-01 ✅ The pool is sourced from the GL *(shipped 2026-08-09)*
 **As a** Property Accountant **I want** the CAM pool to be the sum of chosen expense accounts
 **so that** nobody re-keys it and every tenant charge drills to the invoices behind it.
 
@@ -397,7 +397,12 @@ statements comply.
 entries for the year; the hand-keyed total remains only as a legacy fallback on existing pools;
 the tenant charge drills through to the vendor bills.
 
-**Today:** two hand-typed numbers on `cam_expense_pools`.
+**Shipped:** `expense_basis = ledger` + a `cam_pool_accounts` pivot; `SyncCamPoolFromLedgerService`
+sums POSTED journal lines on those accounts, for the pool's own property and year, **debits less
+credits** so a vendor credit reduces the pool instead of being recovered from tenants. The total is
+WRITTEN, not queried live — a bill that arrives in March for December must not silently restate
+allocations already billed — and a reconciled pool refuses to re-source. `stated` remains the
+default, so no existing pool changes basis.
 
 ---
 
@@ -434,13 +439,20 @@ reads them. This is wiring, not new data.
 
 ---
 
-### RC-05 🔴 Re-estimate next year
+### RC-05 ✅ Re-estimate next year *(shipped 2026-08-09)*
 **As a** Property Accountant **I want** the reconciliation to propose next year's monthly estimate
 **so that** we stop repeating the same shortfall every year.
 
 **Acceptance:** on reconcile, propose a new monthly estimate per lease; on acceptance it opens a
 new schedule row (LS-01) effective next January. **The estimate billed and the estimate reconciled
 become the same number** rather than two figures kept equal by hand.
+
+**Shipped, both halves.** `estimate_basis = billed` makes `estimated_paid` the service charge that
+lease was actually invoiced in the year, so the two numbers are the same by construction rather than
+by diligence. `generateAllocations()` writes `proposed_monthly_estimate` (capped cost ÷ 12 — the
+cost the tenant actually bears, not the uncapped allocation), and `ApplyCamEstimateService` opens
+the new schedule row on 1 January of the following year. Proposing and applying stay separate acts;
+applying is idempotent and skips leases that have ended.
 
 ---
 

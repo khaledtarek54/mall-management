@@ -17,11 +17,32 @@ class CamExpensePool extends Model
 
     public const STATUSES = ['draft', 'reconciling', 'reconciled', 'closed'];
 
+    /** The pool's totals are typed by a human — the legacy behaviour, and the default. */
+    public const BASIS_STATED = 'stated';
+
+    /** `total_actual_expense` is summed from posted GL lines on the pool's accounts (RC-01). */
+    public const BASIS_LEDGER = 'ledger';
+
+    /** `total_estimated_collected` is what tenants were actually invoiced in the year (RC-05). */
+    public const BASIS_BILLED = 'billed';
+
+    /**
+     * Invoice line types that ARE the monthly CAM estimate.
+     *
+     * `service_charge` is what Atriom bills monthly and reconciles annually; `cam_recovery` and
+     * `cam_admin_fee` are the RESULT of a reconciliation and must never be counted as estimates
+     * paid, or last year's true-up would inflate this year's estimate and the pool would chase its
+     * own tail.
+     */
+    public const ESTIMATE_ITEM_TYPES = ['service_charge'];
+
     protected $fillable = [
         'asset_id',
         'period_year',
         'total_actual_expense',
         'total_estimated_collected',
+        'expense_basis',
+        'estimate_basis',
         'admin_fee_pct',
         'admin_fee_on_net',
         'recovery_vat_rate',
@@ -32,6 +53,7 @@ class CamExpensePool extends Model
     ];
 
     protected $casts = [
+        'expense_synced_at' => 'datetime',
         'total_actual_expense' => 'decimal:2',
         'total_estimated_collected' => 'decimal:2',
         'admin_fee_pct' => 'decimal:4',
@@ -81,6 +103,27 @@ class CamExpensePool extends Model
         return $this->belongsTo(Asset::class);
     }
 
+    /**
+     * The GL accounts whose posted expense makes up this pool (RC-01).
+     *
+     * Empty on every pool created before this existed, which is exactly why `expense_basis` defaults
+     * to `stated`: a pool with no accounts and a ledger basis would recover nothing.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany<LedgerAccount, $this>
+     */
+    public function ledgerAccounts(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(LedgerAccount::class, 'cam_pool_accounts')->withTimestamps();
+    }
+
+    /** Is either total derived rather than typed? */
+    public function isDerived(): bool
+    {
+        return $this->expense_basis === self::BASIS_LEDGER
+            || $this->estimate_basis === self::BASIS_BILLED;
+    }
+
+    /** @return HasMany<CamAllocation, $this> */
     public function allocations(): HasMany
     {
         return $this->hasMany(CamAllocation::class);

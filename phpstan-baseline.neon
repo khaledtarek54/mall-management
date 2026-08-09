@@ -1765,6 +1765,12 @@ parameters:
 			path: app/Services/Accounting/YearEndCloseService.php
 
 		-
+			message: '#^Using nullsafe property access "\?\-\>amount" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/ApplyCamEstimateService.php
+
+		-
 			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:recompute\(\)\.$#'
 			identifier: method.notFound
 			count: 1
@@ -1809,18 +1815,6 @@ parameters:
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
 			identifier: property.notFound
-			count: 1
-			path: app/Services/CamReconciliationService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$period_year\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/CamReconciliationService.php
-
-		-
-			message: '#^Parameter \#1 \$allocation of method App\\Services\\CamReconciliationService\:\:bill\(\) expects App\\Models\\CamAllocation, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
 			count: 1
 			path: app/Services/CamReconciliationService.php
 

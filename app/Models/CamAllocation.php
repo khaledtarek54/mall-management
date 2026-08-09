@@ -25,6 +25,8 @@ class CamAllocation extends Model
         'cap_amount',
         'capped_cost_amount',
         'cap_absorbed_amount',
+        'proposed_monthly_estimate',
+        'estimate_applied_at',
         'exclusions',
         'status',
         'billed_charge_id',
@@ -33,6 +35,8 @@ class CamAllocation extends Model
     ];
 
     protected $casts = [
+        'proposed_monthly_estimate' => 'decimal:2',
+        'estimate_applied_at' => 'datetime',
         'pro_rata_share_pct' => 'decimal:4',
         'allocated_amount' => 'decimal:2',
         'estimated_paid' => 'decimal:2',
@@ -45,11 +49,13 @@ class CamAllocation extends Model
         'exclusions' => 'array',
     ];
 
+    /** @return BelongsTo<CamExpensePool, $this> */
     public function pool(): BelongsTo
     {
         return $this->belongsTo(CamExpensePool::class, 'cam_expense_pool_id');
     }
 
+    /** @return BelongsTo<Lease, $this> */
     public function lease(): BelongsTo
     {
         return $this->belongsTo(Lease::class);

@@ -4,7 +4,9 @@ namespace App\Filament\Admin\Resources\CamExpensePools\Tables;
 
 use App\Filament\Admin\Resources\CamExpensePools\CamExpensePoolResource;
 use App\Models\CamExpensePool;
+use App\Services\ApplyCamEstimateService;
 use App\Services\CamReconciliationService;
+use App\Services\SyncCamPoolFromLedgerService;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
@@ -102,6 +104,76 @@ class CamExpensePoolsTable
                 ViewAction::make()
                     ->visible(fn ($record) => CamExpensePoolResource::canView($record))
                     ->authorize(fn ($record) => CamExpensePoolResource::canView($record)),
+                // RC-01: pull the year's actual expense straight out of the ledger, so the pool
+                // is the sum of the bills rather than a figure re-keyed from a spreadsheet.
+                Action::make('syncFromLedger')
+                    ->label(__('admin.cam.sync_from_ledger'))
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('gray')
+                    ->requiresConfirmation()
+                    ->visible(fn (CamExpensePool $record) => self::canGenerate($record) && $record->isDerived())
+                    ->authorize(fn (CamExpensePool $record) => self::canGenerate($record))
+                    ->action(function (CamExpensePool $record): void {
+                        abort_unless(self::canGenerate($record), 403);
+
+                        try {
+                            $result = app(SyncCamPoolFromLedgerService::class)->sync($record);
+                        } catch (\InvalidArgumentException $e) {
+                            Notification::make()->danger()->title($e->getMessage())->send();
+
+                            return;
+                        }
+
+                        if ($result['expense'] === null && $result['estimate'] === null) {
+                            Notification::make()->warning()->title(__('admin.cam.sync_nothing'))->send();
+
+                            return;
+                        }
+
+                        Notification::make()
+                            ->success()
+                            ->title(__('admin.cam.synced'))
+                            ->body(__('admin.cam.synced_body', [
+                                'expense' => 'EGP '.number_format((float) $record->fresh()->total_actual_expense, 2),
+                                'estimate' => 'EGP '.number_format((float) $record->fresh()->total_estimated_collected, 2),
+                            ]))
+                            ->send();
+                    }),
+                // RC-05: the loop that was open — nothing ever moved the monthly estimate, so the
+                // reconciliation discovered the same shortfall every year.
+                Action::make('applyEstimates')
+                    ->label(__('admin.cam.apply_estimates'))
+                    ->icon('heroicon-o-forward')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->modalHeading(fn (CamExpensePool $record) => __('admin.cam.apply_estimates_heading', ['year' => $record->period_year]))
+                    ->modalDescription(fn (CamExpensePool $record) => __('admin.cam.apply_estimates_description', [
+                        'next' => (int) $record->period_year + 1,
+                    ]))
+                    ->visible(fn (CamExpensePool $record) => in_array($record->status, ['reconciled', 'closed'], true)
+                        && CamExpensePoolResource::canEdit($record))
+                    ->authorize(fn (CamExpensePool $record) => CamExpensePoolResource::canEdit($record))
+                    ->action(function (CamExpensePool $record): void {
+                        abort_unless(CamExpensePoolResource::canEdit($record), 403);
+
+                        try {
+                            $result = app(ApplyCamEstimateService::class)->applyForPool($record);
+                        } catch (\InvalidArgumentException $e) {
+                            Notification::make()->danger()->title($e->getMessage())->send();
+
+                            return;
+                        }
+
+                        Notification::make()
+                            ->success()
+                            ->title(__('admin.cam.estimates_applied'))
+                            ->body(__('admin.cam.estimates_applied_body', [
+                                'applied' => $result['applied'],
+                                'skipped' => $result['skipped'],
+                                'from' => $result['effective_from']->format('d/m/Y'),
+                            ]))
+                            ->send();
+                    }),
                 Action::make('generateAllocations')
                     ->label(__('admin.actions.generate_allocations'))
                     ->icon('heroicon-o-calculator')
