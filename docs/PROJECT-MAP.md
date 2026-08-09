@@ -27,9 +27,9 @@ Sanctum (mobile API auth) · Spatie (permissions, media, activity-log, settings)
 
 | | | | |
 |---|---|---|---|
-| **82** models | **121** services | **42** admin resources | **6** portal resources |
+| **82** models | **122** services | **42** admin resources | **6** portal resources |
 | **39** API controllers | **17** dashboard widgets | **37** console commands | **6** queued jobs |
-| **29** notifications | **169** migrations | **34** module docs | **525** test files |
+| **29** notifications | **169** migrations | **34** module docs | **526** test files |
 
 ### Coverage — what the gates actually enforce
 
@@ -38,7 +38,7 @@ Sanctum (mobile API auth) · Spatie (permissions, media, activity-log, settings)
 | **Property isolation** | 82 models classified — 66 property-owned, 15 shared, 1 self. Gated by `PropertyIsolationConformanceTest`. |
 | **General ledger** | 23 posting sources, 23 journalizer classes — every one registered. One registry (`LedgerPoster::JOURNALIZERS`) that all four dispatch paths derive from; gated by `GlRegistryConformanceTest`. |
 | **E2E smoke** | Every admin resource + page, from `tests/e2e/filament-admin-manifest.json`; 22 specs. Gated by `AdminSmokeManifestConformanceTest`. |
-| **Tests** | 525 files — 88 scenario, 217 regression. |
+| **Tests** | 526 files — 88 scenario, 218 regression. |
 | **Module flags** | 16 toggleable modules (`App\Support\Modules`). |
 
 **Scheduled automation** — commands: `cam:reconcile` · `accounting:post-depreciation` · `vendors:expire-contracts` · `vendors:scan-document-expiry` · `vendors:scan-contract-renewals` · `activitylog:clean` · `requests:auto-close` · `maintenance:generate-preventive` · `requests:scan-sla-breaches` · `maintenance:scan-wo-sla-breaches` · `billing:scan-overdue-invoices` · `sales:scan-missing-declarations` · `sales:estimate-missing` · `inventory:scan-low-stock` · `leases:apply-escalations` · `pdc:scan-maturing` · `billing:remind-overdue-tenants` · `leases:remind-expiring` · `leases:scan-option-windows` · `marketing:ensure-budgets` · `accounting:sync-ledger` · `accounting:sync-ledger --all --scheduled` · `backup:clean` · `backup:run` · `backup:monitor` · `atriom:backup-verify`

@@ -95,6 +95,34 @@ class Unit extends Model
             ->exists();
     }
 
+    /**
+     * Options that tie this unit up until they are resolved (story OP-03).
+     *
+     * An expansion right, ROFR, ROFO or purchase option on ANOTHER tenant's lease means this space
+     * is spoken for even while it reads as vacant. `LeaseOption::encumbersUnit()` has known this
+     * since options shipped and nothing consulted it, so the lease-creation picker offered
+     * encumbered units as freely as any other — which is how the same space gets promised twice.
+     *
+     * Only OPEN options: an exercised, waived or lapsed one encumbers nothing, and treating it as
+     * if it did would block space the mall is free to let.
+     *
+     * @return HasMany<LeaseOption, $this>
+     */
+    public function encumbrances(): HasMany
+    {
+        return $this->hasMany(LeaseOption::class)
+            ->where('status', 'open')
+            ->whereIn('type', LeaseOption::ENCUMBERING_TYPES);
+    }
+
+    /** Is this unit spoken for by an option on someone else's lease? */
+    public function isEncumbered(?int $exceptLeaseId = null): bool
+    {
+        return $this->encumbrances
+            ->when($exceptLeaseId !== null, fn ($c) => $c->where('lease_id', '!=', $exceptLeaseId))
+            ->isNotEmpty();
+    }
+
     public function maintenanceRequests(): HasMany
     {
         return $this->hasMany(TenantRequest::class);

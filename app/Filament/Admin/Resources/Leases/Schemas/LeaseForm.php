@@ -44,7 +44,9 @@ class LeaseForm
                             'unit',
                             'code',
                             modifyQueryUsing: function ($query, Get $get, ?Lease $record) {
-                                $query->when(
+                                // Eager-loaded so the encumbrance warning in the label below costs
+                                // no query per option (OP-03).
+                                $query->with('encumbrances')->when(
                                     TenantScope::visibleAssetIds(),
                                     fn ($q, $assetIds) => $q->whereIn('asset_id', $assetIds),
                                 );
@@ -62,10 +64,15 @@ class LeaseForm
                                 });
                             },
                         )
+                        // It WARNS, it does not block (OP-03's acceptance): a landlord may
+                        // legitimately let encumbered space — the option holder simply has to be
+                        // dealt with first — and a hard block would send the operator round the
+                        // system rather than to the conversation.
                         ->getOptionLabelFromRecordUsing(fn (Unit $unit) => sprintf(
-                            '%s · %s',
+                            '%s · %s%s',
                             $unit->code,
                             __("admin.statuses.unit.{$unit->status}"),
+                            $unit->isEncumbered() ? ' · ⚠ '.__('admin.lease_options.encumbered') : '',
                         ))
                         ->searchable()
                         ->preload()
@@ -113,6 +120,10 @@ class LeaseForm
                             $master = $get('unit_id');
 
                             return Unit::query()
+                                // Same encumbrance warning as the master picker (OP-03): an
+                                // expansion right is most often exercised over an ADJACENT unit,
+                                // which is exactly what gets added here.
+                                ->with('encumbrances')
                                 ->when($assetIds, fn ($q, $aids) => $q->whereIn('asset_id', $aids))
                                 ->where(function ($q) use ($record) {
                                     $q->whereNotIn('status', ['occupied', 'reserved', 'maintenance']);
@@ -124,9 +135,10 @@ class LeaseForm
                                 ->orderBy('code')
                                 ->get()
                                 ->mapWithKeys(fn (Unit $u) => [$u->id => sprintf(
-                                    '%s · %s',
+                                    '%s · %s%s',
                                     $u->code,
                                     __("admin.statuses.unit.{$u->status}"),
+                                    $u->isEncumbered($record?->id) ? ' · ⚠ '.__('admin.lease_options.encumbered') : '',
                                 )]);
                         }),
                     Select::make('tenant_id')

@@ -2,6 +2,28 @@
 
 > A lease is a binding occupancy contract between a tenant and a unit (or units) with linked charges (rent + service fees), escalation terms, optional percentage rent, and a multi-state lifecycle from draft through expiry/renewal/termination.
 
+> **⚠️ Exercising an option now writes the deal (2026-08-09, OP-04/OP-03).**
+> `ExerciseLeaseOptionService` is the one path that resolves an option. It marks it, records a
+> **lease event typed by what the option DOES** (a renewal EXTENDS, an expansion EXPANDS, a
+> termination option TERMINATES — the timeline reads in deal terms, not option terms), and the
+> renewal form pre-fills the contracted term, rent and commencement from it.
+>
+> - **The gap was never the data.** `LeaseOption::projectedRent()` had computed the contracted rent
+>   since options shipped; the renewal form asked the operator to type one from scratch. A five-year
+>   renewal at a contracted +10% typed as the old rent is a mis-priced tenancy nobody sees until the
+>   next reconciliation.
+> - **`market` and `cpi` pre-fill nothing** and the event records `rent_to_be_agreed`. A valuation
+>   and an index feed are not numbers this system may invent — the same rule the escalation sweep
+>   follows for CPI.
+> - **The notice date is when notice was SERVED**, not when it was recorded. Refusing a late-recorded
+>   notice would push the operator to falsify the date.
+> - **Waive/lapse write no lease event**: nothing about the lease changed, and a timeline padded with
+>   non-events is one people stop reading.
+> - **Encumbrance warns, it does not block** (OP-03). `Unit::encumbrances()` / `isEncumbered()` feed
+>   BOTH unit pickers — master and additional, because an expansion right is usually exercised over
+>   the adjacent unit, which is what the second picker adds. `LeaseOption::encumbersUnit()` had
+>   existed all along with **nothing in the codebase calling it**.
+
 > **⚠️ Termination now settles money, not just status (2026-08-09, phase 4).** Terminating a lease
 > **credits back the unearned part of any invoice already billed past the termination date**
 > (`CreditUnearnedBillingService`, story MF-02) — rent bills in advance, so a tenant leaving on the

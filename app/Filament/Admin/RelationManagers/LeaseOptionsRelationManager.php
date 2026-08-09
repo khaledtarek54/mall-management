@@ -222,15 +222,28 @@ class LeaseOptionsRelationManager extends RelationManager
                     ->color('success')
                     ->requiresConfirmation()
                     ->visible(fn (LeaseOption $record) => self::canWrite() && $record->isOpen())
-                    ->action(function (LeaseOption $record) {
+                    ->schema([
+                        DatePicker::make('notice_given_at')
+                            ->label(__('admin.lease_options.notice_given_at'))
+                            ->helperText(__('admin.lease_options.notice_given_at_hint'))
+                            ->default(fn (LeaseOption $record) => $record->notice_given_at ?? now())
+                            ->required(),
+                        Textarea::make('reason')
+                            ->label(__('admin.actions.change_rent_reason'))
+                            ->rows(2),
+                        TextInput::make('document_reference')
+                            ->label(__('admin.lease_events.document'))
+                            ->maxLength(255),
+                    ])
+                    ->action(function (LeaseOption $record, array $data) {
                         // action() is the real gate — visible() is the UI.
                         abort_unless(self::canWrite(), 403);
 
-                        $record->forceFill([
-                            'status' => 'exercised',
-                            'resolved_at' => CarbonImmutable::now()->toDateString(),
-                            'notice_given_at' => $record->notice_given_at ?? CarbonImmutable::now()->toDateString(),
-                        ])->save();
+                        try {
+                            app(\App\Services\ExerciseLeaseOptionService::class)->exercise($record, $data);
+                        } catch (\InvalidArgumentException $e) {
+                            \Filament\Notifications\Notification::make()->danger()->title($e->getMessage())->send();
+                        }
                     })
                     ->successNotificationTitle(__('admin.lease_options.exercised_notice')),
                 Action::make('waive')
@@ -242,10 +255,7 @@ class LeaseOptionsRelationManager extends RelationManager
                     ->action(function (LeaseOption $record) {
                         abort_unless(self::canWrite(), 403);
 
-                        $record->forceFill([
-                            'status' => 'waived',
-                            'resolved_at' => CarbonImmutable::now()->toDateString(),
-                        ])->save();
+                        app(\App\Services\ExerciseLeaseOptionService::class)->resolveWithout($record, 'waived');
                     })
                     ->successNotificationTitle(__('admin.lease_options.waived_notice')),
                 EditAction::make()

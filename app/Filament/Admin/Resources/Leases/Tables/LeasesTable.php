@@ -8,6 +8,7 @@ use App\Models\Lease;
 use App\Models\Tenant;
 use App\Models\Unit;
 use App\Services\ConvertLeaseToHoldoverService;
+use App\Services\ExerciseLeaseOptionService;
 use App\Services\LeaseCreationService;
 use App\Services\LeaseReliefService;
 use App\Services\LeaseRenewalService;
@@ -381,13 +382,35 @@ class LeasesTable
                     ->visible(fn ($record) => $record->status === 'active' && LeaseResource::canEdit($record) && auth()->user()?->can('leases.renew'))
                     ->authorize(fn () => auth()->user()?->can('leases.renew') ?? false)
                     ->modalHeading(fn (Lease $record) => __('admin.actions.renew_modal_heading', ['ref' => $record->reference]))
-                    ->modalDescription(fn (Lease $record) => __('admin.actions.renew_modal_description', ['ends' => $record->expiry_date->format('d/m/Y')]))
-                    ->fillForm(fn (Lease $record) => [
-                        'new_term_months' => $record->term_months,
-                        'new_rent' => (float) $record->base_rent_monthly,
-                        'new_service_charge' => (float) $record->service_charge_monthly,
-                        'commencement_date' => $record->expiry_date->copy()->addDay()->toDateString(),
-                    ])
+                    ->modalDescription(function (Lease $record): string {
+                        $base = __('admin.actions.renew_modal_description', ['ends' => $record->expiry_date->format('d/m/Y')]);
+                        $terms = app(ExerciseLeaseOptionService::class)->pendingRenewalTerms($record);
+
+                        // Say WHERE the pre-filled numbers came from. A form that silently arrives
+                        // with different figures than last time is one an operator stops trusting.
+                        return $terms === null ? $base : $base.' '.__('admin.actions.renew_from_option', [
+                            'basis' => __("admin.lease_options.rent_bases.{$terms['option']->rent_basis}"),
+                        ]);
+                    })
+                    // Pre-filled from an EXERCISED option where there is one (story OP-04). The
+                    // option already knows the contracted term and rent; before this the operator
+                    // read them off the screen and re-typed them, which is how a five-year renewal
+                    // at a contracted +10% gets billed at the old rent.
+                    //
+                    // A `market` or `cpi` basis yields no rent — a valuation and an index feed are
+                    // not numbers this system may invent — so those fall back to the current rent
+                    // for the operator to overwrite, exactly as the escalation sweep refuses CPI.
+                    ->fillForm(function (Lease $record): array {
+                        $terms = app(ExerciseLeaseOptionService::class)->pendingRenewalTerms($record);
+
+                        return [
+                            'new_term_months' => $terms['term_months'] ?? $record->term_months,
+                            'new_rent' => $terms['rent'] ?? (float) $record->base_rent_monthly,
+                            'new_service_charge' => (float) $record->service_charge_monthly,
+                            'commencement_date' => ($terms['commencement'] ?? $record->expiry_date->copy()->addDay())
+                                ->toDateString(),
+                        ];
+                    })
                     ->schema([
                         TextInput::make('new_term_months')
                             ->label(__('admin.fields.new_term_months'))

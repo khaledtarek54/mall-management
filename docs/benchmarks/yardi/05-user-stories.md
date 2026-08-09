@@ -200,21 +200,43 @@ after the option window has closed ([S7](04-scenarios.md#s7--renewal-option-with
 
 ---
 
-### OP-03 🟠 Encumbered space cannot be quietly re-let
+### OP-03 ✅ Encumbered space cannot be quietly re-let *(shipped 2026-08-09)*
 **As a** Leasing Manager **I want** a unit subject to another tenant's expansion option or ROFR to
 be flagged **so that** we do not promise the same space twice.
 
 **Acceptance:** the unit view and the lease-creation unit picker both show an encumbrance warning
 naming the lease and the option; it warns, it does not block.
 
+**Shipped:** `Unit::encumbrances()` / `isEncumbered()`, surfaced in BOTH unit pickers (master and
+additional — an expansion right is most often exercised over the adjacent unit, which is exactly
+what gets added in the second one). It warns and does not block, per the acceptance: a landlord may
+legitimately let encumbered space once the option holder is dealt with, and a hard block would send
+the operator round the system rather than to the conversation.
+
+**The gap was never the data.** `LeaseOption::encumbersUnit()` shipped with options and **nothing in
+the codebase ever called it** — the model computed the answer and no screen asked.
+
 ---
 
-### OP-04 🟠 Exercising an option writes the deal
+### OP-04 ✅ Exercising an option writes the deal *(shipped 2026-08-09)*
 **As a** Leasing Manager **I want** exercising a renewal option to pre-fill the renewal at the
 option's rent basis **so that** the contracted terms are what actually gets billed.
 
 **Acceptance:** exercise marks the option, records a LE-01 event, and pre-fills
 `LeaseRenewalService` with the option's term and computed rent.
+
+**Shipped:** `ExerciseLeaseOptionService`. The event is typed by what the option DOES, not by the
+mechanism — a renewal EXTENDS, an expansion EXPANDS, a termination option TERMINATES — so the
+timeline reads in deal terms. The renewal form pre-fills the term, the contracted rent and the
+commencement (the day after the current term ends, not the day notice was served), and says on the
+modal where the numbers came from.
+
+**`market` and `cpi` bases exercise fine and pre-fill no rent** — a valuation and an index feed are
+not numbers this system may invent, the same rule the escalation sweep follows — and the event
+records `rent_to_be_agreed` rather than omitting the figure silently.
+
+The notice date is the date notice was SERVED, not the day it was recorded: refusing a late-recorded
+notice would push the operator to falsify the date, which is worse than accepting it.
 
 ---
 
