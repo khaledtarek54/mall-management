@@ -293,14 +293,21 @@ quiet months averaging 818,000, then 3,000,000 in December (Christmas + New Year
 **Yardi (period basis, billed monthly).** December alone breaches: (3,000,000 − 1,000,000) × 8% =
 **160,000**.
 
-**Atriom.** Period basis only, billed immediately on declaration lock → **160,000**, on its own
-invoice, and the module doc records the annual reconciliation as DEFERRED.
+**Atriom.** **Both, per lease.** `percentage_rent_frequency` is `monthly` (breakpoint fresh each
+month → 160,000) or `annual` (cumulative → 0). On the annual basis each month carries its canonical
+chronological marginal, `overage(YTD) − overage(prior YTD)` floored at 0, so the months sum to the
+year's overage and `retrueAnnualYear()` re-attributes them all on any lock or void.
 
-**Delta.** If the lease says cumulative — and for seasonal retail it usually does — Atriom
-**over-bills by 160,000** on this one tenant, with no year-end settle-up to give it back. Multiply
-across the food court and the seasonal tenants and this is the largest single billing-correctness
-exposure in the percentage-rent module. Also missing: tiers, deductions/offsets, and any billing on
-**estimated sales** when a tenant simply never declares (today they pay nothing).
+**Delta — CORRECTED 2026-08-09.** This scenario originally read "period basis only… over-bills by
+160,000". **That was wrong**, taken from a stale line in module 09 rather than the code. The
+capability is built, tested and settable on the lease form.
+
+What is genuinely open is a **data** question, not an engineering one: the column defaults to
+`monthly` and **0 of 24** percentage-rent leases are set to `annual` today. If a clause settles
+annually, that lease is on the wrong setting — and only reading the clauses will find it.
+
+Still missing here: **tiers**, **deductions/offsets**, and billing on **estimated sales** when a
+tenant never declares (today they pay nothing).
 
 ---
 

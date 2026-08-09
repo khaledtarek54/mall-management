@@ -196,12 +196,19 @@ Same sales, same lease. **Period basis charges 160,000; cumulative charges nothi
 correct is what the lease says — and a system that only implements one of them cannot bill the
 other correctly, ever.
 
-**Atriom implements period basis only, and bills the overage immediately** when a declaration is
-locked ([module 09](../../modules/09-tenant-sales-percentage-rent.md)). Its own module doc records
-the **annual reconciliation as DEFERRED** — that deferred item is exactly this: the year-end
-settle-up that turns period-basis billing into cumulative-basis truth. For a mall with seasonal
-tenants (and Ramadan/Eid concentration makes Egypt more seasonal than most), **this is the highest-
-value percentage-rent gap.**
+**CORRECTED 2026-08-09 — Atriom implements BOTH.** `percentage_rent_frequency` on the lease is
+`monthly` (breakpoint applied fresh each month) or `annual` (cumulative). On the annual basis each
+month carries its **canonical chronological marginal** — `overage(cumulative through this month) −
+overage(through the prior month)`, each floored at 0 — so the months sum exactly to the year's
+overage, a seasonal spike is netted against the slow months, and no month can be negative.
+`retrueAnnualYear()` re-attributes the whole year whenever a declaration is locked or voided, so
+adding or removing a month keeps the live invoices summing to the cumulative truth. That is the
+settle-up, done continuously rather than once at year end.
+
+*The first version of this file said "period basis only, annual reconciliation DEFERRED". It was
+wrong — read off a stale line in module 09 rather than the code.* The real open question is a
+**data** one: the column defaults to `monthly` and no lease is currently set to `annual`, so any
+tenancy whose clause settles annually is on the wrong setting until somebody reads the clauses.
 
 ## B4. Deductions and offsets
 

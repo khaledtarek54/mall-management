@@ -436,7 +436,7 @@ headroom **so that** the cap matches the clause.
 
 ## Epic PR — Percentage rent depth *(phase 6)*
 
-### PR-01 🔴 Cumulative (YTD) basis with an annual settle-up
+### PR-01 ✅ Cumulative (YTD) basis with an annual settle-up — **ALREADY BUILT (found 2026-08-09)**
 **As a** Finance Manager **I want** percentage rent computed on a cumulative YTD basis where the
 lease says so, with a year-end reconciliation **so that** seasonal tenants are not over-billed.
 
@@ -451,8 +451,24 @@ lease says so, with a year-end reconciliation **so that** seasonal tenants are n
   FIFO), for the same reason.
 - The existing immediate-billing path is untouched for `period` leases.
 
-**Today:** period basis only; the module doc records the annual reconciliation as DEFERRED
-([S12](04-scenarios.md#s12--percentage-rent-for-a-seasonal-tenant)).
+**CORRECTION (2026-08-09): this was already built, and this story was wrong.**
+`percentage_rent_frequency` (`monthly` | `annual`) has been on the lease since the operator opted
+in — the module-09 line saying "deferred" describes the state *before* that, and I read it instead
+of the code. `PercentageRentCalculationService` computes each month's **canonical chronological
+marginal** — `overage(cumulative sales through this month) − overage(through the prior month)`,
+each floored at 0 — so the months sum to the year's overage and a seasonal spike is netted against
+slow months rather than billed against a monthly breakpoint. `retrueAnnualYear()` re-attributes the
+whole year on any lock or void. The admin lease form exposes it with annual-specific labels,
+helper text and a threshold warning.
+
+**What is actually left is a DATA question, not an engineering one:** the column defaults to
+`monthly`, and **0 of 24** percentage-rent leases are currently set to `annual`. If a lease's
+clause settles annually, that lease is on the wrong setting today. Somebody has to read the
+clauses — no code will discover it.
+
+*Lesson, per [`feedback_verify_absence_claims`](../../../CLAUDE.md): an absence finding must be
+checked against the code, not against a module doc. A stale gap row costs more than a missing one,
+because it sends people to rebuild what already exists.*
 
 ---
 

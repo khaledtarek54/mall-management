@@ -33,8 +33,9 @@ keeps the accounting capability matrix. This file is the priority call across al
 > rent per **EAS 49** gets built but ships **switched off** (single-book; tax follows invoices, the
 > accountant flips it); fit-out grace becomes **per-charge, defaulting to rent-only** — *net* abatement
 > is the norm and today's gross grace likely gives away ~108k of service charge per new tenant; and
-> percentage rent becomes **cumulative YTD with an annual reconciliation**, the retail standard, where
-> Atriom's period-only basis currently **over-bills** seasonal tenants. In each case the standard is
+> percentage rent — the cumulative YTD basis **already exists** per lease
+> (`percentage_rent_frequency = 'annual'`); the earlier claim that Atriom was period-only was wrong,
+> and what remains is a **data audit** of which clauses settle annually (0 of 24 leases are set to it). In each case the standard is
 > the default, the alternative is supported, and the lease decides.
 
 ---

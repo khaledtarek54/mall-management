@@ -82,16 +82,18 @@ more appropriate to structure breakpoints on a quarterly or annual basis"*; Q4-h
 negotiate higher artificial breakpoints. Ramadan/Eid concentration makes Egypt more seasonal than
 most markets.
 
-Atriom is period-only with no settle-up, so it sits on the **over-billing** side of
-[S12](04-scenarios.md#s12--percentage-rent-for-a-seasonal-tenant) (160,000 vs 0 on the same sales).
+**CORRECTED 2026-08-09 — Atriom already implements both.** `percentage_rent_frequency` is
+`monthly` or `annual` per lease; the annual basis is cumulative with continuous re-truing
+(`retrueAnnualYear()`), and it is settable on the lease form. The claim that Atriom was
+"period-only with no settle-up" was **wrong** — read off a stale module-09 line instead of the
+code, and repeated through this plan. Nothing needs building.
 
-**Decision:** build cumulative YTD + the annual reconciliation (PR-01), **default new leases to
-cumulative**, keep `period` as a per-lease option because some leases do say monthly. This is the
-same estimate → reconcile → true-up shape CAM already implements, so the pattern exists.
+**What remains is a data audit, not a build:** the column defaults to `monthly` and **0 of 24**
+percentage-rent leases are set to `annual`. If a clause settles annually, that lease is on the
+wrong setting today. Somebody has to read the clauses; no code will discover it.
 
-**Flag:** if an existing lease's clause says cumulative, that tenant has been over-billed. Worth
-reviewing the percentage-rent clauses before the next reconciliation — a restitution question, not
-an engineering one.
+**Still genuinely missing** in percentage rent: tiers (PR-02), deductions/offsets (PR-03), and
+billing on estimated sales when a tenant never declares (PR-04).
 
 ### The principle these three share
 
