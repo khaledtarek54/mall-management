@@ -22,18 +22,24 @@ use InvalidArgumentException;
  * exactly what a settled account needs. Re-deriving the statement a year later would show today's
  * numbers, not the ones that were signed; the event shows the ones that were signed.
  *
- * **It disposes of the deposit only.** Netting open AR off a deposit is a fourth channel into
- * `Invoice::recomputeTotals()` — see `MoveOutStatementService` for why that is its own piece of
- * work. Deductions here are what the landlord KEEPS (damages, cleaning, unamortised fit-out), which
- * `forfeit` already models correctly: Dr Deposits Held / Cr Misc Income.
+ * **It settles in Yardi's order** (scenario S8): arrears first, then the operator's deductions,
+ * then whatever is left is refunded — *540,000 − 120,000 unpaid − 35,000 damages = 385,000*, on one
+ * document. Arrears go through `ApplyDepositToInvoiceService` (Dr Deposits Held / Cr AR, a real
+ * settlement of the receivable); deductions are what the landlord KEEPS, which `forfeit` already
+ * models correctly (Dr Deposits Held / Cr Misc Income).
+ *
+ * Arrears are settled BEFORE deductions because the tenant owes them and the invoices are real
+ * documents; a deduction is an assessment the operator makes at settlement. If the deposit cannot
+ * cover both, the tenant is left owing the assessed damages rather than an unpaid rent invoice that
+ * has already been to the tax authority.
  */
 class SettleMoveOutService
 {
     public function __construct(private MoveOutStatementService $statements) {}
 
     /**
-     * @param  array{settlement_date?:string|\DateTimeInterface|null, deductions?:array<int, array<string, mixed>>, reason?:string|null, document_reference?:string|null, method?:string|null}  $data
-     * @return array{statement: array<string, mixed>, forfeit: ?DepositTransaction, refund: ?DepositTransaction, event: LeaseEvent}
+     * @param  array{settlement_date?:string|\DateTimeInterface|null, deductions?:array<int, array<string, mixed>>, settle_arrears?:bool, reason?:string|null, document_reference?:string|null, method?:string|null}  $data
+     * @return array{statement: array<string, mixed>, settled_arrears: array{applied: float, invoices: int}, forfeit: ?DepositTransaction, refund: ?DepositTransaction, event: LeaseEvent}
      */
     public function settle(Lease $lease, array $data = []): array
     {
@@ -55,7 +61,19 @@ class SettleMoveOutService
             ->filter(fn (array $row) => $row['amount'] > 0 && $row['description'] !== '')
             ->values();
 
-        $statement = $this->statements->for($lease, $settlementDate);
+        // Net the arrears off the deposit FIRST (story MF-03, scenario S8) — this is the act that
+        // was missing, and without it the statement reported a net position the settlement never
+        // carried out. Opt-out for the same reason the termination credit is: the application
+        // posts on the settlement date, and a closed period refuses it.
+        $settledAr = ['applied' => 0.0, 'invoices' => 0];
+
+        if (($data['settle_arrears'] ?? true) !== false) {
+            $settledAr = app(ApplyDepositToInvoiceService::class)->settleOpenAr($lease, $settlementDate);
+        }
+
+        // Recomputed AFTER the arrears are settled: the deposit held has shrunk by exactly what
+        // they consumed, so the refund below cannot spend the same money twice.
+        $statement = $this->statements->for($lease->fresh(), $settlementDate);
         $held = (float) $statement['deposit_held'];
         $deducted = round((float) $deductions->sum('amount'), 2);
 
@@ -71,7 +89,7 @@ class SettleMoveOutService
 
         $refundable = round($held - $deducted, 2);
 
-        return DB::transaction(function () use ($lease, $statement, $deductions, $deducted, $refundable, $settlementDate, $data, $held) {
+        return DB::transaction(function () use ($lease, $statement, $deductions, $deducted, $refundable, $settlementDate, $data, $held, $settledAr) {
             $forfeit = null;
             $refund = null;
 
@@ -123,6 +141,8 @@ class SettleMoveOutService
                     'deposit_held' => $held,
                     'deductions' => $deductions->all(),
                     'deducted_total' => $deducted,
+                    'arrears_settled' => $settledAr['applied'],
+                    'arrears_invoices' => $settledAr['invoices'],
                     'refunded' => max($refundable, 0),
                     'open_ar' => (float) $statement['open_ar'],
                     'tenant_credit' => (float) $statement['tenant_credit'],
@@ -137,6 +157,7 @@ class SettleMoveOutService
 
             return [
                 'statement' => $statement,
+                'settled_arrears' => $settledAr,
                 'forfeit' => $forfeit,
                 'refund' => $refund,
                 'event' => $event,

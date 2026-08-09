@@ -15,8 +15,11 @@
 > itemised deductions, and the true-ups that are **not knowable yet** (an unreconciled CAM year,
 > missing sales declarations). Settling disposes of the deposit in one act and **freezes the
 > statement as the termination event's payload** — re-deriving it a year later would show today's
-> numbers, not the ones that were signed. It deliberately does NOT net open AR off the deposit; see
-> the MF-03 follow-up in the phase plan for why that is its own change.
+> numbers, not the ones that were signed. Settlement follows Yardi's order (S8): **arrears are netted
+> off the deposit first** (`ApplyDepositToInvoiceService`, Dr Deposits Held / Cr AR — the FOURTH
+> channel into `Invoice::recomputeTotals()`), then the operator's deductions are forfeited, then the
+> remainder is refunded. Arrears go first because an unpaid rent invoice is a real document that may
+> already have reached the tax authority, while a deduction is an assessment made at settlement.
 >
 > **Late-fee terms are per-lease** (`Lease::lateFeeTerms()`, story MF-08), falling back to
 > `BillingSettings` — **not** `config('billing.*')`, which the service used to read while the admin

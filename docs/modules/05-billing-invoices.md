@@ -40,7 +40,7 @@ This is the core AR (accounts receivable) engine; all recurring revenue flows th
 ### Column notes
 
 - `credit_applied_amount`: Tracks credit notes applied to this invoice durably (separate from payment pivot). Critical for preventing credit erasure during payment recomputes.
-- `balance` = `total - paid_amount` (recomputed after each payment or credit allocation)
+- `balance` = `total - paid_amount` (recomputed after each payment, credit, tenant-credit or deposit application)
 - `status` auto-advances: `issued` → `overdue` (if due_date is past), `partially_paid` (if 0 < paid < total), `paid` (if balance ≤ 0). Manual overrides (disputed, cancelled, credited) are preserved.
 - `eta_status`: Egyptian Tax Authority compliance status; initially null, updated via EtaSubmissionService.
 
@@ -123,7 +123,18 @@ This is the core AR (accounts receivable) engine; all recurring revenue flows th
 6. **Paid amount is the sum of two sources:**
    - Captured payments via the `invoice_payment` pivot: `sum(invoice_payment.allocated_amount where payments.status = 'captured')`
    - Credit notes applied durably via `invoices.credit_applied_amount`
-   - **Formula (in Invoice::recomputeTotals()):** `paid_amount = sum(captured payments) + credit_applied_amount`
+   - **Formula (in `Invoice::recomputeTotals()`) — FOUR channels:**
+  `paid_amount = sum(captured payments) + credit_applied_amount + applied tenant credit + applied security deposit`
+  - `credit_applied_amount` — a credit note applied to this invoice (a durable column; see the bug below).
+  - `TenantCreditApplication` — an on-account overpayment drawn onto this invoice (Dr Unearned / Cr AR).
+  - `DepositApplication` — a security deposit netted at move-out, MF-03 (Dr Deposits Held / Cr AR).
+
+  **Every calculation that decides "how much of this invoice is settled" must count all four.**
+  Each of the last three was added separately, and each time something downstream had to be told:
+  `capturedCashPaid()` (the void guard — none of the three is cash), the cancel-invoice release
+  (or the settlement strands on an invoice that left the books), and BOTH payment over-allocation
+  guards (`assertInvoicesNotOverAllocated`, `refitAllocationsToBalance`) — omitting one there lets a
+  payment over-settle an invoice another channel already paid, burying the excess as negative AR.
    - This ensures a credit note isn't erased by a later payment recompute
    - **Test:** `CreditNoteBalanceDriftTest::test_keeps_an_applied_credit_when_a_later_captured_payment_recomputes_the_invoice`
 
@@ -710,7 +721,7 @@ To customize the PDF:
 
 ### Extending the AR reconciliation (e.g., discount, writing off bad debt)
 
-Currently, balance = total - paid_amount - credit_applied_amount. To add discounts or write-offs:
+Currently `balance = max(0, total − paid_amount)`, where `paid_amount` already includes the applied credit (see §2's four-channel formula — this line previously double-counted it). To add discounts or write-offs:
 
 1. Add a column `invoices.discount_amount` or `invoices.writeoff_amount`.
 2. Update `Invoice::recomputeTotals()`:
@@ -800,7 +811,7 @@ of 1000. Round the amount, never the ratio.
 
 **Fix:** Added `invoices.credit_applied_amount` column. `CreditNoteService::applyToInvoice()` bumps this column, then calls `recomputeTotals()`, which sums both the payments pivot AND credit_applied_amount.
 
-**Formula:** `paid_amount = sum(captured payments) + credit_applied_amount`.
+**Formula at the time of that fix:** `paid_amount = sum(captured payments) + credit_applied_amount`. Two more channels have been added since (tenant credit, then a netted security deposit) — see §2 for the current four.
 
 **Migration:** Backfilled existing invoices by calculating credit = paid_amount − sum(captured payments) for each invoice.
 

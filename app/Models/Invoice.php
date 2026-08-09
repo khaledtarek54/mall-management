@@ -362,6 +362,14 @@ class Invoice extends Model
                 foreach (TenantCreditApplication::where('invoice_id', $invoice->id)->get() as $app) {
                     $app->delete();
                 }
+
+                // A netted SECURITY DEPOSIT returns the same way (MF-03). Without this the deposit
+                // would stay spent on an invoice that no longer claims any AR — the tenant's
+                // refund permanently short by the amount, and Deposits Held holding a balance
+                // against a receivable that left the books.
+                foreach (\App\Models\DepositApplication::where('invoice_id', $invoice->id)->get() as $app) {
+                    $app->delete();
+                }
             }
 
             if ($invoice->status !== 'cancelled' && $invoice->getOriginal('status') !== 'cancelled') {
@@ -376,8 +384,10 @@ class Invoice extends Model
     }
 
     /**
-     * Recompute paid_amount / balance / status from the allocated payments pivot.
-     * This is the single source of truth for AR balances.
+     * Recompute paid_amount / balance / status. **The single source of truth for AR balances.**
+     *
+     * `paid_amount` is the sum of FOUR channels — captured payments, applied credit notes, applied
+     * tenant credit, and a security deposit netted at move-out. Nothing else may write it.
      */
     public function recomputeTotals(): void
     {
@@ -394,6 +404,15 @@ class Invoice extends Model
         // It is its own document (Dr Unearned / Cr AR); soft-deleted (reversed) rows are excluded,
         // so reversing an application re-opens the AR here on the next recompute.
         $paid += (float) TenantCreditApplication::where('invoice_id', $this->id)->sum('amount');
+
+        // A SECURITY DEPOSIT netted against this invoice at move-out (story MF-03) — the fourth
+        // and last channel. Its own document too (Dr Deposits Held / Cr AR), soft-deleted on
+        // reversal, so the AR re-opens and the deposit balance returns on the next recompute.
+        //
+        // Every calculation that decides "how much of this invoice is settled" must count all four.
+        // Three of them were added one at a time and each time something downstream had to learn
+        // about it; if a fifth is ever needed, grep for this comment first.
+        $paid += (float) DepositApplication::where('invoice_id', $this->id)->sum('amount');
 
         $this->paid_amount = round($paid, 2);
         $this->balance = round(max(0, (float) $this->total - $this->paid_amount), 2);
@@ -425,17 +444,23 @@ class Invoice extends Model
     }
 
     /**
-     * The portion of paid_amount that is real captured CASH — i.e. excluding the reversible, non-cash
-     * settlements (applied credit notes + applied tenant credit). This is what must be refunded /
-     * reversed before an invoice can be voided; a voidable invoice has captured cash ≤ 0. Named here
-     * once so the void guard (service + Filament visible()) can't drift on how the two are treated.
+     * The portion of paid_amount that is real captured CASH — i.e. excluding the reversible,
+     * non-cash settlements (applied credit notes, applied tenant credit, netted security deposit).
+     * This is what must be refunded / reversed before an invoice can be voided; a voidable invoice
+     * has captured cash ≤ 0. Named here once so the void guard (service + Filament visible()) can't
+     * drift on how they are treated.
+     *
+     * A netted deposit belongs on the exclusion list for the same reason an applied credit does: no
+     * cash arrived, and the settlement reverses by soft-deleting its own document. Counting it as
+     * cash would refuse to void an invoice that has nothing to refund.
      */
     public function capturedCashPaid(): float
     {
         return round(
             (float) $this->paid_amount
             - (float) $this->credit_applied_amount
-            - (float) TenantCreditApplication::where('invoice_id', $this->id)->sum('amount'),
+            - (float) TenantCreditApplication::where('invoice_id', $this->id)->sum('amount')
+            - (float) \App\Models\DepositApplication::where('invoice_id', $this->id)->sum('amount'),
             2,
         );
     }

@@ -173,11 +173,16 @@ it('freezes the settled statement on the lease history, where it cannot be edite
 
     $event = $lease->fresh()->events()->where('type', LeaseEvent::TYPE_TERMINATION)->sole();
 
+    // These numbers CHANGED when MF-03's netting completed (2026-08-09) and the new ones are
+    // Yardi's own: 540,000 held − 120,000 arrears − 35,000 damages = 385,000 refunded (S8). The
+    // statement is taken AFTER the arrears are settled, so `deposit_held` is what remains at that
+    // moment and `open_ar` is zero — the settlement now carries out the position it reports.
     expect($event->payload['settlement'])->toBeTrue()
-        ->and($event->payload['deposit_held'])->toEqual(540000.0)
+        ->and($event->payload['arrears_settled'])->toEqual(120000.0)
+        ->and($event->payload['deposit_held'])->toEqual(420000.0)
         ->and($event->payload['deducted_total'])->toEqual(35000.0)
-        ->and($event->payload['refunded'])->toEqual(505000.0)
-        ->and($event->payload['open_ar'])->toEqual(120000.0)
+        ->and($event->payload['refunded'])->toEqual(385000.0)
+        ->and($event->payload['open_ar'])->toEqual(0.0)
         ->and($event->payload['deductions'][0]['description'])->toBe('Damages')
         ->and($event->document_reference)->toBe('Settlement 09/2028');
 

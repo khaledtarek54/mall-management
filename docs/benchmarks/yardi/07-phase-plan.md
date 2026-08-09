@@ -267,12 +267,10 @@ queue if the leasing team is feeling the pain now
   (forfeit the deductions, refund the rest) and **freezes the statement as the termination event's
   payload** — append-only, dated, attributed, so what was signed stays signed.
 
-**Deliberately NOT built — applying the deposit against open AR.** That is a fourth channel into
-`Invoice::recomputeTotals()`, whose invariant (`paid_amount = captured payments + credit applied`)
-is the most protected rule in the codebase, and a new GL treatment (Dr Deposits Held / Cr AR)
-needing the full registry route. The statement therefore REPORTS open AR and the net position
-including it, and says on its face that only the deposit is disposed of. See
-[MF-03 follow-up](#mf-03-follow-up) below.
+**Applying the deposit against open AR shipped on 2026-08-09** — initially deferred as a fourth
+channel into `Invoice::recomputeTotals()`, then built properly via the full registry route once
+Yardi was confirmed as the standard to follow (S8 nets on one document). See MF-03 in
+[05-user-stories.md](05-user-stories.md).
 
 **Original plan below, for the record.**
 
@@ -282,13 +280,11 @@ a `PostingDateGuards` classification, and — per the GL invariant — **at leas
 the real service and the sweep and asserts the tie-out**, not a test that calls `LedgerPoster::post()`
 and proves only arithmetic.
 
-<a id="mf-03-follow-up"></a>
-**MF-03 follow-up — netting the deposit against AR.** The smallest correct shape is a new
-`DepositTransaction` type (`applied`) carrying an `invoice_id`, which reuses the model's existing
-number allocation, posting-date guard, property isolation and GL registration; the journalizer gains
-one branch (Dr Deposits Held / Cr AR). The hard part is not the posting — it is that the invoice's
-`paid_amount` must then include deposit applications, which changes `Invoice::recomputeTotals()`.
-Do it as its own change, with the tie-out test the GL invariant requires.
+**How MF-03's netting actually landed**, since the shape differs from what was sketched here: a
+dedicated `DepositApplication` model rather than a `DepositTransaction` type. The type would have
+inherited `NEVER_DELETABLE` and had **no reversal path** — wrong for something an operator must be
+able to undo before the tenant has left the building. `TenantCreditApplication` was the right
+precedent: own document, own journalizer, soft-delete as the reversal.
 
 **MF-05 (post month) is deliberately parked here as optional.** It is the right answer to a real
 problem ([S14](04-scenarios.md#s14--an-invoice-keyed-after-the-period-closed)), but it touches every

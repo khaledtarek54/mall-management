@@ -245,7 +245,7 @@ complement of the bill. Trailing proration is unconditional; one-off lines are n
 
 ---
 
-### MF-03 ✅ A move-out final account *(shipped 2026-08-09 — deposit half; AR netting deferred)*
+### MF-03 ✅ A move-out final account *(shipped 2026-08-09, completed same day)*
 **As a** Property Accountant **I want** one document that settles a departing tenant **so that**
 the deposit, the arrears, the damages and the pending CAM true-up are reconciled in one auditable
 place.
@@ -263,10 +263,16 @@ place.
 sales declarations — the "not knowable yet" section); `SettleMoveOutService` disposes of the deposit
 in one act and freezes the statement as the termination lease event's payload.
 
-**Deferred, and stated on the document:** netting open AR off the deposit. That needs a fourth
-channel into `Invoice::recomputeTotals()` plus a new GL treatment — see the phase plan's MF-03
-follow-up. The statement reports open AR and the net position; the settlement disposes of the
-deposit only.
+**The netting shipped too**, via the full registry route rather than a shortcut:
+`DepositApplication` is its own document (Dr Deposits Held / Cr AR), the **fourth channel** into
+`Invoice::recomputeTotals()`, soft-deleted to reverse — the same shape as `TenantCreditApplication`.
+Settlement follows Yardi's order: arrears first, then the operator's deductions, then the refund.
+
+Adding the channel meant telling four other places about it, which is the real cost of one:
+`capturedCashPaid()` (a netted deposit is not cash, so a void must still be allowed), the
+cancel-invoice release (or the deposit strands on an invoice that left the books), and BOTH payment
+over-allocation guards (or a later payment over-settles an invoice the deposit already paid — the
+identical bug the tenant-credit channel caused before it was counted).
 
 ---
 

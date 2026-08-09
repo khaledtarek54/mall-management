@@ -21,6 +21,7 @@ use App\Models\OwnerStatementRun;
 use App\Models\Payment;
 use App\Models\Payroll;
 use App\Models\StockMovement;
+use App\Models\DepositApplication;
 use App\Models\TenantCreditApplication;
 use App\Models\VendorBill;
 use App\Models\VendorBillPayment;
@@ -116,6 +117,12 @@ class PostingDateGuards
             'entry_date is deliberately stamped at application time, never the source receipt\'s '.
             'date. That decoupling is the whole point: it lets an old overpayment settle a current '.
             'invoice without ever posting into the closed period the overpayment came from.',
+
+        DepositApplication::class => self::SYSTEM_PREFIX.
+            'entry_date is stamped at application time by ApplyDepositToInvoiceService and is not '.
+            'operator-typable. Same decoupling as the tenant credit above: a deposit taken three '.
+            'years ago settles a current invoice without posting into the sealed period it was '.
+            'received in.',
         // The finalisation guard already froze issue_date once an invoice is ISSUED; what
         // remained was a DRAFT back-dated and then issued, posting AR into a sealed month.
         Invoice::class => Invoice::class,

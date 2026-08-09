@@ -220,6 +220,7 @@ class DeletionPolicy
         \App\Models\CreditNoteItem::class => 'parent-managed: rebuilt with its credit note',
         \App\Models\CreditNoteApplication::class => 'parent-managed: deleted to UN-APPLY a credit note',
         \App\Models\TenantCreditApplication::class => 'parent-managed: soft-deleted to reverse an applied tenant credit',
+        \App\Models\DepositApplication::class => 'parent-managed: soft-deleted to reverse a deposit netted against an invoice (ApplyDepositToInvoiceService::reverse), which re-opens the AR and returns the deposit balance',
         \App\Models\InvoiceWriteOff::class => 'parent-managed: soft-deleted to reverse a bad-debt write-off (WriteOffInvoiceService::reverse), which voids the GL entry and re-opens the invoice. NEVER_DELETABLE would have broken that recovery path — the exact trap CLAUDE.md warns about before adding a model to NEVER',
         \App\Models\JournalLine::class => 'parent-managed: rebuilt when its entry is re-posted',
         \App\Models\PayrollLine::class => 'parent-managed: rebuilt when payslips are regenerated',

@@ -13,18 +13,20 @@ use App\Models\CamAllocation;
 use App\Models\CamExpensePool;
 use App\Models\Charge;
 use App\Models\CreditNote;
+use App\Models\CreditNoteApplication;
 use App\Models\CreditNoteItem;
 use App\Models\Custody;
 use App\Models\CustodyTransaction;
 use App\Models\Department;
+use App\Models\DepositApplication;
 use App\Models\DepositTransaction;
 use App\Models\DepreciationEntry;
 use App\Models\DeviceToken;
 use App\Models\Disbursement;
 use App\Models\Employee;
-use App\Models\Equipment;
 use App\Models\EmployeeAdvance;
 use App\Models\EmployeeAdvanceRepayment;
+use App\Models\Equipment;
 use App\Models\Expense;
 use App\Models\FiscalYear;
 use App\Models\FixedAsset;
@@ -32,19 +34,21 @@ use App\Models\FixedAssetDisposal;
 use App\Models\InventoryItem;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
+use App\Models\InvoiceWriteOff;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Models\Lease;
 use App\Models\LeaseCamTerm;
+use App\Models\LeaseEvent;
+use App\Models\LeaseOption;
+use App\Models\LeasePercentageRentTier;
 use App\Models\LedgerAccount;
+use App\Models\LowStockAlert;
 use App\Models\MaintenancePenalty;
 use App\Models\MaintenancePlan;
 use App\Models\MaintenanceWorkOrder;
 use App\Models\MaintenanceWorkOrderItem;
 use App\Models\MaintenanceWorkOrderPart;
-use App\Models\LowStockAlert;
-use App\Models\PurchaseRequest;
-use App\Models\PurchaseRequestLine;
 use App\Models\MarketingBudget;
 use App\Models\MarketingSpend;
 use App\Models\MeterReading;
@@ -55,12 +59,15 @@ use App\Models\OwnerStatement;
 use App\Models\OwnerStatementRun;
 use App\Models\Payment;
 use App\Models\Payroll;
-use App\Models\PostDatedCheque;
 use App\Models\PayrollLine;
+use App\Models\PostDatedCheque;
+use App\Models\PurchaseRequest;
+use App\Models\PurchaseRequestLine;
 use App\Models\SlaPolicy;
 use App\Models\StockMovement;
 use App\Models\SystemSetting;
 use App\Models\Tenant;
+use App\Models\TenantCreditApplication;
 use App\Models\TenantRequest;
 use App\Models\TenantRequestComment;
 use App\Models\TenantSalesDeclaration;
@@ -72,9 +79,9 @@ use App\Models\Vendor;
 use App\Models\VendorBill;
 use App\Models\VendorBillPayment;
 use App\Models\VendorContact;
-use App\Models\VendorDocument;
 use App\Models\VendorContract;
 use App\Models\VendorContractAmendment;
+use App\Models\VendorDocument;
 use App\Models\Violation;
 use App\Models\Warehouse;
 
@@ -157,7 +164,8 @@ class PropertyIsolation
         Department::class => null,             // asset_id nullable: null = operator-wide (global), set = property-scoped (hybrid)
         AssetOwner::class => null,             // the asset_owner ownership pivot — one row = one owner's stake in one mall; no Filament resource (managed via User/Asset relations), like LowStockAlert
         OwnerStatementRun::class => null,      // owner statement run — one property's period statement (module 32)
-        \App\Models\TenantCreditApplication::class => null, // applying on-account credit to an invoice; asset = the invoice's property; service-created, no Filament resource
+        TenantCreditApplication::class => null, // applying on-account credit to an invoice; asset = the invoice's property; service-created, no Filament resource
+        DepositApplication::class => null,        // netting a deposit against an invoice; asset = the invoice's property; service-created, no Filament resource
         OwnerStatement::class => null,         // per-owner child; asset_id denormalized for uniform auto-scope
         Disbursement::class => null,           // owner payout; asset_id denormalized (journalizer reads own row)
         PostDatedCheque::class => null,        // a tenant's forward cheque, pinned to the property it relates to (module 33)
@@ -168,14 +176,14 @@ class PropertyIsolation
         InvoiceItem::class => 'invoice.lease.unit',
         Charge::class => 'lease.unit',
         LeaseCamTerm::class => 'lease.unit',
-        \App\Models\LeaseOption::class => 'lease.unit',
-        \App\Models\LeasePercentageRentTier::class => 'lease.unit',
-        \App\Models\LeaseEvent::class => 'lease.unit',
-        \App\Models\InvoiceWriteOff::class => 'asset',
+        LeaseOption::class => 'lease.unit',
+        LeasePercentageRentTier::class => 'lease.unit',
+        LeaseEvent::class => 'lease.unit',
+        InvoiceWriteOff::class => 'asset',
         Payment::class => 'invoices.lease.unit',
         CreditNote::class => 'lease.unit',
         CreditNoteItem::class => 'creditNote.lease.unit',
-        \App\Models\CreditNoteApplication::class => 'creditNote.lease.unit', // one application of a note; asset = the note's (invoice's) property; service-created, no Filament resource
+        CreditNoteApplication::class => 'creditNote.lease.unit', // one application of a note; asset = the note's (invoice's) property; service-created, no Filament resource
         TenantRequest::class => 'unit',
         TenantRequestComment::class => 'request.unit',
         TenantSalesDeclaration::class => 'lease.unit',

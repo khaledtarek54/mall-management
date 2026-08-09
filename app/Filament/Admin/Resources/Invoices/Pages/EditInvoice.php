@@ -155,6 +155,44 @@ class EditInvoice extends EditRecord
                 }),
             // Reverse the applied credit (undo) — soft-deletes the applications; the GL entry is
             // voided, the invoice AR re-opens, and the credit returns to the tenant's balance.
+            // A netted security deposit needs the same escape hatch as an applied credit (MF-03):
+            // an operator who settles a move-out against the wrong invoice must be able to undo it,
+            // and the money records are never deletable. Reversing re-opens the AR and returns the
+            // deposit balance.
+            Action::make('reverse_deposit_application')
+                ->label(__('admin.actions.reverse_deposit_application'))
+                ->icon('heroicon-o-arrow-uturn-left')
+                ->color('warning')
+                ->authorize(fn () => Auth::user()?->can('payments.edit') ?? false)
+                ->visible(fn (): bool => \App\Models\DepositApplication::where('invoice_id', $this->record->id)->exists()
+                    && (Auth::user()?->can('payments.edit') ?? false))
+                ->requiresConfirmation()
+                ->modalDescription(__('admin.actions.reverse_deposit_application_confirm'))
+                ->action(function (): void {
+                    abort_unless(Auth::user()?->can('payments.edit') ?? false, 403);
+
+                    $svc = app(\App\Services\ApplyDepositToInvoiceService::class);
+                    $reversed = 0.0;
+
+                    try {
+                        foreach (\App\Models\DepositApplication::where('invoice_id', $this->record->id)->get() as $application) {
+                            $reversed += (float) $application->amount;
+                            $svc->reverse($application);
+                        }
+                    } catch (\DomainException $e) {
+                        // e.g. the GL void lands in a CLOSED period — clean toast, not a 500.
+                        Notification::make()->danger()->title($e->getMessage())->send();
+
+                        return;
+                    }
+
+                    Notification::make()
+                        ->success()
+                        ->title(__('admin.actions.reverse_deposit_application_done', [
+                            'amount' => 'EGP '.number_format($reversed, 2),
+                        ]))
+                        ->send();
+                }),
             Action::make('reverse_credit')
                 ->label(__('admin.actions.reverse_credit'))
                 ->icon('heroicon-o-arrow-uturn-left')

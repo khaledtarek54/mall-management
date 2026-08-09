@@ -23,13 +23,11 @@ use Carbon\CarbonImmutable;
  * (deposit transactions, open invoices, unapplied credit notes, unreconciled CAM pools), so the
  * statement cannot disagree with the ledger it summarises. `SettleMoveOutService` is what writes.
  *
- * **What it deliberately does NOT do: net open AR off the deposit.** Applying a deposit against an
- * outstanding invoice is a real GL event (Dr Deposits Held / Cr AR) and a fourth channel into
- * `Invoice::recomputeTotals()`, whose invariant is `paid_amount = captured payments + credit
- * applied`. Adding a channel to that is the single most protected rule in this codebase and is its
- * own piece of work, with the full registry route. So the statement REPORTS open AR and the net
- * position including it — the number the operator negotiates with — while the settlement itself
- * only disposes of the deposit. The difference is stated on the document rather than hidden in it.
+ * **The net position it reports is the one the settlement carries out.** `SettleMoveOutService`
+ * nets the arrears off the deposit through `ApplyDepositToInvoiceService` (Dr Deposits Held / Cr AR
+ * — a fourth channel into `Invoice::recomputeTotals()`, added by the full registry route), then
+ * deducts, then refunds the remainder. So the figures below are a forecast of the settlement rather
+ * than a description of a position somebody has to act on separately.
  */
 class MoveOutStatementService
 {
@@ -108,7 +106,10 @@ class MoveOutStatementService
 
         $held = $rows->where('type', 'receipt')->sum('amount')
             - $rows->where('type', 'refund')->sum('amount')
-            - $rows->where('type', 'forfeit')->sum('amount');
+            - $rows->where('type', 'forfeit')->sum('amount')
+            // …less anything already netted against the tenant's invoices (MF-03). Omitting this
+            // would let the same deposit settle the arrears AND be refunded in full.
+            - \App\Models\DepositApplication::where('lease_id', $lease->id)->sum('amount');
 
         return round((float) $held, 2);
     }
