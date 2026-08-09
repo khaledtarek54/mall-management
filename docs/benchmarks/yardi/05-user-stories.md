@@ -220,15 +220,16 @@ option's rent basis **so that** the contracted terms are what actually gets bill
 
 ## Epic MF — Money flow completion *(phase 4)*
 
-### MF-01 🔴 The bulk run prorates the commencement month
+### MF-01 ✅ The bulk run prorates the commencement month *(shipped 2026-08-08)*
 **As a** Tenant **I want** my first invoice to cover only the days I occupied **so that** I am not
 billed for days before handover.
 
 **Acceptance:** `runForPeriod()` prorates a lease whose commencement falls inside the period,
 without waiting for a human to use the manual action. Regression test on the bulk path specifically.
 
-**Today:** proration is correct but `prorate` defaults to `false` and only the single-lease admin
-action passes `true` ([S2](04-scenarios.md#s2--mid-month-commencement)).
+**Shipped:** `billForPeriod()` passes `prorate: true`. Pinned by `BulkBillingProratesCommencementTest`
+on the BULK path specifically — the manual action had always been correct, which is why the gap
+survived: every test that exercised proration used the path that already worked.
 
 ---
 
@@ -343,7 +344,7 @@ a live bug:** the Settings screen wrote `BillingSettings` while the service read
 
 ---
 
-### MF-09 🔴 CAM reads the lease's whole area *(bug fix, not a benchmark gap)*
+### MF-09 ✅ CAM reads the lease's whole area *(bug fix — shipped 2026-08-08)*
 **As an** Owner **I want** a multi-unit tenant's CAM share to reflect all the space they occupy
 **so that** the cost is distributed correctly between tenants.
 
@@ -355,7 +356,9 @@ a live bug:** the Settings screen wrote `BillingSettings` while the service read
   way — assert the *share*, not the total.
 - Existing reconciled pools keep their frozen shares; only new reconciliations change.
 
-**Today:** master unit only, both sides — see [S5](04-scenarios.md#s5--mid-term-expansion).
+**Shipped:** both sides sum the `lease_unit` pivot (now `Lease::totalAreaSqmForPeriod()`, time-weighted
+since LE-02). `CamMultiUnitAreaTest` asserts the SHARE, not the total — the tie-out passed either way,
+which is exactly why a wrong distribution stayed invisible.
 
 ---
 
