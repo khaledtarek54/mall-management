@@ -7,6 +7,7 @@ use App\Models\Lease;
 use Carbon\CarbonImmutable;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Grouping\Group;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
@@ -58,25 +59,37 @@ class ChargeScheduleRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
-            // Grouped by charge type, oldest first: that is the shape of a ladder, and it puts
-            // each type's history and future together instead of interleaving rent with the levy.
-            ->defaultSort('start_date')
-            ->modifyQueryUsing(fn ($query) => $query->orderBy('type')->orderBy('start_date')->orderBy('id'))
+            // CHRONOLOGICAL by default — the schedule reads as one timeline, so "what changes
+            // next, across every charge" is answerable at a glance. Grouping by type is one click
+            // away (below) for when you want to read a single ladder instead.
+            //
+            // The hard orderBy that used to live in modifyQueryUsing is gone: it was applied
+            // BEFORE the table's own sort, so every column header appended a last-place sort key
+            // and clicking one did nothing. Ordering belongs to the table, not to the query.
+            ->defaultSort('start_date', 'asc')
+            ->groups([
+                Group::make('type')
+                    ->label(__('admin.fields.type'))
+                    ->getTitleFromRecordUsing(fn (Charge $record): string => __("admin.enums.invoice_item_type.{$record->type}")),
+            ])
             ->columns([
                 TextColumn::make('type')
                     ->label(__('admin.fields.type'))
                     ->badge()
+                    ->sortable()
                     ->color('gray')
                     ->formatStateUsing(fn (string $state): string => __("admin.enums.invoice_item_type.{$state}")),
                 TextColumn::make('amount')
                     ->label(__('admin.fields.amount'))
                     ->money('EGP')
+                    ->sortable()
                     ->alignEnd()
                     // The row actually billing right now is the one an operator is looking for.
                     ->weight(fn (Charge $record): ?string => self::state($record) === 'current' ? 'bold' : null),
                 TextColumn::make('start_date')
                     ->label(__('admin.charge_schedule.from'))
                     ->date('d/m/Y')
+                    ->sortable()
                     // A null start_date means "from the beginning of the lease" — billing treats
                     // it as always-covered. Showing "—" read as *unknown*, which is a different
                     // and worse thing to tell an operator.
@@ -84,6 +97,7 @@ class ChargeScheduleRelationManager extends RelationManager
                 TextColumn::make('end_date')
                     ->label(__('admin.charge_schedule.to'))
                     ->date('d/m/Y')
+                    ->sortable()
                     // An open-ended row is the end of its ladder, and saying so beats a blank cell.
                     ->placeholder(__('admin.charge_schedule.open_ended')),
                 TextColumn::make('state')

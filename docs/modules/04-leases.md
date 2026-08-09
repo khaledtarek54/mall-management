@@ -57,6 +57,15 @@
 > on the contract's dates and an already-billed month is never re-dated. Until a lease is
 > backfilled its Charge schedule says so explicitly rather than claiming no increase is coming.
 >
+> **Known wart — `charges.type` is a DB-level ENUM**
+> (`enum('base_rent','service_charge','utility','parking','percentage_rent','marketing','other')`),
+> which the project convention forbids (string + validation, so a new type needs no migration).
+> It has a visible side effect: **MySQL orders an ENUM by its DECLARED index, not alphabetically**,
+> so `ORDER BY type` yields base_rent → service_charge → utility → parking → percentage_rent →
+> marketing → other, which looks arbitrary on screen. The charge-schedule table therefore sorts by
+> date, not type. Converting the column to a string is a small migration and would also make the
+> ordering sane; it is not urgent because nothing depends on the enum ordering.
+>
 > Full analysis and the remaining phases: [`docs/benchmarks/yardi/`](../benchmarks/yardi/README.md).
 > **Still open here:** no lease options / notice-window alerts, no trailing proration, holdover is
 > alerted but never billed. Note `LeaseCreationService` hard-codes `escalation_type =

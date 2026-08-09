@@ -161,3 +161,27 @@ it('warns when a contracted escalation is due but has never been scheduled', fun
     expect($description)->toContain('01/03/2027')
         ->and($description)->not->toContain(__('admin.charge_schedule.no_further_steps'));
 });
+
+it('reads chronologically, and every column can be sorted', function () {
+    // The schedule is a timeline first: "what changes next, across every charge type" must be
+    // answerable by reading down the page. Grouping by type is available for the ladder view.
+    //
+    // The sortable assertion is not decoration — a hard orderBy in modifyQueryUsing used to run
+    // BEFORE the table's own sort, so every column header appended a last-place key and clicking
+    // one silently did nothing.
+    CarbonImmutable::setTestNow('2026-06-10');
+    $lease = ladderLease();
+
+    $table = Livewire::test(ChargeScheduleRelationManager::class, [
+        'ownerRecord' => $lease,
+        'pageClass' => EditLease::class,
+    ])->instance()->getTable();
+
+    expect($table->getDefaultSortColumn())->toBe('start_date')
+        ->and($table->getDefaultSortDirection())->toBe('asc')
+        ->and($table->getColumn('start_date')->isSortable())->toBeTrue()
+        ->and($table->getColumn('amount')->isSortable())->toBeTrue()
+        ->and($table->getColumn('type')->isSortable())->toBeTrue()
+        // …and the ladder view is still reachable.
+        ->and(array_keys($table->getGroups()))->toContain('type');
+});
