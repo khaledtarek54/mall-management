@@ -22,20 +22,24 @@ class LateFeeService
     public function runForToday(?CarbonImmutable $today = null): array
     {
         $today = $today ?? CarbonImmutable::now()->startOfDay();
-        $graceDays = (int) config('billing.late_fee_grace_days', 7);
-        $cutoff = $today->subDays($graceDays);
 
+        // Select every invoice that is merely PAST DUE and let `applyTo()` decide whether its own
+        // lease's grace period has run out (story MF-08). Grace is a lease-level term now, so a
+        // single global cutoff in this query would silently exclude the leases with the LONGEST
+        // negotiated grace from ever being considered — the ones whose terms most needed honouring.
+        // Over-selecting here is cheap; the precise rule lives in exactly one place.
         $invoices = Invoice::query()
             ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
             ->where('balance', '>', 0)
-            ->whereDate('due_date', '<=', $cutoff)
+            ->whereDate('due_date', '<=', $today->toDateString())
+            ->with('lease')
             ->get();
 
         $stats = ['considered' => $invoices->count(), 'applied' => 0, 'skipped' => 0, 'failed' => 0];
 
         foreach ($invoices as $invoice) {
             try {
-                $applied = $this->applyTo($invoice);
+                $applied = $this->applyTo($invoice, $today);
                 if ($applied) {
                     $stats['applied']++;
                 } else {
@@ -56,15 +60,26 @@ class LateFeeService
     }
 
     /**
-     * Apply a late fee to one invoice. Returns true if a fee was added,
-     * false if already applied (idempotent guard).
+     * Apply a late fee to one invoice. Returns true if a fee was added, false if it is not due yet
+     * or was already applied (idempotent guard).
+     *
+     * **The rate, minimum and grace come from the LEASE** (`Lease::lateFeeTerms()`), falling back to
+     * the portfolio default — see that method for why the fallback is `BillingSettings` and not
+     * `config('billing.*')`.
      */
-    public function applyTo(Invoice $invoice): bool
+    public function applyTo(Invoice $invoice, ?CarbonImmutable $today = null): bool
     {
-        $percent = (float) config('billing.late_fee_percent', 2.0);
-        $min = (float) config('billing.late_fee_minimum', 50.0);
+        $today = $today ?? CarbonImmutable::now()->startOfDay();
+        $terms = $invoice->lease?->lateFeeTerms() ?? [
+            'percent' => (float) app(\App\Settings\BillingSettings::class)->late_fee_percent,
+            'grace_days' => (int) app(\App\Settings\BillingSettings::class)->late_fee_grace_days,
+            'minimum' => (float) app(\App\Settings\BillingSettings::class)->late_fee_minimum,
+        ];
 
-        return DB::transaction(function () use ($invoice, $percent, $min) {
+        $percent = $terms['percent'];
+        $min = $terms['minimum'];
+
+        return DB::transaction(function () use ($invoice, $percent, $min, $terms, $today) {
             // Lock the invoice row and re-check the idempotency guard INSIDE the
             // transaction, so two concurrent late-fee runs can't both pass the
             // "no late_fee yet" check and double-charge the same invoice.
@@ -79,6 +94,13 @@ class LateFeeService
                 || $locked->items()->where('type', 'late_fee')->exists()
                 || (float) $locked->balance <= 0
                 || ! in_array($locked->status, ['issued', 'partially_paid', 'overdue'], true)) {
+                return false;
+            }
+
+            // This lease's own grace period. Checked HERE rather than in the batch query so the
+            // single-invoice path (a manual action, a test) obeys the same rule the sweep does.
+            if (blank($locked->due_date)
+                || CarbonImmutable::instance($locked->due_date)->addDays($terms['grace_days'])->greaterThan($today)) {
                 return false;
             }
 

@@ -6,7 +6,12 @@
 The Billing module automates the monthly invoicing lifecycle for Eltizam operators. Each Eltizam manages leases on behalf of Jawad property owners; invoices are issued to Eltizam's tenants (retailers) for rent, service charges, utilities, and other recurring fees. The system:
 - Generates invoices idempotently from lease charges (avoiding duplicates within a period)
 - Applies VAT (standard rate, 14% today — settings-driven, see §8) only to service/utility charges (base rent is VAT-exempt per Egyptian law)
-- Supports proration for mid-month lease commencement
+- Supports proration at BOTH ends: mid-month commencement (per-run flag) and mid-month
+  termination/expiry (unconditional), plus the automatic credit note when the month was already
+  billed in advance
+- Late-fee rate, minimum and grace are **per-lease overrides** over the portfolio default
+  (`Lease::lateFeeTerms()`); the default comes from `BillingSettings`, which is what the admin
+  Settings screen actually writes
 - Enforces quarterly/annual charge cadences (e.g., calendar-month-agnostic quarterly billing)
 - Tracks payment status via a payment-allocation pivot and credit notes
 - Notifies tenants on issuance and alerts Jawad owners on overdue balances
@@ -64,11 +69,17 @@ This is the core AR (accounts receivable) engine; all recurring revenue flows th
    - Invoice totals: `subtotal = sum(item.amount)`, `vat_amount = sum(item.vat_amount)`, `total = subtotal + vat_amount`
    - **Test:** `BillingScenarioTest::test_computes_subtotal_vat_and_total_exactly__service_charge_taxed_base_rent_exempt` confirms base rent = 0 VAT, service charge = 14% VAT
 
-2. **Proration:** When a lease commences mid-month and proration is enabled, charges are scaled by factor = `daysBilled / daysInPeriod` (inclusive). VAT is recalculated on the prorated amount.
+2. **Proration:** `MonthlyBillingService::monthsCovered()` is **the one rule** — it sums each month's
+   own covered fraction over the cycle, so the commencement edge, the termination edge and a
+   multi-month cycle all come out of one formula (a full month contributes 1, a partial one its
+   day-share, a month the lease does not reach contributes 0). VAT is recalculated on the prorated
+   amount. **`CreditUnearnedBillingService` calls the same method** when a termination credits back a
+   month already billed, so the credit is the exact complement of the bill rather than an independent
+   day-count that would drift on every quarter-billed lease.
    - **Formula:** factor = `(periodEnd.diffInDays(commencement) + 1) / (periodEnd.diffInDays(periodStart) + 1)`
    - **Test:** `BillingScenarioTest::test_pro_rates_the_first_partial_month_when_prorate_is_requested` pins 16 days in March from 15th = 16/30 = 0.5333
    - **Gotcha:** Proration only applies if (a) the flag is true AND (b) commencement is between periodStart and periodEnd AND (c) commencement > periodStart. **The bulk run passes the flag as of 2026-08-08** — before that it took the default `false`, so a mid-month move-in billed by the scheduled run was charged a full month (`BulkBillingProratesCommencementTest`). The flag remains on the single-lease action as an override, for a contract that bills the first month in full.
-   - **Still open:** there is **no trailing proration**. A lease terminating or expiring mid-month bills the whole month — see [the Yardi benchmark, S8](../benchmarks/yardi/04-scenarios.md#s8--termination-mid-month-and-the-final-account) (story MF-02).
+   - **Trailing proration shipped 2026-08-09** (story MF-02): a lease terminating or expiring mid-month bills only the days it ran, and `LeaseTerminationService` raises the credit note for a month already billed in advance. See gotcha 9.
 
 3. **Charge frequency & applicability:**
    - **Monthly** — always applies (if active in the period)
@@ -146,12 +157,15 @@ This is the core AR (accounts receivable) engine; all recurring revenue flows th
    - **Test:** `ManualBillingEligibilityTest` (both paths agree, and the predicate agrees with the
      scope) + `BillingScenarioTest` draft/terminated/expiry cases.
 
-9. **The final month of an expiring lease bills in FULL, not pro-rata.** Proration keys on
-   *commencement* only (§2), so a lease ending on the 10th is billed the whole month — the period
-   still overlaps its term. That is the system's rule rather than an oversight, and
-   `ManualBillingEligibilityTest` pins it so changing it is a decision rather than a surprise.
-   *(If the operator wants final-month proration, that is a business-rule change to §2, not a bug
-   fix — it would need an expiry-side factor alongside the commencement one.)*
+9. **The final month of an expiring lease is PRO-RATED (changed 2026-08-09, story MF-02).** It used
+   to bill in full, because proration keyed on commencement only; the Yardi benchmark ([S8]
+   (../benchmarks/yardi/04-scenarios.md#s8--termination-mid-month-and-the-final-account)) is the
+   decision that reversed it. **Trailing proration is unconditional** — unlike the commencement kind,
+   which stays behind the `$prorate` flag — because billing days after a lease has ended is an error
+   with a manual workaround, not a commercial term. A **converted holdover is exempt**: its expiry is
+   deliberately in the past and `holdover_from` is what makes it billable at all, so clipping to
+   expiry would bill it nothing. The invoice's `period_end` reports the day the lease actually ran
+   to, not the calendar month end.
 
 10. **Only active leases with overlapping commencement/expiry are billed by runForPeriod:**
    - Status = 'active' (not draft, terminated, etc.)

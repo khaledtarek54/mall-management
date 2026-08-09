@@ -16,7 +16,13 @@ use App\Services\LateFeeService;
 */
 
 beforeEach(function () {
-    config(['billing.late_fee_percent' => 5, 'billing.late_fee_grace_days' => 7]);
+    // The SETTING, not `config('billing.*')` — and that distinction was a live bug until MF-08.
+    // The admin Settings page writes BillingSettings while LateFeeService read the config file
+    // (populated from env), so every late-fee value an operator saved on that screen was ignored.
+    // A test that configured the config file passed while the real screen did nothing.
+    $settings = app(\App\Settings\BillingSettings::class);
+    $settings->late_fee_percent = 5;
+    $settings->late_fee_grace_days = 7;
 });
 
 it('applies exactly one late fee on the first applyTo() call', function () {

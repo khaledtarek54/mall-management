@@ -232,16 +232,20 @@ action passes `true` ([S2](04-scenarios.md#s2--mid-month-commencement)).
 
 ---
 
-### MF-02 🔴 Trailing proration on termination and expiry
+### MF-02 ✅ Trailing proration on termination and expiry *(shipped 2026-08-09)*
 **As a** Property Accountant **I want** the final month to bill only to the termination date
 **so that** I do not have to credit-note every move-out.
 
 **Acceptance:** a lease ending mid-period bills `days ÷ daysInMonth`; if the period was already
 billed in full, termination raises the credit automatically and says so.
 
+**Shipped:** `MonthlyBillingService::monthsCovered()` (one rule for both edges and for multi-month
+cycles) + `CreditUnearnedBillingService`, which uses the SAME rule so the credit is the exact
+complement of the bill. Trailing proration is unconditional; one-off lines are never clawed back.
+
 ---
 
-### MF-03 🔴 A move-out final account
+### MF-03 ✅ A move-out final account *(shipped 2026-08-09 — deposit half; AR netting deferred)*
 **As a** Property Accountant **I want** one document that settles a departing tenant **so that**
 the deposit, the arrears, the damages and the pending CAM true-up are reconciled in one auditable
 place.
@@ -254,6 +258,15 @@ place.
   forfeit.
 - Never deletes a money record: corrections go through credit note / reversal
   ([`DeletionPolicy`](../../../app/Support/DeletionPolicy.php)).
+
+**Shipped:** `MoveOutStatementService` computes it (including unreconciled CAM years and missing
+sales declarations — the "not knowable yet" section); `SettleMoveOutService` disposes of the deposit
+in one act and freezes the statement as the termination lease event's payload.
+
+**Deferred, and stated on the document:** netting open AR off the deposit. That needs a fourth
+channel into `Invoice::recomputeTotals()` plus a new GL treatment — see the phase plan's MF-03
+follow-up. The statement reports open AR and the net position; the settlement disposes of the
+deposit only.
 
 ---
 
@@ -314,11 +327,13 @@ aging; the tenant portal shows the dispute state.
 
 ---
 
-### MF-08 🟠 Per-lease late-fee terms
+### MF-08 ✅ Per-lease late-fee terms *(shipped 2026-08-09)*
 **As a** Leasing Manager **I want** grace days and the late-fee rate to be lease-level overrides
 **so that** the system bills what each contract says.
 
-**Today:** `config/billing.php` globals only, applied uniformly (`LateFeeService`).
+**Shipped:** `Lease::lateFeeTerms()` resolves lease → `BillingSettings` → default. **This uncovered
+a live bug:** the Settings screen wrote `BillingSettings` while the service read
+`config('billing.*')` from `env`, so every late-fee value an operator saved there was ignored.
 
 ---
 

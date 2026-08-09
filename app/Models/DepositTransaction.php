@@ -147,6 +147,14 @@ class DepositTransaction extends Model
                 $deposit->amount = 0;
             }
 
+            // `method` is NOT NULL with a DB default of 'bank'. An explicit null OVERRIDES that
+            // default and the insert fails — the recurring class of bug CLAUDE.md names (blank
+            // optional field → null → NOT-NULL column), so coerce here rather than in each caller.
+            // A forfeit has no payment method at all, and 'bank' is the harmless truth for it.
+            if (blank($deposit->method)) {
+                $deposit->method = 'bank';
+            }
+
             // Derive tenant + asset from the lease so they can't drift — on create AND
             // when the lease is re-pointed on an existing deposit (the edit form leaves
             // lease_id editable while status is 'recorded').

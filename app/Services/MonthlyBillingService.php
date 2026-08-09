@@ -294,6 +294,58 @@ class MonthlyBillingService
      *
      * @return array{billable:bool, reason:?string, period_start:CarbonImmutable, period_end:CarbonImmutable, issue_date:?CarbonImmutable, due_date:?CarbonImmutable, factor:float, cycle_months:int, items:array<int,array<string,mixed>>, subtotal:float, vat_amount:float, total:float}
      */
+    /**
+     * How many whole months a window covers, counting a partial month as its day-share.
+     *
+     * **The one definition of "how much of a period does this lease actually run".** The billing
+     * multiplier is this; so is the earned/unearned split when a termination credits back a month
+     * already billed (`CreditUnearnedBillingService`). Two copies of this rule would let a credit
+     * disagree with the invoice it credits, by a day or two, on every mid-month move-out — a
+     * difference nobody would notice and everybody would have to reconcile.
+     *
+     * A full month contributes 1, a partial one its days ÷ that month's length, a month the window
+     * does not reach contributes 0. Day-share per MONTH rather than across the whole window,
+     * because a quarter's months are 30, 31 and 31 days and rent is a monthly amount.
+     *
+     * @param  CarbonImmutable  $cycleStart   first month of the cycle
+     * @param  int  $cycleMonths              how many months the cycle spans
+     * @param  CarbonImmutable  $windowStart  first day the lease runs inside it
+     * @param  CarbonImmutable  $windowEnd    last day the lease runs inside it
+     */
+    public static function monthsCovered(
+        CarbonImmutable $cycleStart,
+        int $cycleMonths,
+        CarbonImmutable $windowStart,
+        CarbonImmutable $windowEnd,
+    ): float {
+        $total = 0.0;
+
+        for ($i = 0; $i < max($cycleMonths, 1); $i++) {
+            $month = $cycleStart->addMonths($i);
+            $monthStart = $month->startOfMonth();
+            $monthEnd = $month->endOfMonth();
+
+            $from = $windowStart->greaterThan($monthStart) ? $windowStart : $monthStart;
+            $to = $windowEnd->lessThan($monthEnd) ? $windowEnd : $monthEnd;
+
+            if ($to->lessThan($from)) {
+                continue;   // the lease does not run at all in this month
+            }
+
+            // Sign-safe, day-granular inclusive counting. Carbon 3's `diffInDays` is SIGNED and
+            // fractional, so the old `$end->diffInDays($start) + 1` added 1 to a negative magnitude
+            // — it undercharged every mid-month move-in and billed 0 for a last-day commencement.
+            // Count whole days on day boundaries instead.
+            $days = (int) abs($to->startOfDay()->diffInDays($from->startOfDay())) + 1;
+
+            // Full-precision ratio: the per-line AMOUNT is rounded to 2dp, never the factor, so a
+            // clean fraction (1 of 30 days) bills exactly 1000 rather than 999.
+            $total += $days / $month->daysInMonth;
+        }
+
+        return $total;
+    }
+
     public function planInvoiceForLease(Lease $lease, CarbonImmutable $periodStart, CarbonImmutable $periodEnd, bool $prorate = false): array
     {
         $nothing = fn (string $reason): array => [
@@ -333,7 +385,8 @@ class MonthlyBillingService
             // (factor + cycleMonths - 1) truncate together. Without this, a lease whose term isn't a
             // whole number of cycles gets its final cycle billed in full past expiry — worst case a
             // mid-month annual lease mints a second full-year invoice for a lease with days left. The
-            // final (partial) cycle bills its whole final month in full, matching monthly end-of-term.
+            // final (partial) cycle now PRORATES its final month if the lease ends mid-month, which
+            // is the same rule monthly leases follow since MF-02 — the two paths agree again.
             if ($lease->expiry_date) {
                 $expiryMonthEnd = CarbonImmutable::instance($lease->expiry_date)->endOfMonth();
                 if ($cycleEnd->greaterThan($expiryMonthEnd)) {
@@ -371,40 +424,56 @@ class MonthlyBillingService
 
         $this->assertScheduleUnambiguous($lease, $applicableCharges, $periodStart);
 
-        // Pro-rate only if the lease commences mid-period and the caller asked for it.
-        $factor = 1.0;
-        $effectivePeriodStart = $periodStart;
+        // The billable window inside this period: the lease's own dates clipped to it.
         $commencement = $lease->commencement_date
             ? CarbonImmutable::instance($lease->commencement_date)
             : null;
 
-        // Pro-rate the COMMENCEMENT month only (the first month of the cycle), when the cycle-start
-        // month IS the commencement month. Day-count is on that month, NOT the whole cycle — for a
-        // quarterly lease we prorate the partial first month and bill the rest of the cycle in full.
-        if ($prorate && $commencement
-            && $commencement->year === $periodStart->year && $commencement->month === $periodStart->month
-            && $commencement->greaterThan($periodStart)) {
-            // Sign-safe, day-granular inclusive counting. Carbon 3's diffInDays is
-            // SIGNED + fractional, so the old `$periodEnd->diffInDays($start) + 1`
-            // added 1 to a negative magnitude and undercharged every mid-month
-            // move-in (and billed 0 for a last-day commencement). Count whole days
-            // on day boundaries instead.
-            $monthEnd = $periodStart->endOfMonth();
-            $daysInPeriod = $periodStart->daysInMonth;
-            $daysBilled = (int) abs($monthEnd->startOfDay()->diffInDays($commencement->startOfDay())) + 1;
-            // Full-precision ratio — the per-line AMOUNT is rounded to 2dp, not
-            // the factor, so a clean fraction (1 of 30 days) bills exactly (1000,
-            // not 999 from a 4dp-rounded factor).
-            $factor = $daysBilled / $daysInPeriod;
-            $effectivePeriodStart = $commencement;
+        // LEADING edge — the commencement month. Prorated only when the caller asked for it,
+        // because "does a mid-month move-in pay part of the month" is a commercial term the
+        // operator sets per run (the historical `$prorate` flag).
+        $effectivePeriodStart = ($prorate && $commencement && $commencement->greaterThan($periodStart))
+            ? $commencement
+            : $periodStart;
+
+        // TRAILING edge — the last day the lease actually runs (story MF-02, scenario S8).
+        //
+        // **Unconditional, unlike the leading edge.** Billing a tenant for days after their lease
+        // ended is not a commercial choice, it is an error that the operator then has to unwind with
+        // a manual credit note — which is exactly what S8 describes. Until this existed, proration
+        // was commencement-only and a lease terminating on the 18th was billed the whole month.
+        //
+        // A holdover lease is exempt: its expiry is deliberately in the past and `holdover_from` is
+        // what makes it billable at all, so clipping to expiry would bill it nothing (LE-04).
+        $effectivePeriodEnd = $periodEnd;
+
+        if (filled($lease->expiry_date) && ! $lease->isBillableHoldoverFor($periodEnd)) {
+            $expiry = CarbonImmutable::instance($lease->expiry_date);
+
+            if ($expiry->lessThan($periodEnd)) {
+                $effectivePeriodEnd = $expiry;
+            }
         }
 
-        $items = $applicableCharges->map(function (Charge $charge) use ($periodStart, $periodEnd, $factor, $cycleMonths) {
-            // Recurring (monthly) charges bill for every month in the cycle; the commencement month
-            // is prorated when applicable → multiplier = factor + (the remaining full months). For a
-            // monthly lease (cycleMonths = 1) this is just `factor`, unchanged. A non-monthly charge
-            // (a one-off) bills once at its full amount, never multiplied.
-            $multiplier = $charge->frequency === 'monthly' ? ($factor + ($cycleMonths - 1)) : 1.0;
+        // The multiplier is the sum of each month's own covered fraction. One formula for both
+        // edges and for a multi-month cycle: a full month contributes 1, a partial one contributes
+        // its day-share, a month the lease does not reach contributes nothing. For a monthly lease
+        // that never ends mid-month this is exactly 1, so nothing that bills today changes.
+        $multiplier = self::monthsCovered($periodStart, $cycleMonths, $effectivePeriodStart, $effectivePeriodEnd);
+
+        // Nothing of this period falls inside the lease — a cycle whose months are all past the
+        // end date. Better to say so than to mint a zero invoice.
+        if ($multiplier <= 0) {
+            return $nothing('lease_ended');
+        }
+
+        // The share of a full cycle, for the label and the `prorated` flag.
+        $factor = $multiplier / max($cycleMonths, 1);
+
+        $items = $applicableCharges->map(function (Charge $charge) use ($periodStart, $periodEnd, $factor, $multiplier, $cycleMonths) {
+            // Recurring (monthly) charges bill the covered fraction of every month in the cycle. A
+            // non-monthly charge (a one-off) bills once at its full amount, never multiplied.
+            $multiplier = $charge->frequency === 'monthly' ? $multiplier : 1.0;
             $amount = round((float) $charge->amount * $multiplier, 2);
             $vatRate = $charge->vat_applicable ? (float) $charge->vat_rate : 0.0;
             $vatAmount = round($amount * ($vatRate / 100), 2);
@@ -448,7 +517,10 @@ class MonthlyBillingService
             'billable' => true,
             'reason' => null,
             'period_start' => $effectivePeriodStart,
-            'period_end' => $periodEnd,
+            // The window actually billed, which is not the calendar period when the lease ends
+            // inside it (MF-02). A final invoice that claims to cover a whole month it prorated
+            // is the document an auditor queries.
+            'period_end' => $effectivePeriodEnd,
             'issue_date' => $issueDate,
             'due_date' => $dueDate,
             'factor' => $factor,

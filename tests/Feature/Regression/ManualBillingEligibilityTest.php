@@ -67,16 +67,27 @@ it('still bills a healthy lease', function () {
         ->and((float) $lease->invoices()->sole()->total)->toBe(30000.0);
 });
 
-it('bills the final month of a lease that expires mid-period', function () {
-    // A lease ending on the 10th is still billable for that month — the period overlaps its term.
-    // Note this is a FULL month, not pro-rata: proration keys on commencement only. That is the
-    // system's rule (module 05 §2), and this pins it so a change is a decision, not a surprise.
+it('prorates the final month of a lease that expires mid-period', function () {
+    // A lease ending on the 10th is still billable for that month — the period overlaps its term —
+    // and since MF-02 it bills only the 10 days it runs.
+    //
+    // **This reverses what this test pinned before 2026-08-09**, which was a full month, because
+    // proration keyed on commencement only. That was a real rule, deliberately pinned here so a
+    // change would be a decision rather than a surprise; the Yardi benchmark (scenario S8) is that
+    // decision. Billing 21 days the tenant does not owe and unwinding it with a manual credit note
+    // is not a commercial policy, it is an error with a workaround.
+    //
+    // Note the caller passes NO prorate flag: trailing proration is unconditional, unlike the
+    // commencement-month kind, which stays an operator choice per run.
     $lease = billableFixture(['status' => 'active', 'commencement_date' => '2025-01-01', 'expiry_date' => '2026-08-10']);
 
     $result = app(MonthlyBillingService::class)->generateForLease($lease, CarbonImmutable::parse('2026-08-01'));
 
+    // 30,000 × 10/31
     expect($result['status'])->toBe('created')
-        ->and((float) $lease->invoices()->sole()->total)->toBe(30000.0);
+        ->and((float) $lease->invoices()->sole()->total)->toBe(9677.42)
+        // …and the invoice says what it actually covers, rather than claiming a whole month.
+        ->and($lease->invoices()->sole()->period_end->toDateString())->toBe('2026-08-10');
 });
 
 it('keeps one definition of billability — the predicate and the scope agree', function () {

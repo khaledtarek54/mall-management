@@ -2,6 +2,26 @@
 
 > A lease is a binding occupancy contract between a tenant and a unit (or units) with linked charges (rent + service fees), escalation terms, optional percentage rent, and a multi-state lifecycle from draft through expiry/renewal/termination.
 
+> **⚠️ Termination now settles money, not just status (2026-08-09, phase 4).** Terminating a lease
+> **credits back the unearned part of any invoice already billed past the termination date**
+> (`CreditUnearnedBillingService`, story MF-02) — rent bills in advance, so a tenant leaving on the
+> 18th has already been invoiced for the whole month. It is opt-OUT (`credit_unearned`, default
+> true); the flag exists because the note posts on the termination date and a CLOSED period refuses
+> it. One-off lines are never clawed back — a utility recharge or a fine is earned for something
+> that already happened.
+>
+> **The move-out final account** (`MoveOutStatementService` + `SettleMoveOutService`, story MF-03)
+> is the document that settles the tenancy: deposit held vs contractual, open AR, credit owed back,
+> itemised deductions, and the true-ups that are **not knowable yet** (an unreconciled CAM year,
+> missing sales declarations). Settling disposes of the deposit in one act and **freezes the
+> statement as the termination event's payload** — re-deriving it a year later would show today's
+> numbers, not the ones that were signed. It deliberately does NOT net open AR off the deposit; see
+> the MF-03 follow-up in the phase plan for why that is its own change.
+>
+> **Late-fee terms are per-lease** (`Lease::lateFeeTerms()`, story MF-08), falling back to
+> `BillingSettings` — **not** `config('billing.*')`, which the service used to read while the admin
+> Settings screen wrote the settings record, making every saved late-fee value inert.
+
 > **⚠️ Every commercial change is an EVENT now (2026-08-09, phase 2).** Phase 1 gave the rent a
 > schedule, so the system could answer *what* it was and *when* it changed. It still could not
 > answer **why** — a negotiated reduction, an expansion and a typo were all just rows with dates,

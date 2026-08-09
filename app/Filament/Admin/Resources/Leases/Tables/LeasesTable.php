@@ -13,7 +13,9 @@ use App\Services\LeaseReliefService;
 use App\Services\LeaseRenewalService;
 use App\Services\LeaseRentChangeService;
 use App\Services\LeaseSpaceChangeService;
+use App\Services\MoveOutStatementService;
 use App\Services\LeaseTerminationService;
+use App\Services\SettleMoveOutService;
 use App\Support\TenantScope;
 use Carbon\Carbon;
 use Filament\Actions\Action;
@@ -27,6 +29,8 @@ use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -585,6 +589,101 @@ class LeasesTable
                                 'reverts' => $reverts
                                     ? 'EGP '.number_format((float) $reverts->amount, 2)
                                     : __('admin.actions.relief_no_reversion'),
+                            ]))
+                            ->success()
+                            ->send();
+                    }),
+                // The move-out final account (MF-03). Native Filament: the statement renders as
+                // Placeholders inside the action's own schema, beside the one editable part (the
+                // deductions), so the operator reads and settles in one place instead of pricing a
+                // refund from three screens.
+                Action::make('finalAccount')
+                    ->label(__('admin.move_out.settle'))
+                    ->icon('heroicon-o-clipboard-document-check')
+                    ->color('primary')
+                    ->visible(fn (Lease $record) => in_array($record->status, ['terminated', 'expired'], true)
+                        && LeaseResource::canEdit($record))
+                    ->authorize(fn () => auth()->user()?->can('leases.edit') ?? false)
+                    ->modalHeading(fn (Lease $record) => __('admin.move_out.heading', ['ref' => $record->reference]))
+                    ->modalDescription(__('admin.move_out.description'))
+                    ->modalSubmitActionLabel(__('admin.move_out.settle'))
+                    ->schema([
+                        Placeholder::make('statement')
+                            ->hiddenLabel()
+                            ->columnSpanFull()
+                            ->content(function (Lease $record) {
+                                $s = app(MoveOutStatementService::class)->for($record);
+                                $money = fn (float $v) => 'EGP '.number_format($v, 2);
+
+                                $rows = [
+                                    [__('admin.move_out.contractual_deposit'), $money((float) $s['contractual_deposit'])],
+                                    [__('admin.move_out.deposit_held'), $money((float) $s['deposit_held'])],
+                                ];
+
+                                if ((float) $s['deposit_shortfall'] > 0) {
+                                    $rows[] = [__('admin.move_out.deposit_shortfall'), $money((float) $s['deposit_shortfall'])];
+                                }
+
+                                $rows[] = [__('admin.move_out.open_ar'), $money((float) $s['open_ar'])];
+                                $rows[] = [__('admin.move_out.tenant_credit'), $money((float) $s['tenant_credit'])];
+                                $rows[] = [
+                                    (float) $s['residual_debt'] > 0
+                                        ? __('admin.move_out.residual_debt')
+                                        : __('admin.move_out.net_to_tenant'),
+                                    $money((float) $s['residual_debt'] > 0 ? (float) $s['residual_debt'] : (float) $s['net_to_tenant']),
+                                ];
+
+                                $lines = collect($rows)->map(fn (array $r) => "**{$r[0]}:** {$r[1]}")->join("  \n");
+
+                                $pending = collect($s['pending_trueups'])->pluck('detail');
+                                $lines .= "\n\n**".__('admin.move_out.pending').'**  '."\n"
+                                    .($pending->isNotEmpty() ? '- '.$pending->join("\n- ") : __('admin.move_out.pending_none'));
+
+                                $lines .= "\n\n_".__('admin.move_out.ar_note').'_';
+
+                                return str($lines)->markdown()->toHtmlString();
+                            }),
+                        Repeater::make('deductions')
+                            ->label(__('admin.move_out.deductions'))
+                            ->addActionLabel(__('admin.move_out.add_deduction'))
+                            ->schema([
+                                TextInput::make('description')
+                                    ->label(__('admin.move_out.deduction_description'))
+                                    ->required(),
+                                TextInput::make('amount')
+                                    ->label(__('admin.move_out.deduction_amount'))
+                                    ->prefix('EGP')
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->required(),
+                            ])
+                            ->columns(2)
+                            ->default([])
+                            ->columnSpanFull(),
+                        DatePicker::make('settlement_date')
+                            ->label(__('admin.lease_events.effective'))
+                            ->default(now())
+                            ->required(),
+                        TextInput::make('document_reference')
+                            ->label(__('admin.lease_events.document'))
+                            ->helperText(__('admin.lease_events.document_hint'))
+                            ->maxLength(255),
+                    ])
+                    ->action(function (Lease $record, array $data) {
+                        try {
+                            $result = app(SettleMoveOutService::class)->settle($record, $data);
+                        } catch (\InvalidArgumentException $e) {
+                            Notification::make()->danger()->title($e->getMessage())->send();
+
+                            return;
+                        }
+
+                        Notification::make()
+                            ->title(__('admin.move_out.settled'))
+                            ->body(__('admin.move_out.settled_body', [
+                                'ref' => $record->reference,
+                                'refunded' => 'EGP '.number_format((float) ($result['refund']->amount ?? 0), 2),
+                                'deducted' => 'EGP '.number_format((float) ($result['forfeit']->amount ?? 0), 2),
                             ]))
                             ->success()
                             ->send();

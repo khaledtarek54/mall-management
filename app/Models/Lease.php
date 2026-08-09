@@ -148,6 +148,9 @@ class Lease extends Model implements HasMedia
         'percentage_rent_deductible_types',
         'billing_day',
         'payment_terms_days',
+        'late_fee_percent',
+        'late_fee_grace_days',
+        'late_fee_minimum',
         'notes',
         'metadata',
     ];
@@ -174,6 +177,9 @@ class Lease extends Model implements HasMedia
         'commencement_date' => 'date',
         'expiry_date' => 'date',
         'holdover_rate_pct' => 'decimal:2',
+        'late_fee_percent' => 'decimal:2',
+        'late_fee_grace_days' => 'integer',
+        'late_fee_minimum' => 'decimal:2',
         'holdover_from' => 'date',
         'expiry_reminder_notified_at' => 'datetime',
         'next_escalation_date' => 'date',
@@ -724,6 +730,37 @@ class Lease extends Model implements HasMedia
     {
         return filled($this->holdover_from)
             && CarbonImmutable::instance($this->holdover_from)->lessThanOrEqualTo($periodEnd);
+    }
+
+    /**
+     * The late-fee terms that govern this lease (story MF-08).
+     *
+     * **Lease first, portfolio default second.** Real leases do not agree on the rate, the minimum
+     * or the grace period — an anchor negotiates 30 days, a kiosk gets 5 — and until this existed
+     * the sweep applied one global number to all of them.
+     *
+     * The default comes from `BillingSettings`, **not** `config('billing.*')`. That distinction was
+     * a live bug: the admin Settings page writes the settings record while `LateFeeService` read the
+     * config file (populated from `env`), so every late-fee value an operator saved on that screen
+     * was silently ignored. Reading one source here is what makes the screen mean something.
+     *
+     * @return array{percent: float, grace_days: int, minimum: float}
+     */
+    public function lateFeeTerms(): array
+    {
+        $defaults = app(\App\Settings\BillingSettings::class);
+
+        return [
+            'percent' => $this->late_fee_percent !== null
+                ? (float) $this->late_fee_percent
+                : (float) $defaults->late_fee_percent,
+            'grace_days' => $this->late_fee_grace_days !== null
+                ? (int) $this->late_fee_grace_days
+                : (int) $defaults->late_fee_grace_days,
+            'minimum' => $this->late_fee_minimum !== null
+                ? (float) $this->late_fee_minimum
+                : (float) $defaults->late_fee_minimum,
+        ];
     }
 
     /** Converted to holdover and still running — the state the dashboard should stop nagging about. */

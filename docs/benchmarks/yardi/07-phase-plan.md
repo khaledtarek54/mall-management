@@ -239,16 +239,56 @@ queue if the leasing team is feeling the pain now
 
 ---
 
-### Phase 4 — Money-flow completion ➕
+### Phase 4 — Money-flow completion ➕ — **SHIPPED 2026-08-09**
 
-**Stories:** MF-02 (trailing proration), MF-03 (move-out final account), MF-04 (bad-debt write-off),
-MF-08 (per-lease late-fee terms). MF-01 and MF-09 shipped in §2.
+**Stories:** MF-02 ✅, MF-03 ✅ *(deposit half)*, MF-04 ✅, MF-08 ✅. MF-01 and MF-09 shipped in §2.
+
+**What shipped**
+
+- **MF-02 — trailing proration, both halves.** `MonthlyBillingService::monthsCovered()` is now the
+  one rule for "how much of a period does this lease actually run", summing each month's own covered
+  fraction — so it handles the commencement edge, the termination edge and a multi-month cycle with
+  one formula. Trailing proration is **unconditional**, unlike the commencement kind: billing days
+  after a lease ended is not a commercial choice. And because rent bills in advance,
+  `CreditUnearnedBillingService` raises the credit note automatically on termination, using the same
+  `monthsCovered()` rule so the credit is the exact complement of what was billed. One-off lines
+  (utility recharge, fine, CAM true-up) are never clawed back — they are earned for something that
+  already happened.
+- **MF-08 — per-lease late-fee terms**, plus **a live bug it uncovered**: the admin Settings page
+  wrote `BillingSettings` while `LateFeeService` read `config('billing.*')` (populated from `env`),
+  so **every late-fee value an operator saved on that screen was silently ignored**. Resolution is
+  now lease → `BillingSettings` → default, via `Lease::lateFeeTerms()`. The batch query deliberately
+  over-selects (any past-due invoice) and lets the per-lease grace decide, because a global cutoff
+  would have excluded exactly the leases with the LONGEST negotiated grace from ever being seen.
+- **MF-03 — the move-out final account.** `MoveOutStatementService` computes it from records that
+  already exist (deposit held vs contractual, open AR, unapplied tenant credit, **unreconciled CAM
+  years and missing sales declarations** — the numbers that are not knowable yet, which is what
+  makes a "final" account not final). `SettleMoveOutService` disposes of the deposit in one act
+  (forfeit the deductions, refund the rest) and **freezes the statement as the termination event's
+  payload** — append-only, dated, attributed, so what was signed stays signed.
+
+**Deliberately NOT built — applying the deposit against open AR.** That is a fourth channel into
+`Invoice::recomputeTotals()`, whose invariant (`paid_amount = captured payments + credit applied`)
+is the most protected rule in the codebase, and a new GL treatment (Dr Deposits Held / Cr AR)
+needing the full registry route. The statement therefore REPORTS open AR and the net position
+including it, and says on its face that only the deposit is disposed of. See
+[MF-03 follow-up](#mf-03-follow-up) below.
+
+**Original plan below, for the record.**
 
 **MF-04 is the one with teeth.** A write-off is a new GL source, so it takes the full registry
 route: one `LedgerPoster::JOURNALIZERS` line, its `LedgerRealtimeSync::SOURCE_DATE_COLUMNS` entry,
 a `PostingDateGuards` classification, and — per the GL invariant — **at least one test that drives
 the real service and the sweep and asserts the tie-out**, not a test that calls `LedgerPoster::post()`
 and proves only arithmetic.
+
+<a id="mf-03-follow-up"></a>
+**MF-03 follow-up — netting the deposit against AR.** The smallest correct shape is a new
+`DepositTransaction` type (`applied`) carrying an `invoice_id`, which reuses the model's existing
+number allocation, posting-date guard, property isolation and GL registration; the journalizer gains
+one branch (Dr Deposits Held / Cr AR). The hard part is not the posting — it is that the invoice's
+`paid_amount` must then include deposit applications, which changes `Invoice::recomputeTotals()`.
+Do it as its own change, with the tie-out test the GL invariant requires.
 
 **MF-05 (post month) is deliberately parked here as optional.** It is the right answer to a real
 problem ([S14](04-scenarios.md#s14--an-invoice-keyed-after-the-period-closed)), but it touches every

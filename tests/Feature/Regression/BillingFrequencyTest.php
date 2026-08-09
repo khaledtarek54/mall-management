@@ -169,7 +169,8 @@ it('caps the final cycle at the lease expiry month — no billing past expiry', 
 
 it('does not mint a full second-year invoice for a mid-month annual lease near expiry', function () {
     // Annual lease 15 Jan 2026 – 14 Jan 2027. Year 1 bills the full 2026; the Jan-2027 cycle-start
-    // must bill only the final stub month (in full, like a monthly end-of-term), not another year.
+    // must bill only the final stub month, not another year — and since MF-02 that stub is itself
+    // prorated to the 14 days the lease actually runs, the same rule a monthly lease now follows.
     $lease = freqLease('annual', ['commencement_date' => '2026-01-15', 'expiry_date' => '2027-01-14']);
     $svc = app(MonthlyBillingService::class);
 
@@ -179,8 +180,8 @@ it('does not mint a full second-year invoice for a mid-month annual lease near e
 
     $y2 = $svc->generateForLease($lease, CarbonImmutable::parse('2027-01-01'))['invoice'];
     expect($y2->period_start->toDateString())->toBe('2027-01-01')
-        ->and($y2->period_end->toDateString())->toBe('2027-01-31')    // capped to the expiry month
-        ->and((float) rentLine($y2)->amount)->toBe(10000.0);         // one month (×1), not another full year
+        ->and($y2->period_end->toDateString())->toBe('2027-01-14')    // the day the lease ends
+        ->and((float) rentLine($y2)->amount)->toBe(4516.13);         // 10,000 × 14/31, not another full year
 });
 
 /*

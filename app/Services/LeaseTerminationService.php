@@ -19,8 +19,9 @@ class LeaseTerminationService
      *   another draft/pending lease exists on the unit, else 'vacant'
      * - Deactivates the lease's recurring charges (is_active = false)
      * - Optionally cancels open invoices (status = 'cancelled', balance = 0)
+     * - Credits back the unearned part of any invoice billed past the termination date (MF-02)
      *
-     * @param array{termination_date:string|\DateTimeInterface|null, reason:string|null, cancel_open_invoices?:bool} $data
+     * @param array{termination_date:string|\DateTimeInterface|null, reason:string|null, cancel_open_invoices?:bool, credit_unearned?:bool} $data
      */
     public function terminate(Lease $lease, array $data): Lease
     {
@@ -34,8 +35,9 @@ class LeaseTerminationService
 
         $reason = trim((string) ($data['reason'] ?? ''));
         $cancelOpenInvoices = (bool) ($data['cancel_open_invoices'] ?? false);
+        $creditUnearned = (bool) ($data['credit_unearned'] ?? true);
 
-        return DB::transaction(function () use ($lease, $terminationDate, $reason, $cancelOpenInvoices) {
+        return DB::transaction(function () use ($lease, $terminationDate, $reason, $cancelOpenInvoices, $creditUnearned) {
             // 1. Lease itself
             $existingNotes = $lease->notes ? rtrim($lease->notes) . "\n\n" : '';
             $stamp = $terminationDate->format('Y-m-d');
@@ -78,7 +80,30 @@ class LeaseTerminationService
                     });
             }
 
-            return $lease->fresh();
+            // 5. Credit back what was billed in advance and will never be earned (story MF-02).
+            //
+            // Rent bills on the 1st, so a tenant leaving on the 18th has already been invoiced for
+            // the whole month. Trailing proration cannot fix an invoice that already exists — only
+            // a credit note can — and until now raising it was a manual act somebody had to
+            // remember. The credit uses the same month-fraction rule the invoice used, so it is the
+            // exact complement rather than an independent day-count.
+            //
+            // Opt-OUT rather than opt-in: giving back money the tenant does not owe is the correct
+            // default. The flag exists because the note posts on the termination date, and a CLOSED
+            // period refuses it — an operator who has to terminate today and credit later needs a
+            // way through that does not involve reopening the books.
+            $credits = [];
+
+            if ($creditUnearned) {
+                $credits = app(CreditUnearnedBillingService::class)->forTermination($lease->fresh(), $terminationDate);
+            }
+
+            $fresh = $lease->fresh();
+            // Surfaced on the model rather than returned, so the existing `terminate(): Lease`
+            // contract and its callers are untouched while the UI can still say what it did.
+            $fresh->setAttribute('termination_credit_notes', collect($credits));
+
+            return $fresh;
         });
     }
 }
