@@ -11,6 +11,7 @@ use App\Models\Payment;
 use App\Models\Tenant;
 use App\Models\VendorBill;
 use App\Support\CostNature;
+use App\Services\ChargeScheduleService;
 use App\Support\TenantScope;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -315,6 +316,95 @@ class ReportService
             // before one 5 days late for 100k.
             ->sortByDesc(fn (array $row) => [$row['oldest_days'], $row['total']])
             ->values();
+    }
+
+    /**
+     * The RENT ROLL — one row per lease as at a date. The single most-used commercial report there
+     * is, and Atriom had no version of it at all.
+     *
+     * "As at a date" is the whole point and the reason this could not exist before phase 1: the
+     * rent used to be one mutable number, so a rent roll for last March would have reported
+     * today's rent. It now reads the schedule row **in force on that date**, through the very same
+     * `ChargeScheduleService::pickInForce()` the billing engine and the writer use — a rent roll
+     * that decided "current rent" by its own rule would eventually disagree with what actually
+     * bills, which is the one thing a rent roll may not do.
+     *
+     * Charges, units, options and deposits are eager-loaded and resolved in memory: a per-lease
+     * query for each would be four round trips per row on a report that is meant to open instantly
+     * for a whole mall.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function rentRoll(?CarbonImmutable $asOf = null, ?int $assetId = null): Collection
+    {
+        $asOf = ($asOf ?? CarbonImmutable::now())->startOfDay();
+
+        $leases = TenantScope::applyTo(Lease::query(), 'unit')
+            // Live tenancies as at the date: commenced, not yet ended. A rent roll is a snapshot of
+            // what the mall is contracted to earn on that day, so a lease that had not started or
+            // had already ended is not on it.
+            ->whereIn('status', ['active', 'renewed', 'expired', 'terminated'])
+            ->whereDate('commencement_date', '<=', $asOf->toDateString())
+            ->where(fn ($q) => $q->whereNull('expiry_date')->orWhereDate('expiry_date', '>=', $asOf->toDateString()))
+            ->when($assetId, fn ($q) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)))
+            ->with(['tenant', 'unit', 'units', 'charges', 'options'])
+            ->get()
+            // `status` narrows to leases that were live THEN, but a lease terminated before the
+            // as-of date still carries dates spanning it; the authority on "was this live" is the
+            // lease's own predicate, so use it rather than re-deriving one here.
+            ->filter(fn (Lease $lease) => $lease->status === 'active'
+                || ($lease->expiry_date && CarbonImmutable::instance($lease->expiry_date)->gte($asOf)));
+
+        return $leases->map(function (Lease $lease) use ($asOf): array {
+            $charges = $lease->charges;
+            $amount = fn (string $type): float => (float) (
+                ChargeScheduleService::pickInForce($charges->where('type', $type), $asOf)?->amount ?? 0
+            );
+
+            $rent = $amount('base_rent');
+            $service = $amount('service_charge');
+            $marketing = $amount('marketing');
+            $area = $lease->totalAreaSqm();
+
+            $nextStep = ChargeScheduleService::nextStepAfter($charges->where('type', 'base_rent'), $asOf);
+
+            // The soonest unresolved option deadline — the date this tenancy needs a decision by.
+            $nextOption = $lease->options
+                ->where('status', 'open')
+                ->filter(fn ($o) => $o->latest_notice_date)
+                ->sortBy(fn ($o) => $o->latest_notice_date->timestamp)
+                ->first();
+
+            return [
+                'lease_id' => $lease->id,
+                'reference' => $lease->reference,
+                'tenant' => $lease->tenant?->name,
+                'unit' => $lease->unit?->code,
+                'units' => $lease->units->pluck('code')->implode(', ') ?: $lease->unit?->code,
+                'area_sqm' => $area,
+                'commencement_date' => $lease->commencement_date,
+                'expiry_date' => $lease->expiry_date,
+                'months_remaining' => $lease->expiry_date
+                    ? max(0, (int) $asOf->diffInMonths(CarbonImmutable::instance($lease->expiry_date), false))
+                    : null,
+                'base_rent' => $rent,
+                // The comparison number for any commercial portfolio. Null rather than a division
+                // by zero when the unit has no recorded area.
+                'rent_per_sqm_year' => $area > 0 ? round($rent * 12 / $area, 2) : null,
+                'service_charge' => $service,
+                'marketing' => $marketing,
+                'total_monthly' => round($rent + $service + $marketing, 2),
+                'escalation_rate' => $lease->escalation_type === 'fixed_percent'
+                    ? (float) $lease->escalation_rate
+                    : null,
+                'next_step_date' => $nextStep?->start_date,
+                'next_step_amount' => $nextStep ? (float) $nextStep->amount : null,
+                'next_option_date' => $nextOption?->latest_notice_date,
+                'next_option_type' => $nextOption?->type,
+                'security_deposit' => (float) $lease->security_deposit,
+                'status' => $lease->status,
+            ];
+        })->sortBy('unit')->values();
     }
 
     /**

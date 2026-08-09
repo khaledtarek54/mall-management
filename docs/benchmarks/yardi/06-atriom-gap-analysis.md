@@ -178,7 +178,7 @@ allocations and the invoice total can ever disagree, the design is wrong.
 
 | Report | Yardi | Atriom | Verdict | Sev |
 |---|---|---|---|---|
-| **Rent roll** | ✅ the most-used commercial report | ❌ **does not exist** | ➕ EXTEND (RR-01) | 🔴 |
+| **Rent roll** | ✅ the most-used commercial report | ✅ `/admin/rent-roll`, as-at-a-date, reading the same schedule row billing does (shipped 2026-08-09) | ✅ **KEEP** | ⚪ |
 | Lease expiration schedule | ✅ | ❌ (nav badge for expiring leases only) | ➕ EXTEND (RR-02) | 🟠 |
 | Stacking plan | ✅ | ❌ | 🟡 later | 🟡 |
 | Occupancy / vacancy | ✅ | 🟡 unit status counts | ➕ EXTEND | 🟡 |

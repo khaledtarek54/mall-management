@@ -334,6 +334,10 @@
             "slug": "occupancy-map"
         },
         {
+            "class": "RentRoll",
+            "slug": "rent-roll"
+        },
+        {
             "class": "Reports",
             "slug": "reports"
         },

@@ -481,7 +481,7 @@ silence is not a way to avoid percentage rent, with a retro-adjustment when the 
 
 ## Epic RR — The reports that make it visible *(phase 7)*
 
-### RR-01 🔴 Rent roll
+### RR-01 ✅ Rent roll — **SHIPPED 2026-08-09**
 **As an** Owner **I want** a rent roll as at any date **so that** I can see what the mall is
 contracted to earn.
 

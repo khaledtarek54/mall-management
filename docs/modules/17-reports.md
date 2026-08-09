@@ -568,3 +568,32 @@ exactly those days.
 
 `ReportService::openInvoicesAsOf()` is likewise the single query every aging view starts from, so a
 drill-down can never surface an invoice its own summary did not count.
+
+---
+
+## Rent roll
+
+`/admin/rent-roll` ([`RentRoll`](../../app/Filament/Admin/Pages/RentRoll.php) +
+`ReportService::rentRoll()`) — the single most-used report in commercial property, and Atriom had
+no version of it.
+
+One row per lease **as at a chosen date**: unit(s) · tenant · area · expiry and months left ·
+**base rent in force on that date** · EGP/m²/yr · total monthly (rent + service + levy) · the next
+contracted rent step · the next unresolved option deadline · deposit. Property-scoped, CSV export,
+EN + AR, each row links to its lease.
+
+**Why it could not exist before the charge schedule.** The rent used to be a single mutable number,
+so a roll for last March would have reported *today's* rent and a roll for next year could not
+exist at all. Every row now reads the schedule row in force on the as-of date through
+**`ChargeScheduleService::pickInForce()` — the same selection the billing engine and the schedule
+writer use.** A rent roll that decided "current rent" by its own rule would eventually disagree
+with what actually bills, and an owner who catches that stops trusting both numbers; the test
+suite therefore asserts the roll against the *invoice the engine produces for the same month*,
+never against a hand-computed figure.
+
+Two smaller rules worth keeping:
+
+- **EGP/m²/yr is null, not zero, when the unit has no recorded area.** Unknown is not free, and a
+  zero would quietly drag the portfolio rate down.
+- **The headline rate is weighted by area**, so a 20 m² kiosk does not move the mall's number as
+  hard as a 2,000 m² anchor.

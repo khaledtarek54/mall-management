@@ -215,25 +215,62 @@ class ChargeScheduleService
      */
     public function rowInForce(Lease $lease, string $type, CarbonImmutable $on): ?Charge
     {
-        $covering = Charge::query()
-            ->where('lease_id', $lease->id)
-            ->where('type', $type)
-            ->effectiveOn($on)
-            ->orderByDesc('start_date')
-            ->orderByDesc('id')
-            ->first();
+        // Always a FRESH read: this runs inside setAmount()'s transaction, right after rows may
+        // have been written, so a cached relation would hand back a stale answer.
+        return self::pickInForce(
+            Charge::query()->where('lease_id', $lease->id)->where('type', $type)->get(),
+            $on,
+        );
+    }
 
-        if ($covering) {
-            return $covering;
+    /**
+     * Pick the row in force on a date from an already-loaded set — **the one definition** of
+     * "which row governs".
+     *
+     * Split out from `rowInForce()` so a report can eager-load every lease's charges and answer
+     * the question in memory without 3 queries per lease, while still asking it the same way the
+     * writer does. A rent roll that decided "current rent" by its own rule would eventually
+     * disagree with what actually bills, which is the one thing a rent roll may not do.
+     *
+     * @param  iterable<Charge>  $charges
+     */
+    public static function pickInForce(iterable $charges, CarbonImmutable $on): ?Charge
+    {
+        $rows = collect($charges)->where('is_active', true);
+
+        $covering = $rows
+            ->filter(fn (Charge $c) => (! $c->start_date || CarbonImmutable::instance($c->start_date)->lte($on))
+                && (! $c->end_date || CarbonImmutable::instance($c->end_date)->gte($on)))
+            ->sortBy([
+                fn (Charge $a, Charge $b) => ($a->start_date?->timestamp ?? 0) <=> ($b->start_date?->timestamp ?? 0),
+                fn (Charge $a, Charge $b) => $a->id <=> $b->id,
+            ]);
+
+        if ($covering->isNotEmpty()) {
+            return $covering->last();
         }
 
-        return Charge::query()
-            ->where('lease_id', $lease->id)
-            ->where('type', $type)
+        // Nothing covers the date — fall back to the latest active row, which is what keeps a
+        // pre-schedule lease (one open-ended row) and a lease whose schedule has run out behaving
+        // sensibly instead of reading as "no rent".
+        return $rows->sortBy([
+            fn (Charge $a, Charge $b) => ($a->start_date?->timestamp ?? 0) <=> ($b->start_date?->timestamp ?? 0),
+            fn (Charge $a, Charge $b) => $a->id <=> $b->id,
+        ])->last();
+    }
+
+    /**
+     * The next scheduled change to a charge type after a date — the "what happens next" a rent
+     * roll and the lease panel both report.
+     *
+     * @param  iterable<Charge>  $charges
+     */
+    public static function nextStepAfter(iterable $charges, CarbonImmutable $on): ?Charge
+    {
+        return collect($charges)
             ->where('is_active', true)
-            ->orderByRaw('start_date is null desc')
-            ->orderByDesc('start_date')
-            ->orderByDesc('id')
+            ->filter(fn (Charge $c) => $c->start_date && CarbonImmutable::instance($c->start_date)->gt($on))
+            ->sortBy(fn (Charge $c) => $c->start_date->timestamp)
             ->first();
     }
 
