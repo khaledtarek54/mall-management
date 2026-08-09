@@ -318,6 +318,10 @@
             "slug": "dashboard"
         },
         {
+            "class": "ExpirationSchedule",
+            "slug": "expiration-schedule"
+        },
+        {
             "class": "GeneralLedger",
             "slug": "general-ledger"
         },
@@ -328,6 +332,10 @@
         {
             "class": "MonthEndClose",
             "slug": "month-end-close"
+        },
+        {
+            "class": "OccupancyCost",
+            "slug": "occupancy-cost"
         },
         {
             "class": "OccupancyMap",

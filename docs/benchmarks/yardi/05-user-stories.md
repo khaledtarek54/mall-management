@@ -537,9 +537,15 @@ module 17), EN + AR.
 
 ---
 
-### RR-02 🔴 Lease expiration schedule
+### RR-02 ✅ Lease expiration schedule *(shipped 2026-08-09)*
 **As a** Leasing Manager **I want** expiries by year with area and rent at risk **so that** I can
 plan renewals and forecast vacancy.
+
+**Shipped:** `ReportService::expirationSchedule()` + the Expiration schedule page. Each bucket
+carries its share of the mall's area AND income, because "how much of us is up in 2029" is the
+actual question. **Holdovers get their own bucket, sorted first** — a lease past its term but still
+trading has not rolled off, and burying it in a past year would understate both this year's risk and
+today's income.
 
 ---
 
@@ -551,7 +557,7 @@ look like delinquent rent. *(Depends on MF-06.)*
 
 ---
 
-### RR-04 🟠 Occupancy cost %
+### RR-04 ✅ Occupancy cost % *(shipped 2026-08-09)*
 **As a** Mall GM **I want** each tenant's total occupancy cost as a % of their sales **so that** I
 can see who is in trouble before they miss a payment.
 
@@ -559,6 +565,13 @@ can see who is in trouble before they miss a payment.
 sales`, monthly and rolling-12, with a threshold highlight. **This is a query over data Atriom
 already holds** — invoices and `TenantSalesDeclaration` — and is the best value-per-line item in
 this document.
+
+**Shipped:** `ReportService::occupancyCost()` + the Occupancy cost % page, rolling 12 months by
+default, 20% amber / 25% red. Cost is what was BILLED, not paid — mixing in payment behaviour would
+make a struggling tenant look cheaper the longer they went without paying. **Late fees and violation
+fines are excluded**: they are penalties, and folding them in would invert the signal. A tenant with
+no declared sales reads as **unknown, never 0%** — zero would rank whoever files nothing as the
+healthiest tenant in the mall.
 
 ---
 

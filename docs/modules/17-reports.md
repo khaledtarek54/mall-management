@@ -571,6 +571,52 @@ drill-down can never surface an invoice its own summary did not count.
 
 ---
 
+## Lease expiration schedule
+
+`/admin/expiration-schedule` ([`ExpirationSchedule`](../../app/Filament/Admin/Pages/ExpirationSchedule.php) +
+`ReportService::expirationSchedule()`, story RR-02) — the rent roll says what the mall earns today;
+this says **when that stops**.
+
+Live leases bucketed by the year their term ends, each bucket carrying its lease count, area, annual
+rent and — the number the question is really about — **its share of the mall's total area and
+income**. A year with 30% of the income expiring is a year of negotiations that has to start
+eighteen months earlier, and the only way to see one before this was to sort the lease table by end
+date and add the rents up by hand. CSV exports the per-LEASE rows, not the four totals, because a
+leasing manager exports this to work the list.
+
+**Holdovers are their own bucket, sorted first.** A lease past its term but still trading has not
+rolled off — its rent is live and its space is occupied — so counting it under a past year would
+understate both this year's risk and today's income, and would bury the one row that needs a
+decision today rather than in eighteen months.
+
+## Occupancy cost %
+
+`/admin/occupancy-cost` ([`OccupancyCost`](../../app/Filament/Admin/Pages/OccupancyCost.php) +
+`ReportService::occupancyCost()`, story RR-04) — **who is in trouble before they miss a payment**.
+
+Total occupancy cost ÷ declared sales per tenant, rolling 12 months by default. A fashion tenant at
+12% of turnover is healthy; one at 30% is failing and will usually stop paying before saying so.
+Every input already existed — invoices and `TenantSalesDeclaration` — and the number was produced
+nowhere. Thresholds are 20% amber / 25% red: **commonly cited retail rules of thumb, deliberately
+not a setting**, because the healthy band differs by trade (food courts run high, anchors run low)
+and putting them in a settings screen would imply a precision this does not have. Ask Eltizam for
+their own bands before making them configurable.
+
+Four rules that decide whether the number means anything:
+
+- **Cost is what was BILLED, not what was paid.** Occupancy cost burdens the business whether or
+  not the tenant has settled it; folding in payment behaviour would make a struggling tenant look
+  *cheaper* the longer they went without paying.
+- **Late fees and violation fines are excluded** (`ReportService::OCCUPANCY_COST_TYPES`). They are
+  penalties for behaviour, and including them would say a tenant's occupancy is expensive because
+  they paid late rather than because their rent is high — inverting the signal.
+- **No declared sales reads as UNKNOWN, never 0%.** Zero would rank the tenant who files nothing as
+  the healthiest in the mall, when a tenant who stops declaring is usually the one in trouble.
+- **The portfolio headline is total cost ÷ total sales**, not the mean of the per-tenant ratios,
+  which one tiny tenant could otherwise dominate.
+
+Only leases with percentage rent appear, because those are the ones that declare sales at all.
+
 ## Rent roll
 
 `/admin/rent-roll` ([`RentRoll`](../../app/Filament/Admin/Pages/RentRoll.php) +

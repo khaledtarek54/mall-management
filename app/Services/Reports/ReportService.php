@@ -408,6 +408,190 @@ class ReportService
     }
 
     /**
+     * The lease expiration schedule — what rolls off, when, and how much is at risk (story RR-02).
+     *
+     * **Why a leasing manager needs it and a rent roll cannot answer it.** The rent roll says what
+     * the mall earns today. This says when that stops. A year with 30% of the mall's income expiring
+     * is a year of negotiations that has to start eighteen months earlier, and until now the only
+     * way to see one was to sort the lease table by end date and add the rents up by hand.
+     *
+     * **Holdovers get their own bucket rather than being counted in a past year.** A lease whose
+     * term ended but which is still trading has not rolled off — its rent is live and its space is
+     * occupied — and burying it under "2027" would understate both this year's risk and today's
+     * income. It is the bucket a leasing manager should act on first.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function expirationSchedule(?CarbonImmutable $asOf = null, ?int $assetId = null): Collection
+    {
+        $asOf = ($asOf ?? CarbonImmutable::now())->startOfDay();
+
+        $leases = TenantScope::applyTo(Lease::query(), 'unit')
+            ->where('status', 'active')
+            ->whereDate('commencement_date', '<=', $asOf->toDateString())
+            ->when($assetId, fn ($q) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)))
+            ->with(['tenant', 'unit', 'units', 'charges'])
+            ->get();
+
+        $rows = $leases->map(function (Lease $lease) use ($asOf): array {
+            /** @var \Illuminate\Support\Collection<int, \App\Models\Charge> $baseRent */
+            $baseRent = $lease->charges->where('type', 'base_rent');
+            $rent = (float) (ChargeScheduleService::pickInForce($baseRent, $asOf)?->amount ?? 0);
+
+            $expiry = filled($lease->expiry_date) ? CarbonImmutable::instance($lease->expiry_date) : null;
+
+            // Expired-but-trading is its own bucket, keyed so it sorts before every real year.
+            $bucket = match (true) {
+                $expiry === null => 'open_ended',
+                $expiry->lessThan($asOf) => 'holdover',
+                default => (string) $expiry->year,
+            };
+
+            return [
+                'bucket' => $bucket,
+                'lease_id' => $lease->id,
+                'reference' => $lease->reference,
+                'tenant' => $lease->tenant?->name,
+                'unit' => $lease->units->pluck('code')->implode(', ') ?: $lease->unit?->code,
+                'area_sqm' => $lease->totalAreaSqmOn($asOf),
+                'expiry_date' => $lease->expiry_date,
+                'monthly_rent' => $rent,
+                'annual_rent' => round($rent * 12, 2),
+                'is_holdover' => $bucket === 'holdover',
+            ];
+        });
+
+        $totalArea = (float) $rows->sum('area_sqm');
+        $totalAnnual = (float) $rows->sum('annual_rent');
+
+        /** @var \Illuminate\Support\Collection<int, array<string, mixed>> $buckets */
+        $buckets = $rows
+            ->groupBy('bucket')
+            ->map(fn (Collection $group, string $bucket): array => [
+                'bucket' => $bucket,
+                'year' => is_numeric($bucket) ? (int) $bucket : null,
+                'leases' => $group->count(),
+                'area_sqm' => round((float) $group->sum('area_sqm'), 2),
+                'annual_rent' => round((float) $group->sum('annual_rent'), 2),
+                // The number the question is really about: how much of the mall is up in this year.
+                'share_of_area_pct' => $totalArea > 0 ? round($group->sum('area_sqm') / $totalArea * 100, 1) : 0.0,
+                'share_of_rent_pct' => $totalAnnual > 0 ? round($group->sum('annual_rent') / $totalAnnual * 100, 1) : 0.0,
+                // A plain array, not a Collection: PHPStan's Collection<TValue> is invariant, so a
+                // nested one makes the whole bucket shape unassignable to array<string, mixed>.
+                'rows' => $group->sortBy('expiry_date')->values()->all(),
+            ])
+            // Holdover first (act now), then open-ended last, years in order between.
+            ->sortBy(fn (array $b) => match ($b['bucket']) {
+                'holdover' => '0000',
+                'open_ended' => '9999',
+                default => $b['bucket'],
+            })
+            ->values();
+
+        return $buckets;
+    }
+
+    /**
+     * Occupancy cost as a percentage of sales, per tenant (story RR-04).
+     *
+     * **The number that tells a mall GM who is in trouble before they miss a payment.** A tenant
+     * paying 12% of turnover in occupancy cost is healthy; one paying 30% is failing, and will
+     * usually stop paying before they say so. Atriom already held every input — invoices and
+     * `TenantSalesDeclaration` — and produced the number nowhere.
+     *
+     * **Cost is what was BILLED, not what was paid**, because occupancy cost is a burden on the
+     * business regardless of whether the tenant has settled it; mixing in payment behaviour would
+     * make a struggling tenant look cheaper the longer they went without paying. Cancelled and
+     * written-off invoices are excluded — nobody is being asked for that money any more.
+     *
+     * Late fees and violation fines are excluded on purpose: they are penalties, not occupancy.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function occupancyCost(?CarbonImmutable $from = null, ?CarbonImmutable $to = null, ?int $assetId = null): Collection
+    {
+        $to = ($to ?? CarbonImmutable::now())->endOfMonth()->startOfDay();
+        $from = ($from ?? $to->subMonths(11))->startOfMonth();
+
+        $leases = TenantScope::applyTo(Lease::query(), 'unit')
+            ->whereIn('status', ['active', 'terminated', 'expired', 'renewed'])
+            ->where('has_percentage_rent', true)
+            ->when($assetId, fn ($q) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)))
+            ->with(['tenant', 'unit'])
+            ->get();
+
+        if ($leases->isEmpty()) {
+            return collect();
+        }
+
+        $leaseIds = $leases->pluck('id');
+
+        // Billed occupancy cost per lease. One query for all of them rather than per lease.
+        $cost = InvoiceItem::query()
+            ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
+            ->whereIn('invoices.lease_id', $leaseIds)
+            ->whereNotIn('invoices.status', ['cancelled', 'written_off'])
+            ->whereDate('invoices.period_start', '>=', $from->toDateString())
+            ->whereDate('invoices.period_start', '<=', $to->toDateString())
+            ->whereIn('invoice_items.type', self::OCCUPANCY_COST_TYPES)
+            ->selectRaw('invoices.lease_id as lease_id, sum(invoice_items.amount) as billed')
+            ->groupBy('invoices.lease_id')
+            ->pluck('billed', 'lease_id');
+
+        $sales = \App\Models\TenantSalesDeclaration::query()
+            ->whereIn('lease_id', $leaseIds)
+            ->whereDate('period_start', '>=', $from->toDateString())
+            ->whereDate('period_start', '<=', $to->toDateString())
+            ->selectRaw('lease_id, sum(declared_sales) as sales, sum(case when is_estimate then 1 else 0 end) as estimates, count(*) as months')
+            ->groupBy('lease_id')
+            ->get()
+            ->keyBy('lease_id');
+
+        /** @var \Illuminate\Support\Collection<int, array<string, mixed>> $result */
+        $result = $leases->map(function (Lease $lease) use ($cost, $sales, $from, $to): array {
+            $billed = round((float) ($cost[$lease->id] ?? 0), 2);
+            $row = $sales->get($lease->id);
+            $declared = round((float) ($row->sales ?? 0), 2);
+
+            return [
+                'lease_id' => $lease->id,
+                'reference' => $lease->reference,
+                'tenant' => $lease->tenant?->name,
+                'unit' => $lease->unit?->code,
+                'from' => $from,
+                'to' => $to,
+                'occupancy_cost' => $billed,
+                'declared_sales' => $declared,
+                // Null, never zero or infinity, when there are no sales to divide by: a tenant who
+                // has declared nothing has an UNKNOWN ratio, and showing 0% would read as the
+                // healthiest tenant in the mall.
+                'occupancy_cost_pct' => $declared > 0 ? round($billed / $declared * 100, 2) : null,
+                'months_declared' => (int) ($row->months ?? 0),
+                // Estimated sales make the ratio soft, and the operator should see that rather than
+                // act on a number the tenant never filed.
+                'has_estimates' => (int) ($row->estimates ?? 0) > 0,
+            ];
+        })
+            ->sortByDesc(fn (array $r) => $r['occupancy_cost_pct'] ?? -1)
+            ->values();
+
+        return $result;
+    }
+
+    /**
+     * What counts as occupancy cost.
+     *
+     * Rent and every reimbursement the tenant pays to occupy the space. NOT `late_fee` or
+     * `violation_fine` — those are penalties for behaviour, and folding them in would make a
+     * tenant's occupancy look expensive because they paid late rather than because their rent is
+     * high, which inverts the signal this report exists to give.
+     */
+    public const OCCUPANCY_COST_TYPES = [
+        'base_rent', 'service_charge', 'marketing', 'percentage_rent',
+        'utility', 'parking', 'cam_recovery', 'cam_admin_fee',
+    ];
+
+    /**
      * Open, aged-in receivables as at a date — the ONE query every aging view starts from.
      *
      * @return Collection<int, Invoice>
