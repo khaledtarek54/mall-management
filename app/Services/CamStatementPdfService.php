@@ -124,6 +124,10 @@ class CamStatementPdfService
                 : [],
             'area_sqm' => $area,
             'denominator_sqm' => $denominator,
+            'denominator_basis' => $pool?->denominator_basis ?? CamExpensePool::DENOMINATOR_OCCUPIED,
+            // A share the contract NAMED rather than one derived from area — the tenant should see
+            // which of the two they are reading.
+            'share_is_stated' => $lease?->statedCamSharePct((int) ($pool?->period_year ?? 0)) !== null,
             'share_pct' => $share,
             'allocated' => (float) $allocation->allocated_amount,
             'cap_amount' => $allocation->cap_amount !== null ? (float) $allocation->cap_amount : null,

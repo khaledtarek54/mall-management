@@ -46,6 +46,40 @@ true_up_amount      = allocated_amount - estimated_paid
 
 **In words**: Each lease's share of the pool's actual and estimated amounts is weighted by its **total** leased area — summed over every unit on the lease via the `lease_unit` pivot, not the master unit alone — as a fraction of the asset's total leased sqm. True-up is the difference: positive (tenant under-paid), negative (tenant over-paid).
 
+**The share denominator is a lease TERM now, not a convention (2026-08-09, story RC-03).**
+It was hard-coded to the summed area of whoever happens to be trading, which recovers 100% of the
+pool from them — so **a half-empty mall billed its remaining tenants for the whole service charge**.
+Some leases say exactly that; many say share of GROSS leasable area.
+
+- `denominator_basis = occupied` — the legacy basis and the **column default**, so no existing pool
+  moves.
+- `= gla` — the property's `leasable_area_sqm` (falling back to `Asset::totalUnitAreaSqm()`), so
+  vacancy stays with the landlord.
+- `= fixed` — a contractually pinned m². **Falls back to occupied when unset** rather than
+  recovering nothing: a mis-typed pool should reconcile the way it always did, not silently
+  allocate zero to everyone.
+- `lease_cam_terms.stated_share_pct` — the per-lease override, for the many Egyptian leases that
+  simply name the percentage. A stated share beats any derived one, and it does **not** inflate its
+  neighbours: the others keep their area-derived shares and less of the pool is recovered.
+
+**`landlord_unrecovered_amount` is what keeps the books honest — read this before touching either.**
+`Σ allocated_amount = total_actual_expense` is a hard tie-out in `BooksReconciliationService`, and
+it silently encoded *"the pool is always fully recovered"*, which is true only under `occupied`.
+Under `gla` the shares deliberately sum to less than 100%. The remainder is therefore STORED on the
+pool, and the check became **`Σ allocated + landlord_unrecovered = total`**. It is 0.00 on every
+`occupied` pool, so the check is byte-identical where nothing changed.
+
+Two consequences worth keeping:
+
+- A **negative** value means the pool OVER-recovered — stated shares summing past 100%. That is a
+  data problem worth seeing, so it is recorded rather than clamped to zero.
+- `denominator_used_sqm` records the denominator that was actually applied, which is what the
+  tenant statement reports. Re-deriving it later would show today's number, not the one used.
+
+`CamDenominatorTest` verifies the tie-out on all three bases **through the real
+`BooksReconciliationService`**, not a re-implementation — a GLA pool under the old check read as
+drift, and a books report that cries wolf on every mall with a vacancy is one people switch off.
+
 **The tenant gets a statement they can audit (2026-08-09, story RC-06).**
 `CamStatementPdfService` renders one bilingual PDF per allocation, downloadable from the admin
 allocation list **and by the tenant in the portal** — almost every commercial lease grants a

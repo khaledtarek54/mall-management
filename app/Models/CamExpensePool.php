@@ -36,6 +36,15 @@ class CamExpensePool extends Model
      */
     public const ESTIMATE_ITEM_TYPES = ['service_charge'];
 
+    /** Shares divide by the summed area of the participating leases — legacy, and the default. */
+    public const DENOMINATOR_OCCUPIED = 'occupied';
+
+    /** Shares divide by the property's gross leasable area, so vacancy sits with the landlord. */
+    public const DENOMINATOR_GLA = 'gla';
+
+    /** Shares divide by a contractually pinned m² figure. */
+    public const DENOMINATOR_FIXED = 'fixed';
+
     protected $fillable = [
         'asset_id',
         'period_year',
@@ -43,6 +52,10 @@ class CamExpensePool extends Model
         'total_estimated_collected',
         'expense_basis',
         'estimate_basis',
+        'denominator_basis',
+        'denominator_fixed_sqm',
+        'denominator_used_sqm',
+        'landlord_unrecovered_amount',
         'admin_fee_pct',
         'admin_fee_on_net',
         'recovery_vat_rate',
@@ -54,6 +67,9 @@ class CamExpensePool extends Model
 
     protected $casts = [
         'expense_synced_at' => 'datetime',
+        'denominator_fixed_sqm' => 'decimal:2',
+        'denominator_used_sqm' => 'decimal:2',
+        'landlord_unrecovered_amount' => 'decimal:2',
         'total_actual_expense' => 'decimal:2',
         'total_estimated_collected' => 'decimal:2',
         'admin_fee_pct' => 'decimal:4',
@@ -98,6 +114,7 @@ class CamExpensePool extends Model
             ->useLogName('cam_pool');
     }
 
+    /** @return BelongsTo<Asset, $this> */
     public function asset(): BelongsTo
     {
         return $this->belongsTo(Asset::class);

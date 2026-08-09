@@ -134,12 +134,31 @@
     <tr>
         <td class="k">
             {{ __('admin.cam_statement.denominator') }}
-            <div class="note">{{ __('admin.cam_statement.denominator_note') }}</div>
+            {{-- The BASIS, named. A denominator without it is a number the tenant has to take on
+                 trust, and "share of occupied area" and "share of gross leasable area" are very
+                 different deals on a mall with vacancy.
+
+                 Spelled out rather than built from the basis string: a dynamic key is exactly what
+                 renders raw the day someone adds a fourth basis and forgets its label, which is
+                 what TranslationCoverageTest exists to catch. --}}
+            @php
+                $basisNote = match ($facts['denominator_basis']) {
+                    'gla' => __('admin.cam_statement.denominator_basis_gla'),
+                    'fixed' => __('admin.cam_statement.denominator_basis_fixed'),
+                    default => __('admin.cam_statement.denominator_basis_occupied'),
+                };
+            @endphp
+            <div class="note">{{ $basisNote }}</div>
         </td>
         <td class="v">{{ $facts['denominator_sqm'] !== null ? number_format($facts['denominator_sqm'], 2) . ' m²' : '—' }}</td>
     </tr>
     <tr>
-        <td class="k">{{ __('admin.cam_statement.share') }}</td>
+        <td class="k">
+            {{ __('admin.cam_statement.share') }}
+            @if ($facts['share_is_stated'])
+                <div class="note">{{ __('admin.cam_statement.share_stated_note') }}</div>
+            @endif
+        </td>
         <td class="v">{{ number_format($facts['share_pct'], 4) }}%</td>
     </tr>
     <tr>

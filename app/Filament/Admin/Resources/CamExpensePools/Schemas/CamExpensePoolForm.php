@@ -98,6 +98,30 @@ class CamExpensePoolForm
                         ->columnSpanFull()
                         ->visible(fn ($get) => $get('expense_basis') === CamExpensePool::BASIS_LEDGER)
                         ->disabled(fn (?CamExpensePool $record) => self::basisFrozen($record)),
+                    // RC-03. `occupied` recovers 100% of the pool from whoever is trading, which
+                    // is what SOME leases say; `gla` leaves the vacancy with the landlord, which is
+                    // what many others say. The column default is `occupied`, so every existing
+                    // pool keeps the basis it was reconciled on.
+                    Select::make('denominator_basis')
+                        ->label(__('admin.cam.denominator_basis'))
+                        ->helperText(__('admin.cam.denominator_basis_help'))
+                        ->options([
+                            CamExpensePool::DENOMINATOR_OCCUPIED => __('admin.cam.denominator_occupied'),
+                            CamExpensePool::DENOMINATOR_GLA => __('admin.cam.denominator_gla'),
+                            CamExpensePool::DENOMINATOR_FIXED => __('admin.cam.denominator_fixed'),
+                        ])
+                        ->default(CamExpensePool::DENOMINATOR_OCCUPIED)
+                        ->required()
+                        ->live()
+                        ->native(false)
+                        ->disabled(fn (?CamExpensePool $record) => self::basisFrozen($record)),
+                    TextInput::make('denominator_fixed_sqm')
+                        ->label(__('admin.cam.denominator_fixed_sqm'))
+                        ->numeric()
+                        ->minValue(0)
+                        ->suffix('m²')
+                        ->visible(fn ($get) => $get('denominator_basis') === CamExpensePool::DENOMINATOR_FIXED)
+                        ->disabled(fn (?CamExpensePool $record) => self::basisFrozen($record)),
                     TextInput::make('total_actual_expense')
                         ->label(__('admin.fields.total_actual_expense'))
                         ->prefix('EGP')

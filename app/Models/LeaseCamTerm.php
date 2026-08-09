@@ -27,6 +27,7 @@ class LeaseCamTerm extends Model
         'lease_id',
         'effective_year',
         'cap_type',
+        'stated_share_pct',
         'cap_absolute_amount',
         'base_year',
         'base_year_amount',
@@ -41,6 +42,7 @@ class LeaseCamTerm extends Model
         'base_year' => 'integer',
         'base_year_amount' => 'decimal:2',
         'yoy_pct' => 'decimal:4',
+        'stated_share_pct' => 'decimal:4',
         'compounding' => 'boolean',
     ];
 

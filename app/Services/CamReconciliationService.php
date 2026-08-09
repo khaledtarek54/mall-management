@@ -64,7 +64,11 @@ class CamReconciliationService
         $periodStart = CarbonImmutable::create((int) $pool->period_year, 1, 1)->startOfDay();
         $periodEnd = $periodStart->endOfYear()->startOfDay();
 
-        $totalSqm = $isRerun ? 0.0 : (float) $leases->sum(fn (Lease $l) => $l->totalAreaSqmForPeriod($periodStart, $periodEnd));
+        // The DENOMINATOR the shares divide by (story RC-03). `occupied` — the legacy basis and
+        // the default — is the summed area of the participants, which recovers 100% of the pool
+        // from whoever happens to be trading. That is what some leases say; others say share of
+        // GROSS leasable area, which leaves the vacancy with the landlord.
+        $totalSqm = $isRerun ? 0.0 : $this->resolveDenominator($pool, $leases, $periodStart, $periodEnd);
 
         if (! $isRerun && $totalSqm <= 0) {
             return 0;
@@ -72,6 +76,7 @@ class CamReconciliationService
 
         return DB::transaction(function () use ($pool, $leases, $totalSqm, $isRerun, $frozenShares, $periodStart, $periodEnd) {
             $count = 0;
+            $allocatedTotal = 0.0;
 
             foreach ($leases as $lease) {
                 if ($isRerun) {
@@ -81,11 +86,20 @@ class CamReconciliationService
                         continue;
                     }
                 } else {
-                    $sqm = $lease->totalAreaSqmForPeriod($periodStart, $periodEnd);
-                    if ($sqm <= 0) {
-                        continue;
+                    // A lease whose contract NAMES its percentage wins over any derived one — no
+                    // denominator can produce a number the parties simply agreed (RC-03). Common in
+                    // Egyptian leases, and previously unrepresentable.
+                    $stated = $lease->statedCamSharePct((int) $pool->period_year);
+
+                    if ($stated !== null) {
+                        $share = $stated / 100;
+                    } else {
+                        $sqm = $lease->totalAreaSqmForPeriod($periodStart, $periodEnd);
+                        if ($sqm <= 0) {
+                            continue;
+                        }
+                        $share = $sqm / $totalSqm;
                     }
-                    $share = $sqm / $totalSqm;
                 }
 
                 $allocated = round((float) $pool->total_actual_expense * $share, 2);
@@ -161,11 +175,65 @@ class CamReconciliationService
                     'status' => 'pending',
                 ]);
                 $allocation->save();
+                $allocatedTotal += $allocated;
                 $count++;
+            }
+
+            // What the landlord bears itself — the part of the pool no lease's share reached.
+            //
+            // Under `occupied` this is 0.00 (the shares sum to 100% by construction) and nothing
+            // about the books changes. Under `gla` it is the vacancy: real money, previously
+            // invisible, and previously read by the books tie-out as DRIFT. Storing it is what lets
+            // `Σ allocated + unrecovered = total` stay a hard check instead of being loosened.
+            //
+            // A NEGATIVE value means the pool over-recovered — stated shares that sum past 100%.
+            // That is a data problem worth seeing, so it is recorded rather than clamped to zero.
+            if (! $isRerun) {
+                $pool->forceFill([
+                    'denominator_used_sqm' => round($totalSqm, 2),
+                    'landlord_unrecovered_amount' => round((float) $pool->total_actual_expense - $allocatedTotal, 2),
+                ])->save();
             }
 
             return $count;
         });
+    }
+
+    /**
+     * The area every share divides by (story RC-03).
+     *
+     * @param  \Illuminate\Support\Collection<int, Lease>  $leases
+     */
+    private function resolveDenominator(
+        CamExpensePool $pool,
+        $leases,
+        CarbonImmutable $periodStart,
+        CarbonImmutable $periodEnd,
+    ): float {
+        return match ($pool->denominator_basis) {
+            // The property's GROSS leasable area: vacancy stays with the landlord, which is what a
+            // lease means when it says "share of the total leasable area of the centre". Falls back
+            // to the summed unit areas when no GLA is declared — the two are the same intent, and
+            // `Asset::totalUnitAreaSqm()` is the one already used for occupancy.
+            CamExpensePool::DENOMINATOR_GLA => (float) ($pool->asset?->leasable_area_sqm > 0
+                ? $pool->asset->leasable_area_sqm
+                : ($pool->asset?->totalUnitAreaSqm() ?? 0)),
+
+            // Contractually pinned. Zero or null is treated as unusable and falls through to the
+            // occupied basis rather than allocating nothing — a mis-typed pool should reconcile
+            // like it always did, not silently recover zero from everyone.
+            CamExpensePool::DENOMINATOR_FIXED => (float) $pool->denominator_fixed_sqm > 0
+                ? (float) $pool->denominator_fixed_sqm
+                : $this->occupiedDenominator($leases, $periodStart, $periodEnd),
+
+            default => $this->occupiedDenominator($leases, $periodStart, $periodEnd),
+        };
+    }
+
+    /** @param  \Illuminate\Support\Collection<int, Lease>  $leases */
+    private function occupiedDenominator($leases, CarbonImmutable $periodStart, CarbonImmutable $periodEnd): float
+    {
+        return (float) $leases->sum(fn (Lease $l) => $l->totalAreaSqmForPeriod($periodStart, $periodEnd));
     }
 
     /**

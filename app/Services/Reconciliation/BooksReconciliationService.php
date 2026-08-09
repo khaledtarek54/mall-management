@@ -165,9 +165,20 @@ class BooksReconciliationService
                 continue;
             }
             $summed = round((float) $pool->allocations->sum('allocated_amount'), 2);
+            // The part of the pool no lease's share reached — vacancy under a GLA denominator, or
+            // the remainder under stated shares (story RC-03). It is 0.00 on every `occupied` pool,
+            // so this check is byte-identical where nothing changed.
+            //
+            // Without this term the tie-out reads a deliberate, contractual under-recovery as
+            // DRIFT, which would have made the books report cry wolf on every mall with a vacancy
+            // — and a check that cries wolf is a check people switch off.
+            $unrecovered = round((float) $pool->landlord_unrecovered_amount, 2);
             $tolerance = 0.01 * max(1, $pool->allocations->count()); // pro-rata rounding slack
-            if (abs($summed - (float) $pool->total_actual_expense) > $tolerance) {
-                $d[] = ['ref' => "pool #{$pool->id} ({$pool->period_year})", 'detail' => "allocations sum {$summed} ≠ pool expense {$pool->total_actual_expense}"];
+            if (abs($summed + $unrecovered - (float) $pool->total_actual_expense) > $tolerance) {
+                $d[] = [
+                    'ref' => "pool #{$pool->id} ({$pool->period_year})",
+                    'detail' => "allocations sum {$summed} + landlord-borne {$unrecovered} ≠ pool expense {$pool->total_actual_expense}",
+                ];
             }
             foreach ($pool->allocations->where('status', 'billed') as $alloc) {
                 /** @var \App\Models\CamAllocation $alloc */

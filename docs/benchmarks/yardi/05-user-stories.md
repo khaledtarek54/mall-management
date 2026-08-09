@@ -415,14 +415,27 @@ each pool has its own participant rule, admin fee, VAT rate and cap scope.
 
 ---
 
-### RC-03 🟠 Choose the denominator
+### RC-03 ✅ Choose the denominator *(shipped 2026-08-09)*
 **As a** Leasing Manager **I want** the share denominator to be configurable (GLA / occupied /
 fixed / stated) **so that** the calculation matches what each lease says.
 
 **Acceptance:** denominator basis is a pool setting with a per-lease override; the reconciliation
 statement names the basis used; existing pools default to **occupied** so nothing changes.
 
-**Today:** hard-coded to occupied area.
+**Shipped, all three points.** `denominator_basis` = `occupied` (the column default, so no existing
+pool moves) · `gla` (the property's gross leasable area — vacancy stays with the landlord) · `fixed`
+(a contractually pinned m², falling back to occupied rather than recovering nothing if unset). The
+per-lease override is `lease_cam_terms.stated_share_pct`, for the many Egyptian leases that simply
+name the percentage — which no denominator can derive. The statement names the basis in the tenant's
+own language, and says when a share was stated rather than calculated.
+
+**The part that mattered most was the books tie-out.** `Σ allocated = total_actual_expense` is a
+hard check in `BooksReconciliationService`, and it silently encoded "the pool is always fully
+recovered" — true only under `occupied`. Under `gla` the shares deliberately sum to under 100%.
+Rather than loosen the check, the remainder is STORED as `landlord_unrecovered_amount` and the rule
+became `Σ allocated + unrecovered = total`. It is 0.00 on every existing pool, so the check is
+byte-identical where nothing changed — and the landlord's share of its own vacancy became a number
+on a screen instead of drift in a report. Verified against the real service on all three bases.
 
 ---
 

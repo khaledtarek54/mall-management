@@ -487,6 +487,7 @@ class Lease extends Model implements HasMedia
             ->values();
     }
 
+    /** @return HasMany<LeaseCamTerm, $this> */
     public function camTerms(): HasMany
     {
         return $this->hasMany(LeaseCamTerm::class);
@@ -505,6 +506,26 @@ class Lease extends Model implements HasMedia
             ->first();
 
         return $term?->resolveCeiling($reconciledYear);
+    }
+
+    /**
+     * The recovery share this lease's contract NAMES, if it names one (story RC-03).
+     *
+     * A stated share beats any derived one: no denominator can produce a percentage the parties
+     * simply agreed, and Egyptian commercial leases state one often enough that deriving over the
+     * top of it was quietly billing a different number from the contract.
+     *
+     * Resolved the same way the cap is — the latest term effective on or before the year being
+     * reconciled — so a share that was renegotiated mid-term applies from the year it was agreed.
+     */
+    public function statedCamSharePct(int $reconciledYear): ?float
+    {
+        $term = $this->camTerms()
+            ->where('effective_year', '<=', $reconciledYear)
+            ->orderByDesc('effective_year')
+            ->first();
+
+        return $term?->stated_share_pct !== null ? (float) $term->stated_share_pct : null;
     }
 
     public function invoices(): HasMany

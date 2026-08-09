@@ -949,12 +949,6 @@ parameters:
 			path: app/Models/InvoiceItem.php
 
 		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:resolveCeiling\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Models/Lease.php
-
-		-
 			message: '#^Negated boolean expression is always false\.$#'
 			identifier: booleanNot.alwaysFalse
 			count: 2
@@ -1813,12 +1807,6 @@ parameters:
 			path: app/Services/Backup/VerifyBackupService.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/CamReconciliationService.php
-
-		-
 			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 1
@@ -1832,6 +1820,12 @@ parameters:
 
 		-
 			message: '#^Using nullsafe property access "\?\-\>asset" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/CamStatementPdfService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>denominator_basis" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 1
 			path: app/Services/CamStatementPdfService.php
@@ -1851,7 +1845,7 @@ parameters:
 		-
 			message: '#^Using nullsafe property access "\?\-\>period_year" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
-			count: 2
+			count: 3
 			path: app/Services/CamStatementPdfService.php
 
 		-
