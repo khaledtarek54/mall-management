@@ -589,6 +589,34 @@ rolled off — its rent is live and its space is occupied — so counting it und
 understate both this year's risk and today's income, and would bury the one row that needs a
 decision today rather than in eighteen months.
 
+## Sales & trading performance
+
+`/admin/sales-analytics` ([`SalesAnalytics`](../../app/Filament/Admin/Pages/SalesAnalytics.php) +
+`ReportService::salesAnalytics()`, story RR-05) — MTD, YTD, **MAT** (the trailing twelve months) and
+growth against the same twelve months a year earlier.
+
+**MAT is the number retail runs on.** A calendar-year figure says nothing useful in March and swings
+around Ramadan and the school year; twelve months strips the seasonality out so two dates are
+comparable.
+
+**Two growth figures, deliberately.** Total MAT growth says how the centre's income is moving;
+**like-for-like** says how the tenants who were already there are trading. A mall that let ten new
+shops reads as growth on the first and flat on the second — and the gap between them is the story a
+GM is actually looking for.
+
+- **LFL counts only leases that declared in BOTH windows.** Without that exclusion a new anchor's
+  whole turnover reads as "growth", which measures letting rather than trading. Both directions are
+  pinned: the newcomer is excluded, and so is a departed tenant who would otherwise collapse the
+  headline while saying nothing about the tenants still there.
+- **The rule is *declared in both*, not *trading every month of both*.** Real declaration data has
+  gaps, and the stricter rule would compute a mall-wide metric over a quarter of the mall while
+  claiming to describe it. `lfl_leases` reports the count it used, so the basis is on the screen.
+- **No prior year reads as UNKNOWN, never 0%** — zero would claim flat trading the data cannot
+  support.
+- Estimated declarations are flagged, the same as on the occupancy-cost report.
+
+Only leases with percentage rent appear, because those are the ones that declare sales.
+
 ## Occupancy cost %
 
 `/admin/occupancy-cost` ([`OccupancyCost`](../../app/Filament/Admin/Pages/OccupancyCost.php) +

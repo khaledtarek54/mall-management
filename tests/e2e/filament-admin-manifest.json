@@ -350,6 +350,10 @@
             "slug": "reports"
         },
         {
+            "class": "SalesAnalytics",
+            "slug": "sales-analytics"
+        },
+        {
             "class": "Settings",
             "slug": "settings"
         },

@@ -673,9 +673,26 @@ healthiest tenant in the mall.
 
 ---
 
-### RR-05 🟡 Sales analytics: MTD / YTD / MAT and like-for-like
+### RR-05 ✅ Sales analytics: MTD / YTD / MAT and like-for-like *(shipped 2026-08-09)*
 **As a** Mall GM **I want** moving-annual-total and like-for-like sales **so that** I can judge
 trading performance and negotiate renewals on evidence.
+
+**Shipped:** `ReportService::salesAnalytics()` + the Sales analytics page. MTD, YTD, MAT (trailing
+twelve months) and growth against the same twelve months a year earlier, per tenant and for the
+portfolio.
+
+**Both growth figures are shown on purpose**, because they answer different questions: total MAT
+growth says how the centre's income is moving, like-for-like says how the tenants who were already
+there are trading. A mall that let ten new shops reads as growth on the first and flat on the
+second, and the gap between them IS the story.
+
+**LFL counts only leases that declared in BOTH windows** — that exclusion is the whole point, and
+both directions are pinned: a newcomer with no prior year is out, and so is a departed tenant who
+would otherwise drag the headline down while saying nothing about how the rest are trading. The
+stated rule is *declared in both*, not *trading every month of both*: real declaration data has
+gaps and the stricter rule would silently compute a mall-wide metric over a quarter of the mall.
+`lfl_leases` reports how many it counted. A tenant with no prior year shows **unknown** growth,
+never 0%.
 
 ---
 

@@ -592,6 +592,121 @@ class ReportService
     ];
 
     /**
+     * Trading performance per tenant: MTD, YTD, MAT and like-for-like growth (story RR-05).
+     *
+     * **MAT — moving annual total — is the number retail actually runs on.** A calendar-year figure
+     * says nothing useful in March and swings wildly around Ramadan and the school year; the
+     * trailing twelve months strips seasonality out, so two dates are comparable.
+     *
+     * **Like-for-like is the one that is easy to get wrong.** Comparing this year's MAT to last
+     * year's across the whole mall counts units that did not exist a year ago, so a centre that let
+     * ten new shops shows "growth" that is nothing of the kind — it is just more shops. LFL counts
+     * only leases that declared sales in BOTH windows, which is the difference between measuring
+     * trading and measuring letting.
+     *
+     * The stated rule is **declared in both windows**, not *trading every month of both*. Real
+     * declaration data has gaps, and the stricter rule would silently drop most of the portfolio —
+     * a metric computed over a quarter of the mall while claiming to describe it is worse than a
+     * slightly looser one that says what it counted. `lfl_leases` reports how many it counted.
+     *
+     * @return array{
+     *   as_of: CarbonImmutable,
+     *   rows: Collection<int, array<string, mixed>>,
+     *   mat: float, prior_mat: float, mat_growth_pct: ?float,
+     *   lfl_mat: float, lfl_prior_mat: float, lfl_growth_pct: ?float, lfl_leases: int,
+     *   has_estimates: bool
+     * }
+     */
+    public function salesAnalytics(?CarbonImmutable $asOf = null, ?int $assetId = null): array
+    {
+        $asOf = ($asOf ?? CarbonImmutable::now())->endOfMonth()->startOfDay();
+
+        $matFrom = $asOf->startOfMonth()->subMonths(11);
+        $priorFrom = $matFrom->subYear();
+        $priorTo = $matFrom->subDay();
+
+        $leases = TenantScope::applyTo(Lease::query(), 'unit')
+            ->where('has_percentage_rent', true)
+            ->when($assetId, fn ($q) => $q->whereHas('unit', fn ($u) => $u->where('asset_id', $assetId)))
+            ->with(['tenant', 'unit'])
+            ->get();
+
+        if ($leases->isEmpty()) {
+            return [
+                'as_of' => $asOf, 'rows' => collect(),
+                'mat' => 0.0, 'prior_mat' => 0.0, 'mat_growth_pct' => null,
+                'lfl_mat' => 0.0, 'lfl_prior_mat' => 0.0, 'lfl_growth_pct' => null, 'lfl_leases' => 0,
+                'has_estimates' => false,
+            ];
+        }
+
+        // One query for every window, keyed by lease — not four queries per lease.
+        $declarations = \App\Models\TenantSalesDeclaration::query()
+            ->whereIn('lease_id', $leases->pluck('id'))
+            ->whereDate('period_start', '>=', $priorFrom->toDateString())
+            ->whereDate('period_start', '<=', $asOf->toDateString())
+            ->get(['lease_id', 'period_start', 'declared_sales', 'is_estimate'])
+            ->groupBy('lease_id');
+
+        $inWindow = fn ($rows, CarbonImmutable $from, CarbonImmutable $to) => $rows
+            ->filter(function ($d) use ($from, $to) {
+                $p = CarbonImmutable::instance($d->period_start);
+
+                return $p->gte($from) && $p->lte($to);
+            });
+
+        $rows = $leases->map(function (Lease $lease) use ($declarations, $asOf, $matFrom, $priorFrom, $priorTo, $inWindow): array {
+            $all = $declarations->get($lease->id, collect());
+
+            $mtd = $inWindow($all, $asOf->startOfMonth(), $asOf);
+            $ytd = $inWindow($all, $asOf->startOfYear(), $asOf);
+            $mat = $inWindow($all, $matFrom, $asOf);
+            $prior = $inWindow($all, $priorFrom, $priorTo);
+
+            $matTotal = round((float) $mat->sum('declared_sales'), 2);
+            $priorTotal = round((float) $prior->sum('declared_sales'), 2);
+
+            return [
+                'lease_id' => $lease->id,
+                'reference' => $lease->reference,
+                'tenant' => $lease->tenant?->name,
+                'unit' => $lease->unit?->code,
+                'mtd' => round((float) $mtd->sum('declared_sales'), 2),
+                'ytd' => round((float) $ytd->sum('declared_sales'), 2),
+                'mat' => $matTotal,
+                'prior_mat' => $priorTotal,
+                // Null, never 0%, when there is no prior year to compare against — a new tenant has
+                // UNKNOWN growth, and 0% would read as flat trading.
+                'mat_growth_pct' => $priorTotal > 0 ? round(($matTotal - $priorTotal) / $priorTotal * 100, 1) : null,
+                'months_declared' => $mat->count(),
+                // Traded in BOTH windows: the only rows that may enter the like-for-like figure.
+                'lfl_eligible' => $mat->isNotEmpty() && $prior->isNotEmpty(),
+                'has_estimates' => $mat->contains(fn ($d) => (bool) $d->is_estimate),
+            ];
+        })->sortByDesc('mat')->values();
+
+        $lfl = $rows->where('lfl_eligible', true);
+        $lflMat = round((float) $lfl->sum('mat'), 2);
+        $lflPrior = round((float) $lfl->sum('prior_mat'), 2);
+        $mat = round((float) $rows->sum('mat'), 2);
+        $priorMat = round((float) $rows->sum('prior_mat'), 2);
+
+        /** @var Collection<int, array<string, mixed>> $rows */
+        return [
+            'as_of' => $asOf,
+            'rows' => $rows,
+            'mat' => $mat,
+            'prior_mat' => $priorMat,
+            'mat_growth_pct' => $priorMat > 0 ? round(($mat - $priorMat) / $priorMat * 100, 1) : null,
+            'lfl_mat' => $lflMat,
+            'lfl_prior_mat' => $lflPrior,
+            'lfl_growth_pct' => $lflPrior > 0 ? round(($lflMat - $lflPrior) / $lflPrior * 100, 1) : null,
+            'lfl_leases' => $lfl->count(),
+            'has_estimates' => $rows->contains(fn (array $r) => $r['has_estimates']),
+        ];
+    }
+
+    /**
      * Open, aged-in receivables as at a date — the ONE query every aging view starts from.
      *
      * @return Collection<int, Invoice>

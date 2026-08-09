@@ -395,7 +395,7 @@ to phase 3, UX-06 to phase 7, UX-08 to phase 6.
 
 ### Phase 7 — The reports that make it visible ➕ — **7a SHIPPED 2026-08-09**
 
-**Stories:** RR-01 ✅, RR-02 ✅, RR-04 ✅ · remaining: RR-03 (blocked on MF-06), RR-05.
+**Stories:** RR-01 ✅, RR-02 ✅, RR-04 ✅, RR-05 ✅ · remaining: RR-03 only (blocked on MF-06).
 
 **What shipped:** the rent roll (phase 1), the **lease expiration schedule** — expiries bucketed by
 year with each bucket's share of the mall's area and income, holdovers first in their own bucket —
