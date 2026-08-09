@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -369,11 +370,7 @@ class RolesPermissionsSeeder extends Seeder
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
         // 1) Create every permission row.
-        foreach (self::PERMISSIONS as $module => $perms) {
-            foreach (array_keys($perms) as $name) {
-                Permission::findOrCreate($name, 'web');
-            }
-        }
+        $this->insertMissingPermissions();
 
         // 2) Create every role row.
         foreach (array_keys(self::ROLES) as $name) {
@@ -384,12 +381,65 @@ class RolesPermissionsSeeder extends Seeder
         $this->syncRolePermissions();
     }
 
+    /**
+     * Create the permission rows that don't exist yet, in ONE insert.
+     *
+     * Deliberately not `Permission::findOrCreate()` per key. Spatie forgets its permission
+     * cache on every save (`RefreshesPermissionCache`) and `findOrCreate()` reads THROUGH
+     * that cache — so building the catalogue a row at a time reloads all N permissions from
+     * the database N times. At 182 keys that is ~0.9s per call, and the test suite pays it
+     * once per test case in ~230 `beforeEach` blocks (~1,700 cases), which made this seeder
+     * one of the largest single costs in the run.
+     *
+     * The end state is identical: same rows, same `guard_name`, same unique key. Only the
+     * number of round-trips changes.
+     */
+    private function insertMissingPermissions(): void
+    {
+        $existing = Permission::query()
+            ->where('guard_name', 'web')
+            ->pluck('name')
+            ->all();
+
+        $missing = array_values(array_diff($this->flatPermissionList(), $existing));
+
+        if ($missing === []) {
+            return;
+        }
+
+        $now = now();
+
+        Permission::query()->insert(array_map(fn (string $name): array => [
+            'name' => $name,
+            'guard_name' => 'web',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ], $missing));
+
+        // A bulk insert bypasses model events, so the cache spatie would have invalidated
+        // per row is flushed once, here. Without this the roles wired up next would be
+        // matched against a stale catalogue.
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+    }
+
     private function syncRolePermissions(): void
     {
         $all = $this->flatPermissionList();
 
+        /**
+         * role name => the permission names it holds.
+         *
+         * Collected first and written in one pass by {@see applyGrants()} rather than
+         * calling `syncPermissions()` per role: each of those calls invalidates spatie's
+         * permission cache, and the next one rebuilds it by hydrating all 182 permission
+         * models again. Fourteen roles meant fourteen rebuilds for ~7ms of actual SQL.
+         *
+         * @var array<string, string[]>
+         */
+        $grants = [];
+
         // super_admin gets EVERYTHING.
-        Role::findByName('super_admin', 'web')->syncPermissions($all);
+        $grants['super_admin'] = $all;
 
         // manager: every view/create/edit + workflow actions; no delete; no settings.manage; no roles edit.
         // approvals.tier_3 is withheld deliberately: with the blanket grant a manager would
@@ -405,15 +455,13 @@ class RolesPermissionsSeeder extends Seeder
             ->reject(fn ($p) => $p === 'imports.execute')
             ->values()
             ->all();
-        Role::findByName('manager', 'web')->syncPermissions($managerPerms);
+        $grants['manager'] = $managerPerms;
 
         // FR-USR-01/02 — mall_admin is a manager PLUS the import right, scoped to their properties
         // by the same AssignedAssets mechanism as every other role. `imports.execute` is withheld
         // from $managerPerms above (it is not a `.delete`, so the blanket grant would otherwise
         // hand it to every manager and defeat FR-USR-02's whole point).
-        Role::findByName('mall_admin', 'web')->syncPermissions(
-            collect($managerPerms)->push('imports.execute')->unique()->values()->all()
-        );
+        $grants['mall_admin'] = collect($managerPerms)->push('imports.execute')->unique()->values()->all();
 
         // viewer: every .view + reports.download.
         $viewerPerms = collect($all)
@@ -424,7 +472,7 @@ class RolesPermissionsSeeder extends Seeder
             ->filter(fn ($p) => str_ends_with($p, '.view') || str_ends_with($p, '.view_all') || $p === 'reports.download')
             ->values()
             ->all();
-        Role::findByName('viewer', 'web')->syncPermissions($viewerPerms);
+        $grants['viewer'] = $viewerPerms;
 
         // owner: Jawad owners SEE EVERYTHING read-only (every module / department),
         // but only for the properties they OWN (scoped via User::accessibleAssets),
@@ -443,12 +491,12 @@ class RolesPermissionsSeeder extends Seeder
             ->unique()
             ->values()
             ->all();
-        Role::findByName('owner', 'web')->syncPermissions($ownerPerms);
+        $grants['owner'] = $ownerPerms;
 
         // ---- DEPARTMENT roles: strictly scoped to their own sidebar group ----
 
         // leasing: Properties, Units, Tenants, Leases, Tenant Sales.
-        Role::findByName('leasing', 'web')->syncPermissions([
+        $grants['leasing'] = [
             'assets.view',
             'units.view', 'units.create', 'units.edit',
             'tenants.view', 'tenants.create', 'tenants.edit',
@@ -456,10 +504,10 @@ class RolesPermissionsSeeder extends Seeder
             'leases.terminate', 'leases.renew', 'leases.generate_invoice',
             'tenant_sales.view', 'tenant_sales.lock', 'tenant_sales.dispute',
             'notes.view', 'notes.create',
-        ]);
+        ];
 
         // operations: Maintenance, Vendors, Utility Meters, Inventory.
-        Role::findByName('operations', 'web')->syncPermissions([
+        $grants['operations'] = [
             'maintenance.view', 'maintenance.create', 'maintenance.edit',
             // Dispatch IS oversight — you cannot assign work you cannot see (FR-USR-04).
             'maintenance.view_all', 'preventive_maintenance.view_all',
@@ -479,7 +527,7 @@ class RolesPermissionsSeeder extends Seeder
             // The bottom rung: a supervisor signs off routine, low-value part draws.
             'approvals.tier_1',
             'notes.view', 'notes.create',
-        ]);
+        ];
 
         // FR-USR-04 — the technician: does the work, sees only their own.
         //
@@ -487,17 +535,17 @@ class RolesPermissionsSeeder extends Seeder
         // absence is the entire feature — AssignmentScope restricts anyone lacking them. They can
         // complete the job they are holding and nothing else; assigning work is a coordinator's
         // job, and `.assign` is withheld for the same reason.
-        Role::findByName('technician', 'web')->syncPermissions([
+        $grants['technician'] = [
             'maintenance.view', 'maintenance.change_status',
             'preventive_maintenance.view', 'preventive_maintenance.complete',
             'notes.view', 'notes.create',
-        ]);
+        ];
 
         // FR-USR — the coordinator: the maintenance-queue supervisor. Sees the whole board
         // (`*.view_all`, so AssignmentScope does NOT restrict them) and assigns technicians
         // (`maintenance.assign`) — assignment IS oversight, you cannot hand out work you cannot
         // see. Narrower than `operations`: no meters, inventory or procurement.
-        Role::findByName('coordinator', 'web')->syncPermissions([
+        $grants['coordinator'] = [
             'maintenance.view', 'maintenance.create', 'maintenance.edit',
             'maintenance.view_all', 'maintenance.assign', 'maintenance.change_status',
             'preventive_maintenance.view', 'preventive_maintenance.view_all',
@@ -508,17 +556,17 @@ class RolesPermissionsSeeder extends Seeder
             'violations.view', 'violations.create', 'violations.edit', 'violations.notify',
             'vendors.view',
             'notes.view', 'notes.create',
-        ]);
+        ];
 
         // FR-USR — customer service (front desk / intake): logs requests and fields any tenant's
         // call, so it sees EVERY request (`maintenance.view_all`) but has NO work authority — no
         // assign, no change_status, no complete, no edit. It captures the request and hands it to
         // a coordinator. `tenants.view` to identify the caller.
-        Role::findByName('customer_service', 'web')->syncPermissions([
+        $grants['customer_service'] = [
             'maintenance.view', 'maintenance.create', 'maintenance.view_all',
             'tenants.view',
             'notes.view', 'notes.create',
-        ]);
+        ];
 
         // FR-USR-03 — the external vendor/contractor: VIEW-ONLY on the maintenance work it does.
         // view_all so it can see the board of its assigned malls (the finer "only my own jobs"
@@ -532,14 +580,14 @@ class RolesPermissionsSeeder extends Seeder
         // right widens a tightly-held gate (ImportIsAdminOnlyTest / FR-USR-02) for no function. A
         // real vendor CSV upload needs its OWN vendor-facing import surface + permission — a
         // follow-up, not the admin import right.
-        Role::findByName('vendor', 'web')->syncPermissions([
+        $grants['vendor'] = [
             'maintenance.view', 'maintenance.view_all',
             'preventive_maintenance.view', 'preventive_maintenance.view_all',
             'notes.view',
-        ]);
+        ];
 
         // accounting: Invoices, Payments, Credit Notes, CAM, Reports.
-        Role::findByName('accounting', 'web')->syncPermissions([
+        $grants['accounting'] = [
             'invoices.view', 'invoices.create', 'invoices.edit', 'invoices.void',
             'invoices.run_monthly_billing', 'invoices.submit_to_eta', 'invoices.send_whatsapp',
             'payments.view', 'payments.create', 'payments.edit', 'payments.void',
@@ -567,22 +615,74 @@ class RolesPermissionsSeeder extends Seeder
             'disbursements.pay', 'disbursements.cancel',
             'post_dated_cheques.view', 'post_dated_cheques.create', 'post_dated_cheques.edit',
             'reports.view', 'reports.download',
-        ]);
+        ];
 
         // marketing: Marketing Budgets + spend, plus tenant announcements.
-        Role::findByName('marketing', 'web')->syncPermissions([
+        $grants['marketing'] = [
             'marketing.view', 'marketing.create', 'marketing.edit',
             'announcements.view', 'announcements.create',
-        ]);
+        ];
 
         // hr: Users, Roles, Departments, Employees.
-        Role::findByName('hr', 'web')->syncPermissions([
+        $grants['hr'] = [
             'users.view', 'users.create', 'users.edit',
             'roles.view',
             'departments.view',
             'employees.view', 'employees.create', 'employees.edit',
             'employees.grant_advance', 'employees.record_repayment',
-        ]);
+        ];
+
+        $this->applyGrants($grants);
+    }
+
+    /**
+     * Replace each listed role's permission set, in bulk.
+     *
+     * Equivalent to `Role::findByName($role)->syncPermissions($names)` per role — the pivot
+     * rows for exactly these roles are cleared and rewritten, so a permission dropped from
+     * the catalogue above stops being granted, same as before. Roles NOT in $grants (the
+     * custom ones an admin builds in the UI) are never touched.
+     *
+     * @param  array<string, string[]>  $grants  role name => permission names
+     */
+    private function applyGrants(array $grants): void
+    {
+        $registrar = app(PermissionRegistrar::class);
+
+        $permissionIds = Permission::query()->where('guard_name', 'web')->pluck('id', 'name');
+        $roleIds = Role::query()->where('guard_name', 'web')->pluck('id', 'name');
+
+        $rows = [];
+
+        foreach ($grants as $role => $names) {
+            $roleId = $roleIds[$role] ?? throw new \RuntimeException(
+                "RolesPermissionsSeeder: role [{$role}] was never created."
+            );
+
+            foreach (array_unique($names) as $name) {
+                $rows[] = [
+                    $registrar->pivotRole => $roleId,
+                    $registrar->pivotPermission => $permissionIds[$name] ?? throw new \RuntimeException(
+                        "RolesPermissionsSeeder: role [{$role}] grants unknown permission [{$name}]."
+                    ),
+                ];
+            }
+        }
+
+        $table = DB::table(config('permission.table_names.role_has_permissions'));
+
+        $table->clone()
+            ->whereIn($registrar->pivotRole, array_map(
+                fn (string $role): int => (int) $roleIds[$role],
+                array_keys($grants),
+            ))
+            ->delete();
+
+        foreach (array_chunk($rows, 500) as $chunk) {
+            $table->clone()->insert($chunk);
+        }
+
+        $registrar->forgetCachedPermissions();
     }
 
     /** @return string[] */
