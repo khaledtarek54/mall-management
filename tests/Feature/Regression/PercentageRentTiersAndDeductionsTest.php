@@ -267,3 +267,68 @@ it('is idempotent and writes nothing on a dry run', function () {
 
     expect(TenantSalesDeclaration::where('lease_id', $lease->id)->whereDate('period_start', '2026-06-01')->count())->toBe(1);
 });
+
+/* ---- the ladder cannot be built wrong -------------------------------------- */
+
+it('refuses an overlapping band, because an overlap charges the same sales twice', function () {
+    $lease = tieredLease(); // 0–500K@0 · 500K–900K@5 · 900K+@6
+
+    // The typo: 400,000 instead of 500,000 as the floor. Left unguarded this bills 31,000 on
+    // sales of 1,000,000 where the correct ladder bills 26,000 — silently, for the whole lease.
+    expect(fn () => LeasePercentageRentTier::create([
+        'lease_id' => $lease->id, 'from_amount' => 400000, 'to_amount' => 700000, 'rate' => 5,
+    ]))->toThrow(DomainException::class);
+
+    expect(LeasePercentageRentTier::where('lease_id', $lease->id)->count())->toBe(3)
+        ->and(app(PercentageRentCalculationService::class)->calculate(declare_($lease, 1000000)))
+        ->toBe(26000.0);
+});
+
+it('allows bands that meet exactly, which is what a contiguous ladder is', function () {
+    $lease = makeLease(makeUnit(makeAsset()), null, [
+        'status' => 'active', 'commencement_date' => '2026-01-01', 'expiry_date' => '2028-12-31',
+        'base_rent_monthly' => 100000, 'has_percentage_rent' => true,
+        'percentage_rent_calculation_type' => 'tiered', 'percentage_rent_rate' => 0,
+    ]);
+
+    // Half-open bands: one ending where the next begins is adjacent, not overlapping.
+    LeasePercentageRentTier::create(['lease_id' => $lease->id, 'from_amount' => 0, 'to_amount' => 500000, 'rate' => 0]);
+    LeasePercentageRentTier::create(['lease_id' => $lease->id, 'from_amount' => 500000, 'to_amount' => 900000, 'rate' => 5]);
+    LeasePercentageRentTier::create(['lease_id' => $lease->id, 'from_amount' => 900000, 'to_amount' => null, 'rate' => 6]);
+
+    expect(LeasePercentageRentTier::where('lease_id', $lease->id)->count())->toBe(3);
+});
+
+it('allows a GAP, because a gap is the same thing as a 0% band', function () {
+    $lease = makeLease(makeUnit(makeAsset()), null, [
+        'status' => 'active', 'commencement_date' => '2026-01-01', 'expiry_date' => '2028-12-31',
+        'base_rent_monthly' => 100000, 'has_percentage_rent' => true,
+        'percentage_rent_calculation_type' => 'tiered', 'percentage_rent_rate' => 0,
+    ]);
+
+    // "No percentage rent on sales between 500K and 900K" is a real deal shape — and it is also
+    // the natural intermediate state while a ladder is being typed in. Refusing it would block a
+    // legitimate structure to guard against a typo the overlap check already catches.
+    LeasePercentageRentTier::create(['lease_id' => $lease->id, 'from_amount' => 0, 'to_amount' => 500000, 'rate' => 0]);
+    LeasePercentageRentTier::create(['lease_id' => $lease->id, 'from_amount' => 900000, 'to_amount' => null, 'rate' => 6]);
+
+    // 1,000,000 → only the 100,000 above 900K is charged.
+    expect(app(PercentageRentCalculationService::class)->calculate(declare_($lease, 1000000)))->toBe(6000.0);
+});
+
+it('refuses a band that ends before it starts', function () {
+    $lease = tieredLease();
+
+    expect(fn () => LeasePercentageRentTier::create([
+        'lease_id' => $lease->id, 'from_amount' => 2000000, 'to_amount' => 1000000, 'rate' => 5,
+    ]))->toThrow(DomainException::class);
+});
+
+it('lets an existing band be edited without clashing with itself', function () {
+    $lease = tieredLease();
+    $top = LeasePercentageRentTier::where('lease_id', $lease->id)->orderByDesc('from_amount')->first();
+
+    $top->update(['rate' => 7]);
+
+    expect((float) $top->fresh()->rate)->toBe(7.0);
+});

@@ -68,6 +68,73 @@ class Charge extends Model
         return $this->belongsTo(Lease::class);
     }
 
+    protected static function booted(): void
+    {
+        // Refuse OVERLAPPING schedule rows of the same type, from any writer.
+        //
+        // `MonthlyBillingService::assertScheduleUnambiguous()` already refuses to BILL a month two
+        // rows cover — but that is the last possible moment to find out, and it fails a whole
+        // lease's invoice run. This catches it at the keystroke instead, which is what LS-01
+        // actually asked for and what an import or a direct `Charge::create()` needs.
+        //
+        // ChargeScheduleService cannot produce an overlap by construction (it closes one row the
+        // day before the next begins), so this guards the paths that do not go through it.
+        //
+        // Only RECURRING rows: several one-offs genuinely share a month (a CAM true-up, a
+        // percentage-rent overage and a utility recharge), and they are not a schedule.
+        static::saving(function (self $charge): void {
+            $charge->assertNoScheduleOverlap();
+        });
+    }
+
+    /** @throws \DomainException when this row's date range overlaps another of the same type */
+    public function assertNoScheduleOverlap(): void
+    {
+        if (blank($this->lease_id) || $this->frequency === 'one_time' || ! $this->is_active) {
+            return;
+        }
+
+        $start = $this->start_date ? \Carbon\CarbonImmutable::instance($this->start_date) : null;
+        $end = $this->end_date ? \Carbon\CarbonImmutable::instance($this->end_date) : null;
+
+        if ($start && $end && $end->lessThan($start)) {
+            throw new \DomainException(__('admin.errors.charge_schedule_inverted', [
+                'type' => $this->type,
+                'start' => $start->toDateString(),
+                'end' => $end->toDateString(),
+            ]));
+        }
+
+        $clash = static::query()
+            ->where('lease_id', $this->lease_id)
+            ->where('type', $this->type)
+            ->where('is_active', true)
+            ->where('frequency', '!=', 'one_time')
+            ->when($this->exists, fn ($q) => $q->whereKeyNot($this->getKey()))
+            ->get()
+            ->first(function (self $other) use ($start, $end): bool {
+                $otherStart = $other->start_date ? \Carbon\CarbonImmutable::instance($other->start_date) : null;
+                $otherEnd = $other->end_date ? \Carbon\CarbonImmutable::instance($other->end_date) : null;
+
+                // Closed ranges: they overlap unless one ends strictly before the other begins.
+                // A null bound is unbounded on that side.
+                $endsBefore = $end && $otherStart && $end->lessThan($otherStart);
+                $startsAfter = $start && $otherEnd && $start->greaterThan($otherEnd);
+
+                return ! $endsBefore && ! $startsAfter;
+            });
+
+        if ($clash) {
+            throw new \DomainException(__('admin.errors.charge_schedule_overlap', [
+                'type' => $this->type,
+                'start' => $start?->toDateString() ?? '—',
+                'end' => $end?->toDateString() ?? '∞',
+                'other_start' => $clash->start_date?->toDateString() ?? '—',
+                'other_end' => $clash->end_date?->toDateString() ?? '∞',
+            ]));
+        }
+    }
+
     /**
      * Active rows whose date range covers the given day — the schedule row in force then.
      *

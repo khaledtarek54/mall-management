@@ -61,12 +61,17 @@ class LeaseOption extends Model
             ->useLogName('lease_option');
     }
 
+    /** @return BelongsTo<Lease, $this> */
     public function lease(): BelongsTo
     {
         return $this->belongsTo(Lease::class);
     }
 
-    /** The space this option encumbers, if any. */
+    /**
+     * The space this option encumbers, if any.
+     *
+     * @return BelongsTo<Unit, $this>
+     */
     public function unit(): BelongsTo
     {
         return $this->belongsTo(Unit::class);

@@ -34,6 +34,7 @@ class InvoiceWriteOff extends Model
         'entry_date' => 'date',
     ];
 
+    /** @return BelongsTo<Invoice, $this> */
     public function invoice(): BelongsTo
     {
         return $this->belongsTo(Invoice::class);

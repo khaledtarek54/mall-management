@@ -1,12 +1,6 @@
 parameters:
 	ignoreErrors:
 		-
-			message: '#^Negated boolean expression is always false\.$#'
-			identifier: booleanNot.alwaysFalse
-			count: 2
-			path: app/Services/Backup/VerifyBackupService.php
-
-		-
 			message: '#^Using nullsafe property access on non\-nullable type Laravel\\Sanctum\\PersonalAccessToken\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 1
@@ -37,34 +31,28 @@ parameters:
 			path: app/Console/Commands/DumpAdminManifest.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Console/Commands/ExpireVendorContractsCommand.php
-
-		-
 			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 1
 			path: app/Console/Commands/ExpireVendorContractsCommand.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$amount\.$#'
 			identifier: property.notFound
 			count: 1
-			path: app/Console/Commands/ScanTenantRequestSlaBreachesCommand.php
+			path: app/Console/Commands/ProjectLeaseSchedulesCommand.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$start_date\.$#'
 			identifier: property.notFound
 			count: 1
-			path: app/Console/Commands/ScanOverdueInvoicesCommand.php
+			path: app/Console/Commands/ProjectLeaseSchedulesCommand.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
-			identifier: property.notFound
+			message: '#^Using nullsafe property access "\?\-\>reference" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
 			count: 1
-			path: app/Console/Commands/ScanOverdueInvoicesCommand.php
+			path: app/Console/Commands/ScanLeaseOptionWindowsCommand.php
 
 		-
 			message: '#^Expression on left side of \?\? is not nullable\.$#'
@@ -83,6 +71,12 @@ parameters:
 			identifier: nullsafe.neverNull
 			count: 1
 			path: app/Console/Commands/ScanOverdueInvoicesCommand.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Console/Commands/ScanTenantRequestSlaBreachesCommand.php
 
 		-
 			message: '#^Offset ''configured'' on array\{configured\: bool, ar\?\: array\{gl\: float, expected\: float, delta\: float\}, ap\?\: array\{gl\: float, expected\: float, delta\: float\}\} on left side of \?\? always exists and is not nullable\.$#'
@@ -111,6 +105,12 @@ parameters:
 		-
 			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
+			count: 2
+			path: app/Filament/Admin/Pages/ArCollections.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
 			count: 1
 			path: app/Filament/Admin/Pages/BalanceSheet.php
 
@@ -119,6 +119,12 @@ parameters:
 			identifier: nullsafe.neverNull
 			count: 1
 			path: app/Filament/Admin/Pages/CashFlow.php
+
+		-
+			message: '#^Anonymous function should return Illuminate\\Pagination\\LengthAwarePaginator\<int, array\{id\: string, entry_date\: mixed, entry_number\: mixed, description\: mixed, debit\: float\|null, credit\: float\|null, running_balance\: mixed, is_opening\: bool\}\> but returns Illuminate\\Pagination\\LengthAwarePaginator\<int, array\{id\: string, entry_date\: mixed, entry_number\: mixed, description\: mixed, debit\: float\|null, credit\: float\|null, running_balance\: mixed, is_opening\: bool\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Filament/Admin/Pages/GeneralLedger.php
 
 		-
 			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
@@ -131,6 +137,12 @@ parameters:
 			identifier: nullsafe.neverNull
 			count: 1
 			path: app/Filament/Admin/Pages/IncomeStatement.php
+
+		-
+			message: '#^Anonymous function never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Filament/Admin/Pages/RentRoll.php
 
 		-
 			message: '#^Access to an undefined property App\\Filament\\Admin\\Pages\\Settings\:\:\$form\.$#'
@@ -163,6 +175,12 @@ parameters:
 			path: app/Filament/Admin/RelationManagers/EmployeeAdvancesRelationManager.php
 
 		-
+			message: '#^Using nullsafe property access "\?\-\>base_rent_monthly" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Filament/Admin/RelationManagers/LeaseOptionsRelationManager.php
+
+		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
 			identifier: property.notFound
 			count: 1
@@ -173,12 +191,6 @@ parameters:
 			identifier: method.notFound
 			count: 1
 			path: app/Filament/Admin/RelationManagers/MaintenanceChecklistRelationManager.php
-
-		-
-			message: '#^Access to an undefined property App\\Models\\PayrollLine\:\:\$net\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/RelationManagers/PayrollLinesRelationManager.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
@@ -235,18 +247,6 @@ parameters:
 			path: app/Filament/Admin/RelationManagers/WorkOrderPartsRelationManager.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/Announcements/AnnouncementResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/Announcements/AnnouncementResource.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$city\.$#'
 			identifier: property.notFound
 			count: 1
@@ -263,24 +263,6 @@ parameters:
 			identifier: property.notFound
 			count: 1
 			path: app/Filament/Admin/Resources/Assets/AssetResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/CamExpensePools/CamExpensePoolResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/CamExpensePools/CamExpensePoolResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/CreditNotes/CreditNoteResource.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
@@ -301,94 +283,10 @@ parameters:
 			path: app/Filament/Admin/Resources/CreditNotes/CreditNoteResource.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/CreditNotes/CreditNoteResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/Departments/DepartmentResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/Departments/DepartmentResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/DepositTransactions/DepositTransactionResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/DepositTransactions/DepositTransactionResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/Equipment/EquipmentResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/Equipment/EquipmentResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/Areas/AreaResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/Areas/AreaResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/Violations/ViolationResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/Violations/ViolationResource.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
 			identifier: property.notFound
 			count: 1
 			path: app/Filament/Admin/Resources/Equipment/Tables/EquipmentTable.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/Expenses/ExpenseResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/Expenses/ExpenseResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/Invoices/InvoiceResource.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$balance\.$#'
@@ -415,30 +313,6 @@ parameters:
 			path: app/Filament/Admin/Resources/Invoices/InvoiceResource.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/Invoices/InvoiceResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/JournalEntries/JournalEntryResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/JournalEntries/JournalEntryResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/Leases/LeaseResource.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$base_rent_monthly\.$#'
 			identifier: property.notFound
 			count: 1
@@ -459,20 +333,8 @@ parameters:
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
 			identifier: property.notFound
-			count: 2
-			path: app/Filament/Admin/Resources/Leases/LeaseResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
-			identifier: property.notFound
-			count: 3
-			path: app/Filament/Admin/Resources/Leases/Tables/LeasesTable.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
 			count: 1
-			path: app/Filament/Admin/Resources/Leases/Tables/LeasesTable.php
+			path: app/Filament/Admin/Resources/Leases/LeaseResource.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$pivot\.$#'
@@ -481,46 +343,16 @@ parameters:
 			path: app/Filament/Admin/Resources/Leases/Tables/LeasesTable.php
 
 		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Builder\:\:holdover\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Filament/Admin/Resources/Leases/Tables/LeasesTable.php
+
+		-
 			message: '#^Using nullsafe property access "\?\-\>code" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 2
 			path: app/Filament/Admin/Resources/Leases/Tables/LeasesTable.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/TenantRequests/TenantRequestResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/TenantRequests/TenantRequestResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$tenant\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/TenantRequests/TenantRequestResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Filament/Admin/Resources/TenantRequests/TenantRequestResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/TenantRequests/Tables/TenantRequestsTable.php
-
-		-
-			message: '#^Offset ''acknowledged''\|''awaiting_tenant''\|''cancelled''\|''closed''\|''in_progress''\|''resolved''\|''submitted'' on array\{submitted\: array\{''acknowledged'', ''in_progress'', ''cancelled''\}, acknowledged\: array\{''in_progress'', ''awaiting_tenant'', ''cancelled''\}, in_progress\: array\{''awaiting_tenant'', ''resolved'', ''cancelled''\}, awaiting_tenant\: array\{''in_progress'', ''resolved'', ''cancelled''\}, resolved\: array\{''closed'', ''in_progress''\}, closed\: array\{\}, cancelled\: array\{\}\} on left side of \?\? always exists and is not nullable\.$#'
-			identifier: nullCoalesce.offset
-			count: 2
-			path: app/Filament/Admin/Resources/TenantRequests/Tables/TenantRequestsTable.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$amount\.$#'
@@ -601,25 +433,67 @@ parameters:
 			path: app/Filament/Admin/Resources/MarketingBudgets/RelationManagers/MarketingSpendsRelationManager.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$owner\.$#'
 			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/OwnerRequests/OwnerRequestResource.php
+			count: 2
+			path: app/Filament/Admin/Resources/OwnerStatementRuns/Tables/OwnerStatementRunsTable.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$paid_to_date\.$#'
 			identifier: property.notFound
 			count: 1
-			path: app/Filament/Admin/Resources/OwnerRequests/OwnerRequestResource.php
+			path: app/Filament/Admin/Resources/OwnerStatementRuns/Tables/OwnerStatementRunsTable.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Admin/Resources/OwnerStatementRuns/Tables/OwnerStatementRunsTable.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:outstanding\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: app/Filament/Admin/Resources/OwnerStatementRuns/Tables/OwnerStatementRunsTable.php
+
+		-
+			message: '#^Parameter \#1 \$statement of class App\\Notifications\\OwnerStatementSentNotification constructor expects App\\Models\\OwnerStatement, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Admin/Resources/OwnerStatementRuns/Tables/OwnerStatementRunsTable.php
+
+		-
+			message: '#^Parameter \#1 \$statement of method App\\Services\\OwnerAccounting\\DisbursementService\:\:schedule\(\) expects App\\Models\\OwnerStatement, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Admin/Resources/OwnerStatementRuns/Tables/OwnerStatementRunsTable.php
+
+		-
+			message: '#^Parameter \#1 \$statement of method App\\Services\\OwnerAccounting\\OwnerStatementPdfService\:\:build\(\) expects App\\Models\\OwnerStatement, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Admin/Resources/OwnerStatementRuns/Tables/OwnerStatementRunsTable.php
+
+		-
+			message: '#^Parameter \#1 \$statement of method App\\Services\\OwnerAccounting\\OwnerStatementPdfService\:\:filename\(\) expects App\\Models\\OwnerStatement, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Filament/Admin/Resources/OwnerStatementRuns/Tables/OwnerStatementRunsTable.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Filament/Admin/Resources/OwnerStatementRuns/Tables/OwnerStatementRunsTable.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>paid_to_date" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Filament/Admin/Resources/OwnerStatementRuns/Tables/OwnerStatementRunsTable.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$amount\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/Payments/PaymentResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
 			identifier: property.notFound
 			count: 1
 			path: app/Filament/Admin/Resources/Payments/PaymentResource.php
@@ -643,30 +517,6 @@ parameters:
 			path: app/Filament/Admin/Resources/Payments/PaymentResource.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/Payments/PaymentResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/Payrolls/PayrollResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/Payrolls/PayrollResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/PurchaseRequests/Tables/PurchaseRequestsTable.php
-
-		-
 			message: '#^Unsafe call to private method App\\Filament\\Admin\\Resources\\PurchaseRequests\\Tables\\PurchaseRequestsTable\:\:canReceive\(\) through static\:\:\.$#'
 			identifier: staticClassAccess.privateMethod
 			count: 2
@@ -679,37 +529,37 @@ parameters:
 			path: app/Filament/Admin/Resources/PurchaseRequests/Tables/PurchaseRequestsTable.php
 
 		-
-			message: '#^Unsafe call to private method App\\Filament\\Admin\\Resources\\PurchaseRequests\\Tables\\PurchaseRequestsTable\:\:tierLabel\(\) through static\:\:\.$#'
-			identifier: staticClassAccess.privateMethod
-			count: 1
-			path: app/Filament/Admin/Resources/PurchaseRequests/Tables/PurchaseRequestsTable.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
 			identifier: property.notFound
 			count: 1
-			path: app/Filament/Admin/Resources/SlaPolicies/SlaPolicyResource.php
+			path: app/Filament/Admin/Resources/TenantRequests/Tables/TenantRequestsTable.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/SlaPolicies/SlaPolicyResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/TenantSalesDeclarations/TenantSalesDeclarationResource.php
+			message: '#^Offset ''acknowledged''\|''awaiting_tenant''\|''cancelled''\|''closed''\|''in_progress''\|''resolved''\|''submitted'' on array\{submitted\: array\{''acknowledged'', ''in_progress'', ''cancelled''\}, acknowledged\: array\{''in_progress'', ''awaiting_tenant'', ''cancelled''\}, in_progress\: array\{''awaiting_tenant'', ''resolved'', ''cancelled''\}, awaiting_tenant\: array\{''in_progress'', ''resolved'', ''cancelled''\}, resolved\: array\{''closed'', ''in_progress''\}, closed\: array\{\}, cancelled\: array\{\}\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 2
+			path: app/Filament/Admin/Resources/TenantRequests/Tables/TenantRequestsTable.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
 			identifier: property.notFound
 			count: 1
-			path: app/Filament/Admin/Resources/TenantSalesDeclarations/TenantSalesDeclarationResource.php
+			path: app/Filament/Admin/Resources/TenantRequests/TenantRequestResource.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$tenant\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Admin/Resources/TenantRequests/TenantRequestResource.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Filament/Admin/Resources/TenantRequests/TenantRequestResource.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
 			identifier: property.notFound
 			count: 1
 			path: app/Filament/Admin/Resources/TenantSalesDeclarations/TenantSalesDeclarationResource.php
@@ -745,12 +595,6 @@ parameters:
 			path: app/Filament/Admin/Resources/Units/UnitResource.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/Units/UnitResource.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$category\.$#'
 			identifier: property.notFound
 			count: 1
@@ -758,12 +602,6 @@ parameters:
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/Units/UnitResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
 			identifier: property.notFound
 			count: 1
 			path: app/Filament/Admin/Resources/Units/UnitResource.php
@@ -793,30 +631,6 @@ parameters:
 			path: app/Filament/Admin/Resources/UtilityMeters/RelationManagers/ReadingsRelationManager.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/UtilityMeters/UtilityMeterResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/UtilityMeters/UtilityMeterResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/VendorBills/VendorBillResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/VendorBills/VendorBillResource.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$phone\.$#'
 			identifier: property.notFound
 			count: 1
@@ -833,12 +647,6 @@ parameters:
 			identifier: property.notFound
 			count: 1
 			path: app/Filament/Admin/Resources/Vendors/VendorResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$area_sqm\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Widgets/TopTenants.php
 
 		-
 			message: '#^Using nullsafe property access "\?\-\>area_sqm" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
@@ -871,46 +679,46 @@ parameters:
 			path: app/Http/Controllers/Api/V1/Invoices/InvoicePdfController.php
 
 		-
-			message: '#^Parameter \#1 \$request of method App\\Actions\\Api\\V1\\Maintenance\\CancelTenantRequestAction\:\:handle\(\) expects App\\Models\\TenantRequest, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$balance\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Api/V1/Profile/BalanceController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$due_date\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Api/V1/Profile/BalanceController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$balance\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Api/V1/Profile/SummaryController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$due_date\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Api/V1/Profile/SummaryController.php
+
+		-
+			message: '#^Parameter \#1 \$request of method App\\Actions\\Api\\V1\\Requests\\CancelTenantRequestAction\:\:handle\(\) expects App\\Models\\TenantRequest, Illuminate\\Database\\Eloquent\\Model given\.$#'
 			identifier: argument.type
 			count: 1
 			path: app/Http/Controllers/Api/V1/Requests/CancelTenantRequestController.php
 
 		-
-			message: '#^Parameter \#1 \$request of method App\\Actions\\Api\\V1\\Maintenance\\AddTenantRequestCommentAction\:\:handle\(\) expects App\\Models\\TenantRequest, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			message: '#^Parameter \#1 \$request of method App\\Actions\\Api\\V1\\Requests\\AddTenantRequestCommentAction\:\:handle\(\) expects App\\Models\\TenantRequest, Illuminate\\Database\\Eloquent\\Model given\.$#'
 			identifier: argument.type
 			count: 1
 			path: app/Http/Controllers/Api/V1/Requests/CommentTenantRequestController.php
 
 		-
-			message: '#^Parameter \#1 \$request of method App\\Actions\\Api\\V1\\Maintenance\\RateTenantRequestAction\:\:handle\(\) expects App\\Models\\TenantRequest, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			message: '#^Parameter \#1 \$request of method App\\Actions\\Api\\V1\\Requests\\RateTenantRequestAction\:\:handle\(\) expects App\\Models\\TenantRequest, Illuminate\\Database\\Eloquent\\Model given\.$#'
 			identifier: argument.type
 			count: 1
 			path: app/Http/Controllers/Api/V1/Requests/RateTenantRequestController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$balance\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/Api/V1/Profile/BalanceController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$due_date\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/Api/V1/Profile/BalanceController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$balance\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/Api/V1/Profile/SummaryController.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$due_date\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Controllers/Api/V1/Profile/SummaryController.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model&object\{pivot\: Illuminate\\Database\\Eloquent\\Relations\\Pivot\}\:\:\$amount\.$#'
@@ -949,112 +757,10 @@ parameters:
 			path: app/Http/Resources/Api/V1/CreditNoteResource.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Resources/Api/V1/InvoiceResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$reference\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Resources/Api/V1/InvoiceResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Resources/Api/V1/InvoiceResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$area_sqm\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Resources/Api/V1/LeaseResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Resources/Api/V1/LeaseResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$category\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Resources/Api/V1/LeaseResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Resources/Api/V1/LeaseResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$floor\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Resources/Api/V1/LeaseResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Resources/Api/V1/LeaseResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Resources/Api/V1/LoginLeaseResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Resources/Api/V1/LoginLeaseResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$contact_person\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Resources/Api/V1/LoginLeaseResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Http/Resources/Api/V1/LoginLeaseResource.php
-
-		-
 			message: '#^Using nullsafe method call on non\-nullable type Carbon\\Carbon\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 2
 			path: app/Http/Resources/Api/V1/LoginLeaseResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Resources/Api/V1/TenantRequestResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$floor\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Resources/Api/V1/TenantRequestResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Http/Resources/Api/V1/TenantRequestResource.php
-
-		-
-			message: '#^Using nullsafe property access on non\-nullable type App\\Enums\\TenantRequestType\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 1
-			path: app/Http/Resources/Api/V1/TenantRequestResource.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
@@ -1079,6 +785,30 @@ parameters:
 			identifier: argument.unresolvableType
 			count: 1
 			path: app/Http/Resources/Api/V1/PaymentResource.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/Api/V1/TenantRequestResource.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$floor\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/Api/V1/TenantRequestResource.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Resources/Api/V1/TenantRequestResource.php
+
+		-
+			message: '#^Using nullsafe property access on non\-nullable type App\\Enums\\TenantRequestType\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Http/Resources/Api/V1/TenantRequestResource.php
 
 		-
 			message: '#^Access to an undefined property App\\Http\\Resources\\Api\\V1\\TenantResource\:\:\$contact_person\.$#'
@@ -1165,6 +895,12 @@ parameters:
 			path: app/Models/CreditNote.php
 
 		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:sum\(\) expects \(callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: float\)\|string\|null, Closure\(App\\Models\\CreditNoteItem\)\: float given\.$#'
+			identifier: argument.type
+			count: 2
+			path: app/Models/CreditNote.php
+
+		-
 			message: '#^Strict comparison using \=\=\= between numeric\-string and null will always evaluate to false\.$#'
 			identifier: identical.alwaysFalse
 			count: 1
@@ -1177,12 +913,6 @@ parameters:
 			path: app/Models/Department.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Models/DepositTransaction.php
-
-		-
 			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Relations\\HasMany\:\:withTrashed\(\)\.$#'
 			identifier: method.notFound
 			count: 3
@@ -1193,12 +923,6 @@ parameters:
 			identifier: property.notFound
 			count: 1
 			path: app/Models/Expense.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Models/Invoice.php
 
 		-
 			message: '#^Left side of && is always true\.$#'
@@ -1225,8 +949,38 @@ parameters:
 			path: app/Models/InvoiceItem.php
 
 		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:resolveCeiling\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Models/Lease.php
+
+		-
 			message: '#^Negated boolean expression is always false\.$#'
 			identifier: booleanNot.alwaysFalse
+			count: 2
+			path: app/Models/Lease.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:sum\(\) expects \(callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: float\)\|string\|null, Closure\(App\\Models\\Unit\)\: float given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Models/Lease.php
+
+		-
+			message: '#^Property App\\Models\\Lease\:\:\$next_escalation_date \(Carbon\\Carbon\|null\) does not accept string\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: app/Models/Lease.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between Carbon\\Carbon and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 2
+			path: app/Models/Lease.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>area_sqm" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
 			count: 1
 			path: app/Models/Lease.php
 
@@ -1363,24 +1117,6 @@ parameters:
 			path: app/Models/PayrollLine.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Models/PurchaseRequest.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Models/PurchaseRequestLine.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$sku\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Models/PurchaseRequestLine.php
-
-		-
 			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:recomputeTotal\(\)\.$#'
 			identifier: method.notFound
 			count: 2
@@ -1405,16 +1141,28 @@ parameters:
 			path: app/Models/Tenant.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Relations\\HasMany\:\:received\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Models/Tenant.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
 			identifier: property.notFound
 			count: 1
-			path: app/Models/Unit.php
+			path: app/Models/TenantUser.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$tenant\.$#'
 			identifier: property.notFound
 			count: 1
 			path: app/Models/Unit.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Asset\:\:\$pivot\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/User.php
 
 		-
 			message: '#^Call to function method_exists\(\) with App\\Models\\Asset and ''trashed'' will always evaluate to true\.$#'
@@ -1425,6 +1173,12 @@ parameters:
 		-
 			message: '#^Method App\\Models\\User\:\:accessibleAssets\(\) should return Illuminate\\Support\\Collection\<int, App\\Models\\Asset\> but returns Illuminate\\Database\\Eloquent\\Collection\<int, Illuminate\\Database\\Eloquent\\Model\>\.$#'
 			identifier: return.type
+			count: 1
+			path: app/Models/User.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:mapWithKeys\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\<int, float\>, Closure\(App\\Models\\Asset\)\: non\-empty\-array\<int, float\> given\.$#'
+			identifier: argument.type
 			count: 1
 			path: app/Models/User.php
 
@@ -1477,6 +1231,24 @@ parameters:
 			path: app/Notifications/InvoiceOverdueOwnerNotification.php
 
 		-
+			message: '#^Using nullsafe property access "\?\-\>code" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Notifications/LeaseOptionWindowNotification.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Notifications/LeaseOptionWindowNotification.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>reference" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Notifications/LeaseOptionWindowNotification.php
+
+		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
 			identifier: property.notFound
 			count: 2
@@ -1515,26 +1287,14 @@ parameters:
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
 			identifier: property.notFound
-			count: 2
-			path: app/Notifications/TenantRequestCommentAddedNotification.php
-
-		-
-			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 2
-			path: app/Notifications/TenantRequestCommentAddedNotification.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
 			count: 1
-			path: app/Notifications/TenantRequestStatusChangedNotification.php
+			path: app/Notifications/OwnerStatementSentNotification.php
 
 		-
 			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 1
-			path: app/Notifications/TenantRequestStatusChangedNotification.php
+			path: app/Notifications/OwnerStatementSentNotification.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
@@ -1607,6 +1367,30 @@ parameters:
 			identifier: nullsafe.neverNull
 			count: 1
 			path: app/Notifications/SalesDeclarationSubmittedNotification.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Notifications/TenantRequestCommentAddedNotification.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 2
+			path: app/Notifications/TenantRequestCommentAddedNotification.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Notifications/TenantRequestStatusChangedNotification.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Notifications/TenantRequestStatusChangedNotification.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
@@ -1717,13 +1501,7 @@ parameters:
 			path: app/Services/Accounting/JournalPostingService.php
 
 		-
-			message: '#^Offset ''is_closing'' on array\{entry_date\?\: DateTimeInterface\|string\|null, description_en\?\: string\|null, description_ar\?\: string\|null, asset_id\?\: int\|null, source\?\: Illuminate\\Database\\Eloquent\\Model\|null, is_manual\?\: bool, status\?\: ''draft''\|''posted'', lines\: array\<int, array\{ledger_account_id\?\: int, account_code\?\: string, account\?\: App\\Models\\LedgerAccount, debit\?\: float, credit\?\: float, description\?\: string\|null, asset_id\?\: int\|null, tenant_id\?\: int\|null, \.\.\.\}\>\} on left side of \?\? does not exist\.$#'
-			identifier: nullCoalesce.offset
-			count: 1
-			path: app/Services/Accounting/JournalPostingService.php
-
-		-
-			message: '#^Offset ''lines'' on array\{entry_date\?\: DateTimeInterface\|string\|null, description_en\?\: string\|null, description_ar\?\: string\|null, asset_id\?\: int\|null, source\?\: Illuminate\\Database\\Eloquent\\Model\|null, is_manual\?\: bool, status\?\: ''draft''\|''posted'', lines\: array\<int, array\{ledger_account_id\?\: int, account_code\?\: string, account\?\: App\\Models\\LedgerAccount, debit\?\: float, credit\?\: float, description\?\: string\|null, asset_id\?\: int\|null, tenant_id\?\: int\|null, \.\.\.\}\>\} on left side of \?\? always exists and is not nullable\.$#'
+			message: '#^Offset ''lines'' on array\{entry_date\?\: DateTimeInterface\|string\|null, description_en\?\: string\|null, description_ar\?\: string\|null, asset_id\?\: int\|null, source\?\: Illuminate\\Database\\Eloquent\\Model\|null, is_manual\?\: bool, is_closing\?\: bool, status\?\: ''draft''\|''posted'', \.\.\.\} on left side of \?\? always exists and is not nullable\.$#'
 			identifier: nullCoalesce.offset
 			count: 1
 			path: app/Services/Accounting/JournalPostingService.php
@@ -1831,16 +1609,16 @@ parameters:
 			path: app/Services/Accounting/Journalizers/InvoiceJournalizer.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$vat_amount\.$#'
 			identifier: property.notFound
 			count: 1
 			path: app/Services/Accounting/Journalizers/InvoiceJournalizer.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$vat_amount\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/Accounting/Journalizers/InvoiceJournalizer.php
+			message: '#^Using nullsafe property access "\?\-\>number" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 2
+			path: app/Services/Accounting/Journalizers/InvoiceWriteOffJournalizer.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
@@ -1969,19 +1747,19 @@ parameters:
 			path: app/Services/Accounting/LedgerReportService.php
 
 		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:isOpen\(\)\.$#'
+			message: '#^Method App\\Services\\Accounting\\LedgerReportService\:\:profitLossBalancesByAsset\(\) should return Illuminate\\Support\\Collection\<int, array\{asset_id\: int\|null, account_id\: int, code\: string, type\: string, net_credit\: float\}\> but returns Illuminate\\Support\\Collection\<int, array\{asset_id\: int\|null, account_id\: int, code\: mixed, type\: mixed, net_credit\: float\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/Accounting/LedgerReportService.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Support\\Collection\<int, App\\Models\\JournalEntry\>\:\:load\(\)\.$#'
 			identifier: method.notFound
 			count: 1
 			path: app/Services/Accounting/YearEndCloseService.php
 
 		-
-			message: '#^Parameter \#1 \$payload of method App\\Services\\Accounting\\JournalPostingService\:\:post\(\) expects array\{entry_date\?\: DateTimeInterface\|string\|null, description_en\?\: string\|null, description_ar\?\: string\|null, asset_id\?\: int\|null, source\?\: Illuminate\\Database\\Eloquent\\Model\|null, is_manual\?\: bool, status\?\: ''draft''\|''posted'', lines\: array\<int, array\{ledger_account_id\?\: int, account_code\?\: string, account\?\: App\\Models\\LedgerAccount, debit\?\: float, credit\?\: float, description\?\: string\|null, asset_id\?\: int\|null, tenant_id\?\: int\|null, \.\.\.\}\>\}, array\{entry_date\: string, description_en\: non\-falsy\-string, description_ar\: non\-falsy\-string, is_manual\: true, is_closing\: true, lines\: list\<array\{ledger_account_id\: int, debit\: 0, credit\: float\}\|array\{ledger_account_id\: int, debit\: float, credit\: 0\}\>\} given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Services/Accounting/YearEndCloseService.php
-
-		-
-			message: '#^Parameter \#1 \$period of method App\\Services\\Accounting\\PeriodService\:\:reopenPeriod\(\) expects App\\Models\\AccountingPeriod, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			message: '#^Parameter \#1 \$payload of method App\\Services\\Accounting\\JournalPostingService\:\:post\(\) expects array\{entry_date\?\: DateTimeInterface\|string\|null, description_en\?\: string\|null, description_ar\?\: string\|null, asset_id\?\: int\|null, source\?\: Illuminate\\Database\\Eloquent\\Model\|null, is_manual\?\: bool, is_closing\?\: bool, status\?\: ''draft''\|''posted'', \.\.\.\}, array\{entry_date\: string, description_en\: non\-falsy\-string, description_ar\: non\-falsy\-string, asset_id\: int\|null, is_manual\: true, is_closing\: true, lines\: list\<array\{ledger_account_id\: int, debit\: 0, credit\: float\}\|array\{ledger_account_id\: int, debit\: float, credit\: 0\}\>\} given\.$#'
 			identifier: argument.type
 			count: 1
 			path: app/Services/Accounting/YearEndCloseService.php
@@ -2011,12 +1789,6 @@ parameters:
 			path: app/Services/AssessSlaPenaltyService.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/AssetStatementPdfService.php
-
-		-
 			message: '#^Left side of && is always true\.$#'
 			identifier: booleanAnd.leftAlwaysTrue
 			count: 1
@@ -2029,10 +1801,10 @@ parameters:
 			path: app/Services/AssetStatementPdfService.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$area_sqm\.$#'
-			identifier: property.notFound
+			message: '#^Negated boolean expression is always false\.$#'
+			identifier: booleanNot.alwaysFalse
 			count: 2
-			path: app/Services/CamReconciliationService.php
+			path: app/Services/Backup/VerifyBackupService.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
@@ -2053,16 +1825,28 @@ parameters:
 			path: app/Services/CamReconciliationService.php
 
 		-
-			message: '#^Using nullsafe property access "\?\-\>area_sqm" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 2
-			path: app/Services/CamReconciliationService.php
-
-		-
 			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 1
 			path: app/Services/CamReconciliationService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>timestamp" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 4
+			path: app/Services/ChargeScheduleService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/CreditNotePdfService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/CreditNoteService.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model&object\{pivot\: Illuminate\\Database\\Eloquent\\Relations\\Pivot\}\:\:\$name\.$#'
@@ -2095,8 +1879,8 @@ parameters:
 			path: app/Services/Eta/EtaJsonBuilder.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$tenant\.$#'
-			identifier: property.notFound
+			message: '#^Expression on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.expr
 			count: 1
 			path: app/Services/Eta/EtaJsonBuilder.php
 
@@ -2113,19 +1897,7 @@ parameters:
 			path: app/Services/Eta/EtaJsonBuilder.php
 
 		-
-			message: '#^Using nullsafe property access "\?\-\>address" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 1
-			path: app/Services/Eta/EtaJsonBuilder.php
-
-		-
 			message: '#^Using nullsafe property access "\?\-\>legal_name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 1
-			path: app/Services/Eta/EtaJsonBuilder.php
-
-		-
-			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 1
 			path: app/Services/Eta/EtaJsonBuilder.php
@@ -2149,10 +1921,10 @@ parameters:
 			path: app/Services/Eta/EtaJsonBuilder.php
 
 		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:items\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Services/GeneratePreventiveWorkOrdersService.php
+			message: '#^Using nullsafe property access on non\-nullable type App\\Models\\Tenant\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 8
+			path: app/Services/Eta/EtaJsonBuilder.php
 
 		-
 			message: '#^Method App\\Services\\GrantCustodyService\:\:grant\(\) should return App\\Models\\Custody but returns Illuminate\\Database\\Eloquent\\Model\.$#'
@@ -2167,18 +1939,6 @@ parameters:
 			path: app/Services/GrantEmployeeAdvanceService.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Services/InvoicePdfService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/LeaseCreationService.php
-
-		-
 			message: '#^Using nullsafe property access "\?\-\>code" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 1
@@ -2191,12 +1951,6 @@ parameters:
 			path: app/Services/LeaseRenewalService.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/LeaseRenewalService.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$currency\.$#'
 			identifier: property.notFound
 			count: 1
@@ -2204,12 +1958,6 @@ parameters:
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$frequency\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/LeaseRenewalService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$is_active\.$#'
 			identifier: property.notFound
 			count: 1
 			path: app/Services/LeaseRenewalService.php
@@ -2239,6 +1987,12 @@ parameters:
 			path: app/Services/LeaseRenewalService.php
 
 		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:filter\(\) expects \(callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: bool\)\|null, Closure\(App\\Models\\Charge\)\: bool given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/LeaseRenewalService.php
+
+		-
 			message: '#^Using nullsafe property access "\?\-\>code" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 1
@@ -2251,8 +2005,8 @@ parameters:
 			path: app/Services/MaintenanceWorkOrderService.php
 
 		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:notifyPortal\(\)\.$#'
-			identifier: method.notFound
+			message: '#^If condition is always true\.$#'
+			identifier: if.alwaysTrue
 			count: 1
 			path: app/Services/MonthlyBillingService.php
 
@@ -2275,6 +2029,18 @@ parameters:
 			path: app/Services/MonthlyBillingService.php
 
 		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:reject\(\) expects bool\|\(callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: bool\)\|Illuminate\\Database\\Eloquent\\Model, Closure\(App\\Models\\Charge\)\: bool given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/MonthlyBillingService.php
+
+		-
+			message: '#^Parameter \#2 \$applicable of method App\\Services\\MonthlyBillingService\:\:assertScheduleUnambiguous\(\) expects Illuminate\\Support\\Collection\<int, App\\Models\\Charge\>, Illuminate\\Database\\Eloquent\\Collection\<int, Illuminate\\Database\\Eloquent\\Model\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/MonthlyBillingService.php
+
+		-
 			message: '#^Right side of && is always true\.$#'
 			identifier: booleanAnd.rightAlwaysTrue
 			count: 1
@@ -2283,533 +2049,6 @@ parameters:
 		-
 			message: '#^Ternary operator condition is always true\.$#'
 			identifier: ternary.alwaysTrue
-			count: 1
-			path: app/Services/MonthlyBillingService.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:notify\(\)\.$#'
-			identifier: method.notFound
-			count: 2
-			path: app/Services/OwnerRequestService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$email\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/Paymob/PaymobClient.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/Paymob/PaymobClient.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$phone\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/Paymob/PaymobClient.php
-
-		-
-			message: '#^Using nullsafe property access "\?\-\>email" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 1
-			path: app/Services/Paymob/PaymobClient.php
-
-		-
-			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 1
-			path: app/Services/Paymob/PaymobClient.php
-
-		-
-			message: '#^Using nullsafe property access "\?\-\>phone" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 1
-			path: app/Services/Paymob/PaymobClient.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/PayslipPdfService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/PayslipPdfService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$number\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/PayslipPdfService.php
-
-		-
-			message: '#^Using nullsafe property access "\?\-\>number" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 1
-			path: app/Services/PayslipPdfService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$base_rent_monthly\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/PercentageRentCalculationService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$has_percentage_rent\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/PercentageRentCalculationService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$percentage_rent_rate\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/PercentageRentCalculationService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/PercentageRentCalculationService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$tenant\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/PercentageRentCalculationService.php
-
-		-
-			message: '#^Parameter \#1 \$invoice of method App\\Services\\VoidInvoiceService\:\:void\(\) expects App\\Models\\Invoice, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Services/PercentageRentCalculationService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/PurchaseRequestService.php
-
-		-
-			message: '#^Offset ''approved''\|''cancelled''\|''ordered''\|''received''\|''rejected''\|''requested'' on array\{requested\: array\{''approved'', ''rejected'', ''cancelled''\}, approved\: array\{''ordered'', ''cancelled''\}, ordered\: array\{''received'', ''cancelled''\}, received\: array\{\}, rejected\: array\{\}, cancelled\: array\{\}\} on left side of \?\? always exists and is not nullable\.$#'
-			identifier: nullCoalesce.offset
-			count: 1
-			path: app/Services/PurchaseRequestService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/RaiseCorrectiveMaintenanceService.php
-
-		-
-			message: '#^Offset ''execution_type'' on array\{execution_type\: string, description\?\: string, title\?\: string, priority\?\: string, vendor_id\?\: int\|null, assigned_to_user_id\?\: int\|null, scheduled_for\?\: string\|null\} on left side of \?\? always exists and is not nullable\.$#'
-			identifier: nullCoalesce.offset
-			count: 1
-			path: app/Services/RaiseCorrectiveMaintenanceService.php
-
-		-
-			message: '#^Ternary operator condition is always true\.$#'
-			identifier: ternary.alwaysTrue
-			count: 1
-			path: app/Services/RaiseCorrectiveMaintenanceService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/Reconciliation/BooksReconciliationService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$pivot\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/Reconciliation/BooksReconciliationService.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Builder\<Illuminate\\Database\\Eloquent\\Model\>\:\:withTrashed\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Services/Reconciliation/BooksReconciliationService.php
-
-		-
-			message: '#^Offset ''configured'' on array\{configured\: bool, ar\?\: array\{gl\: float, expected\: float, delta\: float\}, ap\?\: array\{gl\: float, expected\: float, delta\: float\}\} on left side of \?\? always exists and is not nullable\.$#'
-			identifier: nullCoalesce.offset
-			count: 1
-			path: app/Services/Reconciliation/BooksReconciliationService.php
-
-		-
-			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 1
-			path: app/Services/Reconciliation/BooksReconciliationService.php
-
-		-
-			message: '#^Method App\\Services\\RecordAdvanceRepaymentService\:\:record\(\) should return App\\Models\\EmployeeAdvanceRepayment but returns Illuminate\\Database\\Eloquent\\Model\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Services/RecordAdvanceRepaymentService.php
-
-		-
-			message: '#^Access to an undefined property App\\Models\\InvoiceItem\:\:\$subtotal\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/Reports/ReportService.php
-
-		-
-			message: '#^Expression on left side of \?\? is not nullable\.$#'
-			identifier: nullCoalesce.expr
-			count: 3
-			path: app/Services/Reports/ReportService.php
-
-		-
-			message: '#^Using nullsafe method call on non\-nullable type Carbon\\Carbon\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 3
-			path: app/Services/Reports/ReportService.php
-
-		-
-			message: '#^Method App\\Services\\SettleCustodyService\:\:settle\(\) should return App\\Models\\CustodyTransaction but returns Illuminate\\Database\\Eloquent\\Model\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Services/SettleCustodyService.php
-
-		-
-			message: '#^Offset ''inventory_item_id'' on array\{warehouse_id\: int, inventory_item_id\: int, type\: string, quantity\: float, unit_cost\?\: float, reference\?\: string\|null, source_type\?\: string\|null, source_id\?\: int\|null, \.\.\.\} on left side of \?\? always exists and is not nullable\.$#'
-			identifier: nullCoalesce.offset
-			count: 1
-			path: app/Services/StockMovementService.php
-
-		-
-			message: '#^Offset ''quantity'' on array\{warehouse_id\: int, inventory_item_id\: int, type\: string, quantity\: float, unit_cost\?\: float, reference\?\: string\|null, source_type\?\: string\|null, source_id\?\: int\|null, \.\.\.\} on left side of \?\? always exists and is not nullable\.$#'
-			identifier: nullCoalesce.offset
-			count: 1
-			path: app/Services/StockMovementService.php
-
-		-
-			message: '#^Offset ''type'' on array\{warehouse_id\: int, inventory_item_id\: int, type\: string, quantity\: float, unit_cost\?\: float, reference\?\: string\|null, source_type\?\: string\|null, source_id\?\: int\|null, \.\.\.\} on left side of \?\? always exists and is not nullable\.$#'
-			identifier: nullCoalesce.offset
-			count: 1
-			path: app/Services/StockMovementService.php
-
-		-
-			message: '#^Using nullsafe property access "\?\-\>unit_cost" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 1
-			path: app/Services/StockMovementService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/TenantRequestService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/TenantRequestService.php
-
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:notifyPortal\(\)\.$#'
-			identifier: method.notFound
-			count: 2
-			path: app/Services/TenantRequestService.php
-
-		-
-			message: '#^Offset ''acknowledged''\|''awaiting_tenant''\|''cancelled''\|''closed''\|''in_progress''\|''resolved''\|''submitted'' on array\{submitted\: array\{''acknowledged'', ''in_progress'', ''cancelled''\}, acknowledged\: array\{''in_progress'', ''awaiting_tenant'', ''cancelled''\}, in_progress\: array\{''awaiting_tenant'', ''resolved'', ''cancelled''\}, awaiting_tenant\: array\{''in_progress'', ''resolved'', ''cancelled''\}, resolved\: array\{''closed'', ''in_progress''\}, closed\: array\{\}, cancelled\: array\{\}\} on left side of \?\? always exists and is not nullable\.$#'
-			identifier: nullCoalesce.offset
-			count: 1
-			path: app/Services/TenantRequestService.php
-
-		-
-			message: '#^Using nullsafe property access "\?\-\>code" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 1
-			path: app/Services/TenantRequestService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$due_date\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/TenantStatementPdfService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/TenantStatementPdfService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$reference\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/WorkOrderPartService.php
-
-		-
-			message: '#^Parameter \#1 \$order of method App\\Services\\WorkOrderPartService\:\:assertOrderOpen\(\) expects App\\Models\\MaintenanceWorkOrder, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Services/WorkOrderPartService.php
-
-		-
-			message: '#^Using nullsafe property access "\?\-\>unit_cost" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 1
-			path: app/Services/WorkOrderPartService.php
-
-		-
-			message: '#^Using nullsafe property access "\?\-\>id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 1
-			path: app/Support/AssignmentScope.php
-
-		-
-			message: '#^Call to an undefined static method Illuminate\\Database\\Eloquent\\Model\:\:restored\(\)\.$#'
-			identifier: staticMethod.notFound
-			count: 1
-			path: app/Support/LedgerRealtimeSync.php
-
-		-
-			message: '#^Method App\\Support\\Portal\:\:tenant\(\) should return App\\Models\\Tenant\|null but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Support/Portal.php
-		-
-			message: '#^Parameter \#1 \$request of method App\\Actions\\Api\\V1\\Requests\\CancelTenantRequestAction\:\:handle\(\) expects App\\Models\\TenantRequest, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Http/Controllers/Api/V1/Requests/CancelTenantRequestController.php
-
-		-
-			message: '#^Parameter \#1 \$request of method App\\Actions\\Api\\V1\\Requests\\AddTenantRequestCommentAction\:\:handle\(\) expects App\\Models\\TenantRequest, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Http/Controllers/Api/V1/Requests/CommentTenantRequestController.php
-
-		-
-			message: '#^Parameter \#1 \$request of method App\\Actions\\Api\\V1\\Requests\\RateTenantRequestAction\:\:handle\(\) expects App\\Models\\TenantRequest, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Http/Controllers/Api/V1/Requests/RateTenantRequestController.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Relations\\HasMany\:\:received\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Models/Tenant.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/ApplyTenantCreditService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$lease\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/VoidPaymentService.php
-		-
-			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:sum\(\) expects \(callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: float\)\|string\|null, Closure\(App\\Models\\CreditNoteItem\)\: float given\.$#'
-			identifier: argument.type
-			count: 2
-			path: app/Models/CreditNote.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/CreditNotePdfService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Services/CreditNoteService.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Builder\:\:holdover\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/Leases/Tables/LeasesTable.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/OwnerStatementRuns/OwnerStatementRunResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/OwnerStatementRuns/OwnerStatementRunResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$owner\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Filament/Admin/Resources/OwnerStatementRuns/Tables/OwnerStatementRunsTable.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$paid_to_date\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/OwnerStatementRuns/Tables/OwnerStatementRunsTable.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/OwnerStatementRuns/Tables/OwnerStatementRunsTable.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:outstanding\(\)\.$#'
-			identifier: method.notFound
-			count: 2
-			path: app/Filament/Admin/Resources/OwnerStatementRuns/Tables/OwnerStatementRunsTable.php
-
-		-
-			message: '#^Parameter \#1 \$statement of class App\\Notifications\\OwnerStatementSentNotification constructor expects App\\Models\\OwnerStatement, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Filament/Admin/Resources/OwnerStatementRuns/Tables/OwnerStatementRunsTable.php
-
-		-
-			message: '#^Parameter \#1 \$statement of method App\\Services\\OwnerAccounting\\DisbursementService\:\:schedule\(\) expects App\\Models\\OwnerStatement, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Filament/Admin/Resources/OwnerStatementRuns/Tables/OwnerStatementRunsTable.php
-
-		-
-			message: '#^Parameter \#1 \$statement of method App\\Services\\OwnerAccounting\\OwnerStatementPdfService\:\:build\(\) expects App\\Models\\OwnerStatement, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Filament/Admin/Resources/OwnerStatementRuns/Tables/OwnerStatementRunsTable.php
-
-		-
-			message: '#^Parameter \#1 \$statement of method App\\Services\\OwnerAccounting\\OwnerStatementPdfService\:\:filename\(\) expects App\\Models\\OwnerStatement, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Filament/Admin/Resources/OwnerStatementRuns/Tables/OwnerStatementRunsTable.php
-
-		-
-			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 1
-			path: app/Filament/Admin/Resources/OwnerStatementRuns/Tables/OwnerStatementRunsTable.php
-
-		-
-			message: '#^Using nullsafe property access "\?\-\>paid_to_date" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 1
-			path: app/Filament/Admin/Resources/OwnerStatementRuns/Tables/OwnerStatementRunsTable.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/PostDatedCheques/PostDatedChequeResource.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/PostDatedCheques/PostDatedChequeResource.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:resolveCeiling\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Models/Lease.php
-
-		-
-			message: '#^Negated boolean expression is always false\.$#'
-			identifier: booleanNot.alwaysFalse
-			count: 1
-			path: app/Models/Lease.php
-
-		-
-			message: '#^Property App\\Models\\Lease\:\:\$next_escalation_date \(Carbon\\Carbon\|null\) does not accept string\.$#'
-			identifier: assign.propertyType
-			count: 1
-			path: app/Models/Lease.php
-
-		-
-			message: '#^Strict comparison using \!\=\= between Carbon\\Carbon and null will always evaluate to true\.$#'
-			identifier: notIdentical.alwaysTrue
-			count: 2
-			path: app/Models/Lease.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Models/PostDatedCheque.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Models/TenantUser.php
-
-		-
-			message: '#^Access to an undefined property App\\Models\\Asset\:\:\$pivot\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Models/User.php
-
-		-
-			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:mapWithKeys\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\<int, float\>, Closure\(App\\Models\\Asset\)\: non\-empty\-array\<int, float\> given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Models/User.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Notifications/OwnerStatementSentNotification.php
-
-		-
-			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 1
-			path: app/Notifications/OwnerStatementSentNotification.php
-
-		-
-			message: '#^Offset ''lines'' on array\{entry_date\?\: DateTimeInterface\|string\|null, description_en\?\: string\|null, description_ar\?\: string\|null, asset_id\?\: int\|null, source\?\: Illuminate\\Database\\Eloquent\\Model\|null, is_manual\?\: bool, is_closing\?\: bool, status\?\: ''draft''\|''posted'', \.\.\.\} on left side of \?\? always exists and is not nullable\.$#'
-			identifier: nullCoalesce.offset
-			count: 1
-			path: app/Services/Accounting/JournalPostingService.php
-
-		-
-			message: '#^Method App\\Services\\Accounting\\LedgerReportService\:\:profitLossBalancesByAsset\(\) should return Illuminate\\Support\\Collection\<int, array\{asset_id\: int\|null, account_id\: int, code\: string, type\: string, net_credit\: float\}\> but returns Illuminate\\Support\\Collection\<int, array\{asset_id\: int\|null, account_id\: int, code\: mixed, type\: mixed, net_credit\: float\}\>\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Services/Accounting/LedgerReportService.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Support\\Collection\<int, App\\Models\\JournalEntry\>\:\:load\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Services/Accounting/YearEndCloseService.php
-
-		-
-			message: '#^Parameter \#1 \$payload of method App\\Services\\Accounting\\JournalPostingService\:\:post\(\) expects array\{entry_date\?\: DateTimeInterface\|string\|null, description_en\?\: string\|null, description_ar\?\: string\|null, asset_id\?\: int\|null, source\?\: Illuminate\\Database\\Eloquent\\Model\|null, is_manual\?\: bool, is_closing\?\: bool, status\?\: ''draft''\|''posted'', \.\.\.\}, array\{entry_date\: string, description_en\: non\-falsy\-string, description_ar\: non\-falsy\-string, asset_id\: int\|null, is_manual\: true, is_closing\: true, lines\: list\<array\{ledger_account_id\: int, debit\: 0, credit\: float\}\|array\{ledger_account_id\: int, debit\: float, credit\: 0\}\>\} given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Services/Accounting/YearEndCloseService.php
-
-		-
-			message: '#^If condition is always true\.$#'
-			identifier: if.alwaysTrue
 			count: 1
 			path: app/Services/MonthlyBillingService.php
 
@@ -2874,17 +2113,307 @@ parameters:
 			path: app/Services/OwnerAccounting/GenerateOwnerStatementRunService.php
 
 		-
+			message: '#^Using nullsafe property access "\?\-\>email" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Paymob/PaymobClient.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Paymob/PaymobClient.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>phone" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Paymob/PaymobClient.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/PayslipPdfService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/PayslipPdfService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$number\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/PayslipPdfService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>number" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/PayslipPdfService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$percentage_rent_deductible_types\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/PercentageRentCalculationService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/PercentageRentCalculationService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$tenant\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/PercentageRentCalculationService.php
+
+		-
+			message: '#^Parameter \#1 \$invoice of method App\\Services\\VoidInvoiceService\:\:void\(\) expects App\\Models\\Invoice, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/PercentageRentCalculationService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>percentage_rent_deductible_types" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/PercentageRentCalculationService.php
+
+		-
+			message: '#^Offset ''approved''\|''cancelled''\|''ordered''\|''received''\|''rejected''\|''requested'' on array\{requested\: array\{''approved'', ''rejected'', ''cancelled''\}, approved\: array\{''ordered'', ''cancelled''\}, ordered\: array\{''received'', ''cancelled''\}, received\: array\{\}, rejected\: array\{\}, cancelled\: array\{\}\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/PurchaseRequestService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/RaiseCorrectiveMaintenanceService.php
+
+		-
+			message: '#^Offset ''execution_type'' on array\{execution_type\: string, description\?\: string, title\?\: string, priority\?\: string, vendor_id\?\: int\|null, assigned_to_user_id\?\: int\|null, scheduled_for\?\: string\|null\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/RaiseCorrectiveMaintenanceService.php
+
+		-
+			message: '#^Ternary operator condition is always true\.$#'
+			identifier: ternary.alwaysTrue
+			count: 1
+			path: app/Services/RaiseCorrectiveMaintenanceService.php
+
+		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$lease\.$#'
 			identifier: property.notFound
 			count: 1
 			path: app/Services/ReceiptPdfService.php
 
-		# PHPStan limitation, not a defect: LengthAwarePaginator's TValue template is not
-		# covariant, so returning exactly the declared type still errors — the message names
-		# the SAME type on both sides. GeneralLedger paginates inside records() because a
-		# records()-backed table does not paginate itself.
 		-
-			message: '#^Anonymous function should return Illuminate\\Pagination\\LengthAwarePaginator.*but returns Illuminate\\Pagination\\LengthAwarePaginator.*$#'
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Reconciliation/BooksReconciliationService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$pivot\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Reconciliation/BooksReconciliationService.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Builder\<Illuminate\\Database\\Eloquent\\Model\>\:\:withTrashed\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Services/Reconciliation/BooksReconciliationService.php
+
+		-
+			message: '#^Offset ''configured'' on array\{configured\: bool, ar\?\: array\{gl\: float, expected\: float, delta\: float\}, ap\?\: array\{gl\: float, expected\: float, delta\: float\}\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/Reconciliation/BooksReconciliationService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Reconciliation/BooksReconciliationService.php
+
+		-
+			message: '#^Method App\\Services\\RecordAdvanceRepaymentService\:\:record\(\) should return App\\Models\\EmployeeAdvanceRepayment but returns Illuminate\\Database\\Eloquent\\Model\.$#'
 			identifier: return.type
 			count: 1
-			path: app/Filament/Admin/Pages/GeneralLedger.php
+			path: app/Services/RecordAdvanceRepaymentService.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\InvoiceItem\:\:\$subtotal\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Reports/ReportService.php
+
+		-
+			message: '#^Expression on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.expr
+			count: 2
+			path: app/Services/Reports/ReportService.php
+
+		-
+			message: '#^Method App\\Services\\Reports\\ReportService\:\:arCollectionsByTenant\(\) should return Illuminate\\Support\\Collection\<int, array\{tenant\: App\\Models\\Tenant\|null, tenant_id\: int, total\: float, buckets\: array\<string, float\>, invoice_count\: int, oldest_days\: int, last_payment_at\: Illuminate\\Support\\Carbon\|null\}\> but returns Illuminate\\Support\\Collection\<int, array\{tenant_id\: int, tenant\: App\\Models\\Tenant\|null, total\: float, buckets\: non\-empty\-array\<string, float\>, invoice_count\: int, oldest_days\: int, last_payment_at\: mixed\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/Reports/ReportService.php
+
+		-
+			message: '#^Method App\\Services\\Reports\\ReportService\:\:rentRoll\(\) should return Illuminate\\Support\\Collection\<int, array\<string, mixed\>\> but returns Illuminate\\Support\\Collection\<int, array\{lease_id\: int, reference\: string, tenant\: string\|null, unit\: string\|null, units\: string\|null, area_sqm\: float, commencement_date\: Carbon\\Carbon, expiry_date\: Carbon\\Carbon, \.\.\.\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/Reports/ReportService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<int,App\\Models\\LeaseOption\>\:\:filter\(\) expects \(callable\(App\\Models\\LeaseOption, int\)\: bool\)\|null, Closure\(mixed\)\: \(Carbon\\Carbon\|null\) given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/Reports/ReportService.php
+
+		-
+			message: '#^Parameter \#1 \$charges of static method App\\Services\\ChargeScheduleService\:\:nextStepAfter\(\) expects iterable\<App\\Models\\Charge\>, Illuminate\\Database\\Eloquent\\Collection\<int, Illuminate\\Database\\Eloquent\\Model\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/Reports/ReportService.php
+
+		-
+			message: '#^Parameter \#1 \$charges of static method App\\Services\\ChargeScheduleService\:\:pickInForce\(\) expects iterable\<App\\Models\\Charge\>, Illuminate\\Database\\Eloquent\\Collection\<int, Illuminate\\Database\\Eloquent\\Model\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/Reports/ReportService.php
+
+		-
+			message: '#^Using nullsafe method call on non\-nullable type Carbon\\Carbon\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 2
+			path: app/Services/Reports/ReportService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>amount" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Reports/ReportService.php
+
+		-
+			message: '#^Method App\\Services\\SettleCustodyService\:\:settle\(\) should return App\\Models\\CustodyTransaction but returns Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/SettleCustodyService.php
+
+		-
+			message: '#^Offset ''inventory_item_id'' on array\{warehouse_id\: int, inventory_item_id\: int, type\: string, quantity\: float, unit_cost\?\: float, reference\?\: string\|null, source_type\?\: string\|null, source_id\?\: int\|null, \.\.\.\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/StockMovementService.php
+
+		-
+			message: '#^Offset ''quantity'' on array\{warehouse_id\: int, inventory_item_id\: int, type\: string, quantity\: float, unit_cost\?\: float, reference\?\: string\|null, source_type\?\: string\|null, source_id\?\: int\|null, \.\.\.\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/StockMovementService.php
+
+		-
+			message: '#^Offset ''type'' on array\{warehouse_id\: int, inventory_item_id\: int, type\: string, quantity\: float, unit_cost\?\: float, reference\?\: string\|null, source_type\?\: string\|null, source_id\?\: int\|null, \.\.\.\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/StockMovementService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>unit_cost" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/StockMovementService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/TenantRequestService.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:notifyPortal\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: app/Services/TenantRequestService.php
+
+		-
+			message: '#^Offset ''acknowledged''\|''awaiting_tenant''\|''cancelled''\|''closed''\|''in_progress''\|''resolved''\|''submitted'' on array\{submitted\: array\{''acknowledged'', ''in_progress'', ''cancelled''\}, acknowledged\: array\{''in_progress'', ''awaiting_tenant'', ''cancelled''\}, in_progress\: array\{''awaiting_tenant'', ''resolved'', ''cancelled''\}, awaiting_tenant\: array\{''in_progress'', ''resolved'', ''cancelled''\}, resolved\: array\{''closed'', ''in_progress''\}, closed\: array\{\}, cancelled\: array\{\}\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/TenantRequestService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>code" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/TenantRequestService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$due_date\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/TenantStatementPdfService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/TenantStatementPdfService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$lease\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/VoidPaymentService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$reference\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/WorkOrderPartService.php
+
+		-
+			message: '#^Parameter \#1 \$order of method App\\Services\\WorkOrderPartService\:\:assertOrderOpen\(\) expects App\\Models\\MaintenanceWorkOrder, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/WorkOrderPartService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>unit_cost" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/WorkOrderPartService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Support/AssignmentScope.php
+
+		-
+			message: '#^Method App\\Support\\FormTab\:\:statePaths\(\) should return Illuminate\\Support\\Collection\<int, string\|null\> but returns Illuminate\\Support\\Collection\<int, non\-falsy\-string\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Support/FormTab.php
+
+		-
+			message: '#^Call to an undefined static method Illuminate\\Database\\Eloquent\\Model\:\:restored\(\)\.$#'
+			identifier: staticMethod.notFound
+			count: 1
+			path: app/Support/LedgerRealtimeSync.php
+
+		-
+			message: '#^Method App\\Support\\Portal\:\:tenant\(\) should return App\\Models\\Tenant\|null but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Support/Portal.php

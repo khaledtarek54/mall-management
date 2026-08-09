@@ -48,6 +48,7 @@ class Unit extends Model
     }
 
     /** @return BelongsTo<Asset, $this> */
+    /** @return BelongsTo<Asset, $this> */
     public function asset(): BelongsTo
     {
         return $this->belongsTo(Asset::class);

@@ -711,6 +711,12 @@ why a ladder subsumes the single-threshold model instead of sitting beside it.
 overcharges every large tenant, which is why the arithmetic lives in exactly one method,
 `LeasePercentageRentTier::overageFor()`, and is mutation-verified.
 
+**Overlapping bands are refused at write time** (`LeasePercentageRentTier::saving()`). A floor typed
+as 400,000 instead of 500,000 puts the 400–500K slice in two bands and bills 31,000 where 26,000 is
+owed — silently, every month, for as long as the lease runs. **Gaps are deliberately allowed**: a
+gap is semantically identical to a 0%-rate band, "no percentage rent between X and Y" is a real deal
+shape, and a gap is the natural intermediate state while a ladder is being typed in.
+
 **Where it was inserted matters:** at `PercentageRentCalculationService::overage()`, the single
 choke point. The monthly basis and the annual cumulative-marginal basis are both expressed in terms
 of `overage()`, so tiers compose with `retrueAnnualYear()` without either knowing about the other.

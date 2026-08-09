@@ -69,14 +69,14 @@ class FormTab
      * upgrade changes that API the form must still render. `FormTabErrorBadgeTest` pins the
      * behaviour so the degradation is loud in CI rather than silent in production.
      *
-     * @return Collection<int, string>
+     * @return Collection<int, string|null>
      */
     protected static function statePaths(Tab $component): Collection
     {
         try {
             return collect($component->getChildComponentContainers(withHidden: true))
                 ->flatMap(fn (Schema $schema): array => $schema->getFlatFields(withHidden: true))
-                ->map(fn (mixed $field): ?string => $field instanceof Field ? $field->getStatePath() : null)
+                ->map(fn (Field $field): ?string => $field->getStatePath())
                 ->filter()
                 ->values();
         } catch (Throwable) {

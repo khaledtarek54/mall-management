@@ -208,14 +208,16 @@ it('refuses to bill a month covered by two rows instead of silently double-charg
     CarbonImmutable::setTestNow('2026-06-10');
     $lease = scheduledLease();
 
-    // A hand-edited date, a bad import, or a bug in something that writes the schedule: two rows
-    // both cover June. The old single-row world could not express this; this one can, and left
-    // unguarded it puts TWO rent lines on one invoice.
-    Charge::create([
+    // Inserted through the QUERY BUILDER, deliberately: Charge::saving() now refuses an
+    // overlapping row, so the only way this state arises is the way the billing guard exists for —
+    // a direct SQL write, a bad import, or a migration. The write guard is the first line; this is
+    // the backstop for data that arrived another way.
+    \Illuminate\Support\Facades\DB::table('charges')->insert([
         'lease_id' => $lease->id, 'name' => 'Base Rent', 'type' => 'base_rent',
         'origin' => Charge::ORIGIN_MANUAL, 'amount' => 12000, 'currency' => 'EGP',
         'frequency' => 'monthly', 'vat_applicable' => false, 'vat_rate' => Vat::EXEMPT,
         'start_date' => '2026-01-01', 'is_active' => true,
+        'created_at' => now(), 'updated_at' => now(),
     ]);
 
     $result = app(MonthlyBillingService::class)
@@ -431,4 +433,60 @@ it('projects nothing when the lease has no escalation configured', function () {
 
     expect(app(ChargeScheduleService::class)->projectTermEscalations($lease))->toBe(0)
         ->and(rentSchedule($lease->fresh()))->toHaveCount(1);
+});
+
+/* ---- the write-time guard (LS-01's actual acceptance criterion) ------------- */
+
+it('refuses an overlapping schedule row at the keystroke, not at bill time', function () {
+    CarbonImmutable::setTestNow('2026-06-10');
+    $lease = scheduledLease();   // base_rent 2026-01-01 → open-ended
+
+    // Billing already refused a month covered by two rows, but that is the last possible moment to
+    // find out and it fails a whole lease's invoice run. LS-01 asked for the refusal at write time.
+    expect(fn () => Charge::create([
+        'lease_id' => $lease->id, 'name' => 'Base Rent', 'type' => 'base_rent',
+        'origin' => Charge::ORIGIN_MANUAL, 'amount' => 12000, 'currency' => 'EGP',
+        'frequency' => 'monthly', 'vat_applicable' => false, 'vat_rate' => Vat::EXEMPT,
+        'start_date' => '2026-03-01', 'is_active' => true,
+    ]))->toThrow(DomainException::class);
+
+    expect(rentSchedule($lease->fresh()))->toHaveCount(1);
+});
+
+it('allows adjacent rows, which is exactly what a schedule is', function () {
+    CarbonImmutable::setTestNow('2026-06-10');
+    $lease = scheduledLease();
+
+    // The service's own close-then-open must not trip its own guard.
+    app(LeaseRentChangeService::class)->apply($lease, ['base_rent_monthly' => 12000]);
+
+    expect(rentSchedule($lease->fresh()))->toHaveCount(2);
+});
+
+it('still lets several one-off charges share a month', function () {
+    CarbonImmutable::setTestNow('2026-06-10');
+    $lease = scheduledLease();
+
+    // A CAM true-up, a percentage-rent overage and a utility recharge genuinely coincide — they
+    // are not a schedule, so the overlap guard must not touch them.
+    foreach ([500, 700] as $amount) {
+        Charge::create([
+            'lease_id' => $lease->id, 'name' => 'One-off', 'type' => 'other',
+            'origin' => Charge::ORIGIN_MANUAL, 'amount' => $amount, 'currency' => 'EGP',
+            'frequency' => 'one_time', 'vat_applicable' => false, 'vat_rate' => Vat::EXEMPT,
+            'start_date' => '2026-06-05', 'is_active' => true,
+        ]);
+    }
+
+    expect(Charge::where('lease_id', $lease->id)->where('type', 'other')->count())->toBe(2);
+});
+
+it('does not block re-saving a row against itself', function () {
+    CarbonImmutable::setTestNow('2026-06-10');
+    $lease = scheduledLease();
+    $row = rentSchedule($lease)->first();
+
+    $row->update(['name' => 'Base Rent (renamed)']);
+
+    expect($row->fresh()->name)->toBe('Base Rent (renamed)');
 });

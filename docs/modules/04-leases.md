@@ -16,9 +16,14 @@
 >   wrong. `LeaseRenewalService` carried *every* active row onto the renewal — with a schedule that
 >   is three overlapping rent rows billing the tenant three times a month; it now carries only the
 >   row in force. `MarketingLevyService` had the same assumption baked into an `updateOrCreate`.
-> - **Exactly one recurring row per type may cover a billing period.** Two is an overlapping
->   schedule, and `MonthlyBillingService::assertScheduleUnambiguous()` refuses the lease loudly
->   rather than putting two rent lines on one invoice. One-off charges are exempt.
+> - **Exactly one recurring row per type may cover a billing period.** Guarded twice:
+>   `Charge::saving()` refuses an overlapping row **at write time** (any writer — a form, an import,
+>   a direct `Charge::create()`), and `MonthlyBillingService::assertScheduleUnambiguous()` is the
+>   backstop for rows that arrived by raw SQL. Without the write-time half the operator only learns
+>   on the 1st, when the whole lease's invoice fails. One-off charges are exempt from both: a CAM
+>   true-up, a percentage-rent overage and a utility recharge genuinely share a month, and they are
+>   not a schedule. **Adjacent rows are fine** — one ending the day before the next begins *is* the
+>   schedule; `ChargeScheduleService` cannot produce an overlap by construction.
 > - **Effective dates snap to the billing month.** The engine bills one amount per type per month,
 >   so a mid-month change starts on the 1st — which also reproduces the old overwrite behaviour
 >   exactly. Mid-month proration of a rent change is deliberately future work.

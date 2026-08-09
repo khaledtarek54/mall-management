@@ -126,8 +126,8 @@ class ChargeScheduleService
     {
         if ($lease->escalation_type !== 'fixed_percent'
             || (float) $lease->escalation_rate <= 0
-            || ! $lease->commencement_date
-            || ! $lease->expiry_date) {
+            || blank($lease->commencement_date)
+            || blank($lease->expiry_date)) {
             return 0;
         }
 
@@ -239,8 +239,8 @@ class ChargeScheduleService
         $rows = collect($charges)->where('is_active', true);
 
         $covering = $rows
-            ->filter(fn (Charge $c) => (! $c->start_date || CarbonImmutable::instance($c->start_date)->lte($on))
-                && (! $c->end_date || CarbonImmutable::instance($c->end_date)->gte($on)))
+            ->filter(fn (Charge $c) => (blank($c->start_date) || CarbonImmutable::instance($c->start_date)->lte($on))
+                && (blank($c->end_date) || CarbonImmutable::instance($c->end_date)->gte($on)))
             ->sortBy([
                 fn (Charge $a, Charge $b) => ($a->start_date?->timestamp ?? 0) <=> ($b->start_date?->timestamp ?? 0),
                 fn (Charge $a, Charge $b) => $a->id <=> $b->id,

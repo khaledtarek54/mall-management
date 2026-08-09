@@ -333,7 +333,7 @@ class ReportService
      * query for each would be four round trips per row on a report that is meant to open instantly
      * for a whole mall.
      *
-     * @return Collection<int, array<string, mixed>>
+     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
      */
     public function rentRoll(?CarbonImmutable $asOf = null, ?int $assetId = null): Collection
     {
@@ -353,7 +353,7 @@ class ReportService
             // as-of date still carries dates spanning it; the authority on "was this live" is the
             // lease's own predicate, so use it rather than re-deriving one here.
             ->filter(fn (Lease $lease) => $lease->status === 'active'
-                || ($lease->expiry_date && CarbonImmutable::instance($lease->expiry_date)->gte($asOf)));
+                || (filled($lease->expiry_date) && CarbonImmutable::instance($lease->expiry_date)->gte($asOf)));
 
         return $leases->map(function (Lease $lease) use ($asOf): array {
             $charges = $lease->charges;
@@ -384,7 +384,7 @@ class ReportService
                 'area_sqm' => $area,
                 'commencement_date' => $lease->commencement_date,
                 'expiry_date' => $lease->expiry_date,
-                'months_remaining' => $lease->expiry_date
+                'months_remaining' => filled($lease->expiry_date)
                     ? max(0, (int) $asOf->diffInMonths(CarbonImmutable::instance($lease->expiry_date), false))
                     : null,
                 'base_rent' => $rent,

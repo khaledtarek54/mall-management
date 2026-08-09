@@ -2,6 +2,10 @@
 
 return [
     'errors' => [
+        'charge_schedule_overlap' => 'This :type row (:start → :end) overlaps the existing row :other_start → :other_end. Two rows covering the same month would bill the charge twice — close the earlier row the day before the later one starts.',
+        'charge_schedule_inverted' => 'This :type row ends (:end) before it starts (:start).',
+        'percentage_rent_tier_overlap' => 'The band :from → :to overlaps the existing band :other_from → :other_to. Overlapping bands charge the same sales twice — make them meet exactly, e.g. one ends where the next begins.',
+        'percentage_rent_tier_inverted' => 'The band :from → :to ends at or before it starts.',
         'record_not_deletable' => 'A :record that is on the books cannot be deleted — :correction. The record stays, and the correction explains itself to an auditor.',
         'record_still_referenced' => 'This :record cannot be deleted — :blockers still reference it. :instead.',
     ],
@@ -2574,6 +2578,7 @@ return [
         'system' => 'System',
         'subjects' => [
             'lease' => 'Lease',
+            'lease_option' => 'Lease option',
             'invoice' => 'Invoice',
             'payment' => 'Payment',
             'tenant' => 'Tenant',

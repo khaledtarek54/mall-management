@@ -49,7 +49,7 @@ class WriteOffInvoiceService
                 );
             }
 
-            $amount = isset($data['amount']) && $data['amount'] !== null
+            $amount = filled($data['amount'] ?? null)
                 ? round((float) $data['amount'], 2)
                 : $outstanding;
 
@@ -114,6 +114,7 @@ class WriteOffInvoiceService
     public function reverse(InvoiceWriteOff $writeOff): void
     {
         DB::transaction(function () use ($writeOff) {
+            /** @var Invoice|null $invoice */
             $invoice = $writeOff->invoice;
 
             $writeOff->delete();

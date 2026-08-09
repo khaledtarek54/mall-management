@@ -2,6 +2,10 @@
 
 return [
     'errors' => [
+        'charge_schedule_overlap' => 'سطر :type (:start → :end) يتداخل مع السطر القائم :other_start → :other_end. وجود سطرين يغطيان الشهر نفسه يعني احتساب الرسم مرتين — أغلق السطر الأقدم قبل بداية الأحدث بيوم.',
+        'charge_schedule_inverted' => 'سطر :type ينتهي (:end) قبل أن يبدأ (:start).',
+        'percentage_rent_tier_overlap' => 'الشريحة :from → :to تتداخل مع الشريحة :other_from → :other_to. الشرائح المتداخلة تحتسب المبيعات نفسها مرتين — اجعل نهاية الشريحة هي بداية التالية بالضبط.',
+        'percentage_rent_tier_inverted' => 'الشريحة :from → :to تنتهي عند بدايتها أو قبلها.',
         'record_not_deletable' => 'لا يمكن حذف :record بعد قيده في الدفاتر — :correction. يبقى السجل كما هو، ويظل التصحيح موثَّقًا ومفهومًا لأي مراجع.',
         'record_still_referenced' => 'لا يمكن حذف :record — ما زال مرتبطًا بـ :blockers. :instead.',
     ],
@@ -2565,6 +2569,7 @@ return [
         'system' => 'النظام',
         'subjects' => [
             'lease' => 'عقد إيجار',
+            'lease_option' => 'خيار تعاقدي',
             'invoice' => 'فاتورة',
             'payment' => 'دفعة',
             'tenant' => 'مستأجر',

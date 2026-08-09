@@ -189,6 +189,7 @@ class Lease extends Model implements HasMedia
         'metadata' => 'array',
     ];
 
+    /** @return BelongsTo<Unit, $this> */
     public function unit(): BelongsTo
     {
         return $this->belongsTo(Unit::class);
@@ -266,6 +267,7 @@ class Lease extends Model implements HasMedia
             ->recomputeStatus();
     }
 
+    /** @return BelongsTo<Tenant, $this> */
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);
@@ -286,13 +288,21 @@ class Lease extends Model implements HasMedia
         return $this->hasMany(Charge::class);
     }
 
-    /** The percentage-rent breakpoint ladder, when this lease is billed on a tiered basis. */
+    /**
+     * The percentage-rent breakpoint ladder, when this lease is billed on a tiered basis.
+     *
+     * @return HasMany<LeasePercentageRentTier, $this>
+     */
     public function percentageRentTiers(): HasMany
     {
         return $this->hasMany(LeasePercentageRentTier::class)->orderBy('from_amount');
     }
 
-    /** Options recorded on this lease — renewal, termination, expansion, first refusal. */
+    /**
+     * Options recorded on this lease — renewal, termination, expansion, first refusal.
+     *
+     * @return HasMany<LeaseOption, $this>
+     */
     public function options(): HasMany
     {
         return $this->hasMany(LeaseOption::class);
@@ -443,7 +453,7 @@ class Lease extends Model implements HasMedia
      */
     public function inFitOutWindow(CarbonImmutable $periodEnd): bool
     {
-        if (! $this->commencement_date || (int) $this->fit_out_months <= 0) {
+        if (blank($this->commencement_date) || (int) $this->fit_out_months <= 0) {
             return false;
         }
 
