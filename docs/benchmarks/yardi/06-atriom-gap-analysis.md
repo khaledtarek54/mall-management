@@ -6,6 +6,11 @@
 > written, and stale gap rows cost more than missing ones because they send people to rebuild what
 > exists.
 
+> **State as at 2026-08-09: all 43 stories shipped.** Every row that cited one now reads ✅ CLOSED.
+> This document had itself gone stale — ~20 rows still said ❌ for work that had landed, which is the
+> very failure the paragraph above warns about. If you are reading a ❌ here, check
+> [05-user-stories.md](05-user-stories.md) before believing it.
+
 **Verdicts**
 
 | | Meaning |
@@ -50,16 +55,16 @@
 
 | Capability | Yardi | Atriom today | Verdict | Sev |
 |---|---|---|---|---|
-| **Date-ranged charge schedule, many rows per code** | ✅ the whole term written on day one | **One active row per type**, mutated in place | ♻️ **REBUILD the write path** | 🔴 |
+| **Date-ranged charge schedule, many rows per code** | ✅ the whole term written on day one | ✅ `charges` is date-ranged; `ChargeScheduleService` closes the row in force and opens the next, and `projectTermEscalations()` writes the whole ladder at signing | ✅ **CLOSED (LS-01, LS-02)** | ⚪ |
 | Billing reads the row effective for the period | ✅ | ✅ **already does** — `chargeAppliesToPeriod()` honours `start_date`/`end_date` ([`MonthlyBillingService.php:402`](../../../app/Services/MonthlyBillingService.php#L402)) | ✅ **KEEP** — this is why the rebuild is small | ⚪ |
 | Charge codes as configuration (code → GL account, tax, recoverable, deposit) | ✅ an accountant adds one | `InvoiceItemType` enum + a hard-coded map in `InvoiceJournalizer::REVENUE_ROLE` — a code change | ➕ EXTEND — a `charge_codes` table resolving through the existing `AccountMapping` | 🟠 |
 | Escalation: stored | ✅ %, amount, index, **floor/ceiling**, compounding | `escalation_rate`, `escalation_type` (none/fixed_percent/cpi), `next_escalation_date` | ➕ EXTEND — floor/ceiling are mandatory for any CPI work | 🟠 |
-| Escalation: applied automatically | ✅ generates the future row | ✅ `leases:apply-escalations` — idempotent, row-locked, re-checked in-transaction, one step per run, CPI deliberately skipped | ♻️ **REBUILD the effect, KEEP the sweep** — it must append a row, not overwrite one | 🔴 |
+| Escalation: applied automatically | ✅ generates the future row | ✅ `leases:apply-escalations` — idempotent, row-locked, re-checked in-transaction, and it now APPENDS a schedule row instead of overwriting one | ✅ **CLOSED (LS-03)** | ⚪ |
 | CPI / index escalation | ✅ with an index source | Skipped by design (no feed; refuses to invent a number) | ➕ EXTEND — index register + **collar**, or leave it out honestly | 🟡 |
 | Free rent / abatement | Per charge code, date-ranged, feeds straight-line | ✅ `fit_out_scope` — `rent_only` (net abatement, **default for new leases**) or `gross`; existing leases keep gross | ✅ **KEEP** — per-charge-code abatement rows remain future work | ⚪ |
 | Billing frequency | Per charge row | Per lease (`monthly`/`quarterly`/`semiannual`/`annual`), cycle-anchored, billed in advance, capped at expiry | ✅ **KEEP** — genuinely careful work | ⚪ |
 | Proration — commencement | ✅ | ✅ **fixed 2026-08-08** — `billForPeriod()` passes `prorate: true`; the flag survives as the single-lease override | ✅ **KEEP** | ⚪ |
-| Proration — termination/expiry | ✅ | ❌ none | ➕ EXTEND (MF-02) | 🔴 |
+| Proration — termination/expiry | ✅ | ✅ `MonthlyBillingService::monthsCovered()` is the ONE rule for both the bill and the trailing credit | ✅ **CLOSED (MF-02)** | ⚪ |
 | Holdover billing | ✅ amendment at 125–200% | ✅ `ConvertLeaseToHoldoverService` bills a month-to-month row at the contracted multiple (default 150%, settings-driven). Operator-confirmed, never automatic | ✅ SHIPPED (LE-04) | ✅ |
 | Batch review before posting | ✅ edit/delete the proposed charges before commit | ✅ `/admin/billing-run-preview` — a dry run computed by the same `planInvoiceForLease()` the post persists (2026-08-08). Yardi still lets you EDIT the batch; Atriom's is review-then-commit | ✅ **KEEP** | ⚪ |
 | Double-bill prevention | Batch + post month | ✅ `Cache::lock` on the period + `WithoutOverlapping` + period-overlap guard, and the manual action **contends on the same lock** | ✅ **KEEP** — triple defence, above benchmark | ⚪ |
@@ -83,7 +88,7 @@
 |---|---|---|---|---|
 | Renewal / termination / expansion / ROFR options with notice windows | ✅ | ✅ `LeaseOption` + panel on the lease (shipped 2026-08-09) | ✅ **KEEP** | ⚪ |
 | Alert before the **earliest notice date** | ✅ | ✅ `leases:scan-option-windows` daily — opening · closing · lapsed | ✅ **KEEP** | ⚪ |
-| Space encumbrance | ✅ | ❌ | ➕ EXTEND (OP-03) | 🟠 |
+| Space encumbrance | ✅ | ✅ an option marks the unit spoken-for; the picker warns rather than blocks, because a landlord may legitimately let encumbered space | ✅ **CLOSED (OP-03)** | ⚪ |
 | Insurance-certificate expiry on the tenant | ✅ | 🟡 exists for **vendors** (`VendorDocument` + expiry scan); not for tenants | ➕ EXTEND — reuse the vendor pattern | 🟠 |
 | Clause abstract (co-tenancy, kick-out, exclusivity, radius) | ✅ | ❌ PDF only | ➕ EXTEND, later | 🟡 |
 
@@ -99,16 +104,16 @@
 | Cross-tenant allocation guard | — | ✅ model-level | ✅ **KEEP** | ⚪ |
 | Credit note reversal | offsetting credit charge | ✅ **un-applies the original** via `credit_note_applications` rather than stacking a second document | ✅ **KEEP — better than the benchmark** | ⚪ |
 | On-account / open credit | ✅ auto-applies to the next charge | ✅ `TenantCreditApplication`, its own dated GL document (`Dr Unearned / Cr AR`) | ➕ EXTEND — no *automatic* application order | 🟡 |
-| Automatic receipt application order | ✅ credits → priority → oldest | ❌ manual allocation | ➕ EXTEND | 🟡 |
-| Item-level payment allocation | ✅ (charge-level natively) | ❌ | ➕ EXTEND (MF-06) | 🟠 |
-| Line-level dispute | ✅ | ❌ invoice-level `disputed` only | ➕ EXTEND (MF-07) | 🟠 |
+| Automatic receipt application order | ✅ credits → priority → oldest | ✅ `InvoiceItemSettlement::TYPE_PRIORITY` — rent first, late fees last — with explicit per-line allocation overriding it | ✅ **CLOSED (MF-06)**. Order is a constant, not an AR setting; see the story | ⚪ |
+| Item-level payment allocation | ✅ (charge-level natively) | ✅ `invoice_item_payment`, DERIVED from `paid_amount` so item outstandings always sum to `balance` | ✅ **CLOSED (MF-06)** | ⚪ |
+| Line-level dispute | ✅ | ✅ `invoice_items.disputed_at` — out of the late-fee base, shown beside the aged figure, visible on the portal | ✅ **CLOSED (MF-07)** | ⚪ |
 | **Bad-debt write-off** | ✅ `WRTOFF` → bad-debt expense | ✅ `InvoiceWriteOff` + `WriteOffInvoiceService`, own GL source, reversible (shipped 2026-08-09) | ✅ **KEEP** | ⚪ |
-| Late fees | per charge code, per-lease override | ✅ idempotent + lock-safe, but **config-global** | ➕ EXTEND (MF-08) | 🟡 |
+| Late fees | per charge code, per-lease override | ✅ idempotent + lock-safe, with per-lease grace/rate/minimum overrides | ✅ **CLOSED (MF-08)** | ⚪ |
 | Bounced / NSF | ✅ reverses + fees | ✅ `Payment.status = bounced` + module 33 PDC lifecycle | ✅ **KEEP** — no NSF fee, minor | ⚪ |
 | Bank deposit batches | ✅ | ❌ | ⏭️ **DECLINE** — PDCs and transfers dominate here (XX-06) | ⚪ |
 | Post-dated cheques | 🟡 regional builds | ✅ full register, lodging, maturity, clear/bounce, invoice-lock + over-allocation backstop | ✅ **KEEP — exceeds Yardi for this market** | ⚪ |
 | Tenant statement | ✅ | ✅ `TenantStatementPdfService` | ✅ KEEP | ⚪ |
-| AR aging | ✅ by charge code | ✅ bucket summary + drill-down (`ArAging`) **and a per-tenant collections worklist** (`ArCollections`, shipped 2026-08-08) — still invoice-level, not charge-level | ➕ EXTEND (RR-03) once MF-06 lands | 🟡 |
+| AR aging | ✅ by charge code | ✅ bucket summary + drill-down + per-tenant collections worklist, **and aging by charge type** (`ArAgingByType`) | ✅ **CLOSED (RR-03)** | ⚪ |
 
 ---
 
@@ -118,8 +123,8 @@
 |---|---|---|---|---|
 | Deposit as a GL liability | ✅ | ✅ `DepositTransaction` → `Dr Cash\|Bank / Cr Deposits Held`, journalized, numbered, bilingual | ✅ KEEP | ⚪ |
 | Refund / forfeit | ✅ | ✅ both paths posted | ✅ KEEP | ⚪ |
-| **Itemised move-out disposition** | ✅ one document nets damages vs refund | ❌ two unconnected manual events | ➕ EXTEND (MF-03) | 🟠 |
-| Held vs contractual reconciliation | ✅ | ❌ nothing compares the register to `leases.security_deposit` | ➕ EXTEND (MF-03) | 🟠 |
+| **Itemised move-out disposition** | ✅ one document nets damages vs refund | ✅ one statement nets AR against the deposit and freezes into the termination event | ✅ **CLOSED (MF-03)** | ⚪ |
+| Held vs contractual reconciliation | ✅ | ✅ the move-out statement reconciles the register against the lease's contracted deposit | ✅ **CLOSED (MF-03)** | ⚪ |
 | Deposit top-up on escalation | 🟡 | ❌ | 🟡 note only | 🟡 |
 | Interest-bearing / segregated | ✅ | ❌ | ⏭️ DECLINE — not an Egyptian requirement | ⚪ |
 
@@ -129,17 +134,17 @@
 
 | Capability | Yardi | Atriom today | Verdict | Sev |
 |---|---|---|---|---|
-| Pool sourced from GL expense accounts | ✅ with drill-down | ❌ two hand-keyed totals | ➕ EXTEND (RC-01) | 🟠 |
-| Multiple pools per property | ✅ | ❌ one per `(asset_id, period_year)` | ➕ EXTEND (RC-02) | 🟠 |
-| Configurable denominator | ✅ GLA / occupied / fixed / stated | ❌ hard-coded **occupied** | ➕ EXTEND (RC-03) | 🟠 |
-| Gross-up | ✅ | ❌ — **but the inputs exist**: `Asset::totalUnitAreaSqm()`, `occupiedAreaSqm()`, `areaOccupancyRate()` and the declared `leasable_area_sqm`. The CAM service simply never reads them | ➕ EXTEND (RC-04) — wiring, not new data | 🟡 |
+| Pool sourced from GL expense accounts | ✅ with drill-down | ✅ `cam_pool_accounts` + `expense_basis = ledger`; the total is a query over posted lines | ✅ **CLOSED (RC-01)** | ⚪ |
+| Multiple pools per property | ✅ | ✅ keyed `(asset_id, period_year, pool_code)`, each with its own participants, fee, VAT and cap | ✅ **CLOSED (RC-02)** | ⚪ |
+| Configurable denominator | ✅ GLA / occupied / fixed / stated | ✅ `denominator_basis` — occupied (default) / GLA / fixed — frozen onto the pool as `denominator_used_sqm` | ✅ **CLOSED (RC-03)** | ⚪ |
+| Gross-up | ✅ | ✅ `gross_up_pct` × the variable share, which a ledger pool derives per ACCOUNT from `cam_pool_accounts.cost_nature` | ✅ **CLOSED (RC-04)** | ⚪ |
 | Caps: absolute, YoY, base year, compounding | ✅ | ✅ **`LeaseCamTerm`, effective-dated, tighter ceiling wins, landlord absorbs `cap_absorbed`** | ✅ **KEEP** — *the 2026-07-18 doc calling this absent is stale* | ⚪ |
-| Cap scoped to controllable expenses; cumulative headroom | ✅ | ❌ caps the whole share | ➕ EXTEND (RC-07) | 🟡 |
+| Cap scoped to controllable expenses; cumulative headroom | ✅ | ✅ `cap_scope` + `cap_carry_forward`; unused headroom banks forward | ✅ **CLOSED (RC-07)** | ⚪ |
 | Admin / management fee | ✅ | ✅ `admin_fee_pct` per pool, applied to the **capped** cost so it cannot re-breach the cap, VAT-rated per pool | ✅ **KEEP** | ⚪ |
 | Share freezing / tie-out on re-run | — | ✅ frozen participant set + frozen `pro_rata_share_pct` | ✅ **KEEP — above benchmark discipline** | ⚪ |
 | True-up settlement | ✅ | ✅ positive bills immediately on its own invoice (correct — the lease may have ended); negative becomes a credit auto-applied FIFO | ✅ **KEEP — hard-won, do not re-open** | ⚪ |
-| **Re-estimate next year** | ✅ | ❌ and the estimate *billed* ≠ the estimate *reconciled* — two hand-kept numbers | ➕ EXTEND (RC-05) | 🟠 |
-| Tenant reconciliation statement | ✅ auditable | ❌ an invoice line | ➕ EXTEND (RC-06) | 🟠 |
+| **Re-estimate next year** | ✅ | ✅ the reconciliation moves next year's estimate, and `estimate_basis = billed` reads what tenants were actually invoiced | ✅ **CLOSED (RC-05)** | ⚪ |
+| Tenant reconciliation statement | ✅ auditable | ✅ a statement showing the pool, the exclusions, the gross-up, the share basis and the arithmetic | ✅ **CLOSED (RC-06)** | ⚪ |
 | **CAM area = summed lease area** | ✅ | ✅ **fixed 2026-08-08** — `Lease::totalAreaSqm()` sums the `lease_unit` pivot on both numerator and denominator | ✅ **KEEP** | ⚪ |
 | % rent: natural + artificial breakpoint | ✅ | ✅ both | ✅ KEEP | ⚪ |
 | % rent: **cumulative YTD + annual settle-up** | ✅ | ✅ **`percentage_rent_frequency = 'annual'`** — canonical chronological marginals (`overage(YTD) − overage(prior YTD)`, each floored at 0) that sum to the year's overage, with `retrueAnnualYear()` re-attributing every month on any lock/void. Settable on the lease form. *This row said "period basis only" until 2026-08-09 — it was **WRONG**, read off a stale doc line instead of the code* | ✅ **KEEP** | ⚪ |
@@ -188,13 +193,13 @@ allocations and the invoice total can ever disagree, the design is wrong.
 | Report | Yardi | Atriom | Verdict | Sev |
 |---|---|---|---|---|
 | **Rent roll** | ✅ the most-used commercial report | ✅ `/admin/rent-roll`, as-at-a-date, reading the same schedule row billing does (shipped 2026-08-09) | ✅ **KEEP** | ⚪ |
-| Lease expiration schedule | ✅ | ❌ (nav badge for expiring leases only) | ➕ EXTEND (RR-02) | 🟠 |
+| Lease expiration schedule | ✅ | ✅ `ReportService::expirationSchedule()` + page — area AND income at risk per year, holdovers in their own bucket | ✅ **CLOSED (RR-02)** | ⚪ |
 | Stacking plan | ✅ | ❌ | 🟡 later | 🟡 |
 | Occupancy / vacancy | ✅ | 🟡 unit status counts | ➕ EXTEND | 🟡 |
-| AR aging | ✅ by charge code | ✅ invoice-level page + drill-down + CSV | ➕ EXTEND (RR-03) | 🟡 |
-| **Occupancy cost %** | ✅ | ❌ — *and every input already exists* | ➕ EXTEND (RR-04) — best value-per-line in this document | 🟠 |
-| Sales MTD/YTD/MAT, like-for-like | ✅ | 🟡 declarations captured, little analysis | ➕ EXTEND (RR-05) | 🟡 |
-| Straight-line schedule | ✅ | ❌ | ❓ DECIDE (RA-01) | ❓ |
+| AR aging | ✅ by charge code | ✅ invoice-level page + drill-down + CSV, **and by charge type** | ✅ **CLOSED (RR-03)** | ⚪ |
+| **Occupancy cost %** | ✅ | ✅ `ReportService::occupancyCost()` + page | ✅ **CLOSED (RR-04)** | ⚪ |
+| Sales MTD/YTD/MAT, like-for-like | ✅ | ✅ `SalesAnalytics` — MAT and like-for-like side by side, because the gap between them is the story | ✅ **CLOSED (RR-05)** | ⚪ |
+| Straight-line schedule | ✅ | ✅ `StraightLineRentService::scheduleFor()` — the whole term's recognition, possible only because LS-01 writes the ladder at signing | ✅ **CLOSED (RA-02)** | ⚪ |
 | Owner statements | Investment Manager | ✅ three-tier accrual-GL spine, journalized | ✅ KEEP | ⚪ |
 | Revenue forecast | ✅ Forecast Manager | ❌ | 🟡 falls out of LS-01 almost free | 🟡 |
 
@@ -206,10 +211,10 @@ allocations and the invoice total can ever disagree, the design is wrong.
 |---|---|---|---|---|
 | Every money source posts to the GL | ✅ | ✅ **`LedgerPoster::JOURNALIZERS` as a single registry, with a conformance gate that fails the build on an unregistered source** | ✅ **KEEP — stricter than the benchmark** | ⚪ |
 | Closed-period refusal | ✅ | ✅ `PostingDateGuards`, per-source, conformance-gated | ✅ KEEP | ⚪ |
-| **Post month ≠ document date** | ✅ | ❌ `entry_date` is the document date | ➕ EXTEND (MF-05) | 🟠 |
+| **Post month ≠ document date** | ✅ | ✅ `posting_month_overrides` — one override for all 24 GL sources; the entry moves, the document keeps its date | ✅ **CLOSED (MF-05)** | ⚪ |
 | Multiple books | ✅ | ❌ single book | ⏭️ **DECLINE** (XX-02) | ⚪ |
 | Charge code → GL account as data | ✅ | 🟡 `AccountMapping` (key → account, per-property override) exists, but the item-type → key map is hard-coded | ➕ EXTEND — join the two | 🟠 |
-| **Straight-line rent / deferred rent** | ✅ | ❌ revenue = as billed | ❓ **DECIDE (RA-01)**, then EXTEND (RA-02) | 🔴 |
+| **Straight-line rent / deferred rent** | ✅ | ✅ `StraightLineRentService` (EAS 49 / IFRS 16), settings-gated and shipped OFF; invoices are byte-identical either way | ✅ **CLOSED (RA-01, RA-02)** | ⚪ |
 | Bad-debt expense | ✅ | ✅ `bad_debt_expense` role, posted by `InvoiceWriteOffJournalizer` | ✅ **KEEP** | ⚪ |
 | VAT | region packs | ✅ settings-driven, origination-only, literal-banned by a gate | ✅ KEEP | ⚪ |
 | Money-record deletion | soft controls | ✅ **refused at the model, gated in CI, with a stated reason per model** | ✅ **KEEP — exceeds the benchmark** | ⚪ |
@@ -218,17 +223,25 @@ allocations and the invoice total can ever disagree, the design is wrong.
 
 ## 11. Scorecard
 
-| Area | Verdict |
-|---|---|
-| **Charge / rent schedule** | ♻️ **REBUILD the write path** — 7 of 15 scenarios trace here |
-| **Lease events & amendments** | ♻️ **REBUILD** — currently a `notes` string |
-| **Options & critical dates** | ➕ new, small, high value |
-| **Money flow completion** (proration both ends, move-out, write-off, holdover) | ➕ EXTEND |
-| **Revenue recognition** | ❓ DECIDE first |
-| **Recoveries** | ➕ EXTEND — the calculation core is sound, the *inputs* are hand-keyed |
-| **Percentage rent** | ➕ EXTEND — cumulative basis is the money item |
-| **Reporting** | ➕ EXTEND — rent roll is a conspicuous hole |
-| **AR / payments / credit notes / GL registry / deletion policy / property isolation** | ✅ **KEEP — do not reopen** |
+**All 43 stories in [05-user-stories.md](05-user-stories.md) shipped between 2026-08-08 and
+2026-08-09.** The verdicts below are what the cycle SET OUT to do, kept as written, with what
+actually happened beside them — a scorecard rewritten to say "done" everywhere teaches nothing.
+
+| Area | Verdict set at the start | Outcome |
+|---|---|---|
+| **Charge / rent schedule** | ♻️ **REBUILD the write path** — 7 of 15 scenarios trace here | ✅ done (LS-01…LS-06). The read path already honoured dates; only the write path was inverted, so it was smaller than "rebuild" implied |
+| **Lease events & amendments** | ♻️ **REBUILD** — currently a `notes` string | ✅ done (LE-01…LE-04). Append-only `lease_events`; "occupied" and "leased" turned out to be different predicates |
+| **Options & critical dates** | ➕ new, small, high value | ✅ done (OP-01…OP-04). The data mostly existed and nothing read it |
+| **Money flow completion** (proration both ends, move-out, write-off, holdover) | ➕ EXTEND | ✅ done (MF-01…MF-09), including post month, item allocation and line disputes |
+| **Revenue recognition** | ❓ DECIDE first | ✅ decided then built (RA-01, RA-02) — straight-line shipped **OFF**, invoices byte-identical either way |
+| **Recoveries** | ➕ EXTEND — the calculation core is sound, the *inputs* are hand-keyed | ✅ done (RC-01…RC-07). The tie-out GREW rather than loosened: `Σ allocated + landlord_unrecovered = total` |
+| **Percentage rent** | ➕ EXTEND — cumulative basis is the money item | ✅ done (PR-01…PR-04) |
+| **Reporting** | ➕ EXTEND — rent roll is a conspicuous hole | ✅ done (RR-01…RR-05) |
+| **AR / payments / credit notes / GL registry / deletion policy / property isolation** | ✅ **KEEP — do not reopen** | ✅ kept. Item allocation sits BENEATH `recomputeTotals()` rather than beside it |
+
+**The one prediction that held all the way through:** the defect was state-not-schedule in the
+LEASING model, and the money core did not need rebuilding. Everything below the charge row —
+invoice, cash, GL — was extended, never reopened.
 
 **Read that last line twice.** The instinct behind this cycle — *"if it's wrong, rebuild it"* — is
 right, and it applies to **lease → charge**. It does not apply to **charge → invoice → cash → GL**,

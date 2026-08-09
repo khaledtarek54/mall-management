@@ -583,10 +583,17 @@ participation consults the `lease_unit` PIVOT, not the denormalised master `unit
 master shop is outside the zone but whose annexe is inside it still participates. Both have their own
 test, and both fail when the guard is removed.
 
-**Deviation from Yardi, stated:** Voyager sources a pool from a named set of GL expense accounts, and
-Atriom does too (RC-01, `expense_basis = ledger`) — but per-ACCOUNT fixed/variable classification is
-still a single `variable_pct` on the pool rather than a flag per account. That is the remaining gap in
-§A2, and it only bites a property that grosses up some accounts and not others.
+**A "remaining §A2 gap" claimed here on 2026-08-09 was FALSE and has been retired.** Per-account
+fixed/variable classification already exists: `cam_pool_accounts.cost_nature`, read by
+`SyncCamPoolFromLedgerService::variableShareFromLedger()` through `CamExpensePool::variableShare()`.
+A ledger-sourced pool derives its variable share from the accounts themselves; the pool-level
+`variable_pct` is only the fallback for a pool whose total was TYPED, where there are no accounts to
+ask. An account with no stated nature reads as fixed, which grosses nothing — the conservative
+direction. §A2 is fully met.
+
+*(The claim was made by reading the pool table and not the pivot. It is the exact shape
+`docs/OVERVIEW.md` warns about: an absence finding is usually the mechanism living in another layer.
+Verify before recording a gap, and retire the row when it turns out not to be one.)*
 
 **The MySQL detail worth remembering:** `asset_id` carries a foreign key and the narrow unique index
 was the only index serving it, so MySQL refused to drop it. The migration adds the wider key first —

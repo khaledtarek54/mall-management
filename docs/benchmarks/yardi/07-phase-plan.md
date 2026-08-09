@@ -1,5 +1,10 @@
 # 07 — The recommendation: what to do in this cycle
 
+> **All phases complete — 43 of 43 stories shipped, 2026-08-08 → 2026-08-09.** The sequencing
+> below is kept as it was written: it records what was expected to be hard, which is worth more than
+> a plan retro-fitted to what happened. See [06 §11](06-atriom-gap-analysis.md#11-scorecard) for the
+> outcome beside each verdict.
+
 > **The cycle:** *Leasing & money flow — the Yardi cycle.* Its purpose is to replace the one wrong
 > structure in Atriom's lease model, complete the money flow around it, and stop rebuilding the
 > parts that are already right.

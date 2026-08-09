@@ -18,6 +18,17 @@ the operator) · ⚙️ ops (deploy/infra).
 keeps the per-phase implementation detail; [docs/accounting/GAP-ANALYSIS.md](accounting/GAP-ANALYSIS.md)
 keeps the accounting capability matrix. This file is the priority call across all of them.
 
+> **✅ CYCLE COMPLETE, 2026-08-09 — all 43 stories shipped.** The benchmark cycle below ran to the
+> end; every story in [05-user-stories.md](benchmarks/yardi/05-user-stories.md) is ✅, the gap
+> analysis is re-verified, and the two live defects named in the original banner were fixed on day
+> one. **The one prediction that held throughout:** the defect was state-not-schedule in the LEASING
+> model, and the money core did not need rebuilding — everything below the charge row was extended,
+> never reopened. What remains is NOT code: 24 percentage-rent leases whose contracts someone must
+> read, Jawad's real Egyptian chart of accounts, the VAT questions in
+> [BUSINESS-RULES.md](BUSINESS-RULES.md), and running `atriom:audit-charge-schedules` against real
+> imported data before go-live. *The original banner is kept below — it records what was expected to
+> be hard, which is worth more than a summary written after the fact.*
+>
 > **⚠️ New cycle, 2026-08-08 — leasing & money flow, benchmarked against Yardi.** The owner asked
 > whether the lease → charge → invoice → GL chain is modelled on the wrong business. It is, in
 > exactly one place: **Atriom stores the lease's current state and mutates it; Yardi stores a
