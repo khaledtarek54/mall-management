@@ -127,6 +127,16 @@ class LeasesTable
                     ->relationship('unit', 'code')
                     ->searchable()
                     ->preload(),
+                // The percentage-rent basis is a term in each contract, and the system cannot know
+                // which applies. This makes "show me every lease still on the monthly basis" one
+                // click, so the clause review is a filter rather than a database query.
+                SelectFilter::make('percentage_rent_frequency')
+                    ->label(__('admin.filters.percentage_rent_basis'))
+                    ->options(fn () => __('admin.enums.percentage_rent_frequency'))
+                    ->query(fn (Builder $query, array $data): Builder => $query
+                        ->when($data['value'] ?? null, fn (Builder $q, $v) => $q
+                            ->where('has_percentage_rent', true)
+                            ->where('percentage_rent_frequency', $v))),
                 Filter::make('commencement_range')
                     ->label(__('admin.tables.lease.start'))
                     ->schema([

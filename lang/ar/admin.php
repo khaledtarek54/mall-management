@@ -1512,6 +1512,7 @@ return [
         'due_until' => 'تاريخ الاستحقاق حتى',
         'payment_from' => 'تاريخ الدفع من',
         'payment_until' => 'تاريخ الدفع حتى',
+        'percentage_rent_basis' => 'أساس الإيجار المتغير',
         'commencement_from' => 'تاريخ البدء من',
         'commencement_until' => 'تاريخ البدء حتى',
         'expiry_from' => 'تاريخ الانتهاء من',

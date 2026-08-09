@@ -3,6 +3,7 @@
 use App\Jobs\ApplyLateFees;
 use App\Jobs\RunMonthlyBilling;
 use App\Support\Health;
+use App\Support\ScheduleSetting;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -24,8 +25,8 @@ Artisan::command('inspire', function () {
 
 Schedule::job(new RunMonthlyBilling)
     ->monthlyOn(
-        (int) config('billing.monthly_billing_day', 1),
-        config('billing.monthly_billing_time', '02:00'),
+        (int) ScheduleSetting::billing('monthly_billing_day', 'billing.monthly_billing_day', 1),
+        (string) ScheduleSetting::billing('monthly_billing_time', 'billing.monthly_billing_time', '02:00'),
     )
     ->name('atriom-monthly-billing')
     ->withoutOverlapping();
@@ -44,9 +45,9 @@ Schedule::job(new ApplyLateFees)
 
 Schedule::command('cam:reconcile')
     ->yearlyOn(
-        (int) config('billing.cam_reconciliation_month', 1),
-        (int) config('billing.cam_reconciliation_day', 15),
-        config('billing.cam_reconciliation_time', '03:00'),
+        (int) ScheduleSetting::billing('cam_reconciliation_month', 'billing.cam_reconciliation_month', 1),
+        (int) ScheduleSetting::billing('cam_reconciliation_day', 'billing.cam_reconciliation_day', 15),
+        (string) ScheduleSetting::billing('cam_reconciliation_time', 'billing.cam_reconciliation_time', '03:00'),
     )
     ->name('atriom-cam-reconcile')
     ->withoutOverlapping();

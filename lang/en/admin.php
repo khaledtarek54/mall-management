@@ -1520,6 +1520,7 @@ return [
         'due_until' => 'Due Until',
         'payment_from' => 'Payment Date From',
         'payment_until' => 'Payment Date Until',
+        'percentage_rent_basis' => 'Percentage-rent basis',
         'commencement_from' => 'Starts From',
         'commencement_until' => 'Starts Until',
         'expiry_from' => 'Expires From',

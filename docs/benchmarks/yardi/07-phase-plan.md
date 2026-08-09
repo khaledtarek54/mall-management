@@ -53,6 +53,8 @@ posting is something a Yardi install **enables**, not something that happens to 
 balance is silently restated, and the capability is there the day the accountant wants it.
 
 **Still needs a human — but not blocking:** the accountant flips the switch, given a before/after.
+**Decided 2026-08-09:** the BUILD no longer waits on that answer. Yardi straight-lines commercial
+rent as standard, so phase 5 goes ahead defaulted OFF; the ruling decides only whether it is enabled.
 
 ### Q2 — Fit-out grace → **STANDARD IS RENT-ONLY. Today's behaviour gives revenue away.**
 

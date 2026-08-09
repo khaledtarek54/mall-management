@@ -361,10 +361,20 @@ class LeaseForm
                         ->live()
                         ->helperText(__('admin.helpers.percentage_rent_calculation_type'))
                         ->visible(fn ($get) => (bool) $get('has_percentage_rent')),
+                    // ANNUAL is the industry standard: percentage rent accrues on CUMULATIVE
+                    // year-to-date sales against an annual breakpoint, settled up over the year
+                    // (Yardi, and the basis PR-01 was built for). A monthly basis charges overage
+                    // in a strong month that a weak one should have absorbed, so a seasonal tenant
+                    // pays more across the year than their clause says.
+                    //
+                    // The COLUMN default stays `monthly` — every lease that exists keeps the basis
+                    // it was billed on, because which one applies is a fact in each contract and
+                    // not something to switch on a guess. Only NEW leases get the standard, the
+                    // same split-default as `fit_out_scope`.
                     Select::make('percentage_rent_frequency')
                         ->label(__('admin.fields.percentage_rent_frequency'))
                         ->options(fn () => __('admin.enums.percentage_rent_frequency'))
-                        ->default('monthly')
+                        ->default('annual')
                         ->native(false)
                         ->live()
                         ->helperText(__('admin.helpers.percentage_rent_frequency'))
