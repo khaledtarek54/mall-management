@@ -1825,6 +1825,48 @@ parameters:
 			path: app/Services/CamReconciliationService.php
 
 		-
+			message: '#^Using nullsafe property access "\?\-\>admin_fee_pct" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/CamStatementPdfService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>asset" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/CamStatementPdfService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>estimate_basis" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/CamStatementPdfService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>expense_basis" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/CamStatementPdfService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>period_year" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 2
+			path: app/Services/CamStatementPdfService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>reference" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/CamStatementPdfService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>total_actual_expense" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/CamStatementPdfService.php
+
+		-
 			message: '#^Using nullsafe property access "\?\-\>timestamp" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 5

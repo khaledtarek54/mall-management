@@ -456,12 +456,24 @@ applying is idempotent and skips leases that have ended.
 
 ---
 
-### RC-06 🟠 A reconciliation statement the tenant can audit
+### RC-06 ✅ A reconciliation statement the tenant can audit *(shipped 2026-08-09)*
 **As a** Tenant **I want** a statement showing the pool, exclusions, gross-up, denominator, my
 share, the cap and the estimate I paid **so that** I can verify the charge under my audit right.
 
 **Acceptance:** a bilingual (EN + AR) PDF per allocation, downloadable in the portal, retained
 against the reconciliation.
+
+**Shipped:** `CamStatementPdfService` + `resources/views/cam/statement.blade.php`. Five sections —
+what the mall spent (and **how that figure was arrived at**: the ledger accounts behind it, or that
+it was typed), how much of it is yours (area, **the denominator that was used**, share), the cap and
+what the landlord absorbed, the settlement against estimates already paid, and next year's proposed
+estimate. Downloadable from the admin allocation list AND by the tenant in the portal — an audit
+right the tenant has to ask you to exercise is not much of a right.
+
+**Every figure is READ from the allocation, never recomputed**, so the statement cannot drift from
+the invoice it explains; the denominator is recovered from the stored share for the same reason. The
+cap section is omitted entirely when no cap applied, because a "cap: none" row on every statement in
+the mall trains everyone to skip the section that matters on the few where it bites.
 
 ---
 

@@ -315,7 +315,7 @@ re-litigated every audit.
 
 ### Phase 6 — Recoveries & percentage-rent depth ➕
 
-**Recoveries:** RC-01 ✅ → RC-05 ✅ *(both shipped 2026-08-09)* → RC-06 (tenant statement) →
+**Recoveries:** RC-01 ✅ → RC-05 ✅ → RC-06 ✅ *(all shipped 2026-08-09)* →
 RC-02/RC-03 (multi-pool, denominator) → RC-04/RC-07 (gross-up, controllable caps) as needed.
 
 RC-01 and RC-05 together closed the loop that was open: the estimate *billed* and the estimate

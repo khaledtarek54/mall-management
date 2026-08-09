@@ -40,6 +40,7 @@ class ActionAuthz
         'InvoicesTable.php::downloadPdfBundle' => 'read-only render of already-visible invoices',
         'PurchaseRequestsTable.php::downloadPo' => 'read-only render of an already-visible purchase order',
         'EditPurchaseRequest.php::downloadPo' => 'read-only render of an already-visible purchase order',
+        'CamAllocationsRelationManager.php::statement' => 'read-only render of an already-visible CAM allocation — reaching it means passing the pool resource\'s view gate and its property scoping',
 
         // Portal surface: the tenant downloading their OWN documents. The portal has no
         // permission model beyond `is_admin` for writes, and these records resolve through the
@@ -47,6 +48,7 @@ class ActionAuthz
         'InvoicesTable.php::downloadPdf.portal' => 'tenant downloading their own invoice',
         'ListInvoices.php::downloadStatement' => 'tenant downloading their own statement',
         'ViewInvoice.php::downloadPdf' => 'tenant downloading their own invoice',
+        'CamAllocationsTable.php::statement' => 'tenant downloading their own service-charge reconciliation statement (RC-06) — the whole point of the audit right is that they do not have to ask for it',
 
         // Writes nothing — the action body is a Notification toast. If this ever actually sends,
         // remove the exemption and gate it.

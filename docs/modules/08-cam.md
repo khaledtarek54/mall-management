@@ -46,6 +46,33 @@ true_up_amount      = allocated_amount - estimated_paid
 
 **In words**: Each lease's share of the pool's actual and estimated amounts is weighted by its **total** leased area — summed over every unit on the lease via the `lease_unit` pivot, not the master unit alone — as a fraction of the asset's total leased sqm. True-up is the difference: positive (tenant under-paid), negative (tenant over-paid).
 
+**The tenant gets a statement they can audit (2026-08-09, story RC-06).**
+`CamStatementPdfService` renders one bilingual PDF per allocation, downloadable from the admin
+allocation list **and by the tenant in the portal** — almost every commercial lease grants a
+service-charge audit right, and the answer to "show me how you got this" used to be an invoice line
+reading "CAM Recovery 2028".
+
+Five sections: what the mall spent **and how that figure was arrived at** (the ledger accounts
+behind it, or that it was typed); how much of it is yours (your area, **the denominator used**, your
+share); the cap and what the landlord absorbed; the settlement against estimates already paid; and
+next year's proposed estimate — telling the tenant the new monthly figure on the same document that
+explains why it changed is the difference between a re-estimate and a surprise.
+
+Two rules keep it honest:
+
+- **Every figure is READ from the allocation, never recomputed.** A statement that re-derived its
+  numbers would silently disagree with the invoice it explains the moment anything downstream moved
+  — an area edit, a new participant, a re-run. `pro_rata_share_pct` and the capped/absorbed amounts
+  are stored precisely so the arithmetic can be replayed years later. The **denominator is recovered
+  from the stored share** (`area ÷ share`) for the same reason: it is the denominator that was used,
+  not the one that would be computed today.
+- **The cap section is omitted when no cap applied.** A "cap: none" row on every statement in the
+  mall trains everyone to skip the section that matters on the few where it bites.
+
+`CamStatementTest` asserts the FACTS through the public `facts()` seam rather than the rendering —
+a test that only checks the PDF is non-empty passes just as happily when every number on it is
+wrong. One rendering test covers both locales, because an RTL font failure is real and silent.
+
 **The pool's two totals are DERIVED now, not typed (2026-08-09, stories RC-01/RC-05).**
 
 - `expense_basis = ledger` → `total_actual_expense` is the sum of POSTED journal lines on the

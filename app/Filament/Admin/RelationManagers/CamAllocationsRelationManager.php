@@ -4,6 +4,7 @@ namespace App\Filament\Admin\RelationManagers;
 
 use App\Models\CamAllocation;
 use App\Services\CamReconciliationService;
+use App\Services\CamStatementPdfService;
 use Filament\Actions\Action;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
@@ -204,6 +205,23 @@ class CamAllocationsRelationManager extends RelationManager
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel(__('admin.actions.close'))
                     ->schema(fn (CamAllocation $record) => self::breakdownSchema($record)),
+                // The statement the tenant can audit against (RC-06). Almost every commercial lease
+                // grants a service-charge audit right, and the answer to "show me how you got this"
+                // used to be an invoice line reading "CAM Recovery 2028".
+                Action::make('statement')
+                    ->label(__('admin.cam_statement.download'))
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->color('gray')
+                    ->action(function (CamAllocation $record) {
+                        $svc = app(CamStatementPdfService::class);
+                        $pdf = $svc->build($record);
+
+                        return response()->streamDownload(
+                            fn () => print ($pdf),
+                            $svc->filename($record),
+                            ['Content-Type' => 'application/pdf'],
+                        );
+                    }),
                 Action::make('bill')
                     ->label(__('admin.actions.bill_allocation'))
                     ->icon('heroicon-o-banknotes')
