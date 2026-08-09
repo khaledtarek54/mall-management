@@ -414,12 +414,37 @@ was paid in full. `tests/Feature/Regression/InvoiceItemAllocationTest.php`.
 
 ---
 
-### MF-07 🟠 Mark an invoice line disputed
+### MF-07 ✅ Mark an invoice line disputed — **SHIPPED 2026-08-09**
 **As a** Property Accountant **I want** to flag one line as disputed **so that** the late-fee sweep
 does not charge a fee on a balance we are still arguing about.
 
 **Acceptance:** a disputed item's amount is excluded from the late-fee base and shown separately in
 aging; the tenant portal shows the dispute state.
+
+**Shipped:** `invoice_items.disputed_at/_reason/_by_id` + `DisputeInvoiceItemService` + the **Dispute
+a line** / **Resolve dispute** actions, the disputed column on aging by charge type, and the invoice
+lines on the tenant portal.
+
+**It does not reduce the invoice.** The debt is still claimed, still aged, still on the balance
+sheet — it is simply not yet chargeable a penalty. Anything else would be writing off a debt through
+a flag, which is `WriteOffInvoiceService`'s job and a different decision with a different authority.
+For the same reason the disputed figure sits BESIDE the aged one rather than being netted out of it:
+deducting it would understate what the mall is owed.
+
+**The header status is deliberately untouched**, although `invoices.status` already has a `disputed`
+value. An invoice is rarely disputed in full — the argument is about the service charge while the
+rent on the same document is undisputed and collectable, so marking the header would stop chasing
+money nobody is arguing about. The flag belongs on the line.
+
+**Only the OUTSTANDING part of a line is disputed**, which is why this composes on MF-06 rather than
+reading line totals: a part-paid line is argued about for what is still owed on it. And when the
+whole balance is disputed the sweep charges **nothing** — not the minimum. Falling through to
+`max($min, 0)` would bill the floor off a balance nobody has agreed is owed, which is exactly the
+charge the story exists to prevent; that guard is its own mutation-verified branch.
+
+**A reason is required.** The flag suppresses a fee, so it has to say why — "disputed" with no
+stated reason is a note to nobody, and the first question anyone asks three months later is this one.
+`tests/Feature/Regression/DisputedInvoiceLineTest.php`.
 
 ---
 
@@ -504,12 +529,44 @@ default, so no existing pool changes basis.
 
 ---
 
-### RC-02 🟠 Several pools per property
+### RC-02 ✅ Several pools per property — **SHIPPED 2026-08-09**
 **As a** Property Accountant **I want** multiple recovery pools per property-year **so that** cost
 categories with different participants and different bases reconcile separately.
 
 **Acceptance:** the `(asset_id, period_year)` unique key becomes `(asset_id, period_year, pool_code)`;
 each pool has its own participant rule, admin fee, VAT rate and cap scope.
+
+**Shipped:** `cam_expense_pools.pool_code` / `name` / `participant_scope` / `participant_area_id`,
+the widened unique key, and `CamReconciliationService::participants()`. Admin fee, VAT rate, denominator
+basis, gross-up and cap scope were already per-pool columns, so they became per-pool rules for free
+the moment a property could hold more than one.
+
+**`pool_code` defaults to `cam` and the scope to `all`**, so every pool written before this is the
+property's CAM pool with every active lease participating — exactly what it already was. The key
+widens rather than changes meaning: still one pool per code per year.
+
+**Participants are scoped by AREA, not by a hand-kept lease list.** `units.area_id` already exists
+and Yardi's own cited example is literally a zone — *everyone shares CAM, but only the food court
+shares grease-trap cleaning* (03-yardi-recoveries-percentage-rent.md §A2). Reading the set from real
+data means it re-answers on its own when a lease moves units, where a list would go stale in a way
+nobody would notice until a tenant was billed for a pool they had left.
+
+**Two traps the work had to handle.** A zone pool on a `gla` denominator must divide by the ZONE's
+leasable area, not the property's — the property figure would spread a food-court pool across the
+whole centre and recover a few percent of its own cost, the landlord silently eating the rest. And
+participation consults the `lease_unit` PIVOT, not the denormalised master `unit_id`: a lease whose
+master shop is outside the zone but whose annexe is inside it still participates. Both have their own
+test, and both fail when the guard is removed.
+
+**Deviation from Yardi, stated:** Voyager sources a pool from a named set of GL expense accounts, and
+Atriom does too (RC-01, `expense_basis = ledger`) — but per-ACCOUNT fixed/variable classification is
+still a single `variable_pct` on the pool rather than a flag per account. That is the remaining gap in
+§A2, and it only bites a property that grosses up some accounts and not others.
+
+**The MySQL detail worth remembering:** `asset_id` carries a foreign key and the narrow unique index
+was the only index serving it, so MySQL refused to drop it. The migration adds the wider key first —
+it also starts with `asset_id` — then drops the narrow one.
+`tests/Feature/Regression/SeveralRecoveryPoolsTest.php`.
 
 ---
 

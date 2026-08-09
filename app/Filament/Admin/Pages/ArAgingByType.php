@@ -85,7 +85,12 @@ class ArAgingByType extends Page implements HasSchemas, HasTable
 
     public function getSubheading(): ?string
     {
-        return __('admin.reports.bucket_total').': EGP '.number_format($this->report()['total'], 2)
+        $report = $this->report();
+
+        return __('admin.reports.bucket_total').': EGP '.number_format($report['total'], 2)
+            .($report['disputed'] > 0
+                ? ' · '.__('admin.reports.disputed').': EGP '.number_format($report['disputed'], 2)
+                : '')
             .' · '.__('admin.reports.aged_as_of').' '
             .ArAging::parseAsOf($this->asOf)->format('d/m/Y');
     }
@@ -112,11 +117,15 @@ class ArAgingByType extends Page implements HasSchemas, HasTable
                 ->action(function () {
                     $buckets = ArAging::buckets();
 
-                    $headers = [__('admin.reports.charge_type'), ...array_values($buckets), __('admin.reports.grand_total')];
+                    $headers = [
+                        __('admin.reports.charge_type'), ...array_values($buckets),
+                        __('admin.reports.disputed'), __('admin.reports.grand_total'),
+                    ];
 
                     $rows = $this->rows()->map(fn (array $r): array => [
                         self::typeLabel($r['type']),
                         ...array_map(fn (string $k) => $r['buckets'][$k], array_keys($buckets)),
+                        $r['disputed'],
                         $r['total'],
                     ])->all();
 
@@ -180,6 +189,15 @@ class ArAgingByType extends Page implements HasSchemas, HasTable
                     ->formatStateUsing(fn ($state): string => self::typeLabel((string) $state))
                     ->color('gray'),
                 ...$bucketColumns,
+                // Beside the aged figures, not deducted from them: a disputed balance is still
+                // claimed, it is simply not chargeable a late fee yet (MF-07).
+                TextColumn::make('disputed')
+                    ->label(__('admin.reports.disputed'))
+                    ->money('EGP')
+                    ->alignEnd()
+                    ->placeholder('—')
+                    ->color(fn ($state): string => (float) $state > 0 ? 'warning' : 'gray')
+                    ->tooltip(__('admin.reports.disputed_hint')),
                 TextColumn::make('total')
                     ->label(__('admin.reports.grand_total'))
                     ->money('EGP')

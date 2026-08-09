@@ -2,6 +2,7 @@
 
 namespace App\Filament\Portal\Resources\Invoices\Schemas;
 
+use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -54,6 +55,32 @@ class InvoiceInfolist
                         ->money('EGP')
                         ->color(fn ($state) => $state > 0 ? 'danger' : 'success')
                         ->weight('bold'),
+                ]),
+            // ── The lines, and which of them are under dispute (MF-07) ────────────────────────
+            // The portal showed totals only, so a tenant who had formally disputed the service
+            // charge saw the same "EGP 41,400 overdue" as one who had disputed nothing — and no
+            // acknowledgement anywhere that the argument had been recorded at all.
+            Section::make(__('admin.sections.invoice_items'))
+                ->components([
+                    RepeatableEntry::make('items')
+                        ->hiddenLabel()
+                        ->columns(3)
+                        ->components([
+                            TextEntry::make('description')
+                                ->label(__('admin.fields.description'))
+                                ->columnSpan(2),
+                            TextEntry::make('total')
+                                ->label(__('admin.fields.total'))
+                                ->money('EGP')
+                                ->alignEnd(),
+                            TextEntry::make('disputed_reason')
+                                ->label(__('admin.reports.disputed'))
+                                ->badge()
+                                ->color('warning')
+                                ->icon('heroicon-o-exclamation-triangle')
+                                ->columnSpanFull()
+                                ->visible(fn ($record): bool => $record->isDisputed()),
+                        ]),
                 ]),
             Section::make(__('admin.sections.notes'))
                 ->visible(fn ($record) => filled($record->notes))

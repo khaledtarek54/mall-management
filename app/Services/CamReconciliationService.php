@@ -9,6 +9,7 @@ use App\Models\CreditNote;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Lease;
+use App\Models\Unit;
 use App\Support\Vat;
 use App\Support\OpsLog;
 use Carbon\CarbonImmutable;
@@ -45,11 +46,7 @@ class CamReconciliationService
 
         $leases = $isRerun
             ? Lease::query()->whereIn('id', $existingLeaseIds)->with('unit', 'units')->get()
-            : Lease::query()
-                ->whereHas('unit', fn ($q) => $q->where('asset_id', $pool->asset_id))
-                ->where('status', 'active')
-                ->with('unit', 'units')
-                ->get();
+            : $this->participants($pool);
 
         // Frozen shares (as a fraction) for the re-run path; the sqm denominator for the first run.
         $frozenShares = $isRerun
@@ -271,6 +268,36 @@ class CamReconciliationService
     }
 
     /**
+     * The leases that participate in THIS pool (story RC-02).
+     *
+     * A property can run several pools in a year — CAM, real-estate tax, insurance, a food-court
+     * pool — and they do not share a participant set. Yardi's own example is exactly that: everyone
+     * shares CAM, but only the food court shares grease-trap cleaning
+     * (03-yardi-recoveries-percentage-rent.md §A2).
+     *
+     * `all` is the default and reproduces the single-pool behaviour exactly. `area` narrows to the
+     * leases whose units sit in one zone — read from `units.area_id` rather than a hand-kept lease
+     * list, so a lease that moves units leaves and joins the right pool on its own. Consulting the
+     * `lease_unit` PIVOT rather than only the denormalised master `unit_id` matters here: a
+     * multi-unit lease whose master is outside the zone but whose annexe is inside it still
+     * participates, and clamping to the master alone would silently drop it.
+     *
+     * @return \Illuminate\Support\Collection<int, Lease>
+     */
+    private function participants(CamExpensePool $pool)
+    {
+        return Lease::query()
+            ->whereHas('unit', fn ($q) => $q->where('asset_id', $pool->asset_id))
+            ->where('status', 'active')
+            ->when(
+                $pool->participant_scope === CamExpensePool::PARTICIPANTS_AREA && $pool->participant_area_id,
+                fn ($q) => $q->whereHas('units', fn ($u) => $u->where('units.area_id', $pool->participant_area_id)),
+            )
+            ->with('unit', 'units')
+            ->get();
+    }
+
+    /**
      * The area every share divides by (story RC-03).
      *
      * @param  \Illuminate\Support\Collection<int, Lease>  $leases
@@ -286,9 +313,16 @@ class CamReconciliationService
             // lease means when it says "share of the total leasable area of the centre". Falls back
             // to the summed unit areas when no GLA is declared — the two are the same intent, and
             // `Asset::totalUnitAreaSqm()` is the one already used for occupancy.
-            CamExpensePool::DENOMINATOR_GLA => (float) ($pool->asset?->leasable_area_sqm > 0
-                ? $pool->asset->leasable_area_sqm
-                : ($pool->asset?->totalUnitAreaSqm() ?? 0)),
+            // On an AREA-scoped pool the property's GLA is the wrong denominator by an order of
+            // magnitude: it would spread a food-court pool across the whole centre and charge the
+            // food court a few percent of its own costs. The zone's own leasable area is what
+            // "share of the total leasable area" means for a pool that only covers the zone.
+            CamExpensePool::DENOMINATOR_GLA => $pool->participant_scope === CamExpensePool::PARTICIPANTS_AREA
+                && $pool->participant_area_id
+                    ? (float) Unit::where('area_id', $pool->participant_area_id)->sum('area_sqm')
+                    : (float) ($pool->asset?->leasable_area_sqm > 0
+                        ? $pool->asset->leasable_area_sqm
+                        : ($pool->asset?->totalUnitAreaSqm() ?? 0)),
 
             // Contractually pinned. Zero or null is treated as unusable and falls through to the
             // occupied basis rather than allocating nothing — a mis-typed pool should reconcile

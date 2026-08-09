@@ -50,8 +50,55 @@ class CamExpensePoolForm
                         // Clamped: `asset_id` is client-supplied, and a unique rule keyed on
                         // the raw value leaks whether a pool exists for a year in a property
                         // the user cannot see (TenantScope::clampAssetId).
-                        ->unique(ignoreRecord: true, modifyRuleUsing: fn (\Illuminate\Validation\Rules\Unique $rule, \Filament\Schemas\Components\Utilities\Get $get) => $rule->where('asset_id', \App\Support\TenantScope::clampAssetId($get('asset_id'))))
+                        // Keyed on asset + year + POOL CODE since RC-02: a property runs several
+                        // pools in a year, so uniqueness on (asset, year) alone would refuse the
+                        // second one. Clamped because `asset_id` is client-supplied, and a unique
+                        // rule keyed on the raw value leaks whether a pool exists for a year in a
+                        // property the user cannot see (TenantScope::clampAssetId).
+                        ->unique(ignoreRecord: true, modifyRuleUsing: fn (\Illuminate\Validation\Rules\Unique $rule, \Filament\Schemas\Components\Utilities\Get $get) => $rule
+                            ->where('asset_id', \App\Support\TenantScope::clampAssetId($get('asset_id')))
+                            ->where('pool_code', $get('pool_code') ?: CamExpensePool::CODE_CAM))
+                        ->live(onBlur: true)
                         ->default(fn () => now()->year),
+                    // ── Which pool this is (RC-02) ────────────────────────────────────────────
+                    // A property runs several: CAM, real-estate tax, insurance, a food-court pool.
+                    // The CODE is the key; the name is what an operator reads.
+                    TextInput::make('pool_code')
+                        ->label(__('admin.fields.pool_code'))
+                        ->required()
+                        ->maxLength(32)
+                        ->default(CamExpensePool::CODE_CAM)
+                        ->live(onBlur: true)
+                        ->helperText(__('admin.helpers.pool_code'))
+                        // The code is part of the identity of the pool and of every allocation
+                        // beneath it — renaming it after a reconciliation would silently re-key
+                        // the year's history.
+                        ->disabled(fn (?CamExpensePool $record): bool => $record?->allocations()->exists() ?? false),
+                    TextInput::make('name')
+                        ->label(__('admin.fields.pool_name'))
+                        ->maxLength(255)
+                        ->placeholder(__('admin.helpers.pool_name_placeholder')),
+                    Select::make('participant_scope')
+                        ->label(__('admin.fields.participant_scope'))
+                        ->options(fn () => __('admin.enums.participant_scope'))
+                        ->default(CamExpensePool::PARTICIPANTS_ALL)
+                        ->required()
+                        ->native(false)
+                        ->live()
+                        ->helperText(__('admin.helpers.participant_scope')),
+                    Select::make('participant_area_id')
+                        ->label(__('admin.fields.participant_area'))
+                        // Scoped to the pool's own property, like every cross-model select here.
+                        ->options(fn (\Filament\Schemas\Components\Utilities\Get $get) => \App\Models\Area::query()
+                            ->when(\App\Support\TenantScope::clampAssetId($get('asset_id')), fn ($q, $id) => $q->where('asset_id', $id))
+                            ->orderBy('name')
+                            ->pluck('name', 'id')
+                            ->all())
+                        ->native(false)
+                        ->searchable()
+                        ->required(fn ($get): bool => $get('participant_scope') === CamExpensePool::PARTICIPANTS_AREA)
+                        ->visible(fn ($get): bool => $get('participant_scope') === CamExpensePool::PARTICIPANTS_AREA)
+                        ->helperText(__('admin.helpers.participant_area')),
                     Select::make('status')
                         ->label(__('admin.tables.common.status'))
                         ->options(fn () => __('admin.statuses.cam_pool'))

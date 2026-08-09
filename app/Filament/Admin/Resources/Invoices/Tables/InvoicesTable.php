@@ -9,6 +9,7 @@ use App\Jobs\SubmitInvoiceToEta;
 use App\Models\Invoice;
 use App\Models\Unit;
 use App\Services\AllocatePaymentToInvoiceItemsService;
+use App\Services\DisputeInvoiceItemService;
 use App\Services\InvoicePdfService;
 use App\Services\MonthlyBillingService;
 use App\Support\Modules;
@@ -28,6 +29,7 @@ use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\Summarizers\Sum;
@@ -40,6 +42,35 @@ use Illuminate\Database\Eloquent\Builder;
 
 class InvoicesTable
 {
+    /**
+     * Every line on the invoice, labelled with its amount.
+     *
+     * @return array<int, string>
+     */
+    private static function lineOptions(Invoice $record): array
+    {
+        /** @var \Illuminate\Support\Collection<int, \App\Models\InvoiceItem> $items */
+        $items = $record->items;
+
+        return $items->mapWithKeys(fn (\App\Models\InvoiceItem $i): array => [
+            $i->id => $i->description.' · EGP '.number_format((float) $i->total, 2)
+                .($i->isDisputed() ? ' · '.__('admin.reports.disputed') : ''),
+        ])->all();
+    }
+
+    /** @return array<int, string> */
+    private static function disputedLineOptions(Invoice $record): array
+    {
+        /** @var \Illuminate\Support\Collection<int, \App\Models\InvoiceItem> $all */
+        $all = $record->items;
+
+        $items = $all->filter(fn (\App\Models\InvoiceItem $i): bool => $i->isDisputed());
+
+        return $items->mapWithKeys(fn (\App\Models\InvoiceItem $i): array => [
+            $i->id => $i->description.' · '.($i->disputed_reason ?? ''),
+        ])->all();
+    }
+
     /**
      * The "which lines did this payment settle?" form (MF-06).
      *
@@ -328,6 +359,81 @@ class InvoicesTable
                             $svc->filename($record),
                             ['Content-Type' => 'application/pdf'],
                         );
+                    }),
+                // ── Dispute a line (MF-07) ────────────────────────────────────────────────────
+                // The late-fee sweep charged a penalty on the whole balance, including a service
+                // charge the tenant had formally disputed — which is the complaint that starts an
+                // argument about the fee on top of the argument about the charge.
+                Action::make('disputeLine')
+                    ->label(__('admin.actions.dispute_line'))
+                    ->icon('heroicon-o-exclamation-triangle')
+                    ->color('warning')
+                    ->modalHeading(fn (Invoice $record) => __('admin.actions.dispute_line').' · '.$record->number)
+                    ->modalDescription(__('admin.actions.dispute_line_hint'))
+                    ->visible(fn (Invoice $record): bool => (auth()->user()?->can('invoices.edit') ?? false)
+                        && ! in_array($record->status, ['cancelled', 'written_off'], true))
+                    ->authorize(fn (): bool => auth()->user()?->can('invoices.edit') ?? false)
+                    ->schema(fn (Invoice $record): array => [
+                        Select::make('invoice_item_id')
+                            ->label(__('admin.sections.invoice_items'))
+                            ->options(fn (): array => self::lineOptions($record))
+                            ->native(false)
+                            ->required(),
+                        // Required: this flag suppresses a fee, so it has to say why. The first
+                        // question anyone asks three months later is exactly this.
+                        Textarea::make('reason')
+                            ->label(__('admin.actions.dispute_line_reason'))
+                            ->placeholder(__('admin.actions.dispute_line_reason_placeholder'))
+                            ->rows(2)
+                            ->required(),
+                    ])
+                    ->action(function (Invoice $record, array $data) {
+                        abort_unless(auth()->user()?->can('invoices.edit') ?? false, 403);
+
+                        /** @var \App\Models\InvoiceItem $item */
+                        $item = $record->items()->findOrFail($data['invoice_item_id']);
+
+                        try {
+                            app(DisputeInvoiceItemService::class)->dispute($item, $data['reason']);
+                        } catch (\DomainException $e) {
+                            Notification::make()->danger()->title($e->getMessage())->send();
+
+                            return;
+                        }
+
+                        Notification::make()->success()->title(__('admin.actions.dispute_line_raised'))->send();
+                    }),
+                Action::make('resolveDispute')
+                    ->label(__('admin.actions.resolve_dispute'))
+                    ->icon('heroicon-o-check-circle')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->modalDescription(__('admin.actions.resolve_dispute_confirm'))
+                    ->visible(fn (Invoice $record): bool => (auth()->user()?->can('invoices.edit') ?? false)
+                        && $record->items()->whereNotNull('disputed_at')->exists())
+                    ->authorize(fn (): bool => auth()->user()?->can('invoices.edit') ?? false)
+                    ->schema(fn (Invoice $record): array => [
+                        Select::make('invoice_item_id')
+                            ->label(__('admin.sections.invoice_items'))
+                            ->options(fn (): array => self::disputedLineOptions($record))
+                            ->native(false)
+                            ->required(),
+                    ])
+                    ->action(function (Invoice $record, array $data) {
+                        abort_unless(auth()->user()?->can('invoices.edit') ?? false, 403);
+
+                        /** @var \App\Models\InvoiceItem $item */
+                        $item = $record->items()->findOrFail($data['invoice_item_id']);
+
+                        try {
+                            app(DisputeInvoiceItemService::class)->resolve($item);
+                        } catch (\DomainException $e) {
+                            Notification::make()->danger()->title($e->getMessage())->send();
+
+                            return;
+                        }
+
+                        Notification::make()->success()->title(__('admin.actions.resolve_dispute_done'))->send();
                     }),
                 // ── Which lines did this payment settle? (MF-06) ──────────────────────────────
                 // Without this the item split exists only in the service, and the aging-by-charge-type

@@ -269,7 +269,7 @@ class ReportService
      * derives everything from `invoices.paid_amount` — so the rows sum back to the invoice balances
      * by construction rather than by a reconciliation somebody has to run.
      *
-     * @return array{rows: Collection<int, array{type: string, buckets: array<string, float>, total: float}>, totals: array<string, float>, total: float}
+     * @return array{rows: Collection<int, array{type: string, buckets: array<string, float>, disputed: float, total: float}>, totals: array<string, float>, total: float, disputed: float}
      */
     public function arAgingByChargeType(?CarbonImmutable $asOf = null): array
     {
@@ -280,6 +280,8 @@ class ReportService
 
         /** @var array<string, array<string, float>> $byType */
         $byType = [];
+        /** @var array<string, float> $disputedByType */
+        $disputedByType = [];
 
         foreach ($invoices as $invoice) {
             $bucket = self::agingBucketKey($invoice, $asOf);
@@ -291,6 +293,15 @@ class ReportService
 
                 $byType[$line['type']] ??= array_fill_keys(array_keys(self::AGING_BUCKETS), 0.0);
                 $byType[$line['type']][$bucket] += $line['outstanding'];
+
+                // Shown BESIDE the aged figure, not deducted from it (story MF-07). A disputed
+                // balance is still claimed — it is simply not chargeable a late fee yet — so
+                // netting it out of aging would understate what the mall is owed.
+                $disputedByType[$line['type']] ??= 0.0;
+
+                if ($line['item']->isDisputed()) {
+                    $disputedByType[$line['type']] += $line['outstanding'];
+                }
             }
         }
 
@@ -298,6 +309,7 @@ class ReportService
             ->map(fn (array $buckets, string $type) => [
                 'type' => $type,
                 'buckets' => array_map(fn (float $v) => round($v, 2), $buckets),
+                'disputed' => round($disputedByType[$type] ?? 0.0, 2),
                 'total' => round(array_sum($buckets), 2),
             ])
             // Biggest exposure first — the row a finance manager acts on.
@@ -316,6 +328,7 @@ class ReportService
             'rows' => $rows,
             'totals' => $totals,
             'total' => round((float) $rows->sum('total'), 2),
+            'disputed' => round((float) $rows->sum('disputed'), 2),
         ];
     }
 

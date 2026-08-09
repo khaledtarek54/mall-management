@@ -49,6 +49,17 @@ class CamExpensePoolsTable
                     ->label(__('admin.resources.asset.singular'))
                     ->searchable()
                     ->weight('medium'),
+                // Which pool this row is (RC-02) — a property runs several in a year, so without
+                // this the list reads as duplicates.
+                TextColumn::make('pool_code')
+                    ->label(__('admin.fields.pool_code'))
+                    ->badge()
+                    ->color('info')
+                    ->formatStateUsing(fn ($state, CamExpensePool $record): string => $record->label())
+                    ->description(fn (CamExpensePool $record): ?string => $record->participant_scope === CamExpensePool::PARTICIPANTS_AREA
+                        ? $record->participantArea?->name
+                        : null)
+                    ->searchable(),
                 TextColumn::make('period_year')
                     ->label(__('admin.fields.period_year'))
                     ->badge()

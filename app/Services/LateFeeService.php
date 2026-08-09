@@ -104,7 +104,20 @@ class LateFeeService
                 return false;
             }
 
-            $fee = max($min, round((float) $locked->balance * $percent / 100, 2));
+            // ── A disputed line is not chargeable (story MF-07) ────────────────────────────────
+            // Charging a penalty on a balance the tenant has formally disputed is the complaint this
+            // story exists to stop. Only the OUTSTANDING part of a disputed line comes out — a line
+            // that was part-paid is only argued about for what is still owed on it.
+            $chargeable = round((float) $locked->balance - DisputeInvoiceItemService::disputedOutstanding($locked), 2);
+
+            // Everything still owed is under dispute → no fee at all, and NOT the minimum. Falling
+            // through to `max($min, 0)` would bill the floor off a balance nobody has agreed is
+            // owed, which is precisely the charge this is meant to prevent.
+            if ($chargeable <= 0) {
+                return false;
+            }
+
+            $fee = max($min, round($chargeable * $percent / 100, 2));
 
             InvoiceItem::create([
                 'invoice_id' => $locked->id,
@@ -112,7 +125,7 @@ class LateFeeService
                 // the charge instead of seeing a bare "Late Fee" amount.
                 'description' => __('admin.actions.late_fee_line_description', [
                     'percent' => rtrim(rtrim(number_format($percent, 2), '0'), '.'),
-                    'balance' => 'EGP '.number_format((float) $locked->balance, 2),
+                    'balance' => 'EGP '.number_format($chargeable, 2),
                     'min' => 'EGP '.number_format((float) $min, 2),
                 ]),
                 'type' => 'late_fee',

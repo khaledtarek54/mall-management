@@ -19,6 +19,9 @@ class InvoiceItem extends Model
         'vat_rate',
         'vat_amount',
         'total',
+        'disputed_at',
+        'disputed_reason',
+        'disputed_by_id',
     ];
 
     protected $casts = [
@@ -26,7 +29,15 @@ class InvoiceItem extends Model
         'vat_rate' => 'decimal:2',
         'vat_amount' => 'decimal:2',
         'total' => 'decimal:2',
+        'disputed_at' => 'datetime',
     ];
+
+    /** A line the tenant is formally arguing about (story MF-07). */
+    public function isDisputed(): bool
+    {
+        return $this->disputed_at !== null;
+    }
+
 
     /**
      * Bump the parent invoice's updated_at on any item write. The invoice's GL entry
@@ -66,6 +77,7 @@ class InvoiceItem extends Model
         static::deleted($syncMarketing);
     }
 
+    /** @return BelongsTo<Invoice, $this> */
     public function invoice(): BelongsTo
     {
         return $this->belongsTo(Invoice::class);

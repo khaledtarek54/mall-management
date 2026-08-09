@@ -45,9 +45,29 @@ class CamExpensePool extends Model
     /** Shares divide by a contractually pinned m² figure. */
     public const DENOMINATOR_FIXED = 'fixed';
 
+    /** The property's CAM pool — what every pool written before RC-02 is, and the default code. */
+    public const CODE_CAM = 'cam';
+
+    /** Every active lease on the property participates — legacy behaviour, and the default. */
+    public const PARTICIPANTS_ALL = 'all';
+
+    /**
+     * Only leases whose units sit in one area participate (story RC-02).
+     *
+     * Yardi's own example is literally a zone: everyone shares CAM, but only the food court shares
+     * grease-trap cleaning. Scoping to `units.area_id` rather than to a hand-kept lease list means
+     * the participant set re-answers correctly when a lease moves units, instead of going stale in
+     * a way nobody would notice until a tenant is billed for a pool they left.
+     */
+    public const PARTICIPANTS_AREA = 'area';
+
     protected $fillable = [
         'asset_id',
         'period_year',
+        'pool_code',
+        'name',
+        'participant_scope',
+        'participant_area_id',
         'total_actual_expense',
         'total_estimated_collected',
         'expense_basis',
@@ -67,6 +87,34 @@ class CamExpensePool extends Model
         'notes',
         'reconciled_at',
         'reconciled_by_user_id',
+    ];
+
+    /**
+     * The zone whose leases participate, when the pool is area-scoped (RC-02).
+     *
+     * @return BelongsTo<Area, $this>
+     */
+    public function participantArea(): BelongsTo
+    {
+        return $this->belongsTo(Area::class, 'participant_area_id');
+    }
+
+    /** What to call this pool on a screen: the operator's name, else the code. */
+    public function label(): string
+    {
+        return $this->name ?: strtoupper((string) $this->pool_code);
+    }
+
+    /**
+     * DB defaults, mirrored on the model.
+     *
+     * A pool read straight after `create()` would otherwise report a null code — the column default
+     * only lands in the database — and `label()` would render an empty badge on the screen that
+     * just created it.
+     */
+    protected $attributes = [
+        'pool_code' => self::CODE_CAM,
+        'participant_scope' => self::PARTICIPANTS_ALL,
     ];
 
     protected $casts = [

@@ -169,6 +169,22 @@ An overpayment leaves a **credit on account** (`Tenant::creditBalance()` = recei
 - **Void auto-reverses applied credit.** Applied tenant credit is reversible non-cash, so it does **not** block a void — `Invoice::capturedCashPaid()` (`paid_amount − credit_applied_amount − Σ tenant_credit_applications`) is the single "real cash" predicate shared by `VoidInvoiceService` and the `void_invoice` / Filament `visible()` guard (named once so they can't drift). On cancel, the Invoice `updated` hook soft-deletes the applications (returning the credit) just as it reverses applied credit notes — on **any** cancel path, so a credit can never strand on a voided invoice. Only captured *cash* still blocks a void (refund it first).
 - **Gate:** both actions gate on `payments.edit` in **both** `visible()` and `action()` (`abort_unless`). Registered in `LedgerPoster::JOURNALIZERS` + `LedgerRealtimeSync::SOURCE_DATE_COLUMNS` (`entry_date`) + `PropertyIsolation::OWNED` (direct `asset_id`) — the conformance gates enforce all three. Tested in `TenantCreditApplyTest` (incl. a GL↔AR tie-out through real posting, the closed-source-period case, the cross-property double-apply + scoped-refund guards, and void-auto-reversal).
 
+### A disputed line is not chargeable (MF-07)
+
+`invoice_items.disputed_at` / `disputed_reason` / `disputed_by_id`, written by
+`DisputeInvoiceItemService`. `LateFeeService` charges its percentage on
+`balance − DisputeInvoiceItemService::disputedOutstanding()`, and when that reaches zero it charges
+**nothing** — not the minimum, which would bill the floor off a balance nobody has agreed is owed.
+
+**A dispute is not a write-off.** The debt stays claimed, aged and on the balance sheet; only the
+penalty is suspended. The disputed figure is shown BESIDE the aged one on *Aging by charge type*,
+never netted out of it. The header `invoices.status` is deliberately untouched — an invoice is rarely
+disputed in full, and marking the header stops chasing the rent on the same document.
+
+Only the **outstanding** part of a line is disputed (read through `InvoiceItemSettlement`, MF-06): a
+part-paid line is argued about for what is still owed on it, and using the gross figure would
+suppress a fee on money already settled. The reason is required by the service.
+
 ### Late Fees (LateFeeService)
 - Config: `billing.late_fee_percent` (default 2%), `billing.late_fee_grace_days` (default 7), `billing.late_fee_minimum` (default 50 EGP).
 - Applied once per invoice when: `due_date + grace_days ≤ today`, balance > 0, and no late_fee item yet exists.

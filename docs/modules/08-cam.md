@@ -34,6 +34,26 @@ Mall owners (Jawad) collect estimated CAM charges monthly throughout a calendar 
 
 ---
 
+### Several pools per property-year (RC-02)
+
+A property runs many recovery pools in a year — CAM, real-estate tax, insurance, utilities, a
+food-court pool — keyed `(asset_id, period_year, pool_code)`. `pool_code` defaults to `cam` and
+`participant_scope` to `all`, so every pool written before RC-02 is the property's CAM pool with the
+whole property participating, exactly as before.
+
+**A pool's participants come from `units.area_id`, not a lease list.** `participant_scope = area` +
+`participant_area_id` expresses Yardi's own example — everyone shares CAM, only the food court shares
+grease-trap cleaning — and re-answers on its own when a lease moves units.
+
+Two things to keep right when touching `CamReconciliationService::participants()`:
+
+- **A zone pool on a `gla` denominator divides by the ZONE's leasable area.** The property's GLA
+  would spread the pool across the whole centre and recover a few percent of its cost.
+- **Participation reads the `lease_unit` pivot, not `leases.unit_id`.** A lease whose master shop is
+  outside the zone but whose annexe is inside it still participates.
+
+Each pool ties out on its own: `Σ allocated + landlord_unrecovered_amount = total_actual_expense`.
+
 ## 3. Business rules & invariants
 
 ### Core allocation formula
