@@ -58,6 +58,7 @@ class CamExpensePool extends Model
         'landlord_unrecovered_amount',
         'gross_up_pct',
         'variable_pct',
+        'controllable_pct',
         'grossed_up_expense',
         'admin_fee_pct',
         'admin_fee_on_net',
@@ -75,6 +76,7 @@ class CamExpensePool extends Model
         'landlord_unrecovered_amount' => 'decimal:2',
         'gross_up_pct' => 'decimal:2',
         'variable_pct' => 'decimal:2',
+        'controllable_pct' => 'decimal:2',
         'grossed_up_expense' => 'decimal:2',
         'total_actual_expense' => 'decimal:2',
         'total_estimated_collected' => 'decimal:2',
@@ -137,7 +139,7 @@ class CamExpensePool extends Model
     public function ledgerAccounts(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
         return $this->belongsToMany(LedgerAccount::class, 'cam_pool_accounts')
-            ->withPivot('cost_nature')
+            ->withPivot('cost_nature', 'is_controllable')
             ->withTimestamps();
     }
 
@@ -199,6 +201,25 @@ class CamExpensePool extends Model
         }
 
         return $this->variable_pct !== null ? (float) $this->variable_pct / 100 : 0.0;
+    }
+
+    /**
+     * How much of the pool is CONTROLLABLE, as a fraction (story RC-07).
+     *
+     * A different axis from {@see variableShare()}: a security contract is fixed AND controllable,
+     * utilities are variable and NOT controllable, insurance is fixed and not controllable.
+     * Conflating the two would cap the wrong half of the pool.
+     *
+     * Defaults to 1.0 — everything controllable — which is what makes a controllable-scoped cap on
+     * an unclassified pool behave exactly like the unscoped cap it replaces.
+     */
+    public function controllableShare(): float
+    {
+        if ($this->expense_basis === self::BASIS_LEDGER && $this->ledgerAccounts->isNotEmpty()) {
+            return app(\App\Services\SyncCamPoolFromLedgerService::class)->controllableShareFromLedger($this);
+        }
+
+        return $this->controllable_pct !== null ? (float) $this->controllable_pct / 100 : 1.0;
     }
 
     /** Is either total derived rather than typed? */

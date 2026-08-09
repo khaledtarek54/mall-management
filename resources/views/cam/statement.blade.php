@@ -204,6 +204,32 @@
             </td>
             <td class="v">{{ $money($facts['cap_absorbed']) }}</td>
         </tr>
+        @if ($facts['cap_scope'] === 'controllable')
+            {{-- The scope, when it is not the whole share. A tenant reading a cap that did not bite
+                 on their rates bill is entitled to know that was the deal, not an error. --}}
+            <tr>
+                <td class="k" colspan="2">
+                    <div class="note">{{ __('admin.cam_statement.cap_scope_controllable') }}</div>
+                </td>
+            </tr>
+        @endif
+        @if ($facts['cap_headroom_used'] > 0)
+            <tr>
+                <td class="k">
+                    {{ __('admin.cam_statement.cap_headroom_used') }}
+                    <div class="note">{{ __('admin.cam_statement.cap_headroom_used_note') }}</div>
+                </td>
+                <td class="v">{{ $money($facts['cap_headroom_used']) }}</td>
+            </tr>
+        @elseif ($facts['cap_headroom_banked'] > 0)
+            <tr>
+                <td class="k">
+                    {{ __('admin.cam_statement.cap_headroom_banked') }}
+                    <div class="note">{{ __('admin.cam_statement.cap_headroom_banked_note') }}</div>
+                </td>
+                <td class="v">{{ $money($facts['cap_headroom_banked']) }}</td>
+            </tr>
+        @endif
     </table>
 @endif
 

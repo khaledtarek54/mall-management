@@ -62,6 +62,29 @@ Some leases say exactly that; many say share of GROSS leasable area.
   simply name the percentage. A stated share beats any derived one, and it does **not** inflate its
   neighbours: the others keep their area-derived shares and less of the pool is recovered.
 
+**Caps match the clause (2026-08-09, story RC-07).** Two refinements over "cap the whole share":
+
+- **`cap_scope = controllable`** caps only the costs the landlord can manage. Most clauses carve out
+  rates, insurance and utilities — a landlord cannot be asked to absorb a levy it does not set — so
+  the uncontrollable part passes through ABOVE the ceiling. Capping everything was more protective
+  than the contract, and the landlord absorbed money it was entitled to recover.
+- **`cap_carry_forward`** makes the cap cumulative: a year under the ceiling banks the difference and
+  a later spike draws on it.
+
+**Controllable is a THIRD axis, not the fixed/variable one from RC-04.** A security contract is
+fixed AND controllable; utilities are variable and NOT controllable; insurance is fixed and not
+controllable. Conflating them caps the wrong half of the pool. The share comes from
+`controllable_pct`, or per-account from `cam_pool_accounts.is_controllable` (default TRUE, so a
+controllable-scoped cap on an unclassified pool behaves exactly like the unscoped cap it replaces).
+
+**Headroom is read from the ALLOCATIONS, never recomputed from the terms.** A cap renegotiated in
+year three must not retroactively change what year one banked, and the allocation is the record of
+what the tenant was actually billed under (`cap_headroom_banked` / `cap_headroom_used`). Headroom
+already drawn is netted off, so **a single cheap year cannot subsidise every spike that follows it**
+— that double-spend is the trap, and it is pinned.
+
+`cap_scope` defaults to `total` and `cap_carry_forward` to false, so no existing term changes.
+
 **Gross-up (2026-08-09, story RC-04).** A GLA denominator leaves vacancy with the landlord — right,
 but it over-corrects on the VARIABLE half: a mall at 40% occupancy spends less on cleaning and
 common-area power than a full one, while its trading tenants consume those services at full

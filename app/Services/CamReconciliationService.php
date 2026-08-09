@@ -138,8 +138,44 @@ class CamReconciliationService
                 // landlord ABSORBS the difference (cap_absorbed). No cap term ⇒ ceiling null ⇒
                 // capped_cost = allocated ⇒ true-up + fee byte-identical to the no-cap slice.
                 $ceiling = $lease->resolveCamCeiling((int) $pool->period_year);
-                $cappedCost = $ceiling !== null ? min($allocated, $ceiling) : $allocated;
+
+                // How the cap bites (story RC-07). Two refinements over "cap the whole share":
+                //
+                //   SCOPE — most clauses cap only CONTROLLABLE costs and expressly carve out rates,
+                //   insurance and utilities, because a landlord cannot be asked to absorb a levy it
+                //   does not set. The uncontrollable part passes through above the ceiling.
+                //
+                //   CARRY-FORWARD — a cumulative cap banks the headroom of a year that came in
+                //   under, so a later spike can draw on it. Without it, running the centre cheaply
+                //   for three years earns no credit in the fourth.
+                $capScope = $lease->camCapScope((int) $pool->period_year);
+                $carryForward = $lease->camCapCarriesForward((int) $pool->period_year);
+
+                $controllableShare = $capScope === \App\Models\LeaseCamTerm::SCOPE_CONTROLLABLE
+                    ? $pool->controllableShare()
+                    : 1.0;
+
+                $cappable = round($allocated * $controllableShare, 2);
+                $passThrough = round($allocated - $cappable, 2);
+
+                $banked = $carryForward && $ceiling !== null
+                    ? $lease->camCapHeadroomBankedBefore((int) $pool->period_year)
+                    : 0.0;
+
+                $effectiveCeiling = $ceiling !== null ? $ceiling + $banked : null;
+
+                $cappedCappable = $effectiveCeiling !== null ? min($cappable, $effectiveCeiling) : $cappable;
+                $cappedCost = round($cappedCappable + $passThrough, 2);
                 $capAbsorbed = round($allocated - $cappedCost, 2);
+
+                // What the cap did, recorded so next year's headroom comes from the books rather
+                // than from re-running terms that may since have been renegotiated.
+                $headroomUsed = $effectiveCeiling !== null
+                    ? round(min($banked, max(0.0, $cappable - $ceiling)), 2)
+                    : 0.0;
+                $headroomBanked = $effectiveCeiling !== null
+                    ? round(max(0.0, $ceiling - $cappedCappable), 2)
+                    : 0.0;
 
                 $trueUp = round($cappedCost - $estimated, 2);
 
@@ -180,6 +216,8 @@ class CamReconciliationService
                     'cap_amount' => $ceiling,           // the resolved ceiling that applied (null = uncapped)
                     'capped_cost_amount' => $cappedCost,
                     'cap_absorbed_amount' => $capAbsorbed,
+                    'cap_headroom_used' => $headroomUsed,
+                    'cap_headroom_banked' => $headroomBanked,
                     'true_up_amount' => $trueUp,
                     'admin_fee_amount' => $adminFee,
                     'admin_fee_vat_amount' => $adminFeeVat,

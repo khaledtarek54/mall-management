@@ -315,8 +315,12 @@ re-litigated every audit.
 
 ### Phase 6 — Recoveries & percentage-rent depth ➕
 
-**Recoveries:** RC-01 ✅ → RC-05 ✅ → RC-06 ✅ → RC-03 ✅ → RC-04 ✅ *(all shipped 2026-08-09)* →
-remaining: RC-02 (multi-pool), RC-07 (controllable caps + carry-forward).
+**Recoveries:** RC-01 ✅ → RC-05 ✅ → RC-06 ✅ → RC-03 ✅ → RC-04 ✅ → RC-07 ✅
+*(all shipped 2026-08-09)* → **remaining: RC-02 (multi-pool) only.**
+
+RC-02 is the largest of the set and the least urgent: it changes the `(asset_id, period_year)`
+unique key, so every pool query, the CAM UI and the books tie-out have to learn that a year can hold
+more than one pool. Worth doing when a property actually needs two participant sets — not before.
 
 RC-04 landed cheaply exactly as predicted, for the reason the note gave: the occupancy inputs were
 already there and RC-03 had just made the denominator explicit, so gross-up became one method on the

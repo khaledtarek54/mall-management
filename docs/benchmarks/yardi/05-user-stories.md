@@ -509,11 +509,22 @@ the mall trains everyone to skip the section that matters on the few where it bi
 
 ---
 
-### RC-07 🟡 Controllable-only caps and cumulative headroom
+### RC-07 ✅ Controllable-only caps and cumulative headroom *(shipped 2026-08-09)*
 **As a** Leasing Manager **I want** caps scoped to controllable expenses and able to carry unused
 headroom **so that** the cap matches the clause.
 
-**Today:** `LeaseCamTerm` caps the whole share; no controllable scoping, no carry-forward.
+**Shipped.** `cap_scope` = `total` (the column default, so every existing term keeps capping what
+it capped) or `controllable`; `cap_carry_forward` banks the headroom of a year that came in under
+the ceiling. The controllable share comes from `controllable_pct`, or per-account from
+`cam_pool_accounts.is_controllable` when the expense is ledger-sourced.
+
+**Controllable is a THIRD axis, not RC-04's fixed/variable one.** A security contract is fixed AND
+controllable; utilities are variable and NOT controllable; insurance is fixed and not controllable.
+Conflating them would cap the wrong half of the pool.
+
+Headroom is read from the ALLOCATIONS, not recomputed from the terms — a cap renegotiated in year
+three must not retroactively change what year one banked — and headroom already drawn is netted off,
+so a single cheap year cannot subsidise every spike that follows it. That double-spend is pinned.
 
 ---
 

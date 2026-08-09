@@ -59,6 +59,30 @@ class LeaseCamTermsRelationManager extends RelationManager
                 ->native(false)
                 ->live()
                 ->default('absolute'),
+            // RC-07: what the cap actually bites on, and whether it accumulates. Both default to
+            // the legacy behaviour so an existing term keeps capping exactly what it capped.
+            Select::make('cap_scope')
+                ->label(__('admin.fields.cam_cap_scope'))
+                ->helperText(__('admin.helpers.cam_cap_scope'))
+                ->options([
+                    \App\Models\LeaseCamTerm::SCOPE_TOTAL => __('admin.enums.cam_cap_scope.total'),
+                    \App\Models\LeaseCamTerm::SCOPE_CONTROLLABLE => __('admin.enums.cam_cap_scope.controllable'),
+                ])
+                ->default(\App\Models\LeaseCamTerm::SCOPE_TOTAL)
+                ->required()
+                ->native(false)
+                ->visible(fn (Get $get) => $get('cap_type') !== 'none'),
+            Toggle::make('cap_carry_forward')
+                ->label(__('admin.fields.cam_cap_carry_forward'))
+                ->helperText(__('admin.helpers.cam_cap_carry_forward'))
+                ->visible(fn (Get $get) => $get('cap_type') !== 'none'),
+            TextInput::make('stated_share_pct')
+                ->label(__('admin.fields.cam_stated_share_pct'))
+                ->helperText(__('admin.helpers.cam_stated_share_pct'))
+                ->suffix('%')
+                ->numeric()
+                ->minValue(0)
+                ->maxValue(100),
             TextInput::make('cap_absolute_amount')
                 ->label(__('admin.fields.cam_cap_absolute_amount'))
                 ->prefix('EGP')

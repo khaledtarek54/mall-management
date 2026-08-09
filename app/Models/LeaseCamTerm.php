@@ -27,6 +27,8 @@ class LeaseCamTerm extends Model
         'lease_id',
         'effective_year',
         'cap_type',
+        'cap_scope',
+        'cap_carry_forward',
         'stated_share_pct',
         'cap_absolute_amount',
         'base_year',
@@ -44,8 +46,22 @@ class LeaseCamTerm extends Model
         'yoy_pct' => 'decimal:4',
         'stated_share_pct' => 'decimal:4',
         'compounding' => 'boolean',
+        'cap_carry_forward' => 'boolean',
     ];
 
+    /** The cap bites on the tenant's WHOLE share — the legacy scope, and the default. */
+    public const SCOPE_TOTAL = 'total';
+
+    /**
+     * The cap bites only on CONTROLLABLE costs (story RC-07).
+     *
+     * Most cap clauses carve out rates, insurance and utilities, because a landlord cannot be asked
+     * to absorb a government levy it does not set. Capping everything is more protective than the
+     * contract, and the landlord was absorbing money it was entitled to recover.
+     */
+    public const SCOPE_CONTROLLABLE = 'controllable';
+
+    /** @return BelongsTo<Lease, $this> */
     public function lease(): BelongsTo
     {
         return $this->belongsTo(Lease::class);

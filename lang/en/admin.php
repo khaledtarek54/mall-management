@@ -139,6 +139,11 @@ return [
         'capped_cost' => 'Cost after the cap',
         'cap_absorbed' => 'Absorbed by the landlord',
         'cap_absorbed_note' => 'The part of your share the cap prevents us from charging you.',
+        'cap_scope_controllable' => 'Your cap applies to controllable costs only. Rates, insurance and utilities are not capped under your lease and pass through in full.',
+        'cap_headroom_used' => 'Drawn from earlier years',
+        'cap_headroom_used_note' => 'Your cap is cumulative. Years that came in under the ceiling banked the difference, and this year draws on it.',
+        'cap_headroom_banked' => 'Banked for later years',
+        'cap_headroom_banked_note' => 'This year came in under your ceiling. The difference is carried forward and can offset a future year.',
         'settlement' => 'Settlement',
         'cost_borne' => 'Your service-charge cost for the year',
         'estimates_paid' => 'Monthly estimates you have already paid',
@@ -1979,6 +1984,9 @@ return [
     ],
 
     'fields' => [
+        'cam_cap_scope' => 'Cap applies to',
+        'cam_cap_carry_forward' => 'Cap is cumulative',
+        'cam_stated_share_pct' => 'Stated share (optional)',
         'late_fee_percent' => 'Late-fee rate',
         'late_fee_grace_days' => 'Late-fee grace',
         'late_fee_minimum' => 'Minimum late fee',
@@ -2218,6 +2226,9 @@ return [
     ],
 
     'helpers' => [
+        'cam_cap_scope' => 'Most clauses cap only controllable costs and carve out rates, insurance and utilities. Capping the total is more protective than most contracts require.',
+        'cam_cap_carry_forward' => 'A year under the ceiling banks the difference, and a later year can draw on it.',
+        'cam_stated_share_pct' => 'Use only when the lease names the percentage outright. Leave blank to derive it from area.',
         'late_fee_override' => 'Leave blank to use the portfolio default from Settings → Billing.',
         'percentage_rent_deductible_types' => 'Charges credited against the same period\'s percentage rent — the clause "payable to the extent it exceeds CAM and tax". Leave empty if nothing is deductible.',
         'percentage_rent_tier_from' => 'The sales level this band starts at. The first band normally starts at 0 with a 0% rate — that is the breakpoint.',
@@ -2524,6 +2535,10 @@ return [
     ],
 
     'enums' => [
+    'cam_cap_scope' => [
+        'total' => 'The whole share',
+        'controllable' => 'Controllable costs only',
+    ],
         'ledger_account_type' => [
             'asset' => 'Asset',
             'liability' => 'Liability',

@@ -126,20 +126,58 @@ class SyncCamPoolFromLedgerService
             return 0.0;
         }
 
+        return max(0.0, min(1.0, $this->netForAccounts($pool, $variableIds) / $total));
+    }
+
+    /**
+     * Posted debits less credits on a subset of the pool's accounts, for its property and year.
+     *
+     * One definition, three callers (the pool total, the variable split, the controllable split) —
+     * three copies of this query would eventually disagree about what "posted" or "this property"
+     * means, and the splits would stop summing to the total they divide.
+     *
+     * @param  \Illuminate\Support\Collection<int, int>  $accountIds
+     */
+    private function netForAccounts(CamExpensePool $pool, $accountIds): float
+    {
         $start = CarbonImmutable::create((int) $pool->period_year, 1, 1)->toDateString();
         $end = CarbonImmutable::create((int) $pool->period_year, 12, 31)->toDateString();
 
-        $variable = JournalLine::query()
+        return (float) JournalLine::query()
             ->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.journal_entry_id')
-            ->whereIn('journal_lines.ledger_account_id', $variableIds)
+            ->whereIn('journal_lines.ledger_account_id', $accountIds)
             ->where('journal_entries.status', 'posted')
             ->where('journal_lines.asset_id', $pool->asset_id)
             ->whereDate('journal_entries.entry_date', '>=', $start)
             ->whereDate('journal_entries.entry_date', '<=', $end)
             ->selectRaw('sum(journal_lines.debit) - sum(journal_lines.credit) as net')
             ->value('net');
+    }
 
-        return max(0.0, min(1.0, (float) $variable / $total));
+    /**
+     * The controllable fraction of a ledger-sourced pool (story RC-07).
+     *
+     * Posted spend on the accounts flagged controllable over posted spend on all of them. The pivot
+     * defaults to TRUE, so a pool nobody has classified is fully controllable and a
+     * controllable-scoped cap behaves exactly like the unscoped cap it replaces.
+     */
+    public function controllableShareFromLedger(CamExpensePool $pool): float
+    {
+        $ids = $pool->ledgerAccounts
+            ->filter(fn ($a) => (bool) ($a->getAttribute('pivot')?->getAttribute('is_controllable') ?? true))
+            ->pluck('id');
+
+        if ($ids->isEmpty()) {
+            return 0.0;
+        }
+
+        $total = $this->actualFromLedger($pool);
+
+        if ($total <= 0) {
+            return 1.0;
+        }
+
+        return max(0.0, min(1.0, $this->netForAccounts($pool, $ids) / $total));
     }
 
     /**

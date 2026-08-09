@@ -25,6 +25,8 @@ class CamAllocation extends Model
         'cap_amount',
         'capped_cost_amount',
         'cap_absorbed_amount',
+        'cap_headroom_used',
+        'cap_headroom_banked',
         'proposed_monthly_estimate',
         'estimate_applied_at',
         'exclusions',
@@ -35,6 +37,8 @@ class CamAllocation extends Model
     ];
 
     protected $casts = [
+        'cap_headroom_used' => 'decimal:2',
+        'cap_headroom_banked' => 'decimal:2',
         'proposed_monthly_estimate' => 'decimal:2',
         'estimate_applied_at' => 'datetime',
         'pro_rata_share_pct' => 'decimal:4',
