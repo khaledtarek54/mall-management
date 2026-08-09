@@ -143,6 +143,7 @@ class Lease extends Model implements HasMedia
         'percentage_rent_rate',
         'percentage_rent_calculation_type',
         'percentage_rent_frequency',
+        'percentage_rent_deductible_types',
         'billing_day',
         'payment_terms_days',
         'notes',
@@ -167,6 +168,7 @@ class Lease extends Model implements HasMedia
     ];
 
     protected $casts = [
+        'percentage_rent_deductible_types' => 'array',
         'commencement_date' => 'date',
         'expiry_date' => 'date',
         'expiry_reminder_notified_at' => 'datetime',
@@ -282,6 +284,12 @@ class Lease extends Model implements HasMedia
     public function charges(): HasMany
     {
         return $this->hasMany(Charge::class);
+    }
+
+    /** The percentage-rent breakpoint ladder, when this lease is billed on a tiered basis. */
+    public function percentageRentTiers(): HasMany
+    {
+        return $this->hasMany(LeasePercentageRentTier::class)->orderBy('from_amount');
     }
 
     /** Options recorded on this lease — renewal, termination, expansion, first refusal. */

@@ -139,6 +139,14 @@ Schedule::command('sales:scan-missing-declarations')
     ->name('atriom-scan-missing-sales-declarations')
     ->withoutOverlapping();
 
+// …and, for a tenant who still has not filed, raise an ESTIMATE so silence stops being a costless
+// way to avoid percentage rent. Runs a week after the chase, so the tenant has had the reminder
+// and a chance to file first.
+Schedule::command('sales:estimate-missing')
+    ->monthlyOn(8, '07:30')
+    ->name('atriom-estimate-missing-sales')
+    ->withoutOverlapping();
+
 // FR-INV-03 — each mall's own shortages, once per shortage rather than once per run.
 // Daily, not hourly: a reorder level is a restocking hint, not a deadline, and an alert that
 // repeats faster than anyone can act on it is an alert people learn to ignore.

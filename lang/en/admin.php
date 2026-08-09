@@ -179,6 +179,16 @@ return [
         'settled_short' => 'Settled for less',
         'other' => 'Other',
     ],
+    'percentage_rent_tiers' => [
+        'title' => 'Breakpoint ladder',
+        'band' => 'Sales band',
+        'from' => 'From sales',
+        'to' => 'To sales',
+        'unbounded' => 'and above',
+        'zero_band_is_breakpoint' => 'a 0% band is the breakpoint',
+        'empty' => 'No bands defined.',
+        'empty_description' => 'Each band charges only the sales that fall within it — e.g. 0–500,000 at 0%, 500,000–900,000 at 5%, above 900,000 at 6%. Set the lease calculation type to Tiered for these to be used.',
+    ],
     'charge_schedule' => [
         'from_commencement' => 'From commencement',
         'unprojected_escalation' => 'a contracted :rate% escalation is due :date, not yet scheduled',
@@ -1755,6 +1765,7 @@ return [
     ],
 
     'fields' => [
+        'percentage_rent_deductible_types' => 'Deductible against percentage rent',
         'write_off_amount' => 'Amount to write off',
         'write_off_date' => 'Write-off date',
         'write_off_reason' => 'Reason',
@@ -1990,6 +2001,9 @@ return [
     ],
 
     'helpers' => [
+        'percentage_rent_deductible_types' => 'Charges credited against the same period\'s percentage rent — the clause "payable to the extent it exceeds CAM and tax". Leave empty if nothing is deductible.',
+        'percentage_rent_tier_from' => 'The sales level this band starts at. The first band normally starts at 0 with a 0% rate — that is the breakpoint.',
+        'percentage_rent_tier_to' => 'Leave blank on the top band so it runs unbounded, otherwise sales above it are never charged.',
         'write_off_date' => 'The date the loss is recognised. It posts to the general ledger on this date, so it must fall in an open accounting period.',
         'lease_option_latest_notice' => 'The deadline. After this date the right is gone — the daily scan warns ahead of it and records the option as lapsed once it passes.',
         'lease_option_encumbers' => 'Flags this unit as spoken for, so it is not promised to another tenant while the option is live.',
@@ -2457,6 +2471,7 @@ return [
             'gas' => 'Gas',
         ],
         'percentage_rent_calculation_type' => [
+            'tiered' => 'Tiered bands',
             'artificial' => 'Artificial — base rent PLUS a share of sales above a threshold',
             'natural_breakpoint' => 'Natural — the GREATER of base rent or % of sales',
         ],

@@ -229,6 +229,7 @@ class DeletionPolicy
         \App\Models\OwnerRequestReply::class => 'parent-managed: belongs to its thread',
         \App\Models\TenantRequestComment::class => 'parent-managed: belongs to its request',
         \App\Models\LeaseCamTerm::class => 'parent-managed: effective-dated terms on a lease',
+        \App\Models\LeasePercentageRentTier::class => 'parent-managed: one band of a lease\'s breakpoint ladder, edited from the lease',
         \App\Models\LeaseOption::class => 'parent-managed: the optionality recorded on a lease, edited from it. An option that was never really in the contract is removed; one that WAS is resolved (exercised/lapsed/waived), which keeps the history',
         \App\Models\AssetOwner::class => 'parent-managed: the ownership pivot, edited from the property',
         \App\Models\DeviceToken::class => 'parent-managed: pruned automatically when a push token goes dead',

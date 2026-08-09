@@ -472,7 +472,7 @@ because it sends people to rebuild what already exists.*
 
 ---
 
-### PR-02 🟠 Tiered breakpoints
+### PR-02 ✅ Tiered breakpoints — **SHIPPED 2026-08-09**
 **As a** Leasing Manager **I want** a breakpoint ladder **so that** anchor and large-format deals
 can be billed at all.
 
@@ -481,13 +481,13 @@ a single-tier ladder reproduces today's numbers exactly.
 
 ---
 
-### PR-03 🟠 Deductions against percentage rent
+### PR-03 ✅ Deductions against percentage rent — **SHIPPED 2026-08-09**
 **As a** Leasing Manager **I want** to mark charges creditable against percentage rent **so that**
 "payable to the extent it exceeds CAM and tax" is billable.
 
 ---
 
-### PR-04 🟠 Bill on estimated sales when a tenant does not declare
+### PR-04 ✅ Bill on estimated sales when a tenant does not declare — **SHIPPED 2026-08-09**
 **As a** Property Accountant **I want** a missing declaration to bill an estimate **so that**
 silence is not a way to avoid percentage rent, with a retro-adjustment when the real figure lands.
 

@@ -26,6 +26,8 @@ class TenantSalesDeclaration extends Model implements HasMedia
         'period_start',
         'period_end',
         'declared_sales',
+        'is_estimate',
+        'deducted_amount',
         'calculated_percentage_rent',
         'declared_at',
         'declared_by_type',
@@ -42,6 +44,8 @@ class TenantSalesDeclaration extends Model implements HasMedia
         'declared_at' => 'datetime',
         'locked_at' => 'datetime',
         'declared_sales' => 'decimal:2',
+        'is_estimate' => 'boolean',
+        'deducted_amount' => 'decimal:2',
         'calculated_percentage_rent' => 'decimal:2',
     ];
 

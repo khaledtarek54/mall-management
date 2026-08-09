@@ -690,3 +690,58 @@ A bare annual figure is unverifiable (it's a share of a running yearly total), s
 ## Correction — the `visible()` dispatch premise (2026-07-31)
 
 **Correction 2026-07-31 — the "still dispatchable" half of this was WRONG on the version we ship.** `mountAction()` does check `isDisabled()`, and `CanBeDisabled::isDisabled()` returns true when `isHidden()` does (`vendor/filament/actions/src/Concerns/CanBeDisabled.php:24`), so on **Filament v4.11.8 a `visible()`-only action IS refused at dispatch**. Found by mutation-testing the module-08 fix: deleting CAM's `abort_unless` left `CamActionAuthzTest` fully green — those tests never exercised the gate they describe. **Double-gate anyway**, for a reason that survives the correction: `->authorize()` is a stated intent, while hidden-implies-disabled is an upstream implementation detail that can change in a release and would silently reopen every `visible()`-only write at once. `FilamentActionDispatchContractTest` pins that upstream behaviour so an upgrade that changes it turns the build red; `ActionAuthzConformanceTest` enforces the layer we control.
+
+---
+
+## Tiers, deductions and estimated sales (2026-08-09)
+
+Three capabilities Yardi has that Atriom did not. Each was **verified absent against the code**
+before being built — the same benchmark had already produced one false gap by trusting a stale
+line in this very document.
+
+### Tiered breakpoints (PR-02)
+
+`percentage_rent_calculation_type = 'tiered'` plus a per-lease ladder
+([`LeasePercentageRentTier`](../../app/Models/LeasePercentageRentTier.php)). Yardi's own example:
+0–500K at 0%, 500K–900K at 5%, above 900K at 6%. **The 0% first band IS the breakpoint**, which is
+why a ladder subsumes the single-threshold model instead of sitting beside it.
+
+**Each band charges only the sales within it.** A tenant at 1,000,000 owes `400,000 × 5% +
+100,000 × 6% = 26,000` — not `1,000,000 × 6% = 60,000`. Charging the top rate on the whole figure
+overcharges every large tenant, which is why the arithmetic lives in exactly one method,
+`LeasePercentageRentTier::overageFor()`, and is mutation-verified.
+
+**Where it was inserted matters:** at `PercentageRentCalculationService::overage()`, the single
+choke point. The monthly basis and the annual cumulative-marginal basis are both expressed in terms
+of `overage()`, so tiers compose with `retrueAnnualYear()` without either knowing about the other.
+
+### Deductions / offsets (PR-03)
+
+`leases.percentage_rent_deductible_types` (JSON list of invoice-item types) implements the common
+clause *"percentage rent is payable to the extent it exceeds CAM and real-estate tax paid in the
+same period"*.
+
+- Applied **after** the basis produces its gross figure, so it cannot perturb the cumulative
+  marginals that must keep summing to the year's overage.
+- Reads the **invoiced** amounts for the period, not the lease's configured monthly figures —
+  those diverge the moment a month is prorated, abated or re-billed.
+- **Cancelled, draft and written-off invoices are excluded**: a reversed charge was never paid, and
+  crediting it would hand the tenant a deduction for money they never spent.
+- **Floored at zero.** "Payable to the extent it exceeds X" owes nothing when it does not exceed X;
+  it does not become a refund of the tenant's own service charge.
+
+### Estimated sales (PR-04)
+
+`sales:estimate-missing` (monthly, the 8th — a week after the chase) raises an **estimated**
+declaration for a percentage-rent tenant who never filed. Until this existed, silence was a
+complete and costless way to avoid percentage rent: the scan chased and nothing billed.
+
+- The estimate is the tenant's **own trailing average** (last three locked declarations) — 
+  defensible to them, and self-correcting as they trade.
+- **Refuses to invent a number** for a tenant with no history; the reminder scan keeps chasing
+  instead. Same rule that stops the escalation sweep guessing a CPI figure.
+- Marked `is_estimate`, and **not locked**: an estimate is a prompt for a decision, not a fact, so
+  it passes the same operator review gate as every other percentage-rent charge.
+- Never overwrites a real declaration — re-checked under a lock inside the transaction.
+
+Tests: `tests/Feature/Regression/PercentageRentTiersAndDeductionsTest.php`.

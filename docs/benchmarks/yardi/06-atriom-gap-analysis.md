@@ -134,9 +134,9 @@
 | **CAM area = summed lease area** | ✅ | ❌ **master unit only, both sides — a live money bug** | ➕ EXTEND (MF-09) — *fix independently* | 🔴 |
 | % rent: natural + artificial breakpoint | ✅ | ✅ both | ✅ KEEP | ⚪ |
 | % rent: **cumulative YTD + annual settle-up** | ✅ | ✅ **`percentage_rent_frequency = 'annual'`** — canonical chronological marginals (`overage(YTD) − overage(prior YTD)`, each floored at 0) that sum to the year's overage, with `retrueAnnualYear()` re-attributing every month on any lock/void. Settable on the lease form. *This row said "period basis only" until 2026-08-09 — it was **WRONG**, read off a stale doc line instead of the code* | ✅ **KEEP** | ⚪ |
-| % rent: tiers | ✅ | ❌ | ➕ EXTEND (PR-02) | 🟠 |
-| % rent: deductions/offsets | ✅ | ❌ | ➕ EXTEND (PR-03) | 🟠 |
-| % rent: estimated sales when undeclared | ✅ | ❌ chases, never bills | ➕ EXTEND (PR-04) | 🟠 |
+| % rent: tiers | ✅ | ✅ `LeasePercentageRentTier` ladder, each band charging only the sales within it (shipped 2026-08-09) | ✅ **KEEP** | ⚪ |
+| % rent: deductions/offsets | ✅ | ✅ `percentage_rent_deductible_types`, netted against the gross overage and floored at 0 | ✅ **KEEP** | ⚪ |
+| % rent: estimated sales when undeclared | ✅ | ✅ `sales:estimate-missing` — the tenant's own trailing average, marked as an estimate, never auto-locked | ✅ **KEEP** | ⚪ |
 | Sales declaration capture + lock | ✅ | ✅ portal + admin, locked, immediate overage billing | ✅ KEEP | ⚪ |
 
 ---

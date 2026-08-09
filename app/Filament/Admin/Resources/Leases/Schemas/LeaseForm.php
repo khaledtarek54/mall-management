@@ -358,6 +358,15 @@ class LeaseForm
                                 : null)
                         ->visible(fn ($get) => (bool) $get('has_percentage_rent')
                             && ($get('percentage_rent_calculation_type') ?? 'artificial') === 'artificial'),
+                    \Filament\Forms\Components\Select::make('percentage_rent_deductible_types')
+                        ->label(__('admin.fields.percentage_rent_deductible_types'))
+                        ->multiple()
+                        ->options(fn () => __('admin.enums.invoice_item_type'))
+                        ->native(false)
+                        // "Percentage rent payable to the extent it exceeds CAM and tax paid in the
+                        // same period" — a common retail clause Atriom could not express at all.
+                        ->helperText(__('admin.helpers.percentage_rent_deductible_types'))
+                        ->visible(fn ($get) => (bool) $get('has_percentage_rent')),
                     TextInput::make('percentage_rent_rate')
                         ->label(__('admin.fields.percentage_rent_rate'))
                         ->suffix('%')

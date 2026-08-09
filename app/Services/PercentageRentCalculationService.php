@@ -6,6 +6,7 @@ use App\Models\Charge;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Lease;
+use App\Models\LeasePercentageRentTier;
 use App\Models\TenantSalesDeclaration;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
@@ -41,11 +42,67 @@ class PercentageRentCalculationService
             $prior = $this->priorLockedSalesYtd($declaration);
             $withThis = $prior + (float) $declaration->declared_sales;
 
-            return round(max(0.0, $this->overage($lease, $withThis)) - max(0.0, $this->overage($lease, $prior)), 2);
+            $gross = round(max(0.0, $this->overage($lease, $withThis)) - max(0.0, $this->overage($lease, $prior)), 2);
+
+            return $this->netOfDeductions($declaration, $gross);
         }
 
         // MONTHLY (default): the breakpoint applies fresh to this month's sales.
-        return round(max(0.0, $this->overage($lease, (float) $declaration->declared_sales)), 2);
+        $gross = round(max(0.0, $this->overage($lease, (float) $declaration->declared_sales)), 2);
+
+        return $this->netOfDeductions($declaration, $gross);
+    }
+
+    /**
+     * Net the gross overage against the charges this lease's clause makes creditable against it —
+     * *"percentage rent is payable to the extent it exceeds CAM and real-estate tax paid in the
+     * same period"*.
+     *
+     * Applied AFTER the basis has produced its gross figure, deliberately: the deduction is a
+     * clause about what the tenant already paid, not about how the breakpoint works, so it must
+     * not perturb the cumulative-marginal arithmetic that has to keep summing to the year's
+     * overage.
+     *
+     * **Floored at zero.** Deductions that exceed the overage do not become a refund — a clause
+     * that says "payable to the extent it exceeds X" owes nothing when it does not exceed X.
+     * Letting it go negative would silently credit the tenant for their own service charge.
+     */
+    private function netOfDeductions(TenantSalesDeclaration $declaration, float $gross): float
+    {
+        $deductible = $this->deductionFor($declaration);
+
+        if ($deductible <= 0) {
+            return $gross;
+        }
+
+        return round(max(0.0, $gross - $deductible), 2);
+    }
+
+    /**
+     * What this declaration's period already billed in the lease's deductible charge types.
+     *
+     * Reads the INVOICED amounts for the period, not the lease's configured monthly figures: the
+     * clause credits what the tenant was actually charged, and those differ the moment a month is
+     * prorated, abated or re-billed. Cancelled and written-off invoices are excluded — a charge
+     * that was reversed was never paid, so crediting it would hand the tenant a deduction for
+     * money they never spent.
+     */
+    public function deductionFor(TenantSalesDeclaration $declaration): float
+    {
+        $types = $declaration->lease?->percentage_rent_deductible_types ?? [];
+
+        if (! is_array($types) || $types === []) {
+            return 0.0;
+        }
+
+        return round((float) InvoiceItem::query()
+            ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
+            ->where('invoices.lease_id', $declaration->lease_id)
+            ->whereNotIn('invoices.status', ['cancelled', 'draft', 'written_off'])
+            ->whereDate('invoices.period_start', '<=', $declaration->period_end)
+            ->whereDate('invoices.period_end', '>=', $declaration->period_start)
+            ->whereIn('invoice_items.type', $types)
+            ->sum('invoice_items.amount'), 2);
     }
 
     /**
@@ -138,8 +195,20 @@ class PercentageRentCalculationService
     {
         $rate = (float) $lease->percentage_rent_rate / 100.0;
         $annual = ($lease->percentage_rent_frequency ?? 'monthly') === 'annual';
+        $type = $lease->percentage_rent_calculation_type ?? 'artificial';
 
-        if (($lease->percentage_rent_calculation_type ?? 'artificial') === 'natural_breakpoint') {
+        // TIERED: a breakpoint ladder, where each band charges only the sales within it. Inserted
+        // HERE, at the single choke point, so both the monthly and the annual (cumulative-marginal)
+        // bases become tiered without touching either — the marginal arithmetic and
+        // retrueAnnualYear() are expressed purely in terms of overage(), and stay correct.
+        if ($type === 'tiered') {
+            return LeasePercentageRentTier::overageFor(
+                LeasePercentageRentTier::ladderFor($lease),
+                $sales,
+            );
+        }
+
+        if ($type === 'natural_breakpoint') {
             return ($sales * $rate) - ((float) $lease->base_rent_monthly * ($annual ? 12 : 1));
         }
 
