@@ -190,6 +190,28 @@ accountant can verify the accounting treatment. `[role]` resolves via `account_m
 
 ---
 
+### Post month: where a document's entry lands (MF-05)
+
+A document's GL date normally comes from its own date column
+(`LedgerRealtimeSync::SOURCE_DATE_COLUMNS`). `posting_month_overrides` lets one document post to a
+DIFFERENT month without changing its own date — for the bill that arrives after its month closed.
+Written by `SetPostMonthService`, read by `App\Support\PostMonth`, applied in `LedgerPoster` where
+every payload is built. **One override for all 24 sources**, not a column on each: a post month that
+works on some documents and not others is worse than none.
+
+Three things to keep right:
+
+- **Apply it BEFORE the sync's change-detection.** The existing entry already carries the moved date;
+  comparing it against the raw document date reports a drift that is not one, and the sweep
+  void-and-reposts the same entry every night.
+- **A CLOSED target is still refused** — `PostingDate::assertOpen()`, the same guard as everywhere.
+  This reaches an open month with an honest document date; it does not reopen a sealed period.
+- **The day is clamped, not rolled.** 31 January → February is the 28th, never 2 March.
+
+Because it moves the JOURNAL ENTRY rather than the document, every GL report and the monthly close
+read the post month with no change of their own, and the tenant and the ETA payload still see the
+document's real date.
+
 ## 3. Business rules & invariants (القواعد والثوابت)
 
 1. **Debits = credits, always.** `JournalPostingService::post()` rejects an unbalanced

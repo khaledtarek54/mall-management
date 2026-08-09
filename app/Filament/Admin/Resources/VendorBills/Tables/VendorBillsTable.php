@@ -88,6 +88,9 @@ class VendorBillsTable
                 TrashedFilter::make(),
             ])
             ->recordActions([
+                // The post month, for the case it exists for: a bill that arrives after its own
+                // month has closed (MF-05).
+                \App\Filament\Actions\PostMonthAction::make('vendor_bills.edit'),
                 // Read the record without opening its edit form — less
                 // friction, and no write surface for view-only roles. The
                 // schema is the resource's own form rendered disabled, so it

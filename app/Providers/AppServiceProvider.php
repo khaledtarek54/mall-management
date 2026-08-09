@@ -6,6 +6,7 @@ use App\Listeners\LogBackupFailures;
 use App\Models\Lease;
 use App\Notifications\Channels\PushChannel;
 use App\Observers\LeaseObserver;
+use App\Services\Accounting\AccountResolver;
 use App\Services\Eta\Signing\EtaDocumentSigner;
 use App\Services\Eta\Signing\UnsignedEtaSigner;
 use App\Services\Paymob\PaymobClient;
@@ -35,6 +36,19 @@ class AppServiceProvider extends ServiceProvider
         // to build it through the fromConfig factory so controllers + actions
         // can typehint it directly.
         $this->app->singleton(PaymobClient::class, fn () => PaymobClient::fromConfig());
+
+        // AccountResolver already memoises "posting role -> chart account" per instance,
+        // but it is constructor-injected into every journalizer and had no binding — so
+        // the container handed each one its own resolver with an empty cache, and a
+        // single posting run re-read the same handful of account_mappings rows hundreds
+        // of times (1,404 queries across one demo seed). One instance per request makes
+        // the cache that already exists actually work.
+        //
+        // `scoped`, not `singleton`: the cache holds database state, and scoped bindings
+        // are flushed between queue jobs, so a long-running worker cannot keep serving a
+        // mapping that changed after it booted. Nothing in the app writes account_mappings
+        // mid-request (only this resolver reads them), so within one request it is stable.
+        $this->app->scoped(AccountResolver::class);
 
         // ETA document signing is pluggable. The default is a passthrough (no-op)
         // so mock/preprod plumbing works without a certificate; bind a real CAdES

@@ -2,6 +2,7 @@
 
 namespace App\Services\Accounting;
 
+use App\Support\PostMonth;
 use App\Models\CreditNote;
 use App\Models\Custody;
 use App\Models\CustodyTransaction;
@@ -143,8 +144,30 @@ class LedgerPoster
         }
 
         $payload['source'] = $source;
+        $payload = self::applyPostMonth($payload, $source);
 
         return $this->posting->post($payload);
+    }
+
+    /**
+     * Move the entry into the document's POST MONTH, if one was set (story MF-05).
+     *
+     * Applied here, where every payload is built, rather than in each of the 24 journalizers — and
+     * before the sync's change-detection reads `entry_date`, which is the part that matters. Apply
+     * it any later and the comparison would see the raw document date, decide the entry had drifted,
+     * and void-and-repost it on every sweep for ever.
+     *
+     * A no-op for every document without an override, which is all of them until an operator sets
+     * one, so no existing source changes behaviour.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private static function applyPostMonth(array $payload, Model $source): array
+    {
+        $payload['entry_date'] = PostMonth::resolve($source, $payload['entry_date'] ?? null);
+
+        return $payload;
     }
 
     /**
@@ -182,6 +205,13 @@ class LedgerPoster
             // (withTrashed) so a deleted-but-posted document self-heals to void.
             $trashed = method_exists($source, 'trashed') && $source->trashed();
             $payload = $trashed ? null : $journalizer->payload($source);
+
+            // BEFORE the change-detection below, not after. The existing entry already carries the
+            // overridden date; comparing it against the raw document date would report a drift that
+            // is not one, and the sweep would void and re-post the same entry every night.
+            if ($payload !== null) {
+                $payload = self::applyPostMonth($payload, $source);
+            }
 
             $existing = JournalEntry::query()
                 ->where('source_type', $source->getMorphClass())

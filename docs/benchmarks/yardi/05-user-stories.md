@@ -359,7 +359,7 @@ lands in bad-debt expense and the earned revenue stays in the period it was earn
 
 ---
 
-### MF-05 🟠 Post month independent of document date
+### MF-05 ✅ Post month independent of document date — **SHIPPED 2026-08-09**
 **As a** Property Accountant **I want** to post a correctly-dated document into the current open
 period **so that** a closed month does not block me and I never have to falsify a document date.
 
@@ -370,8 +370,33 @@ period **so that** a closed month does not block me and I never have to falsify 
 - The monthly close and every GL report read `post_month`; the document keeps its own date for the
   tenant and for ETA.
 
-**Design note:** this touches every journalizer. Scope it deliberately, or defer it to phase 5 —
-see [07 §Sequencing risks](07-phase-plan.md).
+**Shipped:** `posting_month_overrides` + `App\Support\PostMonth` + `SetPostMonthService`, and the
+reusable **Post to month** action (`App\Filament\Actions\PostMonthAction`) on vendor bills and
+invoices.
+
+**The design note was right, and the answer was not to touch every journalizer.** Atriom has 24 GL
+posting sources; a `post_month` column on each would have been 24 migrations, 24 form fields and 24
+chances to forget one — and a half-implemented post month is worse than none, because an operator
+cannot tell by looking which documents obey it. A single polymorphic override, consulted once where
+`LedgerPoster` builds every payload, gives all 24 the capability at the same moment and cannot drift
+between them. It is a deviation from Yardi in storage (Voyager keeps the post month on the
+transaction row) and identical in behaviour.
+
+**Every GL report and the close read it for free.** The override moves the JOURNAL ENTRY's date, not
+the document's — so nothing downstream had to learn a new column, and the document keeps its own date
+for the tenant and for the ETA payload, which is exactly the separation asked for.
+
+**The refusal is untouched.** A CLOSED post month is still refused, through the same
+`PostingDate::assertOpen()` every operator-typed GL date goes through. The point is to let a
+correctly-dated document reach an OPEN month, never to reopen a sealed one.
+
+**The trap worth knowing about.** The override has to be applied BEFORE the sweep's change-detection
+reads `entry_date`. Applied after, the comparison sees the raw document date against an
+already-moved entry, calls it a drift, and voids-and-reposts the same entry every night — a growing
+pile of voided entries that ties out perfectly and reads as chaos in the audit trail. That ordering
+has its own test, and the mutation fails 2 of 8. The day is clamped rather than rolled, too: 31
+January posted to February lands on the 28th, never on 2 March, which would put it in a period the
+operator did not choose. `tests/Feature/Regression/PostMonthOverrideTest.php`.
 
 ---
 
