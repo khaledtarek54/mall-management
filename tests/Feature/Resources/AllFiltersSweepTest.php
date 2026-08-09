@@ -16,172 +16,46 @@
  * actually executes. Anything new is swept automatically.
  *
  * Coverage is asserted at the end so the sweep cannot quietly walk nothing.
+ *
+ * The ADMIN half lives in AdminFilterSweepShard{1..N}Test.php — it was a single
+ * 80-second case, and Pest parallelises per file, so it set the floor on the whole
+ * suite's wall time. The scaffolding is shared from Tests\Support\FilterSweep; the
+ * first test below is what stops the split from losing coverage.
  */
 
-use App\Models\Asset;
 use App\Models\TenantUser;
 use Database\Seeders\DemoSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
-use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\DateTimePicker;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
-use Filament\Resources\Pages\ListRecords;
-use Filament\Tables\Filters\SelectFilter;
-use Filament\Tables\Filters\TernaryFilter;
-use Illuminate\Support\Facades\File;
 use Livewire\Livewire;
+use Tests\Support\FilterSweep;
 
 beforeEach(function () {
     $this->seed(RolesPermissionsSeeder::class);
     ensureAllPropertiesAsset();
 });
 
-/** Every ListRecords page in a panel, discovered from disk. */
-function sweepListPages(string $panelDir, string $namespace): array
-{
-    return collect(File::allFiles(app_path($panelDir)))
-        ->filter(fn ($f) => str_starts_with($f->getFilename(), 'List') && $f->getExtension() === 'php')
-        ->map(function ($f) use ($panelDir, $namespace) {
-            $rel = str_replace([app_path($panelDir).'/', '.php'], '', $f->getPathname());
+it('sweeps every admin list page exactly once across the shards', function () {
+    // The shards are the sweep now, so THIS is what guarantees the sweep still walks
+    // everything: a page that falls out of the partition is a page nobody tests, and
+    // nothing else would notice. Cheap — no seeding, pure class discovery.
+    $all = FilterSweep::adminPages();
 
-            return $namespace.str_replace('/', '\\', $rel);
-        })
-        ->filter(fn (string $c) => class_exists($c) && is_subclass_of($c, ListRecords::class))
-        ->values()
-        ->all();
-}
-
-/**
- * A plausible value for one filter, by type.
- *
- * Returns a LIST of values to try — a SelectFilter is only really exercised by
- * running each of its options, since each option can key a different query
- * branch (this is what would have caught a bad status string).
- */
-function sweepValuesFor($filter): array
-{
-    if ($filter instanceof TernaryFilter) {
-        // Covers the true/false/blank branches, including TrashedFilter's
-        // withTrashed / onlyTrashed / default.
-        return [true, false, null];
+    $covered = [];
+    for ($shard = 1; $shard <= FilterSweep::ADMIN_SHARDS; $shard++) {
+        $covered = [...$covered, ...FilterSweep::adminPagesForShard($shard)];
     }
+    sort($covered);
 
-    if ($filter instanceof SelectFilter) {
-        $options = array_keys($filter->getOptions());
+    expect($covered)->toBe($all, 'The admin shards do not partition the admin list pages.');
+    expect($all)->toHaveCount(count(array_unique($all)), 'A page is swept twice.');
 
-        // Relationship-backed selects can legitimately have no options on an
-        // empty DB; still run the blank branch.
-        return $options === [] ? [null] : [...array_slice($options, 0, 8), null];
-    }
+    // 41 admin tables at the time of writing; a sudden drop means discovery broke.
+    expect(count($all))->toBeGreaterThanOrEqual(41);
 
-    // A custom Filter: if it has a form schema, synthesise one value per field
-    // so the query branch behind it actually runs. If it has none, it is a
-    // simple toggle.
-    $components = $filter->getSchema()?->getComponents() ?? [];
-
-    if ($components === []) {
-        return [true];
-    }
-
-    $data = [];
-    foreach ($components as $component) {
-        $name = method_exists($component, 'getName') ? $component->getName() : null;
-        if ($name === null) {
-            continue;
-        }
-
-        $data[$name] = match (true) {
-            $component instanceof DatePicker, $component instanceof DateTimePicker => now()->subYear()->toDateString(),
-            $component instanceof Toggle => true,
-            $component instanceof Select => array_key_first($component->getOptions() ?? []) ?? null,
-            $component instanceof TextInput => '1',
-            default => null,
-        };
-    }
-
-    return [$data];
-}
-
-/**
- * How many rows a table returned. getTableRecords() hands back a paginator
- * normally, but a plain Collection when the table has pagination turned off
- * (several relation managers do) — and Collection has no total().
- */
-function sweepCount($records): int
-{
-    return method_exists($records, 'total') ? (int) $records->total() : $records->count();
-}
-
-/** Apply every filter on one list page, one value at a time, and force the query to run. */
-function sweepPage(string $pageClass, array &$report): void
-{
-    $probe = Livewire::test($pageClass);
-    $filters = $probe->instance()->getTable()->getFilters();
-
-    foreach ($filters as $name => $filter) {
-        foreach (sweepValuesFor($filter) as $value) {
-            $label = $pageClass.'::'.$name.' = '.json_encode($value);
-
-            try {
-                // A fresh component per value: filters persist in the session
-                // now, so reusing one would stack them and stop testing the
-                // filter in isolation.
-                $component = Livewire::test($pageClass)->filterTable($name, $value);
-
-                // filterTable only sets state. Reading the records is what
-                // actually compiles and executes the SQL — and, on demo data,
-                // renders each row through every column formatter, so a
-                // null-unsafe formatStateUsing surfaces here too.
-                $records = $component->instance()->getTableRecords();
-
-                $component->assertOk();
-
-                if (sweepCount($records) > 0) {
-                    // Track that the sweep is running against POPULATED tables.
-                    // Without this the whole thing could pass by filtering
-                    // empty sets and prove nothing about real data.
-                    $report['matched']++;
-                }
-            } catch (Throwable $e) {
-                $report['failures'][] = $label.' → '.$e::class.': '.$e->getMessage();
-
-                continue;
-            }
-
-            $report['passed']++;
-        }
-    }
-}
-
-it('runs every filter on every admin table without error, over real demo data', function () {
-    // Seeded, not empty: an empty table would still catch bad SQL, but not a
-    // formatter that trips over a real row, and every filter would trivially
-    // "pass" by returning nothing. ~3.5s for 33 leases / 289 invoices and the
-    // full operational spread behind them.
-    $this->seed(DemoSeeder::class);
-
-    $asset = Asset::query()->where('code', '!=', Asset::ALL_PROPERTIES_CODE)->firstOrFail();
-    $this->actingAs(makeUser('super_admin', [$asset->id]));
-
-    $report = ['passed' => 0, 'matched' => 0, 'failures' => []];
-
-    asTenant($asset, function () use (&$report) {
-        foreach (sweepListPages('Filament/Admin/Resources', 'App\\Filament\\Admin\\Resources\\') as $page) {
-            sweepPage($page, $report);
-        }
-    });
-
-    expect($report['failures'])->toBe([], "Admin filter failures:\n".implode("\n", $report['failures']));
-
-    // 41 admin tables, most with several filters, each run across its branches.
-    expect($report['passed'])->toBeGreaterThan(200);
-
-    // …and a large share of those actually returned rows, so the sweep is
-    // exercising real records rather than filtering empty tables.
-    expect($report['matched'])->toBeGreaterThan(60);
+    // A shard file per shard, or the pages in the missing shards are swept by nobody.
+    expect(glob(base_path('tests/Feature/Resources/AdminFilterSweepShard*Test.php')))
+        ->toHaveCount(FilterSweep::ADMIN_SHARDS, 'FilterSweep::ADMIN_SHARDS and the shard files on disk disagree.');
 });
 
 it('runs every filter on every relation-manager table without error', function () {
@@ -191,14 +65,14 @@ it('runs every filter on every relation-manager table without error', function (
     // record's edit page and scrolling.
     $this->seed(DemoSeeder::class);
 
-    $asset = Asset::query()->where('code', '!=', Asset::ALL_PROPERTIES_CODE)->firstOrFail();
+    $asset = App\Models\Asset::query()->where('code', '!=', App\Models\Asset::ALL_PROPERTIES_CODE)->firstOrFail();
     $this->actingAs(makeUser('super_admin', [$asset->id]));
 
-    $report = ['passed' => 0, 'matched' => 0, 'failures' => []];
+    $report = FilterSweep::report();
     $managers = 0;
 
     asTenant($asset, function () use (&$report, &$managers) {
-        foreach (sweepListPages('Filament/Admin/Resources', 'App\\Filament\\Admin\\Resources\\') as $page) {
+        foreach (FilterSweep::adminPages() as $page) {
             $resource = $page::getResource();
 
             // An owner record of the right model — skip resources the demo
@@ -228,7 +102,7 @@ it('runs every filter on every relation-manager table without error', function (
                 }
 
                 foreach ($filters as $name => $filter) {
-                    foreach (sweepValuesFor($filter) as $value) {
+                    foreach (FilterSweep::valuesFor($filter) as $value) {
                         try {
                             $component = Livewire::test($managerClass, [
                                 'ownerRecord' => $owner,
@@ -238,7 +112,7 @@ it('runs every filter on every relation-manager table without error', function (
                             $records = $component->instance()->getTableRecords();
                             $component->assertOk();
 
-                            if (sweepCount($records) > 0) {
+                            if (FilterSweep::countRecords($records) > 0) {
                                 $report['matched']++;
                             }
                         } catch (Throwable $e) {
@@ -270,11 +144,11 @@ it('runs every filter on every portal table without error', function () {
     $lease = makeLease(makeUnit($asset));
     $this->actingAs(makeTenantUser($lease->tenant), 'portal');
 
-    $report = ['passed' => 0, 'matched' => 0, 'failures' => []];
+    $report = FilterSweep::report();
 
     try {
-        foreach (sweepListPages('Filament/Portal/Resources', 'App\\Filament\\Portal\\Resources\\') as $page) {
-            sweepPage($page, $report);
+        foreach (FilterSweep::listPages('Filament/Portal/Resources', 'App\\Filament\\Portal\\Resources\\') as $page) {
+            FilterSweep::sweepPage($page, $report);
         }
     } finally {
         Filament::setCurrentPanel(Filament::getPanel('admin'));
