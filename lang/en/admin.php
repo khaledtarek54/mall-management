@@ -268,6 +268,8 @@ return [
             'terms' => 'Lease terms',
             'charges' => 'Charges',
             'percentage_rent' => 'Percentage rent',
+            'escalation_min' => 'min :pct',
+            'escalation_max' => 'max :pct',
             'escalation' => 'Annual escalation',
             'pct_rate' => 'Percentage rate',
             'pct_threshold' => 'Sales breakpoint',

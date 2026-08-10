@@ -268,6 +268,8 @@ return [
             'terms' => 'بنود العقد',
             'charges' => 'الرسوم',
             'percentage_rent' => 'إيجار النسبة',
+            'escalation_min' => 'بحد أدنى :pct',
+            'escalation_max' => 'بحد أقصى :pct',
             'escalation' => 'الزيادة السنوية',
             'pct_rate' => 'نسبة الإيجار',
             'pct_threshold' => 'حد المبيعات',
