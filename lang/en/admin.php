@@ -1422,6 +1422,8 @@ return [
             'units' => 'Units',
             'of_gross' => 'of :gross m² gross · :pct% lettable',
             'occupancy' => 'Occupancy',
+            'occupancy_detail' => ':let of :total m² let',
+            'occupancy' => 'Occupancy',
             'area_occupancy' => 'Economic Occupancy',
             'monthly_revenue' => 'Monthly Revenue',
             'leasable_sqm' => 'Leasable Area',

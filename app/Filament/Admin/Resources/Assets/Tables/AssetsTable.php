@@ -62,6 +62,35 @@ class AssetsTable
                             'pct' => number_format($record->leasableEfficiencyPct(), 1),
                         ])
                         : null),
+                // Economic occupancy — the headline number for a mall, and it appeared on no property
+                // screen at all. `Asset::areaOccupancyRate()` existed, was correct, and nothing
+                // called it: the same "computed but unread" shape as the lease options whose
+                // projected rent nobody read.
+                TextColumn::make('occupancy')
+                    ->label(__('admin.tables.asset.occupancy'))
+                    ->badge()
+                    // Null when there is no leasable area to measure — a property with no units is
+                    // UNCONFIGURED, not empty, and a red 0% would say the opposite. The model keeps
+                    // its 0.0 contract; the distinction lives here, where it is displayed.
+                    ->state(fn (\App\Models\Asset $record): ?float => $record->totalUnitAreaSqm() > 0
+                        ? $record->areaOccupancyRate()
+                        : null)
+                    ->formatStateUsing(fn (?float $state): string => $state === null
+                        ? '—'
+                        : number_format($state, 1).'%')
+                    ->color(fn (?float $state): string => match (true) {
+                        $state === null => 'gray',
+                        $state >= 90 => 'success',
+                        $state >= 75 => 'warning',
+                        default => 'danger',
+                    })
+                    // What the percentage is made of, so the number is never a dead end.
+                    ->description(fn (\App\Models\Asset $record): ?string => $record->totalUnitAreaSqm() > 0
+                        ? __('admin.tables.asset.occupancy_detail', [
+                            'let' => number_format($record->occupiedAreaSqm(), 0),
+                            'total' => number_format($record->totalUnitAreaSqm(), 0),
+                        ])
+                        : null),
                 IconColumn::make('is_active')
                     ->label(__('admin.tables.common.status'))
                     ->boolean(),

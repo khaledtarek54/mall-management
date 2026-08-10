@@ -44,3 +44,34 @@ it('is not moved by parking, because a bay is not lettable area', function () {
 
     expect($asset->fresh()->leasableEfficiencyPct())->toBe($before)->toBe(70.0);
 });
+
+it('reports economic occupancy from the same definition the dashboard uses', function () {
+    $asset = makeAsset(['total_area_sqm' => 1000, 'leasable_area_sqm' => 800]);
+    makeUnit($asset, ['code' => 'O-1', 'area_sqm' => 300, 'status' => 'occupied']);
+    makeUnit($asset, ['code' => 'O-2', 'area_sqm' => 100, 'status' => 'vacant']);
+
+    expect($asset->fresh()->areaOccupancyRate())->toBe(75.0)
+        ->and($asset->fresh()->occupiedAreaSqm())->toBe(300.0);
+
+    // The dashboard computes the same figure over a WIDER scope through the same definition — the
+    // formula was written out by hand in both places before, so the day "occupied" changed they
+    // would have disagreed about the mall's headline number with nothing failing.
+    expect(\App\Support\Occupancy::forUnits(\App\Models\Unit::where('asset_id', $asset->id))['pct'])
+        ->toBe(75.0);
+});
+
+it('keeps the 0.0 contract for a property with no units', function () {
+    // `AssetOccupancyTest` pins this and callers rely on a float. The "unconfigured, not empty"
+    // distinction is made on the SCREEN — the properties table shows "—" rather than a red 0%.
+    expect(makeAsset()->areaOccupancyRate())->toBe(0.0)
+        ->and(\App\Support\Occupancy::forUnits(\App\Models\Unit::where('asset_id', 0))['pct'])->toBeNull();
+});
+
+it('is not moved by parking, which is not a unit', function () {
+    $asset = makeAsset();
+    makeUnit($asset, ['code' => 'O-1', 'area_sqm' => 100, 'status' => 'occupied']);
+
+    \App\Models\RentableItem::create(['asset_id' => $asset->id, 'code' => 'P-9', 'monthly_rate' => 900]);
+
+    expect($asset->fresh()->areaOccupancyRate())->toBe(100.0);
+});

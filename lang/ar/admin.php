@@ -1414,6 +1414,8 @@ return [
             'units' => 'الوحدات',
             'of_gross' => 'من :gross م² إجمالي · :pct% قابل للتأجير',
             'occupancy' => 'الإشغال',
+            'occupancy_detail' => ':let من :total م² مؤجَّرة',
+            'occupancy' => 'الإشغال',
             'area_occupancy' => 'الإشغال الاقتصادي',
             'monthly_revenue' => 'الإيراد الشهري',
             'leasable_sqm' => 'المساحة المؤجَّرة',

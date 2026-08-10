@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Occupancy;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -268,19 +269,26 @@ class Asset extends Model implements HasMedia
      * you don't have), so incomplete area data shows up as economic occupancy drifting from the
      * unit-count figure — that gap is a real data-quality signal, not a bug.
      */
+    /**
+     * Economic occupancy: let area as a percentage of leasable area.
+     *
+     * Returns 0.0 — not null — when there is no area to divide by. That is a deliberate contract
+     * pinned by `AssetOccupancyTest`, and callers rely on a float. The "no units recorded is
+     * UNKNOWN, not empty" distinction is real, but it belongs to the SCREEN: the properties table
+     * shows "—" when there is nothing to measure, rather than a red 0% that reads as a mall nobody
+     * has let.
+     *
+     * The definition lives in {@see \App\Support\Occupancy}, shared with the dashboard so the two
+     * cannot drift apart.
+     */
     public function areaOccupancyRate(): float
     {
-        $total = $this->totalUnitAreaSqm();
-        if ($total <= 0) {
-            return 0;
-        }
-
-        return round(($this->occupiedAreaSqm() / $total) * 100, 1);
+        return Occupancy::forUnits(Unit::where('asset_id', $this->id))['pct'] ?? 0.0;
     }
 
     public function occupiedAreaSqm(): float
     {
-        return (float) $this->units()->where('status', 'occupied')->sum('area_sqm');
+        return Occupancy::forUnits(Unit::where('asset_id', $this->id))['occupied_sqm'];
     }
 
     public function totalUnitAreaSqm(): float

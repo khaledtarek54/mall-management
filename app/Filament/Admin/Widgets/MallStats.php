@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Widgets;
 
+use App\Support\Occupancy;
 use App\Filament\Admin\Concerns\RoleScopedWidget;
 use App\Models\Lease;
 use App\Models\Payment;
@@ -49,12 +50,18 @@ class MallStats extends StatsOverviewWidget
         $occupancy = $totalUnits > 0 ? round(($occupiedUnits / $totalUnits) * 100, 1) : 0;
 
         // Economic (GLA) occupancy — the same units weighted by leasable area, not by headcount.
-        // For a mall this is the figure that tracks revenue: leasing the one 2,000 m² anchor
-        // moves it far more than leasing five kiosks. Summed straight from the scoped units so
-        // it stays consistent with the unit-count figure above (same scope, different weighting).
-        $occupiedAreaSqm = (float) $unitQuery()->where('status', 'occupied')->sum('area_sqm');
-        $totalAreaSqm = (float) $unitQuery()->sum('area_sqm');
-        $areaOccupancy = $totalAreaSqm > 0 ? round(($occupiedAreaSqm / $totalAreaSqm) * 100, 1) : 0;
+        // For a mall this is the figure that tracks revenue: leasing the one 2,000 m² anchor moves
+        // it far more than leasing five kiosks.
+        //
+        // The DEFINITION comes from `App\Support\Occupancy`, shared with `Asset::areaOccupancyRate()`;
+        // only the SCOPE differs (this widget spans the operator's whole visible portfolio, the
+        // model spans one property). It was written out by hand in both places, which meant the day
+        // "occupied" changed, the dashboard and the property list would disagree about the mall's
+        // headline number with nothing failing.
+        $area = Occupancy::forUnits($unitQuery());
+        $occupiedAreaSqm = $area['occupied_sqm'];
+        $totalAreaSqm = $area['total_sqm'];
+        $areaOccupancy = $area['pct'] ?? 0;
 
         $monthlyRecurring = (float) $leaseQuery()->where('status', 'active')
             ->selectRaw('SUM(base_rent_monthly + service_charge_monthly) as total')
