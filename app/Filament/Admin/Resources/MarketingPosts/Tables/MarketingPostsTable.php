@@ -14,6 +14,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\SpatieMediaLibraryImageColumn;
@@ -144,6 +145,17 @@ class MarketingPostsTable
                 TrashedFilter::make(),
             ])
             ->recordActions([
+                // Read the card before deciding on it. This matters more here than on most
+                // tables: approving a retailer's submission means reading the full body, the
+                // small print and the artwork, and the only other way in was the EDIT form —
+                // which is a write surface, offered to a reviewer who may hold `approve` without
+                // `edit`. Filament renders it from this resource's own form via `disabledSchema()`
+                // with no submit action, so it cannot drift from the fields that exist and cannot
+                // be turned into an edit by a crafted call.
+                ViewAction::make()
+                    ->visible(fn (MarketingPost $r) => MarketingPostResource::canView($r))
+                    ->authorize(fn (MarketingPost $r) => MarketingPostResource::canView($r)),
+
                 EditAction::make()
                     ->visible(fn (MarketingPost $r) => MarketingPostResource::canEdit($r)),
 
