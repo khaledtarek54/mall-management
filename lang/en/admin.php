@@ -4424,4 +4424,16 @@ return [
         'empty_description' => 'Invoices raised against any of this tenant’s leases appear here, in the properties you can see.',
     ],
 
+
+    'lease_deposits' => [
+        'empty_heading' => 'No deposit movements recorded',
+        'empty_description' => 'Receipts, refunds and forfeits against this lease appear here. The lease terms say what deposit was agreed; this says what actually moved.',
+    ],
+
+    'lease_sales_declarations' => [
+        'estimated' => 'Estimated — not declared by the tenant',
+        'empty_heading' => 'Nothing declared yet',
+        'empty_description' => 'Monthly sales declarations and the percentage rent each produced appear here, including any the estimation sweep filled in when a deadline was missed.',
+    ],
+
 ];

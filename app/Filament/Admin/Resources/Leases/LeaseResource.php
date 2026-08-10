@@ -87,6 +87,13 @@ class LeaseResource extends Resource
             \App\Filament\Admin\RelationManagers\LeaseOptionsRelationManager::class,
             \App\Filament\Admin\RelationManagers\PercentageRentTiersRelationManager::class,
             \App\Filament\Admin\RelationManagers\LeaseInvoicesRelationManager::class,
+            // "Have they paid the deposit, and how much is still ours?" — asked at signing,
+            // at renewal and again at move-out. The lease carried what was AGREED and a
+            // yes/no; neither says what was received, refunded or forfeited.
+            \App\Filament\Admin\RelationManagers\LeaseDepositsRelationManager::class,
+            // Only on a percentage-rent lease — see the class docblock. On a fixed-rent one
+            // a permanently empty table would read as "they have not declared".
+            \App\Filament\Admin\RelationManagers\LeaseSalesDeclarationsRelationManager::class,
             \App\Filament\Admin\RelationManagers\LeaseCamTermsRelationManager::class,
             \App\Filament\Admin\RelationManagers\ActivitiesRelationManager::class,
         ];
