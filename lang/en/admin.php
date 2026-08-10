@@ -2,6 +2,8 @@
 
 return [
     'errors' => [
+        'account_mapping_duplicate' => '“:role” is already mapped in this scope. Edit the existing row instead — a second one would be ignored, because the ledger reads the first and would keep posting to the old account.',
+        'account_mapping_global_undeletable' => '“:role” is a global default and cannot be removed — nothing falls back behind it, so every posting that asks for it would start failing. Re-point it at another account instead.',
         'charge_schedule_overlap' => 'This :type row (:start → :end) overlaps the existing row :other_start → :other_end. Two rows covering the same month would bill the charge twice — close the earlier row the day before the later one starts.',
         'item_allocation_payment_not_received' => 'That payment is not received money, so it cannot settle any line.',
         'dispute_reason_required' => 'A dispute needs a stated reason — it suppresses a late fee, so it has to say why.',
@@ -1083,6 +1085,7 @@ return [
     ],
 
     'navigation' => [
+        'account_mappings' => 'Posting Map',
         'ledger_accounts' => 'Chart of Accounts',
         'journal_entries' => 'Journal Entries',
         'trial_balance' => 'Trial Balance',
@@ -1115,6 +1118,10 @@ return [
     ],
 
     'resources' => [
+        'account_mapping' => [
+            'singular' => 'Posting map row',
+            'plural' => 'Posting map',
+        ],
         'floor' => [
             'singular' => 'Floor',
             'plural' => 'Floors',
@@ -1449,7 +1456,6 @@ return [
             'of_gross' => 'of :gross m² gross · :pct% lettable',
             'occupancy' => 'Occupancy',
             'occupancy_detail' => ':let of :total m² let',
-            'occupancy' => 'Occupancy',
             'area_occupancy' => 'Economic Occupancy',
             'monthly_revenue' => 'Monthly Revenue',
             'leasable_sqm' => 'Leasable Area',
@@ -1594,6 +1600,11 @@ return [
     ],
 
     'filters' => [
+        'posting_role_group' => 'Statement class',
+        'posting_map_scope' => 'Scope',
+        'posting_map_scope_all' => 'Global defaults and overrides',
+        'posting_map_scope_override' => 'Property overrides only',
+        'posting_map_scope_global' => 'Global defaults only',
         'status' => 'Status',
         'document_attention' => 'Document lapsed / lapsing',
         'notice_due' => 'Renewal notice due',
@@ -2114,6 +2125,9 @@ return [
     ],
 
     'fields' => [
+        'ledger_account' => 'Account',
+        'posting_role' => 'Posting role',
+        'updated_at' => 'Last changed',
         'cam_cap_scope' => 'Cap applies to',
         'cam_cap_carry_forward' => 'Cap is cumulative',
         'cam_stated_share_pct' => 'Stated share (optional)',
@@ -2383,6 +2397,12 @@ return [
     ],
 
     'helpers' => [
+        'posting_map_section' => 'Which chart account this role posts to. Leave the property blank for the global default every mall falls back to, or pick one to override it for that mall only.',
+        'posting_role' => 'The role the code posts to by name. Pick it from the list — a role that is not on this list is one the ledger never asks for.',
+        'posting_role_expects' => 'Normally points at a :group account.',
+        'posting_map_account' => 'Only postable, active accounts are listed — the ledger refuses to post to a summary account.',
+        'posting_map_property' => 'Blank = the global default. Pick a property only to override that default for that property.',
+        'posting_map_type_mismatch' => 'This account is not the kind this role usually posts to — check it is what you meant.',
         'cam_cap_scope' => 'Most clauses cap only controllable costs and carve out rates, insurance and utilities. Capping the total is more protective than most contracts require.',
         'cam_cap_carry_forward' => 'A year under the ceiling banks the difference, and a later year can draw on it.',
         'cam_stated_share_pct' => 'Use only when the lease names the percentage outright. Leave blank to derive it from area.',
@@ -2461,6 +2481,7 @@ return [
     ],
 
     'sections' => [
+        'posting_map' => 'Posting map row',
         'account_details' => 'Account details',
         'journal_entry_details' => 'Entry details',
         'journal_lines' => 'Lines (debit / credit)',
@@ -2535,6 +2556,7 @@ return [
     ],
 
     'permission_modules' => [
+        'account_mappings' => 'Posting map',
         'ledger_accounts' => 'Chart of Accounts',
         'journal_entries' => 'Journal Entries',
         'accounting_periods' => 'Accounting Periods',
@@ -3007,6 +3029,7 @@ return [
         'subject' => 'Subject',
         'system' => 'System',
         'subjects' => [
+            'account_mapping' => 'Posting map row',
             'floor' => 'Floor',
             'rentable_item' => 'Rentable item',
             'marketing_post' => 'Marketing post',
@@ -4201,6 +4224,83 @@ return [
             'empty' => 'No work orders in this period.',
             'footer' => 'Facility work log (preventive + corrective) — computer-generated.',
         ],
+    ],
+
+    /*
+     * The posting map (App\Support\PostingRoles) — the semantic roles the code posts to, named the
+     * way an accountant names them rather than the way the code spells them.
+     */
+    'posting_role_groups' => [
+        'asset' => 'Assets',
+        'liability' => 'Liabilities',
+        'equity' => 'Equity',
+        'revenue' => 'Revenue',
+        'expense' => 'Expenses',
+    ],
+
+    'posting_roles' => [
+        // Assets
+        'cash' => 'Cash',
+        'bank' => 'Bank',
+        'accounts_receivable' => 'Accounts receivable',
+        'employee_advances' => 'Employee advances',
+        'custody' => 'Custody',
+        'vat_recoverable' => 'VAT recoverable',
+        'deferred_rent' => 'Deferred (straight-line) rent',
+        'furniture_equipment' => 'Furniture & equipment',
+        'accumulated_depreciation' => 'Accumulated depreciation',
+        'inventory' => 'Inventory',
+
+        // Liabilities
+        'accounts_payable' => 'Accounts payable',
+        'deposits_held' => 'Security deposits held',
+        'vat_payable' => 'VAT payable',
+        'accrued_expenses' => 'Accrued expenses',
+        'salary_tax_payable' => 'Salary tax payable',
+        'withholding_tax_payable' => 'Withholding tax payable',
+        'social_insurance_payable' => 'Social insurance payable',
+        'employee_deductions_payable' => 'Employee deductions payable',
+        'unearned_revenue' => 'Unearned revenue',
+        'due_to_owner' => 'Due to owner',
+        'inventory_grni' => 'Goods received not invoiced (GRNI)',
+
+        // Equity
+        'capital' => 'Capital',
+        'retained_earnings' => 'Retained earnings',
+        'owner_distributions' => 'Owner distributions',
+
+        // Revenue
+        'rent_revenue' => 'Base rent revenue',
+        'service_charge_revenue' => 'Service charge revenue',
+        'cam_recovery_revenue' => 'CAM recovery revenue',
+        'cam_admin_fee_revenue' => 'CAM administration fee',
+        'utility_revenue' => 'Utility recharge revenue',
+        'parking_revenue' => 'Parking & rentable items revenue',
+        'percentage_rent_revenue' => 'Percentage rent revenue',
+        'marketing_revenue' => 'Marketing levy revenue',
+        'late_fee_income' => 'Late fee income',
+        'misc_income' => 'Miscellaneous income',
+        'sales_returns' => 'Credit notes / sales returns',
+        'gain_on_disposal' => 'Gain on asset disposal',
+
+        // Expenses
+        'salaries_expense' => 'Salaries',
+        'social_insurance_expense' => 'Social insurance (employer share)',
+        'maintenance_expense' => 'Maintenance',
+        'utilities_expense' => 'Utilities',
+        'cleaning_security_expense' => 'Cleaning & security',
+        'marketing_expense' => 'Marketing',
+        'admin_expense' => 'Administrative',
+        'depreciation_expense' => 'Depreciation',
+        'bad_debt_expense' => 'Bad debt',
+        'inventory_adjustment' => 'Inventory adjustment',
+        'loss_on_disposal' => 'Loss on asset disposal',
+        'bank_charges' => 'Bank charges',
+    ],
+
+    'posting_map' => [
+        'global' => 'All properties (default)',
+        'unknown_role' => 'Unrecognised role',
     ],
 
 ];

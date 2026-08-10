@@ -1,6 +1,13 @@
 {
     "resources": [
         {
+            "class": "AccountMappingResource",
+            "slug": "account-mappings",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
             "class": "AccountingPeriodResource",
             "slug": "accounting-periods",
             "hasCreate": false,
