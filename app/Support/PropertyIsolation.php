@@ -84,6 +84,7 @@ use App\Models\VendorBillPayment;
 use App\Models\VendorContact;
 use App\Models\VendorContract;
 use App\Models\VendorContractAmendment;
+use App\Models\ChargeCode;
 use App\Models\TenantDocument;
 use App\Models\VendorDocument;
 use App\Models\Violation;
@@ -123,6 +124,7 @@ class PropertyIsolation
         FiscalYear::class,          // one operator fiscal calendar
         AccountingPeriod::class,    // one operator period calendar
         AccountMapping::class,      // global posting-rule defaults + optional per-property override rows
+        ChargeCode::class,          // portfolio billing vocabulary; the per-property override lives on the mapping it names
         ApprovalRule::class,        // operator-wide approval policy (FR-CM-11) — authority is a company rule, not a per-mall one
         SystemSetting::class,       // system state / config
         Note::class,                // polymorphic note attached to various records

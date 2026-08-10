@@ -43,6 +43,13 @@
             "hasView": false
         },
         {
+            "class": "ChargeCodeResource",
+            "slug": "charge-codes",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
             "class": "CreditNoteResource",
             "slug": "credit-notes",
             "hasCreate": true,

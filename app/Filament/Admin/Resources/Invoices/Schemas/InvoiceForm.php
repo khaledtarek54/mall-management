@@ -201,7 +201,13 @@ class InvoiceForm
                         ->schema([
                             Select::make('type')
                                 ->label(__('admin.fields.type'))
-                                ->options(fn () => \App\Enums\InvoiceItemType::options())
+                                // The CATALOGUE, not the enum — that is the point of
+                                // `charge_codes`: a code an accountant added is billable the
+                                // moment they save it, with no deploy. Falls back to the enum
+                                // if the table has not been seeded, so an un-migrated
+                                // environment still renders a usable form.
+                                ->options(fn () => \App\Models\ChargeCode::options()
+                                    ?: \App\Enums\InvoiceItemType::options())
                                 ->required()
                                 ->default('base_rent')
                                 ->native(false)

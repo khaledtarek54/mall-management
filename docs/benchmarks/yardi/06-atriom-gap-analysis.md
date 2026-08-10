@@ -213,7 +213,7 @@ allocations and the invoice total can ever disagree, the design is wrong.
 | Closed-period refusal | ✅ | ✅ `PostingDateGuards`, per-source, conformance-gated | ✅ KEEP | ⚪ |
 | **Post month ≠ document date** | ✅ | ✅ `posting_month_overrides` — one override for all 24 GL sources; the entry moves, the document keeps its date | ✅ **CLOSED (MF-05)** | ⚪ |
 | Multiple books | ✅ | ❌ single book | ⏭️ **DECLINE** (XX-02) | ⚪ |
-| Charge code → GL account as data | ✅ | 🟡 `AccountMapping` (key → account, per-property override) exists, but the item-type → key map is hard-coded | ➕ EXTEND — join the two | 🟠 |
+| Charge code → GL account as data | ✅ | ✅ **CLOSED 2026-08-10.** `charge_codes` is the catalogue an accountant maintains (code, bilingual label, posting role, active, order) with its own screen; the journalizer resolves the role from it, so adding "key money" is a row rather than a deploy. The role resolves through `account_mappings`, so a new code inherits the per-property override for free. **Behaviour stays in code:** the codes the engine has logic for (`cam_recovery`/`percentage_rent` in the anti-double-bill probe, `late_fee`/`nsf_fee` in the settlement order) remain `InvoiceItemType` constants, and the conformance gate asserts the catalogue covers every one — so an operator cannot delete a code the engine names | ✅ **KEEP** | ⚪ |
 | **Straight-line rent / deferred rent** | ✅ | ✅ `StraightLineRentService` (EAS 49 / IFRS 16), settings-gated and shipped OFF; invoices are byte-identical either way | ✅ **CLOSED (RA-01, RA-02)** | ⚪ |
 | Bad-debt expense | ✅ | ✅ `bad_debt_expense` role, posted by `InvoiceWriteOffJournalizer` | ✅ **KEEP** | ⚪ |
 | VAT | region packs | ✅ settings-driven, origination-only, literal-banned by a gate | ✅ KEEP | ⚪ |

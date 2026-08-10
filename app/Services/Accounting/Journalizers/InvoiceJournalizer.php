@@ -2,6 +2,7 @@
 
 namespace App\Services\Accounting\Journalizers;
 
+use App\Models\ChargeCode;
 use App\Models\Invoice;
 use App\Services\Accounting\AccountResolver;
 use Illuminate\Database\Eloquent\Model;
@@ -83,8 +84,18 @@ class InvoiceJournalizer implements Journalizer
 
         $revenueByRole = [];
         $vat = 0.0;
+        /** @var \App\Models\InvoiceItem $item */
         foreach ($invoice->items as $item) {
-            $role = self::REVENUE_ROLE[$item->type] ?? 'misc_income';
+            // The catalogue first (`charge_codes`, which an accountant maintains), then the
+            // hard-coded map as a floor, then misc_income. The middle step is not redundant: a
+            // deployment whose charge-code table has not been seeded yet — or a test that seeds
+            // neither — must still post revenue to the right accounts rather than dump the lot into
+            // miscellaneous income. `ChargeCodeGlMappingConformanceTest` asserts the two agree, so
+            // the fallback is a safety net and never a second opinion.
+            $code = (string) $item->type;
+            $role = ChargeCode::roleFor($code)
+                ?? self::REVENUE_ROLE[$code]
+                ?? 'misc_income';
             $revenueByRole[$role] = ($revenueByRole[$role] ?? 0) + (float) $item->amount;
             $vat += (float) $item->vat_amount;
         }

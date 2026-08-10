@@ -218,9 +218,9 @@ build if a model ships unclassified, so this list is complete by construction.
 
 `Announcement` · `Area` · `AssetOwner` · `CamAllocation` · `CamExpensePool` · `Charge` · `CreditNoteApplication` · `CreditNoteItem` · `CreditNote` · `CustodyTransaction` · `Custody` · `Department` · `DepositApplication` · `DepositTransaction` · `DepreciationEntry` · `Disbursement` · `EmployeeAdvanceRepayment` · `EmployeeAdvance` · `Employee` · `Equipment` · `Expense` · `FixedAssetDisposal` · `FixedAsset` · `Floor` · `InvoiceItem` · `InvoiceWriteOff` · `Invoice` · `JournalEntry` · `JournalLine` · `LeaseCamTerm` · `LeaseEvent` · `LeaseOption` · `LeasePercentageRentTier` · `Lease` · `LowStockAlert` · `MaintenancePenalty` · `MaintenancePlan` · `MaintenanceWorkOrderItem` · `MaintenanceWorkOrderPart` · `MaintenanceWorkOrder` · `MarketingBudget` · `MarketingPost` · `MarketingSpend` · `MeterReading` · `OwnerRequestReply` · `OwnerRequest` · `OwnerStatementRun` · `OwnerStatement` · `Payment` · `PayrollLine` · `Payroll` · `PostDatedCheque` · `PurchaseRequestLine` · `PurchaseRequest` · `RentableItem` · `SlaPolicy` · `StockMovement` · `StraightLineRentAdjustment` · `TenantCreditApplication` · `TenantRequestComment` · `TenantRequest` · `TenantSalesDeclaration` · `Unit` · `UtilityMeter` · `VendorBillPayment` · `VendorBill` · `VendorContractAmendment` · `VendorContract` · `Violation` · `Warehouse`
 
-**Shared (16)** — portfolio-wide by design:
+**Shared (17)** — portfolio-wide by design:
 
-`AccountMapping` · `AccountingPeriod` · `ApprovalRule` · `DeviceToken` · `FiscalYear` · `InventoryItem` · `LedgerAccount` · `Note` · `SystemSetting` · `TenantDocument` · `TenantUser` · `Tenant` · `User` · `VendorContact` · `VendorDocument` · `Vendor`
+`AccountMapping` · `AccountingPeriod` · `ApprovalRule` · `ChargeCode` · `DeviceToken` · `FiscalYear` · `InventoryItem` · `LedgerAccount` · `Note` · `SystemSetting` · `TenantDocument` · `TenantUser` · `Tenant` · `User` · `VendorContact` · `VendorDocument` · `Vendor`
 
 **Self (1)** — the property record itself:
 

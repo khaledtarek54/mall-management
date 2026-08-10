@@ -159,6 +159,12 @@ class RolesPermissionsSeeder extends Seeder
             'ledger_accounts.edit' => 'Edit ledger accounts',
             'ledger_accounts.delete' => 'Delete ledger accounts',
         ],
+        'charge_codes' => [
+            'charge_codes.view' => 'View the charge-code catalogue',
+            'charge_codes.create' => 'Add a charge code',
+            'charge_codes.edit' => 'Edit a charge code’s label or posting account',
+            'charge_codes.delete' => 'Remove an operator-added charge code',
+        ],
         'account_mappings' => [
             'account_mappings.view' => 'View the posting map (which account each role posts to)',
             'account_mappings.create' => 'Add a posting-map row or a per-property override',
@@ -627,6 +633,7 @@ class RolesPermissionsSeeder extends Seeder
             'ledger_accounts.view', 'ledger_accounts.create', 'ledger_accounts.edit',
             // The posting map is the accountant's own configuration — it is how a new chart of
             // accounts gets wired up without a developer.
+            'charge_codes.view', 'charge_codes.create', 'charge_codes.edit', 'charge_codes.delete',
             'account_mappings.view', 'account_mappings.create', 'account_mappings.edit',
             'account_mappings.delete',
             'journal_entries.view', 'journal_entries.create', 'journal_entries.edit',

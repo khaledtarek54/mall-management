@@ -1,9 +1,11 @@
 <?php
 
 use App\Enums\InvoiceItemType;
+use App\Models\ChargeCode;
 use App\Services\Accounting\Journalizers\InvoiceJournalizer;
 use App\Support\PostingRoles;
 use Database\Seeders\AccountMappingSeeder;
+use Database\Seeders\ChargeCodeSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 
 /**
@@ -64,4 +66,49 @@ it('resolves every mapped role to a real postable account', function () {
         expect($account->is_postable)->toBeTrue("Role '{$role}' resolves to a summary account");
         expect($account->is_active)->toBeTrue("Role '{$role}' resolves to an inactive account");
     }
+});
+
+it('gives every charge code in the catalogue the same account the hard-coded map gave it', function () {
+    // THE requirement of this refactor. `charge_codes` replaced a private const map; if a single
+    // code books somewhere new then revenue moved accounts on the day of a change that was supposed
+    // to move nothing. Asserted code-for-code rather than by count.
+    $this->seed(ChargeCodeSeeder::class);
+
+    $catalogue = ChargeCode::query()->pluck('posting_role', 'code')->all();
+
+    foreach (InvoiceJournalizer::REVENUE_ROLE as $code => $role) {
+        // `toHaveKey($key, $value)` takes an expected VALUE as its second argument, not a message —
+        // so the presence check and the value check are separate, with the message on the one that
+        // can actually carry it.
+        expect(array_key_exists($code, $catalogue))->toBeTrue("Charge code '{$code}' is missing from the catalogue");
+        expect($catalogue[$code])->toBe($role,
+            "Charge code '{$code}' books to '".($catalogue[$code] ?? 'null')."' in the catalogue but '{$role}' in the journalizer map");
+    }
+});
+
+it('keeps a row for every code the billing engine has logic for', function () {
+    // The enum survives as named references to the codes that carry BEHAVIOUR — cam_recovery and
+    // percentage_rent are excluded from the monthly anti-double-bill probe, late_fee and nsf_fee
+    // settle last. An operator deleting one of those rows would break that logic quietly, so the
+    // catalogue must always cover the enum.
+    $this->seed(ChargeCodeSeeder::class);
+
+    $missing = array_diff(InvoiceItemType::values(), ChargeCode::query()->pluck('code')->all());
+
+    expect($missing)->toBe([], 'Charge codes the engine references but the catalogue lacks: '.implode(', ', $missing));
+});
+
+it('names only posting roles the registry knows, in the catalogue too', function () {
+    // Same trap as the map: a typo'd role in a row an accountant typed throws at POSTING time.
+    $this->seed(ChargeCodeSeeder::class);
+
+    $unknown = ChargeCode::query()
+        ->whereNotNull('posting_role')
+        ->pluck('posting_role')
+        ->unique()
+        ->reject(fn (string $role) => PostingRoles::group($role) !== null)
+        ->values()
+        ->all();
+
+    expect($unknown)->toBe([], 'Catalogue roles not in App\Support\PostingRoles: '.implode(', ', $unknown));
 });

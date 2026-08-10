@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Filament\Admin\Resources\AccountingPeriods\AccountingPeriodResource;
 use App\Filament\Admin\Resources\AccountMappings\AccountMappingResource;
+use App\Filament\Admin\Resources\ChargeCodes\ChargeCodeResource;
 use App\Filament\Admin\Resources\Announcements\AnnouncementResource;
 use App\Filament\Admin\Resources\Areas\AreaResource;
 use App\Filament\Admin\Resources\Assets\AssetResource;
@@ -211,6 +212,7 @@ class SearchPolicy
         MarketingBudgetResource::class => 'Identified by property + year. Its only key is `period_year`, an integer, so every budget for 2026 is one indistinguishable match.',
         SlaPolicyResource::class => 'Operator configuration reached from Settings. Its only key is a priority enum, so searching "high" would return SLA policies alongside real records.',
         RoleResource::class => 'RBAC configuration reached from Settings. Role names are typed by administrators into a permission matrix, never searched for as records.',
+        ChargeCodeResource::class => 'The billing vocabulary, reached from the General Ledger group. A dozen rows an accountant maintains — found by scrolling, not by searching, and its codes are already searchable where they are billed.',
         AccountMappingResource::class => 'The posting map, reached from the General Ledger group. A row has no identifier of its own — it is a role picked from a fixed list against an account, and both are already searchable where they live.',
 
         // ---- Portal ----

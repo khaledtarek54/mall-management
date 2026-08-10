@@ -20,6 +20,7 @@ class AccountingSeeder extends Seeder
         $this->call([
             ChartOfAccountsSeeder::class,
             AccountMappingSeeder::class,
+            ChargeCodeSeeder::class,
         ]);
 
         $calendar = app(FiscalCalendar::class);

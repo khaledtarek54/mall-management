@@ -255,6 +255,7 @@ class DeletionPolicy
 
         // configuration / setup
         \App\Models\AccountMapping::class => 'configuration: which account a source posts to',
+        \App\Models\ChargeCode::class => 'configuration: the billing vocabulary. A code the engine references by name is refused at the screen; an operator-added one that was never billed is ordinary cleanup',
         \App\Models\ApprovalRule::class => 'configuration: approval bands',
         \App\Models\SlaPolicy::class => 'configuration: SLA targets',
         \App\Models\SystemSetting::class => 'configuration',

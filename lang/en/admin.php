@@ -1091,6 +1091,7 @@ return [
     ],
 
     'navigation' => [
+        'charge_codes' => 'Charge Codes',
         'account_mappings' => 'Posting Map',
         'ledger_accounts' => 'Chart of Accounts',
         'journal_entries' => 'Journal Entries',
@@ -1124,6 +1125,10 @@ return [
     ],
 
     'resources' => [
+        'charge_code' => [
+            'singular' => 'Charge code',
+            'plural' => 'Charge codes',
+        ],
         'account_mapping' => [
             'singular' => 'Posting map row',
             'plural' => 'Posting map',
@@ -2136,6 +2141,10 @@ return [
     ],
 
     'fields' => [
+        'charge_code' => 'Code',
+        'name_en' => 'Name (English)',
+        'name_ar' => 'Name (Arabic)',
+        'sort_order' => 'Order',
         'escalation_amount' => 'Annual increase',
         'escalation_floor_rate' => 'Minimum increase',
         'escalation_ceiling_rate' => 'Maximum increase',
@@ -2412,6 +2421,12 @@ return [
     ],
 
     'helpers' => [
+        'charge_code_section' => 'A billable line an invoice can carry, and the account it posts to. The account is reached through the posting map, so a code inherits any per-property override already set there.',
+        'charge_code' => 'Lower-case letters, digits and underscores. Fixed once saved — this value is stored on every invoice line billed under it, so a rename would orphan the history. Change the name below instead.',
+        'charge_code_role' => 'Leave blank to post to miscellaneous income. Only right for a genuinely ad-hoc charge — anything you bill regularly deserves its own account.',
+        'charge_code_sort' => 'Position in the invoice-line picker. Lower comes first; the codes billed daily should lead.',
+        'charge_code_active' => 'Inactive codes stay on historical invoices but are no longer offered on a new line.',
+        'charge_code_system' => 'The billing engine references this code by name, so it cannot be switched off or removed — only its label and account can change.',
         'escalation_amount' => 'The flat monthly increase applied each anniversary — “rent rises by EGP 5,000 a month each year”. Used instead of the percentage, not alongside it.',
         'escalation_floor_rate' => 'Optional. The increase never falls below this, however the rate was arrived at — the “greater of CPI or 3%” half of a typical clause. Leave blank if the contract sets no minimum.',
         'escalation_ceiling_rate' => 'Optional. The increase is capped here — the “but no more than 10%” half of the clause, and a rail against a mistyped rate stepping the rent unattended. Leave blank if the contract sets no maximum.',
@@ -2500,6 +2515,7 @@ return [
     ],
 
     'sections' => [
+        'charge_code' => 'Charge code',
         'posting_map' => 'Posting map row',
         'account_details' => 'Account details',
         'journal_entry_details' => 'Entry details',
@@ -2575,6 +2591,7 @@ return [
     ],
 
     'permission_modules' => [
+        'charge_codes' => 'Charge codes',
         'account_mappings' => 'Posting map',
         'ledger_accounts' => 'Chart of Accounts',
         'journal_entries' => 'Journal Entries',
@@ -3075,6 +3092,7 @@ return [
         'subject' => 'Subject',
         'system' => 'System',
         'subjects' => [
+            'charge_code' => 'Charge code',
             'tenant_document' => 'Tenant document',
             'account_mapping' => 'Posting map row',
             'floor' => 'Floor',
@@ -4348,6 +4366,13 @@ return [
     'posting_map' => [
         'global' => 'All properties (default)',
         'unknown_role' => 'Unrecognised role',
+    ],
+
+
+    'charge_codes' => [
+        'unmapped' => 'Miscellaneous income (no role)',
+        'falls_back' => 'Falls back to miscellaneous income',
+        'system' => 'Referenced by the billing engine',
     ],
 
 ];

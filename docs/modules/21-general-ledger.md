@@ -325,6 +325,7 @@ All under the **Accounting** navigation group (`admin.groups.accounting`), gated
 
 - **`LedgerAccountResource`** — دليل الحسابات. Browse/manage the chart (tree by code),
   toggle active, mark postable. Seeded with the standard starter chart.
+- **`ChargeCodeResource`** — أكواد الرسوم, the billing vocabulary: which codes an invoice line may carry, what each is called in both languages, and the posting role it books to. Adding one used to mean editing a PHP enum **and** a private const map inside `InvoiceJournalizer`, then deploying. The `code` is immutable once saved (it is stored on every invoice line ever billed under it, so a rename orphans the history — the label is what you change), and a code the billing engine references by name can be neither deactivated nor deleted, because removing the row would not remove the behaviour. Resolution order at posting time is **catalogue → hard-coded map → `misc_income`**; the middle step is a floor for an un-seeded deployment, never a second opinion, and `ChargeCodeGlMappingConformanceTest` asserts the two agree code-for-code.
 - **`AccountMappingResource`** — خريطة الترحيل, the posting map: which account each semantic role
   posts to. Tabs by statement class; the account picker lists **postable, active accounts only**
   (the resolver refuses anything else at posting time, which would otherwise surface as a failed
