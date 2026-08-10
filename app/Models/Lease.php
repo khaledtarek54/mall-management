@@ -240,6 +240,8 @@ class Lease extends Model implements HasMedia
     /**
      * All units this lease covers (master + additional) via lease_unit.
      * leases.unit_id stays the MASTER unit (see masterUnit()).
+     *
+     * @return BelongsToMany<Unit, $this>
      */
     public function units(): BelongsToMany
     {

@@ -116,7 +116,10 @@ class LeasesTable
                     ->searchable()
                     // Surface multi-unit leases: list the additional (non-master) units.
                     ->description(function (Lease $record): ?string {
-                        $extra = $record->units->reject(fn ($u) => $u->pivot->is_master);
+                        // Pivot read through getAttribute(), matching Lease::pivotWindow() — with
+                        // `units()` now carrying its generic, `$u` is a typed Unit, and `->pivot`
+                        // is a dynamic relation attribute no static analysis can see on it.
+                        $extra = $record->units->reject(fn (Unit $u) => $u->getAttribute('pivot')?->getAttribute('is_master'));
 
                         return $extra->isNotEmpty() ? '+ '.$extra->pluck('code')->join(', ') : null;
                     }),

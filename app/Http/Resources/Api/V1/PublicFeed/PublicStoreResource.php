@@ -49,8 +49,8 @@ class PublicStoreResource extends JsonResource
             // browsed — never the retailer's presence across the operator's whole portfolio,
             // which would let anyone map a chain's footprint from a public endpoint.
             'locations' => $this->when(
-                isset($this->public_locations),
-                fn () => $this->public_locations,
+                $this->resource->public_locations !== null,
+                fn () => $this->resource->public_locations,
             ),
         ];
     }

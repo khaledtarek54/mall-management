@@ -32,7 +32,7 @@ class SaveMarketingPostAction
 
     /**
      * @param  array<string,mixed>  $data  From SaveMarketingPostRequest::payload()
-     * @param  array{hero?: ?UploadedFile, gallery?: array<int, UploadedFile>}  $files
+     * @param  array<string, mixed>  $files  Uploaded artwork straight off the request — see attachMedia().
      */
     public function create(Tenant $tenant, array $data, array $files = []): MarketingPost
     {
@@ -55,7 +55,7 @@ class SaveMarketingPostAction
 
     /**
      * @param  array<string,mixed>  $data
-     * @param  array{hero?: ?UploadedFile, gallery?: array<int, UploadedFile>}  $files
+     * @param  array<string, mixed>  $files  Uploaded artwork straight off the request — see attachMedia().
      */
     public function update(MarketingPost $post, Tenant $tenant, array $data, array $files = []): MarketingPost
     {
@@ -99,7 +99,16 @@ class SaveMarketingPostAction
     }
 
     /**
-     * @param  array{hero?: ?UploadedFile, gallery?: array<int, UploadedFile>}  $files
+     * The uploaded artwork, straight off the request.
+     *
+     * Typed `mixed` rather than `array{hero?: ?UploadedFile, …}` deliberately. The values come from
+     * `$request->file()`, which returns whatever the client sent — the precise shape was a claim
+     * about the input I could not actually guarantee, and it made the `instanceof` checks below
+     * read as dead code (PHPStan: "will always evaluate to true") when they are in fact the only
+     * thing standing between a malformed multipart body and a TypeError. Loosening the annotation
+     * to what is true restores the guard's meaning instead of baselining a warning about it.
+     *
+     * @param  array<string, mixed>  $files
      */
     private function attachMedia(MarketingPost $post, array $files): void
     {

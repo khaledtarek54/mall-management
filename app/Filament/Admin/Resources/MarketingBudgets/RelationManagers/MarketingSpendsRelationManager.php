@@ -37,6 +37,10 @@ class MarketingSpendsRelationManager extends RelationManager
 
     public function form(Schema $schema): Schema
     {
+        // getOwnerRecord() is declared as Model; naming the real type here is what lets the
+        // property reads below (accrued/spent/balance, and asset_id for the campaign picker) be
+        // checked rather than assumed. Three of them were sitting in the PHPStan baseline.
+        /** @var \App\Models\MarketingBudget $budget */
         $budget = $this->getOwnerRecord();
 
         return $schema->columns(2)->components([

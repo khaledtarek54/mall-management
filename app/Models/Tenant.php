@@ -171,6 +171,23 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
     // ============ Store directory ============
 
     /**
+     * The unit code(s) this retailer occupies in the ONE mall currently being browsed — set by the
+     * public feed/directory endpoints, read by `PublicStoreResource`. Never persisted: there is no
+     * such column, and there should not be, because the value is a function of which mall the
+     * question was asked about.
+     *
+     * **A real declared property, not a magic attribute.** Assigning an undeclared name on an
+     * Eloquent model routes through `__set` → `setAttribute()` and lands in `$attributes`, where it
+     * would be handed to the next `save()` as a column that does not exist. It worked only because
+     * nothing on these read paths saves. A declared property bypasses `__set` entirely, so the
+     * hazard is gone rather than merely unexercised — and `isset()` behaves identically (null →
+     * false → the resource omits the key), which is what the directory tests pin.
+     *
+     * @var array<int, string>|null
+     */
+    public ?array $public_locations = null;
+
+    /**
      * A directory change invalidates the shopper caches that quote this retailer.
      *
      * Narrowed to the fields a shopper can actually see: a tenant row is saved constantly by
@@ -213,7 +230,11 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
         return $this->getFirstMedia(self::LOGO_COLLECTION)?->getFullUrl();
     }
 
-    /** Shopper-facing content this retailer runs. */
+    /**
+     * Shopper-facing content this retailer runs.
+     *
+     * @return HasMany<MarketingPost, $this>
+     */
     public function marketingPosts(): HasMany
     {
         return $this->hasMany(MarketingPost::class);
@@ -224,12 +245,17 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
         return $panel->getId() === 'portal' && $this->status === 'active';
     }
 
+    /** @return HasMany<Lease, $this> */
     public function leases(): HasMany
     {
         return $this->hasMany(Lease::class);
     }
 
-    /** Portal login accounts for this tenant (req #9 multi-user). */
+    /**
+     * Portal login accounts for this tenant (req #9 multi-user).
+     *
+     * @return HasMany<TenantUser, $this>
+     */
     public function users(): HasMany
     {
         return $this->hasMany(TenantUser::class);
@@ -250,6 +276,7 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
         }
     }
 
+    /** @return HasMany<Lease, $this> */
     public function activeLeases(): HasMany
     {
         return $this->leases()->where('status', 'active');
