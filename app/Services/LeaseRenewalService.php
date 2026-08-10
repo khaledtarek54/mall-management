@@ -82,7 +82,8 @@ class LeaseRenewalService
                 'has_marketing_levy' => $original->has_marketing_levy,
                 'marketing_levy_rate' => $original->marketing_levy_rate,
                 // Fit-out grace does NOT carry — it was for the original build-out; a renewal has none.
-                'fit_out_months' => 0,
+                // A renewal has no new build-out, so no rent-free grace carries over.
+                'rent_commencement_date' => null,
                 // Billing frequency DOES carry — a quarterly/annual lease renews on the same cadence.
                 'billing_frequency' => $original->billing_frequency,
                 'currency' => $original->currency,

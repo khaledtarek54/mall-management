@@ -120,7 +120,7 @@ it('shifts the first cycle to start after the fit-out grace', function () {
     // Gross grace: nothing bills for Jan+Feb, so the first CYCLE starts in March. Under net
     // abatement the lease bills its service charge from January, so the cycle anchors at
     // commencement instead — a different (and correct) answer, not a regression.
-    $lease = freqLease('quarterly', ['fit_out_months' => 2, 'fit_out_scope' => \App\Models\Lease::FIT_OUT_GROSS]); // free Jan+Feb → first cycle Mar–May
+    $lease = freqLease('quarterly', ['rent_commencement_date' => '2026-03-01', 'fit_out_scope' => \App\Models\Lease::FIT_OUT_GROSS]); // free Jan+Feb → first cycle Mar–May
     $svc = app(MonthlyBillingService::class);
 
     expect($svc->runForPeriod(CarbonImmutable::parse('2026-01-01'))['created'])->toBe(0)

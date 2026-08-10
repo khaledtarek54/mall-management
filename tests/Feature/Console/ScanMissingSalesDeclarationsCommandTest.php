@@ -64,7 +64,7 @@ it('does not remind a lease still inside its fit-out grace for the period', func
     // Commenced last month with a 3-month fit-out → not billable for last month → not reportable.
     $lease = pctLease([
         'commencement_date' => now()->subMonthNoOverflow()->startOfMonth()->toDateString(),
-        'fit_out_months' => 3,
+        'rent_commencement_date' => now()->subMonthNoOverflow()->startOfMonth()->addMonths(3)->toDateString(),
         // Gross grace: the lease bills nothing, so it is not chased for a declaration either.
         'fit_out_scope' => \App\Models\Lease::FIT_OUT_GROSS,
     ]);

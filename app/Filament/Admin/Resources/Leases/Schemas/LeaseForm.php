@@ -295,18 +295,22 @@ class LeaseForm
                         ->placeholder(fn () => number_format(app(\App\Services\MarketingLevyService::class)->ratePercent(), 2))
                         ->helperText(__('admin.helpers.marketing_levy_rate'))
                         ->visible(fn (\Filament\Schemas\Components\Utilities\Get $get) => (bool) $get('has_marketing_levy')),
-                    TextInput::make('fit_out_months')
-                        ->label(__('admin.fields.fit_out_months'))
-                        ->numeric()
-                        ->integer()
-                        ->suffix(__('admin.fields.months'))
-                        ->minValue(0)
-                        ->maxValue(24)
-                        ->default(0)
-                        // NOT-NULL column — a blank field must send 0, never null.
-                        ->dehydrateStateUsing(fn ($state) => $state ?? 0)
+                    // Replaced the old `fit_out_months` count: a lease says "rent commences 1
+                    // April", not "three months of fit-out", and a whole-month integer could not
+                    // express a mid-month start at all.
+                    DatePicker::make('possession_date')
+                        ->label(__('admin.fields.possession_date'))
+                        ->native(false)
+                        ->helperText(__('admin.helpers.possession_date')),
+                    DatePicker::make('rent_commencement_date')
+                        ->label(__('admin.fields.rent_commencement_date'))
+                        ->native(false)
                         ->live()
-                        ->helperText(__('admin.helpers.fit_out_months')),
+                        // Earlier than commencement is not a grace period, and the model guards
+                        // against it pulling the first billable month backwards; refused here too
+                        // so the operator gets an inline error rather than a silent no-op.
+                        ->afterOrEqual('commencement_date')
+                        ->helperText(__('admin.helpers.rent_commencement_date')),
                     Select::make('fit_out_scope')
                         ->label(__('admin.fields.fit_out_scope'))
                         ->options([
@@ -318,7 +322,7 @@ class LeaseForm
                         // payable. Existing leases keep whatever they were billed under (the column
                         // default is gross); this is the default for NEW deals only.
                         ->default(\App\Models\Lease::FIT_OUT_RENT_ONLY)
-                        ->visible(fn ($get) => (int) $get('fit_out_months') > 0)
+                        ->visible(fn ($get) => filled($get('rent_commencement_date')))
                         ->helperText(__('admin.helpers.fit_out_scope')),
                     Select::make('billing_frequency')
                         ->label(__('admin.fields.billing_frequency'))

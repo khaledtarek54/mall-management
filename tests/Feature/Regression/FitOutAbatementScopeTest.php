@@ -34,7 +34,7 @@ function abatementLease(array $attrs = []): Lease
         'expiry_date' => '2028-12-31',
         'base_rent_monthly' => 100000,
         'service_charge_monthly' => 36000,
-        'fit_out_months' => 3,
+        'rent_commencement_date' => '2026-04-01',
         'has_marketing_levy' => false,
     ], $attrs));
 
@@ -144,7 +144,7 @@ it('separates "inside the grace window" from "nothing bills"', function () {
 });
 
 it('abates nothing on a lease with no fit-out period at all', function () {
-    $lease = abatementLease(['fit_out_months' => 0]);
+    $lease = abatementLease(['rent_commencement_date' => null]);
 
     expect($lease->abatedChargeTypesFor(CarbonImmutable::parse('2026-02-28')))->toBe([])
         ->and($lease->inFitOutWindow(CarbonImmutable::parse('2026-02-28')))->toBeFalse();

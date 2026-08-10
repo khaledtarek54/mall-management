@@ -9,8 +9,14 @@ use Carbon\CarbonImmutable;
 
 /**
  * Fit-out / rent-free grace period (operator decision 2026-07-19, OPEN-QUESTIONS C1.5 = FULL grace):
- * for `fit_out_months` whole months from the commencement month, NOTHING bills — not rent, service,
- * CAM, or marketing levy. Default 0 preserves today's behaviour. The grace does not carry on renewal.
+ * until `rent_commencement_date`, NOTHING bills — not rent, service, CAM, or marketing levy. A null
+ * rent-commencement is no grace at all, which preserves the behaviour of leases that never had one.
+ * The grace does not carry on renewal.
+ *
+ * The helper still takes a month COUNT because that is how these scenarios read, but it writes the
+ * date — so the cases below exercise the column billing actually consults. The count itself
+ * (`leases.fit_out_months`) was dropped: a lease says "rent commences 1 April", and an integer
+ * could not express a mid-month start.
  */
 
 /** A lease with the full standard charge stack, so we can prove ALL charges are suppressed. */
@@ -18,7 +24,11 @@ function fitOutLease(int $months, string $commencement = '2026-01-01'): Lease
 {
     $lease = makeLease(makeUnit(makeAsset()), makeTenant(), [
         'commencement_date' => $commencement, 'expiry_date' => '2027-12-31',
-        'payment_terms_days' => 7, 'fit_out_months' => $months,
+        'payment_terms_days' => 7,
+        // Exactly what firstBillableMonth() used to derive from the count, now stated as the date.
+        'rent_commencement_date' => $months > 0
+            ? CarbonImmutable::parse($commencement)->startOfMonth()->addMonths($months)->toDateString()
+            : null,
         // GROSS grace — the whole invoice is suppressed. Stated explicitly because new leases
         // now default to the industry-standard NET abatement (rent free, service charge still
         // payable); this file is specifically about the all-or-nothing behaviour the operator
@@ -51,7 +61,7 @@ it('bills nothing during the fit-out grace, then the full stack after it ends', 
         ->and($mar->items()->count())->toBe(3); // rent + service + marketing
 });
 
-it('preserves today\'s behaviour when fit_out_months is 0', function () {
+it('preserves today\'s behaviour when no rent-commencement is recorded', function () {
     $lease = fitOutLease(months: 0);
 
     $jan = app(MonthlyBillingService::class)->generateForLease($lease, CarbonImmutable::parse('2026-01-01'))['invoice'];
@@ -85,5 +95,8 @@ it('does not carry the fit-out grace onto a renewal', function () {
     $lease = fitOutLease(months: 3)->fresh();
     $renewal = app(LeaseRenewalService::class)->renew($lease, ['new_term_months' => 12, 'new_rent' => 10000]);
 
-    expect($renewal->fit_out_months)->toBe(0); // a renewal has no new build-out → bills from day one
+    // A renewal has no new build-out → it bills from day one.
+    expect($renewal->rent_commencement_date)->toBeNull()
+        ->and($renewal->firstBillableMonth()->toDateString())
+        ->toBe(CarbonImmutable::instance($renewal->commencement_date)->startOfMonth()->toDateString());
 });

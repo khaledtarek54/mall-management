@@ -82,7 +82,7 @@ it('spreads a rent-free fit-out period across the term instead of leaving it whe
     // The other half of what straight-lining is for: three free months are a discount on the WHOLE
     // term, not a hole in the first quarter.
     CarbonImmutable::setTestNow('2028-01-15');
-    $lease = steppedLease(['fit_out_months' => 3, 'fit_out_scope' => Lease::FIT_OUT_RENT_ONLY]);
+    $lease = steppedLease(['rent_commencement_date' => '2028-04-01', 'fit_out_scope' => Lease::FIT_OUT_RENT_ONLY]);
 
     $schedule = app(StraightLineRentService::class)->scheduleFor($lease);
 

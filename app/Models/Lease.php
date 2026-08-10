@@ -175,7 +175,8 @@ class Lease extends Model implements HasMedia
         'service_charge_monthly',
         'has_marketing_levy',
         'marketing_levy_rate',
-        'fit_out_months',
+        'possession_date',
+        'rent_commencement_date',
         'fit_out_scope',
         'billing_frequency',
         'currency',
@@ -207,7 +208,6 @@ class Lease extends Model implements HasMedia
     protected $attributes = [
         'has_percentage_rent' => false,
         'has_marketing_levy' => true, // preserve today's behaviour: every lease gets the levy by default
-        'fit_out_months' => 0,        // no rent-free grace unless explicitly set
         // NEW leases default to the STANDARD (net) abatement — base rent free, service charge
         // still payable. The COLUMN default is `gross`, so every lease that already existed keeps
         // the grace it was actually billed under; retroactively re-billing a live tenancy is not a
@@ -243,7 +243,8 @@ class Lease extends Model implements HasMedia
         'has_percentage_rent' => 'boolean',
         'has_marketing_levy' => 'boolean',
         'marketing_levy_rate' => 'decimal:2',
-        'fit_out_months' => 'integer',
+        'possession_date' => 'date',
+        'rent_commencement_date' => 'date',
         'billing_frequency' => 'string',
         'metadata' => 'array',
     ];
@@ -772,9 +773,14 @@ class Lease extends Model implements HasMedia
     }
 
     /**
-     * Fit-out / rent-free grace: the first period for which ANY charge bills. The grace suppresses
-     * the first `fit_out_months` WHOLE months from the commencement month (operator decision
-     * 2026-07-19, OPEN-QUESTIONS C1.5 = FULL grace on all charges). Null when no commencement date.
+     * Fit-out / rent-free grace: the first period for which ANY charge bills.
+     *
+     * Keyed on `rent_commencement_date`, which replaced the old `fit_out_months` count — a real
+     * lease says "rent commences 1 April", not "three months of fit-out", and a month count could
+     * not express a mid-month start at all. Null rent-commencement means no grace: the lease bills
+     * from its commencement month (operator decision 2026-07-19, OPEN-QUESTIONS C1.5).
+     *
+     * Null when no commencement date.
      */
     public function firstBillableMonth(): ?CarbonImmutable
     {
@@ -793,7 +799,26 @@ class Lease extends Model implements HasMedia
             return $commencement;
         }
 
-        return $commencement->addMonths((int) $this->fit_out_months);
+        $rentStart = $this->rentCommencesOn();
+
+        // A rent-commencement on or before the commencement month is not a grace period; it bills
+        // from the start. Guarded rather than trusted so a mis-keyed earlier date cannot pull the
+        // first billable month BACKWARDS and mint invoices for months before the lease existed.
+        return $rentStart !== null && $rentStart->greaterThan($commencement)
+            ? $rentStart
+            : $commencement;
+    }
+
+    /**
+     * The month rent starts billing, normalized to the first of that month, or null when no grace
+     * is recorded. Billing periods are whole months, so a rent-commencement of 15 April means April
+     * is the first billed month — the half-month is a proration question, not a period question.
+     */
+    public function rentCommencesOn(): ?CarbonImmutable
+    {
+        return $this->rent_commencement_date
+            ? CarbonImmutable::instance($this->rent_commencement_date)->startOfMonth()
+            : null;
     }
 
     /**
@@ -806,13 +831,18 @@ class Lease extends Model implements HasMedia
      */
     public function inFitOutWindow(CarbonImmutable $periodEnd): bool
     {
-        if (blank($this->commencement_date) || (int) $this->fit_out_months <= 0) {
+        if (blank($this->commencement_date)) {
             return false;
         }
 
-        $graceEnds = CarbonImmutable::instance($this->commencement_date)
-            ->startOfMonth()
-            ->addMonths((int) $this->fit_out_months);
+        $graceEnds = $this->rentCommencesOn();
+        $commencement = CarbonImmutable::instance($this->commencement_date)->startOfMonth();
+
+        // No recorded rent-commencement, or one that is not actually later than commencement, is no
+        // grace at all — the same reading the old `fit_out_months <= 0` gave.
+        if ($graceEnds === null || ! $graceEnds->greaterThan($commencement)) {
+            return false;
+        }
 
         return $periodEnd->lessThan($graceEnds);
     }
