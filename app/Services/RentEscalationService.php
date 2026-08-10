@@ -25,7 +25,7 @@ use Illuminate\Support\Facades\DB;
  * transaction, and applying advances `next_escalation_date` past today so a re-run is a no-op.
  * One step per run — a multi-year backlog (a mis-set date) catches up over subsequent runs rather
  * than compounding many years in a single pass. CPI escalation is skipped (no index feed —
- * inventing a CPI number would be inventing data); only `fixed_percent` is applied.
+ * inventing a CPI number would be inventing data); `fixed_percent` and `fixed_amount` are applied.
  */
 class RentEscalationService
 {
@@ -39,7 +39,7 @@ class RentEscalationService
 
         $dueIds = Lease::query()
             ->where('status', 'active')
-            ->whereIn('escalation_type', ['fixed_percent', 'cpi'])
+            ->whereIn('escalation_type', ['fixed_percent', 'fixed_amount', 'cpi'])
             ->whereNotNull('next_escalation_date')
             ->whereDate('next_escalation_date', '<=', $today->toDateString())
             ->pluck('id');
@@ -107,26 +107,48 @@ class RentEscalationService
                 return 'skipped';
             }
 
+            // Read once, as a plain string. `escalation_type` was created as a DB-level
+            // `enum('none','fixed_percent','cpi')` in 2024 and static analysis still derives the
+            // attribute type from that migration, ignoring the `->change()` that made it a varchar —
+            // so comparing the attribute directly against `fixed_amount` reads as "always false".
+            $type = (string) $lease->escalation_type;
+
             // CPI needs an external index feed we don't have — never invent the number.
-            if ($lease->escalation_type !== 'fixed_percent') {
+            if (! in_array($type, ['fixed_percent', 'fixed_amount'], true)) {
                 return 'skipped';
             }
 
-            $rate = self::collar($lease, (float) $lease->escalation_rate);
             $nextDate = $lease->next_escalation_date->copy()->addYear();
+            $current = (float) $lease->base_rent_monthly;
 
-            if ($rate <= 0) {
+            // The two kinds differ only in how the step is SIZED. Everything after this — the
+            // anniversary dating, the schedule row, the marketing levy resync, the date roll — is
+            // one path, so an amount lease can never drift from a percentage one.
+            if ($type === 'fixed_amount') {
+                $step = round((float) $lease->escalation_amount, 2);
+                $newRent = round($current + $step, 2);
+                // The collar is expressed in PERCENT and is not applied here: a floor of "3%" has no
+                // meaning against a step stated in pounds, and silently reinterpreting one unit as
+                // the other is how a lease gets escalated by something nobody agreed. The form hides
+                // the collar for amount leases for the same reason.
+                $reason = 'Automatic rent escalation +'.number_format($step, 2).' EGP';
+            } else {
+                $rate = self::collar($lease, (float) $lease->escalation_rate);
+                $step = $rate;
+                $newRent = round($current * (1 + $rate / 100), 2);
+                $reason = "Automatic rent escalation +{$rate}%";
+            }
+
+            if ($step <= 0) {
                 // Nothing to escalate; still roll the date so it isn't re-considered every day.
                 $lease->forceFill(['next_escalation_date' => $nextDate])->save();
 
                 return 'skipped';
             }
 
-            $newRent = round((float) $lease->base_rent_monthly * (1 + $rate / 100), 2);
-
             $this->rentChange->apply($lease, [
                 'base_rent_monthly' => $newRent,
-                'reason' => "Automatic rent escalation +{$rate}%",
+                'reason' => $reason,
                 // The step takes effect on the ANNIVERSARY, not the night the sweep happens to
                 // run. A sweep delayed by a weekend or a failed cron used to silently move the
                 // increase; now the schedule row starts where the contract says it starts.

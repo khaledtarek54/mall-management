@@ -358,13 +358,25 @@ class LeaseForm
                         ->maxValue(100)
                         ->default(7)
                         ->dehydrateStateUsing(fn ($state) => $state ?? 0)
+                        // Hidden for an amount-based lease: a rate and an amount are two different
+                        // units for one step, and showing both invites a lease that states each.
+                        ->visible(fn (Get $get) => $get('escalation_type') !== 'fixed_amount')
                         ->helperText(__('admin.helpers.escalation_rate')),
+                    TextInput::make('escalation_amount')
+                        ->label(__('admin.fields.escalation_amount'))
+                        ->prefix('EGP')
+                        ->numeric()
+                        ->minValue(0)
+                        ->visible(fn (Get $get) => $get('escalation_type') === 'fixed_amount')
+                        ->required(fn (Get $get) => $get('escalation_type') === 'fixed_amount')
+                        ->helperText(__('admin.helpers.escalation_amount')),
                     Select::make('escalation_type')
                         ->label(__('admin.fields.escalation_type'))
                         ->options(fn () => __('admin.enums.escalation_type'))
                         ->default('fixed_percent')
                         ->required() // NOT-NULL column — never dehydrate null
                         ->native(false)
+                        ->live()
                         ->helperText(__('admin.helpers.escalation_type')),
                     // The collar. Left blank on most leases — a bound of zero would read as "never
                     // increase", which is why these are nullable rather than defaulted.
@@ -374,6 +386,7 @@ class LeaseForm
                         ->suffix('%')
                         ->minValue(0)
                         ->maxValue(100)
+                        ->visible(fn (Get $get) => $get('escalation_type') !== 'fixed_amount')
                         ->helperText(__('admin.helpers.escalation_floor_rate')),
                     TextInput::make('escalation_ceiling_rate')
                         ->label(__('admin.fields.escalation_ceiling_rate'))
@@ -384,6 +397,7 @@ class LeaseForm
                         // Caught here for an inline error, and again in the model so an import or an
                         // API write cannot get round it.
                         ->gte('escalation_floor_rate')
+                        ->visible(fn (Get $get) => $get('escalation_type') !== 'fixed_amount')
                         ->helperText(__('admin.helpers.escalation_ceiling_rate')),
                     TextInput::make('payment_terms_days')
                         ->label(__('admin.fields.payment_terms_days'))

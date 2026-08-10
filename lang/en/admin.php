@@ -2130,6 +2130,7 @@ return [
     ],
 
     'fields' => [
+        'escalation_amount' => 'Annual increase',
         'escalation_floor_rate' => 'Minimum increase',
         'escalation_ceiling_rate' => 'Maximum increase',
         'ledger_account' => 'Account',
@@ -2405,6 +2406,7 @@ return [
     ],
 
     'helpers' => [
+        'escalation_amount' => 'The flat monthly increase applied each anniversary — “rent rises by EGP 5,000 a month each year”. Used instead of the percentage, not alongside it.',
         'escalation_floor_rate' => 'Optional. The increase never falls below this, however the rate was arrived at — the “greater of CPI or 3%” half of a typical clause. Leave blank if the contract sets no minimum.',
         'escalation_ceiling_rate' => 'Optional. The increase is capped here — the “but no more than 10%” half of the clause, and a rail against a mistyped rate stepping the rent unattended. Leave blank if the contract sets no maximum.',
         'posting_map_section' => 'Which chart account this role posts to. Leave the property blank for the global default every mall falls back to, or pick one to override it for that mall only.',
@@ -2800,6 +2802,7 @@ return [
         'escalation_type' => [
             'none' => 'None',
             'fixed_percent' => 'Fixed %',
+            'fixed_amount' => 'Fixed amount',
             'cpi' => 'CPI-Linked',
         ],
         'participant_scope' => [

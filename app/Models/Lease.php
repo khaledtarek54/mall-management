@@ -61,9 +61,14 @@ class Lease extends Model implements HasMedia
         // Derived only when escalation is genuinely configured; 'none'/rate-0 leases stay null and
         // are never considered by the sweep.
         static::creating(function (self $lease) {
+            $configured = match ($lease->escalation_type) {
+                'fixed_percent', 'cpi' => (float) $lease->escalation_rate > 0,
+                'fixed_amount' => (float) $lease->escalation_amount > 0,
+                default => false,
+            };
+
             if ($lease->next_escalation_date === null
-                && in_array($lease->escalation_type, ['fixed_percent', 'cpi'], true)
-                && (float) $lease->escalation_rate > 0
+                && $configured
                 && $lease->commencement_date !== null) {
                 $lease->next_escalation_date = Carbon::parse($lease->commencement_date)->addYear()->format('Y-m-d');
             }
@@ -183,6 +188,7 @@ class Lease extends Model implements HasMedia
         'security_deposit',
         'security_deposit_received',
         'escalation_rate',
+        'escalation_amount',
         'escalation_floor_rate',
         'escalation_ceiling_rate',
         'escalation_type',
@@ -234,7 +240,15 @@ class Lease extends Model implements HasMedia
         'base_rent_monthly' => 'decimal:2',
         'service_charge_monthly' => 'decimal:2',
         'security_deposit' => 'decimal:2',
+        // Cast declared purely so static analysis reads the column as a string. It was created as a
+        // DB-level `enum('none','fixed_percent','cpi')` in 2024, and larastan derives the attribute
+        // type from that migration while ignoring the `->change()` that converted it to a varchar —
+        // so without this, every comparison against `fixed_amount` reads as "always false". A no-op
+        // at runtime; the truth about allowed values lives in the model + form validation, per the
+        // project's no-DB-enums convention.
+        'escalation_type' => 'string',
         'escalation_rate' => 'decimal:2',
+        'escalation_amount' => 'decimal:2',
         'escalation_floor_rate' => 'decimal:2',
         'escalation_ceiling_rate' => 'decimal:2',
         'percentage_rent_threshold' => 'decimal:2',
