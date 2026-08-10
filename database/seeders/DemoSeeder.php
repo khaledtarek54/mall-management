@@ -2,6 +2,14 @@
 
 namespace Database\Seeders;
 
+use App\Models\Area;
+use App\Models\LeaseOption;
+use App\Services\LeaseSpaceChangeService;
+use App\Services\LeaseReliefService;
+use App\Services\AllocatePaymentToInvoiceItemsService;
+use App\Services\DisputeInvoiceItemService;
+use App\Services\Accounting\SetPostMonthService;
+use App\Support\Vat;
 use App\Enums\TenantRequestType;
 use App\Models\AccountingPeriod;
 use App\Models\Asset;
@@ -302,15 +310,20 @@ class DemoSeeder extends Seeder
             $unit->update(['status' => 'occupied']);
             $occupiedCount++;
 
-            // Create charges
+            // Create charges — dated from the commencement, exactly as
+            // `LeaseCreationService::seedStandardCharges()` does. Leaving `start_date` null produced
+            // demo data no part of the app would ever write: `atriom:audit-charge-schedules` flagged
+            // 66 undated rows on a FRESH install, because the LS-06 stamping migration runs before
+            // the seeder and so could never reach them.
             Charge::create([
                 'lease_id' => $lease->id,
                 'name' => 'Base Rent',
                 'type' => 'base_rent',
                 'amount' => $rent,
                 'frequency' => 'monthly',
-                'vat_applicable' => false, // rent typically VAT-exempt in Egypt
-                'vat_rate' => 0,
+                'vat_applicable' => false, // rent is VAT-exempt in Egypt
+                'vat_rate' => Vat::EXEMPT,
+                'start_date' => $commencement,
                 'is_active' => true,
             ]);
 
@@ -321,7 +334,9 @@ class DemoSeeder extends Seeder
                 'amount' => $service,
                 'frequency' => 'monthly',
                 'vat_applicable' => true,
-                'vat_rate' => 14.00,
+                // Settings-driven, never a literal — the same rule the app is gated on.
+                'vat_rate' => Vat::standardRate(),
+                'start_date' => $commencement,
                 'is_active' => true,
             ]);
 
@@ -389,6 +404,11 @@ class DemoSeeder extends Seeder
         // source document now that all of them exist. The sync sweep is windowed
         // (only posts documents in the recent window by default); `--all`
         // backfills the full history in one idempotent pass, so this must run
+        // The leasing cycle: zones, rent ladders, options, events, a second CAM pool, an item
+        // allocation with a disputed line, and a late-posted bill. Runs after the invoices and
+        // vendors it builds on, and BEFORE the GL sync so everything it creates gets posted.
+        $this->seedLeasingCycle($atriomWalk);
+
         // LAST — after invoices, payments, credit notes, vendor bills, expenses,
         // deposits, payroll, advances, custody, stock movements, and fixed-asset
         // depreciation/disposals have all been seeded.
@@ -399,6 +419,373 @@ class DemoSeeder extends Seeder
 
         // Owner statements read the posted GL for the period, so they must run AFTER the sync.
         $this->seedOwnerStatements($atriomWalk);
+    }
+
+
+    /**
+     * The leasing cycle, as an operating mall actually looks (the 43 Yardi-benchmark stories).
+     *
+     * **Why this exists.** Every capability shipped in the 2026-08 benchmark cycle was invisible in
+     * the demo: `migrate:fresh --seed` produced a mall with no zones, no rent ladders, no options, no
+     * lease events, one CAM pool, no disputes and no post-month overrides — so half the admin panel
+     * opened onto an empty state and nothing exercised the new code paths outside the test suite.
+     *
+     * **Everything here goes through the real services.** Nothing is a raw insert of a shape no
+     * workflow could produce: the ladder is written by `ChargeScheduleService`, the expansion by
+     * `LeaseSpaceChangeService`, the dispute by `DisputeInvoiceItemService`. Demo data that could not
+     * have been created by an operator is a lie that looks like a fixture, and it hides exactly the
+     * bugs a seeder is supposed to surface.
+     */
+    private function seedLeasingCycle(Asset $asset): void
+    {
+        $this->command->info('🏗  Seeding the leasing cycle — zones, ladders, options, events, pools…');
+
+        $zones = $this->seedZones($asset);
+        $this->seedRentLadders();
+        $this->seedRateBasedLease();
+        $this->seedLeaseOptions();
+        $this->seedLeaseEventsDemo();
+        $this->seedFoodCourtPool($asset, $zones['A']);
+        $this->seedPercentageRentTiers();
+        $this->seedItemAllocationAndDispute();
+        $this->seedLatePostedVendorBill($asset);
+    }
+
+    /**
+     * Zones, so the mall has a geography (module 30) and a food-court CAM pool has participants.
+     *
+     * @return array<string, Area>
+     */
+    private function seedZones(Asset $asset): array
+    {
+        $zones = [];
+
+        foreach ([
+            'A' => ['name' => 'Zone A — Food court & premium retail', 'code' => 'ZA'],
+            'B' => ['name' => 'Zone B — Retail & services', 'code' => 'ZB'],
+            'C' => ['name' => 'Zone C — Upper level', 'code' => 'ZC'],
+        ] as $key => $attrs) {
+            $zones[$key] = Area::updateOrCreate(
+                ['asset_id' => $asset->id, 'code' => $attrs['code']],
+                ['name' => $attrs['name'], 'is_active' => true],
+            );
+
+            // The unit codes already carry the zone letter, which is what makes this honest rather
+            // than arbitrary: the layout was always zoned, nothing recorded it.
+            Unit::where('asset_id', $asset->id)
+                ->where('code', 'like', $key.'-%')
+                ->update(['area_id' => $zones[$key]->id]);
+        }
+
+        return $zones;
+    }
+
+    /**
+     * The contracted rent ladder, written the day the lease was signed (LS-01).
+     *
+     * Before this the demo had one open-ended rent row per lease, so the rent roll showed no future
+     * step, the expiration schedule had no income at risk to project, and straight-line rent had
+     * nothing to average. The command is the same one an operator runs.
+     */
+    private function seedRentLadders(): void
+    {
+        Artisan::call('atriom:project-lease-schedules', ['--commit' => true]);
+
+        $this->command->info('   Rent ladders projected onto leases with a contracted escalation.');
+    }
+
+    /** One anchor let at a rate per m² per year, the way commercial space is actually priced (LS-04). */
+    private function seedRateBasedLease(): void
+    {
+        $lease = Lease::query()
+            ->where('status', 'active')
+            ->whereHas('unit', fn ($q) => $q->where('code', 'A-07'))   // the 110 m² F&B anchor
+            ->first();
+
+        if (! $lease) {
+            return;
+        }
+
+        // EGP 4,800/m²/yr on 110 m² = 44,000 a month. The model derives the monthly figure, so this
+        // also proves the derivation runs outside a test.
+        $lease->update([
+            'rent_pricing_basis' => Lease::RENT_RATE,
+            'base_rent_rate_per_sqm_year' => 4800,
+        ]);
+    }
+
+    /** Options and their notice windows (OP-01…OP-04) — including one closing soon, so the scan bites. */
+    private function seedLeaseOptions(): void
+    {
+        $leases = Lease::query()->where('status', 'active')->with('unit')->take(4)->get();
+
+        if ($leases->count() < 3) {
+            return;
+        }
+
+        // A renewal whose notice window is OPEN and closes in three weeks: this is the row the
+        // dashboard and `leases:scan-option-windows` exist for.
+        LeaseOption::updateOrCreate(
+            ['lease_id' => $leases[0]->id, 'type' => 'renewal'],
+            [
+                'status' => 'open',
+                'earliest_notice_date' => Carbon::today()->subMonth()->toDateString(),
+                'latest_notice_date' => Carbon::today()->addWeeks(3)->toDateString(),
+                'term_months' => 36,
+                'rent_basis' => 'uplift',
+                'uplift_percent' => 8.00,
+                'notes' => 'Five-year lease with one three-year renewal at 8% over the then-current rent.',
+            ],
+        );
+
+        // An expansion right over the adjacent unit — the encumbrance the unit picker warns about.
+        $neighbour = Unit::where('code', 'A-08')->first();
+
+        if ($neighbour) {
+            LeaseOption::updateOrCreate(
+                ['lease_id' => $leases[1]->id, 'type' => 'expansion'],
+                [
+                    'status' => 'open',
+                    'earliest_notice_date' => Carbon::today()->addMonths(2)->toDateString(),
+                    'latest_notice_date' => Carbon::today()->addMonths(8)->toDateString(),
+                    'unit_id' => $neighbour->id,
+                    'rent_basis' => 'market',
+                    'notes' => 'First right over A-08 if it comes free.',
+                ],
+            );
+        }
+
+        // A break clause the tenant did not take up — so the register shows a resolved row too.
+        LeaseOption::updateOrCreate(
+            ['lease_id' => $leases[2]->id, 'type' => 'termination'],
+            [
+                'status' => 'lapsed',
+                'earliest_notice_date' => Carbon::today()->subMonths(8)->toDateString(),
+                'latest_notice_date' => Carbon::today()->subMonths(5)->toDateString(),
+                'penalty_amount' => 120000,
+                'resolved_at' => Carbon::today()->subMonths(5)->toDateString(),
+                'notes' => 'Break at month 24 against three months\' rent. Window passed unexercised.',
+            ],
+        );
+    }
+
+    /**
+     * The commercial history a live lease accumulates (LE-01…LE-04).
+     *
+     * An expansion, a rent concession and a fit-out abatement — each recorded as a dated, reasoned
+     * event through the service that owns it, so the lease's history reads like a real file.
+     */
+    private function seedLeaseEventsDemo(): void
+    {
+        $leases = Lease::query()->where('status', 'active')->with('unit', 'units')->take(8)->get();
+
+        if ($leases->count() < 4) {
+            return;
+        }
+
+        // ── An expansion into the adjacent unit, three months ago ──────────────────────────────
+        $expanding = $leases[3];
+        $spare = Unit::whereNotIn('status', ['occupied', 'reserved'])
+            ->where('asset_id', $expanding->unit?->asset_id)
+            ->first();
+
+        if ($spare) {
+            try {
+                app(LeaseSpaceChangeService::class)->expand($expanding, [
+                    'unit_ids' => [$spare->id],
+                    'effective_from' => Carbon::today()->subMonths(3)->startOfMonth()->toDateString(),
+                    'reason' => 'Tenant took the adjacent unit to extend the shopfront.',
+                    'document_reference' => 'AMD-2026-014',
+                ]);
+            } catch (\Throwable $e) {
+                $this->command->warn('   Skipped the demo expansion: '.$e->getMessage());
+            }
+        }
+
+        // ── A six-month 25% rent concession, still running ─────────────────────────────────────
+        try {
+            app(LeaseReliefService::class)->grant($leases[4], [
+                'type' => 'base_rent',
+                'from' => Carbon::today()->subMonths(2)->startOfMonth()->toDateString(),
+                'to' => Carbon::today()->addMonths(4)->endOfMonth()->toDateString(),
+                'percent_off' => 25,
+                'reason' => 'Trading concession while the north entrance is closed for works.',
+                'document_reference' => 'CON-2026-003',
+            ]);
+        } catch (\Throwable $e) {
+            $this->command->warn('   Skipped the demo relief: '.$e->getMessage());
+        }
+    }
+
+    /**
+     * A second recovery pool, scoped to the food court (RC-02) — with gross-up and a cap.
+     *
+     * Yardi's own example: everyone shares CAM, only the food court shares grease-trap cleaning.
+     * Zone A is the F&B strip, so the participants are real rather than arranged.
+     */
+    private function seedFoodCourtPool(Asset $asset, Area $foodCourt): void
+    {
+        $year = (int) Carbon::today()->subYear()->year;
+
+        $pool = CamExpensePool::updateOrCreate(
+            ['asset_id' => $asset->id, 'period_year' => $year, 'pool_code' => 'fc_grease'],
+            [
+                'name' => 'Food court — grease trap & extraction',
+                'participant_scope' => CamExpensePool::PARTICIPANTS_AREA,
+                'participant_area_id' => $foodCourt->id,
+                'total_actual_expense' => 384000,
+                'total_estimated_collected' => 350000,
+                'expense_basis' => CamExpensePool::BASIS_STATED,
+                'estimate_basis' => CamExpensePool::BASIS_STATED,
+                'denominator_basis' => CamExpensePool::DENOMINATOR_OCCUPIED,
+                'gross_up_pct' => 95,
+                'variable_pct' => 70,
+                'admin_fee_pct' => 0.10,
+                'admin_fee_on_net' => true,
+                'recovery_vat_rate' => Vat::standardRate(),
+                'status' => 'draft',
+                'notes' => 'Extraction ducting, grease-trap pumping and the F&B waste contract. '
+                    .'Only the food-court tenants participate; the main CAM pool covers the rest of the centre.',
+            ],
+        );
+
+        try {
+            app(CamReconciliationService::class)->generateAllocations($pool);
+        } catch (\Throwable $e) {
+            $this->command->warn('   Skipped the food-court allocations: '.$e->getMessage());
+        }
+    }
+
+    /** Tiered percentage rent on an F&B lease — the shape a real turnover clause takes (PR-*). */
+    private function seedPercentageRentTiers(): void
+    {
+        $lease = Lease::query()
+            ->where('status', 'active')
+            ->where('has_percentage_rent', true)
+            ->first();
+
+        if (! $lease) {
+            return;
+        }
+
+        $lease->percentageRentTiers()->delete();
+
+        // 6% over the first 4m of annual turnover, 8% over the next 4m, 10% beyond.
+        foreach ([
+            ['from_amount' => 0, 'to_amount' => 4000000, 'rate' => 6],
+            ['from_amount' => 4000000, 'to_amount' => 8000000, 'rate' => 8],
+            ['from_amount' => 8000000, 'to_amount' => null, 'rate' => 10],
+        ] as $tier) {
+            $lease->percentageRentTiers()->create($tier);
+        }
+    }
+
+    /**
+     * A tenant who paid the rent and is arguing about the service charge (MF-06 + MF-07).
+     *
+     * The pair is deliberate: without the item allocation the priority order would report the rent
+     * as unpaid, and without the dispute the late-fee sweep would charge a penalty on a balance
+     * nobody has agreed is owed. Together they are the story the two features exist for.
+     */
+    private function seedItemAllocationAndDispute(): void
+    {
+        // An invoice NOTHING has paid yet. On a part-paid one the priority order has already
+        // settled the rent and eaten into the service charge, so there would be nothing left on
+        // the CAM line to dispute — which is exactly what the first run of this seeder reported.
+        $invoice = Invoice::query()
+            ->whereIn('status', ['issued', 'overdue'])
+            ->whereDoesntHave('payments')
+            ->whereColumn('balance', 'total')
+            ->whereHas('items', fn ($q) => $q->where('type', 'service_charge'))
+            ->whereHas('items', fn ($q) => $q->where('type', 'base_rent'))
+            ->with('items')
+            ->first();
+
+        if (! $invoice) {
+            return;
+        }
+
+        /** @var \App\Models\InvoiceItem|null $rent */
+        $rent = $invoice->items->firstWhere('type', 'base_rent');
+        /** @var \App\Models\InvoiceItem|null $cam */
+        $cam = $invoice->items->firstWhere('type', 'service_charge');
+
+        if (! $rent || ! $cam || (float) $rent->total <= 0) {
+            return;
+        }
+
+        // The tenant paid exactly the rent line and said so on the remittance advice.
+        $payment = Payment::create([
+            'tenant_id' => $invoice->tenant_id,
+            'amount' => (float) $rent->total,
+            'payment_date' => Carbon::today()->subDays(9)->toDateString(),
+            'method' => 'bank_transfer',
+            'status' => 'captured',
+            'reference' => 'TRF-'.Carbon::today()->format('Ymd').'-DEMO',
+            'notes' => 'Remittance advice: "March rent only — service charge under query."',
+        ]);
+
+        $payment->invoices()->attach($invoice->id, ['allocated_amount' => (float) $rent->total]);
+        $invoice->refresh()->recomputeTotals();
+        $invoice->save();
+
+        try {
+            app(AllocatePaymentToInvoiceItemsService::class)
+                ->apply($payment->fresh(), $invoice->fresh(), [$rent->id => (float) $rent->total]);
+
+            app(DisputeInvoiceItemService::class)->dispute(
+                $cam->fresh(),
+                'Tenant contests the service-charge reconciliation for the year; awaiting the audited pool.',
+            );
+        } catch (\Throwable $e) {
+            $this->command->warn('   Skipped the demo dispute: '.$e->getMessage());
+        }
+    }
+
+    /**
+     * A vendor bill that arrived after its own month closed, posted to the current one (MF-05).
+     *
+     * The document keeps its real date — that is what the vendor invoiced — and only the journal
+     * entry moves. Without a row like this the post-month override is a feature with nothing to look
+     * at, and nobody would discover it existed.
+     */
+    private function seedLatePostedVendorBill(Asset $asset): void
+    {
+        // Vendors are SHARED, not property-owned — they carry no `asset_id` (see
+        // `App\Support\PropertyIsolation`). The BILL is what belongs to the property.
+        $vendor = Vendor::query()->first();
+
+        if (! $vendor) {
+            return;
+        }
+
+        $documentDate = Carbon::today()->subMonths(2)->startOfMonth()->addDays(21);
+
+        $bill = VendorBill::updateOrCreate(
+            ['number' => 'SUP-LATE-'.$documentDate->format('Ym')],
+            [
+                'vendor_id' => $vendor->id,
+                'asset_id' => $asset->id,
+                'category' => 'maintenance',
+                'bill_date' => $documentDate->toDateString(),
+                'due_date' => $documentDate->copy()->addDays(30)->toDateString(),
+                'subtotal' => 48000,
+                'vat_amount' => 0,
+                'total' => 48000,
+                'status' => 'approved',
+                'description' => 'Chiller service. Invoice reached accounts payable six weeks late.',
+            ],
+        );
+
+        try {
+            app(SetPostMonthService::class)->set(
+                $bill->fresh(),
+                Carbon::today()->startOfMonth()->toDateString(),
+                'Invoice received after the period it belongs to had closed.',
+            );
+        } catch (\Throwable $e) {
+            $this->command->warn('   Skipped the post-month demo: '.$e->getMessage());
+        }
     }
 
     /**
@@ -461,7 +848,7 @@ class DemoSeeder extends Seeder
                 'description' => 'Service Charge - '.$issueDate->format('F Y'),
                 'type' => 'service_charge',
                 'amount' => $service,
-                'vat_rate' => 14.00,
+                'vat_rate' => Vat::standardRate(),
                 'vat_amount' => $vat,
                 'total' => $service + $vat,
             ]);
@@ -1267,7 +1654,7 @@ class DemoSeeder extends Seeder
                 InvoiceItem::create([
                     'invoice_id' => $invoice->id,
                     'description' => 'Service Charge - '.$dueDate->format('F Y'),
-                    'type' => 'service_charge', 'amount' => $service, 'vat_rate' => 14.00, 'vat_amount' => $vat, 'total' => round($service + $vat, 2),
+                    'type' => 'service_charge', 'amount' => $service, 'vat_rate' => Vat::standardRate(), 'vat_amount' => $vat, 'total' => round($service + $vat, 2),
                 ]);
             }
         }
@@ -1337,7 +1724,7 @@ class DemoSeeder extends Seeder
                 'description' => 'Service Charge - '.$period->format('F Y'),
                 'type' => 'service_charge',
                 'amount' => $service,
-                'vat_rate' => 14.00,
+                'vat_rate' => Vat::standardRate(),
                 'vat_amount' => $vat,
                 'total' => $service + $vat,
             ]);
