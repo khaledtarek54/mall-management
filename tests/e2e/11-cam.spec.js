@@ -16,13 +16,20 @@ test.describe('CAM Reconciliation', () => {
     await expect(page.getByRole('heading', { name: 'CAM Reconciliation' })).toBeVisible({ timeout: 15000 });
   });
 
-  test('Seeded pools render with both Atriom Walk rows', async ({ page }) => {
+  test('Seeded pools render, including the zone-scoped one', async ({ page }) => {
     await page.goto('/admin/AW/cam-expense-pools');
     await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
-    // Two pool rows seeded by DemoSeeder (last year + current year) — so Atriom Walk
-    // appears twice in the asset column.
-    const atriomWalkCells = page.locator('td').filter({ hasText: 'Atriom Walk' });
-    await expect(atriomWalkCells.first()).toBeVisible({ timeout: 10000 });
-    await expect(atriomWalkCells).toHaveCount(2);
+
+    // Assert WHICH pools are there, not how many. The count was hard-coded at 2 and broke the
+    // moment the seeder grew a third (the food-court pool, RC-02) — a stale number that says
+    // nothing about whether the right rows rendered. Naming them means the test fails when a pool
+    // genuinely goes missing, and survives the next one being added.
+    await expect(page.locator('td').filter({ hasText: 'Atriom Walk' }).first())
+      .toBeVisible({ timeout: 10000 });
+
+    // The property's own CAM pool, and the pool scoped to the food court — different participants,
+    // different bases, reconciled separately. Rendering both is the point of RC-02.
+    await expect(page.getByText('CAM', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Food court — grease trap & extraction').first()).toBeVisible();
   });
 });
