@@ -339,6 +339,11 @@ return [
         'rent_only' => 'Base rent only (service charge still payable)',
         'gross' => 'Everything (rent, service charge, CAM and levy)',
     ],
+    'lease_types' => [
+        'new' => 'New lease',
+        'renewal' => 'Renewal',
+    ],
+
     'lease_options' => [
         'rent_basis' => 'Rent basis',
         'title' => 'Options & critical dates',
@@ -1601,6 +1606,7 @@ return [
     ],
 
     'filters' => [
+        'lease_type' => 'Lease type',
         'posting_role_group' => 'Statement class',
         'posting_map_scope' => 'Scope',
         'posting_map_scope_all' => 'Global defaults and overrides',

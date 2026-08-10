@@ -39,7 +39,7 @@
 
 | Capability | Yardi | Atriom today | Verdict | Sev |
 |---|---|---|---|---|
-| Lease lifecycle states | Status (Future/Current/Notice/Past) **and** type (new/renewal/expansion/holdover) as separate axes | One 7-state enum; `renewed` is a *status* | ➕ EXTEND — add `lease_type` alongside status | 🟡 |
+| Lease lifecycle states | Status (Future/Current/Notice/Past) **and** type (new/renewal/expansion/holdover) as separate axes | ✅ **CORRECTED 2026-08-10 — this was largely a FALSE gap.** `previous_lease_id` is written by `LeaseRenewalService` and read by two relations, so the type axis was already in the database; what was missing was anything deriving or showing it. Now `Lease::leaseType()` / `isRenewal()` (derived, **never stored** — a `lease_type` column would be a second source of truth and would disagree the first time a renewal was created by a path that forgot to set it), surfaced on the rent roll as a description + filter. Only new/renewal: an *expansion* here adds units to the SAME lease and records a `LeaseEvent::TYPE_EXPANSION` rather than originating a second lease, and holdover is a state the lease enters, not the way it began | ✅ **KEEP** | ⚪ |
 | Occupancy as a projection of lease state | ✅ | ✅ `LeaseObserver` → `Unit::recomputeStatus()`, idempotent, observer-driven | ✅ **KEEP** — clean, and better factored than most | ⚪ |
 | Multi-unit / multi-space lease | Space links are **date-ranged**, each with its own area | ✅ `lease_unit` carries `effective_from`/`effective_to`; `LeaseSpaceChangeService` opens and closes them, CAM apportions on time-weighted area | ✅ SHIPPED (LE-02) | ✅ |
 | Per-space rent | Rent per space, or a rate × area | Flat amount **or** EGP/m²/yr, re-derived when the area moves | ✅ CLOSED (LS-04) | 🟢 |

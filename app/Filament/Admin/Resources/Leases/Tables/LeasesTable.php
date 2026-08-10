@@ -108,7 +108,14 @@ class LeasesTable
                     ->searchable()
                     ->copyable()
                     ->fontFamily('mono')
-                    ->size('xs'),
+                    ->size('xs')
+                    // The lease TYPE axis, which Yardi keeps separate from status. Derived from
+                    // `previous_lease_id`, never stored — see Lease::leaseType(). Shown as a
+                    // description on the reference because it qualifies the identity of the lease
+                    // ("AW-0042, a renewal"), not its state.
+                    ->description(fn (Lease $record) => $record->isRenewal()
+                        ? __('admin.lease_types.renewal')
+                        : null),
                 TextColumn::make('unit.code')
                     ->label(__('admin.tables.lease.unit'))
                     ->badge()
@@ -165,6 +172,19 @@ class LeasesTable
                     }),
             ])
             ->filters([
+                // "How much of the book is renewals" is a leasing question the rent roll could not
+                // answer, even though the data was there.
+                SelectFilter::make('lease_type')
+                    ->label(__('admin.filters.lease_type'))
+                    ->options(fn () => [
+                        Lease::TYPE_NEW => __('admin.lease_types.new'),
+                        Lease::TYPE_RENEWAL => __('admin.lease_types.renewal'),
+                    ])
+                    ->query(fn ($query, array $data) => match ($data['value'] ?? null) {
+                        Lease::TYPE_RENEWAL => $query->whereNotNull('previous_lease_id'),
+                        Lease::TYPE_NEW => $query->whereNull('previous_lease_id'),
+                        default => $query,
+                    }),
                 SelectFilter::make('status')
                     ->label(__('admin.filters.status'))
                     ->options(fn () => collect(__('admin.statuses.lease'))->except('cancelled')->all()),
