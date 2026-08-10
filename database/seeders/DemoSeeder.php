@@ -26,6 +26,7 @@ use App\Models\FixedAsset;
 use App\Models\InventoryItem;
 use App\Models\Floor;
 use App\Models\Invoice;
+use App\Models\RentableItem;
 use App\Models\InvoiceItem;
 use App\Models\JournalEntry;
 use App\Models\Lease;
@@ -59,6 +60,7 @@ use App\Models\VendorContractAmendment;
 use App\Models\VendorDocument;
 use App\Models\Warehouse;
 use App\Services\Accounting\FiscalCalendar;
+use App\Services\AssignRentableItemService;
 use App\Services\CamReconciliationService;
 use App\Services\CreditNoteService;
 use App\Services\DepreciationService;
@@ -450,6 +452,7 @@ class DemoSeeder extends Seeder
         $this->seedPercentageRentTiers();
         $this->seedItemAllocationAndDispute();
         $this->seedLatePostedVendorBill($asset);
+        $this->seedRentableItems($asset, $zones['A']);
     }
 
     /**
@@ -761,6 +764,89 @@ class DemoSeeder extends Seeder
             );
         } catch (\Throwable $e) {
             $this->command->warn('   Skipped the demo dispute: '.$e->getMessage());
+        }
+    }
+
+    /**
+     * The car park, the storage cages and the signage — let alongside the leases (space model).
+     *
+     * Without these the whole rentable-item side of the app opens onto an empty state, and nothing
+     * exercises the code path that keeps parking OUT of gross leasable area. Everything is assigned
+     * through `AssignRentableItemService`, so the leases end up with a real `parking` charge that
+     * the monthly run bills like any other.
+     */
+    private function seedRentableItems(Asset $asset, Area $foodCourt): void
+    {
+        $basement = $this->floorFor($asset, 'Basement');
+
+        // 40 bays in the basement, 6 storage cages, 2 signage faces on the food-court frontage.
+        $items = [];
+
+        foreach (range(1, 40) as $n) {
+            $items[] = RentableItem::updateOrCreate(
+                ['asset_id' => $asset->id, 'code' => 'P-'.str_pad((string) $n, 3, '0', STR_PAD_LEFT)],
+                [
+                    'type' => RentableItem::TYPE_PARKING,
+                    'floor_id' => $basement->id,
+                    'name' => $n <= 8 ? 'Covered bay, north ramp' : null,
+                    'monthly_rate' => $n <= 8 ? 1200 : 900,
+                ],
+            );
+        }
+
+        foreach (range(1, 6) as $n) {
+            $items[] = RentableItem::updateOrCreate(
+                ['asset_id' => $asset->id, 'code' => 'ST-'.str_pad((string) $n, 2, '0', STR_PAD_LEFT)],
+                [
+                    'type' => RentableItem::TYPE_STORAGE,
+                    'floor_id' => $basement->id,
+                    'name' => 'Storage cage',
+                    'monthly_rate' => 1800,
+                ],
+            );
+        }
+
+        foreach (range(1, 2) as $n) {
+            RentableItem::updateOrCreate(
+                ['asset_id' => $asset->id, 'code' => 'SIGN-'.$n],
+                [
+                    'type' => RentableItem::TYPE_SIGNAGE,
+                    'area_id' => $foodCourt->id,
+                    'name' => 'Food-court totem face',
+                    'monthly_rate' => 6500,
+                ],
+            );
+        }
+
+        // One bay out of service, so the register shows the state and the assign picker excludes it.
+        RentableItem::where('asset_id', $asset->id)->where('code', 'P-040')
+            ->update(['status' => RentableItem::STATUS_OUT_OF_SERVICE, 'notes' => 'Bollard damaged; awaiting repair.']);
+
+        // Let a handful to real tenants, from the start of the year.
+        $service = app(AssignRentableItemService::class);
+        $leases = Lease::query()->where('status', 'active')->with('unit')->take(5)->get();
+        $pool = collect($items)->filter(fn (RentableItem $i) => $i->code !== 'P-040')->values();
+        $next = 0;
+
+        foreach ($leases as $index => $lease) {
+            // The anchor takes four bays and a cage; the rest take one or two.
+            $take = $index === 0 ? 5 : ($index < 3 ? 2 : 1);
+
+            foreach (range(1, $take) as $ignored) {
+                $item = $pool[$next++] ?? null;
+
+                if (! $item) {
+                    break 2;
+                }
+
+                try {
+                    $service->assign($lease->fresh(), $item->fresh(), [
+                        'effective_from' => Carbon::today()->startOfYear()->toDateString(),
+                    ]);
+                } catch (\Throwable $e) {
+                    $this->command->warn('   Skipped letting '.$item->code.': '.$e->getMessage());
+                }
+            }
         }
     }
 

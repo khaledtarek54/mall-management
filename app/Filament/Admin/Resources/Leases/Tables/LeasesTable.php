@@ -12,6 +12,7 @@ use App\Services\ExerciseLeaseOptionService;
 use App\Services\LeaseCreationService;
 use App\Services\LeaseReliefService;
 use App\Services\LeaseRenewalService;
+use App\Services\AssignRentableItemService;
 use App\Services\LeaseRentChangeService;
 use App\Services\LeaseSpaceChangeService;
 use App\Services\MoveOutStatementService;
@@ -50,6 +51,53 @@ use Illuminate\Database\Eloquent\Builder;
 
 class LeasesTable
 {
+    /**
+     * Items this lease could take: same property, free on the day, not withdrawn.
+     *
+     * @return array<int, string>
+     */
+    private static function lettableItemOptions(Lease $record): array
+    {
+        $assetId = $record->unit?->asset_id;
+
+        if (! $assetId) {
+            return [];
+        }
+
+        return \App\Models\RentableItem::query()
+            ->where('asset_id', $assetId)
+            ->where('status', '!=', \App\Models\RentableItem::STATUS_OUT_OF_SERVICE)
+            ->orderBy('code')
+            ->get()
+            // Filtered in PHP rather than SQL: "held on a date" is a date-ranged predicate over the
+            // pivot that the model already owns, and duplicating it as a subquery is how the two
+            // drift apart.
+            ->reject(fn (\App\Models\RentableItem $i) => $i->isHeldOn(null, ignoreLeaseId: $record->id))
+            ->mapWithKeys(fn (\App\Models\RentableItem $i) => [
+                $i->id => $i->label().' · EGP '.number_format((float) $i->monthly_rate, 2),
+            ])
+            ->all();
+    }
+
+    /** @return array<int, string> */
+    private static function heldItemOptions(Lease $record): array
+    {
+        // The negotiated rate comes from the pivot table directly: the relation carries no declared
+        // pivot type to read through, and this is one query either way.
+        $rates = \Illuminate\Support\Facades\DB::table('lease_rentable_item')
+            ->where('lease_id', $record->id)
+            ->whereNull('effective_to')
+            ->pluck('monthly_rate', 'rentable_item_id');
+
+        return $record->rentableItems()
+            ->wherePivotNull('effective_to')
+            ->get()
+            ->mapWithKeys(fn (\App\Models\RentableItem $i) => [
+                $i->id => $i->label().' · EGP '.number_format((float) ($rates[$i->id] ?? 0), 2),
+            ])
+            ->all();
+    }
+
     public static function configure(Table $table): Table
     {
         return $table
@@ -544,6 +592,92 @@ class LeasesTable
                                 'service' => 'EGP '.number_format((float) $updated->service_charge_monthly, 2),
                             ]))
                             ->success()
+                            ->send();
+                    }),
+                // ── Parking, storage and signage (space model) ────────────────────────────────
+                // The register and the service existed with no way in: an operator could not let a
+                // bay without tinker. Assign writes the dated pivot AND re-derives the lease's one
+                // `parking` charge, so the money follows in the same click.
+                Action::make('assignRentableItem')
+                    ->label(__('admin.actions.assign_rentable_item'))
+                    ->icon('heroicon-o-ticket')
+                    ->color('gray')
+                    ->modalHeading(fn (Lease $record) => __('admin.actions.assign_rentable_item').' · '.$record->reference)
+                    ->modalDescription(__('admin.actions.assign_rentable_item_hint'))
+                    ->visible(fn (Lease $record): bool => (auth()->user()?->can('rentable_items.edit') ?? false)
+                        && in_array($record->status, ['active', 'pending_approval'], true))
+                    ->authorize(fn (): bool => auth()->user()?->can('rentable_items.edit') ?? false)
+                    ->schema(fn (Lease $record): array => [
+                        Select::make('rentable_item_id')
+                            ->label(__('admin.resources.rentable_item.singular'))
+                            ->options(fn (): array => self::lettableItemOptions($record))
+                            ->native(false)
+                            ->searchable()
+                            ->required()
+                            ->helperText(__('admin.helpers.assign_rentable_item')),
+                        DatePicker::make('effective_from')
+                            ->label(__('admin.actions.change_rent_effective_from'))
+                            ->default(now()->startOfMonth())
+                            ->required(),
+                        TextInput::make('monthly_rate')
+                            ->label(__('admin.fields.item_monthly_rate'))
+                            ->prefix('EGP')
+                            ->numeric()
+                            ->minValue(0)
+                            ->helperText(__('admin.helpers.assign_rentable_item_rate')),
+                    ])
+                    ->action(function (Lease $record, array $data) {
+                        abort_unless(auth()->user()?->can('rentable_items.edit') ?? false, 403);
+
+                        $item = \App\Models\RentableItem::findOrFail($data['rentable_item_id']);
+
+                        try {
+                            app(AssignRentableItemService::class)->assign($record, $item, $data);
+                        } catch (\DomainException|\InvalidArgumentException $e) {
+                            Notification::make()->danger()->title($e->getMessage())->send();
+
+                            return;
+                        }
+
+                        Notification::make()->success()
+                            ->title(__('admin.actions.assign_rentable_item_done', ['code' => $item->code]))
+                            ->send();
+                    }),
+                Action::make('releaseRentableItem')
+                    ->label(__('admin.actions.release_rentable_item'))
+                    ->icon('heroicon-o-arrow-uturn-left')
+                    ->color('gray')
+                    ->modalDescription(__('admin.actions.release_rentable_item_hint'))
+                    ->visible(fn (Lease $record): bool => (auth()->user()?->can('rentable_items.edit') ?? false)
+                        && $record->rentableItems()->wherePivotNull('effective_to')->exists())
+                    ->authorize(fn (): bool => auth()->user()?->can('rentable_items.edit') ?? false)
+                    ->schema(fn (Lease $record): array => [
+                        Select::make('rentable_item_id')
+                            ->label(__('admin.resources.rentable_item.singular'))
+                            ->options(fn (): array => self::heldItemOptions($record))
+                            ->native(false)
+                            ->required(),
+                        DatePicker::make('effective_to')
+                            ->label(__('admin.actions.release_rentable_item_to'))
+                            ->default(now()->endOfMonth())
+                            ->required()
+                            ->helperText(__('admin.actions.release_rentable_item_to_hint')),
+                    ])
+                    ->action(function (Lease $record, array $data) {
+                        abort_unless(auth()->user()?->can('rentable_items.edit') ?? false, 403);
+
+                        $item = \App\Models\RentableItem::findOrFail($data['rentable_item_id']);
+
+                        try {
+                            app(AssignRentableItemService::class)->release($record, $item, $data['effective_to']);
+                        } catch (\DomainException|\InvalidArgumentException $e) {
+                            Notification::make()->danger()->title($e->getMessage())->send();
+
+                            return;
+                        }
+
+                        Notification::make()->success()
+                            ->title(__('admin.actions.release_rentable_item_done', ['code' => $item->code]))
                             ->send();
                     }),
                 // Temporary relief (LE-03) is deliberately its own action rather than a checkbox on
