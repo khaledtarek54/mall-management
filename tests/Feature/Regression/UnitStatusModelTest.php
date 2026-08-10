@@ -35,17 +35,3 @@ it('derives vacant, reserved and occupied from the leases that hold the unit', f
     makeLease($spoken, null, ['status' => 'draft']);
     expect($spoken->fresh()->status)->toBe('reserved');
 });
-
-it('offers a unit under maintenance to a lease, because refurbished space is still lettable', function () {
-    // The two unit pickers on the lease form used to disagree: a unit under refurbishment could be
-    // a lease's MASTER premises but not its annexe, for no stated reason. Letting space that is
-    // being refurbished is ordinary — that is what a fit-out period is for.
-    $asset = makeAsset();
-    makeUnit($asset, ['code' => 'R-1', 'status' => 'maintenance']);
-
-    $offered = Unit::where('asset_id', $asset->id)
-        ->whereNotIn('status', ['occupied', 'reserved'])
-        ->pluck('code');
-
-    expect($offered)->toContain('R-1');
-});

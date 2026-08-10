@@ -128,15 +128,15 @@ class LeaseForm
                                 ->with('encumbrances')
                                 ->when($assetIds, fn ($q, $aids) => $q->whereIn('asset_id', $aids))
                                 ->where(function ($q) use ($record) {
-                                    // Same exclusion as the MASTER picker above. It used to also
-                                    // drop `maintenance`, which made the two disagree: a unit under
-                                    // refurbishment could be a lease's master premises but not its
-                                    // annexe, for no stated reason. Letting space that is being
-                                    // refurbished is ordinary — that is what a fit-out period is —
-                                    // and the option label already reads "· Maintenance", so the
-                                    // operator sees the state and decides, exactly as with the
-                                    // encumbrance warning.
-                                    $q->whereNotIn('status', ['occupied', 'reserved']);
+                                    // WIDER than the master picker above, which allows a unit under
+                                    // maintenance. The asymmetry is deliberate and pinned by
+                                    // `MultiUnitLeaseFormScenarioTest`: additional units are added
+                                    // to a lease that already exists, where offering space that is
+                                    // out of service is far more likely a mis-click than a
+                                    // negotiated expansion. Taking refurbished space as the MASTER
+                                    // premises is an ordinary new deal — a fit-out — which is why
+                                    // that picker is narrower here and wider there.
+                                    $q->whereNotIn('status', ['occupied', 'reserved', 'maintenance']);
                                     if ($record) {
                                         $q->orWhereIn('id', $record->units()->pluck('units.id'));
                                     }
