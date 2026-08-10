@@ -138,6 +138,20 @@ class Asset extends Model implements HasMedia
         return $this->hasMany(Floor::class)->orderBy('level');
     }
 
+    /**
+     * The lettable space that is not a shop — parking bays, storage rooms, signage faces.
+     *
+     * Deliberately NOT part of the property's GLA: a bay is licensed, not leased, and counting it
+     * as lettable area would understate every occupancy and recovery percentage the mall reports.
+     * See docs/benchmarks/yardi/09-yardi-space-and-parking.md.
+     *
+     * @return HasMany<RentableItem, $this>
+     */
+    public function rentableItems(): HasMany
+    {
+        return $this->hasMany(RentableItem::class)->orderBy('code');
+    }
+
     public function owners(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'asset_owner')

@@ -72,6 +72,7 @@ class AssetResource extends Resource
         return [
             \App\Filament\Admin\RelationManagers\AssetFloorsRelationManager::class,
             \App\Filament\Admin\RelationManagers\AssetUnitsRelationManager::class,
+            \App\Filament\Admin\RelationManagers\AssetRentableItemsRelationManager::class,
             \App\Filament\Admin\RelationManagers\AssetStaffRelationManager::class,
             \App\Filament\Admin\RelationManagers\ActivitiesRelationManager::class,
         ];

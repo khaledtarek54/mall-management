@@ -124,6 +124,22 @@ class UnitResource extends Resource
         return UnitsTable::configure($table);
     }
 
+    /**
+     * The Unit resource had NO relation managers. The one question an operator asks standing in
+     * front of a shop — who is in here, and who was here before — had no answer on the unit's own
+     * page, even though the data was always there.
+     */
+    public static function getRelations(): array
+    {
+        return [
+            \App\Filament\Admin\RelationManagers\UnitLeasesRelationManager::class,
+            // No ActivitiesRelationManager here: `Unit` does not use `LogsActivity`, and the
+            // manager fatals on `activitiesAsSubject()` when it does not. Giving units an
+            // audit trail is worth doing — it is a change to a core model's behaviour, so it
+            // belongs in its own commit, not smuggled into a visibility fix.
+        ];
+    }
+
     public static function getPages(): array
     {
         return [

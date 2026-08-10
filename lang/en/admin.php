@@ -1676,6 +1676,7 @@ return [
     ],
 
     'actions' => [
+        'open' => 'Open',
         'write_off_invoice' => 'Write off as bad debt',
         'write_off_invoice_confirm' => 'This accepts the debt will not be paid. The revenue stays in the period it was earned; the loss is booked to Bad Debt Expense on the date you choose. Use this instead of voiding — voiding would reverse the revenue in the current period.',
         'cancel_blocked_captured_cash' => 'This invoice has a captured payment allocated to it, so it cannot be cancelled — the money would stop being receivable without ever being returned. Void or refund the payment first, then void the invoice.',
@@ -2141,6 +2142,9 @@ return [
     ],
 
     'fields' => [
+        'item_code' => 'Item',
+        'held_from' => 'Held from',
+        'held_until' => 'Held until',
         'charge_code' => 'Code',
         'name_en' => 'Name (English)',
         'name_ar' => 'Name (Arabic)',
@@ -4373,6 +4377,29 @@ return [
         'unmapped' => 'Miscellaneous income (no role)',
         'falls_back' => 'Falls back to miscellaneous income',
         'system' => 'Referenced by the billing engine',
+    ],
+
+
+    'lease_rentable_items' => [
+        'title' => 'Parking & rentable items',
+        'still_held' => 'Still held',
+        'empty_heading' => 'No bays, storage or signage on this lease',
+        'empty_description' => 'Assign one and it bills automatically — it becomes a single parking line on the lease’s charge schedule, so the monthly run, VAT and the ledger need no knowledge that rentable items exist.',
+    ],
+
+
+    'unit_leases' => [
+        'title' => 'Leases',
+        'empty_heading' => 'This unit has never been let',
+        'empty_description' => 'Leases that include this unit appear here — as the master unit or as an additional one on a multi-unit lease.',
+    ],
+
+    'asset_rentable_items' => [
+        'title' => 'Parking & rentable items',
+        'held_by' => 'Held by',
+        'free' => 'Free',
+        'empty_heading' => 'No bays, storage or signage registered',
+        'empty_description' => 'Register them once and they can be let to any lease in this property. They are deliberately excluded from the property’s lettable area — a bay is licensed, not leased.',
     ],
 
 ];

@@ -80,6 +80,10 @@ class LeaseResource extends Resource
             // The schedule says what the rent is and when it changed; the history says why, on
             // whose authority, and against which document (LE-01). They belong side by side.
             \App\Filament\Admin\RelationManagers\LeaseHistoryRelationManager::class,
+            // The space a lease rents BEYOND its premises — parking bays, storage, signage.
+            // Assign/Release live here as well as on the leases list, because this is where
+            // someone asking "what does this tenant have?" actually looks.
+            \App\Filament\Admin\RelationManagers\LeaseRentableItemsRelationManager::class,
             \App\Filament\Admin\RelationManagers\LeaseOptionsRelationManager::class,
             \App\Filament\Admin\RelationManagers\PercentageRentTiersRelationManager::class,
             \App\Filament\Admin\RelationManagers\LeaseInvoicesRelationManager::class,
