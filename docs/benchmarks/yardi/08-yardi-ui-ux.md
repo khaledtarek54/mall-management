@@ -267,7 +267,7 @@ change).
 |---|---|---|
 | ~~`LeaseForm`~~ | ~~30~~ | ✅ **done** |
 | `TenantRequestForm` | 24 | 6 |
-| `InvoiceForm` | 19 | 4 |
+| ~~`InvoiceForm`~~ | ~~19~~ | ✅ **done 2026-08-10** — 4 tabs (Details · Items · Amounts · Notes) |
 | `TenantForm` | 18 | 4 |
 | `CreditNoteForm` | 18 | 4 |
 | `VendorBillForm` | 15 | 2 |

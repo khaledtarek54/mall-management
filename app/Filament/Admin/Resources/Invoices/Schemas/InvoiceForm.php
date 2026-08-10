@@ -10,7 +10,8 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Schemas\Components\Section;
+use App\Support\FormTab;
+use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use App\Support\Vat;
@@ -30,10 +31,18 @@ class InvoiceForm
         // dispute / cancel transitions still work. (GL integrity hardening — Phase 1.)
         $locked = fn (?Invoice $record) => $record !== null && $record->status !== 'draft';
 
+        // Tabs, one per concern, through App\Support\FormTab so each carries a badge counting the
+        // validation errors INSIDE it (UX-13). Filament v4 ships no error indicator on Tabs, so a
+        // required field left blank on a tab you are not looking at would refuse the form with
+        // nothing visible to fix — strictly worse than the scroll it replaces.
         return $schema->columns(1)->components([
-            Section::make(__('admin.sections.invoice_details'))
-                ->columns(3)
-                ->components([
+            Tabs::make('invoice')
+                ->columnSpanFull()
+                ->persistTabInQueryString()
+                ->tabs([
+                    FormTab::make(__('admin.sections.invoice_details'), [
+
+
                     TextInput::make('number')
                         ->label(__('admin.fields.invoice_number'))
                         ->disabled()
@@ -170,10 +179,10 @@ class InvoiceForm
                         // ending on/before its start is meaningless for proration.
                         ->after('period_start')
                         ->native(false),
-                ]),
+                    ])->columns(3),
 
-            Section::make(__('admin.sections.items'))
-                ->components([
+                    FormTab::make(__('admin.sections.items'), [
+
                     Repeater::make('items')
                         ->relationship()
                         ->label('')
@@ -244,11 +253,11 @@ class InvoiceForm
                                 ->dehydrated()
                                 ->columnSpan(2),
                         ]),
-                ]),
+                    ]),
 
-            Section::make(__('admin.sections.amounts'))
-                ->columns(4)
-                ->components([
+                    FormTab::make(__('admin.sections.amounts'), [
+
+
                     TextInput::make('subtotal')
                         ->label(__('admin.fields.subtotal'))
                         ->prefix('EGP')
@@ -283,16 +292,17 @@ class InvoiceForm
                         ->label(__('admin.fields.credit_applied'))
                         ->content(fn ($record) => $record ? 'EGP '.number_format((float) $record->credit_applied_amount, 2) : '—')
                         ->visible(fn ($record) => $record !== null && (float) $record->credit_applied_amount > 0),
-                ]),
+                    ])->columns(4),
 
-            Section::make(__('admin.sections.notes'))
-                ->collapsible()
-                ->collapsed()
-                ->components([
+                    FormTab::make(__('admin.sections.notes'), [
+
+
+
                     Textarea::make('notes')
                         ->label(__('admin.fields.notes'))
                         ->rows(3)
                         ->columnSpanFull(),
+                    ]),
                 ]),
         ]);
     }
