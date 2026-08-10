@@ -46,12 +46,20 @@ class ExpireMarketingPostsCommand extends Command
 
         if ($this->option('dry-run')) {
             $this->warn("Would archive {$count} marketing post(s):");
-            (clone $candidates)->with('asset:id,code')->get(['id', 'asset_id', 'title', 'ends_at', 'display_until'])
+            // withTrashed on the eager load: `Asset` soft-deletes, so a post in a retired mall
+            // would otherwise resolve `asset` to null and print "—" for the one field that says
+            // WHICH mall the operator is being told about. Loading the trashed row names it
+            // properly — and, because `asset_id` is NOT NULL behind a cascading FK, it also makes
+            // the relation genuinely non-null, so the nullsafe below is gone rather than
+            // baselined as a false positive.
+            (clone $candidates)
+                ->with(['asset' => fn ($q) => $q->withTrashed()->select('id', 'code')])
+                ->get(['id', 'asset_id', 'title', 'ends_at', 'display_until'])
                 ->each(function (MarketingPost $post): void {
                     $this->line(sprintf(
                         '  #%d %s · %s · ended %s',
                         $post->id,
-                        $post->asset?->code ?? '—',
+                        $post->asset->code,
                         $post->title,
                         ($post->display_until ?? $post->ends_at)?->format('Y-m-d H:i') ?? '—',
                     ));
