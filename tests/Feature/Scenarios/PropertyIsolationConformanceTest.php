@@ -131,6 +131,7 @@ if (! function_exists('propertyIsolationMustGuardResources')) {
             'UtilityMeter' => UtilityMeterResource::class,
             'Equipment' => EquipmentResource::class,
             'Area' => AreaResource::class,
+            'RentableItem' => \App\Filament\Admin\Resources\RentableItems\RentableItemResource::class,
             'Violation' => ViolationResource::class,
             'SlaPolicy' => SlaPolicyResource::class,
             'Employee' => EmployeeResource::class,

@@ -254,6 +254,16 @@ class RolesPermissionsSeeder extends Seeder
             'imports.execute' => 'Import/upload data from a CSV (FR-USR-02 — admins only)',
         ],
 
+        // Parking bays, storage and signage — LET, so this belongs to leasing rather than facility.
+        // The register is the operator's answer to "who has bay 42", and assigning one changes a
+        // lease's billing, which is why edit is a leasing authority and not an operations one.
+        'rentable_items' => [
+            'rentable_items.view' => 'View parking bays, storage and signage',
+            'rentable_items.create' => 'Add a parking bay, store or signage face',
+            'rentable_items.edit' => 'Edit a rentable item, or take it out of service',
+            'rentable_items.delete' => 'Delete a rentable item that was never let',
+        ],
+
         'areas' => [
             'areas.view' => 'View facility zones (areas)',
             'areas.create' => 'Create facility zones',
@@ -495,10 +505,13 @@ class RolesPermissionsSeeder extends Seeder
 
         // ---- DEPARTMENT roles: strictly scoped to their own sidebar group ----
 
-        // leasing: Properties, Units, Tenants, Leases, Tenant Sales.
+        // leasing: Properties, Units, Tenants, Leases, Tenant Sales, rentable items.
         $grants['leasing'] = [
             'assets.view',
             'units.view', 'units.create', 'units.edit',
+            // Parking, storage and signage are LET, so the leasing team maintains the register and
+            // assigns them. Delete stays super_admin-only, like every other module.
+            'rentable_items.view', 'rentable_items.create', 'rentable_items.edit',
             'tenants.view', 'tenants.create', 'tenants.edit',
             'leases.view', 'leases.create', 'leases.edit',
             'leases.terminate', 'leases.renew', 'leases.generate_invoice',

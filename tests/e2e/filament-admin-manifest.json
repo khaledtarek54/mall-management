@@ -197,6 +197,13 @@
             "hasView": false
         },
         {
+            "class": "RentableItemResource",
+            "slug": "rentable-items",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": true
+        },
+        {
             "class": "TenantRequestResource",
             "slug": "requests",
             "hasCreate": true,
