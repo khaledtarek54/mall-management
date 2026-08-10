@@ -4402,4 +4402,17 @@ return [
         'empty_description' => 'Register them once and they can be let to any lease in this property. They are deliberately excluded from the property’s lettable area — a bay is licensed, not leased.',
     ],
 
+
+    'unit_meters' => [
+        'title' => 'Meters',
+        'empty_heading' => 'No meters on this unit',
+        'empty_description' => 'Register a meter and its readings can be recharged to whoever occupies the unit at the time.',
+    ],
+
+    'unit_encumbrances' => [
+        'title' => 'Claims over this unit',
+        'empty_heading' => 'Nothing is claiming this unit',
+        'empty_description' => 'Expansion options, rights of first refusal and purchase options on other leases appear here. While one is open the unit is not freely lettable — the option holder has to be dealt with first.',
+    ],
+
 ];

@@ -133,6 +133,10 @@ class UnitResource extends Resource
     {
         return [
             \App\Filament\Admin\RelationManagers\UnitLeasesRelationManager::class,
+            // Why the unit picker flags this shop, on the shop itself: who holds an option
+            // over it and until when. The ⚠ warning said THAT it was encumbered, never by whom.
+            \App\Filament\Admin\RelationManagers\UnitEncumbrancesRelationManager::class,
+            \App\Filament\Admin\RelationManagers\UnitMetersRelationManager::class,
             // No ActivitiesRelationManager here: `Unit` does not use `LogsActivity`, and the
             // manager fatals on `activitiesAsSubject()` when it does not. Giving units an
             // audit trail is worth doing — it is a change to a core model's behaviour, so it
