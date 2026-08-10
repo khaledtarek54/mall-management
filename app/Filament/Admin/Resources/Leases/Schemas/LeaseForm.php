@@ -362,6 +362,25 @@ class LeaseForm
                         ->required() // NOT-NULL column — never dehydrate null
                         ->native(false)
                         ->helperText(__('admin.helpers.escalation_type')),
+                    // The collar. Left blank on most leases — a bound of zero would read as "never
+                    // increase", which is why these are nullable rather than defaulted.
+                    TextInput::make('escalation_floor_rate')
+                        ->label(__('admin.fields.escalation_floor_rate'))
+                        ->numeric()
+                        ->suffix('%')
+                        ->minValue(0)
+                        ->maxValue(100)
+                        ->helperText(__('admin.helpers.escalation_floor_rate')),
+                    TextInput::make('escalation_ceiling_rate')
+                        ->label(__('admin.fields.escalation_ceiling_rate'))
+                        ->numeric()
+                        ->suffix('%')
+                        ->minValue(0)
+                        ->maxValue(100)
+                        // Caught here for an inline error, and again in the model so an import or an
+                        // API write cannot get round it.
+                        ->gte('escalation_floor_rate')
+                        ->helperText(__('admin.helpers.escalation_ceiling_rate')),
                     TextInput::make('payment_terms_days')
                         ->label(__('admin.fields.payment_terms_days'))
                         ->numeric()

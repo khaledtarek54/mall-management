@@ -2,6 +2,7 @@
 
 return [
     'errors' => [
+        'escalation_collar_inverted' => 'The minimum increase cannot be above the maximum. As written the cap would always win, so the minimum you set is the one increase that could never happen.',
         'account_mapping_duplicate' => '“:role” is already mapped in this scope. Edit the existing row instead — a second one would be ignored, because the ledger reads the first and would keep posting to the old account.',
         'account_mapping_global_undeletable' => '“:role” is a global default and cannot be removed — nothing falls back behind it, so every posting that asks for it would start failing. Re-point it at another account instead.',
         'charge_schedule_overlap' => 'This :type row (:start → :end) overlaps the existing row :other_start → :other_end. Two rows covering the same month would bill the charge twice — close the earlier row the day before the later one starts.',
@@ -2125,6 +2126,8 @@ return [
     ],
 
     'fields' => [
+        'escalation_floor_rate' => 'Minimum increase',
+        'escalation_ceiling_rate' => 'Maximum increase',
         'ledger_account' => 'Account',
         'posting_role' => 'Posting role',
         'updated_at' => 'Last changed',
@@ -2397,6 +2400,8 @@ return [
     ],
 
     'helpers' => [
+        'escalation_floor_rate' => 'Optional. The increase never falls below this, however the rate was arrived at — the “greater of CPI or 3%” half of a typical clause. Leave blank if the contract sets no minimum.',
+        'escalation_ceiling_rate' => 'Optional. The increase is capped here — the “but no more than 10%” half of the clause, and a rail against a mistyped rate stepping the rent unattended. Leave blank if the contract sets no maximum.',
         'posting_map_section' => 'Which chart account this role posts to. Leave the property blank for the global default every mall falls back to, or pick one to override it for that mall only.',
         'posting_role' => 'The role the code posts to by name. Pick it from the list — a role that is not on this list is one the ledger never asks for.',
         'posting_role_expects' => 'Normally points at a :group account.',

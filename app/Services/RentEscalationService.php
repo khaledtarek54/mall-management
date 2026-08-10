@@ -58,6 +58,40 @@ class RentEscalationService
         return $stats;
     }
 
+    /**
+     * Clamp an escalation rate to the lease's contractual collar (الحد الأدنى/الأقصى للزيادة).
+     *
+     * The clause this serves is the standard index-linked one — *"the increase shall be the greater
+     * of CPI or 3%, capped at 10%"* — where the floor and the ceiling are what the tenant actually
+     * pays in the years the index misbehaves. Applied to whatever rate is about to be used, not only
+     * to an index-derived one, which is what makes it bite before CPI exists: on a `fixed_percent`
+     * lease the ceiling is a real rail against a mistyped rate. A `70` entered for `7` is a
+     * plausible slip that nothing else catches, and it would step the rent seventy percent on the
+     * anniversary, unattended, at whatever hour the sweep runs.
+     *
+     * Each bound is applied only when it is set — a lease with a floor and no ceiling is a lease
+     * with a floor and no ceiling, not one capped at zero.
+     *
+     * Deliberately static + public: the same clamp answers "what WILL this escalate by", which is
+     * what the lease screen shows the operator, and a second implementation there is how the preview
+     * and the sweep come to disagree.
+     */
+    public static function collar(Lease $lease, float $rate): float
+    {
+        $floor = $lease->escalation_floor_rate;
+        $ceiling = $lease->escalation_ceiling_rate;
+
+        if ($floor !== null) {
+            $rate = max($rate, (float) $floor);
+        }
+
+        if ($ceiling !== null) {
+            $rate = min($rate, (float) $ceiling);
+        }
+
+        return round($rate, 2);
+    }
+
     /** @return 'applied'|'skipped' */
     private function applyOne(int $leaseId, CarbonImmutable $today): string
     {
@@ -78,7 +112,7 @@ class RentEscalationService
                 return 'skipped';
             }
 
-            $rate = (float) $lease->escalation_rate;
+            $rate = self::collar($lease, (float) $lease->escalation_rate);
             $nextDate = $lease->next_escalation_date->copy()->addYear();
 
             if ($rate <= 0) {

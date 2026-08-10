@@ -69,6 +69,19 @@ class Lease extends Model implements HasMedia
             }
         });
 
+        // ── The escalation collar must be a range, not a contradiction ─────────────────────────
+        // A floor above the ceiling has no reading: `RentEscalationService::collar()` applies the
+        // floor and then the ceiling, so the ceiling silently wins and the "minimum" the operator
+        // typed is the one thing that cannot happen. Refused at the model so an import or an API
+        // write is covered too — the form's `gte()` only guards the screen.
+        static::saving(function (self $lease) {
+            if ($lease->escalation_floor_rate !== null
+                && $lease->escalation_ceiling_rate !== null
+                && (float) $lease->escalation_floor_rate > (float) $lease->escalation_ceiling_rate) {
+                throw new \DomainException(__('admin.errors.escalation_collar_inverted'));
+            }
+        });
+
         // ── Rate-priced rent is DERIVED, from every writer ─────────────────────────────────────
         // A lease priced per m² must never carry a monthly figure that disagrees with its own rate
         // and area. Enforced here rather than in the form so an import, a service or a future
@@ -169,6 +182,8 @@ class Lease extends Model implements HasMedia
         'security_deposit',
         'security_deposit_received',
         'escalation_rate',
+        'escalation_floor_rate',
+        'escalation_ceiling_rate',
         'escalation_type',
         'next_escalation_date',
         'has_percentage_rent',
@@ -220,6 +235,8 @@ class Lease extends Model implements HasMedia
         'service_charge_monthly' => 'decimal:2',
         'security_deposit' => 'decimal:2',
         'escalation_rate' => 'decimal:2',
+        'escalation_floor_rate' => 'decimal:2',
+        'escalation_ceiling_rate' => 'decimal:2',
         'percentage_rent_threshold' => 'decimal:2',
         'percentage_rent_rate' => 'decimal:2',
         'security_deposit_received' => 'boolean',
