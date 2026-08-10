@@ -53,7 +53,7 @@ class InvoiceResource extends JsonResource
                 'unit' => $this->lease->relationLoaded('unit') && $this->lease->unit ? [
                     'id' => $this->lease->unit->id,
                     'code' => $this->lease->unit->code,
-                    'floor' => $this->lease->unit->floor,
+                    'floor' => $this->lease->unit->floor?->code,
                 ] : null,
             ]),
         ];

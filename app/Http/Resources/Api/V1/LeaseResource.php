@@ -31,7 +31,11 @@ class LeaseResource extends JsonResource
             'unit' => $this->whenLoaded('unit', fn () => [
                 'id' => $this->unit->id,
                 'code' => $this->unit->code,
-                'floor' => $this->unit->floor,
+                // `floors.code` — a STRING like "G" or "1", which is what this field has always
+                // carried. `units.floor` was a string column until it was replaced by the Floor
+                // register; `$unit->floor` is now the RELATION, so emitting it raw put a whole
+                // Floor object on the wire where the mobile client expects a scalar.
+                'floor' => $this->unit->floor?->code,
                 'category' => $this->unit->category,
                 'area_sqm' => (float) $this->unit->area_sqm,
                 'asset' => $this->unit->relationLoaded('asset') && $this->unit->asset ? [

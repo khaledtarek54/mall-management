@@ -48,7 +48,7 @@ class TenantRequestResource extends JsonResource
             'unit' => $this->whenLoaded('unit', fn () => $this->unit ? [
                 'id' => $this->unit->id,
                 'code' => $this->unit->code,
-                'floor' => $this->unit->floor,
+                'floor' => $this->unit->floor?->code,
             ] : null),
             'comments' => TenantRequestCommentResource::collection($this->whenLoaded('comments')),
             // Attachments uploaded by tenant or staff (Spatie media library,

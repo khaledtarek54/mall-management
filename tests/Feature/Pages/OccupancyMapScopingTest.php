@@ -21,8 +21,8 @@ beforeEach(function () {
     $this->hw = makeAsset(['code' => 'HW']);
     $this->pa = makeAsset(['code' => 'PA']);
 
-    $this->hwUnit = makeUnit($this->hw, ['code' => 'HW-101', 'floor' => '1']);
-    $this->paUnit = makeUnit($this->pa, ['code' => 'PA-101', 'floor' => '1']);
+    $this->hwUnit = makeUnit($this->hw, ['code' => 'HW-101']);
+    $this->paUnit = makeUnit($this->pa, ['code' => 'PA-101']);
 });
 
 /**
