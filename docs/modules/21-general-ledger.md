@@ -157,6 +157,25 @@ account. Optional per-property override.
 | `ledger_account_id` | the postable account it resolves to |
 | `asset_id` | nullable — a per-property override; null = global default |
 
+**The vocabulary is a registry.** `App\Support\PostingRoles` lists all 48 roles with the statement
+class each is meant for. It exists because `key` is a plain string: a row spelled `rent_revenu` maps
+nothing and *does not fail* — the resolver never asks for that spelling, so the real role is left
+unmapped behind a row that looks saved. The registry makes the key a picker rather than a text box.
+`PostingRolesRegistryTest` asserts the registry and the seeded defaults describe the same set, so a
+role added to the seeder cannot ship unreachable.
+
+**Uniqueness is enforced in the model, not the schema.** `unique(['key','asset_id'])` covers
+per-property overrides and *cannot* cover the global defaults, because SQL treats every NULL as
+distinct — two `('rent_revenue', NULL)` rows are legal. That was survivable while the only writer was
+a seeder calling `firstOrCreate()`, and stopped being survivable when the screen below shipped. A
+duplicate is worse than an error because nothing breaks: `AccountResolver` orders by id and takes the
+older row, so the accountant re-points an account, sees their row saved, and every invoice keeps
+posting to the old one. `AccountMapping` refuses it on `saving`.
+
+**A global default cannot be deleted; an override can.** Nothing falls back behind a global, so
+removing `accounts_receivable` would fail every invoice posting in the system — re-point it instead.
+Removing an override is ordinary: the role falls back to the global, which is the point of having one.
+
 ---
 
 ## 2. The posting recipes (قواعد الترحيل) — how money becomes journal entries
@@ -268,8 +287,10 @@ This is the whole point of the design. To make any future module post to the led
    *dated* in a period being closed but not yet posted.
 4. If your journalizer's payload walks a relation, add it to `SyncLedgerCommand::EAGER` so a
    full backfill doesn't N+1. Optional — an absent source is swept un-eager, never skipped.
-5. Add any new semantic roles to `account_mappings` (+ seeder) and point them at chart
-   accounts.
+5. Add any new semantic roles to **`App\Support\PostingRoles`** *and* `AccountMappingSeeder`, and
+   point them at chart accounts. Both, not either: the seeder gives the role a default, the registry
+   makes it reachable on the Posting Map screen, and `PostingRolesRegistryTest` fails if you do one
+   without the other. A new role also needs an `admin.posting_roles.*` label in EN **and** AR.
 
 The general-ledger engine itself **never changes** when a module is added. New module →
 new journalizer + new mappings. That is the "accounting works with any future module"
@@ -304,6 +325,17 @@ All under the **Accounting** navigation group (`admin.groups.accounting`), gated
 
 - **`LedgerAccountResource`** — دليل الحسابات. Browse/manage the chart (tree by code),
   toggle active, mark postable. Seeded with the standard starter chart.
+- **`AccountMappingResource`** — خريطة الترحيل, the posting map: which account each semantic role
+  posts to. Tabs by statement class; the account picker lists **postable, active accounts only**
+  (the resolver refuses anything else at posting time, which would otherwise surface as a failed
+  entry long after the mapping was saved); the property picker is scoped via `TenantScope`, so an
+  override cannot be aimed at a mall the operator cannot see. Changes are written to the activity
+  log — *who re-pointed rent revenue, and when* is an audit question with real money behind it, and
+  the entries themselves record only the account they used, never the decision that sent them there.
+  **This is the handover point for a new chart of accounts:** re-pointing 48 roles is configuration
+  an accountant does, not a migration. Until 2026-08-10 the table was seeded and thereafter
+  unreachable — `AccountMappingSeeder`'s own docblock had promised since it was written that "the
+  accountant can re-point any role from the UI without touching code", and there was no UI.
 - **`JournalEntryResource`** — قيود اليومية. Create a **manual** journal entry with a
   balanced lines repeater (live debit/credit totals); list + view auto-posted entries;
   a **Post** action and a **Void** (reverse) action. Editing is blocked once `posted`.
@@ -345,6 +377,7 @@ New permission modules in `RolesPermissionsSeeder::PERMISSIONS`:
 | Module | Actions |
 |--------|---------|
 | `ledger_accounts` | view, create, edit, delete |
+| `account_mappings` | view, create, edit, delete (delete removes a per-property override only) |
 | `journal_entries` | view, create, edit, delete, post, void |
 | `accounting_periods` | view, manage (open/close) |
 | `general_ledger` | view (trial balance, ledger, statements) |

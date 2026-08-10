@@ -159,6 +159,12 @@ class RolesPermissionsSeeder extends Seeder
             'ledger_accounts.edit' => 'Edit ledger accounts',
             'ledger_accounts.delete' => 'Delete ledger accounts',
         ],
+        'account_mappings' => [
+            'account_mappings.view' => 'View the posting map (which account each role posts to)',
+            'account_mappings.create' => 'Add a posting-map row or a per-property override',
+            'account_mappings.edit' => 'Re-point a posting role at a different account',
+            'account_mappings.delete' => 'Remove a per-property posting override',
+        ],
         'journal_entries' => [
             'journal_entries.view' => 'View journal entries',
             'journal_entries.create' => 'Create manual journal entries',
@@ -619,6 +625,10 @@ class RolesPermissionsSeeder extends Seeder
             'cam.view', 'cam.create', 'cam.edit',
             'cam.generate_allocations', 'cam.bill_allocation', 'cam.mark_reconciled',
             'ledger_accounts.view', 'ledger_accounts.create', 'ledger_accounts.edit',
+            // The posting map is the accountant's own configuration — it is how a new chart of
+            // accounts gets wired up without a developer.
+            'account_mappings.view', 'account_mappings.create', 'account_mappings.edit',
+            'account_mappings.delete',
             'journal_entries.view', 'journal_entries.create', 'journal_entries.edit',
             'journal_entries.post', 'journal_entries.void',
             'accounting_periods.view', 'accounting_periods.manage',

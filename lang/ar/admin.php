@@ -2,6 +2,8 @@
 
 return [
     'errors' => [
+        'account_mapping_duplicate' => '«:role» مرتبط بالفعل في هذا النطاق. عدّل السطر الموجود بدلًا من ذلك — السطر الثاني سيُتجاهل لأن الدفتر يقرأ الأول وسيظل يرحّل إلى الحساب القديم.',
+        'account_mapping_global_undeletable' => '«:role» دور افتراضي عام ولا يمكن حذفه — لا يوجد ما يرجع إليه، وكل ترحيل يطلبه سيفشل. أعد ربطه بحساب آخر بدلًا من الحذف.',
         'charge_schedule_overlap' => 'سطر :type (:start → :end) يتداخل مع السطر القائم :other_start → :other_end. وجود سطرين يغطيان الشهر نفسه يعني احتساب الرسم مرتين — أغلق السطر الأقدم قبل بداية الأحدث بيوم.',
         'item_allocation_payment_not_received' => 'هذه الدفعة ليست أموالًا مُحصَّلة، لذلك لا يمكنها تسوية أي بند.',
         'dispute_reason_required' => 'النزاع يحتاج سببًا مذكورًا — فهو يوقف غرامة التأخير، لذا يجب أن يوضّح السبب.',
@@ -1075,6 +1077,7 @@ return [
     ],
 
     'navigation' => [
+        'account_mappings' => 'خريطة الترحيل',
         'ledger_accounts' => 'دليل الحسابات',
         'journal_entries' => 'قيود اليومية',
         'trial_balance' => 'ميزان المراجعة',
@@ -1107,6 +1110,10 @@ return [
     ],
 
     'resources' => [
+        'account_mapping' => [
+            'singular' => 'سطر خريطة الترحيل',
+            'plural' => 'خريطة الترحيل',
+        ],
         'floor' => [
             'singular' => 'طابق',
             'plural' => 'الطوابق',
@@ -1441,7 +1448,6 @@ return [
             'of_gross' => 'من :gross م² إجمالي · :pct% قابل للتأجير',
             'occupancy' => 'الإشغال',
             'occupancy_detail' => ':let من :total م² مؤجَّرة',
-            'occupancy' => 'الإشغال',
             'area_occupancy' => 'الإشغال الاقتصادي',
             'monthly_revenue' => 'الإيراد الشهري',
             'leasable_sqm' => 'المساحة المؤجَّرة',
@@ -1586,6 +1592,11 @@ return [
     ],
 
     'filters' => [
+        'posting_role_group' => 'التصنيف المحاسبي',
+        'posting_map_scope' => 'النطاق',
+        'posting_map_scope_all' => 'الافتراضيات العامة والتجاوزات',
+        'posting_map_scope_override' => 'تجاوزات العقارات فقط',
+        'posting_map_scope_global' => 'الافتراضيات العامة فقط',
         'status' => 'الحالة',
         'document_attention' => 'مستند منتهٍ أو يقارب الانتهاء',
         'notice_due' => 'إخطار التجديد مستحق',
@@ -2106,6 +2117,9 @@ return [
     ],
 
     'fields' => [
+        'ledger_account' => 'الحساب',
+        'posting_role' => 'دور الترحيل',
+        'updated_at' => 'آخر تعديل',
         'cam_cap_scope' => 'ينطبق السقف على',
         'cam_cap_carry_forward' => 'السقف تراكمي',
         'cam_stated_share_pct' => 'النسبة المنصوص عليها (اختياري)',
@@ -2375,6 +2389,12 @@ return [
     ],
 
     'helpers' => [
+        'posting_map_section' => 'الحساب الذي يُرحَّل إليه هذا الدور. اترك العقار فارغًا للافتراضي العام الذي ترجع إليه كل العقارات، أو اختر عقارًا لتجاوزه لذلك العقار وحده.',
+        'posting_role' => 'الدور الذي يرحّل إليه النظام بالاسم. اختره من القائمة — أي دور خارجها لا يطلبه الدفتر أبدًا.',
+        'posting_role_expects' => 'يُرحَّل عادةً إلى حساب من :group.',
+        'posting_map_account' => 'تظهر الحسابات القابلة للترحيل والنشطة فقط — الدفتر يرفض الترحيل إلى حساب تجميعي.',
+        'posting_map_property' => 'فارغ = الافتراضي العام. اختر عقارًا فقط لتجاوز ذلك الافتراضي لهذا العقار.',
+        'posting_map_type_mismatch' => 'هذا الحساب ليس من النوع الذي يُرحَّل إليه هذا الدور عادةً — تأكد أنه المقصود.',
         'cam_cap_scope' => 'معظم الشروط تضع سقفًا للتكاليف القابلة للتحكم فقط وتستثني الضرائب والتأمين والمرافق. وضع سقف للإجمالي حماية تفوق ما تشترطه معظم العقود.',
         'cam_cap_carry_forward' => 'السنة التي تأتي دون السقف تدّخر الفرق، ويمكن لسنة لاحقة السحب منه.',
         'cam_stated_share_pct' => 'استخدمه فقط عندما ينص العقد على النسبة صراحة. اتركه فارغًا لاشتقاقها من المساحة.',
@@ -2453,6 +2473,7 @@ return [
     ],
 
     'sections' => [
+        'posting_map' => 'سطر خريطة الترحيل',
         'account_details' => 'بيانات الحساب',
         'journal_entry_details' => 'بيانات القيد',
         'journal_lines' => 'أطراف القيد (مدين / دائن)',
@@ -2527,6 +2548,7 @@ return [
     ],
 
     'permission_modules' => [
+        'account_mappings' => 'خريطة الترحيل',
         'ledger_accounts' => 'دليل الحسابات',
         'journal_entries' => 'قيود اليومية',
         'accounting_periods' => 'الفترات المحاسبية',
@@ -2998,6 +3020,7 @@ return [
         'subject' => 'الموضوع',
         'system' => 'النظام',
         'subjects' => [
+            'account_mapping' => 'سطر خريطة الترحيل',
             'floor' => 'طابق',
             'rentable_item' => 'عنصر مؤجَّر',
             'marketing_post' => 'منشور تسويقي',
@@ -4190,6 +4213,79 @@ return [
             'empty' => 'لا توجد أوامر شغل في هذه الفترة.',
             'footer' => 'سجل أعمال المرافق (وقائية + تصحيحية) — صادر آليًا.',
         ],
+    ],
+
+    'posting_role_groups' => [
+        'asset' => 'الأصول',
+        'liability' => 'الالتزامات',
+        'equity' => 'حقوق الملكية',
+        'revenue' => 'الإيرادات',
+        'expense' => 'المصروفات',
+    ],
+
+    'posting_roles' => [
+        // الأصول
+        'cash' => 'النقدية',
+        'bank' => 'البنك',
+        'accounts_receivable' => 'الذمم المدينة (العملاء)',
+        'employee_advances' => 'سلف الموظفين',
+        'custody' => 'العهد',
+        'vat_recoverable' => 'ضريبة القيمة المضافة القابلة للخصم',
+        'deferred_rent' => 'الإيجار المؤجل (القسط الثابت)',
+        'furniture_equipment' => 'الأثاث والمعدات',
+        'accumulated_depreciation' => 'مجمع الإهلاك',
+        'inventory' => 'المخزون',
+
+        // الالتزامات
+        'accounts_payable' => 'الذمم الدائنة (الموردون)',
+        'deposits_held' => 'تأمينات محتجزة',
+        'vat_payable' => 'ضريبة القيمة المضافة المستحقة',
+        'accrued_expenses' => 'مصروفات مستحقة',
+        'salary_tax_payable' => 'ضريبة كسب العمل المستحقة',
+        'withholding_tax_payable' => 'ضريبة الخصم والإضافة المستحقة',
+        'social_insurance_payable' => 'التأمينات الاجتماعية المستحقة',
+        'employee_deductions_payable' => 'استقطاعات الموظفين المستحقة',
+        'unearned_revenue' => 'إيرادات مقدمة',
+        'due_to_owner' => 'مستحق للمالك',
+        'inventory_grni' => 'بضاعة واردة لم تُفوتر',
+
+        // حقوق الملكية
+        'capital' => 'رأس المال',
+        'retained_earnings' => 'الأرباح المحتجزة',
+        'owner_distributions' => 'مسحوبات المالك',
+
+        // الإيرادات
+        'rent_revenue' => 'إيراد الإيجار الأساسي',
+        'service_charge_revenue' => 'إيراد رسوم الخدمة',
+        'cam_recovery_revenue' => 'إيراد استرداد المصروفات المشتركة',
+        'cam_admin_fee_revenue' => 'رسوم إدارة المصروفات المشتركة',
+        'utility_revenue' => 'إيراد إعادة تحميل المرافق',
+        'parking_revenue' => 'إيراد المواقف والوحدات المؤجرة',
+        'percentage_rent_revenue' => 'إيراد الإيجار النسبي',
+        'marketing_revenue' => 'إيراد رسوم التسويق',
+        'late_fee_income' => 'إيراد غرامات التأخير',
+        'misc_income' => 'إيرادات متنوعة',
+        'sales_returns' => 'إشعارات دائنة / مردودات',
+        'gain_on_disposal' => 'أرباح بيع الأصول',
+
+        // المصروفات
+        'salaries_expense' => 'الرواتب',
+        'social_insurance_expense' => 'التأمينات الاجتماعية (حصة الشركة)',
+        'maintenance_expense' => 'الصيانة',
+        'utilities_expense' => 'المرافق',
+        'cleaning_security_expense' => 'النظافة والأمن',
+        'marketing_expense' => 'التسويق',
+        'admin_expense' => 'مصروفات إدارية',
+        'depreciation_expense' => 'الإهلاك',
+        'bad_debt_expense' => 'ديون معدومة',
+        'inventory_adjustment' => 'تسوية المخزون',
+        'loss_on_disposal' => 'خسائر بيع الأصول',
+        'bank_charges' => 'مصاريف بنكية',
+    ],
+
+    'posting_map' => [
+        'global' => 'كل العقارات (الافتراضي)',
+        'unknown_role' => 'دور غير معروف',
     ],
 
 ];
