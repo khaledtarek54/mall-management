@@ -82,8 +82,16 @@ It moves no money and posts nothing: the payment's allocation to the invoice is 
 `invoice_payment` and already counted by `recomputeTotals()`.
 
 **Nothing per-item is stored as a balance.** `App\Support\InvoiceItemSettlement` DERIVES every
-per-line figure from `invoices.paid_amount`, so **the item outstandings always sum back to
-`invoices.balance`**. A stored per-item balance would be a second truth about the same money, and the
+per-line figure from `invoices.paid_amount`, so the item outstandings sum back to
+`invoices.balance` — **while the invoice is internally consistent**. `total` is a header column that
+deleting an item does not recompute, so a mutilated invoice breaks the tie-out; that state is
+already broken independently, and `billing:reconcile`'s "Invoice total = line-item subtotal + VAT"
+check is what catches it.
+
+**A credit note cannot be pointed at a line** — only payments carry an item allocation, so a credit
+issued for a disputed service charge distributes by priority and lands on rent first. Conservative
+(a late fee is suppressed on credited money, under-charging rather than over-charging) and covered by
+the workflow, since an operator who credits a dispute resolves it. A stored per-item balance would be a second truth about the same money, and the
 first credit note applied without an item breakdown would desynchronise it silently. This is also why
 a fifth AR settlement channel would need no change here.
 

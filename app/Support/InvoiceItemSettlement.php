@@ -14,8 +14,16 @@ use Illuminate\Support\Facades\DB;
  * **Derived, never stored — that is the whole design.** `Invoice::recomputeTotals()` remains the
  * single source of truth for what an invoice has been paid, across all four AR channels. This class
  * takes that one number and splits it across the lines. Because every figure comes out of
- * `invoices.paid_amount`, the per-item outstandings **always sum back to `invoices.balance`**: there
- * is no second ledger to drift, and adding a fifth settlement channel later changes nothing here.
+ * `invoices.paid_amount`, the per-item outstandings sum back to `invoices.balance`: there is no
+ * second ledger to drift, and adding a fifth settlement channel later changes nothing here.
+ *
+ * **The precise scope of that tie-out, because this docblock first said "always" and that was too
+ * strong.** It holds while the invoice is internally consistent — `total` equal to the sum of its
+ * items. `total` is a header column and deleting an item does not recompute it, so a mutilated
+ * invoice reports `balance` against a header figure while these numbers reflect the lines that
+ * remain. That state is already broken independently of this class, and `billing:reconcile`'s first
+ * check ("Invoice total = line-item subtotal + VAT") is what catches it. The guarantee is
+ * conditional on that check passing, which is the honest claim.
  *
  * A stored per-item balance would have been the obvious shape and the wrong one. It would be a
  * second truth about the same money, reconciled by hand, and the first credit note applied without
@@ -27,6 +35,15 @@ use Illuminate\Support\Facades\DB;
  *     story exists for: "here is the rent, we are still arguing about the CAM."
  *  2. **By priority** — everything else. Yardi applies a receipt to open charges by charge-code
  *     priority (02-yardi-money-flow.md §4), so Atriom does too, using {@see self::TYPE_PRIORITY}.
+ *
+ * **Known limitation: a CREDIT NOTE cannot be pointed at a line.** Only payments carry an item
+ * allocation. A credit issued specifically to settle a disputed service charge is counted in
+ * `paid_amount` and then distributed by priority like any other money — so it lands on rent first,
+ * and the disputed line still reads as outstanding. The consequence is conservative: a late fee is
+ * suppressed on an amount that has in fact been credited, so the tenant is under-charged rather
+ * than over-charged. The workflow also covers it, since an operator who credits a dispute resolves
+ * it. Giving `CreditNoteApplication` the same item-level allocation as `invoice_item_payment` is
+ * the fix if it ever matters.
  *
  * **Deviation from Yardi, stated:** Voyager makes the order configurable per AR settings and shops
  * tune it. Atriom's is a constant. Nobody has asked to tune it, and a settings screen nothing reads
