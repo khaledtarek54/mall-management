@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use App\Notifications\TenantResetPasswordNotification;
+use App\Support\MarketingFeedCache;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Auth\Passwords\CanResetPassword;
@@ -168,6 +169,29 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
     }
 
     // ============ Store directory ============
+
+    /**
+     * A directory change invalidates the shopper caches that quote this retailer.
+     *
+     * Narrowed to the fields a shopper can actually see: a tenant row is saved constantly by
+     * leasing and billing work, and bumping the public cache on every one of those would make the
+     * cache pointless. `status` is in the list because an inactive retailer drops out of the
+     * directory and off their own offer cards — see MarketingPost::liveFor().
+     */
+    protected static function booted(): void
+    {
+        static::saved(function (self $tenant): void {
+            $watched = [
+                'trade_name', 'trade_name_ar', 'retail_category',
+                'public_description', 'public_description_ar',
+                'website_url', 'instagram_handle', 'is_listed', 'status',
+            ];
+
+            if ($tenant->wasChanged($watched)) {
+                MarketingFeedCache::bumpForTenant((int) $tenant->getKey());
+            }
+        });
+    }
 
     /**
      * The name a shopper is shown. Falls back to `name` so the directory works before anyone

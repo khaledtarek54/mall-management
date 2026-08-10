@@ -306,6 +306,33 @@ class MarketingPost extends Model implements HasMedia
             ->whereRaw('(COALESCE(display_from, starts_at) IS NULL OR COALESCE(display_from, starts_at) <= ?)', [$now])
             ->whereRaw('(COALESCE(display_until, ends_at) IS NULL OR COALESCE(display_until, ends_at) >= ?)', [$now]);
 
+        // A store-attributed post is only live while its store is still SHOWABLE — trading in this
+        // mall, active, and listed in the directory.
+        //
+        // Two failures this closes, and neither is exotic. A retailer's lease ends, they move out,
+        // and their approved offer keeps advertising a shop that is not there until its end date
+        // catches up. And an unlisted retailer — one the operator deliberately hid from the
+        // directory — was still having their name and logo broadcast on every card, with the
+        // tap-through to their store page 404ing, because the store endpoint checked `is_listed`
+        // and the feed did not.
+        //
+        // It lives HERE rather than in the public controllers so there is still exactly one
+        // predicate. Putting it on the shopper surface alone would make the operator's "Showing
+        // now" disagree with what shoppers actually see — the drift this method exists to prevent.
+        // A mall-wide post (no tenant) is unaffected.
+        $query->where(function (Builder $q): void {
+            $q->whereNull('tenant_id')
+                ->orWhereHas('tenant', fn ($tenant) => $tenant
+                    ->where('is_listed', true)
+                    ->where('status', 'active')
+                    // Correlated to the post's own property: trading SOMEWHERE is not enough,
+                    // they have to be trading in the mall the shopper is standing in. Through the
+                    // lease_unit pivot (`activeLeases.units`), so an additional unit on a
+                    // multi-unit lease counts.
+                    ->whereHas('activeLeases.units', fn ($units) => $units
+                        ->whereColumn('units.asset_id', 'marketing_posts.asset_id')));
+        });
+
         if ($audience !== null) {
             $query->whereIn('audience', array_unique([$audience, self::AUDIENCE_BOTH]));
         }

@@ -2396,12 +2396,26 @@ class DemoSeeder extends Seeder
         }
 
         $post = function (array $attrs) use ($asset, $marketingLead): MarketingPost {
-            return MarketingPost::create(array_merge([
+            // view_count / click_count are NOT fillable — they are server-managed counters that
+            // the app only ever moves with a builder increment, so `create()` would silently drop
+            // them and every demo card would read 0. Split them out and write them the same way
+            // the app does, rather than widening $fillable and handing a client a way to set them.
+            $counters = array_intersect_key($attrs, array_flip(['view_count', 'click_count']));
+            $attrs = array_diff_key($attrs, $counters);
+
+            $post = MarketingPost::create(array_merge([
                 'asset_id' => $asset->id,
                 'created_by' => $marketingLead?->id,
                 'type' => MarketingPost::TYPE_OFFER,
                 'audience' => MarketingPost::AUDIENCE_VISITORS,
             ], $attrs));
+
+            if ($counters !== []) {
+                MarketingPost::query()->whereKey($post->getKey())->update($counters);
+                $post->refresh();
+            }
+
+            return $post;
         };
 
         $post([

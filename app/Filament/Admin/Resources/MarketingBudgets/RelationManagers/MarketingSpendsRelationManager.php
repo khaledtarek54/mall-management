@@ -53,6 +53,27 @@ class MarketingSpendsRelationManager extends RelationManager
                     .'<span style="color:#14b8a6;font-weight:600;">'.e(__('admin.tables.marketing_budget.balance')).': <strong>'.number_format((float) $budget->balance(), 2).' EGP</strong></span>'
                     .'</div>'
                 )),
+            // The campaign this money paid for (module 36) — the join that makes "what did the
+            // Ramadan campaign cost, and what did it say" one question. Optional: plenty of spend
+            // is not tied to a published post (a printed directory, a banner frame), and
+            // requiring one would push operators into inventing a campaign row to record a cost.
+            //
+            // Scoped to the budget's OWN property, never the portfolio — the same rule as every
+            // other cross-record Select. Ordered newest-first because the spend being recorded is
+            // almost always against a campaign that just ran.
+            Select::make('marketing_post_id')
+                ->label(__('admin.tables.marketing_spend.campaign'))
+                ->helperText(__('admin.tables.marketing_spend.campaign_hint'))
+                ->options(fn () => \App\Models\MarketingPost::query()
+                    ->where('asset_id', $budget->asset_id)
+                    ->orderByDesc('id')
+                    ->limit(100)
+                    ->pluck('title', 'id')
+                    ->all())
+                ->searchable()
+                ->native(false)
+                ->placeholder(__('admin.tables.marketing_spend.campaign_none'))
+                ->columnSpanFull(),
             Select::make('category')
                 ->label(__('admin.tables.marketing_spend.category'))
                 ->options(fn () => collect(MarketingSpend::CATEGORIES)->mapWithKeys(fn ($c) => [$c => Str::headline($c)]))

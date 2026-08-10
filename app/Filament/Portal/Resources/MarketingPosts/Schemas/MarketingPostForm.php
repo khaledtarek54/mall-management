@@ -32,12 +32,20 @@ class MarketingPostForm
                 ->schema([
                     Select::make('asset_id')
                         ->label(__('admin.marketing_posts.fields.property'))
-                        // Only malls this retailer actually trades in — through the lease_unit
-                        // pivot, so an additional unit on a multi-unit lease counts. This scopes
-                        // the RENDERING; the service re-checks the submitted value, because
-                        // Livewire state is attacker-controlled.
+                        // Only malls this retailer actually trades in.
+                        //
+                        // `units.allLeases` — the `lease_unit` PIVOT — not `units.leases`, which
+                        // is a hasMany on the denormalized `leases.unit_id` and therefore finds
+                        // only leases where the unit is the MASTER. A retailer whose presence in
+                        // this mall is an additional unit on a multi-unit lease would be missing
+                        // from the dropdown while the service guard and the mobile API both
+                        // accept them — a mall they can post to from their phone but not from the
+                        // portal. (CLAUDE.md names this exact trap: Unit uses `allLeases`.)
+                        //
+                        // This scopes the RENDERING only; the submitted value is re-checked by
+                        // assertTenantTradesIn(), because Livewire state is attacker-controlled.
                         ->options(fn () => Asset::query()
-                            ->whereHas('units.leases', fn ($q) => $q
+                            ->whereHas('units.allLeases', fn ($q) => $q
                                 ->where('leases.tenant_id', Portal::tenantId())
                                 ->where('leases.status', 'active'))
                             ->orderBy('name')

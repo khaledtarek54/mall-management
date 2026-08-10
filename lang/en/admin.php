@@ -1406,6 +1406,9 @@ return [
             'over_budget' => 'Over budget',
         ],
         'marketing_spend' => [
+            'campaign' => 'Campaign',
+            'campaign_hint' => 'The shopper-facing post this money paid for. Optional — leave empty for general marketing spend.',
+            'campaign_none' => 'Not tied to a campaign',
             'category' => 'Category',
             'description' => 'Description',
             'amount' => 'Amount',

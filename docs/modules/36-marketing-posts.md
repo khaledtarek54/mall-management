@@ -71,7 +71,22 @@ status = published
 AND (COALESCE(display_from, starts_at) IS NULL OR COALESCE(display_from, starts_at) <= now)
 AND (COALESCE(display_until, ends_at) IS NULL OR COALESCE(display_until, ends_at) >= now)
 AND audience IN (<asker>, 'both')          -- audience filter skipped entirely when null
+AND (tenant_id IS NULL OR <the store is still showable>)
 ```
+
+**The store clause** (added in the pre-merge review): a store-attributed post is live only while
+its store is `is_listed`, `active`, and still holding an active lease **in this post's property**
+(via the `lease_unit` pivot). It closes two failures that both shipped green:
+
+- a retailer's lease ends, they move out, and their approved offer keeps advertising a shop that
+  is not there until its end date catches up;
+- an unlisted retailer — one the operator deliberately hid from the directory — still had their
+  name and logo broadcast on every card, while the tap-through to their store page **404'd**,
+  because the store endpoint checked `is_listed` and the feed did not.
+
+It lives in the predicate rather than in the public controllers so there is still exactly one
+answer. Putting it on the shopper surface alone would make the operator's *Showing now* disagree
+with what shoppers see — the drift the predicate exists to prevent.
 
 The audience argument is the asymmetry the column exists for: a shopper asks as `visitors` and
 never sees a staff discount; a **retailer asks with no filter** and sees everything running in
@@ -201,19 +216,32 @@ reads; the click write gets its own 30/min bucket.
 ## 7. Integrations
 
 - **Marketing spend ([module 13](13-marketing.md)):** `marketing_spends.marketing_post_id` links
-  cost to campaign. Placewise and Mallcomm hold the content; Yardi holds the ledger; reconciling
-  them is normally a spreadsheet. Many spends → one post (artwork, printing, influencer).
+  cost to campaign, set from a **Campaign** Select on the spend form (scoped to the budget's own
+  property). Placewise and Mallcomm hold the content; Yardi holds the ledger; reconciling them is
+  normally a spreadsheet. Many spends → one post (artwork, printing, influencer). Optional by
+  design — requiring it would push operators into inventing a campaign row to record a cost.
 - **Media:** `hero` (single, 16:9) + `gallery` on the **public** disk, and `tenants.logo` likewise —
   the only public collections besides property branding, because the reader is deliberately
   unauthenticated. Registered in `MediaPrivacyConformanceTest::PUBLIC_COLLECTIONS` with the reason.
   `tenants.documents` stays private; separate collections are exactly what lets the brand mark be
   public without the paperwork following it.
 - **Feed cache:** `App\Support\MarketingFeedCache` — a per-property version token in the cache key,
-  bumped by the model's `saved`/`deleted`/`restored` hooks, plus a 60s TTL. Version-only would break
-  the day someone adds a seventh way a post changes; TTL-only means an operator approves an offer,
-  opens the app, sees nothing, and approves it again. Both, so correctness never depends on
-  remembering. The shopper view/click counters are **builder increments**, so a read neither
-  invalidates the cache it just populated nor re-folds the search blob.
+  plus a 60s TTL. Version-only would break the day someone adds a seventh way a post changes;
+  TTL-only means an operator approves an offer, opens the app, sees nothing, and approves it again.
+  Both, so correctness never depends on remembering. Bumped by:
+  - `MarketingPost` `saved`/`deleted`/`restored` — any change to a card;
+  - `Tenant` `saved`, when a **directory** field changed (`trade_name*`, `retail_category`,
+    `public_description*`, `website_url`, `instagram_handle`, `is_listed`, `status`), fanned out to
+    every mall that retailer trades in. Narrowed to those fields on purpose: a tenant row is saved
+    constantly by leasing and billing work, and bumping on every save makes the cache pointless.
+
+  **Two bounded lags, both ≤ the TTL and both deliberate.** Replacing a store *logo* is a
+  medialibrary write, not a `Tenant` save; and a *lease ending* (which drops a post via the store
+  clause) does not touch this cache either. Sixty seconds is the whole exposure, and hooking every
+  lease transition and media event into a shopper cache is a lot of coupling to buy a minute.
+
+  The shopper view/click counters are **builder increments**, so a read neither invalidates the
+  cache it just populated nor re-folds the search blob.
 - **Feature flag:** `Modules::KEYS['marketing_posts']`, on by default. A mall with no visitor app
   should not be asked to review offers nobody will read.
 
@@ -239,19 +267,26 @@ reads; the click write gets its own 30/min bucket.
    campaigns run under the same conditions; **not** billable impressions. Stated here rather than
    implied because someone will eventually put them in front of an owner.
 3. **`is_listed` is a display switch, not a security boundary.** What keeps a retailer's paperwork
-   off the internet is the allowlist in `PublicStoreResource`.
-4. **Store locations are scoped to the mall being browsed.** Returning a retailer's whole footprint
+   off the internet is the allowlist in `PublicStoreResource`. It *does* now also drop that
+   retailer's cards from the feed (see the store clause in §3) — that is about consistency with
+   the directory, not confidentiality.
+4. **`Unit::leases()` is master-units-only.** It is a `hasMany` on the denormalized
+   `leases.unit_id`; the pivot relation is **`allLeases`**. The portal's property Select used the
+   wrong one and silently omitted any mall the retailer occupies only as an *additional* unit —
+   a mall they could post to from the mobile API but not from the portal. Pinned by an explicit
+   A/B in `MarketingPostReviewFindingsTest`.
+5. **Store locations are scoped to the mall being browsed.** Returning a retailer's whole footprint
    would let anyone map a chain across the operator's portfolio from a public URL.
-5. **`isTenantAuthored()` keys on `created_by` being null**, not on
+6. **`isTenantAuthored()` keys on `created_by` being null**, not on
    `submitted_by_tenant_user_id` being set — the portal knows which `TenantUser` is acting, the
    mobile API authenticates the `Tenant` itself and has no user to record. A predicate reading the
    portal-only column would classify every API submission as operator-authored and silently skip
    its notification.
-6. **`ImageColumn` has no `collection()`.** Media-backed table columns need
+7. **`ImageColumn` has no `collection()`.** Media-backed table columns need
    `SpatieMediaLibraryImageColumn`; the wrong one fatals *on render*, so only a table test **with
    rows** catches it. (It did.)
-7. **`Public` is a PHP reserved word** and cannot be a namespace segment — hence `PublicFeed`.
-8. **A post whose tenant is deleted goes mall-wide rather than disappearing** (`nullOnDelete`).
+8. **`Public` is a PHP reserved word** and cannot be a namespace segment — hence `PublicFeed`.
+9. **A post whose tenant is deleted goes mall-wide rather than disappearing** (`nullOnDelete`).
    Visible and repairable beats silently erasing published content.
 
 ## 10. Tests
@@ -270,6 +305,11 @@ reads; the click write gets its own 30/min bucket.
   `is_admin` writes, module-off.
 - `tests/Feature/MarketingPosts/MarketingPostExpirySweepTest.php` — the sweep (including the
   display-window precedence and idempotency) and the feed cache's invalidation behaviour.
+- `tests/Feature/Regression/MarketingPostReviewFindingsTest.php` — the six defects found in the
+  pre-merge review, each of which had shipped green: the departed/unlisted store, the portal's
+  master-unit-only property list (as an explicit A/B against the pivot query), the module flag on
+  the retailer API, directory-cache invalidation (and its counterpart — that an ordinary billing
+  edit does *not* bust the cache), and the non-fillable counters.
 - Gates: `PropertyIsolationConformanceTest` (registered in the must-guard set),
   `MediaPrivacyConformanceTest`, `DeletionPolicyConformanceTest`, `SearchPolicyConformanceTest`,
   `AdminSmokeManifestConformanceTest`, `ActionAuthzConformanceTest`.

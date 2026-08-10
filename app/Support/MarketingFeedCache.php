@@ -54,6 +54,36 @@ class MarketingFeedCache
         Cache::increment($key);
     }
 
+    /**
+     * A retailer's directory entry changed — bump every mall they trade in.
+     *
+     * The store directory and the feed share this version because a store change moves BOTH: the
+     * directory listing, and the store block embedded on every one of that retailer's offer cards.
+     *
+     * A `Tenant` is SHARED (no `asset_id` of its own), so "which caches does this invalidate" has
+     * to be answered by asking where they trade — through the `lease_unit` pivot, so a mall they
+     * occupy only as an additional unit is included. A chain in three malls bumps three versions
+     * and leaves every other property's cache alone.
+     *
+     * **Known gap, and why it is acceptable:** replacing a store LOGO is a medialibrary write, not
+     * a `Tenant` save, so it does not reach this method. The TTL is what covers it — a new logo
+     * appears within {@see TTL_SECONDS}. Hooking medialibrary's own events for one field would add
+     * a second, subtler invalidation path for a change nobody makes twice a year.
+     */
+    public static function bumpForTenant(int $tenantId): void
+    {
+        $assetIds = \App\Models\Unit::query()
+            ->whereHas('allLeases', fn ($lease) => $lease
+                ->where('leases.tenant_id', $tenantId)
+                ->where('leases.status', 'active'))
+            ->distinct()
+            ->pluck('asset_id');
+
+        foreach ($assetIds as $assetId) {
+            self::bump((int) $assetId);
+        }
+    }
+
     private static function key(int $assetId): string
     {
         return "marketing-feed-version:{$assetId}";

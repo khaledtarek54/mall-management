@@ -192,21 +192,28 @@ Route::prefix('v1')->group(function () {
 
         // --- Marketing posts (module 36): the retailer's own offers/events, and the mall feed ---
         // Composing here ends at `pending`; nothing a tenant can call reaches the public feed.
-        Route::get('me/feed', [MarketingPostsController::class, 'feed'])->name('api.v1.me.feed');
-        Route::get('me/marketing-posts', [MarketingPostsController::class, 'index'])->name('api.v1.me.posts.index');
-        Route::post('me/marketing-posts', [MarketingPostsController::class, 'store'])->name('api.v1.me.posts.store');
-        Route::get('me/marketing-posts/{id}', [MarketingPostsController::class, 'show'])
-            ->whereNumber('id')->name('api.v1.me.posts.show');
-        // POST rather than PATCH for the update: a multipart body (the hero image) does not
-        // survive PHP's PATCH handling — the same wire-contract trap the mobile brief records.
-        Route::post('me/marketing-posts/{id}', [MarketingPostsController::class, 'update'])
-            ->whereNumber('id')->name('api.v1.me.posts.update');
-        Route::post('me/marketing-posts/{id}/submit', [MarketingPostsController::class, 'submit'])
-            ->whereNumber('id')->name('api.v1.me.posts.submit');
-        Route::post('me/marketing-posts/{id}/withdraw', [MarketingPostsController::class, 'withdraw'])
-            ->whereNumber('id')->name('api.v1.me.posts.withdraw');
-        Route::delete('me/marketing-posts/{id}', [MarketingPostsController::class, 'destroy'])
-            ->whereNumber('id')->name('api.v1.me.posts.destroy');
+        //
+        // Behind the SAME module gate as the public surface. Without it, switching
+        // `marketing_posts` off would hide every operator review screen (RoleGatedActions folds
+        // the flag into each permission) while retailers carried on submitting from their phones
+        // into a queue nobody can see — the worst of both states, and invisible from either side.
+        Route::middleware(EnsureMarketingPostsEnabled::class)->group(function () {
+            Route::get('me/feed', [MarketingPostsController::class, 'feed'])->name('api.v1.me.feed');
+            Route::get('me/marketing-posts', [MarketingPostsController::class, 'index'])->name('api.v1.me.posts.index');
+            Route::post('me/marketing-posts', [MarketingPostsController::class, 'store'])->name('api.v1.me.posts.store');
+            Route::get('me/marketing-posts/{id}', [MarketingPostsController::class, 'show'])
+                ->whereNumber('id')->name('api.v1.me.posts.show');
+            // POST rather than PATCH for the update: a multipart body (the hero image) does not
+            // survive PHP's PATCH handling — the same wire-contract trap the mobile brief records.
+            Route::post('me/marketing-posts/{id}', [MarketingPostsController::class, 'update'])
+                ->whereNumber('id')->name('api.v1.me.posts.update');
+            Route::post('me/marketing-posts/{id}/submit', [MarketingPostsController::class, 'submit'])
+                ->whereNumber('id')->name('api.v1.me.posts.submit');
+            Route::post('me/marketing-posts/{id}/withdraw', [MarketingPostsController::class, 'withdraw'])
+                ->whereNumber('id')->name('api.v1.me.posts.withdraw');
+            Route::delete('me/marketing-posts/{id}', [MarketingPostsController::class, 'destroy'])
+                ->whereNumber('id')->name('api.v1.me.posts.destroy');
+        });
 
         // --- Push device tokens ---
         Route::post('me/devices', RegisterDeviceController::class)->name('api.v1.me.devices.store');
