@@ -2988,6 +2988,7 @@ return [
         'subjects' => [
             'floor' => 'طابق',
             'rentable_item' => 'عنصر مؤجَّر',
+            'marketing_post' => 'منشور تسويقي',
             'lease' => 'عقد إيجار',
             'lease_option' => 'خيار تعاقدي',
             'invoice' => 'فاتورة',

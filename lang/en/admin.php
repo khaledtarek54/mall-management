@@ -2997,6 +2997,7 @@ return [
         'subjects' => [
             'floor' => 'Floor',
             'rentable_item' => 'Rentable item',
+            'marketing_post' => 'Marketing post',
             'lease' => 'Lease',
             'lease_option' => 'Lease option',
             'invoice' => 'Invoice',

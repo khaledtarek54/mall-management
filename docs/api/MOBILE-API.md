@@ -543,6 +543,100 @@ calling it again with a refreshed token replaces, never stacks. → `201`.
 
 ---
 
+### 4.10 Marketing posts — the retailer's own offers
+
+A retailer composes an offer/event/news card and sends it to the mall for review.
+**Nothing here publishes.** The furthest a tenant call can move a post is
+`pending`; only the mall's marketing team approves, and only then does a shopper
+see it. Full rules: [module 36](../modules/36-marketing-posts.md).
+
+`status` ∈ `draft` · `pending` · `published` · `rejected` · `archived`.
+`type` ∈ `offer` · `event` · `news`. `audience` ∈ `visitors` · `tenants` · `both`.
+
+Every text field has an `_ar` sibling (`titleAr`, `summaryAr`, …) — both
+languages ship on every response and the client picks, so switching locale needs
+no round trip.
+
+**Two date pairs, and only one is yours.** You send `startsAt`/`endsAt` — when the
+offer is *valid*, which is what the card promises a shopper. When the card is
+*shown* is the mall's lever and is neither sent nor returned to you.
+
+#### 🔒 `GET /me/marketing-posts` — your posts, newest first. `?status=` filters.
+Returns the workflow fields a submitter needs: `status`, `isEditable`,
+`isAwaitingReview`, **`reviewNotes`** (why the mall returned it — show this
+prominently), `reviewedAt`, `publishedAt`, `viewCount`, `clickCount`.
+
+#### 🔒 `POST /me/marketing-posts` — create a draft (multipart)
+```
+assetId=12  title="20% off everything"  titleAr="خصم ٢٠٪ على كل شيء"
+discountLabel="20% OFF"  startsAt=2026-09-01T00:00:00Z  endsAt=2026-09-07T23:59:59Z
+hero=<file>   gallery[]=<file>…
+```
+`assetId` must be a mall you hold an **active lease** in — otherwise `422`.
+`hero` is jpeg/png/webp ≤5 MB; `gallery` ≤6 files. → `201`.
+
+`status`, `isFeatured` and `priority` are **ignored if sent** — they are not
+yours to set, so don't build a UI for them.
+
+#### 🔒 `POST /me/marketing-posts/{id}` — update (multipart)
+**POST, not PATCH** — a multipart body does not survive PHP's PATCH handling
+(see §3). Allowed only while `isEditable` is true (`draft` or `rejected`); a post
+already with the mall returns `422` with an explanation. Re-uploading `hero`
+replaces it.
+
+#### 🔒 `POST /me/marketing-posts/{id}/submit` — send for review → `status: pending`.
+#### 🔒 `POST /me/marketing-posts/{id}/withdraw` — pull it back → `status: draft`. Only while pending.
+#### 🔒 `DELETE /me/marketing-posts/{id}` — bin a draft. `422` once it is with the mall or live.
+
+You are notified (inbox + push, `type: marketing_post_reviewed`) when the mall
+approves or returns a post; the payload carries the reason on a rejection.
+
+#### 🔒 `GET /me/feed` — what's on at the malls you trade in
+Everything currently running near you — other retailers' shopper offers **and**
+retailer-only notices (staff discounts, trading-hours changes). Same card shape
+as the public feed below: no workflow state, no one else's numbers.
+
+---
+
+### 4.11 Public feed — the VISITOR app (no auth)
+
+> ⚠️ A different audience from everything above. These endpoints take **no
+> token** and identify a mall by its public `code`, not by your leases. Build the
+> shopper app against these; never against `/me/*`.
+
+Rate limits are separate: **120/min** for reads, **30/min** for the click.
+Everything unservable is a `404` — unknown or inactive mall, an offer outside its
+window, an id from another mall. There is no `403` on this surface.
+
+#### `GET /public/malls`
+`[{ code, name, city, logoUrl }]` — how the app turns "which building am I in"
+into the `code` every route below takes.
+
+#### `GET /public/malls/{code}/posts`
+The feed. `?type=offer|event|news`, `?featured=1`, `?page=`, `?perPage=`.
+
+**The carousel and the list are one query.** Results come back featured-first;
+render the leading `isFeatured` run as your carousel and the rest as the list.
+There is deliberately no separate carousel endpoint — two endpoints would
+eventually disagree about what's at the top.
+
+Card shape: `id`, `type`, `title`/`titleAr`, `summary`/`summaryAr`,
+`body`/`bodyAr`, `terms`/`termsAr` (the small print), `discountLabel`/`Ar` (the
+badge — "20% OFF"), `startsAt`/`endsAt` (show as "valid until"), `isFeatured`,
+`ctaLabel`/`Ar`, `ctaUrl`, `heroUrl`, `galleryUrls`, and `store`
+(`{ id, name, nameAr, retailCategory, description, logoUrl, locations }`) or
+`null` for a mall-wide post.
+
+#### `GET /public/malls/{code}/posts/{id}` — the detail screen. Counts a view.
+#### `POST /public/malls/{code}/posts/{id}/click` — the shopper tapped the CTA. → `204`.
+
+#### `GET /public/malls/{code}/stores` — the directory. `?category=fashion|food_beverage|…`
+#### `GET /public/malls/{code}/stores/{id}` — one shop plus everything it is running.
+
+`locations` is the shop's unit code(s) **in the mall being browsed** only.
+
+---
+
 ## 5. Suggested screen → endpoint map
 
 | Screen | Endpoint(s) |
@@ -558,6 +652,11 @@ calling it again with a refreshed token replaces, never stacks. → `201`.
 | Sales declarations | `GET/POST /me/sales-declarations`, `GET /{id}`, `GET /{id}/attachments/{media}` |
 | Profile / settings | `GET /me`, `PATCH /me`, `GET /me/leases` |
 | App launch (push) | `POST /me/devices`; on logout: `DELETE /me/devices/{id}` |
+| My offers (retailer) | `GET/POST /me/marketing-posts`, `POST /{id}`, `POST /{id}/submit`, `POST /{id}/withdraw` |
+| What's on at my mall | `GET /me/feed` |
+| **Visitor app — home / carousel** | `GET /public/malls/{code}/posts` (featured-first; no auth) |
+| **Visitor app — offer detail** | `GET /public/malls/{code}/posts/{id}`, `POST /{id}/click` |
+| **Visitor app — directory** | `GET /public/malls/{code}/stores`, `GET /stores/{id}` |
 
 ---
 

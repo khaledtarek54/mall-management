@@ -1057,6 +1057,181 @@
                 }
             }
         },
+        "/v1/public/malls": {
+            "get": {
+                "operationId": "v1.public.malls",
+                "tags": [
+                    "ListPublicMalls"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "code": {
+                                                        "type": "string"
+                                                    },
+                                                    "name": {
+                                                        "type": "string"
+                                                    },
+                                                    "city": {
+                                                        "type": "string"
+                                                    },
+                                                    "logoUrl": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "required": [
+                                                    "code",
+                                                    "name",
+                                                    "city",
+                                                    "logoUrl"
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/public/malls/{code}/posts": {
+            "get": {
+                "operationId": "v1.public.posts.index",
+                "tags": [
+                    "ListPublicPosts"
+                ],
+                "parameters": [
+                    {
+                        "name": "code",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "type",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "featured",
+                        "in": "query",
+                        "schema": {
+                            "type": "boolean",
+                            "default": false
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": []
+                                        },
+                                        "meta": {
+                                            "type": "object",
+                                            "properties": {
+                                                "currentPage": {
+                                                    "type": "integer"
+                                                },
+                                                "lastPage": {
+                                                    "type": "integer"
+                                                },
+                                                "perPage": {
+                                                    "type": "integer"
+                                                },
+                                                "total": {
+                                                    "type": "integer"
+                                                }
+                                            },
+                                            "required": [
+                                                "currentPage",
+                                                "lastPage",
+                                                "perPage",
+                                                "total"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "meta"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/public/malls/{code}/stores": {
+            "get": {
+                "operationId": "v1.public.stores.index",
+                "tags": [
+                    "ListPublicStores"
+                ],
+                "parameters": [
+                    {
+                        "name": "code",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "category",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": []
+                                        }
+                                    },
+                                    "required": [
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/v1/auth/login": {
             "post": {
                 "operationId": "v1.auth.login",
@@ -1236,6 +1411,428 @@
                 }
             }
         },
+        "/v1/me/feed": {
+            "get": {
+                "operationId": "v1.me.feed",
+                "description": "Uses the PUBLIC resource deliberately: a retailer reading a NEIGHBOUR's campaign is a member\nof the public as far as that campaign is concerned, and must not see its workflow state or\nits performance numbers.\n\nThe audience filter is skipped (`null`) rather than set to `tenants`, and that is the\nasymmetry the `audience` column exists for. A retailer sees everything running in their\nmall \u2014 the shopper-facing offers AND the tenants-only notices \u2014 because they are both a\nmember of the public and a member of the community. A shopper is only the former, so the\npublic endpoint pins `visitors` and never sees a staff discount.",
+                "summary": "GET /api/v1/me/feed \u2014 what is running in the malls this retailer trades in",
+                "tags": [
+                    "MarketingPosts"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": []
+                                        },
+                                        "meta": {
+                                            "type": "object",
+                                            "properties": {
+                                                "currentPage": {
+                                                    "type": "integer"
+                                                },
+                                                "lastPage": {
+                                                    "type": "integer"
+                                                },
+                                                "perPage": {
+                                                    "type": "integer"
+                                                },
+                                                "total": {
+                                                    "type": "integer"
+                                                }
+                                            },
+                                            "required": [
+                                                "currentPage",
+                                                "lastPage",
+                                                "perPage",
+                                                "total"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "meta"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/marketing-posts": {
+            "get": {
+                "operationId": "v1.me.posts.index",
+                "tags": [
+                    "MarketingPosts"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": []
+                                        },
+                                        "meta": {
+                                            "type": "object",
+                                            "properties": {
+                                                "currentPage": {
+                                                    "type": "string"
+                                                },
+                                                "lastPage": {
+                                                    "type": "string"
+                                                },
+                                                "perPage": {
+                                                    "type": "string"
+                                                },
+                                                "total": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "required": [
+                                                "currentPage",
+                                                "lastPage",
+                                                "perPage",
+                                                "total"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "meta"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "v1.me.posts.store",
+                "tags": [
+                    "MarketingPosts"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SaveMarketingPostRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/MarketingPostResource"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "const": "Draft saved."
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/marketing-posts/{id}": {
+            "get": {
+                "operationId": "v1.me.posts.show",
+                "tags": [
+                    "MarketingPosts"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/MarketingPostResource"
+                                        },
+                                        "message": {
+                                            "type": "null"
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "v1.me.posts.update",
+                "tags": [
+                    "MarketingPosts"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SaveMarketingPostRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/MarketingPostResource"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "const": "Draft updated."
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "v1.me.posts.destroy",
+                "summary": "Delete a draft. Only ever a draft or a returned post \u2014 once it is with the mall, or live, it\nis not the retailer's to remove. Soft delete, so an operator can still see what happened",
+                "tags": [
+                    "MarketingPosts"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "null"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "const": "Draft deleted."
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "An error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "description": "Error overview.",
+                                            "example": "This post is with the mall team now, so it can no longer be edited. Withdraw it first if it is still waiting for review."
+                                        }
+                                    },
+                                    "required": [
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/marketing-posts/{id}/submit": {
+            "post": {
+                "operationId": "v1.me.posts.submit",
+                "summary": "Send it to the mall for review. The only route out of `draft` a retailer has",
+                "tags": [
+                    "MarketingPosts"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/MarketingPostResource"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "const": "Sent to the mall for review."
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/v1/me/marketing-posts/{id}/withdraw": {
+            "post": {
+                "operationId": "v1.me.posts.withdraw",
+                "summary": "Pull it back before anyone reviewed it",
+                "tags": [
+                    "MarketingPosts"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/MarketingPostResource"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "const": "Withdrawn \u2014 it is a draft again."
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
         "/v1/auth/me": {
             "get": {
                 "operationId": "v1.auth.me",
@@ -1322,6 +1919,59 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/v1/public/malls/{code}/posts/{post}/click": {
+            "post": {
+                "operationId": "v1.public.posts.click",
+                "tags": [
+                    "RecordPostClick"
+                ],
+                "parameters": [
+                    {
+                        "name": "code",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "post",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No content",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "null"
+                                        },
+                                        "message": {
+                                            "type": "null"
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
                     }
                 }
             }
@@ -1620,6 +2270,126 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
+        "/v1/public/malls/{code}/posts/{post}": {
+            "get": {
+                "operationId": "v1.public.posts.show",
+                "tags": [
+                    "ShowPublicPost"
+                ],
+                "parameters": [
+                    {
+                        "name": "code",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "post",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/PublicMarketingPostResource"
+                                        },
+                                        "message": {
+                                            "type": "null"
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    }
+                }
+            }
+        },
+        "/v1/public/malls/{code}/stores/{store}": {
+            "get": {
+                "operationId": "v1.public.stores.show",
+                "tags": [
+                    "ShowPublicStore"
+                ],
+                "parameters": [
+                    {
+                        "name": "code",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "store",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "store": {
+                                                    "type": "array",
+                                                    "items": []
+                                                },
+                                                "posts": {
+                                                    "type": "array",
+                                                    "items": []
+                                                }
+                                            },
+                                            "required": [
+                                                "store",
+                                                "posts"
+                                            ]
+                                        },
+                                        "message": {
+                                            "type": "null"
+                                        }
+                                    },
+                                    "required": [
+                                        "data",
+                                        "message"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
                     }
                 }
             }
@@ -2103,7 +2873,13 @@
                         "type": "string",
                         "description": "Sub-category is required for types that define one (maintenance,\naccess, document, complaint) and validated against that type's set;\ntypes without sub-categories (inquiry, billing) must NOT send one\n(`prohibited` \u2192 422 if they do, so no cross-type value is persisted).",
                         "enum": [
-                            ""
+                            "electrical",
+                            "plumbing",
+                            "hvac",
+                            "structural",
+                            "cleaning",
+                            "safety",
+                            "other"
                         ]
                     },
                     "priority": {
@@ -2120,7 +2896,7 @@
                             "integer",
                             "null"
                         ],
-                        "description": "If supplied, the unit must belong to one of THIS tenant's leases.\nPrevents a tenant from filing against someone else's unit. When\nomitted, the service derives it from the active lease."
+                        "description": "If supplied, the unit must belong to one of THIS tenant's leases.\nPrevents a tenant from filing against someone else's unit. When\nomitted, the service derives it from the active lease.\nMatched against the lease_unit PIVOT, not just `leases.unit_id`: the column holds\nonly a multi-unit lease's MASTER, so an exists-rule on it rejected a tenant's own\nadditional units with \"the selected unit id is invalid\"."
                     },
                     "attachments": {
                         "type": "array",
@@ -2243,6 +3019,53 @@
                     "createdAt"
                 ],
                 "title": "DeviceTokenResource"
+            },
+            "Floor": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "assetId": {
+                        "type": "integer"
+                    },
+                    "code": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "level": {
+                        "type": "integer"
+                    },
+                    "createdAt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "updatedAt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "id",
+                    "assetId",
+                    "code",
+                    "name",
+                    "level",
+                    "createdAt",
+                    "updatedAt"
+                ],
+                "title": "Floor"
             },
             "ForgotPasswordRequest": {
                 "type": "object",
@@ -2401,10 +3224,7 @@
                                         "type": "string"
                                     },
                                     "floor": {
-                                        "type": [
-                                            "string",
-                                            "null"
-                                        ]
+                                        "$ref": "#/components/schemas/Floor"
                                     }
                                 },
                                 "required": [
@@ -2497,10 +3317,7 @@
                                 "type": "string"
                             },
                             "floor": {
-                                "type": [
-                                    "string",
-                                    "null"
-                                ]
+                                "$ref": "#/components/schemas/Floor"
                             },
                             "category": {
                                 "type": "string"
@@ -2623,6 +3440,154 @@
                     "password"
                 ],
                 "title": "LoginRequest"
+            },
+            "MarketingPostResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "type": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "audience": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "titleAr": {
+                        "type": "string"
+                    },
+                    "summary": {
+                        "type": "string"
+                    },
+                    "summaryAr": {
+                        "type": "string"
+                    },
+                    "body": {
+                        "type": "string"
+                    },
+                    "bodyAr": {
+                        "type": "string"
+                    },
+                    "terms": {
+                        "type": "string"
+                    },
+                    "termsAr": {
+                        "type": "string"
+                    },
+                    "discountLabel": {
+                        "type": "string"
+                    },
+                    "discountLabelAr": {
+                        "type": "string"
+                    },
+                    "startsAt": {
+                        "type": "string"
+                    },
+                    "endsAt": {
+                        "type": "string"
+                    },
+                    "isFeatured": {
+                        "type": "boolean"
+                    },
+                    "ctaLabel": {
+                        "type": "string"
+                    },
+                    "ctaLabelAr": {
+                        "type": "string"
+                    },
+                    "ctaUrl": {
+                        "type": "string"
+                    },
+                    "heroUrl": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "galleryUrls": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "isEditable": {
+                        "type": "boolean",
+                        "description": "---- Workflow. The retailer's own view of where their submission stands."
+                    },
+                    "isAwaitingReview": {
+                        "type": "boolean"
+                    },
+                    "reviewNotes": {
+                        "type": "string",
+                        "description": "The rejection reason. Sending this is the entire reason rejection demands one \u2014 a\nretailer told only \"rejected\" resubmits the same artwork."
+                    },
+                    "reviewedAt": {
+                        "type": "string"
+                    },
+                    "publishedAt": {
+                        "type": "string"
+                    },
+                    "viewCount": {
+                        "type": "integer",
+                        "description": "Their own campaign's numbers. Indicative, not audited \u2014 see RecordPostClickController."
+                    },
+                    "clickCount": {
+                        "type": "integer"
+                    },
+                    "property": {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string"
+                            },
+                            "name": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "code",
+                            "name"
+                        ]
+                    }
+                },
+                "required": [
+                    "id",
+                    "type",
+                    "status",
+                    "audience",
+                    "title",
+                    "titleAr",
+                    "summary",
+                    "summaryAr",
+                    "body",
+                    "bodyAr",
+                    "terms",
+                    "termsAr",
+                    "discountLabel",
+                    "discountLabelAr",
+                    "startsAt",
+                    "endsAt",
+                    "isFeatured",
+                    "ctaLabel",
+                    "ctaLabelAr",
+                    "ctaUrl",
+                    "heroUrl",
+                    "galleryUrls",
+                    "isEditable",
+                    "isAwaitingReview",
+                    "reviewNotes",
+                    "reviewedAt",
+                    "publishedAt",
+                    "viewCount",
+                    "clickCount"
+                ],
+                "title": "MarketingPostResource"
             },
             "NotificationResource": {
                 "type": "object",
@@ -2774,6 +3739,164 @@
                 ],
                 "title": "PaymobSessionResource"
             },
+            "PublicMarketingPostResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "type": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string",
+                        "description": "Both languages always shipped, rather than one resolved server-side: the app knows\nits own locale and can switch without a round trip, and an Arabic field that was\nnever filled falls back client-side rather than becoming a blank card."
+                    },
+                    "titleAr": {
+                        "type": "string"
+                    },
+                    "summary": {
+                        "type": "string"
+                    },
+                    "summaryAr": {
+                        "type": "string"
+                    },
+                    "body": {
+                        "type": "string"
+                    },
+                    "bodyAr": {
+                        "type": "string"
+                    },
+                    "terms": {
+                        "type": "string"
+                    },
+                    "termsAr": {
+                        "type": "string"
+                    },
+                    "discountLabel": {
+                        "type": "string"
+                    },
+                    "discountLabelAr": {
+                        "type": "string"
+                    },
+                    "startsAt": {
+                        "type": "string",
+                        "description": "The promise, not the schedule \u2014 see the docblock."
+                    },
+                    "endsAt": {
+                        "type": "string"
+                    },
+                    "isFeatured": {
+                        "type": "boolean"
+                    },
+                    "ctaLabel": {
+                        "type": "string"
+                    },
+                    "ctaLabelAr": {
+                        "type": "string"
+                    },
+                    "ctaUrl": {
+                        "type": "string"
+                    },
+                    "heroUrl": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Cast explicitly. Scramble types an un-cast accessor as `string`, and a Dart client\nthat expects a String and receives an int throws at parse time \u2014 the mobile-contract\ntrap this project has already been bitten by."
+                    },
+                    "galleryUrls": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "store": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/PublicStoreResource"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    }
+                },
+                "required": [
+                    "id",
+                    "type",
+                    "title",
+                    "titleAr",
+                    "summary",
+                    "summaryAr",
+                    "body",
+                    "bodyAr",
+                    "terms",
+                    "termsAr",
+                    "discountLabel",
+                    "discountLabelAr",
+                    "startsAt",
+                    "endsAt",
+                    "isFeatured",
+                    "ctaLabel",
+                    "ctaLabelAr",
+                    "ctaUrl",
+                    "heroUrl",
+                    "galleryUrls"
+                ],
+                "title": "PublicMarketingPostResource"
+            },
+            "PublicStoreResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "nameAr": {
+                        "type": "string"
+                    },
+                    "retailCategory": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "descriptionAr": {
+                        "type": "string"
+                    },
+                    "websiteUrl": {
+                        "type": "string"
+                    },
+                    "instagramHandle": {
+                        "type": "string"
+                    },
+                    "logoUrl": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "locations": {
+                        "type": "string",
+                        "description": "Where to find it, when the caller asked for a specific mall and we resolved the\nunits this retailer occupies THERE. A bare unit code is not commercially sensitive\n(it is painted on the shopfront), but it is only ever scoped to the mall being\nbrowsed \u2014 never the retailer's presence across the operator's whole portfolio,\nwhich would let anyone map a chain's footprint from a public endpoint."
+                    }
+                },
+                "required": [
+                    "id",
+                    "name",
+                    "nameAr",
+                    "retailCategory",
+                    "description",
+                    "descriptionAr",
+                    "websiteUrl",
+                    "instagramHandle",
+                    "logoUrl"
+                ],
+                "title": "PublicStoreResource"
+            },
             "RateTenantRequestRequest": {
                 "type": "object",
                 "properties": {
@@ -2847,6 +3970,164 @@
                     "passwordConfirmation"
                 ],
                 "title": "ResetPasswordRequest"
+            },
+            "SaveMarketingPostRequest": {
+                "type": "object",
+                "description": "Validation for a retailer creating or editing their own post from the mobile app.\n\nTwo fields a client MAY NOT set are deliberately absent from the rules, and their absence is the\npoint: `status` and `is_featured`. Accepting either would let a retailer publish straight to the\nmall's feed or promote themselves into the carousel \u2014 the two things the whole review workflow\nexists to prevent. They are not validated-and-rejected, they are simply never read\n({@see \\App\\Actions\\Api\\V1\\MarketingPosts\\SaveMarketingPostAction} builds its own attribute\nlist), so a future edit that adds a rule here still cannot hand them over.\n\n`asset_id` IS accepted, because a chain trading in three of the operator's malls has to say\nwhich one \u2014 but it is re-checked server-side against the tenant's actual leases in\n{@see \\App\\Services\\MarketingPost\\SubmitMarketingPostService::assertTenantTradesIn()}. The rule\nbelow is a fast fail, not the guard.",
+                "properties": {
+                    "assetId": {
+                        "type": "integer"
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "offer",
+                            "event",
+                            "news"
+                        ]
+                    },
+                    "audience": {
+                        "type": "string",
+                        "description": "Audience is capped at what a retailer may legitimately choose. `tenants` is allowed\n(a staff discount for the mall's other retailers is a real thing they publish).",
+                        "enum": [
+                            "visitors",
+                            "tenants",
+                            "both"
+                        ]
+                    },
+                    "title": {
+                        "type": "string",
+                        "maxLength": 255
+                    },
+                    "titleAr": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "maxLength": 255
+                    },
+                    "summary": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "maxLength": 500
+                    },
+                    "summaryAr": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "maxLength": 500
+                    },
+                    "body": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "maxLength": 5000
+                    },
+                    "bodyAr": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "maxLength": 5000
+                    },
+                    "terms": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "maxLength": 2000
+                    },
+                    "termsAr": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "maxLength": 2000
+                    },
+                    "discountLabel": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "maxLength": 60
+                    },
+                    "discountLabelAr": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "maxLength": 60
+                    },
+                    "startsAt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "endsAt": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "date-time"
+                    },
+                    "ctaLabel": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "maxLength": 60
+                    },
+                    "ctaLabelAr": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "maxLength": 60
+                    },
+                    "ctaUrl": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "uri",
+                        "description": "`url` rather than a bare string: the value is rendered as a tappable link in a\nshopper's app, and `javascript:` in that slot is a stored-XSS delivery mechanism.",
+                        "maxLength": 500
+                    },
+                    "hero": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "binary",
+                        "contentMediaType": "application/octet-stream",
+                        "description": "Artwork. mimetypes (not mimes) validates the real content type, so a renamed file\ncannot slip through \u2014 same rule the sales-report upload uses.",
+                        "maxLength": 5120
+                    },
+                    "gallery": {
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": "string",
+                            "format": "binary",
+                            "contentMediaType": "application/octet-stream",
+                            "maxLength": 5120
+                        },
+                        "maxItems": 6
+                    }
+                },
+                "required": [
+                    "assetId",
+                    "title"
+                ],
+                "title": "SaveMarketingPostRequest"
             },
             "TenantRequestCommentResource": {
                 "type": "object",
@@ -2984,10 +4265,7 @@
                                 "type": "string"
                             },
                             "floor": {
-                                "type": [
-                                    "string",
-                                    "null"
-                                ]
+                                "$ref": "#/components/schemas/Floor"
                             }
                         },
                         "required": [
@@ -3305,8 +4583,8 @@
                     }
                 }
             },
-            "AuthenticationException": {
-                "description": "Unauthenticated",
+            "ModelNotFoundException": {
+                "description": "Not found",
                 "content": {
                     "application/json": {
                         "schema": {
@@ -3324,8 +4602,8 @@
                     }
                 }
             },
-            "ModelNotFoundException": {
-                "description": "Not found",
+            "AuthenticationException": {
+                "description": "Unauthenticated",
                 "content": {
                     "application/json": {
                         "schema": {
