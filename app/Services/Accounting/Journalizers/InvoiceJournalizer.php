@@ -16,8 +16,22 @@ use Illuminate\Database\Eloquent\Model;
  */
 class InvoiceJournalizer implements Journalizer
 {
-    /** invoice_item.type → semantic revenue role. Unknown kinds fall back to misc_income. */
-    private const REVENUE_ROLE = [
+    /**
+     * invoice_item.type → semantic posting role. Unknown kinds fall back to `misc_income`.
+     *
+     * **Public because it is a registry, and gated as one.** `ChargeCodeGlMappingConformanceTest`
+     * asserts that every `InvoiceItemType` case is either mapped here or listed in
+     * {@see UNMAPPED_BY_DESIGN}, and that every role named here exists in `App\Support\PostingRoles`.
+     *
+     * Both halves matter. A new charge code added without a line here does not fail — it books
+     * silently to miscellaneous income, so revenue is misclassified with nothing to notice it, which
+     * is exactly why `violation_fine` and `nsf_fee` were mapped explicitly rather than left to the
+     * fallback. And a typo'd role here throws "No account mapping for role …" at POSTING time, long
+     * after the deploy; the gate turns that into a red build instead.
+     *
+     * @var array<string, string>
+     */
+    public const REVENUE_ROLE = [
         'base_rent' => 'rent_revenue',
         'service_charge' => 'service_charge_revenue',
         'utility' => 'utility_revenue',
@@ -36,6 +50,18 @@ class InvoiceJournalizer implements Journalizer
         // rent and not a late fee, and leaving it to the fallback would classify it correctly by
         // accident rather than on purpose.
         'nsf_fee' => 'misc_income',
+    ];
+
+    /**
+     * Charge codes that deliberately have NO explicit role and take the `misc_income` fallback.
+     *
+     * Listing them is the point: it makes the fallback a decision someone made rather than a line
+     * somebody forgot. Anything not here and not in {@see REVENUE_ROLE} fails the conformance gate.
+     *
+     * @var array<string, string> code => why it is deliberately unmapped
+     */
+    public const UNMAPPED_BY_DESIGN = [
+        'other' => 'The escape hatch for an ad-hoc charge with no standing revenue account. It is unclassified BY DEFINITION — giving it a dedicated role would invite the operator to bill real, recurring revenue through a line nobody reports on.',
     ];
 
     public function __construct(private AccountResolver $accounts) {}
