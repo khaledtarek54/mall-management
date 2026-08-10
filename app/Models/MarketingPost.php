@@ -10,7 +10,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Carbon;
+// `Carbon\Carbon`, not `Illuminate\Support\Carbon`: the `datetime` cast is typed as the base class,
+// and `Illuminate\Support\Carbon` extends it — so declaring the base accepts what Laravel actually
+// hands back at runtime, while declaring the subclass makes `validUntil()` narrower than its own
+// return value. Widening the two parameter types below is safe: they still accept everything they
+// accepted before.
+use Carbon\Carbon;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 use Spatie\MediaLibrary\HasMedia;
@@ -132,21 +137,29 @@ class MarketingPost extends Model implements HasMedia
         'click_count' => 0,
     ];
 
-    protected function casts(): array
-    {
-        return [
-            'starts_at' => 'datetime',
-            'ends_at' => 'datetime',
-            'display_from' => 'datetime',
-            'display_until' => 'datetime',
-            'reviewed_at' => 'datetime',
-            'published_at' => 'datetime',
-            'is_featured' => 'boolean',
-            'priority' => 'integer',
-            'view_count' => 'integer',
-            'click_count' => 'integer',
-        ];
-    }
+    /**
+     * Declared as the `$casts` PROPERTY, not the `casts()` method.
+     *
+     * Both work identically at runtime, but static analysis only reads the property: larastan types
+     * a model attribute from the migration column and then applies `$casts` on top, so a datetime
+     * declared only in `casts()` stays a `string` to PHPStan — which is why every
+     * `$post->starts_at->toIso8601String()` in this module read as "method call on string". 77 of the
+     * project's 82 models already declare it this way; this one is now the 78th.
+     *
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'starts_at' => 'datetime',
+        'ends_at' => 'datetime',
+        'display_from' => 'datetime',
+        'display_until' => 'datetime',
+        'reviewed_at' => 'datetime',
+        'published_at' => 'datetime',
+        'is_featured' => 'boolean',
+        'priority' => 'integer',
+        'view_count' => 'integer',
+        'click_count' => 'integer',
+    ];
 
     /**
      * Never let a blank form field write null into a NOT-NULL column (the `meter_readings.cost` /
@@ -175,10 +188,11 @@ class MarketingPost extends Model implements HasMedia
         //
         // Note this does NOT fire for the shopper-view counters, which are builder increments
         // precisely so a read does not invalidate the cache it just populated.
+        // No null check on `asset_id`: the column is NOT NULL (`foreignId(...)->constrained()`),
+        // and these three hooks only fire after a row has successfully hit the database, so there
+        // is no state in which it is unset here.
         $bust = function (self $post): void {
-            if ($post->asset_id !== null) {
-                MarketingFeedCache::bump((int) $post->asset_id);
-            }
+            MarketingFeedCache::bump((int) $post->asset_id);
         };
 
         static::saved($bust);
@@ -251,32 +265,38 @@ class MarketingPost extends Model implements HasMedia
 
     // ============ Relationships ============
 
+    /** @return BelongsTo<Asset, $this> */
     public function asset(): BelongsTo
     {
         return $this->belongsTo(Asset::class);
     }
 
+    /** @return BelongsTo<Tenant, $this> */
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);
     }
 
+    /** @return BelongsTo<User, $this> */
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function reviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by');
     }
 
+    /** @return BelongsTo<TenantUser, $this> */
     public function submittedByTenantUser(): BelongsTo
     {
         return $this->belongsTo(TenantUser::class, 'submitted_by_tenant_user_id');
     }
 
     /** Marketing spend booked against this campaign — the content↔money join (module 13). */
+    /** @return HasMany<MarketingSpend, $this> */
     public function spends(): HasMany
     {
         return $this->hasMany(MarketingSpend::class);
