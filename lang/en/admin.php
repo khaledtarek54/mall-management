@@ -3827,6 +3827,12 @@ return [
         ],
     ],
     'preventive_maintenance' => [
+        'tabs' => [
+            'scope' => 'Scope',
+            'work' => 'The work',
+            'schedule' => 'Schedule',
+            'assignment' => 'Assignment',
+        ],
         'group' => 'Facility',
         'filters' => ['active' => 'Active', 'overdue' => 'Overdue (due before today)'],
         'plan' => ['singular' => 'Service Schedule', 'plural' => 'Service Schedules'],

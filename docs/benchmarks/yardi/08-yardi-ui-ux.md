@@ -271,7 +271,7 @@ change).
 | ~~`TenantForm`~~ | ~~18~~ | ✅ **done 2026-08-10** — 4 tabs |
 | ~~`CreditNoteForm`~~ | ~~18~~ | ✅ **done 2026-08-10** — 4 tabs |
 | `VendorBillForm` | 15 | **2 — left as sections.** The rule is *more than ~3 concerns*, and two panels do not earn a tab strip |
-| `MaintenancePlanForm` | 15 | **0 — needs grouping decided first.** A flat form has no concerns to split on; inventing them is a product call, not a refactor |
+| ~~`MaintenancePlanForm`~~ | ~~15~~ | ✅ **done 2026-08-10** — 4 tabs (Scope · The work · Schedule · Assignment), fields REORDERED into groups |
 | ~~`PaymentForm`~~ | ~~14~~ | ✅ **done 2026-08-10** — 4 tabs |
 
 Below ~12 fields a tab strip costs more than it saves — leave those as sections.

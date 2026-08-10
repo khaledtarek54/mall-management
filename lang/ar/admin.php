@@ -3818,6 +3818,12 @@ return [
         ],
     ],
     'preventive_maintenance' => [
+        'tabs' => [
+            'scope' => 'النطاق',
+            'work' => 'العمل',
+            'schedule' => 'الجدولة',
+            'assignment' => 'الإسناد',
+        ],
         'group' => 'المرافق',
         'filters' => ['active' => 'نشِطة', 'overdue' => 'متأخرة (مستحقة قبل اليوم)'],
         'plan' => ['singular' => 'خطة خدمة', 'plural' => 'خطط الخدمات'],
