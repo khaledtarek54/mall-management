@@ -531,6 +531,22 @@ class Lease extends Model implements HasMedia
     }
 
     /**
+     * Parking bays, stores and signage let alongside the premises (space model).
+     *
+     * Deliberately NOT `units()` — a rentable item is not lettable area, and keeping the two
+     * relations apart is what stops one being summed into the other. See
+     * [docs/benchmarks/yardi/09-yardi-space-and-parking.md](../../docs/benchmarks/yardi/09-yardi-space-and-parking.md).
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany<RentableItem, $this>
+     */
+    public function rentableItems(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(RentableItem::class, 'lease_rentable_item')
+            ->withPivot(['effective_from', 'effective_to', 'monthly_rate'])
+            ->withTimestamps();
+    }
+
+    /**
      * The history as it stood on a past date — the auditor's view.
      *
      * @return \Illuminate\Support\Collection<int, LeaseEvent>

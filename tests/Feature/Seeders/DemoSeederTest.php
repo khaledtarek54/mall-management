@@ -26,8 +26,19 @@ it('seeds a complete, correctly-branded demo dataset', function () {
     expect(Tenant::count())->toBe(33);
     expect(Invoice::count())->toBeGreaterThan(0);
     expect(Asset::where('code', 'AW')->exists())->toBeTrue();
-    // 33 single-unit leases + the extra unit of the one multi-unit demo lease.
-    expect(Asset::where('code', 'AW')->first()->units()->where('status', 'occupied')->count())->toBe(34);
+    // Every unit held by a live lease is occupied, and nothing else is. Asserted as the INVARIANT
+    // rather than as a count: the literal was 34 and broke the moment the seeder grew a demo
+    // expansion, which is a true statement about the demo and says nothing about correctness.
+    $aw = Asset::where('code', 'AW')->first();
+    $heldUnitIds = \App\Models\Lease::query()
+        ->whereIn('status', ['active', 'pending_approval'])
+        ->with('units')
+        ->get()
+        ->flatMap(fn (Lease $l) => $l->units->pluck('id'))
+        ->unique();
+
+    expect($aw->units()->where('status', 'occupied')->pluck('id')->sort()->values()->all())
+        ->toBe($heldUnitIds->sort()->values()->all());
     expect(Lease::has('units', '>', 1)->exists())->toBeTrue();   // demo multi-unit lease
     // Maintenance seeding depends on the portal-tenant emails matching the
     // generator — guard that coordination so a domain rename can't silently

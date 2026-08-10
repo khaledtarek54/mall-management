@@ -450,7 +450,16 @@ class ChargeScheduleService
             // The FIRST row is dated to the lease commencement, not the effective date: a charge
             // that never existed should bill the lease's term, not only from today. This matches
             // what LeaseCreationService/LeaseRentChangeService did before schedules existed.
-            'start_date' => $lease->commencement_date ?? $effectiveFrom->toDateString(),
+            //
+            // `first_row_from_effective` opts out, and the distinction is real rather than a
+            // convenience. That default assumes the charge conceptually applied all along and was
+            // merely unrecorded — true of rent and the service charge. It is FALSE for anything
+            // acquired mid-term: a parking bay taken on 1 March was not held in January, and
+            // dating its first row to the commencement would back-charge months the tenant never
+            // had it. Callers that let something say so.
+            'start_date' => ($attributes['first_row_from_effective'] ?? false)
+                ? $effectiveFrom->toDateString()
+                : ($lease->commencement_date ?? $effectiveFrom->toDateString()),
             'is_active' => true,
         ]);
     }
