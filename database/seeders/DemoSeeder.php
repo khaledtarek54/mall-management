@@ -30,6 +30,7 @@ use App\Models\RentableItem;
 use App\Models\InvoiceItem;
 use App\Models\JournalEntry;
 use App\Models\Lease;
+use App\Models\TenantDocument;
 use App\Models\LeaseCamTerm;
 use App\Models\MaintenancePlan;
 use App\Models\MaintenanceWorkOrder;
@@ -250,6 +251,43 @@ class DemoSeeder extends Seeder
                 'status' => 'active',
             ]);
 
+            // Compliance paperwork, spread across the three states the chase distinguishes so the
+            // screen and `tenants:scan-document-expiry` both have something real to show: current,
+            // lapsing inside the 30-day window, and already lapsed. Without this the whole module
+            // is invisible in a demo — every tenant would simply have no documents.
+            $insuranceExpiry = match ($i % 3) {
+                0 => Carbon::now()->addMonths(8),      // comfortably current
+                1 => Carbon::now()->addDays(12),       // inside the chase window
+                default => Carbon::now()->subDays(9),  // lapsed — trading uninsured
+            };
+
+            TenantDocument::create([
+                'tenant_id' => $tenant->id,
+                'type' => TenantDocument::TYPE_INSURANCE_COI,
+                'reference' => 'POL-'.rand(100000, 999999),
+                'issuer' => ['Misr Insurance', 'AXA Egypt', 'Allianz Egypt'][$i % 3],
+                'issued_on' => $insuranceExpiry->copy()->subYear(),
+                'expires_on' => $insuranceExpiry,
+                // The sum insured is the number an operator compares against the lease.
+                'coverage_amount' => 1000000,
+            ]);
+
+            // The statutory pair every Egyptian retailer files, with no renewal date tracked —
+            // documents we hold rather than documents we nag about.
+            TenantDocument::create([
+                'tenant_id' => $tenant->id,
+                'type' => TenantDocument::TYPE_TAX_CARD,
+                'reference' => $tenant->tax_id,
+                'issuer' => 'مصلحة الضرائب المصرية',
+            ]);
+
+            TenantDocument::create([
+                'tenant_id' => $tenant->id,
+                'type' => TenantDocument::TYPE_COMMERCIAL_REGISTER,
+                'reference' => (string) rand(10000, 99999),
+                'issuer' => 'السجل التجاري',
+            ]);
+
             // Portal logins (req #9 multi-user): the first three tenants get an
             // ADMIN TenantUser; tenant1 also gets a second, NON-admin (read-only)
             // user so the admin-can-write / others-read-only split is demoable.
@@ -300,9 +338,25 @@ class DemoSeeder extends Seeder
                 'currency' => 'EGP',
                 'security_deposit' => $rent * 3,
                 'security_deposit_received' => true,
-                'escalation_rate' => 7.00,
-                'escalation_type' => 'fixed_percent',
+                // A spread of escalation shapes rather than seven identical 7% leases, so the
+                // demo shows what the module can express and the E2E smoke walks each branch.
+                // Deterministic by index — a random spread makes a failing demo unreproducible.
+                'escalation_rate' => $i % 3 === 2 ? 0 : 7.00,
+                'escalation_type' => $i % 3 === 2 ? 'fixed_amount' : 'fixed_percent',
+                // The anchor deal: a flat step in pounds, which is what a large tenant negotiates.
+                'escalation_amount' => $i % 3 === 2 ? round($rent * 0.05, 0) : null,
+                // The collar, on the CPI-ish leases: "no less than 3%, no more than 10%".
+                'escalation_floor_rate' => $i % 3 === 0 ? 3.00 : null,
+                'escalation_ceiling_rate' => $i % 3 === 0 ? 10.00 : null,
                 'next_escalation_date' => $commencement->copy()->addYear(),
+                // Handover a fortnight before the term starts, and — on every fourth lease — a
+                // three-month fit-out before rent begins. Leaving rent-commencement null on the
+                // rest keeps most of the book billing from commencement, which is the normal case.
+                'possession_date' => $commencement->copy()->subDays(14),
+                'rent_commencement_date' => $i % 4 === 3
+                    ? $commencement->copy()->startOfMonth()->addMonths(3)
+                    : null,
+                'fit_out_scope' => Lease::FIT_OUT_RENT_ONLY,
                 'has_percentage_rent' => in_array($unitData['category'], ['retail', 'food_beverage']),
                 'percentage_rent_threshold' => in_array($unitData['category'], ['retail', 'food_beverage']) ? $rent * 5 : null,
                 'percentage_rent_rate' => in_array($unitData['category'], ['retail', 'food_beverage']) ? 6.00 : null,
