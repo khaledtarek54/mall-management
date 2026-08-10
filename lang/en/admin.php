@@ -1511,6 +1511,7 @@ return [
             'ends' => 'Ends',
         ],
         'invoice' => [
+            'issue_date' => 'Issued',
             'number' => 'Invoice #',
             'tenant' => 'Tenant',
             'unit' => 'Unit',
@@ -4413,6 +4414,14 @@ return [
         'title' => 'Claims over this unit',
         'empty_heading' => 'Nothing is claiming this unit',
         'empty_description' => 'Expansion options, rights of first refusal and purchase options on other leases appear here. While one is open the unit is not freely lettable — the option holder has to be dealt with first.',
+    ],
+
+
+    'tenant_invoices' => [
+        'days_overdue' => ':days days overdue',
+        'outstanding_only' => 'Outstanding only',
+        'empty_heading' => 'Nothing has been billed to this tenant',
+        'empty_description' => 'Invoices raised against any of this tenant’s leases appear here, in the properties you can see.',
     ],
 
 ];

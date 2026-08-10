@@ -7,6 +7,7 @@ use App\Filament\Admin\RelationManagers\PortalUsersRelationManager;
 use App\Filament\Admin\RelationManagers\TenantLeasesRelationManager;
 use App\Filament\Admin\RelationManagers\TenantRequestsRelationManager;
 use App\Filament\Admin\RelationManagers\TenantNotesRelationManager;
+use App\Filament\Admin\RelationManagers\TenantInvoicesRelationManager;
 use App\Filament\Admin\RelationManagers\TenantPaymentsRelationManager;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Concerns\ScopesViaProperty;
@@ -117,6 +118,10 @@ class TenantResource extends Resource
             PortalUsersRelationManager::class,
             TenantLeasesRelationManager::class,
             DocumentsRelationManager::class,
+            // What they OWE, beside what they have paid. The page showed the money-in side
+            // and not the money-out side, so the question an operator opens a tenant to ask
+            // had to be taken to the invoice register.
+            TenantInvoicesRelationManager::class,
             TenantPaymentsRelationManager::class,
             TenantRequestsRelationManager::class,
             TenantNotesRelationManager::class,
