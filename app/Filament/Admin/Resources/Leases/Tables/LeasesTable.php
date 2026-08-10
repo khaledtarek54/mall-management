@@ -238,6 +238,15 @@ class LeasesTable
                 Filter::make('expiring_soon')
                     ->label(__('admin.filters.expiring_soon'))
                     ->query(fn (Builder $query) => $query->where('status', 'active')->whereBetween('expiry_date', [now(), now()->addDays(90)])),
+                // An option whose notice window CLOSES soon — the deadline that cannot be
+                // recovered once missed. `leases:scan-option-windows` notifies on it; this is where
+                // the notification (and the dashboard's work-list) lands.
+                Filter::make('option_closing')
+                    ->label(__('admin.filters.option_closing'))
+                    ->query(fn (Builder $query) => $query->whereHas('options', fn ($q) => $q
+                        ->where('status', 'open')
+                        ->whereNotNull('latest_notice_date')
+                        ->whereBetween('latest_notice_date', [now()->startOfDay(), now()->addDays(90)->endOfDay()]))),
                 // Holdover: active leases PAST their end date (billing has silently stopped).
                 Filter::make('holdover')
                     ->label(__('admin.filters.holdover'))

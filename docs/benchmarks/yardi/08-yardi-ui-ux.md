@@ -204,10 +204,24 @@ screen.
 
 ---
 
-### UX-09 🟠 Critical-dates work-list
+### UX-09 ✅ Critical-dates work-list — **SHIPPED 2026-08-10**
 One list answering "what needs action in the next 90 days": option notice windows opening/closing,
 lease expiries, insurance expiries, contract renewals. Grouped by urgency, each with the action that
 resolves it. The nav badge points here.
+
+**This was mostly already built and nobody had noticed.** The `ActionRequired` dashboard widget
+already carried thirteen categories — lease expiries at two urgencies, holdovers, vendor document
+expiry, contract notice, matured cheques, overdue AR, unbilled leases, vacant units, missing sales
+declarations, SLA breaches — each permission-gated and each linking to a filtered list. It IS the
+work-list this story asks for.
+
+**The gap was option notice windows**, which is the item with the hardest deadline: once the window
+passes the right lapses, a renewal the tenant loses or a break they can no longer take.
+`leases:scan-option-windows` notified about it and nothing showed it in the list an operator opens.
+Added as a fourteenth row plus the `option_closing` filter it lands on.
+
+Building a separate page would have duplicated thirteen categories that already work, and the copy
+would have drifted from the original within a release.
 
 ---
 
