@@ -83,6 +83,7 @@ class Settings extends Page implements HasSchemas
                 'late_fee_percent' => $billing->late_fee_percent,
                 'late_fee_grace_days' => $billing->late_fee_grace_days,
                 'late_fee_minimum' => $billing->late_fee_minimum,
+                'nsf_fee_amount' => $billing->nsf_fee_amount,
                 'monthly_billing_day' => $billing->monthly_billing_day,
                 'monthly_billing_time' => $billing->monthly_billing_time,
                 'cam_reconciliation_month' => $billing->cam_reconciliation_month,
@@ -108,6 +109,7 @@ class Settings extends Page implements HasSchemas
             ],
             'tax' => [
                 'vat_standard_rate' => $tax->vat_standard_rate,
+                'parking_vat_applicable' => $tax->parking_vat_applicable,
                 'wht_enabled' => $tax->wht_enabled,
                 'wht_default_rate' => $tax->wht_default_rate,
             ],
@@ -155,6 +157,7 @@ class Settings extends Page implements HasSchemas
         $billing->late_fee_percent = (float) $state['billing']['late_fee_percent'];
         $billing->late_fee_grace_days = (int) $state['billing']['late_fee_grace_days'];
         $billing->late_fee_minimum = (float) $state['billing']['late_fee_minimum'];
+        $billing->nsf_fee_amount = (float) ($state['billing']['nsf_fee_amount'] ?? 0);
         $billing->monthly_billing_day = (int) $state['billing']['monthly_billing_day'];
         $billing->monthly_billing_time = (string) $state['billing']['monthly_billing_time'];
         $billing->straight_line_rent_enabled = (bool) ($state['billing']['straight_line_rent_enabled'] ?? false);
@@ -184,6 +187,7 @@ class Settings extends Page implements HasSchemas
 
         $tax = app(TaxSettings::class);
         $tax->vat_standard_rate = (float) $state['tax']['vat_standard_rate'];
+        $tax->parking_vat_applicable = (bool) ($state['tax']['parking_vat_applicable'] ?? false);
         $tax->wht_enabled = (bool) $state['tax']['wht_enabled'];
         $tax->wht_default_rate = (float) $state['tax']['wht_default_rate'];
         $tax->save();
@@ -238,6 +242,15 @@ class Settings extends Page implements HasSchemas
                         ->required(),
                     TextInput::make('billing.late_fee_minimum')
                         ->label(__('admin.settings.fields.late_fee_minimum'))
+                        ->numeric()
+                        ->prefix('EGP')
+                        ->minValue(0)
+                        ->required(),
+                    // 0 = off, and that is how it ships. The action that charges it stays hidden
+                    // until a figure is set, so nothing appears on an invoice by surprise.
+                    TextInput::make('billing.nsf_fee_amount')
+                        ->label(__('admin.settings.fields.nsf_fee_amount'))
+                        ->helperText(__('admin.settings.fields.nsf_fee_amount_helper'))
                         ->numeric()
                         ->prefix('EGP')
                         ->minValue(0)
@@ -326,6 +339,12 @@ class Settings extends Page implements HasSchemas
                         ->maxValue(100)
                         ->step('0.01')
                         ->required(),
+                    // Parking is neither obviously exempt (like rent) nor obviously standard-rated
+                    // (like the service charge) — a licence to use a space rather than a lease of
+                    // it. The accountant owns the call; the code ships exempt.
+                    \Filament\Forms\Components\Toggle::make('tax.parking_vat_applicable')
+                        ->label(__('admin.settings.fields.parking_vat_applicable'))
+                        ->helperText(__('admin.settings.fields.parking_vat_applicable_helper')),
                 ]),
             Section::make(__('admin.settings.sections.wht'))
                 ->description(__('admin.settings.sections.wht_description'))

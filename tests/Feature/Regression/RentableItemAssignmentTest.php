@@ -224,3 +224,35 @@ it('closes the parking charge rather than billing zero for ever', function () {
         ->flatMap(fn ($i) => $i->items->pluck('type'))
         ->contains('parking'))->toBeFalse();
 });
+
+it('bills parking VAT only when the accountant has switched it on', function () {
+    // Rent is exempt, service charge is standard-rated, parking is neither obviously — so it is a
+    // setting rather than a constant, shipping EXEMPT because under-charging beats collecting tax
+    // that may not be due.
+    CarbonImmutable::setTestNow('2026-03-05');
+    $asset = makeAsset();
+    $service = app(AssignRentableItemService::class);
+
+    // Off (the default): exempt.
+    $exempt = leaseFor($asset, 'V-01');
+    $service->assign($exempt, itemFor($asset, 'P-101', 1000), ['effective_from' => '2026-03-01']);
+    $row = $exempt->fresh()->charges()->where('type', 'parking')->sole();
+
+    expect((bool) $row->vat_applicable)->toBeFalse()
+        ->and((float) $row->vat_rate)->toBe(0.0);
+
+    // The accountant rules that parking is a taxable supply.
+    app(\App\Settings\TaxSettings::class)->parking_vat_applicable = true;
+
+    $taxed = leaseFor($asset, 'V-02');
+    $service->assign($taxed, itemFor($asset, 'P-102', 1000), ['effective_from' => '2026-03-01']);
+    $taxedRow = $taxed->fresh()->charges()->where('type', 'parking')->sole();
+
+    expect((bool) $taxedRow->vat_applicable)->toBeTrue()
+        // The settings-driven standard rate, never a literal.
+        ->and((float) $taxedRow->vat_rate)->toBe(\App\Support\Vat::standardRate())
+        // …and the earlier lease is untouched: origination only, so a rate change never rewrites
+        // what was already billed.
+        ->and((bool) $exempt->fresh()->charges()->where('type', 'parking')->sole()->vat_applicable)
+        ->toBeFalse();
+});

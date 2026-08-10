@@ -18,6 +18,16 @@ class BillingSettings extends Settings
     public int $late_fee_grace_days = 7;
     public float $late_fee_minimum = 50.00;
 
+    /**
+     * Flat fee charged when a post-dated cheque is returned unpaid (Yardi posts an NSF charge).
+     *
+     * 0 = OFF, and that is how it ships: a fee appearing on invoices after an upgrade would be a
+     * surprise to the operator and the tenant alike. Billed by an explicit operator action, never
+     * automatically on bounce — the same separation module 31 draws between recording a violation
+     * and billing its fine.
+     */
+    public float $nsf_fee_amount = 0.0;
+
     public int $monthly_billing_day = 1;
     public string $monthly_billing_time = '02:00';
 

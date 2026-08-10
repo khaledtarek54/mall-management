@@ -107,8 +107,11 @@ different groups to anything that groups rather than sorts.
 
 A `floor_level` ordinal (basement negative, ground 0, first 1…) beside the existing label fixes the
 sort, makes floors groupable, and is the precondition for a stacking plan — without inventing a
-hierarchy Yardi's own core does not have. ***(verify — whether per-floor GLA / common-area figures
-are ever needed; if they are, that is the trigger to promote `Floor` to an entity, and not before.)***
+hierarchy Yardi's own core does not have. **Resolved 2026-08-10:** `Floor` became an entity for a different reason (a per-property register
+that units and rentable items both select from), and per-floor GLA turned out to need no column at
+all — it is a sum over the units standing on the floor, shown on the property's Floors tab through
+the same `App\Support\Occupancy` definition the property and dashboard use. Storing it would have
+been a second truth about the same square metres.
 
 ## 5. Atriom today, row by row
 

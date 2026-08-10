@@ -108,6 +108,36 @@ class PostDatedChequesTable
                         self::run(fn () => app(PostDatedChequeService::class)->bounce($record), 'bounced');
                     }),
 
+                // Charging for a bounce is a DECISION, not a consequence — a landlord may waive it
+                // for a tenant whose cheque bounced once in five years. So it is its own action,
+                // exactly as billing a violation fine is separate from recording the violation.
+                // Hidden until a fee is configured: an action that can only refuse is noise.
+                Action::make('chargeNsfFee')
+                    ->label(__('admin.post_dated_cheques.nsf_fee'))
+                    ->icon('heroicon-o-receipt-percent')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->visible(fn (PostDatedCheque $r): bool => $r->status === PostDatedCheque::STATUS_BOUNCED
+                        && $r->nsf_fee_invoice_id === null
+                        && (float) app(\App\Settings\BillingSettings::class)->nsf_fee_amount > 0
+                        && PostDatedChequeResource::canManage())
+                    ->authorize(fn (PostDatedCheque $r): bool => PostDatedChequeResource::canManage())
+                    ->action(function (PostDatedCheque $record): void {
+                        abort_unless(PostDatedChequeResource::canManage(), 403);
+
+                        try {
+                            $invoice = app(\App\Services\BillBouncedChequeFeeService::class)->bill($record);
+                        } catch (\DomainException $e) {
+                            Notification::make()->danger()->title($e->getMessage())->send();
+
+                            return;
+                        }
+
+                        Notification::make()->success()
+                            ->title(__('admin.post_dated_cheques.nsf_fee_billed', ['number' => $invoice->number]))
+                            ->send();
+                    }),
+
                 Action::make('cancel')
                     ->label(__('admin.post_dated_cheques.actions.cancel'))
                     ->icon('heroicon-o-trash')->color('gray')

@@ -68,6 +68,9 @@ class InvoiceItemSettlement
         'parking',
         'percentage_rent',
         'other',
+        // Penalties settle LAST, so a part payment is never eaten by one — a disputed fee stays
+        // visible in aging as a fee instead of quietly consuming the rent that was paid.
+        'nsf_fee',
         'late_fee',
     ];
 

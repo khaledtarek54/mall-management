@@ -204,10 +204,24 @@ screen.
 
 ---
 
-### UX-09 🟠 Critical-dates work-list
+### UX-09 ✅ Critical-dates work-list — **SHIPPED 2026-08-10**
 One list answering "what needs action in the next 90 days": option notice windows opening/closing,
 lease expiries, insurance expiries, contract renewals. Grouped by urgency, each with the action that
 resolves it. The nav badge points here.
+
+**This was mostly already built and nobody had noticed.** The `ActionRequired` dashboard widget
+already carried thirteen categories — lease expiries at two urgencies, holdovers, vendor document
+expiry, contract notice, matured cheques, overdue AR, unbilled leases, vacant units, missing sales
+declarations, SLA breaches — each permission-gated and each linking to a filtered list. It IS the
+work-list this story asks for.
+
+**The gap was option notice windows**, which is the item with the hardest deadline: once the window
+passes the right lapses, a renewal the tenant loses or a break they can no longer take.
+`leases:scan-option-windows` notified about it and nothing showed it in the list an operator opens.
+Added as a fourteenth row plus the `option_closing` filter it lands on.
+
+Building a separate page would have duplicated thirteen categories that already work, and the copy
+would have drifted from the original within a release.
 
 ---
 
@@ -252,15 +266,20 @@ change).
 | Form | Fields | Sections |
 |---|---|---|
 | ~~`LeaseForm`~~ | ~~30~~ | ✅ **done** |
-| `TenantRequestForm` | 24 | 6 |
-| `InvoiceForm` | 19 | 4 |
-| `TenantForm` | 18 | 4 |
-| `CreditNoteForm` | 18 | 4 |
-| `VendorBillForm` | 15 | 2 |
-| `MaintenancePlanForm` | 15 | 0 |
-| `PaymentForm` | 14 | 4 |
+| ~~`TenantRequestForm`~~ | ~~24~~ | ✅ **done 2026-08-10** — 6 tabs, permit tab conditionally visible |
+| ~~`InvoiceForm`~~ | ~~19~~ | ✅ **done 2026-08-10** — 4 tabs (Details · Items · Amounts · Notes) |
+| ~~`TenantForm`~~ | ~~18~~ | ✅ **done 2026-08-10** — 4 tabs |
+| ~~`CreditNoteForm`~~ | ~~18~~ | ✅ **done 2026-08-10** — 4 tabs |
+| `VendorBillForm` | 15 | **2 — left as sections.** The rule is *more than ~3 concerns*, and two panels do not earn a tab strip |
+| ~~`MaintenancePlanForm`~~ | ~~15~~ | ✅ **done 2026-08-10** — 4 tabs (Scope · The work · Schedule · Assignment), fields REORDERED into groups |
+| ~~`PaymentForm`~~ | ~~14~~ | ✅ **done 2026-08-10** — 4 tabs |
 
 Below ~12 fields a tab strip costs more than it saves — leave those as sections.
+
+**A `Tab` has no `->description()`**, so a section carrying one (tax & address, documents, payment
+allocations) leads its panel with a hidden-label `Placeholder` instead. Dropping the guidance would
+have been the silent cost of the conversion — those sentences are the only explanation an operator
+gets for what the panel is for.
 
 ---
 

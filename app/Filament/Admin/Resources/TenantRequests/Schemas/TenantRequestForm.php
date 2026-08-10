@@ -14,7 +14,9 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Schemas\Components\Section;
+use App\Support\FormTab;
+use Filament\Forms\Components\Placeholder;
+use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
@@ -23,10 +25,18 @@ class TenantRequestForm
 {
     public static function configure(Schema $schema): Schema
     {
+        // One tab per concern through App\Support\FormTab, so each carries a badge counting
+        // the validation errors INSIDE it (UX-13) — Filament v4 has no error indicator on Tabs,
+        // and without one a blank required field on an unseen tab refuses the form with nothing
+        // visible to fix.
         return $schema->columns(1)->components([
-            Section::make(__('admin.sections.maintenance_request'))
-                ->columns(3)
-                ->components([
+            Tabs::make('tenant_request')
+                ->columnSpanFull()
+                ->persistTabInQueryString()
+                ->tabs([
+                    FormTab::make(__('admin.sections.maintenance_request'), [
+
+
                     TextInput::make('reference')
                         ->label(__('admin.fields.reference'))
                         ->default(fn () => TenantRequest::generateReference('AW'))
@@ -129,11 +139,11 @@ class TenantRequestForm
                         ->disabled()
                         ->dehydrated(false)
                         ->native(false),
-                ]),
+                    ])->columns(3),
 
-            Section::make(__('admin.sections.maintenance_details'))
-                ->columns(1)
-                ->components([
+                    FormTab::make(__('admin.sections.maintenance_details'), [
+
+
                     TextInput::make('title')
                         ->label(__('admin.fields.maintenance_title'))
                         ->required()
@@ -144,18 +154,22 @@ class TenantRequestForm
                         ->required()
                         ->rows(4)
                         ->columnSpanFull(),
-                ]),
+                    ])->columns(1),
 
             // FR-REQ-13 / FR-REQ-14 — permit validity window. Shown + required only for the `permit`
             // request type (driven by the ->live() request_type above), read-only/hidden otherwise.
             // The model guards the ordering (valid_to >= valid_from) as a backstop; the inline
             // afterOrEqual keeps a bad range from ever reaching it. NO approval step — a permit is a
             // typed request that carries this window, nothing more.
-            Section::make(__('admin.sections.permit_validity'))
-                ->description(__('admin.sections.permit_validity_description'))
-                ->columns(2)
-                ->visible(fn (Get $get) => $get('request_type') === TenantRequestType::Permit->value)
-                ->components([
+                    FormTab::make(__('admin.sections.permit_validity'), [
+                        Placeholder::make('__tab_help')
+                            ->hiddenLabel()
+                            ->content(__('admin.sections.permit_validity_description'))
+                            ->columnSpanFull(),
+
+
+
+
                     DatePicker::make('valid_from')
                         ->label(__('admin.fields.valid_from'))
                         ->native(false)
@@ -165,11 +179,15 @@ class TenantRequestForm
                         ->native(false)
                         ->required(fn (Get $get) => $get('request_type') === TenantRequestType::Permit->value)
                         ->afterOrEqual('valid_from'),
-                ]),
+                    ])->columns(2)
+                        // Permit-only, exactly as the SECTION was: a Tab takes
+                        // ->visible() too, and without it every request would carry an
+                        // irrelevant permit tab.
+                        ->visible(fn (Get $get) => $get('request_type') === TenantRequestType::Permit->value),
 
-            Section::make(__('admin.sections.assignment'))
-                ->columns(2)
-                ->components([
+                    FormTab::make(__('admin.sections.assignment'), [
+
+
                     Select::make('department_id')
                         ->label(__('admin.resources.department.singular'))
                         ->options(fn () => Department::selectableOptions())
@@ -224,23 +242,27 @@ class TenantRequestForm
                         ->native(false)
                         ->seconds(false)
                         ->afterOrEqual('scheduled_from'),
-                ]),
+                    ])->columns(2),
 
-            Section::make(__('admin.sections.resolution'))
-                ->collapsed()
-                ->collapsible()
-                ->columns(1)
-                ->components([
+                    FormTab::make(__('admin.sections.resolution'), [
+
+
+
+
                     Textarea::make('resolution_notes')
                         ->label(__('admin.fields.resolution_notes'))
                         ->rows(3)
                         ->columnSpanFull(),
-                ]),
+                    ])->columns(1),
 
-            Section::make(__('admin.sections.attachments'))
-                ->description(__('admin.sections.attachments_description'))
-                ->collapsible()
-                ->components([
+                    FormTab::make(__('admin.sections.attachments'), [
+                        Placeholder::make('__tab_help')
+                            ->hiddenLabel()
+                            ->content(__('admin.sections.attachments_description'))
+                            ->columnSpanFull(),
+
+
+
                     SpatieMediaLibraryFileUpload::make('attachments')
                         ->label(__('admin.fields.attachments'))
                         ->collection('attachments')
@@ -257,6 +279,7 @@ class TenantRequestForm
                         ->acceptedFileTypes(['image/*', 'application/pdf'])
                         ->maxSize(10240)
                         ->columnSpanFull(),
+                    ]),
                 ]),
         ]);
     }

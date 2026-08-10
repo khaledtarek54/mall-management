@@ -377,6 +377,27 @@ recorded. "What did we buy outside this month, and from whom?" now has an answer
    > violation baked in. Post-fix the same probe has T2 block on the order lock until T1 commits,
    > then refuse (terminal).
 
+### Assignment is an XOR on a CORRECTIVE order, and deliberately not on a plan
+
+`MaintenanceWorkOrder` enforces a real either/or through `execution_type` (FR-CM-02/03): an
+`internal` order cannot also name a vendor, an `external` one cannot also name an in-house
+technician. Module 11 lets a tenant REQUEST carry both at once, which is exactly why assignment
+could not serve as the internal-vs-external discriminator and why `execution_type` exists.
+
+**That guard is scoped to `TYPE_CM` on purpose, and a preventive plan is exempt.** A
+`maintenance_plans` row may name a `department_id` AND a `vendor_id`, and
+`GeneratePreventiveWorkOrdersService` copies both onto the generated order without classifying it.
+
+The asymmetry is intentional, not an oversight: a corrective job is dispatched to ONE party now,
+while a preventive round genuinely splits — the in-house team does the monthly filter change and a
+contractor does the annual statutory inspection, off the same plan. Forcing the XOR here would make
+that unrepresentable.
+
+**The consequence to know about:** a generated preventive order carries no `execution_type`, so it
+cannot be filtered or reported as internal-vs-external the way a corrective one can. If that
+reporting is ever wanted, the change is to classify the plan and stamp the order — not to tighten
+the CM guard, which is already right for what it covers.
+
 ### Spare parts on a job (FR-CM-09/10/11, FR-INV-04)
 
 Everything goes through `WorkOrderPartService`; the relation manager is a thin caller.

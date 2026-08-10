@@ -32,6 +32,10 @@ class InvoiceJournalizer implements Journalizer
         // Mapped explicitly (not left to the misc_income fallback) so it's intentional + reportable;
         // the accountant can reclassify to a dedicated penalty-income account later.
         'violation_fine' => 'misc_income',
+        // Mapped explicitly for the same reason as the fine above: a returned-cheque fee is not
+        // rent and not a late fee, and leaving it to the fallback would classify it correctly by
+        // accident rather than on purpose.
+        'nsf_fee' => 'misc_income',
     ];
 
     public function __construct(private AccountResolver $accounts) {}

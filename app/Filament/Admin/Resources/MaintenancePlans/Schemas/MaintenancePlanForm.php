@@ -15,13 +15,28 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Utilities\Get;
+use App\Support\FormTab;
+use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Schema;
 
 class MaintenancePlanForm
 {
     public static function configure(Schema $schema): Schema
     {
-        return $schema->columns(2)->components([
+        // A flat 16-field form, grouped into the four questions a plan actually answers (UX-13).
+        // The fields were not in group order, so this reorders them rather than merely wrapping
+        // ranges — `equipment_id` sat after the work description, and the checklist after the
+        // assignment.
+        //
+        // SCOPE composes rather than excludes, which is how the generator already treats it: a
+        // chiller (equipment) in the basement plant room (area) is both, and the service copies
+        // every coordinate onto the work order so the job still says WHERE after the plan changes.
+        return $schema->columns(1)->components([
+            Tabs::make('maintenance_plan')
+                ->columnSpanFull()
+                ->persistTabInQueryString()
+                ->tabs([
+                    FormTab::make(__('admin.preventive_maintenance.tabs.scope'), [
             Select::make('asset_id')
                 ->label(__('admin.preventive_maintenance.fields.property'))
                 ->options(fn () => TenantScope::selectableAssetOptions())
@@ -51,6 +66,20 @@ class MaintenancePlanForm
                     : [])
                 ->searchable()
                 ->native(false),
+            Select::make('equipment_id')
+                ->label(__('admin.preventive_maintenance.equipment.singular'))
+                ->helperText(__('admin.preventive_maintenance.equipment_hint'))
+                // The machine this plan services (FR-PPM-01/03). Same clamp as unit_id.
+                ->options(fn (Get $get, ?MaintenancePlan $record) => EquipmentPicker::options($get('asset_id'), $record?->equipment_id))
+                // FR-PPM-01: Fixed maintenance is "per asset", so it must name the machine.
+                // The model enforces this too — the form only makes it visible.
+                ->required(fn (Get $get) => $get('maintenance_type') === MaintenancePlan::MAINTENANCE_TYPE_FIXED)
+                ->searchable()
+                ->preload()
+                ->native(false),
+                    ])->columns(2),
+
+                    FormTab::make(__('admin.preventive_maintenance.tabs.work'), [
             TextInput::make('title')
                 ->label(__('admin.preventive_maintenance.fields.title'))
                 ->required()
@@ -69,17 +98,17 @@ class MaintenancePlanForm
                 ->required()
                 ->live()
                 ->native(false),
-            Select::make('equipment_id')
-                ->label(__('admin.preventive_maintenance.equipment.singular'))
-                ->helperText(__('admin.preventive_maintenance.equipment_hint'))
-                // The machine this plan services (FR-PPM-01/03). Same clamp as unit_id.
-                ->options(fn (Get $get, ?MaintenancePlan $record) => EquipmentPicker::options($get('asset_id'), $record?->equipment_id))
-                // FR-PPM-01: Fixed maintenance is "per asset", so it must name the machine.
-                // The model enforces this too — the form only makes it visible.
-                ->required(fn (Get $get) => $get('maintenance_type') === MaintenancePlan::MAINTENANCE_TYPE_FIXED)
-                ->searchable()
-                ->preload()
-                ->native(false),
+            TagsInput::make('checklist')
+                ->label(__('admin.preventive_maintenance.fields.checklist'))
+                ->placeholder('Add a check item…')
+                ->columnSpanFull(),
+            Textarea::make('description')
+                ->label(__('admin.preventive_maintenance.fields.description'))
+                ->rows(2)
+                ->columnSpanFull(),
+                    ])->columns(2),
+
+                    FormTab::make(__('admin.preventive_maintenance.tabs.schedule'), [
             TextInput::make('frequency_value')
                 ->label(__('admin.preventive_maintenance.fields.frequency_value'))
                 ->numeric()
@@ -108,6 +137,14 @@ class MaintenancePlanForm
             Toggle::make('is_active')
                 ->label(__('admin.preventive_maintenance.fields.active'))
                 ->default(true),
+                    ])->columns(2),
+
+                    // Department AND vendor, both optional, deliberately NOT an XOR. The corrective
+                    // path enforces one-or-the-other through `execution_type`, and that guard is
+                    // scoped to CM on purpose: a preventive round genuinely splits — in-house does
+                    // the monthly filter change, a contractor the annual statutory inspection. See
+                    // module 26's doc for the asymmetry.
+                    FormTab::make(__('admin.preventive_maintenance.tabs.assignment'), [
             Select::make('department_id')
                 ->label(__('admin.preventive_maintenance.fields.department'))
                 ->options(fn () => Department::selectableOptions())
@@ -119,14 +156,8 @@ class MaintenancePlanForm
                 ->options(fn ($record) => Vendor::assignableOptions($record?->vendor_id))
                 ->searchable()
                 ->native(false),
-            TagsInput::make('checklist')
-                ->label(__('admin.preventive_maintenance.fields.checklist'))
-                ->placeholder('Add a check item…')
-                ->columnSpanFull(),
-            Textarea::make('description')
-                ->label(__('admin.preventive_maintenance.fields.description'))
-                ->rows(2)
-                ->columnSpanFull(),
+                    ])->columns(2),
+                ]),
         ]);
     }
 }

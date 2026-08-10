@@ -50,6 +50,7 @@ class ActionRequired extends Widget
         'matured_cheques' => 'post_dated_cheques.view',
         'overdue' => 'invoices.view',
         'unbilled' => 'invoices.view',
+        'option_closing' => 'leases.view',
         'holdover' => 'leases.view',
         'expiring_critical' => 'leases.view',
         'expiring_soon' => 'leases.view',
@@ -102,6 +103,17 @@ class ActionRequired extends Widget
         // is flowing again — leaving it here would train everyone to ignore a card that never
         // empties. The lease is still findable under the table's Holdover filter.
         $holdoverCount = $leaseBase()->holdoverNeedingAction()->count();
+
+        // An option notice window CLOSING is the one critical date that cannot be recovered once
+        // missed: a renewal right lapses and the tenant loses it, or a break goes unexercised. The
+        // widget already carried lease EXPIRIES and vendor contract notices; options were the gap
+        // in the "what needs action" list (UX-09), and they are the item with the hardest deadline.
+        $optionClosingCount = $leaseBase()
+            ->whereHas('options', fn ($q) => $q
+                ->where('status', 'open')
+                ->whereNotNull('latest_notice_date')
+                ->whereBetween('latest_notice_date', [$now, (clone $now)->addDays(90)]))
+            ->count();
 
         // Vendors are a SHARED portfolio catalog, so "whose problem is it" comes from engagement:
         // only certs on vendors under an active contract at a property this user can see. Counting
@@ -246,6 +258,19 @@ class ActionRequired extends Widget
                     'filters' => ['document_attention' => ['isActive' => true]],
                     'sort' => 'name:asc',
                 ]),
+            ];
+        }
+
+        if ($optionClosingCount > 0) {
+            $items[] = [
+                'key' => 'option_closing',
+                'icon' => 'heroicon-o-hand-raised',
+                'color' => 'warning',
+                'title' => trans_choice('admin.widgets.action_required.option_closing', $optionClosingCount, ['count' => $optionClosingCount]),
+                'body' => __('admin.widgets.action_required.option_closing_body'),
+                // Options live inside the Lease resource, so land on the leases whose window is
+                // closing — the `option_closing` filter added for exactly this.
+                'url' => LeaseResource::getUrl('index', ['tableFilters' => ['option_closing' => ['isActive' => true]]]),
             ];
         }
 

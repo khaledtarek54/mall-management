@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Payments\Pages;
 
+use Illuminate\Support\Facades\Auth;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Models\Payment;
 use Filament\Notifications\Notification;
@@ -43,6 +44,15 @@ class CreatePayment extends CreateRecord
                 PaymentResource::assertInvoiceAssetInScope($row['invoice_id']);
             }
         }
+
+        // Who took the money. `payments.received_by` existed, the receipt PDF renders it, and
+        // `PostDatedChequeService` set it — but the ORDINARY path never did, so the most common
+        // receipt of all (cash or transfer at the counter) silently omitted the line. The column
+        // was there and only one of its two writers had been built.
+        //
+        // Stamped from the authenticated user rather than asked for: whoever is recording the
+        // receipt is who received it, and a form field would be one more thing to fill in wrongly.
+        $data['received_by'] ??= Auth::id();
 
         $this->allocations = $data['allocations'] ?? [];
         unset($data['allocations']);

@@ -87,6 +87,17 @@ class AssetFloorsRelationManager extends RelationManager
                     ->label(__('admin.resources.unit.plural'))
                     ->counts('units')
                     ->badge(),
+                // Per-floor GLA and occupancy, DERIVED from the units standing on the floor — the
+                // question that was flagged as maybe needing a column turns out to be a sum. Same
+                // definition as the property and the dashboard use, so a floor cannot disagree
+                // with them about what "occupied" means.
+                TextColumn::make('area')
+                    ->label(__('admin.fields.leasable_area_sqm'))
+                    ->state(fn (Floor $record): string => number_format($record->areaFigures()['total_sqm'], 0).' m²')
+                    ->alignEnd()
+                    ->description(fn (Floor $record): ?string => $record->areaFigures()['pct'] !== null
+                        ? __('admin.tables.asset.occupancy').': '.number_format($record->areaFigures()['pct'], 1).'%'
+                        : null),
                 TextColumn::make('rentable_items_count')
                     ->label(__('admin.resources.rentable_item.plural'))
                     ->counts('rentableItems')
