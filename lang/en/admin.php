@@ -1419,6 +1419,7 @@ return [
             'type' => 'Type',
             'city' => 'City',
             'units' => 'Units',
+            'of_gross' => 'of :gross m² gross · :pct% lettable',
             'occupancy' => 'Occupancy',
             'area_occupancy' => 'Economic Occupancy',
             'monthly_revenue' => 'Monthly Revenue',

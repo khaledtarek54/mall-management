@@ -25,11 +25,9 @@ class Unit extends Model
         'area_sqm',
         'status',
         'description',
-        'features',
     ];
 
     protected $casts = [
-        'features' => 'array',
         'area_sqm' => 'decimal:2',
     ];
 

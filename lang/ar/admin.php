@@ -1411,6 +1411,7 @@ return [
             'type' => 'النوع',
             'city' => 'المدينة',
             'units' => 'الوحدات',
+            'of_gross' => 'من :gross م² إجمالي · :pct% قابل للتأجير',
             'occupancy' => 'الإشغال',
             'area_occupancy' => 'الإشغال الاقتصادي',
             'monthly_revenue' => 'الإيراد الشهري',

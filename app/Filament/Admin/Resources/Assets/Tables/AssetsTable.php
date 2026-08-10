@@ -51,7 +51,17 @@ class AssetsTable
                     ->label(__('admin.fields.leasable_area_sqm'))
                     ->numeric(decimalPlaces: 0)
                     ->suffix(' m²')
-                    ->sortable(),
+                    ->sortable()
+                    // The load factor, underneath. `total_area_sqm` was collected by the form and
+                    // read by nothing — this is what it was implicitly asking: how much of the
+                    // building can actually be let. ~70% is normal for a mall; a figure far outside
+                    // that usually means one of the two areas is wrong.
+                    ->description(fn (\App\Models\Asset $record): ?string => $record->leasableEfficiencyPct() !== null
+                        ? __('admin.tables.asset.of_gross', [
+                            'gross' => number_format((float) $record->total_area_sqm, 0),
+                            'pct' => number_format($record->leasableEfficiencyPct(), 1),
+                        ])
+                        : null),
                 IconColumn::make('is_active')
                     ->label(__('admin.tables.common.status'))
                     ->boolean(),

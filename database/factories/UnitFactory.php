@@ -50,10 +50,6 @@ class UnitFactory extends Factory
             'area_sqm' => fake()->randomFloat(2, 20, 500),
             'status' => 'vacant',
             'description' => fake()->optional()->sentence(),
-            'features' => fake()->randomElements(
-                ['corner_unit', 'glass_facade', 'outdoor_seating', 'mezzanine', 'street_access'],
-                fake()->numberBetween(0, 3),
-            ),
         ];
     }
 

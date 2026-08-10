@@ -287,4 +287,38 @@ class Asset extends Model implements HasMedia
     {
         return (float) $this->units()->sum('area_sqm');
     }
+
+    /**
+     * Leasable area as a percentage of the building — the load factor.
+     *
+     * **Why this exists:** `total_area_sqm` was a write-only field. The form asked an operator for
+     * the gross building area and NOTHING read it — the same shape as the inert-settings bug, where
+     * a screen accepts a number and quietly discards it. It is a real property attribute (GBA
+     * against GLA is standard in retail), so it earns its place by answering the question it was
+     * always implicitly asking: how much of this building can actually be let.
+     *
+     * A mall at 70% is normal; the remainder is malls, corridors, plant and back-of-house. A number
+     * far outside that usually means one of the two figures is wrong, which is the other reason to
+     * put them side by side.
+     *
+     * Null when the gross area is not recorded — a ratio against zero is not 0%, it is unknown, and
+     * reporting 0% would read as a building with nothing lettable in it.
+     */
+    public function leasableEfficiencyPct(): ?float
+    {
+        $gross = (float) $this->total_area_sqm;
+
+        if ($gross <= 0) {
+            return null;
+        }
+
+        // The DECLARED leasable area where there is one, else what the units actually add up to —
+        // the same fallback `CamReconciliationService` uses for the GLA denominator, so the two
+        // screens cannot disagree about what "leasable" means.
+        $leasable = (float) $this->leasable_area_sqm > 0
+            ? (float) $this->leasable_area_sqm
+            : $this->totalUnitAreaSqm();
+
+        return round($leasable / $gross * 100, 1);
+    }
 }
