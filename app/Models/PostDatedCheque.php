@@ -45,8 +45,15 @@ class PostDatedCheque extends Model
         'received_date',
         'status',
         'cleared_payment_id',
+        'nsf_fee_invoice_id',
         'notes',
     ];
+
+    /** The invoice carrying this bounce's returned-cheque fee, once one has been raised. */
+    public function nsfFeeInvoice(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Invoice::class, 'nsf_fee_invoice_id');
+    }
 
     protected $casts = [
         'amount' => 'decimal:2',

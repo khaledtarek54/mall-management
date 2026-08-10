@@ -21,6 +21,9 @@ enum InvoiceItemType: string
     case CamRecovery = 'cam_recovery';
     case CamAdminFee = 'cam_admin_fee';
     case ViolationFine = 'violation_fine';
+
+    /** A returned-cheque handling fee — Voyager posts one; see module 33. */
+    case NsfFee = 'nsf_fee';
     case Other = 'other';
 
     /** @return list<string> */

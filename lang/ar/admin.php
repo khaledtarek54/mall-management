@@ -545,6 +545,8 @@ return [
             'late_fee_percent' => 'نسبة غرامة التأخير',
             'late_fee_grace_days' => 'فترة السماح (أيام)',
             'late_fee_minimum' => 'الحد الأدنى لغرامة التأخير',
+            'nsf_fee_amount' => 'رسوم الشيك المرتجع',
+            'nsf_fee_amount_helper' => 'تُحتسب عند ارتجاع شيك مؤجَّل، كفاتورة مستقلة. الصفر يعطّلها — ويبقى الإجراء مخفيًا حتى تحدد قيمة.',
             'monthly_billing_day' => 'يوم الفوترة الشهرية',
             'monthly_billing_time' => 'وقت الفوترة الشهرية',
             'cam_reconciliation_month' => 'شهر تسوية المصروفات',
@@ -2745,6 +2747,7 @@ return [
             'cam_recovery' => 'استرداد مصروفات مشتركة',
             'cam_admin_fee' => 'رسوم إدارة المصروفات المشتركة',
             'violation_fine' => 'غرامة مخالفة',
+            'nsf_fee' => 'رسوم شيك مرتجع',
             'other' => 'أخرى',
         ],
         'cam_cap_type' => [
@@ -3400,6 +3403,13 @@ return [
     ],
 
     'post_dated_cheques' => [
+        'nsf_fee' => 'احتساب رسوم الشيك المرتجع',
+        'nsf_fee_line' => 'رسوم شيك مرتجع — شيك :cheque، :bank',
+        'nsf_fee_billed' => 'تم إصدار فاتورة الرسوم :number.',
+        'nsf_fee_failed_missing' => 'هذا الشيك لم يعد موجودًا.',
+        'nsf_fee_failed_not_bounced' => 'رسوم الشيك المرتجع تُحتسب على الشيكات المرتجعة فقط.',
+        'nsf_fee_failed_not_configured' => 'لم يتم تحديد رسوم للشيك المرتجع — الإعدادات ← الفوترة.',
+        'nsf_fee_failed_no_lease' => 'هذا الشيك غير مرتبط بعقد، فلا يوجد ما يُحتسب عليه.',
         'singular' => 'شيك آجل',
         'plural' => 'الشيكات الآجلة',
         'sections' => [

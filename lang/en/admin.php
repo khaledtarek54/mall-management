@@ -545,6 +545,8 @@ return [
             'late_fee_percent' => 'Late fee percentage',
             'late_fee_grace_days' => 'Grace period (days)',
             'late_fee_minimum' => 'Minimum late fee',
+            'nsf_fee_amount' => 'Returned-cheque fee',
+            'nsf_fee_amount_helper' => 'Charged when a post-dated cheque bounces, as its own invoice. 0 turns it off — the action stays hidden until you set a figure.',
             'monthly_billing_day' => 'Monthly billing day',
             'monthly_billing_time' => 'Monthly billing time',
             'cam_reconciliation_month' => 'CAM reconciliation month',
@@ -2753,6 +2755,7 @@ return [
             'cam_recovery' => 'CAM Recovery',
             'cam_admin_fee' => 'CAM Admin Fee',
             'violation_fine' => 'Violation Fine',
+            'nsf_fee' => 'Returned cheque fee',
             'other' => 'Other',
         ],
         'cam_cap_type' => [
@@ -3409,6 +3412,13 @@ return [
     ],
 
     'post_dated_cheques' => [
+        'nsf_fee' => 'Charge returned-cheque fee',
+        'nsf_fee_line' => 'Returned cheque fee — cheque :cheque, :bank',
+        'nsf_fee_billed' => 'Fee invoice :number raised.',
+        'nsf_fee_failed_missing' => 'That cheque no longer exists.',
+        'nsf_fee_failed_not_bounced' => 'Only a bounced cheque carries a returned-cheque fee.',
+        'nsf_fee_failed_not_configured' => 'No returned-cheque fee is set — Settings → Billing.',
+        'nsf_fee_failed_no_lease' => 'That cheque is not linked to a lease, so there is nothing to bill it against.',
         'singular' => 'Post-dated Cheque',
         'plural' => 'Post-dated Cheques',
         'sections' => [

@@ -83,6 +83,7 @@ class Settings extends Page implements HasSchemas
                 'late_fee_percent' => $billing->late_fee_percent,
                 'late_fee_grace_days' => $billing->late_fee_grace_days,
                 'late_fee_minimum' => $billing->late_fee_minimum,
+                'nsf_fee_amount' => $billing->nsf_fee_amount,
                 'monthly_billing_day' => $billing->monthly_billing_day,
                 'monthly_billing_time' => $billing->monthly_billing_time,
                 'cam_reconciliation_month' => $billing->cam_reconciliation_month,
@@ -156,6 +157,7 @@ class Settings extends Page implements HasSchemas
         $billing->late_fee_percent = (float) $state['billing']['late_fee_percent'];
         $billing->late_fee_grace_days = (int) $state['billing']['late_fee_grace_days'];
         $billing->late_fee_minimum = (float) $state['billing']['late_fee_minimum'];
+        $billing->nsf_fee_amount = (float) ($state['billing']['nsf_fee_amount'] ?? 0);
         $billing->monthly_billing_day = (int) $state['billing']['monthly_billing_day'];
         $billing->monthly_billing_time = (string) $state['billing']['monthly_billing_time'];
         $billing->straight_line_rent_enabled = (bool) ($state['billing']['straight_line_rent_enabled'] ?? false);
@@ -240,6 +242,15 @@ class Settings extends Page implements HasSchemas
                         ->required(),
                     TextInput::make('billing.late_fee_minimum')
                         ->label(__('admin.settings.fields.late_fee_minimum'))
+                        ->numeric()
+                        ->prefix('EGP')
+                        ->minValue(0)
+                        ->required(),
+                    // 0 = off, and that is how it ships. The action that charges it stays hidden
+                    // until a figure is set, so nothing appears on an invoice by surprise.
+                    TextInput::make('billing.nsf_fee_amount')
+                        ->label(__('admin.settings.fields.nsf_fee_amount'))
+                        ->helperText(__('admin.settings.fields.nsf_fee_amount_helper'))
                         ->numeric()
                         ->prefix('EGP')
                         ->minValue(0)

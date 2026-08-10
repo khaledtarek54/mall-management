@@ -109,7 +109,7 @@
 | Line-level dispute | ✅ | ✅ `invoice_items.disputed_at` — out of the late-fee base, shown beside the aged figure, visible on the portal | ✅ **CLOSED (MF-07)** | ⚪ |
 | **Bad-debt write-off** | ✅ `WRTOFF` → bad-debt expense | ✅ `InvoiceWriteOff` + `WriteOffInvoiceService`, own GL source, reversible (shipped 2026-08-09) | ✅ **KEEP** | ⚪ |
 | Late fees | per charge code, per-lease override | ✅ idempotent + lock-safe, with per-lease grace/rate/minimum overrides | ✅ **CLOSED (MF-08)** | ⚪ |
-| Bounced / NSF | ✅ reverses + fees | ✅ `Payment.status = bounced` + module 33 PDC lifecycle. **The reversal half is better than Yardi's**: no `Payment` exists until a cheque CLEARS, so a bounce has nothing to un-apply — Voyager enters a receipt and then reverses it. **The FEE half is genuinely absent.** | ➕ EXTEND — see the spec below | 🟡 |
+| Bounced / NSF | ✅ reverses + fees | ✅ `Payment.status = bounced` + module 33 PDC lifecycle. **The reversal half is better than Yardi's**: no `Payment` exists until a cheque CLEARS, so a bounce has nothing to un-apply — Voyager enters a receipt and then reverses it. **The FEE half is genuinely absent.** | ✅ **CLOSED 2026-08-10** — `BillBouncedChequeFeeService` + `nsf_fee` charge code | ⚪ |
 | Bank deposit batches | ✅ | ❌ | ⏭️ **DECLINE** — PDCs and transfers dominate here (XX-06) | ⚪ |
 | Post-dated cheques | 🟡 regional builds | ✅ full register, lodging, maturity, clear/bounce, invoice-lock + over-allocation backstop | ✅ **KEEP — exceeds Yardi for this market** | ⚪ |
 | Tenant statement | ✅ | ✅ `TenantStatementPdfService` | ✅ KEEP | ⚪ |
@@ -221,7 +221,7 @@ allocations and the invoice total can ever disagree, the design is wrong.
 
 ---
 
-### Spec: the NSF fee (re-verified 2026-08-10)
+### The NSF fee — specced and SHIPPED (2026-08-10)
 
 Voyager posts an **NSF charge** when a cheque is returned. Atriom bounces the cheque and charges
 nothing, so the bank's return fee and the operator's own handling cost are absorbed silently. In
@@ -239,12 +239,16 @@ rather than a decision:
    to **0 = off**, so nothing changes until an operator configures it. Same conservative shipping
    posture as straight-line rent.
 
-**The one real cost, and why it was not done in the same session that specced it:** `invoice_items.type`
-is a DB enum and `InvoiceItemType` maps each case to a GL revenue account. A dedicated `nsf_fee`
-case (→ `misc_income`, like `violation_fine`) needs a migration, a journalizer mapping, lang keys in
-both languages, and a place in `InvoiceItemSettlement::TYPE_PRIORITY`. Reusing `other` would avoid
-all of it and lose the fee in reporting — aging by charge type would lump it with everything else.
-Follow Yardi: give it its own code.
+**Shipped as specced**, with one correction: this spec claimed `invoice_items.type` was a DB enum
+needing a migration. It is `varchar(32)` — already converted under the no-DB-enums house rule, and
+`InvoiceItemType`'s own docblock says "add a new type here — no migration needed". That was the
+riskiest part of the estimate and it did not exist.
+
+`nsf_fee` has its own charge code rather than reusing `other`, mapped EXPLICITLY to `misc_income` in
+`InvoiceJournalizer` (the fallback would have classified it correctly by accident), and sits with
+`late_fee` at the end of `InvoiceItemSettlement::TYPE_PRIORITY` so a part payment is never eaten by
+a penalty. The amount is `BillingSettings::$nsf_fee_amount`, shipping 0 = off, and the action stays
+hidden until it is set.
 
 ## 11. Scorecard
 
