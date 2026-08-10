@@ -35,6 +35,7 @@ use App\Models\MaintenancePlan;
 use App\Models\MaintenanceWorkOrder;
 use App\Models\MaintenanceWorkOrderItem;
 use App\Models\MarketingBudget;
+use App\Models\MarketingPost;
 use App\Models\MarketingSpend;
 use App\Models\MeterReading;
 use App\Models\Note;
@@ -381,6 +382,9 @@ class DemoSeeder extends Seeder
         Artisan::call('marketing:backfill-budgets');
         $this->seedMarketingSpends();
         $this->command->info('   Marketing budgets auto-provisioned + derived + demo spends');
+
+        $this->seedMarketingPosts($atriomWalk);
+        $this->command->info('   Shopper feed: store directory + live offers, one awaiting review');
 
         // --- Operational + financial modules (22–26 + AP / expenses / deposits) ---
         $employees = $this->seedHrEmployees($atriomWalk);
@@ -2336,6 +2340,152 @@ class DemoSeeder extends Seeder
                 ]);
             }
         }
+    }
+
+    /**
+     * The shopper feed (module 36): a store directory plus a feed with one card in each
+     * interesting state.
+     *
+     * **No artwork is seeded, deliberately.** Faking hero images would mean either shipping
+     * binaries in the repo or generating them on every reseed, and the demo's job is to show the
+     * SHAPE of the data. The consequence is honest and visible: the published rows below are
+     * `published` in the register, and a visitor-app screenshot shows cards with no image — which
+     * is exactly what an operator would see if they published without artwork, and a prompt to
+     * upload one. (`PublishMarketingPostService` refuses that through the UI; these rows are
+     * written directly, which is the seeder's licence and not a hole in the guard.)
+     *
+     * The states are chosen so every tab and badge on the admin screen has something in it: a
+     * featured live offer, a second live offer, a mall-wide event, a retailer submission
+     * AWAITING REVIEW (so the nav badge shows 1 on a fresh install), one the mall returned with a
+     * reason, and an expired one the hourly sweep will archive.
+     */
+    private function seedMarketingPosts(Asset $asset): void
+    {
+        $marketingLead = User::where('email', 'marketing@mall.test')->first();
+
+        // The store directory half: give the demo tenants a shopper-facing identity. Without it
+        // every offer card renders under a billing name, which is the exact failure the
+        // trade_name column exists to prevent — so the demo would misrepresent the feature.
+        $directory = [
+            'Café Crema' => ['trade_name' => 'Café Crema', 'trade_name_ar' => 'كافيه كريما', 'retail_category' => 'food_beverage'],
+            'Zara' => ['trade_name' => 'Zara', 'trade_name_ar' => 'زارا', 'retail_category' => 'fashion'],
+        ];
+
+        $tenants = Tenant::query()
+            ->whereHas('activeLeases.units', fn ($q) => $q->where('units.asset_id', $asset->id))
+            ->orderBy('id')
+            ->get();
+
+        foreach ($tenants as $i => $tenant) {
+            $preset = $directory[$tenant->name] ?? null;
+
+            $tenant->forceFill($preset ?? [
+                'trade_name' => $tenant->name,
+                'retail_category' => Tenant::RETAIL_CATEGORIES[$i % count(Tenant::RETAIL_CATEGORIES)],
+            ])->forceFill([
+                'public_description' => 'A '.($preset['retail_category'] ?? 'retail').' store at '.$asset->name.'.',
+                'is_listed' => true,
+            ])->save();
+        }
+
+        $anchor = $tenants->first();
+        $second = $tenants->skip(1)->first() ?? $anchor;
+
+        if ($anchor === null) {
+            return; // No trading tenants — nothing a shopper could be shown.
+        }
+
+        $post = function (array $attrs) use ($asset, $marketingLead): MarketingPost {
+            return MarketingPost::create(array_merge([
+                'asset_id' => $asset->id,
+                'created_by' => $marketingLead?->id,
+                'type' => MarketingPost::TYPE_OFFER,
+                'audience' => MarketingPost::AUDIENCE_VISITORS,
+            ], $attrs));
+        };
+
+        $post([
+            'tenant_id' => $anchor->id,
+            'title' => '20% off all coffee, all week',
+            'title_ar' => 'خصم ٢٠٪ على كل القهوة طوال الأسبوع',
+            'summary' => 'Every hot and iced drink, dine-in or takeaway.',
+            'discount_label' => '20% OFF',
+            'discount_label_ar' => 'خصم ٢٠٪',
+            'terms' => 'Excludes beans and merchandise. One per customer per visit.',
+            'status' => MarketingPost::STATUS_PUBLISHED,
+            'published_at' => now()->subDays(2),
+            'starts_at' => now()->subDays(2),
+            'ends_at' => now()->addDays(5),
+            'is_featured' => true,
+            'priority' => 100,
+            'view_count' => 1_284,
+            'click_count' => 96,
+        ]);
+
+        $post([
+            'tenant_id' => $second->id,
+            'title' => 'Buy one, get one — new season',
+            'title_ar' => 'اشترِ قطعة واحصل على الأخرى — الموسم الجديد',
+            'discount_label' => 'BUY 1 GET 1',
+            'status' => MarketingPost::STATUS_PUBLISHED,
+            'published_at' => now()->subDay(),
+            'starts_at' => now()->subDay(),
+            'ends_at' => now()->addDays(12),
+            'view_count' => 412,
+            'click_count' => 31,
+        ]);
+
+        // Mall-wide: no store behind it. Shows the null-tenant path on the card.
+        $post([
+            'tenant_id' => null,
+            'type' => MarketingPost::TYPE_EVENT,
+            'title' => 'Late-night shopping every Thursday',
+            'title_ar' => 'تسوّق حتى وقت متأخر كل خميس',
+            'summary' => 'Doors open until midnight through the season.',
+            'status' => MarketingPost::STATUS_PUBLISHED,
+            'published_at' => now()->subDays(5),
+            'starts_at' => now()->subDays(5),
+            // Open-ended: exercises the null-boundary branch of the visibility predicate.
+            'ends_at' => null,
+            'view_count' => 2_610,
+        ]);
+
+        // The review queue — one waiting, so the nav badge reads 1 on a fresh install.
+        // created_by null is what marks it retailer-authored.
+        $post([
+            'tenant_id' => $second->id,
+            'created_by' => null,
+            'title' => 'Flash sale this Friday — up to 50% off',
+            'title_ar' => 'تخفيضات الجمعة — حتى ٥٠٪',
+            'discount_label' => 'UP TO 50% OFF',
+            'status' => MarketingPost::STATUS_PENDING,
+            'starts_at' => now()->addDays(3),
+            'ends_at' => now()->addDays(4),
+        ]);
+
+        // Returned to the retailer WITH a reason — the thing that stops the resubmit loop.
+        $post([
+            'tenant_id' => $anchor->id,
+            'created_by' => null,
+            'title' => 'Free pastry with every coffee',
+            'status' => MarketingPost::STATUS_REJECTED,
+            'reviewed_by' => $marketingLead?->id,
+            'reviewed_at' => now()->subDays(3),
+            'review_notes' => 'The artwork is low-resolution and the end date is missing. Please resubmit with a 16:9 image and a closing date.',
+            'starts_at' => now()->subDays(4),
+        ]);
+
+        // Past its window: what `marketing:expire-posts` archives on its next hourly run.
+        $post([
+            'tenant_id' => $anchor->id,
+            'title' => 'Back to school — 15% off',
+            'status' => MarketingPost::STATUS_PUBLISHED,
+            'published_at' => now()->subDays(40),
+            'starts_at' => now()->subDays(40),
+            'ends_at' => now()->subDays(9),
+            'view_count' => 733,
+            'click_count' => 58,
+        ]);
     }
 
     /**
