@@ -27,28 +27,28 @@ Sanctum (mobile API auth) · Spatie (permissions, media, activity-log, settings)
 
 | | | | |
 |---|---|---|---|
-| **83** models | **128** services | **42** admin resources | **6** portal resources |
-| **39** API controllers | **17** dashboard widgets | **39** console commands | **6** queued jobs |
-| **29** notifications | **176** migrations | **34** module docs | **538** test files |
+| **86** models | **134** services | **44** admin resources | **7** portal resources |
+| **47** API controllers | **17** dashboard widgets | **40** console commands | **6** queued jobs |
+| **30** notifications | **182** migrations | **35** module docs | **547** test files |
 
 ### Coverage — what the gates actually enforce
 
 | Dimension | State |
 |---|---|
-| **Property isolation** | 83 models classified — 67 property-owned, 15 shared, 1 self. Gated by `PropertyIsolationConformanceTest`. |
+| **Property isolation** | 86 models classified — 70 property-owned, 15 shared, 1 self. Gated by `PropertyIsolationConformanceTest`. |
 | **General ledger** | 24 posting sources, 24 journalizer classes — every one registered. One registry (`LedgerPoster::JOURNALIZERS`) that all four dispatch paths derive from; gated by `GlRegistryConformanceTest`. |
 | **E2E smoke** | Every admin resource + page, from `tests/e2e/filament-admin-manifest.json`; 22 specs. Gated by `AdminSmokeManifestConformanceTest`. |
-| **Tests** | 538 files — 88 scenario, 228 regression. |
-| **Module flags** | 16 toggleable modules (`App\Support\Modules`). |
+| **Tests** | 547 files — 88 scenario, 233 regression. |
+| **Module flags** | 17 toggleable modules (`App\Support\Modules`). |
 
-**Scheduled automation** — commands: `accounting:post-straight-line-rent` · `cam:reconcile` · `accounting:post-depreciation` · `vendors:expire-contracts` · `vendors:scan-document-expiry` · `vendors:scan-contract-renewals` · `activitylog:clean` · `requests:auto-close` · `maintenance:generate-preventive` · `requests:scan-sla-breaches` · `maintenance:scan-wo-sla-breaches` · `billing:scan-overdue-invoices` · `sales:scan-missing-declarations` · `sales:estimate-missing` · `inventory:scan-low-stock` · `leases:apply-escalations` · `pdc:scan-maturing` · `billing:remind-overdue-tenants` · `leases:remind-expiring` · `leases:scan-option-windows` · `marketing:ensure-budgets` · `accounting:sync-ledger` · `accounting:sync-ledger --all --scheduled` · `backup:clean` · `backup:run` · `backup:monitor` · `atriom:backup-verify`
+**Scheduled automation** — commands: `accounting:post-straight-line-rent` · `cam:reconcile` · `accounting:post-depreciation` · `vendors:expire-contracts` · `marketing:expire-posts` · `vendors:scan-document-expiry` · `vendors:scan-contract-renewals` · `activitylog:clean` · `requests:auto-close` · `maintenance:generate-preventive` · `requests:scan-sla-breaches` · `maintenance:scan-wo-sla-breaches` · `billing:scan-overdue-invoices` · `sales:scan-missing-declarations` · `sales:estimate-missing` · `inventory:scan-low-stock` · `leases:apply-escalations` · `pdc:scan-maturing` · `billing:remind-overdue-tenants` · `leases:remind-expiring` · `leases:scan-option-windows` · `marketing:ensure-budgets` · `accounting:sync-ledger` · `accounting:sync-ledger --all --scheduled` · `backup:clean` · `backup:run` · `backup:monitor` · `atriom:backup-verify`
 ; jobs: `RunMonthlyBilling` · `ApplyLateFees` (registered via `Schedule::job`, so they do **not** appear as scheduled commands).
 
 ### Gap-analysis coverage
 
-**29 of 34** modules have ever been gap-analysed (`docs/gap-analysis/NN-*.md`). A module with a doc but no gap analysis has been *described*, never *audited* — and round 2 found six 🔴 money bugs in the eight modules that were in exactly that state.
+**29 of 35** modules have ever been gap-analysed (`docs/gap-analysis/NN-*.md`). A module with a doc but no gap analysis has been *described*, never *audited* — and round 2 found six 🔴 money bugs in the eight modules that were in exactly that state.
 
-**Never gap-analysed:** 30 — Areas · 31 — Violations · 32 — Owner Statements · 33 — Post Dated Cheques · 34 — Search — see [gap-analysis/000-progress.md](gap-analysis/000-progress.md).
+**Never gap-analysed:** 30 — Areas · 31 — Violations · 32 — Owner Statements · 33 — Post Dated Cheques · 34 — Search · 35 — Rentable Items — see [gap-analysis/000-progress.md](gap-analysis/000-progress.md).
 
 <!-- census:end -->
 

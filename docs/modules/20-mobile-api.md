@@ -21,6 +21,18 @@ The API powers:
 
 All routes are versioned under `/api/v1` and are protected by the `auth:tenant-api` Sanctum guard (except public endpoints: login, forgot/reset password). Responses follow a standard JSON envelope: `{ data, message?, meta?, links? }`. Validation errors return 422. Rate limiting is enforced: login 5/min, password reset 3/min, authenticated endpoints 60/min.
 
+> **`/api/v1/public/*` is the one exception, and it is a different kind of surface.** Added by
+> [module 36](36-marketing-posts.md), it serves the **visitor** app — shoppers with no account, by
+> design — with a mall's offer feed and store directory. It authenticates nothing, so none of this
+> module's tenant-scoping applies to it; what keeps it safe is a module-flag 404, hand-written
+> field allowlists (never model serialization), and a single shared visibility predicate. Read
+> module 36 §6 before adding anything to it. Throttled 120/min for reads, 30/min for the one write.
+>
+> The tenant-authenticated half of module 36 (`me/marketing-posts`, `me/feed`) follows this
+> module's conventions exactly, with one wire-level exception noted in §9: the update is a **POST**,
+> not a PATCH, because a multipart body carrying the hero image does not survive PHP's PATCH
+> handling.
+
 ## 2. Domain model
 
 | Table | Model | Key columns | Constraints & meaning |

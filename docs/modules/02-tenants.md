@@ -11,6 +11,7 @@ Tenants are the **customers** of the mall (Eltizam/operator) — the retailers, 
 | Table | Model | Key columns & types/constraints | Meaning |
 |---|---|---|---|
 | `tenants` | `Tenant` | `id` pk, `name` varchar(255) NOT NULL, `legal_name` varchar(255), `type` enum(individual\|company) default='company', `email` varchar(255), `password` varchar(255), `phone` varchar(20), `whatsapp` varchar(20), `tax_id` varchar(50) [index], `national_id` varchar(20), `commercial_register` varchar(50), `address` text, `contact_person` varchar(100), `contact_person_phone` varchar(20), `status` enum(active\|inactive\|blacklisted) [index] default='active', `metadata` json, `created_at`, `updated_at`, `deleted_at` (soft-delete) | Core company record. Extends `Authenticatable` for portal/API login. |
+| `tenants` — **store directory** (added 2026-08-10, [module 36](36-marketing-posts.md)) | `Tenant` | `trade_name` varchar(255), `trade_name_ar` varchar(255), `retail_category` varchar(255) [index with is_listed], `public_description` varchar(500), `public_description_ar` varchar(500), `website_url` varchar(255), `instagram_handle` varchar(60), `is_listed` bool NOT NULL default=true; plus a **`logo`** media collection on the **public** disk | Who this retailer is to a **shopper**, as opposed to who we invoice. See below. |
 | `tenant_users` | `TenantUser` | `id` pk, `tenant_id` fk→tenants(id) cascadeOnDelete, `name` varchar(255) NOT NULL, `email` varchar(255) unique NOT NULL, `password` varchar(255) NOT NULL, `is_admin` bool default=false, `created_at`, `updated_at`, `deleted_at` (soft-delete) | Portal login accounts under a tenant. One or more per Tenant; only `is_admin=true` may submit/write in portal. |
 | `device_tokens` | `DeviceToken` | `tenant_id` fk→tenants | Mobile push-notification tokens (one per app install). |
 
@@ -26,6 +27,26 @@ Tenants are the **customers** of the mall (Eltizam/operator) — the retailers, 
 - `Tenant → Note` (morphMany): admin notes attached to the tenant
 - `Tenant → DeviceToken` (hasMany): mobile device registration records
 - `TenantUser → Tenant` (belongsTo)
+
+### The store directory is not a duplicate of `name`
+
+Every other column on `tenants` answers a billing or legal question: `name` is who we invoice,
+`legal_name` is who signs, `tax_id` is who the ETA knows. None of that is who a **shopper** is
+looking for — the tenant billed as "Crema Coffee Co. LLC" is the sign above the door reading
+«كافيه كريما», and an offer card rendered with the billing name is a card no shopper recognises.
+
+- `trade_name` is **nullable and falls back to `name`** (`Tenant::storeName()`), so the directory
+  works before anyone backfills a single row.
+- `is_listed` **defaults to true.** Opt-in would ship an empty directory and silently omit stores
+  whose offers are already live, which reads to an operator as a broken feed rather than a setting
+  they never turned on. Switching off an office or back-of-house tenant is the rarer, deliberate act.
+- **`is_listed` is a display switch, not a security boundary.** What keeps the tax card and
+  commercial register off the public internet is the field allowlist in `PublicStoreResource`
+  ([module 36](36-marketing-posts.md) §6) — nothing on this row reaches a shopper unless it was
+  typed out there by hand.
+- The **`logo`** collection sits on the **public** disk while `documents` stays private. That they
+  are separate collections on one model is exactly what lets the brand mark be public without the
+  paperwork following it; both are registered in `MediaPrivacyConformanceTest`.
 
 ## 3. Business rules & invariants
 

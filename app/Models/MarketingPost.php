@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
+use App\Support\MarketingFeedCache;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -163,6 +164,26 @@ class MarketingPost extends Model implements HasMedia
             $post->status = $post->status ?: self::STATUS_DRAFT;
             $post->audience = $post->audience ?: self::AUDIENCE_VISITORS;
         });
+
+        // Invalidate this property's cached shopper feed on ANY model-level change.
+        //
+        // Hooked on the model rather than in the publish/archive services on purpose: a post's
+        // appearance on the feed changes in more ways than the workflow transitions (editing the
+        // copy, re-dating the window, featuring it, soft-deleting it, restoring it), and a hook
+        // per path is the arrangement where one gets forgotten. The TTL still backstops whatever
+        // this misses — see App\Support\MarketingFeedCache for why it is both.
+        //
+        // Note this does NOT fire for the shopper-view counters, which are builder increments
+        // precisely so a read does not invalidate the cache it just populated.
+        $bust = function (self $post): void {
+            if ($post->asset_id !== null) {
+                MarketingFeedCache::bump((int) $post->asset_id);
+            }
+        };
+
+        static::saved($bust);
+        static::deleted($bust);
+        static::restored($bust);
     }
 
     // ============ Search ============

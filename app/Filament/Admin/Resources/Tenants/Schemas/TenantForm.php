@@ -126,6 +126,62 @@ class TenantForm
                         ->maxLength(50)
                         ->required(fn (Get $get) => $get('type') === 'company'),
                 ]),
+            // ---- Module 36: who this retailer is to a SHOPPER, as opposed to who we invoice.
+            // Collapsible and last-but-one deliberately: leasing staff open a tenant to do
+            // leasing work, and this section is only filled in once, by marketing.
+            Section::make(__('admin.sections.store_directory'))
+                ->description(__('admin.sections.store_directory_description'))
+                ->collapsible()
+                ->collapsed()
+                ->columns(2)
+                ->components([
+                    TextInput::make('trade_name')
+                        ->label(__('admin.fields.trade_name'))
+                        ->helperText(__('admin.fields.trade_name_hint'))
+                        ->maxLength(255),
+                    TextInput::make('trade_name_ar')
+                        ->label(__('admin.fields.trade_name_ar'))
+                        ->maxLength(255),
+                    Select::make('retail_category')
+                        ->label(__('admin.fields.retail_category'))
+                        ->options(fn () => collect(\App\Models\Tenant::RETAIL_CATEGORIES)
+                            ->mapWithKeys(fn ($c) => [$c => __("admin.retail_categories.{$c}")]))
+                        ->native(false)
+                        ->searchable(),
+                    // Boolean → NOT NULL column. A Toggle always dehydrates a bool, and the model
+                    // carries the default too, so a form that never renders it cannot send null.
+                    \Filament\Forms\Components\Toggle::make('is_listed')
+                        ->label(__('admin.fields.is_listed'))
+                        ->helperText(__('admin.fields.is_listed_hint'))
+                        ->default(true),
+                    Textarea::make('public_description')
+                        ->label(__('admin.fields.public_description'))
+                        ->rows(2)
+                        ->maxLength(500),
+                    Textarea::make('public_description_ar')
+                        ->label(__('admin.fields.public_description_ar'))
+                        ->rows(2)
+                        ->maxLength(500),
+                    TextInput::make('website_url')
+                        ->label(__('admin.fields.website_url'))
+                        ->url()
+                        ->maxLength(255),
+                    TextInput::make('instagram_handle')
+                        ->label(__('admin.fields.instagram_handle'))
+                        ->prefix('@')
+                        ->maxLength(60),
+                    SpatieMediaLibraryFileUpload::make('logo')
+                        ->label(__('admin.fields.store_logo'))
+                        ->helperText(__('admin.fields.store_logo_hint'))
+                        // PUBLIC disk — the one public thing about a retailer. The `documents`
+                        // collection below stays private; separate collections are exactly what
+                        // lets the brand mark be public without the paperwork following it.
+                        ->collection(\App\Models\Tenant::LOGO_COLLECTION)
+                        ->image()
+                        ->imageEditor()
+                        ->maxSize(2048)
+                        ->columnSpanFull(),
+                ]),
             Section::make(__('admin.sections.documents'))
                 ->description(__('admin.sections.documents_description'))
                 ->collapsible()

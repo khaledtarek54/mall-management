@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\PublicFeed;
 
 use App\Http\Resources\Api\V1\PublicFeed\PublicMarketingPostResource;
 use App\Models\MarketingPost;
+use App\Support\MarketingFeedCache;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -19,12 +20,11 @@ use Illuminate\Support\Facades\Cache;
  * Visibility is `MarketingPost::liveFor('visitors')` and nothing else. That predicate lives on the
  * model precisely so this controller cannot invent its own version of "currently showing".
  *
- * **Cached for 60 seconds.** This is the one endpoint every shopper hits on app open, and it is
- * identical for all of them — there is no per-user content to personalise. Sixty seconds is short
- * enough that an operator publishing an offer sees it within a minute (they will refresh, and
- * they will), and long enough to flatten the open-the-app spike. TTL-only invalidation is
- * deliberate: an event-based bust would need hooks on publish, archive, edit, media change and the
- * expiry sweep, and the one that gets forgotten serves a stale feed indefinitely.
+ * **Cached, with a versioned key.** This is the one endpoint every shopper hits on app open and it
+ * is identical for all of them, so it is cached — but the key carries a per-property version that
+ * publishing and archiving bump, so an operator who approves an offer and immediately opens the
+ * app sees it. See {@see \App\Support\MarketingFeedCache} for why it is version-plus-TTL rather
+ * than either one alone.
  */
 class ListPublicPostsController extends PublicFeedController
 {
@@ -39,11 +39,12 @@ class ListPublicPostsController extends PublicFeedController
         $page = max(1, (int) $request->integer('page', 1));
 
         $key = sprintf(
-            'public-feed:%d:%s:%d:%d:%d',
-            $mall->id, $type ?? 'all', $featuredOnly ? 1 : 0, $perPage, $page
+            'public-feed:%d:v%d:%s:%d:%d:%d',
+            $mall->id, MarketingFeedCache::version($mall->id),
+            $type ?? 'all', $featuredOnly ? 1 : 0, $perPage, $page
         );
 
-        $payload = Cache::remember($key, self::CACHE_SECONDS, function () use ($mall, $type, $featuredOnly, $perPage) {
+        $payload = Cache::remember($key, MarketingFeedCache::TTL_SECONDS, function () use ($mall, $type, $featuredOnly, $perPage) {
             $query = MarketingPost::query()
                 ->where('asset_id', $mall->id)
                 ->liveFor(MarketingPost::AUDIENCE_VISITORS)

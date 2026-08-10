@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\PublicFeed;
 
 use App\Http\Resources\Api\V1\PublicFeed\PublicStoreResource;
 use App\Models\Tenant;
+use App\Support\MarketingFeedCache;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -29,9 +30,12 @@ class ListPublicStoresController extends PublicFeedController
         $category = $request->query('category');
         $category = in_array($category, Tenant::RETAIL_CATEGORIES, true) ? $category : null;
 
-        $key = sprintf('public-stores:%d:%s', $mall->id, $category ?? 'all');
+        // Versioned like the feed — a directory entry changes when a store is listed/unlisted or
+        // its logo is replaced, and the operator who just did that will check immediately.
+        $key = sprintf('public-stores:%d:v%d:%s',
+            $mall->id, MarketingFeedCache::version($mall->id), $category ?? 'all');
 
-        $payload = Cache::remember($key, self::CACHE_SECONDS, function () use ($mall, $category) {
+        $payload = Cache::remember($key, MarketingFeedCache::TTL_SECONDS, function () use ($mall, $category) {
             $query = Tenant::query()
                 ->where('is_listed', true)
                 ->where('status', 'active')

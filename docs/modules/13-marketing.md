@@ -11,7 +11,14 @@ The marketing module captures an operator's promotional/marketing expenditure an
 | Table | Model | Key Columns (type/constraints/default) | Meaning |
 |-------|-------|-------|---------|
 | `marketing_budgets` | `MarketingBudget` | `id` (PK); `asset_id` (FK, cascadeOnDelete); `period_year` (unsignedSmallInteger); `accrued_amount` (decimal:2, default 0); `spent_amount` (decimal:2, default 0); `status` (enum:'open'/'closed', default 'open'); `notes` (text, nullable); `created_at`, `updated_at`, `deleted_at` | One row per property per year. Accrued levies accumulate here; spends are derived from related MarketingSpend records. Soft-deletes supported. **Unique constraint**: `(asset_id, period_year)`. |
-| `marketing_spends` | `MarketingSpend` | `id` (PK); `marketing_budget_id` (FK, cascadeOnDelete); `category` (enum:'offer'/'promotion'/'event'/'printed_work'/'other', default 'other'); `description` (string); `amount` (decimal:2); `paid_from` (string, default 'cash' — `cash`/`bank`, drives the GL credit account, coerced non-null in the model); `spent_on` (date); `receipt_reference` (string, nullable); `created_by_user_id` (FK, nullOnDelete); `created_at`, `updated_at`, `deleted_at` | Each line-item spend against a budget. Indexed by `marketing_budget_id` and `category`. Soft-deletes supported. **Posts to the GL** (see § 7). |
+| `marketing_spends` | `MarketingSpend` | `id` (PK); `marketing_budget_id` (FK, cascadeOnDelete); **`marketing_post_id` (FK, nullable, nullOnDelete — the campaign this money paid for, [module 36](36-marketing-posts.md))**; `category` (enum:'offer'/'promotion'/'event'/'printed_work'/'other', default 'other'); `description` (string); `amount` (decimal:2); `paid_from` (string, default 'cash' — `cash`/`bank`, drives the GL credit account, coerced non-null in the model); `spent_on` (date); `receipt_reference` (string, nullable); `created_by_user_id` (FK, nullOnDelete); `created_at`, `updated_at`, `deleted_at` | Each line-item spend against a budget. Indexed by `marketing_budget_id` and `category`. Soft-deletes supported. **Posts to the GL** (see § 7). |
+
+**Spend ↔ campaign (2026-08-10).** `marketing_post_id` links a spend line to the shopper-facing
+campaign it funded ([module 36](36-marketing-posts.md)). Many spends → one post: artwork, printing
+and an influencer are three lines against one Ramadan campaign. It is **nullable and stays that
+way** — plenty of marketing spend is not tied to a published post (a printed directory, a banner
+frame), and requiring one would push operators into inventing a campaign row to record a cost. The
+FK changes no existing arithmetic: `recomputeSpent()` still sums the budget's spends regardless.
 | `charges` | `Charge` | `type` enum includes `'marketing'` (FR MKT-2) | The marketing levy is modeled as a recurring monthly charge on the lease. `vat_applicable = false`, `vat_rate = 0`, `frequency = 'monthly'`. The amount is captured at charge creation and never changes even if the levy rate changes (rate versioning via per-charge capture). |
 
 **Relationships:**

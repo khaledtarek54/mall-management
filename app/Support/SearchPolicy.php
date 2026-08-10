@@ -44,6 +44,7 @@ use App\Filament\Admin\Resources\Vendors\VendorResource;
 use App\Filament\Admin\Resources\Violations\ViolationResource;
 use App\Filament\Admin\Resources\Warehouses\WarehouseResource;
 use App\Filament\Portal\Resources\CamAllocations\CamAllocationResource as PortalCamAllocationResource;
+use App\Filament\Portal\Resources\MarketingPosts\MarketingPostResource as PortalMarketingPostResource;
 use App\Filament\Portal\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource as PortalTenantSalesDeclarationResource;
 use App\Models;
 
@@ -213,6 +214,7 @@ class SearchPolicy
         // ---- Portal ----
         PortalCamAllocationResource::class => 'A tenant reaches their CAM allocation from the lease it belongs to. It carries no reference of its own — only a pool and a share.',
         PortalTenantSalesDeclarationResource::class => 'A tenant has a handful of declarations, listed by period. Nothing on one is typed to find it.',
+        PortalMarketingPostResource::class => 'A retailer has a handful of their own offers, listed on one screen with a status filter. Global search would be a longer route to a shorter list. (The OPERATOR\'s MarketingPostResource IS searchable — they hold every mall\'s.)',
     ];
 
     /**

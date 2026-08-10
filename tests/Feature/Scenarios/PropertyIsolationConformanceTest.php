@@ -146,6 +146,11 @@ if (! function_exists('propertyIsolationMustGuardResources')) {
             // Create-only (immutable after broadcast); the property Select is
             // client-supplied in All-Properties mode, so the create page guards it.
             'Announcement' => AnnouncementResource::class,
+            // Same shape as Announcement — the operator PICKS which mall a shopper-facing post
+            // runs in, so asset_id is client-supplied and auto-tenancy is off. Unlike
+            // Announcement it is editable after creation, so the guard is on create AND save
+            // (Filament stamps asset_id on create only).
+            'MarketingPost' => \App\Filament\Admin\Resources\MarketingPosts\MarketingPostResource::class,
             // Not auto-stamped (isScopedToTenant=false): asset_id / lease is client-supplied.
             'Expense' => ExpenseResource::class,
             'VendorBill' => VendorBillResource::class,
