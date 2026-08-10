@@ -85,6 +85,21 @@ class TenantsTable
                     ->color(fn (string $state): string => $state === 'delinquent' ? 'danger' : 'success')
                     ->icon(fn (string $state): string => $state === 'delinquent' ? 'heroicon-m-exclamation-triangle' : 'heroicon-m-check-circle')
                     ->formatStateUsing(fn (string $state) => __("admin.tables.tenant.delinquency_state.{$state}"))
+                    // HOW MUCH, not just whether. A red "Delinquent" badge with no figure makes
+                    // EGP 500 and EGP 500,000 look identical, which is no use to whoever is deciding
+                    // who to call first — and it is the dead-end number the UX rules warn about.
+                    // The tenant could already see this on the portal and through the API; the
+                    // operator's own list was the one place it was missing.
+                    //
+                    // Scoped with `visibleAssetIds()` exactly like the badge above: a shared
+                    // tenant's mall-B arrears must not surface to a mall-A-only operator.
+                    ->description(function (Tenant $record): ?string {
+                        $outstanding = $record->outstandingBalance(TenantScope::visibleAssetIds());
+
+                        return $outstanding > 0
+                            ? 'EGP '.number_format($outstanding, 2)
+                            : null;
+                    })
                     ->toggleable(),
                 // Credit on account = money paid but not yet applied to an invoice (an overpayment /
                 // on-account remainder booked to Unearned Revenue). Property-scoped like delinquency.
