@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\MarketingPosts\Schemas;
 use App\Filament\Admin\Resources\MarketingPosts\MarketingPostResource;
 use App\Models\MarketingPost;
 use App\Models\Tenant;
+use App\Support\FormTab;
 use App\Support\TenantScope;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
@@ -13,16 +14,25 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Schema;
 
 class MarketingPostForm
 {
     public static function configure(Schema $schema): Schema
     {
-        return $schema->columns(2)->components([
-            Section::make(__('admin.marketing_posts.sections.what'))
-                ->columns(2)
-                ->schema([
+        // Thirty fields across five concerns is a scroll, not a form — the same problem the lease,
+        // invoice, tenant, credit-note, payment and request forms were converted for (operator
+        // decision 2026-08-08). Built through App\Support\FormTab so each tab carries a badge
+        // counting the validation errors inside it: Filament v4 ships no error indicator on Tabs,
+        // and without one a required field left blank on a tab you are not looking at refuses the
+        // form with nothing visible to fix.
+        return $schema->columns(1)->components([
+            Tabs::make('marketing_post')
+                ->columnSpanFull()
+                ->persistTabInQueryString()
+                ->tabs([
+            FormTab::make(__('admin.marketing_posts.sections.what'), [
                     Select::make('asset_id')
                         ->label(__('admin.marketing_posts.fields.property'))
                         // Scoped to the user's visible properties (never offers another mall).
@@ -75,11 +85,9 @@ class MarketingPostForm
                         ->default(MarketingPost::AUDIENCE_VISITORS)
                         ->required()
                         ->native(false),
-                ]),
+            ])->columns(2),
 
-            Section::make(__('admin.marketing_posts.sections.copy'))
-                ->columns(2)
-                ->schema([
+            FormTab::make(__('admin.marketing_posts.sections.copy'), [
                     TextInput::make('title')
                         ->label(__('admin.marketing_posts.fields.title'))
                         ->required()
@@ -123,11 +131,9 @@ class MarketingPostForm
                         ->label(__('admin.marketing_posts.fields.terms_ar'))
                         ->rows(2)
                         ->maxLength(2000),
-                ]),
+            ])->columns(2),
 
-            Section::make(__('admin.marketing_posts.sections.artwork'))
-                ->columns(1)
-                ->schema([
+            FormTab::make(__('admin.marketing_posts.sections.artwork'), [
                     SpatieMediaLibraryFileUpload::make('hero')
                         ->label(__('admin.marketing_posts.fields.hero'))
                         ->helperText(__('admin.marketing_posts.fields.hero_hint'))
@@ -147,12 +153,19 @@ class MarketingPostForm
                         ->reorderable()
                         ->maxFiles(6)
                         ->maxSize(5120),
-                ]),
+            ])->columns(1),
 
-            Section::make(__('admin.marketing_posts.sections.when'))
-                ->columns(2)
-                ->description(__('admin.marketing_posts.sections.when_hint'))
-                ->schema([
+            FormTab::make(__('admin.marketing_posts.sections.when'), [
+                // Kept as a Section purely to carry its description. A Tab has nowhere to put one,
+                // and this particular sentence is what stops the two windows being confused — the
+                // validity window is the promise made to the shopper, the display window is when the
+                // card is on screen. Losing it would make the tabbed form worse than the scroll it
+                // replaced.
+                Section::make()
+                    ->description(__('admin.marketing_posts.sections.when_hint'))
+                    ->columns(2)
+                    ->columnSpanFull()
+                    ->schema([
                     DateTimePicker::make('starts_at')
                         ->label(__('admin.marketing_posts.fields.starts_at'))
                         ->helperText(__('admin.marketing_posts.fields.starts_at_hint'))
@@ -176,11 +189,10 @@ class MarketingPostForm
                         ->seconds(false)
                         ->native(false)
                         ->after('display_from'),
-                ]),
+                    ]),
+            ])->columns(2),
 
-            Section::make(__('admin.marketing_posts.sections.placement'))
-                ->columns(2)
-                ->schema([
+            FormTab::make(__('admin.marketing_posts.sections.placement'), [
                     Toggle::make('is_featured')
                         ->label(__('admin.marketing_posts.fields.is_featured'))
                         ->helperText(__('admin.marketing_posts.fields.is_featured_hint'))
@@ -213,6 +225,7 @@ class MarketingPostForm
                         ->url()
                         ->maxLength(500)
                         ->columnSpanFull(),
+            ])->columns(2),
                 ]),
         ]);
     }
