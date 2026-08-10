@@ -75,3 +75,24 @@ it('is not moved by parking, which is not a unit', function () {
 
     expect($asset->fresh()->areaOccupancyRate())->toBe(100.0);
 });
+
+it('reports leasable area and occupancy per floor, without a column for it', function () {
+    // Per-floor GLA was flagged as the thing that might justify promoting `Floor` to an entity. It
+    // already IS one, and the figure is a sum over the units standing on it — storing it would be a
+    // second truth about the same square metres.
+    $asset = makeAsset();
+    $ground = \App\Models\Floor::create(['asset_id' => $asset->id, 'code' => 'G', 'level' => 0]);
+    $first = \App\Models\Floor::create(['asset_id' => $asset->id, 'code' => '1', 'level' => 1]);
+
+    makeUnit($asset, ['code' => 'G-1', 'area_sqm' => 300, 'status' => 'occupied', 'floor_id' => $ground->id]);
+    makeUnit($asset, ['code' => 'G-2', 'area_sqm' => 100, 'status' => 'vacant', 'floor_id' => $ground->id]);
+    makeUnit($asset, ['code' => '1-1', 'area_sqm' => 200, 'status' => 'occupied', 'floor_id' => $first->id]);
+
+    expect($ground->areaFigures()['total_sqm'])->toBe(400.0)
+        ->and($ground->areaFigures()['pct'])->toBe(75.0)
+        ->and($first->areaFigures()['pct'])->toBe(100.0);
+
+    // A floor with nothing on it is unknown, not 0% — the same distinction the property draws.
+    $empty = \App\Models\Floor::create(['asset_id' => $asset->id, 'code' => 'B1', 'level' => -1]);
+    expect($empty->areaFigures()['pct'])->toBeNull();
+});

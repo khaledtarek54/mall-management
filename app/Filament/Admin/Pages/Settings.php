@@ -108,6 +108,7 @@ class Settings extends Page implements HasSchemas
             ],
             'tax' => [
                 'vat_standard_rate' => $tax->vat_standard_rate,
+                'parking_vat_applicable' => $tax->parking_vat_applicable,
                 'wht_enabled' => $tax->wht_enabled,
                 'wht_default_rate' => $tax->wht_default_rate,
             ],
@@ -184,6 +185,7 @@ class Settings extends Page implements HasSchemas
 
         $tax = app(TaxSettings::class);
         $tax->vat_standard_rate = (float) $state['tax']['vat_standard_rate'];
+        $tax->parking_vat_applicable = (bool) ($state['tax']['parking_vat_applicable'] ?? false);
         $tax->wht_enabled = (bool) $state['tax']['wht_enabled'];
         $tax->wht_default_rate = (float) $state['tax']['wht_default_rate'];
         $tax->save();
@@ -326,6 +328,12 @@ class Settings extends Page implements HasSchemas
                         ->maxValue(100)
                         ->step('0.01')
                         ->required(),
+                    // Parking is neither obviously exempt (like rent) nor obviously standard-rated
+                    // (like the service charge) — a licence to use a space rather than a lease of
+                    // it. The accountant owns the call; the code ships exempt.
+                    \Filament\Forms\Components\Toggle::make('tax.parking_vat_applicable')
+                        ->label(__('admin.settings.fields.parking_vat_applicable'))
+                        ->helperText(__('admin.settings.fields.parking_vat_applicable_helper')),
                 ]),
             Section::make(__('admin.settings.sections.wht'))
                 ->description(__('admin.settings.sections.wht_description'))

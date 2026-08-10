@@ -86,9 +86,12 @@ the question an operator arrives with. Assign / release are actions on the lease
 
 ## 7. Gotchas
 
-- **VAT is an open question.** Rent is exempt in Egypt, service charge is standard-rated, parking is
-  neither obviously. Billed **VAT-exempt** until the accountant rules — the conservative direction,
-  under-charging rather than collecting tax that may not be due. On the `BUSINESS-RULES.md` list.
+- **VAT is a SETTING, not a constant** — `TaxSettings::$parking_vat_applicable`, on the Settings →
+  Tax tab. Rent is exempt in Egypt, service charge is standard-rated, and parking is neither
+  obviously: it is a licence to use a space rather than a lease of it, which the VAT Law schedules
+  settle and a developer does not. **Ships exempt**, the conservative direction — under-charging the
+  tenant beats collecting tax that may not be due and having to refund it. Read at ORIGINATION only,
+  so flipping it never rewrites an issued invoice.
 - **`monthly_rate` on the item is the asking price; the pivot's is what this tenant pays.** They
   differ whenever anything was negotiated, and the charge is built from the pivot.
 - **Adding a type** means a `lang` entry in both files; the column is a string, not a DB enum.

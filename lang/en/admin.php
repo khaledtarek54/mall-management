@@ -557,6 +557,8 @@ return [
             'wht_enabled' => 'Withhold tax on vendor payments',
             'wht_enabled_helper' => 'When on, every vendor payment splits: cash to the vendor and a liability to the ETA. Turn on only once your accountant has confirmed the rates.',
             'vat_standard_rate' => 'Standard VAT rate',
+            'parking_vat_applicable' => 'Parking is VATable',
+            'parking_vat_applicable_helper' => 'Off = exempt, which is how it bills today. Rent is exempt and the service charge is standard-rated; parking is neither obviously, so your accountant decides. Only new charges are affected — issued invoices keep the rate they were billed at.',
             'vat_standard_rate_helper' => 'Egypt is currently 14% (VAT Law 67/2016). Changing this affects what is billed from now on — invoices already issued keep the rate they were billed at.',
             'wht_default_rate' => 'Default rate',
             'wht_default_rate_helper' => 'Applied to vendors with no agreed rate of their own.',

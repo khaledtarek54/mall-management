@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
+use App\Support\Occupancy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -45,6 +46,25 @@ class Floor extends Model
     public function rentableItems(): HasMany
     {
         return $this->hasMany(RentableItem::class);
+    }
+
+    /**
+     * The floor's leasable area, and how much of it is let.
+     *
+     * **No column, and no decision needed.** Per-floor GLA was flagged as the thing that might one
+     * day justify promoting `Floor` to an entity — but it already IS one, and the figure is a sum
+     * over the units standing on it. Storing it would be a second truth about the same square
+     * metres, drifting the first time a unit is re-measured.
+     *
+     * Shares `App\Support\Occupancy`, so a floor cannot disagree with the property or the
+     * dashboard about what "occupied" means. Rentable items never appear: a parking bay is not a
+     * unit (docs/benchmarks/yardi/09-yardi-space-and-parking.md).
+     *
+     * @return array{occupied_sqm: float, total_sqm: float, pct: float|null}
+     */
+    public function areaFigures(): array
+    {
+        return Occupancy::forUnits(Unit::where('floor_id', $this->id));
     }
 
     /** What an operator reads: "G — Ground floor", or just the code where no name was given. */

@@ -26,6 +26,17 @@ class TaxSettings extends Settings
      */
     public float $vat_standard_rate = 14.0;
 
+    /**
+     * Is parking a VATable supply? Rent is exempt, service charge is standard-rated, and parking is
+     * neither obviously — a licence to use a space rather than a lease of it. Configured because the
+     * VAT Law schedules settle it and a developer does not.
+     *
+     * Ships FALSE (exempt): under-charging the tenant beats collecting tax that may not be due.
+     * Read by `AssignRentableItemService`; origination only, so a change never rewrites an issued
+     * invoice.
+     */
+    public bool $parking_vat_applicable = false;
+
     public bool $wht_enabled = false;
 
     /** Percentage withheld from a vendor payment when the vendor has no agreed rate of its own. */
