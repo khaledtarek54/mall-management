@@ -114,6 +114,13 @@ class DeletionPolicy
             'blocked_by' => ['invoices', 'charges', 'salesDeclarations', 'camAllocations', 'maintenanceRequests', 'renewals', 'deposits', 'postDatedCheques', 'events'],
             'instead' => 'terminate the lease — that is the documented end of a tenancy, and it keeps the billing history',
         ],
+        \App\Models\RentableItem::class => [
+            // A bay that has ever been let is part of the property record — the lease history and
+            // its billing reference it. Withdraw it from letting instead; that is what
+            // `out_of_service` is for, and it is the same call as a unit set to maintenance.
+            'blocked_by' => ['leases'],
+            'instead' => 'set the item out of service — an item that has been let is part of the property record',
+        ],
         \App\Models\Unit::class => [
             // allLeases, NOT leases: a multi-unit lease keeps its extra units in the lease_unit
             // pivot, so the master-only relation would report a leased unit as never used.

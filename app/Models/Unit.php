@@ -21,6 +21,7 @@ class Unit extends Model
         'area_id',
         'code',
         'floor',
+        'floor_level',
         'category',
         'area_sqm',
         'status',

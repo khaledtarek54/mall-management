@@ -84,16 +84,26 @@ stacking plan, you can view option details such as expiration dates and notice h
 abstract… and view outstanding proposals related to vacant units")*, with *(cited)* vacant units
 coloured distinctly.
 
-**So the standard answer is: keep floor on the unit, but make it ORDERABLE and consistent.** Atriom's
-`units.floor` is a free-text string — which is not a modelling nicety, it is a live defect:
+**So the standard answer is: keep floor on the unit, but make it ORDERABLE and consistent.**
+
+> **Correction (2026-08-10).** The first version of this section claimed the Occupancy Map renders
+> the ground floor below the first floor. That was wrong — I read `->orderBy('floor')` out of
+> context; it is the third clause of a three-clause `orderByRaw` that already special-cases the
+> ground floor. The map's common case is correct. The real defect is narrower and still worth
+> fixing, and it is stated accurately below.
+
+`units.floor` is free text, so `OccupancyMap` carries a workaround: a CASE lifting 'ground'/'g'/'0'
+to the front, then `length()`, then the value. It handles Ground → 1 → 2 → 10, and then:
 
 ```
-floors as ordered by the Occupancy Map today:  1 → Ground
+Ground → 1 → 2 → 10 → Basement → Mezzanine
 ```
 
-`OccupancyMap` does `->orderBy('floor')` on a string, so the ground floor renders **below** the
-first floor. Add a basement or a tenth floor and it degrades further ("10" sorts before "2"), and
-free text means "Ground"/"G"/"ground" are three different floors to any report.
+A basement sorts **after the tenth floor**, because the CASE only knows about the ground floor and
+`length()` is doing the rest. Three things the workaround cannot fix: it is raw SQL on `lower()` and
+`length()` (the cross-database hazard this project has hit twice), it lives in one screen so every
+other consumer still gets plain string order, and free text leaves "Ground"/"G"/"ground" as three
+different groups to anything that groups rather than sorts.
 
 A `floor_level` ordinal (basement negative, ground 0, first 1…) beside the existing label fixes the
 sort, makes floors groupable, and is the precondition for a stacking plan — without inventing a
@@ -109,9 +119,9 @@ are ever needed; if they are, that is the trigger to promote `Floor` to an entit
 | Item assigned to a lease, dated | ✅ | ❌ | ➕ BUILD — reuse the dated `lease_unit` pattern |
 | Item billed by its own charge code, prorated | ✅ | 🟡 the charge schedule can express it; nothing creates it | ➕ BUILD — a `parking` charge row, so it flows through billing/VAT/GL unchanged |
 | Item area excluded from GLA | ✅ by definition | ⚠️ **would break if parking were a Unit** — see §1 | 🔴 the constraint to design against |
-| Floor on the space | ✅ attribute | 🟡 free-text string, sorts wrongly | ➕ EXTEND — add an ordinal |
+| Floor on the space | ✅ attribute | 🟡 free-text string; one screen carries raw-SQL ordering that puts a basement after floor 10 | ➕ EXTEND — add an ordinal, delete the workaround |
 | Stacking plan | ✅ (Floorplan Manager) | ❌ | 🟡 later — needs the ordinal first |
-| Occupancy / vacancy by floor | ✅ | 🟡 `OccupancyMap` groups by floor, in the wrong order | ➕ EXTEND — falls out of the ordinal |
+| Occupancy / vacancy by floor | ✅ | 🟡 `OccupancyMap` groups by floor label, so Ground/G/ground are distinct groups | ➕ EXTEND — falls out of the ordinal |
 
 ## 6. What this means for the build
 

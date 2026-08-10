@@ -204,12 +204,17 @@ class OccupancyMap extends Page implements HasSchemas, HasTable
                 Group::make('floor')
                     ->label(__('admin.pdf.floor'))
                     ->titlePrefixedWithLabel()
-                    // Ground before 1, 2, 3 — a floor plan reads from the
-                    // ground up, and plain string ordering puts "1" first.
-                    // length() then value keeps 2 ahead of 10.
+                    // Order by the ORDINAL, not by the label. This replaced a three-clause
+                    // `orderByRaw` (a CASE for 'ground', then `length()`, then the value) that got
+                    // the common case right — Ground → 1 → 2 → 10 — and then sorted a BASEMENT
+                    // after the tenth floor, because the CASE only knew about the ground floor.
+                    // It was also raw SQL on `lower()`/`length()`, the cross-database hazard this
+                    // project has hit twice, and it lived only here — every other consumer of
+                    // `floor` still got plain string order. A column answers it once, for everyone.
+                    // Nulls last: a unit with no recorded floor is not the ground floor.
                     ->orderQueryUsing(fn (Builder $query) => $query
-                        ->orderByRaw("case when lower(coalesce(floor, '')) in ('ground', 'g', '0') then 0 else 1 end")
-                        ->orderByRaw("length(coalesce(floor, ''))")
+                        ->orderByRaw('case when floor_level is null then 1 else 0 end')
+                        ->orderBy('floor_level')
                         ->orderBy('floor')),
             ])
             ->defaultGroup('floor')

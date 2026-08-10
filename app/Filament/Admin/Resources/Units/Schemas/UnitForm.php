@@ -53,7 +53,17 @@ class UnitForm
                         ->placeholder('A-01'),
                     TextInput::make('floor')
                         ->label(__('admin.pdf.floor'))
-                        ->maxLength(20),
+                        ->maxLength(20)
+                        ->helperText(__('admin.helpers.floor')),
+                    // The label is what an operator says; the ORDINAL is what sorts. Free text
+                    // alone left a basement sorting after the tenth floor and "Ground"/"G" reading
+                    // as different floors to anything that groups.
+                    TextInput::make('floor_level')
+                        ->label(__('admin.fields.floor_level'))
+                        ->numeric()
+                        ->minValue(-10)
+                        ->maxValue(200)
+                        ->helperText(__('admin.helpers.floor_level')),
                     Select::make('category')
                         ->label(__('admin.tables.unit.category'))
                         ->options(fn () => __('admin.enums.category'))
