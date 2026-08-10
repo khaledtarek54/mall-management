@@ -1444,6 +1444,9 @@ return [
         ],
         'tenant' => [
             'name' => 'Name',
+            'exposure' => 'Exposure',
+            'exposure_hint' => 'What this tenant owes and holds across the properties you can see.',
+            'active_leases' => 'Active leases',
             'type' => 'Type',
             'phone' => 'Phone',
             'email' => 'Email',
@@ -2447,6 +2450,7 @@ return [
         'items' => 'Line Items',
         'amounts' => 'Totals',
         'invoice_items' => 'Invoice lines',
+        'tax_identity' => 'Tax & registration',
         'allocations' => 'Apply to Invoices',
         'allocations_helper' => 'Allocate this payment to one or more open invoices. We suggest the oldest open invoices for the selected tenant.',
         'allocated' => 'Allocated',

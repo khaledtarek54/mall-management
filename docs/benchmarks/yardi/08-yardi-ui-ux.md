@@ -153,26 +153,45 @@ merely that the page loads. Mutation-verified against that exact bug.
 
 ---
 
-### UX-05 🔴 Billing run preview (batch before commit)
+### UX-05 ✅ Billing run preview (batch before commit) — **SHIPPED**
 A dry-run of `MonthlyBillingService::runForPeriod()` rendering the proposed invoices — lease, period,
 lines, total — with the skip **reasons** shown (`fit_out`, `off_cycle`, `already_billed`,
 `no_applicable_charges`, which the service already returns). The operator reviews, then commits.
 
-**This is the single highest-confidence UI addition in the list**: it is the control that stops a
-bad escalation reaching 400 tenants, and the service already returns everything it needs.
+**This was the single highest-confidence UI addition in the list**: it is the control that stops a
+bad escalation reaching 400 tenants, and the service already returned everything it needed.
+
+**Shipped as `BillingRunPreview`**, reachable from the invoices table. It shows the service's own
+skip REASONS rather than a bare "skipped" — "in fit-out" is an answer, "skipped" is a question.
+*(Status corrected 2026-08-10: this row still read 🔴 after the page had shipped. Two rows in this
+file did, which is the same staleness the gap analysis carried — check the code before believing a
+🔴 here.)*
 
 ---
 
-### UX-06 🔴 Rent roll & lease expiry screens *(the UI half of RR-01/RR-02)*
+### UX-06 ✅ Rent roll & lease expiry screens — **SHIPPED** *(the UI half of RR-01/RR-02)*
 Rent roll as at a date, with column sort/filter, per-m² columns, totals, and CSV + PDF. Expiry
 schedule as a by-year view with area and rent at risk. Both property-scoped, both EN + AR.
 
 ---
 
-### UX-07 🟠 Tenant 360
+### UX-07 ✅ Tenant 360 — **SHIPPED 2026-08-10** *(partial: sales trend and violations pending)*
 Customer-level rather than lease-level: every lease this tenant holds (current and past), total
 exposure, AR, sales trend, occupancy cost %, requests, violations, documents. Yardi's
 customer-vs-lease split exists precisely so this view can exist.
+
+**Shipped as `ViewTenant` + `TenantInfolist`.** The relation managers — leases, payments, requests,
+notes, portal users — were ALREADY on the resource; only the Edit page rendered them, so answering
+"what is going on with this tenant" meant opening an edit form, and a read-only role could not get
+there at all. The hub existed and was locked behind a form.
+
+Money leads, because that is what the screen is opened for: outstanding, credit on account, active
+leases and status across the top, identity and tax details below. **Every figure is property-scoped**
+through `visibleAssetIds()` — a tenant trading in two malls has one row here, so an unscoped total
+would show a mall-A operator what the company owes in mall B.
+
+**Still open on this row:** sales trend and violations are not on it yet. Both exist as their own
+screens; folding them in is a smaller job than the hub was.
 
 ---
 

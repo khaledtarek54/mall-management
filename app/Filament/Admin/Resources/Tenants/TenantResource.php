@@ -13,7 +13,9 @@ use App\Filament\Admin\Resources\Concerns\ScopesViaProperty;
 use App\Filament\Admin\Resources\Tenants\Pages\CreateTenant;
 use App\Filament\Admin\Resources\Tenants\Pages\EditTenant;
 use App\Filament\Admin\Resources\Tenants\Pages\ListTenants;
+use App\Filament\Admin\Resources\Tenants\Pages\ViewTenant;
 use App\Filament\Admin\Resources\Tenants\Schemas\TenantForm;
+use App\Filament\Admin\Resources\Tenants\Schemas\TenantInfolist;
 use App\Filament\Admin\Resources\Tenants\Tables\TenantsTable;
 use App\Filament\Concerns\SearchesNormalizedText;
 use App\Models\Tenant;
@@ -63,6 +65,11 @@ class TenantResource extends Resource
     public static function getNavigationGroup(): ?string
     {
         return __('admin.groups.leasing');
+    }
+
+    public static function infolist(Schema $schema): Schema
+    {
+        return TenantInfolist::configure($schema);
     }
 
     public static function form(Schema $schema): Schema
@@ -120,6 +127,7 @@ class TenantResource extends Resource
         return [
             'index' => ListTenants::route('/'),
             'create' => CreateTenant::route('/create'),
+            'view' => ViewTenant::route('/{record}'),
             'edit' => EditTenant::route('/{record}/edit'),
         ];
     }
