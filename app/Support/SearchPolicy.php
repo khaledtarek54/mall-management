@@ -167,6 +167,7 @@ class SearchPolicy
         // ---- Operations ----
         Models\TenantRequest::class,
         Models\Announcement::class,
+        Models\MarketingPost::class,
         Models\Violation::class,
         Models\OwnerRequest::class,
 

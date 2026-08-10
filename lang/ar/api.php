@@ -21,6 +21,18 @@ return [
     'sales_declaration_duplicate' => 'يوجد بالفعل إقرار لهذا العقد ولهذه الفترة.',
     'sales_declaration_locked' => 'هذا الإقرار مقفل ولا يمكن تعديله.',
 
+    // منشورات التسويق (الوحدة 36)
+    'marketing_post_created' => 'تم حفظ المسودّة.',
+    'marketing_post_updated' => 'تم تحديث المسودّة.',
+    'marketing_post_submitted' => 'تم الإرسال إلى إدارة المول للمراجعة.',
+    'marketing_post_withdrawn' => 'تم السحب — عاد المنشور مسودّة.',
+    'marketing_post_deleted' => 'تم حذف المسودّة.',
+    'marketing_post_not_editable' => 'هذا المنشور لدى فريق المول الآن، ولم يعد قابلًا للتعديل. اسحبه أولًا إن كان ما زال بانتظار المراجعة.',
+    'marketing_post_approved_title' => 'عرضك أصبح منشورًا',
+    'marketing_post_approved_body' => 'تم اعتماد «:title» وهو ظاهر الآن في تطبيق المول.',
+    'marketing_post_rejected_title' => 'عرضك يحتاج تعديلًا',
+    'marketing_post_rejected_body' => 'لم يتم اعتماد «:title». السبب: :reason',
+
     // Devices
     'device_registered' => 'تم تسجيل الجهاز لاستقبال الإشعارات.',
     'device_unregistered' => 'تمت إزالة الجهاز.',

@@ -42,6 +42,11 @@ class ModulesSettings extends Settings
 
     public bool $procurement = true;
 
+    // The shopper-facing feed (module 36). ON by default like every other optional module — the
+    // operator's marketing team can use the register (and the tenant-submission queue) before a
+    // visitor app exists to render it.
+    public bool $marketing_posts = true;
+
     public static function group(): string
     {
         return 'modules';

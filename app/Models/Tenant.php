@@ -29,10 +29,38 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
     /** Identity paperwork — commercial register, tax card, trade licence. */
     public const DOCUMENTS_COLLECTION = 'documents';
 
+    /** The store's brand mark, shown to shoppers in the directory and on every offer card. */
+    public const LOGO_COLLECTION = 'logo';
+
+    /**
+     * How a shopper browses the mall. String-backed (no DB enum, house rule) and deliberately
+     * short: a directory with forty categories is a directory nobody filters. Extend by adding
+     * here — the form and the public API both read this list.
+     *
+     * @var array<int, string>
+     */
+    public const RETAIL_CATEGORIES = [
+        'fashion',
+        'food_beverage',
+        'electronics',
+        'health_beauty',
+        'home_lifestyle',
+        'kids_toys',
+        'sports',
+        'jewellery_accessories',
+        'entertainment',
+        'services',
+        'hypermarket',
+        'other',
+    ];
+
     /**
      * Trade name, legal name and the contact a leasing officer actually knows, plus the
      * business identifiers on the file. `national_id` is deliberately absent: it identifies a
      * person, not a business, and nobody hunts a retailer by it.
+     *
+     * The shopper-facing trade name is here too, in both languages — an operator hunting the
+     * Defacto lease types the sign above the door, not the LLC on the contract.
      *
      * @return array<int, string|int|float|null>
      */
@@ -41,6 +69,8 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
         return [
             $this->name,
             $this->legal_name,
+            $this->trade_name,
+            $this->trade_name_ar,
             $this->contact_person,
             $this->email,
             $this->phone,
@@ -65,6 +95,14 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
     public function registerMediaCollections(): void
     {
         $this->addMediaCollection(self::DOCUMENTS_COLLECTION)->useDisk('local');
+
+        // The store logo is the ONE public thing about a retailer. It is a brand mark the shop
+        // already displays on its own shutter and hands to anyone who asks — the same category as
+        // a property's logo, and the same reason it may sit on the public disk: the shopper
+        // fetching the directory is unauthenticated by design. Listed in
+        // MediaPrivacyConformanceTest's PUBLIC_COLLECTIONS with that reason. It shares a model
+        // with `documents`, which stays private — the collections are separate for exactly this.
+        $this->addMediaCollection(self::LOGO_COLLECTION)->useDisk('public')->singleFile();
     }
 
     public function getActivitylogOptions(): LogOptions
@@ -96,6 +134,15 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
         'contact_person_phone',
         'status',
         'metadata',
+        // ---- Store directory (module 36): who this retailer is to a SHOPPER.
+        'trade_name',
+        'trade_name_ar',
+        'retail_category',
+        'public_description',
+        'public_description_ar',
+        'website_url',
+        'instagram_handle',
+        'is_listed',
     ];
 
     protected $hidden = [
@@ -105,13 +152,47 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
         'tax_id',
     ];
 
+    /** `is_listed` is NOT NULL; an unrendered form field must not send null into it. */
+    protected $attributes = [
+        'is_listed' => true,
+    ];
+
     protected function casts(): array
     {
         return [
             'metadata' => 'array',
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_listed' => 'boolean',
         ];
+    }
+
+    // ============ Store directory ============
+
+    /**
+     * The name a shopper is shown. Falls back to `name` so the directory works before anyone
+     * fills the new field in — the alternative was blank cards on day one of the visitor app.
+     */
+    public function storeName(?string $locale = null): string
+    {
+        $arabic = ($locale ?? app()->getLocale()) === 'ar';
+
+        if ($arabic && filled($this->trade_name_ar)) {
+            return $this->trade_name_ar;
+        }
+
+        return $this->trade_name ?: $this->name;
+    }
+
+    public function logoUrl(): ?string
+    {
+        return $this->getFirstMedia(self::LOGO_COLLECTION)?->getFullUrl();
+    }
+
+    /** Shopper-facing content this retailer runs. */
+    public function marketingPosts(): HasMany
+    {
+        return $this->hasMany(MarketingPost::class);
     }
 
     public function canAccessPanel(Panel $panel): bool

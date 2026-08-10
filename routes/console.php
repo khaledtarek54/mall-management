@@ -75,6 +75,15 @@ Schedule::command('vendors:expire-contracts')
     ->name('atriom-expire-vendor-contracts')
     ->withoutOverlapping();
 
+// Shopper feed housekeeping (module 36). Posts past their display window are archived so
+// "published" in the operator's register means "running". The read-side predicate already hides
+// them from shoppers — this keeps the LIST honest. Hourly rather than daily because an offer
+// ending at noon should leave the marketing team's live list around noon, not at 2am tomorrow.
+Schedule::command('marketing:expire-posts')
+    ->hourly()
+    ->name('atriom-expire-marketing-posts')
+    ->withoutOverlapping();
+
 // Chase vendor compliance documents 30 days out and again on lapse. The dispatch gate
 // already drops a vendor with lapsed insurance from every assignment picker — without
 // this the operator gets no warning, just a contractor missing from a dropdown. The

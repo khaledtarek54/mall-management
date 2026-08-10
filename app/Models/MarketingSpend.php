@@ -36,6 +36,9 @@ class MarketingSpend extends Model
 
     protected $fillable = [
         'marketing_budget_id',
+        // The campaign this money paid for (module 36). Optional — plenty of spend is not tied to
+        // a published post (a printed directory, a mall-wide banner frame).
+        'marketing_post_id',
         'category',
         'description',
         'amount',
@@ -58,6 +61,15 @@ class MarketingSpend extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_user_id');
+    }
+
+    /**
+     * The shopper-facing campaign this line paid for. The join that makes "what did the Ramadan
+     * campaign cost, and what did it say" one question instead of two systems.
+     */
+    public function post(): BelongsTo
+    {
+        return $this->belongsTo(MarketingPost::class, 'marketing_post_id');
     }
 
     protected static function booted(): void

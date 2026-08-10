@@ -21,6 +21,18 @@ return [
     'sales_declaration_duplicate' => 'A declaration already exists for this lease and period.',
     'sales_declaration_locked' => 'This declaration is locked and can no longer be edited.',
 
+    // Marketing posts (module 36) — the shopper feed + the retailer's own submissions.
+    'marketing_post_created' => 'Draft saved.',
+    'marketing_post_updated' => 'Draft updated.',
+    'marketing_post_submitted' => 'Sent to the mall for review.',
+    'marketing_post_withdrawn' => 'Withdrawn — it is a draft again.',
+    'marketing_post_deleted' => 'Draft deleted.',
+    'marketing_post_not_editable' => 'This post is with the mall team now, so it can no longer be edited. Withdraw it first if it is still waiting for review.',
+    'marketing_post_approved_title' => 'Your offer is live',
+    'marketing_post_approved_body' => '":title" has been approved and is now showing in the mall app.',
+    'marketing_post_rejected_title' => 'Your offer needs changes',
+    'marketing_post_rejected_body' => '":title" was not approved. Reason: :reason',
+
     // Devices
     'device_registered' => 'Device registered for push notifications.',
     'device_unregistered' => 'Device removed.',

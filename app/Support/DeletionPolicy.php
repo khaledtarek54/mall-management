@@ -277,6 +277,7 @@ class DeletionPolicy
         \App\Models\TenantSalesDeclaration::class => 'operational: locking is what makes it billable, and a locked one voids rather than deletes',
         \App\Models\CamAllocation::class => 'operational: voided through the pool, not removed',
         \App\Models\MarketingSpend::class => 'operational: a spend line',
+        \App\Models\MarketingPost::class => 'operational: shopper-facing content, not a record of anything that happened. `archived` is the retirement path an operator should use (it keeps the campaign in the register with its engagement counters), but a post typed by mistake — wrong mall, duplicated draft, artwork that never ran — is genuinely a row that should not exist, and refusing it would leave the register full of things the marketing team has to mentally skip. Soft-deletes, so a mis-delete is recoverable',
         \App\Models\LowStockAlert::class => 'operational: a transient alert',
         \App\Models\Custody::class => 'operational: settled through SettleCustodyService',
         \App\Models\EmployeeAdvance::class => 'operational: reversed rather than removed',

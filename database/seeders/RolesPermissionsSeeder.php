@@ -369,6 +369,16 @@ class RolesPermissionsSeeder extends Seeder
             'announcements.view' => 'View sent announcements',
             'announcements.create' => 'Compose & broadcast announcements to tenants',
         ],
+        // The shopper-facing feed (module 36). `approve` is its own permission and not folded into
+        // `edit`: deciding what the mall says to the public is a different authority from tidying
+        // a draft, and a marketing assistant can reasonably hold one without the other.
+        'marketing_posts' => [
+            'marketing_posts.view' => 'View marketing posts (offers, events, mall news)',
+            'marketing_posts.create' => 'Compose a marketing post',
+            'marketing_posts.edit' => 'Edit a marketing post, feature it, or archive it',
+            'marketing_posts.approve' => 'Approve or reject a retailer\'s submission, and publish to the mall app',
+            'marketing_posts.delete' => 'Delete a marketing post that never ran',
+        ],
         'settings' => [
             'settings.view' => 'View settings',
             'settings.manage' => 'Edit system settings (billing rules, SLA, integrations)',
@@ -634,6 +644,10 @@ class RolesPermissionsSeeder extends Seeder
         $grants['marketing'] = [
             'marketing.view', 'marketing.create', 'marketing.edit',
             'announcements.view', 'announcements.create',
+            // The department that owns tenant comms owns the shopper feed too, including the
+            // review queue — approving a retailer's offer IS the marketing team's job.
+            'marketing_posts.view', 'marketing_posts.create', 'marketing_posts.edit',
+            'marketing_posts.approve',
         ];
 
         // hr: Users, Roles, Departments, Employees.

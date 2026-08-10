@@ -52,6 +52,7 @@ use App\Models\MaintenanceWorkOrder;
 use App\Models\MaintenanceWorkOrderItem;
 use App\Models\MaintenanceWorkOrderPart;
 use App\Models\MarketingBudget;
+use App\Models\MarketingPost;
 use App\Models\MarketingSpend;
 use App\Models\MeterReading;
 use App\Models\Note;
@@ -147,6 +148,9 @@ class PropertyIsolation
         UtilityMeter::class => null,
         CamExpensePool::class => null,
         MarketingBudget::class => null,
+        // A shopper-facing offer/event/news card runs in exactly one mall — a shopper reading it
+        // is standing in the building. Direct asset_id (module 36).
+        MarketingPost::class => null,
         Employee::class => null,
         EmployeeAdvance::class => null,
         EmployeeAdvanceRepayment::class => null,

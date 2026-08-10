@@ -33,6 +33,20 @@ use Spatie\MediaLibrary\HasMedia;
  */
 const PUBLIC_COLLECTIONS = [
     'App\Models\Asset' => ['logo', 'favicon'],
+
+    // ---- Module 36: the shopper-facing feed. These three are the only collections in the system
+    // whose READER is deliberately unauthenticated, which is why they may sit on the public disk.
+    //
+    // A marketing post's hero image and gallery are artwork the mall is actively broadcasting to
+    // the street — the offer exists to be seen by people with no account. Serving them through an
+    // authenticated stream would mean the visitor app cannot render its own feed.
+    'App\Models\MarketingPost' => ['hero', 'gallery'],
+
+    // A store's logo is the brand mark already on its shutter, and the same category as a
+    // property's. Note Tenant's OTHER collection — `documents`, holding the commercial register
+    // and tax card — stays private; that they are separate collections on one model is precisely
+    // what lets the brand mark be public without the paperwork following it.
+    'App\Models\Tenant' => ['logo'],
 ];
 
 /** @return array<int, class-string<HasMedia>> every model implementing HasMedia */

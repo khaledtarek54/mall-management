@@ -37,6 +37,11 @@ class Modules
         'custodies',
         'preventive_maintenance',
         'procurement',
+        // The shopper-facing feed (module 36). Toggleable because it is the one module whose value
+        // depends on something outside this system existing — a mall with no visitor app has
+        // nothing to publish to, and should not be asked to review offers nobody will read.
+        // Turning it off also 404s the public API (see the route group), not just the nav item.
+        'marketing_posts',
     ];
 
     public static function enabled(string $module): bool

@@ -14,6 +14,14 @@ use App\Http\Controllers\Api\V1\Invoices\InvoicePdfController;
 use App\Http\Controllers\Api\V1\Invoices\ListInvoicesController;
 use App\Http\Controllers\Api\V1\Invoices\ShowInvoiceController;
 use App\Http\Controllers\Api\V1\Invoices\StatementController;
+use App\Http\Controllers\Api\V1\MarketingPosts\MarketingPostsController;
+use App\Http\Controllers\Api\V1\PublicFeed\ListPublicMallsController;
+use App\Http\Controllers\Api\V1\PublicFeed\ListPublicPostsController;
+use App\Http\Controllers\Api\V1\PublicFeed\ListPublicStoresController;
+use App\Http\Controllers\Api\V1\PublicFeed\RecordPostClickController;
+use App\Http\Controllers\Api\V1\PublicFeed\ShowPublicPostController;
+use App\Http\Controllers\Api\V1\PublicFeed\ShowPublicStoreController;
+use App\Http\Middleware\EnsureMarketingPostsEnabled;
 use App\Http\Controllers\Api\V1\Requests\CancelTenantRequestController;
 use App\Http\Controllers\Api\V1\Requests\CommentTenantRequestController;
 use App\Http\Controllers\Api\V1\Requests\CreateTenantRequestController;
@@ -64,6 +72,50 @@ Route::prefix('v1')->group(function () {
     Route::middleware('throttle:5,1')->group(function () {
         Route::post('auth/login', LoginController::class)->name('api.v1.auth.login');
     });
+
+    /*
+    |--------------------------------------------------------------------------
+    | Shopper feed — the ONLY unauthenticated read surface in the system (module 36)
+    |--------------------------------------------------------------------------
+    | Serves the visitor app: what's on at the mall, and who trades there. Everything else
+    | under /api/v1 authenticates a Tenant; these routes deliberately do not, because the
+    | audience is anyone standing in the building.
+    |
+    | Three things keep that safe, and none of them is "we remembered to filter":
+    |   1. `EnsureMarketingPostsEnabled` — 404s the whole surface when the module is off.
+    |      A permission gate would not help here: there is no user to hold a permission.
+    |   2. Field ALLOWLISTS (PublicMarketingPostResource / PublicStoreResource), not the
+    |      models. Nothing from `tenants` reaches a shopper except by being typed out.
+    |   3. `MarketingPost::liveFor('visitors')` — the single visibility predicate, shared
+    |      with every other surface so they cannot drift apart.
+    |
+    | Throttled per-IP at 120/min: generous for a shopper flicking through a feed (each
+    | screen is one request), tight enough that scraping the directory costs something.
+    | The click counter gets its own tighter bucket — see RecordPostClickController on why
+    | these numbers are indicative rather than audited.
+    */
+    Route::middleware([EnsureMarketingPostsEnabled::class, 'throttle:120,1'])
+        ->prefix('public')
+        ->group(function () {
+            Route::get('malls', ListPublicMallsController::class)->name('api.v1.public.malls');
+
+            Route::get('malls/{code}/posts', ListPublicPostsController::class)->name('api.v1.public.posts.index');
+            Route::get('malls/{code}/posts/{post}', ShowPublicPostController::class)
+                ->whereNumber('post')->name('api.v1.public.posts.show');
+
+            Route::get('malls/{code}/stores', ListPublicStoresController::class)->name('api.v1.public.stores.index');
+            Route::get('malls/{code}/stores/{store}', ShowPublicStoreController::class)
+                ->whereNumber('store')->name('api.v1.public.stores.show');
+        });
+
+    // The one WRITE on the public surface. Its own, much tighter bucket: it is the only
+    // unauthenticated endpoint that changes a row, so it should cost more than a read.
+    Route::middleware([EnsureMarketingPostsEnabled::class, 'throttle:30,1'])
+        ->prefix('public')
+        ->group(function () {
+            Route::post('malls/{code}/posts/{post}/click', RecordPostClickController::class)
+                ->whereNumber('post')->name('api.v1.public.posts.click');
+        });
 
     // Password reset request + apply — tighter throttle (anti-abuse), still public.
     Route::middleware('throttle:3,1')->group(function () {
@@ -137,6 +189,24 @@ Route::prefix('v1')->group(function () {
         Route::post('me/sales-declarations', CreateSalesDeclarationController::class)->name('api.v1.me.sales.store');
         Route::get('me/sales-declarations/{id}', ShowSalesDeclarationController::class)->whereNumber('id')->name('api.v1.me.sales.show');
         Route::get('me/sales-declarations/{id}/attachments/{media}', ShowSalesDeclarationAttachmentController::class)->whereNumber('id')->whereNumber('media')->name('api.v1.me.sales.attachment');
+
+        // --- Marketing posts (module 36): the retailer's own offers/events, and the mall feed ---
+        // Composing here ends at `pending`; nothing a tenant can call reaches the public feed.
+        Route::get('me/feed', [MarketingPostsController::class, 'feed'])->name('api.v1.me.feed');
+        Route::get('me/marketing-posts', [MarketingPostsController::class, 'index'])->name('api.v1.me.posts.index');
+        Route::post('me/marketing-posts', [MarketingPostsController::class, 'store'])->name('api.v1.me.posts.store');
+        Route::get('me/marketing-posts/{id}', [MarketingPostsController::class, 'show'])
+            ->whereNumber('id')->name('api.v1.me.posts.show');
+        // POST rather than PATCH for the update: a multipart body (the hero image) does not
+        // survive PHP's PATCH handling — the same wire-contract trap the mobile brief records.
+        Route::post('me/marketing-posts/{id}', [MarketingPostsController::class, 'update'])
+            ->whereNumber('id')->name('api.v1.me.posts.update');
+        Route::post('me/marketing-posts/{id}/submit', [MarketingPostsController::class, 'submit'])
+            ->whereNumber('id')->name('api.v1.me.posts.submit');
+        Route::post('me/marketing-posts/{id}/withdraw', [MarketingPostsController::class, 'withdraw'])
+            ->whereNumber('id')->name('api.v1.me.posts.withdraw');
+        Route::delete('me/marketing-posts/{id}', [MarketingPostsController::class, 'destroy'])
+            ->whereNumber('id')->name('api.v1.me.posts.destroy');
 
         // --- Push device tokens ---
         Route::post('me/devices', RegisterDeviceController::class)->name('api.v1.me.devices.store');
