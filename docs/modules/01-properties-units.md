@@ -18,7 +18,7 @@ The Properties & Units module is the spatial foundation of the mall-management E
 | address | varchar | nullable | Street address |
 | city | varchar | default='Cairo' | City name |
 | country | varchar | default='Egypt' | Country name |
-| total_area_sqm | decimal(12,2) | nullable | Total built area (m²) |
+| total_area_sqm | decimal(12,2) | nullable | Gross building area (m²). Read by `Asset::leasableEfficiencyPct()` — the load factor shown under GLA on the properties table. Was write-only until 2026-08-10: the form collected it and nothing used it. |
 | leasable_area_sqm | decimal(12,2) | nullable | Rentable area (m²) |
 | currency | varchar(3) | default='EGP' | ISO 4217 currency code (e.g., "EGP") |
 | primary_color | varchar(7) | nullable | Hex color (e.g., "#0F766E") for Filament panel branding when tenant is active |
@@ -42,12 +42,11 @@ The Properties & Units module is the spatial foundation of the mall-management E
 | id | bigint | PK | Auto-increment ID |
 | asset_id | bigint | FK, cascadeOnDelete | Parent property |
 | code | varchar | NOT NULL | Unit code (e.g., "A-01"); unique per asset |
-| floor | varchar | nullable | Floor label (e.g., "Ground", "1", "2") |
+| floor_id | FK floors | nullable | The floor this unit stands on, SELECTED from the property's register (`Asset → Floors`). Replaced a free-text `floor` column and a short-lived `floor_level` ordinal on 2026-08-10 — free text left "G" and "Ground" as two floors to anything that grouped, and an ordinal per unit asked 200 rows to repeat one number. |
 | category | enum | default='retail' | One of: `retail`, `food_beverage`, `wellness`, `service`, `kiosk`, `office`, `storage` |
 | area_sqm | decimal(10,2) | NOT NULL | Unit area (m²) |
 | status | enum | default='vacant' | One of: `vacant`, `reserved`, `occupied`, `maintenance` (see occupancy projection) |
 | description | text | nullable | Long-form notes |
-| features | json | nullable | Array of features (e.g., `['corner_unit', 'glass_facade']`) |
 | created_at, updated_at | timestamp | - | Timestamps |
 | deleted_at | timestamp | nullable | Soft-delete marker |
 
@@ -281,7 +280,7 @@ No explicit lifecycle; status is a projection of leases (immutable by recomputeS
   - country (text, required, default Egypt)
   - currency (text, required, default EGP, max 3)
 - **Area Section:**
-  - total_area_sqm (numeric, suffix m²)
+  - total_area_sqm (numeric, suffix m²) — gross building area; the table shows GLA as a percentage of it
   - leasable_area_sqm (numeric, suffix m²)
 - **Status Section:**
   - is_active (toggle, default true)
@@ -297,7 +296,7 @@ No explicit lifecycle; status is a projection of leases (immutable by recomputeS
 - name (weight bold, searchable, sortable)
 - type (enum label, badge)
 - city (searchable, sortable)
-- total_area_sqm (formatted "X m²", sortable)
+- leasable_area_sqm (formatted "X m²", sortable), with the load factor underneath — "of 12,000 m² gross · 70.8% lettable"
 - leasable_area_sqm (formatted "X m²", sortable)
 - occupancyRate() (badge, color based on %: danger <50%, warning <75%, success ≥75%)
 - is_active (boolean badge)
@@ -320,7 +319,7 @@ No explicit lifecycle; status is a projection of leases (immutable by recomputeS
 - **Unit Details Section:**
   - asset_id (select relationship 'asset' by name; required; disabled if TenantScope::currentAssetId() set, defaulting to current asset)
   - code (text, required, max 20, placeholder A-01)
-  - floor (text, max 20)
+  - floor_id (Select, scoped to the property's own floors, ordered by level)
   - category (select enum; required)
   - area_sqm (numeric, required, suffix m²)
   - status (select enum: vacant/reserved/occupied/maintenance; default vacant, required)
@@ -328,7 +327,7 @@ No explicit lifecycle; status is a projection of leases (immutable by recomputeS
 
 **Table columns:**
 - code (badge, searchable, sortable)
-- floor (toggleable)
+- floor.code (toggleable)
 - category (badge, enum label)
 - area_sqm (formatted "X m²", sortable)
 - activeLease.tenant.name (searchable; show current tenant or —)

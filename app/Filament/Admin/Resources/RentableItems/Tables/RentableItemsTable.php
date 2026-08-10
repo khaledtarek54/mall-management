@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\RentableItems\Tables;
 
+use App\Filament\Admin\Resources\RentableItems\RentableItemResource;
 use App\Models\RentableItem;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
@@ -69,6 +70,13 @@ class RentableItemsTable
                     ->label(__('admin.pdf.floor'))
                     ->relationship('floor', 'code'),
             ])
+            // Clicking the row EDITS. Letting a bay is the reason an operator opens this screen, so
+            // the read-only view would be a stop on the way to the thing they came to do. It stays
+            // reachable from the row action, and it is where a viewer lands — `canEdit()` decides,
+            // so a read-only role is never sent to a form it cannot submit.
+            ->recordUrl(fn (RentableItem $record): string => RentableItemResource::canEdit($record)
+                ? RentableItemResource::getUrl('edit', ['record' => $record])
+                : RentableItemResource::getUrl('view', ['record' => $record]))
             ->recordActions([ViewAction::make(), EditAction::make()]);
     }
 }
