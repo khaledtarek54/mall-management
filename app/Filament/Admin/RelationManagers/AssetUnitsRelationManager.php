@@ -33,7 +33,7 @@ class AssetUnitsRelationManager extends RelationManager
                     ->size('xs')
                     ->searchable()
                     ->sortable(),
-                TextColumn::make('floor')
+                TextColumn::make('floor.code')
                     ->label(__('admin.tables.unit.floor'))
                     ->toggleable(),
                 TextColumn::make('category')

@@ -34,7 +34,10 @@ class UnitFactory extends Factory
             ])->id,
             // Unique per (asset_id, code); keep it globally unique to be safe.
             'code' => strtoupper(fake()->bothify('?-##')) . '-' . Str::upper(Str::random(4)),
-            'floor' => fake()->randomElement(['Ground', '1', '2', '3', 'Basement']),
+            // Floors are a per-property register now, not a free-text column. Left null: a
+            // factory that invented a floor would have to invent the property's register with it,
+            // and every test that cares assigns one explicitly.
+            'floor_id' => null,
             'category' => fake()->randomElement([
                 'retail',
                 'food_beverage',

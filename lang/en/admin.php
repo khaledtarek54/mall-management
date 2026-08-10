@@ -1093,6 +1093,14 @@ return [
     ],
 
     'resources' => [
+        'floor' => [
+            'singular' => 'Floor',
+            'plural' => 'Floors',
+        ],
+        'rentable_item' => [
+            'singular' => 'Rentable item',
+            'plural' => 'Parking & rentable items',
+        ],
         'ledger_account' => ['singular' => 'Ledger Account', 'plural' => 'Chart of Accounts'],
         'journal_entry' => ['singular' => 'Journal Entry', 'plural' => 'Journal Entries'],
         'portal_user' => ['singular' => 'Portal User', 'plural' => 'Portal Users'],
@@ -2282,6 +2290,8 @@ return [
         'period_year' => 'Year',
         'pool_code' => 'Pool code',
         'floor_level' => 'Floor order',
+        'floor_code' => 'Code',
+        'floor_name' => 'Name',
         'pool_name' => 'Pool name',
         'participant_scope' => 'Who participates',
         'participant_area' => 'Zone',
@@ -2346,6 +2356,9 @@ return [
         'pool_code' => 'Short key for this pool — cam, tax, insurance, hvac. A property runs several in a year; the code is what keeps them apart.',
         'floor' => 'What an operator calls it — Ground, Mezzanine, 1, 2, B1.',
         'floor_level' => 'The number it sorts by: basement negative, ground 0, first 1. Without it a basement sorts after the tenth floor.',
+        'floor_code' => 'What an operator types — B2, B1, G, M, 1, 2.',
+        'floor_name_placeholder' => 'e.g. Lower ground, Mezzanine',
+        'floor_id' => 'Chosen from the property’s floors. Add or rename them on the property itself.',
         'pool_name_placeholder' => 'e.g. Common area maintenance',
         'participant_scope' => 'Everyone on the property, or only the leases in one zone — "everyone shares CAM, but only the food court shares grease-trap cleaning".',
         'participant_area' => 'Leases with a unit in this zone participate. Read from the units, so a lease that moves leaves the pool on its own.',
@@ -2912,6 +2925,8 @@ return [
         'subject' => 'Subject',
         'system' => 'System',
         'subjects' => [
+            'floor' => 'Floor',
+            'rentable_item' => 'Rentable item',
             'lease' => 'Lease',
             'lease_option' => 'Lease option',
             'invoice' => 'Invoice',

@@ -51,19 +51,28 @@ class UnitForm
                         // user cannot see (TenantScope::clampAssetId).
                         ->unique(ignoreRecord: true, modifyRuleUsing: fn (\Illuminate\Validation\Rules\Unique $rule, \Filament\Schemas\Components\Utilities\Get $get) => $rule->where('asset_id', \App\Support\TenantScope::clampAssetId($get('asset_id'))))
                         ->placeholder('A-01'),
-                    TextInput::make('floor')
+                    // SELECTED from the property's register, not typed. Free text left "G" and
+                    // "Ground" as two different floors to anything that grouped, and an ordinal on
+                    // every unit asked two hundred rows to repeat the same number. Set up on the
+                    // property (Asset → Floors); chosen here.
+                    Select::make('floor_id')
                         ->label(__('admin.pdf.floor'))
-                        ->maxLength(20)
-                        ->helperText(__('admin.helpers.floor')),
-                    // The label is what an operator says; the ORDINAL is what sorts. Free text
-                    // alone left a basement sorting after the tenth floor and "Ground"/"G" reading
-                    // as different floors to anything that groups.
-                    TextInput::make('floor_level')
-                        ->label(__('admin.fields.floor_level'))
-                        ->numeric()
-                        ->minValue(-10)
-                        ->maxValue(200)
-                        ->helperText(__('admin.helpers.floor_level')),
+                        ->relationship(
+                            'floor',
+                            'code',
+                            // Scoped to the unit's own property, and ordered bottom-up.
+                            modifyQueryUsing: fn ($query, \Filament\Schemas\Components\Utilities\Get $get) => $query
+                                ->when(
+                                    \App\Support\TenantScope::clampAssetId($get('asset_id')),
+                                    fn ($q, $id) => $q->where('asset_id', $id),
+                                )
+                                ->orderBy('level'),
+                        )
+                        ->getOptionLabelFromRecordUsing(fn (\App\Models\Floor $floor) => $floor->label())
+                        ->native(false)
+                        ->searchable()
+                        ->preload()
+                        ->helperText(__('admin.helpers.floor_id')),
                     Select::make('category')
                         ->label(__('admin.tables.unit.category'))
                         ->options(fn () => __('admin.enums.category'))

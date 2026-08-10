@@ -24,6 +24,7 @@ use App\Models\Equipment;
 use App\Models\Expense;
 use App\Models\FixedAsset;
 use App\Models\InventoryItem;
+use App\Models\Floor;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\JournalEntry;
@@ -184,7 +185,7 @@ class DemoSeeder extends Seeder
             Unit::updateOrCreate(
                 ['asset_id' => $plazaAnnex->id, 'code' => sprintf('PA-%02d', $n)],
                 [
-                    'floor' => 'Ground',
+                    'floor_id' => $this->floorFor($plazaAnnex, 'Ground')->id,
                     'category' => $n <= 4 ? 'retail' : 'food_beverage',
                     'area_sqm' => 80 + ($n * 5),
                     'status' => 'vacant',
@@ -205,7 +206,7 @@ class DemoSeeder extends Seeder
             $unit = Unit::create([
                 'asset_id' => $atriomWalk->id,
                 'code' => $unitData['code'],
-                'floor' => $unitData['floor'],
+                'floor_id' => $this->floorFor($atriomWalk, $unitData['floor'])->id,
                 'category' => $unitData['category'],
                 'area_sqm' => $unitData['area'],
                 'status' => 'vacant', // will flip if leased
@@ -449,6 +450,27 @@ class DemoSeeder extends Seeder
         $this->seedPercentageRentTiers();
         $this->seedItemAllocationAndDispute();
         $this->seedLatePostedVendorBill($asset);
+    }
+
+    /**
+     * The property's floor register — created once, then SELECTED by everything that stands on it.
+     *
+     * Floors replaced the free-text `units.floor` column: a mall has perhaps eight of them, and
+     * retyping "Ground" on the ninetieth unit is how "G" and "Ground" become two floors.
+     */
+    private function floorFor(Asset $asset, string $label): Floor
+    {
+        [$code, $level] = match (strtolower($label)) {
+            'basement', 'b1' => ['B1', -1],
+            'ground', 'g' => ['G', 0],
+            'mezzanine', 'm' => ['M', 1],
+            default => [(string) (int) $label, (int) $label + 1],
+        };
+
+        return Floor::firstOrCreate(
+            ['asset_id' => $asset->id, 'code' => $code],
+            ['name' => $label, 'level' => $level],
+        );
     }
 
     /**

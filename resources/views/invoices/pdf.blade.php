@@ -204,7 +204,7 @@
             <td>
                 <div class="label">{{ __('admin.pdf.lease_reference') }}</div>
                 <div class="party-name">{{ $lease->reference }}</div>
-                <div class="party-line">{{ __('admin.pdf.unit') }} {{ $unit?->code ?? '—' }}@if($unit?->floor) · {{ __('admin.pdf.floor') }} {{ $unit->floor }}@endif</div>
+                <div class="party-line">{{ __('admin.pdf.unit') }} {{ $unit?->code ?? '—' }}@if($unit?->floor) · {{ __('admin.pdf.floor') }} {{ $unit->floor->code }}@endif</div>
                 @if($unit?->area_sqm)<div class="party-line">{{ number_format((float) $unit->area_sqm, 1) }} {{ __('admin.pdf.sqm') }}</div>@endif
                 <div class="party-line">{{ __('admin.pdf.term') }}: {{ $lease->commencement_date->format('d/m/Y') }} – {{ $lease->expiry_date->format('d/m/Y') }}</div>
             </td>

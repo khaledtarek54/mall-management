@@ -201,23 +201,34 @@ class OccupancyMap extends Page implements HasSchemas, HasTable
             // wide turned a 50-unit mall into two screenfuls.
             ->contentGrid(['sm' => 2, 'md' => 4, 'lg' => 5, 'xl' => 6, '2xl' => 8])
             ->groups([
-                Group::make('floor')
+                Group::make('floor.code')
                     ->label(__('admin.pdf.floor'))
                     ->titlePrefixedWithLabel()
-                    // Order by the ORDINAL, not by the label. This replaced a three-clause
-                    // `orderByRaw` (a CASE for 'ground', then `length()`, then the value) that got
-                    // the common case right — Ground → 1 → 2 → 10 — and then sorted a BASEMENT
-                    // after the tenth floor, because the CASE only knew about the ground floor.
-                    // It was also raw SQL on `lower()`/`length()`, the cross-database hazard this
-                    // project has hit twice, and it lived only here — every other consumer of
-                    // `floor` still got plain string order. A column answers it once, for everyone.
-                    // Nulls last: a unit with no recorded floor is not the ground floor.
-                    ->orderQueryUsing(fn (Builder $query) => $query
-                        ->orderByRaw('case when floor_level is null then 1 else 0 end')
-                        ->orderBy('floor_level')
-                        ->orderBy('floor')),
+                    // Grouped and ordered by the property's floor REGISTER. This replaced a
+                    // three-clause `orderByRaw` (a CASE for 'ground', then `length()`, then the
+                    // value) that got the common case right — Ground → 1 → 2 → 10 — and then sorted
+                    // a BASEMENT after the tenth floor, because the CASE only knew about the ground
+                    // floor. It was raw SQL on `lower()`/`length()` (the cross-database hazard this
+                    // project has hit twice) and it lived only here, so every other consumer of the
+                    // free-text column still got plain string order.
+                    //
+                    // The register answers it once for everyone: `floors.level` is set when the
+                    // property is set up, and a unit merely points at it. Unfloored units sort last
+                    // — a unit with no floor is not the ground floor.
+                    // A correlated subquery, not a join: the page's own property scoping filters on
+                    // an unqualified `asset_id`, and joining `floors` makes that ambiguous — the
+                    // table has one too. This leaves the base query's shape untouched.
+                    //
+                    // It is raw SQL again, but not the kind that was removed: the old expression
+                    // encoded floor NAMING in SQL (a CASE listing 'ground', 'g', '0') and had to
+                    // grow for every label an operator invented. This encodes only "order by the
+                    // floor's level, unfloored last", and `coalesce` + a scalar subquery behave the
+                    // same on MySQL and SQLite.
+                    ->orderQueryUsing(fn (Builder $query) => $query->orderByRaw(
+                        'coalesce((select level from floors where floors.id = units.floor_id), 9999)'
+                    )),
             ])
-            ->defaultGroup('floor')
+            ->defaultGroup('floor.code')
             ->defaultSort('code')
             ->filters([
                 SelectFilter::make('status')

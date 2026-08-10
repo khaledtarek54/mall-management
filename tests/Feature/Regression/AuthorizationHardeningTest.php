@@ -224,18 +224,21 @@ it('lets a restricted user edit an in-scope unit without dropping its asset', fu
     $all = ensureAllPropertiesAsset();
     $assetA = makeAsset(['code' => 'UEA']);
     $assetB = makeAsset(['code' => 'UEB']);
-    $unit = makeUnit($assetA, ['code' => 'IN-1', 'floor' => '1']);
+    $unit = makeUnit($assetA, ['code' => 'IN-1', 'area_sqm' => 100]);
 
     $user = makeUser('leasing', [$assetA->id, $assetB->id]); // both properties visible
     $this->actingAs($user);
 
     asTenant($all, function () use ($unit) {
         Livewire::test(EditUnit::class, ['record' => $unit->id])
-            ->fillForm(['floor' => '3'])
+            ->fillForm(['area_sqm' => 125])
             ->call('save')
             ->assertHasNoFormErrors();
     });
 
-    expect($unit->fresh()->floor)->toBe('3');
+    // The point of this test is that the EDIT succeeds without the form dropping `asset_id`; the
+    // field it happens to change is incidental. `floor` was a free-text column and is now a
+    // relation to the property's floor register, so the edit moves an attribute that still exists.
+    expect((float) $unit->fresh()->area_sqm)->toBe(125.0);
     expect((int) $unit->fresh()->asset_id)->toBe($assetA->id); // asset retained, not orphaned
 });

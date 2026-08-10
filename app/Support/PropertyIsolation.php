@@ -7,6 +7,7 @@ use App\Models\AccountMapping;
 use App\Models\Announcement;
 use App\Models\ApprovalRule;
 use App\Models\Area;
+use App\Models\Floor;
 use App\Models\RentableItem;
 use App\Models\Asset;
 use App\Models\AssetOwner;
@@ -140,6 +141,7 @@ class PropertyIsolation
         Equipment::class => null,              // a machine stands in exactly one mall; code unique per property
         Area::class => null,                   // a facility zone stands in exactly one mall; code unique per property
         RentableItem::class => null,           // a parking bay / store / signage face stands in one mall; code unique per property
+        Floor::class => null,                  // a floor belongs to one building; code and level unique per property
         Violation::class => null,              // a tenant violation is pinned to the mall where it occurred (module 31)
         SlaPolicy::class => null,              // per-property SLA override (FR-CM-05); absent = operator default
         UtilityMeter::class => null,

@@ -114,6 +114,12 @@ class DeletionPolicy
             'blocked_by' => ['invoices', 'charges', 'salesDeclarations', 'camAllocations', 'maintenanceRequests', 'renewals', 'deposits', 'postDatedCheques', 'events'],
             'instead' => 'terminate the lease — that is the documented end of a tenancy, and it keeps the billing history',
         ],
+        \App\Models\Floor::class => [
+            // A floor with anything standing on it is part of the property's structure — deleting it
+            // would orphan units and bays from the geography every report groups by.
+            'blocked_by' => ['units', 'rentableItems'],
+            'instead' => 'rename or re-order the floor — a floor that holds space is part of the property record',
+        ],
         \App\Models\RentableItem::class => [
             // A bay that has ever been let is part of the property record — the lease history and
             // its billing reference it. Withdraw it from letting instead; that is what

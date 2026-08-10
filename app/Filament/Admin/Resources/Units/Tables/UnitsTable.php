@@ -33,7 +33,7 @@ class UnitsTable
                     ->searchable()
                     ->sortable()
                     ->weight('bold'),
-                TextColumn::make('floor')
+                TextColumn::make('floor.code')
                     ->label(__('admin.pdf.floor'))
                     ->badge()
                     ->color('gray')

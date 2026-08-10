@@ -70,6 +70,7 @@ class AssetResource extends Resource
     public static function getRelations(): array
     {
         return [
+            \App\Filament\Admin\RelationManagers\AssetFloorsRelationManager::class,
             \App\Filament\Admin\RelationManagers\AssetUnitsRelationManager::class,
             \App\Filament\Admin\RelationManagers\AssetStaffRelationManager::class,
             \App\Filament\Admin\RelationManagers\ActivitiesRelationManager::class,

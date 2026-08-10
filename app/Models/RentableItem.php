@@ -62,6 +62,7 @@ class RentableItem extends Model
     protected $fillable = [
         'asset_id',
         'area_id',
+        'floor_id',
         'code',
         'type',
         'name',
@@ -91,6 +92,13 @@ class RentableItem extends Model
     public function area(): BelongsTo
     {
         return $this->belongsTo(Area::class);
+    }
+
+    /** Which floor it stands on — the same register the units use, so the two cannot disagree. */
+    /** @return BelongsTo<Floor, $this> */
+    public function floor(): BelongsTo
+    {
+        return $this->belongsTo(Floor::class);
     }
 
     /** @return BelongsToMany<Lease, $this> */

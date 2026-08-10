@@ -127,6 +127,16 @@ class Asset extends Model implements HasMedia
         return $this->hasMany(CamExpensePool::class);
     }
 
+    /**
+     * The building's floors — B2, B1, G, M, 1 — set up once and selected everywhere else.
+     *
+     * @return HasMany<Floor, $this>
+     */
+    public function floors(): HasMany
+    {
+        return $this->hasMany(Floor::class)->orderBy('level');
+    }
+
     public function owners(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'asset_owner')

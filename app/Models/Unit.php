@@ -20,8 +20,7 @@ class Unit extends Model
         'asset_id',
         'area_id',
         'code',
-        'floor',
-        'floor_level',
+        'floor_id',
         'category',
         'area_sqm',
         'status',
@@ -42,17 +41,35 @@ class Unit extends Model
      */
     public function searchTextSources(): array
     {
+        // The floor CODE, via the register. This blob is a pure function of the row's own
+        // attributes everywhere else in the app; `floor_id` is one, and reading the code through it
+        // is the one relation hop the search policy allows for a lookup that cannot be renamed
+        // without its own rebuild. `atriom:rebuild-search` after renaming a floor.
         return [
             $this->code,
-            $this->floor,
+            // `$this->floor()->value('code')`, not `$this->floor?->code`: the latter reads the
+            // ATTRIBUTE when one is present and the relation only when it is not, which is exactly
+            // the ambiguity that made dropping the old column visible. This always means the
+            // relation.
+            $this->floor()->value('code'),
         ];
     }
 
     /** @return BelongsTo<Asset, $this> */
-    /** @return BelongsTo<Asset, $this> */
     public function asset(): BelongsTo
     {
         return $this->belongsTo(Asset::class);
+    }
+
+    /**
+     * Which floor this unit stands on — selected from the property's register, not typed.
+     *
+     *
+     * @return BelongsTo<Floor, $this>
+     */
+    public function floor(): BelongsTo
+    {
+        return $this->belongsTo(Floor::class);
     }
 
     /** The facility zone this unit sits in (module 30) — nullable; a unit may have no zone. */
