@@ -109,7 +109,7 @@
 | Line-level dispute | ✅ | ✅ `invoice_items.disputed_at` — out of the late-fee base, shown beside the aged figure, visible on the portal | ✅ **CLOSED (MF-07)** | ⚪ |
 | **Bad-debt write-off** | ✅ `WRTOFF` → bad-debt expense | ✅ `InvoiceWriteOff` + `WriteOffInvoiceService`, own GL source, reversible (shipped 2026-08-09) | ✅ **KEEP** | ⚪ |
 | Late fees | per charge code, per-lease override | ✅ idempotent + lock-safe, with per-lease grace/rate/minimum overrides | ✅ **CLOSED (MF-08)** | ⚪ |
-| Bounced / NSF | ✅ reverses + fees | ✅ `Payment.status = bounced` + module 33 PDC lifecycle | ✅ **KEEP** — no NSF fee, minor | ⚪ |
+| Bounced / NSF | ✅ reverses + fees | ✅ `Payment.status = bounced` + module 33 PDC lifecycle. **The reversal half is better than Yardi's**: no `Payment` exists until a cheque CLEARS, so a bounce has nothing to un-apply — Voyager enters a receipt and then reverses it. **The FEE half is genuinely absent.** | ➕ EXTEND — see the spec below | 🟡 |
 | Bank deposit batches | ✅ | ❌ | ⏭️ **DECLINE** — PDCs and transfers dominate here (XX-06) | ⚪ |
 | Post-dated cheques | 🟡 regional builds | ✅ full register, lodging, maturity, clear/bounce, invoice-lock + over-allocation backstop | ✅ **KEEP — exceeds Yardi for this market** | ⚪ |
 | Tenant statement | ✅ | ✅ `TenantStatementPdfService` | ✅ KEEP | ⚪ |
@@ -220,6 +220,31 @@ allocations and the invoice total can ever disagree, the design is wrong.
 | Money-record deletion | soft controls | ✅ **refused at the model, gated in CI, with a stated reason per model** | ✅ **KEEP — exceeds the benchmark** | ⚪ |
 
 ---
+
+### Spec: the NSF fee (re-verified 2026-08-10)
+
+Voyager posts an **NSF charge** when a cheque is returned. Atriom bounces the cheque and charges
+nothing, so the bank's return fee and the operator's own handling cost are absorbed silently. In
+Egypt a returned cheque is a serious event and recovering the fee is ordinary practice.
+
+**The design is already determined by two things Atriom has**, which is why this is an extension
+rather than a decision:
+
+1. **The billing shape** — `BillViolationFineService` is the exact analogue: an operator action
+   raises a one-line issued invoice for a penalty, VAT out of scope, guarded against double-billing,
+   posting-date guarded. An NSF fee is the same act on a different trigger. It should be a SEPARATE
+   operator action on a bounced cheque, not a side effect of `bounce()` — the same separation module
+   31 draws between recording a violation and billing its fine.
+2. **The amount** — settings-driven like the late fee (`BillingSettings::$late_fee_*`), defaulting
+   to **0 = off**, so nothing changes until an operator configures it. Same conservative shipping
+   posture as straight-line rent.
+
+**The one real cost, and why it was not done in the same session that specced it:** `invoice_items.type`
+is a DB enum and `InvoiceItemType` maps each case to a GL revenue account. A dedicated `nsf_fee`
+case (→ `misc_income`, like `violation_fine`) needs a migration, a journalizer mapping, lang keys in
+both languages, and a place in `InvoiceItemSettlement::TYPE_PRIORITY`. Reusing `other` would avoid
+all of it and lose the fee in reporting — aging by charge type would lump it with everything else.
+Follow Yardi: give it its own code.
 
 ## 11. Scorecard
 
