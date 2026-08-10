@@ -572,7 +572,9 @@ assetId=12  title="20% off everything"  titleAr="خصم ٢٠٪ على كل شي�
 discountLabel="20% OFF"  startsAt=2026-09-01T00:00:00Z  endsAt=2026-09-07T23:59:59Z
 hero=<file>   gallery[]=<file>…
 ```
-`assetId` must be a mall you hold an **active lease** in — otherwise `422`.
+`assetId` must be a mall you hold an **active lease** in — otherwise `422` with the reason in
+`message` (e.g. *"You have no active lease in that property, so you cannot post there."*). Every
+refusal on these endpoints answers that way; show `message` to the user rather than a generic error.
 `hero` is jpeg/png/webp ≤5 MB; `gallery` ≤6 files. → `201`.
 
 `status`, `isFeatured` and `priority` are **ignored if sent** — they are not

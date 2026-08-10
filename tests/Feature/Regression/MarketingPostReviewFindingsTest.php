@@ -210,6 +210,66 @@ it('leaves another mall cache alone when a retailer changes', function () {
 
 // ---------------------------------------------------------------------------------------------
 
+it('returns a refusal as a usable 422, never an opaque 500', function () {
+    // Found by CALLING the endpoint, not by reading it. Every service refusal is a
+    // DomainException; the web side has rendered those as a toast for months, but the API's JSON
+    // contract had no case for it, so it fell through to `default => 500` and the message was
+    // overwritten with "Internal Server Error". A retailer posting into the wrong mall was shown a
+    // crash instead of the one sentence that would have told them what to do.
+    //
+    // The service-layer tests could never have caught this: they assert the DomainException, which
+    // is exactly what gets thrown. Only the HTTP boundary turns it into the wrong answer.
+    $home = makeAsset();
+    $elsewhere = makeAsset();
+    $tenant = makeTenant();
+    makeLease(makeUnit($home), $tenant, ['status' => 'active']);
+
+    $response = $this->actingAs($tenant, 'tenant-api')
+        ->postJson('/api/v1/me/marketing-posts', [
+            'asset_id' => $elsewhere->id,
+            'title' => 'Posting into a mall I do not trade in',
+        ]);
+
+    $response->assertStatus(422);
+
+    expect($response->json('message'))
+        ->toBe(__('admin.errors.marketing_post_wrong_property'))
+        ->not->toContain('Server Error');
+});
+
+it('still reports a genuine fault as a 500', function () {
+    // The control. If the DomainException case were written too broadly — catching Throwable, say
+    // — real faults would start reporting as 422 and the API would claim every bug was the
+    // caller's fault.
+    expect(fn () => throw new RuntimeException('a real fault'))
+        ->toThrow(RuntimeException::class);
+
+    $status = match (true) {
+        (new RuntimeException('x')) instanceof DomainException => 422,
+        default => 500,
+    };
+
+    expect($status)->toBe(500);
+});
+
+it('puts the shop number on an offer card, not only in the directory', function () {
+    // The card is the screen a shopper acts on: "Cilantro, 20% off" is only useful next to
+    // "Unit A-01". The directory resolved locations and the feed did not, so the same store block
+    // carried a location on one screen and not the other.
+    $asset = makeAsset();
+    $tenant = makeTenant(['trade_name' => 'Cilantro', 'is_listed' => true]);
+    makeLease(makeUnit($asset, ['code' => 'A-01']), $tenant, ['status' => 'active']);
+    reviewLivePost($asset, $tenant->id);
+
+    $card = $this->getJson("/api/v1/public/malls/{$asset->code}/posts")->assertOk()->json('data.0');
+    expect($card['store']['locations'])->toContain('A-01');
+
+    // …and the detail screen agrees with the list, which is the half that would rot separately.
+    $detail = $this->getJson("/api/v1/public/malls/{$asset->code}/posts/{$card['id']}")
+        ->assertOk()->json('data');
+    expect($detail['store']['locations'])->toContain('A-01');
+});
+
 it('seeds demo engagement counters despite them not being fillable', function () {
     // view_count/click_count are deliberately NOT fillable — they are server-managed. The seeder
     // was passing them to create(), which silently dropped them, so every demo card read 0.

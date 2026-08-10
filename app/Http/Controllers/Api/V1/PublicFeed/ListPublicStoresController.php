@@ -52,13 +52,7 @@ class ListPublicStoresController extends PublicFeedController
             $stores = $query->get()->map(function (Tenant $tenant) use ($mall) {
                 // Where to find it, in THIS mall only. Never the retailer's footprint across the
                 // portfolio — see PublicStoreResource.
-                $tenant->public_locations = $tenant->activeLeases
-                    ->flatMap(fn ($lease) => $lease->units)
-                    ->where('asset_id', $mall->id)
-                    ->pluck('code')
-                    ->unique()
-                    ->values()
-                    ->all();
+                $tenant->public_locations = self::locationsFor($tenant, $mall->id);
 
                 return $tenant;
             });

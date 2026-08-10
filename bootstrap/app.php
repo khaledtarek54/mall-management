@@ -123,6 +123,24 @@ return Application::configure(basePath: dirname(__DIR__))
                 return response()->json(['message' => 'Unauthenticated.', 'statusCode' => 401], 401);
             }
 
+            // A DomainException is a REFUSAL, not a fault — the web side has said so since
+            // bootstrap's handler below, but the API contract had no case for it, so it fell to
+            // `default => 500` and the message was overwritten with "Internal Server Error".
+            //
+            // A mobile client showed the user a crash for "you have no active lease in that
+            // property" — a sentence they could have acted on. Found by actually calling the
+            // endpoint; no test caught it because the services' refusals were all asserted at the
+            // service layer, where they are DomainExceptions, not over HTTP.
+            //
+            // 422, matching the ValidationException case above: both are "your request was
+            // well-formed but I will not do it", and the client already handles that shape.
+            if ($e instanceof DomainException) {
+                return response()->json([
+                    'message' => $e->getMessage(),
+                    'statusCode' => 422,
+                ], 422);
+            }
+
             $status = match (true) {
                 $e instanceof ModelNotFoundException => 404,
                 $e instanceof HttpExceptionInterface => $e->getStatusCode(),

@@ -24,10 +24,14 @@ class ShowPublicPostController extends PublicFeedController
             ->where('asset_id', $mall->id)
             ->whereKey($post)
             ->liveFor(MarketingPost::AUDIENCE_VISITORS)
-            ->with(['tenant.media', 'media'])
+            ->with(['tenant.media', 'tenant.activeLeases.units', 'media'])
             ->first();
 
         abort_if($record === null, 404);
+
+        // Where to go — the same shop number the directory reports, so the card and the store
+        // page agree.
+        $this->attachStoreLocations([$record], $mall->id);
 
         // Count the read. Deliberately a builder increment, NOT $record->increment(): a model save
         // would fire the HasSearchText hook and re-fold the search blob on every shopper view —

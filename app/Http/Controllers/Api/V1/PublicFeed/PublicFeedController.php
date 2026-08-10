@@ -27,6 +27,54 @@ abstract class PublicFeedController extends ApiController
     protected const CACHE_SECONDS = 60;
 
     /**
+     * Stamp each post's store with the unit code(s) it occupies IN THIS MALL.
+     *
+     * The card is the screen a shopper acts on — "Cilantro, 20% off" is only useful next to
+     * "Unit A-01". The directory endpoints resolved this and the feed did not, so the same store
+     * block carried a location on one screen and not the other; a client would have had to fetch
+     * the directory just to label a card.
+     *
+     * Scoped to the mall being browsed, exactly as in the directory: never the retailer's
+     * footprint across the operator's whole portfolio.
+     *
+     * @param  iterable<int, \App\Models\MarketingPost>  $posts
+     */
+    protected function attachStoreLocations(iterable $posts, int $assetId): void
+    {
+        foreach ($posts as $post) {
+            if ($post->tenant === null) {
+                continue; // Mall-wide post — no store, nothing to locate.
+            }
+
+            $post->tenant->public_locations = self::locationsFor($post->tenant, $assetId);
+        }
+    }
+
+    /**
+     * The unit code(s) a retailer occupies in ONE mall.
+     *
+     * The single definition, shared by the feed, the offer detail and both directory endpoints —
+     * four callers that must agree about where a shop is. It was written out three times before
+     * the feed needed it, which is three chances for one of them to start answering differently.
+     *
+     * `activeLeases.units` is the `lease_unit` pivot, so a unit held as an ADDITIONAL unit on a
+     * multi-unit lease is included; the `where` then narrows to the mall being browsed, which is
+     * what stops a public endpoint mapping a chain across the whole portfolio.
+     *
+     * @return array<int, string>
+     */
+    protected static function locationsFor(\App\Models\Tenant $tenant, int $assetId): array
+    {
+        return $tenant->activeLeases
+            ->flatMap(fn ($lease) => $lease->units)
+            ->where('asset_id', $assetId)
+            ->pluck('code')
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
      * The mall a public URL names, or 404.
      */
     protected function resolveMall(string $code): Asset

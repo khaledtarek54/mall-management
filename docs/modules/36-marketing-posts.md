@@ -191,7 +191,11 @@ The retailer's own list. Compose → Send for review → Withdraw. Tenant-admin 
 multipart body carrying the hero image does not survive PHP's PATCH handling) ·
 `POST …/{id}/submit` · `POST …/{id}/withdraw` · `DELETE …/{id}` · `GET me/feed`.
 
-Cross-tenant ids return **404**, never 403 — the no-enumeration rule.
+Cross-tenant ids return **404**, never 403 — the no-enumeration rule. A service **refusal**
+(wrong property, not editable, not withdrawable) returns **422 with its actual message**, so the
+client can show the retailer a sentence they can act on. That case was missing from the API's
+shared JSON contract until this module exercised it — every refusal was arriving as an opaque
+500 — and it is fixed in `bootstrap/app.php` for all endpoints, not just these.
 
 ### `/api/v1/public/*` — UNAUTHENTICATED
 

@@ -48,9 +48,9 @@ class ListPublicPostsController extends PublicFeedController
             $query = MarketingPost::query()
                 ->where('asset_id', $mall->id)
                 ->liveFor(MarketingPost::AUDIENCE_VISITORS)
-                // The store behind each card — eager-loaded because every card renders its logo,
-                // and the media relation too, or heroUrl() is a query per row.
-                ->with(['tenant.media', 'media'])
+                // The store behind each card — eager-loaded because every card renders its logo
+                // and its shop number, and the media relation too, or heroUrl() is a query per row.
+                ->with(['tenant.media', 'tenant.activeLeases.units', 'media'])
                 ->feedOrder();
 
             if ($type !== null) {
@@ -62,6 +62,8 @@ class ListPublicPostsController extends PublicFeedController
             }
 
             $posts = $query->paginate($perPage);
+
+            $this->attachStoreLocations($posts, $mall->id);
 
             return [
                 'data' => PublicMarketingPostResource::collection($posts)->resolve(),

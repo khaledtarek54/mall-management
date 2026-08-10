@@ -32,13 +32,7 @@ class ShowPublicStoreController extends PublicFeedController
 
         abort_if($tenant === null, 404);
 
-        $tenant->public_locations = $tenant->activeLeases
-            ->flatMap(fn ($lease) => $lease->units)
-            ->where('asset_id', $mall->id)
-            ->pluck('code')
-            ->unique()
-            ->values()
-            ->all();
+        $tenant->public_locations = self::locationsFor($tenant, $mall->id);
 
         // This store's live cards in THIS mall — same predicate and same order as the main feed.
         $posts = MarketingPost::query()

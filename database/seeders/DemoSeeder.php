@@ -2366,9 +2366,50 @@ class DemoSeeder extends Seeder
         // The store directory half: give the demo tenants a shopper-facing identity. Without it
         // every offer card renders under a billing name, which is the exact failure the
         // trade_name column exists to prevent — so the demo would misrepresent the feature.
+        //
+        // Categories are MAPPED, not generated. The first cut assigned them round-robin, which
+        // produced a directory listing Abou El Sid (a Cairo institution) under "sports" and
+        // Buffalo Burger under "electronics" — data that is not merely arbitrary but visibly
+        // wrong, and a demo whose category filter returns nonsense teaches an operator to
+        // distrust the filter rather than the fixture. The roster is a fixed set of real Egyptian
+        // brands, so the honest thing is to name each one.
+        //
+        // Arabic trade names are here for the same reason: the bilingual columns are a headline
+        // feature of this module, and a demo where every `nameAr` is null demonstrates nothing.
         $directory = [
-            'Café Crema' => ['trade_name' => 'Café Crema', 'trade_name_ar' => 'كافيه كريما', 'retail_category' => 'food_beverage'],
-            'Zara' => ['trade_name' => 'Zara', 'trade_name_ar' => 'زارا', 'retail_category' => 'fashion'],
+            'Cilantro' => ['food_beverage', 'سيلانترو'],
+            'Magrabi Optical' => ['health_beauty', 'مغربي للبصريات'],
+            'Buffalo Burger' => ['food_beverage', 'بافلو برجر'],
+            'Seif Pharmacy' => ['health_beauty', 'صيدليات سيف'],
+            'Tseppas' => ['food_beverage', 'تسيباس'],
+            'Concrete' => ['fashion', 'كونكريت'],
+            'Abou El Sid' => ['food_beverage', 'أبو السيد'],
+            'Mobaco' => ['fashion', 'موباكو'],
+            'Zööba' => ['food_beverage', 'زوبا'],
+            'B.TECH' => ['electronics', 'بي تك'],
+            'Town Team' => ['fashion', 'تاون تيم'],
+            'Diwan Bookstore' => ['entertainment', 'مكتبة ديوان'],
+            'Spotless Dry Cleaners' => ['services', 'سبوتلس للتنظيف الجاف'],
+            'Carina' => ['fashion', 'كارينا'],
+            'Smart Gym' => ['sports', 'سمارت جيم'],
+            'Mihyar' => ['fashion', 'مهيار'],
+            'Fawry Plus' => ['services', 'فوري بلس'],
+            'Dandy Mega Store' => ['hypermarket', 'داندي ميجا ستور'],
+            '2B Computers' => ['electronics', 'تو بي للكمبيوتر'],
+            "Gentlemen's Barber" => ['health_beauty', 'جنتلمِن باربر'],
+            'Mobica' => ['home_lifestyle', 'موبيكا'],
+            'El Araby Home' => ['home_lifestyle', 'العربي هوم'],
+            'El Ezaby Pharmacy' => ['health_beauty', 'صيدليات العزبي'],
+            'Bosta Pickup Point' => ['services', 'نقطة استلام بوسطة'],
+            'Kazyon Market' => ['hypermarket', 'كازيون'],
+            'California Gym' => ['sports', 'كاليفورنيا جيم'],
+            'Cook Door' => ['food_beverage', 'كوك دور'],
+            'Seoudi Market' => ['hypermarket', 'سعودي ماركت'],
+            "Mo'men" => ['food_beverage', 'مؤمن'],
+            'Cleopatra Wellness Spa' => ['health_beauty', 'كليوباترا سبا'],
+            'Crystal Laundry' => ['services', 'كريستال لاندري'],
+            'Tradeline' => ['electronics', 'تريدلاين'],
+            'Gad Restaurant' => ['food_beverage', 'مطاعم جاد'],
         ];
 
         $tenants = Tenant::query()
@@ -2376,24 +2417,36 @@ class DemoSeeder extends Seeder
             ->orderBy('id')
             ->get();
 
-        foreach ($tenants as $i => $tenant) {
-            $preset = $directory[$tenant->name] ?? null;
+        foreach ($tenants as $tenant) {
+            [$category, $nameAr] = $directory[$tenant->name] ?? [null, null];
 
-            $tenant->forceFill($preset ?? [
+            // A tenant not on the roster (one added by another seeder later) is listed under its
+            // own name with NO category rather than a guessed one — "uncategorised" is a true
+            // statement about the data; "sports" would not be.
+            $tenant->forceFill([
                 'trade_name' => $tenant->name,
-                'retail_category' => Tenant::RETAIL_CATEGORIES[$i % count(Tenant::RETAIL_CATEGORIES)],
-            ])->forceFill([
-                'public_description' => 'A '.($preset['retail_category'] ?? 'retail').' store at '.$asset->name.'.',
+                'trade_name_ar' => $nameAr,
+                'retail_category' => $category,
+                'public_description' => $category === null
+                    ? null
+                    : __('admin.retail_categories.'.$category).' at '.$asset->name.'.',
                 'is_listed' => true,
             ])->save();
         }
 
-        $anchor = $tenants->first();
-        $second = $tenants->skip(1)->first() ?? $anchor;
-
-        if ($anchor === null) {
+        if ($tenants->isEmpty()) {
             return; // No trading tenants — nothing a shopper could be shown.
         }
+
+        // Attach each offer to a store it would plausibly come from, resolved BY NAME with a
+        // fallback. Position-based picking ("the first two tenants") put a back-to-school sale on
+        // a coffee shop — the module works either way, but a demo is also a sales tool, and an
+        // incoherent one invites the reader to doubt the parts they cannot check.
+        $store = fn (string $name) => $tenants->firstWhere('name', $name) ?? $tenants->first();
+
+        $cafe = $store('Cilantro');
+        $fashion = $store('Concrete');
+        $bookshop = $store('Diwan Bookstore');
 
         $post = function (array $attrs) use ($asset, $marketingLead): MarketingPost {
             // view_count / click_count are NOT fillable — they are server-managed counters that
@@ -2419,7 +2472,7 @@ class DemoSeeder extends Seeder
         };
 
         $post([
-            'tenant_id' => $anchor->id,
+            'tenant_id' => $cafe->id,
             'title' => '20% off all coffee, all week',
             'title_ar' => 'خصم ٢٠٪ على كل القهوة طوال الأسبوع',
             'summary' => 'Every hot and iced drink, dine-in or takeaway.',
@@ -2437,7 +2490,7 @@ class DemoSeeder extends Seeder
         ]);
 
         $post([
-            'tenant_id' => $second->id,
+            'tenant_id' => $fashion->id,
             'title' => 'Buy one, get one — new season',
             'title_ar' => 'اشترِ قطعة واحصل على الأخرى — الموسم الجديد',
             'discount_label' => 'BUY 1 GET 1',
@@ -2467,7 +2520,7 @@ class DemoSeeder extends Seeder
         // The review queue — one waiting, so the nav badge reads 1 on a fresh install.
         // created_by null is what marks it retailer-authored.
         $post([
-            'tenant_id' => $second->id,
+            'tenant_id' => $fashion->id,
             'created_by' => null,
             'title' => 'Flash sale this Friday — up to 50% off',
             'title_ar' => 'تخفيضات الجمعة — حتى ٥٠٪',
@@ -2479,7 +2532,7 @@ class DemoSeeder extends Seeder
 
         // Returned to the retailer WITH a reason — the thing that stops the resubmit loop.
         $post([
-            'tenant_id' => $anchor->id,
+            'tenant_id' => $cafe->id,
             'created_by' => null,
             'title' => 'Free pastry with every coffee',
             'status' => MarketingPost::STATUS_REJECTED,
@@ -2491,7 +2544,7 @@ class DemoSeeder extends Seeder
 
         // Past its window: what `marketing:expire-posts` archives on its next hourly run.
         $post([
-            'tenant_id' => $anchor->id,
+            'tenant_id' => $bookshop->id,
             'title' => 'Back to school — 15% off',
             'status' => MarketingPost::STATUS_PUBLISHED,
             'published_at' => now()->subDays(40),
