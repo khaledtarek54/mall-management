@@ -26,6 +26,7 @@
 | 06 | [Gap analysis](06-atriom-gap-analysis.md) | Row-by-row Atriom vs Yardi, with a **keep / extend / rebuild** verdict and severity on each |
 | 07 | [Phase plan](07-phase-plan.md) | **The recommendation** — what to do in this cycle, in what order, and what to leave alone |
 | 08 | [UI/UX](08-yardi-ui-ux.md) | What to copy from Yardi's screens (the information architecture) and what not to (the look — 77% of its usability reviews are negative), as 13 concrete Filament stories |
+| 09 | [Space, floors & parking](09-yardi-space-and-parking.md) | How Voyager separates **spaces** (lettable, in GLA) from **rentable items** (parking, storage — billable, NOT in GLA), and why floor stays an attribute rather than becoming an entity. Written before the code, because the first cycle never researched parking |
 
 If you read one file, read [07-phase-plan.md](07-phase-plan.md). If you read two, read
 [06-atriom-gap-analysis.md](06-atriom-gap-analysis.md) first. For the screens, go to
