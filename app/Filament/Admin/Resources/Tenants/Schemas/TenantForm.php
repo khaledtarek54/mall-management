@@ -7,7 +7,9 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Schemas\Components\Section;
+use App\Support\FormTab;
+use Filament\Forms\Components\Placeholder;
+use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 
@@ -15,10 +17,18 @@ class TenantForm
 {
     public static function configure(Schema $schema): Schema
     {
+        // One tab per concern through App\Support\FormTab, so each carries a badge counting
+        // the validation errors INSIDE it (UX-13) — Filament v4 has no error indicator on Tabs,
+        // and without one a blank required field on an unseen tab refuses the form with nothing
+        // visible to fix.
         return $schema->columns(1)->components([
-            Section::make(__('admin.sections.tenant_information'))
-                ->columns(2)
-                ->components([
+            Tabs::make('tenant')
+                ->columnSpanFull()
+                ->persistTabInQueryString()
+                ->tabs([
+                    FormTab::make(__('admin.sections.tenant_information'), [
+
+
                     TextInput::make('name')
                         ->label(__('admin.fields.brand_name'))
                         ->required()
@@ -65,10 +75,10 @@ class TenantForm
                     TextInput::make('commercial_register')
                         ->label(__('admin.fields.commercial_register'))
                         ->maxLength(50),
-                ]),
-            Section::make(__('admin.sections.contact'))
-                ->columns(2)
-                ->components([
+                    ])->columns(2),
+                    FormTab::make(__('admin.sections.contact'), [
+
+
                     TextInput::make('email')
                         ->label(__('admin.fields.email'))
                         ->email()
@@ -93,18 +103,22 @@ class TenantForm
                         ->helperText(__('admin.helpers.tenant_address'))
                         ->rows(2)
                         ->columnSpanFull(),
-                ]),
+                    ])->columns(2),
             // ETA files the buyer's address in PARTS and validates them, so they cannot
             // be carved out of the freeform address above at submission time. Required
             // only for BUSINESS tenants — that is who gets filed (EtaJsonBuilder refuses
             // a business submission without them, rather than filing a guess).
-            Section::make(__('admin.sections.tax_address'))
-                ->description(__('admin.sections.tax_address_description'))
-                ->collapsible()
-                // Collapsed for an individual tenant: nothing here applies to them.
-                ->collapsed(fn (Get $get) => $get('type') !== 'company')
-                ->columns(2)
-                ->components([
+                    FormTab::make(__('admin.sections.tax_address'), [
+                        Placeholder::make('__tab_help')
+                            ->hiddenLabel()
+                            ->content(__('admin.sections.tax_address_description'))
+                            ->columnSpanFull(),
+
+
+
+
+
+
                     Select::make('address_governorate')
                         ->label(__('admin.fields.address_governorate'))
                         // A fixed list, because "Cairo", "cairo" and "القاهرة" are three
@@ -125,11 +139,15 @@ class TenantForm
                         ->label(__('admin.fields.address_building_number'))
                         ->maxLength(50)
                         ->required(fn (Get $get) => $get('type') === 'company'),
-                ]),
-            Section::make(__('admin.sections.documents'))
-                ->description(__('admin.sections.documents_description'))
-                ->collapsible()
-                ->components([
+                    ])->columns(2),
+                    FormTab::make(__('admin.sections.documents'), [
+                        Placeholder::make('__tab_help')
+                            ->hiddenLabel()
+                            ->content(__('admin.sections.documents_description'))
+                            ->columnSpanFull(),
+
+
+
                     SpatieMediaLibraryFileUpload::make('documents')
                         ->label(__('admin.fields.documents'))
                         ->collection('documents')
@@ -142,6 +160,7 @@ class TenantForm
                         ->acceptedFileTypes(['application/pdf', 'image/*', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])
                         ->maxSize(10240)
                         ->columnSpanFull(),
+                    ]),
                 ]),
         ]);
     }

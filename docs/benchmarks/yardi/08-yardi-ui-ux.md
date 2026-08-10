@@ -268,13 +268,18 @@ change).
 | ~~`LeaseForm`~~ | ~~30~~ | ✅ **done** |
 | `TenantRequestForm` | 24 | 6 |
 | ~~`InvoiceForm`~~ | ~~19~~ | ✅ **done 2026-08-10** — 4 tabs (Details · Items · Amounts · Notes) |
-| `TenantForm` | 18 | 4 |
-| `CreditNoteForm` | 18 | 4 |
+| ~~`TenantForm`~~ | ~~18~~ | ✅ **done 2026-08-10** — 4 tabs |
+| ~~`CreditNoteForm`~~ | ~~18~~ | ✅ **done 2026-08-10** — 4 tabs |
 | `VendorBillForm` | 15 | 2 |
 | `MaintenancePlanForm` | 15 | 0 |
-| `PaymentForm` | 14 | 4 |
+| ~~`PaymentForm`~~ | ~~14~~ | ✅ **done 2026-08-10** — 4 tabs |
 
 Below ~12 fields a tab strip costs more than it saves — leave those as sections.
+
+**A `Tab` has no `->description()`**, so a section carrying one (tax & address, documents, payment
+allocations) leads its panel with a hidden-label `Placeholder` instead. Dropping the guidance would
+have been the silent cost of the conversion — those sentences are the only explanation an operator
+gets for what the panel is for.
 
 ---
 

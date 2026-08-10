@@ -9,7 +9,8 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Schemas\Components\Section;
+use App\Support\FormTab;
+use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
@@ -28,10 +29,18 @@ class CreditNoteForm
         // after finalization the persisted values are authoritative (see Amounts section).
         $persistDerived = fn (?CreditNote $record) => $record === null || $record->status === 'draft';
 
+        // One tab per concern through App\Support\FormTab, so each carries a badge counting
+        // the validation errors INSIDE it (UX-13) — Filament v4 has no error indicator on Tabs,
+        // and without one a blank required field on an unseen tab refuses the form with nothing
+        // visible to fix.
         return $schema->columns(1)->components([
-            Section::make(__('admin.sections.credit_note_details'))
-                ->columns(3)
-                ->components([
+            Tabs::make('credit_note')
+                ->columnSpanFull()
+                ->persistTabInQueryString()
+                ->tabs([
+                    FormTab::make(__('admin.sections.credit_note_details'), [
+
+
                     TextInput::make('number')
                         ->label(__('admin.fields.credit_note_number'))
                         ->disabled()
@@ -157,10 +166,10 @@ class CreditNoteForm
                         ->required()
                         ->default('draft')
                         ->native(false),
-                ]),
+                    ])->columns(3),
 
-            Section::make(__('admin.sections.items'))
-                ->components([
+                    FormTab::make(__('admin.sections.items'), [
+
                     Repeater::make('items')
                         ->relationship()
                         ->label('')
@@ -211,11 +220,11 @@ class CreditNoteForm
                                 ->dehydrated()
                                 ->columnSpan(3),
                         ]),
-                ]),
+                    ]),
 
-            Section::make(__('admin.sections.amounts'))
-                ->columns(4)
-                ->components([
+                    FormTab::make(__('admin.sections.amounts'), [
+
+
                     // Persist the derived amounts only while the note is a draft. Once
                     // finalized these are readOnly (not disabled), so without this a plain
                     // Edit-save would dehydrate the STALE fill-time balance back over a
@@ -225,12 +234,12 @@ class CreditNoteForm
                     TextInput::make('vat_amount')->label(__('admin.fields.vat_amount'))->prefix('EGP')->numeric()->default(0)->readOnly()->dehydrated($persistDerived),
                     TextInput::make('total')->label(__('admin.fields.total'))->prefix('EGP')->numeric()->default(0)->readOnly()->dehydrated($persistDerived),
                     TextInput::make('balance')->label(__('admin.fields.balance'))->prefix('EGP')->numeric()->default(0)->readOnly()->dehydrated($persistDerived),
-                ]),
+                    ])->columns(4),
 
-            Section::make(__('admin.sections.notes'))
-                ->collapsible()
-                ->collapsed()
-                ->components([
+                    FormTab::make(__('admin.sections.notes'), [
+
+
+
                     Textarea::make('reason_notes')
                         ->label(__('admin.fields.reason_notes'))
                         ->rows(2)
@@ -239,6 +248,7 @@ class CreditNoteForm
                         ->label(__('admin.fields.notes'))
                         ->rows(2)
                         ->columnSpanFull(),
+                    ]),
                 ]),
         ]);
     }

@@ -10,7 +10,9 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Html;
-use Filament\Schemas\Components\Section;
+use App\Support\FormTab;
+use Filament\Forms\Components\Placeholder;
+use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
@@ -28,10 +30,18 @@ class PaymentForm
         // captured→failed chargeback). (GL integrity hardening — Phase 1.)
         $locked = fn (?Payment $record) => $record !== null;
 
+        // One tab per concern through App\Support\FormTab, so each carries a badge counting
+        // the validation errors INSIDE it (UX-13) — Filament v4 has no error indicator on Tabs,
+        // and without one a blank required field on an unseen tab refuses the form with nothing
+        // visible to fix.
         return $schema->columns(1)->components([
-            Section::make(__('admin.sections.payment'))
-                ->columns(3)
-                ->components([
+            Tabs::make('payment')
+                ->columnSpanFull()
+                ->persistTabInQueryString()
+                ->tabs([
+                    FormTab::make(__('admin.sections.payment'), [
+
+
                     TextInput::make('reference')
                         ->label(__('admin.fields.reference'))
                         ->placeholder(__('admin.fields.reference_auto'))
@@ -119,11 +129,15 @@ class PaymentForm
                         ->default('captured')
                         ->required()
                         ->native(false),
-                ]),
+                    ])->columns(3),
 
-            Section::make(__('admin.sections.allocations'))
-                ->description(__('admin.sections.allocations_helper'))
-                ->components([
+                    FormTab::make(__('admin.sections.allocations'), [
+                        Placeholder::make('__tab_help')
+                            ->hiddenLabel()
+                            ->content(__('admin.sections.allocations_helper'))
+                            ->columnSpanFull(),
+
+
                     Repeater::make('allocations')
                         ->label('')
                         ->columns(12)
@@ -260,13 +274,13 @@ class PaymentForm
                             "</div>"
                         );
                     }),
-                ]),
+                    ]),
 
-            Section::make(__('admin.sections.gateway_cheque'))
-                ->columns(2)
-                ->collapsible()
-                ->collapsed()
-                ->components([
+                    FormTab::make(__('admin.sections.gateway_cheque'), [
+
+
+
+
                     TextInput::make('gateway')
                         ->label(__('admin.fields.gateway')),
                     TextInput::make('gateway_transaction_id')
@@ -276,15 +290,16 @@ class PaymentForm
                     DatePicker::make('cheque_clearance_date')
                         ->label(__('admin.fields.cheque_clearance_date'))
                         ->native(false),
-                ]),
-            Section::make(__('admin.sections.notes'))
-                ->collapsible()
-                ->collapsed()
-                ->components([
+                    ])->columns(2),
+                    FormTab::make(__('admin.sections.notes'), [
+
+
+
                     Textarea::make('notes')
                         ->label(__('admin.fields.notes'))
                         ->rows(3)
                         ->columnSpanFull(),
+                    ]),
                 ]),
         ]);
     }
