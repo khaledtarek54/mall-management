@@ -98,11 +98,16 @@ it('stops billing the month after the bay goes back', function () {
 
     $rows = $lease->fresh()->charges()->where('type', 'parking')->orderBy('start_date')->get();
 
-    // March–June at 900, then nothing from July — the old amount stays true for its own months.
-    expect((float) $rows->first()->amount)->toBe(900.0)
+    // March–June at 900, and then NOTHING — the row is closed, not replaced by a zero one.
+    //
+    // This assertion used to expect a second row at 0.00 from 1 July, and was wrong: it encoded the
+    // defect rather than the requirement. A zero-amount row put "Parking & rentable items —
+    // EGP 0.00" on every invoice for the rest of the term. The old amount still stays true for the
+    // months it was true for, which was the part worth keeping.
+    expect($rows)->toHaveCount(1)
+        ->and((float) $rows->first()->amount)->toBe(900.0)
         ->and($rows->first()->end_date->toDateString())->toBe('2026-06-30')
-        ->and((float) $rows->last()->amount)->toBe(0.0)
-        ->and($rows->last()->start_date->toDateString())->toBe('2026-07-01');
+        ->and((bool) $rows->first()->is_active)->toBeFalse();
 });
 
 it('frees the bay for re-letting once it is given back', function () {
@@ -168,4 +173,54 @@ it('refuses an item that is out of service', function () {
         ->assign(leaseFor($asset, 'S-02'), $item->fresh(), ['effective_from' => '2026-03-01']);
 
     expect($item->fresh()->status)->toBe(RentableItem::STATUS_ASSIGNED);
+});
+
+it('refuses to let the SAME lease take the same bay twice', function () {
+    // Found by adversarial review, not by the happy path. The held-check excluded the assigning
+    // lease — meant for "somebody else has it" — so a second assignment on a different date was
+    // accepted, the pivot took two rows, and `rebuildCharge()` summed one bay twice. A double-click
+    // or an operator correcting a date DOUBLED the tenant's parking bill with nothing to show.
+    CarbonImmutable::setTestNow('2026-03-05');
+    $asset = makeAsset();
+    $lease = leaseFor($asset);
+    $item = itemFor($asset, 'P-001', 900);
+    $service = app(AssignRentableItemService::class);
+
+    $service->assign($lease, $item, ['effective_from' => '2026-03-01']);
+
+    expect(fn () => $service->assign($lease->fresh(), $item->fresh(), ['effective_from' => '2026-04-01']))
+        ->toThrow(DomainException::class);
+
+    expect(\Illuminate\Support\Facades\DB::table('lease_rentable_item')->count())->toBe(1)
+        ->and((float) $lease->fresh()->charges()->where('type', 'parking')->sole()->amount)->toBe(900.0);
+});
+
+it('closes the parking charge rather than billing zero for ever', function () {
+    // The other review find. Releasing the last item called `setAmount(0)`, which opened a
+    // zero-amount row — and the billing run put "Parking & rentable items — EGP 0.00" on every
+    // invoice for the rest of the term. A charge for nothing is not a charge.
+    CarbonImmutable::setTestNow('2026-03-05');
+    $asset = makeAsset();
+    $lease = leaseFor($asset);
+    $item = itemFor($asset, 'P-001', 900);
+    $service = app(AssignRentableItemService::class);
+
+    $service->assign($lease, $item, ['effective_from' => '2026-03-01']);
+    $service->release($lease->fresh(), $item->fresh(), '2026-03-31');
+
+    $rows = $lease->fresh()->charges()->where('type', 'parking')->get();
+
+    // The March row stays true for March, and nothing is in force afterwards.
+    expect($rows)->toHaveCount(1)
+        ->and((float) $rows->first()->amount)->toBe(900.0)
+        ->and($rows->first()->end_date->toDateString())->toBe('2026-03-31')
+        ->and((bool) $rows->first()->is_active)->toBeFalse();
+
+    // And April's invoice carries no parking line at all.
+    CarbonImmutable::setTestNow('2026-04-05');
+    app(MonthlyBillingService::class)->generateForLease($lease->fresh(), CarbonImmutable::parse('2026-04-01'));
+
+    expect($lease->fresh()->invoices()->get()
+        ->flatMap(fn ($i) => $i->items->pluck('type'))
+        ->contains('parking'))->toBeFalse();
 });

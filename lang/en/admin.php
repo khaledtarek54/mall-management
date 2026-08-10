@@ -9,6 +9,7 @@ return [
         'rentable_item_other_property' => 'That item belongs to another property.',
         'rentable_item_out_of_service' => 'That item is out of service — put it back in service before letting it.',
         'rentable_item_already_held' => 'Item :code is already held by another lease on that date.',
+        'rentable_item_already_on_this_lease' => 'This lease already holds :code. Give it back first if you need to change the date or the rate.',
         'rentable_item_negative_rate' => 'The rate cannot be negative.',
         'rentable_item_not_held' => 'This lease does not currently hold that item.',
         'dispute_invoice_not_open' => 'That invoice has left the books, so it claims nothing to dispute.',

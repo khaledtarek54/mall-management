@@ -9,6 +9,7 @@ return [
         'rentable_item_other_property' => 'هذا العنصر يخص عقارًا آخر.',
         'rentable_item_out_of_service' => 'هذا العنصر خارج الخدمة — أعده للخدمة قبل تأجيره.',
         'rentable_item_already_held' => 'العنصر :code مؤجَّر بالفعل لعقد آخر في هذا التاريخ.',
+        'rentable_item_already_on_this_lease' => 'هذا العقد يستأجر :code بالفعل. أعِده أولًا إذا أردت تغيير التاريخ أو السعر.',
         'rentable_item_negative_rate' => 'لا يمكن أن يكون السعر سالبًا.',
         'rentable_item_not_held' => 'هذا العقد لا يستأجر هذا العنصر حاليًا.',
         'dispute_invoice_not_open' => 'هذه الفاتورة خرجت من الدفاتر، فلا تطالب بشيء يمكن الاعتراض عليه.',

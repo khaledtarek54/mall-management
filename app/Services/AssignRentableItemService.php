@@ -64,10 +64,20 @@ class AssignRentableItemService
         DB::transaction(function () use ($lease, $item, $from, $data) {
             $locked = RentableItem::query()->lockForUpdate()->findOrFail($item->id);
 
-            if ($locked->isHeldOn($from, ignoreLeaseId: $lease->id)) {
-                throw new DomainException(__('admin.errors.rentable_item_already_held', [
-                    'code' => $locked->code,
-                ]));
+            // NOT `ignoreLeaseId: $lease->id`. That exclusion was meant for "somebody else has it"
+            // and silently permitted the same lease to take the same bay TWICE — the pivot's unique
+            // key is (lease, item, effective_from), so a second assignment on a different date is
+            // accepted, both rows read as held, and `rebuildCharge()` sums the bay twice. A
+            // double-click or an operator correcting a date doubled the tenant's parking bill with
+            // nothing to show for it. Re-letting after a release still works: `effective_to` is set
+            // by then, so `isHeldOn` is false.
+            if ($locked->isHeldOn($from)) {
+                throw new DomainException(__(
+                    $lease->rentableItems()->whereKey($locked->id)->wherePivotNull('effective_to')->exists()
+                        ? 'admin.errors.rentable_item_already_on_this_lease'
+                        : 'admin.errors.rentable_item_already_held',
+                    ['code' => $locked->code],
+                ));
             }
 
             $rate = isset($data['monthly_rate'])
@@ -137,7 +147,25 @@ class AssignRentableItemService
                 ->orWhereDate('lease_rentable_item.effective_to', '>=', $on->toDateString()))
             ->sum('lease_rentable_item.monthly_rate');
 
-        $this->schedule->setAmount($lease, 'parking', round($total, 2), $on, [
+        $total = round($total, 2);
+
+        // Nothing held any more → CLOSE the row, never open one at zero. `setAmount(0)` opened a
+        // zero-amount row, and the billing run happily put "Parking & rentable items — EGP 0.00" on
+        // every invoice for the rest of the term. A charge for nothing is not a charge.
+        if ($total <= 0) {
+            $current = $this->schedule->rowInForce($lease, 'parking', $on);
+
+            if ($current) {
+                $current->update([
+                    'end_date' => $on->subDay()->toDateString(),
+                    'is_active' => false,
+                ]);
+            }
+
+            return;
+        }
+
+        $this->schedule->setAmount($lease, 'parking', $total, $on, [
             'name' => 'Parking & rentable items',
             'frequency' => 'monthly',
             // VAT treatment is an open question for the accountant (see the module doc): rent is
