@@ -128,7 +128,15 @@ class LeaseForm
                                 ->with('encumbrances')
                                 ->when($assetIds, fn ($q, $aids) => $q->whereIn('asset_id', $aids))
                                 ->where(function ($q) use ($record) {
-                                    $q->whereNotIn('status', ['occupied', 'reserved', 'maintenance']);
+                                    // Same exclusion as the MASTER picker above. It used to also
+                                    // drop `maintenance`, which made the two disagree: a unit under
+                                    // refurbishment could be a lease's master premises but not its
+                                    // annexe, for no stated reason. Letting space that is being
+                                    // refurbished is ordinary — that is what a fit-out period is —
+                                    // and the option label already reads "· Maintenance", so the
+                                    // operator sees the state and decides, exactly as with the
+                                    // encumbrance warning.
+                                    $q->whereNotIn('status', ['occupied', 'reserved']);
                                     if ($record) {
                                         $q->orWhereIn('id', $record->units()->pluck('units.id'));
                                     }
