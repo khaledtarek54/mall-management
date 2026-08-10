@@ -3,7 +3,7 @@
     "codebase": {
         "models": 86,
         "services": 135,
-        "admin_resources": 44,
+        "admin_resources": 45,
         "portal_resources": 7,
         "admin_widgets": 17,
         "api_controllers": 47,
@@ -326,7 +326,7 @@
         }
     },
     "tests": {
-        "files": 552,
+        "files": 554,
         "e2e_specs": 22,
         "scenarios": 88,
         "regressions": 237
