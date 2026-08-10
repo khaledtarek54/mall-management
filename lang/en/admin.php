@@ -2556,6 +2556,7 @@ return [
         'settings' => 'Settings',
         'eta' => 'ETA e-Invoicing',
         'announcements' => 'Announcements',
+        'marketing_posts' => 'Marketing posts (shopper feed)',
         'inventory' => 'Inventory',
         'fixed_assets' => 'Fixed Assets',
         'employees' => 'Employees',

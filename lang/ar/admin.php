@@ -2548,6 +2548,7 @@ return [
         'settings' => 'الإعدادات',
         'eta' => 'الفوترة الإلكترونية ETA',
         'announcements' => 'الإعلانات',
+        'marketing_posts' => 'المنشورات التسويقية (واجهة الزوّار)',
         'inventory' => 'المخزون',
         'fixed_assets' => 'الأصول الثابتة',
         'employees' => 'الموظفون',
