@@ -84,6 +84,7 @@ use App\Models\VendorBillPayment;
 use App\Models\VendorContact;
 use App\Models\VendorContract;
 use App\Models\VendorContractAmendment;
+use App\Models\TenantDocument;
 use App\Models\VendorDocument;
 use App\Models\Violation;
 use App\Models\Warehouse;
@@ -116,6 +117,7 @@ class PropertyIsolation
         Vendor::class,              // shared vendor catalog; engagement per-property (VendorContract/Bill)
         VendorContact::class,       // belongs to the shared Vendor
         VendorDocument::class,      // compliance file (insurance/tax card/register) of the shared Vendor
+        TenantDocument::class,      // compliance file of the shared Tenant; occupancy decides who is alerted, not who may read it
         InventoryItem::class,       // shared SKU catalog; stock is per-Warehouse
         LedgerAccount::class,       // one shared chart of accounts; property is a dimension on entries
         FiscalYear::class,          // one operator fiscal calendar

@@ -11,6 +11,7 @@ use App\Filament\Admin\RelationManagers\TenantPaymentsRelationManager;
 use App\Filament\Admin\Resources\Concerns\RoleGatedActions;
 use App\Filament\Admin\Resources\Concerns\ScopesViaProperty;
 use App\Filament\Admin\Resources\Tenants\Pages\CreateTenant;
+use App\Filament\Admin\Resources\Tenants\RelationManagers\DocumentsRelationManager;
 use App\Filament\Admin\Resources\Tenants\Pages\EditTenant;
 use App\Filament\Admin\Resources\Tenants\Pages\ListTenants;
 use App\Filament\Admin\Resources\Tenants\Pages\ViewTenant;
@@ -115,6 +116,7 @@ class TenantResource extends Resource
         return [
             PortalUsersRelationManager::class,
             TenantLeasesRelationManager::class,
+            DocumentsRelationManager::class,
             TenantPaymentsRelationManager::class,
             TenantRequestsRelationManager::class,
             TenantNotesRelationManager::class,

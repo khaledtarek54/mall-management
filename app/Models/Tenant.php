@@ -240,6 +240,40 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
         return $this->hasMany(MarketingPost::class);
     }
 
+    /**
+     * Compliance paperwork held on file — insurance certificate, tax card, commercial register.
+     *
+     * @return HasMany<TenantDocument, $this>
+     */
+    public function documents(): HasMany
+    {
+        return $this->hasMany(TenantDocument::class);
+    }
+
+    /**
+     * Documents lapsed or lapsing inside the chase window.
+     *
+     * Read live off the rows rather than off the alert stamp: the stamp records what was *notified*,
+     * and a dropped notification must never be able to make a lapsed certificate invisible on the
+     * screen. Same separation the vendor chase draws.
+     *
+     * @return \Illuminate\Support\Collection<int, TenantDocument>
+     */
+    public function documentsNeedAttention(?\Illuminate\Support\Carbon $on = null): \Illuminate\Support\Collection
+    {
+        return $this->documents()->needsAttention($on)->orderBy('expires_on')->get();
+    }
+
+    /** Is there a current, unexpired insurance certificate on file? */
+    public function hasCurrentInsurance(?\Illuminate\Support\Carbon $on = null): bool
+    {
+        return $this->documents()
+            ->ofType(TenantDocument::TYPE_INSURANCE_COI)
+            ->whereNotNull('expires_on')
+            ->whereDate('expires_on', '>=', ($on ?? \Illuminate\Support\Carbon::today())->startOfDay()->toDateString())
+            ->exists();
+    }
+
     public function canAccessPanel(Panel $panel): bool
     {
         return $panel->getId() === 'portal' && $this->status === 'active';

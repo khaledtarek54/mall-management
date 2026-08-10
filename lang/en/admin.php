@@ -1965,6 +1965,10 @@ return [
     ],
 
     'notifications' => [
+        'tenant_document_expiring_title' => 'Tenant document expiring',
+        'tenant_document_expired_title' => 'Tenant document lapsed',
+        'tenant_document_expiring_body' => ':tenant — :document expires on :date (:days days). Chase the renewal.',
+        'tenant_document_expired_body' => ':tenant — :document lapsed on :date. The tenant is trading without it; nothing in the system stops them, so this needs chasing directly.',
         'invoice_written_off' => 'Debt written off.',
         'invoice_write_off_failed' => 'Could not write off this invoice',
         'lease_option_opening_title' => ':type window opens',
@@ -2743,6 +2747,14 @@ return [
     ],
 
     'enums' => [
+        'tenant_document_type' => [
+            'insurance_coi' => 'Insurance certificate',
+            'tax_card' => 'Tax card',
+            'commercial_register' => 'Commercial register',
+            'trade_license' => 'Trade licence',
+            'bank_guarantee' => 'Bank guarantee',
+            'other' => 'Other',
+        ],
     'cam_cap_scope' => [
         'total' => 'The whole share',
         'controllable' => 'Controllable costs only',
@@ -3006,6 +3018,24 @@ return [
     ],
 
     'tenants' => [
+        'documents' => [
+            'title' => 'Compliance documents',
+            'type' => 'Document',
+            'reference' => 'Reference no.',
+            'issuer' => 'Issued by',
+            'coverage_amount' => 'Sum insured',
+            'coverage_amount_hint' => 'What the policy actually covers. Worth recording — a certificate is only useful if the cover matches what the lease demanded.',
+            'issued_on' => 'Issued on',
+            'expires_on' => 'Expires on',
+            'expires_on_hint' => 'Leave blank if this document has no renewal date. Documents with an expiry are chased 30 days out and again once lapsed.',
+            'file' => 'Scanned copy',
+            'no_expiry' => 'No expiry',
+            'expired' => 'Lapsed — the tenant is trading without it',
+            'expiring_in' => 'Renews in :days days',
+            'add' => 'Add document',
+            'empty_heading' => 'No documents on file',
+            'empty_description' => 'Record the insurance certificate, tax card and commercial register here. Anything with an expiry date is chased automatically before it lapses.',
+        ],
         'setup_portal' => 'Setup Portal Access',
         'reset_portal' => 'Reset Portal Password',
         'portal_modal_heading' => 'Portal access for :name',
@@ -3034,6 +3064,7 @@ return [
         'subject' => 'Subject',
         'system' => 'System',
         'subjects' => [
+            'tenant_document' => 'Tenant document',
             'account_mapping' => 'Posting map row',
             'floor' => 'Floor',
             'rentable_item' => 'Rentable item',

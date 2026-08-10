@@ -1957,6 +1957,10 @@ return [
     ],
 
     'notifications' => [
+        'tenant_document_expiring_title' => 'مستند مستأجر يقترب من الانتهاء',
+        'tenant_document_expired_title' => 'مستند مستأجر منتهٍ',
+        'tenant_document_expiring_body' => ':tenant — ينتهي :document في :date (خلال :days يومًا). تابع التجديد.',
+        'tenant_document_expired_body' => ':tenant — انتهى :document في :date. المستأجر يعمل بدونه، ولا يوجد في النظام ما يوقفه، فالمتابعة المباشرة مطلوبة.',
         'invoice_written_off' => 'تم إعدام الدين.',
         'invoice_write_off_failed' => 'تعذّر إعدام هذه الفاتورة',
         'lease_option_opening_title' => 'فتح نافذة :type',
@@ -2735,6 +2739,14 @@ return [
     ],
 
     'enums' => [
+        'tenant_document_type' => [
+            'insurance_coi' => 'شهادة تأمين',
+            'tax_card' => 'بطاقة ضريبية',
+            'commercial_register' => 'سجل تجاري',
+            'trade_license' => 'رخصة تشغيل',
+            'bank_guarantee' => 'خطاب ضمان',
+            'other' => 'أخرى',
+        ],
     'cam_cap_scope' => [
         'total' => 'النصيب بالكامل',
         'controllable' => 'التكاليف القابلة للتحكم فقط',
@@ -2997,6 +3009,24 @@ return [
     ],
 
     'tenants' => [
+        'documents' => [
+            'title' => 'مستندات الالتزام',
+            'type' => 'المستند',
+            'reference' => 'رقم المستند',
+            'issuer' => 'جهة الإصدار',
+            'coverage_amount' => 'مبلغ التغطية',
+            'coverage_amount_hint' => 'قيمة التغطية الفعلية للوثيقة. يُسجَّل لأن الشهادة لا تفيد إلا إذا طابقت التغطية ما اشترطه العقد.',
+            'issued_on' => 'تاريخ الإصدار',
+            'expires_on' => 'تاريخ الانتهاء',
+            'expires_on_hint' => 'اتركه فارغًا إذا لم يكن للمستند تاريخ تجديد. المستندات ذات تاريخ انتهاء تُتابَع قبل ٣٠ يومًا ثم عند انتهائها.',
+            'file' => 'صورة المستند',
+            'no_expiry' => 'بلا تاريخ انتهاء',
+            'expired' => 'منتهٍ — المستأجر يعمل بدونه',
+            'expiring_in' => 'يُجدَّد خلال :days يومًا',
+            'add' => 'إضافة مستند',
+            'empty_heading' => 'لا توجد مستندات',
+            'empty_description' => 'سجّل هنا شهادة التأمين والبطاقة الضريبية والسجل التجاري. كل مستند له تاريخ انتهاء تتم متابعته تلقائيًا قبل انتهائه.',
+        ],
         'setup_portal' => 'تفعيل بوابة المستأجر',
         'reset_portal' => 'إعادة تعيين كلمة مرور البوابة',
         'portal_modal_heading' => 'بوابة الدخول لـ :name',
@@ -3025,6 +3055,7 @@ return [
         'subject' => 'الموضوع',
         'system' => 'النظام',
         'subjects' => [
+            'tenant_document' => 'مستند مستأجر',
             'account_mapping' => 'سطر خريطة الترحيل',
             'floor' => 'طابق',
             'rentable_item' => 'عنصر مؤجَّر',

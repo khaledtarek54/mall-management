@@ -283,6 +283,7 @@ class DeletionPolicy
         \App\Models\EmployeeAdvance::class => 'operational: reversed rather than removed',
         \App\Models\VendorContract::class => 'operational: expired/terminated rather than removed',
         \App\Models\VendorDocument::class => 'operational: superseded by a newer certificate',
+        \App\Models\TenantDocument::class => 'operational: superseded by a newer certificate',
         \App\Models\VendorContact::class => 'operational: a contact person',
         \App\Models\OwnerStatementRun::class => 'operational: superseded by a new version rather than removed',
         \App\Models\UtilityMeter::class => 'operational: soft-delete IS the retirement path, and the energy trend already excludes retired meters',

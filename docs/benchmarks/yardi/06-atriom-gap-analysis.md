@@ -89,7 +89,7 @@
 | Renewal / termination / expansion / ROFR options with notice windows | ✅ | ✅ `LeaseOption` + panel on the lease (shipped 2026-08-09) | ✅ **KEEP** | ⚪ |
 | Alert before the **earliest notice date** | ✅ | ✅ `leases:scan-option-windows` daily — opening · closing · lapsed | ✅ **KEEP** | ⚪ |
 | Space encumbrance | ✅ | ✅ an option marks the unit spoken-for; the picker warns rather than blocks, because a landlord may legitimately let encumbered space | ✅ **CLOSED (OP-03)** | ⚪ |
-| Insurance-certificate expiry on the tenant | ✅ | 🟡 exists for **vendors** (`VendorDocument` + expiry scan); not for tenants | ➕ EXTEND — reuse the vendor pattern | 🟠 |
+| Insurance-certificate expiry on the tenant | ✅ | ✅ **CLOSED 2026-08-10.** `tenant_documents` + `tenants:scan-document-expiry` — COI, بطاقة ضريبية, سجل تجاري, رخصة تشغيل, خطاب ضمان, each with its own expiry, sum insured and a private scanned copy. Chased 30 days out and again on lapse, bell + mail, idempotent and re-armed by a renewal. Deliberately **non-blocking**: unlike the vendor COI there is no dispatch decision to gate — you cannot un-let a shop over a lapsed policy — so the alert is the whole mechanism | ✅ **KEEP** | ⚪ |
 | Clause abstract (co-tenancy, kick-out, exclusivity, radius) | ✅ | ❌ PDF only | ➕ EXTEND, later | 🟡 |
 
 ---

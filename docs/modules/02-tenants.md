@@ -84,6 +84,40 @@ looking for — the tenant billed as "Crema Coffee Co. LLC" is the sign above th
 
 ## 5. Services, jobs & scheduled commands
 
+### `tenants:scan-document-expiry` — the compliance chase (Yardi gap row 92)
+**Location:** `app/Console/Commands/ScanTenantDocumentExpiryCommand` · daily at 02:45
+
+`tenant_documents` holds the retailer's compliance paperwork — above all the **certificate of
+insurance** (شهادة تأمين) the lease obliges them to carry, plus بطاقة ضريبية, سجل تجاري, رخصة تشغيل
+and خطاب ضمان. Each row carries its own `expires_on`, an optional `coverage_amount` (the sum insured
+— a certificate is only useful if the cover matches what the lease demanded), and a private scanned
+copy on the `local` disk.
+
+**Why it exists.** Atriom chased *vendor* paperwork from module 12b and tracked nothing at all for
+tenants, which is the wrong way round if you only get one: an uninsured contractor is at least
+stopped at the dispatch gate, whereas an uninsured retailer simply keeps trading. The lease's
+insurance obligation was written into the contract and then never checked again.
+
+**Nothing is blocked when one lapses.** `VendorDocument::BLOCKING_TYPES` exists because there is a
+dispatch decision to intercept; a sitting tenant has no equivalent — you cannot un-let the shop
+because a policy expired. So the alert *is* the mechanism (bell **and** mail), and there is
+deliberately no blocking constant to copy. Inventing an automatic consequence here would be
+inventing a business rule nobody agreed.
+
+**Idempotent + lock-safe**, the scheduled-scan invariant: each row is locked and re-checked inside
+its own transaction, and stamped with BOTH the stage and the exact expiry it fired for. A re-run
+never re-nags; `expiring` escalates to `expired` exactly once; renewing a document re-arms its cycle
+by itself. `Tenant::documentsNeedAttention()` reads the rows **live** rather than the stamp, so a
+dropped notification can never make a lapsed certificate invisible on the screen.
+
+**Recipients** derive from occupancy: staff of the properties where the tenant holds an *active*
+lease. A tenant with no active lease reaches super_admins only — `AssetStaffRecipients` matches the
+property-team roles through `assignedAssets`, so with no asset there is nothing to match against.
+
+`Tenant::hasCurrentInsurance()` answers the type-specific question ("is there an unexpired COI on
+file"), not the vaguer "any document at all".
+
+
 ### TenantStatementPdfService
 **Location:** `app/Services/TenantStatementPdfService`
 **Signature:** `build(Tenant $tenant): string` (returns mPDF binary), `filename(Tenant $tenant): string`

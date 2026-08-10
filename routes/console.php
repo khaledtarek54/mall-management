@@ -93,6 +93,15 @@ Schedule::command('vendors:scan-document-expiry')
     ->name('atriom-scan-vendor-document-expiry')
     ->withoutOverlapping();
 
+// The same chase for TENANT paperwork — above all the insurance certificate the lease obliges the
+// retailer to carry. Sharper than the vendor case rather than softer: an uninsured contractor is at
+// least stopped at the dispatch gate, whereas an uninsured retailer simply keeps trading, so this
+// alert is the entire mechanism rather than a courtesy on top of one.
+Schedule::command('tenants:scan-document-expiry')
+    ->dailyAt('02:45')
+    ->name('atriom-scan-tenant-document-expiry')
+    ->withoutOverlapping();
+
 // Alert on contracts that have reached their NOTICE deadline (end_date − notice_period_days).
 // expire-contracts above fires on the end date, which is far too late to decide anything: miss
 // the notice window and the contract auto-renews at the old rate, or the mall opens with no
