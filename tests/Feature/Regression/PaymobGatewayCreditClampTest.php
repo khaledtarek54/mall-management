@@ -16,6 +16,14 @@ use App\Services\ApplyTenantCreditService;
  * amount AND the credit also settled AR, and the invoice over-settled into negative AR. The form
  * path was safe (its throw-guard counts all three channels); only the gateway clamp was wrong.
  */
+/**
+ * Auto-apply OFF: these exercise the MANUAL apply path and the credit BALANCE itself. With the
+ * automatic trigger on, an invoice raised in a fixture consumes the credit before the assertion can
+ * read it — which is correct behaviour, and would make these tests measure the trigger rather than
+ * the thing they are about.
+ */
+beforeEach(fn () => app(\App\Settings\BillingSettings::class)->auto_apply_tenant_credit = false);
+
 it('clamps the gateway allocation by applied tenant credit — no over-settlement into negative AR', function () {
     $asset = makeAsset();
     $lease = makeLease(makeUnit($asset));

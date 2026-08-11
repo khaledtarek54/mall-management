@@ -14,6 +14,11 @@ use Database\Seeders\RolesPermissionsSeeder;
  * tenant's on-account credit and keep the rest. Pins the service honouring $requested + the cap.
  */
 beforeEach(function () {
+    // Auto-apply OFF: these exercise the MANUAL apply path, where an operator chooses the
+    // invoice and sometimes the amount. With the automatic trigger on, the credit would be
+    // consumed by the invoice's own creation before the test could apply it deliberately.
+    app(\App\Settings\BillingSettings::class)->auto_apply_tenant_credit = false;
+
     $this->seed(RolesPermissionsSeeder::class);
     $this->seed(ChartOfAccountsSeeder::class);
     $this->seed(AccountMappingSeeder::class);

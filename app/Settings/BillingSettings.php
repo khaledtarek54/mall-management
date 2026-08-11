@@ -28,6 +28,20 @@ class BillingSettings extends Settings
      */
     public float $nsf_fee_amount = 0.0;
 
+    /**
+     * Apply a tenant's on-account credit to a new invoice automatically (Voyager behaviour).
+     *
+     * Yardi applies open credit to the next charge without being asked, and this follows it. It is
+     * a SETTING rather than a hard rule because the case against is real: a credit raised in dispute,
+     * or one the tenant expects refunded in cash, silently disappearing into next month's rent is a
+     * support call. Voyager makes it configurable for the same reason — so the operator can turn it
+     * off for a property that refunds rather than offsets.
+     *
+     * Applying still goes through `ApplyTenantCreditService`, which posts its own dated
+     * Dr Unearned / Cr AR document. Nothing about the accounting changes; only who triggers it.
+     */
+    public bool $auto_apply_tenant_credit = true;
+
     public int $monthly_billing_day = 1;
     public string $monthly_billing_time = '02:00';
 

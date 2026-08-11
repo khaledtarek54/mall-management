@@ -273,8 +273,56 @@ class Invoice extends Model
         return $candidate;
     }
 
+    /**
+     * Re-entrancy guard for the auto-apply hook below. Applying a credit SAVES the invoice (its
+     * balance drops), which would fire the same hook again.
+     */
+    protected static bool $applyingCredit = false;
+
     protected static function booted(): void
     {
+        // ── Apply an on-account credit automatically (Voyager behaviour) ───────────────────────
+        // Yardi applies open credit to the next charge without being asked. Hooked on the MODEL
+        // rather than in the billing service because an invoice is raised from six different paths
+        // (monthly run, CAM recovery, percentage-rent overage, violation fine, NSF fee, manual) and
+        // a hook per path is the arrangement where one gets forgotten — the same reasoning as the
+        // marketing-feed cache bust.
+        //
+        // The accounting is unchanged: `ApplyTenantCreditService` still posts its own dated
+        // Dr Unearned / Cr AR document, still row-locks the tenant, still caps at the lesser of the
+        // credit and the balance. Only the trigger is new.
+        static::saved(function (self $invoice) {
+            if (static::$applyingCredit) {
+                return;
+            }
+            if ($invoice->status !== 'issued' || round((float) $invoice->balance, 2) <= 0) {
+                return;
+            }
+            if (! app(\App\Settings\BillingSettings::class)->auto_apply_tenant_credit) {
+                return;
+            }
+
+            static::$applyingCredit = true;
+
+            try {
+                app(\App\Services\ApplyTenantCreditService::class)->applyToInvoice($invoice);
+            } catch (\DomainException $e) {
+                // "This tenant has no credit to apply" is the ORDINARY case — most invoices have
+                // none — and a DomainException is a refusal, not a fault (bootstrap/app.php treats
+                // it as one everywhere else). Logging it would put an error line under every
+                // invoice the system raises.
+            } catch (\Throwable $e) {
+                // Anything else IS worth hearing about, but must never cost the operator the
+                // invoice: the credit stays on account and can be applied by hand.
+                \App\Support\OpsLog::error('invoice.auto_apply_credit_failed', [
+                    'invoice_id' => $invoice->id,
+                    'error' => $e->getMessage(),
+                ]);
+            } finally {
+                static::$applyingCredit = false;
+            }
+        });
+
         static::creating(function (self $invoice) {
             // Always (re)generate at save time so we never persist a stale
             // form-cached number that could collide with another record. The

@@ -30,6 +30,14 @@ function overpaidTenant(float $amount = 15000, float $allocate = 10000, float $i
     return [$tenant, $lease, $payment];
 }
 
+/**
+ * Auto-apply OFF: these exercise the MANUAL apply path and the credit BALANCE itself. With the
+ * automatic trigger on, an invoice raised in a fixture consumes the credit before the assertion can
+ * read it — which is correct behaviour, and would make these tests measure the trigger rather than
+ * the thing they are about.
+ */
+beforeEach(fn () => app(\App\Settings\BillingSettings::class)->auto_apply_tenant_credit = false);
+
 it('surfaces an overpayment remainder as the tenant credit balance', function () {
     [$tenant] = overpaidTenant(amount: 15000, allocate: 10000); // 5,000 unallocated
 
