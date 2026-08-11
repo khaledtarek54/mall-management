@@ -106,23 +106,70 @@ Every field of every money-touching model gets exactly one of four verdicts:
 | **P — Prospective** | editable; affects future documents only, never a posted one | an effective-dated register (charge schedule, unit area) |
 | **N — Neutral** | no GL consequence at all | nothing |
 
-**The registry:** `App\Support\ChangeImpact` — `Model::class => [field => [verdict, why]]`, plus a
-`finalizedFixture()` closure per model so the gate can build the committed state.
+**A fifth verdict emerged while building it — DESCRIPTIVE.** `LedgerPoster::matches()` compares the
+line signature, the `entry_date` and the `asset_id`, and *not* the description. So a field that only
+reaches the entry's description text (an invoice number, a payment reference) will be written into a
+fresh post but can never cause a re-derive: the ledger can hold a description naming a value the
+document no longer has. Folding those into N would have been wrong (they do reach the entry) and
+folding them into D would have been wrong (they cannot move the books). Naming them is what makes
+check 3 below exact.
 
-**The gate:** `ChangeImpactConformanceTest`, in the house style —
+**The registry:** `App\Support\ChangeImpact::POLICY` — `Model::class => ['committed' => <when>,
+<verdict> => [field => why]]`. The decided verdicts are `field => why` maps because each is a decision
+someone made; NEUTRAL is a flat list, because its reason is definitional and uniform and 150 copies of
+the same sentence is noise, not documentation.
 
-1. every fillable of every `LedgerPoster::sources()` model is classified, or the build fails (a new money
-   source cannot ship without someone deciding);
-2. every **R** field is *proved* refused — build the finalized fixture, dirty the field, expect a
-   `DomainException`. Not an assertion that a guard exists; an assertion that it fires;
-3. every **D** field actually reaches the journalizer's payload or `SOURCE_DATE_COLUMNS` — a field
-   classified D that the ledger cannot see is mis-classified and should be N;
-4. every **P** field has an effective-dated register behind it (a `*_areas` / `charges` style row set),
-   not a plain column.
+**The gate:** `ChangeImpactConformanceTest` — four checks, each mutation-proven by breaking it and
+watching the build go red, per the house rule that a guard nobody has seen fail is a guard nobody knows
+works:
 
-Cost, stated honestly: (2) needs a finalized fixture per source, ~24 short closures. That is the price of
-a gate that tests behaviour instead of shape, and it is the same price `DeletionPolicy`'s
-`blocked_by`-relations check already pays.
+1. **Completeness** — every fillable of every `LedgerPoster::sources()` model is classified exactly
+   once, every classified field still exists (catches a rename leaving a rule guarding nothing), and
+   every decided field carries a reason. *Proven: dropping one field → "Invoice.notes is unclassified".*
+2. **The refusals are real** — every **R** field is dirtied on a **committed fixture** and must throw.
+   Not "a guard exists": the guard fires. *Proven: classifying an unguarded field R → "the write
+   succeeded".* Paired with a control that changes a non-refused field and must succeed, or a broken
+   fixture would read exactly like a working guard.
+3. **Nothing a journalizer reads is neutral** — derived textually from the journalizer sources, so a
+   mis-classification is caught by the code rather than by a reviewer; and the reverse, that a field
+   claimed DESCRIPTIVE is actually read. *Proven: moving `Payment.method` to N → "classified NEUTRAL
+   but PaymentJournalizer reads it".*
+4. **A posting-date column is never neutral or prospective** — cross-checked against
+   `LedgerRealtimeSync::SOURCE_DATE_COLUMNS`. The column that decides an entry's period is the one
+   field that cannot be GL-irrelevant. *Proven independently of 3: making `issue_date` P → red.*
+
+Check 3 is deliberately one-directional: it says "this IS read, so it cannot be neutral", never "this
+is not read, so it must be". A field read through a helper (`VendorBill::isPostable()`) or a relation
+is invisible to a textual scan, and a check that assumed otherwise would produce false failures.
+
+Fixtures are required only for the sources that declare refusals — four today, not twenty-four — and
+the gate enforces that correspondence in both directions.
+
+---
+
+### What classifying all 276 fields exposed
+
+The point of a register is that writing it down changes what you can see. Four things, none of which
+were visible while the policy lived in scattered `updating` hooks:
+
+1. **Twenty of the twenty-four posting sources declare no refusals at all.** Every field of a recorded
+   expense, a vendor payment, a marketing spend, a stock movement, a deposit transaction, a payroll
+   run is freely editable while posted, and each edit silently void-and-reposts. That is not
+   necessarily wrong — but it was never a decision, and now it is visible as one.
+2. **`Payment.tenant_id` is not refused while `Invoice.tenant_id` is.** Re-pointing a captured receipt
+   re-books the AR credit against another tenant. Nothing legitimate does it and the allocation guards
+   make it hard to reach, but the asymmetry is arbitrary. **First promotion candidate.**
+3. **`VendorBillPayment` now has somewhere to be promoted to.** Its money fields were unguarded
+   because there was no reversal path — locking them would have left an operator with a wrong cheque
+   and no way out. Phase 0 built the void, so `amount` / `payment_date` / `withholding_amount` can now
+   become R with a real correction behind the refusal. **Second promotion candidate.**
+4. **`FixedAsset`'s depreciation inputs are the clearest PROSPECTIVE case in the system** —
+   `useful_life_months`, `salvage_value` and `method` change future depreciation entries and never
+   rewrite posted ones, which is exactly the effective-dating pattern spacing and leasing use for
+   area and rent.
+
+Promotions are deliberately *not* bundled into Phase 1: the register's job was to make the decisions
+visible, and each promotion is a behaviour change that deserves its own test and its own commit.
 
 ---
 
@@ -250,7 +297,7 @@ path (not `LedgerPoster::sync()` directly) and a same-commit docs update, per th
 | Phase | Work | Size | Why this order |
 |---|---|---|---|
 | **0 — the live holes** ✅ **DONE 2026-08-11** | `VoidVendorBillPaymentService` + a gated action + the AP-side refusal wording; fix the stale docs (F7, F8) | S | F1 is a money operation with no path; the docs are read by the team |
-| **1 — the contract** | `App\Support\ChangeImpact` + `ChangeImpactConformanceTest`; classify all 24 sources; promote whatever the classification exposes | M | Everything else hangs off it, and it prevents the next source shipping undecided |
+| **1 — the contract** ✅ **DONE 2026-08-11** | `App\Support\ChangeImpact` + `ChangeImpactConformanceTest`; classify all 24 sources; promote whatever the classification exposes | M | Everything else hangs off it, and it prevents the next source shipping undecided |
 | **2 — the trail** | UX items 1–3 and 5 (document ↔ entry, both directions; re-derive preview; refusal wording) | M | Turns the derived ledger into something visible |
 | **3 — restatement** | the reported-month concept + UX item 4 | S–M | Needs owner-statement finalisation as its trigger, so it follows the trail work |
 | **4 — the area sweeps** | spacing → leasing → receivables → payables, each verifying its row in §4 with an *exploit-first* test | M per area | Merge with the validation sweep: one pass per area covering both axes |

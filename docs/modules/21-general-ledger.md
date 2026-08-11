@@ -302,7 +302,16 @@ This is the whole point of the design. To make any future module post to the led
    *dated* in a period being closed but not yet posted.
 4. If your journalizer's payload walks a relation, add it to `SyncLedgerCommand::EAGER` so a
    full backfill doesn't N+1. Optional — an absent source is swept un-eager, never skipped.
-5. Add any new semantic roles to **`App\Support\PostingRoles`** *and* `AccountMappingSeeder`, and
+5. **Declare its change policy in `App\Support\ChangeImpact::POLICY`** — for every fillable column,
+   whether a change to it once the document is committed is REFUSED (immutable; correct via a new
+   document), DERIVED (the entry is voided and re-posted), PROSPECTIVE (future documents only),
+   DESCRIPTIVE (reaches the entry's description but never re-derives) or NEUTRAL. Because the ledger
+   is *derived* here rather than posted-and-frozen, "may this edit move the books?" is a decision
+   someone has to make, and `ChangeImpactConformanceTest` fails the build when a new source — or a new
+   column on an existing one — ships without it. If you declare any REFUSED field you also add a
+   committed fixture to that test, which *proves* the refusal fires rather than asserting a guard
+   exists. See [the change-impact plan](../accounting/CHANGE-IMPACT-PLAN.md).
+6. Add any new semantic roles to **`App\Support\PostingRoles`** *and* `AccountMappingSeeder`, and
    point them at chart accounts. Both, not either: the seeder gives the role a default, the registry
    makes it reachable on the Posting Map screen, and `PostingRolesRegistryTest` fails if you do one
    without the other. A new role also needs an `admin.posting_roles.*` label in EN **and** AR.
