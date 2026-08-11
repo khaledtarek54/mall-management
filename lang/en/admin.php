@@ -3812,6 +3812,7 @@ return [
             'name' => 'Name', 'code' => 'Code', 'category' => 'Category', 'notes' => 'Notes',
             'active' => 'Active', 'property' => 'Property', 'sku' => 'SKU', 'unit' => 'Unit',
             'unit_cost' => 'Unit cost', 'reorder_level' => 'Reorder level', 'on_hand' => 'On hand',
+            'avg_unit_cost' => 'Average cost',
             'warehouse' => 'Warehouse', 'item' => 'Item', 'type' => 'Type', 'quantity' => 'Quantity',
             'reference' => 'Reference', 'moved_on' => 'Date', 'moved_by' => 'By', 'value' => 'Value',
             'total_value' => 'Total stock value',

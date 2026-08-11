@@ -3800,6 +3800,7 @@ return [
             'name' => 'الاسم', 'code' => 'الكود', 'category' => 'الفئة', 'notes' => 'ملاحظات',
             'active' => 'نشط', 'property' => 'العقار', 'sku' => 'رمز الصنف', 'unit' => 'الوحدة',
             'unit_cost' => 'تكلفة الوحدة', 'reorder_level' => 'حد إعادة الطلب', 'on_hand' => 'المتوفر',
+            'avg_unit_cost' => 'متوسط التكلفة',
             'warehouse' => 'المخزن', 'item' => 'الصنف', 'type' => 'النوع', 'quantity' => 'الكمية',
             'reference' => 'المرجع', 'moved_on' => 'التاريخ', 'moved_by' => 'بواسطة', 'value' => 'القيمة',
             'total_value' => 'إجمالي قيمة المخزون',
