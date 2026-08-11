@@ -266,3 +266,93 @@ the shape the rest should copy: locked on both rows, re-read under the lock, cap
 treated as UX rather than the gate. R3a is a model method — but it earns layer 1 only because
 **every** writer calls it or cannot reach the state: the two gateway paths derive `tenant_id` from
 the invoice itself, so a cross-tenant allocation is unrepresentable there rather than merely guarded.
+
+---
+
+## 9. Leasing — the rule matrix (swept 2026-08-11)
+
+Ten rules. **Four were at layer 3 only**; two more were at layer 1 and correct but had never been
+watched refusing anything. The leasing core came out better than receivables — the overlap guards,
+the escalation collar and terminal immutability were already model hooks with the reasoning written
+down beside them.
+
+| # | Rule | Was | Now | Proven by |
+|---|---|---|---|---|
+| L1a | A lease cannot end before it starts | **3 only**, and the terminate action had **nothing** | **1** | `LeaseExpiryNeverPrecedesCommencementTest` |
+| L1b | Rent-commencement not before commencement | 3 + a layer-1 clamp on the *consequence* | unchanged | `firstBillableMonth()`, existing billing tests |
+| L2 | Charge-schedule rows of one type must not overlap | 1, **untested** | 1 + witness | `LeasingGuardWitnessesTest` |
+| L3 | Escalation collar: floor ≤ ceiling | 1 | unchanged | `EscalationCollarTest` |
+| L4 | A terminal lease is immutable | 1, **untested** | 1 + witness | `LeasingGuardWitnessesTest` |
+| L5a | Percentage-rent tiers must not overlap | 1 | unchanged | `PercentageRentTiersAndDeductionsTest` |
+| L5b | Breakpoint ≥ 0, rate within 0–100% | **3 only** | **1** | `PercentageRentTiersAndDeductionsTest` |
+| L6a | Security deposit non-negative | **3 only** | **1** | `LeaseDepositNonNegativeTest` |
+| L6b | Option notice window ordered | **3 only** | **1** | `LeaseOptionWindowTest` |
+| L7 | Charge type is validated at the DB, not the app | 0 only | unchanged — **see below** | — |
+
+### L1a — the terminate action could end a lease before it began
+
+`expiry_date` has three writers: the lease form, `LeaseTerminationService` (which stamps the
+termination date straight onto it) and `LeaseRenewalService`. The rule lived on exactly one of them,
+as an `->after()` on the form's DatePicker. **The terminate action's DatePicker carried no
+constraint at all** — no `minDate`, no rule, nothing — so a mis-keyed year produced:
+
+- a lease that reads expired while its status is active, and that `activeInPeriod()` can never
+  match, so it **bills nothing, ever again**;
+- recurring charges stamped `end_date` before their own `start_date` — the shape
+  `atriom:audit-charge-schedules` exists to catch on import, minted in-app;
+- a move-out statement and final account frozen around a date the lease never reached.
+
+Guarded at the model on **both** columns: fixing only the expiry side leaves the identical broken
+state reachable by moving commencement forward instead. **Equal is allowed** — a deal that collapses
+at handover terminates on its commencement date — so layer 1 carries the invariant every writer must
+obey while the form keeps its stricter `->after()` for new leases, where a zero-day term is nonsense.
+
+### L5b — a negative percentage-rent rate is a credit wearing a charge's clothes
+
+The ladder's overlap and inversion rules were already at the model; its **bounds** were not. The
+relation manager carried `minValue(0)` on the breakpoints and `minValue(0)->maxValue(100)` on the
+rate, with nothing behind it. The rate is the one that matters: a negative rate raises a
+percentage-rent charge that is really a credit, through the same immediate-invoice path as a real
+overage, so the tenant is credited by a document that says *charge*.
+
+*A note on how this was found, because it nearly wasn't:* the first cut of these tests passed on the
+overlap guard rather than the bound — appending a band above 900,000 collided with the ladder's
+unbounded top tier, so every create threw and every refusal "passed". The control (the same append
+differing only in the bound under test) is what exposed it. This is the §4 rule earning its place.
+
+### L6b — an option whose window closes before it opens can never be exercised
+
+`LeaseOption` had no `booted()` at all. `windowIsOpen()` wants today ≥ earliest and
+`windowHasClosed()` wants today > latest, so an inverted pair is simultaneously never-open and
+already-closed: `leases:scan-option-windows` would announce the option **lapsed** having never once
+announced it open. The alerting built to protect the right would be the thing that buried it.
+
+### L7 — `charges.type` is still a DB enum, and that quietly caps the charge catalogue
+
+**A finding, deliberately not fixed here.** `invoice_items.type` was converted to `string(32)` in
+June 2026, which is what lets `charge_codes` — the catalogue an accountant maintains without a
+deploy — drive invoice lines. **`charges.type` was never converted**: it is still
+`enum('base_rent','service_charge','utility','parking','percentage_rent','other','marketing')`.
+
+So a code the accountant adds can be billed as a one-off invoice line but **cannot be set up as a
+recurring lease charge** — the DB rejects it. The catalogue's "no deploy needed" promise stops at
+recurring billing, which is most of the money. It also stands against the project's own standing
+rule (*no DB-level enums; string + app-layer validation, so the set can change without a migration*).
+
+Not fixed in the sweep because it is not a validation-layer question: freeing the column is one
+migration mirroring the June one, but delivering the capability also means wiring the catalogue into
+the charge form and adding the app-layer validation the column currently provides. That is a feature
+with a product decision inside it, and it belongs in the same conversation as R8's `vat_exempt`
+column — both are the accountant's call about what the catalogue owns.
+
+### A gate, not just a fix
+
+`TestHelperUniquenessConformanceTest` — no two test files may declare the same file-scope function.
+PHP has one function table, so a collision is a **fatal** on any single-process run, and
+`pest --parallel` hides it by giving each worker only its own files. When it fires the run produces
+**no output at all** and exits 255: no test name, no file, no message, and the obvious next move
+("run just that directory") is itself a full load that fails identically.
+
+It has now cost this project twice — `makeViolation()` during the inventory pass, `optionOn()`
+during this sweep. The gate names both files and the helper. It was verified by planting a real
+duplicate and watching it go red, then removing it.

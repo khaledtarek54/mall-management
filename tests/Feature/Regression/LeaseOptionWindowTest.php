@@ -191,3 +191,50 @@ it('knows whether notice may be served today', function () {
         ->and($option->windowHasClosed(CarbonImmutable::parse('2030-05-01')))->toBeTrue()
         ->and($option->daysUntilClose(CarbonImmutable::parse('2030-03-22')))->toBe(10);
 });
+
+/* ---- the window must BE a window (validation sweep, leasing, 2026-08-11) ---------------------- */
+
+/**
+ * `LeaseOption` had no `booted()` at all: the ordering lived as a single
+ * `->afterOrEqual('earliest_notice_date')` on `LeaseOptionsRelationManager`'s DatePicker, so any
+ * other writer (import, API, console, the read-only encumbrances manager's parent flows) walked
+ * past it.
+ *
+ * An inverted window is not cosmetic, and the tests above are exactly why: every alert in this file
+ * keys off `windowIsOpen()` / `windowHasClosed()`, and a window that starts after it ends is
+ * simultaneously never-open and already-closed. The scan would announce the option as LAPSED
+ * having never once announced it as open — the right the tenant negotiated silently unusable, with
+ * the alerting that exists to protect it doing the opposite.
+ */
+it('refuses an option whose notice window closes before it opens', function () {
+    expect(fn () => optionOn(optionLease(), [
+        'earliest_notice_date' => '2030-04-01',
+        'latest_notice_date' => '2030-01-01',
+    ]))->toThrow(DomainException::class);
+});
+
+it('refuses EDITING an option into an inverted window', function () {
+    $option = optionOn(optionLease());
+
+    expect(fn () => $option->update(['latest_notice_date' => '2029-01-01']))
+        ->toThrow(DomainException::class);
+
+    // Control: a valid move still saves, so the refusal is the inversion and not a freeze.
+    expect(fn () => $option->update(['latest_notice_date' => '2030-06-01']))
+        ->not->toThrow(DomainException::class);
+});
+
+it('allows a single-day window (earliest == latest)', function () {
+    // "Notice must be served on 1 April" is a real contract term, not an error.
+    expect(optionOn(optionLease(), [
+        'earliest_notice_date' => '2030-04-01',
+        'latest_notice_date' => '2030-04-01',
+    ])->exists)->toBeTrue();
+});
+
+it('allows a half-open window — either bound may be absent', function () {
+    // Both columns are nullable and the model treats a null bound as unbounded on that side;
+    // an option with no stated deadline is ordinary.
+    expect(optionOn(optionLease(), ['latest_notice_date' => null])->exists)->toBeTrue();
+    expect(optionOn(optionLease(), ['earliest_notice_date' => null, 'type' => 'termination'])->exists)->toBeTrue();
+});

@@ -46,7 +46,10 @@ class LeasePercentageRentTier extends Model
         });
     }
 
-    /** @throws \DomainException when this band overlaps another on the same lease */
+    /**
+     * @throws \DomainException when this band overlaps another on the same lease, runs backwards,
+     *                          or carries a breakpoint / rate outside its legal range
+     */
     public function assertNoOverlap(): void
     {
         if (blank($this->lease_id)) {
@@ -55,6 +58,29 @@ class LeasePercentageRentTier extends Model
 
         $from = (float) $this->from_amount;
         $to = $this->to_amount !== null ? (float) $this->to_amount : INF;
+
+        // Bounds. The relation manager carried minValue(0) on the breakpoints and
+        // minValue(0)->maxValue(100) on the rate, and nothing stood behind it — so an import, the
+        // console or a crafted submit could write any of them (validation sweep, 2026-08-11).
+        //
+        // The RATE is the one that matters: a negative rate produces a percentage-rent "charge"
+        // that is really a credit, raised through the same immediate-invoice path as a real
+        // overage (PercentageRentCalculationService), so the tenant is credited by a document that
+        // says charge. Above 100% bills more percentage rent than the tenant sold.
+        //
+        // A negative BREAKPOINT is milder but not harmless: a first band starting below zero
+        // charges the percentage from the tenant's very first pound of sales, quietly deleting the
+        // natural break the whole ladder exists to express.
+        if ($from < 0 || ($this->to_amount !== null && (float) $this->to_amount < 0)) {
+            throw new \DomainException(__('admin.errors.percentage_rent_tier_negative_breakpoint'));
+        }
+
+        $rate = (float) $this->rate;
+        if ($rate < 0 || $rate > 100) {
+            throw new \DomainException(__('admin.errors.percentage_rent_tier_rate_out_of_range', [
+                'rate' => number_format($rate, 2),
+            ]));
+        }
 
         if ($to <= $from) {
             throw new \DomainException(__('admin.errors.percentage_rent_tier_inverted', [

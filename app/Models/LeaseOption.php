@@ -52,6 +52,47 @@ class LeaseOption extends Model
         'lapsed_notified_at' => 'datetime',
     ];
 
+    protected static function booted(): void
+    {
+        // ── The notice window must be a window, not a contradiction ────────────────────────────
+        // An option whose window closes before it opens can never be exercised: `isWindowOpen()`
+        // wants today >= earliest and `hasWindowClosed()` wants today > latest, so an inverted pair
+        // is simultaneously never-open and already-closed. The `leases:scan-option-windows` sweep
+        // would announce it as lapsed having never announced it as open, and nothing surfaces the
+        // contradiction — the right the tenant negotiated just silently does not work.
+        //
+        // The rule lived as one `->afterOrEqual()` on the lease's options relation manager, so any
+        // other writer (import, API, console, the second relation manager) walked past it.
+        //
+        // A null bound is unbounded on that side and stays legal — an option with no stated
+        // deadline is ordinary. EQUAL is legal too: "notice must be served on 1 September" is a
+        // one-day window, not an error.
+        static::saving(function (self $option): void {
+            if ($option->earliest_notice_date === null || $option->latest_notice_date === null) {
+                return;
+            }
+
+            $earliest = CarbonImmutable::instance(
+                $option->earliest_notice_date instanceof \DateTimeInterface
+                    ? $option->earliest_notice_date
+                    : CarbonImmutable::parse($option->earliest_notice_date)
+            )->startOfDay();
+
+            $latest = CarbonImmutable::instance(
+                $option->latest_notice_date instanceof \DateTimeInterface
+                    ? $option->latest_notice_date
+                    : CarbonImmutable::parse($option->latest_notice_date)
+            )->startOfDay();
+
+            if ($latest->lessThan($earliest)) {
+                throw new \DomainException(__('admin.errors.option_notice_window_inverted', [
+                    'earliest' => $earliest->toDateString(),
+                    'latest' => $latest->toDateString(),
+                ]));
+            }
+        });
+    }
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()

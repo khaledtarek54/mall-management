@@ -332,3 +332,54 @@ it('lets an existing band be edited without clashing with itself', function () {
 
     expect((float) $top->fresh()->rate)->toBe(7.0);
 });
+
+// ── Validation sweep (leasing, 2026-08-11) ──────────────────────────────────────────────────────
+// The ladder's OVERLAP and INVERSION rules were already at the model. The bounds were not: the
+// relation manager carried minValue(0) on from/to and minValue(0)->maxValue(100) on the rate, and
+// nothing behind it. A negative rate is the one that matters — it makes a percentage-rent "charge"
+// that is really a credit, billed through the same path as a real overage.
+
+/**
+ * A lease whose ladder ENDS at 2,000,000, so a test band appended above it is adjacent rather
+ * than overlapping. Without this the bounds tests below throw for the wrong reason — the
+ * unbounded top band swallows everything above 900,000 and every append is an overlap. (It
+ * caught exactly that on the first run: two refusals passing on the overlap guard while the
+ * bound they claimed to test did not exist.)
+ */
+function closedLadderLease(): Lease
+{
+    $lease = tieredLease();
+    LeasePercentageRentTier::where('lease_id', $lease->id)
+        ->whereNull('to_amount')
+        ->update(['to_amount' => 2000000]);
+
+    return $lease;
+}
+
+it('refuses a negative breakpoint on a tier', function () {
+    expect(fn () => LeasePercentageRentTier::create([
+        'lease_id' => closedLadderLease()->id, 'from_amount' => -100, 'to_amount' => -50, 'rate' => 5,
+    ]))->toThrow(DomainException::class);
+});
+
+it('refuses a negative percentage rate — a charge that is secretly a credit', function () {
+    expect(fn () => LeasePercentageRentTier::create([
+        'lease_id' => closedLadderLease()->id, 'from_amount' => 2000000, 'to_amount' => 3000000, 'rate' => -5,
+    ]))->toThrow(DomainException::class);
+});
+
+it('refuses a rate above 100% — more percentage rent than the tenant sold', function () {
+    expect(fn () => LeasePercentageRentTier::create([
+        'lease_id' => closedLadderLease()->id, 'from_amount' => 2000000, 'to_amount' => 3000000, 'rate' => 150,
+    ]))->toThrow(DomainException::class);
+});
+
+it('still accepts a legitimate band appended to the ladder', function () {
+    // The control the three refusals need: the same append, differing only in the bound under
+    // test, must succeed — otherwise they pass on the overlap guard and prove nothing.
+    $tier = LeasePercentageRentTier::create([
+        'lease_id' => closedLadderLease()->id, 'from_amount' => 2000000, 'to_amount' => 3000000, 'rate' => 7,
+    ]);
+
+    expect($tier->exists)->toBeTrue();
+});

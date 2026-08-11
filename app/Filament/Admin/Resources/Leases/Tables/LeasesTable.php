@@ -1066,6 +1066,12 @@ class LeasesTable
                         DatePicker::make('termination_date')
                             ->label(__('admin.actions.termination_date'))
                             ->required()
+                            // A lease cannot end before it started. The model refuses it either
+                            // way (Lease::booted) — this stops the operator picking the date at
+                            // all, which is the difference between an inline "not available" and
+                            // a submitted form bouncing back. Equal is allowed: a deal that
+                            // collapses at handover terminates on its commencement date.
+                            ->minDate(fn (Lease $record) => $record->commencement_date)
                             ->native(false),
                         Textarea::make('reason')
                             ->label(__('admin.actions.termination_reason'))

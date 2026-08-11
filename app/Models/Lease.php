@@ -97,6 +97,52 @@ class Lease extends Model implements HasMedia
             }
         });
 
+        // ── A lease's term cannot run backwards ────────────────────────────────────────────────
+        // `expiry_date` has THREE writers — the standard form, `LeaseTerminationService` (which
+        // stamps the termination date onto it) and `LeaseRenewalService` — and the rule lived on
+        // exactly one of them, as an `->after()` on the form's DatePicker. The terminate action's
+        // DatePicker carried no constraint at all, so terminating with a mis-keyed earlier date
+        // produced a lease that reads expired while its status is active, that `activeInPeriod()`
+        // can never match (so it bills nothing, ever again), and recurring charges stamped
+        // `end_date` BEFORE their own `start_date` — the shape `atriom:audit-charge-schedules`
+        // exists to catch on import, minted in-app.
+        //
+        // Guarded on BOTH columns: fixing only the expiry side leaves the identical broken state
+        // reachable by moving commencement forward instead.
+        //
+        // EQUAL IS ALLOWED. A lease terminated on its own commencement date — a deal that collapses
+        // at handover — is legitimate and must stay recordable. The form keeps the stricter
+        // `->after()` for NEW leases, where a zero-day term is nonsense: this layer carries the
+        // invariant every writer must obey, the form adds the product rule for the create path.
+        static::saving(function (self $lease) {
+            if ($lease->commencement_date === null || $lease->expiry_date === null) {
+                return;
+            }
+
+            $commencement = Carbon::parse($lease->commencement_date)->startOfDay();
+            $expiry = Carbon::parse($lease->expiry_date)->startOfDay();
+
+            if ($expiry->lt($commencement)) {
+                throw new \DomainException(__('admin.errors.lease_expiry_before_commencement', [
+                    'commencement' => $commencement->toDateString(),
+                    'expiry' => $expiry->toDateString(),
+                ]));
+            }
+        });
+
+        // ── A deposit cannot be negative ───────────────────────────────────────────────────────
+        // `minValue(0)` on the form and nothing behind it. Low severity, and worth saying so: this
+        // is the CONTRACTUAL figure — the money that actually moves comes from `deposit_transactions`
+        // — so a negative one cannot mis-pay anyone. What it can do is print a nonsense
+        // "contractual deposit" line on the move-out statement the operator hands the tenant
+        // (`MoveOutStatementService::for()`). Refused rather than clamped: silently turning -5,000
+        // into 0 hides the typo instead of reporting it.
+        static::saving(function (self $lease) {
+            if ($lease->security_deposit !== null && (float) $lease->security_deposit < 0) {
+                throw new \DomainException(__('admin.errors.negative_security_deposit'));
+            }
+        });
+
         // ── Rate-priced rent is DERIVED, from every writer ─────────────────────────────────────
         // A lease priced per m² must never carry a monthly figure that disagrees with its own rate
         // and area. Enforced here rather than in the form so an import, a service or a future

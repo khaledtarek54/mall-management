@@ -239,6 +239,10 @@ Leases model the core revenue instrument of Egyptian mall operations. They bind 
 | **Percentage rent threshold variants:** <br> - **Artificial:** max(0, sales - threshold) × rate. <br> - **Natural breakpoint:** max(0, sales × rate - base_rent). | Calculated at invoice time by `PercentageRentCalculationService`. | `BillingMathTest::test_percentage_rent_artificial_breakpoint`, `test_percentage_rent_natural_breakpoint` |
 | **Termination deactivates charges & optionally cancels unpaid invoices.** Prevents recurring billing post-termination. | `LeaseTerminationService::terminate()` sets `Charge.is_active=false` and optionally cancels fully-unpaid invoices (status → 'cancelled', balance → 0). Partially-paid invoices require explicit credit-note reversal. | `LeaseTerminationService` tests |
 | **Security deposit is non-binding for invoicing.** It is a field on Lease, NOT automatically deducted from tenant balances; operators issue credit notes if collected. | Manually tracked in notes; `security_deposit_received` flag aids reporting. | Domain rule; design choice for audit clarity. |
+| **A lease cannot end before it starts.** `expiry_date >= commencement_date`, on every writer. EQUAL is allowed — a deal that collapses at handover terminates on its commencement date. | `Lease::saving` guards **both** columns (fixing only expiry leaves the same broken state reachable by moving commencement forward). The lease form keeps the stricter `->after()` for NEW leases, where a zero-day term is nonsense; the terminate action carries a matching `minDate`. | `LeaseExpiryNeverPrecedesCommencementTest` |
+| **A security deposit cannot be negative.** It is the CONTRACTUAL figure only — the money that moves comes from `deposit_transactions` — so this protects the move-out statement, not a payment. Refused rather than clamped, so a typo is reported rather than hidden. | `Lease::saving`. | `LeaseDepositNonNegativeTest` |
+| **An option's notice window must be a window.** `latest_notice_date >= earliest_notice_date` (a null bound is unbounded; a one-day window is a real contract term). An inverted pair is simultaneously never-open and already-closed, so `leases:scan-option-windows` announces the option lapsed having never announced it open. | `LeaseOption::saving` — the model had no `booted()` at all until 2026-08-11; the rule was one `->afterOrEqual()` on the relation manager. | `LeaseOptionWindowTest` |
+| **Percentage-rent bands stay inside their bounds.** Breakpoint ≥ 0; rate within 0–100%. A negative rate raises a "charge" that is really a credit, through the same immediate-invoice path as a real overage. | `LeasePercentageRentTier::assertNoOverlap()` (which also carries the overlap + inversion rules). | `PercentageRentTiersAndDeductionsTest` |
 
 ## 4. Lifecycle / state machine
 
@@ -334,6 +338,13 @@ foreach lease in unit.allLeases():
 **Behavior:**
 1. Validates lease is active or pending; throws InvalidArgumentException if not.
 2. Parses termination_date (defaults to today), reason, and cancel_open_invoices flag.
+   - **The date cannot precede the lease's commencement** (validation sweep, 2026-08-11). This
+     service writes the operator's date straight onto `expiry_date`, and until the model guard
+     landed neither it nor its DatePicker constrained it at all — a mis-keyed year produced a lease
+     that reads expired while active, that `activeInPeriod()` can never match (so it bills nothing
+     ever again), and charges stamped `end_date` before their own `start_date`. The refusal is
+     `Lease::saving`, so it also covers a programmatic call; the action carries a matching
+     `minDate`. Terminating ON the commencement date is allowed.
 3. Updates Lease: status='terminated', expiry_date=termination_date, appends reason to notes.
 4. Deactivates all Charges: is_active=false, end_date=termination_date (stops monthly billing).
 5. Optionally cancels unpaid invoices (status in [draft, issued, partially_paid, overdue], balance > 0, paid_amount = 0). Sets status='cancelled', balance=0.
