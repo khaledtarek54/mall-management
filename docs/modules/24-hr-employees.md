@@ -77,7 +77,23 @@ unchanged and the GL tie-out is untouched.
 6. **NOT-NULL money** — blank `base_salary` / advance `amount` / line amounts coerce to 0.
 7. **Payslip lines are draft-only** (Phase 3) — lines may be added/edited/removed only
    while the run is a **draft**; once approved the header (and its GL entry) is settled and
-   the lines are frozen (mutation actions hidden + server-side `abort_unless(runIsEditable)`).
+   the lines are frozen. **Enforced on the model since 2026-08-11** (module 24 close-out):
+   `PayrollLine::saving`/`deleting` refuse a run that is not draft, and `Payroll::saving`
+   refuses any money / period / paid-from change once the ORIGINAL status is `approved`.
+   Until then the freeze was `abort_unless(runIsEditable)` — a method that exists in exactly
+   one place, `PayrollLinesRelationManager` — so it was a property of that screen.
+   `GeneratePayrollService` guards itself, so both KNOWN writers were safe and every other one
+   (import, console, a future screen) restated a posted payroll. Mutation actions stay hidden in
+   the UI as the mirror. Tests: `PayrollHeaderAndApprovedLockTest`.
+8. **The header ties to Σ payslips, from BOTH directions.** `Payroll::recomputeFromLines()`
+   pulls the lines into the header on every line write; `Payroll::saving` now re-derives a header
+   written DIRECTLY, so the two cannot diverge. Before, the pull was the only direction and its
+   docblock said so ("called only from the PayrollLine save/delete hooks") — a header written by
+   an import persisted whatever arrived, and `PayrollJournalizer` posted the salaries debit from
+   the header while the payslips, and the PDFs an employee is handed, said something else. The
+   same divergence the validation sweep closed on invoices (§8 R1), closed the same way.
+   **A lump-sum run with no payslips keeps its manual amounts** — nothing to derive from, exactly
+   as an invoice with no line items keeps its header.
    Payslip PDFs download at any status. A line's employee is re-validated against the run's
    property scope (form-tamper guard). Header money fields go read-only once lines exist.
 

@@ -175,6 +175,54 @@ class Payroll extends Model
                 }
             }
 
+            // ── An APPROVED run's money is settled ────────────────────────────────────────────
+            // Approval posts the run to the GL. The module doc states the freeze as a fact —
+            // "once approved the header (and its GL entry) is settled and the lines are frozen" —
+            // and names its enforcement as `abort_unless(runIsEditable)`, which exists in exactly
+            // one place: `PayrollLinesRelationManager`. That made the freeze a property of one
+            // screen. `GeneratePayrollService` guards itself, so both KNOWN writers were safe and
+            // every other one restated a posted payroll.
+            //
+            // Read against the ORIGINAL status so approving (draft → approved) is not blocked by
+            // its own outcome, and cancelling stays possible — it is the correction path.
+            // (Module 24 close-out, 2026-08-11; the mirror of the disposed-asset and settled-عهدة
+            // freezes in modules 23 and 25.)
+            if ($payroll->exists && $payroll->getOriginal('status') === 'approved') {
+                $frozen = ['gross_salaries', 'allowances', 'salary_tax', 'social_insurance',
+                    'advance_deductions', 'other_deductions', 'employer_social_insurance',
+                    'net_paid', 'paid_from', 'period_month', 'asset_id'];
+
+                foreach ($frozen as $field) {
+                    if ($payroll->isDirty($field)) {
+                        throw new \DomainException(__('admin.payroll.errors.approved_immutable'));
+                    }
+                }
+            }
+
+            // ── The header ties to the payslips, from BOTH directions ────────────────────────
+            // `recomputeFromLines()` sums the lines into the header, and its docblock says it is
+            // "called only from the PayrollLine save/delete hooks" — so the lines pulled the header
+            // and nothing pushed back. A header written directly persisted whatever arrived, and
+            // `PayrollJournalizer` posts the salaries debit from the HEADER while the payslips (and
+            // the PDFs an employee is handed) said something else. The same divergence the
+            // validation sweep closed on invoices (§8 R1), and closed the same way.
+            //
+            // A LUMP-SUM run keeps its manual amounts: with no payslips there is nothing to derive
+            // from, which `recomputeFromLines` already carves out for the same reason an invoice
+            // with no line items keeps its header.
+            if ($payroll->exists
+                && $payroll->isDirty(['gross_salaries', 'allowances', 'salary_tax', 'social_insurance',
+                    'advance_deductions', 'other_deductions', 'employer_social_insurance'])
+                && $payroll->lines()->exists()) {
+                $payroll->gross_salaries = round((float) $payroll->lines()->sum('gross'), 2);
+                $payroll->allowances = round((float) $payroll->lines()->sum('allowances'), 2);
+                $payroll->salary_tax = round((float) $payroll->lines()->sum('salary_tax'), 2);
+                $payroll->social_insurance = round((float) $payroll->lines()->sum('social_insurance'), 2);
+                $payroll->advance_deductions = round((float) $payroll->lines()->sum('advance_deduction'), 2);
+                $payroll->other_deductions = round((float) $payroll->lines()->sum('other_deductions'), 2);
+                $payroll->employer_social_insurance = round((float) $payroll->lines()->sum('employer_social_insurance'), 2);
+            }
+
             // net_paid is derived on every write path (employer SI is NOT deducted; the advance
             // installment + ad-hoc deductions ARE — they repay the loan / withhold from pay).
             $payroll->net_paid = round(

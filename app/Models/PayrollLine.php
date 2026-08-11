@@ -86,6 +86,29 @@ class PayrollLine extends Model
 
     protected static function booted(): void
     {
+        // ── Payslips are draft-only ────────────────────────────────────────────────────────────
+        // Once the run is approved its header is settled and its GL entry posted, so a payslip may
+        // not be added, edited or removed: each write re-derives the header through the hooks below
+        // and restates a payroll the books have already taken — while the payslip PDF, which
+        // downloads at any status, is what the employee holds.
+        //
+        // The module doc states this rule and names its enforcement as "mutation actions hidden +
+        // server-side abort_unless(runIsEditable)". `runIsEditable()` exists in exactly one place,
+        // `PayrollLinesRelationManager`, which made the freeze a property of that screen.
+        // `GeneratePayrollService` guards itself (`status !== 'draft'` throws), so both KNOWN
+        // writers were safe and every other one — an import, the console, a future screen — was not.
+        // (Module 24 close-out, 2026-08-11.)
+        $assertRunIsDraft = function (self $line) {
+            $run = $line->payroll;
+
+            if ($run !== null && $run->status !== 'draft') {
+                throw new \DomainException(__('admin.payroll_lines.errors.run_not_draft'));
+            }
+        };
+
+        static::saving($assertRunIsDraft);
+        static::deleting($assertRunIsDraft);
+
         // NOT-NULL guard for the money columns (read RAW — decimal cast throws on '').
         static::saving(function (self $line) {
             foreach (['gross', 'allowances', 'salary_tax', 'social_insurance', 'advance_deduction', 'other_deductions', 'employer_social_insurance'] as $column) {
