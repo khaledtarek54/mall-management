@@ -41,10 +41,25 @@ class VendorBillPayment extends Model
         return round((float) $this->amount - (float) $this->withholding_amount, 2);
     }
 
+    /**
+     * A voided payment settles nothing and posts nothing — the ONE predicate for that, shared by
+     * `VendorBill::recompute()` (which must not count it) and `VendorBillPaymentJournalizer`
+     * (which must stop returning a payload so the sweep reverses the entry). Named once so the
+     * document and the ledger cannot disagree about whether the money moved.
+     *
+     * `voided_at` is deliberately not fillable: only {@see \App\Services\VoidVendorBillPaymentService}
+     * may set it, so a void always carries its reason and its reversal.
+     */
+    public function isVoided(): bool
+    {
+        return $this->voided_at !== null;
+    }
+
     protected $casts = [
         'amount' => 'decimal:2',
         'withholding_amount' => 'decimal:2',
         'payment_date' => 'date',
+        'voided_at' => 'datetime',
     ];
 
     public function bill(): BelongsTo

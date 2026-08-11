@@ -20,6 +20,14 @@ class VendorBillPaymentJournalizer implements Journalizer
         /** @var VendorBillPayment $payment */
         $payment = $source;
 
+        // A voided payment has no ledger effect, so the sweep reverses its entry — the same
+        // mechanism a cancelled invoice or a refunded receipt uses. Checked before the amount so a
+        // void reads as the reason, and reading the SAME predicate the bill's recompute reads, so
+        // the document and the books can never disagree about whether the cash moved.
+        if ($payment->isVoided()) {
+            return null;
+        }
+
         $amount = round((float) $payment->amount, 2);
         if ($amount <= 0) {
             return null;

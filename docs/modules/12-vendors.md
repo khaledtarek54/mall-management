@@ -193,9 +193,46 @@ AP has a real service because a vendor bill posts to the GL and is settled by pa
 - **`recordPayment()`** — lock-safe, caps the amount at the balance, computes Egyptian **withholding tax**, and **guards `payment_date`'s period** the same way (the AP mirror of the AR receipt guard). A back-dated payment into a closed period is refused, not silently stranded.
 - **`cancel()`** — refuses if any cash was paid; **releases any applied SLA penalty back to `final`** (a cancelled bill owes nothing, so an applied penalty would otherwise be silently dropped — still owed, but no longer chargeable), then zeroes the balance via `recompute()`'s cancelled branch.
 
+### VoidVendorBillPaymentService — the way back from a wrong cheque (2026-08-11)
+
+A payment keyed against the wrong bill used to be **permanent**. Three places promised a correction
+that did not exist: `DeletionPolicy` named it ("void the payment — money left the bank"),
+`cancel()` refused a bill with payments and told the operator to reverse them first, and the payments
+relation manager was read-only — while the model is unconditionally committed, so even the
+soft-delete that would have self-healed the GL was refused. The AP balance, the bank leg and the
+withholding-tax liability were all wrong with no operator path to any of them. *(Voiding a check is
+an everyday operation in Yardi Voyager — [change-impact plan F1](../accounting/CHANGE-IMPACT-PLAN.md).)*
+
+- **A void is a status flip, not a delete** — the AP mirror of `VoidInvoiceService` /
+  `VoidPaymentService`. `voided_at` + `void_reason` + `voided_by_user_id` are set; the row **stays on
+  the register**, greyed with its reason. That is the difference between voiding and deleting: an
+  auditor holding a bank statement that shows no such payment can follow it back to who cancelled it
+  and why. The reason is also written to the immutable activity log, because `void_reason` is a
+  column someone can later edit.
+- **One predicate, two consumers.** `VendorBillPayment::isVoided()` is read by
+  `VendorBill::recompute()` (a voided payment is excluded from `paid_amount`, so the payable re-opens
+  and the status falls back from `paid`) **and** by `VendorBillPaymentJournalizer` (which returns no
+  payload, so the sweep posts the reversing entry — Dr Bank / Cr AP, plus the withholding leg where
+  there was one). Named once so the document and the books cannot disagree about whether cash moved.
+- **Locks the bill first, then the payment.** `recompute()` re-derives from *all* of a bill's
+  payments, so two concurrent voids must serialize on the parent or the second overwrites the first's
+  result. Same discipline as `recordPayment()`.
+- **It does not re-open a closed period.** The reversal lands in the original entry's period when
+  that is open and in today's otherwise — the standing rule for every void in the system — so a
+  correction to a sealed month surfaces in the current one instead of silently failing.
+- **Permission:** `vendor_bills.void_payment`, its own right rather than a fold into `.pay` (mirroring
+  `invoices.void` / `payments.void`): keying a cheque and un-keying one are different acts. Granted to
+  super_admin, manager, mall_admin and accounting. **Existing deployments must re-run
+  `db:seed --class=RolesPermissionsSeeder`.**
+- **Tests:** `tests/Feature/Regression/VendorPaymentVoidTest.php` (7) — the payable re-opens and the
+  entry is reversed *through the real `accounting:sync-ledger` sweep*, AP ties back out to the full
+  bill, all three legs (AP / bank / WHT) net to zero, the void is idempotent, a sibling payment still
+  settles its share, the cancel refusal is now an instruction that works, and the permission is held
+  by the roles that pay bills and not by the ones that don't.
+
 ## 6. Filament resources & key fields
 
-> **12b additions not detailed below** (this section predates them): the vendor edit page also carries a **`DocumentsRelationManager`** (compliance certs, private disk) and the contracts RM gained an **`amend`** (change-order) action + Committed/Billed/Remaining columns; and there is a **separate `VendorBillResource`** (`/admin/vendors/bills`) for AP — property-scoped (`asset_id` guarded by `assertAssetInScope` on create+edit), with `approve` / `record_payment` (withholding-tax breakdown) / `cancel_bill` actions, all double-gated. All vendor relation-manager write actions gate the predicate in both `visible()` and `authorize()`.
+> **12b additions not detailed below** (this section predates them): the vendor edit page also carries a **`DocumentsRelationManager`** (compliance certs, private disk) and the contracts RM gained an **`amend`** (change-order) action + Committed/Billed/Remaining columns; and there is a **separate `VendorBillResource`** (`/admin/vendors/bills`) for AP — property-scoped (`asset_id` guarded by `assertAssetInScope` on create+edit), with `approve` / `record_payment` (withholding-tax breakdown) / `cancel_bill` actions, all double-gated. Its **payments relation manager** creates and edits nothing but owns one correction — **`void_payment`** (§5), which states the ledger effect in the confirmation ("the bill's balance re-opens by X and its entry is reversed") and requires a reason. All vendor relation-manager write actions gate the predicate in both `visible()` and `authorize()`.
 
 ### VendorResource (Admin)
 
@@ -569,4 +606,4 @@ button reappears on a money record.
 |---|---|---|
 | `Vendor` | **Only while unreferenced** — blocked by `bills`, `contracts`, `maintenanceRequests`, `documents` | set the vendor to inactive (or blacklisted) — it disappears from every assignment picker without losing its bills |
 | `VendorBill` | **Never deletable** | cancel the bill |
-| `VendorBillPayment` | **Never deletable** | void the payment — money left the bank |
+| `VendorBillPayment` | **Never deletable** | void the payment — money left the bank (`VoidVendorBillPaymentService`, §5 — the correction this row named before anything implemented it) |

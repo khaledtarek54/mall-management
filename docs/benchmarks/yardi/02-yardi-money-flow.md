@@ -81,11 +81,20 @@ This matters more than it looks:
   documented, controlled act *(cited: "Yardi allows you to reopen periods, but this should be done
   sparingly and with proper documentation")*.
 
-**Atriom has the close guard but not the second coordinate.** `App\Support\PostingDateGuards`
-refuses a GL date whose period is closed — which is correct and well-built — but because
-`entry_date` *is* the document date, the operator's only options are to backdate-and-be-refused or
-to alter the document's real date. Yardi's answer, "keep the date, move the post month", is not
-expressible. See [gap §11](06-atriom-gap-analysis.md).
+> **Updated 2026-08-11 — Atriom now has both coordinates.** The paragraph below described the state
+> when this benchmark was written; the post month shipped as story MF-05 and §10 row 2 records it.
+> Kept rather than rewritten because the *reasoning* for wanting the second coordinate is still the
+> clearest statement of why it matters. `posting_month_overrides` + `App\Support\PostMonth` move the
+> **journal entry** without touching the document, so the tenant and the ETA still see its real date;
+> the override is applied in `LedgerPoster` where every payload is built, and a CLOSED target month is
+> still refused (this reaches an open month with an honest document date, it does not reopen a sealed
+> period). Exposed as `PostMonthAction` on the invoice and vendor-bill tables.
+
+*(As written, before MF-05:)* **Atriom has the close guard but not the second coordinate.**
+`App\Support\PostingDateGuards` refuses a GL date whose period is closed — which is correct and
+well-built — but because `entry_date` *is* the document date, the operator's only options are to
+backdate-and-be-refused or to alter the document's real date. Yardi's answer, "keep the date, move
+the post month", is not expressible. See [gap §11](06-atriom-gap-analysis.md).
 
 ---
 
@@ -130,14 +139,18 @@ order, the NSF fee, and the bank deposit batch.
 |---|---|---|
 | **Credit charge** | a negative charge on a charge code — reduces AR and reverses revenue on that code | `CreditNote` + `CreditNoteApplication`, invoice-level. **Stronger than Yardi's**: reversal un-applies the original rather than stacking a second offsetting document |
 | **Charge reversal** | undo a posted charge (in an open period) | invoice cancel → auto-reverses applied credit |
-| **Write-off / bad debt** | a `WRTOFF` charge code that clears the receivable to a bad-debt expense account, per charge, with an aging-driven work-list | ❌ **absent** — an uncollectible invoice can only be cancelled (which erases the revenue) or left aging forever |
+| **Write-off / bad debt** | a `WRTOFF` charge code that clears the receivable to a bad-debt expense account, per charge, with an aging-driven work-list | ✅ **BUILT** (2026-08, after this section was written) — `InvoiceWriteOff` is its own dated GL source via `InvoiceWriteOffJournalizer` → `bad_debt_expense`, with a "Write off" action on the invoice. The paragraph below states why it was needed and is kept for that reason |
 | **Late fee** | automated per charge code with grace, %-or-flat, per-lease override | `LateFeeService`, idempotent + lock-safe, but **config-global** — no per-lease override |
 
-**The write-off gap is a real accounting defect, not a feature request.** Cancelling an invoice
-that was genuinely earned and genuinely uncollectible reverses the revenue in the *current* period
-and removes the AR — which understates prior-period revenue and hides the bad debt. The correct
-treatment keeps the revenue, credits AR, and debits bad-debt expense. Atriom has no path to that
-today.
+**Why the write-off had to exist, and was not a feature request.** Cancelling an invoice that was
+genuinely earned and genuinely uncollectible reverses the revenue in the *current* period and removes
+the AR — which understates prior-period revenue and hides the bad debt. The correct treatment keeps
+the revenue, credits AR, and debits bad-debt expense. That is what `InvoiceWriteOff` now does.
+
+**One row here is still open**, and it is on the AP side rather than the AR side: a **vendor payment**
+had no reversal at all until 2026-08-11 (`VoidVendorBillPaymentService` — voiding a check is an
+everyday Voyager operation). See [the change-impact plan](../../accounting/CHANGE-IMPACT-PLAN.md) for
+the general form of this: which changes may move a posted entry, and which must become a new document.
 
 ---
 

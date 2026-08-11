@@ -198,7 +198,11 @@ class VendorBill extends Model
      */
     public function recompute(): void
     {
-        $paid = round((float) $this->payments()->sum('amount'), 2);
+        // A VOIDED payment discharges nothing — the cheque was cancelled, so the payable re-opens
+        // by exactly its amount. Excluded here, in the single source of truth for AP settlement,
+        // rather than at each caller; the ledger's matching exclusion is the journalizer's
+        // `isVoided()` guard, and both read the same predicate.
+        $paid = round((float) $this->payments()->whereNull('voided_at')->sum('amount'), 2);
         $this->paid_amount = $paid;
 
         // FR-CM-08 — an SLA penalty reduces what is payable, exactly as a credit note does

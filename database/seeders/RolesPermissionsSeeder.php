@@ -211,6 +211,11 @@ class RolesPermissionsSeeder extends Seeder
             'vendor_bills.edit' => 'Edit vendor bills',
             'vendor_bills.approve' => 'Approve a vendor bill (makes it postable)',
             'vendor_bills.pay' => 'Record a payment against a vendor bill',
+            // Its own permission rather than a fold into `.pay`, mirroring invoices.void /
+            // payments.void: recording a payment and reversing one are different acts, and a
+            // shop that wants a clerk to key cheques without letting them un-key one needs
+            // them separable.
+            'vendor_bills.void_payment' => 'Void a recorded vendor payment (reverses it on the ledger)',
         ],
         'expenses' => [
             'expenses.view' => 'View direct / petty-cash expenses',
@@ -641,7 +646,7 @@ class RolesPermissionsSeeder extends Seeder
             'accounting_periods.view', 'accounting_periods.manage',
             'general_ledger.view',
             'vendor_bills.view', 'vendor_bills.create', 'vendor_bills.edit',
-            'vendor_bills.approve', 'vendor_bills.pay',
+            'vendor_bills.approve', 'vendor_bills.pay', 'vendor_bills.void_payment',
             'expenses.view', 'expenses.create', 'expenses.edit',
             'payrolls.view', 'payrolls.create', 'payrolls.edit', 'payrolls.approve',
             'deposit_transactions.view', 'deposit_transactions.create', 'deposit_transactions.edit',

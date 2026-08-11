@@ -94,8 +94,11 @@ class VendorBillService
         if ($bill->status === 'cancelled') {
             return $bill;
         }
+        // `paid_amount` already excludes voided payments (VendorBill::recompute), so a bill whose
+        // payments have all been voided cancels cleanly — which is what makes this refusal a real
+        // instruction rather than a dead end. It was one until VoidVendorBillPaymentService existed.
         if ((float) $bill->paid_amount > 0) {
-            throw new \DomainException('Cannot cancel a bill that has payments. Reverse the payments first.');
+            throw new \DomainException('Cannot cancel a bill that has payments. Void them first (Payments → Void payment), then cancel the bill.');
         }
 
         return DB::transaction(function () use ($bill) {

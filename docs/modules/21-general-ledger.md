@@ -802,6 +802,27 @@ button reappears on a money record.
 | `LedgerAccount` | **Only while unreferenced** — blocked by `lines`, `children` | deactivate the account — removing one that has been posted to breaks every prior statement |
 | `AccountingPeriod` | **Only while unreferenced** — blocked by `entries` | a period that has been posted to is part of the books; close it rather than remove it |
 
+### Void coverage — every money document needs a way back
+
+Refusing deletion is only half a policy: the correction path it names has to *exist*. Each posting
+source reverses through one of three mechanisms, all of which end at the same place — the journalizer
+stops returning a payload and the sweep posts a reversing entry:
+
+| Mechanism | Sources | Reversal |
+|---|---|---|
+| **Explicit void/cancel action** | Invoice (`VoidInvoiceService`), Payment (`VoidPaymentService`), **VendorBillPayment (`VoidVendorBillPaymentService`)**, VendorBill / Expense / DepositTransaction (`cancel_*`), CreditNote (void) | status flip → no payload → entry voided |
+| **Soft-delete** | the remaining sources | `sync()` visits trashed rows and voids their entry |
+| **Parent lifecycle** | child sources (vendor-bill payments, stock movements, CAM allocations) | cascade from the parent's cancel |
+
+> **The gap this closed (2026-08-11).** `VendorBillPayment` had *neither*: its DeletionPolicy row
+> named "void the payment" with nothing implementing it, its relation manager was read-only, and the
+> model is unconditionally committed so the soft-delete route was refused too. A cheque keyed against
+> the wrong bill was permanent — the AP balance, the bank leg and the withholding-tax liability all
+> wrong, and the bill uncancellable because `cancel()` refuses a bill with payments. The lesson
+> generalises past this one row: **a `NEVER_DELETABLE` classification is only as good as the
+> correction it names**, and nothing was checking that the named path existed. See
+> [the change-impact plan](../accounting/CHANGE-IMPACT-PLAN.md) F1.
+
 <!-- GENERATED:gl-sources — do not edit by hand; run `php artisan atriom:dump-registries` -->
 
 ## Every GL posting source

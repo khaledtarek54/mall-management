@@ -13,11 +13,16 @@
 > **`Invoice::recomputeTotals()` is the single source of truth.** Nothing else ever writes `paid_amount` or `balance` by hand.
 
 ```
-paid_amount = Σ(captured payment allocations) + credit_applied_amount
+paid_amount = Σ(captured payment allocations)      # cash
+            + credit_applied_amount                # credit notes
+            + Σ(TenantCreditApplication.amount)    # on-account tenant credit
+            + Σ(DepositApplication.amount)         # netted security deposit
 balance     = round( max(0, total − paid_amount), 2 )     # floored at 0; cancelled ⇒ 0
 ```
 
-Every way money can move — a gateway callback, an admin recording a cheque, a credit note applied, a late fee added, an invoice cancelled — funnels back through this one function, recomputed from the same inputs the same way. That is why the books cannot silently drift, and why the reconciliation harness (§12) can prove the tie-out at any time.
+**Four settlement channels, and every calculation that decides "how much of this invoice is settled" must count all four.** Only the first is cash — which is why the void guard (`Invoice::capturedCashPaid()`) nets the other three out, and why adding a fifth would also mean updating the cancel-invoice release and **both** payment over-allocation guards. Item-level allocation (`invoice_item_payment`) is **not** a fifth channel: it records how an already-counted settlement splits across the lines, and `App\Support\InvoiceItemSettlement` derives every per-line figure from `paid_amount` so the item outstandings always sum back to `balance`.
+
+Every way money can move — a gateway callback, an admin recording a cheque, a credit note applied, a deposit netted at move-out, a late fee added, an invoice cancelled — funnels back through this one function, recomputed from the same inputs the same way. That is why the books cannot silently drift, and why the reconciliation harness (§12) can prove the tie-out at any time.
 
 Currency is **EGP** throughout; every money value is `round(x, 2)`. Only **`captured`** payments count toward AR. Reporting and collection exclude **`cancelled`** and **`credited`** invoices.
 
