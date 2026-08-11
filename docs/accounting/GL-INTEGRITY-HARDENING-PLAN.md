@@ -168,7 +168,12 @@ Close the orphan + windowed-miss holes. Small, surgical, independently shippable
   (via `saveQuietly`, which skips the event anyway), and guarding derived floats risks round-trip false
   positives; those stay UI-locked. All legitimate flows (late fee, CAM, capture, credit apply, every
   forward status transition) still pass — full suite green.
-- **Deliberate scope calls** (backed by the discovery):
+- **Deliberate scope calls** (backed by the discovery). *Superseded in part 2026-08-11: the direct
+  **Expense** was in this bucket by omission rather than by decision — Phase 1 said "the AP/expense side
+  already locks after `draft`", but `Expense` has no draft, so `status !== 'recorded'` locked it only once
+  cancelled, i.e. never in practice. `App\Support\ChangeImpact` made that visible and it is now locked on
+  the Yardi standard; see [CHANGE-IMPACT-PLAN §7.1](CHANGE-IMPACT-PLAN.md). MarketingSpend and FixedAsset
+  below stand as written.*
   - **MarketingSpend NOT locked** — edits fully reconcile via its budget + GL cascade; locking removes a
     valid correction with no integrity gain.
   - **FixedAsset NOT locked** — terminal immutability is already enforced (`EditFixedAsset` `abort_unless(active)`

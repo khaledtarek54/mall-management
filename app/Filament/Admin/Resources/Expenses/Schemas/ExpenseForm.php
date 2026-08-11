@@ -19,6 +19,14 @@ class ExpenseForm
         // A cancelled expense is a terminal record — read-only.
         $locked = fn (?Expense $record) => $record !== null && $record->status !== 'recorded';
 
+        // The MONEY fields are locked the moment the expense exists, not merely once it is
+        // cancelled: `recorded` IS posted here (there is no draft), so an edit would silently
+        // re-derive a posted GL entry. The model refuses these in `updating`; this is the UI
+        // mirror, so the operator sees a disabled field and the reason rather than a toast after
+        // submitting. Same predicate on both layers, per the house rule that a rule stated twice
+        // must be stated once. Correction path: cancel and re-enter.
+        $moneyLocked = fn (?Expense $record) => $record !== null;
+
         return $schema->columns(1)->components([
             Section::make(__('admin.sections.expense_details'))
                 ->columns(3)
@@ -43,7 +51,8 @@ class ExpenseForm
                         ->options(fn () => __('admin.enums.vendor_bill_category'))
                         ->required()
                         ->native(false)
-                        ->disabled($locked),
+                        ->disabled($moneyLocked)
+                        ->helperText(fn (?Expense $record) => $record !== null ? __('admin.errors.expense_immutable') : null),
 
                     Select::make('paid_from')
                         ->label(__('admin.fields.paid_from'))
@@ -51,7 +60,8 @@ class ExpenseForm
                         ->default('cash')
                         ->native(false)
                         ->required()
-                        ->disabled($locked),
+                        ->disabled($moneyLocked)
+                        ->helperText(fn (?Expense $record) => $record !== null ? __('admin.errors.expense_immutable') : null),
 
                     DatePicker::make('expense_date')
                         ->label(__('admin.fields.expense_date'))
@@ -84,7 +94,8 @@ class ExpenseForm
                         ->default(0)
                         ->live(onBlur: true)
                         ->afterStateUpdated(fn (Set $set, Get $get) => self::syncTotal($set, $get))
-                        ->disabled($locked),
+                        ->disabled($moneyLocked)
+                        ->helperText(fn (?Expense $record) => $record !== null ? __('admin.errors.expense_immutable') : null),
 
                     TextInput::make('vat_amount')
                         ->label(__('admin.fields.vat_amount'))
@@ -95,7 +106,8 @@ class ExpenseForm
                         ->default(0)
                         ->live(onBlur: true)
                         ->afterStateUpdated(fn (Set $set, Get $get) => self::syncTotal($set, $get))
-                        ->disabled($locked),
+                        ->disabled($moneyLocked)
+                        ->helperText(fn (?Expense $record) => $record !== null ? __('admin.errors.expense_immutable') : null),
 
                     // Total is derived (amount + VAT) so it can never drift — the model
                     // re-enforces it on every write; this is a live UX preview only.

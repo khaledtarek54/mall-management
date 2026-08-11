@@ -287,20 +287,23 @@ class ChangeImpact
 
         Expense::class => [
             'committed' => 'recorded — which is also its normal working state, so it is posted AND editable',
+            self::REFUSED => [
+                // Decided on the Yardi standard 2026-08-11: Voyager does not let a posted payable
+                // be edited. `recorded` IS posted here — there is no draft — so these are immutable
+                // from birth and the correction is cancel + re-enter, exactly as on VendorBill.
+                'amount' => 'the expense itself; `total` is derived from it on every write, so editing it re-derives the posted entry',
+                'vat_amount' => 'the recoverable input VAT',
+                'category' => 'chooses the expense account the net books to',
+                'paid_from' => 'chooses whether the credit left cash or the bank',
+            ],
             self::DERIVED => [
                 'status' => 'only `recorded` posts; cancelling reverses',
-                'category' => 'chooses the expense account',
-                'vat_amount' => 'the recoverable input VAT',
-                'total' => 'the credit to cash/bank; the expense debit is derived as total − vat',
-                'paid_from' => 'chooses cash vs bank',
-                'expense_date' => 'it IS the entry date',
-                'asset_id' => 'the books dimension',
+                'total' => 'the credit to cash/bank, and the expense debit is derived as total − vat. Not independently settable — the `saving` hook recomputes it from amount + vat, both of which are refused',
+                'expense_date' => 'it IS the entry date. Editable on purpose, with its own posting-date guard: re-dating a correctly-keyed expense does not restate what was spent',
+                'asset_id' => 'the books dimension, guarded by assertAssetInScope',
             ],
             self::NEUTRAL => [
                 'reference', 'description', 'created_by_user_id',
-                // Not read by the journalizer: the net expense is derived as `total − vat_amount`,
-                // so this column is a display figure as far as the books go.
-                'amount',
             ],
             self::DESCRIPTIVE => ['number' => 'names the entry'],
         ],

@@ -150,6 +150,34 @@ class Expense extends Model
             $expense->total = round((float) $expense->amount + (float) $expense->vat_amount, 2);
         });
 
+        // A RECORDED expense is posted (Dr Expense / Cr Cash) the moment it exists — there is no
+        // draft state — so its money fields are immutable from birth. The correction is to cancel
+        // it and re-enter, which is what `cancel_expense` already does and what the vendor-bill
+        // guard already says in almost these words.
+        //
+        // **Decided on the Yardi standard (2026-08-11).** Voyager does not let a posted payable be
+        // edited; you reverse and re-enter. Atriom locked invoices, payments, credit notes and
+        // vendor bills at finalisation and left the direct expense open — an asymmetry that was an
+        // accident rather than a decision, and the one place where an operator could silently
+        // re-derive a posted GL entry by typing over an amount. `App\Support\ChangeImpact` made it
+        // visible; this closes it.
+        //
+        // `expense_date` and `asset_id` stay editable on purpose, exactly as on VendorBill: each
+        // already carries its own guard (the posting-date check and `assertAssetInScope`), and
+        // re-dating or re-homing a correctly-keyed expense is a legitimate correction that does not
+        // restate what was spent. `status` stays open so cancelling still works.
+        static::updating(function (self $expense) {
+            if ($expense->getOriginal('status') !== 'recorded') {
+                return; // an already-cancelled expense is terminal and guarded elsewhere
+            }
+
+            foreach (['amount', 'vat_amount', 'category', 'paid_from'] as $field) {
+                if ($expense->isDirty($field)) {
+                    throw new \DomainException(__('admin.errors.expense_immutable'));
+                }
+            }
+        });
+
         static::creating(function (self $expense) {
             if (empty($expense->number)) {
                 // Resolved once: the prefix that keys the lock and the sequence the

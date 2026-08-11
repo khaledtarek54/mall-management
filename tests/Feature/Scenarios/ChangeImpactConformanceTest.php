@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\CreditNote;
+use App\Models\Expense;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\VendorBill;
@@ -162,6 +163,21 @@ function committedFixtures(): array
             ]);
         },
 
+        Expense::class => function () {
+            // `recorded` is the state an expense is BORN in — there is no draft — so this fixture
+            // is a plain create, which is also the only way the system makes one.
+            return Expense::create([
+                'asset_id' => makeAsset()->id,
+                'category' => 'utilities',
+                'description' => 'Generator diesel',
+                'amount' => 1000,
+                'vat_amount' => 0,
+                'paid_from' => 'cash',
+                'expense_date' => now()->toDateString(),
+                'status' => 'recorded',
+            ]);
+        },
+
         VendorBillPayment::class => function () {
             $bill = committedFixtures()[VendorBill::class]();
 
@@ -267,7 +283,16 @@ it('refuses every field it says it refuses, on a committed record', function () 
                 $record->save();
                 $problems[] = class_basename($model).".{$field} is classified REFUSED but the write succeeded";
             } catch (DomainException) {
-                // Correct — the guard fired.
+                // Correct — the model guard fired, which is the thing being proved.
+            } catch (\Illuminate\Database\QueryException) {
+                // The DATABASE refused it — a foreign key, or a CHECK constraint on an enum-ish
+                // column. The write did not land, so the books are safe, but the model guard is
+                // NOT proved: it may be missing entirely and this would look identical. Reported
+                // as its own outcome rather than swallowed, because a refusal from the wrong layer
+                // carries no correction path — the operator gets a database error instead of
+                // "cancel and re-enter".
+                $problems[] = class_basename($model).".{$field} was refused by the database, not by "
+                    .'the model guard — its REFUSED verdict is unproved';
             }
         }
     }

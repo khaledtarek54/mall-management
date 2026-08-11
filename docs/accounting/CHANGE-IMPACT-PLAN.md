@@ -223,7 +223,8 @@ Grounded in the code as it stands today, not guessed. **Bold = changes proposed.
 | Cancel a bill that has payments | **R** — "Reverse the payments first" | R | …but see F1: there is no way to reverse them |
 | **Vendor bill payment — any reversal** | ✅ **`VoidVendorBillPaymentService`** (2026-08-11) | — | Was F1, the one live hole. `voided_at` is not fillable: only the service may set it, so a void always carries its reason and its reversal |
 | **Vendor bill payment — money fields** | ✅ **R** (2026-08-11) | R | Promoted once the void existed. A refusal is only as good as the path it names, so the correction had to ship first |
-| Direct expense (`recorded`) amount / date / category | **D** — the form only locks once *cancelled* ([ExpenseForm.php:19](../../app/Filament/Admin/Resources/Expenses/Schemas/ExpenseForm.php#L19)) | **decision** — D-with-visibility, or R | An expense is posted the moment it is recorded, and then freely editable. AR's equivalent is locked. §7 |
+| Direct expense — amount / VAT / category / funding source | ✅ **R** (2026-08-11) | R | `recorded` IS posted (there is no draft), so it is immutable from birth; correction is cancel + re-enter. Decided on the Yardi standard, §7.1. Locked at both layers off one predicate |
+| Direct expense — date / property | **D** | D | Each carries its own guard (posting-date, `assertAssetInScope`); re-dating or re-homing a correctly-keyed expense does not restate what was spent — the same split VendorBill makes |
 | Marketing spend, fixed asset cost | **D** — deliberately unlocked, reasons recorded | D | Keep; move the reasons into the registry |
 
 ---
@@ -299,11 +300,28 @@ the right pattern. This extends it from the *reports* to the *documents*.
 
 Engineering should not guess these:
 
-1. **Should a recorded expense lock?** Today an invoice locks at issue and an expense never does. Either
-   is defensible — an expense has no counterparty document to contradict — but the asymmetry should be a
-   decision, not an accident.
-2. **Auto-apply open credit** to the next charge, as Voyager does? Still open from the money-flow
-   benchmark; a credit raised in dispute silently disappearing into next month's rent is a support call.
+1. ~~**Should a recorded expense lock?**~~ — **decided 2026-08-11 on the Yardi standard: YES, and it
+   is now built.** Voyager does not let a posted payable be edited; you reverse and re-enter. `recorded`
+   IS posted here (there is no draft), so `amount` / `vat_amount` / `category` / `paid_from` are REFUSED
+   and the correction is cancel + re-enter — the same sentence the vendor-bill guard already used.
+   `expense_date` and `asset_id` stay editable on purpose, exactly as on VendorBill: each carries its own
+   guard, and re-dating or re-homing a correctly-keyed expense does not restate what was spent. Locked at
+   both layers, off one predicate.
+2. ~~**Auto-apply open credit** to the next charge, as Voyager does?~~ — **decided 2026-08-11 on the
+   Yardi standard: YES, with a per-lease opt-out. Specified here, not yet built.** Voyager's receipt
+   application order runs *existing open credits first*, and an unapplied remainder auto-applies against
+   the next posted charge; waiting for an operator is the deviation, not the reverse. The earlier
+   hesitation — a credit raised in dispute vanishing into next month's rent — is real but is an argument
+   for the **opt-out Yardi itself ships**, not for withholding the default.
+
+   **The build, when it happens:** apply at invoice ISSUE (not at credit creation), through the existing
+   `ApplyTenantCreditService` so it stays one dated GL source (`Dr Unearned / Cr AR`) and one over-
+   allocation guard rather than a second path to the same money. Oldest credit first, capped at the
+   invoice balance, lock-safe and idempotent per the four-channel invariant — **all four channels must
+   still be counted**, so a credit auto-applied at issue must be visible to `capturedCashPaid()`, the
+   cancel-invoice release and both payment guards, exactly as a manual one is. The opt-out is a lease
+   flag (`auto_apply_credit`, default on) so a disputed balance can be held; and a credit the tenant has
+   asked to be refunded should be reversed rather than parked, which is already its own path.
 3. **Reversal period** — keep the current "original period if open" (stricter than Yardi), or move to
    Yardi's "current post month"? Recommendation: keep, and add the reported-month guard (§6.4).
 4. ~~**How much of a "reported" month is locked**~~ — **decided 2026-08-11: warn, and steer to the
@@ -340,7 +358,7 @@ Verified against the source on 2026-08-11, ranked. Everything below was checked 
 |---|---|---|---|
 | **F1** ✅ **FIXED 2026-08-11** | **High** | **A vendor-bill payment cannot be reversed by any path.** Three dead ends that all point at each other: `DeletionPolicy` names the correction as "void the payment — money left the bank" ([DeletionPolicy.php:61](../../app/Support/DeletionPolicy.php#L61)) and no void exists; `VendorBillService::cancel` refuses with "Reverse the payments first" ([VendorBillService.php:98](../../app/Services/VendorBillService.php#L98)) and there is nothing to reverse them with; the payments relation manager has empty `headerActions`/`recordActions`/`toolbarActions` ([VendorBillPaymentsRelationManager.php:55](../../app/Filament/Admin/Resources/VendorBills/RelationManagers/VendorBillPaymentsRelationManager.php#L55)); and the model has no `isCommittedForDeletionPurposes()` override, so the trait's `true` default refuses the soft-delete that would otherwise self-heal the GL. A cheque keyed against the wrong bill is permanent. **Voiding a check is an everyday Voyager operation.** | ← |
 | **F2** ✅ **FIXED 2026-08-11** | **High** | **No document ↔ journal-entry surface, in either direction.** No relation manager or ledger panel on Invoice / VendorBill / Payment; no source column or drill-through on the journal-entries table. The data is all there (`source_type`, `source_id`, `reversal_of_id`) | §6.1–6.2 |
-| **F3** 🟡 **HALF-FIXED 2026-08-11** — the trail now shows the reversal chain and a drift note on the document; there is still no push notification to the operator who caused it | **Med** | **A re-derive is silent.** A change to a posted document voids and re-posts via a queued job, with a generic description and no notification to the operator who caused it | [LedgerPoster.php:236](../../app/Services/Accounting/LedgerPoster.php#L236) |
+| **F3** ✅ **CLOSED 2026-08-11** — the trail shows the reversal chain and a drift note on the document, and a reported-month restatement raises a real alert. Going further is a **deliberate non-goal**: a notification on EVERY re-derive would fire on each late fee and each CAM run, and an alert that arrives dozens of times a month is one nobody reads. The cases that carry consequence are covered | **Med** | **A re-derive is silent.** A change to a posted document voids and re-posts via a queued job, with a generic description and no notification to the operator who caused it | [LedgerPoster.php:236](../../app/Services/Accounting/LedgerPoster.php#L236) |
 | **F4** ✅ **FIXED 2026-08-11** | **Med** | **A correction can restate a reported month.** The reversal lands in the original period whenever it is open; "reported" (owner statement issued, VAT filed) has no representation | [JournalPostingService.php:339](../../app/Services/Accounting/JournalPostingService.php#L339) |
 | **F5** | **Med** | **The edit policy is asymmetric and undocumented.** Invoice / Payment / CreditNote / VendorBill lock at finalize; Expense, MarketingSpend and FixedAsset deliberately do not. The reasons exist in a plan doc, not a registry, and nothing fails when a new source ships with no policy at all | §3, §4 |
 | **F6** ✅ **FIXED 2026-08-11 — and it was worse than filed** | **Low→Med** | **A first CAM reconciliation of a past year divides by today's area.** The *occupied* denominator is time-weighted and every **re-run freezes the shares** ([CamReconciliationService.php:34-56](../../app/Services/CamReconciliationService.php#L34)) — that half is correct and well-guarded. The **GLA** basis reads `Asset.leasable_area_sqm` / a live `sum('area_sqm')` over the zone ([:322](../../app/Services/CamReconciliationService.php#L322)), neither of which is dated. Narrow: it bites only the first reconciliation of a year that ended before a remeasure. **On fixing it, the NUMERATOR turned out to be undated too** — `Lease::totalAreaSqmForPeriod()` time-weighted tenure while reading the current `area_sqm`, so the unit-area register never reached CAM at all. Both now compose through `Unit::areaSqmDaysBetween()` (m²·days). `Asset.leasable_area_sqm` remains undated and is stated as such | ← |
