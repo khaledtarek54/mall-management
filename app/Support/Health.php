@@ -67,6 +67,7 @@ class Health
             'demo_accounts' => self::checkDemoAccounts(),
             'demo_payments' => self::checkDemoPayments(),
             'mobile_reset_url' => self::checkMobileResetUrl(),
+            'runtime_drivers' => self::checkRuntimeDrivers(),
         ];
 
         $ok = collect($checks)->every(fn (array $c): bool => $c['ok']);
@@ -586,6 +587,49 @@ class Health
         }
 
         return ['ok' => true, 'detail' => 'configured'];
+    }
+
+    /**
+     * Cache, session and queue must not run on the database in production.
+     *
+     * `.env.example` ships all three as `database`, and `docs/INFRASTRUCTURE.md` §5 calls Redis
+     * non-negotiable — with nothing in between enforcing it. That gap is not merely slow: MySQL is
+     * **off-box** in the documented estate, so on the shipped defaults every session read and
+     * write, every spatie permission-catalogue read, every queue poll and **every `Cache::lock()`**
+     * crosses the network.
+     *
+     * The locks are what make it a correctness concern rather than a performance one. This codebase
+     * leans on them hard — `AllocatesDocumentNumber` takes a *blocking* lock around every numbered
+     * document's insert, and `MonthlyBillingService`'s double-bill guard is a cache lock with **no
+     * DB unique index behind it**, so the lock IS the guard. A lock whose store is a slow remote
+     * database is a guard with a longer window.
+     *
+     * Production only. Local and CI run on `database` deliberately and must stay quiet.
+     *
+     * @return array{ok: bool, detail: string}
+     */
+    private static function checkRuntimeDrivers(): array
+    {
+        if (! app()->environment('production')) {
+            return ['ok' => true, 'detail' => 'not checked outside production'];
+        }
+
+        $onDatabase = array_keys(array_filter([
+            'cache' => config('cache.default') === 'database',
+            'session' => config('session.driver') === 'database',
+            'queue' => config('queue.default') === 'database',
+        ]));
+
+        if ($onDatabase !== []) {
+            return [
+                'ok' => false,
+                'detail' => implode(', ', $onDatabase).' still on the `database` driver in '
+                    .'production — INFRASTRUCTURE.md §5 requires Redis. Every Cache::lock() then '
+                    .'crosses the network, and the monthly-billing double-bill guard IS a cache lock.',
+            ];
+        }
+
+        return ['ok' => true, 'detail' => 'cache/session/queue off the database'];
     }
 
     /** @return array{ok: bool, detail: string} */
