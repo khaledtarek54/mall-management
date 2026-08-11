@@ -52,7 +52,7 @@ it('honours a lease that negotiated its own rate and minimum', function () {
     expect(app(LateFeeService::class)->applyTo($invoice))->toBeTrue();
 
     // 10% of 10,000, not the portfolio's 2%.
-    expect((float) $invoice->fresh()->items()->where('type', 'late_fee')->sole()->amount)->toBe(1000.0);
+    expect((float) lateFeeItems($invoice)->sole()->amount)->toBe(1000.0);
 });
 
 it('applies the lease minimum when the percentage falls below it', function () {
@@ -64,7 +64,7 @@ it('applies the lease minimum when the percentage falls below it', function () {
     app(LateFeeService::class)->applyTo($invoice);
 
     // 1% of 10,000 = 100, floored at the negotiated 500.
-    expect((float) $invoice->fresh()->items()->where('type', 'late_fee')->sole()->amount)->toBe(500.0);
+    expect((float) lateFeeItems($invoice)->sole()->amount)->toBe(500.0);
 });
 
 it('waits out a longer negotiated grace period, then charges', function () {
@@ -74,12 +74,12 @@ it('waits out a longer negotiated grace period, then charges', function () {
     // Day 10: the portfolio default (7 days) would have charged by now. This lease bought 30.
     CarbonImmutable::setTestNow('2028-01-11');
     expect(app(LateFeeService::class)->applyTo($invoice))->toBeFalse()
-        ->and($invoice->fresh()->items()->where('type', 'late_fee')->count())->toBe(0);
+        ->and(lateFeeItems($invoice)->count())->toBe(0);
 
     // Day 31: grace has run out.
     CarbonImmutable::setTestNow('2028-02-01');
     expect(app(LateFeeService::class)->applyTo($invoice->fresh()))->toBeTrue()
-        ->and($invoice->fresh()->items()->where('type', 'late_fee')->count())->toBe(1);
+        ->and(lateFeeItems($invoice)->count())->toBe(1);
 });
 
 it('still reaches a long-grace lease through the BATCH run, not just the direct call', function () {
@@ -90,11 +90,11 @@ it('still reaches a long-grace lease through the BATCH run, not just the direct 
 
     CarbonImmutable::setTestNow('2028-01-11');
     app(LateFeeService::class)->runForToday(CarbonImmutable::parse('2028-01-11'));
-    expect($invoice->fresh()->items()->where('type', 'late_fee')->count())->toBe(0);
+    expect(lateFeeItems($invoice)->count())->toBe(0);
 
     CarbonImmutable::setTestNow('2028-02-05');
     app(LateFeeService::class)->runForToday(CarbonImmutable::parse('2028-02-05'));
-    expect($invoice->fresh()->items()->where('type', 'late_fee')->count())->toBe(1);
+    expect(lateFeeItems($invoice)->count())->toBe(1);
 });
 
 it('falls back to the portfolio setting when the lease states no terms', function () {
@@ -106,7 +106,7 @@ it('falls back to the portfolio setting when the lease states no terms', functio
     app(LateFeeService::class)->applyTo($invoice);
 
     // The SETTING's 2%, which is the value the admin Settings page writes.
-    expect((float) $invoice->fresh()->items()->where('type', 'late_fee')->sole()->amount)->toBe(200.0);
+    expect((float) lateFeeItems($invoice)->sole()->amount)->toBe(200.0);
 });
 
 it('reads the operator-editable setting rather than the config file', function () {
@@ -123,7 +123,7 @@ it('reads the operator-editable setting rather than the config file', function (
 
     app(LateFeeService::class)->applyTo($invoice);
 
-    expect((float) $invoice->fresh()->items()->where('type', 'late_fee')->sole()->amount)->toBe(300.0);
+    expect((float) lateFeeItems($invoice)->sole()->amount)->toBe(300.0);
 });
 
 it('never charges before the due date has even passed', function () {

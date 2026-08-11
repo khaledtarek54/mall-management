@@ -43,7 +43,10 @@ it('notifies the tenant when a late fee is applied', function () {
     Notification::assertSentTo(
         $invoice->tenant,
         LateFeeAppliedNotification::class,
-        fn (LateFeeAppliedNotification $n) => $n->invoice->is($invoice),
+        // Both invoices, and specifically the right way round: the overdue one is what the tenant
+        // recognises, the fee invoice is the new charge raised against it.
+        fn (LateFeeAppliedNotification $n) => $n->overdueInvoice->is($invoice)
+            && $n->feeInvoice->is($invoice->fresh()->lateFeeInvoice),
     );
 });
 
@@ -75,22 +78,26 @@ it('actually writes the notification rows through the real queue path (dispatche
     $stats = app(LateFeeService::class)->runForToday();
 
     expect($stats['applied'])->toBe(1)
-        ->and($invoice->refresh()->items()->where('type', 'late_fee')->exists())->toBeTrue()
+        ->and(lateFeeItems($invoice)->exists())->toBeTrue()
         // Committed with the fee: a bell row for the Tenant AND the portal login.
         ->and(DB::table('notifications')->where('data', 'like', '%late_fee_applied%')->count())->toBe(2);
 });
 
 it('LateFeeAppliedNotification routes through mail, database and push', function () {
     $invoice = overdueInvoiceForFee();
-    $via = (new LateFeeAppliedNotification($invoice))->via($invoice->tenant);
+    $via = (new LateFeeAppliedNotification($invoice, $invoice))->via($invoice->tenant);
 
     expect($via)->toEqualCanonicalizing(['mail', 'database', 'push']);
 });
 
-it('LateFeeAppliedNotification payload carries the fee and current balance', function () {
-    $invoice = overdueInvoiceForFee(['balance' => 5000]);
+it('LateFeeAppliedNotification payload names BOTH invoices', function () {
+    // Two documents since FS-27: the overdue invoice the tenant recognises, and the fee invoice
+    // they have never seen. The payload deep-links to the FIRST — that is the thing to pay — and
+    // carries the second alongside, so a tenant is never shown a charge with no bill behind it.
+    $overdue = overdueInvoiceForFee(['balance' => 5000]);
+    $feeInvoice = overdueInvoiceForFee(['balance' => 100, 'total' => 100]);
     InvoiceItem::create([
-        'invoice_id' => $invoice->id,
+        'invoice_id' => $feeInvoice->id,
         'description' => 'Late fee',
         'type' => 'late_fee',
         'amount' => 100,
@@ -99,11 +106,13 @@ it('LateFeeAppliedNotification payload carries the fee and current balance', fun
         'total' => 100,
     ]);
 
-    $payload = (new LateFeeAppliedNotification($invoice))->toDatabase($invoice->tenant);
+    $payload = (new LateFeeAppliedNotification($feeInvoice, $overdue))->toDatabase($overdue->tenant);
 
     expect($payload['type'])->toBe('late_fee_applied')
         ->and($payload['fee'])->toBe(100.0)
-        ->and($payload['invoice_id'])->toBe($invoice->id)
+        ->and($payload['invoice_id'])->toBe($overdue->id)
+        ->and($payload['balance'])->toBe(5000.0)
+        ->and($payload['fee_invoice_id'])->toBe($feeInvoice->id)
         ->and($payload['format'])->toBe('filament');
 });
 

@@ -68,7 +68,7 @@ it('charges the late fee on the undisputed part only', function () {
 
     app(LateFeeService::class)->runForToday(CarbonImmutable::parse('2026-04-01'));
 
-    $fee = $invoice->fresh()->items()->where('type', 'late_fee')->sole();
+    $fee = lateFeeItems($invoice)->sole();
 
     expect((float) $fee->total)->toBe(600.0);   // 2% of 30,000
 });
@@ -83,7 +83,7 @@ it('charges nothing at all when the whole balance is disputed', function () {
 
     app(LateFeeService::class)->runForToday(CarbonImmutable::parse('2026-04-01'));
 
-    expect($invoice->fresh()->items()->where('type', 'late_fee')->exists())->toBeFalse();
+    expect(lateFeeItems($invoice)->exists())->toBeFalse();
 });
 
 it('still charges the full fee when nothing is disputed', function () {
@@ -93,7 +93,7 @@ it('still charges the full fee when nothing is disputed', function () {
 
     app(LateFeeService::class)->runForToday(CarbonImmutable::parse('2026-04-01'));
 
-    expect((float) $invoice->fresh()->items()->where('type', 'late_fee')->sole()->total)->toBe(800.0);   // 2% of 40,000
+    expect((float) lateFeeItems($invoice)->sole()->total)->toBe(800.0);   // 2% of 40,000
 });
 
 it('leaves the balance and the header status alone', function () {
@@ -129,7 +129,7 @@ it('disputes only what is still owed on a part-paid line', function () {
     app(LateFeeService::class)->runForToday(CarbonImmutable::parse('2026-04-01'));
 
     // Balance 4,000, all of it disputed → nothing chargeable.
-    expect($invoice->fresh()->items()->where('type', 'late_fee')->exists())->toBeFalse();
+    expect(lateFeeItems($invoice)->exists())->toBeFalse();
 });
 
 it('refuses a dispute with no stated reason', function () {
@@ -185,7 +185,7 @@ it('makes the line chargeable again once the dispute is resolved', function () {
 
     app(LateFeeService::class)->runForToday(CarbonImmutable::parse('2026-04-01'));
 
-    expect((float) $invoice->fresh()->items()->where('type', 'late_fee')->sole()->total)->toBe(800.0);
+    expect((float) lateFeeItems($invoice)->sole()->total)->toBe(800.0);
 });
 
 it('shows the disputed amount beside the aged figure, not deducted from it', function () {

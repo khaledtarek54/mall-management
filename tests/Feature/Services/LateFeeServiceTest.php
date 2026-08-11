@@ -25,7 +25,7 @@ it('applies late fees to invoices past due_date + grace window', function () {
     $stats = app(LateFeeService::class)->runForToday(CarbonImmutable::parse('2026-02-15'));
 
     expect($stats['applied'])->toBe(1);
-    expect($stale->fresh()->items()->where('type', 'late_fee')->count())->toBe(1);
+    expect(lateFeeItems($stale)->count())->toBe(1);
 });
 
 it('charges the MINIMUM floor when the percentage is below it (small balance)', function () {
@@ -37,7 +37,7 @@ it('charges the MINIMUM floor when the percentage is below it (small balance)', 
 
     app(LateFeeService::class)->runForToday(CarbonImmutable::parse('2026-02-15'));
 
-    $fee = $small->fresh()->items()->where('type', 'late_fee')->first();
+    $fee = lateFeeItems($small)->first();
     expect((float) $fee->amount)->toBe(50.0); // the floor, NOT 20 (2% × 1000)
 });
 
@@ -77,5 +77,5 @@ it('does not touch invoices with a zero balance', function () {
     $stats = app(LateFeeService::class)->runForToday(CarbonImmutable::parse('2026-02-15'));
 
     expect($stats['applied'])->toBe(0);
-    expect($paid->fresh()->items()->where('type', 'late_fee')->count())->toBe(0);
+    expect(lateFeeItems($paid)->count())->toBe(0);
 });

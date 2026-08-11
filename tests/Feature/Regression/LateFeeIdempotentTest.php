@@ -37,7 +37,7 @@ it('applies exactly one late fee on the first applyTo() call', function () {
     $applied = app(LateFeeService::class)->applyTo($invoice);
 
     expect($applied)->toBeTrue();
-    expect($invoice->fresh()->items()->where('type', 'late_fee')->count())->toBeOne();
+    expect(lateFeeItems($invoice)->count())->toBeOne();
 });
 
 it('does not double-charge on a second applyTo() with a stale model snapshot', function () {
@@ -64,9 +64,15 @@ it('does not double-charge on a second applyTo() with a stale model snapshot', f
     expect($service->applyTo($invoice))->toBeTrue();
 
     $afterFirst = $invoice->fresh();
-    $totalAfterFirst = (float) $afterFirst->total;
-    $balanceAfterFirst = (float) $afterFirst->balance;
-    expect($totalAfterFirst)->toBe(10500.0);
+
+    // The OVERDUE invoice is untouched — since FS-27 the fee is its own dated document rather than
+    // a line appended here, so the tenant's copy still matches ours.
+    expect((float) $afterFirst->total)->toBe(10000.0);
+
+    $feeInvoice = $afterFirst->lateFeeInvoice;
+    $totalAfterFirst = (float) $feeInvoice->total;
+    $balanceAfterFirst = (float) $feeInvoice->balance;
+    expect($totalAfterFirst)->toBe(500.0);
 
     // Second run, operating on the stale snapshot, must be rejected.
     expect($service->applyTo($staleSnapshot))->toBeFalse();
@@ -74,9 +80,32 @@ it('does not double-charge on a second applyTo() with a stale model snapshot', f
     $afterSecond = $invoice->fresh();
 
     // STILL exactly one late_fee line item — no duplicate was inserted.
-    expect($afterSecond->items()->where('type', 'late_fee')->count())->toBeOne();
+    expect(lateFeeItems($afterSecond)->count())->toBeOne();
 
-    // The invoice total/balance rose exactly once.
-    expect((float) $afterSecond->total)->toBe($totalAfterFirst);
-    expect((float) $afterSecond->balance)->toBe($balanceAfterFirst);
+    // The fee invoice is the same one, at the same amount — no second one was minted.
+    expect($afterSecond->late_fee_invoice_id)->toBe($feeInvoice->id);
+    expect((float) $afterSecond->lateFeeInvoice->total)->toBe($totalAfterFirst);
+    expect((float) $afterSecond->lateFeeInvoice->balance)->toBe($balanceAfterFirst);
+    expect(Invoice::where('lease_id', $invoice->lease_id)->count())->toBe(2);
+});
+
+it('charges again once the fee invoice is cancelled', function () {
+    // Cancelling voids the fee invoice's GL entry and leaves the tenant owing nothing on it, so the
+    // operator may charge again — the same rule `BillViolationFineService` uses. Without this the
+    // idempotency stamp would be a one-way door: a fee raised in error could never be re-raised.
+    $lease = makeLease(makeUnit(makeAsset()));
+    $invoice = makeInvoice($lease, [
+        'due_date' => '2026-01-01',
+        'status' => 'overdue',
+        'balance' => 10000,
+    ]);
+
+    $service = app(LateFeeService::class);
+
+    expect($service->applyTo($invoice))->toBeTrue();
+
+    $invoice->fresh()->lateFeeInvoice->update(['status' => 'cancelled']);
+
+    expect($service->applyTo($invoice->fresh()))->toBeTrue()
+        ->and(Invoice::where('lease_id', $invoice->lease_id)->count())->toBe(3);
 });

@@ -2172,6 +2172,7 @@ return [
         'late_fee_applied_title' => 'Late fee applied',
         'late_fee_applied_body' => 'A late fee of :fee was added to invoice :number. Balance now :balance.',
         'late_fee_applied_mail' => 'A late fee of :fee has been applied to overdue invoice :number. Your outstanding balance is now :balance.',
+        'late_fee_invoice_line' => 'The fee has been raised as invoice :number, due :due.',
         'late_fee_applied_hint' => 'Please settle the balance to avoid further late fees.',
         'invoice_overdue_reminder_subject' => 'Reminder: invoice :number is overdue',
         'invoice_overdue_reminder_title' => 'Invoice overdue',

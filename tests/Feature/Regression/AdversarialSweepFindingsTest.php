@@ -121,7 +121,7 @@ it('does not apply a late fee if the invoice was paid between snapshot and lock'
     $applied = app(LateFeeService::class)->applyTo($stale);
 
     expect($applied)->toBeFalse()
-        ->and($invoice->fresh()->items()->where('type', 'late_fee')->count())->toBe(0);
+        ->and(lateFeeItems($invoice)->count())->toBe(0);
 });
 
 // ── Finding: lease termination must not cancel an ETA-filed invoice ───────────

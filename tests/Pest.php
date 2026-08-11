@@ -361,6 +361,28 @@ function withoutDeletionRefusal(Model $model, callable $operation): Model
     return $model;
 }
 
+/**
+ * The late-fee line(s) charged BECAUSE this invoice went unpaid.
+ *
+ * Since 2026-08-11 (FS-27) a late fee is its own dated invoice rather than a line appended to the
+ * overdue one — appending it restated an issued document and, because the entry is dated from
+ * `issue_date`, booked April's penalty as January revenue. Tests ask the same question they always
+ * did; only where the answer lives has moved, and it moved to the far side of
+ * `Invoice::late_fee_invoice_id`.
+ *
+ * Returns a query so `->count()`, `->first()` and `->sole()` all read as before. An invoice with no
+ * fee yields an empty query rather than an error, which is what makes the "not charged" assertions
+ * work unchanged.
+ *
+ * @return \Illuminate\Database\Eloquent\Builder<\App\Models\InvoiceItem>
+ */
+function lateFeeItems(\App\Models\Invoice $invoice): \Illuminate\Database\Eloquent\Builder
+{
+    return \App\Models\InvoiceItem::query()
+        ->where('type', 'late_fee')
+        ->where('invoice_id', $invoice->fresh()?->late_fee_invoice_id);
+}
+
 /*
 |--------------------------------------------------------------------------
 | Expectations

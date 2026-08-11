@@ -712,7 +712,11 @@ class MonthlyBillingService
             // whose cheque bounced silently lost that month's rent invoice. Each of the previous
             // three was fixed one at a time; the shape is "a standalone one-off invoice dated into
             // a month the recurring run also bills".
-            ->whereDoesntHave('items', fn ($q) => $q->whereIn('type', ['percentage_rent', 'cam_recovery', 'cam_admin_fee', 'utility', 'violation_fine', 'nsf_fee']))
+            // 'late_fee' joins the same day, added WITH the change that made it a standalone
+            // invoice (FS-27) rather than after someone lost a month's rent to it. The class is now
+            // explicit: **anything that raises its own invoice dated into a billed month belongs
+            // here, and belongs here in the same commit that starts raising it.**
+            ->whereDoesntHave('items', fn ($q) => $q->whereIn('type', ['percentage_rent', 'cam_recovery', 'cam_admin_fee', 'utility', 'violation_fine', 'nsf_fee', 'late_fee']))
             ->exists();
     }
 

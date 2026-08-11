@@ -67,6 +67,7 @@ class Invoice extends Model
         'tenant_id',
         'status',
         'is_opening_balance',
+        'late_fee_invoice_id',
         'issue_date',
         'due_date',
         'period_start',
@@ -127,6 +128,34 @@ class Invoice extends Model
     public function writeOffs(): HasMany
     {
         return $this->hasMany(InvoiceWriteOff::class);
+    }
+
+    /**
+     * The late-fee invoice raised because THIS invoice went unpaid (story MF-08).
+     *
+     * A late fee used to be a line appended to the overdue invoice, which restated an issued
+     * document and — since the entry is dated from `issue_date` — booked April's penalty as January
+     * revenue. It is now its own dated invoice, and this is the link that makes charging it
+     * idempotent under a concurrent sweep.
+     *
+     * @return BelongsTo<Invoice, $this>
+     */
+    public function lateFeeInvoice(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'late_fee_invoice_id');
+    }
+
+    /**
+     * Has a late fee already been charged for this invoice, and does it still stand?
+     *
+     * A CANCELLED fee invoice does not count: its GL entry is voided and the tenant owes nothing on
+     * it, so the operator may charge again. Same rule as `BillViolationFineService`.
+     */
+    public function hasLiveLateFee(): bool
+    {
+        $fee = $this->lateFeeInvoice;
+
+        return $fee instanceof self && $fee->status !== 'cancelled';
     }
 
     /**

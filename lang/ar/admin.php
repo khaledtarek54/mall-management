@@ -2164,6 +2164,7 @@ return [
         'late_fee_applied_title' => 'تمت إضافة رسوم تأخير',
         'late_fee_applied_body' => 'تمت إضافة رسوم تأخير قدرها :fee على الفاتورة :number. الرصيد الآن :balance.',
         'late_fee_applied_mail' => 'تمت إضافة رسوم تأخير قدرها :fee على الفاتورة المتأخرة :number. رصيدك المستحق الآن :balance.',
+        'late_fee_invoice_line' => 'صدرت الرسوم في فاتورة رقم :number، تستحق في :due.',
         'late_fee_applied_hint' => 'يرجى سداد الرصيد لتفادي رسوم تأخير إضافية.',
         'invoice_overdue_reminder_subject' => 'تذكير: الفاتورة :number متأخرة',
         'invoice_overdue_reminder_title' => 'فاتورة متأخرة',

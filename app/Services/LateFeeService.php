@@ -91,7 +91,12 @@ class LateFeeService
             // with balance > 0, but a payment captured between the snapshot and this
             // lock may have settled it. Charging a late fee on a now-paid invoice
             // would be wrong (and would still bill the minimum fee off a zero balance).
+            // The idempotency stamp is now the LINK to the fee invoice, not a line on this one —
+            // and a cancelled fee invoice does not count, so a fee raised in error can be voided
+            // and re-charged. `items()->where('type','late_fee')` is deliberately still checked:
+            // invoices charged under the old in-line behaviour must not be charged a second time.
             if (! $locked
+                || $locked->hasLiveLateFee()
                 || $locked->items()->where('type', 'late_fee')->exists()
                 || (float) $locked->balance <= 0
                 || ! in_array($locked->status, ['issued', 'partially_paid', 'overdue'], true)) {
@@ -125,31 +130,65 @@ class LateFeeService
             // what stops a hand-typed late-fee line and this one being taxed differently.
             $vatRate = Vat::rateForType('late_fee');
             $vat = Vat::atRate($fee, $vatRate);
+            $total = round($fee + $vat, 2);
+
+            // ── THE FEE IS ITS OWN INVOICE, DATED TODAY ───────────────────────────────────────
+            //
+            // It used to be appended as a line to the overdue invoice. `InvoiceJournalizer` dates
+            // its entry from `issue_date`, so April's penalty landed as JANUARY revenue —
+            // restating a month already closed, already reported to the owner and possibly already
+            // filed, from an 04:00 cron with nobody watching. It also restated an issued document,
+            // which is its own audit problem: the tenant's copy no longer matched ours.
+            //
+            // A separate dated invoice is the pattern this codebase already uses three times — CAM
+            // true-ups, percentage-rent overages and violation fines all raise their own. The
+            // period is THIS month because that is when the fee was incurred; `late_fee` is
+            // excluded from `MonthlyBillingService`'s already-billed probe so it cannot suppress
+            // the month's rent (the trap that bit `nsf_fee`).
+            // `lease_id` is NOT NULL on invoices, so the lease is always there; the fallback is for
+            // a lease that states no payment terms of its own.
+            $dueInDays = (int) ($locked->lease->payment_terms_days ?? 7);
+
+            $feeInvoice = Invoice::create([
+                'lease_id' => $locked->lease_id,
+                'tenant_id' => $locked->tenant_id,
+                'status' => 'issued',
+                'issue_date' => $today,
+                'due_date' => $today->addDays($dueInDays),
+                'period_start' => $today->startOfMonth(),
+                'period_end' => $today->endOfMonth(),
+                'subtotal' => $fee,
+                'vat_amount' => $vat,
+                'total' => $total,
+                'paid_amount' => 0,
+                'balance' => $total,
+                'currency' => $locked->currency ?? 'EGP',
+            ]);
 
             InvoiceItem::create([
-                'invoice_id' => $locked->id,
+                'invoice_id' => $feeInvoice->id,
                 // Spell out the basis so the operator (and the tenant on the invoice/PDF) can verify
-                // the charge instead of seeing a bare "Late Fee" amount.
+                // the charge instead of seeing a bare "Late Fee" amount. It now also names the
+                // invoice being penalised, which the line no longer sits on.
                 'description' => __('admin.actions.late_fee_line_description', [
                     'percent' => rtrim(rtrim(number_format($percent, 2), '0'), '.'),
                     'balance' => 'EGP '.number_format($chargeable, 2),
                     'min' => 'EGP '.number_format((float) $min, 2),
-                ]),
+                ]).' — '.$locked->number,
                 'type' => 'late_fee',
                 'amount' => $fee,
                 'vat_rate' => $vatRate,
                 'vat_amount' => $vat,
-                'total' => round($fee + $vat, 2),
+                'total' => $total,
             ]);
 
-            // Bump only the non-derived header amounts, then let the single source
-            // of truth re-derive balance from total − paid (was writing balance
-            // directly, bypassing recomputeTotals — invariant smell).
-            $locked->subtotal = (float) $locked->subtotal + $fee;
-            $locked->vat_amount = (float) $locked->vat_amount + $vat;
-            $locked->total = (float) $locked->total + $fee + $vat;
+            // The link is the idempotency stamp AND the audit trail: it is what says WHY this
+            // invoice exists. Written on the source, mirroring `Violation::billed_invoice_id`.
+            // The overdue invoice's own totals are untouched — it stays exactly the document the
+            // tenant was sent.
+            $locked->late_fee_invoice_id = $feeInvoice->id;
             $locked->status = 'overdue';
-            $locked->recomputeTotals();
+            $locked->save();
 
             // Notify the tenant from INSIDE the transaction so the (queued) delivery
             // commits atomically with the fee — a crash or rollback loses both, so
@@ -158,7 +197,7 @@ class LateFeeService
             // a job row here (no SMTP under the row lock).
             /** @var Tenant|null $tenant */
             $tenant = $locked->tenant;
-            $tenant?->notifyPortal(new LateFeeAppliedNotification($locked));
+            $tenant?->notifyPortal(new LateFeeAppliedNotification($feeInvoice, $locked));
 
             return true;
         });

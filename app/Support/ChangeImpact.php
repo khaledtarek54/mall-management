@@ -110,10 +110,14 @@ class ChangeImpact
                 'is_opening_balance' => 'flipping it decides whether the invoice posts at all — an opening item is sub-ledger only, because its revenue was earned in the previous system and already sits in the accountant\'s opening journal entry. Setting it on a posted invoice must void that entry; clearing it must post one. DERIVED, not REFUSED, because correcting a mis-flagged migration row is legitimate work during a cutover and the re-derive is exactly the right outcome',
                 'subtotal' => 'the revenue side of the entry',
                 'vat_amount' => 'the VAT payable credit',
-                'total' => 'the AR debit. Deliberately NOT refused: LateFeeService and the CAM true-up legitimately rewrite an issued invoice\'s totals (via saveQuietly, which skips the model event anyway), and guarding derived floats risks round-trip false positives. The form lock is what stops an operator',
+                'total' => 'the AR debit. Deliberately NOT refused: the CAM true-up legitimately rewrites an issued invoice\'s totals (via saveQuietly, which skips the model event anyway), and guarding derived floats risks round-trip false positives. The form lock is what stops an operator. (LateFeeService was the other example here until 2026-08-11, when the fee became its own dated invoice — appending it restated an issued document AND booked the penalty in the original invoice\'s month.)',
             ],
             self::NEUTRAL => [
                 'due_date', 'period_start', 'period_end', 'currency',
+                // The link to the late-fee invoice raised because this one went unpaid. It records
+                // WHY that document exists and makes the charge idempotent; it is read by no
+                // journalizer and changes no line, so it cannot move the books.
+                'late_fee_invoice_id',
                 // Revenue is recognised at ISSUE, so how much has since been collected does not
                 // touch this entry — a payment posts its own (Dr Bank / Cr AR). These three are
                 // the AR sub-ledger's derived state, not the invoice's GL effect.

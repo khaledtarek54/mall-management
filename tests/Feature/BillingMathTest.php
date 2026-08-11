@@ -206,8 +206,17 @@ class BillingMathTest extends TestCase
         $invoice->refresh();
         $this->assertEquals('overdue', $invoice->status);
         // 11400 * 2% = 228 (above 50 minimum)
-        $this->assertEquals(228.00, (float) $invoice->items()->where('type', 'late_fee')->first()->amount);
-        $this->assertEquals(11628.00, (float) $invoice->balance);
+        $this->assertEquals(228.00, (float) lateFeeItems($invoice)->first()->amount);
+
+        // The overdue invoice is NOT restated (FS-27). It stays exactly the document the tenant was
+        // sent; the fee is its own invoice, dated when it was incurred rather than when the rent was
+        // — which is what stops February's penalty landing in January's already-closed books.
+        $this->assertEquals(11400.00, (float) $invoice->balance);
+
+        $fee = $invoice->lateFeeInvoice;
+        $this->assertNotNull($fee);
+        $this->assertEquals(228.00, (float) $fee->balance);
+        $this->assertEquals('2026-02-01', $fee->issue_date->toDateString());
     }
 
     public function test_late_fee_respects_grace_period(): void
@@ -235,7 +244,7 @@ class BillingMathTest extends TestCase
         $stats = app(LateFeeService::class)->runForToday(CarbonImmutable::parse('2026-02-02'));
 
         $this->assertEquals(0, $stats['applied']);
-        $this->assertEquals(0, $invoice->refresh()->items()->where('type', 'late_fee')->count());
+        $this->assertEquals(0, lateFeeItems($invoice)->count());
     }
 
     public function test_cam_allocation_distributes_by_sqm(): void

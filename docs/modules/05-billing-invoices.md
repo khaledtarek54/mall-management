@@ -913,21 +913,46 @@ Currently `balance = max(0, total − paid_amount)`, where `paid_amount` already
 
 ### Implementing late fees
 
-Late fees are NOT generated automatically by MonthlyBillingService; they are applied on-demand via `LateFeeService::runForToday()` (separate module, not detailed here). To integrate with invoicing:
+Late fees are NOT generated automatically by MonthlyBillingService; they are applied on-demand (and
+by the 04:00 `billing:apply-late-fees` scheduler) via `LateFeeService::runForToday()`.
 
-1. `LateFeeService` creates an InvoiceItem with type='late_fee' and attaches it to the overdue invoice.
-2. The invoice's total increases; balance is recalculated.
-3. Test: `BillingMathTest::test_late_fee_applies_once_per_invoice` confirms idempotency and grace period.
+1. `LateFeeService` raises **its own invoice, dated today**, carrying a single `late_fee` line, and
+   links it from the overdue invoice via `invoices.late_fee_invoice_id`.
+2. **The overdue invoice is not touched.** Its totals, its lines and its GL entry all stay exactly
+   as issued.
+3. Idempotency is the link, not a line: `Invoice::hasLiveLateFee()`. A **cancelled** fee invoice
+   frees the source to be charged again (its entry is voided, so nothing double-counts) — the same
+   rule as `BillViolationFineService`.
+4. Tests: `LateFeeRecognisedWhenIncurredTest` (the date + the probe + the closed period),
+   `LateFeeIdempotentTest`, `BillingMathTest::test_late_fee_applies_once_per_invoice`.
+
+> **Until 2026-08-11 the fee was appended to the overdue invoice, and that put it in the wrong
+> month.** `InvoiceJournalizer` dates its entry from `issue_date`, so April's penalty on a January
+> invoice was recognised as **January revenue** — restating a month already closed, already reported
+> to the owner and possibly already filed, from an 04:00 cron with nobody watching. It also restated
+> an issued document, so the tenant's copy stopped matching ours. A separate dated invoice is the
+> pattern CAM true-ups, percentage-rent overages and violation fines already use.
+>
+> Two things had to move in the same change, both of a class this codebase has been bitten by
+> before: **`late_fee` joins `MonthlyBillingService`'s already-billed probe exclusion** (a
+> standalone invoice dated into the current month otherwise reads as "already billed" and the
+> recurring run silently skips that lease's rent — fixed one at a time for `percentage_rent`,
+> `utility`, `violation_fine` and `nsf_fee`), and **the closed-period guard on `Invoice` now
+> actually applies to the fee**, which it never did while the fee was a line on someone else's
+> invoice. The batch logs the refusal per invoice and continues.
 
 ---
 
 ## 9. Gotchas, edge cases & recently-fixed bugs
 
-### A late fee does not post to the GL in real time — and the schedule ordering is why that is fine
+### ~~A late fee does not post to the GL in real time~~ — it does now, and the schedule ordering stopped being load-bearing
 
-`LateFeeService::applyTo()` bumps `subtotal`/`total` and calls `recomputeTotals()`, which saves
-**quietly**. `saveQuietly()` skips model events, so the near-real-time GL hook
-(`LedgerRealtimeSync`) never fires. Measured end to end:
+**Resolved 2026-08-11 by FS-27, as a side effect of fixing the month it lands in.**
+
+It used to be true, and here is why it was: `LateFeeService::applyTo()` bumped the overdue invoice's
+`subtotal`/`total` and called `recomputeTotals()`, which saves **quietly**. `saveQuietly()` skips
+model events, so the near-real-time hook (`LedgerRealtimeSync`) never fired and the GL lagged the
+invoice until the 05:00 sweep:
 
 | moment | GL | invoice |
 | --- | --- | --- |
@@ -935,16 +960,19 @@ Late fees are NOT generated automatically by MonthlyBillingService; they are app
 | immediately after the late fee | **10,000** | **10,200** |
 | after `accounting:sync-ledger` | 10,200 | 10,200 |
 
-**This is deliberate, not a defect.** `LedgerPoster::sync()` names this exact case — *"entry differs
-(e.g. late fee bumped the total) → void the stale one + re-post"* — and chooses sweep-based
-self-healing over entangling the real-time hooks with the `recomputeTotals`/`saveQuietly` machinery.
+That drift was called deliberate, and the **schedule ordering was load-bearing**: `ApplyLateFees` at
+04:00, `accounting:sync-ledger` at 05:00, one hour of lag. Reordering them would have stretched it
+to ~24 hours and risked a month-end fee's period closing before its entry posted.
 
-**What makes it safe is the schedule ordering, which is therefore load-bearing:**
-`ApplyLateFees` runs at **04:00**, `accounting:sync-ledger` at **05:00**. The drift lasts about an
-hour. Moving the fee job after the sweep would silently stretch that to ~24 hours and put a
-month-end fee at risk of its accounting period closing before the entry posts — at which point the
-re-post is refused and it surfaces as `LedgerSyncFailed` instead. Both `routes/console.php` entries
-now say so; don't reorder them without reading that note.
+**A late fee is now its own invoice, and an `Invoice::create()` fires the hook like any other.**
+Verified by enabling `accounting.realtime_ledger_sync` (the test suite gates it off for
+deterministic posting): the fee's entry exists before any sweep runs. So the fee posts within
+seconds, the table above no longer describes anything, and **the 04:00/05:00 ordering is no longer
+what keeps late fees correct** — the fee never depended on the invoice it penalises being re-derived
+in the first place.
+
+Keep the ordering anyway: the sweep still backstops everything, and other sources still rely on it.
+Just don't cite late fees as the reason.
 
 
 

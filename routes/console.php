@@ -31,13 +31,15 @@ Schedule::job(new RunMonthlyBilling)
     ->name('atriom-monthly-billing')
     ->withoutOverlapping();
 
-// 04:00 — deliberately BEFORE the 05:00 ledger sweep, and that ordering is load-bearing.
-// A late fee mutates a posted invoice's total through recomputeTotals(), which saves quietly and
-// therefore does NOT fire the real-time GL hook (LedgerPoster::sync's docblock names this case and
-// chooses sweep-based self-healing over entangling the hooks with saveQuietly). So between the fee
-// landing and the sweep running, AR and the GL disagree by the fee. One hour is fine; moving this
-// AFTER 05:00 would silently stretch that to ~24 and put a month-end fee at risk of its period
-// closing before the entry is posted.
+// 04:00, before the 05:00 ledger sweep. That ordering used to be LOAD-BEARING and no longer is:
+// a late fee mutated a posted invoice's total through recomputeTotals(), which saves quietly and so
+// never fired the real-time GL hook, leaving AR and the GL disagreeing by the fee until the sweep.
+// Since 2026-08-11 (FS-27) the fee is its OWN invoice — dated when it was incurred, so April's
+// penalty stops being January revenue — and an ordinary Invoice::create() fires the hook like any
+// other document. The fee now posts within seconds of being charged.
+//
+// Kept at 04:00 anyway: it is a sensible slot and the sweep still backstops everything. Just do not
+// cite late fees as the reason the ordering matters.
 Schedule::job(new ApplyLateFees)
     ->dailyAt('04:00')
     ->name('atriom-late-fees')
@@ -229,9 +231,10 @@ Schedule::command('marketing:ensure-budgets')
 
 // Post/reconcile general-ledger entries for the recent window (idempotent,
 // self-healing). Keeps the books current; the one-time historical backfill is
-// `accounting:sync-ledger --all`. Runs after monthly billing settles — and after the 04:00 late-fee
-// job, which mutates invoice totals without firing the real-time hook (see its note above). Keep
-// this LAST of the money jobs: everything upstream relies on it to reconcile what it changed.
+// `accounting:sync-ledger --all`. Runs after monthly billing settles. Keep this LAST of the money
+// jobs: everything upstream relies on it to reconcile what it changed. (It used to also be the only
+// thing that posted late fees; that stopped being true when the fee became its own invoice — see
+// the note on the 04:00 job.)
 Schedule::command('accounting:sync-ledger')
     ->dailyAt('05:00')
     ->name('atriom-sync-ledger')
