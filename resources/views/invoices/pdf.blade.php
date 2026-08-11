@@ -168,9 +168,19 @@
                 <td style="width:60%;">
                     <div class="brand-name">{{ $asset?->name ?? 'Atriom' }}</div>
                     <div class="brand-sub">
+                        {{-- The registered entity, when it differs from the mall's trading name.
+                             The seller for VAT purposes is the operator, not the building. --}}
+                        @if($sellerLegalName)<div>{{ $sellerLegalName }}</div>@endif
                         @if($asset?->address){{ $asset->address }}@endif
                         @if($asset?->city), {{ $asset->city }}@endif
                         @if($asset?->country), {{ $asset->country }}@endif
+                        {{-- A document titled "Tax Invoice" must carry the seller's registration
+                             number, or the tenant cannot claim the input VAT on it. Printed only
+                             when configured: a placeholder here would look valid, be filed, and
+                             fail on audit. --}}
+                        @if($sellerTrn)
+                            <div style="margin-top:2px;"><strong>{{ __('admin.pdf.seller_trn') }}:</strong> {{ $sellerTrn }}</div>
+                        @endif
                     </div>
                 </td>
                 <td style="width:40%;">
@@ -236,6 +246,33 @@
             @endforeach
         </tbody>
     </table>
+
+    {{-- Taxable value and tax, BY RATE. A single "VAT" total cannot be checked against anything:
+         base rent is exempt while service charge is standard-rated, so one invoice routinely
+         carries both, and the tenant's accountant needs the split to claim the right input tax.
+         Suppressed on a single-rate invoice, where the totals block below already says it. --}}
+    @if(count($vatSummary) > 1)
+        <table class="items" style="margin-top:10px;">
+            <thead>
+                <tr>
+                    <th style="width:48%;">{{ __('admin.pdf.vat_summary') }}</th>
+                    <th class="num" style="width:18%;">{{ __('admin.pdf.taxable_value') }}</th>
+                    <th class="num" style="width:14%;">{{ __('admin.pdf.vat_pct') }}</th>
+                    <th class="num" style="width:20%;">{{ __('admin.pdf.vat') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($vatSummary as $row)
+                    <tr>
+                        <td>{{ $row['rate'] > 0 ? __('admin.pdf.standard_rated') : __('admin.pdf.exempt_or_zero') }}</td>
+                        <td class="num">{{ number_format($row['base'], 2) }}</td>
+                        <td class="num">{{ rtrim(rtrim(number_format($row['rate'], 2), '0'), '.') }}%</td>
+                        <td class="num">{{ number_format($row['vat'], 2) }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    @endif
 
     <table class="totals">
         <tr>

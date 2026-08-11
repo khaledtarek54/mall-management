@@ -890,6 +890,34 @@ To customize the PDF:
 2. Ensure the PDF includes all required tax fields for ETA compliance (if applicable).
 3. Test the PDF visually and ensure file size is reasonable (PDF generation can be slow).
 
+> **The required particulars of a TAX INVOICE (fixed 2026-08-12).** The document is titled "Tax
+> Invoice" and, until this date, printed the property's name, address and city and nothing else —
+> **no seller tax registration number anywhere**, because the field did not exist in the data model.
+> A tenant cannot support an input-VAT deduction from such a document, so every invoice Atriom had
+> ever issued was unusable for the one purpose its title claims.
+>
+> - **Seller identity is operator-level** — `TaxSettings::seller_tax_registration_number` and
+>   `seller_legal_name`, at Settings → Tax. Not on `Asset`: Eltizam is one registered entity
+>   operating several malls, so the seller is the operator and the building is the trading address.
+>   If a second legal entity ever issues its own invoices this becomes a per-asset *override*, never
+>   a second copy of the field.
+> - **Blank by default, and the line is omitted when blank.** A placeholder TRN is worse than a
+>   missing one: it looks valid, the tenant files it, and it fails on audit. A go-live gate item
+>   ([GO-LIVE §2 A1.1](../GO-LIVE.md)).
+> - **The VAT summary is per RATE** (`InvoicePdfService::vatSummary()`), shown only when an invoice
+>   carries more than one. Base rent is exempt while service charge is standard-rated, so one
+>   Atriom invoice routinely carries both, and a single "VAT: 1,400" line does not tell the tenant's
+>   accountant which part of the 20,000 carries claimable input tax.
+> - **It reads each line's OWN `vat_rate`**, never today's `TaxSettings` — an issued invoice keeps
+>   the rate it was billed at, so re-deriving would silently restate every historical document the
+>   day the standard rate changes. Pinned by `TaxInvoiceSellerParticularsTest`.
+>
+> **Known duplication, deliberately left:** `EtaSettings::issuer_tax_registration_number` holds the
+> same number for e-invoicing submissions. One number in two homes is a defect — an operator can set
+> them to disagree — but collapsing them means editing the frozen ETA module. When that freeze
+> lifts, the `TaxSettings` field is the survivor: a registration number is company identity, not a
+> property of an integration that may be switched off.
+
 ---
 
 ### Extending the AR reconciliation (e.g., discount, writing off bad debt)

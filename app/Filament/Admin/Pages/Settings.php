@@ -107,6 +107,8 @@ class Settings extends Page implements HasSchemas
                 'issuer_tax_registration_number' => $eta->issuer_tax_registration_number,
             ],
             'tax' => [
+                'seller_tax_registration_number' => $tax->seller_tax_registration_number,
+                'seller_legal_name' => $tax->seller_legal_name,
                 'vat_standard_rate' => $tax->vat_standard_rate,
                 'wht_enabled' => $tax->wht_enabled,
                 'wht_default_rate' => $tax->wht_default_rate,
@@ -183,6 +185,8 @@ class Settings extends Page implements HasSchemas
         $eta->save();
 
         $tax = app(TaxSettings::class);
+        $tax->seller_tax_registration_number = trim((string) ($state['tax']['seller_tax_registration_number'] ?? ''));
+        $tax->seller_legal_name = trim((string) ($state['tax']['seller_legal_name'] ?? ''));
         $tax->vat_standard_rate = (float) $state['tax']['vat_standard_rate'];
         $tax->wht_enabled = (bool) $state['tax']['wht_enabled'];
         $tax->wht_default_rate = (float) $state['tax']['wht_default_rate'];
@@ -322,6 +326,22 @@ class Settings extends Page implements HasSchemas
     private function taxFields(): array
     {
         return [
+            // The particulars a document titled "Tax Invoice" must carry. Placed FIRST because an
+            // unset TRN silently strips a required line off every invoice already issued, which is
+            // the kind of omission nobody notices until a tenant's auditor does.
+            Section::make(__('admin.settings.sections.seller_identity'))
+                ->description(__('admin.settings.sections.seller_identity_description'))
+                ->columns(2)
+                ->components([
+                    TextInput::make('tax.seller_tax_registration_number')
+                        ->label(__('admin.settings.fields.seller_trn'))
+                        ->helperText(__('admin.settings.fields.seller_trn_helper'))
+                        ->maxLength(50),
+                    TextInput::make('tax.seller_legal_name')
+                        ->label(__('admin.settings.fields.seller_legal_name'))
+                        ->helperText(__('admin.settings.fields.seller_legal_name_helper'))
+                        ->maxLength(255),
+                ]),
             Section::make(__('admin.settings.sections.vat'))
                 ->description(__('admin.settings.sections.vat_description'))
                 ->columns(2)
