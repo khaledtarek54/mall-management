@@ -4447,6 +4447,9 @@ return [
 
 
     'guide' => [
+        'steps' => 'Doing the everyday task',
+        'affects' => 'What this changes elsewhere',
+        'rules' => 'Worth knowing',
         'action' => 'How this works',
         'heading' => 'Operator guide',
         'description' => 'What this screen is for, and what changes elsewhere when you use it.',

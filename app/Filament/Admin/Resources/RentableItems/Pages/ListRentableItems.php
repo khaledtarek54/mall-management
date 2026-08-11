@@ -12,6 +12,7 @@ class ListRentableItems extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return [CreateAction::make()];
+        return [            \App\Filament\Actions\GuideAction::for(RentableItemResource::class),
+CreateAction::make()];
     }
 }
