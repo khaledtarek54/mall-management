@@ -164,6 +164,8 @@ class PropertyIsolation
         CustodyTransaction::class => null,
         Warehouse::class => null,
         \App\Models\BankAccount::class => null,   // owns its asset_id: the mall whose money it holds
+        \App\Models\BankStatement::class => 'bankAccount',   // reaches its property through the account it belongs to
+        \App\Models\BankStatementLine::class => 'statement.bankAccount',
         Expense::class => null,
         Payroll::class => null,
         JournalEntry::class => null,           // asset_id nullable = the books dimension (null = consolidated)

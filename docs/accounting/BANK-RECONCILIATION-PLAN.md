@@ -1,6 +1,6 @@
 # Bank reconciliation — the plan
 
-**Status:** written 2026-08-11. **Slice 1 shipped the same day** (`bank_accounts` + its register); slices 2–6 open.
+**Status:** written 2026-08-11. **Slices 1–2 shipped the same day** (`bank_accounts` + its register; statement import); slices 3–6 open — 3 is where the control actually lands.
 
 > **The gap, verified rather than quoted.** There is no `bank_accounts` model, no statement, no
 > statement line, no matching, and no migration for any of them. `BooksReconciliationService` is the
@@ -96,11 +96,20 @@ Each one is independently useful, which is the test of whether the slicing is ho
    additive and could ship alone. What is deliberately NOT done yet: pointing the `bank` role at a
    default account per property. That is a change to the posting path and belongs with the slice that
    first needs to know *which* account, not with the one that creates the row.
-2. **Statement import.** `bank_statements` (account, period, opening/closing balance) +
-   `bank_statement_lines` (date, description, reference, amount, direction). CSV first — a bank feed
-   is an integration, and no Egyptian bank here has one. **Import must be idempotent on
-   (account, date, amount, reference)**, because re-importing an overlapping export is what
-   operators actually do.
+2. ✅ **Statement import — shipped 2026-08-11.** `bank_statements` (account, period, opening/closing
+   balance, unique per account+period) + `bank_statement_lines`. `ImportBankStatementService` parses
+   a CSV — forgiving about headings, strict about values, EN and AR — and folds a debit/credit pair
+   into ONE signed amount, so nothing downstream ever sees two columns that can contradict each
+   other. **Idempotency is the database's**, not the service's: a unique `(statement, row_hash)`
+   index over date + amount + reference + description + **occurrence**. The occurrence number is the
+   part worth remembering — hashing content alone would collapse a bank's genuine duplicate (two
+   identical fees on one day) into one row and quietly lose money from the evidence, and the
+   statement's own arithmetic would then fail while blaming the operator. Posts nothing, asserted by
+   a test.
+
+   `BankStatement::isSelfConsistent()` checks opening + Σ lines = closing — the cheapest signal that
+   a file was truncated, half-mapped, or had its sign convention read backwards, and a precondition
+   for anything in slice 3.
 3. **Manual matching.** A screen: unmatched statement lines on the left, unmatched book postings on
    the right, both filtered to the account and period; an operator links them. `bank_matches` rows,
    reversible. **This is already the whole control** — the automatic matcher is convenience on top,

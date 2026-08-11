@@ -2,6 +2,9 @@
 
 return [
     'errors' => [
+        'bank_statement_row_no_date' => 'Row :row has no date — a statement line without one cannot be dated, matched or reconciled.',
+        'bank_statement_csv_empty' => 'That file has no rows under its heading line.',
+        'bank_statement_csv_columns' => 'The file needs a date column and either an amount column or a debit/credit pair. Recognised headings include Date, Amount, Debit, Credit, Reference, Description, Balance.',
         'unit_area_not_positive' => 'A measured area has to be greater than zero. If the unit is out of use, change its status rather than its size.',
         'duplicate_vendor_invoice_reference' => 'Invoice :reference from this vendor is already recorded as bill :number. If this is a correction, cancel that bill first; if the vendor genuinely reused the number, leave this field blank.',
         'unit_floor_other_property' => 'That floor belongs to a different property. A unit can only sit on a floor of its own building.',
@@ -3571,6 +3574,9 @@ return [
         'statements_title' => 'Statements',
         'part_period' => ':pct% of the period',
         'not_sent' => 'Not sent',
+        'errors' => [
+            'no_owner' => 'This property has no owner for the statement period, so there is nobody to distribute the net to. Assign the owner on the property record, then regenerate the draft.',
+        ],
         'empty_statements_heading' => 'This run produced no statements',
         'empty_statements_description' => 'A run only produces a statement for an owner who held a share during the period. Check the property’s ownership records if you expected one.',
         'group' => 'Accounting',
@@ -3588,7 +3594,6 @@ return [
         ],
         'bases' => [
             'accrual' => 'Accrual',
-            'cash' => 'Cash',
         ],
         'fields' => [
             'reference' => 'Reference',
@@ -4549,6 +4554,11 @@ return [
     ],
 
 
+    'deposits' => [
+        'errors' => [
+            'receipt_in_use' => 'This deposit has already been drawn on — netted against an invoice, refunded or forfeited — so the receipt behind it is fixed. Changing it would leave the tenant credited with money no longer recorded as received. Record a further receipt, refund or forfeit instead.',
+        ],
+    ],
     'lease_deposits' => [
         'empty_heading' => 'No deposit movements recorded',
         'empty_description' => 'Receipts, refunds and forfeits against this lease appear here. The lease terms say what deposit was agreed; this says what actually moved.',

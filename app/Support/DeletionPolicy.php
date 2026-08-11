@@ -262,6 +262,11 @@ class DeletionPolicy
         // reconciliation plan adds statements, and this MUST become WHEN_UNUSED blocked_by them at
         // that point — an account with reconciled statements behind it explains a balance.
         \App\Models\BankAccount::class => 'configuration: the operator\'s bank accounts (revisit when statements exist)',
+        // Evidence, not a money record: a statement posts nothing, so removing a mis-imported one
+        // changes no balance. Re-import is the correction, and the unique (account, period) index is
+        // what makes deleting the wrong one the only way to re-import it.
+        \App\Models\BankStatement::class => 'evidence: re-import the statement',
+        \App\Models\BankStatementLine::class => 'evidence: parent-managed, rebuilt on re-import',
         \App\Models\SlaPolicy::class => 'configuration: SLA targets',
         \App\Models\SystemSetting::class => 'configuration',
         \App\Models\Area::class => 'configuration: a zone used for routing',
