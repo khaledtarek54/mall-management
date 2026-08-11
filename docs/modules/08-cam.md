@@ -239,9 +239,24 @@ numerator and denominator answer the same question about the same year.
 > this only ever bit the **first** reconciliation of a past year. That is also the run that bills.
 
 **The one input still undated:** `Asset.leasable_area_sqm`, used by the property-wide GLA
-denominator, is a single operator-maintained column with no history. Dating it needs its own
-register (the shape `unit_areas` already has) and is a separate change — stated here rather than
-assumed away.
+denominator, is a single operator-maintained column with no history.
+
+**Decision 2026-08-11: dating it is NOT worth a register, and here is the measurement behind that.**
+The obvious next move was an `asset_areas` table in the shape `unit_areas` already has. Against it:
+
+- `denominator_basis` **defaults to `occupied`**, and no seeded or demo pool uses `gla` — so the
+  exposure today is zero pools, not "a few";
+- a property's gross leasable area changes when a mall is extended or re-surveyed, not on every
+  fit-out. It is nothing like a shop's area, which was the case worth fixing;
+- **the denominator is already frozen and recorded.** `denominator_used_sqm` is written on the
+  pool's first reconciliation and reused verbatim on every re-run, so what the pool divided by is
+  auditable after the fact and cannot drift afterwards. The window is one first run, and it leaves
+  evidence.
+
+A whole register — table, model, service, screen, tests — to date a number that changes every few
+years, on a basis nothing currently uses, whose value is already recorded when used, is cost without
+a defect behind it. Revisit if the operator moves a pool onto the GLA basis **and** the property's
+GLA changes; at that point the register is a day's work and this note is the reason to do it.
 
 **Every other reader of `area_sqm` was checked, and most are correct as they stand.** The register
 answers "what did it measure THEN"; a rent roll, an occupancy percentage, the unit table, the
