@@ -93,6 +93,21 @@ The master list of accounts, as a tree (the accountant's Excel turned into a tab
 `11101` → `11101001`. Parents are *summary* accounts (no postings); the deepest
 leaves are *posting* accounts.
 
+**The width is not fixed — 8 digits is the starter chart, not a limit.** `code` is a varchar;
+the parent is derived by PREFIX, the type from the LEADING digit, and the cash-flow statement
+classifies with `str_starts_with` rather than numeric ranges. A 10- or 12-digit chart therefore
+drops in with **no migration** — pinned by `ChartSupportsWiderCodesTest`, which exists so a
+later `code >= 21000000` style comparison cannot quietly re-introduce a width assumption and
+drop every wide account out of its cash-flow section.
+
+**Widening the code does not buy more capacity, though.** What bounds the chart is the
+hierarchy, and property/tenant/lease are **dimensions on the journal line** (`asset_id`,
+`tenant_id`, `lease_id`) — never encoded into the account number. That is the same separation
+Yardi draws with its account/property/department segments. Encoding a property into the code
+instead would fragment every report that consolidates across the portfolio, which is the
+failure mode a wide monolithic code invites. Adopt whatever width the operator's real chart
+uses; do not renumber to create room.
+
 **Adding accounts — the two traps.** The chart is a flat list in the seeder whose tree
 and type are *derived*, so a hand-added row can go wrong quietly. Both are covered by
 `tests/Feature/Accounting/ChartOfAccountsConformanceTest.php`:
