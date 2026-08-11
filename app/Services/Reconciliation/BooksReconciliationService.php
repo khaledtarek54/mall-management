@@ -4,6 +4,7 @@ namespace App\Services\Reconciliation;
 
 use App\Models\CreditNote;
 use App\Models\Invoice;
+use App\Models\InvoiceWriteOff;
 use App\Models\JournalEntry;
 use App\Models\Payment;
 use App\Models\VendorBill;
@@ -301,9 +302,24 @@ class BooksReconciliationService
         // 'written_off' joins the exclusions for the same reason as 'credited': the GL side has
         // already been relieved (Dr Bad Debt / Cr AR), so counting the invoice's untouched balance
         // here would raise a false AR delta on every written-off debt.
-        $invoiceBalances = round((float) Invoice::whereNotIn('status', ['cancelled', 'credited', 'draft', 'written_off'])->sum('balance'), 2);
+        $countedStatuses = ['cancelled', 'credited', 'draft', 'written_off'];
+        $invoiceBalances = round((float) Invoice::whereNotIn('status', $countedStatuses)->sum('balance'), 2);
+
+        // PARTIAL write-offs, on invoices still counted above.
+        //
+        // A partial write-off relieves the GL (Dr Bad Debt / Cr AR) but deliberately leaves
+        // `balance` standing — balance is derived from the four settlement channels, and a
+        // write-off is not one of them. The invoice therefore stays live and its FULL balance is
+        // in `$invoiceBalances`, while the GL has already been credited the written-off part. The
+        // exclusion above only rescues invoices written off in FULL; every partial one showed as
+        // an AR delta from the day it was booked, permanently and with no way to clear it.
+        $partiallyWrittenOff = round((float) InvoiceWriteOff::whereHas(
+            'invoice',
+            fn ($q) => $q->whereNotIn('status', $countedStatuses),
+        )->sum('amount'), 2);
+
         $outstandingCredits = round((float) CreditNote::whereIn('status', ['issued', 'applied'])->sum('balance'), 2);
-        $expectedAr = round($invoiceBalances - $outstandingCredits, 2);
+        $expectedAr = round($invoiceBalances - $partiallyWrittenOff - $outstandingCredits, 2);
 
         // AP = outstanding vendor-bill balances (excludes draft + cancelled).
         $glAp = round($this->reports->accountLedger($apAccount)['closing'], 2);

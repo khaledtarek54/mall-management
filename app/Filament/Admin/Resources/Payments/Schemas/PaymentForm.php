@@ -160,6 +160,16 @@ class PaymentForm
                                     return Invoice::query()
                                         ->where('tenant_id', $tenantId)
                                         ->where('balance', '>', 0)
+                                        // `balance > 0` is not "still collectable". A written-off
+                                        // invoice keeps its balance on purpose — the write-off is
+                                        // not a settlement channel — and a cancelled one may too.
+                                        // Allocating cash to either credits AR below the debt:
+                                        // the GL was already relieved (Dr Bad Debt / Cr AR), so a
+                                        // payment on top drives AR negative while the bad-debt
+                                        // expense stays booked for a debt that was in fact
+                                        // collected. The sibling picker in PostDatedChequeForm
+                                        // has always filtered status; this one never did.
+                                        ->whereNotIn('status', ['cancelled', 'credited', 'written_off'])
                                         ->when(\App\Support\TenantScope::visibleAssetIds(), fn ($q, $ids) => $q->whereHas('lease.unit', fn ($u) => $u->whereIn('asset_id', $ids)))
                                         ->orderBy('due_date')
                                         ->get()
@@ -347,6 +357,9 @@ class PaymentForm
 
         $invoices = Invoice::where('tenant_id', $tenantId)
             ->where('balance', '>', 0)
+            // Same status filter as the picker above — auto-suggest must not pre-fill an
+            // allocation the picker would refuse to let an operator make by hand.
+            ->whereNotIn('status', ['cancelled', 'credited', 'written_off'])
             // Scope to the active property set, mirroring the invoice picker above —
             // otherwise auto-suggest would pre-fill a shared tenant's out-of-scope
             // (other-property) invoices for a restricted user in All-Properties mode.

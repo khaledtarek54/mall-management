@@ -2577,6 +2577,7 @@ return [
         'percentage_rent_deductible_types' => 'Charges credited against the same period\'s percentage rent — the clause "payable to the extent it exceeds CAM and tax". Leave empty if nothing is deductible.',
         'percentage_rent_tier_from' => 'The sales level this band starts at. The first band normally starts at 0 with a 0% rate — that is the breakpoint.',
         'percentage_rent_tier_to' => 'Leave blank on the top band so it runs unbounded, otherwise sales above it are never charged.',
+        'write_off_already' => ':amount of the :balance balance has already been written off — only the rest can be.',
         'write_off_date' => 'The date the loss is recognised. It posts to the general ledger on this date, so it must fall in an open accounting period.',
         'lease_option_latest_notice' => 'The deadline. After this date the right is gone — the daily scan warns ahead of it and records the option as lapsed once it passes.',
         'lease_option_encumbers' => 'Flags this unit as spoken for, so it is not promised to another tenant while the option is live.',

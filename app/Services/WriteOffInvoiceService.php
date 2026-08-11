@@ -49,19 +49,38 @@ class WriteOffInvoiceService
                 );
             }
 
+            // What is left to write off, NOT what is outstanding.
+            //
+            // A partial write-off deliberately leaves `balance` standing (see below), so `balance`
+            // alone is not a cap — it is the same number on the second pass as the first. Write off
+            // 5,000 of 20,000, then accept the modal's default of 20,000, and the invoice takes
+            // 25,000 of bad debt against a 20,000 receivable: AR is credited 5,000 below the debt,
+            // the invoice flips to `written_off` and is then EXCLUDED from the tie-out, leaving a
+            // permanent −5,000 delta with no document behind it. Netting prior write-offs is what
+            // makes the cap mean anything.
+            $alreadyWrittenOff = $locked->writtenOffAmount();
+            $remaining = round($outstanding - $alreadyWrittenOff, 2);
+
+            if ($remaining <= 0) {
+                throw new DomainException(
+                    "Invoice {$locked->number} is already fully written off ({$alreadyWrittenOff} of {$outstanding})."
+                );
+            }
+
             $amount = filled($data['amount'] ?? null)
                 ? round((float) $data['amount'], 2)
-                : $outstanding;
+                : $remaining;
 
             if ($amount <= 0) {
                 throw new DomainException('A write-off amount must be greater than zero.');
             }
 
-            // Never write off more than is owed — that would credit AR below the debt and put the
+            // Never write off more than is left — that would credit AR below the debt and put the
             // ledger out of step with the invoice it came from.
-            if ($amount > $outstanding + 0.01) {
+            if ($amount > $remaining + 0.01) {
                 throw new DomainException(
-                    "Cannot write off {$amount} against invoice {$locked->number}: only {$outstanding} is outstanding."
+                    "Cannot write off {$amount} against invoice {$locked->number}: only {$remaining} is left to write off"
+                    .($alreadyWrittenOff > 0 ? " ({$alreadyWrittenOff} of {$outstanding} already written off)." : '.')
                 );
             }
 
@@ -91,7 +110,10 @@ class WriteOffInvoiceService
             // Only a FULL write-off retires the invoice. A partial one leaves it live and still
             // collectable for the rest — writing off 5,000 of a 20,000 debt does not mean the
             // other 15,000 stopped being owed.
-            if ($amount >= $outstanding - 0.01) {
+            // `$remaining`, not `$outstanding`: two partials that together clear the debt must
+            // retire the invoice, exactly as one full write-off would. Comparing against the raw
+            // balance left such an invoice `overdue` forever with nothing left to write off.
+            if ($amount >= $remaining - 0.01) {
                 // Deliberately NOT touching balance/paid_amount: those are derived by
                 // recomputeTotals() from payments and credit, and a write-off is neither. The
                 // balance stays as the record of what was written off; the STATUS is what takes

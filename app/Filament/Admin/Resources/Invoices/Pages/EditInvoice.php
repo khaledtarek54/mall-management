@@ -240,10 +240,19 @@ class EditInvoice extends EditRecord
                         ->numeric()
                         ->prefix('EGP')
                         ->minValue(0.01)
-                        // Defaults to the whole outstanding balance; a partial write-off leaves the
-                        // rest live and still collectable.
-                        ->default(fn () => (float) $this->record->balance)
-                        ->maxValue(fn () => (float) $this->record->balance)
+                        // Defaults to what is LEFT to write off, not the raw balance. A partial
+                        // write-off deliberately leaves `balance` standing, so offering the
+                        // balance again on the second pass invited an operator to accept a
+                        // default that writes off more than the debt. The service refuses it
+                        // either way; this stops the modal proposing it.
+                        ->default(fn () => round((float) $this->record->balance - $this->record->writtenOffAmount(), 2))
+                        ->maxValue(fn () => round((float) $this->record->balance - $this->record->writtenOffAmount(), 2))
+                        ->helperText(fn () => $this->record->writtenOffAmount() > 0
+                            ? __('admin.helpers.write_off_already', [
+                                'amount' => number_format($this->record->writtenOffAmount(), 2),
+                                'balance' => number_format((float) $this->record->balance, 2),
+                            ])
+                            : null)
                         ->required(),
                     \Filament\Forms\Components\DatePicker::make('entry_date')
                         ->label(__('admin.fields.write_off_date'))

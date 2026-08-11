@@ -1,6 +1,38 @@
 # Billing & Invoices
 > Generate and track monthly invoices for leased retail units, including VAT compliance, proration, payment reconciliation, and overdue notifications.
 
+
+> **⚠️ Fixed 2026-08-11 — partial write-offs were uncapped and broke the AR tie-out.**
+>
+> `WriteOffInvoiceService` deliberately does not touch `balance`: balance is derived from the four
+> settlement channels and a write-off is not one of them, so the invoice keeps recording what was
+> owed. That decision is right, and two consequences of it were unhandled.
+>
+> **The cap was against `balance`, which a write-off never changes.** Prior write-offs were never
+> subtracted and the modal re-offered the full balance as its default and max — so writing off
+> 5,000 of 20,000 and then accepting the default booked **25,000 of bad debt against a 20,000
+> receivable**: AR credited below the debt, the invoice flipped to `written_off` and thereby
+> *excluded* from the tie-out, leaving a permanent −5,000 delta with no document behind it. The cap
+> now nets prior write-offs (`Invoice::writtenOffAmount()`), the full-write-off test compares
+> against what is LEFT so two partials that clear the debt retire the invoice, and the modal
+> defaults to the remainder and says how much was already written off.
+>
+> **`glTieOut()` excluded only invoices written off in FULL.** A partial one stays live, so its
+> whole balance counted toward `expectedAr` while the GL had already been relieved of the
+> written-off part — an AR delta from the day it was booked, permanently, with no way to clear it.
+> `expectedAr` now subtracts write-offs recorded against invoices still in the counted set.
+> Mutation-checked: removing that subtraction reproduces a −5,000 delta on a 5,000 partial.
+>
+> **Separately, the payment picker offered written-off invoices.** It filtered `balance > 0` with
+> no status filter, so cash could be allocated to a debt whose GL relief was already booked —
+> driving AR negative while the bad-debt expense stayed. The sibling picker in
+> `PostDatedChequeForm` had always filtered status, which is what made this an omission rather
+> than a design. Both the picker and its auto-suggest now exclude `cancelled`, `credited` and
+> `written_off`.
+>
+> A write-off is still **not** a fifth settlement channel — `recomputeTotals()` is untouched. See
+> `PartialWriteOffIntegrityTest`.
+
 ## 1. Purpose & business context
 
 The Billing module automates the monthly invoicing lifecycle for Eltizam operators. Each Eltizam manages leases on behalf of Jawad property owners; invoices are issued to Eltizam's tenants (retailers) for rent, service charges, utilities, and other recurring fees. The system:

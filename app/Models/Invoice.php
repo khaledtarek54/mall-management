@@ -121,6 +121,29 @@ class Invoice extends Model
         return $this->hasMany(InvoiceItem::class);
     }
 
+    /** @return HasMany<InvoiceWriteOff, $this> */
+    public function writeOffs(): HasMany
+    {
+        return $this->hasMany(InvoiceWriteOff::class);
+    }
+
+    /**
+     * Bad debt accepted against this invoice so far.
+     *
+     * **NOT a settlement channel, and deliberately not folded into `paid_amount`.** A write-off is
+     * not money arriving; `recomputeTotals()` stays the single source of truth for the four
+     * channels, and `balance` keeps recording what was owed. But two consumers do need this
+     * number: the write-off cap (so repeated partials cannot exceed the debt) and the AR tie-out
+     * (so a partial write-off's GL relief has a matching sub-ledger expectation).
+     *
+     * Reversed write-offs are soft-deleted, so the default scope drops them — a recovered debt
+     * correctly stops counting.
+     */
+    public function writtenOffAmount(): float
+    {
+        return round((float) $this->writeOffs()->sum('amount'), 2);
+    }
+
     public function payments(): BelongsToMany
     {
         return $this->belongsToMany(Payment::class)
