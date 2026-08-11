@@ -45,7 +45,7 @@ class CamReconciliationService
         $isRerun = ! empty($existingLeaseIds);
 
         $leases = $isRerun
-            ? Lease::query()->whereIn('id', $existingLeaseIds)->with('unit', 'units')->get()
+            ? Lease::query()->whereIn('id', $existingLeaseIds)->with('unit', 'units.areas')->get()
             : $this->participants($pool);
 
         // Frozen shares (as a fraction) for the re-run path; the sqm denominator for the first run.
@@ -293,7 +293,7 @@ class CamReconciliationService
                 $pool->participant_scope === CamExpensePool::PARTICIPANTS_AREA && $pool->participant_area_id,
                 fn ($q) => $q->whereHas('units', fn ($u) => $u->where('units.area_id', $pool->participant_area_id)),
             )
-            ->with('unit', 'units')
+            ->with('unit', 'units.areas')
             ->get();
     }
 
@@ -319,7 +319,10 @@ class CamReconciliationService
             // "share of the total leasable area" means for a pool that only covers the zone.
             CamExpensePool::DENOMINATOR_GLA => $pool->participant_scope === CamExpensePool::PARTICIPANTS_AREA
                 && $pool->participant_area_id
-                    ? (float) Unit::where('area_id', $pool->participant_area_id)->sum('area_sqm')
+                    // Day-weighted over the reconciled year, exactly like the numerator. A bare
+                    // sum('area_sqm') divides a past year by today's measurements, so a
+                    // remeasurement after the year ended silently moved every tenant's share of it.
+                    ? self::zoneAreaForPeriod($pool->participant_area_id, $periodStart, $periodEnd)
                     : (float) ($pool->asset?->leasable_area_sqm > 0
                         ? $pool->asset->leasable_area_sqm
                         : ($pool->asset?->totalUnitAreaSqm() ?? 0)),
@@ -333,6 +336,26 @@ class CamReconciliationService
 
             default => $this->occupiedDenominator($leases, $periodStart, $periodEnd),
         };
+    }
+
+    /**
+     * A zone's leasable area across the reconciled period, day-weighted on each unit's dated
+     * measurements — the GLA counterpart of `Lease::totalAreaSqmForPeriod()`, and weighted the same
+     * way so numerator and denominator answer the same question about the same year.
+     *
+     * The property-wide branch above still reads `Asset.leasable_area_sqm`, which is a single
+     * operator-maintained column with no history at all. Dating it needs its own register (the shape
+     * `unit_areas` already has) and is a separate change; recorded here so the remaining undated
+     * input is stated rather than assumed away.
+     */
+    private static function zoneAreaForPeriod(int $areaId, CarbonImmutable $periodStart, CarbonImmutable $periodEnd): float
+    {
+        $days = $periodStart->diffInDays($periodEnd) + 1;
+
+        return (float) Unit::where('area_id', $areaId)
+            ->with('areas')
+            ->get()
+            ->sum(fn (Unit $unit) => $unit->areaSqmDaysBetween($periodStart, $periodEnd) / $days);
     }
 
     /** @param  \Illuminate\Support\Collection<int, Lease>  $leases */

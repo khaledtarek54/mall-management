@@ -530,8 +530,13 @@ class Lease extends Model implements HasMedia
                 continue;   // not held at any point in this period
             }
 
-            $held = $heldFrom->diffInDays($heldTo) + 1;
-            $weighted += (float) ($unit->area_sqm ?? 0) * ($held / $days);
+            // The area IN FORCE across the held window, not the unit's current measurement.
+            // `area_sqm` is the denormalised TODAY figure, so reading it here apportioned a past
+            // year on a wall that moved after that year ended — and because numerator and
+            // denominator moved together the tie-out stayed green while the distribution between
+            // tenants was wrong. m²·days composes the two weightings (how long the unit was HELD,
+            // and what it MEASURED) without rounding in between.
+            $weighted += $unit->areaSqmDaysBetween($heldFrom, $heldTo) / $days;
         }
 
         return $weighted > 0 ? round($weighted, 4) : (float) ($this->unit?->area_sqm ?? 0);

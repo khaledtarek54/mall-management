@@ -219,6 +219,30 @@ whose `lease_unit` rows carry no dates — all of them until an expansion or con
 — this is arithmetically identical to the flat total**, which is what makes the change safe for
 existing pools; `LeaseSpaceChangeTest` pins that equality.
 
+**…and it weights the MEASUREMENT as well as the tenure** (2026-08-11). Time-weighting originally
+asked only "how long did this lease hold the unit", reading `units.area_sqm` — the denormalised
+*current* measurement — for what the unit measured. So a shop remeasured after a year ended
+apportioned that year on the new figure: unit-area versioning existed, and CAM never reached it,
+because `totalAreaSqmForPeriod()` was the undated sibling of `totalAreaSqmOn()` and CAM calls the
+former. Both halves now compose through `Unit::areaSqmDaysBetween()`, which returns **m²·days** so
+tenure and measurement weight together without rounding in between — a wall that moved in July
+splits the year between two measurements. The GLA/zone denominator is weighted the same way, so
+numerator and denominator answer the same question about the same year.
+
+> **Why no existing test saw it.** When every unit moves together the shares still sum to 100%, so
+> `Σ(allocated) = total_actual_expense` stayed green and the tie-out saw nothing — it is the
+> DISTRIBUTION between tenants that was wrong. That is precisely the trap `Lease::totalAreaSqm()`'s
+> docblock warns about: *assert the SHARE*. `CamApportionsOnThePeriodsAreaTest` does, and keeps the
+> tie-out assertion alongside it as a recorded example of coverage that cannot see the defect.
+>
+> The re-run path was never affected — it freezes each allocation's stored `pro_rata_share_pct` — so
+> this only ever bit the **first** reconciliation of a past year. That is also the run that bills.
+
+**The one input still undated:** `Asset.leasable_area_sqm`, used by the property-wide GLA
+denominator, is a single operator-maintained column with no history. Dating it needs its own
+register (the shape `unit_areas` already has) and is a separate change — stated here rather than
+assumed away.
+
 **Tests guard**:
 - `CamScenarioTest::it('generates one pro-rata allocation per active lease...')` — core math
 - `CamScenarioTest::it('allocated amounts and shares sum to the pool total...')` — sums partition 100% and exact pool totals (subject to rounding)

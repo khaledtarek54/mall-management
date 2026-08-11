@@ -283,6 +283,71 @@ class Unit extends Model
         return $row ? (float) $row->area_sqm : (float) ($this->area_sqm ?? 0);
     }
 
+    /**
+     * Σ(area in force × days) across a window — the m²·days this unit contributed to a period.
+     *
+     * The day-weighted counterpart of {@see areaOn()}. `areaOn()` answers "what did it measure on
+     * this date", which is the right question for a point in time and the wrong one for a YEAR: a
+     * pool covering 2025 must apportion on what each shop measured through 2025, and a wall that
+     * moved in July splits the year between two measurements.
+     *
+     * Callers divide by the window's day count to get an average area. Kept as m²·days rather than
+     * an average so a caller weighting by a HELD sub-window (a lease that took the unit in
+     * November) can compose the two weightings without rounding twice.
+     *
+     * Days no dated row covers — the gap before the first row on a unit created before the register
+     * existed — fall back to the denormalised column, which is exactly what `areaOn()` does for the
+     * same case, so a property with no remeasurement history answers precisely as it did before.
+     */
+    public function areaSqmDaysBetween(\Carbon\CarbonImmutable $from, \Carbon\CarbonImmutable $to): float
+    {
+        $from = $from->startOfDay();
+        $to = $to->startOfDay();
+
+        if ($to->lessThan($from)) {
+            return 0.0;
+        }
+
+        $windowDays = $from->diffInDays($to) + 1;
+        $fallback = (float) ($this->area_sqm ?? 0);
+
+        $rows = $this->relationLoaded('areas') ? $this->areas : $this->areas()->get();
+
+        if ($rows->isEmpty()) {
+            return $fallback * $windowDays;
+        }
+
+        $total = 0.0;
+        $covered = 0;
+
+        foreach ($rows as $row) {
+            /** @var UnitArea $row */
+            $rowFrom = $row->effective_from
+                ? \Carbon\CarbonImmutable::parse($row->effective_from)->startOfDay()
+                : $from;
+            $rowTo = $row->effective_to
+                ? \Carbon\CarbonImmutable::parse($row->effective_to)->startOfDay()
+                : $to;
+
+            $start = $rowFrom->greaterThan($from) ? $rowFrom : $from;
+            $end = $rowTo->lessThan($to) ? $rowTo : $to;
+
+            if ($end->lessThan($start)) {
+                continue; // this measurement was not in force at any point in the window
+            }
+
+            $days = $start->diffInDays($end) + 1;
+            $total += (float) $row->area_sqm * $days;
+            $covered += $days;
+        }
+
+        if ($covered < $windowDays) {
+            $total += $fallback * ($windowDays - $covered);
+        }
+
+        return $total;
+    }
+
     public function utilityMeters(): HasMany
     {
         return $this->hasMany(UtilityMeter::class);
