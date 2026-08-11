@@ -624,6 +624,19 @@ the right row so the *daily* sweep re-derives them:
   bill entry **and** its payments' `Dr AP / Cr Cash` (so AP/cash aren't left understated);
   re-homing bumps their dimension (F9). **`VendorBillPayment` now soft-deletes** so a
   deleted payment self-heals to a voided entry instead of orphaning (F7).
+  **Plus `ledgerDerivedRelations()` — SLA penalties (added 2026-08-11, the third instance of
+  this class).** The two lists answer different questions and conflating them is what hid the
+  bug: `ledgerChildRelations()` is *rows that follow the parent into the bin* (so the cascade
+  writes `deleted_at` and needs `withTrashed()`), while `ledgerDerivedRelations()` is *rows
+  with their own lifecycle whose ENTRY the parent determines* (so they get a `touch`, nothing
+  more). `MaintenancePenaltyJournalizer` reads the bill for its `asset_id`, its postability and
+  its expense category — but a penalty records that a vendor missed an SLA, which stays true
+  whether or not the bill survives, and `maintenance_penalties` has no `deleted_at` to cascade
+  into. Adding it to the owned list is fatal (`HasMany::withTrashed()` does not exist).
+  The derived touch fires on **`asset_id`, `status` OR `category`**, not `asset_id` alone —
+  cancelling a bill must void the penalty deducted from it, and until the wider condition
+  landed that entry stayed posted indefinitely. **Membership test: does the child's journalizer
+  read the parent?** — not "does it have its own row".
 - **`Warehouse` re-home cascade only** — changing a warehouse's `asset_id` bumps its stock
   movements' dimension. Deliberately **no** delete cascade: a movement is a completed
   historical fact and `StockMovement::warehouse()` uses `withTrashed()` so its GL survives

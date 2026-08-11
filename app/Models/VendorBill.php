@@ -135,10 +135,41 @@ class VendorBill extends Model
      * soft-delete / restore / re-home must flow to its payments, or the windowed
      * sync-ledger sweep (which keys on each row's own updated_at) would strand them.
      * Mirrors FixedAsset::ledgerChildRelations().
+     *
+     * Distinct from {@see ledgerDerivedRelations()}: these rows are OWNED by the bill and follow it
+     * into the bin, so the cascade writes `deleted_at` and needs `withTrashed()`/`onlyTrashed()`.
      */
     protected function ledgerChildRelations(): array
     {
         return [$this->payments()];
+    }
+
+    /**
+     * Children whose posted ENTRY is derived from this bill, but whose ROWS have their own life.
+     *
+     * `MaintenancePenaltyJournalizer` reads the parent bill for everything it posts — the amount's
+     * expense role, the description, and `asset_id` — so a penalty's entry is as dependent on the
+     * bill as a payment's is. **But the row is not.** A penalty belongs to a work order and records
+     * that a vendor missed an SLA; that stays true whether or not the bill it was deducted from is
+     * still on the books, and `maintenance_penalties` has no `deleted_at` to cascade into.
+     *
+     * So these get a `touch`, not a `deleted_at` — enough for the windowed sweep (which keys on
+     * each row's own `updated_at`) to re-read them and re-derive, which is the whole point.
+     *
+     * **This was missing until 2026-08-11** — the third instance of the child-source cascade class
+     * the project has already fixed twice. Re-home a bill between properties and only the payments
+     * were bumped: the penalty's `updated_at` never moved, the two-day window never selected it,
+     * and the first property kept an 8,000 expense credit and AP debit for a bill that is not
+     * theirs. It self-healed on the Friday `--all` run and never at all if the month closed first.
+     *
+     * The test for membership here is **"does its journalizer read the parent?"** — not "does it
+     * have its own row", which is what the single list conflated.
+     *
+     * @return array<int, \Illuminate\Database\Eloquent\Relations\HasMany<MaintenancePenalty, self>>
+     */
+    protected function ledgerDerivedRelations(): array
+    {
+        return [$this->penalties()];
     }
 
     /**
@@ -424,6 +455,11 @@ class VendorBill extends Model
             foreach ($bill->ledgerChildRelations() as $relation) {
                 $relation->update(['deleted_at' => $bill->deleted_at, 'updated_at' => now()]);
             }
+
+            // Derived children keep their rows but lose their basis: with the bill trashed the
+            // journalizer finds no parent and voids the entry — but only for a row the windowed
+            // sweep actually selects, which is what the touch buys.
+            $bill->touchLedgerDerivedRelations();
         });
 
         // Restore ONLY the payments this bill's delete cascaded (matched on that exact
@@ -441,6 +477,7 @@ class VendorBill extends Model
         // withTrashed()->whereKeyNot bumps exactly the siblings.
         static::restored(function (self $bill) {
             $bill->touchPurchaseRequestSiblings();
+            $bill->touchLedgerDerivedRelations();
         });
 
         // Re-home: the bill's asset_id is the books dimension of its payments' GL
@@ -452,6 +489,34 @@ class VendorBill extends Model
                     $relation->withTrashed()->update(['updated_at' => now()]);
                 }
             }
+
+            // The derived children follow a WIDER set of columns than the owned ones, because
+            // `MaintenancePenaltyJournalizer` reads all three off the parent:
+            //
+            //   asset_id → the entry's property dimension (the bill's, not the work order's)
+            //   status   → whether it posts at all (`! $bill->isPostable()` returns null, so
+            //              cancelling a bill must void the penalty deducted from it)
+            //   category → which expense account the credit lands in
+            //
+            // Listing only `asset_id` left a cancelled bill's penalty posted indefinitely: the
+            // entry is only re-derived for a row the windowed sweep selects, and nothing was
+            // bringing the penalty back into the window.
+            if ($bill->wasChanged(['asset_id', 'status', 'category'])) {
+                $bill->touchLedgerDerivedRelations();
+            }
         });
+    }
+
+    /**
+     * Bump the derived children so the windowed sweep re-reads them.
+     *
+     * No `withTrashed()`: these relations are not necessarily soft-deletable, and assuming they
+     * were is what made the first attempt at this fix fatal on `HasMany`.
+     */
+    private function touchLedgerDerivedRelations(): void
+    {
+        foreach ($this->ledgerDerivedRelations() as $relation) {
+            $relation->update(['updated_at' => now()]);
+        }
     }
 }
