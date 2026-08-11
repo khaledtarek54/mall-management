@@ -106,3 +106,70 @@ Estimate: one focused session per area. This is not a refactor — most of the w
 writing tests, and the expected outcome is that **most rules are already enforced correctly**, with a
 handful sitting at layer 3 that need promoting. Say so honestly when that is what is found, rather
 than manufacturing findings to justify the sweep.
+
+---
+
+## 6. Resource vs relation manager — the decision rule
+
+A child record shown in two places is two places to keep right. Where a standalone resource earns
+nothing, **delete it and rely on the relation manager**; a screen fewer is a screen that cannot drift.
+
+**Remove the standalone resource when ALL FOUR hold:**
+
+1. every record is reached through exactly one parent;
+2. the parent already surfaces it in a relation manager;
+3. nobody asks the **cross-parent** question ("show me all of these, across every parent") — that is
+   what a register is *for*, and a relation manager cannot answer it;
+4. it has no identity an operator searches for (no reference, number or name they would type).
+
+Fail any one and it stays. Deleting a register an operator uses as a worklist is not consolidation,
+it is removing the only screen that answers their question.
+
+### The decisions, taken 2026-08-11
+
+Measured rather than guessed: no resource is currently BOTH index-only and already surfaced by a
+relation manager. Three are index-only, and each was judged against the rule:
+
+| Resource | Decision | Why |
+|---|---|---|
+| **Stock movements** | **KEEP** | Fails (3). Both parents now show it, but stock reconciliation is a cross-warehouse question — "everything that moved this month" has no parent to sit under |
+| **Disbursements** | **KEEP** | Fails (3). It is the owner-payment worklist: "who are we due to pay" spans statements, and forcing that through statement → run would make paying owners harder, not simpler |
+| **Accounting periods** | **KEEP** | Fails (1). Its parent is `FiscalYear`, which has no resource — and closing a period is a first-class operator task, not a detail of something else |
+
+**So: nothing is removed today, and that is the finding rather than a failure to find one.** What
+this section buys is the *rule* — the next child resource gets judged by it before it is written,
+and the four already correctly nested (CAM allocations, custody transactions, vendor-bill payments,
+marketing spends) stay nested.
+
+**Apply the rule in reverse too:** a child NOT surfaced on its parent should get a relation manager,
+whether or not its register stays. That half of the sweep is done — lease → rentable items /
+deposits / sales declarations, unit → leases / claims / meters, tenant → invoices, property →
+rentable items, run → owner statements, warehouse & item → stock movements.
+
+---
+
+## 7. Stale and unfinished work
+
+Checked 2026-08-11, before planning any removal — the point being to find what is half-built, not to
+assume it exists.
+
+| Check | Result |
+|---|---|
+| `TODO` / `FIXME` / `HACK` / `WIP` markers in `app/` | **none** (one hit is a phone-format example, `XXX-XXX-XXX`) |
+| "not implemented" / "placeholder" / "stub" | **none real** — one is the deliberate ETA mock, one a comment about *avoiding* a stub, one noting a stub was closed |
+| Services never reached from any UI, HTTP, console or job path | **none** of 135 — the indirect ones are GL journalizers dispatched through `LedgerPoster` and infrastructure |
+| Dead columns across the four areas | **none** across 25 tables |
+| API resource fields that no longer resolve | **none** — now gated by `ApiResourceFieldConformanceTest` |
+| Orphan admin pages | **none** — the manifest gate would fail |
+
+**Two things are deliberately incomplete, and are decisions rather than debt:**
+
+- **ETA e-invoicing** ships against a stubbed response. On hold by the operator's instruction; do not
+  touch it or list it as a next step.
+- **Straight-line rent** is built and ships **OFF**, waiting on the accountant's ruling. Turning it on
+  is a settings change, not a build.
+
+Both are recorded where someone will find them. Anything else discovered during the per-area sweeps
+should be added here with the same distinction: *unfinished* (fix or delete it) versus *deliberately
+off* (say who is waiting on what).
+
