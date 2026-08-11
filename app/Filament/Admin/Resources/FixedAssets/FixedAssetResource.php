@@ -19,6 +19,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Fixed-asset register (module 23), scoped to the current property (direct
@@ -101,7 +102,22 @@ class FixedAssetResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         // Derived accumulated depreciation in one subquery — no per-row N+1.
-        $query = parent::getEloquentQuery()->withSum('depreciationEntries as accumulated', 'amount');
+        //
+        // **This is the SQL mirror of `FixedAsset::accumulatedDepreciation()`** and must stay equal
+        // to it: the table sorts and the register CSV total both read `accumulated` from here, so
+        // it cannot be a PHP call. `opening_accumulated_depreciation` is added because a legacy
+        // asset loaded at cut-over carries write-off that predates this system — omit it and the
+        // balance-sheet schedule reports every imported asset at cost.
+        // `FixedAssetOpeningBalanceTest` asserts the two expressions agree; that test is the only
+        // thing keeping a second copy of a rule honest.
+        $query = parent::getEloquentQuery()
+            ->withSum('depreciationEntries as depreciation_charged', 'amount')
+            ->addSelect(['*', DB::raw(
+                'COALESCE(opening_accumulated_depreciation, 0) + COALESCE(('
+                .'SELECT SUM(amount) FROM depreciation_entries '
+                .'WHERE depreciation_entries.fixed_asset_id = fixed_assets.id'
+                .'), 0) AS accumulated'
+            )]);
 
         if ($assetId = TenantScope::currentAssetId()) {
             $query->where('asset_id', $assetId);

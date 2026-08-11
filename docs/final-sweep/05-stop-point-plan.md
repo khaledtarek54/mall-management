@@ -80,7 +80,15 @@ because the model owns it. The one importer-specific trap: **a blank withholding
 NULL, not become 0** — null means "use the portfolio default" and 0 means "this supplier is exempt",
 so coercing would silently exempt the entire register. Mutation-checked both ways.
 
-Still hand-keyed: Employee, FixedAsset, Charge and meter readings.
+**And a fifth, same day: `FixedAssetImporter`** — the register that feeds depreciation and the
+balance sheet from day one. Every imported asset is an opening balance: it posts no acquisition (the
+cost is in the accountant's opening entry) and carries `opening_accumulated_depreciation`, without
+which a chiller three years into its life would depreciate its full cost again. Building it found
+accumulated depreciation computed in **four** places — the service, the disposal journalizer, and a
+SQL sum feeding the table and the register CSV — so the rule is now one method on the model, with a
+test pinning the unavoidable SQL mirror to it.
+
+Still hand-keyed: Employee, Charge and meter readings.
 
 **Design decision recorded:** opening AR arrives as **open items — real invoices** — not a lump-sum
 balance, because aging, dunning, statements and per-invoice allocation all work on documents. They

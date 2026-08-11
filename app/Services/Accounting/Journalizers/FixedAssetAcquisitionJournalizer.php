@@ -30,6 +30,14 @@ class FixedAssetAcquisitionJournalizer implements Journalizer
         /** @var FixedAsset $asset */
         $asset = $source;
 
+        // An asset loaded at cut-over was bought before this system existed, and its cost is
+        // already inside the accountant's opening journal entry. Posting the acquisition would
+        // double-count it — or be refused outright for landing in a closed period, and stranded
+        // inside the best-effort sync job. Same rule, same reason, as `invoices.is_opening_balance`.
+        if ($asset->is_opening_balance) {
+            return null;
+        }
+
         $amount = round((float) $asset->acquisition_cost, 2);
         if ($amount <= 0) {
             return null; // a zero-cost asset has no GL effect

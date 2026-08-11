@@ -33,7 +33,9 @@ class DepreciationService
     /** Accumulated depreciation to date = SUM of this asset's entries. */
     public function accumulatedFor(FixedAsset $asset): float
     {
-        return round((float) $asset->depreciationEntries()->sum('amount'), 2);
+        // Delegates: `opening_accumulated_depreciation` counts too, and the rule lives in one
+        // place because the disposal journalizer needs the same answer (FixedAsset).
+        return $asset->accumulatedDepreciation();
     }
 
     /** Net book value = cost − accumulated depreciation. */

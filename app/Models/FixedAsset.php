@@ -36,6 +36,8 @@ class FixedAsset extends Model
         'method',
         'funded_from',
         'status',
+        'is_opening_balance',
+        'opening_accumulated_depreciation',
         'disposed_on',
         'notes',
     ];
@@ -46,6 +48,8 @@ class FixedAsset extends Model
         'acquisition_cost' => 'decimal:2',
         'salvage_value' => 'decimal:2',
         'useful_life_months' => 'integer',
+        'is_opening_balance' => 'boolean',
+        'opening_accumulated_depreciation' => 'decimal:2',
     ];
 
     /**
@@ -84,6 +88,30 @@ class FixedAsset extends Model
     public function disposal(): HasOne
     {
         return $this->hasOne(FixedAssetDisposal::class);
+    }
+
+    /**
+     * Everything this asset has depreciated — **the one definition**.
+     *
+     * `opening_accumulated_depreciation` carries what was already written off before Atriom existed;
+     * `depreciation_entries` carries every month since. A legacy chiller three years into a ten-year
+     * life must show both, or the balance sheet carries it at cost and it depreciates its full value
+     * a second time.
+     *
+     * Named here rather than in `DepreciationService` because there were already **two** independent
+     * summers of `depreciationEntries()->sum('amount')` — the service, and
+     * `FixedAssetDisposalJournalizer`, which computes gain or loss on sale from its own copy.
+     * Adding the opening figure to one and not the other would have posted a wrong gain on every
+     * legacy asset ever sold, which is the un-propagated-fix pattern this codebase keeps producing.
+     * Both now call this.
+     */
+    public function accumulatedDepreciation(): float
+    {
+        return round(
+            (float) $this->opening_accumulated_depreciation
+            + (float) $this->depreciationEntries()->sum('amount'),
+            2,
+        );
     }
 
     /** The child ledger sources whose GL follows this asset's lifecycle (Phase 2/2b). */

@@ -4040,6 +4040,7 @@ return [
             'name' => 'الاسم', 'tag' => 'رقم الأصل', 'category' => 'الفئة', 'property' => 'العقار',
             'acquisition_date' => 'تاريخ الشراء', 'acquisition_cost' => 'التكلفة', 'salvage_value' => 'القيمة التخريدية',
             'useful_life' => 'العمر الإنتاجي (شهور)', 'funded_from' => 'ممول من', 'status' => 'الحالة',
+            'opening_accumulated' => 'الإهلاك المُجمَّع حتى تاريخ التحويل',
             'monthly' => 'إهلاك شهري', 'accumulated' => 'مجمع الإهلاك', 'net_book_value' => 'القيمة الدفترية',
             'period' => 'الشهر', 'amount' => 'المبلغ', 'notes' => 'ملاحظات', 'posted_by' => 'رحّلها',
             'disposed_on' => 'تاريخ الاستبعاد', 'proceeds' => 'عائد البيع', 'proceeds_account' => 'العائد إلى',

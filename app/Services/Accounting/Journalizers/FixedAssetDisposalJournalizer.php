@@ -43,7 +43,9 @@ class FixedAssetDisposalJournalizer implements Journalizer
         }
 
         $cost = round((float) $asset->acquisition_cost, 2);
-        $accumulated = round((float) $asset->depreciationEntries()->sum('amount'), 2);
+        // The SAME definition the service uses — a legacy asset's write-off happened before
+        // Atriom existed and still reduces the carrying amount this gain or loss is measured against.
+        $accumulated = $asset->accumulatedDepreciation();
         $proceeds = round((float) $disposal->proceeds, 2);
         $nbv = round($cost - $accumulated, 2);
         $gainLoss = round($proceeds - $nbv, 2); // + gain, − loss

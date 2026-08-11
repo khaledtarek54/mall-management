@@ -28,6 +28,44 @@ book value and the P&L carries the monthly depreciation charge.
 
 ---
 
+## Importing the register at cut-over (`FixedAssetImporter`, 2026-08-12)
+
+`/admin/fixed-assets` → **Import**. The register feeds depreciation and the balance sheet from day
+one, so this is the importer with the most immediate accounting consequence.
+
+**Every imported asset is an OPENING BALANCE.** That is not a column on the file — it is what
+importing means here, and two things follow:
+
+- **It posts no acquisition.** `fixed_assets.is_opening_balance` makes
+  `FixedAssetAcquisitionJournalizer` return null. A 2023 chiller's cost is already inside the
+  accountant's opening journal entry; posting `Dr Furniture & Equipment / Cr Cash` again would
+  double it — or be refused for landing in a closed period and stranded inside the best-effort sync
+  job. Same rule, same reason, as `invoices.is_opening_balance`.
+- **It carries the depreciation already taken**, in `opening_accumulated_depreciation`. Without it a
+  chiller three years into a ten-year life would charge its FULL cost again over another ten years
+  while the balance sheet carried it at cost. The column is **required** on import: a blank is not
+  "zero", it is "the operator has not told us", and a silent zero is the version nobody notices for
+  a year.
+
+> **`FixedAsset::accumulatedDepreciation()` is the ONE definition** — opening figure plus posted
+> entries. It lives on the model rather than in `DepreciationService` because accumulated
+> depreciation was being computed in **four** places: the service, `FixedAssetDisposalJournalizer`
+> (its own sum, for gain-or-loss on sale), and a SQL `withSum` in `FixedAssetResource` feeding both
+> the table and the register CSV. Teaching one about the opening figure and not the others would
+> have booked a phantom loss on every legacy asset ever sold and reported every imported asset at
+> cost on the balance-sheet schedule.
+>
+> The SQL one cannot call PHP — the table sorts on it — so it is a deliberate second expression of
+> the rule, and `FixedAssetOpeningBalanceTest` asserts the two agree. That test is the only thing
+> keeping a duplicated rule honest.
+
+Identity is **(property, tag)**: the tag is the label stuck on the machine and is unique within a
+mall, not globally, because two malls each number their chillers from 1. Property-scoped through
+`ResolvesVisibleAssetByCode` — an import bypasses the Create/Edit pages where `assertAssetInScope()`
+runs, and an out-of-scope row is skipped rather than written. `method` and `funded_from` are not
+importable: depreciation is straight-line only, and `funded_from` picks the credit side of an entry
+this importer never posts.
+
 ## 1. Domain model
 
 ### `fixed_assets` — the register (per property)

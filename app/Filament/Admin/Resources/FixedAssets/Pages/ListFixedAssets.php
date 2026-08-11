@@ -3,12 +3,15 @@
 namespace App\Filament\Admin\Resources\FixedAssets\Pages;
 
 use App\Filament\Admin\Resources\FixedAssets\FixedAssetResource;
+use App\Filament\Imports\FixedAssetImporter;
 use App\Services\DepreciationService;
+use App\Support\Imports;
 use App\Support\ReportCsv;
 use App\Support\StatusTabs;
 use App\Support\TenantScope;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
+use Filament\Actions\ImportAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 
@@ -53,6 +56,14 @@ class ListFixedAssets extends ListRecords
 
                     return ReportCsv::stream('fixed-asset-register', $csv['headers'], $csv['rows']);
                 }),
+            // Every imported asset is an OPENING BALANCE — bought before this system existed, so it
+            // posts no acquisition and carries the depreciation already taken. See FixedAssetImporter.
+            ImportAction::make()
+                ->importer(FixedAssetImporter::class)
+                ->label(__('admin.actions.import'))
+                ->icon('heroicon-o-arrow-up-tray')
+                ->visible(fn () => Imports::allowed())
+                ->authorize(fn () => Imports::allowed()),
             CreateAction::make()->visible(fn () => FixedAssetResource::canCreate()),
         ];
     }

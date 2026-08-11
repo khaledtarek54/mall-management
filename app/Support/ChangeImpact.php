@@ -379,8 +379,10 @@ class ChangeImpact
                 'acquisition_date' => 'it IS the entry date',
                 'funded_from' => 'chooses the credit — cash, bank or payable',
                 'asset_id' => 'the books dimension',
+                'is_opening_balance' => 'flipping it decides whether the asset posts an acquisition AT ALL. An asset loaded at cut-over was bought before this system existed and its cost is already inside the accountant\'s opening journal entry, so the journalizer returns null. Setting it on a posted asset must void that entry; clearing it must post one. DERIVED rather than REFUSED for the same reason as `invoices.is_opening_balance`: correcting a mis-flagged migration row is legitimate work during a cutover, and the re-derive is exactly the right outcome.',
             ],
             self::PROSPECTIVE => [
+                'opening_accumulated_depreciation' => 'the write-off taken before Atriom existed. It posts nothing itself — the accountant\'s opening entry carries it — but it reduces the carrying amount, so it changes how much depreciation REMAINS and therefore every future charge. It also feeds the disposal entry\'s gain or loss, which is a future document too.',
                 'useful_life_months' => 'changes FUTURE depreciation entries; the periods already posted are their own documents and are not rewritten',
                 'salvage_value' => 'same — it changes the depreciable base going forward',
                 'method' => 'same — straight-line vs reducing-balance applies to periods not yet run',

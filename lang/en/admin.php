@@ -4051,6 +4051,7 @@ return [
             'name' => 'Name', 'tag' => 'Asset tag', 'category' => 'Category', 'property' => 'Property',
             'acquisition_date' => 'Acquired', 'acquisition_cost' => 'Cost', 'salvage_value' => 'Salvage',
             'useful_life' => 'Useful life (months)', 'funded_from' => 'Funded from', 'status' => 'Status',
+            'opening_accumulated' => 'Depreciation already taken (at cut-over)',
             'monthly' => 'Monthly deprec.', 'accumulated' => 'Accum. deprec.', 'net_book_value' => 'Net book value',
             'period' => 'Month', 'amount' => 'Amount', 'notes' => 'Notes', 'posted_by' => 'Posted by',
             'disposed_on' => 'Disposed on', 'proceeds' => 'Sale proceeds', 'proceeds_account' => 'Proceeds to',

@@ -48,6 +48,7 @@ class FixedAssetDisposal extends Model
             ->useLogName('fixed_asset_disposal');
     }
 
+    /** @return BelongsTo<FixedAsset, $this> */
     public function fixedAsset(): BelongsTo
     {
         return $this->belongsTo(FixedAsset::class);
