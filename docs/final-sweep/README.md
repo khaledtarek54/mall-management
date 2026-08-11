@@ -88,9 +88,9 @@ These are either money-destroying, credential-grade, or block the cut-over entir
 > test and each guard mutation-checked. Full suite green: **4,218 tests, 4,214 passed, 0 failures.**
 >
 > **FS-04, FS-14 and FS-15 also shipped 2026-08-11** (`4851b78`, `65b5d51`, `cd3606c`) — the whole
-> code side of the cut-over. **FS-07, FS-18 and FS-09 shipped the same day** (`8f5fcfa`, and the VAT
-> return) — the first three of the books tier. **Still open in this tier: FS-08, FS-60** (books)
-> and **FS-10, FS-12** (backup and provisioning — ⚙️ ops, Phase 4).
+> code side of the cut-over. **FS-07, FS-18, FS-09 and FS-08 shipped the same day** (`8f5fcfa`,
+> `24b639e`, and the CAM pool fix) — the books tier is done except **FS-60**. **Still open:
+> FS-10, FS-12** (backup and provisioning — ⚙️ ops, Phase 4).
 >
 > Three corrections came out of doing the work, and they belong here rather than in a changelog:
 > the lease-reference crash needs a lease *nothing references* (which is precisely what the broken
@@ -109,7 +109,7 @@ These are either money-destroying, credential-grade, or block the cut-over entir
 | **FS-05** | **`Lease::generateReference()` is a deterministic duplicate-key 500** — it counts non-trashed rows against a unique index that includes trashed ones, with no lock. Soft-delete one lease and **no lease can be created for the rest of the calendar year**. `AllocatesDocumentNumber` is the correct pattern, four feet away | BUGFIX | S | [04 §5](04-architecture-ops.md) |
 | **FS-06** | **Write-offs are half-applied** — the GL is relieved, `balance` is not; partial write-offs are uncapped and un-netted (write off 25,000 against a 20,000 debt); and a written-off invoice is offered in the payment picker | BUGFIX | M | [03 §1.2](03-money-gl.md) |
 | **FS-07** | **The `posted`-only divergence** — `void()` leaves original lines in place; four consumers filter `posted` only. Worst case: a cancelled 100k bill drives `total_actual_expense` to −100k and **every tenant in the pool gets a credit note** for money nobody over-collected | BUGFIX | M | [03 §1.1](03-money-gl.md) |
-| **FS-08** | **Two CAM pools on one property both consume the same estimate** — no pool discriminator, and `BASIS_BILLED` is the form default → large negative true-ups → auto-applied credit notes | BUGFIX | S–M | [03 §1.5](03-money-gl.md) |
+| ~~**FS-08**~~ ✅ | ~~**Two CAM pools on one property both consume the same estimate**~~ — **shipped 2026-08-11.** `estimate_charge_codes` is per-pool; the global constant survives only as the floor for an undeclared **`cam`** pool, and any other pool on the billed basis that has not named its codes is **refused** rather than defaulted. The estimate query also had *no participant filter*, so a food-court pool subtracted the whole property's billing — membership is now one predicate (`participantLeaseQuery()`) shared with the allocation side. `CamPoolEstimateScopeTest`, both mutations checked (reverting either reproduces 100,000 where 0 is correct) | BUGFIX | S–M | [03 §1.5](03-money-gl.md) |
 | ~~**FS-09**~~ ✅ | ~~**The VAT return is unreachable, and wrong when reached**~~ — **shipped 2026-08-11.** `/admin/vat-return` (tie-out as the subheading, CSV only, no per-property filter — a return is filed per *registration*), and both halves of the credit-note bug fixed: the documents side nets their VAT, and `base_standard`/`base_exempt` net them **per line** so an exempt credit reduces the exempt supply. `VatReturnCreditNotesTest`, both mutations checked; its last case is an unposted invoice that must still report a discrepancy — netting must not become a relaxed check | WIRE + BUGFIX | S | [03 §2.1](03-money-gl.md) |
 | **FS-10** | **No rollback and no recovery** — 171 of 195 migrations drop columns in `down()`, so restore *is* the rollback story, and **the backup has produced nothing for 12 days** (`mysqldump` absent). A bad migration is currently unrecoverable | OPERATOR + EDIT | M | [04 §3.1](04-architecture-ops.md) |
 | **FS-11** | **`.env.example` ships `APP_ENV=local`**, which unconditionally passes 5 of 11 health checks, plus `DB_CONNECTION=sqlite` which makes backup capability report "able to back up" on a box that cannot | EDIT | S | [04 §3.1](04-architecture-ops.md) |

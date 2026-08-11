@@ -45,12 +45,23 @@ whole property participating, exactly as before.
 `participant_area_id` expresses Yardi's own example — everyone shares CAM, only the food court shares
 grease-trap cleaning — and re-answers on its own when a lease moves units.
 
-Two things to keep right when touching `CamReconciliationService::participants()`:
+**Membership is defined once — `CamExpensePool::participantLeaseQuery()`.** Two callers need it and
+they must not drift: the reconciliation picks allocation targets with it, and the billed-estimate
+query subtracts with it. They *did* drift until 2026-08-11 — the estimate query had no participant
+filter at all, so a food-court pool subtracted the whole property's billing from the food court's
+allocation.
+
+Three things to keep right when touching it, or `CamReconciliationService::participants()`:
 
 - **A zone pool on a `gla` denominator divides by the ZONE's leasable area.** The property's GLA
   would spread the pool across the whole centre and recover a few percent of its cost.
 - **Participation reads the `lease_unit` pivot, not `leases.unit_id`.** A lease whose master shop is
   outside the zone but whose annexe is inside it still participates.
+- **`active` belongs to the allocation side, not the membership predicate.** An allocation target
+  must be a live lease, but a tenant who left in July still paid six months of estimate; filtering
+  them out of the *estimate* would understate collections and over-recover from whoever is still
+  trading. `participantLeaseQuery()` deliberately carries no status filter — `participants()` adds
+  its own.
 
 Each pool ties out on its own: `Σ allocated + landlord_unrecovered_amount = total_actual_expense`.
 
@@ -187,12 +198,28 @@ wrong. One rendering test covers both locales, because an RTL font failure is re
   `SyncCamPoolFromLedgerService`, which **writes** the total rather than exposing a live query: a
   bill that arrives in March for December must not silently restate allocations already billed to
   tenants. A `reconciled` or `closed` pool refuses to re-source.
-- `estimate_basis = billed` → `estimated_paid` on each allocation is the **service charge that lease
-  was actually invoiced** during the year, not a pro-rata slice of a hand-typed portfolio figure.
-  This is what closes the loop: the estimate reconciled and the estimate billed become the same
-  number by construction rather than by diligence. Only `service_charge` counts —
-  `cam_recovery` and `cam_admin_fee` are the RESULT of a reconciliation, and counting them would let
-  last year's true-up inflate this year's estimate.
+- `estimate_basis = billed` → `estimated_paid` on each allocation is **what that lease was actually
+  invoiced under THIS pool's charge codes** during the year, not a pro-rata slice of a hand-typed
+  portfolio figure. This is what closes the loop: the estimate reconciled and the estimate billed
+  become the same number by construction rather than by diligence. `cam_recovery` and
+  `cam_admin_fee` can never be estimate codes — they are the RESULT of a reconciliation, and
+  counting them would let last year's true-up inflate this year's estimate.
+
+  **Which codes those are is per-pool (`estimate_charge_codes`), and it must be.** Until 2026-08-11
+  it was one global constant, `ESTIMATE_ITEM_TYPES = ['service_charge']`, consulted by every pool on
+  every property — so a mall running a `cam` pool *and* a `tax` pool for the same year had both
+  subtract the tenant's entire year of billed service charge. The tax pool reconciled to
+  (allocated 20,000 − estimate 100,000) = **−80,000**, issued a credit note, and auto-applied it FIFO
+  against live AR. `BASIS_BILLED` was the form default, so the risky basis was the one you got, and
+  `SeveralRecoveryPoolsTest` pinned every fixture to `BASIS_STATED`, so nothing saw it.
+
+  The constant survives as the FLOOR for an undeclared **`cam`** pool — which is what every row
+  written before the column is — and for nothing else. Any other pool on the billed basis that has
+  not named its codes is **refused** (`DomainException`), not defaulted: the billed basis is a claim
+  about what was billed, and a pool that cannot say what it bills has no business making it. Same
+  floor-and-refuse shape as `Vat::EXEMPT_TYPES`. In the annual sweep the refusal logs
+  `cam.pool_failed` and the run continues, so one undeclared pool cannot stop the others — it simply
+  does not reconcile, which beats reconciling wrongly.
 
 **Both bases default to `stated` on the COLUMN**, so every pool that already exists reconciles on
 exactly the basis it was reconciled against; only a NEW pool is created on the derived bases (the

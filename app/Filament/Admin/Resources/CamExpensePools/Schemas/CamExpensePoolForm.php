@@ -25,6 +25,45 @@ class CamExpensePoolForm
         return $record !== null && $record->allocations()->where('status', '!=', 'pending')->exists();
     }
 
+    /** The result of a reconciliation, never an estimate paid into one. */
+    private const NOT_AN_ESTIMATE = ['cam_recovery', 'cam_admin_fee'];
+
+    /**
+     * The charge codes an operator may nominate as a pool's estimate.
+     *
+     * `cam_recovery` and `cam_admin_fee` are excluded: they are the RESULT of a reconciliation, so
+     * counting them would let last year's true-up inflate this year's estimate and the pool would
+     * chase its own tail. The rule is stated on `CamExpensePool::ESTIMATE_ITEM_TYPES` too, but a
+     * select the operator can see is where the wrong choice would actually be made.
+     *
+     * **`InvoiceItemType` is the FLOOR, the catalogue supplies the names.** Reading only
+     * `charge_codes` would leave this select empty on a fresh install before `ChargeCodeSeeder`
+     * runs — and an empty select with a required field is a form nobody can submit. Same
+     * floor-and-overlay shape as `Vat::EXEMPT_TYPES`: the engine's own list can always answer, and
+     * the accountant's catalogue refines it. A conformance test already pins that every enum case
+     * has a catalogue row, so the two cannot drift apart.
+     *
+     * @return array<string, string>
+     */
+    private static function estimateCodeOptions(): array
+    {
+        $isArabic = app()->getLocale() === 'ar';
+
+        $options = collect(\App\Enums\InvoiceItemType::options())
+            ->except(self::NOT_AN_ESTIMATE);
+
+        \App\Models\ChargeCode::query()
+            ->where('is_active', true)
+            ->whereNotIn('code', self::NOT_AN_ESTIMATE)
+            ->orderBy('sort_order')
+            ->get()
+            ->each(function (\App\Models\ChargeCode $c) use (&$options, $isArabic): void {
+                $options[$c->code] = ($isArabic ? $c->name_ar : $c->name_en) ?: $c->code;
+            });
+
+        return $options->all();
+    }
+
     public static function configure(Schema $schema): Schema
     {
         return $schema->columns(1)->components([
@@ -69,6 +108,19 @@ class CamExpensePoolForm
                         ->maxLength(32)
                         ->default(CamExpensePool::CODE_CAM)
                         ->live(onBlur: true)
+                        // Moving off `cam` moves off CAM's assumptions. The billed basis and the
+                        // service-charge default are right for the property's CAM pool and wrong
+                        // for a tax or insurance pool, where the same defaults quietly subtract the
+                        // tenant's whole year of service charge. Reset rather than carry over: the
+                        // operator states what the new pool bills, or reconciles on a stated figure.
+                        ->afterStateUpdated(function ($state, $old, callable $set) {
+                            if ($state === $old || $state === CamExpensePool::CODE_CAM) {
+                                return;
+                            }
+
+                            $set('estimate_basis', CamExpensePool::BASIS_STATED);
+                            $set('estimate_charge_codes', []);
+                        })
                         ->helperText(__('admin.helpers.pool_code'))
                         // The code is part of the identity of the pool and of every allocation
                         // beneath it — renaming it after a reconciliation would silently re-key
@@ -129,7 +181,25 @@ class CamExpensePoolForm
                         ])
                         ->default(CamExpensePool::BASIS_BILLED)
                         ->required()
+                        ->live()
                         ->native(false)
+                        ->disabled(fn (?CamExpensePool $record) => self::basisFrozen($record)),
+                    // Which billed codes ARE this pool's estimate. Required on the billed basis,
+                    // because that basis is a claim about what was billed and a pool that cannot
+                    // say what it bills has no business making it — the alternative, a global
+                    // `service_charge` for every pool, had a `tax` pool subtract the tenant's whole
+                    // year of service charge and credit-note the difference.
+                    Select::make('estimate_charge_codes')
+                        ->label(__('admin.cam.estimate_charge_codes'))
+                        ->helperText(__('admin.cam.estimate_charge_codes_help'))
+                        ->options(fn () => self::estimateCodeOptions())
+                        ->multiple()
+                        ->native(false)
+                        ->searchable()
+                        ->columnSpanFull()
+                        ->default([CamExpensePool::ESTIMATE_ITEM_TYPES[0]])
+                        ->required(fn ($get): bool => $get('estimate_basis') === CamExpensePool::BASIS_BILLED)
+                        ->visible(fn ($get): bool => $get('estimate_basis') === CamExpensePool::BASIS_BILLED)
                         ->disabled(fn (?CamExpensePool $record) => self::basisFrozen($record)),
                     Select::make('ledgerAccounts')
                         ->label(__('admin.cam.ledger_accounts'))

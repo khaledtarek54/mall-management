@@ -72,6 +72,7 @@ class CamExpensePool extends Model
         'total_estimated_collected',
         'expense_basis',
         'estimate_basis',
+        'estimate_charge_codes',
         'denominator_basis',
         'denominator_fixed_sqm',
         'denominator_used_sqm',
@@ -132,7 +133,67 @@ class CamExpensePool extends Model
         'admin_fee_on_net' => 'boolean',
         'recovery_vat_rate' => 'decimal:2',
         'reconciled_at' => 'datetime',
+        'estimate_charge_codes' => 'array',
     ];
+
+    /**
+     * Which billed charge codes ARE this pool's estimate.
+     *
+     * `ESTIMATE_ITEM_TYPES` is the FLOOR for an undeclared `cam` pool, not the policy — the same
+     * shape as `Vat::EXEMPT_TYPES`. It exists so every row written before the column did keeps
+     * reconciling exactly as it did, and for nothing else.
+     *
+     * **Any other pool must say what it bills.** A `tax` pool inheriting the global constant is the
+     * bug this column closes: it subtracted the tenant's entire year of billed *service charge*
+     * from its own allocation, reconciled to a large negative, and issued a credit note against
+     * live AR. An empty return is therefore not "count nothing" — it is "not declared", and
+     * `SyncCamPoolFromLedgerService` refuses the billed basis rather than guessing.
+     *
+     * @return array<int, string>
+     */
+    public function estimateChargeCodes(): array
+    {
+        $declared = $this->estimate_charge_codes;
+
+        if (is_array($declared)) {
+            $declared = array_values(array_filter($declared, fn ($code): bool => is_string($code) && $code !== ''));
+
+            if ($declared !== []) {
+                return $declared;
+            }
+        }
+
+        return $this->pool_code === self::CODE_CAM ? self::ESTIMATE_ITEM_TYPES : [];
+    }
+
+    /**
+     * The leases that belong to this pool — the ONE definition of participation.
+     *
+     * Named once because two callers need it and they must not drift: the reconciliation picks
+     * allocation targets with it, and the billed-estimate query subtracts with it. They disagreed
+     * until 2026-08-11 — the estimate query had no participant filter at all, so a food-court pool
+     * subtracted the whole property's billing from the food court's allocation.
+     *
+     * Deliberately NOT filtered by lease status. Allocation targets must be live leases (the
+     * reconciliation adds `active` itself), but a departed tenant WAS billed during the year being
+     * reconciled and their estimate is part of what the pool collected. Filtering them out here
+     * would understate collections and over-recover from whoever is left.
+     *
+     * Area scope reads the `lease_unit` PIVOT, never the denormalised master `unit_id` alone: a
+     * multi-unit lease whose master sits outside the zone but whose annexe sits inside it still
+     * participates.
+     *
+     * @return \Illuminate\Database\Eloquent\Builder<Lease>
+     */
+    public function participantLeaseQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return Lease::query()
+            ->whereHas('unit', fn ($q) => $q->where('asset_id', $this->asset_id))
+            ->when(
+                $this->participant_scope === self::PARTICIPANTS_AREA && $this->participant_area_id,
+                fn ($q) => $q->whereHas('units', fn ($u) => $u->where('units.area_id', $this->participant_area_id)),
+            );
+    }
 
     protected static function booted(): void
     {

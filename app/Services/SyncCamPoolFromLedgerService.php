@@ -233,16 +233,40 @@ class SyncCamPoolFromLedgerService
             ->sum('invoice_items.amount'), 2);
     }
 
-    /** @return \Illuminate\Database\Eloquent\Builder<\App\Models\InvoiceItem> */
+    /**
+     * What THIS pool billed ITS participants as estimate, over the reconciled year.
+     *
+     * Both qualifiers were missing until 2026-08-11, and each on its own produced a wrong number:
+     *
+     *  - **Whose charge codes.** A single global `['service_charge']` served every pool, so a
+     *    property running a `cam` pool and a `tax` pool had both subtract the same billed service
+     *    charge. The tax pool reconciled to (allocated 20,000 − estimate 100,000) = −80,000 and
+     *    issued a credit note, auto-applied FIFO against live AR.
+     *  - **Whose tenants.** No participant filter at all, so an area-scoped pool subtracted the
+     *    whole property's billing from one zone's allocation.
+     *
+     * Both now come from the pool. An undeclared non-`cam` pool is REFUSED rather than defaulted:
+     * the billed basis is a claim about what was billed, and a pool that cannot say what it bills
+     * has no business making it. A refusal costs the operator a form field; the guess cost them a
+     * credit note.
+     *
+     * @return \Illuminate\Database\Eloquent\Builder<\App\Models\InvoiceItem>
+     */
     private function billedServiceChargeQuery(CamExpensePool $pool, string $start, string $end)
     {
+        $codes = $pool->estimateChargeCodes();
+
+        if ($codes === []) {
+            throw new \DomainException(__('admin.cam.errors.estimate_codes_required', [
+                'pool' => $pool->label(),
+            ]));
+        }
+
         return \App\Models\InvoiceItem::query()
             ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
-            ->join('leases', 'leases.id', '=', 'invoices.lease_id')
-            ->join('units', 'units.id', '=', 'leases.unit_id')
-            ->where('units.asset_id', $pool->asset_id)
+            ->whereIn('invoices.lease_id', $pool->participantLeaseQuery()->select('leases.id'))
             ->whereNotIn('invoices.status', ['cancelled', 'written_off'])
-            ->whereIn('invoice_items.type', CamExpensePool::ESTIMATE_ITEM_TYPES)
+            ->whereIn('invoice_items.type', $codes)
             // Keyed on the period the invoice COVERS, not the day it was raised: a December invoice
             // issued on 2 January belongs to the year the tenant occupied, which is the year being
             // reconciled.

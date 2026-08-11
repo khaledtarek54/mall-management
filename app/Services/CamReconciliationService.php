@@ -286,13 +286,12 @@ class CamReconciliationService
      */
     private function participants(CamExpensePool $pool)
     {
-        return Lease::query()
-            ->whereHas('unit', fn ($q) => $q->where('asset_id', $pool->asset_id))
+        // The membership predicate lives on the pool so the billed-estimate query subtracts from
+        // exactly the set this allocates to. `active` stays HERE and not there: an allocation
+        // target must be a live lease, but a departed tenant's estimate is still part of what the
+        // pool collected during the year (see CamExpensePool::participantLeaseQuery()).
+        return $pool->participantLeaseQuery()
             ->where('status', 'active')
-            ->when(
-                $pool->participant_scope === CamExpensePool::PARTICIPANTS_AREA && $pool->participant_area_id,
-                fn ($q) => $q->whereHas('units', fn ($u) => $u->where('units.area_id', $pool->participant_area_id)),
-            )
             ->with('unit', 'units.areas')
             ->get();
     }

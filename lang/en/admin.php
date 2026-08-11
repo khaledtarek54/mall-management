@@ -186,6 +186,11 @@ return [
         'basis_stated' => 'A figure typed here',
         'basis_ledger' => 'Posted ledger accounts',
         'basis_billed' => 'What tenants were invoiced',
+        'estimate_charge_codes' => 'Charge codes that are this pool\'s estimate',
+        'estimate_charge_codes_help' => 'Which billed lines count as estimates already paid into THIS pool. A CAM pool is normally the service charge; a tax or insurance pool must name its own codes, or it would subtract the tenant\'s service charge from its own recovery.',
+        'errors' => [
+            'estimate_codes_required' => 'Pool ":pool" reconciles against what tenants were invoiced, but has not said which charge codes are its estimate. Name them on the pool, or set its estimates to a stated figure.',
+        ],
         'ledger_accounts' => 'Expense accounts in this pool',
         'ledger_accounts_help' => 'The pool total becomes the posted debits less credits on these accounts, for this property and year.',
         'apply_estimates' => 'Apply next year\'s estimates',
