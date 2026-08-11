@@ -5,7 +5,7 @@
 
 The Billing module automates the monthly invoicing lifecycle for Eltizam operators. Each Eltizam manages leases on behalf of Jawad property owners; invoices are issued to Eltizam's tenants (retailers) for rent, service charges, utilities, and other recurring fees. The system:
 - Generates invoices idempotently from lease charges (avoiding duplicates within a period)
-- Applies VAT (standard rate, 14% today — settings-driven, see §8) only to service/utility charges (base rent is VAT-exempt per Egyptian law)
+- Applies VAT (standard rate, 14% today — settings-driven, see §8) to the supplies the charge-code catalogue marks taxable (base rent is VAT-exempt per Egyptian law)
 - Supports proration at BOTH ends: mid-month commencement (per-run flag) and mid-month
   termination/expiry (unconditional), plus the automatic credit note when the month was already
   billed in advance
@@ -61,7 +61,7 @@ This is the core AR (accounts receivable) engine; all recurring revenue flows th
 
 ### Money & VAT
 
-1. **VAT is 14% and only applies to service charges, utilities, and parking — NOT base rent or percentage rent.** This is controlled per charge:
+1. **VAT is 14% and applies to service charges, CAM and utilities — NOT base rent, percentage rent, penalties, the marketing levy or parking.** Which supplies are taxable is set per charge code (below); what an individual document bills is then frozen on the row:
    - `Charge.vat_applicable` = true/false
    - `Charge.vat_rate` = 14.00 (for taxed charges)
    - `InvoiceItem.vat_rate` inherits from Charge; if Charge.vat_applicable = false, vat_rate = 0
@@ -77,12 +77,25 @@ This is the core AR (accounts receivable) engine; all recurring revenue flows th
      total and credits revenue from the **item** amounts: a divergence computes the two sides of one
      journal entry from two different numbers. An invoice with **no** items keeps its header (legacy /
      opening-balance rows have nothing to derive from). See `InvoiceHeaderTiesToItemsTest`.
-   - **Which types are exempt is named once** — `Vat::EXEMPT_TYPES` + `Vat::rateForType()` (base rent,
-     percentage rent, late fee, marketing, violation fine, NSF fee). The form's type-switch used to
-     carry its own list of two while the services originated six, so a hand-added late fee / marketing
-     levy / fine defaulted to 14% no service would ever have charged. It is a **default, not a
-     refusal**: taxability belongs on `charge_codes` (a `vat_exempt` column), which is blocked on the
-     accountant's ruling. See `ExemptChargeTypesAgreeAcrossPathsTest`.
+   - **WHICH supplies are taxable is DATA, on the charge code** — `charge_codes.vat_treatment`
+     (`standard` / `exempt` / `zero_rated`) plus an optional `vat_rate_override`, resolved by the one
+     function every origination point calls, `Vat::rateForType($code)`. An accountant rules on a
+     supply by editing a row; adding "key money" no longer means a developer decides whether it is
+     taxed. This is the shape Yardi uses (a `Tax` flag on the charge code — *"Yes means 'this charge
+     is taxable'; it does not mean 'this charge is a tax'"*), widened to three treatments because
+     **exempt ≠ zero-rated**: both bill 0 and they are different lines on a VAT return, and the
+     distinction cannot be recovered later from documents that recorded only a zero.
+   - `Vat::EXEMPT_TYPES` survives as the **floor**, not the policy: what an unseeded database bills,
+     so an empty catalogue can never fall through to the standard rate and charge 14% on base rent.
+     `ChargeCodeVatTreatmentConformanceTest` asserts floor and catalogue resolve every code
+     identically — the same arrangement (and gate) `InvoiceJournalizer::REVENUE_ROLE` has for posting
+     roles. See `ChargeCodeVatTreatmentTest` for a ruling reaching the services, and
+     `ExemptChargeTypesAgreeAcrossPathsTest` for the drift that started it: the form's type-switch
+     once carried its own list of two while the services originated six, so a hand-added late fee /
+     marketing levy / fine defaulted to 14% no service would ever have charged.
+   - **Parking is a charge code like any other** — its taxability was a settings toggle
+     (`TaxSettings::parking_vat_applicable`) for one day, 2026-08-10 to 2026-08-11, and is now the
+     `parking` row's treatment. One question with two homes is how the two come to disagree.
 
 2. **Proration:** `MonthlyBillingService::monthsCovered()` is **the one rule** — it sums each month's
    own covered fraction over the cycle, so the commencement edge, the termination edge and a
@@ -659,14 +672,27 @@ cadence), is edited at **/admin/settings → Tax**, and is read **only** through
 `App\Support\Vat`:
 
 ```php
+Vat::rateForType($code);      // ← what a NEW line of this charge code bills at. Use this.
+Vat::onType($amount, $code);  // the VAT due on it
 Vat::standardRate();          // the configured percentage, e.g. 14.0
-Vat::on($amount);             // VAT due on a taxable supply
-Vat::atRate($amount, $rate);  // VAT at a stored/frozen rate
-Vat::EXEMPT;                  // base rent, percentage rent, late fees, fines, marketing levy
+Vat::atRate($amount, $rate);  // VAT at a stored/frozen rate (a document, a CAM pool)
+Vat::EXEMPT;                  // 0, named — never a bare literal at a call site
 ```
 
 **Do not write a literal rate anywhere.** `VatRateSettingTest` scans `app/` and fails with the
 offending file:line if one reappears — that is how the previous eight copies were found.
+
+**Do not call `standardRate()` / `on()` from a service either.** They cannot see the accountant's
+ruling, so a service using them keeps taxing a supply the catalogue exempted —
+`ExemptChargeTypesAgreeAcrossPathsTest` fails the build on one under `app/Services`.
+
+### Making a charge code exempt (or taxable)
+
+No deploy: **Charge Codes → the code → VAT treatment**. Exempt and zero-rated both bill 0; pick
+zero-rated only for a supply that is taxable at 0%, since the two are reported apart. A code on a
+schedule rate of its own fills in **Rate for this code**; left blank it follows the standard rate,
+including future changes to it. A ruling reaches the **next** charge or invoice line raised —
+issued documents keep the rate they were billed at.
 
 **Only origination reads the setting.** Once a charge or invoice line exists it carries its own
 `vat_rate` column, and every downstream path (the monthly run, renewal, rent changes, credit notes,
@@ -675,8 +701,9 @@ invoice issued at 14% stays a 14% document forever. Changing the setting affects
 **next**, never what was already billed — otherwise a rate change would silently rewrite history and
 de-tie the books from returns already filed.
 
-**Per-tenant / per-supply rates** are already supported without touching the setting: `charges.vat_rate`
-is per-charge, and a CAM pool's `recovery_vat_rate` is frozen with its basis at reconciliation.
+**Per-supply rates** are already supported without touching the setting: `charge_codes.vat_treatment`
+(+ `vat_rate_override`) sets what a supply originates at, `charges.vat_rate` is per-charge, and a CAM
+pool's `recovery_vat_rate` is frozen with its basis at reconciliation.
 
 **Per-tenant or per-lease rate:** Currently not supported. To add, store vat_override on Tenant or Lease and read it in MonthlyBillingService. This would be a larger feature (need UI, tests, migration).
 

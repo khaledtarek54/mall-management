@@ -111,8 +111,10 @@ class LeaseCreationService
                 'amount' => $rent,
                 'currency' => $lease->currency ?? 'EGP',
                 'frequency' => 'monthly',
-                'vat_applicable' => false,
-                'vat_rate' => Vat::EXEMPT,
+                // Taxability comes from the charge code, not from here — the catalogue ships rent
+                // exempt and the accountant owns any change to that.
+                'vat_applicable' => Vat::rateForType('base_rent') > 0,
+                'vat_rate' => Vat::rateForType('base_rent'),
                 'start_date' => $commencement,
                 'is_active' => true,
             ]);
@@ -126,8 +128,8 @@ class LeaseCreationService
                 'amount' => $service,
                 'currency' => $lease->currency ?? 'EGP',
                 'frequency' => 'monthly',
-                'vat_applicable' => true,
-                'vat_rate' => Vat::standardRate(),
+                'vat_applicable' => Vat::rateForType('service_charge') > 0,
+                'vat_rate' => Vat::rateForType('service_charge'),
                 'start_date' => $commencement,
                 'is_active' => true,
             ]);

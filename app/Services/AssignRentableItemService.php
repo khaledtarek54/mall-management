@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Charge;
 use App\Models\Lease;
 use App\Models\RentableItem;
+use App\Support\Vat;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Support\Facades\DB;
@@ -165,22 +166,22 @@ class AssignRentableItemService
             return;
         }
 
-        $vatApplicable = (bool) app(\App\Settings\TaxSettings::class)->parking_vat_applicable;
+        // Rent is exempt, service charge is standard-rated, and parking is neither obviously — a
+        // licence to use a space rather than a lease of it. The VAT Law schedules settle that and a
+        // developer does not, so the answer is the accountant's: `charge_codes.vat_treatment` on the
+        // `parking` code, shipping exempt because under-charging the tenant beats collecting tax
+        // that may not be due and having to refund it. (It was a settings toggle of its own until
+        // 2026-08-11 — one question with two homes, which is how they come to disagree.)
+        //
+        // Read at ORIGINATION only, so a ruling changes what is billed from then on and never
+        // rewrites an issued invoice — the same rule the standard rate itself follows.
+        $vatRate = Vat::rateForType('parking');
 
         $this->schedule->setAmount($lease, 'parking', $total, $on, [
             'name' => 'Parking & rentable items',
             'frequency' => 'monthly',
-            // Rent is exempt, service charge is standard-rated, and parking is neither obviously —
-            // a licence to use a space rather than a lease of it. The VAT Law schedules settle that
-            // and a developer does not, so it is a SETTING the accountant owns
-            // (`TaxSettings::$parking_vat_applicable`), shipping exempt: under-charging the tenant
-            // beats collecting tax that may not be due and having to refund it.
-            //
-            // Read at ORIGINATION only, through `Vat::standardRate()` and never a literal — so
-            // flipping the switch changes what is billed from then on and never rewrites an issued
-            // invoice, which is the same rule the standard rate itself follows.
-            'vat_applicable' => $vatApplicable,
-            'vat_rate' => $vatApplicable ? \App\Support\Vat::standardRate() : \App\Support\Vat::EXEMPT,
+            'vat_applicable' => $vatRate > 0,
+            'vat_rate' => $vatRate,
             // A bay taken on 1 March was not held in January. Without this the schedule's default
             // would date the first row to the lease commencement and back-charge the difference.
             'first_row_from_effective' => true,

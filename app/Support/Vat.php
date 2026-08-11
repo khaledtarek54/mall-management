@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\ChargeCode;
 use App\Settings\TaxSettings;
 
 /**
@@ -21,10 +22,16 @@ use App\Settings\TaxSettings;
  * never what was already billed — otherwise a rate change would silently rewrite history and
  * de-tie the books from the filed returns.
  *
- * **Exempt is not zero-rated, but both store 0 here.** Base rent, percentage rent, late fees,
- * violation fines and the marketing levy are outside the scope of VAT on a taxable supply, so they
- * originate at `EXEMPT`. They must never pick up the standard rate if it changes — hence a named
- * constant rather than a bare 0 at each call site.
+ * **The RATE is here; WHICH supplies are taxable is not.** That belongs to the charge-code
+ * catalogue (`charge_codes.vat_treatment`, standard / exempt / zero-rated, with an optional
+ * per-code rate override) — an accountant's ruling, saved as a row, no deploy. This class resolves
+ * it: {@see rateForType()} is the one function every origination point calls, so a Late Fee raised
+ * by a service and one typed by hand cannot be taxed differently. Yardi puts the same decision in
+ * the same place — a `Tax` flag on the charge code, with the rate configured as data.
+ *
+ * **Exempt is not zero-rated, but both bill 0.** They differ on the VAT return, so the distinction
+ * is stored on the code rather than inferred from a zero on a line, where it would be unrecoverable.
+ * {@see EXEMPT_TYPES} remains as the floor for a database whose catalogue is not seeded yet.
  *
  * Per-supply overrides that legitimately differ (a CAM pool's `recovery_vat_rate`, frozen with its
  * basis at reconciliation time) resolve their own stored rate and only fall back to this default
@@ -39,21 +46,22 @@ class Vat
     public const EXEMPT = 0.0;
 
     /**
-     * WHICH charge types are outside the scope — the set the constant above only described in prose.
+     * The FLOOR: which codes are out of scope when the catalogue cannot answer.
      *
-     * It had to be named because it had already drifted. Every service that raises one of these
-     * lines originates it at 0 (`LateFeeService`, `MarketingLevyService`, `BillViolationFineService`,
-     * `BillBouncedChequeFeeService`, `PercentageRentCalculationService`), but the invoice form's
-     * type-switch listed only `base_rent` and `percentage_rent` — so a Late Fee, Marketing Levy,
-     * Violation Fine or Returned-Cheque Fee added BY HAND defaulted to the standard rate. The same
-     * charge was taxed differently depending on whether a service or a person raised it, which
-     * over-charges the tenant and over-states VAT payable on the return.
+     * **Taxability lives on `charge_codes.vat_treatment`, not here.** An accountant rules on it and
+     * saves a row; {@see rateForType()} reads that row. This list is what an *unseeded* database
+     * bills — a fresh deployment before its seeders run, or one of the many tests that seed no
+     * catalogue — and it exists for one reason: without it, an empty `charge_codes` table would
+     * make `rateForType()` fall through to the standard rate and charge 14% VAT on base rent.
      *
-     * This is a DEFAULT, not a refusal. `charge_codes` — the catalogue an accountant maintains
-     * without a deploy — carries no taxability column, so refusing a rate at the model layer would
-     * hard-code tax policy in PHP, the exact thing that catalogue exists to avoid. Promoting the
-     * rule properly means a `vat_exempt` column on `charge_codes`, which needs the accountant's
-     * ruling on which codes are exempt (see docs/gap-analysis/VALIDATION-SWEEP-PLAN.md).
+     * Exactly the arrangement `InvoiceJournalizer::REVENUE_ROLE` uses for posting roles: catalogue
+     * first, hard-coded map as a floor, fallback last, with a conformance test asserting the two
+     * agree code-for-code so the floor is a safety net and never a second opinion
+     * (`ChargeCodeVatTreatmentConformanceTest`).
+     *
+     * It is also, still, the answer to the drift that created it: every service originating one of
+     * these lines and the invoice form's type-switch now resolve through `rateForType()`, so a Late
+     * Fee raised by hand and one raised by `LateFeeService` cannot be taxed differently.
      *
      * @var array<int, string>
      */
@@ -64,13 +72,46 @@ class Vat
         'marketing',
         'violation_fine',
         'nsf_fee',
+        // Parking was exempt by way of a settings toggle that shipped off, until taxability became
+        // a column. It belongs in the floor for the same reason as the rest: without it, a database
+        // with no catalogue would bill a bay at the standard rate while a seeded one bills nothing.
+        'parking',
     ];
 
-    /** The rate a NEW line of `$type` originates at — EXEMPT for an out-of-scope supply. */
+    /**
+     * The rate a NEW line of `$type` originates at.
+     *
+     * Resolution order, and each step earns its place:
+     *   1. the charge-code catalogue — the accountant's ruling, editable without a deploy;
+     *   2. {@see EXEMPT_TYPES}, when the catalogue has no row for this code (unseeded database);
+     *   3. the standard rate, for a code nobody has classified — assume taxable rather than
+     *      silently under-collect a tax that is due.
+     *
+     * ORIGINATION ONLY. The billing run, renewals and credit notes read the rate stored on the
+     * charge or invoice line, so changing a treatment never re-rates an issued document.
+     */
     public static function rateForType(?string $type): float
     {
-        return in_array($type, self::EXEMPT_TYPES, true)
-            ? self::EXEMPT
+        if ($type === null) {
+            return self::standardRate();
+        }
+
+        $policy = ChargeCode::vatPolicyFor($type);
+
+        if ($policy === null) {
+            return in_array($type, self::EXEMPT_TYPES, true)
+                ? self::EXEMPT
+                : self::standardRate();
+        }
+
+        if ($policy['treatment'] !== ChargeCode::VAT_STANDARD) {
+            // Exempt and zero-rated both bill nothing. They differ on the VAT return, which reads
+            // the treatment on the code, not the zero on the line.
+            return self::EXEMPT;
+        }
+
+        return $policy['override'] !== null
+            ? max(0.0, $policy['override'])
             : self::standardRate();
     }
 
@@ -88,6 +129,18 @@ class Vat
     public static function on(float $amount): float
     {
         return round($amount * self::standardRate() / 100, 2);
+    }
+
+    /**
+     * VAT due on `$amount` billed under charge code `$type` — the standard rate unless the
+     * catalogue says this supply is exempt, zero-rated, or on a schedule rate of its own.
+     *
+     * Use this, not {@see on()}, wherever the money being taxed belongs to a known charge code:
+     * `on()` cannot see the accountant's ruling and will tax an exempt supply.
+     */
+    public static function onType(float $amount, string $type): float
+    {
+        return self::atRate($amount, self::rateForType($type));
     }
 
     /** VAT due on `$amount` at an explicitly stored rate (a frozen document or pool rate). */

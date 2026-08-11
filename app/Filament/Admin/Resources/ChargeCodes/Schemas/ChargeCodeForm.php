@@ -3,7 +3,9 @@
 namespace App\Filament\Admin\Resources\ChargeCodes\Schemas;
 
 use App\Enums\InvoiceItemType;
+use App\Models\ChargeCode;
 use App\Support\PostingRoles;
+use App\Support\Vat;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -42,6 +44,35 @@ class ChargeCodeForm
                         ->helperText(fn (Get $get) => ($group = PostingRoles::group((string) $get('posting_role')))
                             ? __('admin.helpers.posting_role_expects', ['group' => PostingRoles::groupLabel($group)])
                             : __('admin.helpers.charge_code_role')),
+
+                    // Taxability is the accountant's ruling and belongs beside the code it applies
+                    // to — the same place Yardi puts it (a `Tax` flag on the charge code). It was
+                    // a PHP array until 2026-08-11, so exempting a new code needed a deploy.
+                    Select::make('vat_treatment')
+                        ->label(__('admin.fields.vat_treatment'))
+                        ->options([
+                            ChargeCode::VAT_STANDARD => __('admin.charge_codes.vat_standard'),
+                            ChargeCode::VAT_EXEMPT => __('admin.charge_codes.vat_exempt'),
+                            ChargeCode::VAT_ZERO_RATED => __('admin.charge_codes.vat_zero_rated'),
+                        ])
+                        ->default(ChargeCode::VAT_STANDARD)
+                        ->required()
+                        ->native(false)
+                        ->live()
+                        ->helperText(__('admin.helpers.charge_code_vat_treatment')),
+
+                    TextInput::make('vat_rate_override')
+                        ->label(__('admin.fields.vat_rate_override'))
+                        ->suffix('%')
+                        ->numeric()
+                        ->minValue(0)
+                        ->maxValue(100)
+                        ->step('0.01')
+                        // Only a standard-rated supply can carry a rate; a rate typed against an
+                        // exempt code would read as policy and do nothing.
+                        ->visible(fn (Get $get) => $get('vat_treatment') === ChargeCode::VAT_STANDARD)
+                        ->placeholder(fn () => number_format(Vat::standardRate(), 2).'%')
+                        ->helperText(__('admin.helpers.charge_code_vat_override')),
 
                     TextInput::make('name_en')
                         ->label(__('admin.fields.name_en'))

@@ -245,7 +245,10 @@ class CamExpensePoolForm
                         ->minValue(0)
                         ->maxValue(100)
                         ->step('0.01')
-                        ->default(fn () => Vat::standardRate())
+                        // The `cam_recovery` code's rate, not the bare standard rate: a pool that
+                        // recovers an exempt supply should open at 0 rather than make the operator
+                        // notice and clear it.
+                        ->default(fn () => Vat::rateForType('cam_recovery'))
                         ->required()
                         ->helperText(__('admin.helpers.cam_recovery_vat_rate'))
                         ->disabled(fn (?CamExpensePool $record) => self::basisFrozen($record))

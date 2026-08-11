@@ -226,8 +226,8 @@ class LeaseSpaceChangeService
 
         $this->schedule->setAmount($lease, 'base_rent', $newTotal, $effectiveFrom, [
             'name' => 'Base Rent',
-            'vat_applicable' => false,
-            'vat_rate' => Vat::EXEMPT,
+            'vat_applicable' => Vat::rateForType('base_rent') > 0,
+            'vat_rate' => Vat::rateForType('base_rent'),
         ], Charge::ORIGIN_MANUAL);
 
         // The contracted rent really did change — this is a renegotiation of the premises, not a

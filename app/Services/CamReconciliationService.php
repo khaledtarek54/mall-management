@@ -184,7 +184,7 @@ class CamReconciliationService
                 // admin_fee_pct (existing pools, no clause) yields 0 → byte-identical billing.
                 $adminFeePct = (float) ($pool->admin_fee_pct ?? 0);
                 $adminFee = round($adminFeePct * $cappedCost, 2);
-                $adminFeeVat = Vat::on($adminFee);
+                $adminFeeVat = Vat::onType($adminFee, 'cam_admin_fee');
 
                 // Lock the existing row inside the txn so the status check below
                 // sees committed truth — a concurrent bill() that flipped it to

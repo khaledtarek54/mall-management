@@ -6,10 +6,12 @@
 **The tally, since the honest version is the point:** 12 rules were enforced at layer 3 only or not
 at all and are now at layer 1; 4 were already correct but had never been watched refusing anything
 and now have witnesses; the remaining 18 needed no change, which §5 predicted and which is the
-result rather than a failure to find one. Two findings are recorded and deliberately NOT fixed —
-`charge_codes.vat_exempt` (§8 R8) and freeing `charges.type` from its DB enum (§9 L7) — because both
-are product decisions belonging to the accountant conversation, not validation-layer questions. One
-open question goes to Eltizam (§11, ad-hoc bills outside the approval ladder).
+result rather than a failure to find one. Two findings were recorded and deliberately NOT fixed —
+`charge_codes.vat_exempt` (§8 R8) and freeing `charges.type` from its DB enum (§9 L7) — as product
+decisions belonging to the accountant conversation. **The first of those shipped 2026-08-11** as
+`charge_codes.vat_treatment`: the column was a system decision all along, and only the rulings in it
+are the accountant's (see §8 R8). One open question goes to Eltizam (§11, ad-hoc bills outside the
+approval ladder).
 
 **Two patterns worth carrying past this document:**
 
@@ -269,12 +271,31 @@ first repeater row was self-contradictory on sight — type `Base Rent`, VAT `14
 
 The set is now `Vat::EXEMPT_TYPES` with `Vat::rateForType()`, read by both sides.
 
-**Deliberately NOT promoted to a refusal.** `charge_codes` — the catalogue an accountant edits
-without a deploy — has no taxability column, so refusing a rate at the model layer would hard-code
-tax policy in PHP, the exact thing that catalogue exists to avoid. **Recommendation, blocked on the
-accountant:** add `vat_exempt` to `charge_codes` and derive `EXEMPT_TYPES` from it. That is the same
-person already holding the chart of accounts, so it belongs in that conversation rather than ahead
-of it.
+**SHIPPED 2026-08-11 — taxability moved from PHP into the catalogue.** The recommendation this
+section left open (`vat_exempt` on `charge_codes`) is built, in the shape a VAT jurisdiction needs:
+`charge_codes.vat_treatment` — `standard` / `exempt` / `zero_rated` — plus an optional
+`vat_rate_override` for a supply on a schedule rate of its own. `Vat::rateForType()` resolves the
+catalogue first, and **every origination point now goes through it**: the invoice form and all
+twelve services that raise a charge or an invoice line. A half-wired catalogue would have been worse
+than none — the accountant flips `marketing` to standard-rated, the screen agrees, and the monthly
+levy keeps billing 0.
+
+It was NOT blocked on the accountant after all, and treating it as blocked was the error: the
+*column* is a system decision, only the *rulings in it* are theirs. Everything is seeded to what the
+system billed the day before, so their answer is now a row edit rather than a release.
+
+`Vat::EXEMPT_TYPES` survives as the floor for an unseeded catalogue (an empty `charge_codes` must
+not make base rent taxable), with `ChargeCodeVatTreatmentConformanceTest` asserting floor and
+catalogue resolve every code identically — the arrangement `InvoiceJournalizer::REVENUE_ROLE`
+already had for posting roles. `TaxSettings::parking_vat_applicable`, added the day before as a
+one-supply toggle, is retired into the same column.
+
+**Yardi comparison, since this was the reference:** Voyager holds taxability as a `Tax` flag on the
+charge code (*"Yes means 'this charge is taxable.' It does not mean 'this charge is a tax.'"*) with
+the rate configured as data at property level, and posts the tax to a liability account. We match
+the placement, add the exempt/zero-rated split a VAT return needs, and stay stricter in one respect:
+Yardi's property `Tax Rate` is a current-rate field, while every Atriom document freezes the rate it
+was billed at.
 
 ### What was already right
 

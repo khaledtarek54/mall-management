@@ -87,7 +87,10 @@ class BillMeterReadingService
                 throw new \DomainException(__('admin.utility.bill_failed_zero_cost'));
             }
 
-            $vat = Vat::on($amount);
+            // A utility recharge is a taxable supply — unless the catalogue says this mall's
+            // accountant ruled otherwise. Both the rate and the amount come from one answer.
+            $vatRate = Vat::rateForType('utility');
+            $vat = Vat::atRate($amount, $vatRate);
             $now = now();
             $periodStart = $locked->reading_date->copy()->startOfMonth();
             $periodEnd = $locked->reading_date->copy()->endOfMonth();
@@ -120,7 +123,7 @@ class BillMeterReadingService
                 ]),
                 'type' => 'utility', // → utility_revenue in the GL journalizer
                 'amount' => $amount,
-                'vat_rate' => Vat::standardRate(),
+                'vat_rate' => $vatRate,
                 'vat_amount' => $vat,
                 'total' => round($amount + $vat, 2),
             ]);

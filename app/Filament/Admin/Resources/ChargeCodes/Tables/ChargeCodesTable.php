@@ -6,6 +6,7 @@ use App\Enums\InvoiceItemType;
 use App\Filament\Admin\Resources\ChargeCodes\ChargeCodeResource;
 use App\Models\ChargeCode;
 use App\Support\PostingRoles;
+use App\Support\Vat;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
@@ -52,6 +53,22 @@ class ChargeCodesTable
                     ->description(fn (ChargeCode $record) => ($g = $record->roleGroup())
                         ? PostingRoles::groupLabel($g)
                         : __('admin.charge_codes.falls_back')),
+
+                // The rate this code bills at, not just its treatment — "Standard" alone leaves the
+                // operator to remember what standard is today, and a code on its own schedule rate
+                // would look identical to one on 14%.
+                TextColumn::make('vat_treatment')
+                    ->label(__('admin.fields.vat_treatment'))
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state) => match ($state) {
+                        ChargeCode::VAT_EXEMPT => __('admin.charge_codes.vat_exempt'),
+                        ChargeCode::VAT_ZERO_RATED => __('admin.charge_codes.vat_zero_rated'),
+                        default => __('admin.charge_codes.vat_standard'),
+                    })
+                    ->color(fn (?string $state) => $state === ChargeCode::VAT_STANDARD ? 'success' : 'gray')
+                    ->description(fn (ChargeCode $record) => $record->vat_treatment === ChargeCode::VAT_STANDARD
+                        ? number_format(Vat::rateForType($record->code), 2).'%'
+                        : null),
 
                 IconColumn::make('is_active')
                     ->label(__('admin.fields.is_active'))

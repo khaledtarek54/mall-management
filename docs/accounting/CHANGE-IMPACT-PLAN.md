@@ -307,21 +307,27 @@ Engineering should not guess these:
    `expense_date` and `asset_id` stay editable on purpose, exactly as on VendorBill: each carries its own
    guard, and re-dating or re-homing a correctly-keyed expense does not restate what was spent. Locked at
    both layers, off one predicate.
-2. ~~**Auto-apply open credit** to the next charge, as Voyager does?~~ — **decided 2026-08-11 on the
-   Yardi standard: YES, with a per-lease opt-out. Specified here, not yet built.** Voyager's receipt
-   application order runs *existing open credits first*, and an unapplied remainder auto-applies against
-   the next posted charge; waiting for an operator is the deviation, not the reverse. The earlier
-   hesitation — a credit raised in dispute vanishing into next month's rent — is real but is an argument
-   for the **opt-out Yardi itself ships**, not for withholding the default.
+2. ~~**Auto-apply open credit** to the next charge, as Voyager does?~~ — **decided AND already built,
+   2026-08-11 (`4792adb`).** Voyager's application order runs existing open credits first; waiting for
+   an operator was the deviation, not the reverse.
 
-   **The build, when it happens:** apply at invoice ISSUE (not at credit creation), through the existing
-   `ApplyTenantCreditService` so it stays one dated GL source (`Dr Unearned / Cr AR`) and one over-
-   allocation guard rather than a second path to the same money. Oldest credit first, capped at the
-   invoice balance, lock-safe and idempotent per the four-channel invariant — **all four channels must
-   still be counted**, so a credit auto-applied at issue must be visible to `capturedCashPaid()`, the
-   cancel-invoice release and both payment guards, exactly as a manual one is. The opt-out is a lease
-   flag (`auto_apply_credit`, default on) so a disputed balance can be held; and a credit the tenant has
-   asked to be refunded should be reversed rather than parked, which is already its own path.
+   **Correction:** an earlier revision of this section said "specified, not yet built" and set out a
+   design. That was wrong — a parallel session had already shipped it hours earlier, acting on the same
+   standing instruction, and I did not check before writing. The design sketch has been deleted rather
+   than left to read as outstanding work.
+
+   **What shipped:** a `saved` hook on `Invoice` with a re-entrancy guard (applying a credit re-saves
+   the invoice, which fires the same hook — the guard is what stops both the loop and a double
+   draw-down), gated by `BillingSettings::auto_apply_tenant_credit`, an operator-editable setting
+   rather than a deploy-time config. It reuses `ApplyTenantCreditService` unchanged, so the draw-down
+   stays ONE dated GL source (`Dr Unearned / Cr AR`) with one over-allocation guard, and remains the
+   third of the four settlement channels rather than becoming a fifth. Hooked on the model rather than
+   in each of the six services that raise an invoice, for the same reason every registry here exists.
+
+   **The one refinement not taken:** the switch is global, where Yardi's is per property. A per-lease
+   `auto_apply_credit` flag would let a single disputed balance be held while the default stays on.
+   Worth doing only if the operator meets that case — recorded, not built.
+
 3. **Reversal period** — keep the current "original period if open" (stricter than Yardi), or move to
    Yardi's "current post month"? Recommendation: keep, and add the reported-month guard (§6.4).
 4. ~~**How much of a "reported" month is locked**~~ — **decided 2026-08-11: warn, and steer to the

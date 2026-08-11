@@ -7,6 +7,7 @@ use App\Models\InvoiceItem;
 use App\Models\Tenant;
 use App\Notifications\LateFeeAppliedNotification;
 use App\Support\OpsLog;
+use App\Support\Vat;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -119,6 +120,12 @@ class LateFeeService
 
             $fee = max($min, round($chargeable * $percent / 100, 2));
 
+            // A penalty is not consideration for a supply, so it ships outside the scope of VAT —
+            // but that is the catalogue's ruling to state, not this service's. Reading it here is
+            // what stops a hand-typed late-fee line and this one being taxed differently.
+            $vatRate = Vat::rateForType('late_fee');
+            $vat = Vat::atRate($fee, $vatRate);
+
             InvoiceItem::create([
                 'invoice_id' => $locked->id,
                 // Spell out the basis so the operator (and the tenant on the invoice/PDF) can verify
@@ -130,16 +137,17 @@ class LateFeeService
                 ]),
                 'type' => 'late_fee',
                 'amount' => $fee,
-                'vat_rate' => 0,
-                'vat_amount' => 0,
-                'total' => $fee,
+                'vat_rate' => $vatRate,
+                'vat_amount' => $vat,
+                'total' => round($fee + $vat, 2),
             ]);
 
             // Bump only the non-derived header amounts, then let the single source
             // of truth re-derive balance from total − paid (was writing balance
             // directly, bypassing recomputeTotals — invariant smell).
             $locked->subtotal = (float) $locked->subtotal + $fee;
-            $locked->total = (float) $locked->total + $fee;
+            $locked->vat_amount = (float) $locked->vat_amount + $vat;
+            $locked->total = (float) $locked->total + $fee + $vat;
             $locked->status = 'overdue';
             $locked->recomputeTotals();
 

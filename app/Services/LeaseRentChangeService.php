@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Charge;
 use App\Models\Lease;
+use App\Support\Vat;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -104,15 +105,15 @@ class LeaseRentChangeService
             // charges were seeded), the first one is opened dated to the commencement, as before.
             $opened = $this->schedule->setAmount($lease, 'base_rent', $newRent, $effectiveFrom, [
                 'name' => 'Base Rent',
-                'vat_applicable' => false,
-                'vat_rate' => 0,
+                'vat_applicable' => Vat::rateForType('base_rent') > 0,
+                'vat_rate' => Vat::rateForType('base_rent'),
             ], $origin);
 
             if ($hasServiceUpdate) {
                 $this->schedule->setAmount($lease, 'service_charge', $newService, $effectiveFrom, [
                     'name' => 'Service Charge',
-                    'vat_applicable' => true,
-                    'vat_rate' => \App\Support\Vat::standardRate(),
+                    'vat_applicable' => Vat::rateForType('service_charge') > 0,
+                    'vat_rate' => Vat::rateForType('service_charge'),
                     // Toggling a service charge OFF must not mint a zero row on a lease that never
                     // had one — the pre-schedule createIfZero:false rule, preserved.
                     'skip_if_zero' => true,

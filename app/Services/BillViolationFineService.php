@@ -7,6 +7,7 @@ use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Lease;
 use App\Models\Violation;
+use App\Support\Vat;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -69,6 +70,12 @@ class BillViolationFineService
             $periodStart = $locked->violation_date->copy()->startOfMonth();
             $periodEnd = $locked->violation_date->copy()->endOfMonth();
 
+            // A fine is a penalty, not consideration for a supply, so it ships out of VAT scope —
+            // stated on the charge code, where the accountant can rule otherwise without a deploy.
+            $vatRate = Vat::rateForType(InvoiceItemType::ViolationFine->value);
+            $vat = Vat::atRate($fine, $vatRate);
+            $total = round($fine + $vat, 2);
+
             $invoice = Invoice::create([
                 'lease_id' => $lease->id,
                 'tenant_id' => $locked->tenant_id,
@@ -79,10 +86,10 @@ class BillViolationFineService
                 'period_start' => $periodStart,
                 'period_end' => $periodEnd,
                 'subtotal' => $fine,
-                'vat_amount' => 0,      // a fine is out of VAT scope
-                'total' => $fine,
+                'vat_amount' => $vat,
+                'total' => $total,
                 'paid_amount' => 0,
-                'balance' => $fine,
+                'balance' => $total,
                 'currency' => $lease->currency ?? 'EGP',
             ]);
 
@@ -95,9 +102,9 @@ class BillViolationFineService
                 ]),
                 'type' => InvoiceItemType::ViolationFine->value, // → misc_income in the GL journalizer
                 'amount' => $fine,
-                'vat_rate' => 0,
-                'vat_amount' => 0,
-                'total' => $fine,
+                'vat_rate' => $vatRate,
+                'vat_amount' => $vat,
+                'total' => $total,
             ]);
 
             $locked->update(['billed_invoice_id' => $invoice->id, 'billed_at' => $now]);

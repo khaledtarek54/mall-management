@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Charge;
 use App\Models\Lease;
+use App\Support\Vat;
 use Carbon\CarbonImmutable;
 
 /**
@@ -170,8 +171,6 @@ class ChargeScheduleService
 
             if ($this->setAmount($lease, 'base_rent', $rent, $effective, [
                 'name' => 'Base Rent',
-                'vat_applicable' => false,
-                'vat_rate' => 0,
             ], Charge::ORIGIN_ESCALATION)) {
                 $created++;
             }
@@ -179,8 +178,6 @@ class ChargeScheduleService
             if ($levyRate > 0 && $this->setAmount($lease, 'marketing', round($rent * $levyRate / 100, 2), $effective, [
                 'name' => 'Marketing Levy',
                 'frequency' => 'monthly',
-                'vat_applicable' => false,
-                'vat_rate' => 0,
             ], Charge::ORIGIN_LEVY)) {
                 $created++;
             }
@@ -445,8 +442,11 @@ class ChargeScheduleService
             'amount' => $amount,
             'currency' => $lease->currency ?? 'EGP',
             'frequency' => $attributes['frequency'] ?? 'monthly',
-            'vat_applicable' => $attributes['vat_applicable'] ?? false,
-            'vat_rate' => $attributes['vat_rate'] ?? 0,
+            // A caller that says nothing about VAT gets the charge code's ruling, NOT zero. Silent
+            // zero is how a taxable supply comes to be billed untaxed by whichever writer forgot to
+            // pass a rate — the drift `Vat::rateForType()` exists to end.
+            'vat_applicable' => $attributes['vat_applicable'] ?? (Vat::rateForType($type) > 0),
+            'vat_rate' => $attributes['vat_rate'] ?? Vat::rateForType($type),
             // The FIRST row is dated to the lease commencement, not the effective date: a charge
             // that never existed should bill the lease's term, not only from today. This matches
             // what LeaseCreationService/LeaseRentChangeService did before schedules existed.

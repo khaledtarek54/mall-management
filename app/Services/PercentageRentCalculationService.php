@@ -9,6 +9,7 @@ use App\Models\Lease;
 use App\Models\LeasePercentageRentTier;
 use App\Models\TenantSalesDeclaration;
 use App\Models\User;
+use App\Support\Vat;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -488,6 +489,12 @@ class PercentageRentCalculationService
         $now = now();
         $label = 'Percentage Rent — '.$declaration->periodLabel();
 
+        // Overage rent follows base rent: it is rent, and rent is outside the scope of VAT. Read
+        // from the catalogue so the charge, the invoice line and a hand-typed one agree.
+        $vatRate = Vat::rateForType('percentage_rent');
+        $vat = Vat::atRate($amount, $vatRate);
+        $total = round($amount + $vat, 2);
+
         // Anchor: is_active=false so the monthly engine (which loads only active charges)
         // never re-bills it; dated to the sales period so void/re-lock match it.
         $charge = Charge::create([
@@ -497,8 +504,8 @@ class PercentageRentCalculationService
             'amount' => $amount,
             'currency' => 'EGP',
             'frequency' => 'one_time',
-            'vat_applicable' => false,
-            'vat_rate' => 0,
+            'vat_applicable' => $vatRate > 0,
+            'vat_rate' => $vatRate,
             'start_date' => $declaration->period_start,
             'end_date' => $declaration->period_end,
             'is_active' => false,
@@ -518,10 +525,10 @@ class PercentageRentCalculationService
             'period_start' => $declaration->period_start,
             'period_end' => $declaration->period_end,
             'subtotal' => $amount,
-            'vat_amount' => 0,
-            'total' => $amount,
+            'vat_amount' => $vat,
+            'total' => $total,
             'paid_amount' => 0,
-            'balance' => $amount,
+            'balance' => $total,
             'currency' => $lease->currency ?? 'EGP',
         ]);
 
@@ -531,9 +538,9 @@ class PercentageRentCalculationService
             'description' => $label,
             'type' => 'percentage_rent', // → percentage_rent_revenue in the GL journalizer
             'amount' => $amount,
-            'vat_rate' => 0,
-            'vat_amount' => 0,
-            'total' => $amount,
+            'vat_rate' => $vatRate,
+            'vat_amount' => $vat,
+            'total' => $total,
         ]);
 
         return $charge;

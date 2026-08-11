@@ -225,10 +225,12 @@ it('closes the parking charge rather than billing zero for ever', function () {
         ->contains('parking'))->toBeFalse();
 });
 
-it('bills parking VAT only when the accountant has switched it on', function () {
-    // Rent is exempt, service charge is standard-rated, parking is neither obviously — so it is a
-    // setting rather than a constant, shipping EXEMPT because under-charging beats collecting tax
-    // that may not be due.
+it('bills parking VAT only when the accountant has ruled it taxable', function () {
+    // Rent is exempt, service charge is standard-rated, parking is neither obviously — so it is the
+    // accountant's ruling on the `parking` charge code rather than a constant, shipping EXEMPT
+    // because under-charging beats collecting tax that may not be due. (It was a settings toggle
+    // until 2026-08-11, when taxability moved onto the charge-code catalogue with every other
+    // supply's.)
     CarbonImmutable::setTestNow('2026-03-05');
     $asset = makeAsset();
     $service = app(AssignRentableItemService::class);
@@ -241,8 +243,11 @@ it('bills parking VAT only when the accountant has switched it on', function () 
     expect((bool) $row->vat_applicable)->toBeFalse()
         ->and((float) $row->vat_rate)->toBe(0.0);
 
-    // The accountant rules that parking is a taxable supply.
-    app(\App\Settings\TaxSettings::class)->parking_vat_applicable = true;
+    // The accountant rules that parking is a taxable supply — one row, no deploy.
+    \App\Models\ChargeCode::updateOrCreate(
+        ['code' => 'parking'],
+        ['name_en' => 'Parking', 'name_ar' => 'مواقف', 'vat_treatment' => \App\Models\ChargeCode::VAT_STANDARD],
+    );
 
     $taxed = leaseFor($asset, 'V-02');
     $service->assign($taxed, itemFor($asset, 'P-102', 1000), ['effective_from' => '2026-03-01']);

@@ -109,7 +109,6 @@ class Settings extends Page implements HasSchemas
             ],
             'tax' => [
                 'vat_standard_rate' => $tax->vat_standard_rate,
-                'parking_vat_applicable' => $tax->parking_vat_applicable,
                 'wht_enabled' => $tax->wht_enabled,
                 'wht_default_rate' => $tax->wht_default_rate,
             ],
@@ -187,7 +186,6 @@ class Settings extends Page implements HasSchemas
 
         $tax = app(TaxSettings::class);
         $tax->vat_standard_rate = (float) $state['tax']['vat_standard_rate'];
-        $tax->parking_vat_applicable = (bool) ($state['tax']['parking_vat_applicable'] ?? false);
         $tax->wht_enabled = (bool) $state['tax']['wht_enabled'];
         $tax->wht_default_rate = (float) $state['tax']['wht_default_rate'];
         $tax->save();
@@ -339,12 +337,11 @@ class Settings extends Page implements HasSchemas
                         ->maxValue(100)
                         ->step('0.01')
                         ->required(),
-                    // Parking is neither obviously exempt (like rent) nor obviously standard-rated
-                    // (like the service charge) — a licence to use a space rather than a lease of
-                    // it. The accountant owns the call; the code ships exempt.
-                    \Filament\Forms\Components\Toggle::make('tax.parking_vat_applicable')
-                        ->label(__('admin.settings.fields.parking_vat_applicable'))
-                        ->helperText(__('admin.settings.fields.parking_vat_applicable_helper')),
+                    // WHICH supplies this rate applies to is not set here — it is a column on each
+                    // charge code (Setup → Charge codes), so parking, the marketing levy and any
+                    // code the accountant adds are all ruled on in one place. A per-supply toggle
+                    // lived on this screen until 2026-08-11 and was a second answer to the same
+                    // question.
                 ]),
             Section::make(__('admin.settings.sections.wht'))
                 ->description(__('admin.settings.sections.wht_description'))

@@ -131,9 +131,10 @@ class ConvertLeaseToHoldoverService
                 'amount' => $holdoverRent,
                 'currency' => $lease->currency ?? 'EGP',
                 'frequency' => 'monthly',
-                // Base rent is VAT-exempt, and holding over does not change what the supply is.
-                'vat_applicable' => false,
-                'vat_rate' => Vat::EXEMPT,
+                // Base rent is VAT-exempt, and holding over does not change what the supply is —
+                // so it resolves through the charge code, exactly like the row it continues.
+                'vat_applicable' => Vat::rateForType('base_rent') > 0,
+                'vat_rate' => Vat::rateForType('base_rent'),
                 'start_date' => $effectiveFrom->toDateString(),
                 // Open-ended: holdover runs month to month until a renewal or termination ends it,
                 // and neither has a knowable date today.

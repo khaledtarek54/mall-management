@@ -7,6 +7,7 @@ use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\PostDatedCheque;
 use App\Settings\BillingSettings;
+use App\Support\Vat;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 
@@ -71,6 +72,12 @@ class BillBouncedChequeFeeService
 
             $now = now();
 
+            // A penalty is outside the scope of VAT, exactly like a violation fine — and, exactly
+            // like it, that is the charge-code catalogue's ruling rather than this service's.
+            $vatRate = Vat::rateForType(InvoiceItemType::NsfFee->value);
+            $vat = Vat::atRate($fee, $vatRate);
+            $total = round($fee + $vat, 2);
+
             $invoice = Invoice::create([
                 'lease_id' => $lease->id,
                 'tenant_id' => $locked->tenant_id,
@@ -82,11 +89,10 @@ class BillBouncedChequeFeeService
                 'period_start' => $now->copy()->startOfMonth(),
                 'period_end' => $now->copy()->endOfMonth(),
                 'subtotal' => $fee,
-                // A penalty is outside the scope of VAT, exactly like a violation fine.
-                'vat_amount' => 0,
-                'total' => $fee,
+                'vat_amount' => $vat,
+                'total' => $total,
                 'paid_amount' => 0,
-                'balance' => $fee,
+                'balance' => $total,
                 'currency' => $lease->currency ?? 'EGP',
             ]);
 
@@ -98,9 +104,9 @@ class BillBouncedChequeFeeService
                 ]),
                 'type' => InvoiceItemType::NsfFee->value,   // → misc_income in the GL journalizer
                 'amount' => $fee,
-                'vat_rate' => 0,
-                'vat_amount' => 0,
-                'total' => $fee,
+                'vat_rate' => $vatRate,
+                'vat_amount' => $vat,
+                'total' => $total,
             ]);
 
             $locked->update(['nsf_fee_invoice_id' => $invoice->id]);

@@ -6,6 +6,7 @@ use App\Models\Charge;
 use App\Models\Lease;
 use App\Models\MarketingBudget;
 use App\Settings\MarketingSettings;
+use App\Support\Vat;
 use Carbon\CarbonImmutable;
 
 /**
@@ -75,8 +76,11 @@ class MarketingLevyService
             [
                 'name' => 'Marketing Levy',
                 'frequency' => 'monthly',
-                'vat_applicable' => false,
-                'vat_rate' => 0,
+                // The levy follows rent today (exempt) — but whether it is consideration for a
+                // marketing SERVICE is the accountant's call, so it is read from the charge code
+                // rather than fixed here. Origination only: an issued invoice keeps its rate.
+                'vat_applicable' => Vat::rateForType('marketing') > 0,
+                'vat_rate' => Vat::rateForType('marketing'),
             ],
             Charge::ORIGIN_LEVY,
         );
