@@ -409,6 +409,11 @@ Acting on the first one would actively reintroduce a bug.
 
 ## 7. Recommended next
 
+> **The single go-live gate is [GO-LIVE.md](GO-LIVE.md)** — every configuration item, credential and
+> unanswered question in one list, each verified against the code on 2026-08-11. This section stays
+> the engineering view; that one is what you hand to whoever is launching.
+
+
 > **Re-verified against the running system 2026-08-11.** `atriom:health` reports `database`, `cache`,
 > `storage` OK; `queue`, `scheduler` and `backups` FAIL, which is the honest answer on a developer box
 > with no worker, no cron and no archive — those three are what the row below asks an operator to
