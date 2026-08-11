@@ -14,7 +14,8 @@ class ListCreditNotes extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            CreateAction::make(),
+                        \App\Filament\Actions\GuideAction::for(CreditNoteResource::class),
+CreateAction::make(),
         ];
     }
 

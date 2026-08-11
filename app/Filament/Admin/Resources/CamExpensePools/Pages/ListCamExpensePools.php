@@ -14,7 +14,8 @@ class ListCamExpensePools extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            CreateAction::make()
+                        \App\Filament\Actions\GuideAction::for(CamExpensePoolResource::class),
+CreateAction::make()
                 ->visible(fn () => CamExpensePoolResource::canCreate()),
         ];
     }

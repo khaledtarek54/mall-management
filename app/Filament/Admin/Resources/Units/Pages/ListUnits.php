@@ -17,7 +17,8 @@ class ListUnits extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            ImportAction::make()
+                        \App\Filament\Actions\GuideAction::for(UnitResource::class),
+ImportAction::make()
                 ->importer(UnitImporter::class)
                 ->label(__('admin.actions.import'))
                 ->icon('heroicon-o-arrow-up-tray')

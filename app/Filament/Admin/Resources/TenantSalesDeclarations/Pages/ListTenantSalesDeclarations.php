@@ -14,7 +14,8 @@ class ListTenantSalesDeclarations extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            CreateAction::make()
+                        \App\Filament\Actions\GuideAction::for(TenantSalesDeclarationResource::class),
+CreateAction::make()
                 ->visible(fn () => TenantSalesDeclarationResource::canCreate()),
         ];
     }

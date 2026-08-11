@@ -17,7 +17,8 @@ class ListTenants extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            ImportAction::make()
+                        \App\Filament\Actions\GuideAction::for(TenantResource::class),
+ImportAction::make()
                 ->importer(TenantImporter::class)
                 ->label(__('admin.actions.import'))
                 ->icon('heroicon-o-arrow-up-tray')

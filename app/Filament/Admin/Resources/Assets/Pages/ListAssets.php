@@ -14,7 +14,8 @@ class ListAssets extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            CreateAction::make(),
+                        \App\Filament\Actions\GuideAction::for(AssetResource::class),
+CreateAction::make(),
         ];
     }
 

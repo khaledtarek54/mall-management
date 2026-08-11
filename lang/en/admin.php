@@ -4443,4 +4443,12 @@ return [
         'empty_description' => 'Monthly sales declarations and the percentage rent each produced appear here, including any the estimation sweep filled in when a deadline was missed.',
     ],
 
+
+    'guide' => [
+        'action' => 'How this works',
+        'heading' => 'Operator guide',
+        'description' => 'What this screen is for, and what changes elsewhere when you use it.',
+        'close' => 'Close',
+    ],
+
 ];

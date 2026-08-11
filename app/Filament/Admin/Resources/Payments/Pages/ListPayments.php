@@ -14,7 +14,8 @@ class ListPayments extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            CreateAction::make(),
+                        \App\Filament\Actions\GuideAction::for(PaymentResource::class),
+CreateAction::make(),
         ];
     }
 
