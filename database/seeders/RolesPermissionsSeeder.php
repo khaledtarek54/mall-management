@@ -171,6 +171,13 @@ class RolesPermissionsSeeder extends Seeder
             'tax_codes.create' => 'Add a tax code',
             'tax_codes.edit' => 'Edit a tax code, and add or change a rate on its ladder',
             'tax_codes.delete' => 'Remove a tax code nothing is billed under',
+            // Not a CRUD verb on the catalogue — the right to depart from it on a document.
+            // Reference systems all allow this to SOMEONE (Yardi gates it on rights, Odoo lets
+            // the line's tax amount be edited, SAP allows a manual tax entry against the code),
+            // because a supplier rounds differently or a contract fixed a rate. Forbidding it
+            // outright is worse than gating it: operators then enter the difference as an
+            // invented line item, which is the same money made unclassifiable.
+            'tax_codes.override' => 'Type a tax rate by hand on an invoice or credit-note line, departing from the catalogue',
         ],
         'account_mappings' => [
             'account_mappings.view' => 'View the posting map (which account each role posts to)',
@@ -502,6 +509,12 @@ class RolesPermissionsSeeder extends Seeder
             // FR-USR-02: import is an ADMIN right. A manager may create records one at a time;
             // rewriting hundreds from a CSV is the thing the FRD reserves for admins.
             ->reject(fn ($p) => $p === 'imports.execute')
+            // Departing from the tax catalogue on a document is an ACCOUNTING act, not a
+            // management one — the same reasoning as approvals.tier_3 above. A manager may raise
+            // any invoice; deciding that this one is billed at a rate the catalogue does not carry
+            // is a call the accountant answers for on the return. Without this reject the blanket
+            // grant would hand it to every manager and leave the gate protecting nobody.
+            ->reject(fn ($p) => $p === 'tax_codes.override')
             ->values()
             ->all();
         $grants['manager'] = $managerPerms;
@@ -661,6 +674,7 @@ class RolesPermissionsSeeder extends Seeder
             // The tax catalogue is the accountant's too, and for a stronger reason: a rate change
             // is theirs to enter on the day the law says, not a deploy to schedule.
             'tax_codes.view', 'tax_codes.create', 'tax_codes.edit', 'tax_codes.delete',
+            'tax_codes.override',
             'account_mappings.view', 'account_mappings.create', 'account_mappings.edit',
             'account_mappings.delete',
             'journal_entries.view', 'journal_entries.create', 'journal_entries.edit',

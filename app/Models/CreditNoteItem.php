@@ -10,8 +10,10 @@ class CreditNoteItem extends Model
     protected $fillable = [
         'credit_note_id',
         'description',
+        'tax_code',
         'amount',
         'vat_rate',
+        'tax_override_reason',
         'vat_amount',
         'total',
     ];

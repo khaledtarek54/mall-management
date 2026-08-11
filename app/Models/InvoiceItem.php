@@ -15,8 +15,10 @@ class InvoiceItem extends Model
         'charge_id',
         'description',
         'type',
+        'tax_code',
         'amount',
         'vat_rate',
+        'tax_override_reason',
         'vat_amount',
         'total',
         'disputed_at',
@@ -38,7 +40,6 @@ class InvoiceItem extends Model
         return $this->disputed_at !== null;
     }
 
-
     /**
      * Bump the parent invoice's updated_at on any item write. The invoice's GL entry
      * is DERIVED from its items (InvoiceJournalizer splits revenue by item type), but
@@ -58,6 +59,24 @@ class InvoiceItem extends Model
             $rate = (float) ($item->vat_rate ?? 0);
             $item->vat_amount = round($amount * $rate / 100, 2);
             $item->total = round($amount + (float) $item->vat_amount, 2);
+
+            // Which tax this line was billed under, defaulted from its charge code at the MODEL
+            // layer rather than at each origination point.
+            //
+            // Eight services raise invoice lines (monthly billing, meter recharge, late fees, NSF
+            // fees, CAM recovery and its admin fee, percentage rent, violation fines) and more will.
+            // Setting the code in each of them is the shape that produced this codebase's recurring
+            // "half a catalogue" bug — the screen agrees with the accountant and the services quietly
+            // do something else — and a new service would inherit an unclassified line silently.
+            // Here it cannot be forgotten.
+            //
+            // NOT a re-derivation of the rate: the line keeps whatever `vat_rate` it was given, which
+            // is frequently a frozen figure (a charge schedule's stored rate, a CAM pool's
+            // `recovery_vat_rate`) and must stay so. This records the classification alongside it,
+            // and where the two differ the invoice form shows it as what it is — an override.
+            if ($item->tax_code === null && $item->type !== null) {
+                $item->tax_code = ChargeCode::taxCodeFor($item->type);
+            }
         });
 
         // The invoice header is DERIVED from these lines — moving a line moves the header with

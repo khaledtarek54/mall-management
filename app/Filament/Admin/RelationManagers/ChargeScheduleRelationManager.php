@@ -261,7 +261,7 @@ class ChargeScheduleRelationManager extends RelationManager
                             ->default(now()->startOfMonth())
                             ->required(),
                         TextInput::make('vat_rate')
-                            ->label(__('admin.fields.vat_rate'))
+                            ->label(__('admin.fields.tax_percent'))
                             ->suffix('%')
                             ->numeric()
                             ->minValue(0)

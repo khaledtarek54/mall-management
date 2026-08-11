@@ -2,8 +2,10 @@
 
 namespace App\Filament\Admin\Resources\Invoices\Schemas;
 
+use App\Models\ChargeCode;
 use App\Models\Invoice;
 use App\Models\Lease;
+use App\Models\TaxCode;
 use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
@@ -14,8 +16,10 @@ use App\Support\FormTab;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
+use App\Support\CatalogueTaxRate;
 use App\Support\Vat;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Facades\Auth;
 
 class InvoiceForm
 {
@@ -185,6 +189,11 @@ class InvoiceForm
 
                     Repeater::make('items')
                         ->relationship()
+                        // THE server-side gate on the rate. The repeater is relationship-backed, so
+                        // these two hooks are the only place a line is seen before it is written —
+                        // the page's mutateFormDataBeforeCreate never receives the rows at all.
+                        ->mutateRelationshipDataBeforeCreateUsing(fn (array $data, Get $get) => CatalogueTaxRate::enforce($data, $get('issue_date')))
+                        ->mutateRelationshipDataBeforeSaveUsing(fn (array $data, Get $get) => CatalogueTaxRate::enforce($data, $get('issue_date')))
                         ->label('')
                         ->columns(12)
                         ->defaultItems(1)
@@ -218,7 +227,7 @@ class InvoiceForm
                                 // hand-added late fee / marketing levy / fine / NSF fee picked up
                                 // 14% that no service would ever have charged.
                                 ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                    $set('vat_rate', Vat::rateForType(is_string($state) ? $state : null));
+                                    self::applyTaxCodeForType(is_string($state) ? $state : null, $set, $get);
                                     self::recomputeItem($set, $get);
                                 })
                                 ->columnSpan(3),
@@ -237,21 +246,61 @@ class InvoiceForm
                                 ->live(onBlur: true)
                                 ->afterStateUpdated(fn (Set $set, Get $get) => self::recomputeItem($set, $get))
                                 ->columnSpan(2),
+                            // The tax this line is billed under — picked, not typed. Until
+                            // 2026-08-12 the rate below was a free 0–100 box: `Vat::rateForType()`
+                            // governed the DEFAULT and nothing governed the value, so any operator
+                            // could put any rate on a tax document. No reference system allows that
+                            // un-gated (Yardi gates the override on rights, Odoo and SAP resolve
+                            // from a tax record), and the line now records WHICH tax it carried,
+                            // which is what lets the VAT return tell exempt from zero-rated.
+                            Select::make('tax_code')
+                                ->label(__('admin.fields.tax_code'))
+                                ->options(fn () => TaxCode::options(TaxCode::SALES))
+                                ->default(fn (Get $get) => ChargeCode::taxCodeFor($get('type') ?: 'base_rent'))
+                                ->native(false)
+                                ->live()
+                                ->placeholder(__('admin.charge_codes.tax_unclassified'))
+                                ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                    self::applyTaxCode(is_string($state) ? $state : null, $set, $get);
+                                    self::recomputeItem($set, $get);
+                                })
+                                ->columnSpan(2),
+
                             TextInput::make('vat_rate')
-                                ->label(__('admin.fields.vat_rate'))
+                                ->label(__('admin.fields.tax_percent'))
                                 ->suffix('%')
                                 ->numeric()
                                 ->minValue(0)
                                 ->maxValue(100)
-                                // The operator can still type a different rate on the line — this is
-                                // only the starting point. Derived from the row's type default
-                                // (`base_rent`, which is exempt): a fresh row used to render
-                                // "Base Rent · 14%", contradicting itself before anything was typed.
+                                // Derived from the row's type default (`base_rent`, which is
+                                // exempt): a fresh row used to render "Base Rent · 14%",
+                                // contradicting itself before anything was typed.
                                 ->default(fn (Get $get) => Vat::rateForType($get('type') ?: 'base_rent'))
                                 ->required()
+                                // READ-ONLY unless the operator holds `tax_codes.override`. Not
+                                // hidden and not removed: an override is a permission rather than a
+                                // prohibition everywhere this was benchmarked, because a contract
+                                // that fixed a rate is real — and forbidding it outright is worse
+                                // than gating it, since operators then enter the difference as an
+                                // invented line item, which is the same money made unclassifiable.
+                                ->readOnly(fn () => ! self::canOverrideTax())
                                 ->live(onBlur: true)
                                 ->afterStateUpdated(fn (Set $set, Get $get) => self::recomputeItem($set, $get))
                                 ->columnSpan(2),
+
+                            // Only when the rate on the line has actually departed from the
+                            // catalogue, and only for someone who MAY depart. For anyone else the
+                            // rate is re-derived on save, so asking them to justify a departure
+                            // that is about to be undone is a question with no answer. Its presence
+                            // IS the override flag — there is no second boolean to fall out of step
+                            // with it.
+                            TextInput::make('tax_override_reason')
+                                ->label(__('admin.fields.tax_override_reason'))
+                                ->maxLength(255)
+                                ->required(fn (Get $get) => self::canOverrideTax() && self::rateDepartsFromCatalogue($get))
+                                ->visible(fn (Get $get) => self::canOverrideTax() && self::rateDepartsFromCatalogue($get))
+                                ->helperText(__('admin.helpers.tax_override_reason'))
+                                ->columnSpan(4),
                             TextInput::make('total')
                                 ->label(__('admin.fields.total'))
                                 ->prefix('EGP')
@@ -274,7 +323,7 @@ class InvoiceForm
                         ->readOnly()
                         ->dehydrated(),
                     TextInput::make('vat_amount')
-                        ->label(__('admin.fields.vat_amount'))
+                        ->label(__('admin.fields.tax_total'))
                         ->prefix('EGP')
                         ->numeric()
                         ->default(0)
@@ -313,6 +362,73 @@ class InvoiceForm
                     ]),
                 ]),
         ]);
+    }
+
+    /** May this operator depart from the catalogue's rate on a line? */
+    protected static function canOverrideTax(): bool
+    {
+        return CatalogueTaxRate::mayOverride();
+    }
+
+    /**
+     * The invoice's own date, which is what the rate must be resolved for.
+     *
+     * A line inside the repeater reaches it with `../../`. Falls back to today for a form that has
+     * not filled it yet — the same answer the services give when they originate something now.
+     */
+    protected static function documentDate(Get $get): ?string
+    {
+        $date = $get('../../issue_date');
+
+        return is_string($date) && $date !== '' ? $date : null;
+    }
+
+    /**
+     * Point the line at the tax its charge code names, and take that tax's rate.
+     *
+     * Both halves matter: switching the type to a penalty must move the CODE, not merely the
+     * number, or the line would keep claiming to be billed under a tax it is not.
+     */
+    protected static function applyTaxCodeForType(?string $type, Set $set, Get $get): void
+    {
+        $set('tax_code', $type === null ? null : ChargeCode::taxCodeFor($type));
+        $set('vat_rate', Vat::rateForType($type, self::documentDate($get)));
+        $set('tax_override_reason', null);
+    }
+
+    /** Take the rate the chosen tax carried on the invoice's date. */
+    protected static function applyTaxCode(?string $taxCode, Set $set, Get $get): void
+    {
+        if ($taxCode === null) {
+            return;
+        }
+
+        $rate = TaxCode::rateOn($taxCode, self::documentDate($get));
+
+        if ($rate !== null) {
+            $set('vat_rate', max(0.0, $rate));
+            $set('tax_override_reason', null);
+        }
+    }
+
+    /**
+     * Does the rate on this line differ from what its tax code says for the invoice's date?
+     *
+     * Derived rather than stored, so the two can never disagree. A line with no tax code cannot
+     * depart from anything — it is unclassified, which the floor in `Vat` already covers.
+     */
+    protected static function rateDepartsFromCatalogue(Get $get): bool
+    {
+        $taxCode = $get('tax_code');
+
+        if (! is_string($taxCode) || $taxCode === '') {
+            return false;
+        }
+
+        $resolved = TaxCode::rateOn($taxCode, self::documentDate($get));
+
+        return $resolved !== null
+            && abs(max(0.0, $resolved) - (float) ($get('vat_rate') ?? 0)) >= 0.005;
     }
 
     /**
@@ -399,12 +515,17 @@ class InvoiceForm
         }
 
         $items = $charges->map(function ($charge) {
+            // The charge's OWN stored rate, not the catalogue's: a charge schedule was rated when
+            // it was opened and re-rating it here would quietly change what a recurring line bills.
+            // The tax code comes from the charge's type, so the line is still classified — and if
+            // the two disagree, the form shows that as an override, which is exactly what it is.
             $rate = $charge->vat_applicable ? (float) $charge->vat_rate : 0;
             $amount = (float) $charge->amount;
             $vatAmount = round($amount * $rate / 100, 2);
 
             return [
                 'type' => $charge->type,
+                'tax_code' => ChargeCode::taxCodeFor($charge->type),
                 'description' => $charge->name,
                 'amount' => $amount,
                 'vat_rate' => $rate,

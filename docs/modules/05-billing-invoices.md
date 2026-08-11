@@ -189,6 +189,28 @@ This is the core AR (accounts receivable) engine; all recurring revenue flows th
    - **Exempt ≠ zero-rated** — both bill 0 and they are different lines on a VAT return, so the
      treatment is stored on the tax code rather than inferred from a zero on a line, where it could
      never be recovered.
+   - **The LINE records which tax it carried** — `invoice_items.tax_code` (2026-08-12). Until then a
+     line stored `vat_rate` and nothing else, which is one fact short in two places: `VatReturnService`
+     split the taxable base on `vat_rate > 0`, so zero-rated and out-of-scope landed in the same
+     bucket; and a hand-typed rate was indistinguishable from the catalogue's. Defaulted at the
+     **model layer** (`InvoiceItem::booted`) from the line's charge code, because eight services raise
+     lines and setting it in each is the shape that produces the "half a catalogue" bug. It is a
+     classification carried alongside the rate, **never a pointer the totals re-derive through** — the
+     line keeps whatever rate it was given, which is often a frozen figure (a charge schedule's stored
+     rate, a CAM pool's `recovery_vat_rate`).
+   - **The rate is picked, not typed.** The line's rate box was a free 0–100 input until 2026-08-12,
+     with a comment saying so — `Vat::rateForType()` governed the default and nothing governed the
+     value. It is now read-only unless the operator holds **`tax_codes.override`**, and the real gate
+     is server-side: `App\Support\CatalogueTaxRate::enforce()`, called from the items repeater's
+     `mutateRelationshipDataBeforeCreateUsing`/`…BeforeSaveUsing`. **That layer is load-bearing** —
+     the repeater is relationship-backed, so the rows never reach the page's
+     `mutateFormDataBeforeCreate`, and an enforcement written there reads correctly and protects
+     nothing (it was written there first, and `InvoiceLineTaxCodeTest` caught it). An override
+     records `tax_override_reason`; its presence IS the flag. Withheld from `manager` deliberately —
+     departing from the catalogue is an accounting act, the same reasoning as `approvals.tier_3`.
+   - **The labels say "Tax", not "VAT"** — the code beside the rate can be stamp duty or schedule
+     tax. The stored columns stay `vat_rate`/`vat_amount`: renaming committed money columns on posted
+     documents is roadmap TX-07's explicit no.
    - `Vat::EXEMPT_TYPES` survives as the **floor**, not the policy: what an unseeded database bills,
      so an empty catalogue can never fall through to the standard rate and charge 14% on base rent.
      `ChargeCodeVatTreatmentConformanceTest` asserts floor and catalogue resolve every code

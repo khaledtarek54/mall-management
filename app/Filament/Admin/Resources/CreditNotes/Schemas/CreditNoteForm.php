@@ -4,6 +4,8 @@ namespace App\Filament\Admin\Resources\CreditNotes\Schemas;
 
 use App\Models\CreditNote;
 use App\Models\Invoice;
+use App\Models\TaxCode;
+use App\Support\CatalogueTaxRate;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -102,6 +104,12 @@ class CreditNoteForm
                             if (! $hasLines && $invoice->items->isNotEmpty()) {
                                 $rows = $invoice->items->map(fn ($it) => [
                                     'description' => $it->description,
+                                    // The SOURCE line's tax code, carried across with its rate. A
+                                    // credit note reverses a supply at that supply's own treatment,
+                                    // so re-resolving from the catalogue here would classify the
+                                    // reversal differently from the thing being reversed the moment
+                                    // a rate or a ruling moved.
+                                    'tax_code' => $it->tax_code,
                                     'amount' => (float) $it->amount,
                                     'vat_rate' => (float) $it->vat_rate,
                                     'vat_amount' => (float) $it->vat_amount,
@@ -172,6 +180,11 @@ class CreditNoteForm
 
                     Repeater::make('items')
                         ->relationship()
+                        // THE server-side gate on the rate — see InvoiceForm. The repeater is
+                        // relationship-backed, so these hooks are the only place a line is seen
+                        // before it is written.
+                        ->mutateRelationshipDataBeforeCreateUsing(fn (array $data, Get $get) => CatalogueTaxRate::enforce($data, $get('issue_date')))
+                        ->mutateRelationshipDataBeforeSaveUsing(fn (array $data, Get $get) => CatalogueTaxRate::enforce($data, $get('issue_date')))
                         ->label('')
                         ->columns(12)
                         ->defaultItems(1)
@@ -200,14 +213,29 @@ class CreditNoteForm
                                 ->live(onBlur: true)
                                 ->afterStateUpdated(fn (Set $set, Get $get) => self::recomputeItem($set, $get))
                                 ->columnSpan(2),
+                            // Inherited from the invoice line being reversed, and shown so the
+                            // reversal is classified on the VAT return the same way the supply was.
+                            // Editable only with `tax_codes.override`, like the rate beside it: a
+                            // credit note that reverses a 14% service line at 0% understates the
+                            // output-VAT reduction, and nothing else would catch it.
+                            Select::make('tax_code')
+                                ->label(__('admin.fields.tax_code'))
+                                ->options(fn () => TaxCode::options(TaxCode::SALES))
+                                ->native(false)
+                                ->live()
+                                ->disabled(fn () => ! self::canOverrideTax())
+                                ->dehydrated()
+                                ->placeholder(__('admin.charge_codes.tax_unclassified'))
+                                ->columnSpan(2),
                             TextInput::make('vat_rate')
-                                ->label(__('admin.fields.vat_rate'))
+                                ->label(__('admin.fields.tax_percent'))
                                 ->suffix('%')
                                 ->numeric()
                                 ->minValue(0)
                                 ->maxValue(100)
                                 ->default(0)
                                 ->required()
+                                ->readOnly(fn () => ! self::canOverrideTax())
                                 ->live(onBlur: true)
                                 ->afterStateUpdated(fn (Set $set, Get $get) => self::recomputeItem($set, $get))
                                 ->columnSpan(2),
@@ -231,7 +259,7 @@ class CreditNoteForm
                     // value that applyToInvoice() has since changed — breaking the
                     // note's balance = total - applied_amount invariant (lost update).
                     TextInput::make('subtotal')->label(__('admin.fields.subtotal'))->prefix('EGP')->numeric()->default(0)->readOnly()->dehydrated($persistDerived),
-                    TextInput::make('vat_amount')->label(__('admin.fields.vat_amount'))->prefix('EGP')->numeric()->default(0)->readOnly()->dehydrated($persistDerived),
+                    TextInput::make('vat_amount')->label(__('admin.fields.tax_total'))->prefix('EGP')->numeric()->default(0)->readOnly()->dehydrated($persistDerived),
                     TextInput::make('total')->label(__('admin.fields.total'))->prefix('EGP')->numeric()->default(0)->readOnly()->dehydrated($persistDerived),
                     TextInput::make('balance')->label(__('admin.fields.balance'))->prefix('EGP')->numeric()->default(0)->readOnly()->dehydrated($persistDerived),
                     ])->columns(4),
@@ -251,6 +279,12 @@ class CreditNoteForm
                     ]),
                 ]),
         ]);
+    }
+
+    /** May this operator depart from the reversed line's tax treatment? */
+    protected static function canOverrideTax(): bool
+    {
+        return CatalogueTaxRate::mayOverride();
     }
 
     protected static function recomputeItem(Set $set, Get $get): void
