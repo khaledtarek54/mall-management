@@ -62,6 +62,36 @@ book value and the P&L carries the monthly depreciation charge.
 
 ## 2. Business rules
 
+**Two guards were promoted to the model on 2026-08-11 (module 23 close-out).** Both were reachable
+only through a Filament page, and this module has no create/update service — the model's own save is
+the single choke point every path shares (form, console, seeder, factory, import, API), which is the
+same reasoning the `acquisition_date` posting-date guard already rested on.
+
+- **A re-cost may never fall below what has already been depreciated.**
+  `DepreciationService::assertRecostValid()` states the reason itself: accumulated of 60,000 against
+  a new base of 30,000 leaves the ledger carrying −30,000 of net fixed assets. It had exactly ONE
+  caller — `EditFixedAsset` — so every other writer walked straight past it. Salvage counts, because
+  the base is cost − salvage. Tests: `FixedAssetTerminalAndRecostGuardsTest`.
+
+- **A DISPOSED asset's money and identity fields are frozen** (`acquisition_cost`, `salvage_value`,
+  `acquisition_date`, `useful_life_months`, `method`, `asset_id`, `disposed_on`, `status`). Disposal
+  is terminal and posts a write-off. The `updated` hook *deliberately* re-derives the child entries
+  when `acquisition_cost` moves — right for a live asset whose cost is genuinely corrected, and
+  exactly wrong for one that has been sold: it restates an already-posted disposal, changing the gain
+  or loss on a sale that happened, in a period that may since have closed, while the acquisition
+  entry moves and the disposal's credit does not — leaving Furniture & Equipment carrying an asset
+  the company no longer owns. Housekeeping (name, tag, category, notes) stays editable, and the guard
+  reads the ORIGINAL status so the disposal itself is not blocked by its own outcome.
+
+**Verified clean during the same pass, and worth recording so nobody re-checks it:** accumulated
+depreciation is DERIVED from `depreciation_entries` and never stored, so the "two truths about one
+number" class that bit modules 22 and 01 cannot arise here; the monthly run is locked, idempotent per
+(asset, month), clamped so accumulated never exceeds the base, and skips assets whose property was
+soft-deleted; both GL sources (`DepreciationEntry`, `FixedAssetDisposal`) are exercised through the
+real `accounting:sync-ledger` sweep rather than the journalizer alone; and the posting-date guard
+covers the disposal, the acquisition date and `--month` on the backfill command.
+
+
 1. **Monthly charge** = `(acquisition_cost − salvage_value) ÷ useful_life_months`, rounded 2dp.
 2. **Accumulated depreciation is derived** = `SUM(depreciation_entries.amount)`; net book
    value = `cost − accumulated`. Never a cached column.

@@ -125,6 +125,45 @@ class FixedAsset extends Model
             if ($fixedAsset->isDirty('acquisition_date') && filled($fixedAsset->acquisition_date)) {
                 PostingDate::assertOpen($fixedAsset->acquisition_date, 'acquisition_date');
             }
+
+            // ── A DISPOSED asset's money and identity fields are frozen ────────────────────────
+            // Disposal is terminal: it posts a write-off (Dr Accumulated Depreciation + proceeds,
+            // Cr the asset's cost, gain or loss to the P&L) and cannot be re-run. The `updated`
+            // hook below then DELIBERATELY re-derives the child entries when `acquisition_cost`
+            // moves — right for a live asset whose cost is genuinely corrected, and exactly wrong
+            // for one that has been sold: it restates an already-posted disposal, changing the gain
+            // or loss on a sale that already happened, in a period that may since have closed.
+            // Meanwhile the acquisition entry moves with the new cost while the disposal's credit
+            // does not, leaving Furniture & Equipment carrying an asset the company no longer owns.
+            //
+            // Housekeeping stays open — an operator must still be able to fix a name, tag, category
+            // or note after disposal. Guarded on the ORIGINAL status so the disposal itself, which
+            // sets `status` and `disposed_on` in one update, is not blocked by its own outcome.
+            // (Module 23 close-out, 2026-08-11 — the AP/AR/lease mirror of the same rule.)
+            if ($fixedAsset->exists && $fixedAsset->getOriginal('status') === 'disposed') {
+                foreach (['acquisition_cost', 'salvage_value', 'acquisition_date', 'useful_life_months', 'method', 'asset_id', 'disposed_on', 'status'] as $field) {
+                    if ($fixedAsset->isDirty($field)) {
+                        throw new \DomainException(__('admin.fixed_assets.errors.disposed_immutable'));
+                    }
+                }
+            }
+
+            // ── A re-cost may never fall below what has already been charged ───────────────────
+            // `DepreciationService::assertRecostValid()` states the reason: accumulated of 60,000
+            // against a new base of 30,000 leaves the ledger carrying −30,000 of net fixed assets.
+            // It had exactly ONE caller — `EditFixedAsset`, a Filament page — so an import, the
+            // console, a factory or any future screen walked straight past it into that state.
+            //
+            // Checked here because this module has no create/update service; the model's own save
+            // is the single choke point every path shares, which is the same reasoning the
+            // posting-date guard above already relies on.
+            if ($fixedAsset->exists && $fixedAsset->isDirty(['acquisition_cost', 'salvage_value'])) {
+                app(\App\Services\DepreciationService::class)->assertRecostValid(
+                    $fixedAsset,
+                    (float) $fixedAsset->acquisition_cost,
+                    (float) $fixedAsset->salvage_value,
+                );
+            }
         });
 
         // --- Keep the depreciation charges' ledger entries in lock-step with the
