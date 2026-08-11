@@ -89,8 +89,4 @@ return [
     // so a client can confirm a paid invoice in-app. Empty = button hidden.
     'app_deep_link' => env('APP_DEEP_LINK'),
 
-    'whatsapp' => [
-        'enabled' => env('WHATSAPP_ENABLED', false),
-    ],
-
 ];

@@ -201,7 +201,6 @@ class AppServiceProvider extends ServiceProvider
         // config key => the IntegrationsSettings property that can switch it off.
         $switches = [
             'integrations.paymob.enabled' => 'paymob_enabled',
-            'integrations.whatsapp.enabled' => 'whatsapp_enabled',
         ];
 
         // Only an integration env has already enabled can be narrowed — and only

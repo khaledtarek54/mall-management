@@ -99,7 +99,6 @@ class Settings extends Page implements HasSchemas
             ],
             'integrations' => [
                 'paymob_enabled' => $integ->paymob_enabled,
-                'whatsapp_enabled' => $integ->whatsapp_enabled,
             ],
             'eta' => [
                 'enabled' => $eta->enabled,
@@ -174,7 +173,6 @@ class Settings extends Page implements HasSchemas
 
         $integ = app(IntegrationsSettings::class);
         $integ->paymob_enabled = (bool) $state['integrations']['paymob_enabled'];
-        $integ->whatsapp_enabled = (bool) $state['integrations']['whatsapp_enabled'];
         $integ->save();
 
         $eta = app(EtaSettings::class);
@@ -422,11 +420,6 @@ class Settings extends Page implements HasSchemas
                 ->columns(1)
                 ->components([
                     Toggle::make('integrations.paymob_enabled')->label(__('admin.settings.fields.paymob_enabled'))->helperText(__('admin.settings.fields.paymob_enabled_helper')),
-                ]),
-            Section::make(__('admin.settings.sections.messaging'))
-                ->columns(1)
-                ->components([
-                    Toggle::make('integrations.whatsapp_enabled')->label(__('admin.settings.fields.whatsapp_enabled'))->helperText(__('admin.settings.fields.whatsapp_enabled_helper')),
                 ]),
         ];
     }

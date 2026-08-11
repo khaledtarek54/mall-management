@@ -624,7 +624,6 @@ return [
             'eta_toggles' => 'Egyptian Tax Authority',
             'eta_description' => 'Toggle ETA submission on/off and switch between mock (demo) and live submission.',
             'payments' => 'Payment Gateways',
-            'messaging' => 'Messaging',
         ],
         'fields' => [
             'straight_line_rent_enabled' => 'Recognise rent on a straight-line basis',
@@ -661,8 +660,6 @@ return [
             'eta_issuer_trn' => 'Issuer tax registration number',
             'paymob_enabled' => 'Paymob payments enabled',
             'paymob_enabled_helper' => 'Switch card collection off across the portal, the mobile app and every payment link — takes effect immediately. It cannot switch payments ON: that needs Paymob credentials in the server configuration (PAYMOB_ENABLED). While those are absent this toggle has nothing to disable.',
-            'whatsapp_enabled' => 'WhatsApp messaging enabled',
-            'whatsapp_enabled_helper' => 'Switch the WhatsApp send action off on invoices. It cannot switch it ON — that needs WhatsApp credentials in the server configuration.',
         ],
     ],
 
@@ -1784,7 +1781,6 @@ return [
         'import' => 'Import CSV',
         'import_heading' => 'Import from CSV',
         'import_help' => 'Upload a CSV file. Existing records are matched and updated; new ones are created.',
-        'send_whatsapp' => 'WhatsApp',
         'pay_now' => 'Pay Now',
         'payment_link' => 'Payment link',
         'allocate_to_lines' => 'Payment split',

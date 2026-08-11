@@ -515,17 +515,13 @@ class InvoicesTable
                             ->success()
                             ->send();
                     }),
-                Action::make('sendWhatsApp')
-                    ->label(__('admin.actions.send_whatsapp'))
-                    ->icon('heroicon-o-chat-bubble-left-right')
-                    ->color('success')
-                    ->visible(fn ($record) => config('integrations.whatsapp.enabled') && in_array($record->status, ['issued', 'partially_paid', 'overdue']) && InvoiceResource::canEdit($record))
-                    ->requiresConfirmation()
-                    ->action(fn ($record) => Notification::make()
-                        ->title(__('admin.actions.send_whatsapp'))
-                        ->body($record->tenant->name)
-                        ->success()
-                        ->send()),
+                // REMOVED 2026-08-11 — "Send WhatsApp" was a stub whose entire action() was a
+                // success notification. Nothing was sent, and there is no WhatsApp client in this
+                // codebase. The operator could enable it from Settings (the toggle was genuinely
+                // wired), click it on an overdue invoice, and be told the tenant had been chased.
+                // A button that reports a false result is worse than a missing feature: it makes
+                // the collections record a lie. Rebuild it against a real provider, or leave it
+                // out. `tenants.whatsapp` stays — the number is real data.
                 Action::make('submitToEta')
                     ->label(__('admin.actions.submit_to_eta'))
                     ->icon('heroicon-o-paper-airplane')

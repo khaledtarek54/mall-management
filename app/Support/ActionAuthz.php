@@ -50,9 +50,11 @@ class ActionAuthz
         'ViewInvoice.php::downloadPdf' => 'tenant downloading their own invoice',
         'CamAllocationsTable.php::statement' => 'tenant downloading their own service-charge reconciliation statement (RC-06) — the whole point of the audit right is that they do not have to ask for it',
 
-        // Writes nothing — the action body is a Notification toast. If this ever actually sends,
-        // remove the exemption and gate it.
-        'InvoicesTable.php::sendWhatsApp' => 'no write — shows a notification only',
+        // 'InvoicesTable.php::sendWhatsApp' — REMOVED 2026-08-11 along with the action itself.
+        // Its exemption reason ("no write — shows a notification only") was accurate and was
+        // exactly the problem: the action's entire body WAS the notification, so it told the
+        // operator a tenant had been chased when nothing had been sent. The exemption correctly
+        // recorded that it writes nothing; nobody asked why a send action wouldn't.
     ];
 
     /** Is this action allowed to ship without an `->authorize()`? */
