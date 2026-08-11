@@ -1,6 +1,9 @@
 # 28 · Approvals — the value → approver ladder
 
-> **Status:** engine shipped; one consumer live (spare-part draws). The **amounts are a default
+> **Status:** engine shipped; **three consumers live** — spare-part draws (`WorkOrderPartService`),
+> purchase requests on all four verbs (`PurchaseRequestService`), and owner disbursements
+> (`DisbursementService`). *(This line said "one consumer" until 2026-08-11; the other two shipped
+> after it was written.)* The **amounts are a default
 > and need operator sign-off** — see [BUSINESS-RULES.md](../BUSINESS-RULES.md#approval-ladder-fr-cm-11--needs-operator-sign-off).
 
 **Purpose.** Answer one question, in one place: *"does this amount need signing off, and by whom?"*
@@ -11,6 +14,30 @@ on `VendorBill` and payroll, each meaning "somebody with this module's permissio
 anywhere made authority depend on *how much money was involved*.
 
 ---
+
+> **⚠️ Fixed 2026-08-11 — the ladder was never installed in production.**
+> `ApprovalRulesSeeder` was reachable only from `DatabaseSeeder`, the dev/demo chain;
+> `atriom:install` seeded roles and accounting and nothing else. So on every real install
+> `approval_rules` was **empty**, and an empty ladder is fail-open *by design*:
+> `ApprovalPolicy::permissionFor()` returns null and `canApprove()` returns true for **any**
+> amount. FR-CM-11 (spare-part tiers) and FR-PROC-02 (purchase-request tiers) did not exist in
+> production.
+>
+> Scope it precisely: **base RBAC still applied** — the purchase-request action is
+> `->authorize()`-gated with a self-approval exclusion, `WorkOrderPartService` calls
+> `assertMayDecide()` first, and `DisbursementService` re-checks the frozen permission. What was
+> lost is the **value tiering**, plus the audit trail: `required_permission` froze as `null`, so a
+> decision could not record which tier it was supposed to need.
+>
+> **The suite could not catch it** — 16 test files seed the ladder themselves, so every approval
+> test ran against a state production never reached. That is the project's own "tests must use
+> reachable inputs" rule failing at scale. `InstallSeedsApprovalLadderTest` now asserts both
+> halves: that an empty ladder really is fail-open, and that a real install is not in that state.
+>
+> `DepartmentSeeder` had the same gap with a worse shape — `DepartmentResource::canCreate()`
+> returns false because the set is "seeded", so an install that skipped it had an empty table
+> **forever with no in-app remedy**, and tenant-request auto-routing permanently off. Both now run
+> from `atriom:install`.
 
 ## 1. Domain model
 

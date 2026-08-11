@@ -4,11 +4,15 @@ namespace App\Console\Commands;
 
 use App\Models\AccountingPeriod;
 use App\Models\AccountMapping;
+use App\Models\ApprovalRule;
+use App\Models\Department;
 use App\Models\ChargeCode;
 use App\Models\LedgerAccount;
 use App\Models\User;
 use App\Support\Health;
 use Database\Seeders\AccountingSeeder;
+use Database\Seeders\ApprovalRulesSeeder;
+use Database\Seeders\DepartmentSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Console\Command;
 use Illuminate\Console\ConfirmableTrait;
@@ -65,6 +69,22 @@ class InstallCommand extends Command
         $this->callSilent('db:seed', ['--class' => RolesPermissionsSeeder::class, '--force' => true]);
         $this->components->twoColumnDetail('Roles + permissions',
             Role::count().' roles · '.Permission::count().' permissions');
+
+        // The spend-approval ladder. Missing here until 2026-08-11, and its absence was SILENT:
+        // with `approval_rules` empty, ApprovalPolicy::permissionFor() returns null and
+        // canApprove() returns true for ANY amount — so FR-CM-11 (spare-part tiers) and
+        // FR-PROC-02 (purchase-request tiers) simply did not exist in production. Base RBAC still
+        // applied, so this was lost value-tiering rather than open season; but `required_permission`
+        // froze as null, so the audit trail could not even show which tier had been required.
+        // Every approval test seeds this itself, which is why a green suite never noticed.
+        $this->callSilent('db:seed', ['--class' => ApprovalRulesSeeder::class, '--force' => true]);
+        $this->components->twoColumnDetail('Approval ladder', ApprovalRule::count().' bands');
+
+        // Departments are reference data too, and DepartmentResource::canCreate() returns false
+        // because the set is "seeded" — so on an install that skipped this the table stayed empty
+        // FOREVER with no in-app remedy, and tenant-request auto-routing was permanently off.
+        $this->callSilent('db:seed', ['--class' => DepartmentSeeder::class, '--force' => true]);
+        $this->components->twoColumnDetail('Departments', Department::count().' departments');
 
         $this->callSilent('db:seed', ['--class' => AccountingSeeder::class, '--force' => true]);
         $this->components->twoColumnDetail('Chart of accounts', LedgerAccount::count().' accounts');
