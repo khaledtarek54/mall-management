@@ -143,8 +143,12 @@
 > **Where you SEE it:** the **Charge schedule** panel on the lease
 > ([`ChargeScheduleRelationManager`](../../app/Filament/Admin/RelationManagers/ChargeScheduleRelationManager.php))
 > — every row, its date range, whether it is billing now / scheduled / ended, and why it exists.
-> The heading says what is billing today and when it next changes. **Read-only on purpose:** rent
-> changes go through the Change Rent action so the schedule is written by one service.
+> The heading says what is billing today and when it next changes. **No row is edited in place, on
+> purpose:** rent changes go through the Change Rent action, and the panel's own **Add charge** /
+> **Stop charge** actions route through `ChargeScheduleService`, so the schedule has exactly one
+> writer. Add charge is how any other catalogue code — key money, a chiller charge — gets onto a
+> lease; `base_rent`, `marketing` and `parking` are excluded there because their own services derive
+> them.
 >
 > **Leases signed before projection existed** carry a single open-ended rent row and no ladder.
 > `php artisan atriom:project-lease-schedules` backfills them (dry-run by default, `--commit` to
@@ -152,14 +156,14 @@
 > on the contract's dates and an already-billed month is never re-dated. Until a lease is
 > backfilled its Charge schedule says so explicitly rather than claiming no increase is coming.
 >
-> **Known wart — `charges.type` is a DB-level ENUM**
-> (`enum('base_rent','service_charge','utility','parking','percentage_rent','marketing','other')`),
-> which the project convention forbids (string + validation, so a new type needs no migration).
-> It has a visible side effect: **MySQL orders an ENUM by its DECLARED index, not alphabetically**,
-> so `ORDER BY type` yields base_rent → service_charge → utility → parking → percentage_rent →
-> marketing → other, which looks arbitrary on screen. The charge-schedule table therefore sorts by
-> date, not type. Converting the column to a string is a small migration and would also make the
-> ordering sane; it is not urgent because nothing depends on the enum ordering.
+> **Former wart, FIXED 2026-08-11 — `charges.type` was a DB-level ENUM**, which the project
+> convention forbids (string + validation, so a new type needs no migration) and which capped the
+> charge-code catalogue: a code an accountant added could be billed as a one-off invoice line and
+> not set up as a recurring charge, because the database rejected it. It is now a `string(32)`
+> validated by `Charge::assertTypeIsAKnownChargeCode()` against the catalogue (with
+> `InvoiceItemType` as the floor for an unseeded database). Its side effect went with it: MySQL
+> ordered an ENUM by DECLARED index, so `ORDER BY type` read as arbitrary on screen. The
+> charge-schedule table still sorts by date, because a schedule reads as one timeline.
 >
 > Full analysis and the remaining phases: [`docs/benchmarks/yardi/`](../benchmarks/yardi/README.md).
 > **Still open here:** no lease options / notice-window alerts, no trailing proration, holdover is

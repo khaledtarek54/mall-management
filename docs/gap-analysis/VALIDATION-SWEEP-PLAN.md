@@ -8,10 +8,10 @@ at all and are now at layer 1; 4 were already correct but had never been watched
 and now have witnesses; the remaining 18 needed no change, which §5 predicted and which is the
 result rather than a failure to find one. Two findings were recorded and deliberately NOT fixed —
 `charge_codes.vat_exempt` (§8 R8) and freeing `charges.type` from its DB enum (§9 L7) — as product
-decisions belonging to the accountant conversation. **The first of those shipped 2026-08-11** as
-`charge_codes.vat_treatment`: the column was a system decision all along, and only the rulings in it
-are the accountant's (see §8 R8). One open question goes to Eltizam (§11, ad-hoc bills outside the
-approval ladder).
+decisions belonging to the accountant conversation. **Both shipped 2026-08-11**, and the framing was
+the error in each: the *columns* were system decisions all along, and only the rulings in them are
+the accountant's. One open question still goes to Eltizam (§11, ad-hoc bills outside the approval
+ladder).
 
 **Two patterns worth carrying past this document:**
 
@@ -383,6 +383,24 @@ migration mirroring the June one, but delivering the capability also means wirin
 the charge form and adding the app-layer validation the column currently provides. That is a feature
 with a product decision inside it, and it belongs in the same conversation as R8's `vat_exempt`
 column — both are the accountant's call about what the catalogue owns.
+
+**SHIPPED 2026-08-11, with R8.** The column is a `string(32)`, and the checking it carried is now
+`Charge::assertTypeIsAKnownChargeCode()` — catalogue first, `InvoiceItemType` as the floor for an
+unseeded database, refusing with a message that names the catalogue rather than a driver error.
+
+The half the finding under-stated: **no screen could add a charge of any type.** Rent, service
+charge, the levy and parking each arrive from their own service, and the lease's charge schedule was
+deliberately read-only, so freeing the column alone would have delivered nothing an operator could
+reach. Add charge and Stop charge now live on that schedule, both routed through
+`ChargeScheduleService` (`setAmount()` / the new `close()`) so they close-and-open like every other
+writer — no row is edited in place, which is what "read-only" was really protecting.
+
+`base_rent`, `marketing` and `parking` are excluded from the picker and refused by the action: each
+is DERIVED by its own service, and a hand-made row would sit beside it and double-bill.
+
+Proved end to end in `AccountantAddedChargeCodeBillsTest`: a code created the way an accountant
+creates one goes catalogue → schedule screen → monthly run → ledger, posting to the account they
+chose. The type guard was mutation-tested (removing it turns the refusal case red).
 
 ### A gate, not just a fix
 

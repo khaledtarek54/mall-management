@@ -26,7 +26,7 @@ This is the core AR (accounts receivable) engine; all recurring revenue flows th
 |-------|-------|------------|---------|
 | `invoices` | `Invoice` | `number` (unique, e.g. `INV-AW-202603-0001`), `lease_id`, `tenant_id`, `status` (enum: draft, issued, partially_paid, paid, overdue, disputed, cancelled, credited), `issue_date`, `due_date`, `period_start`, `period_end`, `subtotal`, `vat_amount`, `total`, `paid_amount`, `credit_applied_amount`, `balance`, `currency` (EGP), `eta_submission_id`, `eta_status`, `owner_overdue_notified_at` | One per lease per billing period; issue_date = period_start for full months or commencement for prorated first month. |
 | `invoice_items` | `InvoiceItem` | `invoice_id`, `charge_id` (nullable), `description`, `type` (enum: base_rent, service_charge, utility, parking, percentage_rent, late_fee, other), `amount`, `vat_rate`, `vat_amount`, `total` | Line items derived from Lease charges; one per applicable charge per invoice. |
-| `charges` | `Charge` | `lease_id`, `name`, `type`, `amount`, `currency` (EGP), `frequency` (enum: monthly, quarterly, annually, one_time), `vat_applicable` (boolean), `vat_rate` (defaults to the standard rate, §8), `start_date`, `end_date`, `is_active` | Recurring billing items attached to a lease; defines what is billed and how often. |
+| `charges` | `Charge` | `lease_id`, `name`, `type` (**string** — a `charge_codes` code, validated at the model, not a DB enum), `amount`, `currency` (EGP), `frequency` (enum: monthly, quarterly, annually, one_time), `vat_applicable` (boolean), `vat_rate` (from the code's VAT treatment, §8), `start_date`, `end_date`, `is_active` | Recurring billing items attached to a lease; defines what is billed and how often. A date-ranged SCHEDULE per type — `ChargeScheduleService` closes one row and opens the next, never edits in place. |
 | `payments` → `invoice_payment` (pivot) | Payment / Invoice | `invoices.invoice_payment.allocated_amount`, `payment.status` (captured, pending, failed, refunded) | Many-to-many junction; each payment can be allocated across multiple invoices. Only **captured** payments count toward AR settlement. |
 
 ### Relationships
@@ -685,6 +685,32 @@ offending file:line if one reappears — that is how the previous eight copies w
 **Do not call `standardRate()` / `on()` from a service either.** They cannot see the accountant's
 ruling, so a service using them keeps taxing a supply the catalogue exempted —
 `ExemptChargeTypesAgreeAcrossPathsTest` fails the build on one under `app/Services`.
+
+### Billing a charge code the accountant added
+
+No deploy, end to end (shipped 2026-08-11 — the sweep's §9 L7):
+
+1. **Charge Codes → New**: the code, both names, the posting role (which account it books to) and the
+   VAT treatment.
+2. **The lease → Charge schedule → Add charge**: pick the code, amount, frequency and the month it
+   starts. It routes through `ChargeScheduleService::setAmount()`, so it closes-and-opens like every
+   other writer; adding a code the lease already has RESTATES it from that date rather than
+   rewriting what was billed. VAT defaults from the code's treatment and stays editable for the deal.
+3. The monthly run bills it, and `InvoiceJournalizer` posts it to the account chosen in step 1
+   (through `ChargeCode::roleFor()`), with no code change anywhere.
+4. **Stop charge** on a schedule row ends future billing from a chosen month
+   (`ChargeScheduleService::close()`); everything already billed stays as billed.
+
+`charges.type` was a DB enum until then, so a code added in step 1 could be billed as a one-off
+invoice line and **not** set up as a recurring charge — the promise stopped where most of the money
+is. The enum's checking is replaced by `Charge::assertTypeIsAKnownChargeCode()`: catalogue first,
+`InvoiceItemType` as the floor for an unseeded database, refusing with a message that names the
+catalogue instead of a driver error.
+
+**Three types are not hand-writable** — `base_rent`, `marketing`, `parking`. Each is DERIVED by its
+own service (Change Rent, the levy off base rent, the rentable-items pivot), and a hand-made row
+would sit beside the one that service maintains and double-bill. The picker disables them and the
+action refuses them.
 
 ### Making a charge code exempt (or taxable)
 

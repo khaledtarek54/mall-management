@@ -83,8 +83,40 @@ class Charge extends Model
         // Only RECURRING rows: several one-offs genuinely share a month (a CAM true-up, a
         // percentage-rent overage and a utility recharge), and they are not a schedule.
         static::saving(function (self $charge): void {
+            $charge->assertTypeIsAKnownChargeCode();
             $charge->assertNoScheduleOverlap();
         });
+    }
+
+    /**
+     * The app-layer replacement for the DB enum this column carried until 2026-08-11.
+     *
+     * Freeing the column is what lets the catalogue reach recurring billing; dropping the check
+     * with it would let a typo bill for years. A type is valid when the catalogue knows it — or,
+     * for a database whose catalogue is not seeded, when {@see InvoiceItemType} does. Same
+     * catalogue-then-floor shape as `Vat::rateForType()` and `InvoiceJournalizer::REVENUE_ROLE`,
+     * and for the same reason: an unseeded environment must keep working.
+     *
+     * Deliberately NOT restricted to ACTIVE codes. Deactivating a code stops it being offered on a
+     * new line; it must not make the lease's existing rows unsaveable, or switching one off would
+     * break every renewal and rent change on a lease that ever billed it.
+     *
+     * @throws \DomainException when the type is not a charge code anyone has heard of
+     */
+    public function assertTypeIsAKnownChargeCode(): void
+    {
+        $type = (string) $this->type;
+
+        if ($type === '' || ! $this->isDirty('type')) {
+            return;
+        }
+
+        $known = ChargeCode::knows($type)
+            || in_array($type, \App\Enums\InvoiceItemType::values(), true);
+
+        if (! $known) {
+            throw new \DomainException(__('admin.errors.charge_type_unknown', ['type' => $type]));
+        }
     }
 
     /** @throws \DomainException when this row's date range overlaps another of the same type */

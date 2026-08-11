@@ -6,6 +6,7 @@ use App\Models\Charge;
 use App\Models\Lease;
 use App\Support\Vat;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 
 /**
  * The one place a lease's charge schedule is written.
@@ -360,6 +361,53 @@ class ChargeScheduleService
      * without it a rent change on such a lease would open a SECOND open-ended row alongside the
      * first, and the billing run would then find two rows matching one month.
      */
+    /**
+     * STOP billing a charge type from a date — the schedule's end, not a deletion.
+     *
+     * The row in force is closed the day before `$from` and deactivated, and every row that would
+     * have started later goes with it: ending a chiller charge in September must not leave next
+     * January's escalated row waiting to resume it. What was already billed stays exactly as
+     * billed, because a schedule is history as much as it is a plan.
+     *
+     * `setAmount($lease, $type, 0, …)` is NOT the way to do this — a zero row still exists, still
+     * matches the billing run, and still renders on the schedule as a live charge worth nothing.
+     *
+     * @return int rows closed (0 = nothing was in force, which is not an error)
+     */
+    public function close(Lease $lease, string $type, CarbonImmutable $from): int
+    {
+        $from = self::billingBoundary($from);
+
+        return DB::transaction(function () use ($lease, $type, $from): int {
+            $closed = 0;
+            $current = $this->rowInForce($lease, $type, $from);
+
+            if ($current) {
+                // A row that has not started yet has billed nothing — deactivating it outright
+                // beats stamping an end_date before its own start_date, which the model refuses
+                // (and rightly: that range is unreadable).
+                $startsLater = $current->start_date
+                    && CarbonImmutable::instance($current->start_date)->gte($from);
+
+                $current->update($startsLater
+                    ? ['is_active' => false]
+                    : ['end_date' => $from->subDay()->toDateString(), 'is_active' => false]);
+
+                $closed++;
+            }
+
+            $closed += Charge::query()
+                ->where('lease_id', $lease->id)
+                ->where('type', $type)
+                ->where('is_active', true)
+                ->whereNotNull('start_date')
+                ->whereDate('start_date', '>=', $from->toDateString())
+                ->update(['is_active' => false]);
+
+            return $closed;
+        });
+    }
+
     public function rowInForce(Lease $lease, string $type, CarbonImmutable $on): ?Charge
     {
         // Always a FRESH read: this runs inside setAmount()'s transaction, right after rows may

@@ -131,6 +131,23 @@ class ChargeCode extends Model
     }
 
     /**
+     * Does the catalogue contain this code?
+     *
+     * Reads the same memo {@see roleFor()} fills, so the model-layer type guard on every charge
+     * costs no extra query. Includes INACTIVE codes deliberately: switching a code off stops it
+     * being offered, it does not make the rows that already use it invalid.
+     */
+    public static function knows(string $code): bool
+    {
+        $roles = app()->has(self::ROLE_MEMO)
+            ? app(self::ROLE_MEMO)
+            : tap(static::query()->pluck('posting_role', 'code')->all(),
+                fn (array $map) => app()->instance(self::ROLE_MEMO, $map));
+
+        return array_key_exists($code, $roles);
+    }
+
+    /**
      * How this code is treated for VAT, or null when the catalogue has no row for it.
      *
      * Null is the honest answer, not a default: `App\Support\Vat` decides what an un-catalogued code

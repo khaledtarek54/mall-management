@@ -117,9 +117,14 @@ it('says there are no further steps when the ladder has run out', function () {
     expect($description)->toContain(__('admin.charge_schedule.no_further_steps'));
 });
 
-it('is read-only — rent changes go through the service, never a cell edit', function () {
+it('never edits a row in place — every write goes through the schedule service', function () {
     // An editable amount here would reintroduce exactly the drift ChargeScheduleService exists to
     // prevent: overwriting a row instead of closing it and opening the next.
+    //
+    // The screen was action-less until 2026-08-11, when adding and ending a charge landed on it
+    // (nothing else could put an accountant's own charge code on a lease). So the assertion is no
+    // longer "no actions" — it is that the only actions present are the two that route through the
+    // service, and that nothing edits or deletes a row.
     CarbonImmutable::setTestNow('2026-06-10');
     $lease = ladderLease();
 
@@ -128,8 +133,13 @@ it('is read-only — rent changes go through the service, never a cell edit', fu
         'pageClass' => EditLease::class,
     ])->instance()->getTable();
 
-    expect($table->getActions())->toBe([])
-        ->and($table->getHeaderActions())->toBe([]);
+    $names = fn (array $actions) => collect($actions)
+        ->flatMap(fn ($a) => method_exists($a, 'getActions') ? $a->getActions() : [$a])
+        ->map(fn ($a) => $a->getName())
+        ->all();
+
+    expect($names($table->getHeaderActions()))->toBe(['addCharge'])
+        ->and($names($table->getActions()))->toBe(['endCharge']);
 });
 
 it('warns when a contracted escalation is due but has never been scheduled', function () {

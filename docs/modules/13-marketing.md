@@ -21,7 +21,7 @@ and stays that way** — plenty of marketing spend is not tied to a published po
 directory, a banner frame), and requiring one would push operators into inventing a campaign row to
 record a cost. The FK changes no existing arithmetic: `recomputeSpent()` still sums the budget's
 spends regardless.
-| `charges` | `Charge` | `type` enum includes `'marketing'` (FR MKT-2) | The marketing levy is modeled as a recurring monthly charge on the lease. `vat_applicable = false`, `vat_rate = 0`, `frequency = 'monthly'`. The amount is captured at charge creation and never changes even if the levy rate changes (rate versioning via per-charge capture). |
+| `charges` | `Charge` | `type` includes `'marketing'` (FR MKT-2; the column is a string validated against `charge_codes`, not a DB enum) | The marketing levy is modeled as a recurring monthly charge on the lease. `vat_applicable = false`, `vat_rate = 0`, `frequency = 'monthly'`. The amount is captured at charge creation and never changes even if the levy rate changes (rate versioning via per-charge capture). |
 
 **Relationships:**
 - `MarketingBudget` **belongs_to** `Asset` (property).
