@@ -33,6 +33,34 @@
 > A write-off is still **not** a fifth settlement channel — `recomputeTotals()` is untouched. See
 > `PartialWriteOffIntegrityTest`.
 
+
+> **➕ Added 2026-08-11 — opening-balance import (the cut-over path).**
+> There was previously **no way to load opening AR at all**: the GL side could be a manual journal,
+> but the tenant side had to be hand-keyed invoice by invoice.
+>
+> Opening receivables arrive as **open items — real invoices**, not a lump sum per tenant. Aging,
+> the dunning ladder, statements and per-invoice payment allocation all work on documents: a single
+> balance has no number to quote to a retailer who disputes it, no due date to age against, and
+> nothing for a payment to allocate to. Yardi and MRI both load open items at cutover, for exactly
+> these reasons.
+>
+> **They deliberately post nothing.** `invoices.is_opening_balance` marks them and
+> `InvoiceJournalizer` returns no payload — the same mechanism a draft already uses. The revenue
+> was earned in the operator's previous system and is already inside the opening trial balance the
+> accountant loads as one manual journal entry; posting it again would recognise it twice and
+> double AR. Mutation-checked: letting them post reproduces a delta equal to the whole opening
+> balance.
+>
+> **The tie-out is therefore the migration's proof.** `glTieOut()` counts these invoices in
+> `expectedAr` while the accountant's entry supplies GL AR, so `billing:reconcile` going square
+> after a cutover is the statement *"the receivables I loaded equal the receivables my accountant
+> says I have"*. A migration that quietly loaded 90% of the debt is otherwise indistinguishable
+> from one that worked. `OpeningBalanceImportTest` drives that whole sequence end to end.
+>
+> The operator's **own invoice number is preserved** — `Invoice::creating` skips its
+> always-regenerate rule for an opening item, because that number is the one printed on the
+> paperwork the retailer already holds, and quoting it is the point of loading open items.
+
 ## 1. Purpose & business context
 
 The Billing module automates the monthly invoicing lifecycle for Eltizam operators. Each Eltizam manages leases on behalf of Jawad property owners; invoices are issued to Eltizam's tenants (retailers) for rent, service charges, utilities, and other recurring fees. The system:

@@ -719,6 +719,10 @@ return [
         ],
     ],
 
+    'imports' => [
+        'opening_invoice_line' => 'Opening balance carried forward (invoice dated :date)',
+    ],
+
     'empty' => [
         'asset_owners' => [
             'heading' => 'No owners recorded',
@@ -1974,6 +1978,7 @@ return [
         'view_cam_working_heading' => 'CAM true-up working — :tenant',
         'void_allocation' => 'Void (un-bill)',
         'void_allocation_confirm' => 'Reverses this allocation\'s recovery invoice / credit note / fee invoice and returns it to pending, so you can correct the pool figures and re-bill. A recovery invoice the tenant has already paid must be refunded first.',
+        'import_opening_invoices' => 'Import opening balances',
         'submit_to_eta' => 'Submit to ETA',
         'submit_to_eta_modal_mock' => 'ETA is in mock mode. The submission returns a stubbed Valid response — useful for the demo before real test credentials arrive.',
         'submit_to_eta_modal_live' => 'Submits this invoice to the Egyptian Tax Authority preproduction endpoint and stores the response.',

@@ -107,6 +107,7 @@ class ChangeImpact
             ],
             self::DERIVED => [
                 'status' => 'draft and cancelled have no GL effect, so a status move posts or reverses the whole entry',
+                'is_opening_balance' => 'flipping it decides whether the invoice posts at all — an opening item is sub-ledger only, because its revenue was earned in the previous system and already sits in the accountant\'s opening journal entry. Setting it on a posted invoice must void that entry; clearing it must post one. DERIVED, not REFUSED, because correcting a mis-flagged migration row is legitimate work during a cutover and the re-derive is exactly the right outcome',
                 'subtotal' => 'the revenue side of the entry',
                 'vat_amount' => 'the VAT payable credit',
                 'total' => 'the AR debit. Deliberately NOT refused: LateFeeService and the CAM true-up legitimately rewrite an issued invoice\'s totals (via saveQuietly, which skips the model event anyway), and guarding derived floats risks round-trip false positives. The form lock is what stops an operator',

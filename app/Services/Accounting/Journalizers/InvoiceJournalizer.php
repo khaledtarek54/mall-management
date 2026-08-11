@@ -79,6 +79,23 @@ class InvoiceJournalizer implements Journalizer
             return null;
         }
 
+        // A migrated OPENING ITEM is a sub-ledger document only.
+        //
+        // It is a real, live receivable — it ages, it is chased, a payment allocates to it — but
+        // the revenue behind it was earned before Atriom existed, in the operator's previous
+        // system, and is already inside the opening trial balance the accountant loads as one
+        // manual journal entry. Posting it again would recognise the same revenue twice and
+        // inflate AR to double the debt.
+        //
+        // The two sides still have to agree, and they do by construction: `glTieOut()` counts
+        // these invoices in `expectedAr` while the opening entry supplies GL AR, so
+        // `billing:reconcile` going green after a cutover is the statement "the receivables I
+        // loaded equal the receivables my accountant says I have". A migration that quietly
+        // loaded 90% of the debt is otherwise indistinguishable from one that worked.
+        if ($invoice->is_opening_balance) {
+            return null;
+        }
+
         $invoice->loadMissing('items', 'lease.unit');
         $assetId = $invoice->lease?->unit?->asset_id;
 

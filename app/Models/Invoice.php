@@ -66,6 +66,7 @@ class Invoice extends Model
         'lease_id',
         'tenant_id',
         'status',
+        'is_opening_balance',
         'issue_date',
         'due_date',
         'period_start',
@@ -101,6 +102,7 @@ class Invoice extends Model
         'paid_amount' => 'decimal:2',
         'credit_applied_amount' => 'decimal:2',
         'balance' => 'decimal:2',
+        'is_opening_balance' => 'boolean',
         'eta_response' => 'array',
     ];
 
@@ -374,10 +376,23 @@ class Invoice extends Model
             // prefix is the property's code (INV-AW-…), derived from the linked
             // lease's unit; falls back to AW when no lease is attached.
             $assetCode = $invoice->lease?->unit?->asset?->code ?: 'AW';
-            $invoice->number = $invoice->allocateDocumentNumber(
-                static::numberPrefix($assetCode, $invoice->issue_date),
-                fn (): string => static::generateUniqueNumber($assetCode, $invoice->issue_date),
-            );
+
+            // A migrated OPENING ITEM keeps the operator's own number.
+            //
+            // The always-regenerate rule above is right for an invoice this system issues —
+            // nothing legitimately supplies one, so a stale form-cached number can only be wrong.
+            // An opening item is the exception that proves it: its number is the one printed on
+            // the paperwork the retailer already holds, and the reason to load open items rather
+            // than a lump-sum balance is precisely so an operator can quote it on a collections
+            // call. Renumbering it would make that call unanswerable.
+            $keepsItsOwnNumber = $invoice->is_opening_balance && filled($invoice->number);
+
+            if (! $keepsItsOwnNumber) {
+                $invoice->number = $invoice->allocateDocumentNumber(
+                    static::numberPrefix($assetCode, $invoice->issue_date),
+                    fn (): string => static::generateUniqueNumber($assetCode, $invoice->issue_date),
+                );
+            }
 
             if (empty($invoice->currency)) {
                 $invoice->currency = 'EGP';

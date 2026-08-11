@@ -3,8 +3,11 @@
 namespace App\Filament\Admin\Resources\Invoices\Pages;
 
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
+use App\Filament\Imports\OpeningInvoiceImporter;
+use App\Support\Imports;
 use App\Support\StatusTabs;
 use Filament\Actions\CreateAction;
+use Filament\Actions\ImportAction;
 use Filament\Resources\Pages\ListRecords;
 
 class ListInvoices extends ListRecords
@@ -14,8 +17,22 @@ class ListInvoices extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-                        \App\Filament\Actions\GuideAction::for(InvoiceResource::class),
-CreateAction::make(),
+            \App\Filament\Actions\GuideAction::for(InvoiceResource::class),
+            CreateAction::make(),
+            // Cut-over only: the receivables already outstanding when Atriom took over. Gated on
+            // the import right (FR-USR-02: mall_admin is the role that may load data), and hidden
+            // once the books are live — an opening balance is a one-off, and an import action
+            // sitting on a working AR ledger is an invitation to double-load it.
+            ImportAction::make('importOpeningBalances')
+                ->label(__('admin.actions.import_opening_invoices'))
+                ->icon('heroicon-o-arrow-up-tray')
+                ->color('gray')
+                ->importer(OpeningInvoiceImporter::class)
+                // App\Support\Imports is the one home for "who may import" (FR-USR-02) — a
+                // hand-rolled permission check here is exactly the drift it exists to prevent,
+                // and ImportIsAdminOnlyTest fails the build for it.
+                ->visible(fn () => Imports::allowed())
+                ->authorize(fn () => Imports::allowed()),
         ];
     }
 
