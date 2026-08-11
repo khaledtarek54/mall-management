@@ -31,8 +31,13 @@ it('freezes the share basis on re-run so a unit-area edit cannot shift the denom
     // Bill A only — it freezes at 5000; the pool stays reconciling.
     $svc->bill($pool->allocations()->where('lease_id', $leaseA->id)->sole());
 
-    // Operator corrects B's recorded unit area mid-reconciliation.
-    $unitB->update(['area_sqm' => 300]);
+    // Operator corrects B's recorded unit area mid-reconciliation. Dated INTO the pool's year, so
+    // the correction genuinely applies to the period being reconciled — otherwise this fixture
+    // would prove nothing (a remeasurement dated after the period leaves `areaOn(2026)` alone, and
+    // the recompute would find 50% whether or not the basis were frozen).
+    // Goes through RemeasureUnitService because that is now the only way an area moves: the column
+    // is derived from the dated rows and the model refuses a bare edit (validation sweep, spacing).
+    app(\App\Services\RemeasureUnitService::class)->record($unitB, 300, ['effective_from' => '2026-01-01']);
 
     // Re-run must reuse B's ESTABLISHED 50% share, not recompute 300/400 = 75%.
     $svc->generateAllocations($pool);

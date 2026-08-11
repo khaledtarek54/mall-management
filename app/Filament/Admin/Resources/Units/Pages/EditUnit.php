@@ -23,6 +23,10 @@ class EditUnit extends EditRecord
         // asset_id, so it also catches an edit that re-homes the unit).
         UnitResource::assertAreaInScope($data['area_id'] ?? null, $assetId);
 
+        // Same rule, same reason, on the floor relation — and checked against the FINAL asset_id
+        // so it also catches an edit that re-homes the unit and leaves the old floor behind.
+        UnitResource::assertFloorInScope($data['floor_id'] ?? null, $assetId);
+
         return $data;
     }
 

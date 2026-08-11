@@ -92,7 +92,12 @@ it('freezes the corrected share on a re-run rather than recomputing it', functio
     $service->generateAllocations($pool);
 
     // An area edit between runs must NOT shift an established share (the frozen-basis guard).
-    $extraA->update(['area_sqm' => 5000]);
+    // Through RemeasureUnitService, and dated back into the pool's year: an area is a dated record
+    // now, so a bare column edit is refused AND a remeasurement dated after the period would leave
+    // areaOn(period) untouched — which would make this pass without exercising the freeze at all.
+    app(\App\Services\RemeasureUnitService::class)->record($extraA, 5000, [
+        'effective_from' => $pool->period_year.'-01-01',
+    ]);
     $service->generateAllocations($pool->fresh());
 
     $a = CamAllocation::where('cam_expense_pool_id', $pool->id)->where('lease_id', $leaseA->id)->sole();

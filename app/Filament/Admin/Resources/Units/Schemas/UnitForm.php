@@ -111,9 +111,20 @@ class UnitForm
                     TextInput::make('area_sqm')
                         ->label(__('admin.tables.unit.area'))
                         ->numeric()
-                        ->minValue(0)
+                        ->minValue(0.01)
                         ->required()
-                        ->suffix('m²'),
+                        ->suffix('m²')
+                        // Editable only on CREATE, where it seeds the opening measurement. After
+                        // that the area is a DATED record and changing it here would move the
+                        // column without writing a row — CAM would keep apportioning on the old
+                        // figure while every current-state screen showed the new one. Mirrors the
+                        // rent fields on the lease form, which are read-only for the same reason
+                        // and routed through their own action. The model refuses it either way.
+                        ->disabled(fn (?\App\Models\Unit $record) => $record !== null)
+                        ->dehydrated(fn (?\App\Models\Unit $record) => $record === null)
+                        ->helperText(fn (?\App\Models\Unit $record) => $record === null
+                            ? null
+                            : __('admin.helpers.unit_area_locked')),
                     Select::make('status')
                         ->label(__('admin.tables.common.status'))
                         ->options(fn () => __('admin.statuses.unit'))

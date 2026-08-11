@@ -156,6 +156,86 @@ class Unit extends Model
      */
     protected static function booted(): void
     {
+        // A measured area is never negative. The form carries minValue(0) and
+        // RemeasureUnitService refuses <= 0, but nothing stood behind either for an import or the
+        // console — and a negative area apportions CAM by a negative share, which is a credit to
+        // one tenant paid for by every other tenant in the pool.
+        static::saving(function (self $unit) {
+            if ($unit->area_sqm !== null && (float) $unit->area_sqm < 0) {
+                throw new \DomainException(__('admin.errors.unit_area_not_positive'));
+            }
+        });
+
+        // ── A unit's floor and zone belong to the unit's own property ──────────────────────────
+        //
+        // Both are guarded on the Filament pages (`UnitResource::assertFloorInScope` /
+        // `assertAreaInScope`), and Filament's own relationship-Select validation refuses an
+        // out-of-scope pick from the form. Neither of those reaches a raw write: measured, a plain
+        // `Unit::create([... 'asset_id' => A, 'floor_id' => <a floor of B>])` went straight
+        // through (validation sweep, spacing, 2026-08-11). Any import, console command, factory or
+        // future screen is that path.
+        //
+        // A unit on another mall's floor puts the shop in the wrong building on the stacking plan
+        // and merges two properties into one row wherever floors group. A unit tagged with another
+        // mall's ZONE is worse — area routing fans tenant requests out to that zone's supervisors,
+        // so mall-A request data reaches mall-B staff (module 30 → 11).
+        //
+        // Checked only when the link or the property moves, so an ordinary save costs nothing.
+        static::saving(function (self $unit) {
+            if (! $unit->isDirty(['floor_id', 'area_id', 'asset_id'])) {
+                return;
+            }
+
+            if ($unit->floor_id !== null
+                && ! Floor::whereKey($unit->floor_id)->where('asset_id', $unit->asset_id)->exists()) {
+                throw new \DomainException(__('admin.errors.unit_floor_other_property'));
+            }
+
+            if ($unit->area_id !== null
+                && ! Area::whereKey($unit->area_id)->where('asset_id', $unit->asset_id)->exists()) {
+                throw new \DomainException(__('admin.errors.unit_area_other_property'));
+            }
+        });
+
+        // ── `area_sqm` is DERIVED from the dated rows, and may only move to what they say ───────
+        //
+        // Area versioning exists so that remeasuring a shop stops rewriting what was already
+        // billed: `areaOn()` answers from the row in force on a date, and `RemeasureUnitService`
+        // closes one row and opens the next under a lock. Its docblock states that it is the only
+        // thing that may move this column — and nothing enforced it. `UnitForm` kept a plain
+        // editable `area_sqm` on Edit, and the `created` hook below does not fire on update, so an
+        // ordinary edit moved the column and wrote no dated row at all.
+        //
+        // That splits the truth along the worst line: CAM apportions on `areaOn()` and keeps the
+        // OLD area, while the unit register, the lease's area, the /api/v1 payload and the reports
+        // all read this column and show the NEW one. The operator sees the change take effect
+        // everywhere they look while the money quietly ignores it.
+        //
+        // No re-entrancy flag is needed: the service writes the dated row BEFORE it touches the
+        // column, so by the time it saves, the rows already agree. Asking whether they agree is
+        // both the guard and the definition.
+        //
+        // A unit with NO dated rows is left alone — `areaOn()` falls back to this column, so there
+        // is no second truth to protect, and that is what keeps pre-versioning rows (and factories
+        // that write only the column) behaving exactly as they did.
+        static::updating(function (self $unit) {
+            if (! $unit->isDirty('area_sqm')) {
+                return;
+            }
+
+            // Fresh read: a stale loaded relation would compare against rows from before the
+            // service just wrote one.
+            $unit->unsetRelation('areas');
+
+            if ($unit->areas()->count() === 0) {
+                return;
+            }
+
+            if (round((float) $unit->area_sqm, 2) !== round($unit->areaOn(), 2)) {
+                throw new \DomainException(__('admin.errors.unit_area_use_remeasure'));
+            }
+        });
+
         static::created(function (self $unit) {
             $unit->areas()->create([
                 'area_sqm' => (float) ($unit->area_sqm ?? 0),

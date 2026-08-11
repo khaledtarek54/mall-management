@@ -44,13 +44,44 @@ The Properties & Units module is the spatial foundation of the mall-management E
 | code | varchar | NOT NULL | Unit code (e.g., "A-01"); unique per asset |
 | floor_id | FK floors | nullable | The floor this unit stands on, SELECTED from the property's register (`Asset → Floors`). Replaced a free-text `floor` column and a short-lived `floor_level` ordinal on 2026-08-10 — free text left "G" and "Ground" as two floors to anything that grouped, and an ordinal per unit asked 200 rows to repeat one number. |
 | category | enum | default='retail' | One of: `retail`, `food_beverage`, `wellness`, `service`, `kiosk`, `office`, `storage` |
-| area_sqm | decimal(10,2) | NOT NULL | Unit area (m²) |
+| area_sqm | decimal(10,2) | NOT NULL | Unit area (m²). **DERIVED — the denominated truth is `unit_areas`.** This is the CURRENT measurement, the same relationship `leases.base_rent_monthly` has to its dated charge rows. Read-only on the Edit form; moved only by `RemeasureUnitService` through the **Remeasure** action, and `Unit::saving` refuses any other write that the dated rows do not already support. |
 | status | enum | default='vacant' | One of: `vacant`, `reserved`, `occupied`, `maintenance` (see occupancy projection) |
 | description | text | nullable | Long-form notes |
 | created_at, updated_at | timestamp | - | Timestamps |
 | deleted_at | timestamp | nullable | Soft-delete marker |
 
 Unique constraint: `(asset_id, code)`. Indexes: `(asset_id, status)`, `category`.
+
+**A unit's floor and zone belong to the unit's own property** (`Unit::saving`, 2026-08-11). The
+Filament pages guard both (`UnitResource::assertFloorInScope` / `assertAreaInScope`) and Filament's
+relationship-Select validation refuses an out-of-scope pick from the form — but none of that reaches
+a raw write, and a plain `Unit::create([... 'floor_id' => <a floor of another property>])` went
+straight through until the model guard landed. A unit on another mall's floor puts the shop in the
+wrong building on the stacking plan; a unit tagged with another mall's ZONE is worse, because area
+routing fans its tenant requests out to that zone's supervisors (module 30 → 11).
+
+### Measured area is a dated record (`unit_areas`)
+
+A re-survey, a demise or a fit-out that moves a wall changes what a shop measures, and CAM apportions
+on **`Unit::areaOn($date)`** — the row in force on that date — so a period already reconciled keeps
+the area it was billed on.
+
+Two things about this shipped incomplete and were fixed by the 2026-08-11 validation sweep:
+
+- **`RemeasureUnitService` had no caller anywhere in `app/`.** No action, no controller, no command —
+  only tests. The register existed and nothing could add to it. There is now a **Remeasure** row
+  action on the units table (dual-gated on `units.edit`, `DomainException` → toast).
+- **The Edit form's `area_sqm` field bypassed it entirely.** It moved the column and wrote no dated
+  row, because the opening row comes from a `created` hook that does not fire on update. CAM kept the
+  OLD area while the unit register, the lease's area, the `/api/v1` payload and the reports showed the
+  NEW one — one measurement with two answers, split so the operator sees the change everywhere they
+  look while the money ignores it. The field is now read-only on Edit (mirroring the lease form's rent
+  fields, read-only for the same reason) with `Unit::saving` behind it.
+
+The model guard needs no re-entrancy flag: the service writes the dated row **before** it touches the
+column, so by then the rows already agree — asking whether they agree is both the guard and the
+definition. A unit with no dated rows is left alone, which keeps pre-versioning data behaving exactly
+as it did.
 
 ### Lease Unit pivot table (`lease_unit`)
 | Column | Type | Constraints | Meaning |

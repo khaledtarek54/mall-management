@@ -231,14 +231,16 @@ it('lets a restricted user edit an in-scope unit without dropping its asset', fu
 
     asTenant($all, function () use ($unit) {
         Livewire::test(EditUnit::class, ['record' => $unit->id])
-            ->fillForm(['area_sqm' => 125])
+            ->fillForm(['description' => 'Corner unit, mall entrance'])
             ->call('save')
             ->assertHasNoFormErrors();
     });
 
     // The point of this test is that the EDIT succeeds without the form dropping `asset_id`; the
-    // field it happens to change is incidental. `floor` was a free-text column and is now a
-    // relation to the property's floor register, so the edit moves an attribute that still exists.
-    expect((float) $unit->fresh()->area_sqm)->toBe(125.0);
+    // field it happens to change is incidental. It was `floor` (a free-text column, now a relation
+    // to the property's floor register), then `area_sqm` — which is read-only on Edit since the
+    // 2026-08-11 sweep, because an area is a dated record changed through the Remeasure action.
+    // `description` is a plain attribute with no such rule, which is what this test wants.
+    expect($unit->fresh()->description)->toBe('Corner unit, mall entrance');
     expect((int) $unit->fresh()->asset_id)->toBe($assetA->id); // asset retained, not orphaned
 });

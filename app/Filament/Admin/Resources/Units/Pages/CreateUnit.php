@@ -19,6 +19,9 @@ class CreateUnit extends CreateRecord
         // server-side guarantee (a crafted request can submit any area_id).
         UnitResource::assertAreaInScope($data['area_id'] ?? null, $data['asset_id'] ?? null);
 
+        // Same rule, same reason, on the floor relation.
+        UnitResource::assertFloorInScope($data['floor_id'] ?? null, $data['asset_id'] ?? null);
+
         return $data;
     }
 

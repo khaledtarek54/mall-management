@@ -114,6 +114,30 @@ class UnitResource extends Resource
         );
     }
 
+    /**
+     * A unit's FLOOR must belong to the same property as the unit — the identical rule to
+     * `assertAreaInScope` above, on the relation that arrived later and did not get it (validation
+     * sweep, spacing, 2026-08-11). `UnitForm` clamps the floor picker's options to the unit's own
+     * property, and the sibling zone field was guarded server-side from the start; this one was
+     * left on the picker alone.
+     *
+     * A unit sitting on another mall's floor is a reporting leak, not a cosmetic one: the stacking
+     * plan places the shop in the wrong building, and anything grouped by floor mixes two
+     * properties' units into one row — which is exactly what property isolation exists to make
+     * impossible.
+     */
+    public static function assertFloorInScope(mixed $floorId, ?int $assetId): void
+    {
+        if ($floorId === null || $floorId === '') {
+            return;
+        }
+
+        abort_unless(
+            \App\Models\Floor::whereKey($floorId)->where('asset_id', $assetId)->exists(),
+            403,
+        );
+    }
+
     public static function form(Schema $schema): Schema
     {
         return UnitForm::configure($schema);

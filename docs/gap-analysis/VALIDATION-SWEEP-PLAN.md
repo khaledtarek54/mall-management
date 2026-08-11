@@ -157,7 +157,7 @@ assume it exists.
 |---|---|
 | `TODO` / `FIXME` / `HACK` / `WIP` markers in `app/` | **none** (one hit is a phone-format example, `XXX-XXX-XXX`) |
 | "not implemented" / "placeholder" / "stub" | **none real** — one is the deliberate ETA mock, one a comment about *avoiding* a stub, one noting a stub was closed |
-| Services never reached from any UI, HTTP, console or job path | **none** of 135 — the indirect ones are GL journalizers dispatched through `LedgerPoster` and infrastructure |
+| Services never reached from any UI, HTTP, console or job path | ~~**none** of 135~~ — **WRONG, corrected 2026-08-11 (§10).** `RemeasureUnitService` was unreachable on the day this was written: no action, no controller, no command, only tests. The spacing sweep found it and added the missing action. Treat a census that answers "none" as a claim to hand-check, not a result |
 | Dead columns across the four areas | **none** across 25 tables |
 | API resource fields that no longer resolve | **none** — now gated by `ApiResourceFieldConformanceTest` |
 | Orphan admin pages | **none** — the manifest gate would fail |
@@ -356,3 +356,84 @@ PHP has one function table, so a collision is a **fatal** on any single-process 
 It has now cost this project twice — `makeViolation()` during the inventory pass, `optionOn()`
 during this sweep. The gate names both files and the helper. It was verified by planting a real
 duplicate and watching it go red, then removing it.
+
+---
+
+## 10. Spacing — the rule matrix (swept 2026-08-11)
+
+The area expected to have the least to find — "mostly uniqueness, and 81 DB constraints already
+carry a lot of it" (§5). The uniqueness half was exactly that. The other half held the sweep's
+single worst finding, and a correction that matters more than the finding.
+
+| # | Rule | Was | Now | Proven by |
+|---|---|---|---|---|
+| S1 | Unit code unique per property | **0** (`unique(['asset_id','code')`) | unchanged | the constraint |
+| S2 | A unit cannot be under two active leases | 2 (lock) + 3 | unchanged | `LeaseDoubleBookingTest` — which asserts the SOURCE contains `lockForUpdate`, because sqlite makes the lock a no-op |
+| S3a | Floor code and level unique per property | **0** | unchanged | the constraint |
+| S3b | A unit's floor (and zone) belong to its property | **3 only** for non-form writers | **1** | `UnitFloorStaysInItsPropertyTest` |
+| S4 | A rentable item cannot be held by two leases at once | 2 (locked, and the DB key is only a backstop) | unchanged | `RentableItemAssignmentTest` |
+| S5a | Area must be positive | 3 + service | **1** | `UnitAreaHasOneTruthTest` |
+| S5b | A remeasurement must not overlap the row it closes | 2 (locked) | unchanged | `UnitRemeasurementTest` |
+| S5c | `units.area_sqm` is derived from the dated rows | **nothing, and no UI to do it properly** | **1 + the missing action** | `UnitAreaHasOneTruthTest` |
+| S6 | Every form-settable `asset_id` passes `assertAssetInScope` | 3 + registry gate | unchanged | `PropertyIsolationConformanceTest` |
+
+### S5c — the feature had no way to be used, and the only usable path was the broken one
+
+Area versioning shipped so that remeasuring a shop stops rewriting what was already billed:
+`Unit::areaOn()` answers from the row in force on a date, and `RemeasureUnitService` closes one row
+and opens the next under a lock. Its docblock states the invariant plainly — *"this service is the
+only thing that may move it"*.
+
+Two things were true and neither was visible:
+
+1. **Nothing enforced it.** `UnitForm` kept a plain editable `area_sqm` on Edit, and the opening
+   `unit_areas` row is written by a `created` hook that does not fire on update. So an ordinary edit
+   moved the column and wrote **no dated row at all**.
+2. **`RemeasureUnitService` had no caller anywhere in `app/`** — no action, no controller, no
+   command, no job. Only tests. The register existed and nothing could add to it.
+
+Together: the correct path was unreachable and the reachable path was wrong. And the resulting
+divergence splits along the worst possible line — CAM apportions on `areaOn()` and keeps the OLD
+area, while the unit register, the lease's area, the `/api/v1` lease payload and the reports all read
+the column and show the NEW one. The operator sees the change take effect everywhere they look while
+the money quietly ignores it.
+
+The fix is necessarily both halves: the column is read-only on Edit with a model guard behind it
+(mirroring `leases.base_rent_monthly` ← `LeaseRentChangeService`, whose rent fields are read-only for
+exactly this reason), **and** a Remeasure action so operators can record a re-survey at all. Locking
+the column alone would have shipped a worse system than the bug.
+
+**The guard needs no re-entrancy flag.** The service writes the dated row *before* it touches the
+column, so by the time it saves, the rows already agree — asking whether they agree is both the guard
+and the definition. A unit with no dated rows is left alone, which is what keeps pre-versioning data
+behaving exactly as it did.
+
+**This also corrects §7 of this document.** It recorded "Services never reached from any UI, HTTP,
+console or job path: **none** of 135". That was wrong: `RemeasureUnitService` was one, on the day the
+check was written. A census that answers "none" deserves one hand-check before it is believed.
+
+### S3b — the finding was right, the reasoning was wrong, and the tests proved nothing
+
+First pass: `UnitResource` guards `area_id` server-side on create AND edit, with a docblock spelling
+out why a scoped picker is not a guarantee — while `floor_id`, from the newer floors register, had
+nothing. An asymmetry between two sibling FKs on one form is a real signal.
+
+The conclusion drawn from it was wrong. Filament's relationship-Select validation already refuses an
+out-of-scope pick **from the form**, so a page-level guard changes nothing there — and the tests,
+driven through the Create/Edit pages, **passed with the new guard deleted**. They proved the guard,
+not the rule.
+
+The hole is one layer down, and appeared the moment the raw call was written instead:
+
+```php
+Unit::create(['asset_id' => $a->id, 'floor_id' => $floorOfB->id, ...]);   // went straight through
+```
+
+Any import, console command, factory or future screen is that path — the sweep's whole thesis,
+arriving in the area that looked like it had the least to find. The rule is now `Unit::saving` and
+covers **both** columns, since `area_id` was reachable the same way: a unit tagged with another
+mall's zone routes its tenant requests to that zone's supervisors (module 30 → 11), which is a
+cross-property data leak rather than a cosmetic one. The page guards stay as the fast 403.
+
+**Every guard added in this area was then mutation-tested** — deleted, watched go red, restored.
+That is the only reason the S3b mistake was caught rather than shipped as a green finding.
