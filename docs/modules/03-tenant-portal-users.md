@@ -2,6 +2,30 @@
 
 > A tenant company (retailer/Eltizam operator) can have multiple portal login accounts; only those flagged as admin may submit forms/payments; the rest are read-only viewers. Replaces the single "Tenant model = login" scheme and is the web portal surface of req #9.
 
+> **⚠️ Fixed 2026-08-11 — the portal's password reset ran against the ADMIN user table.**
+> `PortalPanelProvider` called `->passwordReset()` without `->authPasswordBroker(...)`, so Filament
+> resolved `Password::broker(null)`, which `config/auth.php:21` defaults to `users` →
+> `App\Models\User`. Two live consequences: **a `TenantUser` could never reset their password** —
+> their email isn't in `users`, so the page said "we can't find a user with that email address",
+> and the feature that exists to remove the operator round-trip *was* the operator round-trip — and
+> **an operator's email typed into the public portal form would mail that admin a genuine reset
+> link built for the portal panel**, because `User::canAccessPanel()` fell through to `true` for
+> any panel that wasn't `admin`, so Filament's own guard never fired. The purpose-built
+> `tenant_users` broker (`config/auth.php:129-134`) existed the whole time and nothing used it.
+>
+> Both halves are closed: the panel declares `->authPasswordBroker('tenant_users')`, and
+> `canAccessPanel()` returns `false` for `portal` explicitly rather than by omission. Pinned by
+> `PortalPasswordResetBrokerTest`, which asserts the broker resolves a `TenantUser`, does **not**
+> resolve an operator, and — the control that gives the second assertion meaning — that the default
+> broker *does*.
+>
+> **The mobile half was broken too, separately**, so at go-live *neither* surface could recover a
+> password. `TenantResetPasswordNotification` links to `config('app.mobile_reset_url')`, which falls
+> back to `APP_URL/reset-password` — not a route in this application — and `APP_MOBILE_RESET_URL`
+> was absent from `.env.example`. `atriom:health` now fails in production while it is unset. The two
+> flows are genuinely different and must not be merged: the portal resets a **`TenantUser`** (a
+> person), the mobile API resets a **`Tenant`** (the company), on different brokers.
+
 ## 1. Purpose & business context
 
 Before this module, a Tenant company had a single password stored on the `Tenant` model itself; the mobile API (Sanctum) and the web portal both authenticated the same entity. **Req #9** decoupled this: the portal now authenticates a distinct `TenantUser` model (a per-tenant login), while the Tenant record remains the company identity and the mobile API surface.

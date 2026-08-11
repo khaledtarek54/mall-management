@@ -66,6 +66,7 @@ class Health
             'admin_access' => self::checkAdminAccess(),
             'demo_accounts' => self::checkDemoAccounts(),
             'demo_payments' => self::checkDemoPayments(),
+            'mobile_reset_url' => self::checkMobileResetUrl(),
         ];
 
         $ok = collect($checks)->every(fn (array $c): bool => $c['ok']);
@@ -525,9 +526,10 @@ class Health
      */
     private static function checkDemoPayments(): array
     {
-        // Ask DemoPayments what "production" means rather than re-deriving it from config —
-        // two readings of the same question are how two guards come to disagree.
-        if (! DemoPayments::forbiddenByEnvironment()) {
+        // `app()->environment()`, matching DemoPayments — NOT `config('app.env')`. The two
+        // disagree the moment a test or a runtime tweak sets one and not the other, and a guard
+        // that reads the environment differently from the thing it guards is not a guard.
+        if (! app()->environment('production')) {
             return ['ok' => true, 'detail' => DemoPayments::enabled()
                 ? 'enabled (non-production — expected)'
                 : 'disabled'];
@@ -547,6 +549,43 @@ class Health
         }
 
         return ['ok' => true, 'detail' => 'disabled (production)'];
+    }
+
+    /**
+     * Does the mobile password-reset link go anywhere?
+     *
+     * `TenantResetPasswordNotification` emails whatever `app.mobile_reset_url` resolves to, and
+     * that config falls back to `APP_URL/reset-password` — **a route this application does not
+     * have**. So with `APP_MOBILE_RESET_URL` unset (it is absent from `.env.example`), a tenant
+     * asking the mobile app to reset their password receives a mail whose only button 404s.
+     *
+     * Nothing else notices: the mail sends successfully, the token is minted correctly, and the
+     * failure lands entirely on the tenant. Production only — locally the 404 is obvious and
+     * harmless.
+     *
+     * @return array{ok: bool, detail: string}
+     */
+    private static function checkMobileResetUrl(): array
+    {
+        if (! app()->environment('production')) {
+            return ['ok' => true, 'detail' => 'not checked outside production'];
+        }
+
+        // Read config, never env() — this class runs under `config:cache`, where env() is null and
+        // the check would report a false failure on every correctly-configured box.
+        $configured = (string) config('app.mobile_reset_url');
+        $unrouted = rtrim((string) config('app.url'), '/').'/reset-password';
+
+        if ($configured === '' || $configured === $unrouted) {
+            return [
+                'ok' => false,
+                'detail' => 'APP_MOBILE_RESET_URL is unset — mobile password-reset emails link to '
+                    .$unrouted.', which is not a route in this application. Set the app deep link, '
+                    .'or the https page that completes /api/v1/auth/reset-password.',
+            ];
+        }
+
+        return ['ok' => true, 'detail' => 'configured'];
     }
 
     /** @return array{ok: bool, detail: string} */

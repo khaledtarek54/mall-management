@@ -122,6 +122,11 @@ class User extends Authenticatable implements FilamentUser, HasTenants
             // app (the /owner portal was removed 2026-07-27); their permissions + owned-property
             // scoping limit what they see.
             'admin' => $this->roles()->exists(),
+            // An operator is NOT a portal user — the portal authenticates TenantUser. This used to
+            // fall through to `true`, which is what let Filament's password-reset guard pass an
+            // admin through the tenant portal's reset form and mail them a reset link built for
+            // that panel. Say no explicitly rather than by omission.
+            'portal' => false,
             default => true,
         };
     }

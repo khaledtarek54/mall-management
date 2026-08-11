@@ -36,6 +36,13 @@ class PortalPanelProvider extends PanelProvider
             // production. EditProfile lets the tenant change their own
             // password from the top-bar avatar.
             ->passwordReset()
+            // ⚠️ Without this the panel resolves Password::broker(null), which config/auth.php
+            // defaults to `users` — App\Models\User. So the portal's reset ran against the ADMIN
+            // table: a TenantUser could NEVER reset (their email simply isn't there, and the page
+            // said "we can't find a user with that email address"), while an operator's email
+            // typed into the public portal form mailed that admin a genuine reset link built for
+            // THIS panel. The `tenant_users` broker existed the whole time and nothing used it.
+            ->authPasswordBroker('tenant_users')
             ->profile(isSimple: false)
             // Top-bar bell — tenants see invoice issued / payment received /
             // maintenance status change / sales declaration locked here.
