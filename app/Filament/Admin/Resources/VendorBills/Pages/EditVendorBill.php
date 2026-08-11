@@ -42,6 +42,14 @@ class EditVendorBill extends EditRecord
             }
         }
 
+        // Editing a bill ONTO a reference another live bill already holds is the same duplicate
+        // as creating one. Rendered on the field, mirroring the bill_date guard above.
+        try {
+            (clone $this->record)->forceFill($data)->assertVendorReferenceNotAlreadyBilled();
+        } catch (\DomainException $e) {
+            throw ValidationException::withMessages(['data.reference' => $e->getMessage()]);
+        }
+
         return $data;
     }
 

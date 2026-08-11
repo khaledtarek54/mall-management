@@ -1,6 +1,24 @@
 # Validation sweep — spacing · leasing · receivables · payables
 
-**Status:** started 2026-08-11. **Receivables: DONE** (§8). Payables, leasing, spacing: not started.
+**Status: COMPLETE, 2026-08-11.** All four areas swept — receivables (§8), leasing (§9), spacing
+(§10), payables (§11). 34 rules traced to every writer and exploited one at a time.
+
+**The tally, since the honest version is the point:** 12 rules were enforced at layer 3 only or not
+at all and are now at layer 1; 4 were already correct but had never been watched refusing anything
+and now have witnesses; the remaining 18 needed no change, which §5 predicted and which is the
+result rather than a failure to find one. Two findings are recorded and deliberately NOT fixed —
+`charge_codes.vat_exempt` (§8 R8) and freeing `charges.type` from its DB enum (§9 L7) — because both
+are product decisions belonging to the accountant conversation, not validation-layer questions. One
+open question goes to Eltizam (§11, ad-hoc bills outside the approval ladder).
+
+**Two patterns worth carrying past this document:**
+
+1. **Whenever a record stores a number someone ELSE issued, ask what stops it arriving twice.** The
+   PDC cheque number and the vendor invoice reference were the same gap in two modules, missed for
+   the same reason: the system's own generated number sat right beside the field and made it look
+   handled.
+2. **Mutation-test every guard you add** — delete it, watch the test go red, restore it. §10 records
+   a finding that was *correct* while the tests proving it were worthless, and only this caught it.
 
 The goal is not "add more validation". It is to know, for every rule that matters in these four
 areas, **where it is enforced and whether anything proves it** — and to move the ones that are only
@@ -437,3 +455,71 @@ cross-property data leak rather than a cosmetic one. The page guards stay as the
 
 **Every guard added in this area was then mutation-tested** — deleted, watched go red, restored.
 That is the only reason the S3b mistake was caught rather than shipped as a green finding.
+
+---
+
+## 11. Payables — the rule matrix (swept 2026-08-11)
+
+Five rules. **One gap, and it is the canonical AP control.** The other four were already enforced —
+which is the finding for them, and worth stating plainly given payables is where a wrong number
+leaves the building.
+
+| # | Rule | Was | Now | Proven by |
+|---|---|---|---|---|
+| P1 | A bill cannot be paid beyond its balance | 2 (locked + capped), and **structurally** so | unchanged | `VendorBillPayment::create` has exactly ONE caller |
+| P2 | A bill's property must match its purchase request's property | 1 | unchanged | `VendorBill::saving` (module 29 fix — verified it holds) |
+| P3 | A vendor invoice number is unique per vendor | **nothing, any layer** | **1** | `VendorInvoiceReferenceIsUniquePerVendorTest` |
+| P4 | Approval bands enforced server-side | 2 + closed registry | unchanged — **but see the question below** | `ApprovalPolicy`, one enforcer per module |
+| P5 | Posting-date guard on **both** approve and pay | 2 on both | unchanged | `PostingDateGuards` registry + gate |
+
+### P3 — the same supplier invoice could be entered twice
+
+`vendor_bills.reference` holds *"the vendor's own invoice reference"* — the migration says so — and
+carried **no uniqueness of any kind**: no DB constraint, no model guard, not even a form rule. Two
+people keying the same paper, a re-import, a scan processed after someone already typed it: two
+payables for one debt, both approvable, both payable, and the mall pays the supplier twice.
+
+This is the control an auditor asks about first, and it is **the same shape as the PDC cheque-number
+gap** found in receivables. Both are *the counterparty's own document number*; both were missed for
+the same reason — the SYSTEM's number (`number`) is generated and unique, so the field beside it
+looked handled. Worth carrying forward as a pattern: **whenever a record stores a number that
+someone else issued, ask what stops it arriving twice.**
+
+Key: (vendor, reference) among non-**cancelled** bills, matched case-insensitively and trimmed —
+because two people keying the same paper do not produce byte-identical strings, and an exact-match
+guard would miss the realistic duplicate while looking like coverage. A **blank** reference is
+exempt and is the deliberate escape hatch (leave it empty rather than typing a placeholder). The
+create/edit pages mirror it as an inline error on the field, matching how `bill_date` already
+reports its posting-date refusal there.
+
+**Deviation from Yardi, stated:** Yardi warns and lets the operator through. We refuse — consistent
+with the cheque-number decision, and for the stronger reason that this failure pays money *out of
+the door* rather than mis-forecasting money coming in.
+
+### P1 — worth explaining why "unchanged" is the right answer
+
+`VendorBillService::recordPayment()` locks the bill and caps at the balance, so it cannot over-pay.
+That is layer 2, and layer 2 is bypassable by a direct model write — except that
+`VendorBillPayment::create` has **exactly one caller in the whole codebase**, and it is that service.
+The Filament action calls it; nothing else creates one. So the guard is authoritative for the same
+reason `Payment::assertInvoicesShareTenant` is: every writer goes through it, and the states it
+would refuse are unreachable rather than merely guarded.
+
+(The plan phrased this as "cannot be paid more than its net of withholding tax". That reading is
+wrong about the design and worth correcting: withholding sits *inside* the gross payment — `amount`
+discharges the vendor's claim in full, part in cash and part as tax paid to the ETA on their behalf,
+and only the cash leg shrinks. The balance arithmetic never sees it.)
+
+### An open question for the operator, not a finding
+
+`ApprovalRule::MODULES` is closed and fully enforced — inventory draw, purchase request,
+disbursement, one enforcer each, no inert module. **Vendor bill approval is deliberately outside the
+ladder**, on the reasoning that the commitment is approved at the purchase request.
+
+That reasoning has a hole worth putting to Eltizam rather than fixing on a guess:
+`vendor_bills.purchase_request_id` is **nullable**, so an ad-hoc bill — one that never had a
+purchase request — is approved with no amount band at any point in its life. Whether that is
+acceptable depends on how they actually buy: if every material spend starts as a request, the ladder
+already covers it; if ad-hoc bills are normal, a 500,000 EGP payable can be approved by whoever holds
+`vendor_bills.approve`, regardless of amount. **Ask before building** — adding a fourth module to the
+ladder is one row and one call site, but only if the answer is that it is missing.

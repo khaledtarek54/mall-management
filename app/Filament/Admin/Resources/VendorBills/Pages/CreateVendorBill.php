@@ -28,6 +28,15 @@ class CreateVendorBill extends CreateRecord
             throw ValidationException::withMessages(['data.bill_date' => $e->getMessage()]);
         }
 
+        // The same supplier invoice cannot be entered twice. The model refuses it either way;
+        // this renders the refusal ON the reference field, next to what has to change, instead of
+        // a redirect that loses the form. Same predicate, named once, so the two cannot drift.
+        try {
+            (new \App\Models\VendorBill)->forceFill($data)->assertVendorReferenceNotAlreadyBilled();
+        } catch (\DomainException $e) {
+            throw ValidationException::withMessages(['data.reference' => $e->getMessage()]);
+        }
+
         // The UI always creates a DRAFT; the accountant reviews then Approves it.
         $data['created_by_user_id'] = Auth::id();
 

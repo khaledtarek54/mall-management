@@ -262,6 +262,56 @@ class VendorBill extends Model
         return $prefix.str_pad((string) $next, 4, '0', STR_PAD_LEFT);
     }
 
+    /**
+     * Refuse a second payable for the same supplier invoice.
+     *
+     * `reference` holds the VENDOR's own invoice number (the migration says so) and carried no
+     * uniqueness of any kind — no constraint, no model guard, no form rule. Two people keying the
+     * same paper, a re-import, or a scan processed after someone already typed it produced two
+     * payables for one debt: both approve, both pay, and the mall pays the supplier twice. This is
+     * the canonical AP control, and the exact shape of the PDC cheque-number gap found in
+     * receivables — both are the COUNTERPARTY's document number, and both looked handled because
+     * the system's own number (`number`) is generated and unique.
+     *
+     * The key is (vendor, reference) among non-CANCELLED bills:
+     *   - per vendor, not globally — two suppliers numbering their invoices from 1 is normal;
+     *   - cancelled excluded, so a mis-key can be cancelled and re-entered — the carve-out that
+     *     makes this a model guard rather than a unique index;
+     *   - a BLANK reference is exempt: not every bill arrives with the number to hand, and it is
+     *     the deliberate escape hatch (leave it empty rather than typing a placeholder);
+     *   - matched case-insensitively and trimmed, because two people keying the same paper do not
+     *     produce byte-identical strings, and a guard that only caught the exact match would miss
+     *     the realistic duplicate while looking like coverage.
+     *
+     * DEVIATION FROM YARDI, deliberately: Yardi warns and lets the operator through. We refuse —
+     * consistent with the cheque-number decision, and for the stronger reason that this failure
+     * pays money out of the door rather than mis-forecasting money coming in.
+     *
+     * @throws \DomainException
+     */
+    public function assertVendorReferenceNotAlreadyBilled(): void
+    {
+        $reference = trim((string) ($this->reference ?? ''));
+
+        if ($reference === '' || $this->vendor_id === null || $this->status === 'cancelled') {
+            return;
+        }
+
+        $clash = static::query()
+            ->where('vendor_id', $this->vendor_id)
+            ->where('status', '!=', 'cancelled')
+            ->whereRaw('LOWER(TRIM(reference)) = ?', [mb_strtolower($reference)])
+            ->when($this->exists, fn ($q) => $q->whereKeyNot($this->getKey()))
+            ->first();
+
+        if ($clash) {
+            throw new \DomainException(__('admin.errors.duplicate_vendor_invoice_reference', [
+                'reference' => $reference,
+                'number' => $clash->number,
+            ]));
+        }
+    }
+
     protected static function booted(): void
     {
         static::saving(function (self $bill) {
@@ -295,6 +345,11 @@ class VendorBill extends Model
                 if ($prAssetId !== null && (int) $prAssetId !== (int) $bill->asset_id) {
                     throw new \DomainException('The linked purchase request belongs to a different property than the bill.');
                 }
+            }
+
+            // The same supplier invoice cannot be entered twice.
+            if (! $bill->exists || $bill->isDirty(['reference', 'vendor_id', 'status'])) {
+                $bill->assertVendorReferenceNotAlreadyBilled();
             }
         });
 
