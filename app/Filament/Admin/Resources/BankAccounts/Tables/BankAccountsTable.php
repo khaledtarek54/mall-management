@@ -7,6 +7,7 @@ use App\Models\BankAccount;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TernaryFilter;
@@ -51,6 +52,10 @@ class BankAccountsTable
                 TrashedFilter::make(),
             ])
             ->recordActions([
+                // Read it without opening the write form — less friction, and no write surface for
+                // a view-only role. The modal schema is the resource's own form rendered disabled,
+                // so it cannot drift from the fields that exist.
+                ViewAction::make(),
                 EditAction::make()->visible(fn (BankAccount $record) => BankAccountResource::canEdit($record)),
             ])
             ->toolbarActions([

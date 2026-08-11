@@ -71,7 +71,7 @@ class BankAccountResource extends Resource
 
     public static function getNavigationGroup(): ?string
     {
-        return __('admin.groups.accounting');
+        return __('admin.groups.general_ledger');
     }
 
     /** Property-scope the list ourselves — Filament auto-tenancy is off (see the trait note). */

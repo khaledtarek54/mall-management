@@ -2673,6 +2673,7 @@ return [
     ],
 
     'permission_modules' => [
+            'bank_accounts' => 'Bank accounts',
         'charge_codes' => 'Charge codes',
         'account_mappings' => 'Posting map',
         'ledger_accounts' => 'Chart of Accounts',
@@ -3200,6 +3201,8 @@ return [
         'subject' => 'Subject',
         'system' => 'System',
         'subjects' => [
+            'bank_account' => 'Bank account',
+            'bank_statement' => 'Bank statement',
             'charge_code' => 'Charge code',
             'tenant_document' => 'Tenant document',
             'account_mapping' => 'Posting map row',

@@ -2665,6 +2665,7 @@ return [
     ],
 
     'permission_modules' => [
+            'bank_accounts' => 'الحسابات البنكية',
         'charge_codes' => 'أكواد الرسوم',
         'account_mappings' => 'خريطة الترحيل',
         'ledger_accounts' => 'دليل الحسابات',
@@ -3189,6 +3190,8 @@ return [
         'subject' => 'الموضوع',
         'system' => 'النظام',
         'subjects' => [
+            'bank_account' => 'حساب بنكي',
+            'bank_statement' => 'كشف بنكي',
             'charge_code' => 'كود رسوم',
             'tenant_document' => 'مستند مستأجر',
             'account_mapping' => 'سطر خريطة الترحيل',
