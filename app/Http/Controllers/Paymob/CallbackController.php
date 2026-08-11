@@ -83,7 +83,27 @@ class CallbackController
         $voided = (bool) data_get($obj, 'is_voided', false);
         $isCapture = $success && ! $voided;
 
-        DB::transaction(function () use ($payment, $obj, $txnId, $orderId, $isCapture) {
+        $alreadyProcessed = false;
+
+        DB::transaction(function () use (&$payment, &$alreadyProcessed, $obj, $txnId, $orderId, $isCapture) {
+            // Lock the row and re-read the status INSIDE the transaction. The check above is a fast
+            // path outside it, which makes this check-then-act: a gateway retry that overlaps a
+            // still-running first delivery passes that check twice, and both callers proceed.
+            //
+            // Severity, stated honestly: this cannot double-collect. Both deliveries address the
+            // same Payment row, so the money is captured once and recomputeTotals is idempotent.
+            // What it can do is fire the `saved` hook twice on the same captured transition, which
+            // sends the tenant two receipts for one payment. Small — and the same lock-and-re-check
+            // discipline every other check-then-act path here already follows.
+            $locked = Payment::query()->lockForUpdate()->find($payment->getKey());
+
+            if (! $locked || in_array($locked->status, ['captured', 'failed', 'refunded'], true)) {
+                $alreadyProcessed = true;
+
+                return;
+            }
+
+            $payment = $locked;
             $payment->gateway_transaction_id = "paymob:txn:{$txnId}:order:{$orderId}";
             $payment->gateway_response = $obj;
 
@@ -102,6 +122,12 @@ class CallbackController
             // Payment::saved hook recomputes invoice totals + fires
             // PaymentReceivedNotification on the captured transition.
         });
+
+        if ($alreadyProcessed) {
+            // A racing delivery won. Same answer as the fast path above, so the gateway sees one
+            // consistent response either way and stops retrying.
+            return response()->json(['ok' => true, 'skipped' => 'already_processed']);
+        }
 
         return response()->json([
             'ok' => true,

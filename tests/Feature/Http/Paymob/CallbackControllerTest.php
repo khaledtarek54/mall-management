@@ -180,3 +180,34 @@ it('GET /paymob/return on failure flashes an error', function () {
         ->assertRedirect('/portal/invoices')
         ->assertSessionHas('error');
 });
+
+it('captures once and receipts once when the gateway delivers the same callback twice', function () {
+    // Paymob retries. A retry that arrives while the first delivery is still running used to pass
+    // the terminal-status check twice, because that check sat OUTSIDE the transaction with no lock
+    // on the row — textbook check-then-act. It cannot double-COLLECT (both deliveries address one
+    // Payment row, and recomputeTotals is idempotent), but it can fire the `saved` hook twice on
+    // the same captured transition and send the tenant two receipts for one payment.
+    //
+    // What this test proves is the OUTCOME — one capture, one receipt, whatever arrives twice. What
+    // it cannot prove is the inner re-check itself: reproducing a genuine overlap needs two
+    // processes, and deleting the re-check leaves this green. The lock is the guard; this is its
+    // witness at the level a single-process sqlite suite can actually reach, and saying so is
+    // better than implying coverage that is not there.
+    Notification::fake();
+
+    $payment = seedInitiatedPayment($this->invoice, orderId: 9101);
+    $payload = paymobCallbackPayload(orderId: 9101, txnId: 77);
+    $signature = signPaymobPayload($payload);
+
+    $this->postJson(route('paymob.callback', ['hmac' => $signature]), $payload)->assertOk();
+    $this->postJson(route('paymob.callback', ['hmac' => $signature]), $payload)->assertOk();
+
+    expect($payment->fresh()->status)->toBe('captured')
+        ->and(\App\Models\Payment::where('gateway', 'paymob')->count())->toBe(1);
+
+    Notification::assertSentToTimes(
+        $this->invoice->tenant,
+        \App\Notifications\PaymentReceivedNotification::class,
+        1,
+    );
+});
