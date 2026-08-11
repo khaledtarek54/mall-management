@@ -3742,6 +3742,7 @@ return [
         'errors' => [
             'series_count' => 'A series must be between 1 and 60 cheques.',
             'series_amount' => 'The amount per cheque must be greater than zero.',
+            'duplicate_cheque_number' => 'Cheque :number is already in the register for this tenant and bank (:reference). Cancel that entry first if this is a correction.',
         ],
     ],
     'inventory' => [

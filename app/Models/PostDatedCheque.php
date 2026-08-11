@@ -82,11 +82,63 @@ class PostDatedCheque extends Model
         ];
     }
 
+    /**
+     * Refuse a second register row for the same physical cheque.
+     *
+     * A cheque number is unique within a BANK ACCOUNT, so the key is (tenant, bank, number) —
+     * two tenants banking with different banks may legitimately hold the same number. CANCELLED
+     * cheques are excluded, which is the whole reason this is a model guard rather than a unique
+     * index: a mis-keyed cheque must be cancellable and re-lodgeable at the right number.
+     *
+     * It is money, not tidiness. Two rows for one piece of paper are each independently
+     * clearable, and each clear records a captured Payment — the second settles AR that no money
+     * backs, or mints an on-account credit the tenant never funded. `lodgeSeries()` makes it easy
+     * to hit by accident: re-running it over the same cheque book regenerates the identical
+     * sequential numbers by design.
+     *
+     * DEVIATION FROM YARDI, deliberately: Yardi warns on a duplicate check number and lets the
+     * operator through. We refuse — a PDC register that double-counts is a cash forecast wrong in
+     * the operator's favour, and cancel-then-re-lodge costs one click.
+     */
+    public function assertChequeNumberNotAlreadyLodged(): void
+    {
+        if (blank($this->cheque_number) || $this->status === self::STATUS_CANCELLED) {
+            return;
+        }
+
+        $clash = static::query()
+            ->where('tenant_id', $this->tenant_id)
+            ->where('cheque_number', $this->cheque_number)
+            ->where('status', '!=', self::STATUS_CANCELLED)
+            ->when($this->exists, fn ($q) => $q->whereKeyNot($this->getKey()))
+            // A blank bank on either side can't distinguish two cheques, so it collides with
+            // anything of that tenant's carrying the same number.
+            ->when(filled($this->bank_name), fn ($q) => $q->where(fn ($w) => $w
+                ->where('bank_name', $this->bank_name)
+                ->orWhereNull('bank_name')))
+            ->first();
+
+        if ($clash) {
+            throw new \DomainException(__('admin.post_dated_cheques.errors.duplicate_cheque_number', [
+                'number' => $this->cheque_number,
+                'reference' => $clash->reference,
+            ]));
+        }
+    }
+
     protected static function booted(): void
     {
         static::saving(function (self $cheque) {
             if (! in_array($cheque->status, self::STATUSES, true)) {
                 throw new \InvalidArgumentException("Invalid post-dated cheque status '{$cheque->status}'.");
+            }
+
+            // One physical cheque, one register row. Checked on create and on any edit that
+            // moves the number / bank / tenant, so the duplicate can't be reached by editing
+            // either — see assertChequeNumberNotAlreadyLodged().
+            if (! $cheque->exists
+                || $cheque->isDirty(['cheque_number', 'bank_name', 'tenant_id', 'status'])) {
+                $cheque->assertChequeNumberNotAlreadyLodged();
             }
 
             // Isolation guard: a linked invoice MUST belong to the same property AND the same tenant

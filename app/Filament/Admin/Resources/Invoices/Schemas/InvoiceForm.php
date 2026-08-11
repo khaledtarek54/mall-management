@@ -212,13 +212,13 @@ class InvoiceForm
                                 ->default('base_rent')
                                 ->native(false)
                                 ->live()
-                                // Base rent + percentage rent are VAT-EXEMPT (project invariant); a
-                                // manually-added line of those types must default to 0% VAT, not the
-                                // standard rate. Service charges / CAM stay taxable.
+                                // An out-of-scope supply defaults to 0% VAT, not the standard rate.
+                                // The SET lives in Vat::EXEMPT_TYPES, not here: this switch used to
+                                // carry its own list of two while the services originated six, so a
+                                // hand-added late fee / marketing levy / fine / NSF fee picked up
+                                // 14% that no service would ever have charged.
                                 ->afterStateUpdated(function ($state, Set $set, Get $get) {
-                                    $set('vat_rate', in_array($state, ['base_rent', 'percentage_rent'], true)
-                                        ? Vat::EXEMPT
-                                        : Vat::standardRate());
+                                    $set('vat_rate', Vat::rateForType(is_string($state) ? $state : null));
                                     self::recomputeItem($set, $get);
                                 })
                                 ->columnSpan(3),
@@ -244,8 +244,10 @@ class InvoiceForm
                                 ->minValue(0)
                                 ->maxValue(100)
                                 // The operator can still type a different rate on the line — this is
-                                // only the starting point for a taxable supply.
-                                ->default(fn () => Vat::standardRate())
+                                // only the starting point. Derived from the row's type default
+                                // (`base_rent`, which is exempt): a fresh row used to render
+                                // "Base Rent · 14%", contradicting itself before anything was typed.
+                                ->default(fn (Get $get) => Vat::rateForType($get('type') ?: 'base_rent'))
                                 ->required()
                                 ->live(onBlur: true)
                                 ->afterStateUpdated(fn (Set $set, Get $get) => self::recomputeItem($set, $get))

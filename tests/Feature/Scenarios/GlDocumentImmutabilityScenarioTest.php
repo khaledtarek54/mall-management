@@ -32,7 +32,14 @@ function syncLedger(): void
     test()->artisan('accounting:sync-ledger --all')->assertSuccessful();
 }
 
-/** A balanced, GL-postable issued invoice (total == its single item, VAT 0). */
+/**
+ * A balanced, GL-postable issued invoice (total == its single item, VAT 0).
+ *
+ * The line is derived from the header override rather than hard-coded, because the header is
+ * now derived from the LINE (Invoice::syncTotalsFromItems) — hard-coding 10,000 here and then
+ * overriding the header to 8,000 produced a fixture that contradicted itself, and the model
+ * quite rightly resolved it in the items' favour.
+ */
 function postableInvoice(array $overrides = [])
 {
     $lease = makeLease(makeUnit(makeAsset()));
@@ -40,12 +47,13 @@ function postableInvoice(array $overrides = [])
         'issue_date' => now()->toDateString(),
         'subtotal' => 10000, 'vat_amount' => 0, 'total' => 10000, 'balance' => 10000,
     ], $overrides));
+    $amount = round((float) $invoice->subtotal, 2);
     $invoice->items()->create([
         'type' => 'base_rent', 'description' => 'Rent',
-        'amount' => 10000, 'vat_rate' => 0, 'vat_amount' => 0, 'total' => 10000,
+        'amount' => $amount, 'vat_rate' => 0, 'vat_amount' => 0, 'total' => $amount,
     ]);
 
-    return $invoice;
+    return $invoice->refresh();
 }
 
 function capturedPayment(int $tenantId, float $amount)
@@ -169,8 +177,7 @@ it('voids a captured payment end-to-end: the invoice AR re-opens and its GL leg 
 });
 
 it('supports the void-then-re-issue correction: a fresh invoice posts a NEW, balanced entry', function () {
-    $wrong = postableInvoice(['subtotal' => 8000, 'total' => 8000, 'balance' => 8000]);
-    $wrong->items()->update(['amount' => 8000, 'total' => 8000]); // keep total == item
+    $wrong = postableInvoice(['subtotal' => 8000, 'total' => 8000, 'balance' => 8000]); // header == its line
     syncLedger();
 
     app(VoidInvoiceService::class)->void($wrong, 'wrong amount — re-issuing');

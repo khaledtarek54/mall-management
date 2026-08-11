@@ -68,6 +68,21 @@ This is the core AR (accounts receivable) engine; all recurring revenue flows th
    - VAT per item = `amount * (vat_rate / 100)`, rounded to 2 decimals
    - Invoice totals: `subtotal = sum(item.amount)`, `vat_amount = sum(item.vat_amount)`, `total = subtotal + vat_amount`
    - **Test:** `BillingScenarioTest::test_computes_subtotal_vat_and_total_exactly__service_charge_taxed_base_rent_exempt` confirms base rent = 0 VAT, service charge = 14% VAT
+   - **The header is DERIVED, and enforced at the model** (`Invoice::syncTotalsFromItems()`, fired
+     from `InvoiceItem::saved`/`deleted` and from `Invoice::saving` when an existing invoice's header
+     is written). Until the 2026-08-11 validation sweep this lived only in `InvoiceForm` — the three
+     fields are `readOnly()`, which is an HTML attribute, and `dehydrated()`, so a tampered Livewire
+     payload persisted a header of `1` against 12,280 of items, and any direct item write moved the
+     lines without the header. That matters because `InvoiceJournalizer` debits AR with the **header**
+     total and credits revenue from the **item** amounts: a divergence computes the two sides of one
+     journal entry from two different numbers. An invoice with **no** items keeps its header (legacy /
+     opening-balance rows have nothing to derive from). See `InvoiceHeaderTiesToItemsTest`.
+   - **Which types are exempt is named once** — `Vat::EXEMPT_TYPES` + `Vat::rateForType()` (base rent,
+     percentage rent, late fee, marketing, violation fine, NSF fee). The form's type-switch used to
+     carry its own list of two while the services originated six, so a hand-added late fee / marketing
+     levy / fine defaulted to 14% no service would ever have charged. It is a **default, not a
+     refusal**: taxability belongs on `charge_codes` (a `vat_exempt` column), which is blocked on the
+     accountant's ruling. See `ExemptChargeTypesAgreeAcrossPathsTest`.
 
 2. **Proration:** `MonthlyBillingService::monthsCovered()` is **the one rule** — it sums each month's
    own covered fraction over the cycle, so the commencement edge, the termination edge and a

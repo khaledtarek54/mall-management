@@ -60,6 +60,17 @@ class InvoiceItem extends Model
             $item->total = round($amount + (float) $item->vat_amount, 2);
         });
 
+        // The invoice header is DERIVED from these lines — moving a line moves the header with
+        // it, on every path (form repeater, billing services, API, import, console). Without this
+        // an item write left `invoices.subtotal/vat_amount/total` untouched, so AR (from the
+        // header) and GL revenue (from the items) drifted apart silently.
+        // See Invoice::syncTotalsFromItems() for why the rule lives at the model layer.
+        $syncInvoiceHeader = function (self $item) {
+            $item->invoice?->syncTotalsFromItems();
+        };
+        static::saved($syncInvoiceHeader);
+        static::deleted($syncInvoiceHeader);
+
         // A 'marketing' line item funds the property's marketing budget — keep the
         // budget's accrued_amount DERIVED from these items (mirrors recomputeSpent).
         $syncMarketing = function (self $item) {

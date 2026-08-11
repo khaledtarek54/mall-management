@@ -38,6 +38,42 @@ class Vat
      */
     public const EXEMPT = 0.0;
 
+    /**
+     * WHICH charge types are outside the scope — the set the constant above only described in prose.
+     *
+     * It had to be named because it had already drifted. Every service that raises one of these
+     * lines originates it at 0 (`LateFeeService`, `MarketingLevyService`, `BillViolationFineService`,
+     * `BillBouncedChequeFeeService`, `PercentageRentCalculationService`), but the invoice form's
+     * type-switch listed only `base_rent` and `percentage_rent` — so a Late Fee, Marketing Levy,
+     * Violation Fine or Returned-Cheque Fee added BY HAND defaulted to the standard rate. The same
+     * charge was taxed differently depending on whether a service or a person raised it, which
+     * over-charges the tenant and over-states VAT payable on the return.
+     *
+     * This is a DEFAULT, not a refusal. `charge_codes` — the catalogue an accountant maintains
+     * without a deploy — carries no taxability column, so refusing a rate at the model layer would
+     * hard-code tax policy in PHP, the exact thing that catalogue exists to avoid. Promoting the
+     * rule properly means a `vat_exempt` column on `charge_codes`, which needs the accountant's
+     * ruling on which codes are exempt (see docs/gap-analysis/VALIDATION-SWEEP-PLAN.md).
+     *
+     * @var array<int, string>
+     */
+    public const EXEMPT_TYPES = [
+        'base_rent',
+        'percentage_rent',
+        'late_fee',
+        'marketing',
+        'violation_fine',
+        'nsf_fee',
+    ];
+
+    /** The rate a NEW line of `$type` originates at — EXEMPT for an out-of-scope supply. */
+    public static function rateForType(?string $type): float
+    {
+        return in_array($type, self::EXEMPT_TYPES, true)
+            ? self::EXEMPT
+            : self::standardRate();
+    }
+
     /** The standard rate, as a percentage (14.0 = 14%). Configured at /admin/settings → Tax. */
     public static function standardRate(): float
     {

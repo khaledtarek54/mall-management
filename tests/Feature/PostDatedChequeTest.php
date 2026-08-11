@@ -192,3 +192,41 @@ it('does not over-settle an invoice when two cheques clear against it (F-1)', fu
     expect((float) $invoice->paid_amount)->toBe(5000.0)
         ->and((float) $invoice->balance)->toBe(0.0);
 });
+
+it('clearing against a CANCELLED invoice allocates nothing (validation sweep — receivables)', function () {
+    // A cancelled invoice has left the books and can hold no receivable. clear() reads the
+    // invoice's balance under the lock, and recomputeTotals() forces a cancelled invoice's
+    // balance to 0, so `min(amount, balance)` allocates nothing — the cheque's money becomes an
+    // unallocated on-account credit rather than settling AR that no longer exists.
+    //
+    // This mirrors what refitAllocationsToBalance() does on the gateway path (fittable = 0 for a
+    // cancelled invoice). The behaviour was correct but had no witness; the sweep gave it one.
+    $asset = makeAsset();
+    $invoice = invoiceOf($asset, 5000);
+    $cheque = pdcFor($asset, $invoice, 5000);
+
+    $invoice->update(['status' => 'cancelled']);
+    $invoice->recomputeTotals();
+    expect((float) $invoice->fresh()->balance)->toBe(0.0);
+
+    $cleared = app(PostDatedChequeService::class)->clear($cheque, makeUser(), '2026-07-19');
+
+    // The cheque still clears (the bank honoured it) — but nothing lands on the dead invoice.
+    expect($cleared->status)->toBe(PostDatedCheque::STATUS_CLEARED);
+    $payment = Payment::find($cleared->cleared_payment_id);
+    expect($payment)->not->toBeNull()
+        ->and((float) $payment->amount)->toBe(5000.0)
+        ->and($payment->invoices()->count())->toBe(0)
+        ->and((float) $invoice->fresh()->paid_amount)->toBe(0.0);
+});
+
+it('clearing against a LIVE invoice still settles it (control for the cancelled case above)', function () {
+    // Without this the refusal above would pass just as happily if clear() were a no-op.
+    $asset = makeAsset();
+    $invoice = invoiceOf($asset, 5000);
+    $cheque = pdcFor($asset, $invoice, 5000);
+
+    app(PostDatedChequeService::class)->clear($cheque, makeUser(), '2026-07-19');
+
+    expect((float) $invoice->fresh()->paid_amount)->toBe(5000.0);
+});

@@ -775,29 +775,12 @@ class CamReconciliationService
             'total' => $lineTotal,
         ]);
 
-        $this->rebuildInvoiceHeader($invoice);
+        // The header now follows its items automatically (Invoice::syncTotalsFromItems, fired by
+        // InvoiceItem::saved). This service used to carry its own private rebuildInvoiceHeader() —
+        // the same rule, written once here and forgotten everywhere else, which is exactly why it
+        // was promoted to the model.
 
         return $charge;
-    }
-
-    /**
-     * Recompute the invoice header (subtotal / VAT / total) from its line items, then let
-     * recomputeTotals() derive paid/balance/status. recomputeTotals() reads $this->total —
-     * it does NOT sum the items — so the header must be set from items FIRST.
-     */
-    private function rebuildInvoiceHeader(Invoice $invoice): void
-    {
-        $items = $invoice->items()->get();
-        $subtotal = round((float) $items->sum('amount'), 2);
-        $vat = round((float) $items->sum('vat_amount'), 2);
-
-        $invoice->update([
-            'subtotal' => $subtotal,
-            'vat_amount' => $vat,
-            'total' => round($subtotal + $vat, 2),
-        ]);
-
-        $invoice->recomputeTotals();
     }
 
     /** Apply a freshly-issued credit to the lease's open invoices, oldest first. */

@@ -323,6 +323,28 @@ class Invoice extends Model
             }
         });
 
+        // The header can never be moved away from the line items — see syncTotalsFromItems().
+        // Gated on "an existing invoice whose header is being written" so an ordinary save (a
+        // status flip, a note) costs nothing: on CREATE there are no items yet (the repeater and
+        // every billing service write them after the header), and the item hook re-derives the
+        // moment they land. `readOnly()` on the form is the UX; this is the rule.
+        static::saving(function (self $invoice) {
+            if (! $invoice->exists) {
+                return;
+            }
+            if (! $invoice->isDirty(['subtotal', 'vat_amount', 'total'])) {
+                return;
+            }
+
+            $invoice->syncTotalsFromItems(persist: false);
+
+            // Balance follows the (possibly corrected) total in the same write — mirrors the
+            // `creating` branch below. Status is left to the next recomputeTotals(), as today.
+            $invoice->balance = $invoice->status === 'cancelled'
+                ? 0
+                : round(max(0, (float) $invoice->total - (float) $invoice->paid_amount), 2);
+        });
+
         static::creating(function (self $invoice) {
             // Always (re)generate at save time so we never persist a stale
             // form-cached number that could collide with another record. The
@@ -440,6 +462,54 @@ class Invoice extends Model
                 MarketingBudget::forPeriod($assetId, (int) $year)->recomputeAccrued();
             }
         });
+    }
+
+    /**
+     * Re-derive the header (subtotal / vat_amount / total) from the line items. **The single
+     * implementation of "an invoice's items sum to its header"** — every writer goes through it.
+     *
+     * The rule is load-bearing, not cosmetic: `InvoiceJournalizer` debits AR with the HEADER
+     * total and credits revenue from the ITEM amounts (split by charge type) plus item VAT, so a
+     * divergence computes the two sides of one journal entry from two different numbers. And
+     * `recomputeTotals()` derives `balance` from the same header, so it is also the amount the
+     * tenant is chased for.
+     *
+     * It used to live at the FORM layer only (`InvoiceForm` recomputes in `afterStateUpdated` and
+     * renders the three fields `readOnly()`) — but `readOnly` is an HTML attribute, the fields are
+     * `dehydrated()`, and nothing re-derived server-side: a tampered Livewire payload persisted a
+     * header of 1 against 12,280 of items, and a direct item write (API / import / console / a
+     * service that forgot) moved the items without moving the header at all. Promoted to the model
+     * by the 2026-08-11 validation sweep; the form keeps its live recompute purely for the inline UX.
+     *
+     * An invoice with NO items is deliberately left alone — a legacy / opening-balance row carries
+     * a header and has nothing to derive it from, so zeroing it would erase real AR.
+     *
+     * @param  bool  $persist  false = mutate the attributes in flight only (for the `saving` hook,
+     *                         which must not save inside a save).
+     */
+    public function syncTotalsFromItems(bool $persist = true): void
+    {
+        if (! $this->exists) {
+            return;
+        }
+
+        $items = $this->items()->get(['amount', 'vat_amount']);
+        if ($items->isEmpty()) {
+            return;
+        }
+
+        $subtotal = round((float) $items->sum('amount'), 2);
+        $vat = round((float) $items->sum('vat_amount'), 2);
+
+        $this->subtotal = $subtotal;
+        $this->vat_amount = $vat;
+        $this->total = round($subtotal + $vat, 2);
+
+        if ($persist) {
+            // recomputeTotals() saveQuietly()s, so it re-derives balance/status off the new
+            // total and cannot re-enter the `saving` hook below.
+            $this->recomputeTotals();
+        }
     }
 
     /**

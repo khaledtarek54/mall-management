@@ -1709,10 +1709,11 @@ class DemoSeeder extends Seeder
 
             $invoice->payments()->attach($payment->id, ['allocated_amount' => round($amount, 2)]);
 
-            $invoice->paid_amount = (float) $invoice->paid_amount + $amount;
-            $invoice->balance = max(0, (float) $invoice->total - (float) $invoice->paid_amount);
-            $invoice->status = $invoice->balance == 0 ? 'paid' : 'partially_paid';
-            $invoice->save();
+            // Derive paid/balance/status from the allocation rather than writing them — the
+            // project invariant (Invoice::recomputeTotals is the single source of truth for AR).
+            // Hand-writing them produced demo data that was only correct until something
+            // recomputed, at which point the seeded figures were silently replaced.
+            $invoice->recomputeTotals();
 
             $created++;
         }
@@ -1851,18 +1852,16 @@ class DemoSeeder extends Seeder
                 default => 0,
             };
 
-            $status = match (true) {
-                $isPaid => 'paid',
-                $isPartial => 'partially_paid',
-                $dueDate->isPast() => 'overdue',
-                default => 'issued',
-            };
-
             $invoice = Invoice::create([
                 'number' => Invoice::generateNumber('AW', $issueDate),
                 'lease_id' => $lease->id,
                 'tenant_id' => $tenant->id,
-                'status' => $status,
+                // paid_amount / balance / status are DERIVED — the allocation below plus
+                // recomputeTotals() decides them, exactly as every real billing path does.
+                // Seeding them by hand made this invoice look settled while its pivot was still
+                // empty, so the first recompute (or the next seeder that looked for open AR)
+                // saw an unpaid invoice and paid it a second time.
+                'status' => 'issued',
                 'issue_date' => $issueDate,
                 'due_date' => $dueDate,
                 'period_start' => $period->copy()->startOfMonth(),
@@ -1870,8 +1869,8 @@ class DemoSeeder extends Seeder
                 'subtotal' => $subtotal,
                 'vat_amount' => $vat,
                 'total' => $total,
-                'paid_amount' => $paidAmount,
-                'balance' => $total - $paidAmount,
+                'paid_amount' => 0,
+                'balance' => $total,
                 'currency' => 'EGP',
             ]);
 
@@ -1907,6 +1906,9 @@ class DemoSeeder extends Seeder
                 ]);
 
                 $invoice->payments()->attach($payment->id, ['allocated_amount' => $paidAmount]);
+                $invoice->recomputeTotals(); // → paid / partially_paid, balance from the pivot
+            } elseif ($dueDate->isPast()) {
+                $invoice->recomputeTotals(); // → overdue
             }
         }
     }

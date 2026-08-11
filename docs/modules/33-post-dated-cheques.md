@@ -42,6 +42,36 @@ held ──deposit──▶ deposited ──clear──▶ cleared   (records a 
 - **Bounce** reverses nothing (no Payment was made before clearing); the cheque can be re-presented.
 - **Cancel** voids a not-yet-cleared cheque. A **cleared or cancelled cheque is terminal-immutable**.
 - Every transition is lock-safe + idempotent (row-lock + re-check under the lock).
+- **Clearing against a CANCELLED invoice allocates nothing** — its balance is forced to 0, so
+  `min(amount, balance)` is 0 and the cheque's money becomes an unallocated on-account credit rather
+  than settling AR that has left the books. This mirrors `refitAllocationsToBalance()` on the gateway
+  path. Correct all along, but untested until the 2026-08-11 validation sweep gave it a witness.
+
+### One physical cheque, one register row (2026-08-11)
+
+`cheque_number` had **no uniqueness at any layer** — no DB constraint, no model guard, not even a form
+rule. Two rows for one piece of paper are each independently clearable, and each clear records a
+captured Payment: the second settles AR that no money backs, or mints an on-account credit the tenant
+never funded. `lodgeSeries()` makes it easy to hit by accident — re-run over the same cheque book it
+regenerates the identical sequential numbers *by design*.
+
+`PostDatedCheque::assertChequeNumberNotAlreadyLodged()` is the guard, keyed on **(tenant, bank,
+number)** among non-**cancelled** cheques:
+
+- a cheque number is unique within a bank ACCOUNT, so two tenants at different banks may share one;
+- a blank `bank_name` on either side cannot distinguish two cheques, so it collides with anything of
+  that tenant's carrying the same number;
+- **cancelled is excluded** so a mis-key can be cancelled and re-lodged — that carve-out is exactly
+  why this is a model guard and not a unique index.
+
+It fires on create and on any edit that moves the number / bank / tenant / status. The create and edit
+pages mirror it as a toast over a still-filled form, calling the **same** predicate. Deliberately
+**not** a Filament `unique()` rule: keyed on the client-supplied `tenant_id` it would be the
+cross-tenant existence oracle `UniqueRuleScopeConformanceTest` exists to stop.
+
+**Deviation from Yardi, stated:** Yardi *warns* on a duplicate cheque number and lets the operator
+proceed. We refuse — a PDC register that double-counts is a cash forecast wrong in the operator's
+favour, and cancel-then-re-lodge costs one click. Tests: `ChequeNumberIsUniquePerTenantBankTest`.
 
 ## 3. Services & commands
 
@@ -89,7 +119,10 @@ held ──deposit──▶ deposited ──clear──▶ cleared   (records a 
 `PostDatedChequeTest` — clear records a payment + reduces AR, allocation capped at balance, deposit→clear,
 bounce leaves AR untouched + re-present, cancel (and refuses a cleared one), terminal immutability; plus the
 close-out (2026-07-27) cases: two cheques don't over-settle one invoice, a cross-tenant/same-property link is
-refused (and the `tenant_id`-edit trigger), a voided clearing payment reverses the cheque to `bounced`. Conformance:
+refused (and the `tenant_id`-edit trigger), a voided clearing payment reverses the cheque to `bounced`; plus the
+validation-sweep (2026-08-11) cases: clearing against a cancelled invoice allocates nothing (with a live-invoice
+control). `ChequeNumberIsUniquePerTenantBankTest` — the duplicate-lodging refusal on create, edit and
+`lodgeSeries`, with controls for a different tenant, a different bank, and re-lodging a cancelled number. Conformance:
 `PropertyIsolationConformanceTest` (the create form guards `asset_id`), `TranslationCoverageTest`,
 `ModuleLabelCoverageTest`, `AdminSmokeManifestConformanceTest`.
 

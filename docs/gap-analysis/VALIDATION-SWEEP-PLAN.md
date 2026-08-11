@@ -1,6 +1,6 @@
 # Validation sweep — spacing · leasing · receivables · payables
 
-**Status:** planned, not started. Written 2026-08-11.
+**Status:** started 2026-08-11. **Receivables: DONE** (§8). Payables, leasing, spacing: not started.
 
 The goal is not "add more validation". It is to know, for every rule that matters in these four
 areas, **where it is enforced and whether anything proves it** — and to move the ones that are only
@@ -173,3 +173,96 @@ Both are recorded where someone will find them. Anything else discovered during 
 should be added here with the same distinction: *unfinished* (fix or delete it) versus *deliberately
 off* (say who is waiting on what).
 
+
+---
+
+## 8. Receivables — the rule matrix (swept 2026-08-11)
+
+Nine rules, one at a time, each traced to every writer and then exploited. **Three were enforced at
+layer 3 only or not at all** — those are now at layer 1 with a test that was watched failing first.
+The other six were already correct; two of them had no test, and now do.
+
+| # | Rule | Was | Now | Proven by |
+|---|---|---|---|---|
+| R1 | An invoice's items sum to its header (subtotal / VAT / total) | **3 only** | **1** | `InvoiceHeaderTiesToItemsTest` |
+| R2 | No settlement channel may over-settle | 1+2 | unchanged | `FourSettlementChannelsComposeTest` |
+| R3a | A payment cannot allocate to another tenant's invoice | 1 (called by every writer) | unchanged | `PaymentAllocationGuardsTest`, `PaymentScenarioTest` |
+| R3b | …nor to one in another property | 2+3 | unchanged | `PropertyIsolationEndToEndTest` |
+| R4 | A credit note cannot exceed the invoice it corrects | 2 (locked, capped, fail-closed both ways) | unchanged | `CreditNoteServiceTest` |
+| R5 | A posting date must be in an open period | 2 + registry gate | unchanged | `PostingDateGuardConformanceTest` |
+| R6a | A PDC cannot settle a cancelled invoice | 2 (correct, **untested**) | 2 + witness | `PostDatedChequeTest` (new) |
+| R6b | A cheque number is unique per tenant + bank | **nothing, any layer** | **1** | `ChequeNumberIsUniquePerTenantBankTest` |
+| R7 | Money records are never deletable | registry gate | unchanged | `DeletionPolicyConformanceTest` |
+| R8 | VAT per line agrees with the charge type | 3, and **drifted** | 3, named once | `ExemptChargeTypesAgreeAcrossPathsTest` |
+
+### R1 — the invoice header was a client-supplied number
+
+`InvoiceForm` recomputes the header in `afterStateUpdated` and renders `subtotal` / `vat_amount` /
+`total` as `readOnly()`. `readOnly` is an HTML attribute; the fields are `dehydrated()`, Livewire
+accepts whatever arrives for those keys, and **nothing re-derived them server-side**. A tampered
+payload persisted a header of `1` against 12,280 of line items, straight through the real Create
+page as an ordinary `manager`. A direct item write (API, import, console, a service that forgot)
+moved the lines without moving the header at all.
+
+It is money, not cosmetics: `InvoiceJournalizer` debits AR with the **header** total and credits
+revenue from the **item** amounts split by charge type, so a divergence computes the two sides of
+one journal entry from two different numbers — and `recomputeTotals()` derives `balance` from the
+same header, so it is also what the tenant is chased for.
+
+Now `Invoice::syncTotalsFromItems()`, fired from `InvoiceItem::saved`/`deleted` and from
+`Invoice::saving` when an existing invoice's header is written. An invoice with **no** items is
+left alone — a legacy / opening-balance row has nothing to derive from and zeroing it would erase
+real AR. `CamReconciliationService` carried a private `rebuildInvoiceHeader()` doing exactly this
+for one path; it is deleted, which is the point.
+
+**It also surfaced a real defect in `DemoSeeder`.** Two sites hand-wrote `paid_amount` / `balance` /
+`status` on an invoice — the thing `CLAUDE.md` forbids — and got away with it only because nothing
+recomputed before the payment was attached. Once the item hook ran a legitimate `recomputeTotals()`
+in between, those invoices read as unpaid, and a later seeder paid them a **second** time: eight
+invoices allocated up to 2× their total. Both sites now attach and then recompute. The demo data
+had been wrong-but-invisible in exactly the way the sweep exists to find.
+
+### R6b — the same cheque could be lodged twice
+
+`cheque_number` had **no uniqueness at any layer**: no DB constraint, no model guard, not even a
+form rule. Two rows for one piece of paper are each independently clearable, and each clear records
+a captured Payment — the second settles AR that no money backs, or mints an on-account credit the
+tenant never funded. `lodgeSeries()` makes it easy to hit by accident: re-run over the same cheque
+book it regenerates the identical sequential numbers *by design*.
+
+The key is (tenant, bank, number), excluding **cancelled** cheques so a mis-key can be cancelled and
+re-lodged — that carve-out is why it is a model guard and not a unique index. The create/edit pages
+mirror it as a toast over a still-filled form, calling the same predicate; deliberately **not** a
+Filament `unique()` rule, which keyed on the client-supplied `tenant_id` would be the existence
+oracle `UniqueRuleScopeConformanceTest` exists to stop.
+
+**Deviation from Yardi, stated:** Yardi *warns* on a duplicate cheque number and lets the operator
+proceed. We refuse. A PDC register that double-counts is a cash forecast wrong in the operator's
+favour, and cancel-then-re-lodge costs one click.
+
+### R8 — the exempt set had drifted, and is now named once
+
+`App\Support\Vat`'s docblock named five out-of-scope supplies and every service that raises one
+originates it at 0 — but the invoice form's type-switch carried its own list of **two**. So a Late
+Fee, Marketing Levy, Violation Fine or Returned-Cheque Fee added *by hand* defaulted to 14% VAT that
+no service would ever have charged: the same charge taxed differently depending on whether a person
+or a service raised it, over-charging the tenant and over-stating VAT payable on the return. (The
+first repeater row was self-contradictory on sight — type `Base Rent`, VAT `14%`.)
+
+The set is now `Vat::EXEMPT_TYPES` with `Vat::rateForType()`, read by both sides.
+
+**Deliberately NOT promoted to a refusal.** `charge_codes` — the catalogue an accountant edits
+without a deploy — has no taxability column, so refusing a rate at the model layer would hard-code
+tax policy in PHP, the exact thing that catalogue exists to avoid. **Recommendation, blocked on the
+accountant:** add `vat_exempt` to `charge_codes` and derive `EXEMPT_TYPES` from it. That is the same
+person already holding the chart of accounts, so it belongs in that conversation rather than ahead
+of it.
+
+### What was already right
+
+R2–R5 and R7 needed no change, and saying so is the finding. `CreditNoteService` in particular is
+the shape the rest should copy: locked on both rows, re-read under the lock, capped at
+`min(available, owed)`, and fail-closed on cross-tenant *and* cross-property with the picker filter
+treated as UX rather than the gate. R3a is a model method — but it earns layer 1 only because
+**every** writer calls it or cannot reach the state: the two gateway paths derive `tenant_id` from
+the invoice itself, so a cross-tenant allocation is unrepresentable there rather than merely guarded.
