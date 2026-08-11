@@ -1,6 +1,6 @@
 # Bank reconciliation — the plan
 
-**Status:** planned, not started. Written 2026-08-11.
+**Status:** written 2026-08-11. **Slice 1 shipped the same day** (`bank_accounts` + its register); slices 2–6 open.
 
 > **The gap, verified rather than quoted.** There is no `bank_accounts` model, no statement, no
 > statement line, no matching, and no migration for any of them. `BooksReconciliationService` is the
@@ -9,9 +9,10 @@
 > verified against what the bank says actually moved.** Two independent gap analyses (Odoo §3, the
 > competitor review) reached this row separately and both put it first.
 >
-> **Why it is not started here.** This is a money module with a matching engine, and a half-built
-> matcher is worse than none: a wrong match silently marks money as verified. It wants its own
-> session with the suite green at the start. This document is what makes that session short.
+> **Why only slice 1 is built.** The matching engine is the risky half — a wrong match silently marks
+> money as verified — and it wants its own session starting green. Slice 1 is the opposite: a register
+> that changes no posting and no balance, asserted by a test, so it could ship on its own the day the
+> plan was written. This document is what makes the next session short.
 
 ---
 
@@ -71,7 +72,11 @@ A reconciliation is always *of one account*. So the first slice is not the match
 
 - `bank_accounts`: name, bank, account number (masked in the UI), currency, **its ledger account**,
   property (`asset_id`, since `PropertyIsolation` will demand a classification either way), active.
-- Point the existing `bank` role at a default account per property so nothing changes on day one.
+  ✅ **Built** — see slice 1 below.
+- Pointing the existing `bank` ROLE at a default account per property is deliberately **not** part of
+  slice 1: that changes the posting path, and it belongs with the first slice that needs to know
+  *which* account rather than with the one that creates the row. Until then the role resolves exactly
+  as it always has.
 - Only then can a statement belong to something.
 
 **Do not skip this and reconcile "the bank role".** With two accounts in one property the role is
@@ -84,8 +89,13 @@ balance, and it will be wrong.
 
 Each one is independently useful, which is the test of whether the slicing is honest.
 
-1. **`bank_accounts` + the mapping.** Nothing reconciles yet; the chart gains a real account per
-   bank. Useful alone: the Posting Map stops being the only place a bank exists.
+1. ✅ **`bank_accounts` + the register — shipped 2026-08-11.** Property-owned (classified ISOLATED,
+   guarded by `assertAssetInScope` on create *and* edit), searchable, its own `bank_accounts.*`
+   permissions, optionally linked to the postable chart account it IS. **Nothing posts through it and
+   that is asserted by a test** — the `bank` role still resolves exactly as before, so the slice is
+   additive and could ship alone. What is deliberately NOT done yet: pointing the `bank` role at a
+   default account per property. That is a change to the posting path and belongs with the slice that
+   first needs to know *which* account, not with the one that creates the row.
 2. **Statement import.** `bank_statements` (account, period, opening/closing balance) +
    `bank_statement_lines` (date, description, reference, amount, direction). CSV first — a bank feed
    is an integration, and no Egyptian bank here has one. **Import must be idempotent on

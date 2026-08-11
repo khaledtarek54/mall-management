@@ -141,6 +141,7 @@ class SearchPolicy
      * @var array<int, class-string>
      */
     public const INDEXED = [
+        \App\Models\BankAccount::class,
         // ---- Leasing & tenancy ----
         Models\Tenant::class,
         Models\Unit::class,

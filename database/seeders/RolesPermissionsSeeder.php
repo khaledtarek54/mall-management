@@ -205,6 +205,11 @@ class RolesPermissionsSeeder extends Seeder
             'post_dated_cheques.create' => 'Lodge a post-dated cheque',
             'post_dated_cheques.edit' => 'Edit / deposit / bounce / cancel a post-dated cheque',
         ],
+        'bank_accounts' => [
+            'bank_accounts.view' => 'View the operator\'s bank accounts',
+            'bank_accounts.create' => 'Register a bank account',
+            'bank_accounts.edit' => 'Edit a bank account',
+        ],
         'vendor_bills' => [
             'vendor_bills.view' => 'View vendor bills (accounts payable)',
             'vendor_bills.create' => 'Create vendor bills',
@@ -645,6 +650,7 @@ class RolesPermissionsSeeder extends Seeder
             'journal_entries.post', 'journal_entries.void',
             'accounting_periods.view', 'accounting_periods.manage',
             'general_ledger.view',
+            'bank_accounts.view', 'bank_accounts.create', 'bank_accounts.edit',
             'vendor_bills.view', 'vendor_bills.create', 'vendor_bills.edit',
             'vendor_bills.approve', 'vendor_bills.pay', 'vendor_bills.void_payment',
             'expenses.view', 'expenses.create', 'expenses.edit',

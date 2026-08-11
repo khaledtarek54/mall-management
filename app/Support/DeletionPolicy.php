@@ -258,6 +258,10 @@ class DeletionPolicy
         \App\Models\UnitArea::class => 'parent-managed: one measurement of a unit for a period, edited from the unit. A wrong figure is corrected by recording a new measurement — the register is what makes a past period explicable, so rows are not removed',
         \App\Models\ChargeCode::class => 'configuration: the billing vocabulary. A code the engine references by name is refused at the screen; an operator-added one that was never billed is ordinary cleanup',
         \App\Models\ApprovalRule::class => 'configuration: approval bands',
+        // Configuration today: nothing references a bank account yet. Slice 2 of the
+        // reconciliation plan adds statements, and this MUST become WHEN_UNUSED blocked_by them at
+        // that point — an account with reconciled statements behind it explains a balance.
+        \App\Models\BankAccount::class => 'configuration: the operator\'s bank accounts (revisit when statements exist)',
         \App\Models\SlaPolicy::class => 'configuration: SLA targets',
         \App\Models\SystemSetting::class => 'configuration',
         \App\Models\Area::class => 'configuration: a zone used for routing',

@@ -137,6 +137,7 @@ if (! function_exists('propertyIsolationMustGuardResources')) {
             'Employee' => EmployeeResource::class,
             'FixedAsset' => FixedAssetResource::class,
             'Warehouse' => WarehouseResource::class,
+            'BankAccount' => \App\Filament\Admin\Resources\BankAccounts\BankAccountResource::class,
             'MaintenanceWorkOrder' => MaintenanceWorkOrderResource::class,
             'MaintenancePlan' => MaintenancePlanResource::class,
             'PurchaseRequest' => PurchaseRequestResource::class,

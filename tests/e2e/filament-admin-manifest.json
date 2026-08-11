@@ -43,6 +43,13 @@
             "hasView": false
         },
         {
+            "class": "BankAccountResource",
+            "slug": "bank-accounts",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
             "class": "CamExpensePoolResource",
             "slug": "cam-expense-pools",
             "hasCreate": true,

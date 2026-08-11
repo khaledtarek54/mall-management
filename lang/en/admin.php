@@ -685,6 +685,7 @@ return [
     ],
 
     'empty' => [
+        'bank_accounts' => ['heading' => 'No bank accounts registered', 'description' => 'Add the accounts this property banks with. Nothing posts through them yet — they are what bank statements will reconcile against.'],
         'approval_rules' => ['heading' => 'No approval bands yet', 'description' => 'With no bands, requests for this area need no approval. Add one to turn the gate on.'],
         'marketing_posts' => [
             'heading' => 'Nothing on the feed yet',
@@ -1120,6 +1121,7 @@ return [
     'navigation' => [
         'charge_codes' => 'Charge Codes',
         'approval_rules' => 'Approval Bands',
+        'bank_accounts' => 'Bank Accounts',
         'account_mappings' => 'Posting Map',
         'ledger_accounts' => 'Chart of Accounts',
         'journal_entries' => 'Journal Entries',
@@ -1153,6 +1155,7 @@ return [
     ],
 
     'resources' => [
+        'bank_account' => ['singular' => 'Bank Account', 'plural' => 'Bank Accounts'],
         'approval_rule' => ['singular' => 'Approval Band', 'plural' => 'Approval Bands'],
         'charge_code' => [
             'singular' => 'Charge code',
@@ -2185,6 +2188,12 @@ return [
     ],
 
     'fields' => [
+        'bank_account_name' => 'Account name',
+        'bank_name' => 'Bank',
+        'bank_account_number' => 'Account number',
+        'iban' => 'IBAN',
+        'ledger_account' => 'Ledger account',
+        'bank_no_ledger_account' => 'Not mapped yet',
         'item_code' => 'Item',
         'held_from' => 'Held from',
         'held_until' => 'Held until',
@@ -2478,6 +2487,9 @@ return [
     ],
 
     'helpers' => [
+        'bank_account_section' => 'The accounts the operator actually banks with. Registering one changes no balance and no posting — it is what a future bank statement will be reconciled against.',
+        'bank_account_number' => 'Stored whole because a statement quotes it; shown as the last four only.',
+        'bank_ledger_account' => 'Which chart account IS this bank. Postable accounts only — a summary account can never tie out to a statement.',
         'approval_rule_section' => 'Who has to sign off, by how much it costs. A request finds the band its amount falls in and needs someone holding that approver level.',
         'approval_tier' => 'Tiers compose with roles: a role gains authority by being granted the tier, so you never maintain a second hierarchy.',
         'approval_max_amount' => 'Leave blank for “and above” — the top of the ladder.',
@@ -2580,6 +2592,7 @@ return [
     ],
 
     'sections' => [
+        'bank_account' => 'Bank account',
         'approval_rule' => 'Approval band',
         'charge_code' => 'Charge code',
         'posting_map' => 'Posting map row',
