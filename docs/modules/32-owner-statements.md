@@ -45,6 +45,16 @@ draw) and **`due_to_owner` = 21802001** (a liability under 218 "Due to Related P
 - **v1: one owner, 100%.** The generate service resolves the *current* owner (tenure-aware — a sold-off owner
   drops out) and gives them the full net. `ownership_percentage`/tenure-day-weighting exist but aren't
   applied (a >1-owner mall would split normalized to the full net — defensive only).
+- **A statement with no owner cannot be FINALISED** (2026-08-11). A property whose owner has not been
+  assigned distributes nothing, the journalizer skips a zero, and what remained was a finalised document
+  addressed to nobody that posted nothing — over a P&L showing real money the owner is owed. Refused in
+  `FinaliseOwnerStatementRunService` with the remedy named. The **draft is still allowed**: generating it is
+  how an operator finds out the owner is missing.
+- **`basis` is accrual, and only accrual.** A `cash` constant existed with nothing behind it —
+  `LedgerReportService::incomeStatement()` has no basis parameter — so a run stamped `cash` would have
+  carried accrual figures under a cash label, which is the one thing a cash-basis reader must not be given.
+  Removed 2026-08-11; cash-basis reporting is a real build (a receipts-and-payments P&L), deferred with its
+  trigger in the closure ledger.
 - **`paid_to_date` is derived** (`OwnerStatement::recomputePaidToDate()` = Σ paid disbursements) — never
   hand-set, mirroring `Invoice::recomputeTotals()`.
 - **Disbursement cap:** a payout is capped at `owner_share − paid_to_date`, re-checked **under lock** at both
@@ -93,12 +103,11 @@ pattern (`BypassesFilamentTenantAutoScope` + manual `getEloquentQuery`), every w
 The owner (an `owner`-role RBAC user in `/admin`) sees the runs for **their** properties (read-only —
 operator actions are permission-hidden) and can **Download PDF** their statement; **Send** bells them.
 
-**The dedicated owner portal (`/owner`)** now carries the deliverable too — an `OwnerStatementResource`
-(read-only, `Portfolio` group) listing the owner's **own finalised/sent** statements (never a draft or
-another owner's — scoped `where('user_id', Auth::id())` + status in finalised/sent), with owner-share /
-paid / **outstanding**, a **"View working"** modal (the itemized P&L from the frozen snapshot) and a
-**Download PDF**. Until this, the operator produced the statement but the owner had no self-service way to
-see it — it had to be emailed by hand.
+**The `/owner` panel this section used to describe is GONE** (removed in module 15's close-out, commit
+`cadd3a2` — owners are `/admin` users with `owner`-role RBAC, not a separate panel). Its
+`OwnerStatementResource` went with it; what an owner sees is the paragraph above — their properties' runs
+in `/admin`, read-only, with the PDF. Corrected 2026-08-11: the description of a panel that no longer
+exists is worse than no description, because the next person builds their owner surface into it.
 
 **The statement is itemized.** `owner_statement_runs.income_breakdown` (JSON) snapshots the per-account
 revenue and expense lines from `LedgerReportService::incomeStatement()` **at generate time**, frozen

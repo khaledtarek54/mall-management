@@ -61,7 +61,7 @@ Ordered dependency-first. Generic-ERP modules (21–25, 28) are out of scope (al
 | 14 | 31 | Violations | ✅ CLOSED | 2026-07-26 | The register / notice / property-isolation were already airtight (verified). The flagged gap — **fine recorded-not-billed** — was real + explicit (the model docblock said "never touches Invoice/GL"; the doc's §3 anticipated the AR path). Built it: a **"Bill fine"** action → `BillViolationFineService` issues a **VAT-exempt** `violation_fine` invoice → **misc_income** (a fine is a penalty, out of VAT scope; misc_income is an accountant-reclassifiable default) via the existing InvoiceJournalizer (no new GL registry line — Invoice is already a source). Mirrors the utility-recharge pattern: idempotent + lock-safe, **only a cancelled invoice frees a re-bill** (credited keeps posting → would double-count), lease resolved to the tenant's **active lease in the violation's property** (AR can't leak to another mall), `violation_fine` added to the monthly probe's exclusion so a fine can't suppress base rent, fine/tenant/property fields lock once billed, and **force-delete of a billed violation is blocked** (audit-link protection; soft-delete still allowed). 9 regressions incl. the real-sweep misc_income tie-out + base-rent-non-suppression. A dedicated adversarial review of the new money code returned **CLEAN** (all 8 axes: GL tie-out, base-rent, credited/cancelled, lease/cross-property, concurrency, authz, rounding, VAT) — its one LOW (force-delete link) was fixed. EN+AR i18n. **DEFER:** dedicated penalty-income account (accountant), unbilled-fines dashboard surfacing. See closure record |
 | 15 | 03 | Tenant Portal | ✅ CLOSED | 2026-07-26 | Adversarial **security/isolation** sweep of the tenant-facing `/portal` surface (the external attack surface: a leak here is a real breach). Found **2 cross-tenant WRITE holes** of the same class — a portal create form scopes its lease/unit `<Select>` **options** (rendering) but there was no server-side clamp on the payload, and the mobile API guards both while the portal skipped it: **[HIGH] sales-declaration `lease_id` unclamped** → tenant A could plant a declaration on tenant B's lease (occupies B's `(lease,period)` unique slot = **DoS's B's reporting**; surfaces a fabricated report on that mall's admin queue = potential misbilling); **[MED] request-create `unit_id` unclamped** → a request filed against another tenant's unit (leaks B's unit code back through A's own request view + misroutes to B's property staff). Fixed both (page `clampLeaseId`+403 / service derives unit+lease from the tenant's own row); 3 regressions. **Verified CLEAN by the agent:** all 6 portal resources' read-scoping (foreign `/portal/{res}/{id}` 404s), read-only double-gating for non-admins, comments RM read-only, widgets tenant-scoped, and the money-writes (payNow/payDemo) self-scoped + `isAdmin`-gated (RecordDemoPaymentAction self-guards the balance). Doc §8/§9 updated with the payload-clamp lesson. **DEFER:** none material. See closure record |
 | 16 | 15 | Owner Requests & model | ✅ CLOSED | 2026-07-27 | Adversarial sweep of the owner surfaces. The **OwnerRequest channel verified isolated** (property-isolation registered, `assertAssetInScope` on create, owner↔owner list/thread scoped by `created_by_user_id`, notifications target the right counterparty; only a LOW `visible()`-only reply-action nit — not cross-owner exploitable). The real finding was **owner ownership-TENURE**: owner-facing scoping used the ALL-TIME `owners()`/`ownedAssets()`, so a **former owner (sold stake → `ended_at` past) kept seeing the sold property's live data**, disagreeing with the already-tenure-aware statements/widget. Two changes: (1) the operator directed **removing the standalone `/owner` panel** (owners are admin-panel RBAC users) — done (commit cadd3a2); (2) the tenure leak, now on the **admin path**, fixed — `AssignedAssets::idsFor` + `User::accessibleAssets`/`canAccessTenant` switched to `currentOwnedAssets`, with the **null-collapse trap** closed (a former owner with no current holdings returns a never-matching sentinel `[0]` = see-nothing, never `null` = unrestricted, so it's safe for both `->when([])`-skips-filter and `!== null`-guard call sites). 4 regressions (`OwnerAdminTenureScopeTest`) incl. the null-collapse case. Latent today (nothing writes `ended_at` yet) but now hardened for the ownership-transfer feature. See closure record |
-| 17 | 32 | Owner Statements | 🟡 Partial | — | shipped this session; mgmt fee + multi-owner DEFERRED |
+| 17 | 32 | Owner Statements | ✅ CLOSED | 2026-08-11 | Money core verified CLEAN — two hypotheses refuted by reading (the closed-period guard IS present on `markPaid`; the revise double-payout is already guarded). 3 fixes, all "can the operator see what happened": the **Sent tab could never match a row** (`sent` is a statement status, both tabs filtered the run's) and Finalised mixed sent with still-owed → both query the child, Finalised badged as the send worklist; a `sent_at` column so the row says whether the owner has it; and **finalising a property with no owner** is refused (it produced a finalised document addressed to nobody that posted nothing, over a P&L showing real money). Plus removed `BASIS_CASH`, a constant with no computation behind it that would have labelled accrual figures "cash". 4 regressions. **DEFER with triggers:** management fee (operator's explicit deferral), co-owner split + tenure weighting (infrastructure built, sole-owner applied), cash-basis reporting. See closure record |
 | 18 | 33 | Post-dated Cheques | ✅ CLOSED | 2026-07-27 | 2-agent adversarial sweep (money/AR + authz) on the register (bulk-series lodging + maturity dashboard already shipped). 3 fixes — **[MED] `clear()` invoice lock + over-allocation backstop** (two cheques clearing the same invoice concurrently could over-settle AR / negative-AR the GL; now `lockForUpdate` + `assertInvoicesNotOverAllocated`, mirroring every other payment path); **[MED] cross-tenant cheque↔invoice guard** (the model gate enforced same-property but not same-**tenant**, and skipped the `tenant_id`-dirty edit → a cheque could settle another tenant's invoice in the same mall; added the tenant check + `assertInvoicesShareTenant` belt in `clear()`); **[MED] void→cheque reconcile** (the documented "void its payment" remedy left the cheque stranded `cleared` pointing at a refunded payment, invisible to the matured-uncleared surfaces; Payment's `saved` hook now reverses it to `bounced`, with an immutability carve-out). Plus `abort_unless` dual-gate parity on deposit/bounce/cancel. **Verified CLEAN:** the `visible()`-only dispatch hole is NOT present (every action carries `->authorize()`, traced against Filament vendor source), property isolation airtight, the closed-period guard on `clear()` is present (`assertNotFuture`→`assertOpen`), no media surface. 4 regressions. See closure record |
 | 19 | 16 | ETA e-invoicing | ⬜ Not started | — | ⚠️ mock/disabled — go-live risk |
 | 20 | 17 | Reports | ✅ CLOSED | 2026-07-27 | Sweep of the financial-reporting surface. **Isolation + screen/PDF/CSV scope PARITY + authz verified CLEAN** by exhaustive read (every path passes the same clamped `scopedAssetIds()` or self-scopes via `ReportService`/`TenantScope::applyTo`; the CSV exporter is a pure formatter; export actions gated on `reports.view`/`.download`). A dedicated correctness agent then found the leaks were **arithmetic**, not isolation: **[HIGH] AR-aging boundary math** — the summary `arAgingBuckets()` read the raw Carbon float (`due_date` is midnight, `asOf` carries a time → N.99…) while the drilldown truncated to `(int)`, so the summary **over-aged every whole-day boundary by a bucket** (30-days-overdue shown as 31–60; due-today as 1–30) AND didn't reconcile with the drilldown the Reports page links each bucket to → unified both to `(int) startOfDay diff` + gave the drilldown the summary's `issue_date <= asOf` cutoff; **[MED] `monthlyClose`** folded cancelled+draft into billed total/VAT/count + the collections denominator while `revenueByType` excluded them → now excludes them from all billed figures (by_status still lists them). 2 regressions (`ReportAgingBoundaryTest` — the old test used a midnight asOf, which hid the bug). Ledger statements (income/balance/cash-flow/trial) verified arithmetically sound (signs, closing-entry exclude, balances-by-construction). Doc §3 corrected (it had documented the buggy behavior). **DEFER:** CSV `arAging` days-column uses `now()` (self-consistent with the drilldown's `now()`; cosmetic). See closure record |
@@ -122,6 +122,53 @@ Modules **08 (CAM)** and **09 (Sales & % Rent)** each recorded a **CRITICAL/HIGH
 ## Closure records
 
 _One section per module as it closes, most recent first._
+
+### Module 32 — Owner Statements & Disbursements — CLOSED 2026-08-11
+
+The last property/facility module still open (16 ETA excepted — mock/disabled by standing decision).
+A read-through sweep of the whole surface: the money path (generate → finalise → revise →
+schedule → approve → pay), both journalizers, the posting-date and approval guards, the authz
+double-gating, and the operator's day-to-day use of the list.
+
+**The money core is CLEAN, and the reasons matter more than the verdict.** Two hypotheses were
+raised and both **refuted by reading the code, not by assuming**: (1) `markPaid()` looked like the
+module-12 finding — a payout committing while its GL post is silently refused in a closed period —
+but `PostingDate::assertNotFuture()` *calls* `assertOpen()` first, so the closed-period guard is
+present on every path; (2) the revise-after-payment double-payout was already fixed and guarded
+(`hasActiveDisbursements()` + `OwnerStatementReviseDoublePayoutTest`). Also verified: every action
+carries `visible()` + `authorize()` + `abort_unless` (no `visible()`-only dispatch hole), the
+approval tier is frozen at schedule, the cap is re-checked under lock at both schedule and payment,
+and both journalizers read only their own row (safe under the windowed sweep).
+
+**CLOSE_NOW fixed (3) — all in "can the operator see what happened":**
+- **[MED · UX] The Sent tab could never match a row, and Finalised hid the worklist.** `sent` is an
+  `owner_statements` status; a RUN is only draft / finalised / superseded. Both tabs filtered
+  `owner_statement_runs.status`, so **Sent was permanently empty** and a statement already with the
+  owner sat in Finalised beside the ones still owed — the two questions an operator opens this list
+  to ask ("what still has to go out?", "did we send this?") were the two it could not answer. Both
+  tabs now query the child; Finalised is badged, because it is work waiting.
+- **[MED · UX] Nothing on the row said whether the owner has it.** Added a `sent_at` column derived
+  from the statement (placeholder "Not sent"), so the state is legible without hovering to see
+  whether a button has disappeared.
+- **[MED · business_logic] A property with no owner could be FINALISED.** `rebuildStatements()`
+  distributes nothing when no owner's tenure covers the period, the journalizer skips a zero, and
+  the result is a finalised document addressed to nobody that posts nothing — while the P&L
+  underneath shows real money the owner is owed. `FinaliseOwnerStatementRunService` now refuses it
+  and names the remedy (assign the owner, regenerate). The DRAFT is still allowed: generating it is
+  how an operator discovers the owner is missing.
+
+**Honesty fix (1):** `OwnerStatementRun::BASIS_CASH` was a constant with nothing behind it — no
+screen offered it and `LedgerReportService::incomeStatement()` has no basis parameter, so a run
+stamped `cash` would have carried **accrual figures under a cash label**. Removed from `BASES` (the
+model already validates against it) with the capability recorded below.
+
+4 regressions, each red before its fix. **DEFER, with triggers:** the management fee (operator
+deferred it explicitly — "shouldn't care how Eltizam charges Jawad for now"; the design is
+pre-written in the plan §9.1 and is blocked on the same taxes-as-settings decision); co-owner
+splitting + tenure day-weighting (infrastructure is built and normalised, applied only for the sole
+owner — trigger: a co-owned property onboards); **cash-basis owner reporting** (a real
+receipts-and-payments P&L, not a relabelling — trigger: an owner asks to be reported and paid on
+cash received).
 
 ### Module 29 — Procurement — CLOSED 2026-07-27
 

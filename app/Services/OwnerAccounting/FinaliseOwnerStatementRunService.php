@@ -38,6 +38,18 @@ class FinaliseOwnerStatementRunService
                 throw new \DomainException('Only a draft owner-statement run can be finalised.');
             }
 
+            // A statement with no owner is not a statement. `rebuildStatements()` distributes
+            // nothing when the property has no owner whose tenure covers the period, the journalizer
+            // skips a zero, and what is left is a finalised document addressed to nobody that posts
+            // nothing — while the P&L underneath it shows real money the owner is owed. Refused
+            // here rather than warned: the remedy (assign the property's owner, then regenerate) is
+            // one screen away, and a finalised run is the thing a revision has to fight to undo.
+            if ($fresh->statements()->count() === 0) {
+                throw new \DomainException(__('admin.owner_statements.errors.no_owner', [
+                    'property' => $fresh->asset?->name ?? '',
+                ]));
+            }
+
             // Guard the posting date against a closed period, in the service (not just the form).
             $date = PostingDate::assertOpen($postingDate ?? $fresh->period_end->toDateString(), 'posting_date');
 

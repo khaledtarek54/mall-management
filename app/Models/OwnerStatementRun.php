@@ -27,9 +27,21 @@ class OwnerStatementRun extends Model
     public const STATUS_SUPERSEDED = 'superseded';
     public const STATUSES = [self::STATUS_DRAFT, self::STATUS_FINALISED, self::STATUS_SUPERSEDED];
 
+    /**
+     * The statement is ACCRUAL, and that is the only basis this column may hold.
+     *
+     * A `cash` constant sat here until 2026-08-11 with nothing behind it: no screen offered it and
+     * `LedgerReportService::incomeStatement()` has no basis parameter, so a run stamped `cash`
+     * would have carried accrual figures under a cash label — the worst possible outcome for an
+     * owner reading which of their tenants had actually PAID. Cash-basis owner reporting is a real
+     * capability (Yardi has it) and a real piece of work: a receipts-and-payments P&L, not a
+     * relabelling. It is recorded as deferred in the closure ledger with its trigger — an owner who
+     * wants to be reported and paid on cash received — and the column keeps its name so the day it
+     * is built, the statements already say which basis they were frozen on.
+     */
     public const BASIS_ACCRUAL = 'accrual';
-    public const BASIS_CASH = 'cash';
-    public const BASES = [self::BASIS_ACCRUAL, self::BASIS_CASH];
+
+    public const BASES = [self::BASIS_ACCRUAL];
 
     protected $fillable = [
         'reference',

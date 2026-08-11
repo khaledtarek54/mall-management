@@ -73,6 +73,16 @@ class OwnerStatementRunsTable
                         OwnerStatementRun::STATUS_SUPERSEDED => 'gray',
                         default => 'warning',
                     }),
+                // Whether the owner actually HAS it. The run's own status stops at "finalised" —
+                // Send marks the child statement — so without this column a sent statement and one
+                // still sitting in the operator's queue looked identical, and the only tell was a
+                // hover button that had disappeared.
+                TextColumn::make('sent_at')
+                    ->label(__('admin.owner_statements.fields.sent_at'))
+                    ->getStateUsing(fn (OwnerStatementRun $r) => $r->statements->first()?->sent_at)
+                    ->dateTime('d/m/Y H:i')
+                    ->placeholder(__('admin.owner_statements.not_sent'))
+                    ->color(fn (OwnerStatementRun $r) => $r->statements->first()?->sent_at ? 'success' : 'gray'),
                 TextColumn::make('version')->label(__('admin.owner_statements.fields.version'))->alignRight()->toggleable(isToggledHiddenByDefault: true),
             ])
             ->defaultSort('id', 'desc')
