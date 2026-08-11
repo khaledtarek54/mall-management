@@ -14,6 +14,7 @@ return [
         'negative_security_deposit' => 'A security deposit cannot be negative. Enter 0 for a deposit-free lease.',
         'account_mapping_duplicate' => '“:role” is already mapped in this scope. Edit the existing row instead — a second one would be ignored, because the ledger reads the first and would keep posting to the old account.',
         'account_mapping_global_undeletable' => '“:role” is a global default and cannot be removed — nothing falls back behind it, so every posting that asks for it would start failing. Re-point it at another account instead.',
+        'charge_type_unknown' => 'There is no charge code called ":type". Charges may only use a code from the charge-code catalogue — add it there first, so it also has a posting account and a VAT treatment.',
         'charge_schedule_overlap' => 'This :type row (:start → :end) overlaps the existing row :other_start → :other_end. Two rows covering the same month would bill the charge twice — close the earlier row the day before the later one starts.',
         'item_allocation_payment_not_received' => 'That payment is not received money, so it cannot settle any line.',
         'dispute_reason_required' => 'A dispute needs a stated reason — it suppresses a late fee, so it has to say why.',
@@ -449,6 +450,16 @@ return [
         'empty_description' => 'Each band charges only the sales that fall within it — e.g. 0–500,000 at 0%, 500,000–900,000 at 5%, above 900,000 at 6%. Set the lease calculation type to Tiered for these to be used.',
     ],
     'charge_schedule' => [
+        'add' => 'Add charge',
+        'add_hint' => 'A recurring or one-off charge on this lease, using a code from the charge-code catalogue. Rent, the marketing levy and parking are not listed — they are maintained by their own actions, and a second row beside them would double-bill.',
+        'add_type_hint' => 'Any code your accountant has set up. Its VAT treatment is filled in below and can still be overridden for this lease.',
+        'add_effective_hint' => 'The month this charge starts billing. Adding a code the lease already has restates it from this date — the earlier row is closed, never rewritten.',
+        'added' => ':type of :amount added, billing from :date.',
+        'end' => 'Stop charge',
+        'end_hint' => 'Stops future billing of this charge code on this lease. Everything already billed stays exactly as billed — the schedule keeps its history.',
+        'end_from' => 'Stop billing from',
+        'end_from_hint' => 'The first month this charge should NOT be billed. The row in force is closed the month before, and any later scheduled rows are cancelled.',
+        'ended' => ':type stopped (:count row(s) closed).',
         'from_commencement' => 'From commencement',
         'unprojected_escalation' => 'a contracted :rate% escalation is due :date, not yet scheduled',
         'frequency' => 'Frequency',
@@ -674,6 +685,7 @@ return [
     ],
 
     'empty' => [
+        'approval_rules' => ['heading' => 'No approval bands yet', 'description' => 'With no bands, requests for this area need no approval. Add one to turn the gate on.'],
         'marketing_posts' => [
             'heading' => 'Nothing on the feed yet',
             'description' => 'Offers, events and mall news shown to shoppers in the app. Compose one, or wait for a retailer to submit theirs for review.',
@@ -1107,6 +1119,7 @@ return [
 
     'navigation' => [
         'charge_codes' => 'Charge Codes',
+        'approval_rules' => 'Approval Bands',
         'account_mappings' => 'Posting Map',
         'ledger_accounts' => 'Chart of Accounts',
         'journal_entries' => 'Journal Entries',
@@ -1140,6 +1153,7 @@ return [
     ],
 
     'resources' => [
+        'approval_rule' => ['singular' => 'Approval Band', 'plural' => 'Approval Bands'],
         'charge_code' => [
             'singular' => 'Charge code',
             'plural' => 'Charge codes',
@@ -2306,6 +2320,11 @@ return [
         'credit_note_reason' => 'Reason',
         'reason_notes' => 'Reason Notes',
         'reason' => 'Reason',
+        'approval_module' => 'Applies to',
+        'approval_tier' => 'Approver',
+        'approval_band' => 'Amount band',
+        'approval_min_amount' => 'From',
+        'approval_max_amount' => 'Up to',
         'void_reason' => 'Reason for Void',
         'voided' => 'Voided',
         'voided_at' => 'Voided On',
@@ -2459,6 +2478,10 @@ return [
     ],
 
     'helpers' => [
+        'approval_rule_section' => 'Who has to sign off, by how much it costs. A request finds the band its amount falls in and needs someone holding that approver level.',
+        'approval_tier' => 'Tiers compose with roles: a role gains authority by being granted the tier, so you never maintain a second hierarchy.',
+        'approval_max_amount' => 'Leave blank for “and above” — the top of the ladder.',
+        'approval_rule_active' => 'An inactive band is ignored. If no band covers an amount, the STRICTEST tier configured for that module is required — the gate fails closed, never open.',
         'charge_code_section' => 'A billable line an invoice can carry, and the account it posts to. The account is reached through the posting map, so a code inherits any per-property override already set there.',
         'charge_code' => 'Lower-case letters, digits and underscores. Fixed once saved — this value is stored on every invoice line billed under it, so a rename would orphan the history. Change the name below instead.',
         'charge_code_role' => 'Leave blank to post to miscellaneous income. Only right for a genuinely ad-hoc charge — anything you bill regularly deserves its own account.',
@@ -2557,6 +2580,7 @@ return [
     ],
 
     'sections' => [
+        'approval_rule' => 'Approval band',
         'charge_code' => 'Charge code',
         'posting_map' => 'Posting map row',
         'account_details' => 'Account details',
@@ -2840,6 +2864,8 @@ return [
     ],
 
     'enums' => [
+        'approval_module' => ['inventory_draw' => 'Stock draw', 'purchase_request' => 'Purchase request', 'disbursement' => 'Owner payout'],
+        'approval_tier' => ['approvals.tier_1' => 'Supervisor (tier 1)', 'approvals.tier_2' => 'Manager (tier 2)', 'approvals.tier_3' => 'Senior (tier 3)'],
         'tenant_document_type' => [
             'insurance_coi' => 'Insurance certificate',
             'tax_card' => 'Tax card',

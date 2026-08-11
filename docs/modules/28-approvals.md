@@ -68,6 +68,33 @@ disagree about who may approve a 5,000 EGP draw.
 
 ---
 
+## 2b. Editing the ladder (2026-08-11)
+
+The bands were enforced from day one and could only be changed by a seeder and a deploy — so the
+ladder the FRD calls *company policy* was, in practice, a developer's constant, and a policy nobody
+can change without engineering is one that stops matching how the company actually signs things off.
+
+**`ApprovalRuleResource`** — Settings → **Approval Bands**. Module, amount band, approver tier,
+active. Four things about it are deliberate:
+
+- **One permission, not four.** `approvals.manage_rules` already existed and is described as
+  "configure the approval bands"; you either administer the ladder or you do not, and a view-only
+  band list helps nobody. So the resource gates explicitly rather than through `RoleGatedActions`,
+  whose `{module}.{action}` convention would have invented four permissions saying nothing the one
+  already says. It is withheld from `manager` in the seeder for the same reason `approvals.tier_3`
+  is: **a ladder whose rungs the people climbing it can rewrite is not a ladder.**
+- **Shared, not property-scoped.** `ApprovalRule` carries no `asset_id` and is registered SHARED in
+  `PropertyIsolation` — approval authority is a company rule, unlike SLA, which the FRD wants per
+  mall. The panel is still property-tenanted, so the route keeps its `{tenant}` segment; the
+  resource opts out of the auto-scope, not out of the URL.
+- **Deleting or deactivating a band makes the gate STRICTER, never looser** — with no band covering
+  an amount, `ApprovalPolicy` falls back to the strictest tier configured for that module. That
+  fail-closed property is why these rows are classified as deletable configuration rather than
+  guarded like a money record, and it is pinned by a test rather than assumed.
+- **No overlap guard, on purpose.** Overlapping bands already resolve to the *strictest* covering
+  band (the F-99 fix), so an operator widening one band without removing another gets a harder gate,
+  not an ambiguous one. Adding a refusal would forbid a state that is already safe.
+
 ## 3. Consumers
 
 | Module | What it approves | Where |
