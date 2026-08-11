@@ -9,6 +9,44 @@
 > **From here, build effort goes to property + facility, not here.** This document is the line:
 > read it before reopening any generic module, so you don't re-audit what is already done.
 
+> ## ⚠️ CORRECTED 2026-08-11 — "zero open correctness findings" was wrong
+>
+> A money-lens pass over three of these modules — **22 inventory, 23 fixed assets, 25 treasury /
+> عهدة** — found **six correctness defects**, every one of which put a wrong number on the books:
+>
+> | Module | Defect | What the books showed |
+> |---|---|---|
+> | 22 | Consumption relieved Inventory at the item's *current* catalogue cost, not what the stock was loaded at | Inventory **−2,000** with zero stock on hand; R&M overstated by the same |
+> | 22 | The work-order part draw priced its **approval tier** and its stock relief from that same stale catalogue | a large draw routed to a junior approver; the drift re-opened through a path that bypassed the fix |
+> | 22 | The stock register + its CSV valued stock at the catalogue price | screen said 3,000 where the Inventory account held 1,000 — on the column labelled as the operator's reconciliation figure |
+> | 23 | The re-cost floor (`assertRecostValid`) had exactly ONE caller, a Filament page | net fixed assets pushed negative from any non-form writer |
+> | 23 | A **disposed** asset's cost stayed editable, and `updated` re-derives its children | a posted, terminal disposal restated — the gain or loss on a sale that already happened |
+> | 25 | A settled عهدة's amount / date / paid-from stayed editable | outstanding **negative**; Custodies stopped netting to zero; the credit moved to an account the cash never left |
+>
+> **Why this sweep missed them, which is the part worth keeping.** It asked two good questions —
+> *"did we build it right"* (the round-2 audit) and *"what does a mature generic ERP have that we
+> don't"* (the Odoo benchmark). Neither is the question that found these:
+>
+> > **At which layer is this rule enforced, and does every writer obey it?**
+>
+> All six are the same shape. The money core was *sound* in all three modules — derived balances,
+> locks, idempotent runs, GL sources exercised through the real sweep. What was wrong was the
+> **layer**: a rule the module doc states as a fact, enforced on a Filament form and nowhere else.
+> Module 22's was even written down as a feature — *"known limitation … keep `unit_cost` stable or
+> reconcile Inventory periodically"*, which is advice no operator can follow and no system enforces.
+> A `->disabled()` is a claim about one writer; a documented invariant is a claim about all of them.
+>
+> **So this file's instruction — "don't re-audit what is already done" — was steering people away
+> from the modules that had the money bugs.** That instruction now holds only for the questions this
+> sweep actually asked. It does **not** hold for the layer question, which has never been run over
+> the rest of the generic layer: **21 general ledger, 24 HR / payroll, 29 procurement, deposits and
+> marketing spend are still unexamined by it.** Given three of three modules yielded findings, the
+> prior for the remaining ones is not zero.
+>
+> Method and matrices: [VALIDATION-SWEEP-PLAN.md](VALIDATION-SWEEP-PLAN.md). Every guard added was
+> mutation-tested — deleted, watched go red, restored — because §10 of that document records a
+> finding that was *correct* while the tests proving it were worthless.
+
 Companion reads: the internal audit ([000-progress.md](000-progress.md)) asked *"did we build it
 right"*; the external benchmark ([odoo/README.md](odoo/README.md)) asked *"what does a mature
 generic ERP have that we don't"*. This file records the **decision that follows from both**: keep
