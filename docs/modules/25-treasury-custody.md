@@ -49,8 +49,30 @@ Outstanding = `amount − Σ settlements` (DERIVED, never cached).
 3. **A settlement can't exceed outstanding** — `SettleCustodyService` re-checks under a
    `lockForUpdate`, so concurrent settlements can't over-spend the custody.
 4. **Grant terms lock once settled** — amount / date / paid-from become read-only once the
-   custody has any settlement (editing them would misstate outstanding).
+   custody has any settlement (editing them would misstate outstanding). **Enforced on the model
+   since 2026-08-11** (module 25 close-out); until then it was `->disabled()` on `CustodyForm` and
+   nothing else, so an import, the console, the API or a future screen walked past it. The doc's own
+   parenthesis was the failure scenario: outstanding is DERIVED (`amount − Σ settlements`), so
+   lowering `amount` under what is already settled makes it NEGATIVE — the register showing a
+   custodian owing money never granted to them — while the grant's Dr Custodies / Cr Cash entry
+   re-derives at the new figure and the settlements' credits do not move, so Custodies stops netting
+   to zero. `paid_from` decides WHICH account was credited, after the cash has left it.
+   **"Once settled", not "on grant":** a عهدة keyed wrongly stays fixable until it is spent against.
+   `purpose` and `reference` carry no money and no dimension, so they stay editable.
+   Tests: `CustodyGrantTermsLockTest`.
+6. **The custodian is fixed from the grant** — `asset_id` is denormalised FROM the employee, so
+   moving them moves the books dimension with it and a settled عهدة's entries land in another
+   property. Rule 1 already stated this; it too was form-only until the same pass.
 5. **NOT-NULL money** — blank custody `amount` / settlement `amount` coerce to 0.
+
+**Verified clean in the same pass, recorded so nobody re-checks it:** outstanding is DERIVED and has
+no column (asserted by a test, so adding one would fail the build) — the "two truths about one
+number" class that bit modules 22 and 01 cannot arise here; `CustodyTransaction::create` has exactly
+ONE caller in the codebase, `SettleCustodyService`, which re-checks outstanding under a
+`lockForUpdate`, so the over-settled state is unreachable rather than merely guarded (keep it that
+way — a second creator would need its own cap); and both GL sources run through the real
+`accounting:sync-ledger` sweep in `CustodyLedgerTest` / `CrossModuleGlScenarioTest`, not the
+journalizer alone.
 
 ---
 

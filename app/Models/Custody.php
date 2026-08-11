@@ -105,6 +105,40 @@ class Custody extends Model
             if ($raw === null || $raw === '') {
                 $custody->amount = 0;
             }
+
+            if (! $custody->exists) {
+                return;
+            }
+
+            // ── The custodian is fixed from the moment of the grant ───────────────────────────
+            // `asset_id` is denormalised FROM the custodian, so moving the employee moves the
+            // books dimension with it — a settled عهدة's entries would land in another property.
+            // The module doc states this as a fact ("locked on edit so the books dimension can't
+            // drift"); it was `->disabled()` on CustodyForm and nothing else.
+            if ($custody->isDirty(['employee_id', 'asset_id'])) {
+                throw new \DomainException(__('admin.custodies.errors.custodian_fixed'));
+            }
+
+            // ── Grant terms lock once the عهدة has been settled against ───────────────────────
+            // The doc's own parenthesis is the failure scenario: "editing them would misstate
+            // outstanding". Outstanding is DERIVED (amount − Σ settlements), so lowering `amount`
+            // under what is already settled makes it NEGATIVE — the register showing a custodian
+            // owing money never granted to them. The grant's journal entry (Dr Custodies /
+            // Cr Cash|Bank) also re-derives at the new figure while the settlements' credits do
+            // not move, so Custodies stops netting to zero as the عهدة is spent; and `paid_from`
+            // decides WHICH account was credited, after the cash has already left it.
+            //
+            // "Once SETTLED", not "on grant": a عهدة keyed at the wrong figure must stay fixable
+            // until it is spent against. Purpose and reference carry no money and no dimension, so
+            // they stay editable — an operator must be able to record what it turned out to be for.
+            //
+            // At the model because the form is one writer of several (import, console, API, a
+            // future screen). Same finding and same fix as module 23's disposed-asset freeze
+            // (module 25 close-out, 2026-08-11).
+            if ($custody->isDirty(['amount', 'custody_date', 'paid_from'])
+                && $custody->transactions()->exists()) {
+                throw new \DomainException(__('admin.custodies.errors.terms_locked_once_settled'));
+            }
         });
 
         // Child-source cascade (same as EmployeeAdvance / FixedAsset): soft-delete
