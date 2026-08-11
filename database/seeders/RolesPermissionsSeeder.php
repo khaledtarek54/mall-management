@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Support\OwnerVisibility;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Permission;
@@ -516,15 +517,22 @@ class RolesPermissionsSeeder extends Seeder
             ->all();
         $grants['viewer'] = $viewerPerms;
 
-        // owner: Jawad owners SEE EVERYTHING read-only (every module / department),
-        // but only for the properties they OWN (scoped via User::accessibleAssets),
-        // plus the right to raise + track owner requests.
+        // owner: Jawad owners get read-only OVERSIGHT OF THEIR PROPERTY — not of Eltizam.
+        //
+        // This used to be every `.view` in the catalogue, on the reasoning that property isolation
+        // would keep it honest. It does not: sixteen models are SHARED and carry no `asset_id` at
+        // all (the vendor register, the staff accounts, the chart, the settings), and for payroll
+        // the property axis is simply the wrong question — assigning staff to Jawad's mall does not
+        // make their salaries Jawad's information. Which modules an owner may read is a per-module
+        // decision recorded in App\Support\OwnerVisibility, and the gate fails the build on an
+        // unclassified one so a new module cannot inherit "the owner sees it".
         $ownerPerms = collect($all)
             // `.view_all` as well as `.view` (FR-USR-04): these are OVERSIGHT roles — an auditor
             // or an owner who saw "only work assigned to them" would see an empty screen, because
             // nobody assigns work orders to auditors. AssignmentScope restricts whoever lacks
             // `.view_all`, so omitting it here silently narrows them to nothing.
             ->filter(fn ($p) => str_ends_with($p, '.view') || str_ends_with($p, '.view_all') || $p === 'reports.download')
+            ->filter(fn ($p) => OwnerVisibility::allows($p))
             ->push('owner_requests.create')
             // The owner deliverable: see their OWN statements (`.view_own` isn't caught by the
             // `.view` filter above). They already get `owner_statements.view`/`disbursements.view`

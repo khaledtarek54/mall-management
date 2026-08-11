@@ -184,15 +184,37 @@ it('viewer can view every module but create/edit/delete nothing', function () {
         ->and(LeaseResource::canEdit($lease))->toBeFalse();
 });
 
-it('owner has the same read-only reach as viewer (every .view, no writes)', function () {
+/*
+ * The owner is NOT a viewer, and this test used to say it was.
+ *
+ * `viewer` is an internal auditor: an Eltizam role that may read Eltizam's own business. `owner` is
+ * the counterparty on the other side of the management contract. Granting it every `.view` in the
+ * catalogue handed Jawad the SHARED vendor register (every mall Eltizam runs, including a competing
+ * owner's), every staff account, the payroll and the operator's own bank accounts — none of which
+ * property isolation touches, because those models carry no `asset_id`.
+ *
+ * Which modules an owner may read is recorded in `App\Support\OwnerVisibility` and gated by
+ * `OwnerVisibilityConformanceTest`. This case checks the resource layer honours it.
+ */
+it('owner reads its property read-only, and cannot reach the operator\'s own business', function () {
     $lease = makeLease(makeUnit(makeAsset()));
     $invoice = makeInvoice($lease);
 
     $this->actingAs(makeUser('owner'));
 
-    foreach (matrixResources() as $key => $resource) {
+    // Their property, their tenants, their money.
+    foreach (['Asset', 'Unit', 'Tenant', 'Lease', 'TenantSales', 'Invoice', 'Payment', 'CreditNote',
+        'Cam', 'Maintenance', 'UtilityMeter', 'MarketingBudget'] as $key) {
+        $resource = matrixResources()[$key];
         expect($resource::canViewAny())->toBeTrue("owner view {$key}")
             ->and($resource::canCreate())->toBeFalse("owner must not create {$key}");
+    }
+
+    // Eltizam's own business. The paired refusal — without it, the loop above passes just as
+    // happily on the blanket grant this replaced.
+    foreach (['Vendor', 'Role', 'Department'] as $key) {
+        $resource = matrixResources()[$key];
+        expect($resource::canViewAny())->toBeFalse("owner must not view {$key} — operator-internal");
     }
 
     expect(InvoiceResource::canEdit($invoice))->toBeFalse('owner is read-only')
@@ -386,10 +408,15 @@ it('hr covers Roles + Departments (view) and is shut out of every operational mo
 
 it('gates Users access/create on users.* permissions (HR-manageable)', function () {
     // roles holding users.view reach the Users list
-    foreach (['super_admin', 'manager', 'viewer', 'owner', 'hr'] as $role) {
+    foreach (['super_admin', 'manager', 'viewer', 'hr'] as $role) {
         $this->actingAs(makeUser($role));
         expect(UserResource::canAccess())->toBeTrue("{$role} should access Users");
     }
+
+    // `owner` deliberately does NOT. UserResource is SHARED and unscoped, so this was every staff
+    // account in the company, not the ones working at their mall (App\Support\OwnerVisibility).
+    $this->actingAs(makeUser('owner'));
+    expect(UserResource::canAccess())->toBeFalse('owner must not read the operator\'s staff accounts');
 
     // roles holding users.create can create
     foreach (['super_admin', 'manager', 'hr'] as $role) {

@@ -62,7 +62,7 @@ Implemented via Spatie Laravel Permission (roles × permissions), Filament per-p
 - **super_admin**: All permissions, delete, role/setting management → no restrictions
 - **manager**: All view/create/edit, no delete, no settings/role edit
 - **viewer**: All `.view` + `reports.download` → read-only oversight
-- **owner** (Jawad): All `.view` + `reports.download` + `owner_requests.create` → scoped to owned properties
+- **owner** (Jawad): `.view` on the **owner-visible modules only** (`App\Support\OwnerVisibility`) + `reports.download` + `owner_requests.create` + `owner_statements.view_own` → scoped to owned properties
 - **leasing**: Properties(view), Units, Tenants, Leases, TenantSales(view)
 - **operations**: Maintenance, Vendors, UtilityMeters
 - **accounting**: Invoices, Payments, CreditNotes, CAM, Reports
@@ -414,9 +414,38 @@ Scoping is **not** "only when a single property is selected". In **All-Propertie
 
 ### Jawad owner scoping
 - Legal owners are scoped via `asset_owner` table (not `asset_user`), with `ownership_percentage`.
-- They see the same read-only access as the `viewer` role: all `.view` permissions + `reports.download`.
 - If an owner is also staff-assigned to a different property, their `accessibleAssets()` union includes both.
 - Owners cannot be assigned to "ALL" pseudo-asset (excluded in queries).
+
+**An owner is NOT a `viewer`, and treating it as one was a live leak until 2026-08-11.** The two
+roles were seeded from the same "every `.view`" filter — but `viewer` is an internal auditor and
+`owner` is the counterparty on the other side of the management contract. Property isolation was
+assumed to keep the difference honest. It does not, for two independent reasons:
+
+- **Sixteen models are SHARED** (`PropertyIsolation::SHARED`) and carry no `asset_id`, so "scoped to
+  the properties they own" simply does not apply to them. Jawad could read Eltizam's whole supplier
+  register — rates and contracts across every mall it operates, including a competing owner's —
+  plus every staff account, the SKU catalogue, the chart of accounts and the settings.
+- **Property scope is the wrong axis for some of it anyway.** Assigning a member of staff to Jawad's
+  mall does not make their salary Jawad's information.
+
+Which modules an owner may read is now a per-module decision recorded in
+**`App\Support\OwnerVisibility`** (29 visible / 19 operator-internal, each with a stated reason).
+`RolesPermissionsSeeder` filters the owner grant through `OwnerVisibility::allows()` — the one call —
+and `OwnerVisibilityConformanceTest` fails the build on a group classified in neither list, so a new
+module forces the decision rather than inheriting "the owner sees it". It also fails on a *stale*
+entry, because an allow-list alone goes stale in the other direction: ship a property module, forget
+to list it, and the owner silently loses oversight they are contractually owed.
+
+Benchmark: Yardi's owner/investor portal exposes financials, rent roll, occupancy, budget-vs-actual,
+distributions and **property AP** — so `expenses`/`vendor_bills` stay visible, since the owner
+statement charges those costs to them anyway. **One deliberate deviation, stricter than Yardi: the
+vendor *register* is withheld.** The owner still sees which vendor did what on their property (it is
+on the bill and the work order); the register itself is portfolio-wide.
+
+> **Existing installs must re-run the seeder** — `php artisan db:seed --class=RolesPermissionsSeeder`
+> — for the revocation to land. `applyGrants()` clears and rewrites each listed role's pivot rows,
+> so the extra permissions are removed rather than merely no longer added.
 
 ### UserResource force-delete is currently open (BUG)
 - UserResource does not use RoleGatedActions, so `canForceDelete()` inherits Filament's permissive default.
