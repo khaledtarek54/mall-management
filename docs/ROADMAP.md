@@ -157,7 +157,7 @@ as one workstream, separate from the FRD:
 
 The 🟡 tail (worth doing, not urgent): ~~per-property year-end close (F-80)~~ ✅ **done 2026-07-19**
 (per-asset closing entries — the owner-statements prerequisite),
-VAT-return report, comparative statements, weighted-average inventory costing, reorder
+~~VAT-return report~~ ✅ **shipped 2026-08-11** (`VatReturnService` — output and input VAT read from the LEDGER, with the invoices used to PROVE it ties; the taxable standard/exempt split comes from the documents because the GL knows revenue by account and not by tax treatment), comparative statements, weighted-average inventory costing, reorder
 auto-purchase, finishing the dead transfer stub, capex bid-comparison, statutory rate
 automation. The **⏭️ declined** set (multi-currency, consolidation, drop-ship, Odoo's full
 salary-rule engine) is Odoo *breadth* that's either N/A to a single-entity EGP operator or
