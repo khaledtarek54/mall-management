@@ -4,7 +4,9 @@ use App\Models\CreditNote;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\VendorBill;
+use App\Models\VendorBillPayment;
 use App\Models\Vendor;
+use App\Services\VendorBillService;
 use App\Services\Accounting\LedgerPoster;
 use App\Support\ChangeImpact;
 use App\Support\LedgerRealtimeSync;
@@ -160,6 +162,16 @@ function committedFixtures(): array
             ]);
         },
 
+        VendorBillPayment::class => function () {
+            $bill = committedFixtures()[VendorBill::class]();
+
+            // Through the service, not a bare create: a fixture that sets columns no writer sets
+            // proves the guard against a state the system cannot reach.
+            app(VendorBillService::class)->recordPayment($bill, 400.0);
+
+            return $bill->refresh()->payments()->sole();
+        },
+
         VendorBill::class => function () {
             $asset = makeAsset();
             $vendor = Vendor::create(['name' => 'Impact Co '.uniqid(), 'status' => Vendor::STATUS_ACTIVE]);
@@ -180,6 +192,42 @@ function committedFixtures(): array
 function mutatedValue(\Illuminate\Database\Eloquent\Model $model, string $field): mixed
 {
     $current = $model->getAttribute($field);
+
+    // A foreign key needs a value the DATABASE would accept, or the write is refused by the FK
+    // constraint and the test cannot tell that apart from the model guard refusing it. It still
+    // goes red either way — a QueryException is not caught below — but "the write succeeded" is
+    // the message that names the actual defect, and a database error is not.
+    if (str_ends_with($field, '_id') && $current !== null) {
+        $stem = \Illuminate\Support\Str::beforeLast($field, '_id');
+
+        // Two candidates, because Laravel relations are named either way: `vendor_bill_id` is
+        // reached by `vendorBill()` on some models and by the shortened `bill()` on others — which
+        // is exactly what VendorBillPayment does.
+        $candidates = [
+            \Illuminate\Support\Str::camel($stem),
+            \Illuminate\Support\Str::camel(\Illuminate\Support\Str::afterLast($stem, '_')),
+        ];
+
+        foreach (array_unique($candidates) as $relation) {
+            if (! method_exists($model, $relation)) {
+                continue;
+            }
+
+            $result = $model->{$relation}();
+            if (! $result instanceof \Illuminate\Database\Eloquent\Relations\BelongsTo) {
+                continue;
+            }
+
+            $related = $result->getRelated();
+            $sibling = $related->newQuery()->whereKeyNot($current)->value($related->getKeyName());
+
+            // No sibling exists in this test's data — fall back to the bogus id below. The check
+            // still fails when the guard is gone; only the message is less direct.
+            if ($sibling !== null) {
+                return $sibling;
+            }
+        }
+    }
 
     return match (true) {
         $current instanceof \DateTimeInterface => \Illuminate\Support\Carbon::instance($current)->copy()->subMonth(),

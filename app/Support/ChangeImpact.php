@@ -269,12 +269,17 @@ class ChangeImpact
 
         VendorBillPayment::class => [
             'committed' => 'on creation — the cash left the bank. Reversed by VoidVendorBillPaymentService, never edited',
+            self::REFUSED => [
+                // Promoted from DERIVED once the void existed. Locking these without a reversal
+                // path would have trapped an operator holding a wrong cheque, so the correction
+                // had to ship first — a refusal is only as good as the path it names.
+                'amount' => 'the gross AP debit; correcting it means voiding the payment and re-recording',
+                'withholding_amount' => 'splits the credit between bank and the withholding-tax liability owed to the ETA — editing it after the fact misstates what is owed the tax authority',
+                'payment_date' => 'it IS the entry date, so it decides which period the cash left in',
+                'vendor_bill_id' => 'the payable being settled, and the source of the books dimension — re-pointing settles a different vendor\'s claim',
+            ],
             self::DERIVED => [
-                'vendor_bill_id' => 'the payable being settled, and the source of the books dimension',
-                'amount' => 'the gross AP debit',
-                'withholding_amount' => 'splits the credit between bank and the withholding-tax liability owed to the ETA',
                 'method' => 'chooses cash vs bank',
-                'payment_date' => 'it IS the entry date; guarded against a closed period in VendorBillService',
             ],
             self::NEUTRAL => ['notes', 'created_by_user_id'],
             self::DESCRIPTIVE => ['reference' => 'names the entry'],

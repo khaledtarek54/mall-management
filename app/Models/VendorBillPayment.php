@@ -84,6 +84,27 @@ class VendorBillPayment extends Model
             }
         });
 
+        // A recorded payment is committed the moment it exists — the cash left the bank — so its
+        // money and counterparty fields are immutable. The AP mirror of the guards on Invoice,
+        // Payment, CreditNote and VendorBill.
+        //
+        // **Why this could not be written until now.** Locking these fields without a reversal path
+        // would have trapped an operator holding a wrong cheque with no way out, which is worse
+        // than a mutable row: the refusal has to name a correction that exists. The void
+        // (VoidVendorBillPaymentService) shipped first, deliberately, and this is the promotion it
+        // unblocked — surfaced by classifying every field in App\Support\ChangeImpact.
+        //
+        // Nothing legitimate edits them: the payments relation manager creates and edits nothing,
+        // recordPayment() only ever inserts, and the bill's own recompute() is a saveQuietly on the
+        // PARENT. `voided_at` is deliberately outside the frozen set, so a void still saves.
+        static::updating(function (self $payment) {
+            foreach (['amount', 'withholding_amount', 'payment_date', 'vendor_bill_id'] as $field) {
+                if ($payment->isDirty($field)) {
+                    throw new \DomainException(__('admin.errors.vendor_payment_immutable'));
+                }
+            }
+        });
+
         static::saved(fn (self $payment) => $payment->bill?->recompute());
         static::deleted(fn (self $payment) => $payment->bill?->recompute());
     }

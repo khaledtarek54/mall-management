@@ -161,10 +161,12 @@ were visible while the policy lived in scattered `updating` hooks:
 2. **`Payment.tenant_id` is not refused while `Invoice.tenant_id` is.** Re-pointing a captured receipt
    re-books the AR credit against another tenant. Nothing legitimate does it and the allocation guards
    make it hard to reach, but the asymmetry is arbitrary. **First promotion candidate.**
-3. **`VendorBillPayment` now has somewhere to be promoted to.** Its money fields were unguarded
-   because there was no reversal path — locking them would have left an operator with a wrong cheque
-   and no way out. Phase 0 built the void, so `amount` / `payment_date` / `withholding_amount` can now
-   become R with a real correction behind the refusal. **Second promotion candidate.**
+3. ✅ **`VendorBillPayment` — promoted 2026-08-11.** Its money fields were unguarded because there was
+   no reversal path; locking them would have left an operator holding a wrong cheque with no way out,
+   which is worse than a mutable row. Phase 0 built the void first, deliberately, and `amount` /
+   `withholding_amount` / `payment_date` / `vendor_bill_id` are now **R**, with the refusal naming the
+   void as the correction. `voided_at` is outside the frozen set, so a void still saves. Proved by
+   removing the guard and watching the gate name all four fields.
 4. **`FixedAsset`'s depreciation inputs are the clearest PROSPECTIVE case in the system** —
    `useful_life_months`, `salvage_value` and `method` change future depreciation entries and never
    rewrite posted ones, which is exactly the effective-dating pattern spacing and leasing use for
@@ -220,6 +222,7 @@ Grounded in the code as it stands today, not guessed. **Bold = changes proposed.
 | Vendor bill money/counterparty fields after `draft` | **R** — "cancel and re-enter it instead" ([VendorBill.php:306](../../app/Models/VendorBill.php#L306)) | R | The AP mirror of the invoice guard |
 | Cancel a bill that has payments | **R** — "Reverse the payments first" | R | …but see F1: there is no way to reverse them |
 | **Vendor bill payment — any reversal** | ✅ **`VoidVendorBillPaymentService`** (2026-08-11) | — | Was F1, the one live hole. `voided_at` is not fillable: only the service may set it, so a void always carries its reason and its reversal |
+| **Vendor bill payment — money fields** | ✅ **R** (2026-08-11) | R | Promoted once the void existed. A refusal is only as good as the path it names, so the correction had to ship first |
 | Direct expense (`recorded`) amount / date / category | **D** — the form only locks once *cancelled* ([ExpenseForm.php:19](../../app/Filament/Admin/Resources/Expenses/Schemas/ExpenseForm.php#L19)) | **decision** — D-with-visibility, or R | An expense is posted the moment it is recorded, and then freely editable. AR's equivalent is locked. §7 |
 | Marketing spend, fixed asset cost | **D** — deliberately unlocked, reasons recorded | D | Keep; move the reasons into the registry |
 

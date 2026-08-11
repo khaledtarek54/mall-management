@@ -3,6 +3,7 @@
 return [
     'errors' => [
         'unit_area_not_positive' => 'A measured area has to be greater than zero. If the unit is out of use, change its status rather than its size.',
+        'duplicate_vendor_invoice_reference' => 'Invoice :reference from this vendor is already recorded as bill :number. If this is a correction, cancel that bill first; if the vendor genuinely reused the number, leave this field blank.',
         'unit_floor_other_property' => 'That floor belongs to a different property. A unit can only sit on a floor of its own building.',
         'unit_area_other_property' => 'That zone belongs to a different property. Tagging a unit with another property’s zone would route its tenant requests to that property’s supervisors.',
         'unit_area_use_remeasure' => 'A unit’s area is a dated record, not a field. Use “Remeasure” so the change carries the date it takes effect from — otherwise past periods would be re-apportioned on a measurement that was not true at the time.',
@@ -35,6 +36,7 @@ return [
         'percentage_rent_tier_inverted' => 'The band :from → :to ends at or before it starts.',
         'percentage_rent_tier_negative_breakpoint' => 'A sales breakpoint cannot be negative. The first band starts at 0.',
         'percentage_rent_tier_rate_out_of_range' => 'A percentage-rent rate of :rate% is outside 0–100%. A negative rate would raise a charge that is really a credit; above 100% bills more than the tenant sold.',
+        'vendor_payment_immutable' => 'A recorded vendor payment cannot be edited — the cash has already left the bank. Void it (Payments → Void payment) and record the correct one; the void stays on the register with your reason.',
         'record_not_deletable' => 'A :record that is on the books cannot be deleted — :correction. The record stays, and the correction explains itself to an auditor.',
         'record_still_referenced' => 'This :record cannot be deleted — :blockers still reference it. :instead.',
         'lease_event_immutable' => 'A lease event is a record of something that happened, so it cannot be edited or deleted. Record the correcting event instead — that leaves a history an auditor can follow.',
