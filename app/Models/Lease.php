@@ -539,7 +539,17 @@ class Lease extends Model implements HasMedia
             $weighted += $unit->areaSqmDaysBetween($heldFrom, $heldTo) / $days;
         }
 
-        return $weighted > 0 ? round($weighted, 4) : (float) ($this->unit?->area_sqm ?? 0);
+        if ($weighted > 0) {
+            return round($weighted, 4);
+        }
+
+        // Empty pivot (pre-observer rows, and any lease built without ensureMasterPivot). Fall back
+        // to the master unit — but dated the SAME way as the loop above, or this method would answer
+        // a past period with today's measurement for exactly the legacy rows least likely to have
+        // been re-measured deliberately.
+        return $this->unit
+            ? round($this->unit->areaSqmDaysBetween($start, $end) / $days, 4)
+            : 0.0;
     }
 
     /**

@@ -243,6 +243,15 @@ denominator, is a single operator-maintained column with no history. Dating it n
 register (the shape `unit_areas` already has) and is a separate change — stated here rather than
 assumed away.
 
+**Every other reader of `area_sqm` was checked, and most are correct as they stand.** The register
+answers "what did it measure THEN"; a rent roll, an occupancy percentage, the unit table, the
+exports and the `/api/v1` unit payload all ask "what does it measure NOW", and rightly read the
+denormalised column. Two did not, and were fixed alongside CAM: the **empty-pivot fallback** inside
+`totalAreaSqmForPeriod()` itself (legacy leases with no `lease_unit` rows — the oldest data, least
+likely to have been remeasured on purpose), and the dashboard's **sales density**, which divided a
+declared month's sales by the MASTER unit's area today — wrong on both counts, and it reorders the
+ranking operators read.
+
 **Tests guard**:
 - `CamScenarioTest::it('generates one pro-rata allocation per active lease...')` — core math
 - `CamScenarioTest::it('allocated amounts and shares sum to the pool total...')` — sums partition 100% and exact pool totals (subject to rounding)

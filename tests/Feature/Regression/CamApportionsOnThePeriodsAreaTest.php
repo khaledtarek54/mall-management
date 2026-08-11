@@ -5,6 +5,7 @@ use App\Models\Lease;
 use App\Services\CamReconciliationService;
 use App\Services\RemeasureUnitService;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 
 /**
  * CAM must apportion a year on the area that was true DURING that year (2026-08-11).
@@ -123,4 +124,32 @@ it('reports the period area directly, so the defect has a unit-level witness', f
     );
 
     expect(round($area, 2))->toBe(100.0); // not 300 — the 2026 measurement is not 2025's truth
+});
+
+it('dates the empty-pivot fallback too, which legacy rows are the ones to rely on it', function () {
+    // `totalAreaSqmForPeriod` falls back to the MASTER unit when a lease has no `lease_unit` rows
+    // — pre-observer data. That fallback still read the current `area_sqm` after the loop above was
+    // fixed, so the oldest rows in the system, least likely to have been remeasured deliberately,
+    // were the ones still answering a past period with today's walls.
+    $asset = makeAsset(['leasable_area_sqm' => 0]);
+    $unit = makeUnit($asset, ['code' => 'M-'.uniqid(), 'area_sqm' => 100]);
+    $lease = makeLease($unit, null, ['commencement_date' => '2025-01-01', 'expiry_date' => '2027-12-31']);
+
+    // Strip the pivot to reproduce a pre-observer lease.
+    DB::table('lease_unit')->where('lease_id', $lease->id)->delete();
+
+    app(RemeasureUnitService::class)->record($unit, 300, ['effective_from' => '2026-06-01']);
+
+    $area = Lease::find($lease->id)->totalAreaSqmForPeriod(
+        CarbonImmutable::parse('2025-01-01'),
+        CarbonImmutable::parse('2025-12-31'),
+    );
+
+    expect(round($area, 2))->toBe(100.0)
+        // …and the control: the CURRENT period still sees the new measurement, so dating the
+        // fallback has not frozen it.
+        ->and(round(Lease::find($lease->id)->totalAreaSqmForPeriod(
+            CarbonImmutable::parse('2026-07-01'),
+            CarbonImmutable::parse('2026-07-31'),
+        ), 2))->toBe(300.0);
 });

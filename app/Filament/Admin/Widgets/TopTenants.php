@@ -6,6 +6,7 @@ use App\Filament\Admin\Concerns\RoleScopedWidget;
 use App\Models\Lease;
 use App\Models\TenantSalesDeclaration;
 use App\Support\TenantScope;
+use Carbon\CarbonImmutable;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
@@ -80,12 +81,7 @@ class TopTenants extends TableWidget
      */
     private function salesDensityFor(Lease $lease): ?float
     {
-        $sqm = (float) ($lease->unit?->area_sqm ?? 0);
-        if ($sqm <= 0) {
-            return null;
-        }
-
-        // Look at the most recent locked declaration (any month).
+        // The declaration first, because the area has to be the area DURING the month it declares.
         $latest = TenantSalesDeclaration::query()
             ->where('lease_id', $lease->id)
             ->whereIn('status', ['locked', 'submitted'])
@@ -93,6 +89,20 @@ class TopTenants extends TableWidget
             ->first();
 
         if (! $latest || $latest->declared_sales <= 0) {
+            return null;
+        }
+
+        // Was `$lease->unit?->area_sqm`, which was wrong twice over: it read the MASTER unit alone,
+        // understating a multi-unit lease by its whole non-master footprint and so overstating its
+        // density (the trap Lease::totalAreaSqm()'s docblock names); and it read today's
+        // measurement, dividing a past month's sales by an area that may have been remeasured
+        // since. Both skewed the ranking this widget exists to produce.
+        $sqm = $lease->totalAreaSqmForPeriod(
+            CarbonImmutable::parse($latest->period_start),
+            CarbonImmutable::parse($latest->period_end),
+        );
+
+        if ($sqm <= 0) {
             return null;
         }
 
