@@ -2,7 +2,6 @@
 
 namespace App\Filament\Admin\RelationManagers;
 
-use App\Models\StockMovement;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -57,20 +56,16 @@ class StockMovementsRelationManager extends RelationManager
                     ->label(__('admin.inventory.fields.type'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.inventory.types.{$state}"))
-                    ->color(fn (string $state) => match ($state) {
-                        'receipt' => 'success',
-                        'issue' => 'warning',
-                        default => 'gray',
-                    }),
+                    ->color('gray'),
 
-                // Signed by direction rather than by the stored sign: a receipt of 10 and an issue
-                // of 10 are both "10" in the column, and reading a movement list without knowing
-                // which way it went is the one thing this table must not allow.
+                // The QUANTITY carries the direction: `onHand` is `sum('quantity')`, so an outbound
+                // movement is stored negative. Read the sign rather than infer it from the type —
+                // an `adjustment` goes either way, so a type-based rule would be wrong for the one
+                // kind of row an operator is most likely to be querying.
                 TextColumn::make('quantity')
                     ->label(__('admin.inventory.fields.quantity'))
-                    ->formatStateUsing(fn ($state, StockMovement $record) => ($record->type === 'issue' ? '−' : '+')
-                        .number_format((float) $state, 2))
-                    ->color(fn (StockMovement $record) => $record->type === 'issue' ? 'warning' : 'success'),
+                    ->formatStateUsing(fn ($state) => ((float) $state < 0 ? '' : '+').number_format((float) $state, 2))
+                    ->color(fn ($state) => (float) $state < 0 ? 'warning' : 'success'),
 
                 TextColumn::make('unit_cost')
                     ->label(__('admin.inventory.fields.unit_cost'))
