@@ -275,24 +275,46 @@ install enforces. The gaps here are §3 (post month) and §5 (write-off), not th
 
 ---
 
-## 10. What Yardi does that has no Atriom equivalent, in one list
+## 10. What Yardi does that Atriom does not — **re-verified against the code 2026-08-11**
 
-| # | Capability | Where it bites |
-|---|---|---|
-| 1 | Charge schedule (date-ranged, many rows per code) | everything in this file's §1 |
-| 2 | Post month independent of document date | §3 |
-| 3 | Straight-line rent / deferred rent | §7 |
-| 4 | Bad-debt write-off | §5 |
-| 5 | Automatic receipt application order + open-credit auto-apply | §4 |
-| 6 | Bank deposit batches | §4 |
-| 7 | Itemised deposit disposition at move-out | §6 |
-| 8 | Charge codes as configurable data (code → GL account) | §2, and [01 §3.1](01-yardi-lease-administration.md#31-charge-codes-global-setup) |
-| 9 | Multiple books | §8 |
-| 10 | Rate-based charges (EGP/m²/yr) that re-derive on an area change | [01 §3.2](01-yardi-lease-administration.md#32-lease-charges--the-date-ranged-schedule) |
+The table below was written at the start of the cycle and had gone substantially stale: seven of its
+ten rows are now built. Re-checked item by item against the source rather than trusted, because a
+gap list nobody re-reads is how a team builds something twice.
 
-Items 1, 3, 4 and 8 are the ones this cycle should care about. Items 6, 9 and 10 are almost
-certainly not worth it for one operator in one currency — say so out loud rather than leaving them
-on a list forever.
+| # | Capability | Status | Where |
+|---|---|---|---|
+| 1 | Charge schedule (date-ranged, many rows per code) | ✅ **BUILT** | `ChargeScheduleService`; a change closes the row in force and opens the next |
+| 2 | Post month independent of document date | ✅ **BUILT** | `App\Support\PostMonth` + `posting_month_overrides`; `PostMonthAction` on the document |
+| 3 | Straight-line rent / deferred rent | ✅ **BUILT** (ships OFF) | `StraightLineRentService`, RA-02 — off until the accountant rules |
+| 4 | Bad-debt write-off | ✅ **BUILT** | `InvoiceWriteOffJournalizer` → `bad_debt_expense` |
+| 5 | Receipt application order + **open-credit auto-apply** | 🟡 **HALF** — see below | `InvoiceItemSettlement::TYPE_PRIORITY` orders the lines; `ApplyTenantCreditService` applies a credit but only when an operator asks |
+| 6 | Bank deposit batches | ⚪ **not worth it** | one operator, one bank; the receipt already carries its method and date |
+| 7 | Itemised deposit disposition at move-out | ✅ **BUILT** | `MoveOutStatementService` + `SettleMoveOutService` (MF-02/MF-03) |
+| 8 | Charge codes as configurable data (code → GL account) | ✅ **BUILT** | `charge_codes` + its screen; adding a code is a row, not a deploy |
+| 9 | Multiple books (accrual / cash / tax) | ⚪ **not worth it** | single-entity, single-currency; the cost is large and the audience is one |
+| 10 | Rate-based charges (EGP/m²/yr) that re-derive on an area change | ✅ **BUILT** | `LeaseSpaceChangeService::applyRentChange` re-derives from the rate at the effective date (LS-04) |
+
+### The one real remainder: item 5
+
+The mechanism exists and the hard part is done — applying an on-account credit is its **own dated GL
+source** (`Dr Unearned / Cr AR`, posted at application time, with the over-allocation guards), which
+is the part that took two attempts to get right. What is missing is only the automatic trigger:
+Yardi applies open credit to the next charge without being asked, and Atriom waits for an operator.
+
+**That is a business decision, not an engineering one, and it should stay open until the operator
+makes it.** Auto-applying is not obviously correct: a credit raised in dispute, or one the tenant
+expects refunded, silently disappearing into next month's rent is a support call and occasionally a
+legal one. Yardi's default is configurable per property for exactly that reason. Recommend asking the
+operator whether they want it, rather than shipping either behaviour as an assumption.
+
+### On the module as a whole
+
+Nothing in the GL warrants a rebuild. The registry-and-gate design — one journalizer registry that
+all four dispatch paths derive from, posting roles resolved through an editable map, posting-date
+guards declared per source, and conformance tests that fail the build when a new money source ships
+unclassified — is **stricter than a typical Voyager install**, which enforces none of it in software.
+The honest summary is that the accounting core is ahead of the benchmark on control and behind it
+only on §8 (multiple books), which is a deliberate simplification for a single-entity operator.
 
 ---
 
