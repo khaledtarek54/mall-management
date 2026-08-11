@@ -720,6 +720,10 @@ return [
     ],
 
     'empty' => [
+        'asset_owners' => [
+            'heading' => 'No owners recorded',
+            'description' => 'Owner statements apportion this property\'s net by ownership share, so a property with no owners produces no statements. Attach the owner and set their percentage.',
+        ],
         'bank_statements' => ['heading' => 'No statements yet', 'description' => 'Add the period you want to reconcile, then import the bank\'s CSV export into it.'],
         'bank_statement_lines' => ['heading' => 'Nothing imported yet', 'description' => 'Use Import to upload the bank\'s CSV export for this period.'],
         'bank_accounts' => ['heading' => 'No bank accounts registered', 'description' => 'Add the accounts this property banks with. Nothing posts through them yet — they are what bank statements will reconcile against.'],
@@ -2456,6 +2460,15 @@ return [
         'role_name_helper' => 'Lowercase, numbers, underscores only (e.g. "finance_lead"). System roles cannot be renamed.',
         'role_description' => 'Description',
         'role_custom' => 'Custom role',
+        'owner' => 'Owner',
+        'owner_helper' => 'Admin users holding the owner role. Owners are RBAC users in this panel — the separate /owner portal was retired.',
+        'ownership_percentage' => 'Ownership share',
+        'ownership_percentage_helper' => 'The share of this property\'s net that owner statements apportion to them. Shares across all current owners should total 100%.',
+        'owned_since' => 'Owned since',
+        'owned_since_helper' => 'Leave blank if they have owned it since inception.',
+        'owned_until' => 'Owned until',
+        'owned_until_helper' => 'Set this when a property is sold — never delete the row, or their past statements lose their basis.',
+        'owned_until_open' => 'Current owner',
         'staff_role' => 'Title at this property',
         'staff_role_helper' => 'e.g. Property Manager, Site Engineer, Leasing Lead.',
         'assigned_at' => 'Assigned',
@@ -2727,6 +2740,8 @@ return [
         'role_details' => 'Role',
         'permissions' => 'Permissions',
         'permissions_description' => 'Tick the actions this role is allowed to perform. Each module collapses for easy scanning.',
+        'asset_owners' => 'Owners',
+        'asset_owners_detach_warning' => 'This erases the ownership tenure, and with it the basis of every statement that apportioned money to this owner. To record a sale, set an end date instead.',
         'asset_staff' => 'Assigned Staff',
     ],
 

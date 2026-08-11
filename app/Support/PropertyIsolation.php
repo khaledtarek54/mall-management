@@ -179,7 +179,7 @@ class PropertyIsolation
         OwnerRequest::class => null,           // asset_id nullable (property-specific or cross-property)
         OwnerRequestReply::class => 'ownerRequest', // a reply reaches its property through its request; no resource of its own (posted via the Reply action)
         Department::class => null,             // asset_id nullable: null = operator-wide (global), set = property-scoped (hybrid)
-        AssetOwner::class => null,             // the asset_owner ownership pivot — one row = one owner's stake in one mall; no Filament resource (managed via User/Asset relations), like LowStockAlert
+        AssetOwner::class => null,             // the asset_owner ownership pivot — one row = one owner's stake in one mall; no Filament RESOURCE, managed through AssetOwnersRelationManager on the Asset (added 2026-08-11; until then this comment described a UI that did not exist, which is how the gap stayed invisible)
         OwnerStatementRun::class => null,      // owner statement run — one property's period statement (module 32)
         TenantCreditApplication::class => null, // applying on-account credit to an invoice; asset = the invoice's property; service-created, no Filament resource
         DepositApplication::class => null,        // netting a deposit against an invoice; asset = the invoice's property; service-created, no Filament resource

@@ -74,6 +74,10 @@ class AssetResource extends Resource
             \App\Filament\Admin\RelationManagers\AssetUnitsRelationManager::class,
             \App\Filament\Admin\RelationManagers\AssetRentableItemsRelationManager::class,
             \App\Filament\Admin\RelationManagers\AssetStaffRelationManager::class,
+            // Legal ownership — distinct from staff. Absent until 2026-08-11, which left
+            // `asset_owner` writable only by DemoSeeder and owner statements with nothing to
+            // apportion by on a real install.
+            \App\Filament\Admin\RelationManagers\AssetOwnersRelationManager::class,
             \App\Filament\Admin\RelationManagers\ActivitiesRelationManager::class,
         ];
     }

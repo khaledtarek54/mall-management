@@ -12,6 +12,25 @@ GL-tied-out money events. It was the single highest-value gap in the property/fa
 > applied**; the sole owner receives the full net. See §3 and the plan
 > [docs/plans/04-owner-statements-disbursements.md](../plans/04-owner-statements-disbursements.md).
 
+
+> **⚠️ Fixed 2026-08-11 — there was no way to record who owns a property.**
+> The `asset_owner` pivot had **no UI anywhere**: only `DemoSeeder` ever wrote it, so on a real
+> install nobody could say that Jawad owns Atriom Walk or at what share — and this module
+> apportions a property's net by exactly that `ownership_percentage`. No rows meant no owner and
+> no statement, and an owner who signed in saw an empty dashboard rather than an error, because
+> `AssignedAssets` fails closed with a `[0]` sentinel (the right behaviour, but it makes the
+> symptom look like a permissions problem).
+>
+> `AssetOwnersRelationManager` now sits on the Asset resource, gated on **`assets.edit`** — a
+> deliberately different gate from the sibling staff manager's `roles.edit`, because staff
+> membership grants panel visibility while ownership decides whose money a statement apportions.
+> Tenure is a real window: a sale is recorded with an end date, never by deleting the row, or the
+> former owner's issued statements lose their basis. The detach action says so.
+>
+> Worth recording *why* it stayed invisible: `PropertyIsolation` described `AssetOwner` as
+> "managed via User/Asset relations" — a comment asserting a UI that did not exist. That comment
+> is corrected too.
+
 ## 1. Purpose & business context
 
 An owner wants to know, each month, what their property earned and to be paid their share. The operator
