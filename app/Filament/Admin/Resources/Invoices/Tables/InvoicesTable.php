@@ -361,6 +361,7 @@ class InvoicesTable
                         );
                     }),
                 \App\Filament\Actions\PostMonthAction::make('invoices.edit'),
+                \App\Filament\Actions\LedgerEntryAction::make(),
                 // ── Dispute a line (MF-07) ────────────────────────────────────────────────────
                 // The late-fee sweep charged a penalty on the whole balance, including a service
                 // charge the tenant had formally disputed — which is the complaint that starts an

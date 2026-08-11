@@ -1,6 +1,8 @@
 # Change impact — spacing · leasing · receivables · payables → the ledger
 
-**Status:** planned, not started. Written 2026-08-11.
+**Status:** written 2026-08-11. **Phases 0, 1 and 2 shipped the same day** — the payables hole, the
+change-impact registry and its gate, and the document ↔ ledger trail. Phases 3 (restatement control)
+and 4 (the per-area sweeps) are open. Findings §9 carries the per-item state.
 
 > **The question this answers.** An operator changes something — a unit's area, a lease's rent, an
 > issued invoice, a vendor bill already paid. What happens to the general ledger, and *should that
@@ -247,20 +249,25 @@ undoing the behaviour.
 
 Every mechanism above is invisible to the operator. Five concrete surfaces, in order of value:
 
-1. **A "Ledger" panel on every money document.** Posted / not posted, the entry number, its date, its
-   **post month** if overridden, the property dimension, the debit/credit lines, and a link. When the
-   entry has been superseded, the chain: *"JE-2026-0412 was voided by JE-2026-0455 on 14/03 — reason:
-   superseded by an updated document."* Native Filament infolist inside an action `->schema()`, per the
-   house rule. **This is the single highest-value item in the plan**: it turns the derived ledger from a
-   background process into something an operator can see and an auditor can follow.
-2. **A source column + drill-through on the journal-entries table.** `source_type/source_id` is stored
-   and `source()` is a real morphTo — the table shows neither
-   ([JournalEntriesTable.php:23](../../app/Filament/Admin/Resources/JournalEntries/Tables/JournalEntriesTable.php#L23)).
-   GL → document is currently a manual hunt through the description text. Add a `reversal_of` badge too,
-   so a reversing entry reads as one.
-3. **"What this will do" before a re-derive.** Any action that will move a posted entry states it in the
-   confirmation: *"This will reverse EGP 12,400 from March 2026 and re-post EGP 13,050."* The numbers are
-   already computable — `wouldChange()` exists and is read-only; give it a sibling that returns the diff.
+1. ✅ **A "Ledger" panel on every money document** — `App\Filament\Actions\LedgerEntryAction`, a factory
+   like `PostMonthAction` rather than a panel copied per resource, wired to invoices, payments, credit
+   notes, vendor bills and expenses. Shows the state (posted / not posted yet / reversed / *does not
+   reach the ledger*), the entry number and date, the post month when overridden, the property
+   dimension, the debit/credit lines, **the reversal chain**, every entry the document has ever had,
+   and a pending note when it has drifted since posting. Read-only, gated on `general_ledger.view` —
+   a leasing user sees their invoice without seeing which accounts it moved.
+   The read model is `App\Support\LedgerTrail`, side-effect free (`wouldChange()` is `sync()`'s dry run
+   — no lock, no write), so rendering the panel can never move the books.
+2. ✅ **A source column + drill-through on the journal-entries table.** The resource is resolved through
+   `Filament::getModelResource()` — derived from Filament's own registry rather than a hand-kept
+   model→resource map, which would be one more list to drift — and a reversing entry reads as
+   *"Reversal of JE-…"* instead of showing a source it does not have. `source` and `reversalOf` are
+   eager-loaded, so the column costs no query per row.
+3. ✅ **The drift note**, which is item 3 in its useful form: the panel says *"This document has changed
+   since it was posted. The ledger is corrected automatically within a few seconds"*. A per-action
+   before/after preview (*"this will reverse EGP 12,400 and re-post EGP 13,050"*) is still worth having
+   and is deliberately **not** built — `wouldChange()` returns a boolean, and a sibling returning the
+   diff is a separate, larger piece.
 4. **A restatement warning.** Mark a month **reported** when an owner statement run is finalised or a VAT
    return is filed for it. A change whose entry would land in a reported-but-open month warns (and
    optionally requires a reason). This is the missing half of the close gate: the close gate stops you
@@ -298,7 +305,7 @@ path (not `LedgerPoster::sync()` directly) and a same-commit docs update, per th
 |---|---|---|---|
 | **0 — the live holes** ✅ **DONE 2026-08-11** | `VoidVendorBillPaymentService` + a gated action + the AP-side refusal wording; fix the stale docs (F7, F8) | S | F1 is a money operation with no path; the docs are read by the team |
 | **1 — the contract** ✅ **DONE 2026-08-11** | `App\Support\ChangeImpact` + `ChangeImpactConformanceTest`; classify all 24 sources; promote whatever the classification exposes | M | Everything else hangs off it, and it prevents the next source shipping undecided |
-| **2 — the trail** | UX items 1–3 and 5 (document ↔ entry, both directions; re-derive preview; refusal wording) | M | Turns the derived ledger into something visible |
+| **2 — the trail** ✅ **DONE 2026-08-11** | UX items 1–3 and 5 (document ↔ entry, both directions; re-derive preview; refusal wording) | M | Turns the derived ledger into something visible |
 | **3 — restatement** | the reported-month concept + UX item 4 | S–M | Needs owner-statement finalisation as its trigger, so it follows the trail work |
 | **4 — the area sweeps** | spacing → leasing → receivables → payables, each verifying its row in §4 with an *exploit-first* test | M per area | Merge with the validation sweep: one pass per area covering both axes |
 
@@ -316,8 +323,8 @@ Verified against the source on 2026-08-11, ranked. Everything below was checked 
 | # | Sev | Finding | Evidence |
 |---|---|---|---|
 | **F1** ✅ **FIXED 2026-08-11** | **High** | **A vendor-bill payment cannot be reversed by any path.** Three dead ends that all point at each other: `DeletionPolicy` names the correction as "void the payment — money left the bank" ([DeletionPolicy.php:61](../../app/Support/DeletionPolicy.php#L61)) and no void exists; `VendorBillService::cancel` refuses with "Reverse the payments first" ([VendorBillService.php:98](../../app/Services/VendorBillService.php#L98)) and there is nothing to reverse them with; the payments relation manager has empty `headerActions`/`recordActions`/`toolbarActions` ([VendorBillPaymentsRelationManager.php:55](../../app/Filament/Admin/Resources/VendorBills/RelationManagers/VendorBillPaymentsRelationManager.php#L55)); and the model has no `isCommittedForDeletionPurposes()` override, so the trait's `true` default refuses the soft-delete that would otherwise self-heal the GL. A cheque keyed against the wrong bill is permanent. **Voiding a check is an everyday Voyager operation.** | ← |
-| **F2** | **High** | **No document ↔ journal-entry surface, in either direction.** No relation manager or ledger panel on Invoice / VendorBill / Payment; no source column or drill-through on the journal-entries table. The data is all there (`source_type`, `source_id`, `reversal_of_id`) | §6.1–6.2 |
-| **F3** | **Med** | **A re-derive is silent.** A change to a posted document voids and re-posts via a queued job, with a generic description and no notification to the operator who caused it | [LedgerPoster.php:236](../../app/Services/Accounting/LedgerPoster.php#L236) |
+| **F2** ✅ **FIXED 2026-08-11** | **High** | **No document ↔ journal-entry surface, in either direction.** No relation manager or ledger panel on Invoice / VendorBill / Payment; no source column or drill-through on the journal-entries table. The data is all there (`source_type`, `source_id`, `reversal_of_id`) | §6.1–6.2 |
+| **F3** 🟡 **HALF-FIXED 2026-08-11** — the trail now shows the reversal chain and a drift note on the document; there is still no push notification to the operator who caused it | **Med** | **A re-derive is silent.** A change to a posted document voids and re-posts via a queued job, with a generic description and no notification to the operator who caused it | [LedgerPoster.php:236](../../app/Services/Accounting/LedgerPoster.php#L236) |
 | **F4** | **Med** | **A correction can restate a reported month.** The reversal lands in the original period whenever it is open; "reported" (owner statement issued, VAT filed) has no representation | [JournalPostingService.php:339](../../app/Services/Accounting/JournalPostingService.php#L339) |
 | **F5** | **Med** | **The edit policy is asymmetric and undocumented.** Invoice / Payment / CreditNote / VendorBill lock at finalize; Expense, MarketingSpend and FixedAsset deliberately do not. The reasons exist in a plan doc, not a registry, and nothing fails when a new source ships with no policy at all | §3, §4 |
 | **F6** | **Low** | **A first CAM reconciliation of a past year divides by today's area.** The *occupied* denominator is time-weighted and every **re-run freezes the shares** ([CamReconciliationService.php:34-56](../../app/Services/CamReconciliationService.php#L34)) — that half is correct and well-guarded. The **GLA** basis reads `Asset.leasable_area_sqm` / a live `sum('area_sqm')` over the zone ([:322](../../app/Services/CamReconciliationService.php#L322)), neither of which is dated. Narrow: it bites only the first reconciliation of a year that ended before a remeasure | ← |

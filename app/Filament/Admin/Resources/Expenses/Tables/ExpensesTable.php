@@ -99,6 +99,7 @@ class ExpensesTable
                 TrashedFilter::make(),
             ])
             ->recordActions([
+                \App\Filament\Actions\LedgerEntryAction::make(),
                 // Read the record without opening its edit form — less
                 // friction, and no write surface for view-only roles. The
                 // schema is the resource's own form rendered disabled, so it

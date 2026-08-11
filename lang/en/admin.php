@@ -3,6 +3,7 @@
 return [
     'errors' => [
         'unit_area_not_positive' => 'A measured area has to be greater than zero. If the unit is out of use, change its status rather than its size.',
+        'unit_area_use_remeasure' => 'A unit’s area is a dated record, not a field. Use “Remeasure” so the change carries the date it takes effect from — otherwise past periods would be re-apportioned on a measurement that was not true at the time.',
         'unit_area_not_after_current' => 'This measurement starts on or before the one it would replace, which would leave two areas claiming the same day. Date it after the current measurement began.',
         'escalation_collar_inverted' => 'The minimum increase cannot be above the maximum. As written the cap would always win, so the minimum you set is the one increase that could never happen.',
         'lease_expiry_before_commencement' => 'A lease cannot end (:expiry) before it starts (:commencement). Check the year — a lease with a backwards term never bills again, and its charges end before they begin.',
@@ -1728,6 +1729,8 @@ return [
         'release_rentable_item_to' => 'Held until',
         'release_rentable_item_to_hint' => 'The last day this lease pays for it — usually a month end.',
         'release_rentable_item_done' => ':code given back. The parking charge drops from the following month.',
+        'ledger_entry' => 'Ledger',
+        'ledger_entry_heading' => 'What this document did to the books',
         'post_to_month' => 'Post to month',
         'post_to_month_hint' => 'The document keeps its own date — only its ledger entry moves. Use this when a document arrives after its own month has closed.',
         'post_to_month_field' => 'Post to',
@@ -1822,6 +1825,12 @@ return [
         'terminate_modal_heading' => 'Terminate lease :ref',
         'terminate_modal_description' => 'Marks the lease as terminated, frees unit :unit, and deactivates its recurring charges. Optionally cancels open invoices.',
         'terminate_submit' => 'Terminate Lease',
+        'remeasure_unit' => 'Remeasure',
+        'remeasure_unit_heading' => 'Remeasure unit :unit',
+        'remeasure_unit_description' => 'Records a new measured area from a date, without rewriting what came before. Currently :current m².',
+        'remeasure_new_area' => 'New measured area',
+        'remeasure_effective_from' => 'Effective from',
+        'remeasure_unit_done' => 'Unit :unit now measures :area m². Earlier periods keep the area they were billed on.',
         'lease_terminated' => 'Lease terminated',
         'lease_terminated_body' => ':ref ended :date · unit :unit is now vacant.',
         'cancel_open_invoices' => 'Cancel open invoices',
@@ -2496,6 +2505,8 @@ return [
         'item_monthly_rate' => 'The list price. What a tenant actually pays is agreed on the lease and may differ.',
         'floor_name_placeholder' => 'e.g. Lower ground, Mezzanine',
         'floor_id' => 'Chosen from the property’s floors. Add or rename them on the property itself.',
+        'unit_area_locked' => 'Set at creation. Use the “Remeasure” action to record a re-survey — it dates the change so past CAM reconciliations keep the area they were billed on.',
+        'remeasure_effective_from' => 'The date the new measurement takes effect. Periods before it keep the old area, so anything already billed stays as billed.',
         'pool_name_placeholder' => 'e.g. Common area maintenance',
         'participant_scope' => 'Everyone on the property, or only the leases in one zone — "everyone shares CAM, but only the food court shares grease-trap cleaning".',
         'participant_area' => 'Leases with a unit in this zone participate. Read from the units, so a lease that moves leaves the pool on its own.',
@@ -2658,6 +2669,27 @@ return [
         'departments' => 'Departments',
         'marketing' => 'Marketing',
         'owner_requests' => 'Owner Requests',
+    ],
+
+    // The document → ledger trail (LedgerEntryAction). Deliberately plain-language: the audience is
+    // an operator who has never heard of a journalizer, not an accountant.
+    'ledger_trail' => [
+        'state' => 'Ledger',
+        'posted' => 'Posted',
+        'not_posted' => 'Not posted yet',
+        'reversed' => 'Reversed',
+        'does_not_post' => 'This document does not reach the ledger',
+        'entry' => 'Journal entry',
+        'lines' => 'Entry lines',
+        'reversed_by' => 'Reversed by',
+        'replaced_by' => 'Replaced by',
+        'history' => 'All entries for this document',
+        'pending' => 'Pending',
+        'pending_changed' => 'This document has changed since it was posted. The ledger is corrected automatically within a few seconds — or use "Post to GL now" on any statement page.',
+        'pending_unposted' => 'This document has not reached the ledger yet. It posts automatically within a few seconds — or use "Post to GL now" on any statement page.',
+        'post_month_note' => 'Posted to :month (the document keeps its own date).',
+        'source' => 'Source document',
+        'reversal_of' => 'Reversal of :number',
     ],
 
     'statuses' => [

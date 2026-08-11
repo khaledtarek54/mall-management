@@ -811,6 +811,27 @@ button reappears on a money record.
 | `LedgerAccount` | **Only while unreferenced** — blocked by `lines`, `children` | deactivate the account — removing one that has been posted to breaks every prior statement |
 | `AccountingPeriod` | **Only while unreferenced** — blocked by `entries` | a period that has been posted to is part of the books; close it rather than remove it |
 
+### Seeing it — the document ↔ ledger trail (2026-08-11)
+
+Because the ledger is *derived*, a change to a posted document makes a queued job void its entry and
+post a fresh one, described as "Superseded by an updated document", with nothing told to anyone. The
+correction is real, correct, and was completely invisible.
+
+- **On the document:** `App\Filament\Actions\LedgerEntryAction` — a factory like `PostMonthAction`,
+  on invoices, payments, credit notes, vendor bills and expenses. State (posted / not posted yet /
+  reversed / *does not reach the ledger*), entry number and date, post month when overridden, the
+  property dimension, the debit/credit lines, **the reversal chain**, every entry the document has
+  ever had, and a pending note when the document has drifted since posting. Read-only and gated on
+  `general_ledger.view` — a leasing user sees their invoice without seeing which accounts it moved.
+- **On the entry:** a **source column with a drill-through** back to the document, resolved via
+  `Filament::getModelResource()` rather than a hand-kept model→resource map (one more list to drift);
+  a reversing entry reads as "Reversal of JE-…" instead of showing a source it does not have.
+- **The read model** is `App\Support\LedgerTrail`, side-effect free: `wouldChange()` is `sync()`'s dry
+  run — no lock, no write — so rendering the panel can never move the books.
+
+Tests: `tests/Feature/Regression/LedgerTrailVisibilityTest.php` (6), driving the real sweep — including
+the late-fee case, where `saveQuietly` fires no model event so the entry is stale until the next sweep.
+
 ### Void coverage — every money document needs a way back
 
 Refusing deletion is only half a policy: the correction path it names has to *exist*. Each posting
