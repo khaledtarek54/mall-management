@@ -1,6 +1,6 @@
 # Bank reconciliation — the plan
 
-**Status:** written 2026-08-11. **Slices 1, 2, 3 and 5 shipped the same day** — the register, statement import, matching with its guards and workspace, and the reconciliation statement. **The control exists and is reachable.** Slice 4 (suggested matches) and 6 (unmatched ageing) remain, and both are convenience on top of a working control.
+**Status:** written 2026-08-11. **Slices 1, 2, 3, 5 and 6 shipped the same day** — the register, statement import, matching with its guards and workspace, the reconciliation statement, and the ageing. **Only slice 4 (suggested matches) remains, and it is the one to be slowest about.**
 
 > **The gap, verified rather than quoted.** There is no `bank_accounts` model, no statement, no
 > statement line, no matching, and no migration for any of them. `BooksReconciliationService` is the
@@ -133,8 +133,12 @@ Each one is independently useful, which is the test of whether the slicing is ho
    unmatch, an unmatched-only filter, and a per-line state of matched / partly matched (with the
    amount still outstanding) / unmatched. Importing and matching are one workflow, so they are one
    screen.
-4. **Suggested matches.** Exact amount + date within a tolerance + reference similarity, offered as
-   a suggestion an operator confirms. Never auto-confirmed: a wrong match marks money verified.
+4. ⬜ **Suggested matches — the only slice left, and the one to be slowest about.** Exact amount +
+   date within a tolerance + reference similarity, offered as a suggestion an operator confirms.
+   **Never auto-confirmed**: a wrong match marks money verified, and a suggester that is usually
+   right is precisely the thing that stops being read. The manual path already works, so this buys
+   speed and risks trust — which is why it was sequenced last and should stay there until the
+   operator has reconciled a real month by hand and can say where the tedium actually is.
 5. ✅ **The reconciliation itself — shipped 2026-08-11.** `ReconcileBankStatementService`, on the
    statement page as its terms rather than a verdict:
 
@@ -151,7 +155,11 @@ Each one is independently useful, which is the test of whether the slicing is ho
    which is what the identity tests. Outstanding items are explanations, not failures. An unmapped
    account reports that it cannot be reconciled rather than a row of zeroes, because zeroes read as
    reconciled.
-6. **Unreconciled ageing.** A statement line unmatched for 30 days is a question nobody has asked.
+6. ✅ **Unreconciled ageing — shipped 2026-08-11.** An age badge on each unexplained line, an
+   "unexplained over 30 days" filter, and a **stale count on the statement list** — because an
+   operator scanning statements should not have to open each one to find the questions nobody has
+   asked. The age is silent on a matched line: it is explained, and how long that took is not a
+   question anyone is asking.
 
 ---
 

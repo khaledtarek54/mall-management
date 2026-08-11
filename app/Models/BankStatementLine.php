@@ -32,6 +32,26 @@ class BankStatementLine extends Model
         'running_balance' => 'decimal:2',
     ];
 
+    /**
+     * Days since the bank moved this money. Only meaningful while the line is UNMATCHED — a matched
+     * line is explained, and how long that took is not a question anyone is asking.
+     *
+     * The number the ageing exists for: a line unexplained for a month is not a backlog item, it is
+     * a question nobody has asked. Money left the account and the books still cannot say why.
+     */
+    public function ageInDays(): int
+    {
+        return (int) $this->value_date->startOfDay()->diffInDays(now()->startOfDay());
+    }
+
+    /** Unmatched, and older than $days. The worklist an operator should be shown, not a filter. */
+    public function scopeUnmatchedOlderThan(\Illuminate\Database\Eloquent\Builder $query, int $days): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query
+            ->whereDoesntHave('matches')
+            ->whereDate('value_date', '<=', now()->subDays($days)->toDateString());
+    }
+
     public function statement(): BelongsTo
     {
         return $this->belongsTo(BankStatement::class, 'bank_statement_id');

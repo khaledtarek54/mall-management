@@ -77,6 +77,8 @@ beforeEach(function () {
     $this->seed(ChartOfAccountsSeeder::class);
     $this->seed(AccountMappingSeeder::class);
     app(FiscalCalendar::class)->ensureYear(2026);
+    app(FiscalCalendar::class)->ensureYear((int) now()->year);
+    app(FiscalCalendar::class)->ensureYear((int) now()->subDays(60)->year);
 });
 
 it('reconciles when everything is matched', function () {
@@ -184,4 +186,27 @@ it('says an unmapped account cannot be reconciled rather than reporting zeroes',
 
     expect($report['mapped'])->toBeFalse()
         ->and($report['reconciled'])->toBeFalse();
+});
+
+it('ages an unexplained line, and stays silent once it is explained', function () {
+    // The point of the ageing: a line the bank moved that the books still cannot explain after a
+    // month is not a backlog item, it is a question nobody has asked.
+    [, $statement, $bankLedger] = reconFixture();
+
+    $stale = reconLine($statement, 500, now()->subDays(45)->toDateString());
+    $fresh = reconLine($statement, 200, now()->subDays(3)->toDateString());
+
+    expect($stale->ageInDays())->toBeGreaterThanOrEqual(45)
+        ->and($statement->agedUnmatchedCount())->toBe(1)
+        ->and($statement->lines()->unmatchedOlderThan(30)->pluck('id')->all())->toBe([$stale->id]);
+
+    // Explaining it takes it off the worklist — the count is about UNMATCHED age, not age.
+    app(MatchBankStatementLineService::class)->match(
+        $stale,
+        reconPosting($bankLedger, 500, now()->subDays(45)->toDateString()),
+    );
+
+    expect($statement->refresh()->agedUnmatchedCount())->toBe(0)
+        // …and the fresh line is still not stale, so the threshold means something.
+        ->and($fresh->ageInDays())->toBeLessThan(30);
 });

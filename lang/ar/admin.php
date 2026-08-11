@@ -2,6 +2,12 @@
 
 return [
     'bank' => [
+        'age' => 'العمر',
+        'days_old' => ':days يوم',
+        'only_aged' => 'بلا تفسير لأكثر من ٣٠ يومًا',
+        'aged_unmatched' => 'متقادم',
+        'aged_count' => ':count تجاوز ٣٠ يومًا',
+        'aged_unmatched_hint' => 'سطور حرّك البنك أموالها ولا تستطيع الدفاتر تفسيرها بعد شهر. كل سطر منها سؤال لم يطرحه أحد.',
         'reconciliation_heading' => 'التسوية',
         'reconciliation_state' => 'الحالة',
         'reconciled' => 'مُسوّى',

@@ -70,6 +70,20 @@ class LinesRelationManager extends RelationManager
                     // Money in and money out read differently at a glance, which is most of what an
                     // operator is doing on this screen.
                     ->color(fn (BankStatementLine $record) => (float) $record->amount >= 0 ? 'success' : 'danger'),
+                TextColumn::make('age')
+                    ->label(__('admin.bank.age'))
+                    ->badge()
+                    // Silent on a matched line: it is explained, and how long that took is not a
+                    // question anyone is asking. Loud once an unexplained line passes a month.
+                    ->getStateUsing(function (BankStatementLine $record) use ($service) {
+                        if ($service->coverage($record)['fully']) {
+                            return null;
+                        }
+
+                        return __('admin.bank.days_old', ['days' => $record->ageInDays()]);
+                    })
+                    ->color(fn (BankStatementLine $record) => $record->ageInDays() >= 30 ? 'danger' : 'gray')
+                    ->placeholder('—'),
                 TextColumn::make('match_state')
                     ->label(__('admin.fields.match_state'))
                     ->badge()
@@ -97,6 +111,10 @@ class LinesRelationManager extends RelationManager
                 Filter::make('unmatched')
                     ->label(__('admin.bank.only_unmatched'))
                     ->query(fn ($query) => $query->whereDoesntHave('matches'))
+                    ->toggle(),
+                Filter::make('aged')
+                    ->label(__('admin.bank.only_aged'))
+                    ->query(fn ($query) => $query->unmatchedOlderThan(30))
                     ->toggle(),
             ])
             ->headerActions([

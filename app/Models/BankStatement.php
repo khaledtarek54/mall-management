@@ -79,6 +79,17 @@ class BankStatement extends Model
         return abs(round((float) $this->opening_balance + $this->movement() - (float) $this->closing_balance, 2)) < 0.005;
     }
 
+    /** How many of this statement's lines have gone unexplained for longer than $days. */
+    public function agedUnmatchedCount(int $days = 30): int
+    {
+        // Through the query builder rather than the relation, so static analysis can see the scope
+        // — a HasMany forwards it at runtime but does not declare it.
+        return BankStatementLine::query()
+            ->where('bank_statement_id', $this->getKey())
+            ->unmatchedOlderThan($days)
+            ->count();
+    }
+
     public function label(): string
     {
         return $this->period_start->format('d/m/Y').' – '.$this->period_end->format('d/m/Y');

@@ -42,6 +42,19 @@ class BankStatementsTable
                 // backwards: does the BANK's own arithmetic hold? It says nothing about the books,
                 // and everything about whether this statement was ingested faithfully — which is the
                 // precondition for matching anything against it.
+                // The ageing, where it is actually seen: an operator scanning the statement list
+                // should not have to open each one to find the questions nobody has asked.
+                TextColumn::make('aged_unmatched')
+                    ->label(__('admin.bank.aged_unmatched'))
+                    ->badge()
+                    ->getStateUsing(function (BankStatement $record) {
+                        $count = $record->agedUnmatchedCount();
+
+                        return $count > 0 ? __('admin.bank.aged_count', ['count' => $count]) : null;
+                    })
+                    ->color('danger')
+                    ->placeholder('—')
+                    ->tooltip(__('admin.bank.aged_unmatched_hint')),
                 TextColumn::make('consistency')
                     ->label(__('admin.fields.statement_consistent'))
                     ->badge()

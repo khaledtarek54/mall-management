@@ -2,6 +2,12 @@
 
 return [
     'bank' => [
+        'age' => 'Age',
+        'days_old' => ':days d',
+        'only_aged' => 'Unexplained over 30 days',
+        'aged_unmatched' => 'Stale',
+        'aged_count' => ':count over 30 days',
+        'aged_unmatched_hint' => 'Lines the bank moved that the books still cannot explain after a month. Each one is a question nobody has asked.',
         'reconciliation_heading' => 'Reconciliation',
         'reconciliation_state' => 'State',
         'reconciled' => 'Reconciled',
