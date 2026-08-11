@@ -77,7 +77,7 @@ it('reports the unpostable install as unhealthy in production', function () {
     expect($check['ok'])->toBeFalse()
         ->and($check['detail'])->toContain('accounts_receivable')
         // The remedy, named — a health check that only says "broken" makes someone go looking.
-        ->and($check['detail'])->toContain('AccountingSeeder');
+        ->and($check['detail'])->toContain('atriom:install');
 
     // The control: seed the chart + mappings and the same check passes, so the failure above is
     // the missing chart and not the check reporting red on everything.

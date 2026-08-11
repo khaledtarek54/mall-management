@@ -42,6 +42,7 @@ php artisan migrate:fresh --seed          # reset local demo data
 vendor/bin/pest --parallel                # test suite
 npx playwright test --project=chromium    # E2E (against Herd mall-management.test)
 npm run docs:dev                          # the visual handbook (docs/visual/)
+php artisan atriom:install                # FIRST DEPLOY: reference data (roles, chart, mappings, charge codes, fiscal year) + verifies the DB can post
 php artisan atriom:backup-verify          # restore drill: replay the newest backup into a scratch DB
 php artisan atriom:rebuild-search         # re-fold every search_text blob (after changing SearchText or a searchTextSources())
 php artisan atriom:project-lease-schedules # backfill the contracted rent ladder onto pre-schedule leases (dry-run; --commit to write)

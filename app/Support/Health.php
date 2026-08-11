@@ -242,8 +242,29 @@ class Health
      */
     private static function checkAccounting(): array
     {
-        $production = ! in_array(config('app.env'), ['local', 'testing'], true);
+        $verdict = self::accountingReadiness();
 
+        if (in_array(config('app.env'), ['local', 'testing'], true)) {
+            return ['ok' => true, 'detail' => $verdict['ok']
+                ? $verdict['detail']
+                : 'local/testing — not enforced ('.$verdict['detail'].')'];
+        }
+
+        return ['ok' => $verdict['ok'], 'detail' => $verdict['detail']];
+    }
+
+    /**
+     * The verdict itself, WITHOUT the environment gate — "can this database post to the books?"
+     *
+     * Separated for the same reason as {@see backupCapability()}: the gate is a reporting policy
+     * (don't cry wolf on a laptop), not part of the question. `atriom:install` needs the raw answer,
+     * because an installer that reports "fine" on a developer machine it has just failed to set up
+     * is the exact failure this whole line of work exists to remove.
+     *
+     * @return array{ok: bool, detail: string, broken: array<int, string>}
+     */
+    public static function accountingReadiness(): array
+    {
         try {
             $resolver = app(\App\Services\Accounting\AccountResolver::class);
             $broken = [];
@@ -256,21 +277,24 @@ class Health
                 }
             }
         } catch (Throwable $e) {
-            return ['ok' => ! $production, 'detail' => 'unreadable: '.$e->getMessage()];
+            return ['ok' => false, 'detail' => 'unreadable: '.$e->getMessage(), 'broken' => []];
         }
 
         if ($broken === []) {
-            return ['ok' => true, 'detail' => count(PostingRoles::keys()).' posting roles mapped'];
+            return ['ok' => true, 'detail' => count(PostingRoles::keys()).' posting roles mapped', 'broken' => []];
         }
 
         // Naming a few is enough to recognise the state; the full list is what `atriom:health`
         // would print forever otherwise.
         $sample = implode(', ', array_slice($broken, 0, 5)).(count($broken) > 5 ? ', …' : '');
-        $detail = count($broken).' of '.count(PostingRoles::keys())
-            ." posting roles have no usable account ({$sample}) — every GL post using them is refused,"
-            .' so invoices bill while the books stay empty. Run `php artisan db:seed --class=AccountingSeeder`.';
 
-        return ['ok' => ! $production, 'detail' => $production ? $detail : 'local/testing — not enforced ('.$detail.')'];
+        return [
+            'ok' => false,
+            'detail' => count($broken).' of '.count(PostingRoles::keys())
+                ." posting roles have no usable account ({$sample}) — every GL post using them is refused,"
+                .' so invoices bill while the books stay empty. Run `php artisan atriom:install`.',
+            'broken' => $broken,
+        ];
     }
 
     /**
@@ -291,26 +315,52 @@ class Health
     private static function checkDemoAccounts(): array
     {
         $production = ! in_array(config('app.env'), ['local', 'testing'], true);
+        $emails = self::demoAccountEmails();
 
-        try {
-            $emails = DB::table('users')
-                ->where(fn ($q) => $q->where('email', 'like', '%@mall.test')
-                    ->orWhere('email', 'like', '%@atriom.test')
-                    ->orWhere('email', 'like', '%@atriomwalk.test'))
-                ->pluck('email');
-        } catch (Throwable $e) {
-            return ['ok' => ! $production, 'detail' => 'unreadable: '.$e->getMessage()];
+        if ($emails === null) {
+            return ['ok' => ! $production, 'detail' => 'unreadable'];
         }
 
-        if ($emails->isEmpty()) {
+        if ($emails === []) {
             return ['ok' => true, 'detail' => 'no seeded demo logins'];
         }
 
-        $detail = $emails->count().' seeded demo login(s) still active ('
-            .$emails->take(3)->implode(', ').($emails->count() > 3 ? ', …' : '')
-            .') — their password is published in DEMO.md. Delete them or rotate before go-live.';
+        return [
+            'ok' => ! $production,
+            'detail' => $production
+                ? self::demoAccountWarning($emails)
+                : 'local/testing — expected ('.count($emails).' demo login(s))',
+        ];
+    }
 
-        return ['ok' => ! $production, 'detail' => $production ? $detail : 'local/testing — expected ('.$emails->count().' demo login(s))'];
+    /**
+     * The seeded demo logins present in this database, or null if users cannot be read.
+     *
+     * Raw and ungated, so `atriom:install` can warn about them on the box it just prepared without
+     * inheriting the health check's don't-cry-wolf-locally policy.
+     *
+     * @return array<int, string>|null
+     */
+    public static function demoAccountEmails(): ?array
+    {
+        try {
+            return DB::table('users')
+                ->where(fn ($q) => $q->where('email', 'like', '%@mall.test')
+                    ->orWhere('email', 'like', '%@atriom.test')
+                    ->orWhere('email', 'like', '%@atriomwalk.test'))
+                ->pluck('email')
+                ->all();
+        } catch (Throwable $e) {
+            return null;
+        }
+    }
+
+    /** @param  array<int, string>  $emails */
+    public static function demoAccountWarning(array $emails): string
+    {
+        return count($emails).' seeded demo login(s) still active ('
+            .implode(', ', array_slice($emails, 0, 3)).(count($emails) > 3 ? ', …' : '')
+            .') — their password is published in DEMO.md. Delete them or rotate before go-live.';
     }
 
     /** @return array{ok: bool, detail: string} */

@@ -71,20 +71,21 @@ php artisan queue:restart           # workers pick up new code
 
 ```
 php artisan key:generate
-php artisan db:seed --class=RolesPermissionsSeeder   # roles + the 182-permission catalogue
-php artisan db:seed --class=AccountingSeeder         # chart of accounts, account mappings,
-                                                     # charge codes, and an open fiscal year
-php artisan atriom:health                            # must be green before real data goes in
+php artisan atriom:install          # roles + permissions, chart of accounts, account mappings,
+                                    # charge codes, fiscal year — then VERIFIES it can post
+php artisan atriom:health           # must be green before real data goes in
 ```
 
 `php artisan migrate --force --seed` is **NOT** for prod — `DemoSeeder` is demo data.
 
-**Do not skip `AccountingSeeder`** (this line said "seed only `RolesPermissionsSeeder`" until
-2026-08-11, which produced exactly the install described below). The chart of accounts is a seeder,
-not a migration: without it the system bills perfectly and posts **nothing** — a correct invoice,
-`accounting:sync-ledger` refusing every entry, and a general ledger at zero. `atriom:health`'s
-`accounting` check now reports that state by name, which is why it belongs in the sequence above and
-not after the first month's billing.
+`atriom:install` exists because this step used to be a checklist, and this line used to say "seed
+only `RolesPermissionsSeeder`" — which produced an install that **bills perfectly and posts
+nothing**: a correct invoice, `accounting:sync-ledger` refusing every entry, and a general ledger at
+zero. The chart of accounts is a seeder, not a migration. The command runs the reference-data
+seeders in order and then **verifies the result through the same resolver the journalizers use**,
+exiting non-zero if the database still cannot post — so "installed" means proved, not "the seeders
+exited 0". It is **idempotent** (safe to re-run on a live system; it re-asserts reference data and
+touches no business row) and it **never** seeds demo data.
 
 ---
 
