@@ -55,10 +55,13 @@ function camPoolAsset(): array
 
 function postExpense(int $assetId, int $accountId, float $amount, string $date, string $status = 'posted'): void
 {
+    // Built in the order the product builds one: the lines go on while the entry is a DRAFT,
+    // then it is posted. Hand-crafting lines onto an already-posted entry is a state production
+    // cannot reach and `JournalLine`'s immutability guard now refuses (module 21 close-out).
     $entry = JournalEntry::create([
         'entry_date' => $date,
         'description_en' => 'Cleaning contractor',
-        'status' => $status,
+        'status' => 'draft',
         'asset_id' => $assetId,
         'is_manual' => true,
     ]);
@@ -70,6 +73,10 @@ function postExpense(int $assetId, int $accountId, float $amount, string $date, 
         'credit' => 0,
         'asset_id' => $assetId,
     ]);
+
+    if ($status !== 'draft') {
+        $entry->update(['status' => $status]);
+    }
 }
 
 it('sums the pool from posted ledger lines on its own accounts and property', function () {
@@ -110,14 +117,16 @@ it('nets vendor credits off the pool rather than recovering them from tenants', 
 
     postExpense($asset->id, $account->id, 500000, '2028-03-15');
 
+    // Draft first, then posted — see postExpense() above for why.
     $entry = JournalEntry::create([
         'entry_date' => '2028-06-01', 'description_en' => 'Contractor credit note',
-        'status' => 'posted', 'asset_id' => $asset->id, 'is_manual' => true,
+        'status' => 'draft', 'asset_id' => $asset->id, 'is_manual' => true,
     ]);
     JournalLine::create([
         'journal_entry_id' => $entry->id, 'ledger_account_id' => $account->id,
         'debit' => 0, 'credit' => 50000, 'asset_id' => $asset->id,
     ]);
+    $entry->update(['status' => 'posted']);
 
     app(SyncCamPoolFromLedgerService::class)->sync($pool);
 

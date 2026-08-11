@@ -157,8 +157,57 @@ class JournalEntry extends Model
         return $prefix.str_pad((string) $next, 4, '0', STR_PAD_LEFT);
     }
 
+    /**
+     * What a POSTED entry may never change — see the `updating` guard in {@see booted()}.
+     *
+     * `status`, `voided_at`, `void_reason` and `updated_at` are deliberately absent: voiding is the
+     * documented correction and must stay possible. Everything that decides what the books say is
+     * here.
+     *
+     * @var array<int, string>
+     */
+    public const FROZEN_ONCE_POSTED = [
+        'entry_date', 'asset_id', 'source_type', 'source_id',
+        'is_manual', 'number', 'reversal_of_id', 'accounting_period_id',
+    ];
+
     protected static function booted(): void
     {
+        // ── A posted entry is permanent ────────────────────────────────────────────────────────
+        // `JournalPostingService` validates an entry when it POSTS it — every line carries a debit
+        // or a credit, the total is non-zero, debits equal credits to the half-piastre. Nothing
+        // re-validated afterwards, and "a posted entry is permanent" was enforced by
+        // `EditJournalEntry::getSaveFormAction()->visible(fn () => status === 'draft')` — a hidden
+        // Save button. So the general ledger protected itself at layer 3, weakly, while every
+        // module that posts into it was being made to protect its own documents at layer 1.
+        //
+        // `entry_date` is the one that travels furthest: it decides the PERIOD an entry belongs to,
+        // so moving it walks the amount into another month — including one that has been closed,
+        // reported and shown to an owner. That is the divergence `PostingDate` exists to stop,
+        // arriving from inside the ledger rather than from a source document.
+        //
+        // Voiding stays available: it posts a balanced reversing entry (قيد عكسي) and is the
+        // correction the module documents, so this refusal never traps anyone.
+        // (Module 21 close-out, 2026-08-11.)
+        static::updating(function (self $entry) {
+            if (! in_array($entry->getOriginal('status'), ['posted', 'void'], true)) {
+                return;
+            }
+
+            foreach (self::FROZEN_ONCE_POSTED as $field) {
+                if ($entry->isDirty($field)) {
+                    throw new \DomainException(__('admin.journal_entries.errors.posted_immutable'));
+                }
+            }
+
+            // A posted entry may only ever move ON to void — never back to draft, and never
+            // out of void.
+            if ($entry->isDirty('status')
+                && ! ($entry->getOriginal('status') === 'posted' && $entry->status === 'void')) {
+                throw new \DomainException(__('admin.journal_entries.errors.posted_immutable'));
+            }
+        });
+
         static::creating(function (self $entry) {
             if (empty($entry->number)) {
                 $entry->number = $entry->allocateDocumentNumber(

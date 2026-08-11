@@ -4,6 +4,7 @@ namespace App\Services\Accounting;
 
 use App\Models\AccountingPeriod;
 use App\Models\JournalEntry;
+use App\Models\JournalLine;
 use App\Models\LedgerAccount;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
@@ -110,17 +111,22 @@ class JournalPostingService
                 'posted_at' => $status === 'posted' ? now() : null,
             ]);
 
-            foreach ($lines as $line) {
-                $entry->lines()->create([
-                    'ledger_account_id' => $line['ledger_account_id'],
-                    'debit' => $line['debit'],
-                    'credit' => $line['credit'],
-                    'description' => $line['description'],
-                    'asset_id' => $line['asset_id'] ?? $assetId,
-                    'tenant_id' => $line['tenant_id'] ?? null,
-                    'lease_id' => $line['lease_id'] ?? null,
-                ]);
-            }
+            // The entry is inserted ALREADY posted, so its own lines have to be written with the
+            // posted-entry guard suspended — this is the engine the guard exists to be the only
+            // exception to. See JournalLine::withinPostingEngine().
+            JournalLine::withinPostingEngine(function () use ($entry, $lines, $assetId) {
+                foreach ($lines as $line) {
+                    $entry->lines()->create([
+                        'ledger_account_id' => $line['ledger_account_id'],
+                        'debit' => $line['debit'],
+                        'credit' => $line['credit'],
+                        'description' => $line['description'],
+                        'asset_id' => $line['asset_id'] ?? $assetId,
+                        'tenant_id' => $line['tenant_id'] ?? null,
+                        'lease_id' => $line['lease_id'] ?? null,
+                    ]);
+                }
+            });
 
             return $entry->load('lines');
         });
@@ -206,17 +212,19 @@ class JournalPostingService
                 'reversal_of_id' => $entry->id,
             ]);
 
-            foreach ($entry->lines as $line) {
-                $reversal->lines()->create([
-                    'ledger_account_id' => $line->ledger_account_id,
-                    'debit' => $line->credit, // swapped
-                    'credit' => $line->debit, // swapped
-                    'description' => $line->description,
-                    'asset_id' => $line->asset_id,
-                    'tenant_id' => $line->tenant_id,
-                    'lease_id' => $line->lease_id,
-                ]);
-            }
+            JournalLine::withinPostingEngine(function () use ($entry, $reversal) {
+                foreach ($entry->lines as $line) {
+                    $reversal->lines()->create([
+                        'ledger_account_id' => $line->ledger_account_id,
+                        'debit' => $line->credit, // swapped
+                        'credit' => $line->debit, // swapped
+                        'description' => $line->description,
+                        'asset_id' => $line->asset_id,
+                        'tenant_id' => $line->tenant_id,
+                        'lease_id' => $line->lease_id,
+                    ]);
+                }
+            });
 
             $entry->status = 'void';
             $entry->voided_at = now();

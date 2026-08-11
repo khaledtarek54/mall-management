@@ -1,5 +1,48 @@
 # Module 21 — General Ledger & Accounting Core (المحاسبة العامة / دفتر الأستاذ العام)
 
+## A posted entry is immutable — enforced at the model (2026-08-11)
+
+`JournalPostingService` validates an entry when it **posts** it: every line carries a debit or a
+credit, the total is non-zero, and debits equal credits to the half-piastre. **Nothing re-validated
+afterwards**, and "a posted entry is permanent" was enforced by
+
+```php
+EditJournalEntry::getSaveFormAction()->visible(fn () => $this->record->status === 'draft')
+```
+
+— a hidden Save button. `JournalEntry::booted()` carried only a `creating` hook; `JournalLine`
+only the NOT-NULL coercion. So the ledger protected itself at layer 3, weakly, while every module
+posting into it was being given layer-1 guards by the same close-out.
+
+The consequences do not stay inside one document, which is what makes this the worst of the batch:
+
+- **an unbalanced entry** — re-price a line, add one or remove one and debits stop equalling
+  credits. The trial balance stops balancing and the balance sheet, the P&L and the owner
+  statements are all wrong at once, with nothing naming which entry did it;
+- **a restated closed period** — `entry_date` decides the period, so moving it walks the amount
+  into another month, including one already closed, reported and shown to an owner. That is the
+  divergence `App\Support\PostingDate` exists to stop, arriving from *inside* the ledger;
+- **money moved with no trail** — changing a line's `ledger_account_id` re-homes an amount between
+  accounts, leaving both wrong and nothing recording it.
+
+Now: `JournalEntry::FROZEN_ONCE_POSTED` (date, property, source link, number, period, reversal link)
+refuses once the ORIGINAL status is `posted` or `void`, and status may only ever move `posted → void`
+— never back to draft. `JournalLine::saving`/`deleting` refuse on any non-draft entry.
+
+**The posting engine is the one exception, and says so.** `post()` inserts the entry already
+`posted` and then writes its lines, so it wraps them in `JournalLine::withinPostingEngine()` — a
+deliberately narrow, greppable escape with exactly one caller. Relaxing the rule to "created lines
+are fine" instead would have left *add a line to a posted entry* — the whole unbalanced-ledger
+case — wide open.
+
+**Nothing is trapped by this.** `void()` posts a balanced reversing entry (قيد عكسي) and you post a
+fresh one; that is the correction this module already documents. Drafts stay fully editable — a
+draft is not on the books, which is the entire distinction the status carries.
+
+Tests: `PostedJournalEntryIsImmutableTest`. Two fixtures were rebuilt in the order the product uses
+(lines while draft, then post) rather than hand-crafting a state production cannot reach.
+
+
 > **Status:** Phases 0–4 shipped (foundation, auto-posting, financial statements,
 > expenses/payables/payroll, close) + security deposits. Remaining follow-ups are in
 > the roadmap at the bottom. Read [docs/OVERVIEW.md](../OVERVIEW.md) and
