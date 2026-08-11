@@ -117,12 +117,40 @@ become under-reporting — a portfolio question deserves a portfolio answer).
    balances. Move stock to another property as an adjustment out + a receipt in, which posts
    the value movement each property's books need.
 
-> **Known limitation — standard costing, no variance layer.** Receipts load Inventory at
-> their entered purchase cost; consumption/adjustments relieve it at the item's *current*
-> `unit_cost`. If an item's `unit_cost` is edited between receipt and consumption, the
-> perpetual Inventory account drifts from receipt-loaded value (no purchase-price-variance /
-> FIFO / weighted-average layer). A proper costing layer is a future enhancement; for now,
-> keep `unit_cost` stable or reconcile Inventory periodically.
+10. **Stock is relieved at what it was LOADED at — weighted average, per warehouse.**
+    `StockMovementService::weightedAverageCost()` is the single answer to "what is this stock
+    worth": the average of the costs on the movements that ADDED it, in that warehouse. Every
+    path that relieves inventory without a stated cost reads it — `record()`'s fallback and the
+    work-order part draw — so the value credited out of Inventory can never diverge from the
+    value debited in. A caller who states a cost still wins (an auditor-valued write-off), and
+    an item with nothing received falls back to the catalogue figure, which is the only answer
+    available.
+
+    **This closed a hole in the balance sheet (2026-08-11).** The fallback used to read the
+    item's *current* catalogue `unit_cost`. Receive 10 @ 100 (Dr Inventory 1,000), edit the item
+    to 300 — an ordinary act, the field exists to be edited — then issue the 10, and Inventory
+    is credited 3,000: **on-hand 0, Inventory −2,000**, Repairs & Maintenance overstated by the
+    same amount, and nothing re-derives a perpetual account so every later movement compounds it.
+    Owner statements are drawn off these balances. It was carried in this doc as a "known
+    limitation … keep `unit_cost` stable or reconcile Inventory periodically", which is advice
+    no operator can follow and no system enforces.
+
+    The **same root cause** reached one path further out: `WorkOrderPartService::requestInternal`
+    defaulted from the same catalogue figure, and that figure both picks the approval tier
+    (FR-CM-11 — a stale-low price routes a large draw to a junior approver, the escalation
+    mechanism quietly not escalating) and is frozen onto the part, so `approve()` passed it to
+    `record()` as an EXPLICIT cost and walked straight past the new fallback. Both now read the
+    weighted average. The item's `unit_cost` keeps its real job: the default for a NEW receipt —
+    what we expect to pay next — which is what an operator editing it actually means.
+
+    Tests: `InventoryCostBasisDriftTest` (driven through the real service + `accounting:sync-ledger`).
+
+> **Remaining limitation — no purchase-price variance.** Weighted average is a costing basis, not
+> a variance layer: a receipt at an unexpected price moves the average rather than booking the
+> difference to a PPV account. That is the correct behaviour for a mall's spare-parts store and
+> matches what the specialists do at this scale; a PPV layer is a manufacturing concern. **Trigger
+> to revisit:** if the operator ever needs to report purchase-price variance to the owner, or a
+> supplier contract prices parts on a fixed-standard basis.
 
 ---
 

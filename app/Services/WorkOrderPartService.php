@@ -57,17 +57,34 @@ class WorkOrderPartService
             $this->assertWarehouseServesOrder($locked, (int) $data['warehouse_id']);
 
             $quantity = round((float) $data['quantity'], 3);
-            // Frozen at request time. Re-reading the catalog at approval would restate the
-            // value a manager is being asked to sign off — and it is the value that decides
-            // which manager (FR-CM-11).
+            // FROZEN at request time, and that stays: re-reading at approval would restate the
+            // value a manager is being asked to sign off — and it is the value that decides which
+            // manager (FR-CM-11).
             //
-            // `filled()`, not `??`: a blank '' is not an absent value, and `?? ` waves it
-            // straight through to `(float) '' === 0.0` — pricing the part at zero and dropping
-            // it to the lowest tier. Proven before this guard: a 500 EGP draw priced itself at
-            // 0.00 and asked for tier_1. The same trap as `meter_readings.cost`.
+            // `filled()`, not `??`: a blank '' is not an absent value, and `??` waves it straight
+            // through to `(float) '' === 0.0` — pricing the part at zero and dropping it to the
+            // lowest tier. Proven before that guard: a 500 EGP draw priced itself at 0.00 and asked
+            // for tier_1. The same trap as `meter_readings.cost`.
+            //
+            // The DEFAULT is the weighted-average cost of the stock actually in that warehouse, not
+            // the catalogue price (module 22 close-out, 2026-08-11). The catalogue is what we expect
+            // to pay NEXT; it drifts from what this stock cost, and both things decided here were
+            // wrong when it did:
+            //
+            //   1. `value` picks the approval tier, so a catalogue left at last year's figure routes
+            //      a large draw to a junior approver — the mechanism whose whole job is to escalate,
+            //      quietly not escalating;
+            //   2. `approve()` records the stock movement with this frozen cost — an EXPLICIT cost,
+            //      so it bypasses the weighted-average fallback in StockMovementService::record()
+            //      and re-opens the Inventory drift that fallback exists to close.
+            //
+            // So the bug was never the freezing. It was WHICH figure gets frozen.
             $unitCost = filled($data['unit_cost'] ?? null)
                 ? round((float) $data['unit_cost'], 2)
-                : round((float) (InventoryItem::find($data['inventory_item_id'])?->unit_cost ?? 0), 2);
+                : round(app(StockMovementService::class)->weightedAverageCost(
+                    InventoryItem::findOrFail($data['inventory_item_id']),
+                    Warehouse::findOrFail($data['warehouse_id']),
+                ), 2);
             $value = round($quantity * $unitCost, 2);
 
             return MaintenanceWorkOrderPart::create([

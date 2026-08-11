@@ -35,6 +35,20 @@ use Database\Seeders\RolesPermissionsSeeder;
  * The guard is keyed on QUANTITY, not type: a zero-quantity adjustment is a deliberate no-op
  * note and stays legal (see `StockMovementService`'s own `$quantity == 0.0 && $type !==
  * 'adjustment'` check, and the journalizer's "a zero-value movement has no GL effect").
+ *
+ * ── UPDATED 2026-08-11 (module 22 close-out) ──────────────────────────────────────────────────
+ * Two of these tests described a state that is no longer reachable, and the change is the point.
+ * The cost-out fallback no longer reads the item's CURRENT catalogue price — it reads the
+ * **weighted-average cost of what is on hand**, derived from the movement ledger
+ * (`StockMovementService::weightedAverageCost()`). So an item stocked at 200 with a catalogue
+ * price of 0 now issues at **200**: the value follows the stock, which is exactly what F-83 asked
+ * for, arriving from a better source than the field somebody forgot to fill in.
+ *
+ * The guard itself stays and still fires — for stock that has genuinely never carried a value
+ * anywhere (nothing received, catalogue 0), which is the only case left where nothing can be
+ * derived. Those are the two tests below, rewritten to assert the outcome rather than the
+ * mechanism, so they keep proving "stock never moves without its value" without pinning the
+ * particular fallback that supplies it.
  */
 beforeEach(function () {
     $this->seed(RolesPermissionsSeeder::class);
@@ -52,37 +66,55 @@ beforeEach(function () {
     ]);
 });
 
-it('refuses to consume stock that carries no value', function () {
-    // Stock it first, at a real cost — so on-hand exists and only the CATALOG price is 0.
+it('values a consumption from what the stock was received at, not the catalogue price', function () {
+    // Stock it at a real cost — so on-hand exists and only the CATALOG price is 0. This used to
+    // throw: the fallback read the catalogue's 0 and F-83 refused the movement. The stock now
+    // carries its value in the ledger, so the movement is valued rather than refused, which is
+    // what "stock never moves without its value" always meant.
     app(StockMovementService::class)->record([
         'type' => 'receipt', 'warehouse_id' => $this->warehouse->id,
         'inventory_item_id' => $this->freeItem->id, 'quantity' => 10, 'unit_cost' => 200,
         'moved_on' => now()->toDateString(),
     ]);
 
-    expect(fn () => app(StockMovementService::class)->record([
+    $movement = app(StockMovementService::class)->record([
         'type' => 'consumption', 'warehouse_id' => $this->warehouse->id,
         'inventory_item_id' => $this->freeItem->id, 'quantity' => 10,
         'moved_on' => now()->toDateString(),
-    ]))->toThrow(InvalidArgumentException::class);
+    ]);
 
-    // The stock is still there — it must not leave without its value following.
-    expect(StockMovement::where('type', 'consumption')->count())->toBe(0);
+    expect((float) $movement->unit_cost)->toBe(200.0);
 });
 
-it('refuses a write-off that carries no value', function () {
-    // The doc promises a write-off ALWAYS hits Inventory Adjustment. At cost 0 it posted nothing.
+it('STILL refuses to move stock that has never carried a value anywhere', function () {
+    // The F-83 guard, on the only case left where nothing can be derived: catalogue 0 and nothing
+    // ever received, so there is no loaded cost to average. Without this the guard would have
+    // been quietly retired by the cost-basis change rather than deliberately narrowed.
+    expect(fn () => app(StockMovementService::class)->record([
+        'type' => 'adjustment', 'warehouse_id' => $this->warehouse->id,
+        'inventory_item_id' => $this->freeItem->id, 'quantity' => -1,
+        'moved_on' => now()->toDateString(),
+    ]))->toThrow(InvalidArgumentException::class);
+
+    expect(StockMovement::where('type', 'adjustment')->count())->toBe(0);
+});
+
+it('values a write-off at the loaded cost, so it always hits Inventory Adjustment', function () {
+    // The doc promises a write-off ALWAYS hits Inventory Adjustment. At catalogue cost 0 it used
+    // to post nothing, and F-83 turned that into a refusal. Now it posts the real 200 x 5.
     app(StockMovementService::class)->record([
         'type' => 'receipt', 'warehouse_id' => $this->warehouse->id,
         'inventory_item_id' => $this->freeItem->id, 'quantity' => 5, 'unit_cost' => 200,
         'moved_on' => now()->toDateString(),
     ]);
 
-    expect(fn () => app(StockMovementService::class)->record([
+    $writeOff = app(StockMovementService::class)->record([
         'type' => 'adjustment', 'warehouse_id' => $this->warehouse->id,
         'inventory_item_id' => $this->freeItem->id, 'quantity' => -5,
         'moved_on' => now()->toDateString(),
-    ]))->toThrow(InvalidArgumentException::class);
+    ]);
+
+    expect((float) $writeOff->unit_cost)->toBe(200.0);
 });
 
 it('still allows a zero-quantity adjustment — a note is not a stock movement', function () {

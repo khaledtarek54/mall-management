@@ -48,12 +48,31 @@ class StockMovementService
             $quantity = -abs($quantity);
         }
 
-        // Consumption + adjustments are valued at the item's standard cost when the
-        // caller supplies none (receipts must carry their own purchase cost) — so a
-        // shrinkage write-off or a ticket consumption always hits the GL for its value.
+        // Consumption + adjustments are valued at the WEIGHTED-AVERAGE COST OF WHAT IS ON HAND when
+        // the caller supplies none (receipts must carry their own purchase cost) — so a shrinkage
+        // write-off or a ticket consumption always hits the GL, and hits it for what the stock was
+        // actually loaded at.
+        //
+        // This used to fall back to the item's CURRENT standard cost, and the module doc carried it
+        // as a known limitation ("no variance layer … keep unit_cost stable or reconcile Inventory
+        // periodically"). It is not a limitation, it is a hole in the balance sheet: receive 10 @ 100
+        // (Dr Inventory 1,000), edit the item to 300 — an ordinary act, the field exists to be
+        // edited — then issue the 10, and Inventory is credited 3,000. On-hand 0, Inventory −2,000,
+        // Repairs & Maintenance overstated by the same 2,000, and nothing re-derives a perpetual
+        // account so every later movement compounds it. Owner statements are drawn off these
+        // balances (module 22 close-out, 2026-08-11).
+        //
+        // Weighted average is the standard perpetual answer and needs no new table — the movement
+        // ledger already carries every quantity and the cost it moved at. `weightedAverageCost()`
+        // is the single place that question is answered.
         $unitCost = round((float) ($data['unit_cost'] ?? 0), 2);
         if ($unitCost <= 0 && $type !== 'receipt') {
-            $unitCost = round((float) (InventoryItem::find($data['inventory_item_id'])?->unit_cost ?? 0), 2);
+            $item = InventoryItem::find($data['inventory_item_id']);
+            $warehouse = Warehouse::find($data['warehouse_id']);
+
+            $unitCost = $item && $warehouse
+                ? round($this->weightedAverageCost($item, $warehouse), 2)
+                : 0.0;
         }
 
         // ...but the sentence above was only TRUE if the catalog actually carries a cost, and
@@ -261,5 +280,52 @@ class StockMovementService
         }
 
         return round((float) $query->sum('quantity'), 3);
+    }
+
+    /**
+     * What the stock on hand is worth per unit — the weighted average of what it was LOADED at.
+     *
+     * **The single answer to "what is this stock worth".** Every path that relieves inventory
+     * without a stated cost reads it, so the value credited out of Inventory can never diverge from
+     * the value debited in. Relieving at the item's *current* `unit_cost` instead is what drove the
+     * perpetual account negative (see `record()`), and it is why this is derived from the movement
+     * ledger rather than read off the catalogue.
+     *
+     * Averaged over the movements that ADD stock (receipts + transfers in), per warehouse — the GL
+     * dimensions inventory by the warehouse's property, so a portfolio-wide average would relieve
+     * one mall's Inventory at another mall's purchase price.
+     *
+     * Falls back to the item's standard cost when nothing has been received: a negative adjustment
+     * against empty stock has no loaded value to derive from, and the catalogue figure is then the
+     * only answer available — which is exactly what the old behaviour always did.
+     */
+    public function weightedAverageCost(InventoryItem $item, ?Warehouse $warehouse = null): float
+    {
+        $query = StockMovement::query()
+            ->where('inventory_item_id', $item->id)
+            ->whereIn('type', StockMovement::ADDS_STOCK);
+
+        if ($warehouse !== null) {
+            $query->where('warehouse_id', $warehouse->id);
+        }
+
+        $rows = $query->get(['quantity', 'unit_cost']);
+
+        $quantity = round((float) $rows->sum('quantity'), 3);
+        if ($quantity <= 0) {
+            return round((float) ($item->unit_cost ?? 0), 2);
+        }
+
+        $value = $rows->reduce(
+            fn (float $carry, StockMovement $m) => $carry + (abs((float) $m->quantity) * (float) $m->unit_cost),
+            0.0,
+        );
+
+        $average = round($value / $quantity, 2);
+
+        // A receipt cannot be recorded at zero cost (record() refuses it), so this only trips on
+        // legacy rows loaded before that guard existed. The catalogue cost is the better answer
+        // than crediting Inventory with nothing.
+        return $average > 0 ? $average : round((float) ($item->unit_cost ?? 0), 2);
     }
 }
