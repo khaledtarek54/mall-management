@@ -139,6 +139,32 @@ class DepositTransaction extends Model
         return $candidate;
     }
 
+    /**
+     * Has anything been drawn against this lease's deposit — netted onto an invoice, refunded or
+     * forfeited?
+     *
+     * The predicate behind the receipt freeze in `booted()`. Deliberately asked of the LEASE rather
+     * than of this row: the deposit is a single pot per lease (`depositHeld()` sums every recorded
+     * receipt against every draw), so a second receipt cannot be reduced either once the pot it
+     * joined has been spent from. Keyed on the ORIGINAL lease so re-pointing a used receipt is
+     * judged against the tenant it actually belongs to, not the one it is being moved to.
+     */
+    public function hasBeenDrawnOn(): bool
+    {
+        $leaseId = $this->getOriginal('lease_id') ?? $this->lease_id;
+
+        if ($leaseId === null) {
+            return false;
+        }
+
+        return DepositApplication::where('lease_id', $leaseId)->exists()
+            || static::query()
+                ->where('lease_id', $leaseId)
+                ->whereIn('type', ['refund', 'forfeit'])
+                ->where('status', 'recorded')
+                ->exists();
+    }
+
     protected static function booted(): void
     {
         static::saving(function (self $deposit) {
@@ -153,6 +179,32 @@ class DepositTransaction extends Model
             // A forfeit has no payment method at all, and 'bank' is the harmless truth for it.
             if (blank($deposit->method)) {
                 $deposit->method = 'bank';
+            }
+
+            // ── A receipt is fixed once the deposit has been DRAWN ON ────────────────────────
+            // The held balance is derived (receipts − refunds − forfeits − applications), so this
+            // module has no stored figure to drift. What it had instead was an editable window
+            // that never closed: applying a deposit to an invoice writes a `DepositApplication`
+            // and leaves the receipt `recorded`, and the comment below records the intent that
+            // was only ever enforced on the form.
+            //
+            //   receive 10,000 → net 8,000 against the tenant's arrears
+            //   edit the receipt down to 2,000
+            //   depositHeld = 2,000 − 8,000 = −6,000
+            //
+            // The tenant's AR was settled by money the landlord no longer records receiving, the
+            // move-out statement owes them a NEGATIVE deposit, and the receipt's GL entry
+            // (Dr Cash / Cr Deposits Held) re-derives at the new figure while the application's
+            // Dr Deposits Held does not move.
+            //
+            // Frozen only once something DEPENDS on it — a receipt keyed wrongly must stay fixable
+            // until then, the same rule as the عهدة in module 25. `notes` carries no money and no
+            // dimension, so it stays editable. (Deposits close-out, 2026-08-11.)
+            if ($deposit->exists
+                && $deposit->type === 'receipt'
+                && $deposit->isDirty(['amount', 'lease_id', 'tenant_id', 'asset_id', 'transaction_date', 'type', 'status'])
+                && $deposit->hasBeenDrawnOn()) {
+                throw new \DomainException(__('admin.deposits.errors.receipt_in_use'));
             }
 
             // Derive tenant + asset from the lease so they can't drift — on create AND

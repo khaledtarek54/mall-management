@@ -146,6 +146,33 @@ This is the core AR (accounts receivable) engine; all recurring revenue flows th
    - Sequence resets per month per asset
    - **Test:** `InvoiceTest::test_auto_generates_a_unique_invoice_number_with_the_asset_code_and_period`
 
+### Security deposits — the receipt freezes once the deposit is drawn on
+
+The held balance is **derived**, never stored: `MoveOutStatementService::depositHeld()` =
+`recorded` receipts − refunds − forfeits − `DepositApplication`s, and
+`ApplyDepositToInvoiceService` locks the invoice and caps at `min(balance, held, requested)`. There
+is no cached figure to drift, which is why this path came through the 2026-08-11 close-out with one
+finding rather than several.
+
+That finding was the other end of it. `DepositTransaction` had no immutability guard, and applying a
+deposit writes a `DepositApplication` while leaving the receipt `recorded` — so the editable window
+never closed:
+
+> receive 10,000 → net 8,000 against the tenant's arrears → edit the receipt down to 2,000 →
+> **`depositHeld` = −6,000**.
+
+The tenant's AR was settled by money the landlord no longer records receiving, the move-out statement
+owes them a negative deposit, and the receipt's `Dr Cash / Cr Deposits Held` re-derives at the new
+figure while the application's `Dr Deposits Held` does not move.
+
+`DepositTransaction::hasBeenDrawnOn()` is the predicate: has anything been netted, refunded or
+forfeited against **this lease's** deposit. It is asked of the LEASE, not the row, because the
+deposit is one pot per lease — a second receipt cannot be reduced either once the pot it joined has
+been spent from — and it reads the ORIGINAL `lease_id`, so re-pointing a used receipt is judged
+against the tenant it actually belongs to. Amount / lease / tenant / property / date / type / status
+freeze; `notes` stays editable. An UNUSED receipt stays fully correctable, the same rule as the عهدة
+in module 25. Tests: `DepositReceiptFrozenOnceUsedTest`.
+
 ### AR Reconciliation
 
 6. **Paid amount is the sum of two sources:**
