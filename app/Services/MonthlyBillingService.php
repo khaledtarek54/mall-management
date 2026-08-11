@@ -688,6 +688,17 @@ class MonthlyBillingService
     private function alreadyBilledForMonth(Lease $lease, CarbonImmutable $periodStart, CarbonImmutable $periodEnd): bool
     {
         return Invoice::where('lease_id', $lease->id)
+            // A CANCELLED invoice is not "already billed" — it left the books.
+            //
+            // Without this, voiding a wrong invoice permanently blocked re-billing that
+            // lease-month: both the bulk run and the manual action reported
+            // `skipped: already_billed` forever, indistinguishable in the run summary from a lease
+            // that had been billed correctly. Silent lost revenue, and the operator's only remedy
+            // was to notice the missing money later.
+            //
+            // `written_off` is deliberately NOT excluded: that debt was rightly billed and is still
+            // on the books as bad debt, so re-billing it would charge the tenant twice.
+            ->whereNotIn('status', ['cancelled'])
             ->whereDate('period_start', '<=', $periodEnd->toDateString())
             ->whereDate('period_end', '>=', $periodStart->toDateString())
             // 'utility' joins the list for the same reason as percentage_rent/cam_*: a utility RECHARGE
@@ -696,7 +707,12 @@ class MonthlyBillingService
             // silently skip that lease's BASE RENT (the revenue-leak class fixed for % rent).
             // 'violation_fine' joins for the same reason: a standalone fine invoice is dated to the
             // violation's month and would otherwise suppress that lease's base rent.
-            ->whereDoesntHave('items', fn ($q) => $q->whereIn('type', ['percentage_rent', 'cam_recovery', 'cam_admin_fee', 'utility', 'violation_fine']))
+            // 'nsf_fee' is the FOURTH instance of this class (added 2026-08-11). A bounced-cheque
+            // fee invoice is dated to the current month (BillBouncedChequeFeeService), so a tenant
+            // whose cheque bounced silently lost that month's rent invoice. Each of the previous
+            // three was fixed one at a time; the shape is "a standalone one-off invoice dated into
+            // a month the recurring run also bills".
+            ->whereDoesntHave('items', fn ($q) => $q->whereIn('type', ['percentage_rent', 'cam_recovery', 'cam_admin_fee', 'utility', 'violation_fine', 'nsf_fee']))
             ->exists();
     }
 

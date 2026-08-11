@@ -3,10 +3,12 @@
 namespace App\Services\Reconciliation;
 
 use App\Models\CreditNote;
+use App\Models\DepositApplication;
 use App\Models\Invoice;
 use App\Models\InvoiceWriteOff;
 use App\Models\JournalEntry;
 use App\Models\Payment;
+use App\Models\TenantCreditApplication;
 use App\Models\VendorBill;
 use App\Services\Accounting\AccountResolver;
 use App\Services\Accounting\LedgerPoster;
@@ -72,19 +74,39 @@ class BooksReconciliationService
         }
         $checks[] = $this->check('invoice_composition', 'Invoice total = line-item subtotal + VAT', $d);
 
-        // 2. Paid amount: captured payment allocations + applied credits = stored paid_amount.
-        //    Mirrors Invoice::recomputeTotals() exactly; catches credit/payment drift.
+        // 2. Paid amount: ALL FOUR settlement channels = stored paid_amount.
+        //
+        //    This claimed to "mirror Invoice::recomputeTotals() exactly" and counted TWO of the
+        //    four: captured payments and credit notes. Applied tenant credit and netted move-out
+        //    deposits were invisible, so every one of them fabricated a discrepancy and flipped
+        //    the whole run to `ok = false`. With `auto_apply_tenant_credit` defaulting TRUE that
+        //    is routine, and MonthEndReadinessService consumes this — so a CORRECT book reported
+        //    as not-ready at close, and the trust tool cried wolf on the two newest money features
+        //    while burying any real drift.
+        //
+        //    `recomputeTotals()` ends with: "Every calculation that decides how much of this
+        //    invoice is settled must count all four… if a fifth is ever needed, grep for this
+        //    comment first." This service was a site that never learned about the third and
+        //    fourth. It derives them the same way now — the pivot for payments, the column for
+        //    credit notes, and the two application tables, whose soft deletes correctly drop a
+        //    reversed application.
         $d = [];
         foreach ($invoices as $inv) {
             $allocated = round((float) $inv->payments()
                 ->whereIn('payments.status', \App\Models\Payment::RECEIVED_STATUSES)
                 ->sum('invoice_payment.allocated_amount'), 2);
-            $derived = round($allocated + (float) $inv->credit_applied_amount, 2);
+            $creditNotes = round((float) $inv->credit_applied_amount, 2);
+            $tenantCredit = round((float) TenantCreditApplication::where('invoice_id', $inv->id)->sum('amount'), 2);
+            $deposit = round((float) DepositApplication::where('invoice_id', $inv->id)->sum('amount'), 2);
+
+            $derived = round($allocated + $creditNotes + $tenantCredit + $deposit, 2);
+
             if (abs($derived - (float) $inv->paid_amount) > self::EPS) {
-                $d[] = $this->disc($inv, "derived paid {$derived} (captured {$allocated} + credit {$inv->credit_applied_amount}) ≠ stored paid_amount {$inv->paid_amount}");
+                $d[] = $this->disc($inv, "derived paid {$derived} (captured {$allocated} + credit note {$creditNotes} "
+                    ."+ tenant credit {$tenantCredit} + deposit {$deposit}) ≠ stored paid_amount {$inv->paid_amount}");
             }
         }
-        $checks[] = $this->check('paid_amount', 'Paid = captured payments + applied credits', $d);
+        $checks[] = $this->check('paid_amount', 'Paid = captured payments + credit notes + tenant credit + netted deposits', $d);
 
         // 3. Balance: max(0, total − paid) = stored balance.
         $d = [];

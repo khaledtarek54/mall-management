@@ -61,6 +61,24 @@
 > always-regenerate rule for an opening item, because that number is the one printed on the
 > paperwork the retailer already holds, and quoting it is the point of loading open items.
 
+
+> **⚠️ Fixed 2026-08-11 — two defects in `alreadyBilledForMonth()`.**
+>
+> **A cancelled invoice counted as "already billed."** Voiding a wrong invoice therefore blocked
+> re-billing that lease-month **permanently** — both the bulk run and the manual action reported
+> `skipped: already_billed` forever, indistinguishable in the run summary from a lease billed
+> correctly. Silent lost revenue whose only symptom is money that never arrives. `written_off` is
+> deliberately NOT excluded: that debt was rightly billed and still sits on the books as bad debt,
+> so re-billing it would charge the tenant twice.
+>
+> **`nsf_fee` was missing from the one-off exclusion list** — the fourth instance of a class already
+> fixed for `percentage_rent`, `utility` and `violation_fine`. A bounced-cheque fee is its own
+> invoice dated to the current month, so it overlapped the recurring window and a tenant whose
+> cheque bounced silently lost that month's rent invoice. The shape to watch for: *a standalone
+> one-off invoice dated into a month the recurring run also bills.*
+>
+> Pinned by `RebillAfterVoidTest`, which carries the control that the guard is not now too broad.
+
 ## 1. Purpose & business context
 
 The Billing module automates the monthly invoicing lifecycle for Eltizam operators. Each Eltizam manages leases on behalf of Jawad property owners; invoices are issued to Eltizam's tenants (retailers) for rent, service charges, utilities, and other recurring fees. The system:
