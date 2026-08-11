@@ -27,12 +27,19 @@ Compiled 2026-08-11.
   never quietly lower one. Three values, not five: a scale nobody applies consistently is a field
   that stays on its default.
 
-### Verified still missing (checked 2026-08-11)
-
-| Item | What it is | Size |
-|---|---|---|
-| **Vendor scorecards** | Rank vendors on what the system already records: SLA breaches, penalties applied, response and resolution times, document expiry. **Verified absent** — and everything it needs is already stored, so this is a report, not a data model. | S–M |
-| **Comparative statements** | An income statement and balance sheet with a prior-period column. **Verified absent** — `IncomeStatement` has no comparison logic. Pure reporting over the existing GL. | M |
+- **Vendor scorecards** — `VendorScorecardService`. Per vendor, over a window: jobs raised,
+  completed and still open; average time to acknowledge and to resolve; SLA breaches **whether or
+  not anyone penalised them** (the two are different facts, and a vendor is not owed the benefit of
+  an un-chased breach); penalties applied and their value; lapsed compliance documents; and whether
+  the vendor is dispatchable at all. **Counts and times, never a single score** — a composite would
+  have to weight responsiveness against cost against compliance, and that weighting is the
+  operator's judgement at renewal, not something to bury in a service.
+- **Comparative statements** — `ComparativeStatementService`. The income statement beside the
+  immediately preceding span of the **same length**, derived rather than asked for: comparing a
+  31-day month against a 28-day one invents a variance that is really just February. Built ON
+  `LedgerReportService::incomeStatement()`, so both periods read through one definition of revenue
+  and expense; a second implementation would drift and the drift would surface as a variance nobody
+  could explain.
 
 ### Carried from the roadmap — NOT re-verified
 
@@ -104,13 +111,13 @@ everything adequately.
 
 ## 5. If you want something built and go-live is not ready
 
-Take them in this order, and know that none of it shortens the path to launch:
+**All three items that were verified buildable are now shipped** (asset criticality, vendor
+scorecards, comparative statements — 2026-08-11). What remains needs either an answer or a check:
 
-1. **Vendor scorecards** — a report over data the system already has, and the first thing an
-   operator asks once vendors are being managed rather than merely recorded. *(Asset criticality,
-   previously #1 here, shipped 2026-08-11.)*
-2. **Comparative statements** — the reporting gap an accountant notices first after the books are
-   real.
+- Everything in **§2** needs a client answer first. Building it without one means inventing policy.
+- **Slice 4** (suggested matches) needs a real month reconciled by hand before it is worth shaping.
+- The **carried-forward list** above is unverified — check a row still exists before starting it.
+  Four of the ten neighbours checked so far turned out to be already built.
 
-**What I would not start** is anything in §2 (it needs an answer), slice 4 (it needs a real month
-reconciled by hand first), or anything in the carried-forward list without checking it still exists.
+So the honest position is that **the buildable-without-input backlog is empty**, and the next move
+is a conversation rather than a commit.
