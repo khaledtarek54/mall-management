@@ -162,6 +162,30 @@ Surfaced as **Committed / Billed / Remaining** columns (remaining red when over-
 
 ---
 
+### Importing the supplier register (`VendorImporter`, 2026-08-12)
+
+The fourth importer, so the operator's existing vendor list arrives with the cut-over instead of
+being keyed by hand. `/admin/vendors` → **Import**, gated through `App\Support\Imports` like the
+other three (import is admin-only, FR-USR-02 — it is not a flavour of create).
+
+- **Identity is `tax_id`, then `email`** — never `name`. Re-running an import is the normal response
+  to a partial one, and "Cairo HVAC Co." vs "Cairo HVAC Co" would fork one supplier into two, each
+  accumulating its own bills, contracts and compliance documents. Once either has history
+  `RefusesDeletionWhenReferenced` correctly refuses to delete it and the two cannot be merged.
+  A TRN matches **with or without dashes**, because the file and the existing record will not agree
+  on punctuation.
+- **A blank withholding-tax cell stays NULL.** `null` = no agreed rate, use the portfolio default;
+  `0` = this supplier is EXEMPT. Coercing blank to 0 would silently exempt the entire register and
+  nothing would be withheld from anyone. Mutation-checked in both directions.
+- **`type` and `status` are validated against the DB enum's exact set** (see
+  `App\Support\DatabaseEnums`), so a bad value fails that row with a readable message rather than
+  reaching a strict-MySQL INSERT as an opaque failure.
+- **`slug` is not importable** — the model derives it from the name and de-duplicates against
+  soft-deleted rows.
+- `Vendor` is SHARED, so unlike `LeaseImporter` there is no asset column and nothing to clamp.
+
+Tests: `VendorImportTest`.
+
 ### Withholding tax on vendor payments — خصم وإضافة (module 12b)
 
 Atriom paid vendors **gross**, which is non-compliant with Income Tax Law 91/2005 art. 59 — the operator must withhold at source and remit to the ETA, and the un-withheld amount otherwise becomes their own liability. This is the AP-side twin of the AR VAT.

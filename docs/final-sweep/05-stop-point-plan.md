@@ -71,6 +71,17 @@ ten tests that actually execute an importer, tenant-import identity (`0716e53`),
 off hard-coded `sync`, the `asset_owner` UI (`65b5d51`), and the **opening-balance import**
 (`cd3606c`). Full suite green throughout: **4,246 tests, 0 failures.**
 
+**Plus a fourth importer, 2026-08-12: `VendorImporter`** — the supplier register, so the operator's
+existing vendor list arrives with the rest of the cut-over rather than being keyed by hand. Follows
+the three that exist: identity on `tax_id` then `email` (never `name` — "Cairo HVAC Co." and "Cairo
+HVAC Co" would fork into two suppliers that can never be merged once either has a bill), matching a
+TRN with or without dashes, enum columns validated against the DB's own set, and `slug` withheld
+because the model owns it. The one importer-specific trap: **a blank withholding-tax cell must stay
+NULL, not become 0** — null means "use the portfolio default" and 0 means "this supplier is exempt",
+so coercing would silently exempt the entire register. Mutation-checked both ways.
+
+Still hand-keyed: Employee, FixedAsset, Charge and meter readings.
+
 **Design decision recorded:** opening AR arrives as **open items — real invoices** — not a lump-sum
 balance, because aging, dunning, statements and per-invoice allocation all work on documents. They
 deliberately post nothing, since the revenue is already in the accountant's opening entry; the
