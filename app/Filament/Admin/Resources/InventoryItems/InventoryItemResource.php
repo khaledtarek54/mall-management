@@ -19,6 +19,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 
 /**
  * The item catalog — shared (global) reference data, so it is NOT property-scoped.
@@ -123,11 +124,23 @@ class InventoryItemResource extends Resource
         // inherited the lie (FR-INV-03).
         $assetIds = static::scopedAssetIds();
 
-        return parent::getEloquentQuery()->withSum([
-            'movements as on_hand' => fn ($query) => $assetIds === null
-                ? $query
-                : $query->whereIn('warehouse_id', Warehouse::query()->whereIn('asset_id', $assetIds)->select('id')),
-        ], 'quantity');
+        $scope = fn ($query) => $assetIds === null
+            ? $query
+            : $query->whereIn('warehouse_id', Warehouse::query()->whereIn('asset_id', $assetIds)->select('id'));
+
+        return parent::getEloquentQuery()
+            ->withSum(['movements as on_hand' => $scope], 'quantity')
+            // What the stock on hand is WORTH, summed from the movements themselves — every
+            // quantity at the cost it actually moved at. This is the SAME arithmetic the GL runs
+            // (Dr Inventory on the way in, Cr on the way out), so the register, its total and the
+            // Inventory account cannot disagree.
+            //
+            // It used to be `on_hand × unit_cost` — the CATALOGUE price — which answered a
+            // different question the moment somebody updated a price: stock loaded at 100 and
+            // re-priced to 300 showed 3,000 against a ledger holding 1,000, and the column's own
+            // label calls it the figure an operator reconciles with. Removals carry a negative
+            // quantity, so this follows the stock out of the door too (module 22 close-out).
+            ->withSum(['movements as stock_value' => $scope], DB::raw('quantity * unit_cost'));
     }
 
     /**
@@ -147,8 +160,9 @@ class InventoryItemResource extends Resource
 
     /**
      * The stock-on-hand register as CSV rows — what's held and what it's worth, the accountant's
-     * working format. Reads the same property-scoped query the table shows (on_hand + unit cost),
-     * so the export can never disagree with the screen, and closes with a total-valuation row.
+     * working format. Reads the same property-scoped query the table shows (on_hand + the
+     * ledger-tying stock value), so the export can never disagree with the screen OR the Inventory
+     * account, and closes with a total-valuation row.
      *
      * @return array{headers: array<int,string>, rows: array<int, array<int, string|float>>}
      */
@@ -160,11 +174,19 @@ class InventoryItemResource extends Resource
         /** @var InventoryItem $item */
         foreach (static::getEloquentQuery()->orderBy('name')->get() as $item) {
             $onHand = round((float) ($item->on_hand ?? 0), 3);
-            $value = round($onHand * (float) $item->unit_cost, 2);
+            // The ledger-tying value, not on_hand x catalogue price — see getEloquentQuery().
+            $value = round((float) ($item->stock_value ?? 0), 2);
             $totalValue += $value;
 
+            // The cost column is the AVERAGE the stock is carried at, derived so the row's own
+            // arithmetic holds (on hand x cost = value). Printing the catalogue price beside a
+            // ledger-tying value would put "10 x 300 = 1,000" in front of an accountant.
+            $avgCost = $onHand != 0.0
+                ? round($value / $onHand, 2)
+                : round((float) $item->unit_cost, 2);
+
             $rows[] = [$item->sku, $item->name, $item->category ?? '', $item->unit, $onHand,
-                round((float) $item->unit_cost, 2), $value];
+                $avgCost, $value];
         }
 
         $rows[] = ['', __('admin.reports.csv.total'), '', '', '', '', round($totalValue, 2)];
@@ -173,7 +195,7 @@ class InventoryItemResource extends Resource
             'headers' => [
                 __('admin.inventory.fields.sku'), __('admin.inventory.fields.name'),
                 __('admin.inventory.fields.category'), __('admin.inventory.fields.unit'),
-                __('admin.inventory.fields.on_hand'), __('admin.inventory.fields.unit_cost'),
+                __('admin.inventory.fields.on_hand'), __('admin.inventory.fields.avg_unit_cost'),
                 __('admin.inventory.fields.value'),
             ],
             'rows' => $rows,

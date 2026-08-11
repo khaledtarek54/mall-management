@@ -1,5 +1,6 @@
 <?php
 
+use App\Filament\Admin\Resources\InventoryItems\InventoryItemResource;
 use App\Models\InventoryItem;
 use App\Models\Warehouse;
 use App\Models\JournalLine;
@@ -7,6 +8,8 @@ use App\Services\Accounting\AccountResolver;
 use App\Services\StockMovementService;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
+use Database\Seeders\RolesPermissionsSeeder;
+use Filament\Facades\Filament;
 
 /**
  * Consumption must relieve Inventory at what the stock was LOADED at, not at whatever the item's
@@ -39,6 +42,7 @@ use Database\Seeders\ChartOfAccountsSeeder;
  * pay next — which is what an operator editing it actually means.
  */
 beforeEach(function () {
+    $this->seed(RolesPermissionsSeeder::class);
     $this->seed(ChartOfAccountsSeeder::class);
     $this->seed(AccountMappingSeeder::class);
 
@@ -195,4 +199,63 @@ it('still lets the caller state a cost on a part draw', function () {
     ]);
 
     expect((float) $part->unit_cost)->toBe(90.0);
+});
+
+// ── The screen has to agree with the ledger ─────────────────────────────────────────────────────
+
+it('values the stock register at the same figure the GL holds', function () {
+    // The register's value column is labelled, in its own comment, as "the number an operator"
+    // reconciles with — and the page summariser calls it the accountant's total. It was
+    // `on_hand × unit_cost`: the CATALOGUE price. The GL is built from what the stock was LOADED
+    // at, so the two answered the same question differently the moment a catalogue price moved —
+    // and after the cost-basis fix the ledger is the correct one, which makes the screen the lie.
+    //
+    // Stock worth 1,000, catalogue says 3,000. An operator reconciling Inventory would be chasing
+    // a 2,000 difference that does not exist.
+    $this->svc->receive($this->store, $this->item, 10, 100);
+    $this->item->update(['unit_cost' => 300]);
+
+    $this->actingAs(makeUser('manager', [$this->asset->id]));
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+    Filament::setTenant($this->asset);
+
+    $row = InventoryItemResource::getEloquentQuery()->whereKey($this->item->id)->first();
+
+    expect(round((float) $row->stock_value, 2))->toBe(1000.0)
+        ->and(round((float) $row->stock_value, 2))->toBe(inventoryBalance($this->asset->id));
+
+    Filament::setTenant(null, isQuiet: true);
+});
+
+it('carries the same figure into the CSV register, so the export cannot disagree either', function () {
+    $this->svc->receive($this->store, $this->item, 10, 100);
+    $this->item->update(['unit_cost' => 300]);
+
+    $this->actingAs(makeUser('manager', [$this->asset->id]));
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+    Filament::setTenant($this->asset);
+
+    $csv = InventoryItemResource::stockRegisterCsv();
+    $total = (float) end($csv['rows'])[6];
+
+    expect(round($total, 2))->toBe(1000.0);
+
+    Filament::setTenant(null, isQuiet: true);
+});
+
+it('keeps the register value at zero once the stock is fully issued', function () {
+    // The control that catches a value column which merely ignores the catalogue: it must follow
+    // the stock out of the door too.
+    $this->svc->receive($this->store, $this->item, 10, 100);
+    consumeStock($this->store, $this->item, 10);
+
+    $this->actingAs(makeUser('manager', [$this->asset->id]));
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+    Filament::setTenant($this->asset);
+
+    $row = InventoryItemResource::getEloquentQuery()->whereKey($this->item->id)->first();
+
+    expect(round((float) $row->stock_value, 2))->toBe(0.0);
+
+    Filament::setTenant(null, isQuiet: true);
 });

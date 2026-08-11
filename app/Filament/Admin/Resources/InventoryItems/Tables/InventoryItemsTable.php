@@ -55,7 +55,7 @@ class InventoryItemsTable
                 // and their accountant actually want, and which was nowhere on screen.
                 TextColumn::make('stock_value')
                     ->label(__('admin.inventory.fields.value'))
-                    ->state(fn ($record) => round((float) ($record->on_hand ?? 0) * (float) $record->unit_cost, 2))
+                    ->state(fn ($record) => round((float) ($record->stock_value ?? 0), 2))
                     ->money('EGP')
                     ->alignRight()
                     ->weight('bold')
@@ -66,7 +66,7 @@ class InventoryItemsTable
                         Summarizer::make('total')
                             ->label(__('admin.inventory.fields.total_value'))
                             ->money('EGP')
-                            ->using(fn (Builder $query): float => (float) $query->sum(DB::raw('on_hand * unit_cost')))
+                            ->using(fn (Builder $query): float => (float) $query->sum(DB::raw('stock_value')))
                     ),
                 TextColumn::make('reorder_level')
                     ->label(__('admin.inventory.fields.reorder_level'))
