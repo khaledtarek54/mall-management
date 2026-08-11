@@ -655,18 +655,6 @@ parameters:
 			path: app/Filament/Admin/Widgets/TopTenants.php
 
 		-
-			message: '#^If condition is always false\.$#'
-			identifier: if.alwaysFalse
-			count: 1
-			path: app/Filament/Imports/LeaseImporter.php
-
-		-
-			message: '#^Variable \$this on left side of \?\? is never defined\.$#'
-			identifier: nullCoalesce.variable
-			count: 1
-			path: app/Filament/Imports/LeaseImporter.php
-
-		-
 			message: '#^Parameter \#1 \$invoice of method App\\Services\\InvoicePdfService\:\:build\(\) expects App\\Models\\Invoice, Illuminate\\Database\\Eloquent\\Model given\.$#'
 			identifier: argument.type
 			count: 1

@@ -86,6 +86,25 @@ class AuditChargeSchedulesCommand extends Command
     {
         $findings = collect();
 
+        // A lease with NO charges bills nothing at all — and until 2026-08-11 it was the one shape
+        // this command called clean. The loop below iterates `charges`, so an empty collection
+        // produced zero findings and the run printed "Every charge schedule is unambiguous."
+        //
+        // That is precisely the shape a bulk import produced (LeaseImporter never seeded a
+        // schedule), which made the command blind to the exact failure its own docblock says to
+        // run it for: "after importing the operator's real leases". `MonthlyBillingService` skips
+        // such a lease as `no_applicable_charges` at OpsLog::info — below the Slack threshold — so
+        // nothing downstream says so either.
+        if ($lease->charges->isEmpty()) {
+            return $findings->push([
+                'lease' => $lease->reference,
+                'type' => '—',
+                'problem' => 'no charges',
+                'detail' => 'This lease has no charge rows at all, so it bills NOTHING. '
+                    .'Expected after a bulk import that skipped charge seeding, or if every row was removed.',
+            ]);
+        }
+
         foreach ($lease->charges->groupBy('type') as $type => $rows) {
             /** @var Collection<int, Charge> $rows */
             // Nulls first: an undated row starts at the beginning of time.
