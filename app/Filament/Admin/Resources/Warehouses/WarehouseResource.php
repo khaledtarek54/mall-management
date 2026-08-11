@@ -93,6 +93,18 @@ class WarehouseResource extends Resource
         return WarehousesTable::configure($table);
     }
 
+    /**
+     * What actually moved. On-hand is DERIVED from these rows, so a stock figure the operator
+     * doubts is only explicable by reading them — and they were reachable solely from the movements
+     * register, filtered by hand.
+     */
+    public static function getRelations(): array
+    {
+        return [
+            \App\Filament\Admin\RelationManagers\StockMovementsRelationManager::class,
+        ];
+    }
+
     public static function getPages(): array
     {
         return [
