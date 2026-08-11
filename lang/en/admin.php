@@ -4057,6 +4057,11 @@ return [
         'reverse_modal_description' => 'This reverses the settlement: the custody\'s outstanding goes back up and its ledger entry is voided. The record is kept for the audit trail. Give a reason.',
     ],
 
+    'purchase_requests' => [
+        'errors' => [
+            'lines_frozen_after_approval' => 'This request has been approved, so its items are settled — the approval was given for this list at this value. Cancel it and raise a new request for anything further.',
+        ],
+    ],
     'procurement' => [
         'group' => 'Operations',
         'singular' => 'Procurement Request',
