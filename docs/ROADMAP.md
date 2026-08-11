@@ -184,9 +184,9 @@ decision, ordered.
 
 **The 🟡 tail from the same analysis** (real, lower): meter/usage-based PM triggers, vendor
 scorecards, asset criticality (one field, high leverage), fit-out-permit approval workflow,
-reorder-driven auto-purchase, bill-the-violation-fine-to-AR, utility tariff/recharge automation,
+reorder-driven auto-purchase, ~~bill-the-violation-fine-to-AR~~ ✅ **shipped** (`BillViolationFineService`), utility tariff/recharge automation,
 lease document generation + e-sign, first-class rent-free/stepped schedules, annual/YTD turnover
-breakpoints, the deposit-balance/reconciliation layer. **The field-technician mobile app** is a
+breakpoints, ~~the deposit-balance/reconciliation layer~~ ✅ **shipped** (`DepositApplication` + the move-out statement). **The tail is now tracked in [BACKLOG.md](BACKLOG.md)**, which separates rows re-verified against the code from rows carried forward — three of these turned out to be already built when checked on 2026-08-11. **The field-technician mobile app** is a
 real facility gap but sits with the external mobile-app work (§3, 🔑 L).
 
 **⏭️ Declined — explicitly, so nobody mistakes the specialists' breadth for a backlog:**

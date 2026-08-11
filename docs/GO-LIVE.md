@@ -160,6 +160,12 @@ none of it needs an engineer.**
 
 ---
 
+**Everything that is NOT on this page** — the improvements worth making once the system is live,
+what is blocked behind which answer, and what is deliberately declined — is in
+[BACKLOG.md](BACKLOG.md).
+
+---
+
 *Sources consolidated here: [ROADMAP §2–§3](ROADMAP.md), [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md),
 [ETA-PAYMOB-CERTIFICATION.md](ETA-PAYMOB-CERTIFICATION.md),
 [PRODUCTION-RUNBOOK.md](PRODUCTION-RUNBOOK.md), [accounting/GAP-ANALYSIS.md](accounting/GAP-ANALYSIS.md).
