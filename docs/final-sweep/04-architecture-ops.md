@@ -415,7 +415,19 @@ it might.
 The project's defining strength is that a convention with a gate does not drift. This sweep found
 **three conventions with no gate at all**, each already demonstrated to drift:
 
-1. **No DB-level enums.** **62** enum columns survive; only four have ever been freed. It cost two
+1. **No DB-level enums.** ✅ **Gated 2026-08-12** — `App\Support\DatabaseEnums` +
+   `NoDatabaseEnumsConformanceTest`, which fails on a new one and on a stale grandfathered entry, so
+   the list can only shrink.
+
+   > **Correction to the count: it is 38, not 62.** That figure was read off a developer's local
+   > MySQL, migrated incrementally for months and still carrying columns later migrations had
+   > already freed. The test database is rebuilt from every migration on each run, so it is the only
+   > honest answer — **24 of the 62 were ghosts.** Freeing the remaining ten operator-extensible ones
+   > (`FREE_THESE`) is still open. The gate also had to read the SQLite CHECK constraint rather than
+   > the column type: the first version checked type only, found zero enums in the environment it
+   > runs in, and would have passed forever while gating nothing.
+
+   The original entry, for the record: **62** enum columns survive; only four have ever been freed. It cost two
    migrations in three days: `add_written_off_to_invoices_status` (an `ALTER TABLE … MODIFY` on the
    hottest table to add one value) and `free_charges_type_from_its_db_enum`, whose own docblock records
    that the enum had **silently broken the charge-code catalogue's recurring-billing promise**.

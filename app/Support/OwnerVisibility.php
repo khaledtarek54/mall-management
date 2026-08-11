@@ -120,6 +120,7 @@ class OwnerVisibility
         'ledger_accounts' => 'The SHARED chart of accounts; the owner sees the resulting books, not the configuration behind them.',
         'accounting_periods' => 'The operator\'s own close calendar.',
         'charge_codes' => 'The SHARED portfolio billing vocabulary and its VAT rulings.',
+        'tax_codes' => 'The tax catalogue and its dated rates — the accountant\'s configuration, portfolio-wide. The owner sees the tax CHARGED on their property\'s invoices, not the table it is resolved from.',
         'notes' => 'SHARED polymorphic internal commentary. A note about a tenant is exactly the kind of thing an operator must be able to write without the landlord reading it.',
     ];
 

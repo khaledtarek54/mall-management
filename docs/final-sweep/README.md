@@ -224,10 +224,12 @@ and %-rent overages have the own-invoice-dated-now pattern that late fees lack.
 
 That is the highest-leverage thing to change about how this codebase is maintained — and the
 project already knows the answer, because **a convention with a conformance gate has not drifted
-once.** Three conventions had no gate: no-DB-enums (~40 columns surviving), concurrency (110
-untestable lock sites), and derived-money-columns-not-client-writable — **the last of which now has
-one** (`DerivedMoneyConformanceTest`, 2026-08-12), and building it turned up two more live
-exploits than the finding had recorded. Two left, each about a half-day.
+once.** Three conventions had no gate: derived-money-columns-not-client-writable, no-DB-enums, and
+concurrency (110 untestable lock sites). **Two are now gated** (`DerivedMoneyConformanceTest` and
+`NoDatabaseEnumsConformanceTest`, both 2026-08-12) — and building each one corrected the finding
+that prompted it: the money sweep turned up two more live exploits than recorded, and the enum count
+turned out to be **38, not 62** (the rest were ghosts in a stale local MySQL). Concurrency is the
+one left.
 
 See [05-stop-point-plan.md](05-stop-point-plan.md) for the sequenced route.
 
