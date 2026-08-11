@@ -108,10 +108,19 @@ class EditVendorBill extends EditRecord
                         ->visible(fn () => \App\Support\WithholdingTax::rateFor($this->record->vendor) > 0)
                         ->content(function (Get $get) {
                             $gross = (float) ($get('amount') ?: 0);
-                            $withheld = \App\Support\WithholdingTax::on($gross, $this->record->vendor);
+
+                            // The SAME call the service makes. When these two drifted apart the
+                            // operator was shown one figure and the bank paid another, which is the
+                            // failure mode this placeholder exists to prevent in the first place.
+                            $base = \App\Support\WithholdingTax::vatExclusiveShareOf($gross, $this->record);
+                            $withheld = \App\Support\WithholdingTax::onBillPayment($gross, $this->record);
 
                             return __('admin.vendors.wht.breakdown_text', [
                                 'gross' => number_format($gross, 2),
+                                // Shown explicitly: without it the withheld figure looks like the
+                                // wrong percentage of the payment, and the operator has no way to
+                                // see that VAT was excluded from the base.
+                                'base' => number_format($base, 2),
                                 'rate' => rtrim(rtrim(number_format(
                                     \App\Support\WithholdingTax::rateFor($this->record->vendor), 2), '0'), '.'),
                                 'withheld' => number_format($withheld, 2),

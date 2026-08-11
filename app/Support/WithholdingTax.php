@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Vendor;
+use App\Models\VendorBill;
 use App\Settings\TaxSettings;
 
 /**
@@ -57,10 +58,16 @@ class WithholdingTax
     }
 
     /**
-     * Tax to withhold from a gross payment of `$amount` to `$vendor`.
+     * Apply this vendor's rate to a base you have ALREADY made VAT-exclusive.
      *
-     * Clamped to the payment itself: a mis-set rate above 100% must never produce a negative
-     * cash movement, which would silently reverse the direction of the bank posting.
+     * **This is the primitive, and it is the easy one to misuse.** It applies the rate to whatever
+     * number it is handed, so a caller passing a VAT-inclusive payment over-withholds — which is
+     * exactly what happened: `recordPayment()` passed `min($amount, $bill->balance)`, derived from
+     * `total`, until 2026-08-12. Use {@see onBillPayment()} when paying a bill; reach for this only
+     * when the base is already net by construction.
+     *
+     * Clamped to the base: a mis-set rate above 100% must never produce a negative cash movement,
+     * which would silently reverse the direction of the bank posting.
      */
     public static function on(float $amount, ?Vendor $vendor): float
     {
@@ -71,5 +78,53 @@ class WithholdingTax
         }
 
         return min($amount, round($amount * self::rateFor($vendor) / 100, 2));
+    }
+
+    /**
+     * Tax to withhold from a payment against a bill — **the one to call when paying a vendor**.
+     *
+     * **The Egyptian WHT base excludes VAT.** Withholding under Law 91/2005 art. 59 is a prepayment
+     * of the supplier's INCOME tax, so it is charged on the consideration for the supply; the VAT
+     * on top is the supplier's output tax, which they remit themselves. Withholding on it taxes a
+     * tax. At 3% on a 100,000 net bill the difference is 3,420 withheld against 3,000 due — the
+     * operator short-pays the vendor by 420 and over-remits the same to the ETA, on every bill.
+     *
+     * Mitigated only by `wht_enabled` being off, which is why this was worth fixing BEFORE the
+     * accountant switches it on rather than discovering it in a vendor's first reconciliation.
+     *
+     * Works off the payment's VAT-exclusive SHARE rather than the bill's net total, so it stays
+     * right for a partial payment: of a 57,000 payment on a 100,000 + 14,000 bill, 50,000 is
+     * consideration and 7,000 is VAT. A bill with no VAT is unaffected (the share is the whole
+     * payment), which is what makes this change invisible to every existing exempt supply.
+     */
+    public static function onBillPayment(float $payment, VendorBill $bill): float
+    {
+        return self::on(self::vatExclusiveShareOf($payment, $bill), $bill->vendor);
+    }
+
+    /**
+     * The part of `$payment` that is consideration rather than VAT.
+     *
+     * Derived from the BILL's own tax composition (`subtotal` vs `subtotal + vat_amount`) rather
+     * than from `total`, so an SLA penalty — which reduces the balance without touching either —
+     * cannot distort the ratio.
+     */
+    public static function vatExclusiveShareOf(float $payment, VendorBill $bill): float
+    {
+        $payment = round($payment, 2);
+        $net = round((float) $bill->subtotal, 2);
+        $gross = round($net + (float) $bill->vat_amount, 2);
+
+        if ($payment <= 0 || $gross <= 0) {
+            return 0.0;
+        }
+
+        // No VAT on this bill (or a malformed one where VAT is negative): the whole payment is
+        // consideration. Never scale UP — that would invent a base larger than the cash moving.
+        if ($net >= $gross) {
+            return $payment;
+        }
+
+        return round($payment * ($net / $gross), 2);
     }
 }

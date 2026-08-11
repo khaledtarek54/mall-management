@@ -72,7 +72,11 @@ class VendorBillService
             // gross and the bill's balance arithmetic is unchanged. Only the cash leg shrinks.
             // Rate resolution + the on/off switch live in App\Support\WithholdingTax (settings-
             // driven; a guessed statutory rate hardcoded here would look official and be wrong).
-            $withheld = \App\Support\WithholdingTax::on($pay, $bill->vendor);
+            //
+            // `onBillPayment`, NOT `on`: the WHT base excludes VAT, and `$pay` is capped at the
+            // balance, which comes from `total` — net PLUS VAT. Passing it to the primitive
+            // over-withheld on every VAT-bearing bill (3,420 instead of 3,000 at 3% on 100,000).
+            $withheld = \App\Support\WithholdingTax::onBillPayment($pay, $bill);
 
             VendorBillPayment::create([
                 'vendor_bill_id' => $bill->id,

@@ -168,6 +168,24 @@ Atriom paid vendors **gross**, which is non-compliant with Income Tax Law 91/200
 
 - **Mechanics.** `vendor_bill_payments.amount` stays **gross** (settles the payable in full — `VendorBill::recompute()` untouched); `withholding_amount` is the slice owed to the ETA; net cash out = `amount − withholding_amount`. GL: **Dr Accounts Payable (gross) / Cr Bank (net) / Cr Withholding Tax Payable `21303001` (withheld)** — the WHT leg only appears when > 0.
 - **Settings-driven, never hardcoded** (`App\Support\WithholdingTax` over `TaxSettings`): the statutory rate varies by payment nature and is revised by the ETA, so a compiled constant would look official and be wrong. **Off by default** (`wht_enabled`); per-vendor `withholding_tax_rate` overrides the `wht_default_rate`, where **`0` = exempt ≠ `null` = use default**. Clamped to the payment so a mis-set rate can't drive cash negative.
+- **The base EXCLUDES VAT** — `WithholdingTax::onBillPayment()`, not `::on()`. Withholding is a
+  prepayment of the *supplier's income tax*, so it is charged on the consideration for the supply;
+  the VAT on top is the supplier's own output tax, which they remit themselves, and withholding on
+  it taxes a tax. **Wrong until 2026-08-12**: `recordPayment()` passed `min($amount, $bill->balance)`
+  — derived from `total`, i.e. net *plus* VAT — into the primitive, so at 3% on a 100,000 net bill
+  it withheld **3,420 instead of 3,000**, short-paying the vendor by 420 and over-remitting the same
+  to the ETA on every payment. The whole existing WHT suite was blind to it: every fixture set
+  `vat_amount => 0`, so net and gross were the same number.
+  - Computed as the payment's **VAT-exclusive share** (`subtotal / (subtotal + vat_amount)`), so a
+    partial payment splits correctly — of 57,000 against a 100,000 + 14,000 bill, 50,000 is
+    consideration. Taken from the bill's own tax composition rather than `total`, so an SLA penalty
+    (which reduces the balance without touching either) cannot distort the ratio.
+  - A bill with **no VAT is unaffected**, which is what makes this invisible to every exempt supply.
+  - `on()` survives as the primitive and its docblock now says plainly that it applies the rate to
+    whatever it is handed — that misuse is how the bug happened.
+  - The `record_payment` preview calls the **same** function, and a test asserts the previewed
+    figure equals the recorded one. A displayed number drifting from a recorded one is invisible,
+    because the screen is the only thing anyone checks.
 - **UX.** The payment modal shows a live *"what the bank will pay"* breakdown; the success toast reports **net paid + withheld**, not just gross. Configured at **/admin/settings → Tax**.
 - **GL proof** is driven through the **real `accounting:sync-ledger` sweep**, per the registry rule — not `LedgerPoster` directly.
 

@@ -3840,7 +3840,7 @@ return [
             'rate_hint' => 'Leave blank to use the portfolio default (:default%). Enter 0 if this supplier is exempt.',
             'gross_hint' => 'The amount that settles the payable — tax withheld is deducted from what the vendor receives, not from what they are owed.',
             'breakdown' => 'What the bank will pay',
-            'breakdown_text' => 'Gross EGP :gross − withholding at :rate% (EGP :withheld) = EGP :net paid to the vendor. The EGP :withheld is owed to the ETA.',
+            'breakdown_text' => 'Gross EGP :gross, of which EGP :base is the VAT-exclusive base − withholding at :rate% (EGP :withheld) = EGP :net paid to the vendor. The EGP :withheld is owed to the ETA. Withholding is charged on the supply, not on the VAT.',
             'paid_body' => 'EGP :net paid to the vendor; EGP :withheld withheld for the ETA (EGP :gross settled).',
         ],
         'renewal' => [
