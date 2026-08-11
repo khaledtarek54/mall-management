@@ -267,6 +267,9 @@ class DeletionPolicy
         // what makes deleting the wrong one the only way to re-import it.
         \App\Models\BankStatement::class => 'evidence: re-import the statement',
         \App\Models\BankStatementLine::class => 'evidence: parent-managed, rebuilt on re-import',
+        // Unmatching IS the correction, and it deletes the row. A match posted nothing, so removing
+        // one changes no balance — the reason this is annotation rather than a money record.
+        \App\Models\BankMatch::class => 'annotation: unmatch it',
         \App\Models\SlaPolicy::class => 'configuration: SLA targets',
         \App\Models\SystemSetting::class => 'configuration',
         \App\Models\Area::class => 'configuration: a zone used for routing',

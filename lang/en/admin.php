@@ -2,6 +2,10 @@
 
 return [
     'errors' => [
+        'bank_match_missing_posting' => 'That posting no longer exists — refresh and pick another.',
+        'bank_match_already_matched' => 'That posting is already explained by another statement line. Reporting the same money as verified twice is exactly what this check prevents — unmatch it there first.',
+        'bank_match_wrong_account' => 'That posting belongs to a different account. Matching across accounts would reconcile this bank with another bank\'s money and still balance.',
+        'bank_match_wrong_direction' => 'That posting moves money the other way. A receipt cannot be explained by a payment of the same amount.',
         'bank_statement_row_no_date' => 'Row :row has no date — a statement line without one cannot be dated, matched or reconciled.',
         'bank_statement_csv_empty' => 'That file has no rows under its heading line.',
         'bank_statement_csv_columns' => 'The file needs a date column and either an amount column or a debit/credit pair. Recognised headings include Date, Amount, Debit, Credit, Reference, Description, Balance.',
@@ -3201,6 +3205,7 @@ return [
         'subject' => 'Subject',
         'system' => 'System',
         'subjects' => [
+            'bank_match' => 'Bank match',
             'bank_account' => 'Bank account',
             'bank_statement' => 'Bank statement',
             'charge_code' => 'Charge code',

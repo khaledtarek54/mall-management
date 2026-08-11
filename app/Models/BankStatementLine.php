@@ -37,6 +37,12 @@ class BankStatementLine extends Model
         return $this->belongsTo(BankStatement::class, 'bank_statement_id');
     }
 
+    /** Several, because a bank can show one line for two cheques banked together. */
+    public function matches(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(BankMatch::class, 'bank_statement_line_id');
+    }
+
     /**
      * The identity of a statement row, for import idempotency: date + amount + reference +
      * description, plus an OCCURRENCE number.

@@ -45,6 +45,15 @@ class JournalLine extends Model
         });
     }
 
+    /**
+     * The bank-reconciliation match, if this posting has been explained by a statement line.
+     * At most one — matching a book posting twice would report the same money verified twice.
+     */
+    public function bankMatch(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(BankMatch::class, 'journal_line_id');
+    }
+
     public function entry(): BelongsTo
     {
         return $this->belongsTo(JournalEntry::class, 'journal_entry_id');

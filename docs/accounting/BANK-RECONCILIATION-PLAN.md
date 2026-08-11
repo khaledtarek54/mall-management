@@ -1,6 +1,6 @@
 # Bank reconciliation — the plan
 
-**Status:** written 2026-08-11. **Slices 1–2 shipped the same day** (`bank_accounts` + its register; statement import); slices 3–6 open — 3 is where the control actually lands.
+**Status:** written 2026-08-11. **Slices 1–3 shipped the same day** — the register, statement import, and the matching engine + its guards. **The control now exists.** Slices 4–6 (suggestions, the reconciliation report, ageing) are convenience on top; what is missing for an operator is the SCREEN, noted under slice 3.
 
 > **The gap, verified rather than quoted.** There is no `bank_accounts` model, no statement, no
 > statement line, no matching, and no migration for any of them. `BooksReconciliationService` is the
@@ -110,10 +110,27 @@ Each one is independently useful, which is the test of whether the slicing is ho
    `BankStatement::isSelfConsistent()` checks opening + Σ lines = closing — the cheapest signal that
    a file was truncated, half-mapped, or had its sign convention read backwards, and a precondition
    for anything in slice 3.
-3. **Manual matching.** A screen: unmatched statement lines on the left, unmatched book postings on
-   the right, both filtered to the account and period; an operator links them. `bank_matches` rows,
-   reversible. **This is already the whole control** — the automatic matcher is convenience on top,
-   and shipping it first is how matching engines end up trusted before they are correct.
+3. 🟡 **Manual matching — the ENGINE shipped 2026-08-11; the screen has not.** `bank_matches` +
+   `MatchBankStatementLineService` (`candidatesFor` / `match` / `unmatch` / `coverage`), fully tested.
+
+   **A match posts nothing** — it annotates two rows that already exist, so creating or removing one
+   leaves every account where it was. That is what stops this becoming a back door into the GL.
+
+   **Candidates come from the ledger**, not a list of models: journal lines on the bank account's own
+   chart account, so every money source is included the day it ships.
+
+   **Cardinality is asymmetric on purpose.** A statement line may carry several matches (a bank shows
+   one line for two cheques banked together); a journal line may be matched at most once, enforced by
+   a unique index, because reporting the same money as verified twice is the failure the module
+   exists to prevent.
+
+   Four guards, each of which would otherwise still BALANCE and look finished: already-matched,
+   wrong account, wrong direction (a receipt cannot be explained by a payment), and a voided entry —
+   which explains nothing, its reversal being a separate matchable line. An unmapped bank account
+   returns no candidates and says so, rather than an empty list dressed up as "nothing to match".
+
+   **Still to do: the screen**, which is what makes this reachable by an operator. It belongs with
+   the statement list — importing and matching are one workflow — and is the next thing to build.
 4. **Suggested matches.** Exact amount + date within a tolerance + reference similarity, offered as
    a suggestion an operator confirms. Never auto-confirmed: a wrong match marks money verified.
 5. **The reconciliation itself.** Closing balance per the statement, plus unmatched book postings,
