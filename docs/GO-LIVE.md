@@ -23,9 +23,17 @@ money.** Compiled and verified against the running code 2026-08-11.
 
 ### 1.1 Backups are running and writing nothing ⚙️
 
-**Verified today: `mysqldump` is not on PATH.** `backup:run` exits 127 and has produced no archive
-since this was first recorded on **2026-07-30 — twelve days ago**. `atriom:health` reports it under
-`backup_capability` and has been reporting it correctly the whole time.
+**Verified: `mysqldump` is not on PATH.** `backup:run` exits 127 and has produced no archive since
+this was first recorded on **2026-07-30**. `atriom:health` reports it under `backup_capability` and
+has been reporting it correctly the whole time.
+
+> **Every box below is the OPERATOR's — none of it is code, and that is the finding.** The check was
+> never missing; nothing forced anyone to look at it. So as of 2026-08-12 **`atriom:install` reports
+> backup capability itself**, in an error block naming each problem, instead of closing with
+> *"run `atriom:health`, it also checks backups"* — which is what it did for those twelve days.
+> Reported rather than fatal: configuring backups after installing is a legitimate order of
+> operations, and an installer that refused would simply be run with the check disabled.
+> (`InstallReportsBackupCapabilityTest`.)
 
 - [ ] Ship the MySQL client in the deploy image (`mysqldump` must resolve for the app user).
 - [ ] `BACKUP_DISKS="backups,s3"` — **verified default is `backups` only, a LOCAL disk.** A copy on

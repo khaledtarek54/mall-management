@@ -116,6 +116,8 @@ class InstallCommand extends Command
             $this->components->warn(Health::demoAccountWarning($demo));
         }
 
+        $this->reportBackupCapability();
+
         $this->newLine();
         $this->components->bulletList([
             'Next: create the first property, then import or enter real tenants and leases.',
@@ -123,6 +125,56 @@ class InstallCommand extends Command
         ]);
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Say, here, whether this box can actually back itself up.
+     *
+     * **This command used to answer the question by suggesting another command.** The last line of
+     * the install was *"run `php artisan atriom:health` — it also checks cron, the queue worker and
+     * backups"*, and on the real deployment nobody did: `mysqldump` was absent, `backup:run` exited
+     * 127, and **twelve days passed with no archive written at all** while the health check sat
+     * there reporting it correctly to no one. The mechanism was never the problem. Nothing forced
+     * the question at the only moment somebody was certain to be looking.
+     *
+     * So the installer asks it. `Health::backupCapability()` is one call away and this command
+     * already refuses to finish when the database cannot post — the same standard applied to the
+     * safeguard that decides whether any of that data survives a dead disk.
+     *
+     * **Reported, not fatal**, for the same reason the demo-account warning is: configuring backups
+     * after installing is a legitimate order of operations, and an installer that refused would
+     * simply be run with the check disabled. What it must not be is one bullet among four.
+     */
+    private function reportBackupCapability(): void
+    {
+        $verdict = Health::backupCapability(
+            driver: config('database.connections.'.config('database.default').'.driver'),
+            dumpBinaryPath: (string) config('database.connections.'.config('database.default').'.dump.dump_binary_path', ''),
+            disks: (array) config('backup.backup.destination.disks', []),
+            environment: (string) app()->environment(),
+        );
+
+        $this->newLine();
+
+        if ($verdict['ok']) {
+            $this->components->info('Backups: '.$verdict['detail'].'.');
+
+            return;
+        }
+
+        // Each problem on its own line: the two causes are fixed in different places (the deploy
+        // image vs BACKUP_DISKS) and running them together into one sentence is how half of a
+        // two-part fix gets applied.
+        $this->components->error('THIS INSTALL CANNOT BACK ITSELF UP.');
+
+        foreach (explode('; ', $verdict['detail']) as $problem) {
+            $this->components->bulletList([$problem]);
+        }
+
+        $this->components->warn(
+            'The first hardware failure would lose every invoice, payment and ledger entry. '
+            .'Fix before real tenant data is entered — see docs/GO-LIVE.md §1.1.'
+        );
     }
 
     /**
