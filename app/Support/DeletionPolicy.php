@@ -255,6 +255,7 @@ class DeletionPolicy
 
         // configuration / setup
         \App\Models\AccountMapping::class => 'configuration: which account a source posts to',
+        \App\Models\UnitArea::class => 'parent-managed: one measurement of a unit for a period, edited from the unit. A wrong figure is corrected by recording a new measurement — the register is what makes a past period explicable, so rows are not removed',
         \App\Models\ChargeCode::class => 'configuration: the billing vocabulary. A code the engine references by name is refused at the screen; an operator-added one that was never billed is ordinary cleanup',
         \App\Models\ApprovalRule::class => 'configuration: approval bands',
         \App\Models\SlaPolicy::class => 'configuration: SLA targets',

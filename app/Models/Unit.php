@@ -144,6 +144,65 @@ class Unit extends Model
         return $this->hasMany(TenantRequest::class);
     }
 
+    /**
+     * Every unit gets its opening measurement the moment it exists.
+     *
+     * Without this a unit created AFTER the migration has no register at all, `areaOn()` falls
+     * through to the `area_sqm` column, and a remeasurement — which updates that column — appears
+     * to have been true for all time. That is the exact bug the register exists to prevent, and it
+     * would have shipped for every new unit while looking correct for every migrated one.
+     *
+     * `effective_from` null means "since always", matching the backfilled rows.
+     */
+    protected static function booted(): void
+    {
+        static::created(function (self $unit) {
+            $unit->areas()->create([
+                'area_sqm' => (float) ($unit->area_sqm ?? 0),
+                'effective_from' => null,
+                'effective_to' => null,
+                'reason' => 'Opening measurement',
+            ]);
+        });
+    }
+
+    /**
+     * The measured area over time — one open-ended row per unit until it is remeasured.
+     *
+     * @return HasMany<UnitArea, $this>
+     */
+    public function areas(): HasMany
+    {
+        return $this->hasMany(UnitArea::class)->orderByRaw('effective_from IS NULL DESC, effective_from');
+    }
+
+    /**
+     * The area in force on a date — what a period's CAM must apportion on.
+     *
+     * Remeasuring a shop used to rewrite history: last year's reconciliation, recomputed today,
+     * apportioned on the new number. Now the row in force on that day answers, and only a date
+     * AFTER a remeasurement sees the new figure.
+     *
+     * Falls back to `area_sqm` when no row covers the date. That is not defensive padding — it is
+     * what keeps a unit created before this table (or by a factory that writes only the column)
+     * behaving exactly as it did.
+     */
+    public function areaOn(?\Carbon\CarbonImmutable $on = null): float
+    {
+        $on = ($on ?? \Carbon\CarbonImmutable::now())->startOfDay();
+        $date = $on->toDateString();
+
+        $row = $this->relationLoaded('areas')
+            ? $this->areas->first(fn (UnitArea $a) => $a->coversDate($on))
+            : $this->areas()
+                ->where(fn ($q) => $q->whereNull('effective_from')->orWhereDate('effective_from', '<=', $date))
+                ->where(fn ($q) => $q->whereNull('effective_to')->orWhereDate('effective_to', '>=', $date))
+                ->orderByRaw('effective_from IS NULL, effective_from DESC')
+                ->first();
+
+        return $row ? (float) $row->area_sqm : (float) ($this->area_sqm ?? 0);
+    }
+
     public function utilityMeters(): HasMany
     {
         return $this->hasMany(UtilityMeter::class);

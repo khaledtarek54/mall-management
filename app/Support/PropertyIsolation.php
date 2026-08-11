@@ -76,6 +76,7 @@ use App\Models\TenantRequestComment;
 use App\Models\TenantSalesDeclaration;
 use App\Models\TenantUser;
 use App\Models\Unit;
+use App\Models\UnitArea;
 use App\Models\User;
 use App\Models\UtilityMeter;
 use App\Models\Vendor;
@@ -184,6 +185,7 @@ class PropertyIsolation
         PostDatedCheque::class => null,        // a tenant's forward cheque, pinned to the property it relates to (module 33)
 
         // ---- Indirect (relation chain to asset_id) ----
+        UnitArea::class => 'unit',             // a unit's measurement history — reached through its unit, never portfolio-wide
         Lease::class => 'unit',
         Invoice::class => 'lease.unit',
         InvoiceItem::class => 'invoice.lease.unit',

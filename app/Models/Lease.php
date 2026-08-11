@@ -434,12 +434,19 @@ class Lease extends Model implements HasMedia
         return round((float) $this->base_rent_rate_per_sqm_year * $area / 12, 2);
     }
 
-    /** The lease's total leased area as it stood on a given day (LE-02). */
+    /**
+     * The lease's total leased area as it stood on a given day (LE-02).
+     *
+     * Two things vary with the date and both are honoured here: WHICH units the lease held (the
+     * `lease_unit` pivot), and how big each one MEASURED (`unit_areas`). Only the first used to be
+     * dated, so remeasuring a shop silently rewrote every past period this figure feeds — CAM
+     * apportionment above all.
+     */
     public function totalAreaSqmOn(CarbonImmutable $on): float
     {
-        $fromPivot = (float) $this->unitsOn($on)->sum(fn (Unit $unit) => (float) ($unit->area_sqm ?? 0));
+        $fromPivot = (float) $this->unitsOn($on)->sum(fn (Unit $unit) => $unit->areaOn($on));
 
-        return $fromPivot > 0 ? $fromPivot : (float) ($this->unit?->area_sqm ?? 0);
+        return $fromPivot > 0 ? $fromPivot : (float) ($this->unit?->areaOn($on) ?? 0);
     }
 
     /**

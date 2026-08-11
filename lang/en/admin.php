@@ -2,6 +2,8 @@
 
 return [
     'errors' => [
+        'unit_area_not_positive' => 'A measured area has to be greater than zero. If the unit is out of use, change its status rather than its size.',
+        'unit_area_not_after_current' => 'This measurement starts on or before the one it would replace, which would leave two areas claiming the same day. Date it after the current measurement began.',
         'escalation_collar_inverted' => 'The minimum increase cannot be above the maximum. As written the cap would always win, so the minimum you set is the one increase that could never happen.',
         'account_mapping_duplicate' => '“:role” is already mapped in this scope. Edit the existing row instead — a second one would be ignored, because the ledger reads the first and would keep posting to the old account.',
         'account_mapping_global_undeletable' => '“:role” is a global default and cannot be removed — nothing falls back behind it, so every posting that asks for it would start failing. Re-point it at another account instead.',
