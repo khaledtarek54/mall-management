@@ -43,6 +43,28 @@
 > marketing spend are still unexamined by it.** Given three of three modules yielded findings, the
 > prior for the remaining ones is not zero.
 >
+> ### The completed pass, 2026-08-11
+>
+> | Area | Findings | Verdict |
+> |---|---|---|
+> | 22 inventory | 3 | cost basis, part-draw tiering, register-vs-ledger valuation |
+> | 23 fixed assets | 2 | re-cost floor bypassable, disposed asset re-costable |
+> | 24 HR / payroll | 2 | approved run's payslips rewritable, header derived one-way |
+> | 25 treasury / عهدة | 2 | grant terms + custodian editable after settlement |
+> | 29 procurement | 1 | **approval-ladder bypass** — a line added after approval |
+> | deposits | 1 | a receipt could shrink after the tenant was credited against it |
+> | marketing spend | **0** | clean, and now witnessed (`MarketingSpendStaysDerivedTest`) |
+>
+> **Ten findings across six areas, and one clean.** Marketing is the control that makes the rest
+> credible: both its figures are derived from source, so the pattern that produced every other
+> finding — a stored figure a second writer can move away from what it was derived from — has no
+> purchase there. Its posted spends are deliberately NOT frozen, because editing one leaves the
+> books *correct* (the entry re-derives, the posting-date guard holds, the budget follows) — the
+> freezes elsewhere exist only where an edit left a WRONG number behind.
+>
+> **Still unswept by this lens: module 21, the general ledger itself.** It is the one module every
+> other one posts into, and it has not been asked the layer question.
+>
 > Method and matrices: [VALIDATION-SWEEP-PLAN.md](VALIDATION-SWEEP-PLAN.md). Every guard added was
 > mutation-tested — deleted, watched go red, restored — because §10 of that document records a
 > finding that was *correct* while the tests proving it were worthless.
