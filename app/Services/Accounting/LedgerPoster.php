@@ -223,6 +223,10 @@ class LedgerPoster
                 $payload = self::applyPostMonth($payload, $source);
             }
 
+            // `posted` only, and correctly so: this asks "which entry is CURRENTLY live for this
+            // source?", not "how much money is on this account". A void entry is a superseded
+            // one — it is precisely what we do not want to find. Contrast
+            // JournalEntry::REPORTABLE_STATUSES, which governs SUMS.
             $existing = JournalEntry::query()
                 ->where('source_type', $source->getMorphClass())
                 ->where('source_id', $source->getKey())
@@ -330,6 +334,7 @@ class LedgerPoster
         // Only 'posted' entries, matching sync()'s void/re-post decision. (post()'s idempotency
         // guard also considers 'draft' entries, but no code path ever keys a draft entry to a
         // source — manual drafts have no source — so this can't diverge from sync() today.)
+        // `posted` only — same reason as sync() above: the live entry, not a sum.
         $existing = JournalEntry::query()
             ->where('source_type', $source->getMorphClass())
             ->where('source_id', $source->getKey())

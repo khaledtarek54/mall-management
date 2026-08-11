@@ -5,6 +5,7 @@ namespace App\Services\Banking;
 use App\Models\BankAccount;
 use App\Models\BankStatement;
 use App\Models\BankStatementLine;
+use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use Illuminate\Support\Facades\DB;
 
@@ -69,21 +70,34 @@ class ReconcileBankStatementService
 
         $periodEnd = $statement->period_end;
 
-        // The books' own answer: every POSTED line on this account up to the period end. A voided
-        // entry is excluded — it was reversed, and its reversal is counted in its own right.
+        // The books' own answer: every REPORTABLE line on this account up to the period end —
+        // `posted` AND `void` ({@see JournalEntry::REPORTABLE_STATUSES}).
+        //
+        // The comment here used to say "A voided entry is excluded — it was reversed, and its
+        // reversal is counted in its own right." The premise is true and the conclusion is
+        // backwards: `void()` leaves the original's lines in place, so excluding the original
+        // while keeping its reversal subtracts the amount a second time. A voided-and-re-recorded
+        // 250,000 receipt made this read 250,000 BELOW `LedgerReportService::accountLedger()` for
+        // the same chart account, and the accountant hunts a variance that does not exist.
         $ledgerBalance = round((float) JournalLine::query()
             ->where('ledger_account_id', $ledgerAccountId)
             ->whereHas('entry', fn ($q) => $q
-                ->where('status', 'posted')
+                ->whereIn('status', JournalEntry::REPORTABLE_STATUSES)
                 ->whereDate('entry_date', '<=', $periodEnd))
             ->sum(DB::raw('COALESCE(debit, 0) - COALESCE(credit, 0)')), 2);
 
         // Money the books know and the bank has not shown. Every unmatched posting up to the period
         // end, not just this period's — an unpresented cheque stays outstanding until it clears.
+        // Same basis as the ledger balance above, and it has to be: the two are subtracted from
+        // each other in the `difference` identity below, so a mismatch in what each counts shows
+        // up as a variance rather than as the bug it is. A void original and its reversal are both
+        // unmatched and net to zero here, which is the right answer — they inflate the COUNT
+        // without touching the total, and an outstanding-items list that shows a correction and
+        // its reversal is honest rather than noisy.
         $unmatchedBook = JournalLine::query()
             ->where('ledger_account_id', $ledgerAccountId)
             ->whereHas('entry', fn ($q) => $q
-                ->where('status', 'posted')
+                ->whereIn('status', JournalEntry::REPORTABLE_STATUSES)
                 ->whereDate('entry_date', '<=', $periodEnd))
             ->whereDoesntHave('bankMatch');
 

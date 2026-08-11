@@ -4,6 +4,7 @@ namespace App\Services\Reports;
 
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
+use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Services\Accounting\AccountResolver;
 use Carbon\CarbonImmutable;
@@ -114,7 +115,11 @@ class VatReturnService
             ->where('ledger_account_id', $accountId)
             ->when($assetId, fn ($q) => $q->where('asset_id', $assetId))
             ->whereHas('entry', fn ($q) => $q
-                ->where('status', 'posted')
+                // posted AND void ({@see JournalEntry::REPORTABLE_STATUSES}) — a corrected vendor
+                // bill otherwise makes the period's input VAT read 0 instead of 14,000, and the
+                // operator overpays the tax authority by that much. The output side has a
+                // document cross-check that would go amber; the input side has none.
+                ->whereIn('status', JournalEntry::REPORTABLE_STATUSES)
                 ->whereDate('entry_date', '>=', $start->toDateString())
                 ->whereDate('entry_date', '<=', $end->toDateString()))
             ->sum(DB::raw($expression)), 2);

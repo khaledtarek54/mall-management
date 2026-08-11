@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\CamExpensePool;
 use App\Models\Invoice;
+use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Models\Lease;
 use Carbon\CarbonImmutable;
@@ -71,7 +72,19 @@ class SyncCamPoolFromLedgerService
      * exactly as it reduces the ledger — a debits-only sum would recover money from tenants that
      * the landlord had already been refunded.
      *
-     * Only POSTED entries. A draft journal is not an expense yet, and a voided one never was.
+     * **Reportable entries: `posted` AND `void`** ({@see JournalEntry::REPORTABLE_STATUSES}).
+     *
+     * This line used to read "Only POSTED entries. A draft journal is not an expense yet, and a
+     * voided one never was." The first half is right and the second is exactly backwards, and that
+     * belief is what made this the most dangerous consumer of the rule: `void()` does not erase an
+     * entry, it posts a sign-flipped reversal and marks the original `void`, leaving the original's
+     * lines in place. Counting only `posted` therefore keeps the reversal and drops the original.
+     *
+     * Because this figure is persisted into `cam_expense_pools.total_actual_expense` and is the
+     * basis tenants are billed off, a cancelled 100,000 cleaning bill drove the pool to −100,000
+     * and the annual true-up would have issued **every tenant in the pool a credit note** for their
+     * share of money the landlord never over-collected. Nothing caught it: the entry balances, the
+     * AR/AP tie-out does not watch expense accounts, and `wouldChange()` is false.
      */
     public function actualFromLedger(CamExpensePool $pool): float
     {
@@ -87,7 +100,12 @@ class SyncCamPoolFromLedgerService
         $net = JournalLine::query()
             ->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.journal_entry_id')
             ->whereIn('journal_lines.ledger_account_id', $accountIds)
-            ->where('journal_entries.status', 'posted')
+            // posted AND void — see JournalEntry::REPORTABLE_STATUSES. void() leaves the
+            // original's lines in place and posts a reversal, so counting only `posted` keeps the
+            // reversal and drops the original: a cancelled 100,000 bill drove this basis to
+            // −100,000 and would have credit-noted every tenant in the pool for a share of money
+            // the landlord never over-collected.
+            ->whereIn('journal_entries.status', JournalEntry::REPORTABLE_STATUSES)
             // The pool belongs to ONE property, and so must its costs. A line stamped with another
             // asset — or with none — is not this mall's service charge, and recovering it here
             // would bill this mall's tenants for the mall next door.
@@ -146,7 +164,8 @@ class SyncCamPoolFromLedgerService
         return (float) JournalLine::query()
             ->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.journal_entry_id')
             ->whereIn('journal_lines.ledger_account_id', $accountIds)
-            ->where('journal_entries.status', 'posted')
+            // posted AND void — see JournalEntry::REPORTABLE_STATUSES.
+            ->whereIn('journal_entries.status', JournalEntry::REPORTABLE_STATUSES)
             ->where('journal_lines.asset_id', $pool->asset_id)
             ->whereDate('journal_entries.entry_date', '>=', $start)
             ->whereDate('journal_entries.entry_date', '<=', $end)

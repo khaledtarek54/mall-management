@@ -2,6 +2,7 @@
 
 namespace App\Services\Accounting;
 
+use App\Models\JournalEntry;
 use App\Models\LedgerAccount;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
@@ -26,7 +27,8 @@ use Illuminate\Support\Facades\DB;
 class LedgerReportService
 {
     /** Entry statuses that represent real, reportable movements. */
-    private const REPORTABLE = ['posted', 'void'];
+    /** @see JournalEntry::REPORTABLE_STATUSES — the rule lives on the model, not here. */
+    private const REPORTABLE = JournalEntry::REPORTABLE_STATUSES;
 
     /**
      * ميزان المراجعة — Trial Balance.

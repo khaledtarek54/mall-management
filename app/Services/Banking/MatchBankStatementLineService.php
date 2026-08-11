@@ -55,8 +55,19 @@ class MatchBankStatementLineService
             ->where('ledger_account_id', $account->ledger_account_id)
             ->when($moneyIn, fn ($q) => $q->where('debit', '>', 0))
             ->when(! $moneyIn, fn ($q) => $q->where('credit', '>', 0))
-            // Only entries that are actually on the books. A voided entry has been reversed and
-            // explains nothing; its reversal is a separate line that can be matched on its own.
+            // `posted` only, and DELIBERATELY not JournalEntry::REPORTABLE_STATUSES.
+            //
+            // That constant governs SUMMING money, where a void original and its reversal must
+            // both be counted so they net to zero. This is a SELECTION: the operator is choosing
+            // one book line to explain one bank line, and a voided line explains nothing — it has
+            // been reversed, and the reversal (or the re-posted entry) is a live line they can
+            // pick instead.
+            //
+            // Known residual, recorded rather than silently accepted: a void-and-repost therefore
+            // offers BOTH the reversal and the new entry as candidates while hiding the original,
+            // which is noise on the picker. Narrowing that means excluding reversals whose
+            // original is also unmatched, which is a matching-heuristic change and not part of
+            // the sum-vs-select rule this file is being corrected for.
             ->whereHas('entry', fn ($q) => $q->where('status', 'posted'))
             ->whereDoesntHave('bankMatch')
             ->whereHas('entry', fn ($q) => $q

@@ -25,6 +25,35 @@ class JournalEntry extends Model
 
     use HasFactory, HasSearchText, LogsActivity, SoftDeletes;
 
+    /**
+     * The statuses that represent real, reportable movement — **`posted` AND `void`**.
+     *
+     * This is the single most counter-intuitive rule in the ledger, and getting it wrong does not
+     * look like a bug. `JournalPostingService::void()` does **not** erase an entry: it posts a
+     * sign-flipped **reversal** (status `posted`) and marks the original `void`, leaving the
+     * original's lines in `journal_lines`, dated in their original period. That is deliberate — an
+     * auditor must be able to see both the mistake and its correction.
+     *
+     * The consequence is that the pair nets to zero **only if both are counted**. Filter to
+     * `posted` alone and you keep the reversal while dropping the original, so every correction
+     * reads as `(new − original)` and every plain cancellation reads as a NEGATIVE.
+     *
+     * And this is not an edge case: `LedgerPoster::sync()` calls `void()` on every re-derive, so it
+     * is the normal operating mode of a derived ledger. A cancelled 100,000 vendor bill drove the
+     * CAM recovery basis to −100,000 and would have issued every tenant in the pool a credit note
+     * for a share of money the landlord never over-collected.
+     *
+     * The rule lived as a private constant inside `LedgerReportService` while four other services
+     * summed journal lines with their own `where('status', 'posted')`. It lives here now because
+     * this is the model whose statuses they are, and because a rule that four callers need cannot
+     * be private to one of them.
+     *
+     * **Not every `posted`-only filter is wrong.** "Has anything ever posted?", "find THE live
+     * entry for this source", and the year-end close's own scan are all legitimately about posted
+     * entries specifically. The test is whether you are SUMMING MONEY: if so, use this.
+     */
+    public const REPORTABLE_STATUSES = ['posted', 'void'];
+
     protected $fillable = [
         'number',
         'entry_date',

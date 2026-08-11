@@ -1,5 +1,36 @@
 # Module 21 — General Ledger & Accounting Core (المحاسبة العامة / دفتر الأستاذ العام)
 
+
+> **⚠️ Fixed 2026-08-11 — four services summed money without counting voided entries.**
+>
+> `JournalPostingService::void()` does not erase an entry: it posts a sign-flipped **reversal**
+> (status `posted`) and marks the original `void`, leaving the original's lines in `journal_lines`,
+> dated in their original period. That is deliberate — an auditor must see both the mistake and the
+> correction — and it means **the pair nets to zero only if both are counted**.
+>
+> `LedgerReportService` knew this and held a *private* `['posted','void']`. Four other services
+> summed journal lines with their own `where('status','posted')`, so each computed
+> `(new − original)` on every correction and went **negative** on every plain cancellation. This is
+> not an edge case: `LedgerPoster::sync()` calls `void()` on every re-derive, which is the normal
+> operating mode of a derived ledger.
+>
+> | Consumer | What it broke |
+> |---|---|
+> | `SyncCamPoolFromLedgerService` ×2 | **The CAM recovery basis tenants are billed off.** A cancelled 100,000 bill drove `total_actual_expense` to −100,000; the annual true-up would have issued every tenant in the pool a credit note for a share of money nobody over-collected. Its docblock even asserted the wrong rule — *"a voided one never was"*. |
+> | `ReconcileBankStatementService` ×2 | The bank rec's "ledger balance" read 250,000 below the trial balance for the same account, and the accountant hunts a variance that does not exist. |
+> | `VatReturnService` | Input VAT read 0 instead of 14,000 for a corrected vendor bill — the operator overpays the tax authority. |
+>
+> The rule now lives on **`JournalEntry::REPORTABLE_STATUSES`**, because a rule four callers need
+> cannot be private to one of them. `VoidedEntriesStayReportableTest` pins it, and its first case is
+> the one the sweep said would have caught all four sites at once: **two independent readings of the
+> same account must agree.** Mutation-checked — reverting the constant to `['posted']` reproduces
+> the −100,000 and the 250,000 gap exactly.
+>
+> **Not every `posted`-only filter is wrong**, and the surviving ones are now annotated as
+> decisions: `LedgerPoster` asking *which entry is currently live for this source* wants `posted`
+> alone, and so does the bank-match candidate picker — that is a **selection**, not a sum. The test
+> is whether you are summing money.
+
 ## A posted entry is immutable — enforced at the model (2026-08-11)
 
 `JournalPostingService` validates an entry when it **posts** it: every line carries a debit or a
