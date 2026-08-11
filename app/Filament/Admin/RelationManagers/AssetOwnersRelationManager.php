@@ -105,8 +105,8 @@ class AssetOwnersRelationManager extends RelationManager
             ])
             ->headerActions([
                 AttachAction::make()
-                    ->visible(fn () => static::canManage())
-                    ->authorize(fn () => static::canManage())
+                    ->visible(fn () => self::canManage())
+                    ->authorize(fn () => self::canManage())
                     ->preloadRecordSelect()
                     ->recordSelect(
                         fn (Select $select) => $select
@@ -137,11 +137,11 @@ class AssetOwnersRelationManager extends RelationManager
             ])
             ->recordActions([
                 EditAction::make()
-                    ->visible(fn () => static::canManage())
-                    ->authorize(fn () => static::canManage()),
+                    ->visible(fn () => self::canManage())
+                    ->authorize(fn () => self::canManage()),
                 DetachAction::make()
-                    ->visible(fn () => static::canManage())
-                    ->authorize(fn () => static::canManage())
+                    ->visible(fn () => self::canManage())
+                    ->authorize(fn () => self::canManage())
                     // Detaching erases the tenure, and with it the basis of every statement that
                     // ever apportioned money to this owner. Selling a property is recorded by
                     // setting an end date; this is for a row entered by mistake.

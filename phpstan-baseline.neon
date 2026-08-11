@@ -2035,7 +2035,10 @@ parameters:
 			path: app/Services/MonthlyBillingService.php
 
 		-
-			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\{charge_id\: int, description\: non\-falsy\-string, type\: ''base_rent''\|''marketing''\|''other''\|''parking''\|''percentage_rent''\|''service_charge''\|''utility'', amount\: float, vat_rate\: float, vat_amount\: float, total\: float\}, Closure\(App\\Models\\Charge\)\: array\{charge_id\: int, description\: non\-falsy\-string, type\: ''base_rent''\|''marketing''\|''other''\|''parking''\|''percentage_rent''\|''service_charge''\|''utility'', amount\: float, vat_rate\: float, vat_amount\: float, total\: float\} given\.$#'
+			# `type` widened from a literal union to `string` when charges.type was freed from its
+			# DB enum (2026_08_11_150000) — the message drifted, not the code. Larastan generics
+			# noise on Collection::map(), not a latent bug.
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\{charge_id\: int, description\: non\-falsy\-string, type\: string, amount\: float, vat_rate\: float, vat_amount\: float, total\: float\}, Closure\(App\\Models\\Charge\)\: array\{charge_id\: int, description\: non\-falsy\-string, type\: string, amount\: float, vat_rate\: float, vat_amount\: float, total\: float\} given\.$#'
 			identifier: argument.type
 			count: 1
 			path: app/Services/MonthlyBillingService.php
