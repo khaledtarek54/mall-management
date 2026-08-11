@@ -81,20 +81,20 @@ that still has none (Vendor, Employee, FixedAsset, Charge, meters — item 14), 
 the whole cut-over against real data, which is the exit test below.
 
 
-
-**This is the phase nobody has scoped, and it is the long pole.** Today you cannot load a real mall.
+The original plan follows, with the shipped rows marked — kept rather than deleted, because a
+retired row is what stops the next person rebuilding a thing that works.
 
 | # | Item | ID | Effort |
 |---|---|---|---|
-| 9 | Fix `LeaseImporter`'s **four** faults: the `$this`-in-a-static-closure that leaves `unit_id` null, the non-existent `asset_code` column, the missing charge-seeding call, and the non-idempotent `resolveRecord()` — plus the property clamp. Copy `UnitImporter` throughout; it is correct on every one of these | FS-04 | M |
-| 9b | **Un-baseline the two PHPStan entries on `LeaseImporter`** — they are the analyser's report of fault 1, suppressed. Then re-check the other `alwaysFalse` entries, four of which are load-bearing `balance` guards and must be annotated, not removed | — | S |
-| 10 | Make `atriom:audit-charge-schedules` **fail on a lease with zero charges** — today that is the one shape it calls clean | FS-04 | S |
-| 11 | `TenantImporter`: stop deduping on a nullable, non-unique `email` | — | S |
-| 12 | Importers off `sync`; add `getMaxRows()` and a chunk size | FS-36 | S |
-| 13 | **Opening balances** — AR, deposits, cash, AP. At minimum an invoice importer with a dry-run and an error report | FS-15 | M |
+| 9 ✅ | Fix `LeaseImporter`'s **four** faults: the `$this`-in-a-static-closure that leaves `unit_id` null, the non-existent `asset_code` column, the missing charge-seeding call, and the non-idempotent `resolveRecord()` — plus the property clamp. Copy `UnitImporter` throughout; it is correct on every one of these | FS-04 | M |
+| 9b ✅ | **Un-baseline the two PHPStan entries on `LeaseImporter`** — they are the analyser's report of fault 1, suppressed. Then re-check the other `alwaysFalse` entries, four of which are load-bearing `balance` guards and must be annotated, not removed | — | S |
+| 10 ✅ | Make `atriom:audit-charge-schedules` **fail on a lease with zero charges** — today that is the one shape it calls clean | FS-04 | S |
+| 11 ✅ | `TenantImporter`: stop deduping on a nullable, non-unique `email` | — | S |
+| 12 ✅ | Importers off `sync`; add `getMaxRows()` and a chunk size | FS-36 | S |
+| 13 ✅ | **Opening balances** — AR, deposits, cash, AP. At minimum an invoice importer with a dry-run and an error report | FS-15 | M |
 | 14 | Importers for the master data that has none — Vendor, Employee, FixedAsset, Charge, meters | — | M |
-| 15 | **A test that actually executes each importer.** None exists today; the sole importer test inspects validation rules | — | S |
-| 16 | `asset_owner` UI — a relation manager on `AssetResource`, plus `ownership_percentage` | FS-14 | S–M |
+| 15 ✅ | **A test that actually executes each importer.** None exists today; the sole importer test inspects validation rules | — | S |
+| 16 ✅ | `asset_owner` UI — a relation manager on `AssetResource`, plus `ownership_percentage` | FS-14 | S–M |
 
 **Phase-2 exit test:** load a full mall — properties, floors, units, tenants, leases with charge
 schedules, opening AR, deposits, owners — from files, twice, and get the same result both times.
