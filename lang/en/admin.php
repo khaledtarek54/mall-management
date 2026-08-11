@@ -3849,6 +3849,7 @@ return [
     'fixed_assets' => [
         'errors' => [
             'resolution_needs_evidence' => 'Attach a photo of the completed work, or raise a work order for it, before marking this resolved.',
+            'disposed_immutable' => 'A disposed asset is final — its cost, dates and property cannot change. The write-off has already posted, and restating it would rewrite the gain or loss on a sale that has happened. Correct it with a journal entry instead; the name, tag and notes stay editable.',
             'recost_below_accumulated' => 'The new depreciable base (:base) is below the :accumulated already depreciated. Lowering it would push the net book value negative and halt depreciation. Dispose the asset or create a corrected one instead.',
         ],
         'group' => 'Fixed Assets',
@@ -3996,6 +3997,8 @@ return [
         'errors' => [
             'settlement_before_grant' => 'A settlement cannot be dated before the custody was granted (:granted).',
             'settlement_already_reversed' => 'That settlement has already been reversed.',
+            'custodian_fixed' => 'The custodian is fixed once the custody is granted — the property its entries are booked to comes from them. Return this custody and grant a new one to the right person.',
+            'terms_locked_once_settled' => 'This custody has already been settled against, so its amount, date and source account are fixed — changing them would misstate what is outstanding and restate an entry the books have already taken. Record a return, or a further settlement, instead.',
         ],
         'singular' => 'Custody',
         'plural' => 'Custodies',
