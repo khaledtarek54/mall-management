@@ -67,7 +67,24 @@ php artisan queue:restart           # workers pick up new code
 > someone's memory. `filament:assets` republishes the package's JS/icons after a Filament
 > upgrade.
 
-First deploy only: `php artisan key:generate`, `php artisan migrate --force --seed` is **NOT** for prod (DemoSeeder is demo data) — seed only `RolesPermissionsSeeder` + real data import.
+**First deploy only:**
+
+```
+php artisan key:generate
+php artisan db:seed --class=RolesPermissionsSeeder   # roles + the 182-permission catalogue
+php artisan db:seed --class=AccountingSeeder         # chart of accounts, account mappings,
+                                                     # charge codes, and an open fiscal year
+php artisan atriom:health                            # must be green before real data goes in
+```
+
+`php artisan migrate --force --seed` is **NOT** for prod — `DemoSeeder` is demo data.
+
+**Do not skip `AccountingSeeder`** (this line said "seed only `RolesPermissionsSeeder`" until
+2026-08-11, which produced exactly the install described below). The chart of accounts is a seeder,
+not a migration: without it the system bills perfectly and posts **nothing** — a correct invoice,
+`accounting:sync-ledger` refusing every entry, and a general ledger at zero. `atriom:health`'s
+`accounting` check now reports that state by name, which is why it belongs in the sequence above and
+not after the first month's billing.
 
 ---
 
@@ -140,7 +157,8 @@ unzip -p storage/backups/Atriom/<newest>.zip db-dumps/mysql-atriom.sql | mysql -
 - **Uptime**: external monitor (UptimeRobot/Pingdom) on **`/health`**, not `/up`. `/up` is
   Laravel's stock route and answers 200 with the database down, the queue stalled and the
   scheduler dead. `/health` checks database, cache, queue depth, **scheduler heartbeat**,
-  **backup freshness** and storage, and answers 503 when any of them is wrong.
+  **backup freshness**, storage, 2FA enforcement, **whether this install can post to the books**
+  and **whether the seeded demo logins still exist**, and answers 503 when any of them is wrong.
   - Anonymous callers get `{"status":"ok"|"degraded"}` and nothing else; set `HEALTH_TOKEN`
     and pass `?token=` (or `X-Health-Token`) to see which check failed.
   - **Why it has to be external:** every scheduled monitor — `backup:monitor` included — can
@@ -149,6 +167,20 @@ unzip -p storage/backups/Atriom/<newest>.zip db-dumps/mysql-atriom.sql | mysql -
     backup and every alarm at once, and looks exactly like a quiet night. Something off-box
     has to ask.
   - Same checks from the CLI, non-zero on failure: `php artisan atriom:health`.
+  - **`accounting` — can this install post at all?** The chart of accounts is a SEEDER, not a
+    migration, so a database that has only been migrated bills perfectly and posts NOTHING: the
+    invoice is correct, `accounting:sync-ledger` refuses every entry with *"No account mapping for
+    role 'accounts_receivable'"*, and the ledger stays at zero. The realtime hook is best-effort and
+    the sweep's non-zero exit goes to a cron log, so the first person to notice would be the
+    accountant asking for a trial balance a month later. The check resolves every posting role
+    through the real `AccountResolver` — the same path the journalizers use — and names the remedy
+    (`php artisan db:seed --class=AccountingSeeder`).
+  - **`demo_accounts` — are the published logins still live?** `DemoSeeder` creates eight admin
+    users (including a **super_admin**) and two portal users on one password that DEMO.md publishes.
+    Matched on the demo email domains, not the password hash: rotating `DEMO_USER_PASSWORD` changes
+    the secret, not the fact that the account belongs to nobody.
+  - Both fail only outside `local`/`testing` — a developer between `migrate` and `db:seed` is not a
+    broken install, and a check that cries wolf locally gets ignored in production.
 
 ---
 

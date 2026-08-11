@@ -25,6 +25,9 @@
 ## 3. Database
 
 - [ ] `php artisan migrate --force` — all 40+ migrations applied
+- [ ] `php artisan db:seed --class=RolesPermissionsSeeder` — roles + permission catalogue
+- [ ] `php artisan db:seed --class=AccountingSeeder` — **chart of accounts + account mappings + charge codes + fiscal year.** Skip it and the system bills correctly while the general ledger stays empty; `atriom:health`'s `accounting` check fails until it is run
+- [ ] `php artisan atriom:health` — green (it now also reports an unpostable install and any seeded demo login)
 - [ ] Production DB user has `CREATE/ALTER/DROP/INDEX` permissions on the schema (Laravel migrations create indexes)
 - [ ] `DB_HOST` is the production host, NOT localhost
 - [ ] `DB_DATABASE` exists and is empty before first migrate

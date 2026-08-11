@@ -62,6 +62,8 @@ class Health
             'backup_capability' => self::checkBackupCapability(),
             'storage' => self::checkStorage(),
             'two_factor' => self::checkTwoFactor(),
+            'accounting' => self::checkAccounting(),
+            'demo_accounts' => self::checkDemoAccounts(),
         ];
 
         $ok = collect($checks)->every(fn (array $c): bool => $c['ok']);
@@ -214,6 +216,101 @@ class Health
         return $missing === []
             ? ['ok' => true, 'detail' => 'enforced for '.count($forced).' role(s)']
             : ['ok' => true, 'detail' => 'enforced, but these money-touching roles are not covered: '.implode(', ', $missing)];
+    }
+
+    /**
+     * CAN this install post to the books at all? Production only.
+     *
+     * **The failure it exists for, reproduced on an empty database:** `migrate` alone leaves
+     * `ledger_accounts` and `account_mappings` empty — the chart is a SEEDER, not a migration. An
+     * operator can then create a property, a lease and a tenant, run the monthly billing, and get a
+     * perfectly correct 30,000 EGP invoice… while `accounting:sync-ledger` refuses every posting
+     * with "No account mapping for role 'accounts_receivable'" and the general ledger stays at zero
+     * entries. Billing looks healthy; the books are empty. Nothing in the app says so: the realtime
+     * hook is best-effort by design, and the sweep's non-zero exit goes to a cron log nobody reads.
+     *
+     * So the check resolves EVERY role in `PostingRoles` through the real `AccountResolver` — the
+     * same code path the journalizers use — and reports the ones that would throw. That catches the
+     * unseeded install, a partially-seeded one, a mapping pointing at a deleted account, and a
+     * mapping pointing at a non-postable header account, without a second opinion about what
+     * "mapped" means.
+     *
+     * Fails only outside local/testing: a developer between `migrate` and `db:seed` is not broken,
+     * and a check that cries wolf locally gets ignored in production.
+     *
+     * @return array{ok: bool, detail: string}
+     */
+    private static function checkAccounting(): array
+    {
+        $production = ! in_array(config('app.env'), ['local', 'testing'], true);
+
+        try {
+            $resolver = app(\App\Services\Accounting\AccountResolver::class);
+            $broken = [];
+
+            foreach (PostingRoles::keys() as $role) {
+                try {
+                    $resolver->account($role);
+                } catch (Throwable $e) {
+                    $broken[] = $role;
+                }
+            }
+        } catch (Throwable $e) {
+            return ['ok' => ! $production, 'detail' => 'unreadable: '.$e->getMessage()];
+        }
+
+        if ($broken === []) {
+            return ['ok' => true, 'detail' => count(PostingRoles::keys()).' posting roles mapped'];
+        }
+
+        // Naming a few is enough to recognise the state; the full list is what `atriom:health`
+        // would print forever otherwise.
+        $sample = implode(', ', array_slice($broken, 0, 5)).(count($broken) > 5 ? ', …' : '');
+        $detail = count($broken).' of '.count(PostingRoles::keys())
+            ." posting roles have no usable account ({$sample}) — every GL post using them is refused,"
+            .' so invoices bill while the books stay empty. Run `php artisan db:seed --class=AccountingSeeder`.';
+
+        return ['ok' => ! $production, 'detail' => $production ? $detail : 'local/testing — not enforced ('.$detail.')'];
+    }
+
+    /**
+     * Are the seeded DEMO logins still reachable in production? Production only.
+     *
+     * `DemoSeeder` creates eight admin users and two portal users on one shared password, which
+     * `.env.example` and DEMO.md both publish. Rotating or deleting them before the URL is
+     * shareable has been a line on the go-live checklist for weeks — a line, i.e. something a human
+     * has to remember, about accounts that include a **super_admin**. This makes the answer
+     * self-serving: if those accounts exist in production, health says so by name.
+     *
+     * Matched on the demo EMAIL DOMAINS rather than the password hash: the password can be rotated
+     * via `DEMO_USER_PASSWORD` while the accounts themselves stay — and a demo account with a
+     * rotated password is still an account nobody owns, on a role nobody audits.
+     *
+     * @return array{ok: bool, detail: string}
+     */
+    private static function checkDemoAccounts(): array
+    {
+        $production = ! in_array(config('app.env'), ['local', 'testing'], true);
+
+        try {
+            $emails = DB::table('users')
+                ->where(fn ($q) => $q->where('email', 'like', '%@mall.test')
+                    ->orWhere('email', 'like', '%@atriom.test')
+                    ->orWhere('email', 'like', '%@atriomwalk.test'))
+                ->pluck('email');
+        } catch (Throwable $e) {
+            return ['ok' => ! $production, 'detail' => 'unreadable: '.$e->getMessage()];
+        }
+
+        if ($emails->isEmpty()) {
+            return ['ok' => true, 'detail' => 'no seeded demo logins'];
+        }
+
+        $detail = $emails->count().' seeded demo login(s) still active ('
+            .$emails->take(3)->implode(', ').($emails->count() > 3 ? ', …' : '')
+            .') — their password is published in DEMO.md. Delete them or rotate before go-live.';
+
+        return ['ok' => ! $production, 'detail' => $production ? $detail : 'local/testing — expected ('.$emails->count().' demo login(s))'];
     }
 
     /** @return array{ok: bool, detail: string} */
