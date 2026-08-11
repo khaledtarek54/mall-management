@@ -2,6 +2,19 @@
 
 return [
     'bank' => [
+        'reconciliation_heading' => 'التسوية',
+        'reconciliation_state' => 'الحالة',
+        'reconciled' => 'مُسوّى',
+        'not_reconciled' => 'غير مُسوّى',
+        'unmapped_account' => 'هذا الحساب غير مرتبط بحساب في الدليل، فلا يوجد ما تُسوّى عليه. اضبط حساب الأستاذ على الحساب البنكي أولًا.',
+        'unmatched_book' => 'في الدفاتر ولم يظهر في الكشف',
+        'unmatched_book_hint' => ':count قيد — شيكات صادرة لم تُقدَّم، وإيداعات في الطريق.',
+        'unmatched_statement' => 'في الكشف ولم يُسجَّل في الدفاتر',
+        'unmatched_statement_hint' => ':count سطر — مصاريف بنكية وفوائد وخصومات مباشرة لم تُسجَّل بعد.',
+        'ledger_balance' => 'رصيد الأستاذ',
+        'expected_ledger' => 'المتوقَّع من الكشف: :amount',
+        'difference' => 'غير مُفسَّر',
+        'difference_hint' => 'هذا مبلغ لا يفسّره أي من الطرفين. طابِق ما يمكن مطابقته، وما يتبقّى خطأ حقيقي يجب البحث عنه.',
         'consistent' => 'متوازن',
         'inconsistent' => 'غير متوازن',
         'matched' => 'مطابَق',
@@ -1724,6 +1737,7 @@ return [
     ],
 
     'actions' => [
+        'reconciliation' => 'التسوية',
         'import_statement_lines' => 'استيراد',
         'match_line' => 'مطابقة',
         'unmatch_line' => 'فك المطابقة',

@@ -2,6 +2,19 @@
 
 return [
     'bank' => [
+        'reconciliation_heading' => 'Reconciliation',
+        'reconciliation_state' => 'State',
+        'reconciled' => 'Reconciled',
+        'not_reconciled' => 'Not reconciled',
+        'unmapped_account' => 'This account is not linked to a chart account, so there is nothing to reconcile it against. Set the ledger account on the bank account first.',
+        'unmatched_book' => 'In the books, not on the statement',
+        'unmatched_book_hint' => ':count posting(s) — cheques written and not presented, deposits in transit.',
+        'unmatched_statement' => 'On the statement, not in the books',
+        'unmatched_statement_hint' => ':count line(s) — charges, interest, direct debits nobody has recorded yet.',
+        'ledger_balance' => 'Ledger balance',
+        'expected_ledger' => 'Expected from the statement: :amount',
+        'difference' => 'Unexplained',
+        'difference_hint' => 'This is money neither side accounts for. Match what you can; whatever is left is a real error to find.',
         'consistent' => 'Balances',
         'inconsistent' => 'Does not balance',
         'matched' => 'Matched',
@@ -1732,6 +1745,7 @@ return [
     ],
 
     'actions' => [
+        'reconciliation' => 'Reconciliation',
         'import_statement_lines' => 'Import',
         'match_line' => 'Match',
         'unmatch_line' => 'Unmatch',

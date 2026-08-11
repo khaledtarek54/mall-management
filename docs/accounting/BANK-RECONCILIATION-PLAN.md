@@ -1,6 +1,6 @@
 # Bank reconciliation — the plan
 
-**Status:** written 2026-08-11. **Slices 1–3 shipped the same day** — the register, statement import, and the matching engine + its guards. **The control now exists.** Slices 4–6 (suggestions, the reconciliation report, ageing) are convenience on top; what is missing for an operator is the SCREEN, noted under slice 3.
+**Status:** written 2026-08-11. **Slices 1, 2, 3 and 5 shipped the same day** — the register, statement import, matching with its guards and workspace, and the reconciliation statement. **The control exists and is reachable.** Slice 4 (suggested matches) and 6 (unmatched ageing) remain, and both are convenience on top of a working control.
 
 > **The gap, verified rather than quoted.** There is no `bank_accounts` model, no statement, no
 > statement line, no matching, and no migration for any of them. `BooksReconciliationService` is the
@@ -129,13 +129,28 @@ Each one is independently useful, which is the test of whether the slicing is ho
    which explains nothing, its reversal being a separate matchable line. An unmapped bank account
    returns no candidates and says so, rather than an empty list dressed up as "nothing to match".
 
-   **Still to do: the screen**, which is what makes this reachable by an operator. It belongs with
-   the statement list — importing and matching are one workflow — and is the next thing to build.
+   ✅ **The screen shipped too** — `BankStatementResource` with the lines beneath it: import, match,
+   unmatch, an unmatched-only filter, and a per-line state of matched / partly matched (with the
+   amount still outstanding) / unmatched. Importing and matching are one workflow, so they are one
+   screen.
 4. **Suggested matches.** Exact amount + date within a tolerance + reference similarity, offered as
    a suggestion an operator confirms. Never auto-confirmed: a wrong match marks money verified.
-5. **The reconciliation itself.** Closing balance per the statement, plus unmatched book postings,
-   minus unmatched statement lines, must equal the ledger balance for that account on that date.
-   That arithmetic IS the report, and it is what an auditor asks for.
+5. ✅ **The reconciliation itself — shipped 2026-08-11.** `ReconcileBankStatementService`, on the
+   statement page as its terms rather than a verdict:
+
+       ledger balance = statement closing + Σ(unmatched book postings) − Σ(unmatched statement lines)
+
+   The two terms on the right are the only two ways the bank and the books can legitimately differ —
+   money the books know that the bank has not shown (an unpresented cheque), and money the bank moved
+   that the books have not recorded (a charge). **Outstanding items are counted from ALL time up to
+   the period end, not just within the period**: a cheque written in February and unpresented in
+   March is outstanding in March too, and windowing it to the period is the classic way to make a
+   reconciliation balance that should not.
+
+   `reconciled` is deliberately NOT "every line is matched" — it is "every difference is explained",
+   which is what the identity tests. Outstanding items are explanations, not failures. An unmapped
+   account reports that it cannot be reconciled rather than a row of zeroes, because zeroes read as
+   reconciled.
 6. **Unreconciled ageing.** A statement line unmatched for 30 days is a question nobody has asked.
 
 ---
