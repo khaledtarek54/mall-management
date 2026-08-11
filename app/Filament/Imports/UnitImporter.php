@@ -109,8 +109,21 @@ class UnitImporter extends Importer
         return $body;
     }
 
+    /**
+     * Queue the import rather than running it inline.
+     *
+     * Was a hard-coded `'sync'`, which no configuration could reach — so the cut-over ran inside
+     * one HTTP request. `sync` remains the default (config/imports.php), so local work and the
+     * suite are unchanged; production sets IMPORT_QUEUE_CONNECTION.
+     */
     public function getJobConnection(): ?string
     {
-        return 'sync';
+        return config('imports.connection', 'sync');
+    }
+
+    /** A guard rail against a mis-mapped file, not a capacity limit. */
+    public function getMaxRows(): ?int
+    {
+        return (int) config('imports.max_rows', 5000);
     }
 }

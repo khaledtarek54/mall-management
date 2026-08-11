@@ -486,8 +486,21 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
      */
     public function setTaxIdAttribute($value): void
     {
-        $this->attributes['tax_id'] = ($value === null || $value === '')
+        $this->attributes['tax_id'] = self::normaliseTaxId($value);
+    }
+
+    /**
+     * The stored form of an Egyptian VAT number: bare digits, or null.
+     *
+     * Public and static because a LOOKUP has to normalise the same way a WRITE does. `TenantImporter`
+     * identifies a tenant by `tax_id`, and searching for the dashed `123-456-789` against a column
+     * that stores `123456789` matches nothing — so a re-import would have created a duplicate of
+     * every tenant while looking like it was deduplicating them. One rule, one home.
+     */
+    public static function normaliseTaxId(?string $value): ?string
+    {
+        return ($value === null || $value === '')
             ? null
-            : preg_replace('/\D+/', '', (string) $value);
+            : preg_replace('/\D+/', '', $value);
     }
 }

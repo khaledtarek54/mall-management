@@ -58,12 +58,39 @@ class TenantImporter extends Importer
         ];
     }
 
+    /**
+     * Find the tenant this row refers to, or start a new one.
+     *
+     * **Identity is `tax_id` first, then `email`.** `tenants.email` is nullable and carries no
+     * unique index, so keying only on it meant that re-running an import — the normal response to
+     * a partial one — created a fresh duplicate of every email-less tenant. Those duplicates then
+     * acquire their own leases and invoices, splitting one retailer's AR across two records that
+     * can no longer be merged, because `RefusesDeletionWhenReferenced` correctly refuses to delete
+     * either once it has history.
+     *
+     * The Egyptian tax registration is the better key: it is the identifier the operator's own
+     * records and the tax authority both use, and one company has exactly one. `email` remains the
+     * fallback for a tenant that genuinely has no TRN yet.
+     *
+     * A row with neither is a row we cannot recognise on a second pass, so it creates a new tenant
+     * — the same behaviour as before, now the exception rather than the rule. Both sibling
+     * importers key on something genuinely unique: `LeaseImporter` on `reference` or
+     * (unit, commencement), `UnitImporter` on the unique (asset_id, code).
+     */
     public function resolveRecord(): ?Tenant
     {
-        // Match on email if present (idempotent re-imports), otherwise create new.
+        // Normalised through the model's own rule: the column stores bare digits, so looking up
+        // the dashed form the CSV carries would match nothing — and this dedup would have created
+        // a duplicate of every tenant while appearing to prevent exactly that.
+        $taxId = Tenant::normaliseTaxId($this->data['tax_id'] ?? null);
+
+        if (filled($taxId)) {
+            return Tenant::firstOrNew(['tax_id' => $taxId]);
+        }
+
         $email = $this->data['email'] ?? null;
 
-        if ($email) {
+        if (filled($email)) {
             return Tenant::firstOrNew(['email' => $email]);
         }
 
@@ -81,8 +108,21 @@ class TenantImporter extends Importer
         return $body;
     }
 
+    /**
+     * Queue the import rather than running it inline.
+     *
+     * Was a hard-coded `'sync'`, which no configuration could reach — so the cut-over ran inside
+     * one HTTP request. `sync` remains the default (config/imports.php), so local work and the
+     * suite are unchanged; production sets IMPORT_QUEUE_CONNECTION.
+     */
     public function getJobConnection(): ?string
     {
-        return 'sync';
+        return config('imports.connection', 'sync');
+    }
+
+    /** A guard rail against a mis-mapped file, not a capacity limit. */
+    public function getMaxRows(): ?int
+    {
+        return (int) config('imports.max_rows', 5000);
     }
 }
