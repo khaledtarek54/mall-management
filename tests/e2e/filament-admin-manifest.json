@@ -415,6 +415,10 @@
             "slug": "trial-balance"
         },
         {
+            "class": "VatReturn",
+            "slug": "vat-return"
+        },
+        {
             "class": "WeeklySpend",
             "slug": "weekly-spend"
         },

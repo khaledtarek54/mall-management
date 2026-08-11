@@ -265,6 +265,37 @@ public function build(CarbonImmutable $period): string
 
 ---
 
+### `VatReturnService` (app/Services/Reports/VatReturnService.php)
+
+**The VAT position for a period (الإقرار الضريبي).** Reports; files nothing.
+
+#### `for(CarbonImmutable $start, CarbonImmutable $end, ?int $assetId = null): array`
+
+| Key | Source | Why from there |
+|---|---|---|
+| `output_vat` | **Ledger** — credit-side movement on `vat_payable` | The ledger is the single source of truth; a return derived from documents would be a second opinion about the same money, and the two agree right up until the month they don't. |
+| `input_vat` | **Ledger** — debit-side movement on `vat_recoverable` | Read on its *own* normal side, so a refund posted the other way reduces it correctly. |
+| `net_payable` | `output − input` | Negative is a real state (a month of heavy purchasing), not an error. |
+| `output_vat_documents` | **Documents** — Σ invoice VAT − Σ credit-note VAT | The cross-check, from the other side of the system. |
+| `ties_out` / `output_vat_difference` | the two compared | A mismatch means something is unposted or posted twice. |
+| `base_standard` / `base_exempt` | **Documents**, split per LINE | The GL knows revenue by account, not by tax treatment — only the lines can answer which supplies were taxable. Base rent is exempt while service charge is not, and one invoice routinely carries both. |
+
+Both ledger reads use `JournalEntry::REPORTABLE_STATUSES` — see the void-counting note in
+[module 21](21-general-ledger.md).
+
+**Credit notes reduce the supply, and until 2026-08-11 this service did not know they existed.**
+The ledger side was already net of them (`CreditNoteJournalizer` debits `vat_payable`), so building
+the documents side from invoices alone guaranteed `difference = −(credit-note VAT)`: `ties_out` was
+**false in every period containing a VAT-bearing credit note**, and a control that cries wolf is one
+the operator stops reading. `base_standard`/`base_exempt` never netted them either — and those are
+figures that go on a filed return. Live rather than latent: three paths issue VAT-bearing credit
+notes routinely (the CAM negative true-up at the pool's `recovery_vat_rate`, the move-out unearned
+credit, and a manual note inheriting its invoice's rate). Pinned by `VatReturnCreditNotesTest`,
+whose last case is an unposted invoice that must STILL report a discrepancy — netting must not be
+achieved by relaxing the check.
+
+---
+
 **No scheduled commands or jobs** for reports module. All generation on-demand via Filament pages or API.
 
 ## 6. Filament resources & key fields
@@ -327,6 +358,31 @@ public function build(CarbonImmutable $period): string
 - Invoice table: number, tenant, unit, due_date, balance, days_overdue (measured against
   `asOf`, not `now()`), link to edit invoice.
 - CSV export; the filename carries the as-of date (`ar-aging-{bucket}-{Y-m-d}.csv`).
+
+---
+
+### `VatReturn` page (app/Filament/Admin/Pages/VatReturn.php)
+
+**Route:** `/admin/vat-return`
+**Navigation:** "Accounting" group, sort 27.
+**Permissions:** `reports.view` (via `ScopesLedgerReport::canViewReports()`).
+
+- Period picker inherited from `ScopesLedgerReport` (the same control the other ledger reports use).
+- **The tie-out is the subheading, not a row** — it is the point of the screen. `✓ ties out` or
+  `✗ differs by X`, followed by the net payable.
+- Six rows, each with the *why* as a column description, because a return is signed by someone who
+  has to understand what they are signing.
+- **No property filter.** `for()` takes one asset id, but a VAT return is filed per *registration*
+  and the operator's registration covers the portfolio; offering a per-mall filter would invite
+  someone to file a per-mall return, which is not a thing.
+- **CSV only, no PDF** — deliberately. This is worked in a spreadsheet and handed to an accountant;
+  a PDF would look like a filed document, which it is not.
+
+> **The service shipped 2026-08-11 with zero callers** — no page, no route, no nav entry, no
+> command — while its fifteen sibling report services all had a page, and `ROADMAP.md` recorded it
+> as done. The one report Egypt requires *monthly* was the only one an operator could not open.
+> Reachability is half of "shipped"; `VatReturnCreditNotesTest` now asserts the page is in the
+> smoke manifest.
 
 ---
 

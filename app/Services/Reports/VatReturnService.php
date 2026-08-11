@@ -2,6 +2,8 @@
 
 namespace App\Services\Reports;
 
+use App\Models\CreditNote;
+use App\Models\CreditNoteItem;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\JournalEntry;
@@ -56,7 +58,30 @@ class VatReturnService
             ->with('items')
             ->get();
 
-        $outputVatDocuments = round((float) $invoices->sum(fn (Invoice $i) => (float) $i->vat_amount), 2);
+        // CREDIT NOTES REDUCE THE SUPPLY, and until 2026-08-11 this side did not know they existed.
+        //
+        // The ledger side above is already net of them — `CreditNoteJournalizer` correctly DEBITS
+        // `vat_payable`. Building the documents side from invoices alone therefore guaranteed
+        // `difference = −(credit-note VAT)`, so `ties_out` was **false in every period containing a
+        // VAT-bearing credit note** — and a control that cries wolf is a control the operator
+        // learns to ignore. Worse, `base_standard`/`base_exempt` never netted them either, and
+        // those are numbers that go on a filed return.
+        //
+        // Live, not latent: three paths issue VAT-bearing credit notes routinely — the CAM negative
+        // true-up at the pool's `recovery_vat_rate`, the move-out unearned credit, and a manual note
+        // inheriting its invoice's rate.
+        $creditNotes = CreditNote::query()
+            ->whereNotIn('status', ['draft', 'cancelled'])
+            ->whereBetween('issue_date', [$start->toDateString(), $end->toDateString()])
+            ->when($assetId, fn ($q) => $q->whereHas('invoice.lease.unit', fn ($u) => $u->where('asset_id', $assetId)))
+            ->with('items')
+            ->get();
+
+        $outputVatDocuments = round(
+            (float) $invoices->sum(fn (Invoice $i) => (float) $i->vat_amount)
+            - (float) $creditNotes->sum(fn (CreditNote $c) => (float) $c->vat_amount),
+            2
+        );
 
         $baseStandard = 0.0;
         $baseExempt = 0.0;
@@ -74,6 +99,23 @@ class VatReturnService
                     $baseStandard += (float) $item->amount;
                 } else {
                     $baseExempt += (float) $item->amount;
+                }
+            }
+        }
+
+        // Same line-level treatment, subtracted. A credit note against exempt base rent reduces the
+        // exempt supply; one against a service charge reduces the standard-rated supply. Netting
+        // them into a single bucket would misstate the split the return is filed on.
+        foreach ($creditNotes as $note) {
+            foreach ($note->items as $item) {
+                if (! $item instanceof CreditNoteItem) {
+                    continue;
+                }
+
+                if (round((float) $item->vat_rate, 4) > 0) {
+                    $baseStandard -= (float) $item->amount;
+                } else {
+                    $baseExempt -= (float) $item->amount;
                 }
             }
         }

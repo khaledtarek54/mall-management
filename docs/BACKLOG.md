@@ -90,7 +90,7 @@ Verified in the code 2026-08-11. Each was still listed as open somewhere.
 |---|---|
 | "Bill the violation fine to AR" | **Shipped** — `BillViolationFineService` raises a VAT-exempt invoice posting to `misc_income`. |
 | "Deposit balance / reconciliation layer" | **Shipped** — `DepositApplication` nets a deposit against an invoice as its own dated GL source, with the move-out statement on top. |
-| "VAT-return report" | **Shipped 2026-08-11** — `VatReturnService`, read from the ledger and proved against the invoices. |
+| "VAT-return report" | **Shipped 2026-08-11** — `VatReturnService`, read from the ledger and proved against the invoices, at `/admin/vat-return`. *(It first landed with no caller at all and this row already said "shipped" — reachability is half of done.)* |
 | "First-class rent-free / stepped schedules" | **Substantially shipped** — `ChargeScheduleService` (a change closes the row in force and opens the next) plus `LeaseReliefService`. Confirm what is genuinely left before re-opening it. |
 
 ---

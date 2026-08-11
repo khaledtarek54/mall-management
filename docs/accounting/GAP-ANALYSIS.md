@@ -66,7 +66,7 @@ Legend: ✅ done · 🟡 partial · ❌ missing · ⏭️ likely N/A for a singl
 |---|---|---|
 | VAT tracked (output + input/recoverable) | ✅ | 14% service charge; input VAT recoverable |
 | **ETA e-invoicing (منظومة الفاتورة)** | ✅ code / 🔑 creds | Built and covered — `app/Services/Eta/` (client, JSON builder, submission service, CAdES signer seam) + `SubmitInvoiceToEta` job, module 16. **Runs in mock mode** (`EtaSettings.mock=true`); needs live credentials + a signing certificate to submit legally-binding documents. See the roadmap's go-live block. |
-| **VAT return (الإقرار الضريبي)** | ❌ | The *periodic filing report* is genuinely not built — distinct from ETA submission above (confirm cadence + format with the accountant). |
+| **VAT return (الإقرار الضريبي)** | ✅ | **Shipped 2026-08-11** — `/admin/vat-return`: output/input VAT from the ledger, standard-vs-exempt base from the document lines, net of credit notes, with a tie-out against the documents' own VAT. Reports the *position*; filing itself is not modelled (still confirm cadence + statutory format with the accountant). See [module 17](../modules/17-reports.md#vatreturnservice-appservicesreportsvatreturnservicephp). |
 | **Withholding tax on vendor payments (خصم من المنبع)** | ❌ | Confirm if required |
 
 ### Controls & integrity — ✅ strong
@@ -151,19 +151,20 @@ Ranked by value-for-effort for *this* business. "Needs accountant" = decide at t
 | # | Enhancement | Why it matters | Effort | Needs accountant? |
 |---|-------------|----------------|--------|-------------------|
 | ~~1~~ | ~~**Chart-of-accounts guardrails** (§3)~~ | ✅ **Shipped** — auto-parent + leading-digit↔type guard | — | — |
-| 2 | **Opening balances tool** | Load the current position at go-live | S–M | Yes (if migrating) |
+| ~~2~~ | ~~**Opening balances tool**~~ | 🟡 **AR side shipped** — `OpeningInvoiceImporter` loads open items as real invoices that post nothing (the revenue is in the accountant's opening entry). Cash/AP/deposits still arrive as one manual opening journal, same as Odoo. | — | — |
 | ~~3~~ | ~~**Fixed assets + depreciation**~~ | ✅ **Shipped** — module 23, monthly scheduled posting | — | — |
 | ~~4~~ | ~~**Cash-flow statement**~~ | ✅ **Shipped** — indirect method, reconciles to actual cash | — | — |
-| 5 | **VAT return** | Statutory periodic filing (ETA submission itself is built — see §2) | M | Yes |
+| ~~5~~ | ~~**VAT return**~~ | ✅ **Shipped 2026-08-11** — `/admin/vat-return`, ledger-derived and proved against the documents | — | — |
 | ~~6~~ | ~~**Per-employee payslips**~~ | ✅ **Shipped** — module 24, bilingual payslip PDFs | — | — |
 | 7 | **Bank reconciliation** | Match bank statement to ledger | M–L | Yes (bank feed?) |
 | 8 | **Inter-property accounts** | Exact per-property split of shared payments | M | No |
 | 9 | **Comparative / period-over-period statements** | Every statement is single-period; owners expect vs-last-year | S–M | No |
 
-**The real remaining set is four items:** opening balances, VAT return, bank reconciliation,
-and comparative statements (+ inter-property accounts if shared payments get common). That's
-the honest answer to *"is accounting missing something?"* — yes, four additive things, none
-of which make today's books wrong.
+**The remaining set is now two items** (2026-08-11): comparative statements, and inter-property
+accounts if shared payments get common — bank reconciliation shipped
+(`ReconcileBankStatementService`), the VAT return shipped, and opening balances shipped on the AR
+side. That's the honest answer to *"is accounting missing something?"* — two additive things,
+neither of which makes today's books wrong.
 
 ---
 

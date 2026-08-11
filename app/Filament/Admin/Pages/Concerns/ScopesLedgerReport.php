@@ -80,7 +80,15 @@ trait ScopesLedgerReport
         return __('admin.groups.accounting');
     }
 
-    /** The report's asset-id filter, clamped to the user's visible properties. */
+    /**
+     * The report's asset-id filter, clamped to the user's visible properties.
+     *
+     * The value type is not decoration: a bare `?array` is `array<mixed, mixed>`, so `$ids[0]`
+     * reaches `Asset::find()` as `mixed` and larastan resolves the *array* overload — a Collection,
+     * which is never null, which is why `propertyLabel()`'s null guard read as redundant.
+     *
+     * @return array<int>|null
+     */
     protected function scopedAssetIds(): ?array
     {
         return TenantScope::reportAssetIds($this->assetId ?: null);
@@ -97,7 +105,14 @@ trait ScopesLedgerReport
         $ids = $this->scopedAssetIds();
 
         if (is_array($ids) && count($ids) === 1) {
-            return Asset::find($ids[0])?->name ?? __('admin.fields.property_consolidated');
+            // `value()` rather than `find()?->name`: one column instead of a hydrated model, and
+            // it is honestly nullable — larastan resolves `find()` through an overload that can
+            // return a Collection, which made the null guard read as dead code in some contexts.
+            $name = Asset::query()->whereKey($ids[0])->value('name');
+
+            return is_string($name) && $name !== ''
+                ? $name
+                : __('admin.fields.property_consolidated');
         }
 
         return __('admin.fields.property_consolidated');

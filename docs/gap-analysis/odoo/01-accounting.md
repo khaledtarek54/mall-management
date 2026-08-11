@@ -33,7 +33,7 @@ Legend: ✅ full · 🟡 partial · ❌ missing · ⏭️ N/A here.
 | Analytic accounting / cost centers | 🟡 | ✅ | ✅ | **Odoo.** Atriom carries `asset_id`/`tenant_id`/`lease_id` on lines but only `asset_id` is a first-class axis; no free-form cost center. Odoo's analytic is multi-axis, in Community. For property-centric books the single axis mostly suffices. |
 | Budgets vs actual | 🟡 | ✅ *(verify)* | ✅ | **Odoo.** Atriom budgets are marketing-fund-only; no GL-wide budget-vs-actual. |
 | Tax / VAT computation (output + input) | ✅ | ✅ | ✅ | **Even.** 14% service charge, base rent exempt, input-VAT-recoverable, 5% levy — hard-coded for Egypt. Odoo needs EG localization. |
-| **VAT return** (periodic filing report) | ❌ | 🟡 *(verify)* | ✅ | **Odoo (Ent + l10n).** Atriom tracks VAT but produces no periodic return report. (ETA e-invoicing itself is out of scope — Atriom does it natively.) |
+| **VAT return** (periodic filing report) | ✅ | 🟡 *(verify)* | ✅ | **Even → Atriom.** Shipped 2026-08-11: `/admin/vat-return` reads output/input VAT from the ledger, splits standard vs exempt from the document *lines*, nets credit notes, and **proves the two sides tie** — a cross-check Odoo's tax report does not run. Odoo's own return needs Enterprise + an EG localization that does not exist. (ETA e-invoicing itself is out of scope — Atriom does it natively.) |
 | Opening balances tool | 🟡 | 🟡 | 🟡 | **Even.** Both do it via a manual opening journal; neither has a strong wizard. Matters once, at go-live. |
 | Audit trail | ✅ | 🟡 | ✅ | **Even/Odoo.** Spatie activity log on every accounting model + post-lock + void-not-edit. Odoo's inalterable/hash-chained trail is Enterprise + l10n *(verify)*. |
 | Deferred revenue / expense | ❌ | ❌ | ✅ | **Odoo (Ent).** No spread-over-periods engine (rent recognised at issue). Modest value for a mall. |
@@ -93,15 +93,17 @@ hold the invariant that nothing writes those columns directly.**
 
 ## 3. Top 5 real gaps (ranked for a mall operator)
 
-1. **Bank reconciliation** — no statement import or matching, so GL cash is only as accurate as
-   manually-entered payments; the single biggest control/audit gap vs Odoo Enterprise.
-2. **Per-property year-end close ([F-80](../21-general-ledger.md))** — the closing entry is
-   consolidated-only, so each owner's per-property balance sheet shows retained earnings as zero
-   permanently and conflates prior-year profit into current net income.
-3. **VAT return report** — VAT is tracked correctly but there's no periodic filing report, leaving
-   the accountant to assemble the statutory return by hand.
+*Three of the original five have since shipped. Kept below with what closed them, because a gap
+list that only ever grows stops being read.*
+
+1. ~~**Bank reconciliation**~~ — ✅ `ReconcileBankStatementService` + the Bank Statements resource:
+   statement lines, matching, and an unexplained-line age.
+2. ~~**Per-property year-end close ([F-80](../21-general-ledger.md))**~~ — ✅ per-asset closing
+   entries, which were also the owner-statements prerequisite.
+3. ~~**VAT return report**~~ — ✅ `/admin/vat-return` (2026-08-11), ledger-derived and tied out
+   against the documents.
 4. **Comparative / period-over-period statements** — single-period only, but owners expect
-   "this year vs last year"; low effort, high perceived value.
+   "this year vs last year"; low effort, high perceived value. **The top remaining gap.**
 5. **GL-wide budget vs actual** — budgeting exists only for the marketing fund; no opex
    budget-to-actual for the operator.
 
