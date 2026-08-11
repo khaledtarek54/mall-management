@@ -276,8 +276,19 @@ class PercentageRentCalculationService
         $runningPrior = 0.0;
         foreach ($locked as $decl) {
             $withThis = $runningPrior + (float) $decl->declared_sales;
-            $marginal = round(max(0.0, $this->overage($lease, $withThis)) - max(0.0, $this->overage($lease, $runningPrior)), 2);
+            $marginalGross = round(max(0.0, $this->overage($lease, $withThis)) - max(0.0, $this->overage($lease, $runningPrior)), 2);
+
+            // The cumulative stays GROSS — `$runningPrior` is SALES, and the marginal arithmetic
+            // must not be perturbed by a clause about what the tenant already paid (see
+            // netOfDeductions). Deductions come off afterwards, exactly as `calculate()` does it.
             $runningPrior = $withThis;
+
+            // **This netting was missing until 2026-08-11.** `calculate()` applied it, this did
+            // not, and this is the path that BILLS. A lease on the annual frequency with a
+            // deductible-types clause was therefore charged GROSS while every screen — the
+            // declaration, the breakdown, the estimate — showed net. The tenant's own contract said
+            // the deduction was theirs.
+            $marginal = $this->netOfDeductions($decl, $marginalGross);
 
             if ((float) $decl->calculated_percentage_rent !== $marginal) {
                 $decl->update(['calculated_percentage_rent' => $marginal]);

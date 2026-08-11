@@ -735,6 +735,20 @@ same period"*.
   crediting it would hand the tenant a deduction for money they never spent.
 - **Floored at zero.** "Payable to the extent it exceeds X" owes nothing when it does not exceed X;
   it does not become a refund of the tenant's own service charge.
+- **Both paths net, and until 2026-08-11 only one did.** `calculate()` — which feeds the declaration
+  figure, the "View working" breakdown and the estimate — applied the deduction. `retrueAnnualYear()`
+  built its marginal straight from `overage()` and never called `netOfDeductions()`, **and that is
+  the path that bills**. So an `annual` lease with a deductible-types clause was charged GROSS while
+  every screen showed net, with no discrepancy visible anywhere to catch it. The two are now the
+  same arithmetic; `AnnualPercentageRentDeductionsTest` asserts the billed figure equals the shown
+  one, and its no-clause control stops the netting being achieved by simply charging less.
+
+> **The shape to watch here:** annual percentage rent has *two* implementations of "what does this
+> month owe" — the display estimate in `calculate()` and the authoritative one in
+> `retrueAnnualYear()`. That is deliberate (the re-true has to re-attribute the whole year), but it
+> means **every clause that modifies the amount owed has to be applied twice**, and the one that
+> bills is the one nobody looks at. Deductions were the first such clause; the next one added must
+> go into both.
 
 ### Estimated sales (PR-04)
 

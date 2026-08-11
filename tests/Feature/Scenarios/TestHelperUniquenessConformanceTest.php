@@ -14,9 +14,34 @@
  * the failure points at the cause, and the natural next move — "run just that directory" — is
  * itself a full load, so it fails the same way.
  *
- * It has now cost this project twice: a cross-file `makeViolation()` during the inventory pass
- * (recorded in CLAUDE.md), and `optionOn()` during the 2026-08-11 validation sweep. Twice is a
- * pattern, and this is a five-line check.
+ * It has now cost this project three times: a cross-file `makeViolation()` during the inventory
+ * pass (recorded in CLAUDE.md), `optionOn()` during the 2026-08-11 validation sweep, and
+ * `annualPctLease()` during the final sweep the same day. Three times is a pattern, and this is a
+ * five-line check.
+ *
+ * ---
+ *
+ * **THIS GATE CANNOT CATCH THE COLLISION THE NORMAL WAY, AND THAT IS NOT A DEFECT IN IT.**
+ *
+ * It reads the files as TEXT (`token_get_all`), so it needs nothing loaded — but it is still a
+ * test, and any run that would execute it also loads every other test file first. The fatal
+ * therefore happens during collection, before this ever runs. Measured with a live collision:
+ *
+ * | how you run it | result |
+ * |---|---|
+ * | `pest --parallel` | **exit 255, zero bytes of output** |
+ * | `pest --filter="TestHelperUniqueness"` | **exit 255, zero bytes of output** |
+ * | `pest tests/Feature/Scenarios/TestHelperUniquenessConformanceTest.php` | fails properly, naming both files |
+ *
+ * **So when a run dies with exit 255 and NO output, run exactly this:**
+ *
+ * ```
+ * vendor/bin/pest tests/Feature/Scenarios/TestHelperUniquenessConformanceTest.php
+ * ```
+ *
+ * A path-scoped run loads only that path, which is the one way to get the diagnostic out. Every
+ * instinctive alternative — re-run, run the directory, add a `--filter` — loads everything and
+ * fails identically, which is what makes this cost an hour instead of a minute.
  *
  * **The fix when it fails** is usually not to rename: it is to notice the helper already exists and
  * use it. Two files needing the same fixture is a signal they belong together, which is exactly
