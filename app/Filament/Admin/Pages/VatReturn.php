@@ -95,7 +95,7 @@ class VatReturn extends Page implements HasSchemas, HasTable
                     $r = $this->report();
 
                     return ReportCsv::stream(
-                        "vat-return-{$this->year}",
+                        "vat-return-{$this->periodSlug()}",
                         [__('admin.reports.vat_line'), __('admin.fields.amount')],
                         [
                             [__('admin.reports.vat_base_standard'), number_format($r['base_standard'], 2, '.', '')],

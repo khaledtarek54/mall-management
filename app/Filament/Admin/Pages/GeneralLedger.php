@@ -67,7 +67,7 @@ class GeneralLedger extends Page implements HasSchemas, HasTable
         return $schema
             ->components([
                 Section::make()
-                    ->columns(['sm' => 2, 'lg' => 4])
+                    ->columns(['sm' => 2, 'lg' => 5])
                     ->schema([
                         Select::make('accountId')
                             ->label(__('admin.reports.account'))
@@ -80,6 +80,14 @@ class GeneralLedger extends Page implements HasSchemas, HasTable
                         Select::make('year')
                             ->label(__('admin.reports.fiscal_year'))
                             ->options(fn (): array => $this->yearOptions())
+                            ->native(false)
+                            ->live(),
+                        // This page declares its own filter strip (it adds the account picker), so
+                        // the trait's period select has to be repeated here rather than inherited.
+                        Select::make('period')
+                            ->label(__('admin.reports.period'))
+                            ->options(fn (): array => $this->periodOptions())
+                            ->placeholder(__('admin.reports.full_year'))
                             ->native(false)
                             ->live(),
                         Select::make('assetId')
@@ -111,7 +119,7 @@ class GeneralLedger extends Page implements HasSchemas, HasTable
 
                     $csv = app(ReportCsvExporter::class)->generalLedger($this->statement());
 
-                    return ReportCsv::stream("general-ledger-{$account->code}-{$this->year}", $csv['headers'], $csv['rows']);
+                    return ReportCsv::stream("general-ledger-{$account->code}-{$this->periodSlug()}", $csv['headers'], $csv['rows']);
                 }),
         ];
     }

@@ -16,19 +16,19 @@ class LedgerReportPdfService
 {
     public function __construct(private LedgerReportService $reports) {}
 
-    public function trialBalance(?array $assetIds, CarbonInterface $from, CarbonInterface $to, string $property, int $year): string
+    public function trialBalance(?array $assetIds, CarbonInterface $from, CarbonInterface $to, string $property, string $period): string
     {
         return $this->render('accounting.pdf.trial-balance', [
             'report' => $this->reports->trialBalance($assetIds, $from, $to),
-            'meta' => $this->meta($property, (string) $year),
+            'meta' => $this->meta($property, $period),
         ]);
     }
 
-    public function incomeStatement(?array $assetIds, CarbonInterface $from, CarbonInterface $to, string $property, int $year): string
+    public function incomeStatement(?array $assetIds, CarbonInterface $from, CarbonInterface $to, string $property, string $period): string
     {
         return $this->render('accounting.pdf.income-statement', [
             'report' => $this->reports->incomeStatement($assetIds, $from, $to),
-            'meta' => $this->meta($property, (string) $year),
+            'meta' => $this->meta($property, $period),
         ]);
     }
 
@@ -40,17 +40,19 @@ class LedgerReportPdfService
         ]);
     }
 
-    public function cashFlow(?array $assetIds, CarbonInterface $from, CarbonInterface $to, string $property, int $year): string
+    public function cashFlow(?array $assetIds, CarbonInterface $from, CarbonInterface $to, string $property, string $period): string
     {
         return $this->render('accounting.pdf.cash-flow', [
             'report' => $this->reports->cashFlow($assetIds, $from, $to),
-            'meta' => $this->meta($property, (string) $year),
+            'meta' => $this->meta($property, $period),
         ]);
     }
 
-    public function filename(string $report, int $year): string
+    public function filename(string $report, string $period): string
     {
-        return $report.'-'.$year.'-'.now()->format('Ymd').'.pdf';
+        // `$period` is `2026` or `2026-03` — a monthly export must not land on disk under a name
+        // that reads like the whole year's.
+        return $report.'-'.$period.'-'.now()->format('Ymd').'.pdf';
     }
 
     /** @return array<string, string> */

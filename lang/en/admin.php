@@ -1075,6 +1075,8 @@ return [
         'cash_flow_reconciled' => '✓ Reconciles to the actual cash movement.',
         'cash_flow_unreconciled' => '⚠ Integrity check failed — the statement does not tie to the actual cash movement; please investigate the ledger.',
         'fiscal_year' => 'Fiscal year',
+        'period' => 'Period',
+        'full_year' => 'Full year',
         'property_scope' => 'Property',
         'balance_check' => 'Balance check',
         'balanced' => 'Balanced',

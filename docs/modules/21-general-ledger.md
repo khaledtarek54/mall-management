@@ -491,6 +491,26 @@ New permission modules in `RolesPermissionsSeeder::PERMISSIONS`:
 
 ## 8. Reports (التقارير)
 
+> **Every report runs for a MONTH or the whole year, and follows the real fiscal year (2026-08-12).**
+> `ScopesLedgerReport` hardcoded `1 Jan – 31 Dec` and the balance sheet was always as-of 31 December,
+> so an operator running a monthly close could not print that month's trial balance, income
+> statement, balance sheet or cash flow. **The services already took ranges** — only the pages did
+> not, which is why this was a filter and not a rebuild.
+>
+> - The `Period` picker offers *Full year* (the default, so nothing changes for an existing user)
+>   plus each month of the selected fiscal year.
+> - **`FiscalYear::starts_on`/`ends_on` are now honoured.** They existed and were ignored, so an
+>   April→March mall year — ordinary in Egypt — reported the wrong twelve months, silently, because
+>   the header only ever printed the year number. With no `FiscalYear` row the calendar year is
+>   still assumed, which is what a fresh install looks like.
+> - Months are labelled with their real calendar month AND year ("Mar 2027"), never an ordinal: on a
+>   non-calendar year the twelfth month falls in the *next* calendar year.
+> - The period reaches the **PDF header and the export filename**, not just the screen — a March
+>   trial balance must not land on disk under a name that reads like the whole year's.
+> - Changing the year clears the month. Livewire would otherwise keep it, leaving a report headed
+>   2025 showing March 2026 — two pickers contradicting each other, which is worse than either being
+>   wrong alone. Pinned by `MonthlyLedgerStatementsTest`.
+
 | Report | Arabic | Definition |
 |--------|--------|------------|
 | Trial Balance | ميزان المراجعة | per account: Σ debit, Σ credit, balance — must net to zero overall |

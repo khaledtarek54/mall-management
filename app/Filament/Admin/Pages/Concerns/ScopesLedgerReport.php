@@ -28,6 +28,13 @@ trait ScopesLedgerReport
 {
     public int $year;
 
+    /**
+     * A single month within the selected year (`YYYY-MM`), or null for the whole year.
+     *
+     * Null is the default, so every existing report opens exactly as it did.
+     */
+    public ?string $period = null;
+
     public ?int $assetId = null;
 
     public static function canAccess(): bool
@@ -38,6 +45,18 @@ trait ScopesLedgerReport
     public function mount(): void
     {
         $this->year = (int) now()->year;
+    }
+
+    /**
+     * Changing the year must clear the month.
+     *
+     * Livewire keeps `$period` across the update, so without this, picking 2025 while March 2026
+     * was selected would leave a report headed "2025" showing March 2026 — the pickers disagreeing
+     * with each other, which is worse than either being wrong on its own.
+     */
+    public function updatedYear(): void
+    {
+        $this->period = null;
     }
 
     /** The year + property picker strip, rendered above the report table. */
@@ -53,6 +72,15 @@ trait ScopesLedgerReport
                             ->options(fn (): array => $this->yearOptions())
                             ->native(false)
                             ->live(),
+                        // The operator runs a MONTHLY close and could not print that month's trial
+                        // balance, income statement, balance sheet or cash flow — the pages were
+                        // hardcoded to 1 Jan–31 Dec while the services already took ranges.
+                        Select::make('period')
+                            ->label(__('admin.reports.period'))
+                            ->options(fn (): array => $this->periodOptions())
+                            ->placeholder(__('admin.reports.full_year'))
+                            ->native(false)
+                            ->live(),
                         Select::make('assetId')
                             ->label(__('admin.reports.property_scope'))
                             ->options(fn (): array => TenantScope::selectableAssetOptions())
@@ -63,16 +91,97 @@ trait ScopesLedgerReport
             ]);
     }
 
-    /** First instant of the selected fiscal year. */
+    /** First instant of the selected period — the chosen month, else the fiscal year's start. */
     protected function periodStart(): Carbon
     {
-        return Carbon::create($this->year, 1, 1)->startOfDay();
+        return $this->selectedMonth()?->copy()->startOfMonth()->startOfDay()
+            ?? $this->fiscalYearStart();
     }
 
-    /** Last instant of the selected fiscal year. */
+    /** Last instant of the selected period — the chosen month, else the fiscal year's end. */
     protected function periodEnd(): Carbon
     {
-        return Carbon::create($this->year, 12, 31)->endOfDay();
+        return $this->selectedMonth()?->copy()->endOfMonth()->endOfDay()
+            ?? $this->fiscalYearEnd();
+    }
+
+    /** The chosen month as a Carbon, or null when the whole year is selected. */
+    private function selectedMonth(): ?Carbon
+    {
+        if (! is_string($this->period) || ! preg_match('/^\d{4}-\d{2}$/', $this->period)) {
+            return null;
+        }
+
+        return Carbon::createFromFormat('Y-m-d', $this->period.'-01') ?: null;
+    }
+
+    /**
+     * The fiscal year's real boundaries.
+     *
+     * `FiscalYear` carries `starts_on`/`ends_on` and these pages ignored them, so an operator on a
+     * non-calendar year (an April→March mall year is ordinary in Egypt) got a report for the wrong
+     * twelve months entirely — silently, since the header just said the year number.
+     *
+     * Falls back to the calendar year when no `FiscalYear` row exists, which is what an install
+     * looks like before the accountant sets one up.
+     */
+    protected function fiscalYearStart(): Carbon
+    {
+        $start = $this->fiscalYear()?->starts_on;
+
+        return $start ? Carbon::parse($start)->startOfDay() : Carbon::create($this->year, 1, 1)->startOfDay();
+    }
+
+    protected function fiscalYearEnd(): Carbon
+    {
+        $end = $this->fiscalYear()?->ends_on;
+
+        return $end ? Carbon::parse($end)->endOfDay() : Carbon::create($this->year, 12, 31)->endOfDay();
+    }
+
+    private function fiscalYear(): ?FiscalYear
+    {
+        return FiscalYear::query()->where('year', $this->year)->first();
+    }
+
+    /**
+     * The months that make up the selected fiscal year, keyed `YYYY-MM`.
+     *
+     * Labelled with the real calendar month AND year ("Mar 2027"), not "month 12", because on a
+     * non-calendar year the twelfth month falls in the next calendar year and a bare ordinal would
+     * be actively misleading.
+     *
+     * @return array<string, string>
+     */
+    protected function periodOptions(): array
+    {
+        $cursor = $this->fiscalYearStart()->copy()->startOfMonth();
+        $last = $this->fiscalYearEnd()->copy()->startOfMonth();
+
+        $options = [];
+
+        // Bounded rather than `while ($cursor <= $last)`: a malformed FiscalYear row with ends_on
+        // before starts_on would otherwise spin forever behind a page render.
+        for ($i = 0; $i < 24 && $cursor->lessThanOrEqualTo($last); $i++) {
+            $options[$cursor->format('Y-m')] = $cursor->translatedFormat('M Y');
+            $cursor->addMonth();
+        }
+
+        return $options;
+    }
+
+    /** Human label for the period — goes in the PDF header. */
+    protected function periodLabel(): string
+    {
+        $month = $this->selectedMonth();
+
+        return $month ? $month->translatedFormat('F Y') : (string) $this->year;
+    }
+
+    /** Filename-safe period — `2026` or `2026-03`, so a monthly export cannot be mistaken for the year's. */
+    protected function periodSlug(): string
+    {
+        return $this->period ?? (string) $this->year;
     }
 
     public static function getNavigationGroup(): ?string

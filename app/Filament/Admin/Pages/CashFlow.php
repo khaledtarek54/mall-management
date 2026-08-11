@@ -58,12 +58,12 @@ class CashFlow extends Page implements HasSchemas, HasTable
                         $this->periodStart(),
                         $this->periodEnd(),
                         $this->propertyLabel(),
-                        $this->year,
+                        $this->periodLabel(),
                     );
 
                     return response()->streamDownload(
                         fn () => print ($pdf),
-                        $svc->filename('cash-flow', $this->year),
+                        $svc->filename('cash-flow', $this->periodSlug()),
                         ['Content-Type' => 'application/pdf'],
                     );
                 }),
@@ -81,7 +81,7 @@ class CashFlow extends Page implements HasSchemas, HasTable
                     );
                     $csv = app(ReportCsvExporter::class)->cashFlow($report);
 
-                    return ReportCsv::stream("cash-flow-{$this->year}", $csv['headers'], $csv['rows']);
+                    return ReportCsv::stream("cash-flow-{$this->periodSlug()}", $csv['headers'], $csv['rows']);
                 }),
         ];
     }

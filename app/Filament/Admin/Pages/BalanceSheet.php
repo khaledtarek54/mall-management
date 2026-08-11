@@ -64,7 +64,7 @@ class BalanceSheet extends Page implements HasSchemas, HasTable
 
                     return response()->streamDownload(
                         fn () => print ($pdf),
-                        $svc->filename('balance-sheet', $this->year),
+                        $svc->filename('balance-sheet', $this->periodSlug()),
                         ['Content-Type' => 'application/pdf'],
                     );
                 }),
@@ -77,7 +77,7 @@ class BalanceSheet extends Page implements HasSchemas, HasTable
                 ->action(function () {
                     $csv = app(ReportCsvExporter::class)->balanceSheet($this->report());
 
-                    return ReportCsv::stream("balance-sheet-{$this->year}", $csv['headers'], $csv['rows']);
+                    return ReportCsv::stream("balance-sheet-{$this->periodSlug()}", $csv['headers'], $csv['rows']);
                 }),
         ];
     }

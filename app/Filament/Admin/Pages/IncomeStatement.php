@@ -61,12 +61,12 @@ class IncomeStatement extends Page implements HasSchemas, HasTable
                         $this->periodStart(),
                         $this->periodEnd(),
                         $this->propertyLabel(),
-                        $this->year,
+                        $this->periodLabel(),
                     );
 
                     return response()->streamDownload(
                         fn () => print ($pdf),
-                        $svc->filename('income-statement', $this->year),
+                        $svc->filename('income-statement', $this->periodSlug()),
                         ['Content-Type' => 'application/pdf'],
                     );
                 }),
@@ -79,7 +79,7 @@ class IncomeStatement extends Page implements HasSchemas, HasTable
                 ->action(function () {
                     $csv = app(ReportCsvExporter::class)->incomeStatement($this->report());
 
-                    return ReportCsv::stream("income-statement-{$this->year}", $csv['headers'], $csv['rows']);
+                    return ReportCsv::stream("income-statement-{$this->periodSlug()}", $csv['headers'], $csv['rows']);
                 }),
         ];
     }
