@@ -54,6 +54,7 @@
 > | 29 procurement | 1 | **approval-ladder bypass** — a line added after approval |
 > | deposits | 1 | a receipt could shrink after the tenant was credited against it |
 > | marketing spend | **0** | clean, and now witnessed (`MarketingSpendStaysDerivedTest`) |
+> | **21 general ledger** | **2** | a posted entry, and every line on it, was editable — enforced by a hidden Save button |
 >
 > **Ten findings across six areas, and one clean.** Marketing is the control that makes the rest
 > credible: both its figures are derived from source, so the pattern that produced every other
@@ -62,8 +63,17 @@
 > books *correct* (the entry re-derives, the posting-date guard holds, the budget follows) — the
 > freezes elsewhere exist only where an edit left a WRONG number behind.
 >
-> **Still unswept by this lens: module 21, the general ledger itself.** It is the one module every
-> other one posts into, and it has not been asked the layer question.
+> **Module 21 is now swept too, and it was the worst of them.** The ledger every other module posts
+> into protected its posted entries with `EditJournalEntry::getSaveFormAction()->visible(...)` — a
+> hidden Save button — with nothing at the model on either the entry or its lines. Re-pricing,
+> adding or removing a line left debits ≠ credits, so the trial balance and everything drawn off it
+> was wrong at once; moving `entry_date` restated a closed, reported month from inside the ledger.
+> Fixed at the model, with the posting engine as a narrow, named exception
+> (`JournalLine::withinPostingEngine()`, one caller).
+>
+> **So the pass is complete: seven areas, twelve findings, one clean.** The single sentence that
+> covers all twelve — *a rule the module doc states as a fact, enforced on a form* — held in the
+> general ledger as squarely as in the spare-parts store.
 >
 > Method and matrices: [VALIDATION-SWEEP-PLAN.md](VALIDATION-SWEEP-PLAN.md). Every guard added was
 > mutation-tested — deleted, watched go red, restored — because §10 of that document records a
