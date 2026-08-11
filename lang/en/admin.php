@@ -3909,6 +3909,11 @@ return [
         'repayment_reversed' => 'Repayment reversed',
     ],
 
+    'payroll' => [
+        'errors' => [
+            'approved_immutable' => 'This payroll run has been approved and posted to the ledger, so its amounts, period and source account are settled. Cancel the run to correct it, or record the difference on the next run.',
+        ],
+    ],
     'payroll_lines' => [
         'title' => 'Employee lines',
         'add_line' => 'Add employee',
@@ -3952,6 +3957,7 @@ return [
         ],
         'errors' => [
             'net_negative' => 'Deductions exceed gross — net pay would be negative.',
+            'run_not_draft' => 'This payroll run has been approved, so its payslips are settled — the books have already taken it. Cancel the run to correct it, or record the difference on the next run.',
             'generate_not_draft' => 'Payslips can only be generated while the run is a draft.',
             'allowances_exceed_gross' => 'Allowances cannot exceed gross — they are a portion of it.',
             'advance_deduction_without_advance' => 'An advance installment must name the advance it repays.',
