@@ -30,10 +30,24 @@ approval ladder is never installed, and `pay-demo` ships live.
 
 Effort is engineering time, not calendar. **S** ≲ half a day · **M** ≲ 3 days · **L** > 3 days.
 
-### Phase 1 — Stop the bleeding (≈ 2–3 days)
+### Phase 1 — Stop the bleeding — ✅ **DONE 2026-08-11**
 
-Everything here is small, and every item is either money-destroying or credential-grade. **Nothing
-should go to staging before this phase is complete.**
+All nine items shipped and pushed (`50166c3`…`df637af`). Full suite green: **4,218 tests, 4,214
+passed, 4 skipped, 0 failures.** Every guard was mutation-checked — removed, watched go red,
+restored — and each fix carries a regression test in `tests/Feature/Regression/`.
+
+Two things worth carrying forward from doing the work:
+
+- **One fix was wrong the first time and the suite caught it.** Copying `Invoice`'s "always
+  re-generate the number" rule onto `Lease` renamed leases created with deliberate references —
+  which would have broken importing an operator's real contract references at cut-over. Corrected
+  to allocate only when blank (`df637af`). The failing test was right.
+- **Two audit findings were narrower than reported, and one was wider.** The lease-reference crash
+  needs a lease nothing references (which is exactly what the broken importer produces); the
+  approval-ladder gap loses value *tiering*, not all gating. Against that, `mall_admin` turned out
+  to sit above the protected-role guard — a live privilege escalation nobody had listed.
+
+Everything here was small, and every item was either money-destroying or credential-grade.
 
 | # | Item | ID | Effort |
 |---|---|---|---|

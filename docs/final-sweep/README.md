@@ -82,6 +82,23 @@ Effort: **S** ≲ half a day · **M** ≲ 3 days · **L** > 3 days.
 
 These are either money-destroying, credential-grade, or block the cut-over entirely.
 
+> ## ✅ Shipped 2026-08-11 — FS-01, 02, 03, 05, 06, 11/37, 13, 16, 59
+>
+> Nine of the sixteen rows below are done and pushed (`50166c3`…`df637af`), each with a regression
+> test and each guard mutation-checked. Full suite green: **4,218 tests, 4,214 passed, 0 failures.**
+>
+> **Still open in this tier: FS-04 (the lease importer's four faults), FS-07, FS-08, FS-09, FS-10,
+> FS-12, FS-14, FS-15, FS-60.** FS-04, FS-10, FS-12 and FS-15 are the cut-over — see
+> [Phase 2](05-stop-point-plan.md).
+>
+> Three corrections came out of doing the work, and they belong here rather than in a changelog:
+> the lease-reference crash needs a lease *nothing references* (which is precisely what the broken
+> importer produces, so FS-04 and FS-05 compose); the approval-ladder gap loses value **tiering**
+> rather than all gating, because base RBAC survives; and one fix — copying `Invoice`'s
+> always-regenerate rule onto `Lease` — was **wrong on the first attempt** and caught by the suite,
+> because importing an operator's existing contract references requires those references to survive
+> the insert.
+
 | ID | Finding | Class | Effort | Where |
 |---|---|---|---|---|
 | **FS-01** | **`pay-demo` API endpoint is live in production** — its only gate is `PAYMOB_ENABLED`, which is false at go-live. A tenant marks their own invoices paid; the GL posts `Dr Bank / Cr AR` for money that doesn't exist, and `billing:reconcile` stays green | REMOVE | S | [03 §1.4](03-money-gl.md) |
