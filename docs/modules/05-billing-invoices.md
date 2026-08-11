@@ -174,14 +174,21 @@ This is the core AR (accounts receivable) engine; all recurring revenue flows th
        tampering with a committed record. It deliberately does **not** grep the forms: a
        `readOnly()->dehydrated()` looks locked and submits anyway, and any check over that pattern
        is one refactor away from useless. See `DerivedMoneyColumnsNotClientWritableTest`.
-   - **WHICH supplies are taxable is DATA, on the charge code** — `charge_codes.vat_treatment`
-     (`standard` / `exempt` / `zero_rated`) plus an optional `vat_rate_override`, resolved by the one
-     function every origination point calls, `Vat::rateForType($code)`. An accountant rules on a
-     supply by editing a row; adding "key money" no longer means a developer decides whether it is
-     taxed. This is the shape Yardi uses (a `Tax` flag on the charge code — *"Yes means 'this charge
-     is taxable'; it does not mean 'this charge is a tax'"*), widened to three treatments because
-     **exempt ≠ zero-rated**: both bill 0 and they are different lines on a VAT return, and the
-     distinction cannot be recovered later from documents that recorded only a zero.
+   - **WHICH supplies are taxable is DATA, on the charge code** — `charge_codes.tax_code` names a
+     row in the tax catalogue, resolved by the one function every origination point calls,
+     `Vat::rateForType($code, $on)`. An accountant rules on a supply by editing a row; adding "key
+     money" no longer means a developer decides whether it is taxed. This is the shape Yardi uses (a
+     `Tax` flag on the charge code — *"Yes means 'this charge is taxable'; it does not mean 'this
+     charge is a tax'"*).
+   - **WHAT that tax charges is master data** — `tax_codes` + `tax_rates` (module: the catalogue at
+     `/admin/tax-codes`). The charge code carried its own `vat_treatment` + `vat_rate_override` until
+     2026-08-12; that stored the *answer* rather than a reference to the thing holding it, so twelve
+     charge codes each carried a copy of "14" and none of them could say **when** the rate changed.
+     A rate is now a dated rung, resolved for the **document's** date. `TaxSettings::vat_standard_rate`
+     is gone with it: settings hold policy, master data holds rates.
+   - **Exempt ≠ zero-rated** — both bill 0 and they are different lines on a VAT return, so the
+     treatment is stored on the tax code rather than inferred from a zero on a line, where it could
+     never be recovered.
    - `Vat::EXEMPT_TYPES` survives as the **floor**, not the policy: what an unseeded database bills,
      so an empty catalogue can never fall through to the standard rate and charge 14% on base rent.
      `ChargeCodeVatTreatmentConformanceTest` asserts floor and catalogue resolve every code
@@ -790,10 +797,11 @@ Used in form/table queries to auto-scope to the current property (Asset):
 
 ### Changing the VAT rate (globally or by tenant)
 
-**Global rate: BUILT 2026-07-30 — this section used to describe it as future work.** The rate lives
-in `TaxSettings::vat_standard_rate` (alongside withholding tax — it is tax policy, not billing
-cadence), is edited at **/admin/settings → Tax**, and is read **only** through
-`App\Support\Vat`:
+**Global rate: BUILT 2026-07-30 as a setting, MOVED 2026-08-12 to a dated ladder.** The rate is a
+rung on the `VAT_14` tax code, edited at **/admin/tax-codes → VAT 14% → Rate ladder**, and read
+**only** through `App\Support\Vat`. A change is a NEW rung with the day it comes into force — never
+an edit to the old one — so a rise can be entered in advance and a document dated before it still
+bills the rate that was in force when it was raised:
 
 ```php
 Vat::rateForType($code);      // ← what a NEW line of this charge code bills at. Use this.
@@ -847,13 +855,14 @@ issued documents keep the rate they were billed at.
 **Only origination reads the setting.** Once a charge or invoice line exists it carries its own
 `vat_rate` column, and every downstream path (the monthly run, renewal, rent changes, credit notes,
 the ETA payload) reads that stored figure. This is deliberate and must not be "simplified": an
-invoice issued at 14% stays a 14% document forever. Changing the setting affects what is billed
+invoice issued at 14% stays a 14% document forever. Changing a rate affects what is billed
 **next**, never what was already billed — otherwise a rate change would silently rewrite history and
 de-tie the books from returns already filed.
 
-**Per-supply rates** are already supported without touching the setting: `charge_codes.vat_treatment`
-(+ `vat_rate_override`) sets what a supply originates at, `charges.vat_rate` is per-charge, and a CAM
-pool's `recovery_vat_rate` is frozen with its basis at reconciliation.
+**Per-supply rates** need no change to the standard rate: point the charge code at a different tax
+code (`charge_codes.tax_code` — the operator's catalogue carries schedule tax at seven rates for
+exactly this), `charges.vat_rate` is per-charge, and a CAM pool's `recovery_vat_rate` is frozen with
+its basis at reconciliation.
 
 **Per-tenant or per-lease rate:** Currently not supported. To add, store vat_override on Tenant or Lease and read it in MonthlyBillingService. This would be a larger feature (need UI, tests, migration).
 

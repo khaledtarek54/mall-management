@@ -11,6 +11,8 @@ use App\Settings\PayrollSettings;
 use App\Settings\TaxSettings;
 use App\Support\Modules;
 use BackedEnum;
+use Filament\Actions\Action;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
@@ -109,7 +111,6 @@ class Settings extends Page implements HasSchemas
             'tax' => [
                 'seller_tax_registration_number' => $tax->seller_tax_registration_number,
                 'seller_legal_name' => $tax->seller_legal_name,
-                'vat_standard_rate' => $tax->vat_standard_rate,
                 'wht_enabled' => $tax->wht_enabled,
                 'wht_default_rate' => $tax->wht_default_rate,
             ],
@@ -187,7 +188,6 @@ class Settings extends Page implements HasSchemas
         $tax = app(TaxSettings::class);
         $tax->seller_tax_registration_number = trim((string) ($state['tax']['seller_tax_registration_number'] ?? ''));
         $tax->seller_legal_name = trim((string) ($state['tax']['seller_legal_name'] ?? ''));
-        $tax->vat_standard_rate = (float) $state['tax']['vat_standard_rate'];
         $tax->wht_enabled = (bool) $state['tax']['wht_enabled'];
         $tax->wht_default_rate = (float) $state['tax']['wht_default_rate'];
         $tax->save();
@@ -346,20 +346,21 @@ class Settings extends Page implements HasSchemas
                 ->description(__('admin.settings.sections.vat_description'))
                 ->columns(2)
                 ->components([
-                    TextInput::make('tax.vat_standard_rate')
-                        ->label(__('admin.settings.fields.vat_standard_rate'))
-                        ->helperText(__('admin.settings.fields.vat_standard_rate_helper'))
-                        ->suffix('%')
-                        ->numeric()
-                        ->minValue(0)
-                        ->maxValue(100)
-                        ->step('0.01')
-                        ->required(),
-                    // WHICH supplies this rate applies to is not set here — it is a column on each
-                    // charge code (Setup → Charge codes), so parking, the marketing levy and any
-                    // code the accountant adds are all ruled on in one place. A per-supply toggle
+                    // NEITHER the rate nor which supplies it applies to is set here any more, and
+                    // this pointer is the whole section. An operator who comes to Settings looking
+                    // for the VAT rate — because that is where it lived until 2026-08-12 — has to
+                    // land somewhere better than an absence.
+                    //
+                    // The rate is a dated rung on the VAT_STD tax code, because a rate has a day it
+                    // came into force and a settings field cannot carry one. WHICH supplies are
+                    // taxable is a column on each charge code, so parking, the marketing levy and
+                    // any code the accountant adds are ruled on in one place. A per-supply toggle
                     // lived on this screen until 2026-08-11 and was a second answer to the same
                     // question.
+                    Placeholder::make('tax.rates_moved')
+                        ->label(__('admin.settings.fields.vat_rates_moved'))
+                        ->content(__('admin.settings.fields.vat_rates_moved_helper'))
+                        ->columnSpanFull(),
                 ]),
             Section::make(__('admin.settings.sections.wht'))
                 ->description(__('admin.settings.sections.wht_description'))
@@ -447,7 +448,7 @@ class Settings extends Page implements HasSchemas
     protected function getHeaderActions(): array
     {
         return [
-            \Filament\Actions\Action::make('save')
+            Action::make('save')
                 ->label(__('admin.settings.save'))
                 ->icon('heroicon-o-check')
                 ->color('primary')

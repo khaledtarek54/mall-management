@@ -18,6 +18,16 @@ the operator) · ⚙️ ops (deploy/infra).
 keeps the per-phase implementation detail; [docs/accounting/GAP-ANALYSIS.md](accounting/GAP-ANALYSIS.md)
 keeps the accounting capability matrix. This file is the priority call across all of them.
 
+> **🟠 OPEN CYCLE, 2026-08-12 — tax master data, derived fields, configuration, reporting → [§8](#8-cycle--tax-master-data-derived-fields-configuration-reporting-opened-2026-08-12).**
+> **TX-01 and TX-02 shipped the same day**: the rate is out of settings and onto a dated ladder,
+> seeded from the operator's own tax sheet. TX-03 (the typed rate on an invoice line) is next.
+> Four workstreams, every "today" claim verified against the code with file:line. Headline findings:
+> the VAT **rate is typed on the document** and has no effective date (the catalogue governs the
+> default, nothing governs the value); a lease's **term and expiry are three independent inputs**
+> that can be saved disagreeing; the settings page maps every field twice by hand and **records no
+> history of who changed a rate**; and the financial statements have **no drill-down** to the GL or
+> the source document. Sequence in [§8.5](#85-suggested-sequence).
+
 > **✅ CYCLE COMPLETE, 2026-08-09 — all 43 stories shipped.** The benchmark cycle below ran to the
 > end; every story in [05-user-stories.md](benchmarks/yardi/05-user-stories.md) is ✅, the gap
 > analysis is re-verified, and the two live defects named in the original banner were fixed on day
@@ -442,3 +452,156 @@ Acting on the first one would actively reintroduce a bug.
 
 *Keep this file current: when something ships, move it to §6 rather than deleting it — the
 retired list is what stops the next person rebuilding a thing that already works.*
+
+---
+
+## 8. Cycle — tax master data, derived fields, configuration, reporting (opened 2026-08-12)
+
+> **Four workstreams the owner opened on 2026-08-12.** Every "today" statement below was verified
+> against the code the same day and carries its file:line, because the last two roadmaps both
+> shipped rows that rested on something that had already been built.
+>
+> **The benchmark is what reference systems actually do — Yardi first, then Odoo / SAP / NetSuite /
+> MRI / ERPNext where the question is generic accounting rather than property management.** Where
+> the standard and a stated preference disagree, the standard wins and the disagreement is named
+> rather than quietly resolved (owner's instruction, 2026-08-12). Two rows below do exactly that.
+
+### 8.1 Tax — take the rate out of settings *and* out of the operator's keyboard (TX)
+
+**What Atriom does today.** The rate is one number in an application setting
+(`TaxSettings::vat_standard_rate`); *which* supplies are taxable is data on the charge code
+(`charge_codes.vat_treatment` + `vat_rate_override`, shipped 2026-08-11); one resolver
+(`App\Support\Vat::rateForType()`) is called by every origination point; and an issued document
+freezes the rate it was billed at. **That last property is already correct and must not be
+touched** — it is what keeps the books tied to the filed returns.
+
+**Three places it departs from every reference system:**
+
+1. **The rate is typed on the document.** `invoice_items.vat_rate` is a free 0–100 `TextInput`
+   ([InvoiceForm.php:240](../app/Filament/Admin/Resources/Invoices/Schemas/InvoiceForm.php#L240)),
+   and so is a credit-note line
+   ([CreditNoteForm.php:203](../app/Filament/Admin/Resources/CreditNotes/Schemas/CreditNoteForm.php#L203)).
+   The comment there states the intent plainly — *"the operator can still type a different rate on
+   the line"*. So `Vat::rateForType()` governs the **default**, and nothing governs the **value**.
+2. **The rate has no effective date.** Egypt moved 10% → 14% in 2017. When it moves again, editing
+   the setting re-rates everything originated afterwards — *including* an invoice back-dated into
+   the old regime, which is the one case that must not follow the new rate.
+3. **`TaxSettings::wht_default_rate` is a single number.** Egyptian withholding (Income Tax Law
+   91/2005 art. 59) is rate-by-nature — supplies, services, contracting and professional fees each
+   differ. One default cannot express it, so today it is either wrong or switched off.
+
+**What the reference systems do** — this is the standard, not a preference:
+
+| System | Where the rate lives | Selected or typed |
+|---|---|---|
+| **Yardi Voyager** | taxability is a `Tax` flag on the charge code (Atriom already matches this); the **rate** is a tax-rate table set up per property | selected; override needs rights |
+| **Odoo** | `account.tax` master records — scope (sale/purchase), computation, tax group, GL accounts | selected on the line; a rate change is a **new record**, the old one archived |
+| **SAP** | tax codes with country + **validity period** | posted as a code; the code carries the rate |
+| **NetSuite** | tax codes / tax groups, effective-dated | selected |
+| **MRI · ERPNext** | effective-dated tax tables / tax templates | selected |
+
+Two rules are consistent across all of them:
+
+- **A rate is never typed on a document — it is resolved from an effective-dated tax master.**
+- **An override is a permission, not a prohibition.** Yardi gates it on rights; Odoo lets you edit
+  the tax amount on a line; SAP allows a manual tax entry against the code. There is a reason: a
+  supplier's invoice rounds differently, or a contract fixed a rate. Forbid it outright and
+  operators enter the difference as an invented line item — the same money, now unclassifiable.
+
+**Where this lands against the ask.** The instinct — *pick from a list, don't type* — is exactly the
+standard. The **home** is not: a tax rate is not an application setting, it is **master data with a
+validity period and a GL account**, in the same tier as the chart of accounts and the charge-code
+catalogue. Settings hold *policy* ("do we withhold at all"); the catalogue holds *rates*. And
+"so it can't be changed manually by the user" is right for almost every user and wrong as an
+absolute — the standard is rights-gated override with the reason recorded.
+
+| Row | P | Owner | Work |
+|---|---|---|---|
+| **TX-01** | ✅ | 🧑‍💻 | **SHIPPED 2026-08-12. `tax_codes` + `tax_rates` catalogue**, seeded from the operator's own `account.tax` sheet ([EGYPTIAN-TAX-CATALOG.md](accounting/EGYPTIAN-TAX-CATALOG.md)) — VAT · stamp · schedule · withholding, each in both directions. Rates are **dated rungs** (no end date, so windows cannot overlap or gap). Screen at `/admin/tax-codes` with a rate-ladder relation manager; `tax_codes.*` RBAC; `TaxCatalogueConformanceTest` gates rows invented beyond the sheet **and** rows dropped from it. Stamp + schedule ship switched off — their GL accounts are not wired, and `TaxCode` refuses to activate a taxable code with no rate or no posting role. *(Original row below.)* **`tax_codes` catalogue.** Code · EN/AR name · scope (`output`/`input`/`withholding`) · treatment (`standard`/`exempt`/`zero_rated`) · rate · `effective_from`/`effective_to` · posting role · `is_active`. **Effective-dated: a rate change is a new row, never an edit** — the same rule the rest of the system already applies to posted money. `atriom:install` seeds the Egyptian set. |
+| **TX-02** | ✅ | 🧑‍💻 | **SHIPPED 2026-08-12.** `charge_codes.tax_code` replaces `vat_treatment` + `vat_rate_override` (both dropped in the same migration, which backfills each accountant ruling onto the equivalent tax code and carries the operator's configured rate across). `Vat::rateForType($code, $on)` resolves for the DOCUMENT's date; `TaxSettings::vat_standard_rate` is deleted. *(Original row below.)* **Charge code points at a tax code.** `vat_treatment` + `vat_rate_override` migrate in and are **dropped in the same change** (stale-work rule). `Vat::rateForType($code)` gains a date — `rateForType($code, $on)` — so origination resolves the rate *in force on the document's date*, not today's. `Vat::EXEMPT_TYPES` survives unchanged as the unseeded floor, with its existing conformance test. |
+| **TX-03** | 🟠 | 🧑‍💻 | **Invoice + credit-note lines select a tax code**, filtered to those valid on the document date; the resolved rate renders read-only beside it and is still frozen onto the line. Free rate entry moves behind a new `billing.override_tax` permission (accounting + super_admin) and writes the reason to the activity log. |
+| **TX-04** | 🟠 | 🧑‍💻 | **AP is currently un-coded.** `expenses.vat_amount` ([ExpenseForm.php:100](../app/Filament/Admin/Resources/Expenses/Schemas/ExpenseForm.php#L100)) and `vendor_bills.vat_amount` ([VendorBillForm.php:188](../app/Filament/Admin/Resources/VendorBills/Schemas/VendorBillForm.php#L188)) are money someone keys. Give both an input-tax selector with a derived amount and a small tolerance for supplier rounding (Odoo's behaviour), so input VAT is **classified** rather than a number. |
+| **TX-05** | 🟠 | 🧑‍💻 | **WHT by nature** — a `withholding` scope in the same catalogue, picked per vendor or per payment nature; `TaxSettings::wht_default_rate` is deleted, not kept alongside. |
+| **TX-06** | 🟡 | 🧑‍💻 | **VAT return reads the catalogue** — exempt and zero-rated separate on the return because the code says so, not because someone remembered. `VatReturnService` currently infers from stored rates. |
+| **TX-08** | 🟠 | 🧑‍💻 | **Wire the GL for stamp + schedule tax** — the "GL wiring (later)" line the catalogue document has carried since 2026-07-19, and now the only thing keeping eleven of the operator's own codes switched off. Needs a posting role + chart account + mapping per family; then naming it on the code activates it. Blocked on the accountant confirming **stamp applicability**, which is the same sign-off that document has always said it needs. |
+| **TX-07** | 🟡 | 🧑‍💻 | **Naming: `vat_*` → `tax_*`, new structures only.** The concept is spelled `vat_` on ~14 committed money columns. Reference systems name the field *tax* and treat VAT as one *kind* — that is what lets withholding, schedule tax and stamp duty share the layer. **Recommendation: do NOT rename the stored columns.** They are on posted documents, and the rename would reach the frozen e-invoicing module. Instead: every new structure is `tax_*` (`tax_codes`, `tax_code_id`), and the UI label comes from the catalogue, so a jurisdiction that calls it something else needs no deploy. Decided this way deliberately — half-renamed is worse than either end state. |
+
+### 8.2 Derived-but-editable fields (DF)
+
+**The reported case is real and is worse than described.** In the lease form
+([LeaseForm.php:195-212](../app/Filament/Admin/Resources/Leases/Schemas/LeaseForm.php#L195-L212)),
+`commencement_date`, `term_months` (default 36) and `expiry_date` are **three independent inputs**.
+Nothing derives, and nothing checks: a lease can be saved as "36 months" spanning twelve. `term_months`
+is not decoration — it is logged on the lease, copied by renewal, and read by the option-exercise
+service — so the two can disagree and the disagreement propagates.
+
+Same shape elsewhere, all verified 2026-08-12:
+
+- **Renewal modal** ([LeasesTable.php:504-524](../app/Filament/Admin/Resources/Leases/Tables/LeasesTable.php#L504-L524)) — `new_term_months` + `commencement_date`, and **no expiry shown at all**. The operator commits a renewal without seeing when it ends.
+- **Manual invoice** ([InvoiceForm.php:159](../app/Filament/Admin/Resources/Invoices/Schemas/InvoiceForm.php#L159)) — `due_date` is free, while *every* service derives it from the lease's payment terms (`MonthlyBillingService.php:514`, `BillMeterReadingService.php:103`, `LateFeeService.php:150`, `CamReconciliationService.php:699`, and four more). A hand-typed invoice therefore ages on a different rule from a generated one, and AR ageing is the report the owner reads.
+- **Lease options**, **fixed assets** (`acquisition_date` + `useful_life_months`, no derived depreciation end), **vendor contracts** ([ContractsRelationManager.php:83-88](../app/Filament/Admin/Resources/Vendors/RelationManagers/ContractsRelationManager.php#L83-L88), start/end with no term).
+
+**The standard behaviour** (Yardi and MRI both): the derived field is **pre-filled and editable**,
+and editing it **back-derives its partner**, so the pair cannot disagree. Term ⇄ expiry is
+bidirectional — typing an expiry recomputes the term rather than contradicting it.
+
+| Row | P | Owner | Work |
+|---|---|---|---|
+| **DF-01** | 🟠 | 🧑‍💻 | Lease **term ⇄ expiry**, bidirectional, both editable. Validation that the pair agrees becomes unnecessary because they can no longer disagree. |
+| **DF-02** | 🟠 | 🧑‍💻 | Renewal + option-exercise modals show the derived expiry before the operator commits. |
+| **DF-03** | 🟠 | 🧑‍💻 | Manual invoice `due_date` derives from `issue_date` + the lease's `payment_terms_days`, editable — one rule for typed and generated invoices. |
+| **DF-04** | 🟠 | 🧑‍💻 | **Make it systemic, or it decays.** One `App\Support\Forms\Derives` helper (pre-fill · live · back-derive · stays editable) plus a registry of derivable pairs and a conformance test that fails when a form exposes both sides of a registered pair without wiring it. This is the only version of "the whole system behaves this way" that is still true after the next form is added — the same play as `PropertyIsolation` and `ChangeImpact`. |
+| **DF-05** | 🟡 | 🧑‍💻 | Remaining pairs: fixed-asset depreciation end, vendor-contract term, PDC maturity, work-order SLA due. |
+
+### 8.3 Settings — make configuration declarative, audited and per-property (CFG)
+
+**Today.** One 458-line page maps every field **twice** by hand — once in `mount()`
+([Settings.php:68-125](../app/Filament/Admin/Pages/Settings.php#L68-L125)) and once in `save()`
+([Settings.php:148-210](../app/Filament/Admin/Pages/Settings.php#L148-L210)). Adding a setting means
+editing three files, and **omitting the `save()` line makes the screen silently inert** — a bug class
+this project has already been bitten by. Three further gaps, verified:
+
+- **No audit trail on settings.** `settings.manage` gates *who may*, but nothing records **who did,
+  when, and from what to what**. In a system where money records are undeletable and the charge-code
+  catalogue is activity-logged, the VAT rate and the late-fee percent are the one place a number can
+  change leaving no history.
+- **Settings are global; Eltizam runs several malls.** Yardi configures billing day, late fees and
+  SLA hours **per property**. Atriom has airtight per-property isolation everywhere *except* the
+  numbers that drive billing.
+- **Policy still hardcoded**: AR ageing buckets 30/60/90 ([ReportService.php:37-40](../app/Services/Reports/ReportService.php#L37-L40)), the default lease term (36), default payment terms (`?? 7`, repeated across eight services), document-number formats, fiscal-year start, rounding.
+
+| Row | P | Owner | Work |
+|---|---|---|---|
+| **CFG-01** | 🟠 | 🧑‍💻 | **Declarative settings registry** — each `Settings` class declares its fields (type · section · validation · label key); the page renders and saves generically. Deletes ~250 lines of hand mapping and the entire inert-screen bug class. Conformance test: every public property of every registered class is rendered **and** written back. |
+| **CFG-02** | 🟠 | 🧑‍💻 | **Settings audit trail** — who / when / old → new, through the same activity log as everything else, surfaced as a tab on the page. |
+| **CFG-03** | 🟠 | 🧑‍💻 | **Per-property overrides** for the settings that legitimately differ (billing day + time, late fee, grace, NSF, SLA hours): global default + optional override, resolved through **one** accessor so a service cannot read the global by accident. Yardi standard. |
+| **CFG-04** | 🟡 | 🧑‍💻 | Lift the hardcoded policy into settings — **ageing buckets first** (they change the report the owner reads), then default lease term · payment terms · numbering formats · fiscal year · rounding. |
+| **CFG-05** | 🟡 | 🧑‍💻 | **Configuration health page** — what is unset and what it breaks; the in-app form of [GO-LIVE.md](GO-LIVE.md), and the analogue of Yardi's setup checklist. `atriom:health` already computes most of it. |
+| **CFG-06** | 🟡 | 🧑‍💻 | **Write-side/read-side conformance test** — every setting a screen writes must be the one the code reads. The inert-screen trap becomes a gate instead of a memory. |
+
+### 8.4 Reports — Yardi shape and delivery (RP)
+
+**The coverage is already strong** and should not be rebuilt: 19 report pages (AR ageing + by type +
+collections, rent roll, expiration schedule, occupancy cost + map, sales analytics, trial balance,
+income statement, balance sheet, cash flow, general ledger, VAT return, weekly spend, monthly close),
+CSV on all six main reports, PDF for monthly close and tenant/asset statements, and
+`ComparativeStatementService`. **The gaps are shape and delivery, not what is measured.**
+
+| Row | P | Owner | Work |
+|---|---|---|---|
+| **RP-01** | 🟠 | 🧑‍💻 | **Report hub.** `/admin/reports` is the monthly close, not a catalogue. Yardi's Reports menu is a categorised, searchable list — Financial · Leasing · Operations · Tax — each with a one-line description and a last-run stamp, plus favourites. Every report is already a registered page; this is an index over them. |
+| **RP-02** | 🟠 | 🧑‍💻 | **One parameter bar.** Reports variously take a period, an as-of, or a range. A shared filter component — property · as-of/period · comparison basis · include-inactive — remembered per user. |
+| **RP-03** | 🟠 | 🧑‍💻 | **Saved report versions** — name a set of parameters and re-run it. Yardi's "report versions"; prerequisite for RP-04. |
+| **RP-04** | 🟠 | 🧑‍💻 | **Scheduled delivery** — email a saved report on a schedule (the month-end pack to the owner). Nothing exists today; the scheduler, the PDF builders and the CSV exporter all do. |
+| **RP-05** | 🟠 | 🧑‍💻 | **Drill-down.** Verified: no row URLs on the income statement, trial balance or general ledger. A statement line should open its GL entries, and a GL line its source document. **This is the single biggest "why doesn't it feel like Yardi" difference** — the numbers are right, they are just terminal. |
+| **RP-06** | 🟡 | 🧑‍💻 | **Comparative + budget columns** on the income statement (prior period · prior year · variance). `ComparativeStatementService` gets part way; **budget-vs-actual is a build, not a column** — there is no budget model at all. |
+| **RP-07** | 🟡 | 🧑‍💻 | **Excel export** alongside CSV — headers, number formats, frozen panes. What an accountant actually receives from Yardi, and the reason CSV gets reformatted by hand today. |
+| **RP-08** | 🟡 | 🧑‍💻 | **Owner pack** — module 32 issues owner statements; group the owner's reports into one deliverable pack (FRD ask). |
+
+### 8.5 Suggested sequence
+
+**TX-01 → TX-03** first: it is the only workstream touching tax on issued documents, and the longer
+free rate entry stays, the more history is entered under it. **DF-01/03/04** next — small, and DF-04
+is what stops the pattern decaying. **CFG-01/02** then, because every later configuration row is
+cheap once the registry exists and expensive before it. **RP-05 and RP-01** last of the 🟠 rows: the
+most visible change per unit of work, and both are additive.

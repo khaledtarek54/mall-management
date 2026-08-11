@@ -19,19 +19,22 @@ use Spatie\LaravelSettings\Settings;
  */
 class TaxSettings extends Settings
 {
-    /**
-     * Standard VAT rate as a percentage. Egypt is at 14% (VAT Law 67/2016) and moved from 10% in
-     * 2017 — read through App\Support\Vat, never as a literal. Only ORIGINATION reads this;
-     * issued documents keep the rate they were billed at.
-     */
-    public float $vat_standard_rate = 14.0;
-
     /*
-     * WHICH supplies that rate applies to is NOT here. It is `charge_codes.vat_treatment` —
-     * standard / exempt / zero-rated per charge code, with an optional per-code rate override —
-     * read through `App\Support\Vat::rateForType()`. Parking had a toggle of its own on this class
-     * until 2026-08-11; it was the same question answered in a second place, and an operator could
-     * set the two to disagree.
+     * NO RATES LIVE ON THIS CLASS. That is the point of it now.
+     *
+     * `vat_standard_rate` was here until 2026-08-12 and is now a dated rung on the `VAT_STD` tax
+     * code (`tax_codes` + `tax_rates`), read through `App\Support\Vat`. A settings field cannot
+     * carry the one property a rate must have — the day it came into force — so editing it re-rated
+     * every document originated afterwards, including one back-dated into the previous regime, and
+     * it could not express a rate change announced in advance.
+     *
+     * WHICH supplies a rate applies to is not here either: that is `charge_codes.tax_code`, the
+     * accountant's ruling saved as a row. Parking had a toggle of its own on this class until
+     * 2026-08-11 — the same question answered in a second place, where an operator could set the
+     * two to disagree.
+     *
+     * What belongs here is POLICY that has no rate and no date: the seller's identity on a tax
+     * invoice, and whether withholding is switched on at all.
      */
 
     /**

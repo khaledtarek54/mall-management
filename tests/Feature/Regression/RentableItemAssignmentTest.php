@@ -246,7 +246,7 @@ it('bills parking VAT only when the accountant has ruled it taxable', function (
     // The accountant rules that parking is a taxable supply — one row, no deploy.
     \App\Models\ChargeCode::updateOrCreate(
         ['code' => 'parking'],
-        ['name_en' => 'Parking', 'name_ar' => 'مواقف', 'vat_treatment' => \App\Models\ChargeCode::VAT_STANDARD],
+        ['name_en' => 'Parking', 'name_ar' => 'مواقف', 'tax_code' => 'VAT_14'],
     );
 
     $taxed = leaseFor($asset, 'V-02');

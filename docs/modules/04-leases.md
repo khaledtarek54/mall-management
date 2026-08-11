@@ -365,7 +365,7 @@ foreach lease in unit.allLeases():
 3. Generates unique lease reference (asset code + year + sequence).
 4. Computes `expiry_date` as `commencement + term_months - 1 day`.
 5. Creates Lease row with status='active' (or as supplied).
-6. Seeds two standard Charges: base_rent (VAT-exempt) and service_charge (VAT at the standard rate — `TaxSettings::vat_standard_rate`, 14% today).
+6. Seeds two standard Charges: base_rent (VAT-exempt) and service_charge (VAT at the standard rate — the `VAT_14` tax code's current rung, 14% today).
 
 **Related:** `LeaseCreationService::seedStandardCharges()` (static) — idempotent seed of rent + service-charge pair; skips if Charges already exist; used by CreateLease page afterCreate.
 

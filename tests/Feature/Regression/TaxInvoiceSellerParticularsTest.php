@@ -129,9 +129,9 @@ it('omits the summary on a single-rate invoice', function () {
 
 it('reads each line\'s OWN rate rather than today\'s standard rate', function () {
     // An issued invoice keeps the rate it was billed at. Re-deriving the summary from
-    // `TaxSettings` would silently restate every historical document the day the rate changes —
+    // the tax catalogue would silently restate every historical document the day the rate changes —
     // the origination-only rule that governs VAT everywhere else in this codebase.
-    app(TaxSettings::class)->vat_standard_rate = 20.0;
+    \Tests\Support\TaxCatalogue::setStandardRate(20.0);
 
     $m = new ReflectionMethod(InvoicePdfService::class, 'vatSummary');
     $m->setAccessible(true);

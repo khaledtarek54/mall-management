@@ -166,6 +166,12 @@ class RolesPermissionsSeeder extends Seeder
             'charge_codes.edit' => 'Edit a charge code’s label or posting account',
             'charge_codes.delete' => 'Remove an operator-added charge code',
         ],
+        'tax_codes' => [
+            'tax_codes.view' => 'View the tax catalogue (rates and the dates they came into force)',
+            'tax_codes.create' => 'Add a tax code',
+            'tax_codes.edit' => 'Edit a tax code, and add or change a rate on its ladder',
+            'tax_codes.delete' => 'Remove a tax code nothing is billed under',
+        ],
         'account_mappings' => [
             'account_mappings.view' => 'View the posting map (which account each role posts to)',
             'account_mappings.create' => 'Add a posting-map row or a per-property override',
@@ -652,6 +658,9 @@ class RolesPermissionsSeeder extends Seeder
             // The posting map is the accountant's own configuration — it is how a new chart of
             // accounts gets wired up without a developer.
             'charge_codes.view', 'charge_codes.create', 'charge_codes.edit', 'charge_codes.delete',
+            // The tax catalogue is the accountant's too, and for a stronger reason: a rate change
+            // is theirs to enter on the day the law says, not a deploy to schedule.
+            'tax_codes.view', 'tax_codes.create', 'tax_codes.edit', 'tax_codes.delete',
             'account_mappings.view', 'account_mappings.create', 'account_mappings.edit',
             'account_mappings.delete',
             'journal_entries.view', 'journal_entries.create', 'journal_entries.edit',

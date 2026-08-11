@@ -20,6 +20,9 @@ class AccountingSeeder extends Seeder
         $this->call([
             ChartOfAccountsSeeder::class,
             AccountMappingSeeder::class,
+            // Before the charge codes: a charge code names the tax code it is billed under, so the
+            // catalogue it points into has to exist first.
+            TaxCodeSeeder::class,
             ChargeCodeSeeder::class,
         ]);
 

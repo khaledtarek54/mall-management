@@ -44,6 +44,7 @@ class ResourceGuides
         \App\Filament\Admin\Resources\CamExpensePools\CamExpensePoolResource::class => 'cam',
         \App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource::class => 'sales_declarations',
         \App\Filament\Admin\Resources\RentableItems\RentableItemResource::class => 'rentable_items',
+        \App\Filament\Admin\Resources\TaxCodes\TaxCodeResource::class => 'tax_codes',
         \App\Filament\Admin\Resources\ChargeCodes\ChargeCodeResource::class => 'charge_codes',
         \App\Filament\Admin\Resources\AccountMappings\AccountMappingResource::class => 'posting_map',
     ];

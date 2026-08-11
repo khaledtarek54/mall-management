@@ -10,30 +10,34 @@
 | defaults. Egypt moved this rate once already — 10% → 14% in 2017 — and the next move meant
 | finding all eight, with nowhere stating what the rate actually is.
 |
+| It became `TaxSettings::vat_standard_rate`, and since 2026-08-12 it is a dated rung on the
+| `VAT_STD` tax code — because the one property a rate has that a settings field cannot carry is
+| the day it came into force.
+|
 | Two properties are asserted here, and they pull in opposite directions:
-|   1. Changing the setting changes what is billed NEXT.
+|   1. Changing the rate changes what is billed NEXT.
 |   2. It never changes what was already billed. An invoice issued at 14% is a 14% document
 |      forever — otherwise a rate change silently rewrites history and de-ties the books from the
-|      returns already filed with the ETA.
+|      returns already filed.
 */
 
 use App\Models\Charge;
 use App\Models\MeterReading;
 use App\Models\UtilityMeter;
+use App\Services\BillMeterReadingService;
+use App\Services\LeaseCreationService;
 use App\Services\MonthlyBillingService;
-use App\Settings\TaxSettings;
 use App\Support\Vat;
 use Carbon\CarbonImmutable;
+use Tests\Support\TaxCatalogue;
 
 /** Point the standard rate somewhere unmistakable, so a stray literal 14 can't produce a pass. */
 function setVatRate(float $rate): void
 {
-    $settings = app(TaxSettings::class);
-    $settings->vat_standard_rate = $rate;
-    $settings->save();
+    TaxCatalogue::setStandardRate($rate);
 }
 
-it('reads the rate from settings', function () {
+it('reads the rate from the tax catalogue', function () {
     setVatRate(17.5);
 
     expect(Vat::standardRate())->toBe(17.5)
@@ -42,8 +46,8 @@ it('reads the rate from settings', function () {
 });
 
 it('refuses a negative rate rather than billing a negative tax line', function () {
-    // A mistyped setting must not turn a VAT line into a hidden credit. Clamped, not thrown:
-    // billing must not stop because someone fat-fingered a settings field.
+    // A mistyped rate must not turn a VAT line into a hidden credit. Clamped, not thrown:
+    // billing must not stop because someone fat-fingered a rung.
     setVatRate(-5);
 
     expect(Vat::standardRate())->toBe(0.0)
@@ -53,7 +57,7 @@ it('refuses a negative rate rather than billing a negative tax line', function (
 it('bills a new lease service charge at the configured rate', function () {
     setVatRate(20);
 
-    $lease = app(App\Services\LeaseCreationService::class)->create([
+    $lease = app(LeaseCreationService::class)->create([
         'tenant_mode' => 'existing',
         'tenant_id' => makeTenant()->id,
         'lease' => [
@@ -100,7 +104,7 @@ it('bills a utility recharge at the configured rate', function () {
         'cost' => 1000,
     ]);
 
-    $invoice = app(App\Services\BillMeterReadingService::class)->bill($reading);
+    $invoice = app(BillMeterReadingService::class)->bill($reading);
     $item = $invoice->items()->first();
 
     expect((float) $item->vat_rate)->toBe(25.0)
@@ -140,13 +144,13 @@ it('leaves an already-issued invoice at the rate it was billed at', function () 
     $invoice->refresh();
 
     expect($before)->toBe(140.0)
-        ->and((float) $invoice->vat_amount)->toBe(140.0, 'an issued invoice must not re-rate when the setting changes')
+        ->and((float) $invoice->vat_amount)->toBe(140.0, 'an issued invoice must not re-rate when the rate changes')
         ->and((float) $invoice->items()->first()->vat_rate)->toBe(14.0);
 });
 
 it('has no hardcoded VAT rate left in the app', function () {
-    // The gate. A literal rate anywhere outside Vat/TaxSettings is the bug this change removed;
-    // it would silently disagree with the setting the accountant just edited.
+    // The gate. A literal rate anywhere outside Vat and the tax-catalogue seeder is the bug this
+    // change removed; it would silently disagree with the rate the accountant just entered.
     $offenders = [];
 
     $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(app_path()));
@@ -158,8 +162,10 @@ it('has no hardcoded VAT rate left in the app', function () {
 
         $path = str_replace(base_path().'/', '', $file->getPathname());
 
-        // The two places that legitimately state the rate.
-        if (str_contains($path, 'Support/Vat.php') || str_contains($path, 'Settings/TaxSettings.php')) {
+        // The one place in app/ that legitimately states the rate: the FLOOR an unseeded database
+        // bills at. (The seeded figure lives in database/seeders/TaxCodeSeeder.php, outside this
+        // sweep, and `TaxCatalogueConformanceTest` asserts the two agree.)
+        if (str_contains($path, 'Support/Vat.php')) {
             continue;
         }
 
@@ -181,6 +187,6 @@ it('has no hardcoded VAT rate left in the app', function () {
     expect($offenders)->toBe([], implode("\n", array_merge(
         ['A VAT rate is hardcoded here instead of read from App\Support\Vat:'],
         $offenders,
-        ['', 'Use Vat::standardRate() to originate a taxable supply, or Vat::EXEMPT for one outside the scope.']
+        ['', 'Use Vat::rateForType($code, $date) to originate a supply, or Vat::EXEMPT for one outside the scope.']
     )));
 });

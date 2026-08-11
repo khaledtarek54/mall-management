@@ -120,6 +120,15 @@ class DeletionPolicy
             'blocked_by' => ['units', 'rentableItems'],
             'instead' => 'rename or re-order the floor — a floor that holds space is part of the property record',
         ],
+        // A tax nothing is billed under is an unused draft and ordinary cleanup. One a charge
+        // code points at explains what every invoice raised under it was taxed at, and deleting it
+        // would cascade its whole rate ladder away — so the history stops being explicable rather
+        // than the code stopping being useful. Deactivate instead: it disappears from every picker
+        // and keeps answering for the past.
+        \App\Models\TaxCode::class => [
+            'blocked_by' => ['chargeCodes'],
+            'instead' => 'deactivate the tax code — it leaves the pickers immediately and still explains what past documents were taxed at',
+        ],
         \App\Models\RentableItem::class => [
             // A bay that has ever been let is part of the property record — the lease history and
             // its billing reference it. Withdraw it from letting instead; that is what
@@ -257,6 +266,11 @@ class DeletionPolicy
         \App\Models\AccountMapping::class => 'configuration: which account a source posts to',
         \App\Models\UnitArea::class => 'parent-managed: one measurement of a unit for a period, edited from the unit. A wrong figure is corrected by recording a new measurement — the register is what makes a past period explicable, so rows are not removed',
         \App\Models\ChargeCode::class => 'configuration: the billing vocabulary. A code the engine references by name is refused at the screen; an operator-added one that was never billed is ordinary cleanup',
+        // Parent-managed: one rung of a tax code's dated ladder, edited from the code. A rung
+        // posts nothing and settles nothing — issued documents carry their own rate and are
+        // never re-rated — so removing one changes what is billed NEXT and no history. Same
+        // call, and same reasoning, as LeaseCamTerm's effective-dated terms.
+        \App\Models\TaxRate::class => 'parent-managed: effective-dated rates on a tax code, edited from the code',
         \App\Models\ApprovalRule::class => 'configuration: approval bands',
         // Configuration today: nothing references a bank account yet. Slice 2 of the
         // reconciliation plan adds statements, and this MUST become WHEN_UNUSED blocked_by them at

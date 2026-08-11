@@ -59,7 +59,7 @@ function chillerCode(): ChargeCode
         'name_ar' => 'رسوم التبريد',
         // Their choice of account, from the posting map — the same field the seeded codes use.
         'posting_role' => 'service_charge_revenue',
-        'vat_treatment' => ChargeCode::VAT_STANDARD,
+        'tax_code' => 'VAT_14',
         'sort_order' => 200,
     ]);
 }

@@ -99,7 +99,7 @@ purpose, domain model, business rules, lifecycle/state-machine, services, Filame
 
 | Rule | Value | Where |
 |---|---|---|
-| VAT | Standard rate (**14%** today) on service charges; **base rent is VAT-exempt**. Settings-driven — `TaxSettings::vat_standard_rate` via `App\Support\Vat`; only origination reads it, so an issued invoice keeps the rate it was billed at | Billing / Settings → Tax |
+| VAT | Standard rate (**14%** today) on service charges; **base rent is VAT-exempt**. Master data, not a setting — a dated rung on the `VAT_14` tax code, resolved for the DOCUMENT's date via `App\Support\Vat`, so a rate change can be entered in advance and a back-dated invoice keeps the rate that was in force. Only origination reads it, so an issued invoice keeps the rate it was billed at | Billing / General Ledger → Tax codes |
 | Marketing levy | **5%** of base rent (configurable, captured per-charge) | Marketing |
 | AR balance | `paid_amount = captured payments + credit_applied_amount`; `balance = total − paid` | Invoice::recomputeTotals |
 | Delete | **Money records are never deletable — not even by super_admin** (invoice, payment, journal entry, credit note, vendor bill, expense, deposit txn, payroll, cheque): correct via cancel / void / credit note. **Master data with history is refused too** (tenant, vendor, lease, unit, property, employee) — deactivate instead. Everything else: super_admin only, bulk-delete off | `App\Support\DeletionPolicy` |

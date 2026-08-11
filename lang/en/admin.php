@@ -633,6 +633,7 @@ return [
             'payments' => 'Payment Gateways',
         ],
         'fields' => [
+            'note' => 'Note',
             'straight_line_rent_enabled' => 'Recognise rent on a straight-line basis',
             'straight_line_rent_enabled_help' => 'Spreads the total contracted rent evenly over each lease term (EAS 49 / IFRS 16), posting the monthly difference to Deferred Rent. Steps and rent-free periods stop landing in the month they fall. Billing, VAT and e-invoicing are unaffected. Leave off until your accountant has signed it off.',
             'late_fee_percent' => 'Late fee percentage',
@@ -655,8 +656,8 @@ return [
             'seller_legal_name_helper' => 'Only if it differs from the property name shown on the invoice.',
             'wht_enabled' => 'Withhold tax on vendor payments',
             'wht_enabled_helper' => 'When on, every vendor payment splits: cash to the vendor and a liability to the ETA. Turn on only once your accountant has confirmed the rates.',
-            'vat_standard_rate' => 'Standard VAT rate',
-            'vat_standard_rate_helper' => 'Egypt is currently 14% (VAT Law 67/2016). Changing this affects what is billed from now on — invoices already issued keep the rate they were billed at.',
+            'vat_rates_moved' => 'Tax rates',
+            'vat_rates_moved_helper' => 'Rates are no longer set here. A rate has a date it comes into force, which a setting cannot carry — so every rate now lives on its tax code as a dated ladder, under General Ledger → Tax codes. Which supplies a rate applies to is set on each charge code. Both affect what is billed from now on; invoices already issued keep the rate they were billed at.',
             'wht_default_rate' => 'Default rate',
             'wht_default_rate_helper' => 'Applied to vendors with no agreed rate of their own.',
             'payroll_social_insurance_rate' => 'Social insurance rate',
@@ -1197,6 +1198,7 @@ return [
     'navigation' => [
         'vat_return' => 'VAT return',
         'charge_codes' => 'Charge Codes',
+        'tax_codes' => 'Tax Codes',
         'approval_rules' => 'Approval Bands',
         'bank_accounts' => 'Bank Accounts',
         'bank_statements' => 'Bank Statements',
@@ -1236,6 +1238,7 @@ return [
         'bank_statement' => ['singular' => 'Bank Statement', 'plural' => 'Bank Statements'],
         'bank_account' => ['singular' => 'Bank Account', 'plural' => 'Bank Accounts'],
         'approval_rule' => ['singular' => 'Approval Band', 'plural' => 'Approval Bands'],
+        'tax_code' => ['singular' => 'Tax code', 'plural' => 'Tax codes'],
         'charge_code' => [
             'singular' => 'Charge code',
             'plural' => 'Charge codes',
@@ -2491,8 +2494,15 @@ return [
         'lease' => 'Lease',
         'description' => 'Description',
         'vat_rate' => 'VAT %',
-        'vat_treatment' => 'VAT treatment',
-        'vat_rate_override' => 'Rate for this code',
+        'tax_code' => 'Tax code',
+        'tax_family' => 'Tax',
+        'tax_direction' => 'Applies to',
+        'invoice_label' => 'Label on invoices',
+        'tax_treatment' => 'Treatment',
+        'statutory_reference' => 'Statutory reference',
+        'effective_from' => 'In force from',
+        'tax_rate' => 'Rate',
+        'current_rate' => 'Current rate',
         'reference_auto' => 'Auto-generated on save',
         'role_name' => 'Role name',
         'role_name_helper' => 'Lowercase, numbers, underscores only (e.g. "finance_lead"). System roles cannot be renamed.',
@@ -2590,6 +2600,17 @@ return [
     ],
 
     'helpers' => [
+        'tax_code_section' => 'Every tax this system applies, with its rates and the dates they came into force. The rate is resolved from the DOCUMENT\'s date: an invoice dated before a rate change bills the rate that was in force when it was raised, and a rate entered in advance starts applying by itself on the day.',
+        'tax_code_code' => 'Upper-case letters, digits and underscores. Fixed once saved — charge codes reference this string, so renaming it would silently un-classify every supply pointed at it.',
+        'tax_family' => 'Which Egyptian tax this is. It decides the account the tax lands in, and — for withholding — that the rate is deducted from a payment rather than added to it.',
+        'tax_direction' => 'Sales: tax charged to a tenant. Purchases: tax a supplier charged us, recoverable on the return. Every rate exists in both directions because the two post to different accounts and land on opposite sides of the return.',
+        'tax_invoice_label' => 'What prints on the invoice beside the amount — "VAT 14%", "SCHD 8%", "WH -1%".',
+        'tax_treatment' => '"Taxable at a rate" bills whatever the ladder says. Exempt and zero-rated both bill nothing and are reported differently — which is why they are stored apart rather than inferred from a zero on a line.',
+        'tax_posting_role' => 'The account this tax\'s collections land in, resolved through the posting map — so a new code inherits any per-property override for free.',
+        'statutory_reference' => 'The law or article this tax comes from. The question an auditor asks about a tax rate is never "what" but "on what authority".',
+        'tax_code_active' => 'An inactive code appears in no picker. A taxable code cannot be switched on until it has a rate and a posting account — otherwise it would be offered and then bill nothing into nowhere.',
+        'tax_effective_from' => 'The day this rate starts. It stays in force until the next rate begins — there is no end date, so periods cannot overlap or leave a gap.',
+        'tax_rate_note' => 'Where this rate comes from — "VAT Law 67/2016 art. 2". Shown beside the rate in the ladder.',
         'bank_statement_section' => 'One period of one account, as the BANK reports it. Importing a statement posts nothing — it is the outside evidence the books get checked against.',
         'closing_balance' => 'What the bank says the account held at the end. The reconciliation ends here: closing balance, plus what the books show and the bank does not, must equal the ledger.',
         'statement_consistent' => 'Opening + the lines = closing, by the bank\'s own arithmetic. If this fails the file was truncated, half-mapped, or its signs were read backwards — fix that before matching anything.',
@@ -2609,7 +2630,7 @@ return [
         'charge_code_role' => 'Leave blank to post to miscellaneous income. Only right for a genuinely ad-hoc charge — anything you bill regularly deserves its own account.',
         'charge_code_sort' => 'Position in the invoice-line picker. Lower comes first; the codes billed daily should lead.',
         'charge_code_active' => 'Inactive codes stay on historical invoices but are no longer offered on a new line.',
-        'charge_code_vat_treatment' => 'Standard-rated charges VAT at the rate in Settings → Tax. Exempt is outside the scope of VAT (rent, penalties); zero-rated is a taxable supply at 0% — both bill nothing, and they are reported differently. Affects new charges only: issued invoices keep the rate they were billed at.',
+        'charge_code_tax_code' => 'The tax this charge is billed under. Its rate — and the date that rate came into force — live on the tax code, so a rate change is one edit for every charge that uses it. Leave blank for a charge nobody has ruled on yet: it will bill the standard rate unless it is one of the supplies that are exempt by default. Affects new charges only — issued invoices keep the rate they were billed at.',
         'charge_code_vat_override' => 'Leave blank for the standard rate, which then follows any future change to it. Fill this in only for a supply on a schedule rate of its own.',
         'charge_code_system' => 'The billing engine references this code by name, so it cannot be switched off or removed — only its label and account can change.',
         'escalation_amount' => 'The flat monthly increase applied each anniversary — “rent rises by EGP 5,000 a month each year”. Used instead of the percentage, not alongside it.',
@@ -2703,6 +2724,7 @@ return [
     ],
 
     'sections' => [
+        'tax_code' => 'Tax code',
         'bank_statement' => 'Statement',
         'bank_account' => 'Bank account',
         'approval_rule' => 'Approval band',
@@ -2784,7 +2806,7 @@ return [
     ],
 
     'permission_modules' => [
-            'bank_accounts' => 'Bank accounts',
+        'bank_accounts' => 'Bank accounts',
         'charge_codes' => 'Charge codes',
         'account_mappings' => 'Posting map',
         'ledger_accounts' => 'Chart of Accounts',
@@ -2992,6 +3014,9 @@ return [
     ],
 
     'enums' => [
+        'tax_family' => ['vat' => 'VAT — ضريبة القيمة المضافة', 'stamp' => 'Stamp duty — ضريبة الدمغة', 'schedule' => 'Schedule tax — ضريبة الجدول', 'withholding' => 'Withholding — خصم وتحصيل تحت حساب الضريبة'],
+        'tax_direction' => ['sales' => 'Sales — charged to a tenant', 'purchases' => 'Purchases — charged to us by a supplier'],
+        'tax_treatment' => ['standard' => 'Taxable at a rate', 'exempt' => 'Exempt (outside the scope)', 'zero_rated' => 'Zero-rated (taxable at 0%)'],
         'approval_module' => ['inventory_draw' => 'Stock draw', 'purchase_request' => 'Purchase request', 'disbursement' => 'Owner payout'],
         'approval_tier' => ['approvals.tier_1' => 'Supervisor (tier 1)', 'approvals.tier_2' => 'Manager (tier 2)', 'approvals.tier_3' => 'Senior (tier 3)'],
         'tenant_document_type' => [
@@ -3002,10 +3027,10 @@ return [
             'bank_guarantee' => 'Bank guarantee',
             'other' => 'Other',
         ],
-    'cam_cap_scope' => [
-        'total' => 'The whole share',
-        'controllable' => 'Controllable costs only',
-    ],
+        'cam_cap_scope' => [
+            'total' => 'The whole share',
+            'controllable' => 'Controllable costs only',
+        ],
         'ledger_account_type' => [
             'asset' => 'Asset',
             'liability' => 'Liability',
@@ -3536,6 +3561,8 @@ return [
         'refund_blocked_credit_applied' => 'This receipt\'s surplus has already been applied to invoices as tenant credit — reverse those credit applications before refunding.',
     ],
     'validation' => [
+        'tax_code_needs_rate' => 'Tax code :code has no rate yet, so it cannot be switched on. Add a rate to its ladder first — otherwise it would appear in the pickers and bill nothing.',
+        'tax_code_needs_role' => 'Tax code :code has no posting account, so it cannot be switched on. Pick the account its collections land in — otherwise it would take money into nowhere.',
         'tenant_tax_id_format' => 'Tax ID must be 9 digits, optionally formatted as XXX-XXX-XXX (Egyptian Tax Registration Number).',
         'invoice_due_after_issue' => 'The due date must be after the issue date.',
         'maintenance_resolution_after_creation' => 'The resolution date cannot be earlier than the request creation date.',
@@ -4630,6 +4657,14 @@ return [
         'unknown_role' => 'Unrecognised role',
     ],
 
+    'tax_codes' => [
+        'rate_ladder' => 'Rate ladder',
+        'add_rate' => 'Add a rate',
+        'no_rate' => 'No rate',
+        'no_role' => 'No posting account',
+        'in_force_from' => 'In force from :date',
+        'scheduled' => 'Scheduled — not started yet',
+    ],
 
     'charge_codes' => [
         'unmapped' => 'Miscellaneous income (no role)',
@@ -4638,8 +4673,10 @@ return [
         'vat_standard' => 'Standard-rated',
         'vat_exempt' => 'Exempt (out of scope)',
         'vat_zero_rated' => 'Zero-rated',
+        'tax_unclassified' => 'Not classified',
+        'tax_no_rate' => 'No rate set yet',
+        'tax_rate_hint' => ':rate% today',
     ],
-
 
     'lease_rentable_items' => [
         'title' => 'Parking & rentable items',
@@ -4647,7 +4684,6 @@ return [
         'empty_heading' => 'No bays, storage or signage on this lease',
         'empty_description' => 'Assign one and it bills automatically — it becomes a single parking line on the lease’s charge schedule, so the monthly run, VAT and the ledger need no knowledge that rentable items exist.',
     ],
-
 
     'unit_leases' => [
         'title' => 'Leases',
@@ -4663,7 +4699,6 @@ return [
         'empty_description' => 'Register them once and they can be let to any lease in this property. They are deliberately excluded from the property’s lettable area — a bay is licensed, not leased.',
     ],
 
-
     'unit_meters' => [
         'title' => 'Meters',
         'empty_heading' => 'No meters on this unit',
@@ -4676,14 +4711,12 @@ return [
         'empty_description' => 'Expansion options, rights of first refusal and purchase options on other leases appear here. While one is open the unit is not freely lettable — the option holder has to be dealt with first.',
     ],
 
-
     'tenant_invoices' => [
         'days_overdue' => ':days days overdue',
         'outstanding_only' => 'Outstanding only',
         'empty_heading' => 'Nothing has been billed to this tenant',
         'empty_description' => 'Invoices raised against any of this tenant’s leases appear here, in the properties you can see.',
     ],
-
 
     'deposits' => [
         'errors' => [
@@ -4706,7 +4739,6 @@ return [
         'empty_heading' => 'Nothing declared yet',
         'empty_description' => 'Monthly sales declarations and the percentage rent each produced appear here, including any the estimation sweep filled in when a deadline was missed.',
     ],
-
 
     'guide' => [
         'steps' => 'Doing the everyday task',

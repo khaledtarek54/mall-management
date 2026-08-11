@@ -274,6 +274,13 @@
             "hasView": false
         },
         {
+            "class": "TaxCodeResource",
+            "slug": "tax-codes",
+            "hasCreate": true,
+            "hasEdit": true,
+            "hasView": false
+        },
+        {
             "class": "TenantSalesDeclarationResource",
             "slug": "tenant-sales-declarations",
             "hasCreate": true,

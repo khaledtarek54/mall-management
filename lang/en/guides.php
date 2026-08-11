@@ -198,6 +198,25 @@ return [
         ],
     ],
 
+    'tax_codes' => [
+        'purpose' => 'Every tax you can charge or be charged, and the rate each one carries from a given day.',
+        'steps' => [
+            'Add the tax with its English and Arabic name, and say whether it applies to sales, purchases or a supplier payment.',
+            'Open its rate ladder and add the rate, with the day it comes into force and the law it comes from.',
+            'Switch it on. Charge codes can then be billed under it.',
+        ],
+        'affects' => [
+            'Charge codes point at a tax code, so a rate entered here reaches every supply billed under it — with no deploy and no editing twelve rows.',
+            'A rate is resolved from the DOCUMENT\'s date, so an invoice dated before a change still bills the rate that was in force when it was raised.',
+        ],
+        'rules' => [
+            'A rate change is a new rung on the ladder, never an edit to the old one — that is what keeps a past document explicable.',
+            'Most codes ship without a rate on purpose: the statutory figure is your accountant\'s to enter, not the software\'s to guess. The law to open is on the row.',
+            'A taxable code cannot be switched on until it has both a rate and a posting account, so nothing can be offered and then bill nothing.',
+            'Changing a rate affects what is billed from now on. Invoices already issued keep the rate they were billed at.',
+        ],
+    ],
+
     'charge_codes' => [
         'purpose' => 'The catalogue of things you can bill, and the account each one posts to.',
         'steps' => [

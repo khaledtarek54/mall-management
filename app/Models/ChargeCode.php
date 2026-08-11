@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\InvoiceItemType;
 use App\Support\PostingRoles;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -17,7 +18,7 @@ use Spatie\Activitylog\Support\LogOptions;
  *
  * **The catalogue is data; behaviour stays in code.** A few codes carry real logic —
  * `cam_recovery` / `percentage_rent` are excluded from the monthly anti-double-bill probe,
- * `late_fee` / `nsf_fee` settle last — and that logic is keyed on the {@see \App\Enums\InvoiceItemType}
+ * `late_fee` / `nsf_fee` settle last — and that logic is keyed on the {@see InvoiceItemType}
  * constants, which survive as named references to exactly those codes. A conformance test asserts
  * every enum case has a row here, so an operator cannot delete a code the engine has opinions about
  * and the two lists cannot drift.
@@ -25,22 +26,6 @@ use Spatie\Activitylog\Support\LogOptions;
 class ChargeCode extends Model
 {
     use LogsActivity;
-
-    /** A taxable supply — bills at the standard rate, or at this code's own `vat_rate_override`. */
-    public const VAT_STANDARD = 'standard';
-
-    /** Outside the scope of VAT — base rent, penalties, the marketing levy. Bills 0. */
-    public const VAT_EXEMPT = 'exempt';
-
-    /**
-     * A taxable supply rated at 0%. Bills the same 0 as exempt and reports differently, which is the
-     * only reason it is a separate value: the distinction cannot be recovered later from documents
-     * that recorded nothing but a zero.
-     */
-    public const VAT_ZERO_RATED = 'zero_rated';
-
-    /** @var array<int, string> */
-    public const VAT_TREATMENTS = [self::VAT_STANDARD, self::VAT_EXEMPT, self::VAT_ZERO_RATED];
 
     /**
      * Memo keys, held in the CONTAINER rather than in static properties.
@@ -60,8 +45,7 @@ class ChargeCode extends Model
         'name_en',
         'name_ar',
         'posting_role',
-        'vat_treatment',
-        'vat_rate_override',
+        'tax_code',
         'is_active',
         'sort_order',
     ];
@@ -69,7 +53,6 @@ class ChargeCode extends Model
     protected $casts = [
         'is_active' => 'boolean',
         'sort_order' => 'integer',
-        'vat_rate_override' => 'decimal:2',
     ];
 
     public function getActivitylogOptions(): LogOptions
@@ -77,7 +60,7 @@ class ChargeCode extends Model
         return LogOptions::defaults()
             // Taxability is logged for the same reason the posting role is: it is an accountant's
             // ruling, and "when did parking become taxable?" is a question an auditor asks.
-            ->logOnly(['code', 'name_en', 'name_ar', 'posting_role', 'vat_treatment', 'vat_rate_override', 'is_active'])
+            ->logOnly(['code', 'name_en', 'name_ar', 'posting_role', 'tax_code', 'is_active'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('charge_code');
@@ -148,28 +131,26 @@ class ChargeCode extends Model
     }
 
     /**
-     * How this code is treated for VAT, or null when the catalogue has no row for it.
+     * The tax code this charge is billed under, or null when the catalogue has no row for it.
      *
      * Null is the honest answer, not a default: `App\Support\Vat` decides what an un-catalogued code
-     * bills, and it needs to know the difference between "the accountant ruled this standard-rated"
-     * and "this database has no catalogue yet". Same shape, and same reason, as {@see roleFor()}.
+     * bills, and it needs to know the difference between "the accountant ruled on this" and "this
+     * database has no catalogue yet". Same shape, and same reason, as {@see roleFor()}.
      *
-     * @return array{treatment: string, override: ?float}|null
+     * A charge code with a row but a NULL `tax_code` is a third state and also returns null — an
+     * operator added a code and has not classified it yet, which the floor handles identically.
      */
-    public static function vatPolicyFor(string $code): ?array
+    public static function taxCodeFor(string $code): ?string
     {
-        $policies = app()->has(self::VAT_MEMO)
+        $map = app()->has(self::VAT_MEMO)
             ? app(self::VAT_MEMO)
             : tap(static::query()
-                ->get(['code', 'vat_treatment', 'vat_rate_override'])
-                ->mapWithKeys(fn (self $c) => [$c->code => [
-                    'treatment' => $c->vat_treatment ?: self::VAT_STANDARD,
-                    'override' => $c->vat_rate_override === null ? null : (float) $c->vat_rate_override,
-                ]])
+                ->get(['code', 'tax_code'])
+                ->mapWithKeys(fn (self $c) => [$c->code => $c->tax_code])
                 ->all(),
-                fn (array $map) => app()->instance(self::VAT_MEMO, $map));
+                fn (array $m) => app()->instance(self::VAT_MEMO, $m));
 
-        return $policies[$code] ?? null;
+        return $map[$code] ?? null;
     }
 
     /** Value => label map for the invoice-line picker. Active codes only. */

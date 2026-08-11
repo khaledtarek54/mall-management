@@ -1,11 +1,14 @@
 # Egyptian tax catalog — the settings-driven tax spec (source requirement)
 
-> **Status:** captured spec, **not yet built**. Provided by the operator 2026-07-19 as a Numbers sheet
-> titled *"ETA tax codes mixin (account.tax)"* — i.e. the Egyptian Tax Authority (ETA) code set in the
-> shape of Odoo's `account.tax` model. This is the **source-of-truth requirement** for the
-> "settings-driven Egyptian tax catalog" roadmap item ([ROADMAP §5 Product](../ROADMAP.md)); the operator
-> will confirm the exact treatment with their accountant before we build. Do **not** invent rows beyond
-> this sheet — this is the client's actual data.
+> **Status: ✅ BUILT 2026-08-12** — `tax_codes` + `tax_rates`, seeded from this sheet by
+> `TaxCodeSeeder`, maintained at **/admin/tax-codes**. See [§What was built](#what-was-built) for
+> how the shipped model maps onto the spec below and what deliberately differs.
+>
+> Provided by the operator 2026-07-19 as a Numbers sheet titled *"ETA tax codes mixin (account.tax)"*
+> — i.e. the Egyptian Tax Authority (ETA) code set in the shape of Odoo's `account.tax` model. This
+> is the **source-of-truth requirement**. Do **not** invent rows beyond this sheet — this is the
+> client's actual data. `TaxCatalogueConformanceTest` now gates that in both directions: a row
+> invented beyond the sheet and a row quietly dropped from it both fail the build.
 
 ## Why this exists
 
@@ -75,11 +78,58 @@ Map families to accounts through `AccountMapping` (semantic role, per the one-re
 
 - **Unblocks the deferred owner-statement management fee** — its VAT-on-fee toggle would select a VAT code
   from this catalog. See [docs/plans/04-owner-statements-disbursements.md](../plans/04-owner-statements-disbursements.md).
-- **PARTLY SHIPPED 2026-07-30 — the standard VAT rate is no longer hardcoded.** It lives in
-  `TaxSettings::vat_standard_rate` and is read only through `App\Support\Vat`; `VatRateSettingTest`
-  fails the build if a literal rate reappears. The marketing levy was already settings-driven
-  (`MarketingSettings::levy_rate_percent`). What this catalog would still add is a *catalog* — multiple
-  named codes with their own rates and effective dates — rather than one standard rate plus per-charge
-  overrides. Scope the remaining work against what exists, not against the old hardcoded state.
-- **Cross-cutting** — a config/settings feature, not part of the owner-statements build. Needs the
-  accountant's sign-off on treatment (especially withholding mechanics + stamp applicability) first.
+- **SHIPPED 2026-08-12.** `TaxSettings::vat_standard_rate` — the 2026-07-30 half-step — is **gone**;
+  the standard rate is now a dated rung on the `VAT_14` code. The marketing levy remains
+  settings-driven (`MarketingSettings::levy_rate_percent`), which is correct: it is a lease term, not
+  a tax.
+- **Cross-cutting** — a config/master-data feature, not part of the owner-statements build. The
+  accountant's sign-off on **stamp applicability** and **withholding mechanics** is still outstanding,
+  which is exactly why those families ship switched off.
+
+---
+
+## What was built
+
+### The model, against the spec's "implied data model"
+
+| Spec field | Shipped as | Note |
+|---|---|---|
+| `name` | `code` + `name_en` / `name_ar` | `code` is the stable identity charge codes reference (`VAT_14`, `SCHD_8`, `WH_1`, `_P` suffix for purchases); the names are what an operator reads, in both languages |
+| `description` | folded into `name_en` | one label, not two that can disagree |
+| `family` | `family` — `vat` · `stamp` · `schedule` · `withholding` | as specced |
+| `direction` | `direction` — `sales` · `purchases` | as specced (the sheet's "Tax Type") |
+| `rate_percent` | **`tax_rates.rate`, on a dated ladder** | **the one deliberate departure — see below** |
+| `is_exempt` | `treatment` — `standard` · `exempt` · `zero_rated` | three values rather than a bool: zero-rated is a *taxable supply at 0%* and exempt is *out of scope*. Both bill 0 and they are different lines on a return, and the distinction cannot be recovered later from a document that recorded nothing but a zero |
+| `scope` | dropped | blank on the sheet, and Odoo's goods/services axis has no consumer here. Re-add it as a column when something reads it — an unused nullable column is a question nobody can answer |
+| `invoice_label` | `invoice_label` | as specced |
+| `is_active` | `is_active` | as specced, but **not freely settable** — see "what ships off" |
+
+### The one deliberate departure: a rate has a date
+
+The spec puts `rate_percent` on the tax row. The shipped model puts it on a **dated ladder**
+(`tax_rates`: rate + `effective_from`, no end date — a rung runs until the next begins). The reason
+is the failure the spec's own shape still permits: Egypt moved VAT 10% → 14% in 2017, and with one
+rate column, editing it re-rates everything originated afterwards **including a document back-dated
+into the previous regime**. `App\Support\Vat` resolves for the *document's* date, so an invoice
+raised before a change keeps billing the old rate and a rate announced in advance starts applying by
+itself on the day.
+
+The no-end-date shape is not a simplification: a from/to pair makes overlapping and missing windows
+representable, and overlapping date ranges on money is the exact defect `atriom:audit-charge-schedules`
+exists to find — legacy leases whose charge rows overlap **bill nothing**.
+
+### What ships switched off, and why
+
+A code is activated only when it can actually bill — it needs a rate **and** a GL account for its
+family. `TaxCode` refuses activation otherwise (`DomainException`), so this is a guard rather than a
+convention:
+
+| Family | Ships | Because |
+|---|---|---|
+| VAT (both directions) | **on** | `vat_payable` / `vat_recoverable` are registered posting roles pointing at real accounts |
+| Withholding | **on** | `withholding_tax_payable` exists. Nothing consumes these codes yet — the vendor-payment path still reads `TaxSettings::wht_default_rate` (roadmap TX-05) |
+| Stamp · Schedule | **off** | their accounts are the "GL wiring (later)" line above, and are not built. An active code would collect money into nowhere |
+
+Commissioning stamp or schedule tax is therefore: add the posting role + chart account + mapping,
+name it on the code, switch it on. That is the remaining work this document describes, and it is now
+a roadmap row rather than a paragraph.

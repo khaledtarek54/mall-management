@@ -1,0 +1,206 @@
+<?php
+
+use App\Models\ChargeCode;
+use App\Models\TaxCode;
+use App\Support\PostingRoles;
+use App\Support\Vat;
+use Database\Seeders\ChargeCodeSeeder;
+use Database\Seeders\TaxCodeSeeder;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
+
+/**
+ * The tax catalogue's own integrity gate.
+ *
+ * `tax_codes` is where the rate a tenant is charged now lives, so the failure modes are the ones
+ * that end in money: a code offered in a picker that resolves to no rate at all, a tax collected
+ * into no account, a floor in PHP that disagrees with the rows an accountant maintains.
+ *
+ * The catalogue is **the operator's own sheet** (2026-07-19), so it also gates the two ways a
+ * client's data stops being the client's: rows invented beyond it, and rows quietly dropped from it.
+ *
+ * Most of it ships switched OFF — stamp and schedule tax carry the operator's rates but have no GL
+ * account for their family yet, and an active code that collected into nowhere would be worse than
+ * an absent one. That decision is only safe if incompleteness is inert, which is what most of the
+ * rest of this file asserts.
+ */
+beforeEach(function () {
+    $this->seed(TaxCodeSeeder::class);
+});
+
+it('ships every rate-less code switched off', function () {
+    // The load-bearing assertion under the whole "seed the vocabulary, not the numbers" decision.
+    // An ACTIVE code with an empty ladder would be offered on every invoice line and resolve to no
+    // rate — the exact silent under-collection that seeding a guess was meant to avoid.
+    $liveButRateless = TaxCode::query()
+        ->where('is_active', true)
+        ->where('treatment', TaxCode::STANDARD)
+        ->get()
+        ->filter(fn (TaxCode $c) => $c->rates()->doesntExist())
+        ->pluck('code')
+        ->all();
+
+    expect($liveButRateless)->toBe([],
+        "These tax codes are switched on but have no rate, so they can be picked and will bill nothing:\n"
+        .implode(', ', $liveButRateless));
+});
+
+it('never activates a taxable code that would collect into no account', function () {
+    $roleless = TaxCode::query()
+        ->where('is_active', true)
+        ->where('treatment', TaxCode::STANDARD)
+        ->whereNull('posting_role')
+        ->pluck('code')
+        ->all();
+
+    expect($roleless)->toBe([],
+        'These tax codes are switched on but name no posting account: '.implode(', ', $roleless));
+});
+
+it('refuses to switch on a code that cannot bill, and says which half is missing', function () {
+    // The guard behind the two assertions above, exercised rather than assumed. Removing it is what
+    // makes this test fail — a state check alone would stay green over a deleted guard as long as
+    // the seeder happened to be well-behaved.
+    $code = TaxCode::where('code', 'SCHD_8')->firstOrFail();
+
+    expect(fn () => $code->update(['is_active' => true]))
+        ->toThrow(DomainException::class);
+
+    // It already HAS a rate — the operator supplied one. What it lacks is the account, and that
+    // alone must still refuse.
+    expect(TaxCode::where('code', 'SCHD_8')->firstOrFail()->rates()->exists())->toBeTrue();
+
+    // And the other half of the guard, on a code with an account but no rate.
+    $rateless = TaxCode::create([
+        'code' => 'SCHD_99', 'name_en' => 'Schedule 99%', 'name_ar' => 'ضريبة الجدول ٩٩٪',
+        'family' => TaxCode::FAMILY_SCHEDULE, 'direction' => TaxCode::SALES,
+        'treatment' => TaxCode::STANDARD, 'posting_role' => 'vat_payable',
+        'invoice_label' => 'SCHD 99%', 'is_active' => false,
+    ]);
+    expect(fn () => $rateless->update(['is_active' => true]))->toThrow(DomainException::class);
+
+    // The control — with both, it activates. Without this the two refusals above would pass just as
+    // happily if activation were refused unconditionally.
+    TaxCode::where('code', 'SCHD_8')->firstOrFail()->update(['posting_role' => 'vat_payable']);
+    TaxCode::where('code', 'SCHD_8')->firstOrFail()->update(['is_active' => true]);
+
+    expect(TaxCode::where('code', 'SCHD_8')->value('is_active'))->toBeTrue();
+});
+
+it('agrees with the floor on what the standard rate is', function () {
+    // `Vat::DEFAULT_STANDARD_RATE` is what an UNSEEDED database bills. If it drifts from the seeded
+    // rung, the same supply is taxed differently depending on whether the seeder has run — the
+    // catalogue-versus-floor drift this whole design exists to remove, rebuilt one layer down.
+    expect(TaxCode::rateOn(Vat::STANDARD_TAX_CODE))->toBe(Vat::DEFAULT_STANDARD_RATE)
+        ->and(TaxCodeSeeder::VAT_STANDARD_RATE)->toBe(Vat::DEFAULT_STANDARD_RATE);
+});
+
+it('names only posting roles the chart actually knows', function () {
+    // A role nobody registered posts nowhere. The journalizer would fall back or fail at the moment
+    // money is collected, which is the worst time to discover a typo.
+    $unknown = TaxCode::query()
+        ->whereNotNull('posting_role')
+        ->pluck('posting_role', 'code')
+        ->reject(fn (string $role) => PostingRoles::group($role) !== null)
+        ->all();
+
+    expect($unknown)->toBe([],
+        'These tax codes name a posting role that is not registered: '.json_encode($unknown));
+});
+
+it('classifies every code with a family, a direction and a treatment the model knows', function () {
+    foreach (TaxCode::all() as $code) {
+        expect(in_array($code->treatment, TaxCode::TREATMENTS, true))
+            ->toBeTrue("{$code->code} carries an unknown treatment '{$code->treatment}'");
+        expect(in_array($code->family, TaxCode::FAMILIES, true))
+            ->toBeTrue("{$code->code} carries an unknown family '{$code->family}'");
+        expect(in_array($code->direction, TaxCode::DIRECTIONS, true))
+            ->toBeTrue("{$code->code} carries an unknown direction '{$code->direction}'");
+    }
+});
+
+it('carries the operator\'s whole sheet, in both directions', function () {
+    // The catalogue implements the operator's own `account.tax` sheet (2026-07-19), whose standing
+    // instruction is "do not invent rows beyond this sheet". This asserts the other half of that:
+    // do not QUIETLY DROP rows from it either. Both are how a catalogue stops being the client's.
+    $expected = [
+        TaxCode::FAMILY_VAT => ['VAT_14', 'VAT_0', 'VAT_EXEMPT'],
+        TaxCode::FAMILY_STAMP => ['STAMP_20'],
+        TaxCode::FAMILY_SCHEDULE => ['SCHD_0_5', 'SCHD_1', 'SCHD_5', 'SCHD_8', 'SCHD_10', 'SCHD_15', 'SCHD_30'],
+        TaxCode::FAMILY_WITHHOLDING => ['WH_0_5', 'WH_1', 'WH_3', 'WH_5'],
+    ];
+
+    foreach ($expected as $family => $codes) {
+        foreach ($codes as $code) {
+            foreach (['' => TaxCode::SALES, '_P' => TaxCode::PURCHASES] as $suffix => $direction) {
+                $row = TaxCode::where('code', $code.$suffix)->first();
+
+                expect($row)->not->toBeNull("{$code}{$suffix} is on the operator's sheet but not in the catalogue");
+                expect($row->family)->toBe($family)
+                    ->and($row->direction)->toBe($direction);
+            }
+        }
+    }
+});
+
+it('stores withholding as a deduction, not an addition', function () {
+    // The operator's sheet writes these negative — "WH -1%" — because the tax comes OFF what is
+    // paid. Storing the sign is what keeps that true when the vendor-payment path reads them.
+    foreach (TaxCode::ofFamily(TaxCode::FAMILY_WITHHOLDING)->get() as $code) {
+        expect($code->currentRate())->toBeLessThan(0.0, "{$code->code} is withholding but its rate is not negative");
+    }
+
+    // The control: nothing else is negative — a VAT line that came out negative would be a credit
+    // hiding inside a tax figure.
+    foreach (TaxCode::query()->where('family', '!=', TaxCode::FAMILY_WITHHOLDING)->get() as $code) {
+        expect($code->currentRate())->toBeGreaterThanOrEqual(0.0, "{$code->code} carries a negative rate");
+    }
+});
+
+it('carries the statute for every code it cannot state a rate for', function () {
+    // A blank rate is only actionable if the row says which law to open. Without it the accountant
+    // is left a blank box and a guess, which is the state this catalogue replaced.
+    $unsourced = TaxCode::query()
+        ->get()
+        ->filter(fn (TaxCode $c) => $c->rates()->doesntExist() && blank($c->statutory_reference))
+        ->pluck('code')
+        ->all();
+
+    expect($unsourced)->toBe([],
+        'These codes have neither a rate nor a statutory reference: '.implode(', ', $unsourced));
+});
+
+it('cannot hold two rates for one code on one day', function () {
+    // Overlapping windows are the data error that makes a legacy charge schedule bill NOTHING.
+    // The shape here makes them unrepresentable — a rung runs until the next begins — and the
+    // unique index is what makes "the latest rung on or before this date" a single answer.
+    $vat = TaxCode::where('code', Vat::STANDARD_TAX_CODE)->firstOrFail();
+    $existing = $vat->rates()->firstOrFail();
+
+    expect(fn () => DB::table('tax_rates')->insert([
+        'tax_code_id' => $vat->id,
+        'rate' => 99,
+        'effective_from' => $existing->effective_from->toDateString(),
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]))->toThrow(QueryException::class);
+});
+
+it('holds a tax code that charge codes are billed under', function () {
+    $this->seed(ChargeCodeSeeder::class);
+
+    // Every charge code names a tax that exists. A charge code pointing at a missing tax silently
+    // falls to the floor, which is right as a safety net and wrong as a shipped state.
+    $dangling = ChargeCode::query()
+        ->whereNotNull('tax_code')
+        ->pluck('tax_code', 'code')
+        ->reject(fn (string $tax) => TaxCode::knows($tax))
+        ->all();
+
+    expect($dangling)->toBe([],
+        'These charge codes name a tax code that is not in the catalogue: '.json_encode($dangling));
+
+    // …and the deletion policy's guard relation actually resolves, so "refused while in use" is a
+    // working guard rather than a typo that blocks nothing.
+    expect(TaxCode::where('code', 'VAT_14')->firstOrFail()->chargeCodes()->exists())->toBeTrue();
+});
