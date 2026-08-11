@@ -52,14 +52,15 @@ it('cannot switch payments ON without credentials — the toggle only ever narro
     expect(config('integrations.paymob.enabled'))->toBeFalse();
 });
 
-it('gates the same way on WhatsApp', function () {
-    config(['integrations.whatsapp.enabled' => true]);
-    app(IntegrationsSettings::class)->fill(['whatsapp_enabled' => false])->save();
-
-    applyKillSwitches();
-
-    expect(config('integrations.whatsapp.enabled'))->toBeFalse();
-});
+// REMOVED 2026-08-11 — 'it gates the same way on WhatsApp'.
+//
+// There is no longer a WhatsApp integration to gate. The action it protected was a stub whose
+// entire body was a success notification, so the kill switch was narrowing something that never
+// sent anything; the action, the toggle, the setting and the config key were all removed together.
+//
+// The test is deleted rather than adapted because there is nothing left for it to assert — and a
+// kill-switch test for a feature that does not exist is precisely the kind of green tick this
+// sweep set out to remove. The Paymob cases above still pin the mechanism itself.
 
 it('survives an unreadable settings table instead of killing boot', function () {
     // Mid `migrate:fresh` the settings table does not exist yet. Boot must not die

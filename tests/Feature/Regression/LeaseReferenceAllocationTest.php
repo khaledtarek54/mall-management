@@ -109,14 +109,25 @@ it('scopes the sequence per property', function () {
         ->and($b->reference)->toStartWith('LSE-POINT-');
 });
 
-it('overrides a stale reference supplied by a caller', function () {
-    // LeaseForm and LeaseImporter both pre-fill a reference computed before the save. Persisting
-    // that verbatim is how two records collide; `creating` re-allocates, as Invoice does.
-    $lease = makeLeaseOn($this->asset);
-    $prefix = Lease::referencePrefix('MALL');
+it('honours a reference the caller supplied', function () {
+    // Deliberately NOT Invoice's "always re-generate" rule. Importing an operator's existing
+    // leases means importing the contract references they already use — those must survive the
+    // insert, so allocation only fills a BLANK reference. A supplied duplicate is refused by the
+    // UNIQUE index rather than silently renumbered, which is the right answer for someone else's
+    // data.
+    $unit = makeUnit($this->asset, ['status' => 'vacant']);
+    $tenant = makeTenant();
 
-    $stale = new Lease(['reference' => $prefix.'0001']);
+    $lease = makeLease($unit, $tenant, ['reference' => 'CONTRACT-2019-0042']);
 
-    expect($lease->reference)->toStartWith($prefix)
-        ->and($stale->reference)->toBe($prefix.'0001'); // unsaved: untouched until `creating`
+    expect($lease->fresh()->reference)->toBe('CONTRACT-2019-0042');
+});
+
+it('allocates when the reference is blank', function () {
+    $unit = makeUnit($this->asset, ['status' => 'vacant']);
+    $tenant = makeTenant();
+
+    $lease = makeLease($unit, $tenant, ['reference' => null]);
+
+    expect($lease->fresh()->reference)->toStartWith(Lease::referencePrefix('MALL'));
 });

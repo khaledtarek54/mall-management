@@ -71,12 +71,24 @@ class Lease extends Model implements HasMedia
         // every path (wizard, standard form, renewal, seeder) arms it consistently and can't drift.
         // Derived only when escalation is genuinely configured; 'none'/rate-0 leases stay null and
         // are never considered by the sweep.
-        // Always (re)allocate at save time, under the lock, exactly as Invoice does — so a
-        // reference a form or an importer pre-filled minutes ago can never be persisted stale.
-        // The lock is held across the INSERT and released in `created`; if it times out we
-        // degrade to unlocked allocation, where the collision loop and the UNIQUE index are the
-        // remaining guards.
+        // Allocate a reference when none was supplied — under the lock, held across the INSERT.
+        //
+        // Deliberately NOT Invoice's "always re-generate" rule, and the difference is the point.
+        // Nothing legitimately supplies an invoice NUMBER, so overwriting one is free. A lease
+        // reference is different: **importing an operator's existing leases means importing the
+        // contract references they already use**, and those must survive the insert. Overwriting
+        // unconditionally also silently renamed any lease created with a deliberate reference.
+        //
+        // A supplied duplicate is therefore refused by the UNIQUE index rather than quietly
+        // renumbered, which is the correct answer for someone else's data. Generated references
+        // are safe by construction: `generateUniqueReference()` is MAX-based over `withTrashed()`
+        // with a collision loop, and the lock stops two concurrent creates racing to the same
+        // number. If the lock times out, the loop and the index remain.
         static::creating(function (self $lease) {
+            if (filled($lease->reference)) {
+                return;
+            }
+
             $assetCode = $lease->unit?->asset?->code ?: 'AW';
 
             $lease->reference = $lease->allocateDocumentNumber(
