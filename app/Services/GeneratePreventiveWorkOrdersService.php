@@ -121,6 +121,12 @@ class GeneratePreventiveWorkOrdersService
                 'title' => $plan->title,
                 'category' => $plan->category,
                 'status' => 'open',
+                // A routine round on a critical machine is still a critical machine. Without this
+                // the generator fell to the column default and every plan produced `medium`,
+                // whatever it was servicing.
+                'priority' => ($eq = $plan->getRelationValue('equipment')) instanceof \App\Models\Equipment
+                    ? $eq->defaultWorkOrderPriority()
+                    : 'medium',
                 'scheduled_for' => $scheduledFor,
                 'department_id' => $plan->department_id,
                 'vendor_id' => $plan->vendor_id,

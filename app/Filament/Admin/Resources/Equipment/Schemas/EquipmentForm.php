@@ -91,6 +91,18 @@ class EquipmentForm
                     ->all())
                 ->native(false),
 
+            Select::make('criticality')
+                ->label(__('admin.preventive_maintenance.fields.criticality'))
+                ->options(fn () => collect(\App\Models\Equipment::CRITICALITIES)
+                    ->mapWithKeys(fn (string $c) => [$c => __("admin.preventive_maintenance.criticalities.{$c}")])
+                    ->all())
+                ->default(\App\Models\Equipment::ROUTINE)
+                ->required()
+                ->native(false)
+                // States the effect, because a field whose consequence is invisible is a field that
+                // stays on its default for ever.
+                ->helperText(__('admin.preventive_maintenance.helpers.criticality')),
+
             TextInput::make('name_en')
                 ->label(__('admin.preventive_maintenance.fields.name_en'))
                 ->required()

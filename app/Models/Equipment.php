@@ -42,6 +42,7 @@ class Equipment extends Model
         'name_en',
         'name_ar',
         'category',
+        'criticality',
         'unit_id',
         'location',
         'fixed_asset_id',
@@ -52,6 +53,35 @@ class Equipment extends Model
     protected $casts = [
         'is_active' => 'boolean',
     ];
+
+    /**
+     * How much it matters when this machine stops. Three values, not five: a scale nobody can apply
+     * consistently is a field that gets left on its default.
+     */
+    public const CRITICAL = 'critical';       // trading stops, or someone is unsafe
+
+    public const IMPORTANT = 'important';     // a service degrades
+
+    public const ROUTINE = 'routine';         // everything else
+
+    public const CRITICALITIES = [self::CRITICAL, self::IMPORTANT, self::ROUTINE];
+
+    /**
+     * The work-order priority a fault on this machine STARTS at.
+     *
+     * **A default, never an override.** If the person raising the job says `low`, they get `low` —
+     * they can see the machine and the system cannot. What criticality buys is that nobody has to
+     * remember which chiller matters at 2am; what it must not buy is the system quietly disagreeing
+     * with an operator who was explicit, which is how people learn to distrust a field.
+     */
+    public function defaultWorkOrderPriority(): string
+    {
+        return match ($this->criticality) {
+            self::CRITICAL => 'urgent',
+            self::IMPORTANT => 'high',
+            default => 'medium',
+        };
+    }
 
     /** NOT-NULL with no form field on some paths — never let a blank toggle send null. */
     protected $attributes = [
@@ -192,6 +222,13 @@ class Equipment extends Model
     protected static function booted(): void
     {
         static::saving(function (self $equipment) {
+            // NOT-NULL with a default: a blank or unknown value falls back to the safe end of the
+            // scale rather than the alarming one. Guessing `critical` would page someone at 2am for a
+            // hand dryer, and that is how an alert channel stops being read.
+            if (! in_array($equipment->criticality, self::CRITICALITIES, true)) {
+                $equipment->criticality = self::ROUTINE;
+            }
+
             // Moving a machine between properties must take its whole tree or nothing.
             // The parent-side rule below only fires on the CHILD's save, so without this a
             // parent could walk to another property and leave its components behind —

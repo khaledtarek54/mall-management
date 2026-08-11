@@ -16,11 +16,21 @@ Compiled 2026-08-11.
 
 ## 1. Buildable now — no client input needed
 
+### ✅ Shipped 2026-08-11
+
+- **Asset criticality** — `equipment.criticality` (critical / important / routine), and it **changes
+  behaviour rather than rendering a badge**: a fault raised on critical equipment starts at urgent,
+  a PM round on one does too, and the create form pre-fills the priority visibly when a machine is
+  picked. An operator who states a priority still gets it. On the tenant-request path it takes the
+  **higher** of the tenant's reported priority and the machine's — the tenant's figure is their view
+  of the disruption and is usually left on the default, so taking the higher can only raise a job,
+  never quietly lower one. Three values, not five: a scale nobody applies consistently is a field
+  that stays on its default.
+
 ### Verified still missing (checked 2026-08-11)
 
 | Item | What it is | Size |
 |---|---|---|
-| **Asset criticality** | One field on equipment (critical / important / routine), driving PM priority and work-order triage. The roadmap calls it "one field, high leverage" and it is right — **verified absent**. | S |
 | **Vendor scorecards** | Rank vendors on what the system already records: SLA breaches, penalties applied, response and resolution times, document expiry. **Verified absent** — and everything it needs is already stored, so this is a report, not a data model. | S–M |
 | **Comparative statements** | An income statement and balance sheet with a prior-period column. **Verified absent** — `IncomeStatement` has no comparison logic. Pure reporting over the existing GL. | M |
 
@@ -96,10 +106,10 @@ everything adequately.
 
 Take them in this order, and know that none of it shortens the path to launch:
 
-1. **Asset criticality** — smallest thing with real operational leverage, and verified missing.
-2. **Vendor scorecards** — a report over data the system already has, and the first thing an
-   operator asks once vendors are being managed rather than merely recorded.
-3. **Comparative statements** — the reporting gap an accountant notices first after the books are
+1. **Vendor scorecards** — a report over data the system already has, and the first thing an
+   operator asks once vendors are being managed rather than merely recorded. *(Asset criticality,
+   previously #1 here, shipped 2026-08-11.)*
+2. **Comparative statements** — the reporting gap an accountant notices first after the books are
    real.
 
 **What I would not start** is anything in §2 (it needs an answer), slice 4 (it needs a real month

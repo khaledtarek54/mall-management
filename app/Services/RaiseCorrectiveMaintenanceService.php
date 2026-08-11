@@ -27,6 +27,27 @@ use Illuminate\Support\Facades\DB;
 class RaiseCorrectiveMaintenanceService
 {
     /**
+     * Where a fault on this machine starts. Falls back to `medium` — the previous fixed default —
+     * for a job with no equipment attached, so nothing that exists today changes behaviour.
+     */
+    /** The stronger of two priorities, ranked by MaintenanceWorkOrder::PRIORITIES. */
+    private static function higherPriority(string $a, string $b): string
+    {
+        $rank = fn (string $p): int => (int) array_search($p, \App\Models\MaintenanceWorkOrder::PRIORITIES, true);
+
+        return $rank($a) >= $rank($b) ? $a : $b;
+    }
+
+    private static function defaultPriorityFor(mixed $equipmentId): string
+    {
+        $equipment = $equipmentId ? \App\Models\Equipment::find($equipmentId) : null;
+
+        return $equipment instanceof \App\Models\Equipment
+            ? $equipment->defaultWorkOrderPriority()
+            : 'medium';
+    }
+
+    /**
      * Raise a CM from a failed PPM check (FR-CM-01).
      *
      * @param  array{execution_type:string, description:string, title?:string, priority?:string,
@@ -100,7 +121,7 @@ class RaiseCorrectiveMaintenanceService
      * ambiguous — unlike a common-area CM, which is exactly why work orders carry their own
      * asset_id rather than reading it through a request.
      *
-     * @param  array{execution_type:string, description?:string, title?:string, priority?:string,
+     * @param  array{execution_type?:string|null, description?:string, title?:string, priority?:string, equipment_id?:int|null,
      *               vendor_id?:int|null, assigned_to_user_id?:int|null, scheduled_for?:string|null}  $data
      *
      * @throws DomainException if the request has no unit to locate the work against
@@ -133,7 +154,18 @@ class RaiseCorrectiveMaintenanceService
                 // into a NOT-NULL column (title/priority) or into Carbon::parse('') === now()
                 // (scheduled_for). The description defaults to the tenant's own words.
                 'title' => filled($data['title'] ?? null) ? $data['title'] : $locked->title,
-                'priority' => filled($data['priority'] ?? null) ? $data['priority'] : ($locked->priority ?: 'medium'),
+                // An operator who states a priority gets it. Otherwise take the HIGHER of what the
+                // tenant reported and what the machine deserves: the tenant's figure is their view
+                // of the disruption and is usually left on the default, while criticality is the
+                // business's view of the machine. Under-prioritising a chiller because a tenant
+                // ticked "medium" is the failure this field exists to prevent — and taking the
+                // higher of two signals can only ever raise a job, never quietly lower one.
+                'priority' => filled($data['priority'] ?? null)
+                    ? $data['priority']
+                    : self::higherPriority(
+                        $locked->priority ?: 'medium',
+                        self::defaultPriorityFor($data['equipment_id'] ?? null),
+                    ),
                 'scheduled_for' => filled($data['scheduled_for'] ?? null) ? $data['scheduled_for'] : now()->toDateString(),
                 'description' => filled($data['description'] ?? null) ? $data['description'] : $locked->description,
                 'vendor_id' => $executionType === MaintenanceWorkOrder::EXECUTION_EXTERNAL ? ($data['vendor_id'] ?? null) : null,
@@ -165,7 +197,12 @@ class RaiseCorrectiveMaintenanceService
             'status' => 'open',
             // FR-CM-06 — the tier that decides the SLA once the job is accepted. filled(),
             // like title: a blank select would otherwise write '' into a NOT-NULL enum.
-            'priority' => filled($data['priority'] ?? null) ? $data['priority'] : 'medium',
+            // Criticality sets the STARTING priority, never overrides a stated one: whoever raises
+            // the job can see the machine and the system cannot. What this buys is that nobody has
+            // to remember which chiller matters at 2am.
+            'priority' => filled($data['priority'] ?? null)
+                ? $data['priority']
+                : self::defaultPriorityFor($data['equipment_id'] ?? null),
             // filled(), for the same reason as title: a cleared DatePicker sends '', and
             // Carbon::parse('') resolves to *now* — so `??` would have silently produced
             // "today" while looking like it honoured the field.

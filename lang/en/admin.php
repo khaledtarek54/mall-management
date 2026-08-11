@@ -4284,6 +4284,15 @@ return [
         ],
     ],
     'preventive_maintenance' => [
+        'helpers' => [
+            'priority_from_criticality' => 'Pre-filled from the machine\'s criticality when you pick one — change it if you disagree.',
+            'criticality' => 'How much it matters when this machine stops. A fault raised on CRITICAL equipment starts at urgent, IMPORTANT at high — a starting point, not a rule: whoever raises the job can still set it themselves.',
+        ],
+        'criticalities' => [
+            'critical' => 'Critical',
+            'important' => 'Important',
+            'routine' => 'Routine',
+        ],
         'tabs' => [
             'scope' => 'Scope',
             'work' => 'The work',
@@ -4306,6 +4315,7 @@ return [
             'roots_only' => 'Top-level only',
         ],
         'fields' => [
+            'criticality' => 'Criticality',
             'property' => 'Property', 'unit' => 'Unit', 'title' => 'Title', 'category' => 'Category',
             'area' => 'Area / location', 'days_of_week' => 'Days of the week',
             'code' => 'Code', 'parent' => 'Parent equipment', 'name' => 'Name', 'name_en' => 'Name (EN)',

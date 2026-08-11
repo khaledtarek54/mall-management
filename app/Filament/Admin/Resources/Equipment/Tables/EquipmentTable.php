@@ -44,6 +44,16 @@ class EquipmentTable
                     ->badge()
                     ->formatStateUsing(fn (?string $state) => $state ? __("admin.preventive_maintenance.categories.{$state}") : '—')
                     ->toggleable(),
+                TextColumn::make('criticality')
+                    ->label(__('admin.preventive_maintenance.fields.criticality'))
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state) => __('admin.preventive_maintenance.criticalities.'.($state ?: 'routine')))
+                    ->color(fn (?string $state) => match ($state) {
+                        \App\Models\Equipment::CRITICAL => 'danger',
+                        \App\Models\Equipment::IMPORTANT => 'warning',
+                        default => 'gray',
+                    })
+                    ->sortable(),
                 TextColumn::make('unit.code')
                     ->label(__('admin.preventive_maintenance.fields.unit'))
                     ->placeholder(__('admin.preventive_maintenance.equipment.common_area'))
@@ -63,6 +73,11 @@ class EquipmentTable
                     ->toggleable(),
             ])
             ->filters([
+                \Filament\Tables\Filters\SelectFilter::make('criticality')
+                    ->label(__('admin.preventive_maintenance.fields.criticality'))
+                    ->options(fn () => collect(\App\Models\Equipment::CRITICALITIES)
+                        ->mapWithKeys(fn (string $c) => [$c => __("admin.preventive_maintenance.criticalities.{$c}")])
+                        ->all()),
                 SelectFilter::make('category')
                     ->label(__('admin.preventive_maintenance.fields.category'))
                     ->options(fn () => collect(['electrical', 'plumbing', 'hvac', 'structural', 'cleaning', 'safety', 'elevator', 'fire-safety', 'generator', 'other'])

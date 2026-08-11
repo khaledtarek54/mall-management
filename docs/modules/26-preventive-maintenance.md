@@ -182,6 +182,37 @@ recorded. "What did we buy outside this month, and from whom?" now has an answer
 
 ---
 
+## Equipment criticality (2026-08-11)
+
+`equipment.criticality` — **critical** (trading stops or someone is unsafe) · **important** (a
+service degrades) · **routine**. Three values, not five: a scale nobody can apply consistently is a
+field that gets left on its default.
+
+**It changes what happens, which is the whole point of the field.**
+
+- A **corrective** job raised against the machine starts at `urgent` (critical) or `high`
+  (important); routine keeps the previous fixed `medium`, so nothing that existed before changes.
+- A **preventive** round inherits the same — the generator set no priority at all, so every plan
+  produced `medium` whatever it was servicing.
+- The **work-order create form** pre-fills the priority when a machine is picked, visibly, so it
+  reads as a suggestion rather than magic. Only on create: re-picking the machine on an existing job
+  must not silently re-grade a priority someone already decided.
+
+**Two rules worth keeping straight:**
+
+1. **An operator who states a priority gets it.** They can see the machine and the system cannot,
+   and a system that quietly disagrees with an explicit choice teaches people to distrust the field.
+2. **On the tenant-request path it takes the HIGHER of the two** — the tenant's reported priority and
+   the machine's. The tenant's figure is their view of the disruption and is usually the default;
+   criticality is the business's view of the machine. Taking the higher can only raise a job, never
+   quietly lower one. Under-prioritising a chiller because a tenant ticked "medium" is the failure
+   this field exists to prevent.
+
+An unknown or blank value falls back to `routine`, not `critical`: guessing the alarming end would
+page someone at 2am for a hand dryer, and that is how an alert channel stops being read.
+
+Tests: `tests/Feature/Regression/EquipmentCriticalityTest.php` (7).
+
 ## 2. Business rules
 
 1. **Property-scoped** (`asset_id`) — all three resources use `BypassesScopingOnAll` +

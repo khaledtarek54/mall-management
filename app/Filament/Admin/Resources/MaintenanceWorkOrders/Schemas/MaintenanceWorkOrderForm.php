@@ -43,6 +43,20 @@ class MaintenanceWorkOrderForm
                 ->native(false)
                 ->disabled($locked),
             Select::make('equipment_id')
+                ->live()
+                ->afterStateUpdated(function ($state, \Filament\Schemas\Components\Utilities\Set $set, string $operation): void {
+                    // Only on CREATE: re-picking the machine on an existing job must not silently
+                    // re-grade a priority someone already decided.
+                    if ($operation !== 'create' || ! $state) {
+                        return;
+                    }
+
+                    $equipment = \App\Models\Equipment::find($state);
+
+                    if ($equipment instanceof \App\Models\Equipment) {
+                        $set('priority', $equipment->defaultWorkOrderPriority());
+                    }
+                })
                 ->label(__('admin.preventive_maintenance.equipment.singular'))
                 ->helperText(__('admin.preventive_maintenance.equipment_wo_hint'))
                 // The machine this job is against (FR-PPM-03). Copied from the plan on a
@@ -85,6 +99,10 @@ class MaintenanceWorkOrderForm
                 ->default('medium')
                 ->required()
                 ->native(false)
+                // Criticality pre-fills this when a machine is picked, and the operator sees the
+                // value before saving. Deliberately visible rather than applied on save: a system
+                // that silently disagrees with an explicit choice teaches people to distrust it.
+                ->helperText(__('admin.preventive_maintenance.helpers.priority_from_criticality'))
                 ->disabled($locked),
             DatePicker::make('scheduled_for')
                 ->label(__('admin.preventive_maintenance.fields.scheduled_for'))
