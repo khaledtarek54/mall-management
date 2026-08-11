@@ -3470,6 +3470,11 @@ return [
     ],
 
     'owner_statements' => [
+        'statements_title' => 'Statements',
+        'part_period' => ':pct% of the period',
+        'not_sent' => 'Not sent',
+        'empty_statements_heading' => 'This run produced no statements',
+        'empty_statements_description' => 'A run only produces a statement for an owner who held a share during the period. Check the property’s ownership records if you expected one.',
         'group' => 'Accounting',
         'singular' => 'Owner Statement',
         'plural' => 'Owner Statements',

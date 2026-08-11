@@ -3461,6 +3461,11 @@ return [
     ],
 
     'owner_statements' => [
+        'statements_title' => 'الكشوف',
+        'part_period' => ':pct٪ من الفترة',
+        'not_sent' => 'لم يُرسل',
+        'empty_statements_heading' => 'لم ينتج عن هذه الدورة أي كشوف',
+        'empty_statements_description' => 'لا تُنتج الدورة كشفًا إلا لمالك كانت له حصة خلال الفترة. راجع سجلات ملكية العقار إذا كنت تتوقع كشفًا.',
         'group' => 'المحاسبة',
         'singular' => 'كشف حساب المالك',
         'plural' => 'كشوف حساب الملاك',

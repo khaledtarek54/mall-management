@@ -187,7 +187,7 @@
             "slug": "owner-statement-runs",
             "hasCreate": false,
             "hasEdit": false,
-            "hasView": false
+            "hasView": true
         },
         {
             "class": "PaymentResource",

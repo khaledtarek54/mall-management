@@ -130,10 +130,23 @@ class OwnerStatementRunResource extends Resource
         return OwnerStatementRunsTable::configure($table);
     }
 
+    /**
+     * The run's OUTPUT. It could be generated, finalised, revised, PDF'd and sent while the
+     * per-owner statements were never listed anywhere — the question the run exists to answer had
+     * no screen.
+     */
+    public static function getRelations(): array
+    {
+        return [
+            \App\Filament\Admin\RelationManagers\OwnerStatementsRelationManager::class,
+        ];
+    }
+
     public static function getPages(): array
     {
         return [
             'index' => ListOwnerStatementRuns::route('/'),
+            'view' => Pages\ViewOwnerStatementRun::route('/{record}'),
         ];
     }
 }
