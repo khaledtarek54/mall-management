@@ -316,7 +316,11 @@ Notifies Jawad owners when a tenant is overdue on a property. Idempotent via `in
 ### RecordDemoPaymentAction::handle(Invoice) → Payment
 **Signature:** `public function handle(Invoice $invoice): Payment`
 
-Demo-only (gates to PAYMOB_ENABLED=false): simulates a successful Paymob capture. Creates initiated Payment for invoice.balance, allocates full amount, flips status to captured in one transaction. Mirrors real Paymob flow exactly (initiated → allocate → capture → recompute + notify).
+Simulates a successful Paymob capture. Creates initiated Payment for invoice.balance, allocates full amount, flips status to captured in one transaction. Mirrors real Paymob flow exactly (initiated → allocate → capture → recompute + notify).
+
+**Gated by `App\Support\DemoPayments::enabled()` — never by `PAYMOB_ENABLED` alone (corrected 2026-08-11).** The old gate was inverted with respect to safety: Paymob-off is the shipped default *and* the runbook's incident response, so the shortcut was live precisely on a production box with no gateway configured. An authenticated tenant could `POST /api/v1/me/invoices/{id}/pay-demo` and mark their own invoice paid — AR closed, the ledger posted `Dr Bank / Cr AR`, and `billing:reconcile` stayed **green**, because every internal relationship really was consistent; the money simply never existed. Chained with the quick-lease wizard's default password, knowing a retailer's email was enough.
+
+Three conditions now, all required, asked in **one** place because the predicate had been written out at three dispatch points: never on `production` (checked first, independently of config, so it cannot be misconfigured); an explicit `DEMO_PAYMENTS_ENABLED` opt-in that defaults off outside local/testing (staging included — it carries real-shaped data); and Paymob still off. `atriom:health` **fails** a production box where the flag is set, so the intent cannot be silent even though the environment check would refuse it.
 
 - **Idempotency:** None; each call creates a new Payment.
 - **Notification:** The status flip to captured fires PaymentReceivedNotification (via Payment::saved hook).

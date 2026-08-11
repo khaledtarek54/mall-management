@@ -6,6 +6,7 @@ use App\Actions\Api\V1\Payments\RecordDemoPaymentAction;
 use App\Filament\Portal\Resources\Invoices\InvoiceResource;
 use App\Services\InvoicePdfService;
 use App\Services\Paymob\PaymobPaymentInitiator;
+use App\Support\DemoPayments;
 use App\Support\Portal;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
@@ -107,11 +108,11 @@ class ViewInvoice extends ViewRecord
             && (float) $this->record->balance > 0;
     }
 
-    /** The demo counterpart — shown only while Paymob is disabled. */
+    /** The demo counterpart — availability is DemoPayments' decision, not this screen's. */
     private function canPayDemo(): bool
     {
         return Portal::isAdmin()
-            && ! config('integrations.paymob.enabled')
+            && DemoPayments::enabled()
             && (float) $this->record->balance > 0
             && ! in_array($this->record->status, ['cancelled', 'credited', 'written_off'], true);
     }

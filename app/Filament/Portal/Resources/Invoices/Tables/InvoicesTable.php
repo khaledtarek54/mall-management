@@ -7,6 +7,7 @@ use App\Models\Invoice;
 use App\Models\Payment;
 use App\Services\InvoicePdfService;
 use App\Services\Paymob\PaymobPaymentInitiator;
+use App\Support\DemoPayments;
 use App\Support\Portal;
 use Carbon\Carbon;
 use Filament\Actions\Action;
@@ -196,10 +197,7 @@ class InvoicesTable
                     ->label(__('admin.actions.pay_now'))
                     ->icon('heroicon-o-credit-card')
                     ->color('primary')
-                    ->visible(fn (Invoice $record) => Portal::isAdmin()
-                        && ! config('integrations.paymob.enabled')
-                        && (float) $record->balance > 0
-                        && ! in_array($record->status, ['cancelled', 'credited', 'written_off'], true))
+                    ->visible(fn (Invoice $record) => self::canPayDemo($record))
                     ->requiresConfirmation()
                     ->modalHeading(fn (Invoice $record) => __('admin.actions.pay_now').' · '.$record->number)
                     ->modalDescription(fn (Invoice $record) => __('admin.actions.pay_demo_modal_body', [
@@ -207,7 +205,10 @@ class InvoicesTable
                     ]))
                     ->modalSubmitActionLabel(__('admin.actions.pay_now'))
                     ->action(function (Invoice $record) {
-                        abort_unless(Portal::isAdmin(), 403);
+                        // The FULL predicate, not just the read-only check: `visible()` is the UI,
+                        // this is the gate. Before this it re-checked only Portal::isAdmin(), so a
+                        // crafted dispatch reached the capture path whatever the environment said.
+                        abort_unless(self::canPayDemo($record), 403);
                         app(RecordDemoPaymentAction::class)->handle($record);
 
                         Notification::make()
@@ -221,5 +222,21 @@ class InvoicesTable
             ->emptyStateIcon('heroicon-o-document-text')
             ->emptyStateHeading(__('admin.empty.portal_invoices.heading'))
             ->emptyStateDescription(__('admin.empty.portal_invoices.description'));
+    }
+
+    /**
+     * May this invoice be settled by the demo shortcut, here, by this user?
+     *
+     * Named once so `visible()` and `action()` cannot drift — the pattern CLAUDE.md requires of
+     * every write action. Whether the ENVIRONMENT permits the shortcut at all is not this class's
+     * question: that belongs to App\Support\DemoPayments, which the API controller and the portal
+     * View page ask too.
+     */
+    private static function canPayDemo(Invoice $record): bool
+    {
+        return Portal::isAdmin()
+            && DemoPayments::enabled()
+            && (float) $record->balance > 0
+            && ! in_array($record->status, ['cancelled', 'credited', 'written_off'], true);
     }
 }

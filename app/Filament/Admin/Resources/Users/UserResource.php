@@ -126,8 +126,19 @@ class UserResource extends Resource
      * limited role (e.g. hr with users.edit but no roles.edit) must not be able
      * to mint them. Functional/department roles + read-only roles (viewer/owner)
      * stay grantable by any users.edit holder.
+     *
+     * **`mall_admin` was missing until 2026-08-11, and that was a live privilege escalation.**
+     * It is seeded as `$managerPerms + imports.execute` (`RolesPermissionsSeeder`), i.e. a strict
+     * SUPERSET of the protected `manager` role — so protecting `manager` while leaving `mall_admin`
+     * grantable protected nothing: any `users.edit` holder (`hr` qualifies) could grant themselves
+     * everything `manager` has plus the import right that `$managerPerms` deliberately withholds.
+     *
+     * The list is hand-written, which is how the gap opened: `mall_admin` was added above `manager`
+     * later and nobody came back here. `ProtectedRolesCoverSupersetsTest` now fails the build if a
+     * role's permission set covers a protected role's and is not itself protected, so the next one
+     * cannot be forgotten.
      */
-    public const PROTECTED_ROLES = ['super_admin', 'manager'];
+    public const PROTECTED_ROLES = ['super_admin', 'manager', 'mall_admin'];
 
     /**
      * Server-side enforcement of the protected-role policy. Run from the User

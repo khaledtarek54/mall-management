@@ -6,6 +6,7 @@ use App\Actions\Api\V1\Payments\RecordDemoPaymentAction;
 use App\Http\Controllers\Api\V1\ApiController;
 use App\Http\Resources\Api\V1\PaymentResource;
 use App\Models\Invoice;
+use App\Support\DemoPayments;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -36,7 +37,10 @@ class DemoPayInvoiceController extends ApiController
     ): JsonResponse {
         $tenant = $request->user();
 
-        if (config('integrations.paymob.enabled')) {
+        // One predicate, asked in one place — App\Support\DemoPayments. Gating this on
+        // `paymob.enabled` alone meant the endpoint was live precisely on a production box with no
+        // gateway configured, which is the shipped default and the documented incident posture.
+        if (! DemoPayments::enabled()) {
             return response()->json([
                 'message' => __('admin.notifications.pay_now_failed'),
                 'error' => 'use_real_payment',

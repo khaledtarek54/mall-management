@@ -85,7 +85,14 @@ All routes are versioned under `/api/v1` and are protected by the `auth:tenant-a
 - Paymob payment tokens expire in 3600s (PaymobClient::PAYMENT_TOKEN_TTL_SECONDS); the reuse window is shorter so tokens never expire mid-checkout.
 - S2S callback (POST `/paymob/callback`) is HMAC-verified using the payload + signature from Paymob; invalid HMAC logs a warning and returns 401. Callback is idempotent: if a payment is already captured/failed, it skips processing and returns 200 (so Paymob stops retrying).
 
-**Demo Payment (dev-only):**
+**Demo Payment (dev-only — enforced, not merely intended, since 2026-08-11):**
+
+> The "dev-only" in this heading was aspirational until 2026-08-11. The endpoint's only gate was
+> `PAYMOB_ENABLED=false`, which is the shipped default and the documented incident posture — so it
+> was **live on production**, and any authenticated tenant could zero their own AR through the real
+> capture path. It is now gated by `App\Support\DemoPayments::enabled()`: never on production,
+> explicit opt-in elsewhere, and `atriom:health` fails if the flag is set in production. See
+> [module 06](06-payments.md#recorddemopaymentactionhandleinvoice--payment).
 - Only active when `PAYMOB_ENABLED = false`. When true, returns 409 and instructs the app to use the real Paymob flow.
 - Demo payment goes through the *exact* capture path as Paymob (creates 'initiated' Payment → allocates → flips to 'captured'), so testing invoice/balance behavior is byte-for-byte identical to production.
 

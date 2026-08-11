@@ -10,6 +10,7 @@ use App\Support\Vat;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class LeaseCreationService
@@ -149,7 +150,17 @@ class LeaseCreationService
             'legal_name' => $data['legal_name'] ?? null,
             'type' => $data['type'] ?? 'company',
             'email' => $data['email'] ?? null,
-            'password' => Hash::make($data['password'] ?? 'password'),
+            // NEVER a shared default. `tenants.password` is the Sanctum credential for
+            // /api/v1 (LoginTenantAction), and the quick-lease wizard has no password field — so
+            // `?? 'password'` did not mean "a sensible default", it meant EVERY tenant onboarded
+            // through the wizard shared one guessable credential, and knowing a retailer's email
+            // address was enough to authenticate as that company.
+            //
+            // An unusable random secret is the correct absence of a password: the company exists,
+            // nobody can sign in, and the operator issues real credentials through the audited
+            // "Setup Portal Access" action, which is already gated on super_admin/manager and
+            // shows the generated password exactly once.
+            'password' => Hash::make($data['password'] ?? Str::password(32)),
             'phone' => $data['phone'] ?? null,
             'whatsapp' => $data['whatsapp'] ?? $data['phone'] ?? null,
             'tax_id' => $data['tax_id'] ?? null,

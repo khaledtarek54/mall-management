@@ -65,6 +65,7 @@ class Health
             'accounting' => self::checkAccounting(),
             'admin_access' => self::checkAdminAccess(),
             'demo_accounts' => self::checkDemoAccounts(),
+            'demo_payments' => self::checkDemoPayments(),
         ];
 
         $ok = collect($checks)->every(fn (array $c): bool => $c['ok']);
@@ -509,6 +510,43 @@ class Health
         } catch (Throwable $e) {
             return ['ok' => false, 'detail' => "disk [{$disk}] unreadable: ".$e->getMessage()];
         }
+    }
+
+    /**
+     * The demo-payment shortcut must not be reachable on production.
+     *
+     * `DemoPayments::enabled()` already refuses production outright, so this check is not the
+     * guard — it is the alarm. It fails when the FLAG is set on a production box, because that
+     * records an intent somebody had, and an intent that survives into production is how the 2FA
+     * enforcement sat silently broken here for months. A setting that is safe only because a
+     * second mechanism overrides it should still be visible.
+     *
+     * @return array{ok: bool, detail: string}
+     */
+    private static function checkDemoPayments(): array
+    {
+        // Ask DemoPayments what "production" means rather than re-deriving it from config —
+        // two readings of the same question are how two guards come to disagree.
+        if (! DemoPayments::forbiddenByEnvironment()) {
+            return ['ok' => true, 'detail' => DemoPayments::enabled()
+                ? 'enabled (non-production — expected)'
+                : 'disabled'];
+        }
+
+        if (config('integrations.demo_payments.enabled')) {
+            return [
+                'ok' => false,
+                'detail' => 'DEMO_PAYMENTS_ENABLED is set on PRODUCTION — unset it. The shortcut '
+                    .'writes a real captured payment (Dr Bank / Cr AR) for money that never arrived.',
+            ];
+        }
+
+        // Belt and braces: if this were ever true on production the guard itself has regressed.
+        if (DemoPayments::enabled()) {
+            return ['ok' => false, 'detail' => 'demo payments resolve as ENABLED on production — DemoPayments::enabled() has regressed'];
+        }
+
+        return ['ok' => true, 'detail' => 'disabled (production)'];
     }
 
     /** @return array{ok: bool, detail: string} */

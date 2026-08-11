@@ -13,6 +13,18 @@ return [
     |
     */
 
+    /*
+    | Demo payments — the "mark it paid without a gateway" shortcut.
+    |
+    | UNSET means "follow the environment": on in local/testing, off everywhere
+    | else including staging. Set it explicitly only on a box where fabricating
+    | a captured payment is the point. Production refuses it regardless — see
+    | App\Support\DemoPayments, which owns the whole decision.
+    */
+    'demo_payments' => [
+        'enabled' => env('DEMO_PAYMENTS_ENABLED'),
+    ],
+
     'paymob' => [
         'enabled' => env('PAYMOB_ENABLED', false),
 
