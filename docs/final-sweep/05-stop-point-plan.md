@@ -64,7 +64,23 @@ Everything here was small, and every item was either money-destroying or credent
 with the password `password`; a tenant can reset their password; deleting a draft lease does not break
 lease creation; and `atriom:health` on a production-shaped box tells the truth.
 
-### Phase 2 — Make the cut-over possible (≈ 1 week)
+### Phase 2 — Make the cut-over possible — ✅ **code done 2026-08-11**
+
+Shipped: the lease importer's four faults (`4851b78`), the audit command's zero-charge blind spot,
+ten tests that actually execute an importer, tenant-import identity (`0716e53`), all three importers
+off hard-coded `sync`, the `asset_owner` UI (`65b5d51`), and the **opening-balance import**
+(`cd3606c`). Full suite green throughout: **4,246 tests, 0 failures.**
+
+**Design decision recorded:** opening AR arrives as **open items — real invoices** — not a lump-sum
+balance, because aging, dunning, statements and per-invoice allocation all work on documents. They
+deliberately post nothing, since the revenue is already in the accountant's opening entry; the
+AR tie-out going square is what proves the migration loaded everything.
+
+**Still open in this phase, and both are 🔑/⚙️ rather than code:** importers for the master data
+that still has none (Vendor, Employee, FixedAsset, Charge, meters — item 14), and a rehearsal of
+the whole cut-over against real data, which is the exit test below.
+
+
 
 **This is the phase nobody has scoped, and it is the long pole.** Today you cannot load a real mall.
 

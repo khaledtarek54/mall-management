@@ -87,9 +87,9 @@ These are either money-destroying, credential-grade, or block the cut-over entir
 > Nine of the sixteen rows below are done and pushed (`50166c3`…`df637af`), each with a regression
 > test and each guard mutation-checked. Full suite green: **4,218 tests, 4,214 passed, 0 failures.**
 >
-> **Still open in this tier: FS-04 (the lease importer's four faults), FS-07, FS-08, FS-09, FS-10,
-> FS-12, FS-14, FS-15, FS-60.** FS-04, FS-10, FS-12 and FS-15 are the cut-over — see
-> [Phase 2](05-stop-point-plan.md).
+> **FS-04, FS-14 and FS-15 also shipped 2026-08-11** (`4851b78`, `65b5d51`, `cd3606c`) — the whole
+> code side of the cut-over. **Still open in this tier: FS-07, FS-08, FS-09, FS-60** (books, Phase 3)
+> and **FS-10, FS-12** (backup and provisioning — ⚙️ ops, Phase 4).
 >
 > Three corrections came out of doing the work, and they belong here rather than in a changelog:
 > the lease-reference crash needs a lease *nothing references* (which is precisely what the broken
