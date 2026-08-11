@@ -832,6 +832,34 @@ correction is real, correct, and was completely invisible.
 Tests: `tests/Feature/Regression/LedgerTrailVisibilityTest.php` (6), driving the real sweep — including
 the late-fee case, where `saveQuietly` fires no model event so the entry is stale until the next sweep.
 
+### Reported ≠ closed — the restatement warning (2026-08-11)
+
+The close gate stops you *sealing* a month over a pending re-post. Nothing stopped the opposite:
+**changing a month you have already reported.** An owner statement is finalised on the 5th and the
+period closed on the 20th, and in those fifteen days an edit to a March document voids its entry and
+posts a new one — restating a figure the owner is holding.
+
+- **`App\Support\ReportedPeriod`** — a month is reported once a **finalised owner statement covers
+  it**. Derived, not stored: no `reported_at` column to set, forget, or drift out of step with the
+  statements themselves. Scoped per property, because a statement for one mall says nothing about
+  another's March, and overlap-based, so a quarterly statement reports each of its months.
+- **Three surfaces:** a danger note on the document's ledger panel (the books get corrected either
+  way — what changes is that the owner's copy stops matching), a non-blocking **month-end step**
+  (`reported_not_closed`), and a **notification to the GL managers** when a re-derive actually
+  restates a reported month — raised in `LedgerPoster::sync()` after the commit, because that is the
+  one place a re-derive happens and therefore the one place that can see it. Best-effort, like the
+  sweep's own failure alert: a notification hiccup must never fail the sync and leave the ledger
+  un-corrected.
+- **It warns rather than refuses, deliberately.** Voyager has no "reported" state — its control is
+  the post month, and the discipline is that you *close* the month when you report it. A
+  reported-but-open month is a process gap, not a transaction to refuse, and refusing would be
+  **stricter than the benchmark** while blocking the case where the correction is exactly what the
+  owner is waiting for. So the step steers to the close, which is the control that already exists.
+
+Tests: `tests/Feature/Regression/ReportedPeriodRestatementTest.php` (6), including the control that
+an unreported month stays silent — an alert firing on every re-derive would pass the positive test
+just as happily.
+
 ### Void coverage — every money document needs a way back
 
 Refusing deletion is only half a policy: the correction path it names has to *exist*. Each posting

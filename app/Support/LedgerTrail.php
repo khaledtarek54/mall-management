@@ -35,6 +35,8 @@ class LedgerTrail
      *     superseded_by: ?JournalEntry,
      *     history: array<int, JournalEntry>,
      *     drifted: bool,
+     *     restates_reported: bool,
+     *     reported_reason: ?string,
      *     post_month: ?\Carbon\CarbonImmutable,
      * }
      */
@@ -46,6 +48,7 @@ class LedgerTrail
             return [
                 'posts' => false, 'entry' => null, 'reversal' => null, 'superseded_by' => null,
                 'history' => [], 'drifted' => false, 'post_month' => null,
+                'restates_reported' => false, 'reported_reason' => null,
             ];
         }
 
@@ -72,6 +75,10 @@ class LedgerTrail
             ? $history->first(fn (JournalEntry $e) => $e->id > $entry->id && $e->status === 'posted')
             : null;
 
+        // Derived once: wouldChange() re-builds the document's payload, so asking twice would
+        // double the cost of rendering the panel for no new information.
+        $drifted = app(LedgerPoster::class)->wouldChange($source);
+
         return [
             'posts' => true,
             'entry' => $entry,
@@ -81,8 +88,17 @@ class LedgerTrail
             // True when the document has moved since it was posted, so the next sync will correct
             // the ledger. Not an error — it is the system working — but the operator should know
             // the statements are a few seconds behind their edit rather than wrong.
-            'drifted' => app(LedgerPoster::class)->wouldChange($source),
+            'drifted' => $drifted,
             'post_month' => PostMonth::isOverridden($source) ? PostMonth::forSource($source) : null,
+            // The entry sits in a month an owner has already been given a statement for, and the
+            // document has moved since — so correcting it will restate a figure someone is holding.
+            // Reported is not the same as closed: a statement is usually issued weeks before the
+            // period is sealed, and that gap is where this bites.
+            'restates_reported' => $entry !== null && $drifted
+                && ReportedPeriod::isReported($entry->entry_date, $entry->asset_id),
+            'reported_reason' => $entry !== null
+                ? ReportedPeriod::reasonFor($entry->entry_date, $entry->asset_id)
+                : null,
         ];
     }
 

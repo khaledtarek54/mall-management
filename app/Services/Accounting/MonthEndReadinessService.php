@@ -8,6 +8,7 @@ use App\Models\Payment;
 use App\Models\VendorBill;
 use App\Services\MonthlyBillingService;
 use App\Services\Reconciliation\BooksReconciliationService;
+use App\Support\ReportedPeriod;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Throwable;
@@ -80,6 +81,7 @@ class MonthEndReadinessService
             $this->vendorBillsStep($periodStart, $periodEnd, $assetId),
             $this->ledgerSyncStep($accountingPeriod),
             $this->booksTieOutStep($periodStart),
+            $this->reportedStep($periodStart, $closed, $assetId),
             $this->periodStep($accountingPeriod, $closed),
         ];
 
@@ -193,6 +195,23 @@ class MonthEndReadinessService
     }
 
     /** 7. The period itself. */
+    /**
+     * A month reported to the owner but left open. Not a blocker — the close itself is the remedy,
+     * and this is the step that says so. The window between issuing a statement and sealing the
+     * period is exactly where a correction restates a figure someone is already holding
+     * ({@see \App\Support\ReportedPeriod}).
+     */
+    private function reportedStep(CarbonImmutable $periodStart, bool $closed, ?int $assetId): array
+    {
+        $run = ReportedPeriod::runFor($periodStart, $assetId);
+
+        if ($run === null || $closed) {
+            return $this->step('reported_not_closed', 0, $closed ? self::DONE : self::OK);
+        }
+
+        return $this->step('reported_not_closed', 1, self::ATTENTION, ReportedPeriod::reasonFor($periodStart, $assetId));
+    }
+
     private function periodStep(?AccountingPeriod $period, bool $closed): array
     {
         if ($period === null) {

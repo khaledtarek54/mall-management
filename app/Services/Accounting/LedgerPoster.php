@@ -3,6 +3,11 @@
 namespace App\Services\Accounting;
 
 use App\Support\PostMonth;
+use App\Support\ReportedPeriod;
+use App\Models\User;
+use App\Notifications\LedgerRestatedReportedPeriodNotification;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 use App\Models\CreditNote;
 use App\Models\Custody;
 use App\Models\CustodyTransaction;
@@ -188,10 +193,15 @@ class LedgerPoster
             return null;
         }
 
+        // Set inside the transaction when the entry being voided sits in a month that has already
+        // been reported to an owner; acted on AFTER it commits. Notifying inside would send an alert
+        // about a restatement that a rollback then un-did.
+        $restated = null;
+
         // Lock-safe: serialize concurrent syncs of the SAME document (a manual
         // --all backfill can run alongside the scheduled sweep), and re-read the
         // existing entry under the lock so two runs can't both post.
-        return DB::transaction(function () use ($source, $journalizer) {
+        $entry = DB::transaction(function () use ($source, $journalizer, &$restated) {
             // Lock the source row — include trashed rows so a soft-deleted document
             // can still be locked + reconciled (voided) here.
             $lock = $source->newQuery();
@@ -223,6 +233,7 @@ class LedgerPoster
 
             if ($payload === null) {
                 if ($existing) {
+                    $restated = self::restatementOf($existing, $source);
                     $this->posting->void($existing, 'Document no longer has a ledger effect.');
                 }
 
@@ -233,6 +244,7 @@ class LedgerPoster
                 if ($this->matches($existing, $payload)) {
                     return $existing;
                 }
+                $restated = self::restatementOf($existing, $source);
                 $this->posting->void($existing, 'Superseded by an updated document.');
             }
 
@@ -240,6 +252,62 @@ class LedgerPoster
 
             return $this->posting->post($payload);
         });
+
+        // AFTER the commit. A month whose owner statement has already been issued has just been
+        // restated: the books are now right and the owner's copy is not, and only a person can
+        // decide whether to re-issue or explain. This is the one place a re-derive happens, so it
+        // is the one place that can see it — every dispatch path routes through here.
+        if ($restated !== null) {
+            self::announceRestatement($restated);
+        }
+
+        return $entry;
+    }
+
+    /**
+     * Is voiding this entry a restatement of an already-reported month? Returns the alert payload
+     * when it is, null otherwise.
+     *
+     * @return array{month: string, document: string, statement: ?string}|null
+     */
+    private static function restatementOf(JournalEntry $existing, Model $source): ?array
+    {
+        $run = ReportedPeriod::runFor($existing->entry_date, $existing->asset_id);
+
+        if (! $run) {
+            return null;
+        }
+
+        return [
+            'month' => Carbon::parse($existing->entry_date)->format('m/Y'),
+            'document' => class_basename($source).' '
+                .($source->getAttribute('number') ?? $source->getAttribute('reference') ?? '#'.$source->getKey()),
+            'statement' => $run->reference,
+        ];
+    }
+
+    /**
+     * Best-effort, exactly like the sweep's own failure alert: a notification hiccup must not fail
+     * the sync and leave the ledger un-corrected. The books are the priority; the alert is the
+     * second priority, and inverting that would be worse than losing the alert.
+     *
+     * @param  array{month: string, document: string, statement: ?string}  $restated
+     */
+    private static function announceRestatement(array $restated): void
+    {
+        try {
+            $recipients = User::query()->permission('journal_entries.post')->get();
+
+            if ($recipients->isNotEmpty()) {
+                Notification::send($recipients, new LedgerRestatedReportedPeriodNotification(
+                    $restated['month'],
+                    $restated['document'],
+                    $restated['statement'],
+                ));
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Could not announce a reported-period restatement: '.$e->getMessage());
+        }
     }
 
     /**

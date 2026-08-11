@@ -1,8 +1,8 @@
 # Change impact — spacing · leasing · receivables · payables → the ledger
 
-**Status:** written 2026-08-11. **Phases 0, 1 and 2 shipped the same day** — the payables hole, the
-change-impact registry and its gate, and the document ↔ ledger trail. Phases 3 (restatement control)
-and 4 (the per-area sweeps) are open. Findings §9 carries the per-item state.
+**Status:** written 2026-08-11. **Phases 0–3 shipped the same day** — the payables hole, the
+change-impact registry and its gate, the document ↔ ledger trail, and the restatement control. Phase 4
+(the per-area sweeps) is open. Findings §9 carries the per-item state.
 
 > **The question this answers.** An operator changes something — a unit's area, a lease's rent, an
 > issued invoice, a vendor bill already paid. What happens to the general ledger, and *should that
@@ -268,10 +268,21 @@ Every mechanism above is invisible to the operator. Five concrete surfaces, in o
    before/after preview (*"this will reverse EGP 12,400 and re-post EGP 13,050"*) is still worth having
    and is deliberately **not** built — `wouldChange()` returns a boolean, and a sibling returning the
    diff is a separate, larger piece.
-4. **A restatement warning.** Mark a month **reported** when an owner statement run is finalised or a VAT
-   return is filed for it. A change whose entry would land in a reported-but-open month warns (and
-   optionally requires a reason). This is the missing half of the close gate: the close gate stops you
-   *closing* over a pending change; nothing stops you *changing* a month you have already reported.
+4. ✅ **A restatement warning** — `App\Support\ReportedPeriod`. A month is reported once a **finalised
+   owner statement covers it**, derived rather than stored: no `reported_at` column to set, forget or
+   drift out of step with the statements themselves. Surfaced in three places — on the document (a
+   danger note above the drift note, because the books will be corrected either way but a figure the
+   owner is holding will stop matching them), in the month-end checklist (a non-blocking step, since
+   the close is the remedy it steers to), and as a **notification to the GL managers when a re-derive
+   actually restates a reported month**, raised in `LedgerPoster::sync()` — the one place a re-derive
+   happens, so the one place that can see it. Scoped per property: an owner statement for Mall A says
+   nothing about Mall B's March.
+
+   **It warns rather than refuses, and that is a Yardi decision.** Voyager has no "reported" state; its
+   control is the post month, and the discipline is that you *close* the month when you report it. A
+   reported-but-open month is a process gap, not a transaction to refuse — refusing would be stricter
+   than the benchmark and would block the case where the correction is exactly what the owner is
+   waiting for. §7.4 is answered by that, and can be revisited if the operator wants a harder stop.
 5. **Refusal messages that name the path.** Already the house style — "void and re-issue instead",
    "cancel and re-enter it" — extend it to every R field the new registry adds, EN + AR in the same change.
 
@@ -292,7 +303,9 @@ Engineering should not guess these:
    benchmark; a credit raised in dispute silently disappearing into next month's rent is a support call.
 3. **Reversal period** — keep the current "original period if open" (stricter than Yardi), or move to
    Yardi's "current post month"? Recommendation: keep, and add the reported-month guard (§6.4).
-4. **How much of a "reported" month is locked** — warn, require a reason, or refuse outright?
+4. ~~**How much of a "reported" month is locked**~~ — **decided 2026-08-11: warn, and steer to the
+   close.** Yardi has no reported state; the close *is* the control, so anything harder would be a
+   deviation from the benchmark. Revisit if the operator wants a refusal.
 
 ---
 
@@ -306,7 +319,7 @@ path (not `LedgerPoster::sync()` directly) and a same-commit docs update, per th
 | **0 — the live holes** ✅ **DONE 2026-08-11** | `VoidVendorBillPaymentService` + a gated action + the AP-side refusal wording; fix the stale docs (F7, F8) | S | F1 is a money operation with no path; the docs are read by the team |
 | **1 — the contract** ✅ **DONE 2026-08-11** | `App\Support\ChangeImpact` + `ChangeImpactConformanceTest`; classify all 24 sources; promote whatever the classification exposes | M | Everything else hangs off it, and it prevents the next source shipping undecided |
 | **2 — the trail** ✅ **DONE 2026-08-11** | UX items 1–3 and 5 (document ↔ entry, both directions; re-derive preview; refusal wording) | M | Turns the derived ledger into something visible |
-| **3 — restatement** | the reported-month concept + UX item 4 | S–M | Needs owner-statement finalisation as its trigger, so it follows the trail work |
+| **3 — restatement** ✅ **DONE 2026-08-11** | the reported-month concept + UX item 4 | S–M | Needs owner-statement finalisation as its trigger, so it follows the trail work |
 | **4 — the area sweeps** | spacing → leasing → receivables → payables, each verifying its row in §4 with an *exploit-first* test | M per area | Merge with the validation sweep: one pass per area covering both axes |
 
 **Sequencing note.** §4's rows are claims to be *verified*, not defects to be assumed. The expected
@@ -325,7 +338,7 @@ Verified against the source on 2026-08-11, ranked. Everything below was checked 
 | **F1** ✅ **FIXED 2026-08-11** | **High** | **A vendor-bill payment cannot be reversed by any path.** Three dead ends that all point at each other: `DeletionPolicy` names the correction as "void the payment — money left the bank" ([DeletionPolicy.php:61](../../app/Support/DeletionPolicy.php#L61)) and no void exists; `VendorBillService::cancel` refuses with "Reverse the payments first" ([VendorBillService.php:98](../../app/Services/VendorBillService.php#L98)) and there is nothing to reverse them with; the payments relation manager has empty `headerActions`/`recordActions`/`toolbarActions` ([VendorBillPaymentsRelationManager.php:55](../../app/Filament/Admin/Resources/VendorBills/RelationManagers/VendorBillPaymentsRelationManager.php#L55)); and the model has no `isCommittedForDeletionPurposes()` override, so the trait's `true` default refuses the soft-delete that would otherwise self-heal the GL. A cheque keyed against the wrong bill is permanent. **Voiding a check is an everyday Voyager operation.** | ← |
 | **F2** ✅ **FIXED 2026-08-11** | **High** | **No document ↔ journal-entry surface, in either direction.** No relation manager or ledger panel on Invoice / VendorBill / Payment; no source column or drill-through on the journal-entries table. The data is all there (`source_type`, `source_id`, `reversal_of_id`) | §6.1–6.2 |
 | **F3** 🟡 **HALF-FIXED 2026-08-11** — the trail now shows the reversal chain and a drift note on the document; there is still no push notification to the operator who caused it | **Med** | **A re-derive is silent.** A change to a posted document voids and re-posts via a queued job, with a generic description and no notification to the operator who caused it | [LedgerPoster.php:236](../../app/Services/Accounting/LedgerPoster.php#L236) |
-| **F4** | **Med** | **A correction can restate a reported month.** The reversal lands in the original period whenever it is open; "reported" (owner statement issued, VAT filed) has no representation | [JournalPostingService.php:339](../../app/Services/Accounting/JournalPostingService.php#L339) |
+| **F4** ✅ **FIXED 2026-08-11** | **Med** | **A correction can restate a reported month.** The reversal lands in the original period whenever it is open; "reported" (owner statement issued, VAT filed) has no representation | [JournalPostingService.php:339](../../app/Services/Accounting/JournalPostingService.php#L339) |
 | **F5** | **Med** | **The edit policy is asymmetric and undocumented.** Invoice / Payment / CreditNote / VendorBill lock at finalize; Expense, MarketingSpend and FixedAsset deliberately do not. The reasons exist in a plan doc, not a registry, and nothing fails when a new source ships with no policy at all | §3, §4 |
 | **F6** | **Low** | **A first CAM reconciliation of a past year divides by today's area.** The *occupied* denominator is time-weighted and every **re-run freezes the shares** ([CamReconciliationService.php:34-56](../../app/Services/CamReconciliationService.php#L34)) — that half is correct and well-guarded. The **GLA** basis reads `Asset.leasable_area_sqm` / a live `sum('area_sqm')` over the zone ([:322](../../app/Services/CamReconciliationService.php#L322)), neither of which is dated. Narrow: it bites only the first reconciliation of a year that ended before a remeasure | ← |
 | **F7** ✅ **FIXED 2026-08-11** | **Low** | **`docs/MONEY-PATHS.md` states the two-channel AR formula** (`captured + credit_applied_amount`) — the invariant has been four channels since the deposit-netting and tenant-credit work. The team's most-read money doc is wrong about the one rule it calls "the one rule" | [MONEY-PATHS.md:16](../MONEY-PATHS.md) |

@@ -3,6 +3,8 @@
 return [
     'errors' => [
         'unit_area_not_positive' => 'A measured area has to be greater than zero. If the unit is out of use, change its status rather than its size.',
+        'unit_floor_other_property' => 'That floor belongs to a different property. A unit can only sit on a floor of its own building.',
+        'unit_area_other_property' => 'That zone belongs to a different property. Tagging a unit with another property’s zone would route its tenant requests to that property’s supervisors.',
         'unit_area_use_remeasure' => 'A unit’s area is a dated record, not a field. Use “Remeasure” so the change carries the date it takes effect from — otherwise past periods would be re-apportioned on a measurement that was not true at the time.',
         'unit_area_not_after_current' => 'This measurement starts on or before the one it would replace, which would leave two areas claiming the same day. Date it after the current measurement began.',
         'escalation_collar_inverted' => 'The minimum increase cannot be above the maximum. As written the cap would always win, so the minimum you set is the one increase that could never happen.',
@@ -334,6 +336,7 @@ return [
             'ledger_in_sync' => 'Ledger in sync',
             'books_tie_out' => 'Books tie out',
             'period_closed' => 'Period closed',
+            'reported_not_closed' => 'Reported month still open',
         ],
         'why' => [
             'billing_posted' => 'Leases still awaiting an invoice for this month.',
@@ -343,6 +346,7 @@ return [
             'ledger_in_sync' => 'Documents whose posted entry is out of step with their current state. Closing now would strand the correction in a closed period — this is the gate the close itself enforces.',
             'books_tie_out' => 'The AR books re-derived from source records: line items, captured payments, applied credits.',
             'period_closed' => 'Once closed, nothing can post into this month without reopening it.',
+            'reported_not_closed' => 'An owner statement has been issued for this month while the period is still open. Any correction from here restates a figure the owner is already holding — closing the period is what stops that.',
         ],
     ],
     'fit_out_scope' => [
@@ -2019,6 +2023,8 @@ return [
         'journal_entry_post_failed' => 'Could not post the entry',
         'ledger_posted' => 'Posted to the general ledger — the books are now up to date.',
         'ledger_posted_with_issues' => 'Ledger updated, but some documents could not be posted. Run the reconciliation check (billing:reconcile) or contact support.',
+        'ledger_restated_title' => 'A reported month was restated (:month)',
+        'ledger_restated_body' => ':document changed, so the ledger for :month was corrected. Owner statement :statement was issued from the old figures — re-issue it or explain the difference.',
         'ledger_sync_failed_title' => 'Ledger sync failed',
         'ledger_sync_failed_body' => ':count document(s) could not be posted to the general ledger — usually a closed accounting period. Reopen the period and re-sync (Post to GL now, or accounting:sync-ledger --all).',
         'close_blocked_unsynced' => 'Cannot close: :count document(s) in this period are out of sync with the general ledger. Run “Post to GL now” (or accounting:sync-ledger --all), then close.',
@@ -2298,6 +2304,7 @@ return [
         'credit_note_number' => 'CN #',
         'credit_note_reason' => 'Reason',
         'reason_notes' => 'Reason Notes',
+        'reason' => 'Reason',
         'void_reason' => 'Reason for Void',
         'voided' => 'Voided',
         'voided_at' => 'Voided On',
@@ -2675,6 +2682,9 @@ return [
     // an operator who has never heard of a journalizer, not an accountant.
     'ledger_trail' => [
         'state' => 'Ledger',
+        'restates' => 'Already reported',
+        'restates_body' => 'This month has been reported to the owner and the document has changed since. Correcting it will restate a figure they are already holding — re-issue the statement or explain the difference.',
+        'reported_by' => 'Reported by owner statement :reference, issued :date.',
         'posted' => 'Posted',
         'not_posted' => 'Not posted yet',
         'reversed' => 'Reversed',

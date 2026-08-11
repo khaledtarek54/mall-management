@@ -109,6 +109,16 @@ class LedgerEntryAction
                 ->state(implode("\n", $rows));
         }
 
+        // Louder than the drift note, and deliberately before it: the books will be corrected
+        // either way, but a figure the owner is already holding will stop matching them.
+        if ($trail['restates_reported']) {
+            $schema[] = TextEntry::make('ledger_restates')
+                ->label(__('admin.ledger_trail.restates'))
+                ->state(__('admin.ledger_trail.restates_body'))
+                ->helperText($trail['reported_reason'])
+                ->color('danger');
+        }
+
         if ($trail['posts'] && $trail['drifted']) {
             $schema[] = TextEntry::make('ledger_drift')
                 ->label(__('admin.ledger_trail.pending'))
