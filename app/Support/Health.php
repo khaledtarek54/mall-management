@@ -63,6 +63,7 @@ class Health
             'storage' => self::checkStorage(),
             'two_factor' => self::checkTwoFactor(),
             'accounting' => self::checkAccounting(),
+            'admin_access' => self::checkAdminAccess(),
             'demo_accounts' => self::checkDemoAccounts(),
         ];
 
@@ -330,6 +331,44 @@ class Health
             'detail' => $production
                 ? self::demoAccountWarning($emails)
                 : 'local/testing — expected ('.count($emails).' demo login(s))',
+        ];
+    }
+
+    /**
+     * Can ANYONE administer this install? Production only.
+     *
+     * `DemoSeeder` is the only thing in this codebase that has ever created a `User`, so a
+     * production box — which must not run it — finishes the documented deploy with an empty users
+     * table and no way into `/admin`. Nothing said so: the login page renders perfectly and simply
+     * rejects every credential, which reads as "I typed it wrong", not as "this install has no
+     * accounts".
+     *
+     * Counts holders of `super_admin` rather than users: an install full of viewers is not one
+     * anybody can configure. `atriom:install --admin-email=…` is the remedy, and this check is what
+     * stops the state being quiet if someone skips it.
+     *
+     * @return array{ok: bool, detail: string}
+     */
+    private static function checkAdminAccess(): array
+    {
+        $production = ! in_array(config('app.env'), ['local', 'testing'], true);
+
+        try {
+            $admins = \App\Models\User::role('super_admin')->count();
+        } catch (Throwable $e) {
+            // Before RolesPermissionsSeeder runs there is no such role — which is itself the
+            // uninstalled state the `accounting` check already reports in full.
+            return ['ok' => ! $production, 'detail' => 'roles not seeded yet — run `php artisan atriom:install`'];
+        }
+
+        if ($admins > 0) {
+            return ['ok' => true, 'detail' => $admins.' super_admin account(s)'];
+        }
+
+        return [
+            'ok' => ! $production,
+            'detail' => 'no account holds super_admin — nobody can sign in to /admin. '
+                .'Create one with `php artisan atriom:install --admin-email=you@example.com`',
         ];
     }
 

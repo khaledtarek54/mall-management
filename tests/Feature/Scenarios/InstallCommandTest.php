@@ -26,6 +26,7 @@ use App\Services\MonthlyBillingService;
 use App\Support\Health;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -99,6 +100,52 @@ it('is safe to run twice on a live system', function () {
     ])->toBe($before)
         ->and($invoice->fresh()->total)->not->toBeNull()
         ->and((float) $invoice->fresh()->total)->toBe(30000.0);
+});
+
+it('creates the first administrator, because nothing else ever has', function () {
+    // DemoSeeder is the only thing in the codebase that creates a User — and a production box must
+    // not run it. So the documented deploy used to end with an empty users table and no way in.
+    expect(User::count())->toBe(0);
+
+    $this->artisan('atriom:install --force --admin-email=ops@eltizam.example --admin-name="Ops Lead"')
+        ->assertSuccessful();
+
+    $admin = User::where('email', 'ops@eltizam.example')->sole();
+
+    expect($admin->hasRole('super_admin'))->toBeTrue()
+        ->and($admin->name)->toBe('Ops Lead')
+        // A generated password, not a known one — the demo-login problem is what this avoids.
+        ->and(Hash::check('password', $admin->password))->toBeFalse();
+});
+
+it('uses the password it was given, and leaves an existing administrator alone', function () {
+    $this->artisan('atriom:install --force --admin-email=first@eltizam.example --admin-password=correct-horse-battery')
+        ->assertSuccessful();
+
+    expect(Hash::check('correct-horse-battery', User::where('email', 'first@eltizam.example')->sole()->password))
+        ->toBeTrue();
+
+    // A second run must not mint a second administrator, or every deploy grows the list of
+    // accounts that can do anything.
+    $this->artisan('atriom:install --force --admin-email=second@eltizam.example')->assertSuccessful();
+
+    expect(User::role('super_admin')->count())->toBe(1)
+        ->and(User::where('email', 'second@eltizam.example')->exists())->toBeFalse();
+});
+
+it('reports an install nobody can sign in to as unhealthy in production', function () {
+    $this->artisan('atriom:install --force')->assertSuccessful();
+
+    config(['app.env' => 'production']);
+    $check = Health::run()['checks']['admin_access'];
+
+    expect($check['ok'])->toBeFalse()
+        ->and($check['detail'])->toContain('super_admin');
+
+    // The control: create one and the same check passes.
+    $this->artisan('atriom:install --force --admin-email=ops@eltizam.example')->assertSuccessful();
+
+    expect(Health::run()['checks']['admin_access']['ok'])->toBeTrue();
 });
 
 it('warns about the published demo logins it did not create', function () {

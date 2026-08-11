@@ -6,11 +6,15 @@ use App\Models\AccountingPeriod;
 use App\Models\AccountMapping;
 use App\Models\ChargeCode;
 use App\Models\LedgerAccount;
+use App\Models\User;
 use App\Support\Health;
 use Database\Seeders\AccountingSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
 use Illuminate\Console\Command;
 use Illuminate\Console\ConfirmableTrait;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -41,9 +45,13 @@ class InstallCommand extends Command
 {
     use ConfirmableTrait;
 
-    protected $signature = 'atriom:install {--force : Run without the production confirmation}';
+    protected $signature = 'atriom:install
+        {--force : Run without the production confirmation}
+        {--admin-email= : Create the first administrator with this email}
+        {--admin-name= : That administrator\'s display name}
+        {--admin-password= : Their password (a strong one is generated and printed if omitted)}';
 
-    protected $description = 'Seed the reference data a fresh install needs (roles, chart of accounts, mappings, charge codes, fiscal year) and verify it can post';
+    protected $description = 'Seed the reference data a fresh install needs (roles, chart of accounts, mappings, charge codes, fiscal year), create the first administrator, and verify it can post';
 
     public function handle(): int
     {
@@ -80,6 +88,8 @@ class InstallCommand extends Command
 
         $this->components->info('Ready to post: '.$verdict['detail'].'.');
 
+        $this->ensureAnAdministratorExists();
+
         // Not a failure — an install can legitimately be a demo box — but it must not be silent on
         // the machine that will hold real tenants' money.
         if ($demo = Health::demoAccountEmails()) {
@@ -93,5 +103,101 @@ class InstallCommand extends Command
         ]);
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Make sure SOMEONE can sign in.
+     *
+     * `DemoSeeder` is the only thing in this codebase that has ever created a `User` — so a
+     * production box that correctly refuses demo data finishes the documented first deploy with an
+     * **empty users table and no way to reach `/admin`**. The runbook never mentioned it; the fix
+     * would have been someone SSH-ing in with tinker, inventing a password, and remembering to
+     * attach `super_admin` by hand.
+     *
+     * Three paths, and none of them creates an account nobody asked for:
+     * - a super_admin already exists → say so and leave it alone (idempotent re-runs);
+     * - `--admin-email` given → create it, generating a strong password when none was supplied and
+     *   printing it ONCE (never a default, never a published one — that is the demo-login problem);
+     * - nothing given → ask when a human is present, warn loudly with the exact flags when not.
+     *
+     * Not a hard failure: an install that will import its users from elsewhere is legitimate. The
+     * `admin_access` health check is what keeps the empty state from being quiet afterwards.
+     */
+    private function ensureAnAdministratorExists(): void
+    {
+        if (User::role('super_admin')->exists()) {
+            $this->components->twoColumnDetail('Administrator', 'already present — unchanged');
+
+            return;
+        }
+
+        $email = $this->option('admin-email');
+
+        // `--force` is the scripted path (deploy pipelines, CI, this project's own tests): it must
+        // never block on a prompt. A human without it gets asked.
+        $mayPrompt = ! $this->option('force') && $this->input->isInteractive();
+
+        if ($email === null && $mayPrompt) {
+            if (! $this->confirm('No administrator exists yet — nobody can sign in. Create one now?', true)) {
+                $this->warnNoAdministrator();
+
+                return;
+            }
+
+            $email = $this->ask('Email');
+        }
+
+        if ($email === null) {
+            $this->warnNoAdministrator();
+
+            return;
+        }
+
+        $name = $this->option('admin-name')
+            ?? ($mayPrompt ? $this->ask('Name', 'Administrator') : 'Administrator');
+
+        $password = $this->option('admin-password');
+        $generated = $password === null;
+        $password ??= Str::password(20);
+
+        $validator = Validator::make(
+            ['email' => $email, 'name' => $name, 'password' => $password],
+            [
+                'email' => ['required', 'email', 'unique:users,email'],
+                'name' => ['required', 'string', 'max:255'],
+                'password' => ['required', 'string', 'min:12'],
+            ],
+        );
+
+        if ($validator->fails()) {
+            $this->components->error('Administrator not created: '.implode(' ', $validator->errors()->all()));
+
+            return;
+        }
+
+        $user = User::create([
+            'name' => $name,
+            'email' => $email,
+            'password' => Hash::make($password),
+            'email_verified_at' => now(),
+        ]);
+        $user->assignRole('super_admin');
+
+        $this->components->twoColumnDetail('Administrator', $email.' (super_admin)');
+
+        if ($generated) {
+            // Printed once, on the operator's own terminal, and never stored anywhere we could
+            // later be asked to reveal it.
+            $this->newLine();
+            $this->components->warn("Password (shown once — store it now): {$password}");
+        }
+    }
+
+    private function warnNoAdministrator(): void
+    {
+        $this->components->warn(
+            'No administrator exists, so nobody can sign in to /admin. Create one with: '
+            .'php artisan atriom:install --admin-email=you@example.com --admin-name="Your Name"'
+        );
     }
 }

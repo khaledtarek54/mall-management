@@ -71,8 +71,10 @@ php artisan queue:restart           # workers pick up new code
 
 ```
 php artisan key:generate
-php artisan atriom:install          # roles + permissions, chart of accounts, account mappings,
-                                    # charge codes, fiscal year — then VERIFIES it can post
+php artisan atriom:install --admin-email=you@example.com --admin-name="Your Name"
+    # roles + permissions, chart of accounts, account mappings, charge codes, fiscal year,
+    # the FIRST ADMINISTRATOR — then VERIFIES the database can post. Prints the generated
+    # password once; pass --admin-password= to choose it yourself.
 php artisan atriom:health           # must be green before real data goes in
 ```
 
@@ -86,6 +88,15 @@ seeders in order and then **verifies the result through the same resolver the jo
 exiting non-zero if the database still cannot post — so "installed" means proved, not "the seeders
 exited 0". It is **idempotent** (safe to re-run on a live system; it re-asserts reference data and
 touches no business row) and it **never** seeds demo data.
+
+**The administrator half exists for the same reason.** `DemoSeeder` is the only thing in the
+codebase that has ever created a `User` — so a production box, which must not run it, finished this
+sequence with an **empty users table and no way into `/admin`**. Nothing said so: the login page
+renders and simply rejects every credential, which reads as a typo. `atriom:install` creates the
+first `super_admin` (generating a strong password and printing it once — never a default, never a
+published one), skips silently when one already exists, and warns with the exact flags when run
+scripted with none. `atriom:health`'s `admin_access` check keeps the empty state from being quiet if
+someone skips it.
 
 ---
 

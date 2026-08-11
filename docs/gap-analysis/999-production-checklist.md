@@ -25,7 +25,8 @@
 ## 3. Database
 
 - [ ] `php artisan migrate --force` — all 40+ migrations applied
-- [ ] `php artisan atriom:install` — roles + permissions, **chart of accounts + account mappings + charge codes + fiscal year**, then verifies the database can post (exits non-zero if it cannot). Skip it and the system bills correctly while the general ledger stays empty. Idempotent; never seeds demo data
+- [ ] `php artisan atriom:install --admin-email=… --admin-name="…"` — roles + permissions, **chart of accounts + account mappings + charge codes + fiscal year**, the **first `super_admin`** (nothing else in the codebase creates a user, so without this nobody can sign in), then verifies the database can post (exits non-zero if it cannot). Skip it and the system bills correctly while the general ledger stays empty. Idempotent; never seeds demo data
+- [ ] Store the administrator password it prints — it is shown once and generated, not a default
 - [ ] `php artisan atriom:health` — green (it now also reports an unpostable install and any seeded demo login)
 - [ ] Production DB user has `CREATE/ALTER/DROP/INDEX` permissions on the schema (Laravel migrations create indexes)
 - [ ] `DB_HOST` is the production host, NOT localhost
