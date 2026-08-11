@@ -171,6 +171,30 @@
 > 'fixed_percent'` and ignores the caller's value — a CPI lease can only be made by editing one
 > after creation.
 
+> **⚠️ Fixed 2026-08-11 — `Lease::generateReference()` was a deterministic duplicate-key 500.**
+> It was `count() + 1` against a UNIQUE column on a soft-deleting model. The soft-delete scope
+> hides trashed rows from `count()`, so the counter falls behind the numbers actually issued:
+> create five leases, delete one, and the next create computes `…-0005`, which already exists.
+> The insert throws — **and throws on every subsequent attempt, because the count never recovers,
+> so lease creation stays broken for the rest of the calendar year.**
+>
+> Reachable by design rather than by misuse: `DeletionPolicy` puts Lease in the WHEN_UNUSED tier
+> and `EditLease` offers Delete/ForceDelete, so removing a lease that nothing references is a
+> supported action — and a lease that nothing references is exactly what `LeaseImporter` produces
+> today, since it never seeds a charge schedule.
+>
+> It now uses the shape `Invoice` has had all along, four files away: **MAX-of-prefix over
+> `withTrashed()`**, a **collision loop**, and `AllocatesDocumentNumber`'s **lock held across the
+> insert**, with the UNIQUE index as the final backstop. `creating` always re-allocates, so a
+> reference the form or the importer pre-filled minutes earlier can never be persisted stale — and
+> the property code now comes from the lease's own unit rather than the hardcoded `'AW'` those
+> callers passed. Pinned by `LeaseReferenceAllocationTest`, which was mutation-checked against the
+> original implementation and reproduces the exact `UNIQUE constraint failed: leases.reference`.
+>
+> *Worth noting which half did the work:* the collision loop alone defeats the crash — a probe with
+> `count()` restored but the loop in place still passed. MAX is the better primitive (monotonic, no
+> loop iterations), but the loop is the guard.
+
 ## 1. Purpose & business context
 
 Leases model the core revenue instrument of Egyptian mall operations. They bind tenants to units (retail spaces) for a fixed term, specify monthly rent and service charges with embedded VAT rules, enable percentage-of-sales rent triggers, and track the full lifecycle: draft negotiation → active occupancy → renewal or expiry → termination. A tenant may hold multiple single-unit leases across a mall; a single lease may span multiple units (multi-unit lease). Operators (Eltizam department) manage creation, renewal, termination, and rent escalation; owners (Jawad) and the accounting department oversee invoicing and payment via the linked Charge and Invoice modules.

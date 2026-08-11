@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\AllocatesDocumentNumber;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -19,7 +20,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 
 class Lease extends Model implements HasMedia
 {
-    use RefusesDeletionWhenReferenced, HasFactory, HasSearchText, InteractsWithMedia, LogsActivity, SoftDeletes;
+    use AllocatesDocumentNumber, RefusesDeletionWhenReferenced, HasFactory, HasSearchText, InteractsWithMedia, LogsActivity, SoftDeletes;
 
     /** The signed contract + supporting paperwork. */
     public const DOCUMENTS_COLLECTION = 'documents';
@@ -70,6 +71,20 @@ class Lease extends Model implements HasMedia
         // every path (wizard, standard form, renewal, seeder) arms it consistently and can't drift.
         // Derived only when escalation is genuinely configured; 'none'/rate-0 leases stay null and
         // are never considered by the sweep.
+        // Always (re)allocate at save time, under the lock, exactly as Invoice does — so a
+        // reference a form or an importer pre-filled minutes ago can never be persisted stale.
+        // The lock is held across the INSERT and released in `created`; if it times out we
+        // degrade to unlocked allocation, where the collision loop and the UNIQUE index are the
+        // remaining guards.
+        static::creating(function (self $lease) {
+            $assetCode = $lease->unit?->asset?->code ?: 'AW';
+
+            $lease->reference = $lease->allocateDocumentNumber(
+                static::referencePrefix($assetCode),
+                fn (): string => static::generateUniqueReference($assetCode),
+            );
+        });
+
         static::creating(function (self $lease) {
             $configured = match ($lease->escalation_type) {
                 'fixed_percent', 'cpi' => (float) $lease->escalation_rate > 0,
@@ -1175,11 +1190,62 @@ class Lease extends Model implements HasMedia
 
     // ============ Generation helpers ============
 
+    /** `LSE-AW-2026-` — the sequence the numbers below run inside. */
+    public static function referencePrefix(string $assetCode = 'AW'): string
+    {
+        return sprintf('LSE-%s-%s-', $assetCode, now()->format('Y'));
+    }
+
+    /**
+     * The next lease reference in this property-year.
+     *
+     * **This was `count() + 1`, and that was a deterministic 500.** `leases.reference` is UNIQUE
+     * and the model soft-deletes, so `static::count()` — which the soft-delete scope excludes
+     * trashed rows from — falls behind the numbers actually issued. Delete one lease of five and
+     * the next create computes `…-0005`, which already exists. The insert throws a duplicate-key
+     * error, and it throws again on every subsequent attempt, because the count never recovers:
+     * **lease creation stays broken for the rest of the calendar year.** Deleting an unused lease
+     * is a supported action (`DeletionPolicy` puts Lease in WHEN_UNUSED, and EditLease offers it),
+     * so this was reachable by design, not by misuse.
+     *
+     * Now MAX-of-prefix over `withTrashed()`, which is monotonic and cannot go backwards — the
+     * same shape `Invoice::generateNumber()` has used all along, four files away.
+     */
     public static function generateReference(string $assetCode = 'AW'): string
     {
-        $year = now()->format('Y');
-        $count = static::whereYear('created_at', $year)->count() + 1;
+        $prefix = static::referencePrefix($assetCode);
 
-        return sprintf('LSE-%s-%s-%04d', $assetCode, $year, $count);
+        $last = static::withTrashed()
+            ->where('reference', 'like', $prefix.'%')
+            ->orderByDesc('reference')
+            ->value('reference');
+
+        $next = $last ? ((int) substr($last, strlen($prefix))) + 1 : 1;
+
+        return sprintf('%s%04d', $prefix, $next);
+    }
+
+    /**
+     * MAX+1 with a collision loop — the belt to the lock's braces.
+     *
+     * A gap-free MAX is still only correct if nothing has taken the number since we read it. The
+     * lock in `AllocatesDocumentNumber` is the primary guard; this loop is what happens when the
+     * lock times out and degrades to unlocked allocation.
+     */
+    protected static function generateUniqueReference(string $assetCode = 'AW'): string
+    {
+        $candidate = static::generateReference($assetCode);
+        $prefix = static::referencePrefix($assetCode);
+        $attempts = 0;
+
+        while (static::withTrashed()->where('reference', $candidate)->exists()) {
+            if (++$attempts > 100) {
+                throw new \RuntimeException('Unable to allocate a unique lease reference after 100 attempts.');
+            }
+
+            $candidate = sprintf('%s%04d', $prefix, (int) substr($candidate, strlen($prefix)) + 1);
+        }
+
+        return $candidate;
     }
 }
