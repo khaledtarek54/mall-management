@@ -43,6 +43,22 @@
 > remainder is refunded. Arrears go first because an unpaid rent invoice is a real document that may
 > already have reached the tax authority, while a deduction is an assessment made at settlement.
 >
+> **The whole final account is ONE transaction (fixed 2026-08-11).** Arrears settlement used to run
+> before and outside it, so a settlement that then failed — most reachably on "the deductions exceed
+> the deposit held" — left the deposit already spent against the tenant's invoices while the operator
+> saw an error and reasonably concluded that nothing had happened. A final account commits whole or
+> not at all.
+>
+> **And `settlement_date` is a posting date.** `PostingDateGuards` used to exempt `DepositApplication`
+> as `system:` — *"stamped at application time, not operator-typable"* — which was simply untrue:
+> `ApplyDepositToInvoiceService` stamps a parameter, and this service passes the operator's
+> `settlement_date` off an unconstrained DatePicker. Back-dating a settlement into a closed March
+> netted 120,000 off the deposit, closed the AR, reported success — and the post was refused inside
+> the best-effort sync job, leaving a tie-out gap of exactly that much. The guard now lives in
+> `ApplyDepositToInvoiceService` (the service that stamps the date), and the registry names it.
+> **A `system:` exemption asserting a property that does not hold is worse than a missing entry:
+> the gate reports coverage.**
+>
 > **Late-fee terms are per-lease** (`Lease::lateFeeTerms()`, story MF-08), falling back to
 > `BillingSettings` — **not** `config('billing.*')`, which the service used to read while the admin
 > Settings screen wrote the settings record, making every saved late-fee value inert.

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\DepositApplication;
 use App\Models\Invoice;
 use App\Models\Lease;
+use App\Support\PostingDate;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -52,6 +53,17 @@ class ApplyDepositToInvoiceService
         }
 
         $on = ($on ?? CarbonImmutable::now())->startOfDay();
+
+        // `$on` IS operator-typed, whatever the registry used to claim. `SettleMoveOutService`
+        // passes the `settlement_date` off an unconstrained DatePicker on the Lease resource, so
+        // a settlement can be back-dated into a closed March: the arrears net off the deposit, AR
+        // closes, "Saved ✓" — and the GL post is silently refused inside the best-effort sync job,
+        // leaving a tie-out gap the size of the settlement.
+        //
+        // A MISSING period is fine (PostingDate::assertOpen allows it); only a CLOSED one is
+        // refused. Guarded here rather than in the caller because this is the service that stamps
+        // the date onto the row that becomes the entry.
+        PostingDate::assertOpen($on, __('admin.lease_events.effective'));
 
         return DB::transaction(function () use ($lease, $invoice, $requested, $on): float {
             // Lock the invoice and re-read inside the transaction: two concurrent settlements would

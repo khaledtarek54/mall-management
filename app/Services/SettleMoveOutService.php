@@ -53,6 +53,15 @@ class SettleMoveOutService
             ? CarbonImmutable::parse($data['settlement_date'])->startOfDay()
             : CarbonImmutable::now()->startOfDay();
 
+        // No posting-date guard HERE, deliberately. `settlement_date` comes off an unconstrained
+        // DatePicker and every document this writes posts on it — but each of those writes is
+        // already guarded at the point it stamps the date: the deposit applications by
+        // `ApplyDepositToInvoiceService`, the forfeit and refund by `DepositTransaction`'s own
+        // model guard. A guard here would be a fourth copy of the same rule that no test could
+        // distinguish from the three real ones (mutation-checked: removing it changed nothing).
+        // What made the closed-period case dangerous was never the missing check at this level —
+        // it was the missing check underneath, plus the ordering fixed below.
+
         $deductions = collect($data['deductions'] ?? [])
             ->map(fn (array $row) => [
                 'description' => trim((string) ($row['description'] ?? '')),
@@ -61,35 +70,40 @@ class SettleMoveOutService
             ->filter(fn (array $row) => $row['amount'] > 0 && $row['description'] !== '')
             ->values();
 
-        // Net the arrears off the deposit FIRST (story MF-03, scenario S8) — this is the act that
-        // was missing, and without it the statement reported a net position the settlement never
-        // carried out. Opt-out for the same reason the termination credit is: the application
-        // posts on the settlement date, and a closed period refuses it.
-        $settledAr = ['applied' => 0.0, 'invoices' => 0];
+        // ONE transaction over the whole final account.
+        //
+        // Arrears settlement used to run out here, before and outside the transaction below. So a
+        // settlement that then failed its deduction check — or on any later refusal — left the
+        // deposit already spent against the tenant's invoices while the operator saw an error and
+        // reasonably concluded that nothing had happened. A final account is one act; it commits
+        // whole or not at all.
+        return DB::transaction(function () use ($lease, $deductions, $settlementDate, $data) {
+            // Net the arrears off the deposit FIRST (story MF-03, scenario S8) — this is the act
+            // that was missing, and without it the statement reported a net position the settlement
+            // never carried out.
+            $settledAr = ['applied' => 0.0, 'invoices' => 0];
 
-        if (($data['settle_arrears'] ?? true) !== false) {
-            $settledAr = app(ApplyDepositToInvoiceService::class)->settleOpenAr($lease, $settlementDate);
-        }
+            if (($data['settle_arrears'] ?? true) !== false) {
+                $settledAr = app(ApplyDepositToInvoiceService::class)->settleOpenAr($lease, $settlementDate);
+            }
 
-        // Recomputed AFTER the arrears are settled: the deposit held has shrunk by exactly what
-        // they consumed, so the refund below cannot spend the same money twice.
-        $statement = $this->statements->for($lease->fresh(), $settlementDate);
-        $held = (float) $statement['deposit_held'];
-        $deducted = round((float) $deductions->sum('amount'), 2);
+            // Recomputed AFTER the arrears are settled: the deposit held has shrunk by exactly what
+            // they consumed, so the refund below cannot spend the same money twice.
+            $statement = $this->statements->for($lease->fresh(), $settlementDate);
+            $held = (float) $statement['deposit_held'];
+            $deducted = round((float) $deductions->sum('amount'), 2);
 
-        if ($deducted > $held) {
-            throw new InvalidArgumentException(
-                'The deductions exceed the deposit held — a deposit cannot fund more than it holds. Bill the excess instead.'
-            );
-        }
+            if ($deducted > $held) {
+                throw new InvalidArgumentException(
+                    'The deductions exceed the deposit held — a deposit cannot fund more than it holds. Bill the excess instead.'
+                );
+            }
 
-        if ($held <= 0 && $deducted <= 0) {
-            throw new InvalidArgumentException('There is no deposit held on this lease to settle.');
-        }
+            if ($held <= 0 && $deducted <= 0) {
+                throw new InvalidArgumentException('There is no deposit held on this lease to settle.');
+            }
 
-        $refundable = round($held - $deducted, 2);
-
-        return DB::transaction(function () use ($lease, $statement, $deductions, $deducted, $refundable, $settlementDate, $data, $held, $settledAr) {
+            $refundable = round($held - $deducted, 2);
             $forfeit = null;
             $refund = null;
 

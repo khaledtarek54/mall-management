@@ -26,6 +26,7 @@ use App\Models\StraightLineRentAdjustment;
 use App\Models\TenantCreditApplication;
 use App\Models\VendorBill;
 use App\Models\VendorBillPayment;
+use App\Services\ApplyDepositToInvoiceService;
 use App\Services\CreditNoteService;
 use App\Services\DisposeFixedAssetService;
 use App\Services\GrantCustodyService;
@@ -125,11 +126,22 @@ class PostingDateGuards
             'closed period, which is also what makes an amendment forward-only: months already '.
             'recognised are left exactly as they were.',
 
-        DepositApplication::class => self::SYSTEM_PREFIX.
-            'entry_date is stamped at application time by ApplyDepositToInvoiceService and is not '.
-            'operator-typable. Same decoupling as the tenant credit above: a deposit taken three '.
-            'years ago settles a current invoice without posting into the sealed period it was '.
-            'received in.',
+        // CORRECTED 2026-08-11. This said `system:` — "entry_date is stamped at application time
+        // and is not operator-typable" — and it was factually false. `ApplyDepositToInvoiceService`
+        // stamps `$on`, a PARAMETER, and `SettleMoveOutService` passes the operator's
+        // `settlement_date` straight off an unconstrained DatePicker on the Lease resource.
+        //
+        // A `system:` exemption asserting a safety property that does not hold is worse than no
+        // entry at all: the gate reports coverage. The gate could not catch this either, because it
+        // checks the registry's own declarations, and the offending field lives on a different
+        // resource under a different name. Back-dating a settlement into a closed March netted
+        // 120,000 of arrears off the deposit, closed the AR, showed "Saved ✓" — and the post was
+        // refused inside the best-effort sync job, leaving a tie-out gap of exactly that much.
+        //
+        // Guarded in BOTH services now: the one that stamps the date onto the row, and the one that
+        // takes it from the operator (so a refusal arrives before the first side effect rather than
+        // half way through a final account).
+        DepositApplication::class => ApplyDepositToInvoiceService::class,
         // The finalisation guard already froze issue_date once an invoice is ISSUED; what
         // remained was a DRAFT back-dated and then issued, posting AR into a sealed month.
         Invoice::class => Invoice::class,

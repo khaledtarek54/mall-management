@@ -1000,7 +1000,7 @@ the posting-date guard checks against a closed period.
 | `OwnerStatementRun` | `OwnerStatementRunJournalizer` | `posting_date` | `FinaliseOwnerStatementRunService` |
 | `Disbursement` | `DisbursementJournalizer` | `paid_on` | `DisbursementService` |
 | `TenantCreditApplication` | `TenantCreditApplicationJournalizer` | `entry_date` | _system — entry_date is deliberately stamped at application time, never the source receipt's date. That decoupling is the whole point: it lets an old overpayment settle a current invoice without ever posting into the closed period the overpayment came from._ |
-| `DepositApplication` | `DepositApplicationJournalizer` | `entry_date` | _system — entry_date is stamped at application time by ApplyDepositToInvoiceService and is not operator-typable. Same decoupling as the tenant credit above: a deposit taken three years ago settles a current invoice without posting into the sealed period it was received in._ |
+| `DepositApplication` | `DepositApplicationJournalizer` | `entry_date` | `ApplyDepositToInvoiceService` |
 | `StraightLineRentAdjustment` | `StraightLineRentAdjustmentJournalizer` | `entry_date` | _system — entry_date is the last day of the month being recognised, derived by PostStraightLineRentService and never operator-typed. The sweep refuses to post into a closed period, which is also what makes an amendment forward-only: months already recognised are left exactly as they were._ |
 | `InvoiceWriteOff` | `InvoiceWriteOffJournalizer` | `entry_date` | `WriteOffInvoiceService` |
 <!-- /GENERATED:gl-sources -->
