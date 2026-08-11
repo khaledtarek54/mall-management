@@ -155,6 +155,25 @@ This is the core AR (accounts receivable) engine; all recurring revenue flows th
      total and credits revenue from the **item** amounts: a divergence computes the two sides of one
      journal entry from two different numbers. An invoice with **no** items keeps its header (legacy /
      opening-balance rows have nothing to derive from). See `InvoiceHeaderTiesToItemsTest`.
+   - **The same hole was still open on `balance`, `paid_amount` and `number` until 2026-08-12.** The
+     2026-08-11 fix guarded the three header columns and short-circuited unless one of *them* was
+     dirty — so a payload changing **`balance` alone** returned before the correction and persisted.
+     The invoice then read settled in the portal, in AR aging (which filters `balance > 0`), in the
+     overdue scan and on every collections screen, while the GL still carried the AR debit.
+     `paid_amount` went the same way, and `number` — rendered `disabled()->dehydrated()` — was
+     rewritable on an issued invoice, re-labelling a tax document the tenant holds.
+     - `paid_amount` is now **discarded** if it arrives dirty: `recomputeTotals()` is its single
+       source of truth and persists via `saveQuietly()`, so the legitimate write never reaches the
+       hook and anything that does is a payload *by construction*. Reverted rather than refused,
+       because the form submits the field on every save and throwing would break ordinary edits.
+     - `balance` is now **always** re-derived when either group is dirty.
+     - `number` joined the finalized-invoice immutability list (with `issue_date`, `tenant_id`,
+       `lease_id`) — a refusal, not a revert, because a renumbered tax invoice is not a slip.
+     - Registry + gate: **`App\Support\DerivedMoney`** and `DerivedMoneyConformanceTest`, which
+       classifies every model carrying a fillable money column and proves each DERIVED one by
+       tampering with a committed record. It deliberately does **not** grep the forms: a
+       `readOnly()->dehydrated()` looks locked and submits anyway, and any check over that pattern
+       is one refactor away from useless. See `DerivedMoneyColumnsNotClientWritableTest`.
    - **WHICH supplies are taxable is DATA, on the charge code** — `charge_codes.vat_treatment`
      (`standard` / `exempt` / `zero_rated`) plus an optional `vat_rate_override`, resolved by the one
      function every origination point calls, `Vat::rateForType($code)`. An accountant rules on a

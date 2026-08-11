@@ -52,7 +52,8 @@ it('renders the public pay page in Arabic (RTL) when requested', function () {
 it('redirects an already-settled invoice to the status page', function () {
     $invoice = payLinkInvoice();
     $token = $invoice->paymentLinkToken();
-    $invoice->update(['balance' => 0, 'status' => 'paid']);
+    settleInvoiceInFull($invoice);
+    $invoice->refresh();
 
     $this->get(route('pay.show', ['token' => $token]))
         ->assertRedirect(route('pay.status', ['token' => $token]));
@@ -86,7 +87,8 @@ it('redirects back with an error (no orphan payment) when the gateway is down', 
 
 it('shows success on the status page once the balance is cleared', function () {
     $invoice = payLinkInvoice();
-    $invoice->update(['balance' => 0, 'status' => 'paid']);
+    settleInvoiceInFull($invoice);
+    $invoice->refresh();
 
     $this->get(route('pay.status', ['token' => $invoice->paymentLinkToken()]))
         ->assertOk()
@@ -144,7 +146,8 @@ it('shows the amount paid on this link, not the full invoice total', function ()
         'gateway' => 'paymob', 'channel' => Payment::CHANNEL_LINK,
     ]);
     $payment->invoices()->attach($invoice->id, ['allocated_amount' => 4000]);
-    $invoice->update(['balance' => 0, 'status' => 'paid']);
+    settleInvoiceInFull($invoice);
+    $invoice->refresh();
 
     $this->get(route('pay.status', ['token' => $invoice->paymentLinkToken()]))
         ->assertOk()

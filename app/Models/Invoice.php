@@ -387,14 +387,39 @@ class Invoice extends Model
             if (! $invoice->exists) {
                 return;
             }
-            if (! $invoice->isDirty(['subtotal', 'vat_amount', 'total'])) {
+
+            $headerTouched = $invoice->isDirty(['subtotal', 'vat_amount', 'total']);
+            $settlementTouched = $invoice->isDirty(['balance', 'paid_amount']);
+
+            if (! $headerTouched && ! $settlementTouched) {
                 return;
             }
 
-            $invoice->syncTotalsFromItems(persist: false);
+            if ($headerTouched) {
+                $invoice->syncTotalsFromItems(persist: false);
+            }
+
+            // ── `paid_amount` is not writable from here, by anyone ─────────────────────────────
+            // It is derived from FOUR settlement channels and `recomputeTotals()` is the single
+            // source of truth for it — which persists through `saveQuietly()`, so the legitimate
+            // write never reaches this hook at all. Anything arriving here dirtying it is therefore
+            // a client payload by construction, and the honest response is to discard it.
+            //
+            // Reverted rather than refused: the form submits this field on every save (it is
+            // `readOnly()->dehydrated()`), so throwing would break ordinary edits that changed
+            // something else entirely.
+            if ($invoice->isDirty('paid_amount')) {
+                $invoice->paid_amount = $invoice->getOriginal('paid_amount');
+            }
 
             // Balance follows the (possibly corrected) total in the same write — mirrors the
             // `creating` branch below. Status is left to the next recomputeTotals(), as today.
+            //
+            // **Recomputed whenever EITHER group is dirty, which is the fix.** This used to
+            // short-circuit unless the header moved, so a payload changing `balance` alone returned
+            // before reaching it and the tampered value persisted: the invoice read settled in the
+            // portal, in AR aging (which filters `balance > 0`), in the overdue scan and on every
+            // collections screen, while the GL still carried the AR debit.
             $invoice->balance = $invoice->status === 'cancelled'
                 ? 0
                 : round(max(0, (float) $invoice->total - (float) $invoice->paid_amount), 2);
@@ -475,7 +500,14 @@ class Invoice extends Model
             if ($invoice->status === 'draft') {
                 throw new \DomainException('An issued invoice cannot be returned to draft — void it or issue a credit note instead.');
             }
-            foreach (['issue_date', 'tenant_id', 'lease_id'] as $field) {
+            // `number` joined this list 2026-08-12. It identifies the tax invoice the tenant is
+            // holding — and that the ETA may have seen — so rewriting it silently re-labels a
+            // document that exists outside this system. `ChangeImpact` classified it DESCRIPTIVE on
+            // the stated grounds that "AllocatesDocumentNumber assigns it in `creating` and nothing
+            // rewrites it", which was true of the code and not of the form: `InvoiceForm` renders it
+            // `disabled()->dehydrated()`, and `disabled` is an HTML attribute while `dehydrated()`
+            // is an explicit opt-IN to the submitted payload.
+            foreach (['issue_date', 'tenant_id', 'lease_id', 'number'] as $field) {
                 if ($invoice->isDirty($field)) {
                     throw new \DomainException("A finalized invoice's {$field} is immutable — void and re-issue instead.");
                 }

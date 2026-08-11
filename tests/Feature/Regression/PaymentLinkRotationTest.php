@@ -89,7 +89,8 @@ it('rotates a settled invoice too — a leaked link still discloses it', functio
     // isPayable() is false here, but /pay/{token}/status still names the tenant
     // and the amount. If rotation were gated on payability, the one invoice you
     // most want to lock down after the fact could not be locked down.
-    $this->invoice->update(['balance' => 0, 'paid_amount' => 500, 'status' => 'paid']);
+    settleInvoiceInFull($this->invoice);
+    $this->invoice->refresh();
 
     $old = $this->invoice->paymentLinkToken();
     $this->invoice->rotatePaymentLinkToken();

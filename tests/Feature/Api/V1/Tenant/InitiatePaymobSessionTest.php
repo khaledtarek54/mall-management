@@ -117,7 +117,8 @@ class InitiatePaymobSessionTest extends TestCase
     public function test_invoice_with_zero_balance_returns_422(): void
     {
         [$tenant, $invoice, $token] = $this->tenantWithInvoice();
-        $invoice->update(['paid_amount' => $invoice->total, 'balance' => 0, 'status' => 'paid']);
+        settleInvoiceInFull($invoice);
+        $invoice->refresh();
 
         $this->postJson(
             "/api/v1/me/invoices/{$invoice->id}/paymob-session",

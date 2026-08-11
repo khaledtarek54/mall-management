@@ -383,6 +383,36 @@ function lateFeeItems(\App\Models\Invoice $invoice): \Illuminate\Database\Eloque
         ->where('invoice_id', $invoice->fresh()?->late_fee_invoice_id);
 }
 
+/**
+ * Settle an invoice the way the application settles one — a captured payment, allocated.
+ *
+ * **Do not reach for `$invoice->update(['balance' => 0, 'status' => 'paid'])`.** As of 2026-08-12
+ * the model reverts it: `balance` and `paid_amount` are derived from
+ * {@see \App\Models\Invoice::recomputeTotals()} and a client-supplied value is discarded, because
+ * that write was reachable from a crafted Livewire payload and made an unpaid invoice read settled
+ * everywhere except the general ledger.
+ *
+ * Four fixtures were doing exactly that to fake a paid invoice, and each was green over a state no
+ * operator could produce. Going through a payment is both the honest setup and a stronger test:
+ * it exercises the allocation pivot and the recompute the real flow depends on.
+ */
+function settleInvoiceInFull(\App\Models\Invoice $invoice): \App\Models\Payment
+{
+    $payment = \App\Models\Payment::create([
+        'tenant_id' => $invoice->tenant_id,
+        'payment_date' => now(),
+        'amount' => (float) $invoice->total,
+        'method' => 'bank_transfer',
+        'status' => 'captured',
+        'currency' => $invoice->currency ?? 'EGP',
+    ]);
+
+    $payment->invoices()->attach($invoice->id, ['allocated_amount' => (float) $invoice->total]);
+    $invoice->recomputeTotals();
+
+    return $payment;
+}
+
 /*
 |--------------------------------------------------------------------------
 | Expectations

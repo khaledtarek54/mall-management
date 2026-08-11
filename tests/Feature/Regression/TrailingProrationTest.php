@@ -103,7 +103,8 @@ it('leaves a paid invoice alone in AR and parks the credit as tenant credit to r
     $invoice = app(MonthlyBillingService::class)
         ->generateForLease($lease, CarbonImmutable::parse('2028-09-01'))['invoice'];
 
-    $invoice->update(['status' => 'paid', 'paid_amount' => 300000, 'balance' => 0]);
+    settleInvoiceInFull($invoice);
+    $invoice->refresh();
 
     CarbonImmutable::setTestNow('2028-09-18');
     app(LeaseTerminationService::class)->terminate($lease->fresh(), [

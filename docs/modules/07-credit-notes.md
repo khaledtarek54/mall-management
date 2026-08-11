@@ -86,6 +86,21 @@ applied (terminal if fully drained, but can re-issue or re-apply manually via Fi
 
 ## 5. Services, jobs & scheduled commands
 
+> **The header is derived from the LINES, and until 2026-08-12 that only happened in the browser.**
+> `CreditNoteItem` had **no model hooks at all** — no `booted`, no `saved`, nothing — while its
+> sibling `InvoiceItem` has carried the equivalent since it existed. `CreditNoteForm` dehydrates
+> `subtotal`/`vat_amount`/`total`/`balance` while the note is draft, and `CreditNoteService` then
+> trusted what arrived, its own comment asserting *"the totals are already item-derived"* — true of
+> the JavaScript and of nothing on the server. A tampered payload therefore posted
+> `Dr Sales Returns / Cr AR` at a figure the note's own lines could not reproduce: a credit note an
+> auditor cannot follow and a tenant cannot check.
+>
+> `CreditNote::recomputeFromItems()` already existed and already did the right thing — recomputing
+> VAT from each line's `amount × vat_rate` rather than the submitted `vat_amount`. **It was simply
+> never called from the side that changes.** `CreditNoteItem::saved`/`deleted` now fire it (deleted
+> too: removing a line has to move the header down, or the note keeps crediting money no line
+> accounts for). Registry + gate: `App\Support\DerivedMoney` / `DerivedMoneyConformanceTest`.
+
 ### `CreditNoteService` (`app/Services/CreditNoteService.php`)
 
 #### `issue(CreditNote $note): CreditNote`
