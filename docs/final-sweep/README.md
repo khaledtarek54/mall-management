@@ -228,3 +228,48 @@ once.** Three conventions currently have no gate: no-DB-enums (~40 columns survi
 (110 untestable lock sites), and derived-money-columns-not-client-writable. Each is about a half-day.
 
 See [05-stop-point-plan.md](05-stop-point-plan.md) for the sequenced route.
+
+---
+
+## 6. The static-analysis gate was inert, and the sweep found it by using it
+
+Not a numbered finding — it surfaced while shipping the others, and it belongs here because it is
+the same failure mode as three of them.
+
+**PHPStan was red on `main` throughout**, with 20 errors predating this sweep. A gate that is
+already red gates nothing: "no new errors" cannot be enforced when the baseline is exceeded, so
+every commit in this sweep had to be verified file-by-file by hand. Fixed 2026-08-12:
+
+- **12 of 20 were one root cause: relations without generic return types.** `Invoice::items()`,
+  `InvoiceItem::charge()`, `JournalLine::entry()`, `PayrollLine::payroll()`,
+  `PurchaseRequestLine::request()`, `OwnerStatementRun::statements()`/`asset()`,
+  `OwnerStatement::owner()` — each degraded to `Model`, so every property read through them was
+  "undefined". Typing them is a one-line fix per relation and it **cascades**: typing
+  `Invoice::items()` alone revealed four further errors in code that had been unresolvable, and
+  fixing those revealed two more. The count went *up* before it went down, which is the gate
+  working.
+- **7 were false positives, and the guards they flagged are load-bearing.** larastan infers
+  attribute types from the MIGRATION — a statement about persisted rows, not about an in-memory
+  model. Verified in tinker: `(new Lease)->commencement_date === null` is **true**, and
+  `(new LeaseOption)->window_opens_on instanceof DateTimeInterface` is **false**, both of which
+  PHPStan called impossible. Those checks run in `saving` hooks, before the row exists, and they
+  are what stop `Carbon::parse(null)` quietly returning "now". **Deleting them to satisfy the
+  analyser would have introduced the bugs they prevent.** Resolved with
+  `treatPhpDocTypesAsCertain: false` — PHPStan's own suggested remedy, printed as a tip on every
+  one of those errors.
+- **2 were `?->` on a `belongsTo` with a NOT NULL foreign key.** Also real: the relation is null
+  whenever the parent row is missing, and `Asset` and `Tenant` both soft-delete. Recorded as a
+  reasoned `ignoreErrors` entry rather than baseline debt, because it is a decision about a false
+  positive and not something to burn down.
+
+**And the baseline itself had rotted: 80 of its 407 entries — a fifth — described errors that no
+longer existed.** `reportUnmatchedIgnoredErrors` was `false`, so nothing said so. It is now `true`
+and the file is regenerated to 327 exact entries, which means a baselined error that gets fixed
+turns the build red until its entry is removed. That reads as friction and is not: it is the only
+thing that keeps the file honest.
+
+> The pattern, again: **a baseline nobody can tell is stale reports coverage it does not have** —
+> the same shape as the `system:` posting-date exemption that asserted a property which did not hold
+> (FS-25), the conformance gate that could not run (the helper-collision note in
+> `TestHelperUniquenessConformanceTest`), and the tie-out that cried wolf on every credit note
+> (FS-09). Every one of them was a control that looked like it was working.

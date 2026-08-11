@@ -3,6 +3,7 @@
 namespace App\Services\Eta;
 
 use App\Models\Invoice;
+use App\Models\InvoiceItem;
 use RuntimeException;
 
 /**
@@ -117,7 +118,7 @@ class EtaJsonBuilder
 
     private function buildLines(Invoice $invoice): array
     {
-        return $invoice->items->map(function ($item) {
+        return $invoice->items->map(function (InvoiceItem $item): array {
             $amount = (float) $item->amount;
             $vatRate = (float) ($item->vat_rate ?? 0);
             $vatAmount = (float) ($item->vat_amount ?? 0);

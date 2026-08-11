@@ -132,7 +132,16 @@ jobs:
           php artisan key:generate --force
           touch database/database.sqlite
 
-      # Gate enforces NO NEW errors above the grandfathered phpstan-baseline.neon.
+      # Gate enforces NO NEW errors above the grandfathered phpstan-baseline.neon —
+      # and, since 2026-08-12, no STALE ones either (`reportUnmatchedIgnoredErrors:
+      # true`). So a red PHPStan now means one of two things, and the message says
+      # which: a new error, or a baselined error that has been fixed and whose entry
+      # needs removing (`vendor/bin/phpstan analyse --generate-baseline`).
+      #
+      # The second half is why: while unmatched entries were ignored, 80 of the 407
+      # went stale unnoticed — a fifth of the file describing errors that no longer
+      # existed. A baseline you cannot tell is rotten reports coverage it does not
+      # have, which is the same failure mode as a conformance test that never runs.
       - name: PHPStan
         run: vendor/bin/phpstan analyse --no-progress --error-format=github
 

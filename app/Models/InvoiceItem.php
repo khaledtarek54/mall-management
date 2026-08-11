@@ -94,6 +94,7 @@ class InvoiceItem extends Model
         return $this->belongsTo(Invoice::class);
     }
 
+    /** @return BelongsTo<Charge, $this> */
     public function charge(): BelongsTo
     {
         return $this->belongsTo(Charge::class);

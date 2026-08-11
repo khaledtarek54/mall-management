@@ -5,7 +5,6 @@ namespace App\Services\Reports;
 use App\Models\CreditNote;
 use App\Models\CreditNoteItem;
 use App\Models\Invoice;
-use App\Models\InvoiceItem;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Services\Accounting\AccountResolver;
@@ -88,10 +87,6 @@ class VatReturnService
 
         foreach ($invoices as $invoice) {
             foreach ($invoice->items as $item) {
-                if (! $item instanceof InvoiceItem) {
-                    continue;
-                }
-
                 // The treatment is the LINE's, not the invoice's: one invoice carries exempt base
                 // rent and standard-rated service charge together, which is the normal case here
                 // rather than an edge one.

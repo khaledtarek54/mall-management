@@ -146,6 +146,7 @@ class OwnerStatementRun extends Model
         return $this->status === self::STATUS_FINALISED;
     }
 
+    /** @return BelongsTo<Asset, $this> */
     public function asset(): BelongsTo
     {
         return $this->belongsTo(Asset::class);
@@ -156,6 +157,7 @@ class OwnerStatementRun extends Model
         return $this->belongsTo(AccountingPeriod::class);
     }
 
+    /** @return HasMany<OwnerStatement, $this> */
     public function statements(): HasMany
     {
         return $this->hasMany(OwnerStatement::class);

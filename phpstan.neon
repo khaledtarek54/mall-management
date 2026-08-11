@@ -16,5 +16,57 @@ parameters:
         - app/Filament/*/Resources/*/Pages/*
 
     # Existing findings are captured in phpstan-baseline.neon (grandfathered);
-    # the gate enforces NO NEW errors. Burn the baseline down over time.
-    reportUnmatchedIgnoredErrors: false
+    # the gate enforces NO NEW errors, and the baseline burns down on its own.
+    #
+    # TRUE since 2026-08-12, and the flip is the point. While this was false a
+    # baseline entry could go stale silently, and 80 of 407 had — a fifth of the
+    # file describing errors that no longer existed. A baseline nobody can tell is
+    # rotten is indistinguishable from one that is accurate, which is how the whole
+    # gate ended up reporting coverage it did not have.
+    #
+    # Now, fixing a baselined error turns the build red until its entry is removed.
+    # That reads as friction and is not: the message names the exact entry, the
+    # remedy is `--generate-baseline`, and it is the only thing that keeps the file
+    # honest about what is actually outstanding.
+    reportUnmatchedIgnoredErrors: true
+
+    # Don't treat PHPDoc-derived types as CERTAIN when reporting always-true /
+    # always-false comparisons. This is PHPStan's own suggested remedy (it prints
+    # it as a tip on every such error), and it is correct here because larastan
+    # infers a model's attribute types from the MIGRATION — a statement about
+    # persisted rows, not about an in-memory model.
+    #
+    # The difference is not academic. Verified in tinker, 2026-08-12:
+    #
+    #   (new Lease)->commencement_date === null                      => true
+    #   (new Unit)->area_sqm === null                                => true
+    #   (new LeaseOption)->window_opens_on instanceof DateTimeInterface => false
+    #
+    # PHPStan called all three impossible, because those columns are NOT NULL.
+    # They are reachable in every `saving` hook, which runs BEFORE the row exists
+    # — and the guards it flagged are what stop `Carbon::parse(null)` quietly
+    # returning "now" and comparing the wrong dates. Deleting them to satisfy the
+    # analyser would have introduced the bugs they prevent.
+    #
+    # This only relaxes certainty about PHPDoc types; genuine always-true/false
+    # on native types is still reported.
+    treatPhpDocTypesAsCertain: false
+
+    ignoreErrors:
+        # `?->` on a belongsTo whose foreign key is NOT NULL. larastan concludes the
+        # relation can never be null from the column definition; at runtime it is
+        # null whenever the parent row is not there — and Asset and Tenant both
+        # SOFT-DELETE, so that is an ordinary state rather than a corrupt one.
+        #
+        # Verified in tinker, 2026-08-12:
+        #   (new OwnerStatementRun(['asset_id' => 999999]))->asset === null  => true
+        #
+        # Dropping the `?->` would fatal when finalising a run whose property has
+        # been retired, or when building the ETA payload for a departed tenant.
+        # Listed here rather than added to the baseline because it is a DECISION
+        # about a false positive, not debt waiting to be burned down.
+        -
+            identifier: nullsafe.neverNull
+            paths:
+                - app/Services/OwnerAccounting/FinaliseOwnerStatementRunService.php
+                - app/Services/Eta/EtaJsonBuilder.php

@@ -45,6 +45,7 @@ class PayrollLine extends Model
         'employer_social_insurance' => 'decimal:2',
     ];
 
+    /** @return BelongsTo<Payroll, $this> */
     public function payroll(): BelongsTo
     {
         return $this->belongsTo(Payroll::class);

@@ -29,6 +29,7 @@ class PurchaseRequestLine extends Model
         'line_value' => 'decimal:2',
     ];
 
+    /** @return BelongsTo<PurchaseRequest, $this> */
     public function request(): BelongsTo
     {
         return $this->belongsTo(PurchaseRequest::class, 'purchase_request_id');

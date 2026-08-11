@@ -116,6 +116,7 @@ class JournalLine extends Model
         return $this->hasOne(BankMatch::class, 'journal_line_id');
     }
 
+    /** @return BelongsTo<JournalEntry, $this> */
     public function entry(): BelongsTo
     {
         return $this->belongsTo(JournalEntry::class, 'journal_entry_id');

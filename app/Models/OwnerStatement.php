@@ -135,6 +135,7 @@ class OwnerStatement extends Model
         return $this->belongsTo(Asset::class);
     }
 
+    /** @return BelongsTo<User, $this> */
     public function owner(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
