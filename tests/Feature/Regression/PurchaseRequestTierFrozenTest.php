@@ -90,9 +90,16 @@ it('stops re-deriving once the request leaves requested', function () {
     expect($request->fresh()->status)->toBe(PurchaseRequest::STATUS_APPROVED)
         ->and($request->fresh()->required_permission)->toBe(ApprovalRule::TIER_1);
 
-    // A line changing now must not rewrite the record's account of who should have signed it.
-    $request->lines()->create(['description' => 'Compressor', 'quantity' => 1, 'unit_cost' => 50000]);
+    // A line can no longer BE added to a decided request — the stronger guarantee, added by the
+    // module 29 close-out (PurchaseRequestLinesFreezeOnApprovalTest). The parenthetical above was
+    // the belief that made this safe: "approve() judges the CURRENT total anyway". It does — once,
+    // at approval. Adding the line AFTERWARDS never re-enters it, so the commitment grew past the
+    // authority that signed it while this record still read tier_1.
+    expect(fn () => $request->fresh()->lines()->create([
+        'description' => 'Compressor', 'quantity' => 1, 'unit_cost' => 50000,
+    ]))->toThrow(DomainException::class);
 
+    // And the tier is still history, which is what this test is named for.
     expect($request->fresh()->required_permission)
         ->toBe(ApprovalRule::TIER_1, 'the frozen tier is history once decided');
 });

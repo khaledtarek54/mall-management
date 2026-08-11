@@ -61,6 +61,53 @@ class PurchaseRequestLine extends Model
 
     protected static function booted(): void
     {
+        // ── The lines are settled once the request is approved ─────────────────────────────────
+        // This is an approval-ladder hole, not a balance one. `recomputeTotal()` re-derives
+        // `total_value` from Σ lines on every line write, but deliberately freezes
+        // `required_permission` once the request leaves `requested` — so the record keeps saying
+        // who was SUPPOSED to sign it off (the F-104 fix, and correct). With the lines unfrozen:
+        //
+        //   raise 5,000 → tier_1 → a supervisor approves it, correctly;
+        //   add a 500,000 line to the approved request;
+        //   total_value becomes 505,000 while required_permission still reads tier_1.
+        //
+        // The mall is committed two tiers above what anyone with the authority signed off, and the
+        // record asserts a supervisor approved it. The mechanism whose whole job is to fail closed,
+        // failing open.
+        //
+        // The rule already existed as `PurchaseRequestLinesRelationManager::editable()`
+        // (`status === requested`, gating the add/edit/delete actions) — a property of that screen.
+        // Here it covers the import / console / service / future-screen paths too, mirroring the
+        // header freeze `PurchaseRequest::updating` already applies to asset / warehouse /
+        // justification: the lines are as much of what the approval signed off on as the warehouse
+        // the goods land in. (Module 29 close-out, 2026-08-11.)
+        // Frozen: WHAT was approved and at what price. `stock_movement_id` is deliberately absent —
+        // receiving goods stamps the line it fulfilled, on a request that is by definition past
+        // `requested`, and freezing the whole row would make the module unreceivable. (Caught by
+        // running the suite: the first cut of this guard broke 18 tests across receipt and GRNI
+        // clearing, which is the difference between "the approval is settled" and "the row is".)
+        $commercial = ['inventory_item_id', 'description', 'quantity', 'unit_cost', 'line_value'];
+
+        $assertRequestIsOpen = function (self $line, bool $isDelete = false) use ($commercial) {
+            $request = $line->request;
+
+            if ($request === null || $request->status === PurchaseRequest::STATUS_REQUESTED) {
+                return;
+            }
+
+            // An existing line may still be STAMPED by fulfilment; it may not be re-priced.
+            // A DELETE is always a change to what was approved, and nothing is dirty on one, so it
+            // cannot be waved through by the same test.
+            if (! $isDelete && $line->exists && ! $line->isDirty($commercial)) {
+                return;
+            }
+
+            throw new \DomainException(__('admin.purchase_requests.errors.lines_frozen_after_approval'));
+        };
+
+        static::saving(fn (self $line) => $assertRequestIsOpen($line));
+        static::deleting(fn (self $line) => $assertRequestIsOpen($line, isDelete: true));
+
         static::saving(function (self $line) {
             if ($line->inventory_item_id === null && blank($line->description)) {
                 throw new InvalidArgumentException('A purchase line must name a catalog item or describe what is being bought.');

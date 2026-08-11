@@ -41,11 +41,15 @@ function pegRequest(string $status, string $justification): PurchaseRequest
     $request = PurchaseRequest::create([
         'asset_id' => test()->asset->id,
         'reference' => 'PR-PEG-'.uniqid(),
-        'status' => $status,
         'justification' => $justification,
         'requested_by_user_id' => auth()->id(),
     ]);
+
+    // The line goes on while the request is still `requested`, then the status moves — because a
+    // line may no longer be ADDED to a decided request (PurchaseRequestLine's approval freeze).
+    // Building the fixture in the order the product does keeps it a reachable state.
     $request->lines()->create(['description' => 'Compressor assembly', 'quantity' => 1, 'unit_cost' => 4000]);
+    $request->forceFill(['status' => $status])->saveQuietly();
 
     return $request->refresh();
 }

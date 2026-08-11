@@ -47,6 +47,30 @@ consumables, **and services**" — and a service is not stock.
 
 ## 2. Business rules
 
+**The approved LINES are frozen too (2026-08-11, module 29 close-out).** `PurchaseRequest::updating`
+already froze the header — asset, warehouse, justification — because they are what the approval
+signed off on. The lines are that same thing, and were not frozen: `PurchaseRequestLinesRelation
+Manager::editable()` (`status === requested`) gated the add / edit / delete actions on that screen and
+nothing else. This is an **approval-ladder hole**, not a balance one:
+
+> raise 5,000 → tier_1 → a supervisor approves it, correctly · add a 500,000 line to the approved
+> request · `recomputeTotal()` re-derives `total_value` to 505,000 while `required_permission` stays
+> frozen at tier_1 — deliberately, because the record must keep saying who was *supposed* to sign it
+> off (the F-104 fix). The mall is committed two tiers above what anyone with the authority approved,
+> and the record asserts a supervisor approved it.
+
+`PurchaseRequestTierFrozenTest` carried the belief that made this look safe — *"approve() judges the
+CURRENT total anyway"*. It does, **once, at approval**; a line added afterwards never re-enters it.
+
+`PurchaseRequestLine::saving`/`deleting` now refuse when the request has left `requested` — but only
+for the **commercial** fields (`inventory_item_id`, `description`, `quantity`, `unit_cost`,
+`line_value`) plus any create or delete. `stock_movement_id` is deliberately excluded: **receiving
+goods stamps the line it fulfilled**, on a request that is past `requested` by definition, so
+freezing the whole row makes the module unreceivable. The first cut of the guard did exactly that and
+broke 18 tests across receipt and GRNI clearing — the difference between *"the approval is settled"*
+and *"the row is"*. Tests: `PurchaseRequestLinesFreezeOnApprovalTest`.
+
+
 Everything goes through `PurchaseRequestService`; the Filament actions are thin callers.
 
 - **FR-PROC-02 is the absence of an edge, not a comment.** `PurchaseRequest::TRANSITIONS` has no
