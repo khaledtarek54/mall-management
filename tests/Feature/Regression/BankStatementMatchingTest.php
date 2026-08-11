@@ -7,6 +7,8 @@ use App\Models\BankStatementLine;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Models\LedgerAccount;
+use App\Services\Accounting\FiscalCalendar;
+use App\Services\Accounting\JournalPostingService;
 use App\Services\Banking\MatchBankStatementLineService;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
@@ -44,35 +46,37 @@ function bankFixture(): array
     return [$asset, $account, $statement, $bankLedger];
 }
 
-/** A posted entry with one bank leg — the shape every money source produces. */
+/**
+ * A posted entry with one bank leg — the shape every money source produces.
+ *
+ * Built through the REAL posting engine rather than by hand. A line on a posted entry is immutable,
+ * so hand-crafting one is a state production cannot reach; driving `JournalPostingService` also
+ * means these tests exercise the balanced-or-reject validation every real posting goes through.
+ */
 function bookPosting(LedgerAccount $bankLedger, float $amount, string $date, ?int $assetId = null): JournalLine
 {
     $other = LedgerAccount::where('code', '41101001')->firstOrFail(); // Rent revenue
-
-    $entry = JournalEntry::create([
-        'entry_date' => $date,
-        'description_en' => 'Test posting',
-        'status' => 'posted',
-        'asset_id' => $assetId,
-    ]);
-
     $in = $amount > 0;
 
-    $line = JournalLine::create([
-        'journal_entry_id' => $entry->id,
-        'ledger_account_id' => $bankLedger->id,
-        'debit' => $in ? abs($amount) : 0,
-        'credit' => $in ? 0 : abs($amount),
+    $entry = app(JournalPostingService::class)->post([
+        'entry_date' => $date,
+        'description_en' => 'Test posting',
+        'asset_id' => $assetId,
+        'lines' => [
+            [
+                'ledger_account_id' => $bankLedger->id,
+                'debit' => $in ? abs($amount) : 0,
+                'credit' => $in ? 0 : abs($amount),
+            ],
+            [
+                'ledger_account_id' => $other->id,
+                'debit' => $in ? 0 : abs($amount),
+                'credit' => $in ? abs($amount) : 0,
+            ],
+        ],
     ]);
 
-    JournalLine::create([
-        'journal_entry_id' => $entry->id,
-        'ledger_account_id' => $other->id,
-        'debit' => $in ? 0 : abs($amount),
-        'credit' => $in ? abs($amount) : 0,
-    ]);
-
-    return $line;
+    return $entry->lines->firstWhere('ledger_account_id', $bankLedger->id);
 }
 
 function statementLine(BankStatement $statement, float $amount, string $date, ?string $ref = null): BankStatementLine
@@ -89,6 +93,8 @@ function statementLine(BankStatement $statement, float $amount, string $date, ?s
 beforeEach(function () {
     $this->seed(ChartOfAccountsSeeder::class);
     $this->seed(AccountMappingSeeder::class);
+    // The posting engine refuses a date with no open period, so the calendar has to exist.
+    app(FiscalCalendar::class)->ensureYear(2026);
 });
 
 it('matches a statement line to the posting that explains it, and posts nothing', function () {
@@ -195,7 +201,7 @@ it('ignores a voided entry, which explains nothing', function () {
     $line = statementLine($statement, 1000, '2026-03-10');
     $posting = bookPosting($bankLedger, 1000, '2026-03-10');
 
-    $posting->entry->update(['status' => 'void']);
+    app(JournalPostingService::class)->void($posting->entry);
 
     // A voided entry has been reversed; its reversal is a separate line that can be matched itself.
     expect(app(MatchBankStatementLineService::class)->candidatesFor($line))->toHaveCount(0);

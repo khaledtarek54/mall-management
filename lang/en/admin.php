@@ -1,6 +1,18 @@
 <?php
 
 return [
+    'bank' => [
+        'consistent' => 'Balances',
+        'inconsistent' => 'Does not balance',
+        'matched' => 'Matched',
+        'unmatched' => 'Unmatched',
+        'partly_matched' => ':amount left',
+        'only_unmatched' => 'Unmatched only',
+        'import_done' => 'Imported :imported line(s); :skipped already held or empty.',
+        'import_inconsistent' => 'Careful: opening + lines does not equal the closing balance. The file may be truncated or its debit/credit columns read the other way round.',
+        'matched_done' => 'Linked. The ledger is unchanged — a match records agreement, it does not move money.',
+        'unmatched_done' => 'Link removed. The posting is available to match again.',
+    ],
     'errors' => [
         'bank_match_missing_posting' => 'That posting no longer exists — refresh and pick another.',
         'bank_match_already_matched' => 'That posting is already explained by another statement line. Reporting the same money as verified twice is exactly what this check prevents — unmatch it there first.',
@@ -692,6 +704,8 @@ return [
     ],
 
     'empty' => [
+        'bank_statements' => ['heading' => 'No statements yet', 'description' => 'Add the period you want to reconcile, then import the bank\'s CSV export into it.'],
+        'bank_statement_lines' => ['heading' => 'Nothing imported yet', 'description' => 'Use Import to upload the bank\'s CSV export for this period.'],
         'bank_accounts' => ['heading' => 'No bank accounts registered', 'description' => 'Add the accounts this property banks with. Nothing posts through them yet — they are what bank statements will reconcile against.'],
         'approval_rules' => ['heading' => 'No approval bands yet', 'description' => 'With no bands, requests for this area need no approval. Add one to turn the gate on.'],
         'marketing_posts' => [
@@ -1129,6 +1143,7 @@ return [
         'charge_codes' => 'Charge Codes',
         'approval_rules' => 'Approval Bands',
         'bank_accounts' => 'Bank Accounts',
+        'bank_statements' => 'Bank Statements',
         'account_mappings' => 'Posting Map',
         'ledger_accounts' => 'Chart of Accounts',
         'journal_entries' => 'Journal Entries',
@@ -1162,6 +1177,7 @@ return [
     ],
 
     'resources' => [
+        'bank_statement' => ['singular' => 'Bank Statement', 'plural' => 'Bank Statements'],
         'bank_account' => ['singular' => 'Bank Account', 'plural' => 'Bank Accounts'],
         'approval_rule' => ['singular' => 'Approval Band', 'plural' => 'Approval Bands'],
         'charge_code' => [
@@ -1716,6 +1732,9 @@ return [
     ],
 
     'actions' => [
+        'import_statement_lines' => 'Import',
+        'match_line' => 'Match',
+        'unmatch_line' => 'Unmatch',
         'open' => 'Open',
         'write_off_invoice' => 'Write off as bad debt',
         'write_off_invoice_confirm' => 'This accepts the debt will not be paid. The revenue stays in the period it was earned; the loss is booked to Bad Debt Expense on the date you choose. Use this instead of voiding — voiding would reverse the revenue in the current period.',
@@ -2195,6 +2214,16 @@ return [
     ],
 
     'fields' => [
+        'period_start' => 'From',
+        'period_end' => 'To',
+        'period' => 'Period',
+        'opening_balance' => 'Opening balance',
+        'closing_balance' => 'Closing balance',
+        'statement_lines' => 'Lines',
+        'statement_consistent' => 'Adds up',
+        'match_state' => 'Books',
+        'book_posting' => 'Book posting',
+        'csv_file' => 'CSV file',
         'bank_account_name' => 'Account name',
         'bank_name' => 'Bank',
         'bank_account_number' => 'Account number',
@@ -2494,6 +2523,13 @@ return [
     ],
 
     'helpers' => [
+        'bank_statement_section' => 'One period of one account, as the BANK reports it. Importing a statement posts nothing — it is the outside evidence the books get checked against.',
+        'closing_balance' => 'What the bank says the account held at the end. The reconciliation ends here: closing balance, plus what the books show and the bank does not, must equal the ledger.',
+        'statement_consistent' => 'Opening + the lines = closing, by the bank\'s own arithmetic. If this fails the file was truncated, half-mapped, or its signs were read backwards — fix that before matching anything.',
+        'import_statement_lines' => 'Upload the bank\'s CSV export. Re-importing an overlapping range is safe: rows already held are skipped, never duplicated.',
+        'match_line' => 'Link this line to the posting that explains it. :outstanding EGP still unexplained. Matching changes no balance — it records that the bank and the books agree.',
+        'book_posting' => 'Postings on this account, closest amount first, within a week of the line\'s date. Already-matched and opposite-direction postings are not offered.',
+        'unmatch_line' => 'Removes the link. Nothing was posted, so nothing is reversed — the postings simply become available to match again.',
         'bank_account_section' => 'The accounts the operator actually banks with. Registering one changes no balance and no posting — it is what a future bank statement will be reconciled against.',
         'bank_account_number' => 'Stored whole because a statement quotes it; shown as the last four only.',
         'bank_ledger_account' => 'Which chart account IS this bank. Postable accounts only — a summary account can never tie out to a statement.',
@@ -2599,6 +2635,7 @@ return [
     ],
 
     'sections' => [
+        'bank_statement' => 'Statement',
         'bank_account' => 'Bank account',
         'approval_rule' => 'Approval band',
         'charge_code' => 'Charge code',
@@ -3104,6 +3141,7 @@ return [
     ],
 
     'relation_managers' => [
+        'bank_statement_lines' => 'Statement lines',
         'notes' => 'Communications',
         'meter_readings' => 'Monthly Readings',
         'vendor_bill_payments' => 'Payments',
@@ -4565,6 +4603,12 @@ return [
     'deposits' => [
         'errors' => [
             'receipt_in_use' => 'This deposit has already been drawn on — netted against an invoice, refunded or forfeited — so the receipt behind it is fixed. Changing it would leave the tenant credited with money no longer recorded as received. Record a further receipt, refund or forfeit instead.',
+        ],
+    ],
+    'journal_entries' => [
+        'errors' => [
+            'posted_immutable' => 'A posted journal entry is permanent — its date, property and identity decide what the books say and which period they say it in. Void it (which posts a balanced reversing entry) and post a corrected one.',
+            'posted_line_immutable' => 'A line on a posted entry cannot change — debits would stop equalling credits and every report built on the trial balance would be wrong. Void the entry and post a corrected one.',
         ],
     ],
     'lease_deposits' => [
