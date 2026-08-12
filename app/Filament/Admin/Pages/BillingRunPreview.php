@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Services\MonthlyBillingService;
 use App\Support\Modules;
@@ -47,6 +48,7 @@ class BillingRunPreview extends Page implements HasSchemas, HasTable
 {
     use InteractsWithSchemas;
     use InteractsWithTable;
+    use SavesReportViews;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentCheck;
 
@@ -151,6 +153,7 @@ class BillingRunPreview extends Page implements HasSchemas, HasTable
     protected function getHeaderActions(): array
     {
         return [
+            $this->saveViewAction(),
             Action::make('post')
                 ->label(__('admin.billing_preview.post'))
                 ->icon('heroicon-o-play')

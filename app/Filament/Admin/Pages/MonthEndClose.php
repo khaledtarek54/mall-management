@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Resources\AccountingPeriods\AccountingPeriodResource;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
@@ -44,6 +45,7 @@ class MonthEndClose extends Page implements HasSchemas, HasTable
 {
     use InteractsWithSchemas;
     use InteractsWithTable;
+    use SavesReportViews;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCheckCircle;
 
@@ -124,6 +126,7 @@ class MonthEndClose extends Page implements HasSchemas, HasTable
     protected function getHeaderActions(): array
     {
         return [
+            $this->saveViewAction(),
             // Closing lives in the Accounting Periods resource and stays there — one place to
             // close a period, one gate. This is the route to it, carrying the month.
             Action::make('close')

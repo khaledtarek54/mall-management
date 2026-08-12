@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Resources\Tenants\TenantResource;
 use App\Models\Tenant;
 use App\Services\Reports\ReportService;
@@ -45,6 +46,7 @@ class ArCollections extends Page implements HasSchemas, HasTable
 {
     use InteractsWithSchemas;
     use InteractsWithTable;
+    use SavesReportViews;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPhoneArrowUpRight;
 
@@ -115,6 +117,7 @@ class ArCollections extends Page implements HasSchemas, HasTable
     protected function getHeaderActions(): array
     {
         return [
+            $this->saveViewAction(),
             Action::make('export_csv')
                 ->label(__('admin.reports.csv.export'))
                 ->icon('heroicon-o-table-cells')

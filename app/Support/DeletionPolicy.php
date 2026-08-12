@@ -271,6 +271,9 @@ class DeletionPolicy
         // never re-rated — so removing one changes what is billed NEXT and no history. Same
         // call, and same reasoning, as LeaseCamTerm's effective-dated terms.
         \App\Models\TaxRate::class => 'parent-managed: effective-dated rates on a tax code, edited from the code',
+        // A bookmark. It records no money, explains no balance and is referenced by nothing —
+        // deleting one loses a set of filters its owner chose to keep, and nothing else.
+        \App\Models\SavedReport::class => 'preference: a saved set of report filters, owned by the operator who saved it',
         \App\Models\ApprovalRule::class => 'configuration: approval bands',
         // Configuration today: nothing references a bank account yet. Slice 2 of the
         // reconciliation plan adds statements, and this MUST become WHEN_UNUSED blocked_by them at

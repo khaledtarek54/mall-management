@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Models\Asset;
 use App\Models\Unit;
@@ -37,6 +38,7 @@ class OccupancyMap extends Page implements HasSchemas, HasTable
 {
     use InteractsWithSchemas;
     use InteractsWithTable;
+    use SavesReportViews;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedSquares2x2;
 
@@ -126,6 +128,13 @@ class OccupancyMap extends Page implements HasSchemas, HasTable
     public static function getNavigationLabel(): string
     {
         return __('admin.occupancy.nav_label');
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            $this->saveViewAction(),
+        ];
     }
 
     public function getTitle(): string

@@ -2,8 +2,11 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Support\ActivityLogChangeRenderer;
+use App\Support\Modules;
 use BackedEnum;
+use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Filament\Forms\Components\DatePicker;
 use Filament\Pages\Page;
@@ -15,11 +18,13 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
 use Spatie\Activitylog\Models\Activity;
 
 class ActivityLog extends Page implements HasTable
 {
     use InteractsWithTable;
+    use SavesReportViews;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClock;
 
@@ -30,6 +35,13 @@ class ActivityLog extends Page implements HasTable
     public static function getNavigationLabel(): string
     {
         return __('admin.activity.nav_label');
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            $this->saveViewAction(),
+        ];
     }
 
     public function getTitle(): string
@@ -49,8 +61,8 @@ class ActivityLog extends Page implements HasTable
         // full-portfolio roles that legitimately see all properties — a
         // property-restricted user (owner / department staff) would
         // otherwise read other properties' financial + tenant activity.
-        return \App\Support\Modules::enabled('activity_log')
-            && (\Illuminate\Support\Facades\Auth::user()?->hasAnyRole(['super_admin', 'manager', 'viewer']) ?? false);
+        return Modules::enabled('activity_log')
+            && (Auth::user()?->hasAnyRole(['super_admin', 'manager', 'viewer']) ?? false);
     }
 
     public static function shouldRegisterNavigation(): bool
@@ -90,6 +102,7 @@ class ActivityLog extends Page implements HasTable
                         if (! $record->subject) {
                             return '—';
                         }
+
                         return match (class_basename($record->subject_type)) {
                             'Lease' => $record->subject->reference,
                             'Invoice' => $record->subject->number,
@@ -97,7 +110,7 @@ class ActivityLog extends Page implements HasTable
                             'Tenant' => $record->subject->name,
                             'Charge' => $record->subject->name,
                             'User', 'Role', 'Permission' => $record->subject->name,
-                            default => '#' . $record->subject_id,
+                            default => '#'.$record->subject_id,
                         };
                     })
                     ->fontFamily('mono')
@@ -174,11 +187,12 @@ class ActivityLog extends Page implements HasTable
                     ->indicateUsing(function (array $data): array {
                         $indicators = [];
                         if ($data['created_from'] ?? null) {
-                            $indicators[] = __('admin.filters.created_from') . ': ' . \Carbon\Carbon::parse($data['created_from'])->format('d/m/Y');
+                            $indicators[] = __('admin.filters.created_from').': '.Carbon::parse($data['created_from'])->format('d/m/Y');
                         }
                         if ($data['created_until'] ?? null) {
-                            $indicators[] = __('admin.filters.created_until') . ': ' . \Carbon\Carbon::parse($data['created_until'])->format('d/m/Y');
+                            $indicators[] = __('admin.filters.created_until').': '.Carbon::parse($data['created_until'])->format('d/m/Y');
                         }
+
                         return $indicators;
                     }),
             ])

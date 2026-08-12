@@ -86,6 +86,7 @@ use App\Models\VendorContact;
 use App\Models\VendorContract;
 use App\Models\VendorContractAmendment;
 use App\Models\ChargeCode;
+use App\Models\SavedReport;
 use App\Models\TaxCode;
 use App\Models\TaxRate;
 use App\Models\TenantDocument;
@@ -128,6 +129,7 @@ class PropertyIsolation
         AccountingPeriod::class,    // one operator period calendar
         AccountMapping::class,      // global posting-rule defaults + optional per-property override rows
         ChargeCode::class,          // portfolio billing vocabulary; the per-property override lives on the mapping it names
+        SavedReport::class,         // an operator's own report bookmark; the PROPERTY it filters on lives in its parameters and is re-clamped on open
         TaxCode::class,             // one tax law applies to the whole portfolio — a rate is national, not per-mall
         TaxRate::class,             // a rung on a TaxCode's dated ladder; shared for the same reason as its parent
         ApprovalRule::class,        // operator-wide approval policy (FR-CM-11) — authority is a company rule, not a per-mall one

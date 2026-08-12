@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Models\PurchaseRequest;
 use App\Services\MaintenanceWorkOrderService;
 use App\Services\TenantRequestService;
@@ -30,6 +31,7 @@ class Workflows extends Page implements HasSchemas, HasTable
 {
     use InteractsWithSchemas;
     use InteractsWithTable;
+    use SavesReportViews;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowPathRoundedSquare;
 
@@ -53,6 +55,13 @@ class Workflows extends Page implements HasSchemas, HasTable
     public static function getNavigationLabel(): string
     {
         return __('admin.workflows.nav');
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            $this->saveViewAction(),
+        ];
     }
 
     public function getTitle(): string

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Services\Reports\ReportService;
 use App\Support\Modules;
@@ -43,6 +44,7 @@ class OccupancyCost extends Page implements HasSchemas, HasTable
 {
     use InteractsWithSchemas;
     use InteractsWithTable;
+    use SavesReportViews;
 
     /** Commonly cited retail rules of thumb — a prompt to look, not a verdict. */
     public const AMBER_PCT = 20.0;
@@ -134,6 +136,7 @@ class OccupancyCost extends Page implements HasSchemas, HasTable
     protected function getHeaderActions(): array
     {
         return [
+            $this->saveViewAction(),
             Action::make('export_csv')
                 ->label(__('admin.reports.csv.export'))
                 ->icon('heroicon-o-table-cells')

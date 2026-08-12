@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Pages;
 
 use App\Filament\Admin\Concerns\PostsToLedger;
+use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Pages\Concerns\ScopesLedgerReport;
 use App\Models\LedgerAccount;
 use App\Services\Accounting\LedgerReportService;
@@ -45,6 +46,7 @@ class GeneralLedger extends Page implements HasSchemas, HasTable
     use InteractsWithSchemas;
     use InteractsWithTable;
     use PostsToLedger;
+    use SavesReportViews;
     use ScopesLedgerReport;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBookOpen;
@@ -125,6 +127,7 @@ class GeneralLedger extends Page implements HasSchemas, HasTable
     protected function getHeaderActions(): array
     {
         return [
+            $this->saveViewAction(),
             $this->postToLedgerAction(),
             // The GL had NO export at all — yet it is the raw transaction detail an accountant
             // reconciles against, the report they most want in a spreadsheet. Enabled once an

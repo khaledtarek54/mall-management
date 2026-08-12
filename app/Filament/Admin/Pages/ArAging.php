@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Models\Asset;
 use App\Models\Invoice;
@@ -44,6 +45,7 @@ class ArAging extends Page implements HasSchemas, HasTable
 {
     use InteractsWithSchemas;
     use InteractsWithTable;
+    use SavesReportViews;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowTrendingDown;
 
@@ -143,6 +145,7 @@ class ArAging extends Page implements HasSchemas, HasTable
     protected function getHeaderActions(): array
     {
         return [
+            $this->saveViewAction(),
             // AR aging is the collections worklist — who owes what, how late. It had no export;
             // now it exports the current bucket's invoices to CSV so an operator can chase them.
             Action::make('export_csv')

@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Pages;
 
 use App\Filament\Admin\Pages\Concerns\RendersFinancialStatement;
+use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Pages\Concerns\ScopesLedgerReport;
 use App\Services\Accounting\LedgerReportPdfService;
 use App\Services\Accounting\LedgerReportService;
@@ -27,6 +28,7 @@ class CashFlow extends Page implements HasSchemas, HasTable
     use InteractsWithSchemas;
     use InteractsWithTable;
     use RendersFinancialStatement;
+    use SavesReportViews;
     use ScopesLedgerReport;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-banknotes';
@@ -45,6 +47,7 @@ class CashFlow extends Page implements HasSchemas, HasTable
     protected function getHeaderActions(): array
     {
         return [
+            $this->saveViewAction(),
             Action::make('download_pdf')
                 ->label(__('admin.actions.download_pdf'))
                 ->icon('heroicon-o-document-arrow-down')

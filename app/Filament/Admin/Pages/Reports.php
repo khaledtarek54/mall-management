@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Widgets\MonthlyCloseStats;
 use App\Services\Reports\MonthlyCloseReportPdfService;
 use App\Services\Reports\ReportService;
@@ -36,6 +37,7 @@ class Reports extends Page implements HasSchemas, HasTable
 {
     use InteractsWithSchemas;
     use InteractsWithTable;
+    use SavesReportViews;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedChartBar;
 
@@ -123,6 +125,7 @@ class Reports extends Page implements HasSchemas, HasTable
     protected function getHeaderActions(): array
     {
         return [
+            $this->saveViewAction(),
             Action::make('download_monthly_close')
                 ->label(__('admin.reports.download_monthly_close_pdf'))
                 ->icon('heroicon-o-arrow-down-tray')

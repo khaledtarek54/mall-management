@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Services\Reports\ReportService;
 use App\Support\Modules;
@@ -40,6 +41,7 @@ class SalesAnalytics extends Page implements HasSchemas, HasTable
 {
     use InteractsWithSchemas;
     use InteractsWithTable;
+    use SavesReportViews;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPresentationChartLine;
 
@@ -112,6 +114,7 @@ class SalesAnalytics extends Page implements HasSchemas, HasTable
     protected function getHeaderActions(): array
     {
         return [
+            $this->saveViewAction(),
             Action::make('export_csv')
                 ->label(__('admin.reports.csv.export'))
                 ->icon('heroicon-o-table-cells')

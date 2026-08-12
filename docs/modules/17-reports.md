@@ -31,6 +31,23 @@ The module is **optional** (Module flag: `reports`; defaults enabled) and scoped
 
 ## 3. Business rules & invariants
 
+> **Filters can be saved (2026-08-12).** Every report takes them and none were rememberable: "AR
+> ageing as at last month-end for Atriom Walk" was six clicks, every time. "Save this view" names
+> the filters a page is currently carrying; saved views list first on the hub.
+>
+> Parameters are read from each page's own public scalar properties by reflection
+> (`App\Support\ReportParameters`) — so a report that grows a filter has it saved with nothing to
+> register. Trait-provided properties are excluded explicitly: reflection reports them as declared
+> on the using class, and `InteractsWithTable` alone would have put `isTableLoaded` into every
+> saved view. Applying is deliberately lossy — a key the report no longer declares is dropped
+> rather than throwing.
+>
+> **Sharing publishes filters, not access.** A shared view carries a PROPERTY in its parameters, so
+> two independent things stop it becoming a capability: the hub asks the report page's own
+> `canAccess()` before listing it, and the report re-clamps every parameter exactly as it does for
+> a URL typed by hand. Both are tested, each with a paired control. A shared view can only be
+> deleted by the person who saved it.
+
 > **There is an index (2026-08-12).** Nineteen reports were scattered across five sidebar groups
 > with nothing anywhere listing them: an operator who had not been shown a report did not know it
 > existed. `/admin/report-hub` groups them — Financial · Receivables · Leasing · Operations · Tax —

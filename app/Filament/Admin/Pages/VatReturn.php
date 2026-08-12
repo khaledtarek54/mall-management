@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Pages\Concerns\ScopesLedgerReport;
 use App\Services\Reports\VatReturnService;
 use App\Support\ReportCsv;
@@ -39,6 +40,7 @@ class VatReturn extends Page implements HasSchemas, HasTable
 {
     use InteractsWithSchemas;
     use InteractsWithTable;
+    use SavesReportViews;
     use ScopesLedgerReport;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedReceiptPercent;
@@ -95,6 +97,7 @@ class VatReturn extends Page implements HasSchemas, HasTable
     protected function getHeaderActions(): array
     {
         return [
+            $this->saveViewAction(),
             // CSV only, deliberately. A VAT return is worked in a spreadsheet and handed to an
             // accountant who reconciles it against their own figures; a PDF of it would look like
             // a filed document, which this is not.

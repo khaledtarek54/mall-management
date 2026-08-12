@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Pages;
 
 use App\Filament\Admin\Concerns\PostsToLedger;
 use App\Filament\Admin\Pages\Concerns\RendersFinancialStatement;
+use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Pages\Concerns\ScopesLedgerReport;
 use App\Services\Accounting\LedgerReportPdfService;
 use App\Services\Accounting\LedgerReportService;
@@ -29,6 +30,7 @@ class IncomeStatement extends Page implements HasSchemas, HasTable
     use InteractsWithTable;
     use PostsToLedger;
     use RendersFinancialStatement;
+    use SavesReportViews;
     use ScopesLedgerReport;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedChartBar;
@@ -47,6 +49,7 @@ class IncomeStatement extends Page implements HasSchemas, HasTable
     protected function getHeaderActions(): array
     {
         return [
+            $this->saveViewAction(),
             $this->postToLedgerAction(),
             Action::make('download_pdf')
                 ->label(__('admin.actions.download_pdf'))
