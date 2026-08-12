@@ -1167,6 +1167,9 @@ return [
     ],
 
     'reports' => [
+        'xlsx' => [
+            'export' => 'تصدير Excel',
+        ],
         'section' => 'القسم',
         'comparison' => 'مقارنة مع',
         'comparison_none' => 'بدون مقارنة',
@@ -1931,6 +1934,8 @@ return [
         'option_closing' => 'مهلة إشعار الخيار تقترب (≤ 90 يومًا)',
         'expiring_critical' => 'انتهاء حرج (≤ 30 يومًا)',
         'holdover' => 'تجاوز الانتهاء (لا يزال نشطًا)',
+        'missing_sales' => 'إقرار المبيعات غير مُقدَّم (الشهر الماضي)',
+        'contract_notice_due' => 'مهلة إشعار العقد مستحقة',
         'this_month' => 'هذا الشهر',
         'this_year' => 'هذه السنة',
         'event' => 'الحدث',

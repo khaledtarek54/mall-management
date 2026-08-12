@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Filament\Admin\Pages\Concerns\ExportsReport;
 use App\Contracts\DeliverableReport;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
@@ -48,6 +49,7 @@ use App\Support\AgingBuckets;
 class ArAging extends Page implements DeliverableReport, HasSchemas, HasTable
 {
     use InteractsWithSchemas;
+    use ExportsReport;
     use InteractsWithTable;
     use SavesReportViews;
 
@@ -152,17 +154,7 @@ class ArAging extends Page implements DeliverableReport, HasSchemas, HasTable
             $this->saveViewAction(),
             // AR aging is the collections worklist — who owes what, how late. It had no export;
             // now it exports the current bucket's invoices to CSV so an operator can chase them.
-            Action::make('export_csv')
-                ->label(__('admin.reports.csv.export'))
-                ->icon('heroicon-o-table-cells')
-                ->color('gray')
-                ->visible(fn () => Auth::user()?->can('reports.view') ?? false)
-                ->authorize(fn () => Auth::user()?->can('reports.view') ?? false)
-                ->action(function () {
-                    $csv = $this->reportCsv();
-
-                    return ReportCsv::stream($csv['filename'], $csv['headers'], $csv['rows']);
-                }),
+            ...$this->exportActions(),
         ];
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Filament\Admin\Pages\Concerns\ExportsReport;
 use App\Contracts\DeliverableReport;
 use App\Filament\Admin\Concerns\PostsToLedger;
 use App\Filament\Admin\Pages\Concerns\RendersFinancialStatement;
@@ -28,6 +29,7 @@ use Filament\Tables\Table;
 class BalanceSheet extends Page implements DeliverableReport, HasSchemas, HasTable
 {
     use InteractsWithSchemas;
+    use ExportsReport;
     use InteractsWithTable;
     use PostsToLedger;
     use RendersFinancialStatement;
@@ -72,17 +74,7 @@ class BalanceSheet extends Page implements DeliverableReport, HasSchemas, HasTab
                         ['Content-Type' => 'application/pdf'],
                     );
                 }),
-            Action::make('export_csv')
-                ->label(__('admin.reports.csv.export'))
-                ->icon('heroicon-o-table-cells')
-                ->color('gray')
-                ->visible(fn () => $this->canViewReports())
-                ->authorize(fn () => $this->canViewReports())
-                ->action(function () {
-                    $csv = $this->reportCsv();
-
-                    return ReportCsv::stream($csv['filename'], $csv['headers'], $csv['rows']);
-                }),
+            ...$this->exportActions(),
         ];
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Filament\Admin\Pages\Concerns\ExportsReport;
 use App\Contracts\DeliverableReport;
 use App\Filament\Admin\Concerns\PostsToLedger;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
@@ -46,6 +47,7 @@ use Illuminate\Support\Collection;
 class GeneralLedger extends Page implements DeliverableReport, HasSchemas, HasTable
 {
     use InteractsWithSchemas;
+    use ExportsReport;
     use InteractsWithTable;
     use PostsToLedger;
     use SavesReportViews;
@@ -144,17 +146,7 @@ class GeneralLedger extends Page implements DeliverableReport, HasSchemas, HasTa
             // The GL had NO export at all — yet it is the raw transaction detail an accountant
             // reconciles against, the report they most want in a spreadsheet. Enabled once an
             // account is selected (there is nothing to export otherwise).
-            Action::make('export_csv')
-                ->label(__('admin.reports.csv.export'))
-                ->icon('heroicon-o-table-cells')
-                ->color('gray')
-                ->visible(fn () => $this->canViewReports() && $this->accountId !== null)
-                ->authorize(fn () => $this->canViewReports())
-                ->action(function () {
-                    $csv = $this->reportCsv();
-
-                    return ReportCsv::stream($csv['filename'], $csv['headers'], $csv['rows']);
-                }),
+            ...$this->exportActions(),
         ];
     }
 

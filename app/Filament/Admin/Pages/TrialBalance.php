@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Filament\Admin\Pages\Concerns\ExportsReport;
 use App\Contracts\DeliverableReport;
 use App\Filament\Admin\Concerns\PostsToLedger;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
@@ -34,6 +35,7 @@ use Filament\Tables\Table;
 class TrialBalance extends Page implements DeliverableReport, HasSchemas, HasTable
 {
     use InteractsWithSchemas;
+    use ExportsReport;
     use InteractsWithTable;
     use PostsToLedger;
     use SavesReportViews;
@@ -97,17 +99,7 @@ class TrialBalance extends Page implements DeliverableReport, HasSchemas, HasTab
                 }),
             // CSV, not just PDF — the accountant works the trial balance in a spreadsheet
             // (reconcile, pivot, hand to an auditor). A PDF can only be looked at.
-            Action::make('export_csv')
-                ->label(__('admin.reports.csv.export'))
-                ->icon('heroicon-o-table-cells')
-                ->color('gray')
-                ->visible(fn () => $this->canViewReports())
-                ->authorize(fn () => $this->canViewReports())
-                ->action(function () {
-                    $csv = $this->reportCsv();
-
-                    return ReportCsv::stream($csv['filename'], $csv['headers'], $csv['rows']);
-                }),
+            ...$this->exportActions(),
         ];
     }
 

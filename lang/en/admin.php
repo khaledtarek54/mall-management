@@ -1175,6 +1175,9 @@ return [
     ],
 
     'reports' => [
+        'xlsx' => [
+            'export' => 'Export Excel',
+        ],
         'section' => 'Section',
         'comparison' => 'Compare with',
         'comparison_none' => 'No comparison',
@@ -1942,6 +1945,8 @@ return [
         'option_closing' => 'Option notice closing (≤ 90 days)',
         'expiring_critical' => 'Expiring Critical (≤ 30 days)',
         'holdover' => 'Holdover (past end date, still active)',
+        'missing_sales' => 'Sales declaration missing (last month)',
+        'contract_notice_due' => 'Contract notice deadline due',
         'this_month' => 'This Month',
         'this_year' => 'This Year',
         'event' => 'Event',

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Filament\Admin\Pages\Concerns\ExportsReport;
 use App\Contracts\DeliverableReport;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Pages\Concerns\ScopesLedgerReport;
@@ -40,6 +41,7 @@ use Filament\Tables\Table;
 class VatReturn extends Page implements DeliverableReport, HasSchemas, HasTable
 {
     use InteractsWithSchemas;
+    use ExportsReport;
     use InteractsWithTable;
     use SavesReportViews;
     use ScopesLedgerReport;
@@ -102,17 +104,7 @@ class VatReturn extends Page implements DeliverableReport, HasSchemas, HasTable
             // CSV only, deliberately. A VAT return is worked in a spreadsheet and handed to an
             // accountant who reconciles it against their own figures; a PDF of it would look like
             // a filed document, which this is not.
-            Action::make('export_csv')
-                ->label(__('admin.reports.csv.export'))
-                ->icon('heroicon-o-table-cells')
-                ->color('gray')
-                ->visible(fn () => $this->canViewReports())
-                ->authorize(fn () => $this->canViewReports())
-                ->action(function () {
-                    $csv = $this->reportCsv();
-
-                    return ReportCsv::stream($csv['filename'], $csv['headers'], $csv['rows']);
-                }),
+            ...$this->exportActions(),
         ];
     }
 

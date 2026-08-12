@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Filament\Admin\Pages\Concerns\ExportsReport;
 use App\Contracts\DeliverableReport;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
@@ -42,6 +43,7 @@ use Illuminate\Support\Facades\Auth;
 class RentRoll extends Page implements DeliverableReport, HasSchemas, HasTable
 {
     use InteractsWithSchemas;
+    use ExportsReport;
     use InteractsWithTable;
     use SavesReportViews;
 
@@ -117,17 +119,7 @@ class RentRoll extends Page implements DeliverableReport, HasSchemas, HasTable
     {
         return [
             $this->saveViewAction(),
-            Action::make('export_csv')
-                ->label(__('admin.reports.csv.export'))
-                ->icon('heroicon-o-table-cells')
-                ->color('gray')
-                ->visible(fn (): bool => Auth::user()?->can('reports.view') ?? false)
-                ->authorize(fn (): bool => Auth::user()?->can('reports.view') ?? false)
-                ->action(function () {
-                    $csv = $this->reportCsv();
-
-                    return ReportCsv::stream($csv['filename'], $csv['headers'], $csv['rows']);
-                }),
+            ...$this->exportActions(),
         ];
     }
 

@@ -14,6 +14,7 @@
         "laravel/tinker": "^3.0",
         "mailersend/laravel-driver": "^3.2",
         "mpdf/mpdf": "^8.3",
+        "openspout/openspout": "^4.32",
         "sentry/sentry-laravel": "^4.27",
         "spatie/laravel-activitylog": "^5.0",
         "spatie/laravel-backup": "^10.3",
