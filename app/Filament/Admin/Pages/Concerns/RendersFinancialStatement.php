@@ -158,6 +158,7 @@ trait RendersFinancialStatement
             ]))
             ->groups([
                 Group::make('section')
+                    ->label(__('admin.fields.section'))
                     ->getKeyFromRecordUsing(fn (array $record): string => $record['section'])
                     ->getTitleFromRecordUsing(fn (array $record): string => $record['section']),
             ])

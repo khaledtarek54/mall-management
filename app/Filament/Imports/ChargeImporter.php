@@ -5,6 +5,7 @@ namespace App\Filament\Imports;
 use App\Models\Charge;
 use App\Models\Lease;
 use App\Services\ChargeScheduleService;
+use App\Support\TenantScope;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Imports\ImportColumn;
 use Filament\Actions\Imports\Importer;
@@ -54,21 +55,21 @@ class ChargeImporter extends Importer
 
         return [
             $inputOnly(ImportColumn::make('lease_reference')
-                ->label('Lease reference')
+                ->label(__('admin.imports.columns.lease_reference'))
                 ->requiredMapping()
                 ->rules(['required', 'string'])),
 
             $inputOnly(ImportColumn::make('type')
-                ->label('Charge type (charge code)')
+                ->label(__('admin.imports.columns.charge_type'))
                 ->requiredMapping()
                 ->rules(['required', 'string', 'max:64'])),
 
             $inputOnly(ImportColumn::make('name')
-                ->label('Line description')
+                ->label(__('admin.imports.columns.line_description'))
                 ->rules(['nullable', 'string', 'max:255'])),
 
             $inputOnly(ImportColumn::make('amount')
-                ->label('Amount per cycle (EGP)')
+                ->label(__('admin.imports.columns.amount_per_cycle'))
                 ->requiredMapping()
                 ->numeric()
                 ->rules(['required', 'numeric', 'min:0'])),
@@ -77,12 +78,12 @@ class ChargeImporter extends Importer
                 ->rules(['nullable', 'in:monthly,quarterly,annually,one_time'])),
 
             $inputOnly(ImportColumn::make('effective_from')
-                ->label('Effective from (YYYY-MM-DD)')
+                ->label(__('admin.imports.columns.effective_from'))
                 ->requiredMapping()
                 ->rules(['required', 'date'])),
 
             $inputOnly(ImportColumn::make('vat_rate')
-                ->label('VAT % override — LEAVE BLANK to use the tax catalogue')
+                ->label(__('admin.imports.columns.vat_override'))
                 ->numeric()
                 ->rules(['nullable', 'numeric', 'min:0', 'max:100'])),
         ];
@@ -142,7 +143,7 @@ class ChargeImporter extends Importer
         // `visibleAssetIds()` returning NULL means unrestricted (super_admin), not "no properties" —
         // passing it straight to whereIn() is a TypeError, and defaulting it to [] would silently
         // refuse every row for the one user allowed to import anything.
-        $visible = \App\Support\TenantScope::visibleAssetIds();
+        $visible = TenantScope::visibleAssetIds();
 
         return Lease::query()
             ->where('reference', $reference)

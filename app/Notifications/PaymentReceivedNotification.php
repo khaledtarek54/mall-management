@@ -29,7 +29,11 @@ class PaymentReceivedNotification extends Notification
             ->greeting(__('admin.notifications.payment_received_greeting', ['name' => $this->payment->tenant?->name ?? '']))
             ->line(__('admin.notifications.payment_received_body', [
                 'amount' => 'EGP '.number_format((float) $this->payment->amount, 2),
-                'method' => __("admin.fields.payment_methods.{$this->payment->method}", [], null) ?: $this->payment->method,
+                // admin.enums.method is the canonical map (the same one the tables and filters
+                // read). The old key `admin.fields.payment_methods.*` never existed, and the
+                // `?:` fallback could not catch it: a missing __() returns the key itself,
+                // which is truthy — so the raw key was emailed to the tenant.
+                'method' => __("admin.enums.method.{$this->payment->method}"),
                 'date' => $this->payment->payment_date->format('d/m/Y'),
             ]))
             ->when($invoiceLines !== '', fn (MailMessage $m) => $m->line(__('admin.notifications.payment_received_allocations', ['invoices' => $invoiceLines])))

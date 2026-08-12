@@ -20,8 +20,8 @@ class InvoiceExporter extends Exporter
             ExportColumn::make('period_start')->label(__('admin.filters.period_from')),
             ExportColumn::make('issue_date')->label(__('admin.filters.issued_from')),
             ExportColumn::make('due_date')->label(__('admin.tables.invoice.due_date')),
-            ExportColumn::make('subtotal')->label('Subtotal'),
-            ExportColumn::make('vat_total')->label('VAT'),
+            ExportColumn::make('subtotal')->label(__('admin.tables.invoice.subtotal')),
+            ExportColumn::make('vat_total')->label(__('admin.tables.invoice.vat')),
             ExportColumn::make('total')->label(__('admin.tables.invoice.total')),
             ExportColumn::make('paid_amount')->label(__('admin.tables.invoice.paid')),
             ExportColumn::make('balance')->label(__('admin.tables.invoice.balance')),
@@ -31,10 +31,11 @@ class InvoiceExporter extends Exporter
 
     public static function getCompletedNotificationBody(Export $export): string
     {
-        $body = 'Your invoice export has completed and ' . number_format($export->successful_rows) . ' ' . str('row')->plural($export->successful_rows) . ' exported.';
+        $body = 'Your invoice export has completed and '.number_format($export->successful_rows).' '.str('row')->plural($export->successful_rows).' exported.';
         if ($failed = $export->getFailedRowsCount()) {
-            $body .= ' ' . number_format($failed) . ' ' . str('row')->plural($failed) . ' failed to export.';
+            $body .= ' '.number_format($failed).' '.str('row')->plural($failed).' failed to export.';
         }
+
         return $body;
     }
 

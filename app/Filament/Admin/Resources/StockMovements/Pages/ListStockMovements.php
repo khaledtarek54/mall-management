@@ -104,7 +104,7 @@ class ListStockMovements extends ListRecords
                 ...$this->movementFields(),
                 TextInput::make('quantity')
                     ->label(__('admin.inventory.fields.quantity'))
-                    ->helperText('+ found / − shrinkage')
+                    ->helperText(__('admin.placeholders.stock_adjust_sign'))
                     ->numeric()
                     ->required(),
                 ...$this->metaFields(),

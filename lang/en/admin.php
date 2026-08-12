@@ -2509,7 +2509,21 @@ return [
         'payment_return_failed' => 'The payment did not go through. You can try again or pick another invoice.',
     ],
 
+    // Named filter/sort states for a resource list — App\Filament\Admin\Resources\Concerns\SavesTableViews.
+    'saved_views' => [
+        'menu' => 'Saved views',
+        'save' => 'Save view',
+        'save_description' => 'Keeps the filters, sort and search this list is showing right now, under a name you choose.',
+        'share' => 'Share with the team',
+        'share_help' => 'Everyone who can open this list will see the view. It shares a set of filters, never access — each person still sees only their own properties and records.',
+        'saved' => 'View saved',
+        'saved_body' => 'Reopen it any time from Saved views.',
+        'delete' => 'Delete a saved view',
+        'deleted' => 'View deleted',
+    ],
+
     'fields' => [
+        'section' => 'Section',
         'opening_balance' => 'Opening balance',
         'closing_balance' => 'Closing balance',
         'statement_lines' => 'Lines',

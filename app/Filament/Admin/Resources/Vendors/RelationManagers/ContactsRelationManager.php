@@ -45,10 +45,10 @@ class ContactsRelationManager extends RelationManager
             ->searchable(false)
             ->columns([
                 TextColumn::make('name')->label(__('admin.fields.contact_person'))->weight('bold'),
-                TextColumn::make('role')->placeholder('—')->color('gray'),
-                TextColumn::make('phone')->copyable()->placeholder('—'),
-                TextColumn::make('email')->copyable()->placeholder('—'),
-                IconColumn::make('is_primary')->boolean()->label(__('admin.fields.primary_contact') ?: 'Primary'),
+                TextColumn::make('role')->label(__('admin.fields.role'))->placeholder('—')->color('gray'),
+                TextColumn::make('phone')->label(__('admin.tables.vendor.phone'))->copyable()->placeholder('—'),
+                TextColumn::make('email')->label(__('admin.fields.email'))->copyable()->placeholder('—'),
+                IconColumn::make('is_primary')->boolean()->label(__('admin.fields.primary_contact')),
             ])
             ->headerActions([
                 CreateAction::make()->label(__('admin.actions.add_contact'))

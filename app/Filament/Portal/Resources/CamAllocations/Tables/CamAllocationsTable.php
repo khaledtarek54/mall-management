@@ -67,6 +67,7 @@ class CamAllocationsTable
             ])
             ->filters([
                 SelectFilter::make('status')
+                    ->label(__('admin.filters.status'))
                     ->options(fn () => __('admin.statuses.cam_allocation')),
             ])
             ->recordActions([

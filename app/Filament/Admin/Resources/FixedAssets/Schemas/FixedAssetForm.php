@@ -3,6 +3,8 @@
 namespace App\Filament\Admin\Resources\FixedAssets\Schemas;
 
 use App\Models\FixedAsset;
+use App\Services\DepreciationService;
+use App\Support\CategorySuggestions;
 use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -10,6 +12,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Illuminate\Validation\Rules\Unique;
 
 class FixedAssetForm
 {
@@ -37,7 +40,7 @@ class FixedAssetForm
                 // Clamped: `asset_id` is client-supplied, and a unique rule keyed on the
                 // raw value leaks whether a tag exists in a property the user cannot see
                 // (TenantScope::clampAssetId).
-                ->unique(ignoreRecord: true, modifyRuleUsing: fn (\Illuminate\Validation\Rules\Unique $rule, Get $get) => $rule->where('asset_id', TenantScope::clampAssetId($get('asset_id')))),
+                ->unique(ignoreRecord: true, modifyRuleUsing: fn (Unique $rule, Get $get) => $rule->where('asset_id', TenantScope::clampAssetId($get('asset_id')))),
             // A real dropdown, not a datalist (a <datalist> is only a browser autocomplete
             // hint that won't reliably open on click). Category is free-form by design, so the
             // list merges the built-in suggestions with values already in use and keeps a
@@ -50,13 +53,13 @@ class FixedAssetForm
                 // current state so a stored-but-unlisted value (or one just added via "create")
                 // stays a valid option — otherwise Filament's implicit in:options rule would
                 // reject it on save.
-                ->options(fn (Get $get): array => collect(['furniture', 'equipment', 'HVAC', 'IT', 'vehicles', 'fit-out'])
-                    ->merge(FixedAsset::query()->pluck('category'))
-                    ->push($get('category'))
-                    ->filter()
-                    ->unique()
-                    ->mapWithKeys(fn (string $category): array => [$category => $category])
-                    ->all())
+                // Labels are translated, VALUES are the stored strings — see CategorySuggestions.
+                ->options(fn (Get $get): array => CategorySuggestions::options(
+                    'fixed_asset',
+                    CategorySuggestions::FIXED_ASSET,
+                    FixedAsset::query()->pluck('category'),
+                    $get('category'),
+                ))
                 ->createOptionForm([
                     TextInput::make('value')
                         ->label(__('admin.fixed_assets.fields.category'))
@@ -79,13 +82,13 @@ class FixedAssetForm
                 // depreciated — else NBV goes negative and depreciation stops forever (F-86).
                 // Inline so the operator sees it before submit; EditFixedAsset re-checks server
                 // side. `$get` reads the sibling salvage field so the pair is judged together.
-                ->rule(fn (Get $get, ?\App\Models\FixedAsset $record) => function (string $attr, $value, \Closure $fail) use ($get, $record) {
+                ->rule(fn (Get $get, ?FixedAsset $record) => function (string $attr, $value, \Closure $fail) use ($get, $record) {
                     if ($record === null) {
                         return; // create: nothing depreciated yet
                     }
 
                     try {
-                        app(\App\Services\DepreciationService::class)->assertRecostValid(
+                        app(DepreciationService::class)->assertRecostValid(
                             $record,
                             (float) $value,
                             (float) ($get('salvage_value') ?? 0),

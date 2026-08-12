@@ -138,7 +138,11 @@ class ReportHub extends Page implements HasTable
                     ->searchable(),
             ])
             ->groups([
+                // Labelled explicitly. With no ->label(), Filament humanises the attribute name
+                // and renders the English word "Category" — in the group selector AND in every
+                // group heading — with no string in this file for a translation sweep to find.
                 Group::make('category')
+                    ->label(__('admin.fields.category'))
                     ->getKeyFromRecordUsing(fn (array $record): string => $record['category'])
                     ->getTitleFromRecordUsing(fn (array $record): string => $record['category']),
             ])

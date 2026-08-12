@@ -34,7 +34,7 @@ class BankAccountForm
                         ->label(__('admin.fields.bank_account_name'))
                         ->required()
                         ->maxLength(120)
-                        ->placeholder('CIB — current'),
+                        ->placeholder(__('admin.placeholders.bank_account_name')),
 
                     TextInput::make('bank_name')
                         ->label(__('admin.fields.bank_name'))

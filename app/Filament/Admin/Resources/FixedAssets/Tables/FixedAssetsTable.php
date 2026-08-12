@@ -7,6 +7,7 @@ use App\Models\DepreciationEntry;
 use App\Models\FixedAsset;
 use App\Services\DepreciationService;
 use App\Services\DisposeFixedAssetService;
+use App\Support\CategorySuggestions;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
@@ -48,6 +49,8 @@ class FixedAssetsTable
                     ->toggleable(),
                 TextColumn::make('category')
                     ->label(__('admin.fixed_assets.fields.category'))
+                    // Translated for the values we seed, raw for one the operator invented.
+                    ->formatStateUsing(fn (?string $state) => CategorySuggestions::label('fixed_asset', $state))
                     ->placeholder('—')
                     ->toggleable(),
                 TextColumn::make('acquisition_date')
@@ -112,13 +115,13 @@ class FixedAssetsTable
                 // Free-text on the form (with a "create" affordance), so offer what's in use.
                 SelectFilter::make('category')
                     ->label(__('admin.fixed_assets.fields.category'))
-                    ->options(fn (): array => FixedAsset::query()
-                        ->whereNotNull('category')
-                        ->distinct()
-                        ->orderBy('category')
-                        ->pluck('category', 'category')
-                        ->all()),
+                    ->options(fn (): array => CategorySuggestions::options(
+                        'fixed_asset',
+                        [],   // only what is actually in use — a filter for zero rows is noise
+                        FixedAsset::query()->whereNotNull('category')->distinct()->orderBy('category')->pluck('category'),
+                    )),
                 Filter::make('acquisition_date')
+                    ->label(__('admin.fixed_assets.fields.acquisition_date'))
                     ->schema([
                         DatePicker::make('from')->label(__('admin.filters.date_from'))->native(false),
                         DatePicker::make('until')->label(__('admin.filters.date_until'))->native(false),
@@ -171,7 +174,7 @@ class FixedAssetsTable
                             ->prefix('EGP'),
                         Select::make('proceeds_account')
                             ->label(__('admin.fixed_assets.fields.proceeds_account'))
-                            ->options(['cash' => 'Cash', 'bank' => 'Bank'])
+                            ->options(fn () => __('admin.enums.cash_or_bank'))
                             ->default('cash')
                             ->native(false)
                             // Only matters when money actually came in.

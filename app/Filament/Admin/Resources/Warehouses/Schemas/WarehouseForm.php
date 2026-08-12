@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Warehouses\Schemas;
 
 use App\Models\Warehouse;
+use App\Support\CategorySuggestions;
 use App\Support\TenantScope;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -10,6 +11,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Illuminate\Validation\Rules\Unique;
 
 class WarehouseForm
 {
@@ -36,7 +38,7 @@ class WarehouseForm
                 // Clamped: `asset_id` is client-supplied, and a unique rule keyed on the
                 // raw value leaks whether a code exists in a property the user cannot see
                 // (TenantScope::clampAssetId).
-                ->unique(ignoreRecord: true, modifyRuleUsing: fn (\Illuminate\Validation\Rules\Unique $rule, Get $get) => $rule->where('asset_id', TenantScope::clampAssetId($get('asset_id')))),
+                ->unique(ignoreRecord: true, modifyRuleUsing: fn (Unique $rule, Get $get) => $rule->where('asset_id', TenantScope::clampAssetId($get('asset_id')))),
             // A real dropdown, not a datalist (a <datalist> is only a browser autocomplete
             // hint that won't reliably open on click). Category is free-form by design, so the
             // list merges the built-in suggestions with values already in use and keeps a
@@ -49,13 +51,13 @@ class WarehouseForm
                 // current state so a stored-but-unlisted value (or one just added via "create")
                 // stays a valid option — otherwise Filament's implicit in:options rule would
                 // reject it on save.
-                ->options(fn (Get $get): array => collect(['spare_parts', 'machines', 'consumables'])
-                    ->merge(Warehouse::query()->pluck('category'))
-                    ->push($get('category'))
-                    ->filter()
-                    ->unique()
-                    ->mapWithKeys(fn (string $category): array => [$category => $category])
-                    ->all())
+                // Labels are translated, VALUES are the stored strings — see CategorySuggestions.
+                ->options(fn (Get $get): array => CategorySuggestions::options(
+                    'warehouse',
+                    CategorySuggestions::WAREHOUSE,
+                    Warehouse::query()->pluck('category'),
+                    $get('category'),
+                ))
                 ->createOptionForm([
                     TextInput::make('value')
                         ->label(__('admin.inventory.fields.category'))

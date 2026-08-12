@@ -2498,7 +2498,21 @@ return [
         'payment_return_failed' => 'لم تتم عملية الدفع. يمكنك المحاولة من جديد أو اختيار فاتورة أخرى.',
     ],
 
+    // Named filter/sort states for a resource list — App\Filament\Admin\Resources\Concerns\SavesTableViews.
+    'saved_views' => [
+        'menu' => 'العروض المحفوظة',
+        'save' => 'حفظ العرض',
+        'save_description' => 'يحفظ عوامل التصفية والترتيب والبحث المعروضة الآن في هذه القائمة، باسم تختاره.',
+        'share' => 'مشاركة مع الفريق',
+        'share_help' => 'سيراه كل من يمكنه فتح هذه القائمة. تتم مشاركة عوامل التصفية فقط وليس الصلاحيات — يظل كل شخص يرى عقاراته وسجلاته فقط.',
+        'saved' => 'تم حفظ العرض',
+        'saved_body' => 'يمكنك فتحه في أي وقت من العروض المحفوظة.',
+        'delete' => 'حذف عرض محفوظ',
+        'deleted' => 'تم حذف العرض',
+    ],
+
     'fields' => [
+        'section' => 'القسم',
         'opening_balance' => 'الرصيد الافتتاحي',
         'closing_balance' => 'الرصيد الختامي',
         'statement_lines' => 'السطور',

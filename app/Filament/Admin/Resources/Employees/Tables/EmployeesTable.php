@@ -83,6 +83,7 @@ class EmployeesTable
                     ->label(__('admin.employees.fields.payment_method'))
                     ->options(fn (): array => __('admin.employees.methods')),
                 Filter::make('hire_date')
+                    ->label(__('admin.employees.fields.hire_date'))
                     ->schema([
                         DatePicker::make('from')->label(__('admin.filters.date_from'))->native(false),
                         DatePicker::make('until')->label(__('admin.filters.date_until'))->native(false),

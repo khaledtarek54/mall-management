@@ -119,6 +119,7 @@ class ConfigurationHealth extends Page implements HasTable
             ])
             ->groups([
                 Group::make('category')
+                    ->label(__('admin.fields.category'))
                     ->getKeyFromRecordUsing(fn (array $record): string => $record['category'])
                     ->getTitleFromRecordUsing(fn (array $record): string => $record['category']),
             ])

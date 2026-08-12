@@ -62,6 +62,7 @@ class AnnouncementsTable
                     ->searchable()
                     ->preload(),
                 Filter::make('sent_at')
+                    ->label(__('admin.announcements.fields.sent_at'))
                     ->schema([
                         DatePicker::make('from')->label(__('admin.filters.date_from'))->native(false),
                         DatePicker::make('until')->label(__('admin.filters.date_until'))->native(false),

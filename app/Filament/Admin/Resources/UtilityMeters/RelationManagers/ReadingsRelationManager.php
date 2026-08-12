@@ -12,9 +12,9 @@ use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
-use Filament\Notifications\Notification;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
@@ -23,6 +23,7 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Validation\Rules\Unique;
 
 class ReadingsRelationManager extends RelationManager
 {
@@ -75,7 +76,7 @@ class ReadingsRelationManager extends RelationManager
                 ->disabled($lockedIfBilled)
                 ->unique(
                     ignoreRecord: true,
-                    modifyRuleUsing: fn (\Illuminate\Validation\Rules\Unique $rule) => $rule->where('utility_meter_id', $this->ownerRecord->id),
+                    modifyRuleUsing: fn (Unique $rule) => $rule->where('utility_meter_id', $this->ownerRecord->id),
                 )
                 ->helperText(__('admin.helpers.reading_date')),
             TextInput::make('reading_value')
@@ -195,7 +196,9 @@ class ReadingsRelationManager extends RelationManager
                 Filter::make('year')
                     ->label(__('admin.filters.year'))
                     ->schema([
-                        TextInput::make('year')->numeric()->placeholder((string) now()->year),
+                        // hiddenLabel, not a label: the Filter above is already called "Year",
+                        // and a labelled input inside it reads "Year / Year".
+                        TextInput::make('year')->hiddenLabel()->numeric()->placeholder((string) now()->year),
                     ])
                     ->query(fn (Builder $query, array $data): Builder => $query
                         ->when($data['year'] ?? null, fn (Builder $q, $y) => $q->whereYear('reading_date', $y))),

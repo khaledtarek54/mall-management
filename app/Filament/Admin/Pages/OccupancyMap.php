@@ -6,8 +6,8 @@ use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Models\Asset;
 use App\Models\Unit;
-use App\Support\ReportPreferences;
 use App\Support\AssignedAssets;
+use App\Support\ReportPreferences;
 use App\Support\TenantScope;
 use BackedEnum;
 use Filament\Forms\Components\Select;
@@ -188,10 +188,12 @@ class OccupancyMap extends Page implements HasSchemas, HasTable
             ->columns([
                 Stack::make([
                     TextColumn::make('code')
+                        ->label(__('admin.tables.unit.code'))
                         ->weight('bold')
                         ->size('sm')
                         ->searchable(),
                     TextColumn::make('activeLease.tenant.name')
+                        ->label(__('admin.tables.lease.tenant'))
                         ->size('xs')
                         ->color('gray')
                         ->searchable()
@@ -200,6 +202,7 @@ class OccupancyMap extends Page implements HasSchemas, HasTable
                         // line and again in the badge below it.
                         ->placeholder('—'),
                     TextColumn::make('status')
+                        ->label(__('admin.tables.common.status'))
                         ->badge()
                         ->formatStateUsing(fn (string $state): string => __("admin.statuses.unit.{$state}"))
                         // Same semantics the hand-picked hex colours carried, but

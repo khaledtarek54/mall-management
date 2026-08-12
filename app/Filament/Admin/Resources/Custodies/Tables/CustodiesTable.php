@@ -106,6 +106,7 @@ class CustodiesTable
                         'bank' => __('admin.employees.methods.bank'),
                     ]),
                 Filter::make('custody_date')
+                    ->label(__('admin.custodies.fields.custody_date'))
                     ->schema([
                         DatePicker::make('from')->label(__('admin.filters.date_from'))->native(false),
                         DatePicker::make('until')->label(__('admin.filters.date_until'))->native(false),

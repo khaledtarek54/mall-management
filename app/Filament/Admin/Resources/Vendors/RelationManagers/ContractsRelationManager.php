@@ -2,8 +2,9 @@
 
 namespace App\Filament\Admin\Resources\Vendors\RelationManagers;
 
-use App\Models\Asset;
 use App\Models\VendorContract;
+use App\Support\TenantScope;
+use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -12,14 +13,19 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Infolists\Components\TextEntry;
+use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 
 class ContractsRelationManager extends RelationManager
 {
@@ -43,7 +49,7 @@ class ContractsRelationManager extends RelationManager
             return null;
         }
 
-        return \Illuminate\Support\Carbon::parse($end)->subDays((int) $days)->format('Y-m-d');
+        return Carbon::parse($end)->subDays((int) $days)->format('Y-m-d');
     }
 
     public function form(Schema $schema): Schema
@@ -60,11 +66,11 @@ class ContractsRelationManager extends RelationManager
                     ->native(false),
                 Select::make('asset_id')
                     ->label(__('admin.resources.asset.singular'))
-                    ->options(fn () => \App\Support\TenantScope::selectableAssetOptions())
+                    ->options(fn () => TenantScope::selectableAssetOptions())
                     ->searchable()
                     ->placeholder('—')
-                    ->default(fn () => \App\Support\TenantScope::currentAssetId())
-                    ->disabled(fn () => \App\Support\TenantScope::currentAssetId() !== null)
+                    ->default(fn () => TenantScope::currentAssetId())
+                    ->disabled(fn () => TenantScope::currentAssetId() !== null)
                     ->dehydrated()
                     // Server-side property-isolation guard: the field is enabled + dehydrated
                     // in All-Properties mode, so re-validate a chosen property against the
@@ -74,7 +80,7 @@ class ContractsRelationManager extends RelationManager
                             if ($value === null) {
                                 return;
                             }
-                            $visible = \App\Support\TenantScope::visibleAssetIds();
+                            $visible = TenantScope::visibleAssetIds();
                             if ($visible !== null && ! in_array((int) $value, $visible, true)) {
                                 abort(403);
                             }
@@ -149,15 +155,15 @@ class ContractsRelationManager extends RelationManager
             // show portfolio-wide (null asset_id) contracts to everyone, property-scoped
             // ones only within the user's visible set (null = super_admin/portfolio).
             ->modifyQueryUsing(fn ($query) => $query->when(
-                \App\Support\TenantScope::visibleAssetIds(),
+                TenantScope::visibleAssetIds(),
                 fn ($q, $ids) => $q->where(fn ($w) => $w->whereNull('asset_id')->orWhereIn('asset_id', $ids)),
             ))
             ->columns([
-                TextColumn::make('reference')->fontFamily('mono')->size('xs')->placeholder('—'),
-                TextColumn::make('name')->weight('bold')->searchable(),
-                TextColumn::make('asset.name')->placeholder(__('admin.fields.portfolio') ?: 'Portfolio')->color('gray'),
-                TextColumn::make('start_date')->date('d/m/Y')->sortable(),
-                TextColumn::make('end_date')->date('d/m/Y')->sortable()->placeholder('—'),
+                TextColumn::make('reference')->label(__('admin.fields.reference'))->fontFamily('mono')->size('xs')->placeholder('—'),
+                TextColumn::make('name')->label(__('admin.fields.name'))->weight('bold')->searchable(),
+                TextColumn::make('asset.name')->label(__('admin.fields.property'))->placeholder(__('admin.fields.portfolio'))->color('gray'),
+                TextColumn::make('start_date')->label(__('admin.fields.start_date'))->date('d/m/Y')->sortable(),
+                TextColumn::make('end_date')->label(__('admin.fields.end_date'))->date('d/m/Y')->sortable()->placeholder('—'),
                 // The date a contract manager actually works to. Sorted/filtered on a real column
                 // (VendorContract::saving keeps it in step with end_date + notice_period_days).
                 TextColumn::make('notice_deadline')
@@ -203,6 +209,7 @@ class ContractsRelationManager extends RelationManager
                         ? __('admin.vendors.commitment.over_committed')
                         : null),
                 TextColumn::make('status')
+                    ->label(__('admin.tables.common.status'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.statuses.vendor_contract.{$state}"))
                     ->color(fn (string $state) => match ($state) {
@@ -217,10 +224,10 @@ class ContractsRelationManager extends RelationManager
                     ->options(fn () => __('admin.statuses.vendor_contract')),
                 // The decision list, sharing VendorContract::noticeDue() with the nightly scan
                 // and the dashboard card so all three agree on what is due.
-                \Filament\Tables\Filters\Filter::make('notice_due')
+                Filter::make('notice_due')
                     ->label(__('admin.filters.notice_due'))
-                    ->query(function (\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder {
-                        /** @var \Illuminate\Database\Eloquent\Builder<VendorContract> $query */
+                    ->query(function (Builder $query): Builder {
+                        /** @var Builder<VendorContract> $query */
                         return $query->noticeDue();
                     })
                     ->toggle(),
@@ -234,16 +241,16 @@ class ContractsRelationManager extends RelationManager
                 // "View working" for the commitment: an operator should never have to trust a
                 // bare Remaining figure they cannot reconcile. Native infolist entries, per the
                 // codebase convention (no View pages, read-only detail lives in an action modal).
-                \Filament\Actions\Action::make('commitment')
+                Action::make('commitment')
                     ->label(__('admin.vendors.commitment.view_working'))
                     ->icon('heroicon-o-calculator')
                     ->color('gray')
                     ->modalSubmitAction(false)
                     ->schema(fn (VendorContract $record) => [
-                        \Filament\Infolists\Components\TextEntry::make('signed')
+                        TextEntry::make('signed')
                             ->label(__('admin.vendors.commitment.committed'))
                             ->state('EGP '.number_format((float) $record->value, 2)),
-                        \Filament\Infolists\Components\TextEntry::make('amendments')
+                        TextEntry::make('amendments')
                             ->label(__('admin.vendors.amendments.title'))
                             ->state(function () use ($record) {
                                 $rows = $record->amendments()->orderBy('effective_on')->get();
@@ -260,13 +267,13 @@ class ContractsRelationManager extends RelationManager
                                     $a->reason,
                                 ))->join("\n");
                             }),
-                        \Filament\Infolists\Components\TextEntry::make('effective')
+                        TextEntry::make('effective')
                             ->label(__('admin.vendors.commitment.effective'))
                             ->state('EGP '.number_format($record->effectiveValue(), 2)),
-                        \Filament\Infolists\Components\TextEntry::make('billed')
+                        TextEntry::make('billed')
                             ->label(__('admin.vendors.commitment.billed'))
                             ->state('EGP '.number_format($record->billedToDate(), 2)),
-                        \Filament\Infolists\Components\TextEntry::make('remaining')
+                        TextEntry::make('remaining')
                             ->label(__('admin.vendors.commitment.remaining'))
                             ->state('EGP '.number_format($record->remainingValue(), 2))
                             ->color($record->isOverCommitted() ? 'danger' : 'success')
@@ -276,7 +283,7 @@ class ContractsRelationManager extends RelationManager
                     ]),
                 // A change order. `visible()` is not a gate in Filament (mountAction never checks
                 // it), so the permission is asserted in action() too.
-                \Filament\Actions\Action::make('amend')
+                Action::make('amend')
                     ->label(__('admin.vendors.amendments.add'))
                     ->icon('heroicon-o-document-plus')
                     ->visible(fn () => auth()->user()?->can('vendors.edit') ?? false)
@@ -316,7 +323,7 @@ class ContractsRelationManager extends RelationManager
                         ]);
 
                         // Feedback carries the RESULTING state, not just "saved".
-                        \Filament\Notifications\Notification::make()
+                        Notification::make()
                             ->success()
                             ->title(__('admin.vendors.amendments.recorded'))
                             ->body(__('admin.vendors.commitment.helper', [

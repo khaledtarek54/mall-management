@@ -41,7 +41,7 @@ class EmployeeImporter extends Importer
     {
         return [
             ImportColumn::make('asset_code')
-                ->label('Property code')
+                ->label(__('admin.imports.columns.property_code'))
                 ->requiredMapping()
                 ->rules(['required', 'string'])
                 ->fillRecordUsing(function (Employee $record, string $state): void {
@@ -57,7 +57,7 @@ class EmployeeImporter extends Importer
                 }),
 
             ImportColumn::make('code')
-                ->label('Employee code')
+                ->label(__('admin.imports.columns.employee_code'))
                 ->requiredMapping()
                 ->rules(['required', 'string', 'max:32']),
 
@@ -66,11 +66,11 @@ class EmployeeImporter extends Importer
                 ->rules(['required', 'string', 'max:255']),
 
             ImportColumn::make('national_id')
-                ->label('National ID (الرقم القومي)')
+                ->label(__('admin.imports.columns.national_id'))
                 ->rules(['nullable', 'string', 'max:32']),
 
             ImportColumn::make('department')
-                ->label('Department name')
+                ->label(__('admin.imports.columns.department_name'))
                 ->fillRecordUsing(function (Employee $record, ?string $state): void {
                     if (blank($state)) {
                         return;
@@ -88,7 +88,7 @@ class EmployeeImporter extends Importer
                 ->rules(['nullable', 'string', 'max:255']),
 
             ImportColumn::make('hire_date')
-                ->label('Hire date (YYYY-MM-DD)')
+                ->label(__('admin.imports.columns.hire_date'))
                 ->requiredMapping()
                 // NOT NULL in the schema, and rightly so: it dates the employment the payroll and
                 // any end-of-service calculation both rest on. A blank cannot be defaulted to today
@@ -96,7 +96,7 @@ class EmployeeImporter extends Importer
                 ->rules(['required', 'date']),
 
             ImportColumn::make('base_salary')
-                ->label('Base salary (EGP/month)')
+                ->label(__('admin.imports.columns.base_salary'))
                 ->requiredMapping()
                 ->numeric()
                 // Required, and no default. A zero salary generates a payslip that looks right and

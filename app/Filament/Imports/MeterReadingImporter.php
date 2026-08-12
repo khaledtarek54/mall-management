@@ -40,7 +40,7 @@ class MeterReadingImporter extends Importer
     {
         return [
             ImportColumn::make('meter_number')
-                ->label('Meter number')
+                ->label(__('admin.imports.columns.meter_number'))
                 ->requiredMapping()
                 ->rules(['required', 'string', 'max:64'])
                 // A lookup key, not a column on the reading — `resolveRecord()` has already turned
@@ -49,24 +49,24 @@ class MeterReadingImporter extends Importer
                 ->fillRecordUsing(fn (): null => null),
 
             ImportColumn::make('reading_date')
-                ->label('Reading date (YYYY-MM-DD)')
+                ->label(__('admin.imports.columns.reading_date'))
                 ->requiredMapping()
                 ->rules(['required', 'date']),
 
             ImportColumn::make('reading_value')
-                ->label('Meter face value')
+                ->label(__('admin.imports.columns.meter_face_value'))
                 ->requiredMapping()
                 ->numeric()
                 ->rules(['required', 'numeric', 'min:0']),
 
             ImportColumn::make('consumption')
-                ->label('Consumption for the period')
+                ->label(__('admin.imports.columns.consumption'))
                 ->requiredMapping()
                 ->numeric()
                 ->rules(['required', 'numeric', 'min:0']),
 
             ImportColumn::make('cost')
-                ->label('Cost (EGP) — leave blank to derive from the meter tariff')
+                ->label(__('admin.imports.columns.cost_or_tariff'))
                 ->numeric()
                 ->rules(['nullable', 'numeric', 'min:0'])
                 ->fillRecordUsing(function (MeterReading $record, mixed $state): void {

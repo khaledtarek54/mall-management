@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\Warehouses\Tables;
 
 use App\Filament\Admin\Resources\Warehouses\WarehouseResource;
 use App\Models\Warehouse;
+use App\Support\CategorySuggestions;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;
@@ -25,16 +26,21 @@ class WarehousesTable
                 TextColumn::make('name')
                     ->label(__('admin.inventory.fields.name'))
                     ->weight('bold')
-                    ->searchable(),
+                    ->searchable()
+                    ->sortable(),
                 TextColumn::make('code')
                     ->label(__('admin.inventory.fields.code'))
-                    ->searchable(),
+                    ->searchable()
+                    ->sortable(),
                 TextColumn::make('asset.name')
                     ->label(__('admin.inventory.fields.property'))
                     ->badge()
+                    ->sortable()
                     ->color('gray'),
                 TextColumn::make('category')
                     ->label(__('admin.inventory.fields.category'))
+                    ->formatStateUsing(fn (?string $state) => CategorySuggestions::label('warehouse', $state))
+                    ->sortable()
                     ->placeholder('—'),
                 IconColumn::make('is_active')
                     ->label(__('admin.inventory.fields.active'))
@@ -47,12 +53,11 @@ class WarehousesTable
                 // filter offers whatever is actually in use rather than a fixed list.
                 SelectFilter::make('category')
                     ->label(__('admin.inventory.fields.category'))
-                    ->options(fn (): array => Warehouse::query()
-                        ->whereNotNull('category')
-                        ->distinct()
-                        ->orderBy('category')
-                        ->pluck('category', 'category')
-                        ->all()),
+                    ->options(fn (): array => CategorySuggestions::options(
+                        'warehouse',
+                        [],
+                        Warehouse::query()->whereNotNull('category')->distinct()->orderBy('category')->pluck('category'),
+                    )),
                 TrashedFilter::make(),
             ])
             ->recordActions([
