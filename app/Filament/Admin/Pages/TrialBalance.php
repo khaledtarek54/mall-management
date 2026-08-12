@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Contracts\DeliverableReport;
 use App\Filament\Admin\Concerns\PostsToLedger;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Pages\Concerns\ScopesLedgerReport;
@@ -30,7 +31,7 @@ use Filament\Tables\Table;
  * a row set). That buys sorting, column control and a real footer tie-out, and
  * replaces the hand-written <table> with inline styles this page used to ship.
  */
-class TrialBalance extends Page implements HasSchemas, HasTable
+class TrialBalance extends Page implements DeliverableReport, HasSchemas, HasTable
 {
     use InteractsWithSchemas;
     use InteractsWithTable;
@@ -103,9 +104,9 @@ class TrialBalance extends Page implements HasSchemas, HasTable
                 ->visible(fn () => $this->canViewReports())
                 ->authorize(fn () => $this->canViewReports())
                 ->action(function () {
-                    $csv = app(ReportCsvExporter::class)->trialBalance($this->report());
+                    $csv = $this->reportCsv();
 
-                    return ReportCsv::stream("trial-balance-{$this->periodSlug()}", $csv['headers'], $csv['rows']);
+                    return ReportCsv::stream($csv['filename'], $csv['headers'], $csv['rows']);
                 }),
         ];
     }
@@ -116,6 +117,23 @@ class TrialBalance extends Page implements HasSchemas, HasTable
     }
 
     /** @return array<string, mixed> */
+    /**
+     * The report as CSV, callable without a browser — see App\Contracts\DeliverableReport.
+     *
+     * The export action below and scheduled delivery both go through this, so an emailed copy is
+     * byte-for-byte the report an operator would have downloaded.
+     */
+    public function reportCsv(): array
+    {
+        $csv = app(ReportCsvExporter::class)->trialBalance($this->report());
+
+        return [
+            'filename' => "trial-balance-{$this->periodSlug()}",
+            'headers' => $csv['headers'],
+            'rows' => $csv['rows'],
+        ];
+    }
+
     protected function report(): array
     {
         return app(LedgerReportService::class)->trialBalance(

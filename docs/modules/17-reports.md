@@ -31,6 +31,27 @@ The module is **optional** (Module flag: `reports`; defaults enabled) and scoped
 
 ## 3. Business rules & invariants
 
+> **A saved view can deliver itself (2026-08-12).** `reports:deliver` runs from the scheduler at
+> 06:00 and emails the saved views due that day as CSV — the same bytes the export button produces,
+> so a delivered copy and a downloaded one can never disagree.
+>
+> **It renders as the person who saved it.** A report reads whatever the current user may read, and
+> a console command has no current user: rendered as nobody, a report either shows nothing or shows
+> everything. The owner is authenticated for the render only, their `canAccess()` is re-checked
+> first, and the guard is restored however it goes — leaking it would hand the next report in the
+> run somebody else's property scope. It also means a schedule **stops** when access is withdrawn,
+> which is right: a schedule is not a standing grant, and nobody revisits schedules.
+>
+> **Idempotent, because the scheduler is not.** `last_delivered_on` is a DATE, claimed under a lock
+> and re-checked inside the transaction — the pattern every scheduled scan here uses. A retry or a
+> catch-up after downtime re-sends nothing. A monthly schedule on the 31st fires on the last day of
+> a short month rather than being skipped: "the 31st" from an accountant means month end.
+>
+> **Four of twenty reports are deliverable today.** Delivery needs `App\Contracts\DeliverableReport`
+> — a CSV that renders without a browser — and the rest still build theirs inside the export
+> action's closure. `ReportCatalogue::NOT_DELIVERABLE` names each with a reason and a conformance
+> test fails on a report that declares neither, so the gap is stated rather than silently absent.
+
 > **Filters can be saved (2026-08-12).** Every report takes them and none were rememberable: "AR
 > ageing as at last month-end for Atriom Walk" was six clicks, every time. "Save this view" names
 > the filters a page is currently carrying; saved views list first on the hub.

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Contracts\DeliverableReport;
 use App\Filament\Admin\Concerns\PostsToLedger;
 use App\Filament\Admin\Pages\Concerns\RendersFinancialStatement;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
@@ -24,7 +25,7 @@ use Filament\Tables\Table;
  * قائمة الدخل — Income Statement (P&L): revenue − expenses = net profit, for a
  * fiscal year, per property or consolidated.
  */
-class IncomeStatement extends Page implements HasSchemas, HasTable
+class IncomeStatement extends Page implements DeliverableReport, HasSchemas, HasTable
 {
     use InteractsWithSchemas;
     use InteractsWithTable;
@@ -80,9 +81,9 @@ class IncomeStatement extends Page implements HasSchemas, HasTable
                 ->visible(fn () => $this->canViewReports())
                 ->authorize(fn () => $this->canViewReports())
                 ->action(function () {
-                    $csv = app(ReportCsvExporter::class)->incomeStatement($this->report());
+                    $csv = $this->reportCsv();
 
-                    return ReportCsv::stream("income-statement-{$this->periodSlug()}", $csv['headers'], $csv['rows']);
+                    return ReportCsv::stream($csv['filename'], $csv['headers'], $csv['rows']);
                 }),
         ];
     }
@@ -98,6 +99,23 @@ class IncomeStatement extends Page implements HasSchemas, HasTable
     }
 
     /** @return array<string, mixed> */
+    /**
+     * The report as CSV, callable without a browser — see App\Contracts\DeliverableReport.
+     *
+     * The export action below and scheduled delivery both go through this, so an emailed copy is
+     * byte-for-byte the report an operator would have downloaded.
+     */
+    public function reportCsv(): array
+    {
+        $csv = app(ReportCsvExporter::class)->incomeStatement($this->report());
+
+        return [
+            'filename' => "income-statement-{$this->periodSlug()}",
+            'headers' => $csv['headers'],
+            'rows' => $csv['rows'],
+        ];
+    }
+
     protected function report(): array
     {
         return app(LedgerReportService::class)->incomeStatement(

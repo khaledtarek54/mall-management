@@ -2,13 +2,18 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Contracts\DeliverableReport;
 use App\Models\SavedReport;
 use App\Support\ReportCatalogue;
 use App\Support\ReportParameters;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TagsInput;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
@@ -142,6 +147,66 @@ class ReportHub extends Page implements HasTable
             // thing whose entire purpose is to show what exists.
             ->paginated(false)
             ->recordActions([
+                // Scheduling lives on the saved view rather than on the report, because a schedule
+                // with no parameters is not a thing: "email me the trial balance" is meaningless
+                // until somebody has said for which year and which property.
+                Action::make('scheduleSavedView')
+                    ->label(__('admin.report_hub.schedule'))
+                    ->icon('heroicon-o-clock')
+                    ->color('gray')
+                    ->iconButton()
+                    ->visible(fn (array $record): bool => $this->canScheduleSavedView($record))
+                    ->authorize(fn (array $record): bool => $this->canScheduleSavedView($record))
+                    ->fillForm(fn (array $record): array => SavedReport::whereKey($record['saved_report_id'])
+                        ->first()
+                        ?->only(['frequency', 'day_of_month', 'day_of_week', 'recipients']) ?? [])
+                    ->schema([
+                        Select::make('frequency')
+                            ->label(__('admin.report_hub.frequency'))
+                            ->options(fn () => __('admin.report_hub.frequencies'))
+                            ->placeholder(__('admin.report_hub.not_scheduled'))
+                            ->native(false)
+                            ->live(),
+                        TextInput::make('day_of_month')
+                            ->label(__('admin.report_hub.day_of_month'))
+                            ->numeric()->minValue(1)->maxValue(31)->default(1)
+                            ->helperText(__('admin.report_hub.day_of_month_help'))
+                            ->visible(fn (Get $get) => $get('frequency') === SavedReport::MONTHLY),
+                        Select::make('day_of_week')
+                            ->label(__('admin.report_hub.day_of_week'))
+                            ->options(fn () => __('admin.report_hub.weekdays'))
+                            ->default(1)
+                            ->native(false)
+                            ->visible(fn (Get $get) => $get('frequency') === SavedReport::WEEKLY),
+                        TagsInput::make('recipients')
+                            ->label(__('admin.report_hub.recipients'))
+                            ->placeholder('name@example.com')
+                            ->nestedRecursiveRules(['email'])
+                            ->helperText(__('admin.report_hub.recipients_help'))
+                            ->required(fn (Get $get) => filled($get('frequency'))),
+                    ])
+                    ->action(function (array $record, array $data): void {
+                        abort_unless($this->canScheduleSavedView($record), 403);
+
+                        SavedReport::whereKey($record['saved_report_id'])
+                            ->where('user_id', Auth::id())
+                            ->update([
+                                'frequency' => $data['frequency'] ?: null,
+                                'day_of_month' => $data['day_of_month'] ?? null,
+                                'day_of_week' => $data['day_of_week'] ?? null,
+                                'recipients' => $data['recipients'] ?? [],
+                                // Clearing the schedule clears the stamp too, so re-enabling it
+                                // later is not blocked by a delivery from months ago.
+                                'last_delivered_on' => null,
+                            ]);
+
+                        Notification::make()
+                            ->title(filled($data['frequency'] ?? null)
+                                ? __('admin.report_hub.scheduled')
+                                : __('admin.report_hub.schedule_cleared'))
+                            ->success()
+                            ->send();
+                    }),
                 Action::make('deleteSavedView')
                     ->label(__('admin.report_hub.delete_view'))
                     ->icon('heroicon-o-trash')
@@ -206,6 +271,25 @@ class ReportHub extends Page implements HasTable
                     : __('admin.report_hub.shared_by', ['name' => $view->user?->name ?? '—']),
                 'url' => ReportParameters::urlFor($pageFor[$view->report], $view->parameters ?? []),
             ]);
+    }
+
+    /**
+     * May this operator schedule this row?
+     *
+     * Their own view, of a report that can actually render without a browser. Offering the action
+     * on a report with no renderer would let somebody set up a delivery that silently never
+     * arrives — `ReportCatalogue::NOT_DELIVERABLE` says which, and why.
+     */
+    protected function canScheduleSavedView(array $record): bool
+    {
+        if (! $this->ownsSavedView($record)) {
+            return false;
+        }
+
+        $key = SavedReport::whereKey($record['saved_report_id'])->value('report');
+        $page = $key ? ReportCatalogue::pageFor($key) : null;
+
+        return $page !== null && is_a($page, DeliverableReport::class, true);
     }
 
     /** Is this row a saved view belonging to the current operator? */

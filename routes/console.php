@@ -77,6 +77,18 @@ Schedule::command('vendors:expire-contracts')
     ->name('atriom-expire-vendor-contracts')
     ->withoutOverlapping();
 
+// Deliver the saved reports that are due today (RP-04). The month-end pack used to be six screens
+// exported by hand on a day somebody had to remember, which meant it arrived late in the months
+// somebody was on leave and not at all in the months somebody left.
+//
+// Early, so a monthly pack is in the inbox before the day starts. The command is idempotent —
+// `last_delivered_on` is claimed under a lock and re-checked inside the transaction — so a
+// catch-up run after downtime re-sends nothing.
+Schedule::command('reports:deliver')
+    ->dailyAt('06:00')
+    ->name('atriom-deliver-scheduled-reports')
+    ->withoutOverlapping();
+
 // Shopper feed housekeeping (module 36). Posts past their display window are archived so
 // "published" in the operator's register means "running". The read-side predicate already hides
 // them from shoppers — this keeps the LIST honest. Hourly rather than daily because an offer

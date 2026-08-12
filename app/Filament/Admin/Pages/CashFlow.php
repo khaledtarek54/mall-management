@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Contracts\DeliverableReport;
 use App\Filament\Admin\Pages\Concerns\RendersFinancialStatement;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Pages\Concerns\ScopesLedgerReport;
@@ -23,7 +24,7 @@ use Filament\Tables\Table;
  * for non-cash items and working-capital changes, plus investing + financing, for a
  * fiscal year, per property or consolidated. Reconciles to the actual cash movement.
  */
-class CashFlow extends Page implements HasSchemas, HasTable
+class CashFlow extends Page implements DeliverableReport, HasSchemas, HasTable
 {
     use InteractsWithSchemas;
     use InteractsWithTable;
@@ -82,9 +83,9 @@ class CashFlow extends Page implements HasSchemas, HasTable
                         $this->periodStart(),
                         $this->periodEnd(),
                     );
-                    $csv = app(ReportCsvExporter::class)->cashFlow($report);
+                    $csv = $this->reportCsv();
 
-                    return ReportCsv::stream("cash-flow-{$this->periodSlug()}", $csv['headers'], $csv['rows']);
+                    return ReportCsv::stream($csv['filename'], $csv['headers'], $csv['rows']);
                 }),
         ];
     }
@@ -107,6 +108,23 @@ class CashFlow extends Page implements HasSchemas, HasTable
     }
 
     /** @return array<string, mixed> */
+    /**
+     * The report as CSV, callable without a browser — see App\Contracts\DeliverableReport.
+     *
+     * The export action below and scheduled delivery both go through this, so an emailed copy is
+     * byte-for-byte the report an operator would have downloaded.
+     */
+    public function reportCsv(): array
+    {
+        $csv = app(ReportCsvExporter::class)->cashFlow($this->report());
+
+        return [
+            'filename' => "cash-flow-{$this->periodSlug()}",
+            'headers' => $csv['headers'],
+            'rows' => $csv['rows'],
+        ];
+    }
+
     protected function report(): array
     {
         return app(LedgerReportService::class)->cashFlow(

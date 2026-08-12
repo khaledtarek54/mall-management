@@ -1,5 +1,6 @@
 <?php
 
+use App\Contracts\DeliverableReport;
 use App\Filament\Admin\Pages\RentRoll;
 use App\Filament\Admin\Pages\ReportHub;
 use App\Filament\Admin\Pages\VatReturn;
@@ -119,6 +120,49 @@ it('lists a report exactly when the operator can open it', function () {
     $marketing = collect(ReportCatalogue::visibleTo())->flatten(1)->pluck('page')->all();
 
     expect($marketing)->not->toContain(VatReturn::class);
+
+    Filament::setTenant(null, isQuiet: true);
+});
+
+it('says of every report whether it can be delivered', function () {
+    // Delivery needs a report that renders without a browser. Most still build their CSV inside
+    // the export action's closure, where only a click can reach it — and a scheduling picker that
+    // silently omitted them would look like the feature was broken. Stating "not yet, because…"
+    // is information; leaving it unsaid is a gap nobody can see.
+    $unclassified = [];
+
+    foreach (ReportCatalogue::REPORTS as $page => $meta) {
+        $deliverable = is_a($page, DeliverableReport::class, true);
+        $listed = array_key_exists($page, ReportCatalogue::NOT_DELIVERABLE);
+
+        if ($deliverable === $listed) {
+            $unclassified[] = $deliverable
+                ? "{$page} implements DeliverableReport AND is listed as not deliverable"
+                : "{$page} neither implements DeliverableReport nor says why not";
+        }
+    }
+
+    expect($unclassified)->toBe([], implode("\n", $unclassified));
+});
+
+it('gives a reason for every report that cannot be delivered', function () {
+    $unreasoned = collect(ReportCatalogue::NOT_DELIVERABLE)
+        ->filter(fn (string $reason) => strlen(trim($reason)) < 30)
+        ->keys()
+        ->all();
+
+    expect($unreasoned)->toBe([], 'These need a real reason: '.implode(', ', $unreasoned));
+});
+
+it('offers only deliverable reports for scheduling', function () {
+    $this->actingAs(makeUser('super_admin'));
+    Filament::setTenant(makeAsset());
+
+    $options = ReportCatalogue::deliverableOptions();
+
+    expect($options)->toHaveKey('trial_balance')
+        // …and not one whose CSV only a click can build.
+        ->and($options)->not->toHaveKey('rent_roll');
 
     Filament::setTenant(null, isQuiet: true);
 });

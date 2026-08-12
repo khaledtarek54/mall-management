@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Contracts\DeliverableReport;
 use App\Filament\Admin\Pages\ActivityLog;
 use App\Filament\Admin\Pages\ArAging;
 use App\Filament\Admin\Pages\ArAgingByType;
@@ -163,6 +164,63 @@ class ReportCatalogue
     {
         return rescue(fn () => $page::getNavigationLabel(), null, false)
             ?: __("admin.report_hub.descriptions.{$key}");
+    }
+
+    /**
+     * Reports that cannot be scheduled yet, and why.
+     *
+     * Delivery needs a report that can render without a browser
+     * ({@see DeliverableReport}), and most pages still build their CSV inside the
+     * export action's closure, where only a click can reach it. Listing them here rather than
+     * letting them quietly not appear is the point: a scheduling picker missing half the catalogue
+     * looks like the feature is broken, and a stated "not yet, because…" is information. A
+     * conformance test fails on a report that is in neither camp.
+     *
+     * @var array<class-string, string>
+     */
+    public const NOT_DELIVERABLE = [
+        GeneralLedger::class => 'Its CSV needs an account chosen, and a saved view with none would deliver an empty file every month. Deliverable once the export builds from parameters alone.',
+        VatReturn::class => 'Its CSV is assembled inside the export action rather than from a service. Small to lift out — it is next.',
+        ArAging::class => 'Its CSV is built from a bucket-specific query in the action. Next after the VAT return.',
+        ArAgingByType::class => 'CSV built inline in the export action.',
+        ArCollections::class => 'CSV built inline in the export action.',
+        BillingRunPreview::class => 'A dry run of what the next billing would raise — it belongs to a moment, not a schedule.',
+        MonthEndClose::class => 'A checklist an operator works through, not a document to receive.',
+        Reports::class => 'CSV built inline in the export action.',
+        WeeklySpend::class => 'CSV built inline in the export action.',
+        RentRoll::class => 'CSV built inline in the export action.',
+        ExpirationSchedule::class => 'CSV built inline in the export action.',
+        OccupancyMap::class => 'A visual floor plan; a CSV of it would answer a different question.',
+        OccupancyCost::class => 'CSV built inline in the export action.',
+        SalesAnalytics::class => 'CSV built inline in the export action.',
+        Workflows::class => 'A diagram of how the system works, not a report on data.',
+        ActivityLog::class => 'An audit trail that is searched, not received — a scheduled dump of it would be unread by construction.',
+    ];
+
+    /** The page class behind a catalogue key, or null when the key is stale. */
+    public static function pageFor(string $key): ?string
+    {
+        foreach (self::REPORTS as $page => $meta) {
+            if ($meta['key'] === $key) {
+                return $page;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Reports this operator can open AND that can be delivered on a schedule.
+     *
+     * @return array<string, string> catalogue key => title
+     */
+    public static function deliverableOptions(): array
+    {
+        return collect(self::REPORTS)
+            ->filter(fn (array $meta, string $page) => is_a($page, DeliverableReport::class, true)
+                && rescue(fn () => $page::canAccess(), false, false))
+            ->mapWithKeys(fn (array $meta, string $page) => [$meta['key'] => self::titleOf($page, $meta['key'])])
+            ->all();
     }
 
     /** Every admin page class, for the conformance gate. */
