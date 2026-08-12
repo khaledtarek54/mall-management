@@ -1001,8 +1001,27 @@ by the 04:00 `billing:apply-late-fees` scheduler) via `LateFeeService::runForTod
 3. Idempotency is the link, not a line: `Invoice::hasLiveLateFee()`. A **cancelled** fee invoice
    frees the source to be charged again (its entry is voided, so nothing double-counts) — the same
    rule as `BillViolationFineService`.
-4. Tests: `LateFeeRecognisedWhenIncurredTest` (the date + the probe + the closed period),
-   `LateFeeIdempotentTest`, `BillingMathTest::test_late_fee_applies_once_per_invoice`.
+4. **The sweep walks a SNAPSHOT of ids, in chunks of 250** — not `->get()` of the whole backlog, and
+   deliberately not `chunkById()`. Two reasons, and the second is the interesting one:
+   arrears is the one dataset that never shrinks, so hydrating all of it with its leases at 04:00
+   grew every month; and **this loop creates invoices that match its own filter.** A fee invoice is
+   issued today and due `today + payment_terms_days`, which on zero-day terms is due TODAY, i.e.
+   inside `due_date <= today`. `chunkById()` pages forward on ascending id, so once a page fills it
+   walks straight into the fees it just raised and considers charging a fee on a fee. The old
+   `->get()` was safe from that by accident; taking the ids up front keeps the property on purpose.
+   `LateFeeSweepIsBoundedTest` proves it with a one-row page size, because at 250 the hazard is
+   unreachable in a fixture — `chunkById()` only re-queries when a page comes back full.
+5. **`ApplyLateFees` is serialised per day** (`WithoutOverlapping(...)->dontRelease()`). It shipped
+   without that guard while declaring `$timeout = 600` against a queue `retry_after` of **90**, so
+   any run over 90 seconds became reclaimable and a second worker started the same sweep while the
+   first was still going. Correctness survived — each invoice is row-locked and its full
+   precondition re-checked inside the transaction — but it was double the load and double the memory
+   against AR, nightly. `retry_after` was raised to 900 in the same change, and
+   `QueueJobSafetyConformanceTest` now classifies every job and fails the build if any timeout
+   reaches it. See [module 19](19-notifications-scans.md#queued-jobs-and-re-entrancy).
+6. Tests: `LateFeeRecognisedWhenIncurredTest` (the date + the probe + the closed period),
+   `LateFeeIdempotentTest`, `LateFeeSweepIsBoundedTest` (the sweep's shape),
+   `BillingMathTest::test_late_fee_applies_once_per_invoice`.
 
 > **Until 2026-08-11 the fee was appended to the overdue invoice, and that put it in the wrong
 > month.** `InvoiceJournalizer` dates its entry from `issue_date`, so April's penalty on a January

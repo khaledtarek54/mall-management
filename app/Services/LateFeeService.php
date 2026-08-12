@@ -14,6 +14,16 @@ use Illuminate\Support\Facades\DB;
 class LateFeeService
 {
     /**
+     * How many invoices are hydrated at once by the nightly sweep.
+     *
+     * `protected` and read through `static::` so a test can lower it and actually exercise the
+     * paging. At 250 the hazard this shape exists to avoid is unreachable in a fixture — a
+     * `chunkById()` only re-queries when a page comes back FULL, so with a handful of rows it never
+     * looks again and the bug hides. The backlog this runs against fills pages every night.
+     */
+    protected const CHUNK = 250;
+
+    /**
      * Apply late fees to all invoices that are past (due_date + grace_days) and
      * not yet fully paid. Idempotent — invoices that already carry a `late_fee`
      * line item are skipped.
@@ -29,29 +39,47 @@ class LateFeeService
         // single global cutoff in this query would silently exclude the leases with the LONGEST
         // negotiated grace from ever being considered — the ones whose terms most needed honouring.
         // Over-selecting here is cheap; the precise rule lives in exactly one place.
-        $invoices = Invoice::query()
+        //
+        // **A SNAPSHOT OF IDS, then chunks — not `->get()` of the whole thing.** Two reasons, and
+        // the second is why this is not simply `chunkById()`:
+        //
+        //  1. Arrears is the one dataset that never shrinks. Hydrating every past-due invoice with
+        //     its lease held the entire backlog in memory at 04:00, growing every month.
+        //
+        //  2. This loop CREATES invoices that match its own filter. A late fee is now its own
+        //     invoice (see `applyTo`), issued today, due `today + payment_terms_days` — which on
+        //     zero-day terms is due today, i.e. inside `due_date <= today`. `chunkById()` pages
+        //     forward on ascending id, so it would walk straight into the fees it had just raised
+        //     and consider charging a late fee on a late fee, in the same run. The old `->get()`
+        //     was safe from that by accident, because it snapshotted first. Taking the ids up front
+        //     keeps that property on purpose, and states why.
+        $ids = Invoice::query()
             ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
             ->where('balance', '>', 0)
             ->whereDate('due_date', '<=', $today->toDateString())
-            ->with('lease')
-            ->get();
+            ->orderBy('id')
+            ->pluck('id');
 
-        $stats = ['considered' => $invoices->count(), 'applied' => 0, 'skipped' => 0, 'failed' => 0];
+        $stats = ['considered' => $ids->count(), 'applied' => 0, 'skipped' => 0, 'failed' => 0];
 
-        foreach ($invoices as $invoice) {
-            try {
-                $applied = $this->applyTo($invoice, $today);
-                if ($applied) {
-                    $stats['applied']++;
-                } else {
-                    $stats['skipped']++;
+        foreach ($ids->chunk(static::CHUNK) as $chunk) {
+            $invoices = Invoice::query()->whereIn('id', $chunk)->with('lease')->get();
+
+            foreach ($invoices as $invoice) {
+                try {
+                    $applied = $this->applyTo($invoice, $today);
+                    if ($applied) {
+                        $stats['applied']++;
+                    } else {
+                        $stats['skipped']++;
+                    }
+                } catch (\Throwable $e) {
+                    $stats['failed']++;
+                    OpsLog::error('Late fee application failed', [
+                        'invoice_id' => $invoice->id,
+                        'error' => $e->getMessage(),
+                    ]);
                 }
-            } catch (\Throwable $e) {
-                $stats['failed']++;
-                OpsLog::error('Late fee application failed', [
-                    'invoice_id' => $invoice->id,
-                    'error' => $e->getMessage(),
-                ]);
             }
         }
 

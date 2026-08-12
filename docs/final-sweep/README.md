@@ -78,7 +78,7 @@ Where a finding is agent-verified rather than lead-verified, the aspect file say
 Severity is **impact if it reaches production**. `Fix by` is my recommendation, not a constraint.
 Effort: **S** ≲ half a day · **M** ≲ 3 days · **L** > 3 days.
 
-> ### Status at 2026-08-12 — 34 closed, 11 open, and only 2 of those are engineering
+> ### Status at 2026-08-12 — 35 closed, 10 open, and only 1 of those is engineering
 >
 > **A struck-through row is done.** Every row was re-checked against the commits on this date; the
 > table had drifted, because Phase 1 recorded its work in the callout below and never struck the
@@ -89,7 +89,7 @@ Effort: **S** ≲ half a day · **M** ≲ 3 days · **L** > 3 days.
 >
 > | What is left | Rows |
 > |---|---|
-> | **Engineering** | FS-21 (late-fee job re-entrant) · FS-22 (the concurrency gate) |
+> | **Engineering** | FS-22 (the concurrency gate) — deliberately held while a concurrent session works the tax and lease layers |
 > | **Operator's environment, not code** | FS-10 (backup infrastructure) · FS-12 (deploy workflow) |
 > | **Decisions for the accountant/owner, not engineering** | FS-53 – FS-58 |
 >
@@ -150,7 +150,7 @@ These are either money-destroying, credential-grade, or block the cut-over entir
 | ~~**FS-18**~~ ✅ | **`billing:reconcile` counts 2 of the 4 settlement channels** — the trust tool cries wolf on the two newest money features, and `MonthEndReadinessService` consumes it, so a correct book reports not-ready at close | BUGFIX | S |
 | ~~**FS-19**~~ ✅ | **Voiding a monthly invoice permanently blocks re-billing that lease-month**; also `nsf_fee` missing from the same exclusion list, suppressing that month's base rent | BUGFIX | S |
 | ~~**FS-20**~~ ✅ | ~~**No monthly trial balance, P&L or balance sheet**~~ — **shipped 2026-08-12.** A `Period` picker on `ScopesLedgerReport` (Full year default, else any month of the fiscal year) reaches all five pages, the PDF header and the export filename. The finding's second half shipped with it: **`FiscalYear::starts_on`/`ends_on` are now honoured**, so an April→March year no longer silently reports the wrong twelve months. Three mutations, each killing its own cases — including the stale-month-on-year-change reset, without which the two pickers can contradict each other | EDIT | S–M |
-| **FS-21** | **The nightly late-fee job is unbounded and re-entrant** — `$timeout=600` vs `retry_after=90` with no `WithoutOverlapping`; the sibling job has exactly that guard | BUGFIX | S |
+| ~~**FS-21**~~ ✅ | ~~**The nightly late-fee job is unbounded and re-entrant**~~ — **shipped 2026-08-12.** The guard (`WithoutOverlapping`, keyed by day, `dontRelease()`), `retry_after` raised to 900 past every job timeout, and the sweep now walks a **snapshot of ids** in chunks — deliberately not `chunkById()`, because a fee invoice on zero-day terms is due TODAY and matches the sweep's own filter, so paging forward on id walks into the fees it just raised. Pinned with a one-row page size, since at 250 that hazard is unreachable in a fixture. New `App\Support\QueueJobSafety` + gate classifies every job serialised/concurrency-safe with a stated reason, verifies the SERIALISED ones really declare the middleware, and fails on any timeout reaching `retry_after` — the arithmetic the two config files could not do for each other | BUGFIX | S |
 | **FS-22** | **`lockForUpdate` is a no-op in every test** — SQLite compiles it to `''`; 110 sites, 3 with any proxy. Concurrency is the one invariant class with no gate | EDIT + gate | M |
 | **FS-23** | **The authz gate is an `OR` where the rule is an `AND`** — verified in Filament source that `visible()` and `->authorize()` are the *same* layer; only in-closure `abort_unless` is independent. 76 write actions rest on one layer | EDIT + gate | M |
 | ~~**FS-24**~~ ✅ | ~~**Derived money columns are client-writable**~~ — **shipped 2026-08-12**, and it was three columns not one: `balance`, `paid_amount` AND `number` on an issued invoice, plus the credit note's whole header. All four exploited in a test *before* being fixed. `paid_amount` is discarded (recomputeTotals persists via `saveQuietly()`, so anything reaching the hook is a payload by construction); `balance` is always re-derived; `number` joined the finalized-invoice refusal list. `CreditNoteItem` got the hooks it never had — `recomputeFromItems()` already existed and was simply never called from the side that changes. **Gate: `App\Support\DerivedMoney` + `DerivedMoneyConformanceTest`**, which classifies every model with a fillable money column and proves each derived one by tampering with a committed record. It deliberately does not grep the forms — a `readOnly()->dehydrated()` looks locked and submits anyway | BUGFIX + gate | S |

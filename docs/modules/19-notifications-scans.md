@@ -358,6 +358,43 @@ Edit `config/billing.php`. The `LateFeeService::applyTo()` reads these at run-ti
 
 ---
 
+## Queued jobs and re-entrancy
+
+Two settings decide whether a queued job can be run twice at once, and they live in different files,
+so neither could check the other:
+
+| | |
+|---|---|
+| the job's `$timeout` | how long it may legitimately run |
+| the connection's `retry_after` | when the queue decides it died and hands it to another worker |
+
+**When `retry_after` is the smaller of the two, a slow job is handed out a second time while the
+first is still working** — and the only symptom is load, so nobody looks. That is what shipped:
+`ApplyLateFees` declared `$timeout = 600` against a `retry_after` of **90**, with no overlap guard,
+and swept the entire arrears backlog nightly at 04:00. Its sibling `RunMonthlyBilling` — identical
+timeout — had exactly that guard. One of the two was simply written second.
+
+Fixed 2026-08-12, in three places rather than one:
+
+1. `ApplyLateFees` declares `WithoutOverlapping('late-fees:'.$date)->dontRelease()`. Keyed by DAY, so
+   a backfill of yesterday is not blocked by tonight's run; `dontRelease()` because the sweep is
+   idempotent and runs again tomorrow, so requeueing a collided run only repeats work in flight.
+2. `retry_after` raised to **900** on every connection, past the longest job timeout. The cost is
+   real and accepted: a worker that is actually killed leaves its job invisible for 15 minutes
+   instead of 90 seconds. That is the trade Laravel documents, and a job silently run twice is worse
+   for anything touching money.
+3. **`App\Support\QueueJobSafety` classifies every job** as `SERIALISED` (must not overlap — the
+   gate verifies it really declares `WithoutOverlapping`, not just that somebody intended it) or
+   `CONCURRENCY_SAFE` (with the specific reason: scoped to one record whose write is idempotent, or
+   the worst case is a duplicate the recipient absorbs). `QueueJobSafetyConformanceTest` fails the
+   build on an unclassified job, on a registry entry naming a job that no longer exists, on a
+   classification with no stated reason, and on any job timeout that reaches `retry_after`.
+
+"Harmless to overlap" has to mean something specific. It does not mean "we have never seen it
+happen".
+
+---
+
 ## 9. Gotchas, edge cases & recently-fixed bugs
 
 1. **Portal fan-out must hit ALL portal logins**  

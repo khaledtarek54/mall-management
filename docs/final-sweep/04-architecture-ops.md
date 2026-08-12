@@ -178,7 +178,10 @@ limit. It is a `SUM … GROUP BY CASE` written as a hydration. `ActionRequired` 
 unbounded `->get()->filter()`s, all computed **before** the role filter — so a coordinator who sees two
 cards pays for the overdue-AR sum. Two widgets set `$isLazy = false`.
 
-**The nightly late-fee job is unbounded and can be re-entered.** Verified:
+~~**The nightly late-fee job is unbounded and can be re-entered.**~~ **FIXED 2026-08-12** — the
+guard, `retry_after` raised to 900, an id-snapshot sweep, and `QueueJobSafetyConformanceTest`
+classifying every job. See [module 19](../modules/19-notifications-scans.md#queued-jobs-and-re-entrancy).
+The original finding: Verified:
 [ApplyLateFees.php:17-18](../../app/Jobs/ApplyLateFees.php#L17-L18) sets `$timeout = 600`, `$tries = 1`
 and has **no `middleware()`**, while `config/queue.php:43` sets `retry_after` to **90**. A run
 exceeding 90 s becomes reclaimable and a second worker starts the same unbounded sweep.

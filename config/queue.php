@@ -27,6 +27,25 @@ return [
     | Drivers: "sync", "database", "beanstalkd", "sqs", "redis",
     |          "deferred", "background", "failover", "null"
     |
+    | ── retry_after MUST exceed the longest job timeout ────────────────────────
+    |
+    | `retry_after` is when the queue decides a reserved job has died and hands
+    | it to another worker. Laravel's own rule: it must be LONGER than the
+    | longest a job can legitimately run, or a slow job gets handed out a second
+    | time while the first is still working.
+    |
+    | This shipped at 90 while `ApplyLateFees` and `RunMonthlyBilling` both
+    | declare `$timeout = 600` — so a late-fee sweep taking over 90 seconds was
+    | re-entered by a second worker, nightly, across the whole arrears backlog.
+    | 900 clears the longest timeout with room, and
+    | `QueueJobSafetyConformanceTest` fails the build if a job is ever given a
+    | timeout that reaches it.
+    |
+    | The cost of raising it is real and accepted: a worker that is actually
+    | KILLED leaves its job invisible for 15 minutes instead of 90 seconds. That
+    | is the trade Laravel documents, and the alternative — a job silently run
+    | twice — is worse for anything that touches money.
+    |
     */
 
     'connections' => [
@@ -40,7 +59,7 @@ return [
             'connection' => env('DB_QUEUE_CONNECTION'),
             'table' => env('DB_QUEUE_TABLE', 'jobs'),
             'queue' => env('DB_QUEUE', 'default'),
-            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 90),
+            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 900),
             'after_commit' => false,
         ],
 
@@ -48,7 +67,7 @@ return [
             'driver' => 'beanstalkd',
             'host' => env('BEANSTALKD_QUEUE_HOST', 'localhost'),
             'queue' => env('BEANSTALKD_QUEUE', 'default'),
-            'retry_after' => (int) env('BEANSTALKD_QUEUE_RETRY_AFTER', 90),
+            'retry_after' => (int) env('BEANSTALKD_QUEUE_RETRY_AFTER', 900),
             'block_for' => 0,
             'after_commit' => false,
         ],
@@ -68,7 +87,7 @@ return [
             'driver' => 'redis',
             'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
             'queue' => env('REDIS_QUEUE', 'default'),
-            'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 90),
+            'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 900),
             'block_for' => null,
             'after_commit' => false,
         ],
