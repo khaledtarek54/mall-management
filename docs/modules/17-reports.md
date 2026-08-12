@@ -31,6 +31,18 @@ The module is **optional** (Module flag: `reports`; defaults enabled) and scoped
 
 ## 3. Business rules & invariants
 
+> **There is an index (2026-08-12).** Nineteen reports were scattered across five sidebar groups
+> with nothing anywhere listing them: an operator who had not been shown a report did not know it
+> existed. `/admin/report-hub` groups them — Financial · Receivables · Leasing · Operations · Tax —
+> each with a one-line description of the question it answers, which is the field that earns the
+> page. A report appears exactly when the operator could open it, because the hub asks each page's
+> own `canAccess()` rather than duplicating a permission that would drift.
+>
+> `App\Support\ReportCatalogue` is the registry and `ReportCatalogueConformanceTest` the gate:
+> every admin page is catalogued or exempt-with-a-reason, and both languages must describe every
+> report. The per-report navigation entries are unchanged — this adds a way in rather than moving
+> what people already know.
+
 > **The statements drill down (2026-08-12).** An account row on the income statement, balance sheet
 > or trial balance opens the general ledger for that account, carrying the report's own year, month
 > and property — the scope is the point, because landing on "this year, all properties" answers a

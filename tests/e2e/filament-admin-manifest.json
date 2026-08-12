@@ -406,6 +406,10 @@
             "slug": "rent-roll"
         },
         {
+            "class": "ReportHub",
+            "slug": "report-hub"
+        },
+        {
             "class": "Reports",
             "slug": "reports"
         },
