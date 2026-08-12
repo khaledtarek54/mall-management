@@ -14,6 +14,8 @@ This document turns a set of primary business requirements into traceable functi
 |---|---|
 | 🟢 `[EXISTS]` | Already implemented — reuse as-is. |
 | 🟡 `[EXTEND]` | Implemented but needs a change/addition. |
+
+> **Audited against the code 2026-08-12.** Four `[EXTEND]` markers were stale — REQ-3, ACC-2 and MNT-2 were fully built and NOT-2 was mostly built. The requirements were written carefully and the status markers drifted, which is the failure mode this table has: it reads as a to-do list and was partly a record of finished work.
 | 🔵 `[NEW]` | No code today — net-new module/field/table. |
 | 🔧 `[design]` | Architecture/design constraint, not an implementation status. |
 | ⏸️ `[DEFERRED]` | Out of current scope; pending external input. |
@@ -115,7 +117,7 @@ The platform is **multi-property**: an `Asset` is one mall; everything hangs off
 ## 4. Access, roles & org (ACC)
 
 - **ACC-1** 🟢 `[EXISTS]` — Multi-user, multi-role RBAC; permissions data-driven and additive (spatie/permission, 6 seeded roles + UI-created custom roles, 81 permissions).
-- **ACC-2** 🟡 `[EXTEND]` — Operator staff belong to **departments** (org axis) on top of their RBAC roles (permission axis). Model department membership like the `asset_user` staff pivot. See [DEPT-4](#5-departments-dept).
+- **ACC-2** ✅ `[DONE]` *(marker corrected 2026-08-12 — verified in code)* — `User::departments()` is a BelongsToMany over a pivot, exactly as specified. Operator staff belong to **departments** (org axis) on top of their RBAC roles (permission axis). Model department membership like the `asset_user` staff pivot. See [DEPT-4](#5-departments-dept).
 - **ACC-3** 🟢 `[EXISTS]` — The operator super-user (`super_admin`) can act on any request: assign, redirect, reject, resolve, close, comment.
 - **ACC-4** 🔵 `[NEW]` — When redirecting a request, the **full department list is shown to the operator** (not hidden behind an "all departments" abstraction). *Depends on the net-new Department model.*
 - **ACC-5** 🔵 `[NEW]` — **Owner** (`owner` role) is read/monitor by default, **plus** the right to raise **owner requests** ([§6B](#6b-owner-request-own)).
@@ -142,7 +144,7 @@ A "request" is the central ERP workflow object, with **three concrete types** ov
 
 - **REQ-1** 🟢 `[DONE]` — Every request carries a **scheduled work window**: `from` date/time → `to` date/time (when the work is performed). **Implemented:** `scheduled_from` / `scheduled_to` on `maintenance_requests` and `owner_requests`, exposed in the forms. — *covers original request #6.*
 - **REQ-2** 🟢 `[EXISTS]` — Status lifecycle defined for maintenance: `submitted → acknowledged → in_progress → awaiting_tenant → resolved → closed`, plus `cancelled`. Other request types reuse a comparable lifecycle. See [`STATUSES`](../app/Models/MaintenanceRequest.php#L19-L27). *(Cross-cutting — no single originating request.)*
-- **REQ-3** 🟡 `[EXTEND]` — **Closed requests are immutable.** At a terminal status (`closed`, `cancelled`), no field edits, comments, or reassignment. *Enforce via model policy + status guard; activity log already records the close.* — *covers original request #1.*
+- **REQ-3** ✅ `[DONE]` *(marker corrected 2026-08-12 — verified in code)* — **Closed requests are immutable.** `TenantRequest::isTerminal()`, whose docblock cites this requirement by number. At a terminal status (`closed`, `cancelled`), no field edits, comments, or reassignment. *Enforce via model policy + status guard; activity log already records the close.* — *covers original request #1.*
 - **REQ-4** 🟢 `[EXISTS]` — Full **audit trail** on status/assignment changes via spatie/activitylog. See [`getActivitylogOptions()`](../app/Models/MaintenanceRequest.php#L43-L50). *(Cross-cutting.)*
 - **REQ-5** 🔧 `[design]` — Routing modeled generically as **(sender, recipient, type, channel)**. Maintenance already has a `channel` enum (`portal, whatsapp, phone, email, walk_in, admin`); note `portal` is the **column default**, not an explicit marker (see [add_channel migration](../database/migrations/2026_05_25_145447_add_channel_to_maintenance_requests.php#L12-L13)). *(Cross-cutting.)*
 - **REQ-6** 🔧 `[design]` — Implement maintenance/owner/department requests over a shared `Request` contract rather than copy-paste models. *(Cross-cutting.)*
@@ -150,7 +152,7 @@ A "request" is the central ERP workflow object, with **three concrete types** ov
 ### 6A. Maintenance work-order (MNT)
 
 - **MNT-1** 🔵 `[NEW]` — Submission is restricted to the **tenant admin** (tenant side) and to operator staff (`channel = admin`). *Today any tenant-portal login can submit (`PortalMaintenanceSubmittedNotification`); gating to a tenant-admin role requires tenant-users ([TEN-3](#7-tenants-company--users-ten)).* — *covers original request #9 (clarified: "admin" = tenant admin).*
-- **MNT-2** 🟡 `[EXTEND]` — A work-order is **assigned to a department** (and optionally a staff user or vendor). *Today assignment targets `User` (`assigned_to`) or `Vendor` (`assigned_to_vendor_id`); add a `department_id` dimension.* See [MaintenanceRequest.php](../app/Models/MaintenanceRequest.php#L98-L106). — *covers #5.*
+- **MNT-2** ✅ `[DONE]` *(marker corrected 2026-08-12 — verified in code)* — `maintenance_work_orders.department_id` is a nullable FK to `departments`. A work-order is **assigned to a department** (and optionally a staff user or vendor). *Today assignment targets `User` (`assigned_to`) or `Vendor` (`assigned_to_vendor_id`); add a `department_id` dimension.* See [MaintenanceRequest.php](../app/Models/MaintenanceRequest.php#L98-L106). — *covers #5.*
 - **MNT-3** 🔵 `[NEW]` — Operator can **redirect a misrouted request to another department** and **reject** it (with reason). *Reassignment exists; the department redirect + the shown department list ([ACC-4](#4-access-roles--org-acc)) depend on the net-new Department model.* — *covers #5.*
 - **MNT-4** 🟢 `[EXISTS]` — Operator (`super_admin`) can perform all work on any request: acknowledge → progress → resolve → close, with comments. — *covers #5.*
 - **MNT-5** 🟢 `[DONE]` — A work-order that is **late/overdue** notifies **owner (Jawad) users** as oversight. **Implemented**: owner users (via `asset_owner`) are merged into the `maintenance:scan-sla-breaches` recipients (`AssetStaffRecipients::owners()`). *"Overdue" already = `isOverdue()` (open AND past `target_resolution_at`); the daily `maintenance:scan-sla-breaches` job fires `MaintenanceSlaBreachedNotification` once (idempotent via `sla_breach_notified_at`). Extend recipients to owner users.* See [isOverdue()](../app/Models/MaintenanceRequest.php#L118-L123) · [sla migration](../database/migrations/2026_05_31_213931_add_sla_breach_notified_at_to_maintenance_requests.php). — *covers #4.*
@@ -216,7 +218,7 @@ A "request" is the central ERP workflow object, with **three concrete types** ov
 ## 11. Notifications & cross-cutting (NOT)
 
 - **NOT-1** 🟢 `[EXISTS]` — Channel-agnostic notification infra: Laravel notifications + `notifications` table + `DeviceToken` push. 9 notification classes exist (e.g. `MaintenanceSlaBreachedNotification`, `MaintenanceStatusChangedNotification`). See [app/Notifications](../app/Notifications/). *(Cross-cutting.)*
-- **NOT-2** 🟡 `[EXTEND]` — Wire new events onto this infra: owner late/late-fee alerts (MNT-5/6), inter-department messages (DEPT-2), owner requests (OWN), marketing receipts (ACCT-3). Confirm channels for v1 ([O-7](#open-items)). *(Cross-cutting — supports #4, #11, #15.)*
+- **NOT-2** 🟡 `[EXTEND]` — *(partly done 2026-08-12: `InvoiceOverdueOwnerNotification`, `LateFeeAppliedNotification`, `OwnerRequestNotification` and `OwnerStatementSentNotification` all exist and are wired.)* Remaining: inter-department messages (DEPT-2) and marketing receipts (ACCT-3). Wire new events onto this infra: owner late/late-fee alerts (MNT-5/6), inter-department messages (DEPT-2), owner requests (OWN), marketing receipts (ACCT-3). Confirm channels for v1 ([O-7](#open-items)). *(Cross-cutting — supports #4, #11, #15.)*
 - **NOT-3** 🟢 `[EXISTS]` — Audit trail via spatie/activitylog across maintenance, users, etc. *(Cross-cutting.)*
 
 ---

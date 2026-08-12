@@ -27,7 +27,9 @@
 Each question states **what the system does today**, so silence is a decision too — if you don't
 answer, that is what ships.
 
-## Status at a glance — reviewed 2026-07-29
+## Status at a glance — reviewed 2026-07-29, spot-checked 2026-08-12
+
+> **2026-08-12:** the two questions that now block WORK rather than polish are **A9.x stamp/schedule tax GL accounts** (eleven catalogue codes ship inactive without them) and the **budget shape** (§4.8 of the accountant briefing, added the same day). Everything else on the prioritised roadmap is shipped or closed. A9.7's numbering half became answerable and carries a go-live deadline — see the row.
 
 The list was consolidated 2026-07-18 and a lot shipped after it. This review re-checked every
 "what we do today" claim against the code, so a meeting is spent on questions that are still real.
@@ -176,7 +178,7 @@ New questions surfaced while writing the posting map, so the accountant can re-p
 | A9.4 | **Inventory valuation method** — FIFO / weighted-average / standard cost? | Per-movement unit cost | 🟡 | |
 | A9.5 | Accrue **end-of-service & leave provisions monthly** (accounts 22201001 / 22201002 already exist in the chart)? | Not automated | 🟠 | |
 | A9.6 | **Fixed-asset useful lives / depreciation rates per class** and **salvage value**? | Straight-line, per-asset params | 🟡 | |
-| A9.7 | Separate **cash/bank account per mall**, or shared? Any specific **numbering series** for journals/invoices to match your books? | Shared; internal numbering | 🟡 | |
+| A9.7 | Separate **cash/bank account per mall**, or shared? Any specific **numbering series** for journals/invoices to match your books? | Shared; internal numbering | 🟡 | |<br><br>**Updated 2026-08-12 — the numbering half is now answerable, and urgent.** Document prefixes are configurable (Settings → Accounting): `INV` · `CN` · `JE` · `BILL` · `EXP` · `DEP` · `PAY` · `PR` · `LSE` · `PDC`. **Send your series before the first real invoice** — afterwards the prefix is on issued documents that cannot be renumbered, and changing it starts a SECOND series rather than renumbering the first. Tracked as Q-COA-5 in the accountant briefing.
 | A9.8 | Need a **WHT report (Form 41)** and a **salary-tax report** alongside the VAT-output report (A2.5)? | Not built | 🟠 | |
 
 ---
