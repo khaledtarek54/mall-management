@@ -75,7 +75,8 @@ maintenance keep separate registers, separate permissions, and no double data en
 | Column | Meaning |
 |--------|---------|
 | `asset_id` · `priority` | unique together — one row per property × priority |
-| `resolve_hours` | hours from **acceptance**; must be ≥ 1 |
+| `resolve_hours` | hours from **acceptance** (or from when acceptance was due — see §7c); must be ≥ 1 |
+| `respond_hours` | hours from **creation** within which somebody must take the job on; **nullable**, meaning this property overrides only the resolution target and takes the operator-wide response target |
 
 **A row is an override, not a requirement.** Absent, the operator-wide default applies, so an
 operator records only the malls that genuinely differ instead of restating four numbers per
@@ -128,7 +129,9 @@ is an **open client question** — don't guess it into the schema.
 | `asset_id` · `unit_id` · `equipment_id` · `reference` | scope + auto `WO-{asset}-{YYYYMM}-{n}`, or **`CM-…`** for corrective |
 | `title` · `category` · `status` · `scheduled_for` | the job (`open`\|`in_progress`\|`done`\|`cancelled`) |
 | `priority` | **FR-CM-06** — `low`\|`medium`\|`high`\|`urgent`. Normal ≈ `medium`; decides the SLA |
-| `acknowledged_at` · `target_resolution_at` | **FR-CM-07** — both stamped on **acceptance**, not creation |
+| `target_response_at` | **FR-CM-07** — stamped at creation; how long the job may sit before anybody takes it on |
+| `acknowledged_at` | when somebody took it on — stops the response clock |
+| `target_resolution_at` | **FR-CM-07** — stamped at creation from the response deadline, pulled IN on an early acceptance, never pushed out by a late one |
 | `sla_breach_notified_at` | idempotency stamp for the hourly breach scan |
 | `description` | **FR-CM-04** — what is wrong. Required for CM; distinct from `notes`, which on a PPM order holds the plan's description |
 | `vendor_id` · `assigned_to_user_id` | **FR-CM-03** — the company **or** the technician, never both |
@@ -323,19 +326,47 @@ Tests: `tests/Feature/Regression/EquipmentCriticalityTest.php` (7).
    > missing. So deleting a technician or vendor (both `nullOnDelete`, which fires behind Eloquent's
    > back) leaves the CM saveable. Verified by probe, since this module has twice shipped a guard
    > that permanently froze a record.
-7c. **The SLA clock starts on ACCEPTANCE** (FR-CM-07), not on creation, and only for CM.
-   Module 11 does the opposite — it stamps `target_resolution_at` at create-time — so a request
-   nobody picks up for three days has already burned its whole SLA before an engineer sees it, and
-   the breach then measures the queue rather than the work. Accepting a CM (`open → in_progress`) is
-   the moment the operator takes it on. The stamp is written **once**; a preventive order never gets
-   a clock at all, because a scheduled visit's date is the plan's, not a response deadline.
-   Consequence worth knowing: **an unaccepted CM never breaches.** That is deliberate — but it means
-   "nobody accepted it" is a queue problem the SLA is not designed to catch.
+7c. **TWO clocks (FR-CM-07, extended 2026-08-12).** A corrective job has a **response** deadline
+   from creation and a **resolution** deadline from acceptance, and they answer different questions:
+   *did anybody take this on* and *did they fix it in time*. Preventive orders have neither — a
+   scheduled visit's date is the plan's, not a response deadline.
+
+   The resolution rule in one sentence: **a job has `resolve_hours` from the moment it was accepted,
+   or from the moment it should have been — whichever came first.** So `MaintenanceWorkOrder::
+   stampSlaClocks()` writes both at creation (the resolution one measured from the response
+   deadline), and `MaintenanceWorkOrderService` pulls the resolution deadline IN when the job is
+   accepted early. Accepting **late cannot push it out** — `min()`, not assignment — because
+   ignoring a job must not buy more time to finish it.
+
+   FR-CM-07's intent is unchanged: module 11 stamps `target_resolution_at` at create-time, so a
+   request nobody picks up for three days has burned its whole SLA before an engineer sees it, and
+   the breach measures the queue rather than the work. An engineer who accepts inside the response
+   window still gets their **full** window from that moment, and is never charged for queue time.
+
+   **What this replaced.** `target_resolution_at` used to be written in exactly one place — the
+   manual `open → in_progress` hop — and `open → done` is a legal transition. An external job could
+   therefore be created, worked for three weeks and closed with the target still null;
+   `isSlaBreached()` requires a non-null target, so the hourly scan, the penalty gate, the table
+   filter and the dashboard card all skipped it permanently. *Not clicking Start was a silent way to
+   waive a vendor's penalty, with nothing recording that it happened.* Two scenario tests asserted
+   that behaviour as if it were the rule, one of them named "sits on an unaccepted job indefinitely
+   without ever breaching"; both were rewritten in the same change.
+
+   **What is deliberately NOT here:** a response breach carries no monetary penalty.
+   `AssessSlaPenaltyService` implements FR-CM-08, which is about a job that ran late, and whether an
+   unanswered job is separately chargeable is a contract question for the operator — not one to
+   invent in code. It is alerted, filtered and counted; it is not billed.
 7d. **Breaches are detected hourly** by `maintenance:scan-wo-sla-breaches` (separate from module
    11's `maintenance:scan-sla-breaches` — different subject, different table, its own stamp).
    Idempotent via `sla_breach_notified_at`, re-checked under a row lock inside the transaction, and
    contained per row. The stamp is written **even when the property has no staff to alert**, or a
-   mall with nobody assigned would re-alert on every run forever.
+   mall with nobody assigned would re-alert on every run forever. The response breach runs the same
+   shape off **its own** stamp (`response_breach_notified_at`): a job answered late but fixed on
+   time is a different conversation from one answered on time and fixed late, and sharing a stamp
+   would let whichever clock breached first silence the other. The scan also **backfills** the two
+   clocks onto corrective orders raised before they existed — done there rather than in a migration
+   because the targets resolve through live settings and per-property policies, and a migration that
+   reads application state breaks the day that state changes shape.
 7e. **Returning a property to the default is a deactivation, not a delete.** `sla_policies.is_active`
    exists because delete is **super_admin-only project-wide** — without it a manager could set an
    override but never remove one. Deactivating is an EDIT, so it respects that invariant instead of

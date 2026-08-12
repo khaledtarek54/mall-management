@@ -167,6 +167,11 @@ class ActionRequired extends Widget
             ->where('target_resolution_at', '<', $now)
             ->count();
 
+        // The other half of FR-CM-08's detection. A job nobody has ACCEPTED has no resolution
+        // deadline yet by design (FR-CM-07), so it could never appear in the count above — which
+        // made "nobody has looked at this" the one maintenance failure the dashboard was blind to.
+        $woUnansweredCount = $workOrderBase()->responseBreached()->count();
+
         $monthStart = (clone $now)->startOfMonth();
         $monthEnd = (clone $now)->endOfMonth();
         $unbilledLeasesCount = $leaseBase()->where('status', 'active')
@@ -243,6 +248,20 @@ class ActionRequired extends Widget
                 'url' => MaintenanceWorkOrderResource::getUrl('index', [
                     'filters' => ['sla_breached' => ['isActive' => true]],
                     'sort' => 'target_resolution_at:asc',
+                ]),
+            ];
+        }
+
+        if ($ppmEnabled && $woUnansweredCount > 0) {
+            $items[] = [
+                'key' => 'wo_response_breached',
+                'icon' => 'heroicon-o-bell-alert',
+                'color' => 'danger',
+                'title' => trans_choice('admin.widgets.action_required.wo_response_breached', $woUnansweredCount, ['count' => $woUnansweredCount]),
+                'body' => __('admin.widgets.action_required.wo_response_breached_body'),
+                'url' => MaintenanceWorkOrderResource::getUrl('index', [
+                    'filters' => ['response_breached' => ['isActive' => true]],
+                    'sort' => 'target_response_at:asc',
                 ]),
             ];
         }

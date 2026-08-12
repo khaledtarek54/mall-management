@@ -29,11 +29,13 @@ class SlaPolicy extends Model
         'asset_id',
         'priority',
         'resolve_hours',
+        'respond_hours',
         'is_active',
     ];
 
     protected $casts = [
         'resolve_hours' => 'integer',
+        'respond_hours' => 'integer',
         'is_active' => 'boolean',
     ];
 
@@ -45,7 +47,7 @@ class SlaPolicy extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['asset_id', 'priority', 'resolve_hours', 'is_active'])
+            ->logOnly(['asset_id', 'priority', 'resolve_hours', 'respond_hours', 'is_active'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('sla_policy');
@@ -71,6 +73,12 @@ class SlaPolicy extends Model
             }
 
             // A zero-hour SLA would mark every job breached the instant it is accepted.
+            // Nullable = "this property overrides only the resolution target"; a value of 0 is not
+            // that, it is a deadline in the past on every job.
+            if ($policy->respond_hours !== null && (int) $policy->respond_hours < 1) {
+                throw new InvalidArgumentException('respond_hours must be at least 1 when set.');
+            }
+
             if ((int) $policy->resolve_hours < 1) {
                 throw new InvalidArgumentException('resolve_hours must be at least 1.');
             }

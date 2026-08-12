@@ -66,7 +66,7 @@ class MaintenanceWorkOrderService
 
             $payload = ['status' => $next];
 
-            // FR-CM-07 — the SLA clock starts on ACCEPTANCE, not on creation. Module 11
+            // FR-CM-07 — the RESOLUTION clock runs from ACCEPTANCE, not from creation. Module 11
             // gets this wrong: it stamps target_resolution_at at create-time, so a request
             // nobody picks up for three days has already burned its entire SLA before an
             // engineer sees it, and the breach says more about the queue than the work.
@@ -76,11 +76,24 @@ class MaintenanceWorkOrderService
             // "awaiting parts" is added later (module 11 already has awaiting_tenant →
             // in_progress). Without it, such a hop would silently reset the deadline and
             // erase the elapsed time, which is how an SLA quietly stops meaning anything.
+            //
+            // What changed 2026-08-12: the deadline already EXISTS, stamped at creation from the
+            // response target (`MaintenanceWorkOrder::stampSlaClocks()`) — because `open → done` is
+            // a legal hop, and a job that never passed through here therefore used to have no
+            // deadline at all, escaping the scan, the penalty and every filter permanently.
+            // Accepting can only pull the deadline IN, never push it out: an engineer who takes the
+            // job on promptly gets their full window from that moment, while accepting late must
+            // not buy extra time to finish. Hence min(), not assignment.
             if ($next === 'in_progress' && $locked->isCorrective() && $locked->acknowledged_at === null) {
                 $payload['acknowledged_at'] = now();
-                $payload['target_resolution_at'] = now()->addHours(
+
+                $fromAcceptance = now()->addHours(
                     SlaResolver::hoursFor($locked->asset_id, $locked->priority)
                 );
+
+                $payload['target_resolution_at'] = $locked->target_resolution_at === null
+                    ? $fromAcceptance
+                    : $fromAcceptance->min($locked->target_resolution_at);
             }
 
             if ($next === 'done') {

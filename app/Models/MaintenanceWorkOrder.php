@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
+use App\Support\SlaResolver;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -135,7 +137,9 @@ class MaintenanceWorkOrder extends Model
         'scheduled_for',
         'acknowledged_at',
         'target_resolution_at',
+        'target_response_at',
         'sla_breach_notified_at',
+        'response_breach_notified_at',
         'completed_at',
         'completed_by_user_id',
         'department_id',
@@ -158,7 +162,9 @@ class MaintenanceWorkOrder extends Model
         'scheduled_for' => 'date',
         'acknowledged_at' => 'datetime',
         'target_resolution_at' => 'datetime',
+        'target_response_at' => 'datetime',
         'sla_breach_notified_at' => 'datetime',
+        'response_breach_notified_at' => 'datetime',
         'completed_at' => 'datetime',
         'job_value' => 'decimal:2',
         'fault_recorded_at' => 'datetime',
@@ -173,7 +179,7 @@ class MaintenanceWorkOrder extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['maintenance_plan_id', 'work_order_type', 'execution_type', 'asset_id', 'unit_id', 'area_id', 'equipment_id', 'title', 'category', 'status', 'priority', 'scheduled_for', 'acknowledged_at', 'target_resolution_at', 'completed_at', 'vendor_id', 'assigned_to_user_id', 'parent_work_order_id', 'tenant_request_id', 'fault_party', 'cost_bearer', 'fault_notes'])
+            ->logOnly(['maintenance_plan_id', 'work_order_type', 'execution_type', 'asset_id', 'unit_id', 'area_id', 'equipment_id', 'title', 'category', 'status', 'priority', 'scheduled_for', 'acknowledged_at', 'target_response_at', 'target_resolution_at', 'completed_at', 'vendor_id', 'assigned_to_user_id', 'parent_work_order_id', 'tenant_request_id', 'fault_party', 'cost_bearer', 'fault_notes'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('maintenance_work_order');
@@ -228,6 +234,8 @@ class MaintenanceWorkOrder extends Model
      * The machine this job is against (FR-PPM-03) — copied from the plan when raised, or
      * set directly on an ad-hoc order. Carried here rather than read through the plan
      * because an order outlives its plan (nullOnDelete) and ad-hoc orders have none.
+     *
+     * @return BelongsTo<Equipment, $this>
      */
     public function equipment(): BelongsTo
     {
@@ -373,6 +381,100 @@ class MaintenanceWorkOrder extends Model
     }
 
     /**
+     * Stamp both SLA clocks on a corrective order. Idempotent: only ever FILLS a null.
+     *
+     * **Why the resolution deadline is stamped here and not only on acceptance.**
+     * `target_resolution_at` used to be written in exactly one place — the manual
+     * `open → in_progress` hop — and `open → done` is a legal transition. So an external job could
+     * be created, worked for three weeks and closed with the target still null; `isSlaBreached()`
+     * requires a non-null target, so the scan, the penalty gate, the filter and the dashboard all
+     * skipped it. Not clicking Start silently waived the vendor's penalty.
+     *
+     * The rule, in one sentence: **a job has `resolve_hours` from the moment it was accepted, or
+     * from the moment it should have been — whichever came first.** At creation that is the
+     * response deadline, which is why a deadline now always exists. `MaintenanceWorkOrderService`
+     * tightens it to the real acceptance time when the job is picked up on time. Accepting LATE
+     * cannot push it out: ignoring a job must not buy more time to finish it.
+     *
+     * FR-CM-07 is untouched by this — an engineer who accepts within the response window still gets
+     * their full resolution window from that moment, and is never charged for queue time. Queue
+     * time is what the response clock is for.
+     *
+     * Preventive rounds have neither clock: they are scheduled work with a `scheduled_for`, not a
+     * response-and-repair obligation, and every SLA surface in the module filters `->corrective()`.
+     */
+    public function stampSlaClocks(): void
+    {
+        if (! $this->isCorrective()) {
+            return;
+        }
+
+        $priority = (string) ($this->priority ?? 'medium');
+
+        if ($this->target_response_at === null) {
+            $this->target_response_at = ($this->created_at ?? now())
+                ->copy()
+                ->addHours(SlaResolver::respondHoursFor($this->asset_id, $priority));
+        }
+
+        if ($this->target_resolution_at === null) {
+            $this->target_resolution_at = $this->target_response_at
+                ->copy()
+                ->addHours(SlaResolver::hoursFor($this->asset_id, $priority));
+        }
+    }
+
+    /**
+     * Nobody took the job on in time. Independent of the resolution clock: a job can be responded
+     * to late and still finish inside its resolution window, and both facts matter — one is the
+     * queue's, the other the engineer's or the contractor's.
+     *
+     * Measured to acceptance, or to now while it is still unanswered. A job that reached a terminal
+     * state without ever being acknowledged was never responded to at all, so it is measured to the
+     * moment it closed rather than growing forever in the archive — the same reasoning as
+     * `hoursOverSla()`.
+     */
+    public function isResponseBreached(): bool
+    {
+        if ($this->target_response_at === null) {
+            return false;
+        }
+
+        return $this->responseEndedAt()->greaterThan($this->target_response_at);
+    }
+
+    /** Whole hours past the response target; 0 when answered in time. */
+    public function hoursOverResponseSla(): int
+    {
+        if (! $this->isResponseBreached()) {
+            return 0;
+        }
+
+        return (int) abs($this->target_response_at->diffInHours($this->responseEndedAt()));
+    }
+
+    /** When the response clock stopped: acceptance, else closure, else it is still running. */
+    private function responseEndedAt(): CarbonInterface
+    {
+        return $this->acknowledged_at ?? $this->completed_at ?? now();
+    }
+
+    /**
+     * Unanswered past its response target and still open — the scan/filter/dashboard set.
+     *
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    public function scopeResponseBreached(Builder $query): Builder
+    {
+        return $query->corrective()
+            ->whereNull('acknowledged_at')
+            ->whereNotIn('status', self::TERMINAL)
+            ->whereNotNull('target_response_at')
+            ->where('target_response_at', '<', now());
+    }
+
+    /**
      * Past its SLA target and still open (FR-CM-08). Derived, not stored — an order with no
      * target (never accepted, or preventive) is never overdue.
      */
@@ -504,6 +606,8 @@ class MaintenanceWorkOrder extends Model
                 }
                 $order->area_id = $derived === null ? null : (int) $derived;
             }
+
+            $order->stampSlaClocks();
         });
 
         static::saving(function (self $order) {

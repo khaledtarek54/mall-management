@@ -313,12 +313,6 @@ parameters:
 			path: app/Filament/Admin/Resources/MaintenanceWorkOrders/Tables/MaintenanceWorkOrdersTable.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name_en\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Filament/Admin/Resources/MaintenanceWorkOrders/Tables/MaintenanceWorkOrdersTable.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$reference\.$#'
 			identifier: property.notFound
 			count: 1
@@ -1153,12 +1147,6 @@ parameters:
 			path: app/Notifications/TenantRequestStatusChangedNotification.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Notifications/WorkOrderSlaBreachedNotification.php
-
-		-
 			message: '#^Using nullsafe property access "\?\-\>code" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 1
@@ -1283,30 +1271,6 @@ parameters:
 			identifier: method.notFound
 			count: 1
 			path: app/Services/Accounting/Journalizers/EmployeeAdvanceJournalizer.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$acquisition_cost\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/Accounting/Journalizers/FixedAssetDisposalJournalizer.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/Accounting/Journalizers/FixedAssetDisposalJournalizer.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Services/Accounting/Journalizers/FixedAssetDisposalJournalizer.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:depreciationEntries\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Services/Accounting/Journalizers/FixedAssetDisposalJournalizer.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$asset_id\.$#'

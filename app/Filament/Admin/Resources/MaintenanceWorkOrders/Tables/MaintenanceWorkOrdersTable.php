@@ -107,6 +107,18 @@ class MaintenanceWorkOrdersTable
                         default => 'info',
                     })
                     ->toggleable(),
+                // The clock nobody could see. An order sitting unaccepted had no resolution
+                // deadline at all, so the column beside this one was blank and the job read as
+                // fine — which is exactly what a job nobody has looked at looks like.
+                TextColumn::make('target_response_at')
+                    ->label(__('admin.preventive_maintenance.sla.response_target'))
+                    ->dateTime('d/m/Y H:i')
+                    ->placeholder('—')
+                    ->color(fn (MaintenanceWorkOrder $record) => $record->isResponseBreached() ? 'danger' : null)
+                    ->description(fn (MaintenanceWorkOrder $record) => $record->isResponseBreached()
+                        ? __('admin.preventive_maintenance.sla.unanswered').' · '.$record->hoursOverResponseSla().'h'
+                        : null)
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('target_resolution_at')
                     ->label(__('admin.preventive_maintenance.sla.target'))
                     ->dateTime('d/m/Y H:i')
@@ -176,6 +188,11 @@ class MaintenanceWorkOrdersTable
                         ->whereNotNull('target_resolution_at')
                         ->where('target_resolution_at', '<', now())
                         ->whereNotIn('status', MaintenanceWorkOrder::TERMINAL)),
+                // Reuses the model scope the scan and the dashboard read, so the list, the count
+                // and the nightly alert can never disagree about who is unanswered.
+                Filter::make('response_breached')
+                    ->label(__('admin.preventive_maintenance.sla.response_breached_filter'))
+                    ->query(fn ($query) => $query->responseBreached()),
             ])
             ->recordActions([
                 // Read the record without opening its edit form — less

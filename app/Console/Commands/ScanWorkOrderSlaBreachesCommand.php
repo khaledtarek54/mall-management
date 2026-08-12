@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\MaintenanceWorkOrder;
+use App\Notifications\WorkOrderResponseSlaBreachedNotification;
 use App\Notifications\WorkOrderSlaBreachedNotification;
 use App\Services\AssessSlaPenaltyService;
 use App\Services\AssetStaffRecipients;
@@ -35,6 +36,12 @@ class ScanWorkOrderSlaBreachesCommand extends Command
 
     public function handle(): int
     {
+        // --dry-run writes NOTHING, and backfilling a deadline is a write. Same reasoning that
+        // already keeps penalty assessment out of the preview.
+        $healed = $this->option('dry-run')
+            ? $this->countMissingClocks()
+            : $this->stampMissingClocks();
+
         // Two different jobs, two different queries, deliberately.
         //
         // The ALERT is once per order — `sla_breach_notified_at` is its key.
@@ -60,24 +67,36 @@ class ScanWorkOrderSlaBreachesCommand extends Command
                 $this->line("  would alert: {$order->reference} ({$order->hoursOverSla()}h over)");
             }
 
-            $this->info("{$breached->count()} breach(es) would be alerted; {$overdue->count()} penalty assessment(s) would run.");
+            $unanswered = MaintenanceWorkOrder::query()
+                ->responseBreached()->whereNull('response_breach_notified_at')->get();
+            foreach ($unanswered as $order) {
+                $this->line("  would alert (unanswered): {$order->reference} ({$order->hoursOverResponseSla()}h over)");
+            }
+
+            $this->info("{$breached->count()} breach(es) and {$unanswered->count()} unanswered job(s) would be alerted; {$overdue->count()} penalty assessment(s) would run.");
+            $this->info("{$healed} pre-existing order(s) would have their SLA clocks stamped.");
 
             return self::SUCCESS;
         }
 
         $assessFailures = $this->assessPenalties($overdue);
 
+        // The response pass runs whether or not anything breached its RESOLUTION target — they are
+        // independent clocks, and putting this after the early return below would have meant a
+        // quiet week for resolutions silenced every unanswered job too.
+        [$responseAlerted, $responseFailures] = $this->alertResponseBreaches();
+
         $breached = $overdue->whereNull('sla_breach_notified_at');
 
         if ($breached->isEmpty()) {
-            $this->info('No new SLA breaches.');
-            $this->summarise($overdue->count(), $assessFailures, alerted: 0, alertFailures: 0);
+            $this->info("No new SLA breaches. Alerted {$responseAlerted} unanswered job(s).");
+            $this->summarise($overdue->count(), $assessFailures, $responseAlerted, $responseFailures);
 
             return self::SUCCESS;
         }
 
-        $alerted = 0;
-        $alertFailures = 0;
+        $alerted = $responseAlerted;
+        $alertFailures = $responseFailures;
 
         foreach ($breached as $row) {
             try {
@@ -100,6 +119,135 @@ class ScanWorkOrderSlaBreachesCommand extends Command
         $this->summarise($overdue->count(), $assessFailures, $alerted, $alertFailures);
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Heal corrective orders that predate the response clock (2026-08-12).
+     *
+     * The deadlines are stamped by `MaintenanceWorkOrder::creating`, so every new order has them.
+     * Rows created BEFORE that — including every job that slipped through the original defect —
+     * would otherwise stay invisible forever, which is the exact failure this fixes. Done here
+     * rather than in the migration on purpose: the targets resolve through the three-tier
+     * `SlaResolver`, i.e. through live settings and per-property policies, and a migration that
+     * reads application state is a migration that breaks the day that state changes shape.
+     *
+     * Idempotent — `stampSlaClocks()` only ever fills a null — and `saveQuietly` because backfilling
+     * a deadline is not an operator edit and has no place in the activity log.
+     */
+    /** How many rows `stampMissingClocks()` would touch — the preview half, which writes nothing. */
+    private function countMissingClocks(): int
+    {
+        return $this->missingClocksQuery()->count();
+    }
+
+    /** @return \Illuminate\Database\Eloquent\Builder<MaintenanceWorkOrder> */
+    private function missingClocksQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return MaintenanceWorkOrder::query()
+            ->corrective()
+            ->whereNull('target_response_at')
+            ->whereNotIn('status', MaintenanceWorkOrder::TERMINAL);
+    }
+
+    private function stampMissingClocks(): int
+    {
+        $healed = 0;
+
+        $this->missingClocksQuery()
+            ->chunkById(200, function ($orders) use (&$healed) {
+                foreach ($orders as $order) {
+                    try {
+                        $order->stampSlaClocks();
+                        if ($order->isDirty()) {
+                            $order->saveQuietly();
+                            $healed++;
+                        }
+                    } catch (\Throwable $e) {
+                        OpsLog::error('Could not stamp SLA clocks on a legacy work order', [
+                            'work_order_id' => $order->id,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
+            });
+
+        if ($healed > 0) {
+            $this->info("Stamped SLA clocks on {$healed} pre-existing order(s).");
+            OpsLog::info('Backfilled SLA clocks on legacy work orders', ['count' => $healed]);
+        }
+
+        return $healed;
+    }
+
+    /**
+     * Nobody has taken the job on, and the response window has passed.
+     *
+     * This is the half that closes the trapdoor. FR-CM-07 starts the RESOLUTION clock at
+     * acceptance so an engineer is not charged for queue time — which left queue time
+     * accountable to nobody at all. An order sitting unanswered is now a breach in its own
+     * right, alerted once, with its own stamp so it cannot silence (or be silenced by) the
+     * resolution breach.
+     *
+     * @return array{0: int, 1: int} alerted, failures
+     */
+    private function alertResponseBreaches(): array
+    {
+        $rows = MaintenanceWorkOrder::query()
+            ->responseBreached()
+            ->whereNull('response_breach_notified_at')
+            ->get();
+
+        $alerted = 0;
+        $failures = 0;
+
+        foreach ($rows as $row) {
+            try {
+                $alerted += $this->alertResponseBreach($row->id) ? 1 : 0;
+            } catch (\Throwable $e) {
+                $failures++;
+                $this->warn("  response alert failed on #{$row->id}: {$e->getMessage()}");
+                OpsLog::error('Work-order response-SLA alert failed', [
+                    'work_order_id' => $row->id,
+                    'reference' => $row->reference,
+                    'asset_id' => $row->asset_id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return [$alerted, $failures];
+    }
+
+    private function alertResponseBreach(int $orderId): bool
+    {
+        return DB::transaction(function () use ($orderId) {
+            /** @var MaintenanceWorkOrder|null $order */
+            $order = MaintenanceWorkOrder::whereKey($orderId)->with('equipment')->lockForUpdate()->first();
+
+            // Re-checked inside the lock, same as the resolution alert: two overlapping runs would
+            // otherwise both read null and alert twice. Acceptance between the query and the lock
+            // means it was answered after all.
+            if (! $order
+                || $order->response_breach_notified_at !== null
+                || $order->acknowledged_at !== null
+                || $order->isTerminal()) {
+                return false;
+            }
+
+            $staff = app(AssetStaffRecipients::class);
+            $recipients = $staff->for($order->asset_id, ['manager', 'operations'])
+                ->merge($staff->owners($order->asset_id))
+                ->unique('id')
+                ->values();
+
+            if ($recipients->isNotEmpty()) {
+                Notification::send($recipients, new WorkOrderResponseSlaBreachedNotification($order));
+            }
+
+            $order->forceFill(['response_breach_notified_at' => now()])->save();
+
+            return true;
+        });
     }
 
     /**

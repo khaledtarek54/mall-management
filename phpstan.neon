@@ -70,3 +70,9 @@ parameters:
             paths:
                 - app/Services/OwnerAccounting/FinaliseOwnerStatementRunService.php
                 - app/Services/Eta/EtaJsonBuilder.php
+                # Same class of false positive: `maintenance_work_orders.equipment_id` is
+                # nullable — an ad-hoc corrective job names no machine — so `equipment?->code`
+                # is correct and dropping the `?->` would fatal on exactly the jobs this alert
+                # exists for. The generics on the relation are right; BelongsTo simply cannot
+                # express that the parent may be absent.
+                - app/Notifications/WorkOrderResponseSlaBreachedNotification.php

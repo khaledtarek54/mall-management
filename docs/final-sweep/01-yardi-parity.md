@@ -270,9 +270,9 @@ rule that a test using inputs no real path produces is green over dead code.
 **Fix:** add `ApprovalRulesSeeder` to `atriom:install`, plus an `atriom:health` reference-data check.
 `Health::run()` has no such check today.
 
-### 2.2 HIGH — the SLA moat has a trapdoor: the clock only starts if someone clicks Start
+### 2.2 ~~HIGH — the SLA moat has a trapdoor: the clock only starts if someone clicks Start~~ ✅ FIXED 2026-08-12
 
-- **Remedy class:** EDIT · **Effort:** S · **Verified:** yes
+- **Remedy class:** EDIT · **Effort:** S · **Verified:** yes · **Shipped:** a second clock. Response runs from creation; resolution runs from acceptance *or from when acceptance was due, whichever came first*, so a job can no longer complete without a deadline and a late acceptance cannot buy extra time. See [module 26 §7c](../modules/26-preventive-maintenance.md). The finding understated it: `open → done` is legal, so the escape was not merely "nobody starts it" but a whole job closing with no clock.
 
 `target_resolution_at` on a work order is written in **exactly one place**: the manual
 `open → in_progress` transition, conditioned on `isCorrective()` and `acknowledged_at === null`
@@ -291,6 +291,12 @@ and run two clocks (response and resolution). Atriom starts one clock at *accept
 
 The irony is that the code comment at that line shows careful thought about not *resetting* a
 deadline. The gap is the opposite: never *setting* one.
+
+**Also fixed:** `sla_policies.respond_hours` + four `MaintenanceSettings` keys resolve through the
+identical three-tier chain, so a property overrides both halves of its SLA in one place. What was
+deliberately left out is a monetary penalty for an unanswered job — FR-CM-08 is about a job that ran
+late, and whether an unanswered one is separately chargeable is a contract question for the
+operator.
 
 ### 2.3 HIGH — the rest of the facility list
 

@@ -100,6 +100,10 @@ class Settings extends Page implements HasSchemas
                 'sla_high_hours' => $maint->sla_high_hours,
                 'sla_medium_hours' => $maint->sla_medium_hours,
                 'sla_low_hours' => $maint->sla_low_hours,
+                'sla_urgent_respond_hours' => $maint->sla_urgent_respond_hours,
+                'sla_high_respond_hours' => $maint->sla_high_respond_hours,
+                'sla_medium_respond_hours' => $maint->sla_medium_respond_hours,
+                'sla_low_respond_hours' => $maint->sla_low_respond_hours,
             ],
             'integrations' => [
                 'paymob_enabled' => $integ->paymob_enabled,
@@ -174,6 +178,10 @@ class Settings extends Page implements HasSchemas
         $maint->sla_high_hours = (int) $state['maintenance']['sla_high_hours'];
         $maint->sla_medium_hours = (int) $state['maintenance']['sla_medium_hours'];
         $maint->sla_low_hours = (int) $state['maintenance']['sla_low_hours'];
+        $maint->sla_urgent_respond_hours = (int) $state['maintenance']['sla_urgent_respond_hours'];
+        $maint->sla_high_respond_hours = (int) $state['maintenance']['sla_high_respond_hours'];
+        $maint->sla_medium_respond_hours = (int) $state['maintenance']['sla_medium_respond_hours'];
+        $maint->sla_low_respond_hours = (int) $state['maintenance']['sla_low_respond_hours'];
         $maint->save();
 
         $integ = app(IntegrationsSettings::class);
@@ -304,6 +312,13 @@ class Settings extends Page implements HasSchemas
                     TextInput::make('maintenance.sla_high_hours')->label(__('admin.settings.fields.sla_high_hours'))->numeric()->minValue(1)->suffix('hrs')->required(),
                     TextInput::make('maintenance.sla_medium_hours')->label(__('admin.settings.fields.sla_medium_hours'))->numeric()->minValue(1)->suffix('hrs')->required(),
                     TextInput::make('maintenance.sla_low_hours')->label(__('admin.settings.fields.sla_low_hours'))->numeric()->minValue(1)->suffix('hrs')->required(),
+                    // The second clock. Resolution runs from ACCEPTANCE (FR-CM-07) so an engineer
+                    // is not charged for queue time; response runs from creation, so queue time is
+                    // charged to somebody. Without it, never accepting a job meant no deadline.
+                    TextInput::make('maintenance.sla_urgent_respond_hours')->label(__('admin.settings.fields.sla_urgent_respond_hours'))->numeric()->minValue(1)->suffix('hrs')->required(),
+                    TextInput::make('maintenance.sla_high_respond_hours')->label(__('admin.settings.fields.sla_high_respond_hours'))->numeric()->minValue(1)->suffix('hrs')->required(),
+                    TextInput::make('maintenance.sla_medium_respond_hours')->label(__('admin.settings.fields.sla_medium_respond_hours'))->numeric()->minValue(1)->suffix('hrs')->required(),
+                    TextInput::make('maintenance.sla_low_respond_hours')->label(__('admin.settings.fields.sla_low_respond_hours'))->numeric()->minValue(1)->suffix('hrs')->required(),
                 ]),
         ];
     }

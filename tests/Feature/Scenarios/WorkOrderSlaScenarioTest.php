@@ -95,14 +95,21 @@ it('defaults a new job to Normal priority', function () {
 
 /* ---- FR-CM-07: the clock starts on ACCEPTANCE -------------------------- */
 
-it('does not start the clock when the job is raised', function () {
-    // Module 11 stamps at create-time, so a request nobody picks up for three days has
-    // already burned its whole SLA before an engineer sees it — the breach then says more
-    // about the queue than about the work.
+it('does not treat a freshly raised job as accepted', function () {
+    // Module 11 stamps the RESOLUTION target at create-time, so a request nobody picks up for
+    // three days has already burned its whole SLA before an engineer sees it — the breach then
+    // says more about the queue than about the work. FR-CM-07 keeps that clock on acceptance.
+    //
+    // Rewritten 2026-08-12. This used to assert `target_resolution_at === null` on a new order,
+    // which pinned the trapdoor as if it were the rule: `open → done` is a legal hop, so a job
+    // that never passed through acceptance had NO deadline and escaped the scan, the penalty and
+    // every filter, permanently. The deadline now exists from the start, measured from when the
+    // job SHOULD have been accepted; what stays true is that nobody has accepted it yet.
     $order = cm(['priority' => 'urgent']);
 
     expect($order->acknowledged_at)->toBeNull();
-    expect($order->target_resolution_at)->toBeNull();
+    expect($order->target_resolution_at)->not->toBeNull();
+    expect($order->target_response_at)->not->toBeNull();
     expect($order->isOverdue())->toBeFalse();
 });
 
@@ -116,12 +123,20 @@ it('starts the clock when the job is accepted', function () {
     expect(abs($accepted->acknowledged_at->diffInHours($accepted->target_resolution_at)))->toEqualWithDelta(4, 0.01);
 });
 
-it('sits on an unaccepted job indefinitely without ever breaching', function () {
-    // The consequence of the rule: nothing is "late" until someone took it on.
+it('breaches BOTH clocks on a job nobody ever accepted', function () {
+    // The inverse of what this used to assert. It read "sits on an unaccepted job indefinitely
+    // without ever breaching — nothing is late until someone took it on", which described the
+    // defect rather than the rule: an order left alone for a month was invisible to every SLA
+    // surface, and declining to click Start was a silent way to waive a vendor's penalty.
+    //
+    // Both clocks now speak, and they say different things: nobody ANSWERED (the queue's problem)
+    // and nobody FIXED it (the job's). FR-CM-07 is untouched — an engineer who accepts inside the
+    // response window still gets their full resolution window from that moment.
     $order = cm(['priority' => 'urgent']);
     $this->travel(30)->days();
 
-    expect($order->fresh()->isOverdue())->toBeFalse();
+    expect($order->fresh()->isResponseBreached())->toBeTrue()
+        ->and($order->fresh()->isOverdue())->toBeTrue();
 });
 
 it('uses the property override, not the global default, when starting the clock', function () {
