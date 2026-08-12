@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Equipment;
 use App\Models\MaintenanceWorkOrder;
 use App\Models\MaintenanceWorkOrderItem;
 use App\Models\TenantRequest;
@@ -33,16 +34,16 @@ class RaiseCorrectiveMaintenanceService
     /** The stronger of two priorities, ranked by MaintenanceWorkOrder::PRIORITIES. */
     private static function higherPriority(string $a, string $b): string
     {
-        $rank = fn (string $p): int => (int) array_search($p, \App\Models\MaintenanceWorkOrder::PRIORITIES, true);
+        $rank = fn (string $p): int => (int) array_search($p, MaintenanceWorkOrder::PRIORITIES, true);
 
         return $rank($a) >= $rank($b) ? $a : $b;
     }
 
     private static function defaultPriorityFor(mixed $equipmentId): string
     {
-        $equipment = $equipmentId ? \App\Models\Equipment::find($equipmentId) : null;
+        $equipment = $equipmentId ? Equipment::find($equipmentId) : null;
 
-        return $equipment instanceof \App\Models\Equipment
+        return $equipment instanceof Equipment
             ? $equipment->defaultWorkOrderPriority()
             : 'medium';
     }

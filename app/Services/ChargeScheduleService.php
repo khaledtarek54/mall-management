@@ -6,6 +6,7 @@ use App\Models\Charge;
 use App\Models\Lease;
 use App\Support\Vat;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -341,7 +342,7 @@ class ChargeScheduleService
      * The schedule for a charge type, oldest first — the operator-facing view of "what has this
      * lease been billed, and what will it be billed".
      *
-     * @return \Illuminate\Database\Eloquent\Collection<int, Charge>
+     * @return Collection<int, Charge>
      */
     public function scheduleFor(Lease $lease, string $type)
     {

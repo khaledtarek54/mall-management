@@ -2,12 +2,12 @@
 
 namespace App\Services;
 
+use App\Models\Equipment;
 use App\Models\MaintenancePlan;
 use App\Models\MaintenanceWorkOrder;
 use App\Models\Vendor;
 use App\Notifications\PreventiveGenerationFailedNotification;
 use App\Notifications\WorkOrderRaisedNotification;
-use App\Services\AssetStaffRecipients;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
@@ -196,7 +196,7 @@ class GeneratePreventiveWorkOrdersService
                 // A routine round on a critical machine is still a critical machine. Without this
                 // the generator fell to the column default and every plan produced `medium`,
                 // whatever it was servicing.
-                'priority' => ($eq = $plan->getRelationValue('equipment')) instanceof \App\Models\Equipment
+                'priority' => ($eq = $plan->getRelationValue('equipment')) instanceof Equipment
                     ? $eq->defaultWorkOrderPriority()
                     : 'medium',
                 'scheduled_for' => $scheduledFor,
