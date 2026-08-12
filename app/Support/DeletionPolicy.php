@@ -291,6 +291,8 @@ class DeletionPolicy
         // Clearing an override IS the correction — it restores the portfolio's answer, which is
         // always available. Nothing posted, so removing one changes no balance.
         \App\Models\PropertySetting::class => 'configuration: a per-property override; deleting restores the portfolio default',
+        // A UI preference. Clearing it restores the report's own default, which is always available.
+        \App\Models\ReportPreference::class => 'preference: one operator\'s remembered report filters',
         \App\Models\SystemSetting::class => 'configuration',
         \App\Models\Area::class => 'configuration: a zone used for routing',
         \App\Models\Equipment::class => 'configuration: an asset register entry with no ledger of its own',

@@ -11,6 +11,7 @@ use App\Models\Lease;
 use App\Models\Unit;
 use App\Services\Reports\ReportCsvExporter;
 use App\Services\Reports\ReportService;
+use App\Support\ReportPreferences;
 use App\Support\ReportFilters;
 use App\Support\Modules;
 use App\Support\ReportCsv;
@@ -83,6 +84,8 @@ class ArAging extends Page implements DeliverableReport, HasSchemas, HasTable
         // Only a known bucket — an unknown one makes the service throw.
         $this->bucket = array_key_exists($requested, self::buckets()) ? $requested : 'd_1_30';
         $this->asOf = self::parseAsOf(request()->query('asOf'))->toDateString();
+
+        ReportPreferences::restore($this);
     }
 
     /** Parse a client-supplied `Y-m-d`, falling back to today. */

@@ -9,6 +9,7 @@ use App\Filament\Admin\Pages\Concerns\ScopesLedgerReport;
 use App\Models\LedgerAccount;
 use App\Services\Accounting\LedgerReportService;
 use App\Services\Reports\ReportCsvExporter;
+use App\Support\ReportPreferences;
 use App\Support\ReportCsv;
 use App\Support\SourceDocumentUrl;
 use App\Support\TenantScope;
@@ -101,6 +102,11 @@ class GeneralLedger extends Page implements DeliverableReport, HasSchemas, HasTa
                             ->searchable()
                             ->native(false)
                             ->live()
+                            // Remembering happens HERE rather than through ReportFilters, because this picker is
+                            // exempt from the shared component (see ReportFilters::EXEMPT) — the
+                            // exemption is about the CONTROL, not about whether the choice is worth
+                            // keeping. Wired at the only other place it can be.
+                            ->afterStateUpdated(fn ($livewire) => ReportPreferences::remember($livewire))
                             ->columnSpan(['lg' => 2]),
                         Select::make('year')
                             ->label(__('admin.reports.fiscal_year'))
@@ -120,7 +126,12 @@ class GeneralLedger extends Page implements DeliverableReport, HasSchemas, HasTa
                             ->options(fn (): array => TenantScope::selectableAssetOptions())
                             ->placeholder(__('admin.fields.property_consolidated'))
                             ->native(false)
-                            ->live(),
+                            ->live()
+                            // Remembering happens HERE rather than through ReportFilters, because this picker is
+                            // exempt from the shared component (see ReportFilters::EXEMPT) — the
+                            // exemption is about the CONTROL, not about whether the choice is worth
+                            // keeping. Wired at the only other place it can be.
+                            ->afterStateUpdated(fn ($livewire) => ReportPreferences::remember($livewire)),
                     ]),
             ]);
     }

@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Pages\Concerns;
 
 use App\Models\Asset;
 use App\Models\FiscalYear;
+use App\Support\ReportPreferences;
 use App\Support\TenantScope;
 use Filament\Forms\Components\Select;
 use Filament\Schemas\Components\Section;
@@ -75,6 +76,10 @@ trait ScopesLedgerReport
                 ? $candidate
                 : null;
         }
+
+        // Then this operator's standing choice, for anything the URL did not state. Dates are never
+        // remembered (see ReportPreferences::VOLATILE) — only which slice of the business they work.
+        ReportPreferences::restore($this);
     }
 
     /**
@@ -116,7 +121,12 @@ trait ScopesLedgerReport
                             ->options(fn (): array => TenantScope::selectableAssetOptions())
                             ->placeholder(__('admin.fields.property_consolidated'))
                             ->native(false)
-                            ->live(),
+                            ->live()
+                            // Remembering happens HERE rather than through ReportFilters, because this picker is
+                            // exempt from the shared component (see ReportFilters::EXEMPT) — the
+                            // exemption is about the CONTROL, not about whether the choice is worth
+                            // keeping. Wired at the only other place it can be.
+                            ->afterStateUpdated(fn ($livewire) => ReportPreferences::remember($livewire)),
                     ]),
             ]);
     }

@@ -2,8 +2,10 @@
 
 namespace App\Support;
 
+use Closure;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
+use Filament\Pages\Page;
 
 /**
  * One parameter bar, so the same question looks the same on every report (RP-02).
@@ -66,7 +68,7 @@ class ReportFilters
             ->label($label ?? __('admin.reports.as_of'))
             ->native(false)
             ->live()
-            ->afterStateUpdated($onChange);
+            ->afterStateUpdated(self::persisting($onChange));
     }
 
     /** The start of a range. Pair with {@see to()}. */
@@ -76,7 +78,7 @@ class ReportFilters
             ->label(__('admin.reports.from'))
             ->native(false)
             ->live()
-            ->afterStateUpdated($onChange);
+            ->afterStateUpdated(self::persisting($onChange));
     }
 
     /** The end of a range. Pair with {@see from()}. */
@@ -86,7 +88,7 @@ class ReportFilters
             ->label(__('admin.reports.to'))
             ->native(false)
             ->live()
-            ->afterStateUpdated($onChange);
+            ->afterStateUpdated(self::persisting($onChange));
     }
 
     /**
@@ -107,6 +109,37 @@ class ReportFilters
             ->placeholder(__('admin.reports.all_visible_properties'))
             ->native(false)
             ->live()
-            ->afterStateUpdated($onChange);
+            ->afterStateUpdated(self::persisting($onChange));
+    }
+    /**
+     * Run the report's own callback, then remember the choice.
+     *
+     * Wrapped HERE rather than asked of each page, so remembering cannot be the thing somebody
+     * forgets — the same reasoning that makes `$onChange` a required argument. `ReportPreferences`
+     * drops every date before storing, so a filter that moves the as-of date runs the page's
+     * callback and stores nothing.
+     */
+    /**
+     * Run the report's own callback, then remember the choice.
+     *
+     * Wrapped HERE rather than asked of each page, so remembering cannot be the thing somebody
+     * forgets — the same reasoning that makes `$onChange` a required argument. `ReportPreferences`
+     * drops every date before storing, so a filter that moves the as-of date runs the page's
+     * callback and stores nothing.
+     *
+     * `$livewire` is declared explicitly because Filament injects these arguments **by parameter
+     * name**, not by position — a variadic closure receives none of them and the page would never
+     * be found. The wrapped callback is invoked with no arguments, which is the contract every
+     * caller already writes (`fn () => $this->rows = null`).
+     */
+    private static function persisting(callable $onChange): Closure
+    {
+        return function ($state, $livewire) use ($onChange) {
+            $onChange();
+
+            if ($livewire instanceof Page) {
+                ReportPreferences::remember($livewire);
+            }
+        };
     }
 }

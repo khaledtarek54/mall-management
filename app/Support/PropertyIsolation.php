@@ -67,6 +67,7 @@ use App\Models\PostDatedCheque;
 use App\Models\PurchaseRequest;
 use App\Models\PurchaseRequestLine;
 use App\Models\PropertySetting;
+use App\Models\ReportPreference;
 use App\Models\SlaPolicy;
 use App\Models\StockMovement;
 use App\Models\SystemSetting;
@@ -117,6 +118,10 @@ class PropertyIsolation
      */
     public const SHARED = [
         User::class,                // operator staff (assigned to properties via asset_user)
+        // One operator's remembered report filters. Belongs to the USER, not a property: the
+        // stored assetId IS the preference, not an ownership claim, and scoping the row itself
+        // would mean re-picking the mall on a report whose whole point is not re-picking it.
+        ReportPreference::class,
         Tenant::class,              // a retailer can lease in several malls; money is per-property (Invoice/Payment)
         TenantUser::class,          // portal login for a Tenant (transitively multi-property)
         DeviceToken::class,         // push token for a Tenant

@@ -6,6 +6,7 @@ use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Models\Asset;
 use App\Models\Unit;
+use App\Support\ReportPreferences;
 use App\Support\AssignedAssets;
 use App\Support\TenantScope;
 use BackedEnum;
@@ -64,6 +65,8 @@ class OccupancyMap extends Page implements HasSchemas, HasTable
         $this->assetId = $this->isAssetVisible($requested)
             ? $requested
             : ($this->visibleAssets()->value('id'));
+
+        ReportPreferences::restore($this);
     }
 
     public function isAllPropertiesMode(): bool
@@ -120,7 +123,12 @@ class OccupancyMap extends Page implements HasSchemas, HasTable
                             ->label(__('admin.occupancy.select_property'))
                             ->options(fn (): array => $this->visibleAssets()->pluck('name', 'id')->all())
                             ->native(false)
-                            ->live(),
+                            ->live()
+                            // Remembering happens HERE rather than through ReportFilters, because this picker is
+                            // exempt from the shared component (see ReportFilters::EXEMPT) — the
+                            // exemption is about the CONTROL, not about whether the choice is worth
+                            // keeping. Wired at the only other place it can be.
+                            ->afterStateUpdated(fn ($livewire) => ReportPreferences::remember($livewire)),
                     ]),
             ]);
     }
