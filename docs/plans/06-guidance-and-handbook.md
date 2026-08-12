@@ -4,7 +4,8 @@
 > visual handbook grows into a deployed, bilingual, interactive reference for all 36 modules whose
 > data is **generated from the registries** rather than typed.
 
-**Status:** **ALL SIX PHASES SHIPPED** — 2026-08-12.
+**Status:** **ALL SIX PHASES SHIPPED** — 2026-08-12. Plus a follow-up the same day: the handbook
+moved **inside the panel** at `/admin/handbook`, and `npm run build` now builds it.
 
 ---
 
@@ -331,3 +332,4 @@ commit with its gate turned on, so nothing lands half-enforced.
 | D | 4 components: 2 derived, 2 illustrative | server-render probe in the build | **DONE** |
 | E | Module reference + **26 pages per locale at full parity** | tree-diff parity check; AR sidebar lists only translated pages | **DONE** |
 | F | `/handbook` behind auth + deploy wiring | `tests/Feature/Handbook` (5 tests) | **DONE** |
+| F+ | Read it **in the panel**; built by `npm run build` | `HandbookPageTest` (4 tests) | **DONE** |
