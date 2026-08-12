@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Pages;
 use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Support\ActivityLogChangeRenderer;
+use App\Support\ActivityVocabulary;
 use App\Support\Modules;
 use BackedEnum;
 use Carbon\Carbon;
@@ -18,13 +19,22 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Contracts\Pagination\CursorPaginator;
+use Illuminate\Contracts\Pagination\Paginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Spatie\Activitylog\Models\Activity;
 
 class ActivityLog extends Page implements HasTable
 {
-    use InteractsWithTable;
+    // Aliased, not overridden via parent::. `getTableRecords()` reaches this class through a
+    // TRAIT, and `parent::` walks the class chain only — Filament\Pages\Page has no such method,
+    // so a plain override calling parent:: fell through to Livewire's __call and every render
+    // died with "method does not exist".
+    use InteractsWithTable {
+        getTableRecords as filamentTableRecords;
+    }
     use SavesReportViews;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClock;
@@ -72,10 +82,28 @@ class ActivityLog extends Page implements HasTable
         return static::canAccess();
     }
 
+    /**
+     * Resolve this page's foreign keys in one query per referenced table, before any cell
+     * renders. The Changes column names the records a diff points at ("Lease L-0042" rather
+     * than "Lease 328"), and those references are stored as bare ids in a JSON column — no
+     * Eloquent relation exists to eager-load, so this is the batching seam. Without it each
+     * cell would resolve its own ids and a 100-row page would N+1.
+     */
+    public function getTableRecords(): Collection|Paginator|CursorPaginator
+    {
+        $records = $this->filamentTableRecords();
+
+        app(ActivityVocabulary::class)->preloadReferences($records);
+
+        return $records;
+    }
+
     public function table(Table $table): Table
     {
         return $table
-            ->query(Activity::query()->with('causer')->latest('id'))
+            // `subject` is eager-loaded too: the Record column dereferences it on every row, and
+            // as a morphTo that was one query per row on top of the page query.
+            ->query(Activity::query()->with(['causer', 'subject'])->latest('id'))
             ->columns([
                 TextColumn::make('created_at')
                     ->label(__('admin.activity.when'))
@@ -88,7 +116,7 @@ class ActivityLog extends Page implements HasTable
                 TextColumn::make('log_name')
                     ->label(__('admin.activity.what'))
                     ->badge()
-                    ->formatStateUsing(fn (?string $state) => $state ? __("admin.activity.subjects.{$state}") : '—')
+                    ->formatStateUsing(fn (?string $state) => app(ActivityVocabulary::class)->subject($state))
                     ->color(fn (?string $state): string => match ($state) {
                         'lease' => 'info',
                         'invoice' => 'warning',
@@ -100,31 +128,24 @@ class ActivityLog extends Page implements HasTable
                     }),
                 TextColumn::make('subject_id')
                     ->label(__('admin.activity.record'))
-                    ->formatStateUsing(function (Activity $record): string {
-                        if (! $record->subject) {
-                            return '—';
-                        }
-
-                        return match (class_basename($record->subject_type)) {
-                            'Lease' => $record->subject->reference,
-                            'Invoice' => $record->subject->number,
-                            'Payment' => $record->subject->reference,
-                            'Tenant' => $record->subject->name,
-                            'Charge' => $record->subject->name,
-                            'User', 'Role', 'Permission' => $record->subject->name,
-                            default => '#'.$record->subject_id,
-                        };
-                    })
+                    // Names the record through the same convention the Changes column uses for
+                    // foreign keys (label()/displayName(), then reference/number/name/code/title),
+                    // so every one of the 60-odd logged models is covered. This was a six-arm
+                    // match over class_basename, which meant everything outside those six —
+                    // journal entries, work orders, owner statements, vendors — read as "#123".
+                    ->formatStateUsing(fn (Activity $record): string => app(ActivityVocabulary::class)
+                        ->describeSubject($record->subject) ?? '#'.$record->subject_id)
                     ->fontFamily('mono')
                     ->size('xs'),
                 TextColumn::make('event')
                     ->label(__('admin.activity.event'))
                     ->badge()
-                    ->formatStateUsing(fn (?string $state) => $state ? __("admin.activity.events.{$state}") : '—')
+                    ->formatStateUsing(fn (?string $state) => app(ActivityVocabulary::class)->event($state))
                     ->color(fn (?string $state): string => match ($state) {
                         'created' => 'success',
                         'updated' => 'warning',
-                        'deleted' => 'danger',
+                        'deleted', 'voided' => 'danger',
+                        'reversed' => 'warning',
                         default => 'gray',
                     }),
                 TextColumn::make('changes')

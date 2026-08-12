@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 /**
  * الفترة المحاسبية — a single month within a fiscal year. Posting into a `closed`
@@ -14,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class AccountingPeriod extends Model
 {
-    use RefusesDeletionWhenReferenced, HasFactory;
+    use HasFactory, RefusesDeletionWhenReferenced;
 
     protected $fillable = [
         'fiscal_year_id',
@@ -29,6 +30,16 @@ class AccountingPeriod extends Model
         'starts_on' => 'date',
         'ends_on' => 'date',
     ];
+
+    /**
+     * How this period names itself wherever it is referenced by id — the activity log's Changes
+     * column, chiefly. Language-neutral by construction (a number and a year), so it needs no
+     * translation. Same `label()` convention as ChargeCode / LedgerAccount / Equipment.
+     */
+    public function label(): string
+    {
+        return 'P'.$this->period_no.($this->starts_on ? ' '.$this->starts_on->format('Y') : '');
+    }
 
     public function fiscalYear(): BelongsTo
     {
@@ -48,7 +59,7 @@ class AccountingPeriod extends Model
     /** The period whose date window contains the given date, if any. */
     public static function forDate(\DateTimeInterface $date): ?self
     {
-        $d = \Illuminate\Support\Carbon::instance($date)->startOfDay();
+        $d = Carbon::instance($date)->startOfDay();
 
         return static::query()
             ->whereDate('starts_on', '<=', $d)

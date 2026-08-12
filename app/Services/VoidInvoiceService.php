@@ -68,11 +68,11 @@ class VoidInvoiceService
             $invoice->recomputeTotals(); // zeros the balance via the cancelled branch (source of truth)
 
             // Record the WHY in the immutable audit trail (notes is a mutable, editable field).
-            activity()
+            activity('invoice')
                 ->performedOn($invoice)
                 ->event('voided')
                 ->withProperties(array_filter(['reason' => $reason]))
-                ->log('Invoice voided');
+                ->log('invoice.voided');
 
             return $invoice->refresh();
         });

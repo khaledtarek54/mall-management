@@ -4,22 +4,37 @@ namespace App\Filament\Admin\RelationManagers;
 
 use App\Models\User;
 use App\Support\ActivityLogChangeRenderer;
+use App\Support\ActivityVocabulary;
 use Filament\Forms\Components\DatePicker;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Contracts\Pagination\CursorPaginator;
+use Illuminate\Contracts\Pagination\Paginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 use Spatie\Activitylog\Models\Activity;
 
 class ActivitiesRelationManager extends RelationManager
 {
     protected static string $relationship = 'activitiesAsSubject';
 
-    public static function getTitle(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): string
+    public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
         return __('admin.activity.page_title');
+    }
+
+    /** Same batching seam as the standalone page — see ActivityLog::getTableRecords(). */
+    public function getTableRecords(): Collection|Paginator|CursorPaginator
+    {
+        $records = parent::getTableRecords();
+
+        app(ActivityVocabulary::class)->preloadReferences($records);
+
+        return $records;
     }
 
     public function table(Table $table): Table
@@ -38,11 +53,12 @@ class ActivitiesRelationManager extends RelationManager
                 TextColumn::make('event')
                     ->label(__('admin.activity.event'))
                     ->badge()
-                    ->formatStateUsing(fn (?string $state) => $state ? __("admin.activity.events.{$state}") : '—')
+                    ->formatStateUsing(fn (?string $state) => app(ActivityVocabulary::class)->event($state))
                     ->color(fn (?string $state): string => match ($state) {
                         'created' => 'success',
                         'updated' => 'warning',
-                        'deleted' => 'danger',
+                        'deleted', 'voided' => 'danger',
+                        'reversed' => 'warning',
                         default => 'gray',
                     }),
                 TextColumn::make('changes')

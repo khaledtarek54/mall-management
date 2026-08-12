@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Payment;
+use App\Models\Tenant;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -44,7 +45,7 @@ class VoidPaymentService
                 2,
             );
             $tenant = $payment->tenant;
-            if ($remainder > 0.005 && $tenant instanceof \App\Models\Tenant) {
+            if ($remainder > 0.005 && $tenant instanceof Tenant) {
                 $assetIds = $payment->invoices()->with('lease.unit')->get()
                     ->map(fn ($inv) => $inv->lease?->unit?->asset_id)
                     ->filter()->unique()->values()->all();
@@ -61,11 +62,11 @@ class VoidPaymentService
             $payment->save(); // saved hook re-opens the allocated invoices' AR; sync voids the GL leg
 
             // Record the WHY in the immutable audit trail (notes is a mutable, editable field).
-            activity()
+            activity('payment')
                 ->performedOn($payment)
                 ->event('voided')
                 ->withProperties(array_filter(['reason' => $reason]))
-                ->log('Payment voided / refunded');
+                ->log('payment.voided');
 
             return $payment->refresh();
         });

@@ -14,6 +14,7 @@ use App\Services\Push\FcmPushSender;
 use App\Services\Push\NullPushSender;
 use App\Services\Push\PushSender;
 use App\Settings\IntegrationsSettings;
+use App\Support\ActivityVocabulary;
 use App\Support\Filament\AuthorizedAction;
 use App\Support\Filament\LocalizedNotification;
 use App\Support\LedgerRealtimeSync;
@@ -43,6 +44,14 @@ class AppServiceProvider extends ServiceProvider
         // to build it through the fromConfig factory so controllers + actions
         // can typehint it directly.
         $this->app->singleton(PaymobClient::class, fn () => PaymobClient::fromConfig());
+
+        // The activity log's vocabulary MUST be one instance per request, because its whole
+        // performance story is a cache: `preloadReferences()` resolves a page's foreign keys in
+        // one query per table, and every Changes cell then reads that cache. The renderer is
+        // built per cell via `app()`, so with the default (transient) binding each cell would get
+        // a fresh, empty vocabulary — the preload would resolve a page and then be thrown away,
+        // and the N+1 it exists to prevent would happen anyway. Nothing would look wrong.
+        $this->app->singleton(ActivityVocabulary::class);
 
         // `->authorize()` on a Filament action is the SAME layer as `visible()` — both fold into
         // `isHidden()`/`isDisabled()` — and `Action::call()` checks nothing. So the second layer the

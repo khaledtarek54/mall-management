@@ -36,6 +36,13 @@ class EmployeeAdvance extends Model
         'amount' => 'decimal:2',
     ];
 
+    /** See AccountingPeriod::label() — the identity an id-reference should read as. */
+    public function label(): string
+    {
+        return trim(number_format((float) $this->amount, 2)
+            .($this->advance_date ? ' · '.$this->advance_date->format('d/m/Y') : ''));
+    }
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()

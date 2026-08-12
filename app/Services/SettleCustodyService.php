@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Custody;
 use App\Models\CustodyTransaction;
+use App\Models\User;
 use App\Support\PostingDate;
 use DomainException;
 use Illuminate\Support\Facades\DB;
@@ -106,10 +107,10 @@ class SettleCustodyService
             // Capture who/why BEFORE the soft-delete, so the reason survives on a retained row.
             activity('custody_transaction')
                 ->performedOn($locked)
-                ->causedBy($actorId ? \App\Models\User::find($actorId) : auth()->user())
+                ->causedBy($actorId ? User::find($actorId) : auth()->user())
                 ->event('reversed')
                 ->withProperties(['reason' => $reason, 'amount' => (float) $locked->amount])
-                ->log('reversed');
+                ->log('custody_transaction.reversed');
 
             // The soft-delete is the void: outstanding recomputes (settled() excludes trashed),
             // and the real-time GL sync voids the entry.

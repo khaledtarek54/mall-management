@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\VendorBill;
 use App\Models\VendorBillPayment;
+use App\Services\Accounting\JournalPostingService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -26,7 +27,7 @@ use Illuminate\Support\Facades\DB;
  * **What it deliberately does not do.** It does not un-cancel the bill, re-open a closed period, or
  * refuse a payment whose entry sits in one. A reversal lands in the original period when that is
  * still open and in today's otherwise — the standing rule for every void in the system
- * ({@see \App\Services\Accounting\JournalPostingService::void}) — so a correction to a sealed month
+ * ({@see JournalPostingService::void}) — so a correction to a sealed month
  * surfaces in the current one instead of silently failing.
  */
 class VoidVendorBillPaymentService
@@ -60,7 +61,7 @@ class VoidVendorBillPaymentService
 
             // The WHY, in the immutable audit trail — `void_reason` is a column someone can later
             // edit, and the activity log is not.
-            activity()
+            activity('vendor_bill_payment')
                 ->performedOn($payment)
                 ->event('voided')
                 ->withProperties(array_filter([
@@ -68,7 +69,7 @@ class VoidVendorBillPaymentService
                     'amount' => (float) $payment->amount,
                     'bill' => $bill->number,
                 ]))
-                ->log('Vendor payment voided');
+                ->log('vendor_bill_payment.voided');
 
             return $payment->refresh();
         });

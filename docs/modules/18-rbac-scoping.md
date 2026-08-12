@@ -203,6 +203,122 @@ Returns tenants leased in the user's visible properties, plus lease-less orphan 
 
 No integrations specific to RBAC. User activity is logged to `activity_log` table via Spatie ActivityLog (User model logs name/email/email_verified_at changes).
 
+### The audit trail is bilingual — because it stores data, not prose
+
+**The rule: an activity row records `log_name`, `event`, field keys and raw values; every
+human-readable word is resolved at READ time** by `App\Support\ActivityVocabulary`. That is what
+lets one stored row read correctly in Arabic and in English, and what lets a wording fix reach
+rows written years ago. A sentence baked in at write time can never be either — which is why the
+five void/reverse services store a **key** (`invoice.voided`) rather than `'Invoice voided'`.
+
+`ActivityVocabulary` answers four questions, and nothing else may `__()` on activity data:
+
+| | resolves from |
+|---|---|
+| `subject($logName)` | `admin.activity.subjects.*` → `subjects.default` |
+| `event($event)` | `admin.activity.events.*` → humanised |
+| `description($key)` | `admin.activity.descriptions.*` (**nested**, since `__()` reads dots as nesting) → the raw stored string, so pre-rule history stays readable |
+| `field($logName, $f)` | `admin.activity.fields.{log_name}.{field}` (per-model override) → **`admin.fields.*`, the catalogue the FORMS label from** → humanised |
+| `value(...)` | `admin.statuses.{log_name}.*` by convention, else the `VALUE_VOCABULARY` registry of exceptions; then `FOREIGN_KEYS` (an id becomes the record's name); otherwise formatted from the subject model's own **`$casts`** (money / date / bool / JSON), never a hand-kept list of "which fields are money" |
+
+**`VALUE_VOCABULARY` is keyed by the catalogue the FORM for that field reads from**, verified
+against the real `Select` options — not inferred from key overlap, which produces confident
+nonsense: `admin.enums.category` is the RETAIL category list, so pointing `expense.category` at it
+renders an expense as "Food & Beverage". TenantRequest's column is `request_type`, not `type`.
+
+**`FOREIGN_KEYS` turns an id into a name** — "Lease LSE-AW-2026-0011", not "Lease 328". An id is
+not an audit trail. Naming follows the existing `label()` / `displayName()` convention, then
+`reference` / `number` / `name` / `code` / `title`; `AccountingPeriod`, `EmployeeAdvance` and
+`MarketingBudget` gained a `label()` because they had nothing to be named by. Keys may be scoped
+`{log_name}.{field}` where a column is model-specific (`equipment.parent_id`). Identifiers stay
+verbatim in both languages — `charge_code.code` and `account_mapping.key` are what the accountant
+types and searches for. `preloadReferences()` resolves a whole page in one query per table; both
+surfaces call it from `getTableRecords()`, because these references live in a JSON column and no
+Eloquent relation exists to eager-load.
+
+Reusing `admin.fields.*` for field labels is a correctness property, not just DRY: the audit trail
+then calls a column exactly what the form that edits it calls it.
+
+`ActivityLogChangeRenderer` owns markup only, and normalises **two columns**: spatie writes the
+model diff to `attribute_changes`, while anything from `withProperties()` lands in `properties`
+(the Settings / Property Overrides pages record `changes[key] = ['from','to']` there). Scalar
+context from that payload — `CONTEXT_KEYS`: `reason`, `amount`, `bill`, `asset_id` — renders under
+its own label. A description that merely repeats the event is dropped — spatie defaults it to the
+event name, so ~1.8k rows say "created"/"updated", which the Event badge beside them already says
+in the reader's language.
+
+**Three RTL rules the cell depends on**, all learned from the Arabic screen rather than reasoned
+about: the arrow flips to `←` (`→` is not bidi-mirrored, so left alone it points at the old
+value); every label and value is a **`<bdi>`**, so an Arabic label and a Latin value are not
+reordered into each other; and the label→value gap is **layout, not a space character** — a plain
+space between scripts is absorbed when the bidi algorithm reorders the run, which is why
+«الاسم» and "Parking & rentable items" rendered with nothing between them. That gap is an **inline
+style, not a utility class**: this markup is injected via `->html()` and never seen by the Tailwind
+scanner that builds Filament's stylesheet, so an unused class compiles to nothing — silently, in
+the exact place the fix lives.
+
+The three void services (`VoidInvoiceService`, `VoidPaymentService`,
+`VoidVendorBillPaymentService`) pass an explicit log name — bare `activity()` files the row under
+spatie's `default`, so a voided invoice showed **"Other"** in the What badge and was invisible to
+the log-name filter. `vendor_bill_payment` is a log name with no model behind it, like `settings`.
+
+**Gate: `ActivityLogVocabularyConformanceTest`.** Every model log name, every `activity('…')`
+literal, every `->event('…')`, every `logOnly()` column and every `->log('…')` description must
+resolve in **both** locales, or the build fails. Two traps it encodes:
+
+- **`Lang::has($key, 'ar')` falls back to English** (`has($key, $locale, $fallback = true)`), so
+  the obvious EN↔AR parity check answers TRUE for a key that exists only in English. Every parity
+  check passes `fallback: false`; every READ-path lookup deliberately keeps the fallback.
+- **A sweep that matches nothing passes.** The predecessor gate filtered on
+  `Spatie\Activitylog\Traits\LogsActivity::class` — a class that does not exist in the version we
+  ship (`Models\Concerns\LogsActivity`). `::class` is a compile-time string and never checks the
+  class exists, so it skipped all 64 models and was green for a year. Detection is now by
+  `class_basename`, and both gates assert the sweep **found** something before asserting anything
+  about what it found.
+
+#### Extension points — adding or changing anything that logs activity
+
+**Adding a model to the activity log** (`use LogsActivity` + `getActivitylogOptions()`):
+
+1. `useLogName('your_thing')` → add `admin.activity.subjects.your_thing` to **`lang/en/admin.php`
+   AND `lang/ar/admin.php`**.
+2. Every column in `logOnly([...])` needs a label. Check `admin.fields.*` first and **reuse the
+   key the form already uses** — same word for the same field is the point. Only add a new
+   `admin.fields.*` entry if none exists; put it in both locales.
+3. Any column holding an enum-ish string (`status`, `type`, `category`, `method`, `priority`, …)
+   needs a row in `ActivityVocabulary::VALUE_VOCABULARY`, **except** a `status` whose catalogue is
+   already `admin.statuses.{log_name}` — that resolves by convention with no entry. Point it at
+   the group **the form's `Select` reads from**; do not pick a group because its keys happen to
+   match. Values with no catalogue (free text, operator-entered codes) correctly render verbatim.
+4. Any `*_id` column → add it to `ActivityVocabulary::FOREIGN_KEYS` so the diff names the record
+   instead of printing an id. The model must be nameable: `label()` / `displayName()`, or a
+   `reference` / `number` / `name` / `code` / `title` column. If it has none, **give it a
+   `label()`** (see `AccountingPeriod`). Use a `{log_name}.{field}` key when the column means
+   something model-specific (`equipment.parent_id`).
+
+**Logging something by hand** (`activity()->…->log()`):
+
+- Pass the log name — `activity('invoice')`, never bare `activity()`, which files the row under
+  spatie's `default` and renders as "Other" while being invisible to the log-name filter. Then
+  add its `admin.activity.subjects.*` key; a log name needs no model (`settings`).
+- `->event('x')` → add `admin.activity.events.x` in both locales.
+- `->log('...')` must be a **KEY, not a sentence** — `invoice.voided`, resolved from
+  `admin.activity.descriptions.*`, which is **nested** (`__()` reads dots as nesting, so a flat
+  `'invoice.voided' => …` key can never be found). Prose written here can never be translated
+  afterwards, by anything.
+- Extra `withProperties()` keys only render if listed in `ActivityLogChangeRenderer::CONTEXT_KEYS`,
+  and each needs an `admin.fields.*` label in both locales.
+
+**Adding a new translation key of any kind**: put it in `lang/en` and `lang/ar` in the same commit.
+Do not verify with `Lang::has($key, 'ar')` — it falls back to English and answers TRUE.
+
+`ActivityLogVocabularyConformanceTest` enforces every line above, so a miss is a red build rather
+than an English word on an Arabic screen. Run it after touching any of this:
+`vendor/bin/pest --parallel tests/Feature/Scenarios/ActivityLogVocabularyConformanceTest.php`.
+To re-check against real data rather than the registries, render live rows in `ar` and look for
+surviving ASCII tokens — that is how the 24 missing vocabularies were found, after the registry
+looked complete.
+
 ### Access-control audit trail (`log_name = access_control`)
 
 Role and permission grants/revokes are audited — the "who granted whom which access" record that the model-attribute logging can't capture (roles/permissions are pivot rows). All entries land under the **`access_control`** log name in the standard Activity Log viewer (danger-coloured badge), via `App\Support\AccessControlAudit`.

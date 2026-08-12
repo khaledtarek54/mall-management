@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\EmployeeAdvance;
 use App\Models\EmployeeAdvanceRepayment;
+use App\Models\User;
 use App\Support\PostingDate;
 use DomainException;
 use Illuminate\Support\Facades\DB;
@@ -91,10 +92,10 @@ class RecordAdvanceRepaymentService
             // Capture who/why BEFORE the soft-delete, so the reason survives on a retained row.
             activity('employee_advance_repayment')
                 ->performedOn($locked)
-                ->causedBy($actorId ? \App\Models\User::find($actorId) : auth()->user())
+                ->causedBy($actorId ? User::find($actorId) : auth()->user())
                 ->event('reversed')
                 ->withProperties(['reason' => $reason, 'amount' => (float) $locked->amount])
-                ->log('reversed');
+                ->log('employee_advance_repayment.reversed');
 
             $locked->delete();
 

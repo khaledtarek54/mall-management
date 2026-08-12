@@ -2,12 +2,15 @@
 
 use App\Models\Asset;
 use App\Models\Invoice;
+use App\Models\InvoiceItem;
 use App\Models\Lease;
+use App\Models\Payment;
 use App\Models\Tenant;
 use App\Models\TenantRequest;
 use App\Models\TenantUser;
 use App\Models\Unit;
 use App\Models\User;
+use App\Support\ActivityLogChangeRenderer;
 use Filament\Facades\Filament;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -15,6 +18,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Event;
 use Livewire\Features\SupportTesting\Testable;
+use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -374,11 +378,11 @@ function withoutDeletionRefusal(Model $model, callable $operation): Model
  * fee yields an empty query rather than an error, which is what makes the "not charged" assertions
  * work unchanged.
  *
- * @return \Illuminate\Database\Eloquent\Builder<\App\Models\InvoiceItem>
+ * @return Builder<InvoiceItem>
  */
-function lateFeeItems(\App\Models\Invoice $invoice): \Illuminate\Database\Eloquent\Builder
+function lateFeeItems(Invoice $invoice): Builder
 {
-    return \App\Models\InvoiceItem::query()
+    return InvoiceItem::query()
         ->where('type', 'late_fee')
         ->where('invoice_id', $invoice->fresh()?->late_fee_invoice_id);
 }
@@ -388,7 +392,7 @@ function lateFeeItems(\App\Models\Invoice $invoice): \Illuminate\Database\Eloque
  *
  * **Do not reach for `$invoice->update(['balance' => 0, 'status' => 'paid'])`.** As of 2026-08-12
  * the model reverts it: `balance` and `paid_amount` are derived from
- * {@see \App\Models\Invoice::recomputeTotals()} and a client-supplied value is discarded, because
+ * {@see Invoice::recomputeTotals()} and a client-supplied value is discarded, because
  * that write was reachable from a crafted Livewire payload and made an unpaid invoice read settled
  * everywhere except the general ledger.
  *
@@ -396,9 +400,9 @@ function lateFeeItems(\App\Models\Invoice $invoice): \Illuminate\Database\Eloque
  * operator could produce. Going through a payment is both the honest setup and a stronger test:
  * it exercises the allocation pivot and the recompute the real flow depends on.
  */
-function settleInvoiceInFull(\App\Models\Invoice $invoice): \App\Models\Payment
+function settleInvoiceInFull(Invoice $invoice): Payment
 {
-    $payment = \App\Models\Payment::create([
+    $payment = Payment::create([
         'tenant_id' => $invoice->tenant_id,
         'payment_date' => now(),
         'amount' => (float) $invoice->total,
@@ -411,6 +415,20 @@ function settleInvoiceInFull(\App\Models\Invoice $invoice): \App\Models\Payment
     $invoice->recomputeTotals();
 
     return $payment;
+}
+
+/**
+ * Render an activity row's Changes cell exactly as the Activity Log page and the
+ * ActivitiesRelationManager do.
+ *
+ * Lives here rather than file-scope in a test because TWO test files need it —
+ * ActivityLogRenderTest and ActivityLogVocabularyConformanceTest — and Pest parallelises per
+ * FILE, so a worker that loads only one of them would not see a helper declared in the other,
+ * while a worker that loads both would die on a redeclaration.
+ */
+function renderActivityChanges(Activity $activity): string
+{
+    return app(ActivityLogChangeRenderer::class)->render($activity);
 }
 
 /**

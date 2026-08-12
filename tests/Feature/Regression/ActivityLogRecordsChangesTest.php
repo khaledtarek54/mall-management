@@ -43,5 +43,11 @@ it('renders a change into something a human can read', function () {
 
     $rendered = strip_tags((string) app(ActivityLogChangeRenderer::class)->render($updated));
 
-    expect($rendered)->toContain('inactive');
+    // "Readable" now means the CATALOGUE label, not the stored token. `status` resolves through
+    // `admin.statuses.{log_name}` (App\Support\ActivityVocabulary), so the operator reads
+    // "Inactive" / «غير نشط» — and the raw `inactive` must NOT survive into the cell, because in
+    // Arabic that is an English word sitting mid-sentence.
+    expect($rendered)
+        ->toContain(__('admin.statuses.vendor.inactive'))
+        ->not->toContain('inactive');
 });

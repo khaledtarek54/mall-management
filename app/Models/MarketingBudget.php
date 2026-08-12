@@ -44,6 +44,12 @@ class MarketingBudget extends Model
         'spent_amount' => 'decimal:2',
     ];
 
+    /** See AccountingPeriod::label() — the identity an id-reference should read as. */
+    public function label(): string
+    {
+        return (string) $this->period_year;
+    }
+
     public function asset(): BelongsTo
     {
         return $this->belongsTo(Asset::class);
