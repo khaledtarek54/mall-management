@@ -6,6 +6,7 @@ use App\Models\Lease;
 use App\Models\Unit;
 use App\Support\FormTab;
 use App\Support\TenantScope;
+use App\Support\LeaseTerm;
 use Closure;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -192,10 +193,24 @@ class LeaseForm
             ])->columns(3),
 
             FormTab::make(__('admin.sections.term'), [
+                    // ── Commencement ⇄ term ⇄ expiry ──────────────────────────────────────────
+                    // These were three INDEPENDENT inputs until 2026-08-12, so a lease could be
+                    // saved as "36 months" spanning twelve — and `term_months` is not decoration:
+                    // it is logged on the lease, copied by renewal, and read by the option-exercise
+                    // service, so the disagreement propagated into the next contract.
+                    //
+                    // Now they derive both ways. Changing the commencement or the term recomputes
+                    // the expiry; typing an expiry recomputes the TERM rather than contradicting
+                    // it. Every field stays editable — the derived one is a starting point, which
+                    // is how Yardi and MRI behave, and it is why the back-derivation matters: an
+                    // operator who types a bespoke end date must not be left with a term that
+                    // silently disagrees with it.
                     DatePicker::make('commencement_date')
                         ->label(__('admin.fields.commencement_date'))
                         ->required()
-                        ->native(false),
+                        ->native(false)
+                        ->live(onBlur: true)
+                        ->afterStateUpdated(fn (Get $get, Set $set) => self::deriveExpiry($get, $set)),
                     TextInput::make('term_months')
                         ->label(__('admin.fields.term_months'))
                         ->numeric()
@@ -204,12 +219,17 @@ class LeaseForm
                         ->minValue(1)
                         ->maxValue(120)
                         ->helperText(__('admin.helpers.term_months'))
-                        ->suffix(__('admin.fields.months')),
+                        ->suffix(__('admin.fields.months'))
+                        ->live(onBlur: true)
+                        ->afterStateUpdated(fn (Get $get, Set $set) => self::deriveExpiry($get, $set)),
                     DatePicker::make('expiry_date')
                         ->label(__('admin.fields.expiry_date'))
                         ->required()
                         ->after('commencement_date')
-                        ->native(false),
+                        ->native(false)
+                        ->live(onBlur: true)
+                        ->afterStateUpdated(fn (Get $get, Set $set) => self::deriveTerm($get, $set))
+                        ->helperText(__('admin.helpers.expiry_date_derived')),
             ])->columns(3),
 
             FormTab::make(__('admin.sections.financial_terms'), [
@@ -561,6 +581,38 @@ class LeaseForm
     }
 
     /** Show the monthly rent a per-m² rate implies, live, as the deal is typed. */
+    /**
+     * Recompute the expiry from the commencement and the term.
+     *
+     * Silent when either input is missing or half-typed — a live field mid-edit is not an error,
+     * and blanking a required date the operator is about to fill would be worse than doing nothing.
+     */
+    private static function deriveExpiry(Get $get, Set $set): void
+    {
+        $expiry = LeaseTerm::expiryFrom($get('commencement_date'), $get('term_months'));
+
+        if ($expiry !== null) {
+            $set('expiry_date', $expiry);
+        }
+    }
+
+    /**
+     * Recompute the TERM from a hand-typed expiry — the direction that stops the pair disagreeing.
+     *
+     * `monthsBetween()` returns null unless the range is a whole number of months, and null leaves
+     * the term untouched on purpose: an expiry aligned to a financial year or another tenant's
+     * fit-out is a real negotiated date, and rounding it to a tidy term would restate the contract.
+     * The operator then sees a term and an expiry that genuinely differ, which is the truth.
+     */
+    private static function deriveTerm(Get $get, Set $set): void
+    {
+        $months = LeaseTerm::monthsBetween($get('commencement_date'), $get('expiry_date'));
+
+        if ($months !== null) {
+            $set('term_months', $months);
+        }
+    }
+
     private static function deriveRentInto(Get $get, Set $set): void
     {
         if ($get('rent_pricing_basis') !== Lease::RENT_RATE) {

@@ -6,6 +6,7 @@ use App\Models\Charge;
 use App\Models\Lease;
 use App\Models\Tenant;
 use App\Models\Unit;
+use App\Support\LeaseTerm;
 use App\Support\Vat;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -50,7 +51,8 @@ class LeaseCreationService
 
             $commencement = CarbonImmutable::parse($payload['lease']['commencement_date']);
             $termMonths = (int) $payload['lease']['term_months'];
-            $expiry = $commencement->addMonths($termMonths)->subDay();
+            // The one rule, shared with renewal and with the form — see App\Support\LeaseTerm.
+            $expiry = CarbonImmutable::parse(LeaseTerm::expiryFrom($commencement, $termMonths));
             $rent = (float) $payload['lease']['base_rent_monthly'];
             $service = (float) ($payload['lease']['service_charge_monthly'] ?? 0);
 

@@ -2209,6 +2209,8 @@ return [
         'sales_submitted_body' => ':tenant (وحدة :unit) قدّم إقرار :period · :sales',
         'sla_breached_title' => 'تجاوز اتفاقية مستوى الخدمة',
         'sla_breached_body' => ':type :reference (:priority) تجاوز موعد الحل المستهدف بـ :hours ساعة.',
+        'wo_response_sla_breached_title' => 'أمر عمل تصحيحي بلا استجابة',
+        'wo_response_sla_breached_body' => ':reference (:equipment، :priority) لم يقبله أحد وتجاوز مهلة الاستجابة بـ :hours ساعة. ساعة الإنجاز لا تبدأ قبل أن يتسلمه أحد.',
         'wo_sla_breached_title' => 'أمر شغل تجاوز مستوى الخدمة',
         'wo_sla_breached_body' => ':reference (:equipment) تجاوز المستهدف بـ :hours ساعة لأولوية :priority.',
         'ppm_generation_failed_title' => 'توقفت خطة وقائية عن إصدار أوامر العمل',

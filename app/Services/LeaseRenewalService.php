@@ -5,7 +5,9 @@ namespace App\Services;
 use App\Models\Charge;
 use App\Models\Lease;
 use App\Models\Unit;
+use App\Support\LeaseTerm;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Relations\Pivot;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -36,7 +38,8 @@ class LeaseRenewalService
             ? CarbonImmutable::parse($data['commencement_date'])
             : CarbonImmutable::parse($original->expiry_date)->addDay();
 
-        $expiry = $commencement->addMonths($termMonths)->subDay();
+        // The one rule, shared with creation and with the form — see App\Support\LeaseTerm.
+        $expiry = CarbonImmutable::parse(LeaseTerm::expiryFrom($commencement, $termMonths));
 
         return DB::transaction(function () use ($original, $termMonths, $newRent, $newServiceCharge, $commencement, $expiry) {
             // Re-read the original under a row lock and re-check its status HERE.
@@ -144,7 +147,7 @@ class LeaseRenewalService
             // typed when the relation declares it, and PHPStan is right that it is not a property
             // of RentableItem.
             foreach ($original->rentableItems()->get() as $item) {
-                /** @var \Illuminate\Database\Eloquent\Relations\Pivot $pivot */
+                /** @var Pivot $pivot */
                 $pivot = $item->getRelationValue('pivot');
 
                 $renewal->rentableItems()->attach($item->id, [

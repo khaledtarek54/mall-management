@@ -2215,6 +2215,8 @@ return [
         'sales_submitted_body' => ':tenant (unit :unit) submitted :period · :sales',
         'sla_breached_title' => 'SLA breached',
         'sla_breached_body' => ':type :reference (:priority) is :hours h past its target resolution.',
+        'wo_response_sla_breached_title' => 'A corrective job has gone unanswered',
+        'wo_response_sla_breached_body' => ':reference (:equipment, :priority) has not been accepted by anyone and is :hours h past its response target. The resolution clock does not start until somebody takes it on.',
         'wo_sla_breached_title' => 'Work order past its SLA',
         'wo_sla_breached_body' => ':reference (:equipment) is :hours h past its :priority SLA target.',
         'ppm_generation_failed_title' => 'A preventive plan has stopped generating',

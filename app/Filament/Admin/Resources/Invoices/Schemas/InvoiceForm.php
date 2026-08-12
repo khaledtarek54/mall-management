@@ -111,6 +111,7 @@ class InvoiceForm
                             }
 
                             self::prefillItemsFromLease($lease, $set, $get);
+                            self::deriveDueDate($get, $set);
                         })
                         ->required(),
                     Select::make('tenant_id')
@@ -159,10 +160,17 @@ class InvoiceForm
                         ->required()
                         ->disabled($locked)
                         ->live(onBlur: true)
+                        ->afterStateUpdated(fn (Get $get, Set $set) => self::deriveDueDate($get, $set))
                         ->native(false),
                     DatePicker::make('due_date')
                         ->label(__('admin.fields.due_date'))
                         ->required()
+                        // Derived from the issue date and the LEASE's payment terms, and editable.
+                        // Every service that raises an invoice already does this — the monthly run,
+                        // the meter recharge, late fees, NSF fees, CAM recovery, percentage rent —
+                        // so a hand-typed invoice was ageing on a different rule from a generated
+                        // one, and AR ageing is the report the owner reads.
+                        ->helperText(__('admin.helpers.due_date_derived'))
                         // A due date on/before the issue date is nonsensical for
                         // AR ageing (it would be "overdue" the moment it's
                         // issued). Enforce strictly-after here so manual invoice
@@ -362,6 +370,27 @@ class InvoiceForm
                     ]),
                 ]),
         ]);
+    }
+
+    /**
+     * Recompute the due date from the issue date and the lease's agreed payment terms.
+     *
+     * Silent when there is no lease or no issue date yet — a form mid-edit has nothing to derive
+     * from, and blanking a required date the operator is about to fill would be worse than nothing.
+     * The 7-day fallback is the same one every billing service applies (`?? 7`).
+     */
+    protected static function deriveDueDate(Get $get, Set $set): void
+    {
+        $issued = $get('issue_date');
+        $leaseId = $get('lease_id');
+
+        if (! is_string($issued) || $issued === '' || ! $leaseId) {
+            return;
+        }
+
+        $days = Lease::whereKey($leaseId)->value('payment_terms_days');
+
+        $set('due_date', \Carbon\CarbonImmutable::parse($issued)->addDays((int) ($days ?? 7))->toDateString());
     }
 
     /** May this operator depart from the catalogue's rate on a line? */

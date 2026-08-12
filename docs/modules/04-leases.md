@@ -395,6 +395,23 @@ foreach lease in unit.allLeases():
 3. Generates unique lease reference (asset code + year + sequence).
 4. Computes `expiry_date` as `commencement + term_months - 1 day`.
 5. Creates Lease row with status='active' (or as supplied).
+> **Term ⇄ expiry derive both ways (2026-08-12).** `commencement_date`, `term_months` and
+> `expiry_date` were three independent form inputs, so a lease could be saved as "36 months"
+> spanning twelve — and `term_months` is not decoration: it is logged, copied by renewal, and read
+> by the option-exercise service, so the disagreement propagated into the next contract. Changing
+> the commencement or the term now recomputes the expiry; typing an expiry recomputes the TERM.
+> All three stay editable.
+>
+> The rule lives once, in **`App\Support\LeaseTerm`**: `expiry = commencement + term − 1 day`,
+> with month ends **clamped**. Centralising it found a live defect — `addMonths()` overflows, so a
+> lease commencing 31 August for six months expired 2 March rather than 27 February, three days
+> outside the agreed term. Existing leases keep their stored expiry; only new derivations change.
+>
+> `LeaseTerm::monthsBetween()` returns null unless the range is a whole number of months, so a
+> negotiated end date (aligned to a financial year, or to another tenant's fit-out) is never
+> rounded into a tidy term — and an expiry at or before the commencement derives nothing, which
+> leaves the `after()` validation rule free to refuse it. See `DerivedDateFieldsTest`.
+
 6. Seeds two standard Charges: base_rent (VAT-exempt) and service_charge (VAT at the standard rate — the `VAT_14` tax code's current rung, 14% today).
 
 **Related:** `LeaseCreationService::seedStandardCharges()` (static) — idempotent seed of rent + service-charge pair; skips if Charges already exist; used by CreateLease page afterCreate.

@@ -506,7 +506,8 @@ class LeasesTable
                             ->label(__('admin.fields.new_term_months'))
                             ->numeric()
                             ->minValue(1)
-                            ->required(),
+                            ->required()
+                            ->live(onBlur: true),
                         TextInput::make('new_rent')
                             ->label(__('admin.fields.new_rent'))
                             ->prefix('EGP')
@@ -521,7 +522,21 @@ class LeasesTable
                             ->required(),
                         DatePicker::make('commencement_date')
                             ->label(__('admin.fields.commencement_date'))
-                            ->required(),
+                            ->required()
+                            ->live(onBlur: true),
+
+                        // The renewal's end date, shown before it is committed. The modal took a
+                        // term and a commencement and never displayed the expiry they produce, so
+                        // an operator agreed a new contract without seeing when it ends — and the
+                        // service derives it from exactly these two, so there is nothing to type.
+                        Placeholder::make('new_expiry_preview')
+                            ->label(__('admin.fields.expiry_date'))
+                            ->content(fn (Get $get) => ($expiry = \App\Support\LeaseTerm::expiryFrom(
+                                $get('commencement_date'),
+                                $get('new_term_months'),
+                            )) !== null
+                                ? \Carbon\CarbonImmutable::parse($expiry)->format('d/m/Y')
+                                : '—'),
                     ])
                     ->action(function (Lease $record, array $data) {
                         try {

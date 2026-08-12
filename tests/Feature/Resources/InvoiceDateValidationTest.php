@@ -38,8 +38,12 @@ it('rejects a due date before the issue date', function () {
             'lease_id' => $this->lease->id,
             'tenant_id' => $this->lease->tenant_id,
             'issue_date' => '2026-02-10',
-            'due_date' => '2026-02-05',
         ]))
+        // Typed last, as an operator does: the due date now derives from the issue date and the
+        // lease's payment terms, so a fillForm handing over every field at once can no longer
+        // produce the invalid pair. The guard still bites when the operator overrides it — which
+        // is the only way this state is reachable.
+        ->set('data.due_date', '2026-02-05')
         ->call('create')
         ->assertHasFormErrors(['due_date' => 'after']);
 });
@@ -50,8 +54,8 @@ it('rejects a due date equal to the issue date', function () {
             'lease_id' => $this->lease->id,
             'tenant_id' => $this->lease->tenant_id,
             'issue_date' => '2026-02-10',
-            'due_date' => '2026-02-10',
         ]))
+        ->set('data.due_date', '2026-02-10')
         ->call('create')
         ->assertHasFormErrors(['due_date' => 'after']);
 });

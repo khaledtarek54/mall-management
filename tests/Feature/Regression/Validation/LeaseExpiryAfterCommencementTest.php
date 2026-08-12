@@ -13,6 +13,14 @@
 |   - expiry BEFORE commencement -> form error on expiry_date ('after').
 |   - expiry EQUAL  to commencement -> form error on expiry_date ('after').
 |   - expiry AFTER  commencement -> no error on expiry_date (lease created).
+|
+| **The two refusals set the expiry LAST, deliberately** (2026-08-12). Since the term/expiry pair
+| derives both ways, touching the commencement or the term recomputes a VALID expiry — so a
+| `fillForm` that hands over every field at once can no longer produce the invalid state at all,
+| whatever order it is written in. An operator produces it by typing the end date last, which is
+| what `->set()` reproduces here. The guard still matters: `LeaseTerm::monthsBetween()` returns null
+| for an expiry at or before the commencement, so the derivation deliberately leaves that pair alone
+| rather than "fixing" a date the operator has just typed.
 */
 
 use App\Filament\Admin\Resources\Leases\Pages\CreateLease;
@@ -55,8 +63,9 @@ it('rejects an expiry date before the commencement date', function () {
     Livewire::test(CreateLease::class)
         ->fillForm(leaseTermPayload($unit->id, $tenant->id, [
             'commencement_date' => '2026-06-01',
-            'expiry_date' => '2026-05-01',
         ]))
+        // Typed last, as an operator does — see the note at the top of this file.
+        ->set('data.expiry_date', '2026-05-01')
         ->call('create')
         ->assertHasFormErrors(['expiry_date' => 'after']);
 
@@ -70,8 +79,8 @@ it('rejects an expiry date equal to the commencement date', function () {
     Livewire::test(CreateLease::class)
         ->fillForm(leaseTermPayload($unit->id, $tenant->id, [
             'commencement_date' => '2026-06-01',
-            'expiry_date' => '2026-06-01',
         ]))
+        ->set('data.expiry_date', '2026-06-01')
         ->call('create')
         ->assertHasFormErrors(['expiry_date' => 'after']);
 

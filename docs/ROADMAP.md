@@ -555,8 +555,8 @@ bidirectional — typing an expiry recomputes the term rather than contradicting
 | Row | P | Owner | Work |
 |---|---|---|---|
 | **DF-01** | 🟠 | 🧑‍💻 | Lease **term ⇄ expiry**, bidirectional, both editable. Validation that the pair agrees becomes unnecessary because they can no longer disagree. |
-| **DF-02** | 🟠 | 🧑‍💻 | Renewal + option-exercise modals show the derived expiry before the operator commits. |
-| **DF-03** | 🟠 | 🧑‍💻 | Manual invoice `due_date` derives from `issue_date` + the lease's `payment_terms_days`, editable — one rule for typed and generated invoices. |
+| **DF-02** | ✅ | 🧑‍💻 | **SHIPPED 2026-08-12** — the renewal modal now shows the expiry its term and commencement produce, before the operator commits a new contract. It took a term and a start date and displayed no end date at all. |
+| **DF-03** | ✅ | 🧑‍💻 | **SHIPPED 2026-08-12.** One rule for typed and generated invoices. It changed two existing tests, which is the interesting part: a `fillForm` handing over every field at once can no longer produce an invalid date pair, so both refusals now `->set()` the derived field LAST — the way an operator actually reaches that state. The guards still bite there. |
 | **DF-04** | 🟠 | 🧑‍💻 | **Make it systemic, or it decays.** One `App\Support\Forms\Derives` helper (pre-fill · live · back-derive · stays editable) plus a registry of derivable pairs and a conformance test that fails when a form exposes both sides of a registered pair without wiring it. This is the only version of "the whole system behaves this way" that is still true after the next form is added — the same play as `PropertyIsolation` and `ChangeImpact`. |
 | **DF-05** | 🟡 | 🧑‍💻 | Remaining pairs: fixed-asset depreciation end, vendor-contract term, PDC maturity, work-order SLA due. |
 
