@@ -7,6 +7,9 @@
 > **2)** جدول ربط الأدوار بشجرة الحسابات — ده اللي بنعدّله من الشاشة من غير برمجة.
 > **3)** أسئلة محتاجين إجاباتها منك عشان الموديول المحاسبي يشتغل صح من أول يوم.
 >
+> ⚠️ **`ACCOUNTANT-BRIEFING.pdf` الموجود جنب الملف ده أقدم منه** (آخر تحديث للأسئلة: 2026-08-12 — ترقيم المستندات، الدمغة وضريبة الجدول، والموازنة). ابعت الـ **Markdown** أو أعِد توليد الـ PDF قبل ما تبعته.
+> ⚠️ **The PDF next to this file is older than it** — regenerate before sending.
+>
 > This hand-out has three parts: **(1)** the GL **posting map** — every money movement and the exact debit/credit account it hits, so you can flag anything posting to the wrong account and we reconfigure it; **(2)** the **account-role → chart mapping** — what we re-point from the screen with no code change; **(3)** the **questions** we need you to answer to operate a strong accounting module.
 >
 > _أُنشئ / Generated: 2026-07-23 · النظام / System: Atriom · العملة / Currency: EGP (بالقرش، منزلتين عشريتين)._
@@ -323,19 +326,19 @@
 | Q-COA-2 | هتدّينا **شجرة الحسابات المكوّدة** بتاعتك؟ نستبدل ولا نطابق؟<br>Will you provide your coded chart — replace or reconcile? | شجرة مبدئية | 🔴 | |
 | Q-COA-3 | **الأرصدة الافتتاحية** بتاريخ إيه، ومين مسؤول عن تجهيزها؟<br>Opening balances — as-of date & who prepares them? | مش محدّد | 🔴 | |
 | Q-COA-4 | محتاج **حساب صندوق/بنك منفصل لكل مول**، ولا مشترك؟<br>Separate cash/bank per mall, or shared? | مشترك (قابل للفصل لكل عقار) | 🟡 | |
-| Q-COA-5 | محتاج **تسلسل ترقيم** معيّن للقيود/الفواتير يطابق دفاترك؟<br>Specific numbering series for entries/invoices? | ترقيم داخلي | 🟡 | |
+| Q-COA-5 | محتاج **تسلسل ترقيم** معيّن للقيود/الفواتير يطابق دفاترك؟ لو أيوه، ابعت **البادئة** لكل نوع مستند.<br>Specific numbering series? If yes, send the PREFIX for each document type. | **قابل للضبط من الإعدادات** ← المحاسبة ← ترقيم المستندات (من 2026-08-12): فاتورة `INV` · إشعار دائن `CN` · قيد `JE` · فاتورة مورد `BILL` · مصروف `EXP` · تأمين `DEP` · رواتب `PAY` · طلب شراء `PR` · عقد `LSE` · شيك آجل `PDC`.<br>⚠️ **لازم يتحدّد قبل التشغيل.** بعد أول فاتورة صادرة، البادئة مطبوعة على مستندات مش هنقدر نعيد ترقيمها؛ وتغييرها بعدها بيبدأ **سلسلة تانية** مش بيعيد ترقيم الأولى — وده اللي المراجع بيسأل عنه.<br>Configurable in Settings → Accounting; **must be fixed before go-live** — changing it later starts a SECOND series rather than renumbering the first. | 🔴 | |
 
 ## ٤.٢ · الضرائب / Taxes
 
 | # | السؤال / Question | دلوقتي / Today | أهمية | الإجابة |
 |---|---|---|---|---|
-| Q-TAX-1 | **ض.ق.م 14%** على الخدمات والمرافق والمواقف، و**الإيجار الأساسي معفى** — صح؟<br>14% VAT on services/utilities/parking; base rent exempt — correct? | كده — **والنسبة قابلة للتعديل من الإعدادات** (الإعدادات ← الضرائب) دون تغيير في البرنامج؛ التعديل يسري على ما يُفوتر بعده فقط، والفواتير الصادرة تحتفظ بنسبتها.<br>Rate is editable in Settings → Tax; applies going forward, issued invoices keep their rate. | 🔴 | |
+| Q-TAX-1 | **ض.ق.م 14%** على الخدمات والمرافق والمواقف، و**الإيجار الأساسي معفى** — صح؟<br>14% VAT on services/utilities/parking; base rent exempt — correct? | كده — **والنسبة بقت في كتالوج الضرائب** (/admin/tax-codes) مش في الإعدادات (من 2026-08-12): كل نسبة **درجة مؤرَّخة**، يعني تقدر تدخل زيادة قبل تاريخ سريانها والنظام يستعملها من التاريخ ده بس؛ التعديل يسري على ما يُفوتر بعده فقط، والفواتير الصادرة تحتفظ بنسبتها.<br>Rate is editable in Settings → Tax; applies going forward, issued invoices keep their rate. | 🔴 | |
 | Q-TAX-2 | **الإيجار النسبي** معفى من الضريبة؟ / Is percentage rent VAT-exempt? | 0% | 🔴 | |
 | Q-TAX-3 | **استرداد CAM ورسوم إدارة CAM** — معفيين ولا 14%؟<br>CAM recovery & CAM admin fee — exempt or 14%? | 0% (افتراض) | 🔴 | |
 | Q-TAX-4 | **غرامات التأخير** معفية (خارج نطاق الضريبة)؟ / Late fees VAT-exempt? | 0% | 🔴 | |
 | Q-TAX-5 | **خصم وإضافة (WHT)** على مدفوعات الموردين — النِسَب حسب نوع الخدمة (1%/3%/5%…)؟ وهل المستأجرين بيخصموا من الإيجار؟<br>Withholding tax rates per vendor service? Do tenants withhold on rent? | حساب WHT موجود (21303001)؛ النِسَب بتتدخل يدوي | 🔴 | |
 | Q-TAX-6 | الفواتير بتصدر بـ **الرقم الضريبي للالتزام (Eltizam)** ولا رقم كل مالك؟<br>Invoices under Eltizam's TRN or each owner's? | مُصدِّر واحد | 🔴 | |
-| Q-TAX-7 | **دمغة (رسم دمغة)** على العقود/الفواتير؟ مين بيحسبها ويورّدها؟<br>Stamp tax on contracts/invoices? | مش ممثّلة | 🟠 | |
+| Q-TAX-7 | **دمغة وضريبة الجدول** — الكتالوج بتاعك متسجّل بالكامل في النظام، بس **١١ كود منهم مقفول** لأن مفيش حساب في الشجرة بيترحّلوا عليه. محتاجين منك لكل عائلة: **(أ)** بتنطبق على إيه بالظبط عندنا (عقود؟ فواتير؟ أنواع بنود معيّنة؟) · **(ب)** الحساب في الشجرة للمستحق (التزام) · **(ج)** الحساب للمدفوع/المحمّل (مصروف أو أصل).<br>Stamp + schedule tax: your catalogue is fully entered, but **11 codes ship SWITCHED OFF** because no chart account is wired. For each family we need: what it applies to here, the liability account, and the expense/asset account.<br>**ملحوظة:** النظام **بيرفض تفعيل كود ضريبي من غير نسبة ودور ترحيل** — يعني الكتالوج الناقص ساكت مش فخ. مفيش شغل برمجي مستني غير الإجابة دي.<br>A tax code cannot be activated without a rate AND a posting role, so an incomplete catalogue is inert rather than a trap. Nothing is blocked here except this answer. | مسجّل ومقفول / entered, inactive | 🔴 | |
 | Q-TAX-8 | **ضريبة عقارية** — بتتحمّل على الوحدات؟ تتحمّل للمستأجر ولا المالك؟<br>Real-estate/property tax — recharged or owner-borne? | مش ممثّلة | 🟠 | |
 | Q-TAX-9 | **إقرار ض.ق.م شهري** — محتاج **تقرير ضريبة مخرجات** بالفاتورة للإقرار؟ وتقرير WHT (نموذج 41)؟<br>Monthly VAT return report + WHT report needed? | مش مبني | 🟠 | |
 | Q-TAX-10 | فيه **مستأجرين معفيين** (منطقة حرة/حكومة/سفارة)؟<br>Any tax-exempt tenants? | مفيش تجاوز لكل مستأجر | 🟠 | |
@@ -386,6 +389,24 @@
 | Q-MIG-2 | أصحاب المصلحة بيستخدموا **Oracle/SAP/Odoo** — محتاج **صيغة تصدير** معيّنة؟<br>Export format needed (Excel/Odoo-importable)? | Excel/PDF | 🟡 | |
 | Q-INV-1 | **e-invoicing (ETA)** — النظام دلوقتي **Mock** (مفيش حاجة راحت للمصلحة). محتاجين بيانات الدخول والشهادة والأكواد الحقيقية للتفعيل.<br>ETA e-invoicing runs in mock; need live credentials/cert/codes. | Mock (`ETA_MOCK=true`) | 🔴 | |
 
+## ٤.٨ · الموازنة (مقارنة الفعلي بالموازنة) / Budget vs actual
+
+> **ليه بنسأل قبل ما نبني:** قايمة الدخل بقت بتقارن بـ **الفترة السابقة** و**نفس الفترة من السنة اللي فاتت** (شُحنت 2026-08-12). المقارنة بالموازنة هي الطلب التالي، وهي **مش عمود زيادة** — هي جدول جديد وشاشة إدخال، وشكلها بيتحدّد بإجابتك. لو بنينا الشكل الغلط، هتبقى شاشة محدش يقدر يستخدمها.
+>
+> **Why we ask before building:** the income statement now compares to prior period and prior year. Budget-vs-actual is the next ask and is **not a column** — it is a table plus an entry screen, and the shape depends on these answers.
+
+| # | السؤال / Question | الافتراض لو مجاوبتش / Default if unanswered | أهمية | الإجابة |
+|---|---|---|---|---|
+| Q-BUD-1 | الموازنة بتتحط **لكل حساب في الشجرة**، ولا على مستوى أعلى (مجموعة/قسم)؟<br>Budget per chart ACCOUNT, or at a higher grouping? | لكل حساب / per account | 🟠 | |
+| Q-BUD-2 | **شهرية** (12 رقم للسنة) ولا **رقم سنوي واحد** يتوزّع بالتساوي؟ لو شهرية — بتتعمل موسمية (رمضان/المدارس)؟<br>Monthly figures, or one annual figure spread evenly? Seasonal weighting? | شهرية / monthly | 🟠 | |
+| Q-BUD-3 | **لكل عقار** ولا للمحفظة كلها؟ (ملاحظة: الملاك مختلفين لكل مول، وحزمة المالك بتتبني لكل عقار.)<br>Per property or portfolio-wide? Owners differ per mall. | لكل عقار / per property | 🟠 | |
+| Q-BUD-4 | بتتعمل **موازنة مُعدَّلة** وسط السنة؟ لو أيوه — بنحتفظ بالأصلية والمعدّلة والاتنين يتقارنوا، ولا المعدّلة بتحلّ محل الأصلية؟<br>Revised budgets mid-year? Keep original + revision, or overwrite? | نسخة واحدة تُستبدل / single, overwritten | 🟠 | |
+| Q-BUD-5 | مين له حق **إدخال/تعديل** الموازنة؟ ومحتاجة **اعتماد** قبل ما تظهر في التقارير؟<br>Who may enter/edit a budget, and does it need approval before it appears on reports? | `accounting` يدخل، من غير اعتماد | 🟠 | |
+| Q-BUD-6 | هتدخلوها **من ملف Excel** (الأرجح) ولا من الشاشة؟ لو ملف — ابعت **عيّنة** بالأعمدة اللي بتستعملوها.<br>Imported from Excel or typed? If imported, send a sample with your columns. | استيراد CSV + شاشة / import + screen | 🟠 | |
+| Q-BUD-7 | الانحراف يتعرض **بالقيمة والنسبة** — وإشارته إيه؟ (مصروف أقل من الموازنة = انحراف **إيجابي** عندك؟)<br>Variance shown as amount and %, and which sign is "good" for an expense? | قيمة + نسبة، بدون حكم "جيد/سيئ" | 🟡 | |
+
+---
+
 ---
 
 ## التوقيع / Sign-off
@@ -393,6 +414,7 @@
 | القسم / Section | المسؤول / Owner | التاريخ / Date |
 |---|---|---|
 | شجرة الحسابات + الربط + الضرائب + الرواتب + الأصول / COA, mapping, tax, payroll, assets | *المحاسب / accountant* | |
+| الموازنة (٤.٧) + ترقيم المستندات (Q-COA-5) + الدمغة وضريبة الجدول (Q-TAX-7) / Budget, numbering, stamp & schedule tax | *المحاسب / accountant* | |
 
 **مرتبط بـ / Related:** [OPEN-QUESTIONS.md](../OPEN-QUESTIONS.md) (سجل كل الأسئلة الداخلي) · [BUSINESS-RULES.md](../BUSINESS-RULES.md) (كل قاعدة + مستوى المخاطرة) · [21-general-ledger.md](../modules/21-general-ledger.md) (تفاصيل موديول الأستاذ العام).
 
