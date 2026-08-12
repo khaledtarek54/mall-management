@@ -116,6 +116,47 @@ it('never lazy-loads the frame, and never hides it while it loads', function () 
     );
 });
 
+it('pins the handbook toolbar instead of letting it scroll away', function () {
+    // "When I select a page the search is dragged down with me." Two causes, both fixed:
+    //
+    //   1. VitePress makes `.VPNav` position:fixed only at >=960px; below that it sits in the flow
+    //      and scrolls with the content. An iframe inside the panel is routinely narrower than that
+    //      once the sidebar and gutters are taken out.
+    //   2. The frame is `position: fixed` relative to ITS OWN viewport. If it is even slightly
+    //      taller than the space available, the PANEL page scrolls and the whole frame — pinned
+    //      toolbar included — travels with it. So the height is MEASURED at runtime rather than
+    //      guessed at with a constant that is wrong the moment a heading wraps.
+    $embed = (string) file_get_contents(base_path('docs/visual/.vitepress/theme/embed.css'));
+
+    $this->assertMatchesRegularExpression(
+        '/max-width:\s*959px.*?\.atriom-embed\s+\.VPNav\s*\{[^}]*position:\s*fixed/s',
+        $embed,
+        'Below 960px VitePress leaves its nav in the flow, so embed mode must pin it.'
+    );
+
+    // Pinning it means we owe the content offset ourselves at that width — but ONLY there, or it
+    // double-counts against the padding VitePress already applies above 960px.
+    $this->assertMatchesRegularExpression(
+        '/max-width:\s*959px.*?\.atriom-embed\s+\.VPContent\s*\{[^}]*padding-block-start/s',
+        $embed,
+        'A pinned nav no longer occupies flow space; the content needs the offset instead.'
+    );
+
+    // The hamburger is the ONLY way to open the sidebar below 960px. Hiding it left a narrow frame
+    // with no navigation at all — worse than the chrome it replaced.
+    $this->assertStringNotContainsString(
+        '.atriom-embed .VPNavBarHamburger',
+        $embed,
+        'The hamburger is the only sidebar affordance below 960px.'
+    );
+
+    $this->assertStringContainsString(
+        'getBoundingClientRect',
+        handbookTemplate(),
+        'The frame height must be measured, not assumed, or the panel page scrolls.'
+    );
+});
+
 it('defines its behaviour inline rather than through a script stack', function () {
     // A push to the scripts stack is silently dropped here: the panel layout renders that stack
     // before Livewire renders this component into it, so the push lands on a stack already output.

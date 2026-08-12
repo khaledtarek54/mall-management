@@ -7,43 +7,62 @@
    the panel wants the full site, and an iframe is indistinguishable from that
    window if you sniff `window.top` instead of asking.
 
-   Two jobs:
-     1. Remove the chrome Filament already provides — the site title and the
-        cross-site nav links. What STAYS is the doc toolbar an operator still
-        needs inside the frame: search, and the language switcher.
-     2. Take the panel's surfaces and accent, so the frame does not read as a
-        different website. The accent variables are written in by the parent
-        (see resources/views/filament/pages/handbook.blade.php), which is what
-        makes the handbook pick up a property's brand colour.
+   Three jobs:
+     1. Pin the toolbar. VitePress only fixes its nav at >=960px, and an iframe
+        inside a panel is routinely narrower than that — so the search bar
+        scrolled away with the content.
+     2. Remove the chrome Filament already provides, WITHOUT removing anything
+        the frame still needs to navigate itself.
+     3. Take the panel's own palette, so the frame is the same material as the
+        page around it rather than a warm-toned website sitting in a cool grey
+        app. The `--atriom-*` variables are written in by the parent — see
+        resources/views/filament/pages/handbook.blade.php.
    ========================================================================= */
 
-.atriom-embed {
-  /* The parent supplies these from the panel's live --primary-* values. The
-     fallbacks are the handbook's own teal, so a direct visit or a parent that
-     failed to reach the frame still renders in the approved identity rather
-     than unstyled. */
-  --vp-c-brand-1: var(--atriom-accent-deep, #0b6b62);
-  --vp-c-brand-2: var(--atriom-accent, #0f766e);
-  --vp-c-brand-3: var(--atriom-accent-soft, #12887d);
+/* ── 1 · Pin the toolbar at every width ───────────────────────────────────────
+
+   `.VPNav` is `position: relative` and only becomes `fixed` at >=960px
+   (vitepress/theme-default/components/VPNav.vue). Inside the panel the frame is
+   often narrower — the sidebar and the page gutters take 300-400px — so the nav
+   sat in the flow and scrolled away with the page. That is the "search gets
+   dragged down" symptom.
+
+   Below 960px VitePress also stops adding the content offset, because a
+   relative nav occupies its own space. Pinning it means we now owe that offset
+   ourselves — but ONLY below 960px, or it double-counts against the padding
+   VitePress already applies above it and pushes every page down by a nav.       */
+
+@media (max-width: 959px) {
+  .atriom-embed .VPNav {
+    position: fixed;
+  }
+
+  .atriom-embed .VPContent {
+    padding-block-start: var(--vp-nav-height);
+  }
 }
 
-/* ── 1 · Drop the chrome the panel already gives us ───────────────────────── */
+/* ── 2 · Drop the chrome the panel already gives us ───────────────────────── */
 
-/* The nav becomes a slim doc toolbar rather than a second site header. */
+/* The site title and the cross-site links: Filament's own header and sidebar
+   say where you are and what else exists. */
 .atriom-embed .VPNavBarTitle,
 .atriom-embed .VPNavBarMenu,
-.atriom-embed .VPNavBarAppearance,
-.atriom-embed .VPNavBarSocialLinks,
-.atriom-embed .VPNavBarHamburger,
-.atriom-embed .VPNavBarExtra {
+.atriom-embed .VPNavBarSocialLinks {
   display: none !important;
 }
 
-/* Appearance is driven by the panel's own toggle — a second one inside the
-   frame would let the two disagree. */
+/* Appearance is driven by the panel's toggle — a second one inside the frame
+   would let the two disagree. */
+.atriom-embed .VPNavBarAppearance,
 .atriom-embed .VPSwitchAppearance {
   display: none !important;
 }
+
+/* The hamburger and the "extra" menu STAY. Below 960px the hamburger is the only
+   way to open the sidebar, and the extra menu is where the language switcher
+   goes when it no longer fits — hiding them left a narrow frame with no
+   navigation at all, which was worse than the chrome they replaced. */
 
 .atriom-embed .VPNavBar {
   border-block-end: 1px solid var(--vp-c-divider);
@@ -54,8 +73,8 @@
   background: transparent !important;
 }
 
-/* Push the toolbar's remaining controls (search + language) to the start of the
-   bar now that the title has gone, so they do not float alone on the far edge. */
+/* With the title gone, push search to the start of the bar rather than leaving
+   it floating against the far edge. */
 .atriom-embed .VPNavBar .content {
   padding-inline: 1rem;
 }
@@ -66,13 +85,77 @@
   padding-inline-start: 0;
 }
 
-/* ── 2 · Sit flush inside the frame ───────────────────────────────────────── */
+/* ── 3 · The panel's palette ──────────────────────────────────────────────────
 
-/* No page-level margin: the panel already provides the page's padding, and a
-   second gutter inside the frame reads as a misaligned card. */
-.atriom-embed .VPContent {
-  padding-block-start: var(--vp-nav-height);
+   SURFACES follow the panel; SEMANTICS do not. The greys below are the panel's
+   own, copied in by the parent, so background, borders and text are literally
+   the same values the page around the frame uses. The component colours —
+   amber for waiting, green for done, red for a problem — are left alone,
+   because they carry meaning rather than identity, and re-tinting them to match
+   a brand would make a "paid" pill and an "overdue" pill look alike.           */
+
+.atriom-embed {
+  /* Brand: the panel's primary, so the handbook follows a property's skin. */
+  --vp-c-brand-1: var(--atriom-accent-deep, #0b6b62);
+  --vp-c-brand-2: var(--atriom-accent, #0f766e);
+  --vp-c-brand-3: var(--atriom-accent-soft, #12887d);
+  --vp-c-brand-soft: color-mix(in oklab, var(--vp-c-brand-2) 14%, transparent);
+
+  /* Surfaces — light. */
+  --vp-c-bg: var(--atriom-gray-50, #fcfbf7);
+  --vp-c-bg-alt: var(--atriom-gray-100, #f4efe7);
+  --vp-c-bg-soft: var(--atriom-gray-100, #f7f2ea);
+  --vp-c-bg-elv: var(--atriom-gray-0, #fff);
+  --vp-c-divider: var(--atriom-gray-200, #e6dfd3);
+  --vp-c-gutter: var(--atriom-gray-200, #e6dfd3);
+  --vp-c-border: var(--atriom-gray-300, #e0d8ca);
+
+  --vp-c-text-1: var(--atriom-gray-900, #14181b);
+  --vp-c-text-2: var(--atriom-gray-600, #6b6459);
+  --vp-c-text-3: var(--atriom-gray-400, #8c8478);
+
+  /* The handbook's own component tokens, re-pointed at the same greys so the
+     cards and rails sit on the panel's material instead of warm paper. */
+  --ink: var(--atriom-gray-900, #14181b);
+  --paper: var(--atriom-gray-0, #fff);
+  --hair: var(--atriom-gray-200, #e6dfd3);
+  --taupe: var(--atriom-gray-400, #8c8478);
+  --taupe-dk: var(--atriom-gray-600, #6b6459);
+  --grey-bg: var(--atriom-gray-100, #efece5);
+  --code-chip: color-mix(in oklab, var(--atriom-gray-500, #888) 12%, transparent);
+
+  /* Accent-tinted surfaces, derived so they move with the property's colour. */
+  --teal: var(--vp-c-brand-2);
+  --teal-deep: var(--vp-c-brand-1);
+  --teal-bg: color-mix(in oklab, var(--vp-c-brand-2) 12%, var(--vp-c-bg));
+  --hl-bg: color-mix(in oklab, var(--vp-c-brand-2) 7%, var(--vp-c-bg));
+  --hl-border: color-mix(in oklab, var(--vp-c-brand-2) 28%, var(--vp-c-bg));
+  --rule-bg: color-mix(in oklab, var(--vp-c-brand-2) 6%, var(--vp-c-bg));
 }
+
+.atriom-embed.dark {
+  --vp-c-bg: var(--atriom-gray-900, #1a1611);
+  --vp-c-bg-alt: var(--atriom-gray-800, #211c15);
+  --vp-c-bg-soft: var(--atriom-gray-800, #242019);
+  --vp-c-bg-elv: var(--atriom-gray-800, #262019);
+  --vp-c-divider: var(--atriom-gray-700, #342f28);
+  --vp-c-gutter: var(--atriom-gray-900, #201c15);
+  --vp-c-border: var(--atriom-gray-700, #38322a);
+
+  --vp-c-text-1: var(--atriom-gray-100, #ece6db);
+  --vp-c-text-2: var(--atriom-gray-400, #9c9384);
+  --vp-c-text-3: var(--atriom-gray-500, #8c8477);
+
+  --ink: var(--atriom-gray-100, #ece6db);
+  --paper: var(--atriom-gray-800, #262019);
+  --hair: var(--atriom-gray-700, #342f28);
+  --taupe: var(--atriom-gray-500, #8c8477);
+  --taupe-dk: var(--atriom-gray-400, #b7ae9f);
+  --grey-bg: var(--atriom-gray-800, #2a251d);
+  --code-chip: color-mix(in oklab, var(--atriom-gray-100, #fff) 9%, transparent);
+}
+
+/* ── 4 · Sit flush inside the frame ───────────────────────────────────────── */
 
 .atriom-embed .VPSidebar {
   padding-block-start: 1.25rem;
@@ -83,8 +166,8 @@
   display: none;
 }
 
-/* A slimmer content gutter — the frame is narrower than a full browser window,
-   so the stock 64px reads as wasted space rather than as breathing room. */
+/* A slimmer content gutter — the frame is narrower than a browser window, so
+   VitePress's stock 64px reads as wasted space rather than as breathing room. */
 @media (min-width: 960px) {
   .atriom-embed .VPDoc {
     padding-inline: 2rem;
@@ -92,12 +175,8 @@
   }
 }
 
-/* ── 3 · Scrollbars that belong to the frame, not to the page ─────────────── */
+/* ── 5 · Scrollbars that belong to the frame, not to the OS ───────────────── */
 
-/* The panel gives the frame a fixed height and hides its own overflow, so the
-   only scrollbar a reader should ever see is this one. Styled to match the
-   panel's rather than the OS default, which is the other clear tell that
-   something is embedded. */
 .atriom-embed ::-webkit-scrollbar {
   inline-size: 10px;
   block-size: 10px;

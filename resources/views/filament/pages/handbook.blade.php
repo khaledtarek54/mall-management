@@ -34,6 +34,7 @@
         x-data="{
             ready: false,
             observer: null,
+            onResize: null,
 
             init() {
                 // Mirror the panel's light/dark onto the frame for as long as this page is mounted.
@@ -45,6 +46,19 @@
                     attributeFilter: ['class'],
                 });
 
+                // Size the frame to the space actually left below the panel header, MEASURED rather
+                // than guessed at with a `calc(100dvh - 13rem)` constant.
+                //
+                // This is what stops the handbook's own toolbar appearing to scroll away: the
+                // toolbar is `position: fixed` INSIDE the frame, so it is pinned to the frame's
+                // viewport, not the browser's. If the frame is even slightly taller than the space
+                // available, the PANEL page scrolls — and the whole frame, pinned toolbar included,
+                // travels up with it. A guessed constant is wrong the moment a heading wraps or a
+                // property banner appears.
+                this.fit();
+                this.onResize = () => this.fit();
+                window.addEventListener('resize', this.onResize);
+
                 // Belt and braces: if `load` never fires (a cached frame can fire it before Alpine
                 // binds the listener), reveal anyway rather than sit on a spinner. The handbook
                 // failing to load should look like a broken page, not like a slow one.
@@ -53,13 +67,22 @@
 
             destroy() {
                 this.observer?.disconnect();
+                window.removeEventListener('resize', this.onResize);
+            },
+
+            fit() {
+                const top = this.$el.getBoundingClientRect().top;
+                // A small gutter so the frame does not butt against the bottom of the window.
+                const height = Math.max(360, window.innerHeight - top - 24);
+
+                this.$el.style.height = `${height}px`;
             },
 
             reveal() {
                 if (this.ready) return;
                 this.ready = true;
                 this.syncTheme();
-                this.syncAccent();
+                this.syncPalette();
             },
 
             frameDoc() {
@@ -80,25 +103,45 @@
                     'dark',
                     document.documentElement.classList.contains('dark'),
                 );
+
+                // The palette has a light/dark half of its own, so it is re-sent on every flip
+                // rather than only once on load.
+                if (this.ready) this.syncPalette();
             },
 
-            syncAccent() {
+            syncPalette() {
                 const doc = this.frameDoc();
                 if (! doc) return;
 
-                // The panel re-skins --primary-* per property (AdminPanelProvider), so read the live
-                // computed values rather than a hard-coded hex.
+                // Filament publishes its palette as space-separated RGB triplets (`249 250 251`)
+                // for use as `rgb(var(--gray-50))`, and re-skins `--primary-*` PER PROPERTY. Read
+                // the live computed values rather than hard-coding: that is what makes the handbook
+                // follow a mall's brand colour the same way the rest of the panel does.
                 const panel = getComputedStyle(document.documentElement);
                 const root = doc.documentElement;
 
-                [
-                    ['--primary-500', '--atriom-accent'],
-                    ['--primary-600', '--atriom-accent-deep'],
-                    ['--primary-400', '--atriom-accent-soft'],
-                ].forEach(([from, to]) => {
+                const copy = (from, to) => {
                     const value = panel.getPropertyValue(from).trim();
                     if (value) root.style.setProperty(to, `rgb(${value})`);
+                };
+
+                copy('--primary-400', '--atriom-accent-soft');
+                copy('--primary-500', '--atriom-accent');
+                copy('--primary-600', '--atriom-accent-deep');
+
+                // Surfaces follow the panel so the frame is the same material as the page around
+                // it. Semantics (amber = waiting, red = a problem) are deliberately NOT sent —
+                // re-tinting those to a brand would make a 'paid' pill and an 'overdue' pill look
+                // alike, which is the one thing the colour there is carrying.
+                [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950].forEach((shade) => {
+                    copy(`--gray-${shade}`, `--atriom-gray-${shade}`);
                 });
+
+                // Filament has no --gray-0; the handbook uses it for raised cards.
+                root.style.setProperty(
+                    '--atriom-gray-0',
+                    document.documentElement.classList.contains('dark') ? 'rgb(24 24 27)' : '#fff',
+                );
             },
         }"
     >
@@ -137,8 +180,11 @@
         */
         .atriom-handbook {
             position: relative;
+            /* A first-paint fallback only — init() measures the real space and sets an exact
+               pixel height, so the panel page never scrolls and the frame's own pinned toolbar
+               never travels with it. */
             block-size: calc(100dvh - 13rem);
-            min-block-size: 32rem;
+            min-block-size: 22.5rem;
             border-radius: 0.75rem;
             overflow: hidden;
             border: 1px solid var(--gray-200);
