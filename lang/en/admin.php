@@ -33,6 +33,7 @@ return [
         'unmatched_done' => 'Link removed. The posting is available to match again.',
     ],
     'errors' => [
+        'fiscal_year_start_locked' => "The fiscal year start cannot change once entries have been posted — it would re-date periods that already contain them. Set it on a fresh installation, before the first entry.",
         'bank_match_missing_posting' => 'That posting no longer exists — refresh and pick another.',
         'bank_match_already_matched' => 'That posting is already explained by another statement line. Reporting the same money as verified twice is exactly what this check prevents — unmatch it there first.',
         'bank_match_wrong_account' => 'That posting belongs to a different account. Matching across accounts would reconcile this bank with another bank\'s money and still balance.',
@@ -616,6 +617,7 @@ return [
         'saved' => 'Settings updated.',
         'tabs' => [
             'modules' => 'Modules',
+            'accounting' => 'Accounting',
             'billing' => 'Billing',
             'maintenance' => 'Maintenance',
             'eta' => 'ETA e-Invoicing',
@@ -624,6 +626,8 @@ return [
             'integrations' => 'Integrations',
         ],
         'sections' => [
+            'fiscal_calendar' => 'Fiscal calendar',
+            'fiscal_calendar_description' => "When the books' year begins. Set once, before the first entry is posted — moving it afterwards would re-date periods that already carry them.",
             'revenue_recognition' => 'Revenue recognition',
             'revenue_recognition_description' => 'How rent is recognised in the books. This does not change what any tenant is invoiced.',
             'modules' => 'Toggle Modules',
@@ -653,6 +657,8 @@ return [
             'payments' => 'Payment Gateways',
         ],
         'fields' => [
+            'fiscal_year_start_month' => 'Fiscal year starts in',
+            'fiscal_year_start_month_help' => 'A year is named for the calendar year it starts in: with a July start, 2026 runs 1 July 2026 to 30 June 2027.',
             'note' => 'Note',
             'straight_line_rent_enabled' => 'Recognise rent on a straight-line basis',
             'straight_line_rent_enabled_help' => 'Spreads the total contracted rent evenly over each lease term (EAS 49 / IFRS 16), posting the monthly difference to Deferred Rent. Steps and rent-free periods stop landing in the month they fall. Billing, VAT and e-invoicing are unaffected. Leave off until your accountant has signed it off.',
@@ -3564,6 +3570,7 @@ return [
         'subject' => 'Subject',
         'system' => 'System',
         'subjects' => [
+            'property_setting' => 'Property setting',
             'tax_code' => 'Tax code',
             'tax_rate' => 'Tax rate',
             'bank_match' => 'Bank match',

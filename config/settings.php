@@ -7,6 +7,7 @@ return [
      * put them (manually) here.
      */
     'settings' => [
+        \App\Settings\AccountingSettings::class,
         \App\Settings\BillingSettings::class,
         \App\Settings\MaintenanceSettings::class,
         \App\Settings\IntegrationsSettings::class,

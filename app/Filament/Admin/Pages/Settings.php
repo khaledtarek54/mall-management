@@ -84,6 +84,7 @@ class Settings extends Page implements HasSchemas
             Tabs::make('settings_tabs')
                 ->tabs([
                     Tab::make(__('admin.settings.tabs.modules'))->icon('heroicon-o-squares-plus')->schema($this->modulesFields()),
+                    Tab::make(__('admin.settings.tabs.accounting'))->icon('heroicon-o-calculator')->schema($this->accountingFields()),
                     Tab::make(__('admin.settings.tabs.billing'))->icon('heroicon-o-banknotes')->schema($this->billingFields()),
                     Tab::make(__('admin.settings.tabs.maintenance'))->icon('heroicon-o-wrench-screwdriver')->schema($this->maintenanceFields()),
                     Tab::make(__('admin.settings.tabs.eta'))->icon('heroicon-o-document-text')->schema($this->etaFields()),
@@ -101,7 +102,15 @@ class Settings extends Page implements HasSchemas
             abort(403);
         }
 
-        $changes = SettingsRegistry::persist($this->form->getState());
+        $state = $this->form->getState();
+
+        // Moving the fiscal year start re-dates the PERIODS, so a document posted into an open one
+        // can land inside a closed one — or an entry the accountant has closed and reported becomes
+        // editable again. Refused rather than warned about: there is no safe migration of posted
+        // history, and a warning an operator can click through is not a guard.
+        \App\Support\FiscalYearStart::assertChangeable((int) ($state['accounting']['fiscal_year_start_month'] ?? 1));
+
+        $changes = SettingsRegistry::persist($state);
 
         // Who moved the late-fee percent, when, and from what. `settings.manage` gates who MAY;
         // nothing recorded who DID, which in a system where money records are undeletable and the
@@ -119,6 +128,28 @@ class Settings extends Page implements HasSchemas
             ->title(__('admin.settings.saved'))
             ->success()
             ->send();
+    }
+
+    /** @return array<int, mixed> */
+    private function accountingFields(): array
+    {
+        return [
+            Section::make(__('admin.settings.sections.fiscal_calendar'))
+                ->description(__('admin.settings.sections.fiscal_calendar_description'))
+                ->components([
+                    Select::make('accounting.fiscal_year_start_month')
+                        ->label(__('admin.settings.fields.fiscal_year_start_month'))
+                        ->options(fn (): array => \App\Support\FiscalYearStart::options())
+                        ->helperText(__('admin.settings.fields.fiscal_year_start_month_help'))
+                        ->native(false)
+                        ->required()
+                        // Read-only once anything is posted. `disabled()` is the UI half; the
+                        // refusal that matters is in save(), because a disabled Select is a
+                        // rendering decision and not a guard.
+                        ->disabled(fn (): bool => \App\Models\JournalEntry::query()->where('status', 'posted')->exists())
+                        ->dehydrated(),
+                ]),
+        ];
     }
 
     /** @return array<int, mixed> */
