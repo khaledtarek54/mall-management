@@ -1,0 +1,163 @@
+<?php
+
+namespace App\Filament\Imports;
+
+use App\Models\Charge;
+use App\Models\Lease;
+use App\Services\ChargeScheduleService;
+use Carbon\CarbonImmutable;
+use Filament\Actions\Imports\ImportColumn;
+use Filament\Actions\Imports\Importer;
+use Filament\Actions\Imports\Models\Import;
+
+/**
+ * Load the recurring charges a lease bills every month — service charge, marketing, chiller, signage.
+ *
+ * **This importer writes through `ChargeScheduleService`, never straight to the table**, and that is
+ * the whole design rather than a stylistic preference. A lease's charges are a SCHEDULE: dated rows
+ * that must butt up against each other exactly. Two rows overlapping a month make it ambiguous which
+ * amount applies, and the billing run — which refuses rather than guesses — bills **nothing at all**
+ * for that lease. `atriom:audit-charge-schedules` exists because that has already happened to legacy
+ * rows, and an importer inserting rows directly is the fastest way to recreate it a hundred times in
+ * one upload.
+ *
+ * `setAmount()` is the one path that closes the outgoing row before opening the next, so a file that
+ * lists two rates for the same charge produces a correct two-rung schedule instead of a lease that
+ * silently stops billing.
+ *
+ * **`vat_rate` is an override and blank is the normal state.** The catalogue answers at billing
+ * time, resolved for each invoice's own date — see `Charge::resolvedVatRate()`. A file column that
+ * defaulted to today's standard rate would freeze it onto every imported lease and undo exactly the
+ * fix that made a future rate change reach recurring rent.
+ *
+ * Scoped by the LEASE, which carries its own property, so there is no `asset_code` column to clamp:
+ * `resolveLease()` only finds leases on a property the importer can see.
+ */
+class ChargeImporter extends Importer
+{
+    protected static ?string $model = Charge::class;
+
+    /**
+     * Every column here is an INPUT to `ChargeScheduleService`, never a direct write.
+     *
+     * They all carry a no-op `fillRecordUsing`, which looks odd until you see what the alternative
+     * does: `resolveRecord()` has already asked the service to place this amount on the schedule —
+     * which may have CLOSED the row in force and opened a new one — and Filament would then fill
+     * `amount` straight onto whichever row came back, overwriting the rung the service just decided.
+     * `lease_reference` is not a column on `charges` at all.
+     *
+     * @return array<int, ImportColumn>
+     */
+    public static function getColumns(): array
+    {
+        $inputOnly = fn (ImportColumn $column): ImportColumn => $column->fillRecordUsing(fn (): null => null);
+
+        return [
+            $inputOnly(ImportColumn::make('lease_reference')
+                ->label('Lease reference')
+                ->requiredMapping()
+                ->rules(['required', 'string'])),
+
+            $inputOnly(ImportColumn::make('type')
+                ->label('Charge type (charge code)')
+                ->requiredMapping()
+                ->rules(['required', 'string', 'max:64'])),
+
+            $inputOnly(ImportColumn::make('name')
+                ->label('Line description')
+                ->rules(['nullable', 'string', 'max:255'])),
+
+            $inputOnly(ImportColumn::make('amount')
+                ->label('Amount per cycle (EGP)')
+                ->requiredMapping()
+                ->numeric()
+                ->rules(['required', 'numeric', 'min:0'])),
+
+            $inputOnly(ImportColumn::make('frequency')
+                ->rules(['nullable', 'in:monthly,quarterly,annually,one_time'])),
+
+            $inputOnly(ImportColumn::make('effective_from')
+                ->label('Effective from (YYYY-MM-DD)')
+                ->requiredMapping()
+                ->rules(['required', 'date'])),
+
+            $inputOnly(ImportColumn::make('vat_rate')
+                ->label('VAT % override — LEAVE BLANK to use the tax catalogue')
+                ->numeric()
+                ->rules(['nullable', 'numeric', 'min:0', 'max:100'])),
+        ];
+    }
+
+    /**
+     * The whole row is applied here rather than through column fills.
+     *
+     * `setAmount()` decides whether this is the schedule's first rung, a correction to a row that
+     * has not started billing, or a new rung that closes the one in force — and it needs the amount
+     * and the date together to make that call. Filling a `Charge` model column by column would
+     * bypass it and put a bare row in the table.
+     */
+    public function resolveRecord(): ?Charge
+    {
+        $lease = $this->resolveLease();
+
+        if ($lease === null) {
+            throw new \RuntimeException(
+                'Unknown or out-of-scope lease reference ['.(string) ($this->data['lease_reference'] ?? '').'].'
+            );
+        }
+
+        $type = trim((string) ($this->data['type'] ?? ''));
+        $rawRate = $this->data['vat_rate'] ?? null;
+
+        return app(ChargeScheduleService::class)->setAmount(
+            $lease,
+            $type,
+            (float) ($this->data['amount'] ?? 0),
+            CarbonImmutable::parse((string) $this->data['effective_from']),
+            array_filter([
+                'name' => trim((string) ($this->data['name'] ?? '')) ?: null,
+                'frequency' => trim((string) ($this->data['frequency'] ?? '')) ?: 'monthly',
+                // Blank stays NULL so the catalogue answers per invoice. An explicit 0 is the
+                // operator saying this charge is not taxed, which is a different statement.
+                'vat_rate' => ($rawRate === null || $rawRate === '') ? null : (float) $rawRate,
+                'vat_applicable' => ($rawRate === null || $rawRate === '') ? true : ((float) $rawRate) > 0,
+                // A charge imported as effective from September is not owed from the lease's
+                // commencement; without this the first row back-dates and the next billing run
+                // invoices every month since.
+                'first_row_from_effective' => true,
+            ], fn ($v): bool => $v !== null),
+            Charge::ORIGIN_MANUAL,
+        );
+    }
+
+    /** The lease, only if it sits on a property this importer is allowed to see. */
+    private function resolveLease(): ?Lease
+    {
+        $reference = trim((string) ($this->data['lease_reference'] ?? ''));
+
+        if ($reference === '') {
+            return null;
+        }
+
+        // `visibleAssetIds()` returning NULL means unrestricted (super_admin), not "no properties" —
+        // passing it straight to whereIn() is a TypeError, and defaulting it to [] would silently
+        // refuse every row for the one user allowed to import anything.
+        $visible = \App\Support\TenantScope::visibleAssetIds();
+
+        return Lease::query()
+            ->where('reference', $reference)
+            ->when($visible !== null, fn ($q) => $q->whereHas('unit', fn ($u) => $u->whereIn('asset_id', $visible)))
+            ->first();
+    }
+
+    public static function getCompletedNotificationBody(Import $import): string
+    {
+        $body = 'Your charge-schedule import has completed and '.number_format($import->successful_rows).' '.str('row')->plural($import->successful_rows).' imported.';
+
+        if ($failedRowsCount = $import->getFailedRowsCount()) {
+            $body .= ' '.number_format($failedRowsCount).' '.str('row')->plural($failedRowsCount).' failed to import.';
+        }
+
+        return $body.' Run `php artisan atriom:audit-charge-schedules` to confirm no lease was left with an overlapping or gapped schedule.';
+    }
+}

@@ -3,8 +3,11 @@
 namespace App\Filament\Admin\Resources\Employees\Pages;
 
 use App\Filament\Admin\Resources\Employees\EmployeeResource;
+use App\Filament\Imports\EmployeeImporter;
+use App\Support\Imports;
 use App\Support\StatusTabs;
 use Filament\Actions\CreateAction;
+use Filament\Actions\ImportAction;
 use Filament\Resources\Pages\ListRecords;
 
 class ListEmployees extends ListRecords
@@ -14,6 +17,15 @@ class ListEmployees extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            ImportAction::make()
+                ->importer(EmployeeImporter::class)
+                ->label(__('admin.actions.import'))
+                ->icon('heroicon-o-arrow-up-tray')
+                // Import is admin-only (FR-USR-02) and is NOT a flavour of create — one wrong CSV
+                // column rewrites the whole register. Gated in both places, through the one
+                // registry, so the import buttons cannot drift apart.
+                ->visible(fn () => Imports::allowed())
+                ->authorize(fn () => Imports::allowed()),
             CreateAction::make()->visible(fn () => EmployeeResource::canCreate()),
         ];
     }

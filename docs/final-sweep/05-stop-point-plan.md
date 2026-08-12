@@ -111,7 +111,7 @@ retired row is what stops the next person rebuilding a thing that works.
 | 11 ✅ | `TenantImporter`: stop deduping on a nullable, non-unique `email` | — | S |
 | 12 ✅ | Importers off `sync`; add `getMaxRows()` and a chunk size | FS-36 | S |
 | 13 ✅ | **Opening balances** — AR, deposits, cash, AP. At minimum an invoice importer with a dry-run and an error report | FS-15 | M |
-| 14 | Importers for the master data that has none — Vendor, Employee, FixedAsset, Charge, meters | — | M |
+| ~~14~~ ✅ | ~~Importers for the master data that has none — Vendor, Employee, FixedAsset, Charge, meters~~ — **all five shipped** (Vendor + FixedAsset 2026-08-11, Employee + Charge + meter readings 2026-08-12). The charge one writes through `ChargeScheduleService` rather than the table, because overlapping rungs make the billing run bill NOTHING for that lease | — | M |
 | 15 ✅ | **A test that actually executes each importer.** None exists today; the sole importer test inspects validation rules | — | S |
 | 16 ✅ | `asset_owner` UI — a relation manager on `AssetResource`, plus `ownership_percentage` | FS-14 | S–M |
 

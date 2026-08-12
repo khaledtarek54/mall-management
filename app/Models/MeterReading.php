@@ -29,6 +29,7 @@ class MeterReading extends Model
         'billed_at' => 'datetime',
     ];
 
+    /** @return BelongsTo<UtilityMeter, $this> */
     public function meter(): BelongsTo
     {
         return $this->belongsTo(UtilityMeter::class, 'utility_meter_id');

@@ -2,6 +2,25 @@
 
 > Track electric, water, and gas consumption at the asset and unit level; compute consumption as monthly deltas; visualize trends by meter type across a rolling 12-month window.
 
+## Importing readings (`MeterReadingImporter`, 2026-08-12)
+
+The technical team reads dozens of sub-meters a month and sends a spreadsheet. Keying them one at a
+time is where an operator gives up and starts recharging utilities off a side sheet — the practice
+this module replaced.
+
+- **Cost derives from the meter's tariff** (consumption × `rate_per_unit`), the same rule the
+  readings form applies, so an imported reading and a typed one recharge identically. A stated cost
+  is an override. With no tariff and no cost the reading lands at 0 and simply cannot be billed —
+  `BillMeterReadingService` refuses a zero-cost recharge — which is the safe direction: a reading
+  recorded and unbilled is recoverable; one billed at a guess is a credit note and a phone call.
+- **A BILLED reading is never overwritten.** It is the evidence for a recharge invoice already sent
+  to the tenant, so a re-upload of that month is refused by name rather than silently changing the
+  figure underneath the document.
+- One reading per meter per date, so re-uploading a corrected sheet updates instead of doubling the
+  month's consumption. Meters are matched on `meter_number`, clamped to visible properties.
+
+**Tests:** `tests/Feature/Regression/CutOverImportersTest.php`.
+
 ## 1. Purpose & business context
 
 The Utility Meters module enables energy management for mall properties: operators log monthly meter readings (odometer snapshots), the system auto-calculates consumption as the delta from the prior reading, and a dashboard widget visualizes consumption trends per utility type. Each meter belongs to an asset (property) and optionally to a unit (shop/tenant space); null `unit_id` signals a common-area meter. The module supports three utility types (electric, water, gas) and three operational states (active, inactive, faulty) for lifecycle management.

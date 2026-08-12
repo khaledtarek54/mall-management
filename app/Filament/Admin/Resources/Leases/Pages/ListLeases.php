@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Leases\Pages;
 
 use App\Filament\Admin\Resources\Leases\LeaseResource;
+use App\Filament\Imports\ChargeImporter;
 use App\Filament\Imports\LeaseImporter;
 use App\Support\Imports;
 use App\Support\StatusTabs;
@@ -23,6 +24,17 @@ ImportAction::make()
                 ->label(__('admin.actions.import'))
                 ->icon('heroicon-o-arrow-up-tray')
                 // Bulk import writes lease records — gate server-side (was ungated).
+                ->visible(fn () => Imports::allowed())
+                ->authorize(fn () => Imports::allowed()),
+            // A SECOND import on this page, deliberately: the charge schedule is keyed by lease
+            // reference, so it is portfolio-wide work rather than something done one lease at a
+            // time on the relation manager. Named distinctly, because uploading a charge file into
+            // the lease importer would create leases out of charge rows.
+            ImportAction::make('importCharges')
+                ->importer(ChargeImporter::class)
+                ->label(__('admin.actions.import_charges'))
+                ->icon('heroicon-o-arrow-up-tray')
+                ->color('gray')
                 ->visible(fn () => Imports::allowed())
                 ->authorize(fn () => Imports::allowed()),
             CreateAction::make(),

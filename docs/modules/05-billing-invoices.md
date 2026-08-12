@@ -1010,6 +1010,26 @@ Currently `balance = max(0, total − paid_amount)`, where `paid_amount` already
 
 ---
 
+### Importing charge schedules (`ChargeImporter`, 2026-08-12)
+
+Reached from the Leases list, keyed by lease reference, because it is portfolio-wide work rather
+than something done one lease at a time.
+
+**It writes through `ChargeScheduleService` and never touches the table**, which is the whole design.
+A lease's charges are a dated SCHEDULE whose rows must butt up exactly: two rows overlapping a month
+make it ambiguous which amount applies, and the billing run — which refuses rather than guesses —
+bills **nothing at all** for that lease. `atriom:audit-charge-schedules` exists because that has
+already happened to legacy rows, and an importer inserting rows directly is the fastest way to
+recreate it a hundred times in one upload. `setAmount()` is the one path that closes the outgoing
+rung before opening the next.
+
+Every column is therefore an *input* to the service and carries a no-op `fillRecordUsing` — without
+it Filament writes `amount` straight onto whichever row the service returned, overwriting the rung it
+just decided. **A blank VAT column stays NULL** so the catalogue answers per invoice; defaulting it
+would re-freeze the rate and undo the fix above.
+
+**Tests:** `tests/Feature/Regression/CutOverImportersTest.php`.
+
 ### Implementing late fees
 
 Late fees are NOT generated automatically by MonthlyBillingService; they are applied on-demand (and

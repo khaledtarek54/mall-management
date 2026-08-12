@@ -18,6 +18,28 @@ portal), and `departments` (org units). An employee is a *payroll subject*, not 
 
 ---
 
+## Importing the payroll register at cut-over (`EmployeeImporter`, 2026-08-12)
+
+A mall runs dozens of staff across security, cleaning, technical and admin, and the first payroll
+run has to be complete or both the month's salary expense and the social-insurance withholding are
+wrong. Typing them in on go-live morning is not a plan.
+
+- **Identity is the national id, never the name.** Two staff share a name eventually, and a
+  re-import matching on name would merge them into one record — one salary, one person unpaid. The
+  employee code is the fallback; a row with neither creates a new record on every import, which is
+  stated on the class rather than left to be discovered.
+- **`base_salary` and `hire_date` are required, and blank is refused rather than defaulted.** A
+  payslip generated from a zero salary looks correct and pays nobody — the same silent-zero as
+  `opening_accumulated_depreciation` on the fixed-asset register. `hire_date` is NOT NULL in the
+  schema and dates the employment that payroll and any end-of-service calculation rest on.
+- **Departments are matched, never created.** A typo would otherwise open a second "Securty" and
+  split the register across both.
+- Property-clamped through `ResolvesVisibleAssetByCode`. An import bypasses the Create page where
+  `assertAssetInScope()` runs, so without it a restricted user could staff another mall's payroll
+  from a CSV. Admin-only via `App\Support\Imports`.
+
+**Tests:** `tests/Feature/Regression/CutOverImportersTest.php`.
+
 ## 1. Domain model
 
 ### `employees` — the staff register (per property)
