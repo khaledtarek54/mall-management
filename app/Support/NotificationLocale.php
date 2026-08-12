@@ -3,7 +3,10 @@
 namespace App\Support;
 
 use App\Http\Middleware\SetLocale;
+use App\Notifications\Channels\BellChannel;
 use App\Support\Filament\LocalizedNotification;
+use Filament\Pages\Page;
+use Filament\Resources\Resource;
 use Illuminate\Support\Facades\App;
 
 /**
@@ -109,6 +112,39 @@ final class NotificationLocale
         $variant = $variants[$locale] ?? $variants[config('app.locale')] ?? reset($variants);
 
         return is_array($variant) ? $variant : null;
+    }
+
+    /**
+     * The label on a bell entry's "Open …" action, in the CURRENT locale.
+     *
+     * Lives here rather than in {@see BellChannel} because two things
+     * need it and they must not drift: the channel, writing the label when the alert is raised, and
+     * `atriom:backfill-notification-locales`, writing it onto rows that predate the mechanism. The
+     * noun comes from the destination resource's own model label, so it already matches the screen
+     * the link opens, in whatever language is being asked for.
+     *
+     * @param  class-string  $notification
+     */
+    public static function openLabel(string $notification, ?string $panel): string
+    {
+        $destination = $panel ? NotificationTargets::destination($notification, $panel) : null;
+        $target = $destination[0] ?? null;
+
+        if ($target === null) {
+            return __('admin.notifications.actions.open');
+        }
+
+        if (is_subclass_of($target, Page::class)) {
+            return __('admin.notifications.actions.open_named', ['name' => $target::getNavigationLabel()]);
+        }
+
+        /** @var class-string<resource> $target */
+        // No record behind the alert means the link lands on the list, so the label says so.
+        $name = NotificationTargets::record($notification) === null
+            ? $target::getPluralModelLabel()
+            : $target::getModelLabel();
+
+        return __('admin.notifications.actions.open_named', ['name' => $name]);
     }
 
     /**

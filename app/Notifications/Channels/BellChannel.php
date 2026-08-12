@@ -3,11 +3,10 @@
 namespace App\Notifications\Channels;
 
 use App\Support\Filament\AuthorizedAction;
+use App\Support\NotificationBellAction;
 use App\Support\NotificationLink;
 use App\Support\NotificationLocale;
-use App\Support\NotificationTargets;
 use Filament\Actions\Action;
-use Filament\Pages\Page;
 use Filament\Resources\Resource;
 use Illuminate\Notifications\Channels\DatabaseChannel;
 use Illuminate\Notifications\Notification;
@@ -137,48 +136,15 @@ class BellChannel extends DatabaseChannel
     }
 
     /**
-     * The single action a bell entry carries.
-     *
-     * One, not two. A dropdown of twenty notifications each offering "Open" *and* "Details" is a
-     * wall of buttons that reads as noise; the reader wants the one place that answers the alert.
-     * So: the record when there is one, and the notification centre when there is not — which is
-     * what keeps every entry clickable rather than only the ones that happen to own a row.
+     * Shared with the backfill so old rows get the same action new ones do — see
+     * {@see NotificationBellAction}, which is where the reasoning lives.
      *
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>|null
      */
     protected function action(Notification $notification, object $notifiable, array $data): ?array
     {
-        $url = NotificationLink::for($notification, $notifiable, $data);
-
-        if ($url !== null) {
-            return Action::make('open')
-                ->label($this->openLabel($notification, $notifiable))
-                ->url($url)
-                ->link()
-                ->icon('heroicon-m-arrow-top-right-on-square')
-                ->color($data['color'] ?? 'primary')
-                // Following the link answers the alert, so the badge should stop counting it.
-                // Without this the operator clears a notification by acting on it and the bell
-                // still says there are nine.
-                ->markAsRead()
-                ->toArray();
-        }
-
-        $centre = NotificationLink::centre($notifiable);
-
-        if ($centre === null) {
-            return null;
-        }
-
-        return Action::make('details')
-            ->label(__('admin.notifications.actions.details'))
-            ->url($centre)
-            ->link()
-            ->icon('heroicon-m-arrow-top-right-on-square')
-            ->color('gray')
-            ->markAsRead()
-            ->toArray();
+        return NotificationBellAction::for($notification::class, $notifiable, $data);
     }
 
     /**
@@ -188,24 +154,6 @@ class BellChannel extends DatabaseChannel
      */
     protected function openLabel(Notification $notification, object $notifiable): string
     {
-        $panel = NotificationLink::panelFor($notifiable);
-        $destination = $panel ? NotificationTargets::destination($notification::class, $panel) : null;
-        $target = $destination[0] ?? null;
-
-        if ($target === null) {
-            return __('admin.notifications.actions.open');
-        }
-
-        if (is_subclass_of($target, Page::class)) {
-            return __('admin.notifications.actions.open_named', ['name' => $target::getNavigationLabel()]);
-        }
-
-        /** @var class-string<resource> $target */
-        // No record behind the alert means the link lands on the list, so the label says so.
-        $name = NotificationTargets::record($notification::class) === null
-            ? $target::getPluralModelLabel()
-            : $target::getModelLabel();
-
-        return __('admin.notifications.actions.open_named', ['name' => $name]);
+        return NotificationLocale::openLabel($notification::class, NotificationLink::panelFor($notifiable));
     }
 }

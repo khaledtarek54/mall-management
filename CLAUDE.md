@@ -56,6 +56,7 @@ npm run docs:build                        # the handbook alone → storage/app/h
 php artisan atriom:install --admin-email=… # FIRST DEPLOY: reference data (roles, chart, mappings, charge codes, fiscal year) + the first super_admin + verifies the DB can post
 php artisan atriom:backup-verify          # restore drill: replay the newest backup into a scratch DB
 php artisan atriom:rebuild-search         # re-fold every search_text blob (after changing SearchText or a searchTextSources())
+php artisan atriom:backfill-notification-locales # teach bell rows written before 2026-08-12 both languages + their deep link (dry-run; --commit, --refresh)
 php artisan atriom:project-lease-schedules # backfill the contracted rent ladder onto pre-schedule leases (dry-run; --commit to write)
 php artisan atriom:audit-charge-schedules # PRE-DEPLOY/PRE-IMPORT: leases whose charge rows overlap (bill NOTHING), gap, or carry no start date; exits non-zero
 php artisan atriom:dump-system-census     # regenerate the census in docs/PROJECT-MAP.md

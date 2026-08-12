@@ -488,6 +488,23 @@ happen".
    `toDatabase()` and refuses a `title`/`body` that is neither a `__()` call nor pure
    operator-entered content (an announcement's own title is content and stays as written).
 
+0i. **A stored-payload feature is invisible on every row that already exists.** *(fixed 2026-08-12)*
+   Both halves of this work — the deep link and the two languages — live in the payload, written by
+   `BellChannel` as the alert is raised. Rows written before that carry neither, so the demo data an
+   operator is actually looking at showed an English, unclickable inbox on a fully Arabic screen: it
+   reads as a broken feature rather than as an old row. `migrate:fresh --seed` fixes demo data and
+   nothing else.
+   `atriom:backfill-notification-locales` works backwards from the text instead — match the stored
+   English against the catalogue keys that notification class could have produced, recover what was
+   substituted in, and re-render in every language, adding the deep link at the same time. Captured
+   values pass through untouched (a work order's title is operator data and should be quoted as
+   typed); values that are catalogue TOKENS are translated, because the old `OwnerRequestNotification`
+   interpolated `$request->status` raw and «أصبح OR-2026-0001 الآن resolved» is not Arabic.
+   Dry-run by default, `--commit` to write, `--refresh` to redo rows after fixing the matcher.
+   **The trap it hit:** `:reference: :subject` splits into `[':reference', ': ', ':subject']` — and
+   that middle LITERAL also starts with a colon. Treating it as a placeholder collapsed the pattern
+   to `^(.*?)(.*?)(.*?)$`, a wildcard that claimed every title it was offered.
+
 0g. **The gate was bell-shaped, so the one MAIL-ONLY notification escaped it.** *(fixed 2026-08-12)*
    `NotificationLocaleConformanceTest` read `toDatabase()`, and `TenantResetPasswordNotification`
    has none — it is `via: ['mail']`. All four of its sentences were typed in English, and it is the
@@ -607,6 +624,7 @@ happen".
 - `tests/Feature/Notifications/NotificationDeepLinkTest.php` — the SAME notification hands an operator `/admin/{property}/…` and a retailer `/portal/…`; the slug is the record's property, not the reader's; a link is withheld rather than 404'd for the wrong property or another tenant; the fallback destination; the URL never leaks into the FCM push or the mobile API
 - `tests/Feature/Notifications/NotificationCenterTest.php` — both panels render, each reader sees only their own rows, read/unread + mark-all, ownership refusal (with an authorised control)
 - `tests/Feature/Notifications/NotificationLocaleTest.php` — one send stores both languages; the same row reads differently for an English and an Arabic reader; the action label is localized too; a nightly sweep renders in the recipient's language; the two formerly hard-coded notifications; a status translated inside its sentence; the API in the requested language; pre-`i18n` rows untouched; the ambient locale restored when a payload throws mid-render
+- `tests/Feature/Console/BackfillNotificationLocalesCommandTest.php` — the backfill: both languages onto a row that cannot be re-raised, the placeholder-split trap, token-vs-data, the link it never had, dry-run writes nothing, `--refresh`, unrecognised rows kept as written
 - `tests/Feature/Scenarios/ManufacturedLabelConformanceTest.php` — **the label gate**: `Str::headline` anywhere in the Filament UI, a duplicated enum catalogue, an enum value with no label
 - `tests/Feature/Scenarios/NotificationLocaleConformanceTest.php` — **the language gate**: prose in a payload, a notifiable without `HasLocalePreference`, a key missing from one catalogue, a string identical in both
 - `tests/Feature/Scenarios/NotificationDeepLinkConformanceTest.php` — **the gate**: unclassified notification, cross-panel destination, payload key that is never written, missing `format => filament`, a reappearing `url` key

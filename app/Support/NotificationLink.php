@@ -13,7 +13,6 @@ use Filament\Pages\Page;
 use Filament\Resources\Resource;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Notifications\Notification;
 use Illuminate\Support\Collection;
 use Throwable;
 
@@ -72,12 +71,15 @@ final class NotificationLink
      * The deep link for this notification and this reader, or null when there is no destination
      * they could actually open.
      *
+     * @param  class-string  $notification  the CLASS, not an instance: the destination is a property
+     *                                      of the kind of alert, and a backfill working over stored
+     *                                      rows has only the class name to go on.
      * @param  array<string, mixed>  $payload  the notification's own `toDatabase()` output — the
      *                                         record id is read from here rather than from the
      *                                         notification object, so the registry's `payload_key`
      *                                         is the single description of where the id lives.
      */
-    public static function for(Notification $notification, object $notifiable, array $payload): ?string
+    public static function for(string $notification, object $notifiable, array $payload): ?string
     {
         $panel = self::panelFor($notifiable);
 
@@ -85,7 +87,7 @@ final class NotificationLink
             return null;
         }
 
-        $destination = NotificationTargets::destination($notification::class, $panel);
+        $destination = NotificationTargets::destination($notification, $panel);
 
         if ($destination === null) {
             return null;
@@ -129,7 +131,7 @@ final class NotificationLink
      * @param  class-string  $target
      */
     private static function adminUrl(
-        Notification $notification,
+        string $notification,
         object $notifiable,
         array $payload,
         string $target,
@@ -179,7 +181,7 @@ final class NotificationLink
      * @param  class-string  $target
      */
     private static function portalUrl(
-        Notification $notification,
+        string $notification,
         object $notifiable,
         array $payload,
         string $target,
@@ -244,9 +246,9 @@ final class NotificationLink
      *
      * @param  array<string, mixed>  $payload
      */
-    private static function resolveRecord(Notification $notification, array $payload, ?string $hop): ?Model
+    private static function resolveRecord(string $notification, array $payload, ?string $hop): ?Model
     {
-        $spec = NotificationTargets::record($notification::class);
+        $spec = NotificationTargets::record($notification);
 
         if ($spec === null) {
             return null;
