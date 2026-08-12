@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\DocumentNumbering;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Models\Concerns\GuardsPostingDate;
@@ -290,7 +291,7 @@ class Invoice extends Model
     {
         $issueDate = $issueDate ? Carbon::instance($issueDate) : now();
 
-        return sprintf('INV-%s-%s-', $assetCode, $issueDate->format('Ym'));
+        return sprintf('%s-%s-%s-', DocumentNumbering::prefixFor('invoice'), $assetCode, $issueDate->format('Ym'));
     }
 
     public static function generateNumber(string $assetCode = 'AW', ?\DateTimeInterface $issueDate = null): string
@@ -320,7 +321,7 @@ class Invoice extends Model
                 throw new \RuntimeException('Unable to allocate a unique invoice number after 100 attempts.');
             }
             $issue = $issueDate ? Carbon::instance($issueDate) : now();
-            $prefix = sprintf('INV-%s-%s-', $assetCode, $issue->format('Ym'));
+            $prefix = sprintf('%s-%s-%s-', DocumentNumbering::prefixFor('invoice'), $assetCode, $issue->format('Ym'));
             $n = ((int) substr($candidate, strlen($prefix))) + 1;
             $candidate = sprintf('%s%04d', $prefix, $n);
         }

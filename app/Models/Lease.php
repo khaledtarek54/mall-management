@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\AllocatesDocumentNumber;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
+use App\Support\DocumentNumbering;
 use App\Support\PropertySettings;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -1195,6 +1196,28 @@ class Lease extends Model implements HasMedia
     }
 
     /**
+     * The SQL half of "owes a sales declaration for this period and hasn't filed one".
+     *
+     * `missingSalesDeclarationsFor()` below is the authoritative answer, but it returns a
+     * Collection because the fit-out exemption is model logic rather than a column. A table
+     * filter needs a Builder, so this scope is the query part alone — and the two are used
+     * in exactly one direction: the ActionRequired card counts `scope + reject(fit-out)`, the
+     * Leases table filter applies the scope. The filter is therefore a SUPERSET of the card:
+     * clicking a count of 3 can land on 4 rows if one is still in fit-out, but it can never
+     * land on a list MISSING a lease the card counted. That is the safe direction for a
+     * "go and chase these" link; the reverse would send someone to a page that appears to
+     * contradict the number they clicked.
+     */
+    public function scopeOwingSalesDeclaration($query, CarbonImmutable $periodStart)
+    {
+        return $query->where('status', 'active')
+            ->where('has_percentage_rent', true)
+            ->whereNotNull('commencement_date')
+            ->whereDate('commencement_date', '<=', $periodStart->endOfMonth())
+            ->whereDoesntHave('salesDeclarations', fn ($q) => $q->whereDate('period_start', $periodStart));
+    }
+
+    /**
      * Active percentage-rent leases that owe a sales declaration for the period and have not filed
      * one — past their fit-out grace, so a lease that isn't billable yet isn't chased either.
      *
@@ -1279,7 +1302,7 @@ class Lease extends Model implements HasMedia
     /** `LSE-AW-2026-` — the sequence the numbers below run inside. */
     public static function referencePrefix(string $assetCode = 'AW'): string
     {
-        return sprintf('LSE-%s-%s-', $assetCode, now()->format('Y'));
+        return sprintf('%s-%s-%s-', DocumentNumbering::prefixFor('lease'), $assetCode, now()->format('Y'));
     }
 
     /**

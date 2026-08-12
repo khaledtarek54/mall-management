@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\DocumentNumbering;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -188,7 +189,7 @@ class JournalEntry extends Model
     {
         $entryDate = $entryDate ? Carbon::instance($entryDate) : now();
 
-        return sprintf('JE-%s-', $entryDate->format('Ym'));
+        return sprintf('%s-%s-', DocumentNumbering::prefixFor('journal_entry'), $entryDate->format('Ym'));
     }
 
     public static function generateNumber(?\DateTimeInterface $entryDate = null): string

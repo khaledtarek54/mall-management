@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSearchText;
+use App\Support\DocumentNumbering;
 use App\Support\ApprovalPolicy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -232,7 +233,7 @@ class PurchaseRequest extends Model
     public static function generateReference(string $assetCode = 'GEN', ?\DateTimeInterface $date = null): string
     {
         $date = $date ? Carbon::instance($date) : now();
-        $prefix = sprintf('PR-%s-%s-', $assetCode, $date->format('Ym'));
+        $prefix = sprintf('%s-%s-%s-', DocumentNumbering::prefixFor('purchase_request'), $assetCode, $date->format('Ym'));
 
         $last = static::withTrashed()->where('reference', 'like', $prefix.'%')->orderByDesc('reference')->value('reference');
         $next = $last ? ((int) substr($last, strlen($prefix))) + 1 : 1;

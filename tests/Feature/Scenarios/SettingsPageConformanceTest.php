@@ -51,8 +51,18 @@ it('renders a field for every setting the code can read', function () {
 
     foreach (SettingsRegistry::classes() as $class) {
         foreach (array_keys(SettingsRegistry::propertiesOf($class)) as $name) {
-            if (! in_array($class::group().'.'.$name, $rendered, true)) {
-                $missing[] = $class::group().'.'.$name;
+            $key = $class::group().'.'.$name;
+
+            // An ARRAY setting may legitimately be edited as one field per key —
+            // `accounting.document_prefixes.invoice` and friends — which is far better UX than a
+            // raw key/value box and still means the operator can change the setting. Accepting a
+            // nested path is accurate rather than a loosening: the question this gate asks is
+            // "can it be changed from a screen", and it can.
+            $covered = in_array($key, $rendered, true)
+                || collect($rendered)->contains(fn (string $path) => str_starts_with($path, $key.'.'));
+
+            if (! $covered) {
+                $missing[] = $key;
             }
         }
     }

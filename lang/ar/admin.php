@@ -32,7 +32,22 @@ return [
         'matched_done' => 'تم الربط. الأستاذ كما هو — فالمطابقة تسجّل اتفاقًا ولا تحرّك مالًا.',
         'unmatched_done' => 'أُزيل الربط. أصبح القيد متاحًا للمطابقة من جديد.',
     ],
+    'document_types' => [
+        'invoice' => 'فاتورة ضريبية',
+        'credit_note' => 'إشعار دائن',
+        'journal_entry' => 'قيد يومية',
+        'vendor_bill' => 'فاتورة مورّد',
+        'expense' => 'مصروف',
+        'deposit' => 'حركة تأمين',
+        'payroll' => 'مسير رواتب',
+        'purchase_request' => 'طلب شراء',
+        'lease' => 'عقد إيجار',
+        'post_dated_cheque' => 'شيك آجل',
+    ],
+
     'errors' => [
+        'document_prefix_invalid' => 'البادئة :prefix غير صالحة — استخدم من 2 إلى 6 حروف أو أرقام.',
+        'document_prefix_duplicated' => 'لا يمكن لنوعي مستندات مشاركة البادئة :prefix؛ ستندمج أرقامهما في سلسلة واحدة.',
         'fiscal_year_start_locked' => "لا يمكن تغيير بداية السنة المالية بعد ترحيل القيود — لأن ذلك يعيد تأريخ فترات تحتوي عليها بالفعل.",
         'bank_match_missing_posting' => 'لم يعد هذا القيد موجودًا — حدّث الصفحة واختر غيره.',
         'bank_match_already_matched' => 'هذا القيد مرتبط بسطر آخر في الكشف. والغرض من هذا المنع ألا يُحتسب المبلغ نفسه مطابَقًا مرتين — فُكّ الارتباط هناك أولًا.',
@@ -629,6 +644,10 @@ return [
             'fiscal_calendar' => 'السنة المالية',
             'fiscal_calendar_description' => "متى تبدأ السنة المالية. تُضبط مرة واحدة قبل ترحيل أول قيد — تغييرها بعد ذلك يعيد تأريخ فترات تحتوي قيودًا مرحّلة.",
             'revenue_recognition' => 'الاعتراف بالإيراد',
+            'leasing_defaults' => 'افتراضيات التأجير',
+            'leasing_defaults_description' => 'ما يبدأ منه نموذج العقد الجديد. نقطة بداية فقط — يعدّلها المستخدم لأي عقد مختلف، ولا يُشتق منها شيء بعد الإنشاء.',
+            'document_numbering' => 'ترقيم المستندات',
+            'document_numbering_description' => 'الأحرف التي تسبق رقم كل مستند. اضبطها قبل التشغيل: بعد ذلك تكون مطبوعة على مستندات صادرة لا يمكن إعادة ترقيمها، وتغييرها يبدأ سلسلة ثانية بدل إعادة ترقيم الأولى.',
             'revenue_recognition_description' => 'كيفية الاعتراف بالإيجار في الدفاتر. لا يغيّر هذا ما يُفوتر على أي مستأجر.',
             'modules' => 'تشغيل/إيقاف الوحدات',
             'modules_description' => 'فعّل أو عطّل الوحدات بالكامل. الوحدات المُعطَّلة تختفي من القائمة الجانبية، وتمنع الوصول المباشر من الرابط، وتُخفي مؤشراتها في لوحة التحكم. لا يمكن تعطيل الوحدات الأساسية (العقارات، الوحدات، المستأجرون، عقود الإيجار، الفواتير، المدفوعات، المستخدمون، الأدوار، الإعدادات).',
@@ -657,6 +676,8 @@ return [
             'payments' => 'بوابات الدفع',
         ],
         'fields' => [
+            'document_prefix_help' => 'الافتراضي :default. حروف وأرقام، من 2 إلى 6.',
+            'default_lease_term_months' => 'مدة العقد الافتراضية',
             'fiscal_year_start_month' => 'تبدأ السنة المالية في',
             'fiscal_year_start_month_help' => "تُسمّى السنة باسم السنة الميلادية التي تبدأ فيها: مع بداية يوليو، «2026» تمتد من 1 يوليو 2026 إلى 30 يونيو 2027.",
             'note' => 'ملاحظة',
@@ -1300,7 +1321,6 @@ return [
         'cash_flow_reconciled' => '✓ يطابق الحركة النقدية الفعلية.',
         'cash_flow_unreconciled' => '⚠ فشل التحقق من السلامة — القائمة لا تطابق الحركة النقدية الفعلية؛ يُرجى مراجعة دفتر الأستاذ.',
         'fiscal_year' => 'السنة المالية',
-        'period' => 'الفترة',
         'full_year' => 'السنة كاملة',
         'property_scope' => 'العقار',
         'balance_check' => 'التحقق من التوازن',
@@ -1382,6 +1402,7 @@ return [
     ],
 
     'navigation' => [
+        'property_overrides' => 'إعدادات خاصة بالعقار',
         'vat_return' => 'الإقرار الضريبي',
         'charge_codes' => 'أكواد الرسوم',
         'tax_codes' => 'الأكواد الضريبية',
@@ -2476,9 +2497,6 @@ return [
     ],
 
     'fields' => [
-        'period_start' => 'من',
-        'period_end' => 'إلى',
-        'period' => 'الفترة',
         'opening_balance' => 'الرصيد الافتتاحي',
         'closing_balance' => 'الرصيد الختامي',
         'statement_lines' => 'السطور',
@@ -2490,9 +2508,7 @@ return [
         'bank_name' => 'البنك',
         'bank_account_number' => 'رقم الحساب',
         'iban' => 'الآيبان',
-        'ledger_account' => 'حساب الأستاذ',
         'bank_no_ledger_account' => 'لم يُربط بعد',
-        'item_code' => 'العنصر',
         'held_from' => 'محجوز من',
         'held_until' => 'محجوز حتى',
         'charge_code' => 'الكود',
@@ -3232,6 +3248,26 @@ return [
     ],
 
     'enums' => [
+        // Free-form category columns: these are the values WE seed. An operator-created
+        // category has no entry here and falls back to the raw string it was typed as
+        // (App\Support\CategorySuggestions::label). NOT `enums.category` — that name was
+        // already the UNIT category (retail / food_beverage / kiosk), and a duplicate key in a
+        // PHP array literal is silently won by the later one.
+        'category_suggestions' => [
+            'fixed_asset' => [
+                'furniture' => 'أثاث',
+                'equipment' => 'معدات',
+                'HVAC' => 'تكييف وتهوية',
+                'IT' => 'تقنية المعلومات',
+                'vehicles' => 'مركبات',
+                'fit-out' => 'تجهيز الوحدة',
+            ],
+            'warehouse' => [
+                'spare_parts' => 'قطع غيار',
+                'machines' => 'ماكينات',
+                'consumables' => 'مستهلكات',
+            ],
+        ],
         'cash_or_bank' => ['cash' => 'نقدًا', 'bank' => 'بنك'],
         'tax_family' => ['vat' => 'ضريبة القيمة المضافة', 'stamp' => 'ضريبة الدمغة', 'schedule' => 'ضريبة الجدول', 'withholding' => 'خصم وتحصيل تحت حساب الضريبة'],
         'tax_direction' => ['sales' => 'مبيعات — تُحمَّل على المستأجر', 'purchases' => 'مشتريات — يُحمِّلها المورِّد علينا'],

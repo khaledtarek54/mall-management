@@ -215,7 +215,7 @@ class LeaseForm
                     TextInput::make('term_months')
                         ->label(__('admin.fields.term_months'))
                         ->numeric()
-                        ->default(36)
+                        ->default(fn () => max(1, (int) app(\App\Settings\AccountingSettings::class)->default_lease_term_months))
                         ->required()
                         ->minValue(1)
                         ->maxValue(120)

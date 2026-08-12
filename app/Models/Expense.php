@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\DocumentNumbering;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use App\Models\Concerns\GuardsPostingDate;
@@ -119,7 +120,7 @@ class Expense extends Model
     {
         $date = $date ? Carbon::instance($date) : now();
 
-        return sprintf('EXP-%s-%s-', $assetCode, $date->format('Ym'));
+        return sprintf('%s-%s-%s-', DocumentNumbering::prefixFor('expense'), $assetCode, $date->format('Ym'));
     }
 
     public static function generateNumber(string $assetCode = 'GEN', ?\DateTimeInterface $date = null): string

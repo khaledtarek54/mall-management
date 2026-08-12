@@ -34,6 +34,31 @@ class AccountingSettings extends Settings
      */
     public int $fiscal_year_start_month = 1;
 
+    /**
+     * Document number prefixes, keyed by document type. Empty = every type keeps its shipped letters.
+     *
+     * `INV-`, `CN-`, `JE-` and six more were literals inside nine models, so "our invoices are
+     * numbered TX, not INV" was a deploy — and an operator arrives with conventions their auditor
+     * already knows and their previous system printed for years.
+     *
+     * The window to set this closes at go-live: after the first invoice is sent the prefix is on
+     * issued documents that cannot be renumbered. See `App\Support\DocumentNumbering`, which also
+     * holds the rule that two document types may not share a prefix.
+     *
+     * @var array<string, string>
+     */
+    public array $document_prefixes = [];
+
+    /**
+     * The term a NEW lease form starts from, in months.
+     *
+     * 36 was a literal on the form. It is a leasing convention rather than a law — an anchor mall
+     * signs ten years and a kiosk signs one — and every operator's standard differs, so it was a
+     * deploy to change a number that is only ever a starting point. The operator overwrites it on
+     * any lease that differs; nothing derives from it after creation.
+     */
+    public int $default_lease_term_months = 36;
+
     public static function group(): string
     {
         return 'accounting';

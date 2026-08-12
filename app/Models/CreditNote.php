@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\DocumentNumbering;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -133,7 +134,7 @@ class CreditNote extends Model
     {
         $issueDate = $issueDate ? Carbon::instance($issueDate) : now();
 
-        return sprintf('CN-%s-%s-', $assetCode, $issueDate->format('Ym'));
+        return sprintf('%s-%s-%s-', DocumentNumbering::prefixFor('credit_note'), $assetCode, $issueDate->format('Ym'));
     }
 
     public static function generateNumber(string $assetCode = 'AW', ?\DateTimeInterface $issueDate = null): string

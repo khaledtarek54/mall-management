@@ -32,7 +32,22 @@ return [
         'matched_done' => 'Linked. The ledger is unchanged — a match records agreement, it does not move money.',
         'unmatched_done' => 'Link removed. The posting is available to match again.',
     ],
+    'document_types' => [
+        'invoice' => 'Tax invoice',
+        'credit_note' => 'Credit note',
+        'journal_entry' => 'Journal entry',
+        'vendor_bill' => 'Supplier bill',
+        'expense' => 'Expense',
+        'deposit' => 'Security deposit movement',
+        'payroll' => 'Payroll run',
+        'purchase_request' => 'Purchase request',
+        'lease' => 'Lease',
+        'post_dated_cheque' => 'Post-dated cheque',
+    ],
+
     'errors' => [
+        'document_prefix_invalid' => 'The prefix :prefix is not usable — use 2 to 6 letters or digits.',
+        'document_prefix_duplicated' => 'Two document types cannot share the prefix :prefix; their numbers would run into one series.',
         'fiscal_year_start_locked' => "The fiscal year start cannot change once entries have been posted — it would re-date periods that already contain them. Set it on a fresh installation, before the first entry.",
         'bank_match_missing_posting' => 'That posting no longer exists — refresh and pick another.',
         'bank_match_already_matched' => 'That posting is already explained by another statement line. Reporting the same money as verified twice is exactly what this check prevents — unmatch it there first.',
@@ -629,6 +644,10 @@ return [
             'fiscal_calendar' => 'Fiscal calendar',
             'fiscal_calendar_description' => "When the books' year begins. Set once, before the first entry is posted — moving it afterwards would re-date periods that already carry them.",
             'revenue_recognition' => 'Revenue recognition',
+            'leasing_defaults' => 'Leasing defaults',
+            'leasing_defaults_description' => 'What a new lease form starts from. A starting point only — the operator overwrites it on any lease that differs, and nothing derives from it afterwards.',
+            'document_numbering' => 'Document numbering',
+            'document_numbering_description' => 'The letters at the front of each document number. Set these BEFORE go-live: afterwards they are printed on issued documents that cannot be renumbered, and changing one starts a second series rather than renumbering the first.',
             'revenue_recognition_description' => 'How rent is recognised in the books. This does not change what any tenant is invoiced.',
             'modules' => 'Toggle Modules',
             'modules_description' => 'Turn entire modules on or off. Disabled modules disappear from the sidebar, block direct URL access, and hide their dashboard widgets. Core modules (Properties, Units, Tenants, Leases, Invoices, Payments, Users, Roles, Settings) cannot be disabled.',
@@ -657,6 +676,8 @@ return [
             'payments' => 'Payment Gateways',
         ],
         'fields' => [
+            'document_prefix_help' => 'Defaults to :default. Letters and digits, 2–6 characters.',
+            'default_lease_term_months' => 'Default lease term',
             'fiscal_year_start_month' => 'Fiscal year starts in',
             'fiscal_year_start_month_help' => 'A year is named for the calendar year it starts in: with a July start, 2026 runs 1 July 2026 to 30 June 2027.',
             'note' => 'Note',
@@ -1270,7 +1291,6 @@ return [
         'cash_flow_reconciled' => '✓ Reconciles to the actual cash movement.',
         'cash_flow_unreconciled' => '⚠ Integrity check failed — the statement does not tie to the actual cash movement; please investigate the ledger.',
         'fiscal_year' => 'Fiscal year',
-        'period' => 'Period',
         'full_year' => 'Full year',
         'property_scope' => 'Property',
         'balance_check' => 'Balance check',
@@ -1390,6 +1410,7 @@ return [
     ],
 
     'navigation' => [
+        'property_overrides' => 'Property overrides',
         'vat_return' => 'VAT return',
         'charge_codes' => 'Charge Codes',
         'tax_codes' => 'Tax Codes',
@@ -2487,9 +2508,6 @@ return [
     ],
 
     'fields' => [
-        'period_start' => 'From',
-        'period_end' => 'To',
-        'period' => 'Period',
         'opening_balance' => 'Opening balance',
         'closing_balance' => 'Closing balance',
         'statement_lines' => 'Lines',
@@ -2501,9 +2519,7 @@ return [
         'bank_name' => 'Bank',
         'bank_account_number' => 'Account number',
         'iban' => 'IBAN',
-        'ledger_account' => 'Ledger account',
         'bank_no_ledger_account' => 'Not mapped yet',
-        'item_code' => 'Item',
         'held_from' => 'Held from',
         'held_until' => 'Held until',
         'charge_code' => 'Code',
@@ -3245,6 +3261,26 @@ return [
     ],
 
     'enums' => [
+        // Free-form category columns: these are the values WE seed. An operator-created
+        // category has no entry here and falls back to the raw string it was typed as
+        // (App\Support\CategorySuggestions::label). NOT `enums.category` — that name was
+        // already the UNIT category (retail / food_beverage / kiosk), and a duplicate key in a
+        // PHP array literal is silently won by the later one.
+        'category_suggestions' => [
+            'fixed_asset' => [
+                'furniture' => 'Furniture',
+                'equipment' => 'Equipment',
+                'HVAC' => 'HVAC',
+                'IT' => 'IT',
+                'vehicles' => 'Vehicles',
+                'fit-out' => 'Fit-out',
+            ],
+            'warehouse' => [
+                'spare_parts' => 'Spare parts',
+                'machines' => 'Machines',
+                'consumables' => 'Consumables',
+            ],
+        ],
         'cash_or_bank' => ['cash' => 'Cash', 'bank' => 'Bank'],
         'tax_family' => ['vat' => 'VAT — ضريبة القيمة المضافة', 'stamp' => 'Stamp duty — ضريبة الدمغة', 'schedule' => 'Schedule tax — ضريبة الجدول', 'withholding' => 'Withholding — خصم وتحصيل تحت حساب الضريبة'],
         'tax_direction' => ['sales' => 'Sales — charged to a tenant', 'purchases' => 'Purchases — charged to us by a supplier'],

@@ -110,6 +110,21 @@ class Settings extends Page implements HasSchemas
         // history, and a warning an operator can click through is not a guard.
         \App\Support\FiscalYearStart::assertChangeable((int) ($state['accounting']['fiscal_year_start_month'] ?? 1));
 
+        // Two document types sharing a prefix would interleave one sequence — no unique index
+        // complains, because the index is per table, and a ledger simply reads as though documents
+        // had gone missing.
+        // Drop the blanks BEFORE validating or persisting. Each prefix field dehydrates to null
+        // when left empty (meaning "keep the shipped letters"), so an untouched page would hand
+        // over ['invoice' => null, ...] where the stored value is [] — a difference that is not a
+        // change, and which made pressing Save on an untouched page write an audit entry every
+        // time. Caught by the gate that asserts exactly that.
+        $state['accounting']['document_prefixes'] = array_filter(
+            (array) ($state['accounting']['document_prefixes'] ?? []),
+            fn ($prefix) => filled($prefix),
+        );
+
+        \App\Support\DocumentNumbering::assertValid($state['accounting']['document_prefixes']);
+
         $changes = SettingsRegistry::persist($state);
 
         // Who moved the late-fee percent, when, and from what. `settings.manage` gates who MAY;
@@ -149,6 +164,30 @@ class Settings extends Page implements HasSchemas
                         ->disabled(fn (): bool => \App\Models\JournalEntry::query()->where('status', 'posted')->exists())
                         ->dehydrated(),
                 ]),
+            Section::make(__('admin.settings.sections.leasing_defaults'))
+                ->description(__('admin.settings.sections.leasing_defaults_description'))
+                ->components([
+                    TextInput::make('accounting.default_lease_term_months')
+                        ->label(__('admin.settings.fields.default_lease_term_months'))
+                        ->numeric()->minValue(1)->maxValue(600)
+                        ->suffix(__('admin.fields.months'))
+                        ->required(),
+                ]),
+            Section::make(__('admin.settings.sections.document_numbering'))
+                ->description(__('admin.settings.sections.document_numbering_description'))
+                ->columns(3)
+                ->components(
+                    collect(\App\Support\DocumentNumbering::TYPES)
+                        ->map(fn (array $meta, string $type) => TextInput::make("accounting.document_prefixes.{$type}")
+                            ->label(__("admin.document_types.{$type}"))
+                            ->placeholder($meta['default'])
+                            ->helperText(__('admin.settings.fields.document_prefix_help', ['default' => $meta['default']]))
+                            ->maxLength(6)
+                            // Uppercased on the way in, so `inv` and `INV` are not two series.
+                            ->dehydrateStateUsing(fn ($state) => filled($state) ? strtoupper(trim((string) $state)) : null))
+                        ->values()
+                        ->all(),
+                ),
         ];
     }
 

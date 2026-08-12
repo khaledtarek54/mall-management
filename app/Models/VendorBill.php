@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\DocumentNumbering;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use Illuminate\Database\Eloquent\Builder;
@@ -278,7 +279,7 @@ class VendorBill extends Model
     {
         $billDate = $billDate ? Carbon::instance($billDate) : now();
 
-        return sprintf('BILL-%s-%s-', $assetCode, $billDate->format('Ym'));
+        return sprintf('%s-%s-%s-', DocumentNumbering::prefixFor('vendor_bill'), $assetCode, $billDate->format('Ym'));
     }
 
     public static function generateNumber(string $assetCode = 'GEN', ?\DateTimeInterface $billDate = null): string

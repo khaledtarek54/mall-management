@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\DocumentNumbering;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -146,7 +147,7 @@ class Payroll extends Model
     {
         $month = $month ? Carbon::instance($month) : now();
 
-        return sprintf('PR-%s-%s-', $assetCode, $month->format('Ym'));
+        return sprintf('%s-%s-%s-', DocumentNumbering::prefixFor('payroll'), $assetCode, $month->format('Ym'));
     }
 
     public static function generateNumber(string $assetCode = 'GEN', ?\DateTimeInterface $month = null): string

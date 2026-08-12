@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\DocumentNumbering;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionOfCommittedRecords;
 use Illuminate\Database\Eloquent\Builder;
@@ -206,10 +207,10 @@ class PostDatedCheque extends Model
         $year = now()->format('Y');
         $count = static::whereYear('created_at', $year)->withTrashed()->count() + 1;
 
-        $candidate = sprintf('PDC-%s-%04d', $year, $count);
+        $candidate = sprintf('%s-%s-%04d', DocumentNumbering::prefixFor('post_dated_cheque'), $year, $count);
         $attempts = 0;
         while (static::withTrashed()->where('reference', $candidate)->exists() && $attempts < 50) {
-            $candidate = sprintf('PDC-%s-%04d', $year, ++$count);
+            $candidate = sprintf('%s-%s-%04d', DocumentNumbering::prefixFor('post_dated_cheque'), $year, ++$count);
             $attempts++;
         }
 
