@@ -765,6 +765,28 @@ return [
     ],
 
     'imports' => [
+        // Cut-over CSV column labels. These are the headings an Egyptian operator maps
+        // their spreadsheet against during go-live, so they are translated like any
+        // other screen — they were the last block of hardcoded English in the panel.
+        'columns' => [
+            'property_code' => 'كود العقار',
+            'employee_code' => 'كود الموظف',
+            'national_id' => 'الرقم القومي',
+            'department_name' => 'اسم الإدارة',
+            'hire_date' => 'تاريخ التعيين (YYYY-MM-DD)',
+            'base_salary' => 'الراتب الأساسي (ج.م/شهريًا)',
+            'lease_reference' => 'مرجع العقد',
+            'charge_type' => 'نوع الرسم (كود الرسم)',
+            'line_description' => 'وصف البند',
+            'amount_per_cycle' => 'المبلغ لكل دورة (ج.م)',
+            'effective_from' => 'ساري من (YYYY-MM-DD)',
+            'vat_override' => 'نسبة ضريبة القيمة المضافة (تجاوز) — اتركه فارغًا لاستخدام دليل الضرائب',
+            'meter_number' => 'رقم العداد',
+            'reading_date' => 'تاريخ القراءة (YYYY-MM-DD)',
+            'meter_face_value' => 'قراءة العداد',
+            'consumption' => 'الاستهلاك خلال الفترة',
+            'cost_or_tariff' => 'التكلفة (ج.م) — اتركه فارغًا لاشتقاقها من تعريفة العداد',
+        ],
         'opening_invoice_line' => 'رصيد افتتاحي مُرحَّل (فاتورة بتاريخ :date)',
     ],
 
@@ -1164,6 +1186,13 @@ return [
             'workflows' => 'كيف تسير الاعتمادات والفوترة والصيانة فعليًا داخل النظام.',
             'activity_log' => 'من غيَّر ماذا، ومتى.',
         ],
+    ],
+
+    'owner_pack' => [
+        'no_properties' => 'لا يملك هذا المالك أي عقارات في الفترة المحددة.',
+        'cannot_write' => 'تعذّر إنشاء ملف الحزمة.',
+        'build' => 'تنزيل حزمة المالك',
+        'built' => 'حزمة المالك جاهزة',
     ],
 
     'reports' => [
@@ -3188,7 +3217,16 @@ return [
         ],
     ],
 
+    // Prose shown inside empty inputs. Format EXAMPLES ('A-01', '02:00', 'kWh / m³')
+    // deliberately stay literal — they are the shape of the data, not language.
+    'placeholders' => [
+        'bank_account_name' => 'التجاري الدولي — جاري',
+        'checklist_item' => 'أضف بند فحص…',
+        'stock_adjust_sign' => '+ زيادة / − عجز',
+    ],
+
     'enums' => [
+        'cash_or_bank' => ['cash' => 'نقدًا', 'bank' => 'بنك'],
         'tax_family' => ['vat' => 'ضريبة القيمة المضافة', 'stamp' => 'ضريبة الدمغة', 'schedule' => 'ضريبة الجدول', 'withholding' => 'خصم وتحصيل تحت حساب الضريبة'],
         'tax_direction' => ['sales' => 'مبيعات — تُحمَّل على المستأجر', 'purchases' => 'مشتريات — يُحمِّلها المورِّد علينا'],
         'tax_treatment' => ['standard' => 'خاضع بنسبة', 'exempt' => 'معفى (خارج النطاق)', 'zero_rated' => 'خاضع بنسبة صفر'],

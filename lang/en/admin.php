@@ -767,6 +767,28 @@ return [
     ],
 
     'imports' => [
+        // Cut-over CSV column labels. These are the headings an Egyptian operator maps
+        // their spreadsheet against during go-live, so they are translated like any
+        // other screen — they were the last block of hardcoded English in the panel.
+        'columns' => [
+            'property_code' => 'Property code',
+            'employee_code' => 'Employee code',
+            'national_id' => 'National ID (الرقم القومي)',
+            'department_name' => 'Department name',
+            'hire_date' => 'Hire date (YYYY-MM-DD)',
+            'base_salary' => 'Base salary (EGP/month)',
+            'lease_reference' => 'Lease reference',
+            'charge_type' => 'Charge type (charge code)',
+            'line_description' => 'Line description',
+            'amount_per_cycle' => 'Amount per cycle (EGP)',
+            'effective_from' => 'Effective from (YYYY-MM-DD)',
+            'vat_override' => 'VAT % override — LEAVE BLANK to use the tax catalogue',
+            'meter_number' => 'Meter number',
+            'reading_date' => 'Reading date (YYYY-MM-DD)',
+            'meter_face_value' => 'Meter face value',
+            'consumption' => 'Consumption for the period',
+            'cost_or_tariff' => 'Cost (EGP) — leave blank to derive from the meter tariff',
+        ],
         'opening_invoice_line' => 'Opening balance carried forward (invoice dated :date)',
     ],
 
@@ -1172,6 +1194,13 @@ return [
             'workflows' => 'How approvals, billing and maintenance actually flow through the system.',
             'activity_log' => 'Who changed what, and when.',
         ],
+    ],
+
+    'owner_pack' => [
+        'no_properties' => 'This owner holds no properties in the selected period.',
+        'cannot_write' => 'The pack file could not be created.',
+        'build' => 'Download owner pack',
+        'built' => 'Owner pack ready',
     ],
 
     'reports' => [
@@ -3201,7 +3230,16 @@ return [
         ],
     ],
 
+    // Prose shown inside empty inputs. Format EXAMPLES ('A-01', '02:00', 'kWh / m³')
+    // deliberately stay literal — they are the shape of the data, not language.
+    'placeholders' => [
+        'bank_account_name' => 'CIB — current',
+        'checklist_item' => 'Add a check item…',
+        'stock_adjust_sign' => '+ found / − shrinkage',
+    ],
+
     'enums' => [
+        'cash_or_bank' => ['cash' => 'Cash', 'bank' => 'Bank'],
         'tax_family' => ['vat' => 'VAT — ضريبة القيمة المضافة', 'stamp' => 'Stamp duty — ضريبة الدمغة', 'schedule' => 'Schedule tax — ضريبة الجدول', 'withholding' => 'Withholding — خصم وتحصيل تحت حساب الضريبة'],
         'tax_direction' => ['sales' => 'Sales — charged to a tenant', 'purchases' => 'Purchases — charged to us by a supplier'],
         'tax_treatment' => ['standard' => 'Taxable at a rate', 'exempt' => 'Exempt (outside the scope)', 'zero_rated' => 'Zero-rated (taxable at 0%)'],

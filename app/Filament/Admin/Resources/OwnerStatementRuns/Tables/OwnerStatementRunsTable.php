@@ -9,6 +9,8 @@ use App\Models\OwnerStatementRun;
 use App\Notifications\OwnerStatementSentNotification;
 use App\Services\OwnerAccounting\DisbursementService;
 use App\Services\OwnerAccounting\FinaliseOwnerStatementRunService;
+use App\Services\OwnerAccounting\BuildOwnerPackService;
+use Carbon\CarbonImmutable;
 use App\Services\OwnerAccounting\OwnerStatementPdfService;
 use App\Services\OwnerAccounting\ReviseOwnerStatementRunService;
 use Filament\Actions\Action;
@@ -213,6 +215,35 @@ class OwnerStatementRunsTable
                             $svc->filename($statement),
                             ['Content-Type' => 'application/pdf'],
                         );
+                    }),
+
+                // ── The evidence behind the statement, in one file (RP-08) ─────────────────────
+                // The statement says what the owner is owed; the pack says how each of their malls
+                // traded, who is in them and who has not paid. Assembling it by hand meant opening
+                // five reports, setting the property on each and attaching five files — per owner,
+                // per month, with a chance at every step of attaching the wrong property's file.
+                Action::make('download_pack')
+                    ->label(__('admin.owner_pack.build'))
+                    ->icon('heroicon-o-archive-box-arrow-down')->color('gray')
+                    ->visible(fn (OwnerStatementRun $r) => $r->statements->first()?->owner !== null
+                        && OwnerStatementRunResource::canViewStatements())
+                    ->authorize(fn (OwnerStatementRun $r) => OwnerStatementRunResource::canViewStatements())
+                    ->action(function (OwnerStatementRun $record) {
+                        abort_unless(OwnerStatementRunResource::canViewStatements(), 403);
+
+                        $owner = $record->statements()->first()?->owner;
+                        abort_unless($owner !== null, 404);
+
+                        $path = app(BuildOwnerPackService::class)->build(
+                            $owner,
+                            CarbonImmutable::parse($record->period_start),
+                            CarbonImmutable::parse($record->period_end),
+                        );
+
+                        // deleteFileAfterSend: the pack is a derived artefact rebuilt on demand, and
+                        // leaving one zip per owner per month in storage would grow without anybody
+                        // owning the cleanup.
+                        return response()->download($path)->deleteFileAfterSend(true);
                     }),
 
                 // Send the finalised statement to the owner (marks it sent + bells the owner).

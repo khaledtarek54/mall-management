@@ -57,6 +57,32 @@ class ReportXlsx
         );
     }
 
+    /**
+     * The workbook as a string, for a caller that is not a download.
+     *
+     * The owner pack (RP-08) zips several of these rather than streaming one, and a scheduled
+     * delivery attaches one to an email. Both need the BYTES, and neither has a response to stream
+     * into — so the writer targets a temp file and the bytes come back, rather than duplicating the
+     * formatting into a second writer that would drift from this one.
+     *
+     * @param  array<int, string>  $headers
+     * @param  iterable<int, array<int, mixed>>  $rows
+     */
+    public static function toString(array $headers, iterable $rows): string
+    {
+        $path = tempnam(sys_get_temp_dir(), 'atriom-xlsx');
+
+        try {
+            ob_start();
+            self::write($headers, $rows, $path);
+            ob_end_clean();
+
+            return (string) file_get_contents($path);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     /** `.xlsx`, once — a report whose own name already ends in it must not become `x.xlsx.xlsx`. */
     public static function filename(string $filename): string
     {
@@ -67,7 +93,7 @@ class ReportXlsx
      * @param  array<int, string>  $headers
      * @param  iterable<int, array<int, mixed>>  $rows
      */
-    private static function write(array $headers, iterable $rows): void
+    private static function write(array $headers, iterable $rows, string $target = 'php://output'): void
     {
         $options = new Options;
 
@@ -77,7 +103,7 @@ class ReportXlsx
         $options->setColumnWidth(16, ...range(2, max(2, count($headers))));
 
         $writer = new Writer($options);
-        $writer->openToFile('php://output');
+        $writer->openToFile($target);
 
         $sheet = $writer->getCurrentSheet();
 
