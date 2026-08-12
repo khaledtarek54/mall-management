@@ -4,8 +4,9 @@ namespace App\Filament\Admin\RelationManagers;
 
 use App\Models\Lease;
 use App\Models\LeaseOption;
+use App\Models\Unit;
+use App\Services\ExerciseLeaseOptionService;
 use App\Support\TenantScope;
-use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
@@ -14,9 +15,11 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
@@ -77,7 +80,8 @@ class LeaseOptionsRelationManager extends RelationManager
                 ->label(__('admin.lease_options.latest_notice_date'))
                 ->native(false)
                 ->afterOrEqual('earliest_notice_date')
-                ->helperText(__('admin.helpers.lease_option_latest_notice')),
+                ->helperText(__('admin.helpers.lease_option_latest_notice'))
+                ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.lease_option_latest_notice')),
 
             TextInput::make('term_months')
                 ->label(__('admin.fields.term_months'))
@@ -117,7 +121,7 @@ class LeaseOptionsRelationManager extends RelationManager
             // mall must not be able to encumber a unit in another.
             Select::make('unit_id')
                 ->label(__('admin.lease_options.encumbers'))
-                ->options(fn (): array => \App\Models\Unit::query()
+                ->options(fn (): array => Unit::query()
                     ->when(TenantScope::visibleAssetIds(), fn ($q, $ids) => $q->whereIn('asset_id', $ids))
                     ->orderBy('code')
                     ->pluck('code', 'id')
@@ -125,7 +129,8 @@ class LeaseOptionsRelationManager extends RelationManager
                 ->searchable()
                 ->native(false)
                 ->visible(fn (Get $get) => in_array($get('type'), LeaseOption::ENCUMBERING_TYPES, true))
-                ->helperText(__('admin.helpers.lease_option_encumbers')),
+                ->helperText(__('admin.helpers.lease_option_encumbers'))
+                ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.lease_option_encumbers')),
 
             DatePicker::make('notice_given_at')
                 ->label(__('admin.fields.notice_given_at'))
@@ -240,9 +245,9 @@ class LeaseOptionsRelationManager extends RelationManager
                         abort_unless(self::canWrite(), 403);
 
                         try {
-                            app(\App\Services\ExerciseLeaseOptionService::class)->exercise($record, $data);
+                            app(ExerciseLeaseOptionService::class)->exercise($record, $data);
                         } catch (\InvalidArgumentException $e) {
-                            \Filament\Notifications\Notification::make()->danger()->title($e->getMessage())->send();
+                            Notification::make()->danger()->title($e->getMessage())->send();
                         }
                     })
                     ->successNotificationTitle(__('admin.lease_options.exercised_notice')),
@@ -255,7 +260,7 @@ class LeaseOptionsRelationManager extends RelationManager
                     ->action(function (LeaseOption $record) {
                         abort_unless(self::canWrite(), 403);
 
-                        app(\App\Services\ExerciseLeaseOptionService::class)->resolveWithout($record, 'waived');
+                        app(ExerciseLeaseOptionService::class)->resolveWithout($record, 'waived');
                     })
                     ->successNotificationTitle(__('admin.lease_options.waived_notice')),
                 EditAction::make()

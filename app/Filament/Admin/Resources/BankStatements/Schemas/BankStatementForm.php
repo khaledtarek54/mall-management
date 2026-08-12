@@ -10,6 +10,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 
 class BankStatementForm
 {
@@ -60,7 +61,8 @@ class BankStatementForm
                         ->numeric()
                         ->default(0)
                         ->prefix('EGP')
-                        ->helperText(__('admin.helpers.closing_balance')),
+                        ->helperText(__('admin.helpers.closing_balance'))
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.closing_balance')),
 
                     Textarea::make('notes')
                         ->label(__('admin.fields.notes'))

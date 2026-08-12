@@ -10,6 +10,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 
 class LedgerAccountForm
 {
@@ -26,7 +27,8 @@ class LedgerAccountForm
                         ->unique(ignoreRecord: true)
                         ->rule('regex:/^[0-9]+$/')
                         ->rule(fn (Get $get) => new AccountCodeMatchesType($get('type')))
-                        ->helperText(__('admin.helpers.account_code')),
+                        ->helperText(__('admin.helpers.account_code'))
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.account_code')),
 
                     Select::make('type')
                         ->label(__('admin.fields.account_type'))

@@ -3,10 +3,12 @@
 namespace App\Filament\Admin\Resources\UtilityMeters\Schemas;
 
 use App\Models\Unit;
+use App\Support\TenantScope;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 
 class UtilityMeterForm
 {
@@ -23,18 +25,19 @@ class UtilityMeterForm
                         ->unique(ignoreRecord: true),
                     Select::make('asset_id')
                         ->label(__('admin.resources.asset.singular'))
-                        ->options(fn () => \App\Support\TenantScope::selectableAssetOptions())
+                        ->options(fn () => TenantScope::selectableAssetOptions())
                         ->required()
                         ->native(false)
                         ->searchable()
                         ->reactive()
-                        ->default(fn () => \App\Support\TenantScope::currentAssetId())
-                        ->disabled(fn () => \App\Support\TenantScope::currentAssetId() !== null)
+                        ->default(fn () => TenantScope::currentAssetId())
+                        ->disabled(fn () => TenantScope::currentAssetId() !== null)
                         ->dehydrated(),
                     Select::make('unit_id')
                         ->label(__('admin.fields.unit_label'))
                         ->options(function ($get) {
-                            $assetId = $get('asset_id') ?: \App\Support\TenantScope::currentAssetId();
+                            $assetId = $get('asset_id') ?: TenantScope::currentAssetId();
+
                             return Unit::query()
                                 ->when($assetId, fn ($q, $aid) => $q->where('asset_id', $aid))
                                 ->orderBy('code')
@@ -69,7 +72,8 @@ class UtilityMeterForm
                         ->numeric()
                         ->minValue(0)
                         ->step('0.0001')
-                        ->helperText(__('admin.helpers.rate_per_unit')),
+                        ->helperText(__('admin.helpers.rate_per_unit'))
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.rate_per_unit')),
                 ]),
         ]);
     }

@@ -10,6 +10,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 
 class TaxCodeForm
 {
@@ -31,7 +32,8 @@ class TaxCodeForm
                         // supply pointed at it. The labels below are what you change.
                         ->disabled(fn (?TaxCode $record) => $record !== null)
                         ->dehydrated()
-                        ->helperText(__('admin.helpers.tax_code_code')),
+                        ->helperText(__('admin.helpers.tax_code_code'))
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.tax_code_code')),
 
                     Select::make('family')
                         ->label(__('admin.fields.tax_family'))
@@ -39,7 +41,8 @@ class TaxCodeForm
                         ->default(TaxCode::FAMILY_VAT)
                         ->required()
                         ->native(false)
-                        ->helperText(__('admin.helpers.tax_family')),
+                        ->helperText(__('admin.helpers.tax_family'))
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.tax_family')),
 
                     Select::make('direction')
                         ->label(__('admin.fields.tax_direction'))
@@ -47,7 +50,8 @@ class TaxCodeForm
                         ->default(TaxCode::SALES)
                         ->required()
                         ->native(false)
-                        ->helperText(__('admin.helpers.tax_direction')),
+                        ->helperText(__('admin.helpers.tax_direction'))
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.tax_direction')),
 
                     TextInput::make('invoice_label')
                         ->label(__('admin.fields.invoice_label'))
@@ -71,7 +75,8 @@ class TaxCodeForm
                         ->required()
                         ->native(false)
                         ->live()
-                        ->helperText(__('admin.helpers.tax_treatment')),
+                        ->helperText(__('admin.helpers.tax_treatment'))
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.tax_treatment')),
 
                     Select::make('posting_role')
                         ->label(__('admin.fields.posting_role'))
@@ -82,13 +87,15 @@ class TaxCodeForm
                         // Exempt and zero-rated collect nothing, so there is nothing to post and a
                         // role would be a promise the tax cannot keep.
                         ->visible(fn (Get $get) => $get('treatment') === TaxCode::STANDARD)
-                        ->helperText(__('admin.helpers.tax_posting_role')),
+                        ->helperText(__('admin.helpers.tax_posting_role'))
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.tax_posting_role')),
 
                     TextInput::make('statutory_reference')
                         ->label(__('admin.fields.statutory_reference'))
                         ->maxLength(255)
                         ->columnSpanFull()
-                        ->helperText(__('admin.helpers.statutory_reference')),
+                        ->helperText(__('admin.helpers.statutory_reference'))
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.statutory_reference')),
 
                     TextInput::make('sort_order')
                         ->label(__('admin.fields.sort_order'))
@@ -104,7 +111,8 @@ class TaxCodeForm
                         // account is wired. The model refuses to switch on a taxable code with no
                         // rung or no posting role, so this cannot become a code that appears in
                         // the picker and then bills nothing into nowhere.
-                        ->helperText(__('admin.helpers.tax_code_active')),
+                        ->helperText(__('admin.helpers.tax_code_active'))
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.tax_code_active')),
                 ]),
         ]);
     }

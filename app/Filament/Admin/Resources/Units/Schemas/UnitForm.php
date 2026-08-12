@@ -3,6 +3,8 @@
 namespace App\Filament\Admin\Resources\Units\Schemas;
 
 use App\Models\Area;
+use App\Models\Floor;
+use App\Models\Unit;
 use App\Support\TenantScope;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -11,7 +13,8 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
-use App\Models\Unit;
+use Filament\Support\Icons\Heroicon;
+use Illuminate\Validation\Rules\Unique;
 
 class UnitForm
 {
@@ -27,7 +30,7 @@ class UnitForm
                         // user cannot create a unit under a property outside their set
                         // (null = unrestricted: super_admin / portfolio roles).
                         ->relationship('asset', 'name', modifyQueryUsing: function ($query) {
-                            $visibleAssetIds = \App\Support\TenantScope::visibleAssetIds();
+                            $visibleAssetIds = TenantScope::visibleAssetIds();
 
                             return $visibleAssetIds !== null
                                 ? $query->whereIn('id', $visibleAssetIds)
@@ -35,8 +38,8 @@ class UnitForm
                         })
                         ->required()
                         ->native(false)
-                        ->default(fn () => \App\Support\TenantScope::currentAssetId())
-                        ->disabled(fn () => \App\Support\TenantScope::currentAssetId() !== null)
+                        ->default(fn () => TenantScope::currentAssetId())
+                        ->disabled(fn () => TenantScope::currentAssetId() !== null)
                         ->dehydrated()
                         // Drives the zone picker below (a unit may only sit in its own mall's
                         // zones); clear a now-cross-property zone if the property changes.
@@ -49,7 +52,7 @@ class UnitForm
                         // Clamped: `asset_id` is client-supplied, and a unique rule keyed on
                         // the raw value leaks whether a unit code exists in a property the
                         // user cannot see (TenantScope::clampAssetId).
-                        ->unique(ignoreRecord: true, modifyRuleUsing: fn (\Illuminate\Validation\Rules\Unique $rule, \Filament\Schemas\Components\Utilities\Get $get) => $rule->where('asset_id', \App\Support\TenantScope::clampAssetId($get('asset_id'))))
+                        ->unique(ignoreRecord: true, modifyRuleUsing: fn (Unique $rule, Get $get) => $rule->where('asset_id', TenantScope::clampAssetId($get('asset_id'))))
                         ->placeholder('A-01'),
                     // SELECTED from the property's register, not typed. Free text left "G" and
                     // "Ground" as two different floors to anything that grouped, and an ordinal on
@@ -61,14 +64,14 @@ class UnitForm
                             'floor',
                             'code',
                             // Scoped to the unit's own property, and ordered bottom-up.
-                            modifyQueryUsing: fn ($query, \Filament\Schemas\Components\Utilities\Get $get) => $query
+                            modifyQueryUsing: fn ($query, Get $get) => $query
                                 ->when(
-                                    \App\Support\TenantScope::clampAssetId($get('asset_id')),
+                                    TenantScope::clampAssetId($get('asset_id')),
                                     fn ($q, $id) => $q->where('asset_id', $id),
                                 )
                                 ->orderBy('level'),
                         )
-                        ->getOptionLabelFromRecordUsing(fn (\App\Models\Floor $floor) => $floor->label())
+                        ->getOptionLabelFromRecordUsing(fn (Floor $floor) => $floor->label())
                         ->native(false)
                         ->searchable()
                         ->preload()
@@ -120,11 +123,12 @@ class UnitForm
                         // figure while every current-state screen showed the new one. Mirrors the
                         // rent fields on the lease form, which are read-only for the same reason
                         // and routed through their own action. The model refuses it either way.
-                        ->disabled(fn (?\App\Models\Unit $record) => $record !== null)
-                        ->dehydrated(fn (?\App\Models\Unit $record) => $record === null)
-                        ->helperText(fn (?\App\Models\Unit $record) => $record === null
+                        ->disabled(fn (?Unit $record) => $record !== null)
+                        ->dehydrated(fn (?Unit $record) => $record === null)
+                        ->helperText(fn (?Unit $record) => $record === null
                             ? null
-                            : __('admin.helpers.unit_area_locked')),
+                            : __('admin.helpers.unit_area_locked'))
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.unit_area_locked')),
                     Select::make('status')
                         ->label(__('admin.tables.common.status'))
                         ->options(fn () => __('admin.statuses.unit'))

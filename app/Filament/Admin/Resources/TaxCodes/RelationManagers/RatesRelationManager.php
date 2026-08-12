@@ -10,6 +10,7 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
@@ -53,7 +54,8 @@ class RatesRelationManager extends RelationManager
                 ->required()
                 ->native(false)
                 ->unique(ignoreRecord: true, modifyRuleUsing: fn ($rule) => $rule->where('tax_code_id', $this->getOwnerRecord()->getKey()))
-                ->helperText(__('admin.helpers.tax_effective_from')),
+                ->helperText(__('admin.helpers.tax_effective_from'))
+                ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.tax_effective_from')),
 
             TextInput::make('note')
                 ->label(__('admin.fields.note'))

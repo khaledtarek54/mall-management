@@ -23,6 +23,7 @@ use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 
 class LeaseForm
 {
@@ -190,6 +191,7 @@ class LeaseForm
                         Toggle::make('show_occupied_units')
                             ->label(__('admin.fields.show_occupied_units'))
                             ->helperText(__('admin.helpers.show_occupied_units'))
+                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.show_occupied_units'))
                             ->live()
                             ->dehydrated(false)
                             ->default(false)
@@ -257,7 +259,8 @@ class LeaseForm
                             ->afterStateUpdated(fn (Get $get, Set $set) => self::deriveRentInto($get, $set))
                             ->disabled(fn (string $operation): bool => $operation === 'edit')
                             ->dehydrated()
-                            ->helperText(__('admin.helpers.rent_pricing_basis')),
+                            ->helperText(__('admin.helpers.rent_pricing_basis'))
+                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.rent_pricing_basis')),
                         TextInput::make('base_rent_rate_per_sqm_year')
                             ->label(__('admin.fields.base_rent_rate_per_sqm_year'))
                             ->prefix('EGP')
@@ -290,7 +293,8 @@ class LeaseForm
                                 $operation === 'edit' => __('admin.helpers.base_rent_monthly_edit_lock'),
                                 $get('rent_pricing_basis') === Lease::RENT_RATE => __('admin.helpers.base_rent_monthly_derived'),
                                 default => __('admin.helpers.base_rent_monthly'),
-                            }),
+                            })
+                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.base_rent_monthly_edit_lock')),
                         TextInput::make('service_charge_monthly')
                             ->label(__('admin.fields.service_charge_monthly'))
                             ->prefix('EGP')
@@ -302,12 +306,14 @@ class LeaseForm
                             ->dehydrated()
                             ->helperText(fn (string $operation): string => $operation === 'edit'
                                 ? __('admin.helpers.service_charge_monthly_edit_lock')
-                                : __('admin.helpers.service_charge_monthly')),
+                                : __('admin.helpers.service_charge_monthly'))
+                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.service_charge_monthly_edit_lock')),
                         Toggle::make('has_marketing_levy')
                             ->label(__('admin.fields.has_marketing_levy'))
                             ->default(true)
                             ->live()
-                            ->helperText(__('admin.helpers.has_marketing_levy')),
+                            ->helperText(__('admin.helpers.has_marketing_levy'))
+                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.has_marketing_levy')),
                         TextInput::make('marketing_levy_rate')
                             ->label(__('admin.fields.marketing_levy_rate'))
                             ->numeric()
@@ -325,7 +331,8 @@ class LeaseForm
                         DatePicker::make('possession_date')
                             ->label(__('admin.fields.possession_date'))
                             ->native(false)
-                            ->helperText(__('admin.helpers.possession_date')),
+                            ->helperText(__('admin.helpers.possession_date'))
+                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.possession_date')),
                         DatePicker::make('rent_commencement_date')
                             ->label(__('admin.fields.rent_commencement_date'))
                             ->native(false)
@@ -334,7 +341,8 @@ class LeaseForm
                             // against it pulling the first billable month backwards; refused here too
                             // so the operator gets an inline error rather than a silent no-op.
                             ->afterOrEqual('commencement_date')
-                            ->helperText(__('admin.helpers.rent_commencement_date')),
+                            ->helperText(__('admin.helpers.rent_commencement_date'))
+                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.rent_commencement_date')),
                         Select::make('fit_out_scope')
                             ->label(__('admin.fields.fit_out_scope'))
                             ->options([
@@ -347,7 +355,8 @@ class LeaseForm
                             // default is gross); this is the default for NEW deals only.
                             ->default(Lease::FIT_OUT_RENT_ONLY)
                             ->visible(fn ($get) => filled($get('rent_commencement_date')))
-                            ->helperText(__('admin.helpers.fit_out_scope')),
+                            ->helperText(__('admin.helpers.fit_out_scope'))
+                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.fit_out_scope')),
                         Select::make('billing_frequency')
                             ->label(__('admin.fields.billing_frequency'))
                             ->options([
@@ -363,9 +372,12 @@ class LeaseForm
                             // so switching cadence mid-term could strand an unaligned month (billed on
                             // neither the old nor the new cadence). Set it before the first invoice.
                             ->disabled(fn (?Lease $record): bool => $record !== null && $record->invoices()->exists())
+                            // The helper text reports the STATE (locked or not), which changes; the
+                            // hint icon explains the FIELD, which does not.
                             ->helperText(fn (?Lease $record): string => $record !== null && $record->invoices()->exists()
                                 ? __('admin.helpers.billing_frequency_locked')
-                                : __('admin.helpers.billing_frequency')),
+                                : __('admin.helpers.billing_frequency'))
+                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.billing_frequency')),
                         TextInput::make('security_deposit')
                             ->label(__('admin.fields.security_deposit'))
                             ->prefix('EGP')
@@ -393,7 +405,8 @@ class LeaseForm
                             ->minValue(0)
                             ->visible(fn (Get $get) => $get('escalation_type') === 'fixed_amount')
                             ->required(fn (Get $get) => $get('escalation_type') === 'fixed_amount')
-                            ->helperText(__('admin.helpers.escalation_amount')),
+                            ->helperText(__('admin.helpers.escalation_amount'))
+                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.escalation_amount')),
                         Select::make('escalation_type')
                             ->label(__('admin.fields.escalation_type'))
                             ->options(fn () => __('admin.enums.escalation_type'))
@@ -411,7 +424,8 @@ class LeaseForm
                             ->minValue(0)
                             ->maxValue(100)
                             ->visible(fn (Get $get) => $get('escalation_type') !== 'fixed_amount')
-                            ->helperText(__('admin.helpers.escalation_floor_rate')),
+                            ->helperText(__('admin.helpers.escalation_floor_rate'))
+                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.escalation_floor_rate')),
                         TextInput::make('escalation_ceiling_rate')
                             ->label(__('admin.fields.escalation_ceiling_rate'))
                             ->numeric()
@@ -422,7 +436,8 @@ class LeaseForm
                             // API write cannot get round it.
                             ->gte('escalation_floor_rate')
                             ->visible(fn (Get $get) => $get('escalation_type') !== 'fixed_amount')
-                            ->helperText(__('admin.helpers.escalation_ceiling_rate')),
+                            ->helperText(__('admin.helpers.escalation_ceiling_rate'))
+                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.escalation_ceiling_rate')),
                         TextInput::make('payment_terms_days')
                             ->label(__('admin.fields.payment_terms_days'))
                             ->numeric()
@@ -480,6 +495,7 @@ class LeaseForm
                             ->native(false)
                             ->live()
                             ->helperText(__('admin.helpers.percentage_rent_calculation_type'))
+                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.percentage_rent_calculation_type'))
                             ->visible(fn ($get) => (bool) $get('has_percentage_rent')),
                         // ANNUAL is the industry standard: percentage rent accrues on CUMULATIVE
                         // year-to-date sales against an annual breakpoint, settled up over the year
@@ -498,6 +514,7 @@ class LeaseForm
                             ->native(false)
                             ->live()
                             ->helperText(__('admin.helpers.percentage_rent_frequency'))
+                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.percentage_rent_frequency'))
                             ->visible(fn ($get) => (bool) $get('has_percentage_rent')),
                         TextInput::make('percentage_rent_threshold')
                             // Label + helper switch so it is unmistakable that an ANNUAL lease's threshold is
@@ -534,6 +551,7 @@ class LeaseForm
                             // "Percentage rent payable to the extent it exceeds CAM and tax paid in the
                             // same period" — a common retail clause Atriom could not express at all.
                             ->helperText(__('admin.helpers.percentage_rent_deductible_types'))
+                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.percentage_rent_deductible_types'))
                             ->visible(fn ($get) => (bool) $get('has_percentage_rent')),
                         TextInput::make('percentage_rent_rate')
                             ->label(__('admin.fields.percentage_rent_rate'))
@@ -542,6 +560,7 @@ class LeaseForm
                             ->minValue(0)
                             ->maxValue(100)
                             ->helperText(__('admin.helpers.percentage_rent_rate'))
+                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.percentage_rent_rate'))
                             ->visible(fn ($get) => (bool) $get('has_percentage_rent')),
                     ])->columns(3),
 

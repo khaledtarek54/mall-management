@@ -14,6 +14,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 
 class ExpenseForm
 {
@@ -144,6 +145,7 @@ class ExpenseForm
                         ->required(fn (Get $get) => self::taxDeparts($get))
                         ->visible(fn (Get $get) => self::taxDeparts($get))
                         ->helperText(__('admin.helpers.purchase_tax_override_reason'))
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.purchase_tax_override_reason'))
                         ->disabled($moneyLocked),
 
                     // Total is derived (amount + VAT) so it can never drift — the model

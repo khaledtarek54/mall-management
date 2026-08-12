@@ -9,6 +9,7 @@ use Filament\Forms\Components\Select;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 
 class AccountMappingForm
 {
@@ -31,7 +32,8 @@ class AccountMappingForm
                         ->native(false)
                         ->helperText(fn (Get $get) => ($group = PostingRoles::group((string) $get('key')))
                             ? __('admin.helpers.posting_role_expects', ['group' => PostingRoles::groupLabel($group)])
-                            : __('admin.helpers.posting_role')),
+                            : __('admin.helpers.posting_role'))
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.posting_role')),
 
                     // Postable accounts only. `AccountResolver` refuses a summary or inactive account
                     // at posting time, which would surface as a failed journal entry long after the

@@ -4,7 +4,7 @@
 > visual handbook grows into a deployed, bilingual, interactive reference for all 36 modules whose
 > data is **generated from the registries** rather than typed.
 
-**Status:** Phase A **shipped** · B–F outstanding · started 2026-08-12.
+**Status:** Phases A + B **shipped** · C–F outstanding · started 2026-08-12.
 
 ---
 
@@ -156,11 +156,34 @@ EN↔AR key parity comes free: `TranslationKeyConformanceTest` test B already wa
 
 Work:
 
-- split `admin.helpers.*` — short imperative text stays, the long tail moves to a new `admin.hints.*`
-  block, both languages;
-- fix the one existing `hintIcon` that passes no tooltip;
-- **gate:** `FieldHelpConformanceTest` fails when an `admin.helpers.*` string exceeds the word budget
-  (with an exemption registry carrying reasons) and when a `hintIcon` ships without a tooltip.
+**What shipped.** The budget is **18 words** (`App\Support\FieldHelp::WORD_BUDGET`) — twelve proved
+too tight, turning good one-liners into fragments, and eighteen is where a line becomes a block.
+64 strings were over it; **55 were split** and the long half moved verbatim to `admin.hints.*`
+behind a `->hintIcon(Heroicon::OutlinedQuestionMarkCircle, …)`.
+
+**Nothing was cut, only moved** — which is also why Arabic needed no new translation for the
+tooltips. Only the short visible lines are new prose, and just 21 of those had to be written by
+hand; the rest are the string's own opening sentence.
+
+Three findings came from reading each CALL SITE rather than the catalogue:
+
+- **Three strings were already tooltips or modal descriptions** (`statement_consistent`,
+  `match_line`, `unmatch_line`) — already the "one hover away" home this work moves things to.
+  Shortening them would have lost information and saved no screen space.
+- **Five are live feedback, not explanation** — they report the record's state (what is locked, what
+  tariff a cost was derived from, what looks mistyped). A hint icon is the wrong home for a message
+  shown only when it applies.
+- **`charge_code_vat_override` was referenced nowhere** — a leftover of the charge-code VAT override
+  the dated tax catalogue replaced. Deleted rather than given a shorter version of a string nothing
+  renders.
+
+The one pre-existing `hintIcon` (`ChargeCodeForm.php`) passed **no tooltip** — an icon inviting a
+hover that answers nothing. Removed in favour of the real one.
+
+**Gate:** `FieldHelpConformanceTest` — (A) length budget, with `FieldHelp::LONG_BY_DESIGN` carrying a
+reason per exemption; (B) no hint icon without a tooltip; (C) every hint is both written and shown,
+in both directions — an unwritten one renders the raw key on hover; (D) an exemption whose string is
+already short is rejected, so the registry cannot fill with decisions that classify nothing.
 
 ---
 
@@ -270,7 +293,7 @@ commit with its gate turned on, so nothing lands half-enforced.
 | Phase | Scope | Gate | Status |
 | --- | --- | --- | --- |
 | A | Guides on all **83** screens, EN + AR | `ScreenGuideConformanceTest` (replaces the old one) | **DONE** |
-| B | Field-help triage across 125 strings | `FieldHelpConformanceTest` (new) | not started |
+| B | 64 paragraphs → 55 hint icons + 8 reasoned exemptions | `FieldHelpConformanceTest` (new) | **DONE** |
 | C | Bilingual/RTL shell + `atriom:dump-handbook-data` | generated-data drift test | not started |
 | D | Interactive components | — | not started |
 | E | 36 module pages × 2 languages | sidebar/page-count check | not started |

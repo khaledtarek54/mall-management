@@ -17,6 +17,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\TernaryFilter;
@@ -87,6 +88,7 @@ class ReadingsRelationManager extends RelationManager
                 ->step('0.01')
                 ->disabled($lockedIfBilled)
                 ->helperText(__('admin.helpers.reading_value'))
+                ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.reading_value'))
                 // Auto-fill consumption from delta vs prior reading when
                 // empty. Operators can override before save if they have
                 // a corrected figure (e.g. meter was reset mid-period).

@@ -10,6 +10,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 
 class BankAccountForm
 {
@@ -62,7 +63,8 @@ class BankAccountForm
                             ->all())
                         ->searchable()
                         ->native(false)
-                        ->helperText(__('admin.helpers.bank_ledger_account')),
+                        ->helperText(__('admin.helpers.bank_ledger_account'))
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.bank_ledger_account')),
 
                     Toggle::make('is_active')
                         ->label(__('admin.fields.is_active'))

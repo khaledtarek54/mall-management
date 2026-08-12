@@ -2,14 +2,21 @@
 
 namespace App\Filament\Admin\Resources\CamExpensePools\Schemas;
 
+use App\Enums\InvoiceItemType;
+use App\Models\Area;
 use App\Models\CamExpensePool;
-use App\Support\Vat;
+use App\Models\ChargeCode;
 use App\Models\LedgerAccount;
+use App\Support\TenantScope;
+use App\Support\Vat;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
+use Illuminate\Validation\Rules\Unique;
 
 class CamExpensePoolForm
 {
@@ -49,15 +56,15 @@ class CamExpensePoolForm
     {
         $isArabic = app()->getLocale() === 'ar';
 
-        $options = collect(\App\Enums\InvoiceItemType::options())
+        $options = collect(InvoiceItemType::options())
             ->except(self::NOT_AN_ESTIMATE);
 
-        \App\Models\ChargeCode::query()
+        ChargeCode::query()
             ->where('is_active', true)
             ->whereNotIn('code', self::NOT_AN_ESTIMATE)
             ->orderBy('sort_order')
             ->get()
-            ->each(function (\App\Models\ChargeCode $c) use (&$options, $isArabic): void {
+            ->each(function (ChargeCode $c) use (&$options, $isArabic): void {
                 $options[$c->code] = ($isArabic ? $c->name_ar : $c->name_en) ?: $c->code;
             });
 
@@ -73,12 +80,12 @@ class CamExpensePoolForm
                 ->components([
                     Select::make('asset_id')
                         ->label(__('admin.resources.asset.singular'))
-                        ->options(fn () => \App\Support\TenantScope::selectableAssetOptions())
+                        ->options(fn () => TenantScope::selectableAssetOptions())
                         ->required()
                         ->native(false)
                         ->searchable()
-                        ->default(fn () => \App\Support\TenantScope::currentAssetId())
-                        ->disabled(fn () => \App\Support\TenantScope::currentAssetId() !== null)
+                        ->default(fn () => TenantScope::currentAssetId())
+                        ->disabled(fn () => TenantScope::currentAssetId() !== null)
                         ->dehydrated(),
                     TextInput::make('period_year')
                         ->label(__('admin.fields.period_year'))
@@ -94,8 +101,8 @@ class CamExpensePoolForm
                         // second one. Clamped because `asset_id` is client-supplied, and a unique
                         // rule keyed on the raw value leaks whether a pool exists for a year in a
                         // property the user cannot see (TenantScope::clampAssetId).
-                        ->unique(ignoreRecord: true, modifyRuleUsing: fn (\Illuminate\Validation\Rules\Unique $rule, \Filament\Schemas\Components\Utilities\Get $get) => $rule
-                            ->where('asset_id', \App\Support\TenantScope::clampAssetId($get('asset_id')))
+                        ->unique(ignoreRecord: true, modifyRuleUsing: fn (Unique $rule, Get $get) => $rule
+                            ->where('asset_id', TenantScope::clampAssetId($get('asset_id')))
                             ->where('pool_code', $get('pool_code') ?: CamExpensePool::CODE_CAM))
                         ->live(onBlur: true)
                         ->default(fn () => now()->year),
@@ -122,6 +129,7 @@ class CamExpensePoolForm
                             $set('estimate_charge_codes', []);
                         })
                         ->helperText(__('admin.helpers.pool_code'))
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.pool_code'))
                         // The code is part of the identity of the pool and of every allocation
                         // beneath it — renaming it after a reconciliation would silently re-key
                         // the year's history.
@@ -137,12 +145,13 @@ class CamExpensePoolForm
                         ->required()
                         ->native(false)
                         ->live()
-                        ->helperText(__('admin.helpers.participant_scope')),
+                        ->helperText(__('admin.helpers.participant_scope'))
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.participant_scope')),
                     Select::make('participant_area_id')
                         ->label(__('admin.fields.participant_area'))
                         // Scoped to the pool's own property, like every cross-model select here.
-                        ->options(fn (\Filament\Schemas\Components\Utilities\Get $get) => \App\Models\Area::query()
-                            ->when(\App\Support\TenantScope::clampAssetId($get('asset_id')), fn ($q, $id) => $q->where('asset_id', $id))
+                        ->options(fn (Get $get) => Area::query()
+                            ->when(TenantScope::clampAssetId($get('asset_id')), fn ($q, $id) => $q->where('asset_id', $id))
                             ->orderBy('name')
                             ->pluck('name', 'id')
                             ->all())
@@ -150,7 +159,8 @@ class CamExpensePoolForm
                         ->searchable()
                         ->required(fn ($get): bool => $get('participant_scope') === CamExpensePool::PARTICIPANTS_AREA)
                         ->visible(fn ($get): bool => $get('participant_scope') === CamExpensePool::PARTICIPANTS_AREA)
-                        ->helperText(__('admin.helpers.participant_area')),
+                        ->helperText(__('admin.helpers.participant_area'))
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.participant_area')),
                     Select::make('status')
                         ->label(__('admin.tables.common.status'))
                         ->options(fn () => __('admin.statuses.cam_pool'))
@@ -279,6 +289,7 @@ class CamExpensePoolForm
                         ->minValue(0)
                         ->step('0.01')
                         ->helperText(__('admin.helpers.cam_estimated_collected'))
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.cam_estimated_collected'))
                         ->disabled(fn (?CamExpensePool $record) => self::basisFrozen($record))
                         ->hintColor('warning')
                         ->hint(fn (?CamExpensePool $record) => self::basisFrozen($record) ? __('admin.helpers.cam_basis_frozen') : null),
@@ -296,6 +307,7 @@ class CamExpensePoolForm
                         ->step('0.01')
                         ->default(0.10)
                         ->helperText(__('admin.helpers.cam_admin_fee_pct'))
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.cam_admin_fee_pct'))
                         ->formatStateUsing(fn ($state) => $state === null ? null : round((float) $state * 100, 4))
                         ->dehydrateStateUsing(fn ($state) => ($state === null || $state === '') ? null : round((float) $state / 100, 6))
                         ->disabled(fn (?CamExpensePool $record) => self::basisFrozen($record))
@@ -321,6 +333,7 @@ class CamExpensePoolForm
                         ->default(fn () => Vat::rateForType('cam_recovery'))
                         ->required()
                         ->helperText(__('admin.helpers.cam_recovery_vat_rate'))
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.cam_recovery_vat_rate'))
                         ->disabled(fn (?CamExpensePool $record) => self::basisFrozen($record))
                         ->hintColor('warning')
                         ->hint(fn (?CamExpensePool $record) => self::basisFrozen($record) ? __('admin.helpers.cam_basis_frozen') : null),

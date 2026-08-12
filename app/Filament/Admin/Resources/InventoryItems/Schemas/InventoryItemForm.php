@@ -8,6 +8,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 
 class InventoryItemForm
 {
@@ -63,6 +64,7 @@ class InventoryItemForm
             TextInput::make('unit_cost')
                 ->label(__('admin.inventory.fields.unit_cost'))
                 ->helperText(__('admin.helpers.inventory_unit_cost'))
+                ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.inventory_unit_cost'))
                 ->numeric()
                 ->minValue(0.01)
                 ->required()

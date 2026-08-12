@@ -17,6 +17,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 
 class VendorBillForm
 {
@@ -121,6 +122,7 @@ class VendorBillForm
                     Select::make('purchase_request_id')
                         ->label(__('admin.fields.purchase_request'))
                         ->helperText(__('admin.helpers.bill_purchase_request'))
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.bill_purchase_request'))
                         ->options(function (Get $get) {
                             $vendorId = $get('vendor_id');
                             $assetId = $get('asset_id');
@@ -237,6 +239,7 @@ class VendorBillForm
                         ->required(fn (Get $get) => self::taxDeparts($get))
                         ->visible(fn (Get $get) => self::taxDeparts($get))
                         ->helperText(__('admin.helpers.purchase_tax_override_reason'))
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.purchase_tax_override_reason'))
                         ->disabled($locked),
 
                     // Total is derived (subtotal + VAT) so it can never drift, and is

@@ -10,6 +10,7 @@ use Filament\Actions\EditAction;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
@@ -48,7 +49,8 @@ class PercentageRentTiersRelationManager extends RelationManager
             TextInput::make('from_amount')
                 ->label(__('admin.percentage_rent_tiers.from'))
                 ->numeric()->prefix('EGP')->minValue(0)->required()
-                ->helperText(__('admin.helpers.percentage_rent_tier_from')),
+                ->helperText(__('admin.helpers.percentage_rent_tier_from'))
+                ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.percentage_rent_tier_from')),
             TextInput::make('to_amount')
                 ->label(__('admin.percentage_rent_tiers.to'))
                 ->numeric()->prefix('EGP')->minValue(0)

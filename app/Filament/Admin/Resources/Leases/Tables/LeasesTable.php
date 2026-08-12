@@ -45,6 +45,7 @@ use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Wizard;
 use Filament\Schemas\Components\Wizard\Step;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -382,6 +383,7 @@ class LeasesTable
                                     Toggle::make('lease.show_occupied_units')
                                         ->label(__('admin.fields.show_occupied_units'))
                                         ->helperText(__('admin.helpers.show_occupied_units'))
+                                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.show_occupied_units'))
                                         ->live()
                                         ->dehydrated(false)
                                         ->default(false)

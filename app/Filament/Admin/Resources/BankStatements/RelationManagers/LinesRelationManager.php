@@ -2,8 +2,10 @@
 
 namespace App\Filament\Admin\Resources\BankStatements\RelationManagers;
 
+use App\Models\BankMatch;
 use App\Models\BankStatement;
 use App\Models\BankStatementLine;
+use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Services\Banking\ImportBankStatementService;
 use App\Services\Banking\MatchBankStatementLineService;
@@ -14,10 +16,12 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 
 /**
@@ -142,7 +146,7 @@ class LinesRelationManager extends RelationManager
                         $statement = $this->getOwnerRecord();
                         $upload = $data['file'] ?? null;
 
-                        if (! $upload instanceof \Illuminate\Http\UploadedFile) {
+                        if (! $upload instanceof UploadedFile) {
                             Notification::make()->danger()->title(__('admin.errors.bank_statement_csv_empty'))->send();
 
                             return;
@@ -193,16 +197,17 @@ class LinesRelationManager extends RelationManager
 
                                     return [$l->id => trim(sprintf(
                                         '%s · %s · %s',
-                                        $entry instanceof \App\Models\JournalEntry ? $entry->entry_date->format('d/m/Y') : '',
+                                        $entry instanceof JournalEntry ? $entry->entry_date->format('d/m/Y') : '',
                                         number_format((float) $l->debit > 0 ? (float) $l->debit : -(float) $l->credit, 2),
-                                        $entry instanceof \App\Models\JournalEntry ? $entry->displayDescription() : ''
+                                        $entry instanceof JournalEntry ? $entry->displayDescription() : ''
                                     ))];
                                 })
                                 ->all())
                             ->required()
                             ->searchable()
                             ->native(false)
-                            ->helperText(__('admin.helpers.book_posting')),
+                            ->helperText(__('admin.helpers.book_posting'))
+                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.book_posting')),
                     ])
                     ->action(function (BankStatementLine $record, array $data) use ($service): void {
                         abort_unless($this->canMatch(), 403);
@@ -240,7 +245,7 @@ class LinesRelationManager extends RelationManager
                         abort_unless($this->canMatch(), 403);
 
                         foreach ($record->matches()->get() as $match) {
-                            if ($match instanceof \App\Models\BankMatch) {
+                            if ($match instanceof BankMatch) {
                                 $service->unmatch($match);
                             }
                         }

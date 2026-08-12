@@ -8,6 +8,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 
 class ApprovalRuleForm
 {
@@ -33,7 +34,8 @@ class ApprovalRuleForm
                             ->all())
                         ->required()
                         ->native(false)
-                        ->helperText(__('admin.helpers.approval_tier')),
+                        ->helperText(__('admin.helpers.approval_tier'))
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.approval_tier')),
 
                     TextInput::make('min_amount')
                         ->label(__('admin.fields.approval_min_amount'))
@@ -57,7 +59,8 @@ class ApprovalRuleForm
                     Toggle::make('is_active')
                         ->label(__('admin.fields.is_active'))
                         ->default(true)
-                        ->helperText(__('admin.helpers.approval_rule_active')),
+                        ->helperText(__('admin.helpers.approval_rule_active'))
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.approval_rule_active')),
                 ]),
         ]);
     }

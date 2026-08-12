@@ -3,19 +3,26 @@
 namespace App\Filament\Admin\Resources\Invoices\Pages;
 
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
+use App\Models\DepositApplication;
+use App\Models\InvoiceWriteOff;
 use App\Models\TenantCreditApplication;
+use App\Services\ApplyDepositToInvoiceService;
 use App\Services\ApplyTenantCreditService;
 use App\Services\InvoicePdfService;
 use App\Services\VoidInvoiceService;
+use App\Services\WriteOffInvoiceService;
 use App\Support\OpsLog;
 use App\Support\TenantScope;
 use Filament\Actions\Action;
 use Filament\Actions\RestoreAction;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Auth;
 
 class EditInvoice extends EditRecord
@@ -164,18 +171,18 @@ class EditInvoice extends EditRecord
                 ->icon('heroicon-o-arrow-uturn-left')
                 ->color('warning')
                 ->authorize(fn () => Auth::user()?->can('payments.edit') ?? false)
-                ->visible(fn (): bool => \App\Models\DepositApplication::where('invoice_id', $this->record->id)->exists()
+                ->visible(fn (): bool => DepositApplication::where('invoice_id', $this->record->id)->exists()
                     && (Auth::user()?->can('payments.edit') ?? false))
                 ->requiresConfirmation()
                 ->modalDescription(__('admin.actions.reverse_deposit_application_confirm'))
                 ->action(function (): void {
                     abort_unless(Auth::user()?->can('payments.edit') ?? false, 403);
 
-                    $svc = app(\App\Services\ApplyDepositToInvoiceService::class);
+                    $svc = app(ApplyDepositToInvoiceService::class);
                     $reversed = 0.0;
 
                     try {
-                        foreach (\App\Models\DepositApplication::where('invoice_id', $this->record->id)->get() as $application) {
+                        foreach (DepositApplication::where('invoice_id', $this->record->id)->get() as $application) {
                             $reversed += (float) $application->amount;
                             $svc->reverse($application);
                         }
@@ -235,7 +242,7 @@ class EditInvoice extends EditRecord
                 ->authorize(fn () => Auth::user()?->can('invoices.void') ?? false)
                 ->modalDescription(__('admin.actions.write_off_invoice_confirm'))
                 ->schema([
-                    \Filament\Forms\Components\TextInput::make('amount')
+                    TextInput::make('amount')
                         ->label(__('admin.fields.write_off_amount'))
                         ->numeric()
                         ->prefix('EGP')
@@ -254,15 +261,16 @@ class EditInvoice extends EditRecord
                             ])
                             : null)
                         ->required(),
-                    \Filament\Forms\Components\DatePicker::make('entry_date')
+                    DatePicker::make('entry_date')
                         ->label(__('admin.fields.write_off_date'))
                         ->native(false)
                         ->default(now())
                         ->required()
-                        ->helperText(__('admin.helpers.write_off_date')),
-                    \Filament\Forms\Components\Select::make('reason')
+                        ->helperText(__('admin.helpers.write_off_date'))
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.write_off_date')),
+                    Select::make('reason')
                         ->label(__('admin.fields.write_off_reason'))
-                        ->options(collect(\App\Models\InvoiceWriteOff::REASONS)
+                        ->options(collect(InvoiceWriteOff::REASONS)
                             ->mapWithKeys(fn (string $r) => [$r => __("admin.write_off_reasons.{$r}")])->all())
                         ->native(false)
                         ->required(),
@@ -275,7 +283,7 @@ class EditInvoice extends EditRecord
                     abort_unless(Auth::user()?->can('invoices.void') ?? false, 403);
 
                     try {
-                        app(\App\Services\WriteOffInvoiceService::class)->write($this->record, $data);
+                        app(WriteOffInvoiceService::class)->write($this->record, $data);
                         $this->refreshFormData(['status', 'balance']);
                         Notification::make()->title(__('admin.notifications.invoice_written_off'))->success()->send();
                     } catch (\DomainException $e) {

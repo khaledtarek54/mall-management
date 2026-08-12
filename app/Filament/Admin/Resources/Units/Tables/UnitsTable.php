@@ -21,6 +21,7 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
@@ -186,7 +187,8 @@ class UnitsTable
                             ->default(now())
                             ->native(false)
                             ->required()
-                            ->helperText(__('admin.helpers.remeasure_effective_from')),
+                            ->helperText(__('admin.helpers.remeasure_effective_from'))
+                            ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.remeasure_effective_from')),
                         Textarea::make('reason')
                             ->label(__('admin.fields.reason'))
                             ->rows(2)

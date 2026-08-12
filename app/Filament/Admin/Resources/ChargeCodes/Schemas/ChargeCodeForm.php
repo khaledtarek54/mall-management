@@ -13,6 +13,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 
 class ChargeCodeForm
 {
@@ -34,7 +35,8 @@ class ChargeCodeForm
                         // below is what you change when the name is wrong.
                         ->disabled(fn (?ChargeCode $record) => $record !== null)
                         ->dehydrated()
-                        ->helperText(__('admin.helpers.charge_code')),
+                        ->helperText(__('admin.helpers.charge_code'))
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.charge_code')),
 
                     Select::make('posting_role')
                         ->label(__('admin.fields.posting_role'))
@@ -44,7 +46,8 @@ class ChargeCodeForm
                         ->placeholder(__('admin.charge_codes.unmapped'))
                         ->helperText(fn (Get $get) => ($group = PostingRoles::group((string) $get('posting_role')))
                             ? __('admin.helpers.posting_role_expects', ['group' => PostingRoles::groupLabel($group)])
-                            : __('admin.helpers.charge_code_role')),
+                            : __('admin.helpers.charge_code_role'))
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.charge_code_role')),
 
                     // Taxability is the accountant's ruling and belongs beside the code it applies
                     // to — the same place Yardi puts it (a `Tax` flag on the charge code). It was
@@ -61,14 +64,14 @@ class ChargeCodeForm
                         // so this is not `required()`. `Vat::rateForType()` puts an unclassified
                         // code on the floor, which is the same place an unseeded catalogue lands.
                         ->placeholder(__('admin.charge_codes.tax_unclassified'))
-                        ->hintIcon('heroicon-o-information-circle')
                         // The rate is the whole reason for the choice, so it is shown next to it
                         // rather than left a screen away. Resolved for TODAY: this is what a charge
                         // originated now would bill, which is the question being answered here.
                         ->hint(fn (Get $get) => ($code = $get('tax_code'))
                             ? self::rateHint((string) $code)
                             : null)
-                        ->helperText(__('admin.helpers.charge_code_tax_code')),
+                        ->helperText(__('admin.helpers.charge_code_tax_code'))
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.charge_code_tax_code')),
 
                     TextInput::make('name_en')
                         ->label(__('admin.fields.name_en'))
@@ -100,7 +103,8 @@ class ChargeCodeForm
                         ->helperText(fn (?ChargeCode $record) => $record !== null
                             && in_array($record->code, InvoiceItemType::values(), true)
                                 ? __('admin.helpers.charge_code_system')
-                                : __('admin.helpers.charge_code_active')),
+                                : __('admin.helpers.charge_code_active'))
+                        ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.charge_code_system')),
                 ]),
         ]);
     }

@@ -13,6 +13,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
@@ -64,11 +65,12 @@ class LeaseCamTermsRelationManager extends RelationManager
             Select::make('cap_scope')
                 ->label(__('admin.fields.cam_cap_scope'))
                 ->helperText(__('admin.helpers.cam_cap_scope'))
+                ->hintIcon(Heroicon::OutlinedQuestionMarkCircle, __('admin.hints.cam_cap_scope'))
                 ->options([
-                    \App\Models\LeaseCamTerm::SCOPE_TOTAL => __('admin.enums.cam_cap_scope.total'),
-                    \App\Models\LeaseCamTerm::SCOPE_CONTROLLABLE => __('admin.enums.cam_cap_scope.controllable'),
+                    LeaseCamTerm::SCOPE_TOTAL => __('admin.enums.cam_cap_scope.total'),
+                    LeaseCamTerm::SCOPE_CONTROLLABLE => __('admin.enums.cam_cap_scope.controllable'),
                 ])
-                ->default(\App\Models\LeaseCamTerm::SCOPE_TOTAL)
+                ->default(LeaseCamTerm::SCOPE_TOTAL)
                 ->required()
                 ->native(false)
                 ->visible(fn (Get $get) => $get('cap_type') !== 'none'),
