@@ -245,6 +245,41 @@ class Lease extends Model implements HasMedia
             ->useLogName('lease');
     }
 
+    /**
+     * Columns a RENEWAL deliberately does not inherit, each with the reason.
+     *
+     * `LeaseRenewalService` derives its payload from `$fillable` minus this list, so a new lease
+     * column is carried by default and dropping one is a decision somebody has to write down.
+     *
+     * It is that way round because the opposite failed: the service enumerated what to copy, the
+     * table grew from ~24 columns to 43, and **14 negotiated terms were silently lost on every
+     * renewal** — the escalation amount and its collar, the rate-pricing basis, the per-lease
+     * late-fee terms, the percentage-rent deduction clause, the holdover uplift. None of them
+     * errored. `LeaseRenewalCarriesTermsTest` fails the build on a column that is neither carried
+     * nor named here.
+     *
+     * @var array<string, string>
+     */
+    public const RENEWAL_RESETS = [
+        // ── Identity and term: the renewal's own, set explicitly by the service ────────────────
+        'reference' => 'the renewal gets its own document number.',
+        'previous_lease_id' => 'points AT the original — set by the service, not copied.',
+        'status' => 'a renewal starts active regardless of how the original ended.',
+        'commencement_date' => 'the renewal term, supplied by the operator.',
+        'expiry_date' => 'same.',
+        'term_months' => 'same.',
+        'base_rent_monthly' => 'the renegotiated rent — the whole point of renewing.',
+        'service_charge_monthly' => 'same.',
+
+        // ── State that belonged to the ORIGINAL tenancy ───────────────────────────────────────
+        'possession_date' => 'the tenant took possession once, at the start of the original lease.',
+        'rent_commencement_date' => 'fit-out grace was for the original build-out; a renewal has no new one.',
+        'fit_out_scope' => 'same — there is no fit-out to scope on a renewal.',
+        'next_escalation_date' => 'recomputed by `Lease::creating` from the renewal\'s own dates; copying the original\'s would escalate against a term that has ended.',
+        'holdover_from' => 'holdover is a state the ORIGINAL entered by running past expiry. A renewal starts inside its term. (`holdover_rate_pct` — the negotiated uplift — DOES carry.)',
+        'expiry_reminder_notified_at' => 'a notification stamp about the original\'s expiry.',
+    ];
+
     protected $fillable = [
         'reference',
         'unit_id',

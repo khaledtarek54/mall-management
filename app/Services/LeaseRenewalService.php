@@ -66,10 +66,34 @@ class LeaseRenewalService
 
             $assetCode = $original->unit?->asset?->code ?? 'AW';
 
-            $renewal = Lease::create([
+            // ── The payload is DERIVED from $fillable, never enumerated ───────────────────────
+            //
+            // This was a literal array written when `leases` had ~24 columns. It now has 43, and a
+            // diff found **14 were silently dropped** — every one of them a term somebody
+            // negotiated. The worst were invisible rather than wrong:
+            //
+            //   `escalation_amount`  — `escalation_type` carried but the amount did not, so
+            //                          `Lease::creating` computed `configured = false`,
+            //                          `next_escalation_date` stayed null, and
+            //                          `RentEscalationService`'s `whereNotNull` excluded the lease
+            //                          FOR ITS WHOLE TERM. A compounding revenue leak with no error.
+            //   the escalation collar — the guard rail against a mistyped rate, gone on every renewal.
+            //   `rent_pricing_basis`  — a rate-priced lease renewed as flat, so a later expansion
+            //                          changed no rent at all.
+            //
+            // Enumerating is the failure mode itself: the list cannot be kept in step with a table
+            // that grows, and nothing tells you when it falls behind. So the renewal now carries
+            // EVERYTHING fillable except what {@see Lease::RENEWAL_RESETS} explicitly names, each
+            // with its reason — and `LeaseRenewalCarriesTermsTest` fails the build on a new column
+            // that is neither carried nor excluded.
+            $carried = collect($original->getFillable())
+                ->reject(fn (string $column): bool => array_key_exists($column, Lease::RENEWAL_RESETS))
+                ->mapWithKeys(fn (string $column): array => [$column => $original->{$column}])
+                ->all();
+
+            $renewal = Lease::create(array_merge($carried, [
+                // The renewal's own identity and term — these are what a renewal IS.
                 'reference' => Lease::generateReference($assetCode),
-                'unit_id' => $original->unit_id,
-                'tenant_id' => $original->tenant_id,
                 'previous_lease_id' => $original->id,
                 'status' => 'active',
                 'commencement_date' => $commencement,
@@ -77,37 +101,57 @@ class LeaseRenewalService
                 'term_months' => $termMonths,
                 'base_rent_monthly' => $newRent,
                 'service_charge_monthly' => $newServiceCharge,
-                // Carry the negotiated marketing-levy terms — a tenant who opted out (or has a
-                // rate override) keeps that on renewal; else the model default would silently re-levy them.
-                'has_marketing_levy' => $original->has_marketing_levy,
-                'marketing_levy_rate' => $original->marketing_levy_rate,
-                // Fit-out grace does NOT carry — it was for the original build-out; a renewal has none.
-                // A renewal has no new build-out, so no rent-free grace carries over.
-                'rent_commencement_date' => null,
-                // Billing frequency DOES carry — a quarterly/annual lease renews on the same cadence.
-                'billing_frequency' => $original->billing_frequency,
-                'currency' => $original->currency,
-                'security_deposit' => $original->security_deposit,
-                'security_deposit_received' => $original->security_deposit_received,
-                'escalation_rate' => $original->escalation_rate,
-                'escalation_type' => $original->escalation_type,
-                'next_escalation_date' => null,
-                'has_percentage_rent' => $original->has_percentage_rent,
-                'percentage_rent_threshold' => $original->percentage_rent_threshold,
-                'percentage_rent_rate' => $original->percentage_rent_rate,
-                'percentage_rent_calculation_type' => $original->percentage_rent_calculation_type,
-                'percentage_rent_frequency' => $original->percentage_rent_frequency,
-                'billing_day' => $original->billing_day,
-                'payment_terms_days' => $original->payment_terms_days,
-                'notes' => $original->notes,
-                'metadata' => $original->metadata,
-            ]);
+            ]));
 
             // Carry the original's FULL unit set into the renewal — a multi-unit
             // lease must keep all its units, not just the master (unit_id).
             $unitIds = $original->units()->pluck('units.id')->all();
             if (count($unitIds) > 1) {
                 $renewal->syncUnits($unitIds, $original->unit_id);
+            }
+
+            // ── The three child collections the old service never mentioned at all ────────────
+            //
+            // Grepping it for `camterm`, `tier` or `rentable` returned nothing, and each omission
+            // is silent in a different way:
+            //
+            //   LeaseCamTerm            the CAM cap and the contractually stated share.
+            //                           `camTermFor()` queries by the NEW lease id, finds nothing,
+            //                           and the tenant gets an UNCAPPED year-end true-up on a
+            //                           capped lease — a GL-posted invoice they will dispute with
+            //                           the contract in hand. The renewal's CAM panel just looks
+            //                           empty, so nobody can see the cap was lost.
+            //   LeasePercentageRentTier `has_percentage_rent` and the `tiered` type DO carry, so
+            //                           the lease reads as configured — while `ladderFor()` returns
+            //                           empty and the overage is 0.00 every single month.
+            //   lease_rentable_item     the parking bays, storage and signage the tenant is paying
+            //                           for. Not carried, not billed, not noticed.
+            //
+            // Copied by `replicate()` rather than a field list, for the same reason the header is
+            // derived: a hand-written column list is what put us here.
+            foreach ($original->camTerms as $term) {
+                $term->replicate()->fill(['lease_id' => $renewal->id])->save();
+            }
+
+            foreach ($original->percentageRentTiers as $tier) {
+                $tier->replicate()->fill(['lease_id' => $renewal->id])->save();
+            }
+
+            // The pivot carries its own terms (rate, and the window it applies to). `effective_to`
+            // is deliberately NOT carried: it was scoped to the original term, and a renewal that
+            // inherited an end date already in the past would silently stop billing the bay.
+            // Read the pivot columns off the relation rather than the model: `$item->pivot` is only
+            // typed when the relation declares it, and PHPStan is right that it is not a property
+            // of RentableItem.
+            foreach ($original->rentableItems()->get() as $item) {
+                /** @var \Illuminate\Database\Eloquent\Relations\Pivot $pivot */
+                $pivot = $item->getRelationValue('pivot');
+
+                $renewal->rentableItems()->attach($item->id, [
+                    'effective_from' => $commencement,
+                    'effective_to' => null,
+                    'monthly_rate' => $pivot->getAttribute('monthly_rate'),
+                ]);
             }
 
             // Carry ONE row per charge type: the one in force at renewal.

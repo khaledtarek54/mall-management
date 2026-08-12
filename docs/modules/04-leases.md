@@ -63,6 +63,36 @@
 > `BillingSettings` — **not** `config('billing.*')`, which the service used to read while the admin
 > Settings screen wrote the settings record, making every saved late-fee value inert.
 
+> **A RENEWAL CARRIES EVERY NEGOTIATED TERM — and it is derived, not enumerated (2026-08-12).**
+> `LeaseRenewalService` built its payload from a literal array written when `leases` had ~24
+> columns. The table now has 43, and **14 were silently dropped on every renewal.** None errored.
+>
+> The worst was invisible rather than wrong: `escalation_type` carried and `escalation_amount` did
+> not, so `Lease::creating` computed `configured = false`, `next_escalation_date` stayed null, and
+> `RentEscalationService`'s `whereNotNull` excluded the lease **for its entire term** — a
+> compounding revenue leak that looks exactly like a lease with no escalation clause. Also lost: the
+> escalation collar, `rent_pricing_basis` (so a rate-priced lease renewed flat and a later expansion
+> changed no rent at all), the per-lease late-fee terms, the %-rent deduction clause, the holdover
+> uplift.
+>
+> **And three child collections were never copied at all** — the service contained no mention of
+> them. The CAM cap (`camTermFor()` queries the NEW lease id, finds nothing, and the tenant gets an
+> **uncapped year-end true-up on a capped lease** — with the renewal's CAM panel simply empty, so
+> nobody can see the cap was lost). The percentage-rent ladder (`has_percentage_rent` and the
+> `tiered` type DO carry, so the lease reads as configured while the overage is **0.00 every
+> month**). And the `lease_rentable_item` pivot — parking, storage and signage, unbilled.
+>
+> The payload is now **`$fillable` minus `Lease::RENEWAL_RESETS`**, so a new lease column is carried
+> by default and dropping one is a decision written down with its reason. That is the fix: the
+> enumeration was the bug, not any particular missing line. `LeaseRenewalCarriesTermsTest` proves
+> each dropped term and fails on a stale reset entry; reverting to the old array reproduces all five
+> header losses and all three child losses.
+>
+> One distinction the reset list exists to make: **`holdover_rate_pct` carries** (a negotiated
+> uplift) while **`holdover_from` does not** (a state the ORIGINAL entered by running past expiry).
+> Likewise the rentable-item pivot carries its rate but not its `effective_to` — a renewal
+> inheriting a window that has already closed would silently stop billing the bay.
+
 > **⚠️ Every commercial change is an EVENT now (2026-08-09, phase 2).** Phase 1 gave the rent a
 > schedule, so the system could answer *what* it was and *when* it changed. It still could not
 > answer **why** — a negotiated reduction, an expansion and a typo were all just rows with dates,
