@@ -8,6 +8,7 @@ use App\Http\Middleware\SetApiLocale;
 use App\Http\Middleware\SetLocale;
 use App\Http\Middleware\SnakeCaseRequestKeys;
 use App\Support\KeyCase;
+use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -52,6 +53,16 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             SetLocale::class,
         ]);
+
+        // Where `auth` sends a guest.
+        //
+        // This app has no route named `login` — both panels register their own
+        // (`filament.admin.auth.login`, `filament.portal.auth.login`), and Laravel's default
+        // unauthenticated handler calls `route('login')` unconditionally. So the FIRST plain
+        // `auth` route added outside a panel answered a guest with a 500 (RouteNotFoundException)
+        // instead of a redirect — an authorisation failure presenting as a server fault, which is
+        // the kind that gets triaged as an outage. `/handbook` was that route.
+        $middleware->redirectGuestsTo(fn () => Filament::getPanel('admin')->getLoginUrl());
 
         // The mobile API is stateless (no session), so it resolves locale from
         // the Accept-Language header rather than the session. The case middleware

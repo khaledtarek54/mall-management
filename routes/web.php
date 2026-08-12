@@ -1,9 +1,12 @@
 <?php
 
+use App\Http\Controllers\HandbookController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\PaymentLinkController;
 use App\Http\Controllers\Paymob\CallbackController;
 use App\Http\Middleware\SetLocale;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Route;
 
@@ -27,9 +30,36 @@ Route::get('/health', HealthController::class)
     ->middleware('throttle:60,1')
     ->name('health');
 
+/*
+ * Switching language is a preference, not a session fact.
+ *
+ * It used to be written to the session and nowhere else, which answered for the screen in front of
+ * you and for nothing that arrives while you are not looking at it. A scheduled command has no
+ * session, so every alert the nightly sweeps raised — overdue invoices, SLA breaches, expiring
+ * documents — rendered in `config('app.locale')` for everybody; and a notification raised inside a
+ * request rendered in the SENDER's language, so an operator working in Arabic sent Arabic invoice
+ * emails to English-speaking tenants.
+ *
+ * So it is persisted on the signed-in record as well. Laravel reads it back through
+ * `HasLocalePreference` when it dispatches a notification, which is what makes mail and push arrive
+ * in the recipient's language. The session write stays: it is what makes THIS request's redirect
+ * render in the new language, and it is all an anonymous visitor has.
+ */
 Route::get('/locale/{locale}', function (string $locale) {
-    if (in_array($locale, SetLocale::SUPPORTED, true)) {
-        session(['locale' => $locale]);
+    if (! in_array($locale, SetLocale::SUPPORTED, true)) {
+        return back();
+    }
+
+    session(['locale' => $locale]);
+
+    // Both panels, whichever the switcher was clicked in. `Auth::user()` alone would miss the
+    // portal, whose guard is not the default one — and the portal is where this matters most.
+    foreach (['web', 'portal'] as $guard) {
+        $user = Auth::guard($guard)->user();
+
+        if ($user instanceof Model && $user->getAttribute('locale') !== $locale) {
+            $user->forceFill(['locale' => $locale])->saveQuietly();
+        }
     }
 
     return back();
@@ -61,6 +91,24 @@ Route::middleware('throttle:30,1')->group(function () {
     Route::post('/pay/{token}/start', [PaymentLinkController::class, 'start'])->name('pay.start');
     Route::get('/pay/{token}/status', [PaymentLinkController::class, 'status'])->name('pay.status');
 });
+
+/*
+|--------------------------------------------------------------------------
+| The visual handbook
+|--------------------------------------------------------------------------
+| Built by `npm run docs:build` into storage/app/handbook — OUTSIDE the webroot,
+| so nginx cannot serve it directly and `auth` genuinely applies. It documents
+| posting rules, GL mappings, approval ladders and internal controls, which is
+| not material for a guessable public URL.
+|
+| `where('.*')` because the segment is a real path: /handbook/ar/money/the-books.
+| The traversal guard lives in the controller and is a resolved-prefix check,
+| not a string check.
+*/
+Route::get('/handbook/{path?}', HandbookController::class)
+    ->where('path', '.*')
+    ->middleware(['auth'])
+    ->name('handbook');
 
 /*
 | Apple Pay domain verification. Apple requires this exact path to serve the

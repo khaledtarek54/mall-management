@@ -51,6 +51,8 @@ Integration creds (see ETA-PAYMOB-CERTIFICATION.md): `PAYMOB_*` (live, after KYC
 git pull
 composer install --no-dev --optimize-autoloader
 npm ci && npm run build             # REQUIRED — see below
+php artisan atriom:dump-handbook-data   # regenerate the handbook's datasets from the registries
+npm run docs:build                  # the visual handbook, served at /handbook
 php artisan filament:assets
 php artisan migrate --force
 php artisan config:cache && php artisan route:cache && php artisan view:cache
@@ -66,6 +68,14 @@ php artisan queue:restart           # workers pick up new code
 > immediately, but only after the release is live, so it belongs in the sequence rather than in
 > someone's memory. `filament:assets` republishes the package's JS/icons after a Filament
 > upgrade.
+
+
+> **`npm run docs:build` is what makes `/handbook` exist.** It builds into
+> `storage/app/handbook` — deliberately OUTSIDE the webroot, so nginx cannot serve it directly and
+> the `auth` middleware on the route genuinely applies (the handbook documents posting rules, GL
+> mappings and approval ladders). Skip this step and `/handbook` answers **503 with a message
+> naming the missing step**, rather than a 404 that reads like a broken link. `vitepress` is a
+> devDependency, so run it before any `npm prune --production`.
 
 **First deploy only:**
 
