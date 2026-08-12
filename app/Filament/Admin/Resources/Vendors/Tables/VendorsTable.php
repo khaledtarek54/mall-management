@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\Vendors\Tables;
 use App\Filament\Admin\Resources\Vendors\VendorResource;
 use App\Models\Vendor;
 use App\Models\VendorDocument;
+use App\Support\TenantScope;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteBulkAction;
@@ -29,11 +30,15 @@ class VendorsTable
                 TextColumn::make('name')
                     ->label(__('admin.tables.vendor.name'))
                     ->searchable()
+                    // The dashboard's COI card links here with `sort=name:asc`; a
+                    // non-sortable column makes Filament drop that sort silently.
+                    ->sortable()
                     ->weight('bold'),
                 TextColumn::make('type')
                     ->label(__('admin.tables.vendor.type'))
                     ->badge()
                     ->formatStateUsing(fn (string $state) => __("admin.enums.vendor_type.{$state}"))
+                    ->sortable()
                     ->color('gray'),
                 TextColumn::make('phone')
                     ->label(__('admin.tables.vendor.phone'))
@@ -46,10 +51,12 @@ class VendorsTable
                 TextColumn::make('active_contracts_count')
                     ->label(__('admin.tables.vendor.contracts'))
                     ->badge()
+                    ->sortable()
                     ->color('info'),
                 TextColumn::make('status')
                     ->label(__('admin.tables.common.status'))
                     ->badge()
+                    ->sortable()
                     ->formatStateUsing(fn (string $state) => __("admin.statuses.vendor.{$state}"))
                     ->color(fn (string $state) => match ($state) {
                         'active' => 'success',
@@ -98,6 +105,21 @@ class VendorsTable
                         /** @var Builder<Vendor> $query */
                         return $query->documentsNeedAttention();
                     })
+                    ->toggle(),
+                // Vendors with a contract at or past its NOTICE deadline — the date a
+                // renew-or-exit decision is actually due. The dashboard card counted these and
+                // then linked to the bare vendor list, leaving the operator to find them by
+                // opening records one at a time. Reuses VendorContract::scopeNoticeDue() so the
+                // card's count and this list are the same question asked once.
+                Filter::make('contract_notice_due')
+                    ->label(__('admin.filters.contract_notice_due'))
+                    ->query(fn (Builder $query): Builder => $query->whereHas(
+                        'contracts',
+                        fn ($q) => $q->noticeDue()->when(
+                            TenantScope::visibleAssetIds(),
+                            fn ($c, $ids) => $c->whereIn('asset_id', $ids),
+                        ),
+                    ))
                     ->toggle(),
                 TrashedFilter::make(),
             ])

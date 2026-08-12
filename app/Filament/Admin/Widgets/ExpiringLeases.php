@@ -3,8 +3,10 @@
 namespace App\Filament\Admin\Widgets;
 
 use App\Filament\Admin\Concerns\RoleScopedWidget;
+use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Models\Lease;
 use App\Support\TenantScope;
+use Filament\Facades\Filament;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
@@ -65,6 +67,19 @@ class ExpiringLeases extends TableWidget
                     ->money('EGP')
                     ->alignRight(),
             ])
+            // Click the row to open the lease. Null for a user who cannot edit it, so the
+            // row is simply not a link rather than a link to a 403.
+            // Tenant passed explicitly. `getUrl()` otherwise reads the AMBIENT Filament tenant
+            // and throws UrlGenerationException when there isn't one — which is not merely a
+            // test artefact: any render outside a property context (a widget probed directly, a
+            // future digest job) would 500 the whole dashboard rather than omit one link.
+            ->recordUrl(function ($record) {
+                $tenant = Filament::getTenant();
+
+                return ($tenant && LeaseResource::canEdit($record))
+                    ? LeaseResource::getUrl('edit', ['record' => $record], tenant: $tenant)
+                    : null;
+            })
             ->emptyStateHeading(__('admin.widgets.expiring_leases.empty'))
             ->emptyStateIcon('heroicon-o-calendar-days')
             ->paginated(false);

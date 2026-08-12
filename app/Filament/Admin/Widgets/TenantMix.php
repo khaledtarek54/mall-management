@@ -24,6 +24,14 @@ class TenantMix extends ChartWidget
 
     protected static ?int $sort = 4;
 
+    // Half-width on desktop so the two charts a role reads together sit side by side; the
+    // dashboard declares 2 columns (Dashboard::getColumns()) and every widget used to be
+    // 'full', which made the grid decorative and gave a manager a ~2,900px scroll.
+    // Stacks below `md` — a chart squeezed into half a phone screen is unreadable.
+    protected int|string|array $columnSpan = ['default' => 'full', 'md' => 1];
+
+    protected ?string $maxHeight = '320px';
+
     /**
      * Stable palette mapped to known categories; falls back per-index for unknowns.
      */

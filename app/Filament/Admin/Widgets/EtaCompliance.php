@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Widgets;
 use App\Filament\Admin\Concerns\RoleScopedWidget;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Models\Invoice;
+use App\Support\ResourceLink;
 use App\Support\TenantScope;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -52,25 +53,25 @@ class EtaCompliance extends StatsOverviewWidget
                 ->description(__('admin.widgets.eta.valid_desc', ['pct' => $validPct]))
                 ->descriptionIcon('heroicon-m-shield-check')
                 ->color('success')
-                ->url(InvoiceResource::getUrl('index', ['tableFilters' => ['eta_status' => ['value' => 'valid']]])),
+                ->url(ResourceLink::indexSelect(InvoiceResource::class, 'eta_status', 'valid')),
 
             Stat::make(__('admin.widgets.eta.submitted'), number_format($submitted))
                 ->description(__('admin.widgets.eta.submitted_desc'))
                 ->descriptionIcon('heroicon-m-paper-airplane')
                 ->color('info')
-                ->url(InvoiceResource::getUrl('index', ['tableFilters' => ['eta_status' => ['value' => 'submitted']]])),
+                ->url(ResourceLink::indexSelect(InvoiceResource::class, 'eta_status', 'submitted')),
 
             Stat::make(__('admin.widgets.eta.rejected'), number_format($rejected))
                 ->description(__('admin.widgets.eta.rejected_desc'))
                 ->descriptionIcon('heroicon-m-exclamation-triangle')
                 ->color($rejected > 0 ? 'danger' : 'gray')
-                ->url(InvoiceResource::getUrl('index', ['tableFilters' => ['needs_eta_attention' => ['isActive' => true]]])),
+                ->url(ResourceLink::indexWhere(InvoiceResource::class, 'needs_eta_attention')),
 
             Stat::make(__('admin.widgets.eta.pending'), number_format($pending))
                 ->description(__('admin.widgets.eta.pending_desc'))
                 ->descriptionIcon('heroicon-m-clock')
                 ->color($pending > 0 ? 'warning' : 'gray')
-                ->url(InvoiceResource::getUrl('index', ['tableFilters' => ['eta_pending' => ['isActive' => true]]])),
+                ->url(ResourceLink::indexWhere(InvoiceResource::class, 'eta_pending')),
         ];
     }
 }

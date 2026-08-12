@@ -118,7 +118,14 @@ class MaintenanceWorkOrdersTable
                     ->description(fn (MaintenanceWorkOrder $record) => $record->isResponseBreached()
                         ? __('admin.preventive_maintenance.sla.unanswered').' · '.$record->hoursOverResponseSla().'h'
                         : null)
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    // Sortable AND shown by default, because the dashboard's "nobody has
+                    // responded" card links here with `sort=target_response_at:asc`. A
+                    // non-sortable column makes Filament drop the sort silently
+                    // (`getSortableVisibleColumn()` returns null), and hiding it by default
+                    // landed the operator on a triage list with the deadline column absent —
+                    // re-creating the exact blindness the comment above describes.
+                    ->sortable()
+                    ->toggleable(),
                 TextColumn::make('target_resolution_at')
                     ->label(__('admin.preventive_maintenance.sla.target'))
                     ->dateTime('d/m/Y H:i')
@@ -129,6 +136,8 @@ class MaintenanceWorkOrdersTable
                     ->description(fn (MaintenanceWorkOrder $record) => $record->isOverdue()
                         ? __('admin.preventive_maintenance.sla.overdue').' · '.$record->hoursOverSla().'h'
                         : null)
+                    // Same reason: the breached-SLA card sorts on this column.
+                    ->sortable()
                     ->toggleable(),
                 TextColumn::make('penalty.amount')
                     ->label(__('admin.preventive_maintenance.penalty.label'))

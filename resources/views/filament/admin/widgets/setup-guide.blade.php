@@ -1,3 +1,8 @@
+{{--
+    First-run checklist. Same styling rationale as action-required.blade.php: Filament palette
+    classes with `dark:` variants instead of literal hex (the old `#d1fae5` / `#0F766E` gradient
+    was invisible-to-garish in dark mode), and no literal arrow glyph so RTL mirrors correctly.
+--}}
 <x-filament-widgets::widget>
     <x-filament::section>
         @if ($allDone)
@@ -5,11 +10,11 @@
             <x-slot name="description">{{ __('admin.setup.description_done') }}</x-slot>
 
             {{-- Compact tick row when setup is complete (also covers the seeded demo). --}}
-            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:0.5rem;">
+            <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
                 @foreach ($steps as $step)
-                    <div style="display:flex; align-items:center; gap:0.5rem; padding:0.55rem 0.75rem; border-radius:0.5rem; background:#d1fae5; border:1px solid #a7f3d0; color:#065f46; font-size:0.85rem;">
-                        <x-filament::icon icon="heroicon-o-check-circle" style="width:1.1rem; height:1.1rem; color:#059669; flex-shrink:0;" />
-                        <span style="font-weight:500;">{{ $step['label'] }}</span>
+                    <div class="flex items-center gap-2 rounded-lg border border-success-200 bg-success-50 px-3 py-2 text-xs font-medium text-success-700 dark:border-success-400/30 dark:bg-success-400/10 dark:text-success-300">
+                        <x-filament::icon icon="heroicon-o-check-circle" class="h-4 w-4 shrink-0 text-success-600 dark:text-success-400" />
+                        <span class="truncate">{{ $step['label'] }}</span>
                     </div>
                 @endforeach
             </div>
@@ -20,46 +25,65 @@
             </x-slot>
 
             {{-- Progress bar --}}
-            <div style="margin-bottom:1rem;">
-                <div style="height:0.5rem; width:100%; background:#e5e7eb; border-radius:9999px; overflow:hidden;">
-                    <div style="height:100%; width:{{ $progressPct }}%; background:#0F766E; transition:width 0.4s ease;"></div>
+            <div class="mb-4">
+                <div class="h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-white/10">
+                    <div
+                        class="h-full rounded-full bg-primary-600 transition-[width] duration-500 dark:bg-primary-500"
+                        style="width: {{ $progressPct }}%"
+                        role="progressbar"
+                        aria-valuenow="{{ $doneCount }}"
+                        aria-valuemin="0"
+                        aria-valuemax="{{ $totalCount }}"
+                    ></div>
                 </div>
-                <div style="margin-top:0.4rem; font-size:0.75rem; color:#6b7280;">
+                <div class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
                     {{ $progressPct }}% — {{ $doneCount }} {{ __('admin.setup.of') }} {{ $totalCount }}
                 </div>
             </div>
 
             {{-- Next-step prominent CTA --}}
             @if ($nextStep)
-                <a href="{{ $nextStep['url'] }}"
-                   style="display:flex; gap:1rem; align-items:center; padding:1.1rem; border-radius:0.625rem; background:linear-gradient(135deg, #0F766E 0%, #115E59 100%); color:white; text-decoration:none; margin-bottom:1rem; box-shadow:0 1px 2px rgba(0,0,0,0.08);">
-                    <div style="flex-shrink:0; background:rgba(255,255,255,0.15); border-radius:0.5rem; padding:0.55rem;">
-                        <x-filament::icon :icon="$nextStep['icon']" style="width:1.4rem; height:1.4rem;" />
+                <a
+                    href="{{ $nextStep['url'] }}"
+                    class="group mb-4 flex items-center gap-4 rounded-xl bg-primary-600 p-4 text-white no-underline shadow-sm transition hover:bg-primary-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 dark:bg-primary-500 dark:hover:bg-primary-400"
+                >
+                    <div class="shrink-0 rounded-lg bg-white/15 p-2">
+                        <x-filament::icon :icon="$nextStep['icon']" class="h-6 w-6" />
                     </div>
-                    <div style="flex:1; min-width:0;">
-                        <div style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.05em; opacity:0.85;">
+
+                    <div class="min-w-0 flex-1">
+                        <div class="text-[0.7rem] uppercase tracking-wide opacity-85">
                             {{ __('admin.setup.next_step') }}
                         </div>
-                        <div style="font-size:1.05rem; font-weight:600; margin-top:0.15rem;">{{ $nextStep['cta'] }}</div>
-                        <div style="font-size:0.8rem; opacity:0.85; margin-top:0.2rem;">{{ $nextStep['description'] }}</div>
+                        <div class="mt-0.5 text-base font-semibold">{{ $nextStep['cta'] }}</div>
+                        <div class="mt-0.5 text-xs opacity-85">{{ $nextStep['description'] }}</div>
                     </div>
-                    <div style="flex-shrink:0; font-size:1.5rem;">→</div>
+
+                    {{-- Mirrored under RTL. --}}
+                    <x-filament::icon
+                        icon="heroicon-m-arrow-right"
+                        class="h-5 w-5 shrink-0 transition group-hover:translate-x-0.5 rtl:rotate-180 rtl:group-hover:-translate-x-0.5"
+                    />
                 </a>
             @endif
 
             {{-- All-step checklist --}}
-            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:0.5rem;">
+            <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
                 @foreach ($steps as $step)
-                    @php
-                        $bg = $step['done'] ? '#d1fae5' : '#f9fafb';
-                        $border = $step['done'] ? '#a7f3d0' : '#e5e7eb';
-                        $text = $step['done'] ? '#065f46' : '#6b7280';
-                        $iconColor = $step['done'] ? '#059669' : '#9ca3af';
-                        $iconName = $step['done'] ? 'heroicon-o-check-circle' : 'heroicon-o-minus-circle';
-                    @endphp
-                    <div style="display:flex; align-items:center; gap:0.5rem; padding:0.55rem 0.75rem; border-radius:0.5rem; background:{{ $bg }}; border:1px solid {{ $border }}; color:{{ $text }}; font-size:0.85rem;">
-                        <x-filament::icon :icon="$iconName" style="width:1.1rem; height:1.1rem; color:{{ $iconColor }}; flex-shrink:0;" />
-                        <span style="font-weight:500;">{{ $step['label'] }}</span>
+                    <div @class([
+                        'flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium',
+                        'border-success-200 bg-success-50 text-success-700 dark:border-success-400/30 dark:bg-success-400/10 dark:text-success-300' => $step['done'],
+                        'border-gray-200 bg-gray-50 text-gray-500 dark:border-white/10 dark:bg-white/5 dark:text-gray-400' => ! $step['done'],
+                    ])>
+                        <x-filament::icon
+                            :icon="$step['done'] ? 'heroicon-o-check-circle' : 'heroicon-o-minus-circle'"
+                            @class([
+                                'h-4 w-4 shrink-0',
+                                'text-success-600 dark:text-success-400' => $step['done'],
+                                'text-gray-400 dark:text-gray-500' => ! $step['done'],
+                            ])
+                        />
+                        <span class="truncate">{{ $step['label'] }}</span>
                     </div>
                 @endforeach
             </div>

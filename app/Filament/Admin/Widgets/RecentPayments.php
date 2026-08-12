@@ -3,8 +3,10 @@
 namespace App\Filament\Admin\Widgets;
 
 use App\Filament\Admin\Concerns\RoleScopedWidget;
+use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Models\Payment;
 use App\Support\TenantScope;
+use Filament\Facades\Filament;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
@@ -59,6 +61,17 @@ class RecentPayments extends TableWidget
                     ->weight('bold')
                     ->color('success'),
             ])
+            // Tenant passed explicitly. `getUrl()` otherwise reads the AMBIENT Filament tenant
+            // and throws UrlGenerationException when there isn't one — which is not merely a
+            // test artefact: any render outside a property context (a widget probed directly, a
+            // future digest job) would 500 the whole dashboard rather than omit one link.
+            ->recordUrl(function ($record) {
+                $tenant = Filament::getTenant();
+
+                return ($tenant && PaymentResource::canEdit($record))
+                    ? PaymentResource::getUrl('edit', ['record' => $record], tenant: $tenant)
+                    : null;
+            })
             ->emptyStateHeading(__('admin.widgets.recent_payments.empty'))
             ->emptyStateIcon('heroicon-o-banknotes')
             ->paginated(false);

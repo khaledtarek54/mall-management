@@ -5,21 +5,25 @@ namespace App\Filament\Admin\Resources\Leases\Tables;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Filament\Exports\LeaseExporter;
 use App\Models\Lease;
+use App\Models\RentableItem;
 use App\Models\Tenant;
 use App\Models\Unit;
+use App\Services\AssignRentableItemService;
 use App\Services\ConvertLeaseToHoldoverService;
 use App\Services\ExerciseLeaseOptionService;
 use App\Services\LeaseCreationService;
 use App\Services\LeaseReliefService;
 use App\Services\LeaseRenewalService;
-use App\Services\AssignRentableItemService;
 use App\Services\LeaseRentChangeService;
 use App\Services\LeaseSpaceChangeService;
-use App\Services\MoveOutStatementService;
 use App\Services\LeaseTerminationService;
+use App\Services\MoveOutStatementService;
 use App\Services\SettleMoveOutService;
+use App\Settings\BillingSettings;
+use App\Support\LeaseTerm;
 use App\Support\TenantScope;
 use Carbon\Carbon;
+use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
@@ -48,6 +52,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 
 class LeasesTable
 {
@@ -64,16 +69,16 @@ class LeasesTable
             return [];
         }
 
-        return \App\Models\RentableItem::query()
+        return RentableItem::query()
             ->where('asset_id', $assetId)
-            ->where('status', '!=', \App\Models\RentableItem::STATUS_OUT_OF_SERVICE)
+            ->where('status', '!=', RentableItem::STATUS_OUT_OF_SERVICE)
             ->orderBy('code')
             ->get()
             // Filtered in PHP rather than SQL: "held on a date" is a date-ranged predicate over the
             // pivot that the model already owns, and duplicating it as a subquery is how the two
             // drift apart.
-            ->reject(fn (\App\Models\RentableItem $i) => $i->isHeldOn(null, ignoreLeaseId: $record->id))
-            ->mapWithKeys(fn (\App\Models\RentableItem $i) => [
+            ->reject(fn (RentableItem $i) => $i->isHeldOn(null, ignoreLeaseId: $record->id))
+            ->mapWithKeys(fn (RentableItem $i) => [
                 $i->id => $i->label().' · EGP '.number_format((float) $i->monthly_rate, 2),
             ])
             ->all();
@@ -84,7 +89,7 @@ class LeasesTable
     {
         // The negotiated rate comes from the pivot table directly: the relation carries no declared
         // pivot type to read through, and this is one query either way.
-        $rates = \Illuminate\Support\Facades\DB::table('lease_rentable_item')
+        $rates = DB::table('lease_rentable_item')
             ->where('lease_id', $record->id)
             ->whereNull('effective_to')
             ->pluck('monthly_rate', 'rentable_item_id');
@@ -92,7 +97,7 @@ class LeasesTable
         return $record->rentableItems()
             ->wherePivotNull('effective_to')
             ->get()
-            ->mapWithKeys(fn (\App\Models\RentableItem $i) => [
+            ->mapWithKeys(fn (RentableItem $i) => [
                 $i->id => $i->label().' · EGP '.number_format((float) ($rates[$i->id] ?? 0), 2),
             ])
             ->all();
@@ -274,6 +279,16 @@ class LeasesTable
                 Filter::make('holdover')
                     ->label(__('admin.filters.holdover'))
                     ->query(fn (Builder $query) => $query->holdover()),
+                // Percentage-rent tenants who have not reported LAST month's sales, so their
+                // overage cannot be billed. The dashboard card counted them and then dropped the
+                // operator on the unfiltered declarations list, which is the one place the missing
+                // ones by definition are not. Shares Lease::scopeOwingSalesDeclaration() with that
+                // card so the count and the list cannot describe different leases.
+                Filter::make('missing_sales')
+                    ->label(__('admin.filters.missing_sales'))
+                    ->query(fn (Builder $query) => $query->owingSalesDeclaration(
+                        CarbonImmutable::now()->subMonthNoOverflow()->startOfMonth(),
+                    )),
                 TrashedFilter::make(),
             ])
             ->filtersFormColumns(2)
@@ -531,11 +546,11 @@ class LeasesTable
                         // service derives it from exactly these two, so there is nothing to type.
                         Placeholder::make('new_expiry_preview')
                             ->label(__('admin.fields.expiry_date'))
-                            ->content(fn (Get $get) => ($expiry = \App\Support\LeaseTerm::expiryFrom(
+                            ->content(fn (Get $get) => ($expiry = LeaseTerm::expiryFrom(
                                 $get('commencement_date'),
                                 $get('new_term_months'),
                             )) !== null
-                                ? \Carbon\CarbonImmutable::parse($expiry)->format('d/m/Y')
+                                ? CarbonImmutable::parse($expiry)->format('d/m/Y')
                                 : '—'),
                     ])
                     ->action(function (Lease $record, array $data) {
@@ -676,7 +691,7 @@ class LeasesTable
                     ->action(function (Lease $record, array $data) {
                         abort_unless(auth()->user()?->can('rentable_items.edit') ?? false, 403);
 
-                        $item = \App\Models\RentableItem::findOrFail($data['rentable_item_id']);
+                        $item = RentableItem::findOrFail($data['rentable_item_id']);
 
                         try {
                             app(AssignRentableItemService::class)->assign($record, $item, $data);
@@ -713,7 +728,7 @@ class LeasesTable
                     ->action(function (Lease $record, array $data) {
                         abort_unless(auth()->user()?->can('rentable_items.edit') ?? false, 403);
 
-                        $item = \App\Models\RentableItem::findOrFail($data['rentable_item_id']);
+                        $item = RentableItem::findOrFail($data['rentable_item_id']);
 
                         try {
                             app(AssignRentableItemService::class)->release($record, $item, $data['effective_to']);
@@ -948,7 +963,7 @@ class LeasesTable
                             // scoped through TenantScope, never a bare Unit::all().
                             ->options(function (Get $get, Lease $record) {
                                 if ($get('direction') === 'contract') {
-                                    return $record->unitsOn(\Carbon\CarbonImmutable::now())
+                                    return $record->unitsOn(CarbonImmutable::now())
                                         ->reject(fn (Unit $u) => (int) $u->id === (int) $record->unit_id)
                                         ->pluck('code', 'id')
                                         ->all();
@@ -1001,8 +1016,8 @@ class LeasesTable
                             ->title(__('admin.actions.premises_changed'))
                             ->body(__('admin.actions.premises_changed_body', [
                                 'ref' => $updated->reference,
-                                'area' => number_format($updated->totalAreaSqmOn(\Carbon\CarbonImmutable::parse($data['effective_from'])), 0),
-                                'from' => \Carbon\CarbonImmutable::parse($data['effective_from'])->startOfMonth()->format('d/m/Y'),
+                                'area' => number_format($updated->totalAreaSqmOn(CarbonImmutable::parse($data['effective_from'])), 0),
+                                'from' => CarbonImmutable::parse($data['effective_from'])->startOfMonth()->format('d/m/Y'),
                             ]))
                             ->success()
                             ->send();
@@ -1020,7 +1035,7 @@ class LeasesTable
                     ->modalHeading(fn (Lease $record) => __('admin.actions.convert_to_holdover_modal_heading', ['ref' => $record->reference]))
                     ->modalDescription(__('admin.actions.convert_to_holdover_modal_description'))
                     ->fillForm(fn (Lease $record) => [
-                        'rate_pct' => (float) app(\App\Settings\BillingSettings::class)->holdover_default_rate_pct,
+                        'rate_pct' => (float) app(BillingSettings::class)->holdover_default_rate_pct,
                         // visible() already proved the lease expired, so expiry_date is present here.
                         'effective_from' => $record->expiry_date->copy()->addDay()->startOfMonth(),
                     ])

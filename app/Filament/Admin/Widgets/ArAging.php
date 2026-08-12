@@ -4,9 +4,9 @@ namespace App\Filament\Admin\Widgets;
 
 use App\Filament\Admin\Concerns\RoleScopedWidget;
 use App\Services\Reports\ReportService;
+use App\Support\AgingBuckets;
 use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
-use App\Support\AgingBuckets;
 
 class ArAging extends ChartWidget
 {
@@ -28,7 +28,13 @@ class ArAging extends ChartWidget
     // one role's layout together (money roles get the ageing, leasing/marketing get the mix), so
     // half-width just left an empty column beside it. A five-bucket bar chart also reads better
     // wide than tall.
-    protected int|string|array $columnSpan = 'full';
+    // Half-width on desktop so the two charts a role reads together sit side by side; the
+    // dashboard declares 2 columns (Dashboard::getColumns()) and every widget used to be
+    // 'full', which made the grid decorative and gave a manager a ~2,900px scroll.
+    // Stacks below `md` — a chart squeezed into half a phone screen is unreadable.
+    protected int|string|array $columnSpan = ['default' => 'full', 'md' => 1];
+
+    protected ?string $maxHeight = '320px';
 
     protected function getData(): array
     {

@@ -4,14 +4,15 @@ namespace App\Filament\Admin\Widgets;
 
 use App\Filament\Admin\Concerns\RoleScopedWidget;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
+use App\Filament\Admin\Resources\JournalEntries\JournalEntryResource;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Filament\Admin\Resources\MaintenanceWorkOrders\MaintenanceWorkOrderResource;
 use App\Filament\Admin\Resources\PostDatedCheques\PostDatedChequeResource;
 use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
-use App\Filament\Admin\Resources\TenantSalesDeclarations\TenantSalesDeclarationResource;
 use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Filament\Admin\Resources\Vendors\VendorResource;
 use App\Models\Invoice;
+use App\Models\JournalEntry;
 use App\Models\Lease;
 use App\Models\MaintenanceWorkOrder;
 use App\Models\PostDatedCheque;
@@ -20,6 +21,7 @@ use App\Models\Unit;
 use App\Models\Vendor;
 use App\Models\VendorContract;
 use App\Support\Modules;
+use App\Support\ResourceLink;
 use App\Support\TenantScope;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
@@ -57,7 +59,9 @@ class ActionRequired extends Widget
         'expiring_critical' => 'leases.view',
         'expiring_soon' => 'leases.view',
         'vacant' => 'units.view',
-        'missing_sales' => 'tenant_sales.view',
+        // Repointed to the Leases list (the declarations register cannot show a MISSING
+        // declaration), so it gates on the permission that list needs.
+        'missing_sales' => 'leases.view',
     ];
 
     protected string $view = 'filament.admin.widgets.action-required';
@@ -178,7 +182,7 @@ class ActionRequired extends Widget
         // form offers it as "consolidated" — but every owner statement is generated per asset, so
         // such an entry reaches NO statement while the portfolio-wide trial balance still balances.
         // Nothing counted them on any screen.
-        $ledgerWithoutPropertyCount = \App\Models\JournalEntry::query()->withoutProperty()->count();
+        $ledgerWithoutPropertyCount = JournalEntry::query()->withoutProperty()->count();
 
         $monthStart = (clone $now)->startOfMonth();
         $monthEnd = (clone $now)->endOfMonth();
@@ -225,10 +229,7 @@ class ActionRequired extends Widget
                 'color' => 'danger',
                 'title' => trans_choice('admin.widgets.action_required.urgent_maintenance', $urgentMaintenanceCount, ['count' => $urgentMaintenanceCount]),
                 'body' => __('admin.widgets.action_required.urgent_maintenance_body'),
-                'url' => TenantRequestResource::getUrl('index', [
-                    'filters' => ['priority' => ['value' => 'urgent']],
-                    'sort' => 'submitted_at:asc',
-                ]),
+                'url' => ResourceLink::indexSelect(TenantRequestResource::class, 'priority', 'urgent', 'submitted_at:asc'),
             ];
         }
 
@@ -239,10 +240,7 @@ class ActionRequired extends Widget
                 'color' => 'danger',
                 'title' => trans_choice('admin.widgets.action_required.sla_breached', $slaBreachedCount, ['count' => $slaBreachedCount]),
                 'body' => __('admin.widgets.action_required.sla_breached_body'),
-                'url' => TenantRequestResource::getUrl('index', [
-                    'filters' => ['sla_breached' => ['isActive' => true]],
-                    'sort' => 'target_resolution_at:asc',
-                ]),
+                'url' => ResourceLink::indexWhere(TenantRequestResource::class, 'sla_breached', 'target_resolution_at:asc'),
             ];
         }
 
@@ -253,10 +251,7 @@ class ActionRequired extends Widget
                 'color' => 'danger',
                 'title' => trans_choice('admin.widgets.action_required.wo_sla_breached', $woSlaBreachedCount, ['count' => $woSlaBreachedCount]),
                 'body' => __('admin.widgets.action_required.wo_sla_breached_body'),
-                'url' => MaintenanceWorkOrderResource::getUrl('index', [
-                    'filters' => ['sla_breached' => ['isActive' => true]],
-                    'sort' => 'target_resolution_at:asc',
-                ]),
+                'url' => ResourceLink::indexWhere(MaintenanceWorkOrderResource::class, 'sla_breached', 'target_resolution_at:asc'),
             ];
         }
 
@@ -267,10 +262,7 @@ class ActionRequired extends Widget
                 'color' => 'danger',
                 'title' => trans_choice('admin.widgets.action_required.wo_response_breached', $woUnansweredCount, ['count' => $woUnansweredCount]),
                 'body' => __('admin.widgets.action_required.wo_response_breached_body'),
-                'url' => MaintenanceWorkOrderResource::getUrl('index', [
-                    'filters' => ['response_breached' => ['isActive' => true]],
-                    'sort' => 'target_response_at:asc',
-                ]),
+                'url' => ResourceLink::indexWhere(MaintenanceWorkOrderResource::class, 'response_breached', 'target_response_at:asc'),
             ];
         }
 
@@ -281,9 +273,7 @@ class ActionRequired extends Widget
                 'color' => 'warning',
                 'title' => trans_choice('admin.widgets.action_required.ledger_without_property', $ledgerWithoutPropertyCount, ['count' => $ledgerWithoutPropertyCount]),
                 'body' => __('admin.widgets.action_required.ledger_without_property_body'),
-                'url' => \App\Filament\Admin\Resources\JournalEntries\JournalEntryResource::getUrl('index', [
-                    'filters' => ['without_property' => ['isActive' => true]],
-                ]),
+                'url' => ResourceLink::indexWhere(JournalEntryResource::class, 'without_property'),
             ];
         }
 
@@ -294,10 +284,7 @@ class ActionRequired extends Widget
                 'color' => 'warning',
                 'title' => trans_choice('admin.widgets.action_required.vendor_documents', $coiCount, ['count' => $coiCount]),
                 'body' => __('admin.widgets.action_required.vendor_documents_body'),
-                'url' => VendorResource::getUrl('index', [
-                    'filters' => ['document_attention' => ['isActive' => true]],
-                    'sort' => 'name:asc',
-                ]),
+                'url' => ResourceLink::indexWhere(VendorResource::class, 'document_attention', 'name:asc'),
             ];
         }
 
@@ -310,7 +297,7 @@ class ActionRequired extends Widget
                 'body' => __('admin.widgets.action_required.option_closing_body'),
                 // Options live inside the Lease resource, so land on the leases whose window is
                 // closing — the `option_closing` filter added for exactly this.
-                'url' => LeaseResource::getUrl('index', ['tableFilters' => ['option_closing' => ['isActive' => true]]]),
+                'url' => ResourceLink::indexWhere(LeaseResource::class, 'option_closing', 'expiry_date:asc'),
             ];
         }
 
@@ -321,9 +308,10 @@ class ActionRequired extends Widget
                 'color' => 'danger',
                 'title' => trans_choice('admin.widgets.action_required.contract_notice', $noticeDueCount, ['count' => $noticeDueCount]),
                 'body' => __('admin.widgets.action_required.contract_notice_body'),
-                // Contracts live inside the Vendors resource, so land the operator on the
-                // vendors whose contracts are due and let the contracts tab carry the filter.
-                'url' => VendorResource::getUrl('index'),
+                // Land on the vendors whose contracts are at their notice deadline — the
+                // `contract_notice_due` filter added for exactly this. It used to link to the
+                // bare vendor list, which named the problem and then hid it.
+                'url' => ResourceLink::indexWhere(VendorResource::class, 'contract_notice_due', 'name:asc'),
             ];
         }
 
@@ -334,10 +322,7 @@ class ActionRequired extends Widget
                 'color' => 'danger',
                 'title' => trans_choice('admin.widgets.action_required.matured_cheques', $maturedChequeCount, ['count' => $maturedChequeCount]),
                 'body' => __('admin.widgets.action_required.matured_cheques_body'),
-                'url' => PostDatedChequeResource::getUrl('index', [
-                    'filters' => ['matured' => ['isActive' => true]],
-                    'sort' => 'cheque_date:asc',
-                ]),
+                'url' => ResourceLink::indexWhere(PostDatedChequeResource::class, 'matured', 'cheque_date:asc'),
             ];
         }
 
@@ -348,10 +333,7 @@ class ActionRequired extends Widget
                 'color' => 'danger',
                 'title' => trans_choice('admin.widgets.action_required.overdue_invoices', $overdueCount, ['count' => $overdueCount]),
                 'body' => __('admin.widgets.action_required.overdue_invoices_body', ['amount' => number_format((float) $overdueAmount, 0)]),
-                'url' => InvoiceResource::getUrl('index', [
-                    'filters' => ['overdue_only' => ['isActive' => true]],
-                    'sort' => 'due_date:asc',
-                ]),
+                'url' => ResourceLink::indexWhere(InvoiceResource::class, 'overdue_only', 'due_date:asc'),
             ];
         }
 
@@ -362,10 +344,7 @@ class ActionRequired extends Widget
                 'color' => 'danger',
                 'title' => trans_choice('admin.widgets.action_required.holdover', $holdoverCount, ['count' => $holdoverCount]),
                 'body' => __('admin.widgets.action_required.holdover_body'),
-                'url' => LeaseResource::getUrl('index', [
-                    'filters' => ['holdover' => ['isActive' => true]],
-                    'sort' => 'expiry_date:asc',
-                ]),
+                'url' => ResourceLink::indexWhere(LeaseResource::class, 'holdover', 'expiry_date:asc'),
             ];
         }
 
@@ -376,10 +355,7 @@ class ActionRequired extends Widget
                 'color' => 'danger',
                 'title' => trans_choice('admin.widgets.action_required.expiring_critical', $expiringCriticalCount, ['count' => $expiringCriticalCount]),
                 'body' => __('admin.widgets.action_required.expiring_critical_body'),
-                'url' => LeaseResource::getUrl('index', [
-                    'filters' => ['expiring_soon' => ['isActive' => true]],
-                    'sort' => 'expiry_date:asc',
-                ]),
+                'url' => ResourceLink::indexWhere(LeaseResource::class, 'expiring_soon', 'expiry_date:asc'),
             ];
         }
 
@@ -390,10 +366,7 @@ class ActionRequired extends Widget
                 'color' => 'warning',
                 'title' => trans_choice('admin.widgets.action_required.expiring_soon', $expiringSoonCount, ['count' => $expiringSoonCount]),
                 'body' => __('admin.widgets.action_required.expiring_soon_body'),
-                'url' => LeaseResource::getUrl('index', [
-                    'filters' => ['expiring_soon' => ['isActive' => true]],
-                    'sort' => 'expiry_date:asc',
-                ]),
+                'url' => ResourceLink::indexWhere(LeaseResource::class, 'expiring_soon', 'expiry_date:asc'),
             ];
         }
 
@@ -404,10 +377,7 @@ class ActionRequired extends Widget
                 'color' => 'info',
                 'title' => trans_choice('admin.widgets.action_required.vacant_units', $vacantCount, ['count' => $vacantCount]),
                 'body' => __('admin.widgets.action_required.vacant_units_body'),
-                'url' => UnitResource::getUrl('index', [
-                    'filters' => ['status' => ['value' => 'vacant']],
-                    'sort' => 'area_sqm:desc',
-                ]),
+                'url' => ResourceLink::indexSelect(UnitResource::class, 'status', 'vacant', 'area_sqm:desc'),
             ];
         }
 
@@ -421,10 +391,7 @@ class ActionRequired extends Widget
                 'color' => 'warning',
                 'title' => trans_choice('admin.widgets.action_required.unbilled_leases', $unbilledLeasesCount, ['count' => $unbilledLeasesCount]),
                 'body' => __('admin.widgets.action_required.unbilled_leases_body'),
-                'url' => LeaseResource::getUrl('index', [
-                    'filters' => ['status' => ['value' => 'active']],
-                    'sort' => 'commencement_date:desc',
-                ]),
+                'url' => ResourceLink::indexSelect(LeaseResource::class, 'status', 'active', 'commencement_date:desc'),
             ];
         }
 
@@ -437,7 +404,10 @@ class ActionRequired extends Widget
                 'color' => 'warning',
                 'title' => trans_choice('admin.widgets.action_required.missing_sales', $missingSalesCount, ['count' => $missingSalesCount]),
                 'body' => __('admin.widgets.action_required.missing_sales_body'),
-                'url' => TenantSalesDeclarationResource::getUrl('index'),
+                // The Leases list, not the declarations list: the leases with a MISSING
+                // declaration are by definition absent from the declarations register, so
+                // that link could never show the operator what the card had counted.
+                'url' => ResourceLink::indexWhere(LeaseResource::class, 'missing_sales', 'commencement_date:desc'),
             ];
         }
 

@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Widgets;
 use App\Filament\Admin\Concerns\RoleScopedWidget;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Models\Lease;
+use App\Support\ResourceLink;
 use App\Support\TenantScope;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -48,25 +49,25 @@ class LeasingPipeline extends StatsOverviewWidget
                 ->description(__('admin.widgets.pipeline.value', ['amount' => number_format($draft['value'], 0)]))
                 ->descriptionIcon('heroicon-m-document')
                 ->color('gray')
-                ->url(LeaseResource::getUrl('index', ['tableFilters' => ['status' => ['value' => 'draft']]])),
+                ->url(ResourceLink::indexSelect(LeaseResource::class, 'status', 'draft')),
 
             Stat::make(__('admin.widgets.pipeline.pending_approval'), number_format($pending['count']))
                 ->description(__('admin.widgets.pipeline.value', ['amount' => number_format($pending['value'], 0)]))
                 ->descriptionIcon('heroicon-m-clock')
                 ->color($pending['count'] > 0 ? 'warning' : 'gray')
-                ->url(LeaseResource::getUrl('index', ['tableFilters' => ['status' => ['value' => 'pending_approval']]])),
+                ->url(ResourceLink::indexSelect(LeaseResource::class, 'status', 'pending_approval')),
 
             Stat::make(__('admin.widgets.pipeline.active'), number_format($active['count']))
                 ->description(__('admin.widgets.pipeline.value', ['amount' => number_format($active['value'], 0)]))
                 ->descriptionIcon('heroicon-m-check-circle')
                 ->color('success')
-                ->url(LeaseResource::getUrl('index', ['tableFilters' => ['status' => ['value' => 'active']]])),
+                ->url(ResourceLink::indexSelect(LeaseResource::class, 'status', 'active')),
 
             Stat::make(__('admin.widgets.pipeline.renewed'), number_format($renewed['count']))
                 ->description(__('admin.widgets.pipeline.renewed_desc'))
                 ->descriptionIcon('heroicon-m-arrow-path')
                 ->color('info')
-                ->url(LeaseResource::getUrl('index', ['tableFilters' => ['status' => ['value' => 'renewed']]])),
+                ->url(ResourceLink::indexSelect(LeaseResource::class, 'status', 'renewed')),
         ];
     }
 }

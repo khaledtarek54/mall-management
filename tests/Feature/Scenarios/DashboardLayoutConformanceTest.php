@@ -19,8 +19,15 @@
 |      must now be placed in a layout or named in NOT_ON_DASHBOARD; there is no third state.
 |
 |   C. MONEY SHOWN TO ROLES THAT DON'T HANDLE MONEY.
+|
+|   D. A LAYOUT THAT IS CORRECT ON PAPER AND 500s IN A BROWSER. Every test above reads the
+|      registry; none of them ever rendered a dashboard. So a widget that throws for one role,
+|      or a Blade view that stops compiling, was invisible here — the registry would still be
+|      perfectly well-formed. The render smoke at the bottom closes that: it walks every role in
+|      LAYOUTS and asks for the page.
 */
 
+use App\Filament\Admin\Pages\Dashboard;
 use App\Filament\Admin\Widgets\ArAging;
 use App\Filament\Admin\Widgets\MonthlyCloseStats;
 use App\Filament\Admin\Widgets\RecentPayments;
@@ -155,3 +162,39 @@ it('gives a multi-role user the union, ordered by the registry', function () {
 it('shows nothing to a guest', function () {
     expect(DashboardLayout::widgetsFor(null))->toBe([]);
 });
+
+/**
+ * Every role's dashboard actually renders.
+ *
+ * The registry tests above prove the COMPOSITION is sound — that each role has widgets, that no
+ * widget is unclassified, that money stays with money roles. None of them prove the page comes
+ * back. A widget whose query blows up for one role, or a custom Blade view that stops compiling,
+ * passes all of them and 500s on login.
+ *
+ * Cheap on purpose: one GET per role against a small shared fixture, no per-role seeding.
+ */
+it('renders a working dashboard for every role in the registry', function (string $role) {
+    // The full catalogue: tests/Pest.php's seedRoles() only creates six roles, and the registry
+    // covers fourteen. (Bulk-written, ~11ms — see CLAUDE.md.)
+    $this->seed(RolesPermissionsSeeder::class);
+    ensureAllPropertiesAsset();
+
+    $asset = makeAsset();
+    $unit = makeUnit($asset, ['status' => 'vacant']);
+    $lease = makeLease($unit, makeTenant(), [
+        'status' => 'active',
+        'commencement_date' => now()->subYear(),
+        'expiry_date' => now()->addDays(15),
+        'has_percentage_rent' => true,
+    ]);
+    // Enough money on the books that the AR/collections widgets take their populated path
+    // rather than their empty one — an empty dashboard renders far more things than a full one.
+    makeInvoice($lease, ['balance' => 1000, 'status' => 'overdue', 'due_date' => now()->subDays(10)]);
+
+    $this->actingAs(makeUser($role, [$asset->id]));
+
+    asTenant($asset, function () use ($asset) {
+        $this->get(Dashboard::getUrl(panel: 'admin', tenant: $asset))
+            ->assertSuccessful();
+    });
+})->with(array_keys(DashboardLayout::LAYOUTS));

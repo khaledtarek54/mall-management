@@ -3,10 +3,12 @@
 namespace App\Filament\Admin\Widgets;
 
 use App\Filament\Admin\Concerns\RoleScopedWidget;
+use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Models\Lease;
 use App\Models\TenantSalesDeclaration;
 use App\Support\TenantScope;
 use Carbon\CarbonImmutable;
+use Filament\Facades\Filament;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
@@ -71,6 +73,18 @@ class TopTenants extends TableWidget
                     ->label(__('admin.widgets.top_tenants.lease_ends'))
                     ->date('d/m/Y'),
             ])
+            // Rows are LEASES (ranked by sales density), so the row opens the lease.
+            // Tenant passed explicitly. `getUrl()` otherwise reads the AMBIENT Filament tenant
+            // and throws UrlGenerationException when there isn't one — which is not merely a
+            // test artefact: any render outside a property context (a widget probed directly, a
+            // future digest job) would 500 the whole dashboard rather than omit one link.
+            ->recordUrl(function ($record) {
+                $tenant = Filament::getTenant();
+
+                return ($tenant && LeaseResource::canEdit($record))
+                    ? LeaseResource::getUrl('edit', ['record' => $record], tenant: $tenant)
+                    : null;
+            })
             ->paginated(false);
     }
 
