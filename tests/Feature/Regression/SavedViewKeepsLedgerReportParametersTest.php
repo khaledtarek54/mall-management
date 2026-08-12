@@ -43,9 +43,22 @@ beforeEach(function () {
 afterEach(fn () => Filament::setTenant(null, isQuiet: true));
 
 it('sees the parameters a first-party trait declares', function () {
-    // The regression. All three live on ScopesLedgerReport, not on the page class.
-    expect(array_keys(ReportParameters::parametersOf(IncomeStatement::class)))
-        ->toBe(['year', 'period', 'assetId']);
+    // The regression. `year`, `period` and `assetId` live on ScopesLedgerReport, not on the page
+    // class, and were invisible while every trait property was excluded.
+    //
+    // Asserted as a SUPERSET rather than an exact list: `comparison` was added to the page itself
+    // by RP-06, and pinning the exact array would turn every legitimate new parameter into a
+    // failure here — which teaches whoever hits it to edit the assertion rather than read it.
+    $parameters = array_keys(ReportParameters::parametersOf(IncomeStatement::class));
+
+    foreach (['year', 'period', 'assetId'] as $fromTrait) {
+        expect(in_array($fromTrait, $parameters, true))
+            ->toBeTrue("{$fromTrait} is declared by ScopesLedgerReport and must still be a parameter");
+    }
+
+    // And the class's own properties are still seen — the fix must not have swapped one blind spot
+    // for the other.
+    expect(in_array('comparison', $parameters, true))->toBeTrue();
 });
 
 it('still keeps framework noise out of a saved view', function () {

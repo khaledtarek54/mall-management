@@ -8,7 +8,13 @@ use App\Filament\Admin\Pages\Concerns\RendersFinancialStatement;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Pages\Concerns\ScopesLedgerReport;
 use App\Services\Accounting\LedgerReportPdfService;
+use App\Support\ReportPreferences;
+use Filament\Forms\Components\Select;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
+use Carbon\CarbonImmutable;
 use App\Services\Accounting\LedgerReportService;
+use App\Services\Reports\ComparativeStatementService;
 use App\Services\Reports\ReportCsvExporter;
 use App\Support\ReportCsv;
 use BackedEnum;
@@ -41,6 +47,56 @@ class IncomeStatement extends Page implements DeliverableReport, HasSchemas, Has
     protected string $view = 'filament.pages.ledger-report';
 
     protected static string $routePath = 'income-statement';
+
+    /**
+     * Which period to show beside this one — null for none (RP-06).
+     *
+     * A public typed scalar, so it is a report PARAMETER: it reaches the URL, a saved view and a
+     * scheduled delivery like every other. It is also remembered per user, because unlike a date it
+     * says how this operator reads a statement rather than which moment they wanted.
+     */
+    public ?string $comparison = null;
+
+    public function mount(): void
+    {
+        $this->hydrateLedgerScopeFromQuery();
+
+        $requested = (string) request()->query('comparison', '');
+        $this->comparison = in_array($requested, ComparativeStatementService::BASES, true) ? $requested : null;
+
+        // After the query string, so an explicit ?comparison= still wins — same rule as every other
+        // report parameter.
+        ReportPreferences::restore($this);
+    }
+
+    /**
+     * The ledger scope, plus this statement's own comparison picker.
+     *
+     * Appended rather than replaced so the property and period controls stay identical to the other
+     * financial statements — the whole point of the shared bar (RP-02).
+     */
+    public function filtersForm(Schema $schema): Schema
+    {
+        return $schema->components([
+            Section::make()
+                ->columns(['sm' => 2, 'lg' => 4])
+                ->schema([
+                    ...$this->ledgerFilterComponents(),
+                    Select::make('comparison')
+                ->label(__('admin.reports.comparison'))
+                ->options([
+                    ComparativeStatementService::PRIOR_PERIOD => __('admin.reports.comparison_prior_period'),
+                    ComparativeStatementService::PRIOR_YEAR => __('admin.reports.comparison_prior_year'),
+                ])
+                // Null is a real choice, not an absence: a single-period statement is the default
+                // and the one most operators want most of the time.
+                ->placeholder(__('admin.reports.comparison_none'))
+                ->native(false)
+                ->live()
+                        ->afterStateUpdated(fn ($livewire) => ReportPreferences::remember($livewire)),
+                ]),
+        ]);
+    }
 
     public function getTitle(): string
     {
@@ -107,6 +163,39 @@ class IncomeStatement extends Page implements DeliverableReport, HasSchemas, Has
      */
     public function reportCsv(): array
     {
+        $comparative = $this->comparative();
+
+        // The comparison travels with the export. A statement an operator reads with prior-period
+        // columns and then exports WITHOUT them is a different document under the same name — and
+        // the export is the copy that gets emailed, filed and argued over.
+        if ($comparative !== null) {
+            return [
+                'filename' => "income-statement-{$this->periodSlug()}-vs-{$comparative['prior_from']}",
+                'headers' => [
+                    __('admin.reports.section'),
+                    __('admin.tables.ledger_account.code'),
+                    __('admin.tables.ledger_account.account'),
+                    __('admin.fields.amount'),
+                    __('admin.reports.prior'),
+                    __('admin.reports.change'),
+                    __('admin.reports.change_pct'),
+                ],
+                'rows' => collect($this->comparativeRecords($comparative))
+                    ->map(fn (array $r): array => [
+                        $r['section'],
+                        $r['code'] ?? '',
+                        $r['account'],
+                        $r['amount'],
+                        $r['prior'],
+                        $r['change'],
+                        // Empty, not 0, when there is no prior figure to divide by — a spreadsheet
+                        // would total a 0 and read it as "no change".
+                        $r['change_pct'] === null ? '' : round((float) $r['change_pct'], 1),
+                    ])
+                    ->all(),
+            ];
+        }
+
         $csv = app(ReportCsvExporter::class)->incomeStatement($this->report());
 
         return [
@@ -114,6 +203,32 @@ class IncomeStatement extends Page implements DeliverableReport, HasSchemas, Has
             'headers' => $csv['headers'],
             'rows' => $csv['rows'],
         ];
+    }
+
+    /**
+     * The statement, with its comparison when one was asked for.
+     *
+     * `ComparativeStatementService` existed, was tested, and was called by NOTHING but its own test
+     * — a comparative income statement that no operator could reach. This is the wiring it was
+     * missing rather than a new calculation.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function comparative(): ?array
+    {
+        if (! in_array($this->comparison, ComparativeStatementService::BASES, true)) {
+            return null;
+        }
+
+        return app(ComparativeStatementService::class)->incomeStatement(
+            // `periodStart()`/`periodEnd()` hand back a mutable Carbon; the service works in
+            // CarbonImmutable because it derives a second span from these and must not mutate the
+            // first one doing it.
+            CarbonImmutable::instance($this->periodStart()),
+            CarbonImmutable::instance($this->periodEnd()),
+            $this->scopedAssetIds(),
+            $this->comparison,
+        );
     }
 
     protected function report(): array
@@ -125,10 +240,89 @@ class IncomeStatement extends Page implements DeliverableReport, HasSchemas, Has
         );
     }
 
+    /**
+     * The comparative statement as table records.
+     *
+     * Deliberately the SAME record shape as `statementRecords()` — section, account, amount, total
+     * flag — with `prior` and `change` added. The alternative, a second table, would mean two
+     * renderings of one statement drifting apart in exactly the way a comparison exists to prevent.
+     *
+     * @param  array<string, mixed>  $comparative
+     * @return array<int, array<string, mixed>>
+     */
+    public function comparativeRecords(array $comparative): array
+    {
+        $sections = [
+            'revenue' => [__('admin.reports.revenue'), __('admin.reports.total_revenue'), 'revenue'],
+            'expense' => [__('admin.reports.expenses'), __('admin.reports.total_expenses'), 'expense'],
+        ];
+
+        $records = [];
+        $i = 0;
+
+        foreach ($sections as $key => [$label, $totalLabel, $totalsKey]) {
+            foreach (array_filter($comparative['rows'], fn (array $row) => $row['section'] === $key) as $row) {
+                $records[] = [
+                    'id' => 'c'.$i++,
+                    'section' => $label,
+                    'code' => $row['code'],
+                    'account' => $row['label'],
+                    'amount' => $row['current'],
+                    'prior' => $row['prior'],
+                    'change' => $row['change'],
+                    'change_pct' => $row['change_pct'],
+                    'is_total' => false,
+                    // The comparative service works in labels and codes, not account ids, so there
+                    // is nothing to drill into. Null renders as plain text — a dead link would read
+                    // as a broken screen.
+                    'account_id' => null,
+                ];
+            }
+
+            $total = $comparative['totals'][$totalsKey];
+
+            $records[] = [
+                'id' => 'c'.$i++,
+                'section' => $label,
+                'code' => null,
+                'account' => $totalLabel,
+                'amount' => $total['current'],
+                'prior' => $total['prior'],
+                'change' => $total['change'],
+                'change_pct' => $total['change_pct'],
+                'is_total' => true,
+                'account_id' => null,
+            ];
+        }
+
+        $net = $comparative['totals']['net'];
+
+        $records[] = [
+            'id' => 'c'.$i++,
+            'section' => __('admin.reports.net_profit'),
+            'code' => null,
+            'account' => __('admin.reports.net_profit'),
+            'amount' => $net['current'],
+            'prior' => $net['prior'],
+            'change' => $net['change'],
+            'change_pct' => $net['change_pct'],
+            'is_total' => true,
+            'account_id' => null,
+        ];
+
+        return $records;
+    }
+
     public function table(Table $table): Table
     {
-        return $this->statementTable($table)
+        return $this->statementTable($table, comparative: $this->comparison !== null)
             ->records(function (): array {
+                $comparative = $this->comparative();
+
+                if ($comparative !== null) {
+                    return $this->comparativeRecords($comparative);
+                }
+
                 $report = $this->report();
 
                 return $this->statementRecords([

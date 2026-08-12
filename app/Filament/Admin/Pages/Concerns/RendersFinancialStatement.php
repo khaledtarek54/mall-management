@@ -98,10 +98,13 @@ trait RendersFinancialStatement
         ], fn ($value) => filled($value)));
     }
 
-    protected function statementTable(Table $table): Table
+    /**
+     * @param  bool  $comparative  add the prior / change / change-% columns (RP-06)
+     */
+    protected function statementTable(Table $table, bool $comparative = false): Table
     {
         return $table
-            ->columns([
+            ->columns(array_filter([
                 TextColumn::make('code')
                     ->label(__('admin.tables.ledger_account.code'))
                     ->fontFamily('mono')
@@ -121,7 +124,38 @@ trait RendersFinancialStatement
                     ->money('EGP')
                     ->alignEnd()
                     ->weight(fn (array $record): string => $record['is_total'] ? 'bold' : 'normal'),
-            ])
+                // ── The comparison, when one was asked for (RP-06) ──────────────────────────────
+                // A single period's P&L says what happened; it cannot say whether that is normal.
+                // 180,000 of maintenance is unremarkable next to 175,000 last month and alarming
+                // next to 40,000, and the statement could not tell those apart.
+                $comparative ? TextColumn::make('prior')
+                    ->label(__('admin.reports.prior'))
+                    ->money('EGP')
+                    ->alignEnd()
+                    ->weight(fn (array $record): string => $record['is_total'] ? 'bold' : 'normal') : null,
+                $comparative ? TextColumn::make('change')
+                    ->label(__('admin.reports.change'))
+                    ->money('EGP')
+                    ->alignEnd()
+                    // Colour by DIRECTION only, never by "good". On an income statement a rise is
+                    // welcome in revenue and unwelcome in expenses, and the table does not know
+                    // which section a reader is looking at — claiming otherwise would be worse than
+                    // staying neutral.
+                    ->color(fn (array $record): ?string => match (true) {
+                        ($record['change'] ?? 0) > 0 => 'success',
+                        ($record['change'] ?? 0) < 0 => 'danger',
+                        default => null,
+                    })
+                    ->weight(fn (array $record): string => $record['is_total'] ? 'bold' : 'normal') : null,
+                $comparative ? TextColumn::make('change_pct')
+                    ->label(__('admin.reports.change_pct'))
+                    ->alignEnd()
+                    // Null, not 0%, when the prior figure was zero: a rise from nothing has no
+                    // percentage, and printing one ("+100%", "∞") invents a number the books do not
+                    // support. The em dash says "not applicable" and is the honest answer.
+                    ->formatStateUsing(fn ($state): string => $state === null ? '—' : number_format((float) $state, 1).'%')
+                    ->weight(fn (array $record): string => $record['is_total'] ? 'bold' : 'normal') : null,
+            ]))
             ->groups([
                 Group::make('section')
                     ->getKeyFromRecordUsing(fn (array $record): string => $record['section'])

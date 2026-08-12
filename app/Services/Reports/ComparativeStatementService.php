@@ -27,21 +27,55 @@ class ComparativeStatementService
 {
     public function __construct(private LedgerReportService $reports) {}
 
+    /** The span immediately before this one, of the same length. Month vs last month. */
+    public const PRIOR_PERIOD = 'prior_period';
+
+    /** The SAME span one year earlier. March vs last March. */
+    public const PRIOR_YEAR = 'prior_year';
+
+    /** @var array<int, string> */
+    public const BASES = [self::PRIOR_PERIOD, self::PRIOR_YEAR];
+
+    /**
+     * Which span to compare against.
+     *
+     * The two answer different questions and an accountant wants both at different moments.
+     * **Prior period** asks "is this month normal?" — it catches a cost that has started running
+     * away. **Prior year** asks "is this March normal?" — it is the only one that survives a
+     * seasonal business, and a mall is seasonal: Ramadan and the back-to-school weeks move footfall
+     * and therefore turnover rent, so comparing December to November says almost nothing.
+     *
+     * Prior period keeps the same LENGTH rather than the same calendar month, because comparing a
+     * 31-day month against a 28-day one invents a variance that is really just February. Prior year
+     * keeps the same calendar dates, because that is the point of it — and a leap day is a real
+     * one-day difference rather than an artefact, so it is left alone.
+     *
+     * @return array{0: CarbonImmutable, 1: CarbonImmutable}
+     */
+    private static function priorSpan(CarbonImmutable $from, CarbonImmutable $to, string $basis): array
+    {
+        if ($basis === self::PRIOR_YEAR) {
+            return [$from->subYear(), $to->subYear()];
+        }
+
+        // Same length, immediately before. `diffInDays` is inclusive-safe here because both ends
+        // are start-of-day, and the prior span ends the day before this one begins.
+        $priorTo = $from->subDay();
+
+        return [$priorTo->subDays($from->startOfDay()->diffInDays($to->startOfDay())), $priorTo];
+    }
+
     /**
      * @return array{
-     *     current: array<string, mixed>, prior: array<string, mixed>,
+     *     basis: string, current: array<string, mixed>, prior: array<string, mixed>,
      *     prior_from: string, prior_to: string,
      *     rows: array<int, array{label: string, code: ?string, section: string, current: float, prior: float, change: float, change_pct: ?float}>,
      *     totals: array<string, array{current: float, prior: float, change: float, change_pct: ?float}>,
      * }
      */
-    public function incomeStatement(CarbonImmutable $from, CarbonImmutable $to, ?array $assetIds = null): array
+    public function incomeStatement(CarbonImmutable $from, CarbonImmutable $to, ?array $assetIds = null, string $basis = self::PRIOR_PERIOD): array
     {
-        // Same length, immediately before. `diffInDays` is inclusive-safe here because both ends are
-        // start-of-day, and the prior span ends the day before this one begins.
-        $length = $from->startOfDay()->diffInDays($to->startOfDay());
-        $priorTo = $from->subDay();
-        $priorFrom = $priorTo->subDays($length);
+        [$priorFrom, $priorTo] = self::priorSpan($from, $to, $basis);
 
         $current = $this->reports->incomeStatement($assetIds, $from, $to);
         $prior = $this->reports->incomeStatement($assetIds, $priorFrom, $priorTo);
@@ -70,6 +104,7 @@ class ComparativeStatementService
         return [
             'current' => $current,
             'prior' => $prior,
+            'basis' => $basis,
             'prior_from' => $priorFrom->toDateString(),
             'prior_to' => $priorTo->toDateString(),
             'rows' => $rows,

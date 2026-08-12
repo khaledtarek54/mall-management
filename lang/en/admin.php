@@ -1175,6 +1175,14 @@ return [
     ],
 
     'reports' => [
+        'section' => 'Section',
+        'comparison' => 'Compare with',
+        'comparison_none' => 'No comparison',
+        'comparison_prior_period' => 'Prior period',
+        'comparison_prior_year' => 'Prior year',
+        'prior' => 'Prior',
+        'change' => 'Change',
+        'change_pct' => 'Change %',
         'as_of' => 'As of',
         'property' => 'Property',
         'all_visible_properties' => 'All properties I can see',

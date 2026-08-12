@@ -1167,6 +1167,14 @@ return [
     ],
 
     'reports' => [
+        'section' => 'القسم',
+        'comparison' => 'مقارنة مع',
+        'comparison_none' => 'بدون مقارنة',
+        'comparison_prior_period' => 'الفترة السابقة',
+        'comparison_prior_year' => 'العام السابق',
+        'prior' => 'السابق',
+        'change' => 'التغيّر',
+        'change_pct' => 'نسبة التغيّر',
         'as_of' => 'حتى تاريخ',
         'property' => 'العقار',
         'all_visible_properties' => 'كل العقارات المتاحة لي',

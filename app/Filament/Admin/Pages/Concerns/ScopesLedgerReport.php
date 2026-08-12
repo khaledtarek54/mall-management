@@ -97,11 +97,27 @@ trait ScopesLedgerReport
     /** The year + property picker strip, rendered above the report table. */
     public function filtersForm(Schema $schema): Schema
     {
-        return $schema
-            ->components([
-                Section::make()
-                    ->columns(['sm' => 2, 'lg' => 3])
-                    ->schema([
+        return $schema->components([
+            Section::make()
+                ->columns(['sm' => 2, 'lg' => 3])
+                ->schema($this->ledgerFilterComponents()),
+        ]);
+    }
+
+    /**
+     * The scope controls themselves, so a statement can add one of its own beside them.
+     *
+     * Exposed as an ARRAY rather than a built Schema because that is what a caller needs: the
+     * income statement appends its comparison picker (RP-06) into the same Section, which keeps the
+     * property and period controls identical to every other financial statement — the whole point
+     * of the shared bar. Rebuilding a Schema's components after the fact is the fragile way to do
+     * the same thing.
+     *
+     * @return array<int, mixed>
+     */
+    protected function ledgerFilterComponents(): array
+    {
+        return [
                         Select::make('year')
                             ->label(__('admin.reports.fiscal_year'))
                             ->options(fn (): array => $this->yearOptions())
@@ -127,8 +143,7 @@ trait ScopesLedgerReport
                             // exemption is about the CONTROL, not about whether the choice is worth
                             // keeping. Wired at the only other place it can be.
                             ->afterStateUpdated(fn ($livewire) => ReportPreferences::remember($livewire)),
-                    ]),
-            ]);
+        ];
     }
 
     /** First instant of the selected period — the chosen month, else the fiscal year's start. */
