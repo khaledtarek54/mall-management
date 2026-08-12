@@ -45,6 +45,8 @@ class ActionRequired extends Widget
         'urgent_maintenance' => 'maintenance.view',
         'sla_breached' => 'maintenance.view',
         'wo_sla_breached' => 'preventive_maintenance.view',
+        'wo_response_breached' => 'preventive_maintenance.view',
+        'ledger_without_property' => 'journal_entries.view',
         'vendor_documents' => 'vendors.view',
         'contract_notice' => 'vendors.view',
         'matured_cheques' => 'post_dated_cheques.view',
@@ -172,6 +174,12 @@ class ActionRequired extends Widget
         // made "nobody has looked at this" the one maintenance failure the dashboard was blind to.
         $woUnansweredCount = $workOrderBase()->responseBreached()->count();
 
+        // Posted money in no property's books. A null asset is a deliberate choice — the journal
+        // form offers it as "consolidated" — but every owner statement is generated per asset, so
+        // such an entry reaches NO statement while the portfolio-wide trial balance still balances.
+        // Nothing counted them on any screen.
+        $ledgerWithoutPropertyCount = \App\Models\JournalEntry::query()->withoutProperty()->count();
+
         $monthStart = (clone $now)->startOfMonth();
         $monthEnd = (clone $now)->endOfMonth();
         $unbilledLeasesCount = $leaseBase()->where('status', 'active')
@@ -262,6 +270,19 @@ class ActionRequired extends Widget
                 'url' => MaintenanceWorkOrderResource::getUrl('index', [
                     'filters' => ['response_breached' => ['isActive' => true]],
                     'sort' => 'target_response_at:asc',
+                ]),
+            ];
+        }
+
+        if ($ledgerWithoutPropertyCount > 0) {
+            $items[] = [
+                'key' => 'ledger_without_property',
+                'icon' => 'heroicon-o-scale',
+                'color' => 'warning',
+                'title' => trans_choice('admin.widgets.action_required.ledger_without_property', $ledgerWithoutPropertyCount, ['count' => $ledgerWithoutPropertyCount]),
+                'body' => __('admin.widgets.action_required.ledger_without_property_body'),
+                'url' => \App\Filament\Admin\Resources\JournalEntries\JournalEntryResource::getUrl('index', [
+                    'filters' => ['without_property' => ['isActive' => true]],
                 ]),
             ];
         }

@@ -790,6 +790,18 @@ fresh reseed regenerates them with the new type, and reclassifying already-bille
 historical recoveries would be a separate one-off data step. The linked `Charge` stays
 `type='other'` (a non-billed, non-journalized traceability anchor).
 
+**An entry with no property is now visible (2026-08-12).** `journal_entries.asset_id` is nullable
+and the journal form deliberately offers a blank property, labelled *consolidated* — an
+operator-level entry belonging to no single mall. Refusing it would break that. What was missing is
+what happens next: **every owner statement is generated per asset**
+(`GenerateOwnerStatementRunService` scopes `where('asset_id', $asset->id)`), so a consolidated entry
+appears in **no** statement while the portfolio-wide trial balance still balances to the penny.
+Revenue posted that way understates the owner's statement and no report disagrees with any other, so
+it cannot be found by noticing a discrepancy. `JournalEntry::withoutProperty()` is the one scope —
+posted, no asset — read by both an **Action Required** card and the journal table's *No property
+(consolidated)* filter, so the count and the list cannot drift apart. Drafts are excluded: they are
+in nobody's books yet. Pinned by `LedgerEntriesWithoutPropertyAreVisibleTest`.
+
 **GL↔AR/AP tie-out in the reconcile harness — done:** `BooksReconciliationService`
 now includes a `gl_tie_out` check (surfaced by `billing:reconcile`, which gates a
 monthly close / tax filing with a non-zero exit) asserting the GL's AR/AP control

@@ -54,6 +54,27 @@ class JournalEntry extends Model
      */
     public const REPORTABLE_STATUSES = ['posted', 'void'];
 
+    /**
+     * Posted entries carrying no property — real money in no property's books.
+     *
+     * A null `asset_id` is a deliberate choice, not an accident: the journal-entry form offers it as
+     * "consolidated", for an operator-level entry that belongs to no single mall. The problem is
+     * what happens next. **Every owner statement is generated per asset**
+     * (`GenerateOwnerStatementRunService` scopes `where('asset_id', $asset->id)`), so a consolidated
+     * entry appears in NO statement — while the trial balance, which is portfolio-wide, still
+     * balances. Revenue posted this way understates the owner's statement and nothing disagrees.
+     *
+     * Nothing counted them before, on any screen. This scope is what the Action Required card and
+     * the journal table's filter both read, so the number, the list and the nag cannot disagree.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<static>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<static>
+     */
+    public function scopeWithoutProperty(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query->where('status', 'posted')->whereNull('asset_id');
+    }
+
     protected $fillable = [
         'number',
         'entry_date',

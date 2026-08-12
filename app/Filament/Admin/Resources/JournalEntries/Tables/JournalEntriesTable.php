@@ -10,6 +10,7 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
@@ -106,6 +107,11 @@ class JournalEntriesTable
                 SelectFilter::make('status')
                     ->label(__('admin.filters.status'))
                     ->options(fn () => __('admin.statuses.journal_entry')),
+                // The list the Action Required card links to. Same scope the card counts, so the
+                // number and the rows can never disagree.
+                Filter::make('without_property')
+                    ->label(__('admin.journal_entries.filters.without_property'))
+                    ->query(fn ($query) => $query->withoutProperty()),
                 TrashedFilter::make(),
             ])
             ->recordActions([

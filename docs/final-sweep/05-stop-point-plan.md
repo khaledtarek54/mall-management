@@ -136,7 +136,7 @@ Then run `atriom:audit-charge-schedules` and have it be meaningful.
 | 27 | WHT base excludes VAT | FS-29 | S |
 | 28 | Seller TRN on the tax invoice | FS-30 | S |
 | 29 | `withTrashed()` on the four GL-critical relations that derive the property dimension | — | S |
-| 30 | Surface or refuse `asset_id = null` GL entries — today they are invisible to every owner statement | — | S |
+| ~~30~~ ✅ | ~~Surface or refuse `asset_id = null` GL entries~~ — **surfaced 2026-08-12.** Refusing would break a real feature: the journal form OFFERS a blank property, labelled "consolidated". `JournalEntry::withoutProperty()` is the one scope, read by both an Action Required card and a journal-table filter, so the count and the rows cannot drift. Drafts excluded — they are in nobody's books yet. Four mutations, all killed | — | S |
 
 **Phase-3 exit test:** run a full synthetic month — bill, collect, credit, write off, reconcile CAM,
 close — and have `billing:reconcile`, `glTieOut()` and the VAT return all tie out, with a printable
