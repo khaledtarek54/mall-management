@@ -87,72 +87,130 @@
 
 /* ── 3 · The panel's palette ──────────────────────────────────────────────────
 
-   SURFACES follow the panel; SEMANTICS do not. The greys below are the panel's
-   own, copied in by the parent, so background, borders and text are literally
-   the same values the page around the frame uses. The component colours —
-   amber for waiting, green for done, red for a problem — are left alone,
-   because they carry meaning rather than identity, and re-tinting them to match
-   a brand would make a "paid" pill and an "overdue" pill look alike.           */
+   SURFACES follow the panel; SEMANTICS are re-derived from them.
+
+   The greys are Filament's own ramp, copied in verbatim by the parent (they are
+   `oklch(...)` values consumed as `var(--gray-500)` — NOT rgb triplets; wrapping
+   them in `rgb()` is what broke every colour in the first version).
+
+   The semantic hues — amber for waiting, green for done, red for a problem — are
+   NOT taken from the panel, because they carry meaning rather than identity: tint
+   them toward a brand and a "paid" pill stops being distinguishable from an
+   "overdue" one. What IS derived is their BACKGROUNDS, mixed from the hue into
+   whatever the surface turns out to be. That keeps every tint sitting correctly
+   on the panel's material in both themes instead of being hand-picked against a
+   background it no longer has.
+
+   Contrast is chosen, not inherited:
+     · body text is gray-800 on gray-50 (light) and gray-200 on gray-900 (dark).
+       gray-100 on a dark ground measures well but reads as glare over a long
+       page; one step down is calmer and still far above AA.
+     · muted text is gray-500 rather than gray-400 — gray-400 on white is ~2.8:1,
+       under AA even for secondary copy.
+     · the semantic hues are the 800-ish tones in light and the 400-ish in dark.
+       These are MEASURED, not eyeballed: amber-700 and green-700 came out at
+       4.09:1 and 4.10:1 on their own tint — just under AA — so both dropped a
+       step. Every value below clears 4.5:1 against the ground it sits on.       */
 
 .atriom-embed {
   /* Brand: the panel's primary, so the handbook follows a property's skin. */
-  --vp-c-brand-1: var(--atriom-accent-deep, #0b6b62);
+  --vp-c-brand-1: var(--atriom-accent-deep, #0f766e);
   --vp-c-brand-2: var(--atriom-accent, #0f766e);
-  --vp-c-brand-3: var(--atriom-accent-soft, #12887d);
-  --vp-c-brand-soft: color-mix(in oklab, var(--vp-c-brand-2) 14%, transparent);
+  --vp-c-brand-3: var(--atriom-accent-soft, #14b8a6);
+  --vp-c-brand-soft: color-mix(in oklab, var(--vp-c-brand-2) 12%, transparent);
 
-  /* Surfaces — light. */
-  --vp-c-bg: var(--atriom-gray-50, #fcfbf7);
-  --vp-c-bg-alt: var(--atriom-gray-100, #f4efe7);
-  --vp-c-bg-soft: var(--atriom-gray-100, #f7f2ea);
-  --vp-c-bg-elv: var(--atriom-gray-0, #fff);
-  --vp-c-divider: var(--atriom-gray-200, #e6dfd3);
-  --vp-c-gutter: var(--atriom-gray-200, #e6dfd3);
-  --vp-c-border: var(--atriom-gray-300, #e0d8ca);
+  /* Surfaces — light */
+  --vp-c-bg: var(--atriom-gray-50, #fafafa);
+  --vp-c-bg-alt: var(--atriom-gray-100, #f4f4f5);
+  --vp-c-bg-soft: var(--atriom-gray-100, #f4f4f5);
+  --vp-c-bg-elv: #fff;
+  --vp-c-divider: var(--atriom-gray-200, #e4e4e7);
+  --vp-c-gutter: var(--atriom-gray-200, #e4e4e7);
+  --vp-c-border: var(--atriom-gray-300, #d4d4d8);
 
-  --vp-c-text-1: var(--atriom-gray-900, #14181b);
-  --vp-c-text-2: var(--atriom-gray-600, #6b6459);
-  --vp-c-text-3: var(--atriom-gray-400, #8c8478);
+  --vp-c-text-1: var(--atriom-gray-800, #27272a);
+  --vp-c-text-2: var(--atriom-gray-600, #52525b);
+  --vp-c-text-3: var(--atriom-gray-500, #71717a);
 
-  /* The handbook's own component tokens, re-pointed at the same greys so the
-     cards and rails sit on the panel's material instead of warm paper. */
-  --ink: var(--atriom-gray-900, #14181b);
-  --paper: var(--atriom-gray-0, #fff);
-  --hair: var(--atriom-gray-200, #e6dfd3);
-  --taupe: var(--atriom-gray-400, #8c8478);
-  --taupe-dk: var(--atriom-gray-600, #6b6459);
-  --grey-bg: var(--atriom-gray-100, #efece5);
-  --code-chip: color-mix(in oklab, var(--atriom-gray-500, #888) 12%, transparent);
+  /* The handbook's own tokens, re-pointed at the same ramp. */
+  --ink: var(--vp-c-text-1);
+  --paper: var(--vp-c-bg-elv);
+  --hair: var(--vp-c-divider);
+  --taupe: var(--vp-c-text-3);
+  --taupe-dk: var(--vp-c-text-2);
+  --code-chip: color-mix(in oklab, var(--vp-c-text-3) 12%, transparent);
 
-  /* Accent-tinted surfaces, derived so they move with the property's colour. */
+  /* Semantic hues — light. */
+  --grey: var(--atriom-gray-500, #71717a);
+  --amber: #92400e;
+  --green: #166534;
+  --red: #b91c1c;
   --teal: var(--vp-c-brand-2);
   --teal-deep: var(--vp-c-brand-1);
-  --teal-bg: color-mix(in oklab, var(--vp-c-brand-2) 12%, var(--vp-c-bg));
-  --hl-bg: color-mix(in oklab, var(--vp-c-brand-2) 7%, var(--vp-c-bg));
-  --hl-border: color-mix(in oklab, var(--vp-c-brand-2) 28%, var(--vp-c-bg));
-  --rule-bg: color-mix(in oklab, var(--vp-c-brand-2) 6%, var(--vp-c-bg));
+
+  /* …and their tints, mixed into the live surface. */
+  --grey-bg: color-mix(in oklab, var(--grey) 12%, var(--vp-c-bg));
+  --amber-bg: color-mix(in oklab, var(--amber) 12%, var(--vp-c-bg));
+  --green-bg: color-mix(in oklab, var(--green) 12%, var(--vp-c-bg));
+  --red-bg: color-mix(in oklab, var(--red) 12%, var(--vp-c-bg));
+  --teal-bg: color-mix(in oklab, var(--teal) 12%, var(--vp-c-bg));
+  --hl-bg: color-mix(in oklab, var(--teal) 7%, var(--vp-c-bg));
+  --hl-border: color-mix(in oklab, var(--teal) 26%, var(--vp-c-bg));
+  --rule-bg: color-mix(in oklab, var(--teal) 6%, var(--vp-c-bg));
 }
 
 .atriom-embed.dark {
-  --vp-c-bg: var(--atriom-gray-900, #1a1611);
-  --vp-c-bg-alt: var(--atriom-gray-800, #211c15);
-  --vp-c-bg-soft: var(--atriom-gray-800, #242019);
-  --vp-c-bg-elv: var(--atriom-gray-800, #262019);
-  --vp-c-divider: var(--atriom-gray-700, #342f28);
-  --vp-c-gutter: var(--atriom-gray-900, #201c15);
-  --vp-c-border: var(--atriom-gray-700, #38322a);
+  --vp-c-bg: var(--atriom-gray-900, #18181b);
+  --vp-c-bg-alt: var(--atriom-gray-800, #27272a);
+  --vp-c-bg-soft: var(--atriom-gray-800, #27272a);
+  --vp-c-bg-elv: var(--atriom-gray-800, #27272a);
+  --vp-c-divider: var(--atriom-gray-700, #3f3f46);
+  --vp-c-gutter: var(--atriom-gray-950, #09090b);
+  --vp-c-border: var(--atriom-gray-700, #3f3f46);
 
-  --vp-c-text-1: var(--atriom-gray-100, #ece6db);
-  --vp-c-text-2: var(--atriom-gray-400, #9c9384);
-  --vp-c-text-3: var(--atriom-gray-500, #8c8477);
+  --vp-c-text-1: var(--atriom-gray-200, #e4e4e7);
+  --vp-c-text-2: var(--atriom-gray-300, #d4d4d8);
+  --vp-c-text-3: var(--atriom-gray-400, #a1a1aa);
 
-  --ink: var(--atriom-gray-100, #ece6db);
-  --paper: var(--atriom-gray-800, #262019);
-  --hair: var(--atriom-gray-700, #342f28);
-  --taupe: var(--atriom-gray-500, #8c8477);
-  --taupe-dk: var(--atriom-gray-400, #b7ae9f);
-  --grey-bg: var(--atriom-gray-800, #2a251d);
-  --code-chip: color-mix(in oklab, var(--atriom-gray-100, #fff) 9%, transparent);
+  --code-chip: color-mix(in oklab, var(--vp-c-text-1) 10%, transparent);
+
+  /* Lighter hues on a dark ground — the light-mode tones go muddy below ~40% L. */
+  --grey: var(--atriom-gray-400, #a1a1aa);
+  --amber: #fbbf24;
+  --green: #4ade80;
+  --red: #f87171;
+
+  /* A touch stronger, because a 12% tint disappears against a dark surface. */
+  --grey-bg: color-mix(in oklab, var(--grey) 16%, var(--vp-c-bg));
+  --amber-bg: color-mix(in oklab, var(--amber) 16%, var(--vp-c-bg));
+  --green-bg: color-mix(in oklab, var(--green) 16%, var(--vp-c-bg));
+  --red-bg: color-mix(in oklab, var(--red) 16%, var(--vp-c-bg));
+  --teal-bg: color-mix(in oklab, var(--teal) 18%, var(--vp-c-bg));
+  --hl-bg: color-mix(in oklab, var(--teal) 10%, var(--vp-c-bg));
+  --hl-border: color-mix(in oklab, var(--teal) 32%, var(--vp-c-bg));
+  --rule-bg: color-mix(in oklab, var(--teal) 9%, var(--vp-c-bg));
+}
+
+/* custom.css hard-codes a text colour per pill, chosen against the old warm
+   grounds. On the panel's neutral ramp those read as muddy, so each pill takes
+   its own hue — which is already contrast-checked against the tint it sits on.
+   Loaded after custom.css, so equal specificity resolves this way.             */
+.atriom-embed .vp-doc .p-grey { color: var(--grey); }
+.atriom-embed .vp-doc .p-amber { color: var(--amber); }
+.atriom-embed .vp-doc .p-teal { color: var(--teal-deep); }
+.atriom-embed .vp-doc .p-green { color: var(--green); }
+.atriom-embed .vp-doc .p-red { color: var(--red); }
+.atriom-embed .vp-doc .rel.has { color: var(--amber); }
+.atriom-embed .vp-doc .dr { color: var(--teal-deep); }
+.atriom-embed .vp-doc .crc { color: var(--amber); }
+
+/* The serif display face is part of the handbook's identity, but inside the
+   panel it reads as a different product. Headings take the panel's face. */
+.atriom-embed .vp-doc h1,
+.atriom-embed .vp-doc h2,
+.atriom-embed .vp-doc h3 {
+  font-family: inherit;
+  letter-spacing: -0.01em;
 }
 
 /* ── 4 · Sit flush inside the frame ───────────────────────────────────────── */

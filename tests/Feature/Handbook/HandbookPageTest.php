@@ -157,14 +157,100 @@ it('pins the handbook toolbar instead of letting it scroll away', function () {
     );
 });
 
-it('defines its behaviour inline rather than through a script stack', function () {
-    // A push to the scripts stack is silently dropped here: the panel layout renders that stack
-    // before Livewire renders this component into it, so the push lands on a stack already output.
-    // The Alpine component must therefore be an inline x-data object with no external function to
-    // resolve — otherwise it is "atriomHandbook is not defined" at runtime.
+it('copies the panel palette verbatim, because the values are colours not triplets', function () {
+    // Filament's palette variables hold COMPLETE colour values — `oklch(0.985 0 0)` — and are
+    // consumed as `var(--gray-50)`, not `rgb(var(--gray-50))`.
+    //
+    // The first version wrapped each in `rgb(...)`, producing `rgb(oklch(0.985 0 0))`. A custom
+    // property accepts any token sequence, so nothing errored: the variable WAS set, `var()`
+    // therefore never fell back to the safe default, and every surface in the frame resolved to an
+    // invalid colour. Silent, and total. Verified against a rendered panel page, not assumed.
+    $template = handbookTemplate();
+
+    $this->assertMatchesRegularExpression(
+        '/setProperty\(\s*to\s*,\s*value\s*\)/',
+        $template,
+        'Palette values must be copied verbatim — wrapping them in rgb() yields invalid colours.'
+    );
+
+    $this->assertStringNotContainsString(
+        'rgb(${value})',
+        $template,
+        'Filament palette values are already complete colours; rgb() around them is invalid CSS.'
+    );
+});
+
+it('keeps the handbook legible in both themes', function () {
+    // Contrast is chosen, not inherited. Every value here was measured against the ground it sits
+    // on before being written down; amber-700 and green-700 came out at 4.09:1 and 4.10:1 on their
+    // own tint — just under AA — so both dropped a step to the 800 tones asserted below.
+    $embed = (string) file_get_contents(base_path('docs/visual/.vitepress/theme/embed.css'));
+
+    // The measured-safe semantic hues.
+    foreach (['#92400e', '#166534', '#b91c1c', '#fbbf24', '#4ade80', '#f87171'] as $hex) {
+        $this->assertStringContainsString($hex, $embed, "The measured semantic colour {$hex} is missing.");
+    }
+
+    // The two that measured BELOW AA must not come back.
+    foreach (['#b45309', '#15803d'] as $hex) {
+        $this->assertStringNotContainsString(
+            $hex,
+            $embed,
+            "{$hex} measures under 4.5:1 on its own tint — use the 800 tone instead."
+        );
+    }
+
+    // Both themes must be defined, or one of them falls back to the handbook's own warm palette
+    // and stops matching the panel entirely.
+    $this->assertStringContainsString('.atriom-embed.dark', $embed);
+    $this->assertStringContainsString('--atriom-gray-', $embed);
+});
+
+it('keeps the component out of both the script stack and the attribute', function () {
+    // Two separate places this behaviour CANNOT live, each of which broke the page once:
+    //
+    //   · A pushed stack. The panel layout renders it before Livewire renders this component into
+    //     it, so the push lands on a stack already output — silently dropped, component undefined.
+    //   · The `x-data` ATTRIBUTE. It lived there, and a comment inside it contained the phrase
+    //     "the colouring is very bad" — with real double quotes. HTML has no idea it is looking at
+    //     JavaScript: the parser closed the attribute at the first `"` and rendered ~4kB of the
+    //     component as visible text on the page.
+    //
+    // So it is registered via Alpine.data() in a plain inline <script>, and `x-data` is a bare
+    // identifier that no amount of prose can break.
     $template = handbookTemplate();
 
     $this->assertStringNotContainsString("@push('scripts')", $template);
     $this->assertStringNotContainsString("@push('styles')", $template);
-    $this->assertStringContainsString('x-data="{', $template);
+    $this->assertStringContainsString("Alpine.data('atriomHandbook'", $template);
+
+    // Registered on alpine:init so the definition cannot race Alpine's own boot.
+    $this->assertStringContainsString("addEventListener('alpine:init'", $template);
+
+    // The attribute must be a bare identifier — no braces, no quotes, nothing to terminate early.
+    preg_match('/x-data="([^"]*)"/', $template, $m);
+    expect($m)->not->toBeEmpty();
+    expect(trim($m[1]))->toBe('atriomHandbook');
+});
+
+it('never puts a double quote inside a double-quoted Alpine attribute', function () {
+    // The generalised form of the bug above: any Alpine expression attribute that contains a `"`
+    // terminates early and dumps the rest of itself onto the page as text. Cheap to check, and the
+    // failure mode is spectacular and silent — nothing errors, the page just renders source code.
+    $template = handbookTemplate();
+
+    preg_match_all('/\s(x-[a-z-]+|@[a-z]+)="([^"]*)"/', $template, $attrs, PREG_SET_ORDER);
+
+    expect($attrs)->not->toBeEmpty();
+
+    foreach ($attrs as [, $name, $value]) {
+        // A well-formed match already stops at the closing quote, so the tell is a value that runs
+        // on past where the attribute should have ended: unbalanced braces mean it was truncated.
+        $this->assertSame(
+            substr_count($value, '{'),
+            substr_count($value, '}'),
+            "The {$name} attribute has unbalanced braces — it was almost certainly cut short by a "
+            .'double quote inside it, which dumps the remainder onto the page as text.'
+        );
+    }
 });
