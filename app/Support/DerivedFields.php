@@ -97,6 +97,69 @@ class DerivedFields
         ],
     ];
 
+    /**
+     * Every schema the scan flags as a candidate, and what was decided about it.
+     *
+     * The verdict vocabulary is deliberately narrow, because the interesting distinction is between
+     * "handled" and "there is nothing to handle" — and the second is the one that rots:
+     *
+     *   - `DERIVES`   — it computes the relationship; the note says where.
+     *   - `NO_TARGET` — there is a start and a duration but **no field to derive into**. Nothing to
+     *                   do until somebody adds one, at which point this entry stops being true and
+     *                   the gate is the thing that notices.
+     *   - `INDEPENDENT` — both dates are separately-observed facts and neither computes the other.
+     *
+     * This table is what retired DF-05. That row claimed four remaining derivable pairs and every
+     * one was false: fixed-asset depreciation end and vendor-contract term have no field to derive
+     * into, PDC maturity IS the typed date rather than a derivation of it, and work-order SLA due is
+     * computed by `SlaResolver` and never typed at all. The row had been carried as outstanding work
+     * on the strength of a plausible guess.
+     *
+     * @var array<class-string|string, array{verdict: string, note: string}>
+     */
+    public const CANDIDATE_VERDICTS = [
+        'app/Filament/Admin/RelationManagers/AssetOwnersRelationManager.php' => [
+            'verdict' => 'INDEPENDENT',
+            'note' => 'An ownership tenure starts when it starts and ends when it ends — a sale is not scheduled from the purchase. There is no duration field and there should not be one.',
+        ],
+        'app/Filament/Admin/Resources/FixedAssets/Schemas/FixedAssetForm.php' => [
+            'verdict' => 'NO_TARGET',
+            'note' => 'acquisition_date + useful_life_months with NO end column on fixed_assets. The depreciation schedule is computed by the posting service month by month, and `disposed_on` is a fact rather than a projection — storing a derived end date would be a second truth about when the asset stops depreciating.',
+        ],
+        'app/Filament/Imports/FixedAssetImporter.php' => [
+            'verdict' => 'NO_TARGET',
+            'note' => 'The bulk path for the same fields, and the same absence of a target.',
+        ],
+        'app/Filament/Admin/Resources/Leases/Tables/LeasesTable.php' => [
+            'verdict' => 'DERIVES',
+            'note' => 'The RENEW action. `new_expiry_preview` is a live Placeholder over `LeaseTerm::expiryFrom(commencement, new_term_months)` and `LeaseRenewalService` derives the stored value from the same two — read-only on purpose, because there is nothing for the operator to type.',
+        ],
+        'app/Filament/Admin/Resources/PostDatedCheques/Pages/ListPostDatedCheques.php' => [
+            'verdict' => 'DERIVES',
+            'note' => 'Bulk series lodging: first cheque_date + interval_months derives the whole series of maturity dates. A cheque\'s own maturity is the typed fact, not a derivation — which is why this is the only PDC surface here.',
+        ],
+        'app/Filament/Admin/Resources/Vendors/RelationManagers/ContractsRelationManager.php' => [
+            'verdict' => 'DERIVES',
+            'note' => '`notice_deadline` = end_date − notice_period_days, derived in `VendorContract`\'s saving hook and rendered read-only. Model layer rather than form, so every writer gets it — missing that window auto-renews a contract the operator meant to end. `vendor_contracts` has no term column, so start/end is not itself a derivable pair.',
+        ],
+        'app/Filament/Admin/Resources/Vendors/RelationManagers/DocumentsRelationManager.php' => [
+            'verdict' => 'INDEPENDENT',
+            'note' => 'A certificate is issued on one date and expires on another, both printed on the document. There is no validity-period field, and inventing one would let us compute an expiry that contradicts the paper.',
+        ],
+        'app/Filament/Admin/Resources/Tenants/RelationManagers/DocumentsRelationManager.php' => [
+            'verdict' => 'INDEPENDENT',
+            'note' => 'As the vendor documents above — transcribed from the certificate, not computed.',
+        ],
+        'app/Filament/Admin/Resources/MarketingPosts/Schemas/MarketingPostForm.php' => [
+            'verdict' => 'INDEPENDENT',
+            'note' => 'A campaign\'s run dates are chosen, not derived; there is no duration field. (Module 36 has TWO date pairs — valid vs shown — and neither computes the other.)',
+        ],
+        'app/Filament/Portal/Resources/MarketingPosts/Schemas/MarketingPostForm.php' => [
+            'verdict' => 'INDEPENDENT',
+            'note' => 'The portal half of the same form, and the same answer: a retailer picks the dates their offer runs between, and there is no duration field for either one to be computed from.',
+        ],
+    ];
+
     /** @return array<int, string> every field name any group mentions */
     public static function vocabulary(): array
     {
@@ -123,4 +186,53 @@ class DerivedFields
             ->keys()
             ->all();
     }
+
+    /**
+     * Schemas that LOOK like they carry a derivable relationship, whether or not a group names one.
+     *
+     * {@see GROUPS} only finds what it already knows about, so it can never answer "is there
+     * anything left?" — it answers "are the two things I listed still handled?". That gap is not
+     * hypothetical: DF-05 sat on the roadmap claiming four remaining pairs (fixed-asset depreciation
+     * end, vendor-contract term, PDC maturity, work-order SLA due), and **all four were false** —
+     * two have no field to derive INTO, one is already derived in a model hook, one is not a form
+     * field at all. Nobody could have known that without scanning, and the answer goes stale the
+     * next time somebody adds a form.
+     *
+     * So this scans instead of listing: any schema exposing a start-ish date AND either an end-ish
+     * date or a duration is a CANDIDATE, and the gate makes every candidate carry a verdict. A new
+     * form that ships a start + term + end triple with no derivation now fails the build rather than
+     * waiting to be noticed.
+     *
+     * Deliberately over-inclusive. A false candidate costs one line of classification; a missed one
+     * costs the operator a field they have to keep in their head.
+     *
+     * @return array<string, array{start: array<int, string>, end: array<int, string>, duration: array<int, string>}>
+     */
+    public static function candidatesIn(string $source): array
+    {
+        preg_match_all(
+            '/(?:TextInput|DatePicker|DateTimePicker|Select|ImportColumn)::make\(\s*[\'"]([a-z_]+)[\'"]/',
+            $source,
+            $matches,
+        );
+
+        $fields = array_values(array_unique($matches[1] ?? []));
+        $dates = array_values(array_filter($fields, fn (string $f) => preg_match('/(_date|_at|_on)$/', $f)));
+
+        $start = array_values(array_filter($dates, fn (string $f) => preg_match(self::START_WORDS, $f)));
+        $end = array_values(array_filter($dates, fn (string $f) => preg_match(self::END_WORDS, $f)));
+        $duration = array_values(array_filter($fields, fn (string $f) => preg_match(self::DURATION_WORDS, $f)));
+
+        if ($start === [] || ($end === [] && $duration === [])) {
+            return [];
+        }
+
+        return compact('start', 'end', 'duration');
+    }
+
+    private const START_WORDS = '/(start|commence|acquisition|issue|received|from|open)/';
+
+    private const END_WORDS = '/(end|expiry|expires|due|maturity|close|to)/';
+
+    private const DURATION_WORDS = '/(months|years|days|hours|life|duration|term)/';
 }
