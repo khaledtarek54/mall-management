@@ -2,6 +2,7 @@
 
 use App\Filament\Imports\TenantImporter;
 use Filament\Facades\Filament;
+use Illuminate\Support\Facades\Validator;
 
 /**
  * Module-02 close-out — tenant access control, cross-property AR isolation, and ETA identity.
@@ -81,7 +82,18 @@ it('importer rejects an unstorable type and a malformed tax_id', function () {
         ->keyBy(fn ($c) => $c->getName())
         ->map(fn ($c) => $c->getDataValidationRules());
 
-    expect($rules['type'])->not->toContain('in:individual,company,foreign')
-        ->and($rules['type'])->toContain('in:individual,company')
-        ->and(collect($rules['tax_id'])->contains(fn ($r) => is_string($r) && str_contains($r, 'regex')))->toBeTrue();
+    // Asserted by VALIDATING values rather than by matching the rule's spelling. `tenants.type`
+    // stopped being a DB enum on 2026-08-12, so the rule is now built from App\Support\ValueSets —
+    // and a test pinned to the literal 'in:individual,company' was checking how the rule is written
+    // instead of what it accepts, which is the thing that matters and the thing that broke.
+    $accepts = fn (string $field, mixed $value): bool => Validator::make(
+        [$field => $value],
+        [$field => $rules[$field]],
+    )->passes();
+
+    expect($accepts('type', 'individual'))->toBeTrue()
+        ->and($accepts('type', 'company'))->toBeTrue()
+        ->and($accepts('type', 'foreign'))->toBeFalse()
+        ->and($accepts('tax_id', '123-456-789'))->toBeTrue()
+        ->and($accepts('tax_id', 'not-a-trn'))->toBeFalse();
 });

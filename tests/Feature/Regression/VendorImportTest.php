@@ -3,6 +3,7 @@
 use App\Filament\Imports\VendorImporter;
 use App\Models\User;
 use App\Models\Vendor;
+use Database\Seeders\TaxCodeSeeder;
 use Filament\Actions\Imports\Models\Import;
 use Illuminate\Validation\ValidationException;
 
@@ -113,7 +114,7 @@ it('refuses a withholding rate the operator\'s catalogue does not contain', func
     // The gain from importing a CODE rather than a percentage. A spreadsheet carrying "2" was
     // previously accepted and quietly withheld 2% from that supplier for ever — a rate the
     // operator's own tax sheet does not list, on money leaving the bank.
-    test()->seed(\Database\Seeders\TaxCodeSeeder::class);
+    test()->seed(TaxCodeSeeder::class);
 
     expect(fn () => importVendorRow([
         'name' => 'Invented Rate Co', 'tax_id' => '666-666-666', 'withholding_tax_code' => '2',
@@ -123,9 +124,9 @@ it('refuses a withholding rate the operator\'s catalogue does not contain', func
 });
 
 it('rejects a type the column cannot store', function () {
-    // `vendors.type` is a DB enum (App\Support\DatabaseEnums). Validated against the exact set, so
-    // the operator gets "The selected type is invalid" on that row — rather than the INSERT failing
-    // later as an opaque failed row with no reason attached to it.
+    // `vendors.type` is validated against the exact set the column accepts (App\Support\ValueSets),
+    // so the operator gets "The selected type is invalid" on that row — rather than the INSERT
+    // failing later as an opaque failed row with no reason attached to it.
     expect(fn () => importVendorRow([
         'name' => 'Bad Type Co', 'tax_id' => '555-555-555', 'type' => 'freelancer',
     ]))->toThrow(ValidationException::class);

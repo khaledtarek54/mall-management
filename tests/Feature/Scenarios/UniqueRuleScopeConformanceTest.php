@@ -38,28 +38,8 @@ beforeEach(function () {
     ensureAllPropertiesAsset();
 });
 
-/**
- * Every PHP file under app/Filament — forms live in Schemas/, but also in relation
- * managers (app/Filament/Admin/RelationManagers/ sits outside Resources/ entirely) and
- * occasionally on pages.
- *
- * @return array<int,string>
- */
-function filamentSources(): array
-{
-    $files = [];
-    $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(app_path('Filament')));
-
-    foreach ($it as $file) {
-        if ($file->isFile() && $file->getExtension() === 'php') {
-            $files[] = $file->getPathname();
-        }
-    }
-
-    sort($files);
-
-    return $files;
-}
+// `filamentSources()` lives in tests/Pest.php — ManufacturedLabelConformanceTest needs it too, and
+// two file-scope copies were a fatal redeclaration whenever one process loaded both files.
 
 /** Source with comments stripped — a comment naming the clamp must never satisfy the gate. */
 function sourceWithoutComments(string $path): string

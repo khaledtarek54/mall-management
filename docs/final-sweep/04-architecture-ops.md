@@ -424,35 +424,44 @@ it might.
 The project's defining strength is that a convention with a gate does not drift. This sweep found
 **three conventions with no gate at all**, each already demonstrated to drift:
 
-1. **No DB-level enums.** ✅ **Gated 2026-08-12** — `App\Support\DatabaseEnums` +
-   `NoDatabaseEnumsConformanceTest`, which fails on a new one and on a stale grandfathered entry, so
-   the list can only shrink.
-
-   > **Correction to the count: it is 38, not 62.** That figure was read off a developer's local
-   > MySQL, migrated incrementally for months and still carrying columns later migrations had
-   > already freed. The test database is rebuilt from every migration on each run, so it is the only
-   > honest answer — **24 of the 62 were ghosts.** Freeing the remaining ten operator-extensible ones
-   > (`FREE_THESE`) is still open. The gate also had to read the SQLite CHECK constraint rather than
-   > the column type: the first version checked type only, found zero enums in the environment it
-   > runs in, and would have passed forever while gating nothing.
+1. **No DB-level enums.** ✅ **CLOSED 2026-08-12** — all **62** columns converted to `string(32)` by
+   `2026_08_12_270000_free_every_remaining_db_enum_column`; their value sets moved to
+   `App\Support\ValueSets`, enforced on every model save by a wildcard `eloquent.saving: *` listener
+   in `AppServiceProvider`. `NoDatabaseEnumsConformanceTest` now allows **zero** enum columns and
+   proves the replacement actually refuses — mutation-tested by deleting the listener and watching
+   exactly the three refusal cases fail. There is no grandfathered list left to shrink.
 
    The original entry, for the record: **62** enum columns survive; only four have ever been freed. It cost two
    migrations in three days: `add_written_off_to_invoices_status` (an `ALTER TABLE … MODIFY` on the
    hottest table to add one value) and `free_charges_type_from_its_db_enum`, whose own docblock records
    that the enum had **silently broken the charge-code catalogue's recurring-billing promise**.
 
-   > **Correction to the lead's initial framing.** I first presented this as a latent-breakage risk.
-   > The data-integrity audit disproved that half: Laravel renders `enum()` on SQLite as
-   > `varchar check (...)`, so **tests enforce the identical set** — there is no false-green hole — and a
-   > diff of every model's `STATUS_*`/`TYPE_*`/`METHOD_*` constant against all 62 DB sets found **zero
-   > mismatches**. The real case is narrower and still worth acting on: **deploy cost and operator
-   > autonomy.** 17 of the 62 are genuinely operator- or accountant-extensible and should be freed —
-   > sharpest being `payments.method` (Egypt's rails keep moving: Fawry, Meeza, Aman, Vodafone Cash —
-   > each a blocking `ALTER` on the hottest table), `units.category` (no anchor, no cinema),
-   > `utility_meters.type` (no district cooling), and the four `cash|bank` pairs, which already lose to
-   > the new `bank_accounts` table — with more than one bank, `paid_from = 'bank'` cannot say which.
-   > 24 are genuinely fixed and should stay; 21 are fixed in principle but each widening is an `ALTER`
-   > on a table that will be large.
+   > **Both earlier corrections in this entry were themselves wrong, and the retraction matters more
+   > than either.** They read: *"it is 38, not 62 — 24 were ghosts in a stale local MySQL"*, and
+   > *"tests enforce the identical set, there is no false-green hole"*. A freshly migrated MySQL was
+   > then measured directly: **62**. The 24 were not ghosts — they were real enums in production that
+   > had disappeared **only on SQLite**, because SQLite has no `ALTER COLUMN`, so any `->change()`
+   > makes Laravel rebuild the table from the *introspected* schema, which knows the column is a
+   > `varchar` and nothing about its CHECK. Every check constraint on that table is dropped, silently.
+   >
+   > So the gate read 38 in the environment it ran in and passed, while production carried 62, and
+   > those 24 columns were enforced **nowhere in the test suite** — the exact false-green the second
+   > correction denied. A value a model allowed but MySQL refused would have been green here and
+   > fatal on the first real save: the `escalation_type` bug this project has already paid for once,
+   > queued up 24 more times. The lesson is the one the sweep kept re-learning: *"the test database
+   > is the only honest answer"* is false when the two drivers do not express the constraint the same
+   > way. Ask both.
+   >
+   > The deploy-cost case stands and was the reason to act: `payments.method` (Egypt's rails keep
+   > moving — Fawry, Meeza, Aman, Vodafone Cash — each a blocking `ALTER` on the hottest table),
+   > `units.category` (no anchor, no cinema), `utility_meters.type` (no district cooling), and the
+   > four `cash|bank` pairs, which already lose to the `bank_accounts` table — with more than one
+   > bank, `paid_from = 'bank'` cannot say which.
+   >
+   > Converting all 62 also surfaced three test files that had been green over values MySQL would
+   > have refused (`maintenance_penalties.basis = 'fixed'`, `tenant_sales_declarations.status =
+   > 'declared'`, `leases.percentage_rent_calculation_type = 'simple'`) — none of which appears
+   > anywhere in `app/`. That is the false green, found by closing it.
 2. **Concurrency** (§4.1) — 110 lock sites, untestable by construction.
 3. **Derived money columns must not be client-writable** (§1.4).
 

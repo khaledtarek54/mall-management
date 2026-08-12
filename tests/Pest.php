@@ -413,6 +413,41 @@ function settleInvoiceInFull(\App\Models\Invoice $invoice): \App\Models\Payment
     return $payment;
 }
 
+/**
+ * Every PHP file under app/Filament, sorted.
+ *
+ * Shared here rather than declared at file scope in a test, and this one had already gone wrong:
+ * `ManufacturedLabelConformanceTest` and `UniqueRuleScopeConformanceTest` each declared their own
+ * `filamentSources()`, in two different commits, so any single process that loaded both files died
+ * on a FATAL redeclaration before a single test ran — and the whole suite exited with no output at
+ * all. `--parallel` masks it only while the two files land on different workers, which is luck, not
+ * isolation. The fourth occurrence of this exact bug in the project.
+ *
+ * The sweep is the whole tree, not `Resources/`: forms live in `Schemas/`, but also in relation
+ * managers (`app/Filament/Admin/RelationManagers/` sits outside `Resources/` entirely) and
+ * occasionally on pages.
+ *
+ * @return array<int, string>
+ */
+function filamentSources(): array
+{
+    $files = [];
+
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator(app_path('Filament'), RecursiveDirectoryIterator::SKIP_DOTS)
+    );
+
+    foreach ($iterator as $file) {
+        if ($file->isFile() && $file->getExtension() === 'php') {
+            $files[] = $file->getPathname();
+        }
+    }
+
+    sort($files);
+
+    return $files;
+}
+
 /*
 |--------------------------------------------------------------------------
 | Expectations

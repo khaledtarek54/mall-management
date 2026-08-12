@@ -18,12 +18,14 @@ use App\Support\Filament\AuthorizedAction;
 use App\Support\Filament\LocalizedNotification;
 use App\Support\LedgerRealtimeSync;
 use App\Support\TableDefaults;
+use App\Support\ValueSets;
 use Filament\Actions\Action as FilamentAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Notifications\Notification as FilamentNotification;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Notifications\Channels\DatabaseChannel;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Event;
@@ -116,6 +118,23 @@ class AppServiceProvider extends ServiceProvider
         // With it unset — the shipped default — spatie's failure notification is routed to NO
         // channel at all, so a nightly failure was completely silent. See the listener.
         Event::subscribe(LogBackupFailures::class);
+
+        // The app-layer replacement for the 62 DB-level enum columns freed on 2026-08-12
+        // (2026_08_12_270000_free_every_remaining_db_enum_column). MySQL used to refuse an
+        // out-of-set value outright; nothing else did, so dropping the enums without this would have
+        // left every service, job, importer and console command unconstrained.
+        //
+        // A wildcard model event rather than a trait on all 39 models, for the reason that put
+        // AuthorizedAction in the container: a guard that must never be missing belongs at one seam,
+        // where the fortieth model is covered before anyone remembers it — not in N files where a
+        // conformance test has to police whether someone did. See App\Support\ValueSets.
+        Event::listen('eloquent.saving: *', function (string $event, array $payload): void {
+            foreach ($payload as $model) {
+                if ($model instanceof Model) {
+                    ValueSets::guard($model);
+                }
+            }
+        });
 
         Lease::observe(LeaseObserver::class);
 

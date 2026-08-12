@@ -69,6 +69,7 @@ return [
         'account_mapping_duplicate' => '“:role” is already mapped in this scope. Edit the existing row instead — a second one would be ignored, because the ledger reads the first and would keep posting to the old account.',
         'account_mapping_global_undeletable' => '“:role” is a global default and cannot be removed — nothing falls back behind it, so every posting that asks for it would start failing. Re-point it at another account instead.',
         'charge_type_unknown' => 'There is no charge code called ":type". Charges may only use a code from the charge-code catalogue — add it there first, so it also has a posting account and a VAT treatment.',
+        'value_not_allowed' => '":value" is not one of the values :field accepts. Allowed: :allowed.',
         'charge_schedule_overlap' => 'This :type row (:start → :end) overlaps the existing row :other_start → :other_end. Two rows covering the same month would bill the charge twice — close the earlier row the day before the later one starts.',
         'item_allocation_payment_not_received' => 'That payment is not received money, so it cannot settle any line.',
         'dispute_reason_required' => 'A dispute needs a stated reason — it suppresses a late fee, so it has to say why.',

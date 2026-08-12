@@ -206,9 +206,10 @@ other three (import is admin-only, FR-USR-02 — it is not a flavour of create).
 - **A blank withholding-tax cell stays NULL.** `null` = no agreed rate, use the portfolio default;
   `0` = this supplier is EXEMPT. Coercing blank to 0 would silently exempt the entire register and
   nothing would be withheld from anyone. Mutation-checked in both directions.
-- **`type` and `status` are validated against the DB enum's exact set** (see
-  `App\Support\DatabaseEnums`), so a bad value fails that row with a readable message rather than
-  reaching a strict-MySQL INSERT as an opaque failure.
+- **`type` and `status` are validated against the exact set the column accepts**, read from
+  `App\Support\ValueSets` rather than repeated in the importer, so a bad value fails that row with a
+  readable message instead of reaching the INSERT as an opaque failure — and widening the set stays a
+  one-line change in one file. (Both were DB enums until 2026-08-12.)
 - **`slug` is not importable** — the model derives it from the name and de-duplicates against
   soft-deleted rows.
 - `Vendor` is SHARED, so unlike `LeaseImporter` there is no asset column and nothing to clamp.

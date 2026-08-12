@@ -5,9 +5,11 @@ namespace App\Filament\Imports;
 use App\Models\Asset;
 use App\Models\Unit;
 use App\Support\TenantScope;
+use App\Support\ValueSets;
 use Filament\Actions\Imports\ImportColumn;
 use Filament\Actions\Imports\Importer;
 use Filament\Actions\Imports\Models\Import;
+use Illuminate\Validation\Rule;
 
 class UnitImporter extends Importer
 {
@@ -63,7 +65,7 @@ class UnitImporter extends Importer
 
             ImportColumn::make('category')
                 ->label(__('admin.tables.unit.category'))
-                ->rules(['nullable', 'in:retail,food_beverage,wellness,service,kiosk,office,storage']),
+                ->rules(['nullable', Rule::in(ValueSets::allowed('units', 'category'))]),
 
             ImportColumn::make('area_sqm')
                 ->label(__('admin.tables.unit.area'))
@@ -74,6 +76,8 @@ class UnitImporter extends Importer
                 ->label(__('admin.tables.common.status'))
                 // 'occupied'/'reserved' are projections of a lease, not importable values — only
                 // 'vacant' (default) and the manual 'maintenance' override may be set directly.
+                // Deliberately NOT read from ValueSets like `category` above: this is a narrower
+                // rule than the column accepts, and deriving it would widen the importer.
                 ->rules(['nullable', 'in:vacant,maintenance']),
         ];
     }
@@ -100,10 +104,10 @@ class UnitImporter extends Importer
 
     public static function getCompletedNotificationBody(Import $import): string
     {
-        $body = 'Your unit import has completed and ' . number_format($import->successful_rows) . ' ' . str('row')->plural($import->successful_rows) . ' imported.';
+        $body = 'Your unit import has completed and '.number_format($import->successful_rows).' '.str('row')->plural($import->successful_rows).' imported.';
 
         if ($failedRowsCount = $import->getFailedRowsCount()) {
-            $body .= ' ' . number_format($failedRowsCount) . ' ' . str('row')->plural($failedRowsCount) . ' failed to import.';
+            $body .= ' '.number_format($failedRowsCount).' '.str('row')->plural($failedRowsCount).' failed to import.';
         }
 
         return $body;

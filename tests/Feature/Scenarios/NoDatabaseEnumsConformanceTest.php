@@ -1,42 +1,40 @@
 <?php
 
-use App\Support\DatabaseEnums;
+use App\Models\Invoice;
+use App\Models\Tenant;
+use App\Models\Unit;
+use App\Support\ValueSets;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Self-enforcing gate — no NEW DB-level enum column.
+ * **The gate on "no DB-level enum column, anywhere."**
  *
- * `string` + Laravel/Filament validation is a documented convention in CLAUDE.md, and it is the one
- * long-standing convention with no gate. That is not a coincidence: **62 enum columns survive while
- * only four have ever been freed.** The project's own defining strength is that a convention with a
- * gate does not drift; this is the counter-example that proves it.
+ * CLAUDE.md's rule is `string` + Laravel validation, never `$table->enum(...)`. On 2026-08-12 the
+ * last 62 enum columns were converted and their sets moved to {@see ValueSets}, so this file no
+ * longer keeps a grandfathered list — the allowed count is zero, and the burn-down list is gone
+ * because there is nothing left to burn down.
  *
- * **The cost is deploy friction, not breakage** — and saying so precisely matters, because the
- * original framing was wrong. Laravel renders `enum()` on SQLite as `varchar check (…)`, so the
- * suite enforces the identical set, and a diff of every model's `STATUS_*`/`TYPE_*`/`METHOD_*`
- * constant against all 62 DB sets found zero mismatches. There is no false-green hole. What there
- * is: adding one value means `ALTER TABLE … MODIFY`, twice in three days already, once on
- * `payments.status` — and an operator who cannot add a payment rail without a deploy, in a market
- * where the rails keep moving.
+ * **The previous version of this gate passed while being wrong, and the mechanism is worth keeping
+ * written down.** It compared the live schema against a 38-entry grandfathered list and went green.
+ * MySQL had 62. Laravel renders `enum()` on SQLite as `varchar check ("col" in (…))`, which is why
+ * the old docblock concluded the suite enforced the identical sets — but SQLite has no
+ * `ALTER COLUMN`, so any `->change()` makes Laravel rebuild the table from the *introspected* schema,
+ * which knows the column is a `varchar` and nothing about the check. Every check constraint on that
+ * table is dropped, silently. 24 columns had been freed that way on SQLite while remaining enums on
+ * MySQL, so the gate read 38 in the environment it ran in and passed, and the 24 were enforced
+ * NOWHERE in tests: a value the model allowed but MySQL refused would have been green here and
+ * fatal on the first real save. That is the `escalation_type` bug this project has already paid for,
+ * queued up 24 more times.
  *
- * Reads the LIVE SCHEMA rather than the migrations, because the schema is the truth however a
- * column got there — an `ALTER` in a later migration is just as much an enum as the `create` was.
+ * So the schema half of this file still reads BOTH driver shapes even though neither should now
+ * match anything — because "we found nothing" has to mean "there is nothing", not "we looked in the
+ * wrong place". The enforcement half then proves the replacement actually runs, since a registry
+ * nothing consults is decoration.
  */
 
 /**
  * Every `table.column` in the LIVE schema that is a DB-level enum, on either driver.
- *
- * **Two drivers, one question, and the difference is the whole reason this needs writing out.**
- * MySQL stores an enum as a column TYPE. SQLite — which the test suite runs on — has no enum type,
- * so Laravel renders it as `varchar check ("col" in (…))`. A gate that only checked the column type
- * would therefore find ZERO enums in the environment it actually runs in, pass forever, and gate
- * nothing. That is not hypothetical: the first version of this file did exactly that.
- *
- * Reading the schema rather than the migrations is deliberate too. Static parsing has two blind
- * spots that both apply here: a column freed by raw `DB::statement('ALTER TABLE …')` still reads as
- * an enum in its original `create` migration, and `maintenance_requests` was renamed to
- * `tenant_requests`, so its four columns would be counted under a table that no longer exists.
  *
  * @return array<int, string>
  */
@@ -74,50 +72,132 @@ function liveEnumColumns(): array
     return array_values(array_unique($found));
 }
 
-it('adds no DB-level enum column beyond the grandfathered set', function () {
-    $new = array_diff(liveEnumColumns(), DatabaseEnums::GRANDFATHERED);
+it('has no DB-level enum column at all', function () {
+    $enums = liveEnumColumns();
 
-    expect(array_values($new))->toBe(
+    expect($enums)->toBe(
         [],
-        'New DB-level enum column(s): '.implode(', ', $new)."\n"
-        .'Use a string column plus validation (CLAUDE.md — "no DB-level enums"). Widening an enum '
-        .'later costs an ALTER TABLE on a live table, and an operator cannot add a value at all.'
+        'DB-level enum column(s): '.implode(', ', $enums)."\n"
+        .'Use a string column and add the set to App\Support\ValueSets (CLAUDE.md — "no DB-level '
+        .'enums"). Widening an enum costs an ALTER TABLE on a live table, and an operator cannot add '
+        .'a value at all.'
     );
 });
 
-it('carries no grandfathered entry for a column that is no longer an enum', function () {
-    // Freeing a column MUST remove its line, or this list rots the way the PHPStan baseline did —
-    // a fifth of that file described errors that no longer existed, and nothing said so. A list
-    // nobody can tell is out of date reports coverage it does not have.
-    $stale = array_diff(DatabaseEnums::GRANDFATHERED, liveEnumColumns());
+it('registers a value set for a column that still exists', function () {
+    // The lesson from the PHPStan baseline, which rotted until a fifth of it described errors that
+    // no longer existed: a list nobody can tell is out of date reports coverage it does not have.
+    // A renamed table or dropped column must take its entry with it.
+    $stale = [];
 
-    expect(array_values($stale))->toBe(
-        [],
-        'Freed (or renamed) column(s) still listed in App\Support\DatabaseEnums::GRANDFATHERED: '
-        .implode(', ', $stale).'. Delete the line — that is how the list shrinks.'
-    );
+    foreach (array_keys(ValueSets::SETS) as $key) {
+        [$table, $column] = explode('.', $key, 2);
+
+        if (! Schema::hasTable($table) || ! Schema::hasColumn($table, $column)) {
+            $stale[] = $key;
+        }
+    }
+
+    expect($stale)->toBe([], 'App\Support\ValueSets names column(s) that no longer exist: '.implode(', ', $stale));
 });
 
-it('keeps the burn-down list honest about what it still refers to', function () {
-    // Every column marked "free this one" must still be an enum. Once freed, it leaves both lists.
-    $gone = array_diff(array_keys(DatabaseEnums::FREE_THESE), liveEnumColumns());
+it('holds every freed column as a string column, not an integer or a date', function () {
+    // The conversion is only honoured if the column can actually store the set. A `status` column
+    // left as an int would pass the enum check above and store 0 for every value in the registry.
+    $wrongType = [];
 
-    expect(array_values($gone))->toBe([], 'Already freed, remove from FREE_THESE: '.implode(', ', $gone));
+    foreach (array_keys(ValueSets::SETS) as $key) {
+        [$table, $column] = explode('.', $key, 2);
+        $type = strtolower((string) Schema::getColumnType($table, $column));
+
+        if (! str_contains($type, 'char') && ! str_contains($type, 'text')) {
+            $wrongType[] = $key.' is '.$type;
+        }
+    }
+
+    expect($wrongType)->toBe([], 'Not string columns: '.implode(', ', $wrongType));
 });
 
-it('states a reason for every column it recommends freeing', function () {
-    $blank = array_keys(array_filter(
-        DatabaseEnums::FREE_THESE,
-        fn (string $reason): bool => trim($reason) === '',
-    ));
+it('states a non-empty set of values for every registered column', function () {
+    $empty = array_keys(array_filter(ValueSets::SETS, fn (array $values): bool => $values === []));
 
-    expect($blank)->toBe([]);
+    expect($empty)->toBe([], 'Empty value set(s) — a column that accepts nothing cannot be saved: '.implode(', ', $empty));
 });
 
-it('recommends freeing only columns that are actually grandfathered', function () {
-    // The two lists must not disagree about what exists — a FREE_THESE entry outside
-    // GRANDFATHERED would be advice about a column the gate is not watching.
-    $orphan = array_diff(array_keys(DatabaseEnums::FREE_THESE), DatabaseEnums::GRANDFATHERED);
+it('lists each value once per column', function () {
+    // A duplicate is harmless to the check and a sign the set was edited by hand from two places.
+    $dupes = [];
 
-    expect(array_values($orphan))->toBe([]);
+    foreach (ValueSets::SETS as $key => $values) {
+        if (count($values) !== count(array_unique($values))) {
+            $dupes[] = $key;
+        }
+    }
+
+    expect($dupes)->toBe([], 'Duplicated value(s) in: '.implode(', ', $dupes));
+});
+
+/**
+ * The enforcement half. The registry is not the guard — `AppServiceProvider`'s wildcard
+ * `eloquent.saving: *` listener is — and these prove it is wired, because a registry that nothing
+ * consults would satisfy every assertion above.
+ *
+ * Each refusal is PAIRED with a control that must succeed. A refusal test passes just as happily
+ * when the save is a no-op for some unrelated reason, which is how a guard gets credited for work
+ * it is not doing.
+ */
+it('refuses a value the column does not accept', function () {
+    $tenant = Tenant::factory()->create(['status' => 'active']);
+
+    expect(fn () => $tenant->update(['status' => 'suspended']))
+        ->toThrow(DomainException::class);
+
+    // The control: the guard refuses the unknown value, not the update.
+    $tenant->update(['status' => 'blacklisted']);
+
+    expect($tenant->fresh()->status)->toBe('blacklisted');
+});
+
+it('guards a model with no line of its own in it, because the listener is global', function () {
+    // Unit is not mentioned anywhere in ValueSets' wiring — no trait, no observer, no boot method.
+    // If this passes, the fortieth model added to the project is covered before anyone remembers.
+    $unit = Unit::factory()->create(['category' => 'retail']);
+
+    expect(fn () => $unit->update(['category' => 'cinema']))->toThrow(DomainException::class);
+
+    $unit->update(['category' => 'kiosk']);
+
+    expect($unit->fresh()->category)->toBe('kiosk');
+});
+
+it('refuses an unknown value on create, not only on update', function () {
+    expect(fn () => Tenant::factory()->create(['type' => 'foreign']))->toThrow(DomainException::class);
+
+    expect(Tenant::factory()->create(['type' => 'individual']))->toBeInstanceOf(Tenant::class);
+});
+
+it('leaves a row holding a retired value editable through a different field', function () {
+    // Narrowing a set must not make history unsaveable. The guard is dirty-only, so a row whose
+    // stored value is no longer listed can still be corrected elsewhere — otherwise an operator
+    // fixing a phone number would meet a refusal about a field they never touched.
+    $tenant = Tenant::factory()->create();
+
+    // Write a value the registry does not list, bypassing model events the way a legacy row got there.
+    DB::table('tenants')->where('id', $tenant->id)->update(['status' => 'archived']);
+
+    $tenant->refresh()->update(['phone' => '01000000001']);
+
+    expect($tenant->fresh()->phone)->toBe('01000000001')
+        ->and($tenant->fresh()->status)->toBe('archived');
+});
+
+it('treats an absent value as the schema\'s business, not an unknown value', function () {
+    // Whether the column may be empty is what NOT NULL and the default are for, and CLAUDE.md's own
+    // invariant is that a blank optional field is coerced in the model. A nullable select submitting
+    // '' has not named a value, so it must not raise "'' is not allowed".
+    $invoice = Invoice::factory()->create(['eta_status' => null]);
+
+    $invoice->update(['eta_status' => '']);
+
+    expect($invoice->fresh()->eta_status)->toBeIn([null, '']);
 });

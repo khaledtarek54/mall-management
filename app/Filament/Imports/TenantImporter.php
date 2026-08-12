@@ -3,9 +3,11 @@
 namespace App\Filament\Imports;
 
 use App\Models\Tenant;
+use App\Support\ValueSets;
 use Filament\Actions\Imports\ImportColumn;
 use Filament\Actions\Imports\Importer;
 use Filament\Actions\Imports\Models\Import;
+use Illuminate\Validation\Rule;
 
 class TenantImporter extends Importer
 {
@@ -25,9 +27,10 @@ class TenantImporter extends Importer
 
             ImportColumn::make('type')
                 ->label(__('admin.fields.type'))
-                // The schema is enum('type',['individual','company']); 'foreign' is not storable and
-                // would fail the INSERT on strict MySQL as an opaque failed row. Reject it cleanly.
-                ->rules(['nullable', 'in:individual,company']),
+                // 'foreign' is not an accepted value; rejecting it here fails the row with a reason
+                // rather than letting it reach the model guard as an opaque failed row. Read from
+                // the registry, not repeated — the column was an enum until 2026-08-12.
+                ->rules(['nullable', Rule::in(ValueSets::allowed('tenants', 'type'))]),
 
             ImportColumn::make('tax_id')
                 ->label(__('admin.fields.tax_id'))
@@ -54,7 +57,7 @@ class TenantImporter extends Importer
 
             ImportColumn::make('status')
                 ->label(__('admin.tables.common.status'))
-                ->rules(['nullable', 'in:active,inactive,blacklisted']),
+                ->rules(['nullable', Rule::in(ValueSets::allowed('tenants', 'status'))]),
         ];
     }
 
@@ -99,10 +102,10 @@ class TenantImporter extends Importer
 
     public static function getCompletedNotificationBody(Import $import): string
     {
-        $body = 'Your tenant import has completed and ' . number_format($import->successful_rows) . ' ' . str('row')->plural($import->successful_rows) . ' imported.';
+        $body = 'Your tenant import has completed and '.number_format($import->successful_rows).' '.str('row')->plural($import->successful_rows).' imported.';
 
         if ($failedRowsCount = $import->getFailedRowsCount()) {
-            $body .= ' ' . number_format($failedRowsCount) . ' ' . str('row')->plural($failedRowsCount) . ' failed to import.';
+            $body .= ' '.number_format($failedRowsCount).' '.str('row')->plural($failedRowsCount).' failed to import.';
         }
 
         return $body;

@@ -1,7 +1,6 @@
 <?php
 
 use App\Models\Charge;
-use App\Models\Invoice;
 use App\Models\Lease;
 use App\Models\TenantSalesDeclaration;
 use App\Services\Reports\ReportService;
@@ -103,7 +102,7 @@ it('computes occupancy cost as billed cost over declared sales', function () {
     // …against 500,000 of declared sales.
     TenantSalesDeclaration::create([
         'lease_id' => $lease->id, 'period_start' => '2028-03-01', 'period_end' => '2028-03-31',
-        'declared_sales' => 500000, 'status' => 'declared', 'declared_at' => '2028-04-01',
+        'declared_sales' => 500000, 'status' => 'submitted', 'declared_at' => '2028-04-01',
     ]);
 
     $row = app(ReportService::class)
@@ -132,7 +131,7 @@ it('excludes penalties, because a late fee is not a cost of occupying the space'
 
     TenantSalesDeclaration::create([
         'lease_id' => $lease->id, 'period_start' => '2028-03-01', 'period_end' => '2028-03-31',
-        'declared_sales' => 500000, 'status' => 'declared', 'declared_at' => '2028-04-01',
+        'declared_sales' => 500000, 'status' => 'submitted', 'declared_at' => '2028-04-01',
     ]);
 
     $row = app(ReportService::class)
@@ -171,7 +170,7 @@ it('flags a ratio built on estimated sales', function () {
 
     TenantSalesDeclaration::create([
         'lease_id' => $lease->id, 'period_start' => '2028-03-01', 'period_end' => '2028-03-31',
-        'declared_sales' => 500000, 'is_estimate' => true, 'status' => 'declared', 'declared_at' => '2028-04-01',
+        'declared_sales' => 500000, 'is_estimate' => true, 'status' => 'submitted', 'declared_at' => '2028-04-01',
     ]);
 
     $row = app(ReportService::class)
@@ -194,7 +193,7 @@ it('ignores cancelled invoices, because nobody is being asked for that money', f
 
     TenantSalesDeclaration::create([
         'lease_id' => $lease->id, 'period_start' => '2028-03-01', 'period_end' => '2028-03-31',
-        'declared_sales' => 500000, 'status' => 'declared', 'declared_at' => '2028-04-01',
+        'declared_sales' => 500000, 'status' => 'submitted', 'declared_at' => '2028-04-01',
     ]);
 
     $row = app(ReportService::class)

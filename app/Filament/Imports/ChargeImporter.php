@@ -6,10 +6,12 @@ use App\Models\Charge;
 use App\Models\Lease;
 use App\Services\ChargeScheduleService;
 use App\Support\TenantScope;
+use App\Support\ValueSets;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Imports\ImportColumn;
 use Filament\Actions\Imports\Importer;
 use Filament\Actions\Imports\Models\Import;
+use Illuminate\Validation\Rule;
 
 /**
  * Load the recurring charges a lease bills every month — service charge, marketing, chiller, signage.
@@ -75,7 +77,7 @@ class ChargeImporter extends Importer
                 ->rules(['required', 'numeric', 'min:0'])),
 
             $inputOnly(ImportColumn::make('frequency')
-                ->rules(['nullable', 'in:monthly,quarterly,annually,one_time'])),
+                ->rules(['nullable', Rule::in(ValueSets::allowed('charges', 'frequency'))])),
 
             $inputOnly(ImportColumn::make('effective_from')
                 ->label(__('admin.imports.columns.effective_from'))

@@ -160,6 +160,10 @@ class LeaseImporter extends Importer
 
             ImportColumn::make('status')
                 ->label(__('admin.tables.common.status'))
+                // Deliberately NARROWER than the set `leases.status` accepts (App\Support\ValueSets),
+                // so this is not read from the registry: 'pending_approval' and 'cancelled' are
+                // reached through the approval and cancellation workflows, and importing a lease
+                // straight into either would skip the steps that put it there.
                 ->rules(['nullable', 'in:draft,active,expired,renewed,terminated']),
         ];
     }

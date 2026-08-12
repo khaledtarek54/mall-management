@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Asset;
 use App\Models\Lease;
 use App\Models\TenantSalesDeclaration;
 use App\Services\Reports\ReportService;
@@ -22,7 +23,7 @@ afterEach(fn () => CarbonImmutable::setTestNow());
 
 function salesLease(int $assetId, string $code): Lease
 {
-    return makeLease(makeUnit(\App\Models\Asset::find($assetId), ['code' => $code]), null, [
+    return makeLease(makeUnit(Asset::find($assetId), ['code' => $code]), null, [
         'status' => 'active',
         'commencement_date' => '2026-01-01',
         'expiry_date' => '2032-12-31',
@@ -38,7 +39,7 @@ function declareSales(Lease $lease, string $month, float $amount, bool $estimate
         'period_end' => CarbonImmutable::parse($month)->endOfMonth()->toDateString(),
         'declared_sales' => $amount,
         'is_estimate' => $estimate,
-        'status' => 'declared',
+        'status' => 'submitted',
         'declared_at' => CarbonImmutable::parse($month)->addMonth()->toDateString(),
     ]);
 }

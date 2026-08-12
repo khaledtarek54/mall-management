@@ -5,6 +5,7 @@ namespace App\Filament\Imports;
 use App\Models\TaxCode;
 use App\Models\Vendor;
 use App\Support\PropertyIsolation;
+use App\Support\ValueSets;
 use Filament\Actions\Imports\ImportColumn;
 use Filament\Actions\Imports\Importer;
 use Filament\Actions\Imports\Models\Import;
@@ -39,16 +40,17 @@ class VendorImporter extends Importer
                 ->label(__('admin.fields.legal_name'))
                 ->rules(['nullable', 'max:200']),
 
-            // Both are DB enums (`vendors.type`, `vendors.status` — see App\Support\DatabaseEnums).
-            // Validated against the exact set the column accepts: an unlisted value would otherwise
-            // reach a strict-MySQL INSERT and surface as an opaque failed row with no reason on it.
+            // Validated against the exact set the column accepts, READ FROM the registry rather than
+            // repeated here: an unlisted value fails the row with a reason on it instead of reaching
+            // the INSERT, and widening the set stays a one-line change in one file. These two were
+            // DB enums until 2026-08-12 — see App\Support\ValueSets.
             ImportColumn::make('type')
                 ->label(__('admin.fields.type'))
-                ->rules(['nullable', 'in:contractor,supplier,service_provider,consultant,other']),
+                ->rules(['nullable', Rule::in(ValueSets::allowed('vendors', 'type'))]),
 
             ImportColumn::make('status')
                 ->label(__('admin.tables.common.status'))
-                ->rules(['nullable', 'in:active,inactive,blacklisted']),
+                ->rules(['nullable', Rule::in(ValueSets::allowed('vendors', 'status'))]),
 
             ImportColumn::make('tax_id')
                 ->label(__('admin.fields.tax_id'))

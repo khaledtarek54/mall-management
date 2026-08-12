@@ -2,7 +2,11 @@
 
 use App\Models\JournalEntry;
 use App\Models\MaintenancePenalty;
+use App\Models\MaintenanceWorkOrder;
+use App\Models\Vendor;
 use App\Models\VendorBill;
+use App\Services\Accounting\FiscalCalendar;
+use App\Services\ApplySlaPenaltyService;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 
@@ -26,11 +30,11 @@ use Database\Seeders\ChartOfAccountsSeeder;
 beforeEach(function () {
     $this->seed(ChartOfAccountsSeeder::class);
     $this->seed(AccountMappingSeeder::class);
-    app(\App\Services\Accounting\FiscalCalendar::class)->ensureYear((int) now()->year);
+    app(FiscalCalendar::class)->ensureYear((int) now()->year);
 
     $this->from = makeAsset(['code' => 'FROM']);
     $this->to = makeAsset(['code' => 'TO']);
-    $vendor = \App\Models\Vendor::create(['name' => 'SlaCo', 'category' => 'hvac', 'status' => 'active']);
+    $vendor = Vendor::create(['name' => 'SlaCo', 'category' => 'hvac', 'status' => 'active']);
 
     $this->bill = VendorBill::create([
         'vendor_id' => $vendor->id,
@@ -46,7 +50,7 @@ beforeEach(function () {
     // A penalty hangs off a work order and reaches `applied` through its own service — the state
     // is not settable by hand, and a fixture that wrote it directly would be green over a path
     // no operator can take.
-    $order = \App\Models\MaintenanceWorkOrder::create([
+    $order = MaintenanceWorkOrder::create([
         'asset_id' => $this->from->id,
         'work_order_type' => 'cm',
         'execution_type' => 'external',
@@ -62,7 +66,7 @@ beforeEach(function () {
         'maintenance_work_order_id' => $order->id,
         'asset_id' => $this->from->id,
         'vendor_id' => $vendor->id,
-        'basis' => 'fixed',
+        'basis' => MaintenancePenalty::BASIS_FLAT,
         'rate' => 8000,
         'hours_over_sla' => 0,
         'amount' => 8000,
@@ -70,7 +74,7 @@ beforeEach(function () {
         'finalised_at' => now(),
     ]);
 
-    app(\App\Services\ApplySlaPenaltyService::class)->toBill($this->penalty, $this->bill);
+    app(ApplySlaPenaltyService::class)->toBill($this->penalty, $this->bill);
     $this->penalty->refresh();
 
     $this->artisan('accounting:sync-ledger', ['--all' => true])->assertSuccessful();

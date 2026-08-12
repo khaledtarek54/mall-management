@@ -28,25 +28,8 @@ use App\Models\MarketingSpend;
 use App\Models\OwnerRequest;
 use Illuminate\Support\Str;
 
-/** Every PHP file under app/Filament. */
-function filamentSources(): array
-{
-    $files = [];
-
-    $iterator = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator(app_path('Filament'), RecursiveDirectoryIterator::SKIP_DOTS)
-    );
-
-    foreach ($iterator as $file) {
-        if ($file->getExtension() === 'php') {
-            $files[] = $file->getPathname();
-        }
-    }
-
-    sort($files);
-
-    return $files;
-}
+// `filamentSources()` lives in tests/Pest.php — UniqueRuleScopeConformanceTest needs it too, and
+// two file-scope copies were a fatal redeclaration whenever one process loaded both files.
 
 it('never manufactures a user-facing label out of a column value', function () {
     $offenders = [];

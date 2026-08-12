@@ -248,9 +248,12 @@ project already knows the answer, because **a convention with a conformance gate
 once.** Three conventions had no gate: derived-money-columns-not-client-writable, no-DB-enums, and
 concurrency (110 untestable lock sites). **Two are now gated** (`DerivedMoneyConformanceTest` and
 `NoDatabaseEnumsConformanceTest`, both 2026-08-12) — and building each one corrected the finding
-that prompted it: the money sweep turned up two more live exploits than recorded, and the enum count
-turned out to be **38, not 62** (the rest were ghosts in a stale local MySQL). Concurrency is the
-one left.
+that prompted it: the money sweep turned up two more live exploits than recorded, and the enum
+count was first "corrected" to **38, not 62** before a freshly migrated MySQL showed it really was
+**62** — the 24 "ghosts" were live production enums that had vanished only on SQLite, where a table
+rebuild silently drops CHECK constraints, so a gate reading the test schema had been passing while
+enforcing nothing on those columns. All 62 are now plain strings enforced by `App\Support\ValueSets`.
+Concurrency is the one left.
 
 See [05-stop-point-plan.md](05-stop-point-plan.md) for the sequenced route.
 
