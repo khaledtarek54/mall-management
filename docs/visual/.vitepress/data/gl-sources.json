@@ -1,0 +1,404 @@
+[
+    {
+        "model": "CreditNote",
+        "label": "Credit Note",
+        "journalizer": "CreditNoteJournalizer",
+        "date_column": "issue_date",
+        "posting_date_guard": "CreditNoteService",
+        "posting_date_note": null,
+        "deletable": {
+            "tier": "never",
+            "instead": "cancel the note — it un-applies against the original invoice"
+        },
+        "change_impact": {
+            "refused": 4,
+            "derived": 3,
+            "descriptive": 1,
+            "neutral": 10
+        }
+    },
+    {
+        "model": "Custody",
+        "label": "Custody",
+        "journalizer": "CustodyJournalizer",
+        "date_column": "custody_date",
+        "posting_date_guard": "GrantCustodyService",
+        "posting_date_note": null,
+        "deletable": {
+            "tier": "allowed",
+            "instead": null
+        },
+        "change_impact": {
+            "derived": 4,
+            "neutral": 4
+        }
+    },
+    {
+        "model": "CustodyTransaction",
+        "label": "Custody Transaction",
+        "journalizer": "CustodyTransactionJournalizer",
+        "date_column": "transaction_date",
+        "posting_date_guard": "SettleCustodyService",
+        "posting_date_note": null,
+        "deletable": {
+            "tier": "allowed",
+            "instead": null
+        },
+        "change_impact": {
+            "derived": 6,
+            "neutral": 3
+        }
+    },
+    {
+        "model": "DepositApplication",
+        "label": "Deposit Application",
+        "journalizer": "DepositApplicationJournalizer",
+        "date_column": "entry_date",
+        "posting_date_guard": "ApplyDepositToInvoiceService",
+        "posting_date_note": null,
+        "deletable": {
+            "tier": "allowed",
+            "instead": null
+        },
+        "change_impact": {
+            "derived": 5,
+            "neutral": 3
+        }
+    },
+    {
+        "model": "DepositTransaction",
+        "label": "Deposit Transaction",
+        "journalizer": "DepositTransactionJournalizer",
+        "date_column": "transaction_date",
+        "posting_date_guard": "DepositTransaction",
+        "posting_date_note": null,
+        "deletable": {
+            "tier": "never",
+            "instead": "reverse the deposit transaction"
+        },
+        "change_impact": {
+            "derived": 8,
+            "descriptive": 1,
+            "neutral": 2
+        }
+    },
+    {
+        "model": "DepreciationEntry",
+        "label": "Depreciation Entry",
+        "journalizer": "DepreciationEntryJournalizer",
+        "date_column": "period_month",
+        "posting_date_guard": null,
+        "posting_date_note": "period_month is set by DepreciationService::run from the month being posted; the operator-reachable inputs are the scheduler and the admin button (both now()) and PostDepreciationCommand --month, which is guarded there.",
+        "deletable": {
+            "tier": "never",
+            "instead": "reverse the depreciation run"
+        },
+        "change_impact": {
+            "derived": 2,
+            "neutral": 2
+        }
+    },
+    {
+        "model": "Disbursement",
+        "label": "Disbursement",
+        "journalizer": "DisbursementJournalizer",
+        "date_column": "paid_on",
+        "posting_date_guard": "DisbursementService",
+        "posting_date_note": null,
+        "deletable": {
+            "tier": "never",
+            "instead": "cancel the disbursement — it is a GL source and an owner payout"
+        },
+        "change_impact": {
+            "derived": 5,
+            "descriptive": 1,
+            "neutral": 6
+        }
+    },
+    {
+        "model": "EmployeeAdvance",
+        "label": "Employee Advance",
+        "journalizer": "EmployeeAdvanceJournalizer",
+        "date_column": "advance_date",
+        "posting_date_guard": "GrantEmployeeAdvanceService",
+        "posting_date_note": null,
+        "deletable": {
+            "tier": "allowed",
+            "instead": null
+        },
+        "change_impact": {
+            "derived": 4,
+            "neutral": 4
+        }
+    },
+    {
+        "model": "EmployeeAdvanceRepayment",
+        "label": "Employee Advance Repayment",
+        "journalizer": "EmployeeAdvanceRepaymentJournalizer",
+        "date_column": "repaid_on",
+        "posting_date_guard": "RecordAdvanceRepaymentService",
+        "posting_date_note": null,
+        "deletable": {
+            "tier": "allowed",
+            "instead": null
+        },
+        "change_impact": {
+            "derived": 4,
+            "neutral": 3
+        }
+    },
+    {
+        "model": "Expense",
+        "label": "Expense",
+        "journalizer": "ExpenseJournalizer",
+        "date_column": "expense_date",
+        "posting_date_guard": "Expense",
+        "posting_date_note": null,
+        "deletable": {
+            "tier": "never",
+            "instead": "cancel the expense"
+        },
+        "change_impact": {
+            "refused": 4,
+            "derived": 4,
+            "descriptive": 1,
+            "neutral": 5
+        }
+    },
+    {
+        "model": "FixedAsset",
+        "label": "Fixed Asset",
+        "journalizer": "FixedAssetAcquisitionJournalizer",
+        "date_column": "acquisition_date",
+        "posting_date_guard": "FixedAsset",
+        "posting_date_note": null,
+        "deletable": {
+            "tier": "allowed",
+            "instead": null
+        },
+        "change_impact": {
+            "derived": 5,
+            "prospective": 4,
+            "descriptive": 1,
+            "neutral": 5
+        }
+    },
+    {
+        "model": "FixedAssetDisposal",
+        "label": "Fixed Asset Disposal",
+        "journalizer": "FixedAssetDisposalJournalizer",
+        "date_column": "disposed_on",
+        "posting_date_guard": "DisposeFixedAssetService",
+        "posting_date_note": null,
+        "deletable": {
+            "tier": "never",
+            "instead": "reverse the disposal"
+        },
+        "change_impact": {
+            "derived": 3,
+            "neutral": 3
+        }
+    },
+    {
+        "model": "Invoice",
+        "label": "Invoice",
+        "journalizer": "InvoiceJournalizer",
+        "date_column": "issue_date",
+        "posting_date_guard": "Invoice",
+        "posting_date_note": null,
+        "deletable": {
+            "tier": "never",
+            "instead": "cancel the invoice, or issue a credit note"
+        },
+        "change_impact": {
+            "refused": 3,
+            "derived": 5,
+            "descriptive": 1,
+            "neutral": 16
+        }
+    },
+    {
+        "model": "InvoiceWriteOff",
+        "label": "Invoice Write Off",
+        "journalizer": "InvoiceWriteOffJournalizer",
+        "date_column": "entry_date",
+        "posting_date_guard": "WriteOffInvoiceService",
+        "posting_date_note": null,
+        "deletable": {
+            "tier": "allowed",
+            "instead": null
+        },
+        "change_impact": {
+            "derived": 5,
+            "neutral": 3
+        }
+    },
+    {
+        "model": "MaintenancePenalty",
+        "label": "Maintenance Penalty",
+        "journalizer": "MaintenancePenaltyJournalizer",
+        "date_column": "applied_at",
+        "posting_date_guard": null,
+        "posting_date_note": "applied_at is stamped now() at the moment the penalty is applied — a penalty cannot be applied into the past.",
+        "deletable": {
+            "tier": "never",
+            "instead": "waive or release the penalty — it feeds the vendor bill"
+        },
+        "change_impact": {
+            "derived": 5,
+            "neutral": 11
+        }
+    },
+    {
+        "model": "MarketingSpend",
+        "label": "Marketing Spend",
+        "journalizer": "MarketingSpendJournalizer",
+        "date_column": "spent_on",
+        "posting_date_guard": "MarketingSpend",
+        "posting_date_note": null,
+        "deletable": {
+            "tier": "allowed",
+            "instead": null
+        },
+        "change_impact": {
+            "derived": 5,
+            "neutral": 4
+        }
+    },
+    {
+        "model": "OwnerStatementRun",
+        "label": "Owner Statement Run",
+        "journalizer": "OwnerStatementRunJournalizer",
+        "date_column": "posting_date",
+        "posting_date_guard": "FinaliseOwnerStatementRunService",
+        "posting_date_note": null,
+        "deletable": {
+            "tier": "allowed",
+            "instead": null
+        },
+        "change_impact": {
+            "derived": 4,
+            "descriptive": 1,
+            "neutral": 12
+        }
+    },
+    {
+        "model": "Payment",
+        "label": "Payment",
+        "journalizer": "PaymentJournalizer",
+        "date_column": "payment_date",
+        "posting_date_guard": "Payment",
+        "posting_date_note": null,
+        "deletable": {
+            "tier": "never",
+            "instead": "void the payment (VoidPaymentService) — it reverses the GL and re-opens the invoice"
+        },
+        "change_impact": {
+            "refused": 2,
+            "derived": 3,
+            "descriptive": 1,
+            "neutral": 10
+        }
+    },
+    {
+        "model": "Payroll",
+        "label": "Payroll",
+        "journalizer": "PayrollJournalizer",
+        "date_column": "period_month",
+        "posting_date_guard": "PayrollService",
+        "posting_date_note": null,
+        "deletable": {
+            "tier": "never",
+            "instead": "cancel the run — payslips and their GL entries follow it"
+        },
+        "change_impact": {
+            "derived": 11,
+            "descriptive": 1,
+            "neutral": 5
+        }
+    },
+    {
+        "model": "StockMovement",
+        "label": "Stock Movement",
+        "journalizer": "InventoryMovementJournalizer",
+        "date_column": "moved_on",
+        "posting_date_guard": "StockMovementService",
+        "posting_date_note": null,
+        "deletable": {
+            "tier": "never",
+            "instead": "post a correcting movement; the original is what the GL was built from"
+        },
+        "change_impact": {
+            "derived": 5,
+            "neutral": 6
+        }
+    },
+    {
+        "model": "StraightLineRentAdjustment",
+        "label": "Straight Line Rent Adjustment",
+        "journalizer": "StraightLineRentAdjustmentJournalizer",
+        "date_column": "entry_date",
+        "posting_date_guard": null,
+        "posting_date_note": "entry_date is the last day of the month being recognised, derived by PostStraightLineRentService and never operator-typed. The sweep refuses to post into a closed period, which is also what makes an amendment forward-only: months already recognised are left exactly as they were.",
+        "deletable": {
+            "tier": "allowed",
+            "instead": null
+        },
+        "change_impact": {
+            "derived": 5,
+            "neutral": 2
+        }
+    },
+    {
+        "model": "TenantCreditApplication",
+        "label": "Tenant Credit Application",
+        "journalizer": "TenantCreditApplicationJournalizer",
+        "date_column": "entry_date",
+        "posting_date_guard": null,
+        "posting_date_note": "entry_date is deliberately stamped at application time, never the source receipt's date. That decoupling is the whole point: it lets an old overpayment settle a current invoice without ever posting into the closed period the overpayment came from.",
+        "deletable": {
+            "tier": "allowed",
+            "instead": null
+        },
+        "change_impact": {
+            "derived": 5,
+            "neutral": 2
+        }
+    },
+    {
+        "model": "VendorBill",
+        "label": "Vendor Bill",
+        "journalizer": "VendorBillJournalizer",
+        "date_column": "bill_date",
+        "posting_date_guard": "VendorBillService",
+        "posting_date_note": null,
+        "deletable": {
+            "tier": "never",
+            "instead": "cancel the bill"
+        },
+        "change_impact": {
+            "refused": 5,
+            "derived": 4,
+            "descriptive": 1,
+            "neutral": 13
+        }
+    },
+    {
+        "model": "VendorBillPayment",
+        "label": "Vendor Bill Payment",
+        "journalizer": "VendorBillPaymentJournalizer",
+        "date_column": "payment_date",
+        "posting_date_guard": "VendorBillService",
+        "posting_date_note": null,
+        "deletable": {
+            "tier": "never",
+            "instead": "void the payment — money left the bank"
+        },
+        "change_impact": {
+            "refused": 4,
+            "derived": 1,
+            "descriptive": 1,
+            "neutral": 2
+        }
+    }
+]

@@ -4,7 +4,7 @@
 > visual handbook grows into a deployed, bilingual, interactive reference for all 36 modules whose
 > data is **generated from the registries** rather than typed.
 
-**Status:** Phases A + B **shipped** · C–F outstanding · started 2026-08-12.
+**Status:** Phases A + B + C **shipped** · D–F outstanding · started 2026-08-12.
 
 ---
 
@@ -199,11 +199,12 @@ locales: {
 }
 ```
 
-**RTL** is done by converting `theme/custom.css` to **CSS logical properties**
-(`margin-inline-start`, `padding-inline`, `inset-inline`, `text-align: start`) rather than by adding
-`postcss-rtlcss` — VitePress's own docs call the plugin route experimental, and logical properties are
-a real fix rather than a mirror. The plugin is added only if an audit finds something logical
-properties cannot express.
+**RTL** is done by converting `theme/custom.css` to **CSS logical properties** rather than by adding
+`postcss-rtlcss` — VitePress's own docs call the plugin route experimental. The audit found exactly
+**four** physical properties in 216 lines (`border-left`, one `text-align: left`, two
+`text-align: right`), so flipping them to `border-inline-start` and `text-align: start/end` is a real
+fix rather than a mirror bolted on top. No plugin needed; the file now says so, because a new
+`left`/`right` is what would bring the plugin back.
 
 **`atriom:dump-handbook-data`** — a new command in the family of `atriom:dump-system-census` /
 `atriom:dump-registries` / `atriom:dump-admin-manifest`. It writes
@@ -214,9 +215,26 @@ properties cannot express.
 `RolesPermissionsSeeder` role→permission grants · the scheduled commands in `routes/console.php` ·
 the module census.
 
-A conformance test fails the build when the dump drifts — the same teeth `GeneratedDocsConformanceTest`
-already gives the markdown docs. **This is what keeps the handbook cheap to maintain: everything that
-can go stale is derived.**
+Five datasets ship: `gl-sources` (24), `posting-roles` (48), `isolation` (99), `workflows` (3) and
+`screens` (83).
+
+**What is deliberately NOT dumped: the debit/credit lines each journalizer posts.** They are not a
+registry and not statically derivable — `InvoiceJournalizer` resolves its revenue role per line
+through `ChargeCode::roleFor()`, i.e. from a table an accountant maintains at runtime, with a
+hard-coded floor behind it. Any "map" of them would be a plausible guess rendered as a diagram,
+which is worse than not drawing it. The T-account cards stay hand-authored, where worked numbers
+back them. The posting explorer answers what IS derivable and is the better question anyway: *what
+posts, when is it dated, may it be edited afterwards, and can it be deleted.*
+
+`HandbookDataConformanceTest` re-runs the generator and fails on drift — the same teeth
+`GeneratedDocsConformanceTest` gives the markdown docs — and additionally pins that no money record
+ever dumps as deletable. That last one is a regression guard on a real defect: both deletion
+registers are keyed BY CLASS with the remedy as the value, and the first version searched them with
+`in_array($model, …)`, which compares against the REASONS. Every money record dumped as freely
+deletable, and the handbook would have drawn the exact inverse of this project's most-stated
+invariant, confidently.
+
+**This is what keeps the handbook cheap to maintain: everything that can go stale is derived.**
 
 ---
 
@@ -294,7 +312,7 @@ commit with its gate turned on, so nothing lands half-enforced.
 | --- | --- | --- | --- |
 | A | Guides on all **83** screens, EN + AR | `ScreenGuideConformanceTest` (replaces the old one) | **DONE** |
 | B | 64 paragraphs → 55 hint icons + 8 reasoned exemptions | `FieldHelpConformanceTest` (new) | **DONE** |
-| C | Bilingual/RTL shell + `atriom:dump-handbook-data` | generated-data drift test | not started |
+| C | Bilingual/RTL shell + 5 generated datasets | `HandbookDataConformanceTest` | **DONE** |
 | D | Interactive components | — | not started |
 | E | 36 module pages × 2 languages | sidebar/page-count check | not started |
 | F | `/handbook` behind auth + deploy wiring | `tests/Feature/Handbook` | not started |

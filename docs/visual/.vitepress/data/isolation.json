@@ -1,0 +1,596 @@
+[
+    {
+        "model": "AccountMapping",
+        "label": "Account Mapping",
+        "classification": "shared",
+        "note": null
+    },
+    {
+        "model": "AccountingPeriod",
+        "label": "Accounting Period",
+        "classification": "shared",
+        "note": null
+    },
+    {
+        "model": "Announcement",
+        "label": "Announcement",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "ApprovalRule",
+        "label": "Approval Rule",
+        "classification": "shared",
+        "note": null
+    },
+    {
+        "model": "Area",
+        "label": "Area",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "Asset",
+        "label": "Asset",
+        "classification": "self",
+        "note": null
+    },
+    {
+        "model": "AssetOwner",
+        "label": "Asset Owner",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "BankAccount",
+        "label": "Bank Account",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "BankMatch",
+        "label": "Bank Match",
+        "classification": "owned",
+        "note": "statementLine.statement.bankAccount"
+    },
+    {
+        "model": "BankStatement",
+        "label": "Bank Statement",
+        "classification": "owned",
+        "note": "bankAccount"
+    },
+    {
+        "model": "BankStatementLine",
+        "label": "Bank Statement Line",
+        "classification": "owned",
+        "note": "statement.bankAccount"
+    },
+    {
+        "model": "CamAllocation",
+        "label": "Cam Allocation",
+        "classification": "owned",
+        "note": "pool"
+    },
+    {
+        "model": "CamExpensePool",
+        "label": "Cam Expense Pool",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "Charge",
+        "label": "Charge",
+        "classification": "owned",
+        "note": "lease.unit"
+    },
+    {
+        "model": "ChargeCode",
+        "label": "Charge Code",
+        "classification": "shared",
+        "note": null
+    },
+    {
+        "model": "CreditNote",
+        "label": "Credit Note",
+        "classification": "owned",
+        "note": "lease.unit"
+    },
+    {
+        "model": "CreditNoteApplication",
+        "label": "Credit Note Application",
+        "classification": "owned",
+        "note": "creditNote.lease.unit"
+    },
+    {
+        "model": "CreditNoteItem",
+        "label": "Credit Note Item",
+        "classification": "owned",
+        "note": "creditNote.lease.unit"
+    },
+    {
+        "model": "Custody",
+        "label": "Custody",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "CustodyTransaction",
+        "label": "Custody Transaction",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "Department",
+        "label": "Department",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "DepositApplication",
+        "label": "Deposit Application",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "DepositTransaction",
+        "label": "Deposit Transaction",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "DepreciationEntry",
+        "label": "Depreciation Entry",
+        "classification": "owned",
+        "note": "fixedAsset"
+    },
+    {
+        "model": "DeviceToken",
+        "label": "Device Token",
+        "classification": "shared",
+        "note": null
+    },
+    {
+        "model": "Disbursement",
+        "label": "Disbursement",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "Employee",
+        "label": "Employee",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "EmployeeAdvance",
+        "label": "Employee Advance",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "EmployeeAdvanceRepayment",
+        "label": "Employee Advance Repayment",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "Equipment",
+        "label": "Equipment",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "Expense",
+        "label": "Expense",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "FiscalYear",
+        "label": "Fiscal Year",
+        "classification": "shared",
+        "note": null
+    },
+    {
+        "model": "FixedAsset",
+        "label": "Fixed Asset",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "FixedAssetDisposal",
+        "label": "Fixed Asset Disposal",
+        "classification": "owned",
+        "note": "fixedAsset"
+    },
+    {
+        "model": "Floor",
+        "label": "Floor",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "InventoryItem",
+        "label": "Inventory Item",
+        "classification": "shared",
+        "note": null
+    },
+    {
+        "model": "Invoice",
+        "label": "Invoice",
+        "classification": "owned",
+        "note": "lease.unit"
+    },
+    {
+        "model": "InvoiceItem",
+        "label": "Invoice Item",
+        "classification": "owned",
+        "note": "invoice.lease.unit"
+    },
+    {
+        "model": "InvoiceWriteOff",
+        "label": "Invoice Write Off",
+        "classification": "owned",
+        "note": "asset"
+    },
+    {
+        "model": "JournalEntry",
+        "label": "Journal Entry",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "JournalLine",
+        "label": "Journal Line",
+        "classification": "owned",
+        "note": "entry"
+    },
+    {
+        "model": "Lease",
+        "label": "Lease",
+        "classification": "owned",
+        "note": "unit"
+    },
+    {
+        "model": "LeaseCamTerm",
+        "label": "Lease Cam Term",
+        "classification": "owned",
+        "note": "lease.unit"
+    },
+    {
+        "model": "LeaseEvent",
+        "label": "Lease Event",
+        "classification": "owned",
+        "note": "lease.unit"
+    },
+    {
+        "model": "LeaseOption",
+        "label": "Lease Option",
+        "classification": "owned",
+        "note": "lease.unit"
+    },
+    {
+        "model": "LeasePercentageRentTier",
+        "label": "Lease Percentage Rent Tier",
+        "classification": "owned",
+        "note": "lease.unit"
+    },
+    {
+        "model": "LedgerAccount",
+        "label": "Ledger Account",
+        "classification": "shared",
+        "note": null
+    },
+    {
+        "model": "LowStockAlert",
+        "label": "Low Stock Alert",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "MaintenancePenalty",
+        "label": "Maintenance Penalty",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "MaintenancePlan",
+        "label": "Maintenance Plan",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "MaintenanceWorkOrder",
+        "label": "Maintenance Work Order",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "MaintenanceWorkOrderItem",
+        "label": "Maintenance Work Order Item",
+        "classification": "owned",
+        "note": "workOrder"
+    },
+    {
+        "model": "MaintenanceWorkOrderPart",
+        "label": "Maintenance Work Order Part",
+        "classification": "owned",
+        "note": "workOrder"
+    },
+    {
+        "model": "MarketingBudget",
+        "label": "Marketing Budget",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "MarketingPost",
+        "label": "Marketing Post",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "MarketingSpend",
+        "label": "Marketing Spend",
+        "classification": "owned",
+        "note": "budget"
+    },
+    {
+        "model": "MeterReading",
+        "label": "Meter Reading",
+        "classification": "owned",
+        "note": "meter"
+    },
+    {
+        "model": "Note",
+        "label": "Note",
+        "classification": "shared",
+        "note": null
+    },
+    {
+        "model": "OwnerRequest",
+        "label": "Owner Request",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "OwnerRequestReply",
+        "label": "Owner Request Reply",
+        "classification": "owned",
+        "note": "ownerRequest"
+    },
+    {
+        "model": "OwnerStatement",
+        "label": "Owner Statement",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "OwnerStatementRun",
+        "label": "Owner Statement Run",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "Payment",
+        "label": "Payment",
+        "classification": "owned",
+        "note": "invoices.lease.unit"
+    },
+    {
+        "model": "Payroll",
+        "label": "Payroll",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "PayrollLine",
+        "label": "Payroll Line",
+        "classification": "owned",
+        "note": "payroll"
+    },
+    {
+        "model": "PostDatedCheque",
+        "label": "Post Dated Cheque",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "PropertySetting",
+        "label": "Property Setting",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "PurchaseRequest",
+        "label": "Purchase Request",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "PurchaseRequestLine",
+        "label": "Purchase Request Line",
+        "classification": "owned",
+        "note": "request"
+    },
+    {
+        "model": "RentableItem",
+        "label": "Rentable Item",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "ReportPreference",
+        "label": "Report Preference",
+        "classification": "shared",
+        "note": null
+    },
+    {
+        "model": "SavedReport",
+        "label": "Saved Report",
+        "classification": "shared",
+        "note": null
+    },
+    {
+        "model": "SlaPolicy",
+        "label": "Sla Policy",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "StockMovement",
+        "label": "Stock Movement",
+        "classification": "owned",
+        "note": "warehouse"
+    },
+    {
+        "model": "StraightLineRentAdjustment",
+        "label": "Straight Line Rent Adjustment",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "SystemSetting",
+        "label": "System Setting",
+        "classification": "shared",
+        "note": null
+    },
+    {
+        "model": "TableView",
+        "label": "Table View",
+        "classification": "shared",
+        "note": null
+    },
+    {
+        "model": "TaxCode",
+        "label": "Tax Code",
+        "classification": "shared",
+        "note": null
+    },
+    {
+        "model": "TaxRate",
+        "label": "Tax Rate",
+        "classification": "shared",
+        "note": null
+    },
+    {
+        "model": "Tenant",
+        "label": "Tenant",
+        "classification": "shared",
+        "note": null
+    },
+    {
+        "model": "TenantCreditApplication",
+        "label": "Tenant Credit Application",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "TenantDocument",
+        "label": "Tenant Document",
+        "classification": "shared",
+        "note": null
+    },
+    {
+        "model": "TenantRequest",
+        "label": "Tenant Request",
+        "classification": "owned",
+        "note": "unit"
+    },
+    {
+        "model": "TenantRequestComment",
+        "label": "Tenant Request Comment",
+        "classification": "owned",
+        "note": "request.unit"
+    },
+    {
+        "model": "TenantSalesDeclaration",
+        "label": "Tenant Sales Declaration",
+        "classification": "owned",
+        "note": "lease.unit"
+    },
+    {
+        "model": "TenantUser",
+        "label": "Tenant User",
+        "classification": "shared",
+        "note": null
+    },
+    {
+        "model": "Unit",
+        "label": "Unit",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "UnitArea",
+        "label": "Unit Area",
+        "classification": "owned",
+        "note": "unit"
+    },
+    {
+        "model": "User",
+        "label": "User",
+        "classification": "shared",
+        "note": null
+    },
+    {
+        "model": "UtilityMeter",
+        "label": "Utility Meter",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "Vendor",
+        "label": "Vendor",
+        "classification": "shared",
+        "note": null
+    },
+    {
+        "model": "VendorBill",
+        "label": "Vendor Bill",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "VendorBillPayment",
+        "label": "Vendor Bill Payment",
+        "classification": "owned",
+        "note": "bill"
+    },
+    {
+        "model": "VendorContact",
+        "label": "Vendor Contact",
+        "classification": "shared",
+        "note": null
+    },
+    {
+        "model": "VendorContract",
+        "label": "Vendor Contract",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "VendorContractAmendment",
+        "label": "Vendor Contract Amendment",
+        "classification": "owned",
+        "note": "contract"
+    },
+    {
+        "model": "VendorDocument",
+        "label": "Vendor Document",
+        "classification": "shared",
+        "note": null
+    },
+    {
+        "model": "Violation",
+        "label": "Violation",
+        "classification": "owned",
+        "note": null
+    },
+    {
+        "model": "Warehouse",
+        "label": "Warehouse",
+        "classification": "owned",
+        "note": null
+    }
+]

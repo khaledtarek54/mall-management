@@ -1,0 +1,61 @@
+{
+    "tenant_request": {
+        "submitted": [
+            "acknowledged",
+            "in_progress",
+            "cancelled"
+        ],
+        "acknowledged": [
+            "in_progress",
+            "awaiting_tenant",
+            "cancelled"
+        ],
+        "in_progress": [
+            "awaiting_tenant",
+            "resolved",
+            "cancelled"
+        ],
+        "awaiting_tenant": [
+            "in_progress",
+            "resolved",
+            "cancelled"
+        ],
+        "resolved": [
+            "closed",
+            "in_progress"
+        ],
+        "closed": [],
+        "cancelled": []
+    },
+    "work_order": {
+        "open": [
+            "in_progress",
+            "done",
+            "cancelled"
+        ],
+        "in_progress": [
+            "done",
+            "cancelled"
+        ],
+        "done": [],
+        "cancelled": []
+    },
+    "purchase_request": {
+        "requested": [
+            "approved",
+            "rejected",
+            "cancelled"
+        ],
+        "approved": [
+            "ordered",
+            "cancelled"
+        ],
+        "ordered": [
+            "received",
+            "cancelled"
+        ],
+        "received": [],
+        "rejected": [],
+        "cancelled": []
+    }
+}

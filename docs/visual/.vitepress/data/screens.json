@@ -1,0 +1,500 @@
+[
+    {
+        "screen": "AccountingPeriodResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "accounting_periods"
+    },
+    {
+        "screen": "ActivityLog",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "activity_log"
+    },
+    {
+        "screen": "AnnouncementResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "announcements"
+    },
+    {
+        "screen": "ApprovalRuleResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "approval_rules"
+    },
+    {
+        "screen": "ArAging",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "ar_aging"
+    },
+    {
+        "screen": "ArAgingByType",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "ar_aging_by_type"
+    },
+    {
+        "screen": "ArCollections",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "ar_collections"
+    },
+    {
+        "screen": "AreaResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "areas"
+    },
+    {
+        "screen": "BalanceSheet",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "balance_sheet"
+    },
+    {
+        "screen": "BankAccountResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "bank_accounts"
+    },
+    {
+        "screen": "BankStatementResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "bank_statements"
+    },
+    {
+        "screen": "BillingRunPreview",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "billing_run"
+    },
+    {
+        "screen": "CamExpensePoolResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "cam"
+    },
+    {
+        "screen": "CashFlow",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "cash_flow"
+    },
+    {
+        "screen": "ChargeCodeResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "charge_codes"
+    },
+    {
+        "screen": "ConfigurationHealth",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "configuration_health"
+    },
+    {
+        "screen": "CreditNoteResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "credit_notes"
+    },
+    {
+        "screen": "CustodyResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "custodies"
+    },
+    {
+        "screen": "Dashboard",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "dashboard"
+    },
+    {
+        "screen": "DepartmentResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "departments"
+    },
+    {
+        "screen": "DepositTransactionResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "deposits"
+    },
+    {
+        "screen": "DisbursementResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "disbursements"
+    },
+    {
+        "screen": "EmployeeResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "employees"
+    },
+    {
+        "screen": "EquipmentResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "equipment"
+    },
+    {
+        "screen": "ExpenseResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "expenses"
+    },
+    {
+        "screen": "ExpirationSchedule",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "expiration_schedule"
+    },
+    {
+        "screen": "FixedAssetResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "fixed_assets"
+    },
+    {
+        "screen": "GeneralLedger",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "general_ledger"
+    },
+    {
+        "screen": "IncomeStatement",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "income_statement"
+    },
+    {
+        "screen": "InventoryItemResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "inventory_items"
+    },
+    {
+        "screen": "InvoiceResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "invoices"
+    },
+    {
+        "screen": "JournalEntryResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "journal_entries"
+    },
+    {
+        "screen": "LeaseResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "leases"
+    },
+    {
+        "screen": "LedgerAccountResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "ledger_accounts"
+    },
+    {
+        "screen": "MaintenancePlanResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "maintenance_plans"
+    },
+    {
+        "screen": "MarketingBudgetResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "marketing_budgets"
+    },
+    {
+        "screen": "MarketingPostResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "marketing_posts"
+    },
+    {
+        "screen": "MonthEndClose",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "month_end_close"
+    },
+    {
+        "screen": "NotificationCenter",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "notification_center"
+    },
+    {
+        "screen": "OccupancyCost",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "occupancy_cost"
+    },
+    {
+        "screen": "OccupancyMap",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "occupancy_map"
+    },
+    {
+        "screen": "OwnerRequestResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "owner_requests"
+    },
+    {
+        "screen": "OwnerStatementRunResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "owner_statements"
+    },
+    {
+        "screen": "PaymentResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "payments"
+    },
+    {
+        "screen": "PayrollResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "payrolls"
+    },
+    {
+        "screen": "CamAllocationResource",
+        "panel": "portal",
+        "kind": "resource",
+        "guide": "portal_cam"
+    },
+    {
+        "screen": "InvoiceResource",
+        "panel": "portal",
+        "kind": "resource",
+        "guide": "portal_invoices"
+    },
+    {
+        "screen": "LeaseResource",
+        "panel": "portal",
+        "kind": "resource",
+        "guide": "portal_leases"
+    },
+    {
+        "screen": "NotificationCenter",
+        "panel": "portal",
+        "kind": "page",
+        "guide": "portal_notifications"
+    },
+    {
+        "screen": "PaymentResource",
+        "panel": "portal",
+        "kind": "resource",
+        "guide": "portal_payments"
+    },
+    {
+        "screen": "MarketingPostResource",
+        "panel": "portal",
+        "kind": "resource",
+        "guide": "portal_posts"
+    },
+    {
+        "screen": "TenantRequestResource",
+        "panel": "portal",
+        "kind": "resource",
+        "guide": "portal_requests"
+    },
+    {
+        "screen": "TenantSalesDeclarationResource",
+        "panel": "portal",
+        "kind": "resource",
+        "guide": "portal_sales"
+    },
+    {
+        "screen": "PostDatedChequeResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "post_dated_cheques"
+    },
+    {
+        "screen": "AccountMappingResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "posting_map"
+    },
+    {
+        "screen": "AssetResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "properties"
+    },
+    {
+        "screen": "PropertyOverrides",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "property_overrides"
+    },
+    {
+        "screen": "PurchaseRequestResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "purchase_requests"
+    },
+    {
+        "screen": "RentRoll",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "rent_roll"
+    },
+    {
+        "screen": "RentableItemResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "rentable_items"
+    },
+    {
+        "screen": "ReportHub",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "report_hub"
+    },
+    {
+        "screen": "Reports",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "reports"
+    },
+    {
+        "screen": "RoleResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "roles"
+    },
+    {
+        "screen": "SalesAnalytics",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "sales_analytics"
+    },
+    {
+        "screen": "TenantSalesDeclarationResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "sales_declarations"
+    },
+    {
+        "screen": "Settings",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "settings"
+    },
+    {
+        "screen": "SlaPolicyResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "sla_policies"
+    },
+    {
+        "screen": "StockMovementResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "stock_movements"
+    },
+    {
+        "screen": "TaxCodeResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "tax_codes"
+    },
+    {
+        "screen": "TenantRequestResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "tenant_requests"
+    },
+    {
+        "screen": "TenantResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "tenants"
+    },
+    {
+        "screen": "TrialBalance",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "trial_balance"
+    },
+    {
+        "screen": "UnitResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "units"
+    },
+    {
+        "screen": "UserResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "users"
+    },
+    {
+        "screen": "UtilityMeterResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "utility_meters"
+    },
+    {
+        "screen": "VatReturn",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "vat_return"
+    },
+    {
+        "screen": "VendorBillResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "vendor_bills"
+    },
+    {
+        "screen": "VendorResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "vendors"
+    },
+    {
+        "screen": "ViolationResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "violations"
+    },
+    {
+        "screen": "WarehouseResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "warehouses"
+    },
+    {
+        "screen": "WeeklySpend",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "weekly_spend"
+    },
+    {
+        "screen": "MaintenanceWorkOrderResource",
+        "panel": "admin",
+        "kind": "resource",
+        "guide": "work_orders"
+    },
+    {
+        "screen": "Workflows",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "workflows"
+    }
+]

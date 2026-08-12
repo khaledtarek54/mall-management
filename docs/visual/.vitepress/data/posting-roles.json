@@ -1,0 +1,242 @@
+[
+    {
+        "role": "cash",
+        "label": "Cash",
+        "group": "asset"
+    },
+    {
+        "role": "bank",
+        "label": "Bank",
+        "group": "asset"
+    },
+    {
+        "role": "accounts_receivable",
+        "label": "Accounts Receivable",
+        "group": "asset"
+    },
+    {
+        "role": "employee_advances",
+        "label": "Employee Advances",
+        "group": "asset"
+    },
+    {
+        "role": "custody",
+        "label": "Custody",
+        "group": "asset"
+    },
+    {
+        "role": "vat_recoverable",
+        "label": "Vat Recoverable",
+        "group": "asset"
+    },
+    {
+        "role": "deferred_rent",
+        "label": "Deferred Rent",
+        "group": "asset"
+    },
+    {
+        "role": "furniture_equipment",
+        "label": "Furniture Equipment",
+        "group": "asset"
+    },
+    {
+        "role": "accumulated_depreciation",
+        "label": "Accumulated Depreciation",
+        "group": "asset"
+    },
+    {
+        "role": "inventory",
+        "label": "Inventory",
+        "group": "asset"
+    },
+    {
+        "role": "accounts_payable",
+        "label": "Accounts Payable",
+        "group": "liability"
+    },
+    {
+        "role": "deposits_held",
+        "label": "Deposits Held",
+        "group": "liability"
+    },
+    {
+        "role": "vat_payable",
+        "label": "Vat Payable",
+        "group": "liability"
+    },
+    {
+        "role": "accrued_expenses",
+        "label": "Accrued Expenses",
+        "group": "liability"
+    },
+    {
+        "role": "salary_tax_payable",
+        "label": "Salary Tax Payable",
+        "group": "liability"
+    },
+    {
+        "role": "withholding_tax_payable",
+        "label": "Withholding Tax Payable",
+        "group": "liability"
+    },
+    {
+        "role": "social_insurance_payable",
+        "label": "Social Insurance Payable",
+        "group": "liability"
+    },
+    {
+        "role": "employee_deductions_payable",
+        "label": "Employee Deductions Payable",
+        "group": "liability"
+    },
+    {
+        "role": "unearned_revenue",
+        "label": "Unearned Revenue",
+        "group": "liability"
+    },
+    {
+        "role": "due_to_owner",
+        "label": "Due To Owner",
+        "group": "liability"
+    },
+    {
+        "role": "inventory_grni",
+        "label": "Inventory Grni",
+        "group": "liability"
+    },
+    {
+        "role": "capital",
+        "label": "Capital",
+        "group": "equity"
+    },
+    {
+        "role": "retained_earnings",
+        "label": "Retained Earnings",
+        "group": "equity"
+    },
+    {
+        "role": "owner_distributions",
+        "label": "Owner Distributions",
+        "group": "equity"
+    },
+    {
+        "role": "rent_revenue",
+        "label": "Rent Revenue",
+        "group": "revenue"
+    },
+    {
+        "role": "service_charge_revenue",
+        "label": "Service Charge Revenue",
+        "group": "revenue"
+    },
+    {
+        "role": "cam_recovery_revenue",
+        "label": "Cam Recovery Revenue",
+        "group": "revenue"
+    },
+    {
+        "role": "cam_admin_fee_revenue",
+        "label": "Cam Admin Fee Revenue",
+        "group": "revenue"
+    },
+    {
+        "role": "utility_revenue",
+        "label": "Utility Revenue",
+        "group": "revenue"
+    },
+    {
+        "role": "parking_revenue",
+        "label": "Parking Revenue",
+        "group": "revenue"
+    },
+    {
+        "role": "percentage_rent_revenue",
+        "label": "Percentage Rent Revenue",
+        "group": "revenue"
+    },
+    {
+        "role": "marketing_revenue",
+        "label": "Marketing Revenue",
+        "group": "revenue"
+    },
+    {
+        "role": "late_fee_income",
+        "label": "Late Fee Income",
+        "group": "revenue"
+    },
+    {
+        "role": "misc_income",
+        "label": "Misc Income",
+        "group": "revenue"
+    },
+    {
+        "role": "sales_returns",
+        "label": "Sales Returns",
+        "group": "revenue"
+    },
+    {
+        "role": "gain_on_disposal",
+        "label": "Gain On Disposal",
+        "group": "revenue"
+    },
+    {
+        "role": "salaries_expense",
+        "label": "Salaries Expense",
+        "group": "expense"
+    },
+    {
+        "role": "social_insurance_expense",
+        "label": "Social Insurance Expense",
+        "group": "expense"
+    },
+    {
+        "role": "maintenance_expense",
+        "label": "Maintenance Expense",
+        "group": "expense"
+    },
+    {
+        "role": "utilities_expense",
+        "label": "Utilities Expense",
+        "group": "expense"
+    },
+    {
+        "role": "cleaning_security_expense",
+        "label": "Cleaning Security Expense",
+        "group": "expense"
+    },
+    {
+        "role": "marketing_expense",
+        "label": "Marketing Expense",
+        "group": "expense"
+    },
+    {
+        "role": "admin_expense",
+        "label": "Admin Expense",
+        "group": "expense"
+    },
+    {
+        "role": "depreciation_expense",
+        "label": "Depreciation Expense",
+        "group": "expense"
+    },
+    {
+        "role": "bad_debt_expense",
+        "label": "Bad Debt Expense",
+        "group": "expense"
+    },
+    {
+        "role": "inventory_adjustment",
+        "label": "Inventory Adjustment",
+        "group": "expense"
+    },
+    {
+        "role": "loss_on_disposal",
+        "label": "Loss On Disposal",
+        "group": "expense"
+    },
+    {
+        "role": "bank_charges",
+        "label": "Bank Charges",
+        "group": "expense"
+    }
+]
