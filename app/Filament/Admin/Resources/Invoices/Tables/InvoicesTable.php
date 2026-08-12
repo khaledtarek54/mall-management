@@ -2,11 +2,15 @@
 
 namespace App\Filament\Admin\Resources\Invoices\Tables;
 
+use App\Filament\Actions\LedgerEntryAction;
+use App\Filament\Actions\PostMonthAction;
 use App\Filament\Admin\Pages\BillingRunPreview;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Filament\Exports\InvoiceExporter;
 use App\Jobs\SubmitInvoiceToEta;
 use App\Models\Invoice;
+use App\Models\InvoiceItem;
+use App\Models\Payment;
 use App\Models\Unit;
 use App\Services\AllocatePaymentToInvoiceItemsService;
 use App\Services\DisputeInvoiceItemService;
@@ -28,6 +32,7 @@ use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -37,8 +42,11 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class InvoicesTable
 {
@@ -49,10 +57,10 @@ class InvoicesTable
      */
     private static function lineOptions(Invoice $record): array
     {
-        /** @var \Illuminate\Support\Collection<int, \App\Models\InvoiceItem> $items */
+        /** @var Collection<int, InvoiceItem> $items */
         $items = $record->items;
 
-        return $items->mapWithKeys(fn (\App\Models\InvoiceItem $i): array => [
+        return $items->mapWithKeys(fn (InvoiceItem $i): array => [
             $i->id => $i->description.' · EGP '.number_format((float) $i->total, 2)
                 .($i->isDisputed() ? ' · '.__('admin.reports.disputed') : ''),
         ])->all();
@@ -61,12 +69,12 @@ class InvoicesTable
     /** @return array<int, string> */
     private static function disputedLineOptions(Invoice $record): array
     {
-        /** @var \Illuminate\Support\Collection<int, \App\Models\InvoiceItem> $all */
+        /** @var Collection<int, InvoiceItem> $all */
         $all = $record->items;
 
-        $items = $all->filter(fn (\App\Models\InvoiceItem $i): bool => $i->isDisputed());
+        $items = $all->filter(fn (InvoiceItem $i): bool => $i->isDisputed());
 
-        return $items->mapWithKeys(fn (\App\Models\InvoiceItem $i): array => [
+        return $items->mapWithKeys(fn (InvoiceItem $i): array => [
             $i->id => $i->description.' · '.($i->disputed_reason ?? ''),
         ])->all();
     }
@@ -78,23 +86,23 @@ class InvoicesTable
      * `Invoice::payments()` / `items()` do not — otherwise every property read here is a
      * static-analysis error against a bare `Model`.
      *
-     * @return array<int, \Filament\Forms\Components\Field>
+     * @return array<int, Field>
      */
     private static function paymentSplitSchema(Invoice $record): array
     {
-        /** @var \Illuminate\Support\Collection<int, \App\Models\Payment> $payments */
+        /** @var Collection<int, Payment> $payments */
         $payments = $record->receivedPayments()->get();
 
-        /** @var \Illuminate\Support\Collection<int, \App\Models\InvoiceItem> $items */
+        /** @var Collection<int, InvoiceItem> $items */
         $items = $record->items;
 
         // Read the allocation from the pivot table rather than the loaded `pivot` attribute: it is
         // one query either way, and the relation carries no declared pivot type to read through.
-        $allocated = \Illuminate\Support\Facades\DB::table('invoice_payment')
+        $allocated = DB::table('invoice_payment')
             ->where('invoice_id', $record->id)
             ->pluck('allocated_amount', 'payment_id');
 
-        $options = $payments->mapWithKeys(fn (\App\Models\Payment $p): array => [
+        $options = $payments->mapWithKeys(fn (Payment $p): array => [
             $p->id => $p->reference.' · EGP '
                 .number_format((float) ($allocated[$p->id] ?? 0), 2)
                 .' · '.$p->payment_date->format('d/m/Y'),
@@ -106,7 +114,7 @@ class InvoicesTable
                 ->options($options)
                 ->native(false)
                 ->required(),
-            ...$items->map(fn (\App\Models\InvoiceItem $item): TextInput => TextInput::make("items.{$item->id}")
+            ...$items->map(fn (InvoiceItem $item): TextInput => TextInput::make("items.{$item->id}")
                 ->label($item->description)
                 ->prefix('EGP')
                 ->numeric()
@@ -336,6 +344,14 @@ class InvoicesTable
                             ->send();
                     }),
             ])
+            // Grouping is OFFERED, never applied by default — the operator picks it from the
+            // toolbar. Tenant is the collections axis ("what does Cafe Crema owe in total"),
+            // status the ageing one. No ->defaultGroup(): a list that silently arrives grouped
+            // reads as broken to anyone who did not choose it.
+            ->groups([
+                Group::make('tenant.name')->label(__('admin.filters.tenant'))->collapsible(),
+                Group::make('status')->label(__('admin.filters.status'))->collapsible(),
+            ])
             ->recordActions([
                 // Read the record without opening its edit form — less
                 // friction, and no write surface for view-only roles. The
@@ -360,8 +376,8 @@ class InvoicesTable
                             ['Content-Type' => 'application/pdf'],
                         );
                     }),
-                \App\Filament\Actions\PostMonthAction::make('invoices.edit'),
-                \App\Filament\Actions\LedgerEntryAction::make(),
+                PostMonthAction::make('invoices.edit'),
+                LedgerEntryAction::make(),
                 // ── Dispute a line (MF-07) ────────────────────────────────────────────────────
                 // The late-fee sweep charged a penalty on the whole balance, including a service
                 // charge the tenant had formally disputed — which is the complaint that starts an
@@ -392,7 +408,7 @@ class InvoicesTable
                     ->action(function (Invoice $record, array $data) {
                         abort_unless(auth()->user()?->can('invoices.edit') ?? false, 403);
 
-                        /** @var \App\Models\InvoiceItem $item */
+                        /** @var InvoiceItem $item */
                         $item = $record->items()->findOrFail($data['invoice_item_id']);
 
                         try {
@@ -424,7 +440,7 @@ class InvoicesTable
                     ->action(function (Invoice $record, array $data) {
                         abort_unless(auth()->user()?->can('invoices.edit') ?? false, 403);
 
-                        /** @var \App\Models\InvoiceItem $item */
+                        /** @var InvoiceItem $item */
                         $item = $record->items()->findOrFail($data['invoice_item_id']);
 
                         try {
@@ -455,7 +471,7 @@ class InvoicesTable
                     ->action(function (Invoice $record, array $data) {
                         abort_unless(auth()->user()?->can('invoices.edit') ?? false, 403);
 
-                        $payment = \App\Models\Payment::findOrFail($data['payment_id']);
+                        $payment = Payment::findOrFail($data['payment_id']);
 
                         try {
                             app(AllocatePaymentToInvoiceItemsService::class)

@@ -322,6 +322,7 @@ it('F: no Filament component renders an auto-generated English label', function 
 
     $parser = (new ParserFactory)->createForNewestSupportedVersion();
     $offenders = [];
+    $unparseable = [];
 
     $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(app_path('Filament')));
 
@@ -331,7 +332,23 @@ it('F: no Filament component renders an auto-generated English label', function 
         }
 
         $path = str_replace(base_path().'/', '', $file->getPathname());
-        $ast = $parser->parse(file_get_contents($file->getPathname()));
+
+        // A file mid-edit elsewhere in the tree must not surface as a php-parser stack trace with
+        // no filename in it. Name the file and move on: a syntax error already fails everything
+        // else, so this gate's job is to be legible about it, not to be the one that reports it.
+        try {
+            $ast = $parser->parse(file_get_contents($file->getPathname()));
+        } catch (\Throwable $e) {
+            $unparseable[] = "{$path} — {$e->getMessage()}";
+
+            continue;
+        }
+
+        if ($ast === null) {
+            $unparseable[] = $path;
+
+            continue;
+        }
 
         // Every node that is the receiver of a method call — anything NOT in this set and still
         // a MethodCall is the outermost link of a fluent chain, which is where we start walking.
@@ -417,6 +434,7 @@ it('F: no Filament component renders an auto-generated English label', function 
         $offenders = $scan->offenders;
     }
 
+    expect($unparseable)->toBe([], "These files could not be parsed, so this gate could not inspect them:\n  ".implode("\n  ", $unparseable));
     expect($offenders)->toBe([], "Untranslated by omission — add ->label(__('…')), or ->hiddenLabel() where the label is deliberately not shown:\n  ".implode("\n  ", $offenders));
 })->group('conformance');
 

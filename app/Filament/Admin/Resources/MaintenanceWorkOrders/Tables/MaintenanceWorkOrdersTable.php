@@ -21,6 +21,7 @@ use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 
 class MaintenanceWorkOrdersTable
@@ -202,6 +203,11 @@ class MaintenanceWorkOrdersTable
                 Filter::make('response_breached')
                     ->label(__('admin.preventive_maintenance.sla.response_breached_filter'))
                     ->query(fn ($query) => $query->responseBreached()),
+            ])
+            // The dispatcher's two axes: what state the board is in, and what is urgent.
+            ->groups([
+                Group::make('status')->label(__('admin.filters.status'))->collapsible(),
+                Group::make('priority')->label(__('admin.preventive_maintenance.fields.priority'))->collapsible(),
             ])
             ->recordActions([
                 // Read the record without opening its edit form — less

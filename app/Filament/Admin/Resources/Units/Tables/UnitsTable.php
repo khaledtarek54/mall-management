@@ -25,6 +25,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -138,6 +139,11 @@ class UnitsTable
                     ->label(__('admin.actions.export'))
                     ->icon('heroicon-o-arrow-down-tray')
                     ->color('gray'),
+            ])
+            // Floor is how a leasing manager physically walks the mall; status is the vacancy view.
+            ->groups([
+                Group::make('floor.name')->label(__('admin.tables.unit.floor'))->collapsible(),
+                Group::make('status')->label(__('admin.filters.status'))->collapsible(),
             ])
             ->recordActions([
                 // Read the record without opening its edit form — less

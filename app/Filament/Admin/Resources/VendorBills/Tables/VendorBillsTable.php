@@ -2,6 +2,8 @@
 
 namespace App\Filament\Admin\Resources\VendorBills\Tables;
 
+use App\Filament\Actions\LedgerEntryAction;
+use App\Filament\Actions\PostMonthAction;
 use App\Filament\Admin\Resources\VendorBills\VendorBillResource;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -11,6 +13,7 @@ use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 
 class VendorBillsTable
@@ -87,11 +90,15 @@ class VendorBillsTable
                     ->preload(),
                 TrashedFilter::make(),
             ])
+            // "What do we owe this vendor across all its bills" — the AP conversation.
+            ->groups([
+                Group::make('vendor.name')->label(__('admin.fields.vendor'))->collapsible(),
+            ])
             ->recordActions([
                 // The post month, for the case it exists for: a bill that arrives after its own
                 // month has closed (MF-05).
-                \App\Filament\Actions\PostMonthAction::make('vendor_bills.edit'),
-                \App\Filament\Actions\LedgerEntryAction::make(),
+                PostMonthAction::make('vendor_bills.edit'),
+                LedgerEntryAction::make(),
                 // Read the record without opening its edit form — less
                 // friction, and no write surface for view-only roles. The
                 // schema is the resource's own form rendered disabled, so it

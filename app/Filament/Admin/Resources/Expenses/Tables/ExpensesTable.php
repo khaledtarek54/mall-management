@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Expenses\Tables;
 
+use App\Filament\Actions\LedgerEntryAction;
 use App\Filament\Admin\Resources\Expenses\ExpenseResource;
 use App\Models\Expense;
 use Filament\Actions\BulkActionGroup;
@@ -12,6 +13,7 @@ use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 
 class ExpensesTable
@@ -98,8 +100,12 @@ class ExpensesTable
                     ->options(fn () => __('admin.enums.expense_paid_from')),
                 TrashedFilter::make(),
             ])
+            // Category is the axis the owner's cost report is built on.
+            ->groups([
+                Group::make('category')->label(__('admin.fields.category'))->collapsible(),
+            ])
             ->recordActions([
-                \App\Filament\Actions\LedgerEntryAction::make(),
+                LedgerEntryAction::make(),
                 // Read the record without opening its edit form — less
                 // friction, and no write surface for view-only roles. The
                 // schema is the resource's own form rendered disabled, so it

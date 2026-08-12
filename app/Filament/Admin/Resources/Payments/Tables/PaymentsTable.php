@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Payments\Tables;
 
+use App\Filament\Actions\LedgerEntryAction;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
 use App\Filament\Exports\PaymentExporter;
 use App\Models\Payment;
@@ -24,6 +25,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -145,8 +147,14 @@ class PaymentsTable
                     ->icon('heroicon-o-arrow-down-tray')
                     ->color('gray'),
             ])
+            // Method is the reconciliation axis: cash, bank transfer and cheques are counted
+            // against different places, and the summariser totals each group.
+            ->groups([
+                Group::make('method')->label(__('admin.tables.payment.method'))->collapsible(),
+                Group::make('tenant.name')->label(__('admin.filters.tenant'))->collapsible(),
+            ])
             ->recordActions([
-                \App\Filament\Actions\LedgerEntryAction::make(),
+                LedgerEntryAction::make(),
                 // Read the record without opening its edit form — less
                 // friction, and no write surface for view-only roles. The
                 // schema is the resource's own form rendered disabled, so it
