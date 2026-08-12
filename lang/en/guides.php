@@ -1446,4 +1446,22 @@ return [
         ],
     ],
 
+    'handbook' => [
+        'purpose' => 'The whole system explained — how money moves, how each record lives, and what lands in the books.',
+        'steps' => [
+            'Start with “the whole system, one page” if the product feels too big.',
+            'Read “a month in the life” to see the sequences in the order they happen.',
+            'Open “every module” for the reference — what posts, what may be edited, what cannot be deleted.',
+        ],
+        'affects' => [
+            'Nothing. It explains the system; it changes no record.',
+            'It follows your language and your light or dark setting from the panel.',
+            'The tables in it are generated from the code itself, so they cannot describe a system that does not exist.',
+        ],
+        'rules' => [
+            'This screen explains the SYSTEM. The guide button on each screen explains THAT screen — use whichever question you have.',
+            'Use “open in a new tab” to read a chapter properly, or to keep it beside the screen you are working in.',
+        ],
+    ],
+
 ];

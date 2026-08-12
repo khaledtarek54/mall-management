@@ -2587,6 +2587,7 @@ return [
         'assigned_to_vendor_id' => 'المورّد المُسنَد إليه',
         'bank_account_id' => 'الحساب البنكي',
         'bank_statement_line_id' => 'سطر كشف الحساب',
+        'bill' => 'الفاتورة',
         'base_salary' => 'الراتب الأساسي',
         'basis' => 'الأساس',
         'body' => 'النص',
@@ -3534,6 +3535,22 @@ return [
     ],
 
     'enums' => [
+        'tenant_type' => [
+            'individual' => 'فرد',
+            'company' => 'شركة',
+        ],
+        'owner_request_recipient' => [
+            'operator' => 'إلى المشغّل',
+            'owner' => 'إلى المالك',
+        ],
+        'inventory_unit' => [
+            'each' => 'قطعة',
+            'litre' => 'لتر',
+            'kg' => 'كيلوجرام',
+            'metre' => 'متر',
+            'box' => 'علبة',
+            'roll' => 'لفة',
+        ],
         // Free-form category columns: these are the values WE seed. An operator-created
         // category has no entry here and falls back to the raw string it was typed as
         // (App\Support\CategorySuggestions::label). NOT `enums.category` — that name was
@@ -3974,6 +3991,10 @@ return [
             // ليس نموذجًا — صفحتا الإعدادات وتخصيصات العقار تسجّلان تحت هذا الاسم، حتى يترك
             // تغيير رقم مالي في شاشة إعدادات أثرًا في السجل كأي سجل آخر.
             'settings' => 'الإعدادات',
+
+            // تُطلقها VoidVendorBillPaymentService — الدفعة نفسها ليست نموذجًا مسجَّلًا في سجل
+            // النشاط، فهذا الاسم موجود هنا فقط.
+            'vendor_bill_payment' => 'دفعة مورّد',
         ],
         'events' => [
             'created' => 'إنشاء',
@@ -5351,7 +5372,11 @@ return [
     ],
 
     'handbook' => [
-        'menu_label' => 'الدليل المصوّر',
+        'nav_label' => 'الدليل المصوّر',
+        'page_title' => 'الدليل المصوّر',
+        'subheading' => 'كيف يعمل النظام كله — مسارات المال ودورة حياة المستندات وما يستقر في الدفاتر.',
+        'loading' => 'جارٍ تحميل الدليل…',
+        'open_in_tab' => 'فتح في تبويب جديد',
     ],
 
     'guide' => [

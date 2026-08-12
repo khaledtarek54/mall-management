@@ -1,6 +1,7 @@
 import DefaultTheme from 'vitepress/theme'
 import type { Theme } from 'vitepress'
 import './custom.css'
+import './embed.css'
 
 import PostingExplorer from './components/PostingExplorer.vue'
 import StateMachine from './components/StateMachine.vue'
@@ -22,12 +23,51 @@ import VatRateResolver from './components/VatRateResolver.vue'
 //     watch the answer move. Each names the class it mirrors and says that class is the authority.
 //     They are kept to rules that are a single line of arithmetic, so the copy has no room to drift
 //     into a second opinion.
+/**
+ * Embed mode: `?embed=1` marks the page as framed inside the Filament panel, and `embed.css` drops
+ * the chrome the panel already supplies.
+ *
+ * Asked for explicitly rather than sniffed from `window.self !== window.top`, because those two are
+ * indistinguishable and mean opposite things: a reader who opens /handbook in a second window to
+ * sit beside the panel wants the whole site, navigation included.
+ *
+ * Re-checked on every route change — VitePress is an SPA, so the query string survives navigation
+ * but the class would be lost on a full re-render, and the flag has to outlive the first page.
+ */
+function applyEmbedMode() {
+  if (typeof window === 'undefined') return
+
+  if (new URLSearchParams(window.location.search).get('embed') === '1') {
+    document.documentElement.classList.add('atriom-embed')
+    // Persist it: internal links inside the handbook do not carry the query string, so without
+    // this the second page a reader opens would snap back to the full-site chrome.
+    try {
+      sessionStorage.setItem('atriom-embed', '1')
+    } catch (e) {
+      // Private-browsing storage refusal — embed mode simply does not persist. Harmless.
+    }
+
+    return
+  }
+
+  try {
+    if (sessionStorage.getItem('atriom-embed') === '1') {
+      document.documentElement.classList.add('atriom-embed')
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
 export default {
   extends: DefaultTheme,
-  enhanceApp({ app }) {
+  enhanceApp({ app, router }) {
     app.component('PostingExplorer', PostingExplorer)
     app.component('StateMachine', StateMachine)
     app.component('PercentageRentCalculator', PercentageRentCalculator)
     app.component('VatRateResolver', VatRateResolver)
+
+    applyEmbedMode()
+    router.onAfterRouteChanged = () => applyEmbedMode()
   },
 } satisfies Theme

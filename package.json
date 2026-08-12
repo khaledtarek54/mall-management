@@ -3,10 +3,11 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "build": "vite build",
+        "build": "vite build && npm run docs:build",
         "dev": "vite",
-        "docs:dev": "vitepress dev docs/visual",
-        "docs:build": "vitepress build docs/visual",
+        "docs:data": "php artisan atriom:dump-handbook-data",
+        "docs:dev": "npm run docs:data && vitepress dev docs/visual",
+        "docs:build": "npm run docs:data && vitepress build docs/visual",
         "docs:preview": "vitepress preview docs/visual"
     },
     "devDependencies": {

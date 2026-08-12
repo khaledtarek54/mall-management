@@ -9,7 +9,6 @@ use App\Http\Middleware\ForceTwoFactorForRoles;
 use App\Http\Middleware\SetLocale;
 use App\Models\Asset;
 use App\Support\Search\AtriomGlobalSearchProvider;
-use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -158,16 +157,6 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::HEAD_END,
                 fn (): string => self::renderPerTenantThemeOverride(),
             )
-            // The handbook explains the whole system; the guide button on each screen explains that
-            // screen. Both need to be FINDABLE — a reference nobody knows exists is a reference
-            // nobody reads — so it sits in the user menu rather than in a navigation group, for the
-            // same reason the notification centre does: it is not a module you work in.
-            ->userMenuItems([
-                Action::make('handbook')
-                    ->label(__('admin.handbook.menu_label'))
-                    ->icon('heroicon-o-book-open')
-                    ->url('/handbook/', shouldOpenInNewTab: true),
-            ])
             ->authMiddleware([
                 Authenticate::class,
             ]);

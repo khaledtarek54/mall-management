@@ -1,0 +1,124 @@
+/* =========================================================================
+   Embed mode — the handbook rendered INSIDE the Filament panel.
+
+   Applied only when the page is opened with `?embed=1`, which the panel's
+   Handbook page appends. Opening /handbook directly in a tab is unaffected, and
+   that is on purpose: a reader who puts the handbook in a second window beside
+   the panel wants the full site, and an iframe is indistinguishable from that
+   window if you sniff `window.top` instead of asking.
+
+   Two jobs:
+     1. Remove the chrome Filament already provides — the site title and the
+        cross-site nav links. What STAYS is the doc toolbar an operator still
+        needs inside the frame: search, and the language switcher.
+     2. Take the panel's surfaces and accent, so the frame does not read as a
+        different website. The accent variables are written in by the parent
+        (see resources/views/filament/pages/handbook.blade.php), which is what
+        makes the handbook pick up a property's brand colour.
+   ========================================================================= */
+
+.atriom-embed {
+  /* The parent supplies these from the panel's live --primary-* values. The
+     fallbacks are the handbook's own teal, so a direct visit or a parent that
+     failed to reach the frame still renders in the approved identity rather
+     than unstyled. */
+  --vp-c-brand-1: var(--atriom-accent-deep, #0b6b62);
+  --vp-c-brand-2: var(--atriom-accent, #0f766e);
+  --vp-c-brand-3: var(--atriom-accent-soft, #12887d);
+}
+
+/* ── 1 · Drop the chrome the panel already gives us ───────────────────────── */
+
+/* The nav becomes a slim doc toolbar rather than a second site header. */
+.atriom-embed .VPNavBarTitle,
+.atriom-embed .VPNavBarMenu,
+.atriom-embed .VPNavBarAppearance,
+.atriom-embed .VPNavBarSocialLinks,
+.atriom-embed .VPNavBarHamburger,
+.atriom-embed .VPNavBarExtra {
+  display: none !important;
+}
+
+/* Appearance is driven by the panel's own toggle — a second one inside the
+   frame would let the two disagree. */
+.atriom-embed .VPSwitchAppearance {
+  display: none !important;
+}
+
+.atriom-embed .VPNavBar {
+  border-block-end: 1px solid var(--vp-c-divider);
+  background: var(--vp-c-bg);
+}
+
+.atriom-embed .VPNavBar .content-body {
+  background: transparent !important;
+}
+
+/* Push the toolbar's remaining controls (search + language) to the start of the
+   bar now that the title has gone, so they do not float alone on the far edge. */
+.atriom-embed .VPNavBar .content {
+  padding-inline: 1rem;
+}
+
+.atriom-embed .VPNavBarSearch {
+  flex: 1;
+  justify-content: flex-start;
+  padding-inline-start: 0;
+}
+
+/* ── 2 · Sit flush inside the frame ───────────────────────────────────────── */
+
+/* No page-level margin: the panel already provides the page's padding, and a
+   second gutter inside the frame reads as a misaligned card. */
+.atriom-embed .VPContent {
+  padding-block-start: var(--vp-nav-height);
+}
+
+.atriom-embed .VPSidebar {
+  padding-block-start: 1.25rem;
+}
+
+/* The handbook's own footer nav is useful; its "powered by" chrome is not. */
+.atriom-embed .VPFooter {
+  display: none;
+}
+
+/* A slimmer content gutter — the frame is narrower than a full browser window,
+   so the stock 64px reads as wasted space rather than as breathing room. */
+@media (min-width: 960px) {
+  .atriom-embed .VPDoc {
+    padding-inline: 2rem;
+    padding-block-start: 1.5rem;
+  }
+}
+
+/* ── 3 · Scrollbars that belong to the frame, not to the page ─────────────── */
+
+/* The panel gives the frame a fixed height and hides its own overflow, so the
+   only scrollbar a reader should ever see is this one. Styled to match the
+   panel's rather than the OS default, which is the other clear tell that
+   something is embedded. */
+.atriom-embed ::-webkit-scrollbar {
+  inline-size: 10px;
+  block-size: 10px;
+}
+
+.atriom-embed ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.atriom-embed ::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--vp-c-text-3) 45%, transparent);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.atriom-embed ::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--vp-c-text-2) 55%, transparent);
+  background-clip: content-box;
+}
+
+.atriom-embed {
+  scrollbar-width: thin;
+}

@@ -2599,6 +2599,7 @@ return [
         'assigned_to_vendor_id' => 'Assigned vendor',
         'bank_account_id' => 'Bank account',
         'bank_statement_line_id' => 'Statement line',
+        'bill' => 'Bill',
         'base_salary' => 'Base salary',
         'basis' => 'Basis',
         'body' => 'Body',
@@ -3548,6 +3549,22 @@ return [
     ],
 
     'enums' => [
+        'tenant_type' => [
+            'individual' => 'Individual',
+            'company' => 'Company',
+        ],
+        'owner_request_recipient' => [
+            'operator' => 'To the operator',
+            'owner' => 'To the owner',
+        ],
+        'inventory_unit' => [
+            'each' => 'Each',
+            'litre' => 'Litre',
+            'kg' => 'Kilogram',
+            'metre' => 'Metre',
+            'box' => 'Box',
+            'roll' => 'Roll',
+        ],
         // Free-form category columns: these are the values WE seed. An operator-created
         // category has no entry here and falls back to the raw string it was typed as
         // (App\Support\CategorySuggestions::label). NOT `enums.category` — that name was
@@ -3989,6 +4006,10 @@ return [
             // Not a model — the Settings and Property Overrides pages log under this name so a
             // money figure changed on a settings screen leaves history like any other record.
             'settings' => 'Settings',
+
+            // Raised by VoidVendorBillPaymentService — the payment is not itself an activity-logged
+            // model, so this log name exists only here.
+            'vendor_bill_payment' => 'Vendor Payment',
         ],
         'events' => [
             'created' => 'Created',
@@ -5376,7 +5397,11 @@ return [
     ],
 
     'handbook' => [
-        'menu_label' => 'Handbook',
+        'nav_label' => 'Handbook',
+        'page_title' => 'Visual handbook',
+        'subheading' => 'How the whole system works — money flows, record lifecycles, and what lands in the books.',
+        'loading' => 'Loading the handbook…',
+        'open_in_tab' => 'Open in a new tab',
     ],
 
     'guide' => [

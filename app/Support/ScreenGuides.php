@@ -13,6 +13,7 @@ use App\Filament\Admin\Pages\ConfigurationHealth;
 use App\Filament\Admin\Pages\Dashboard;
 use App\Filament\Admin\Pages\ExpirationSchedule;
 use App\Filament\Admin\Pages\GeneralLedger;
+use App\Filament\Admin\Pages\Handbook;
 use App\Filament\Admin\Pages\IncomeStatement;
 use App\Filament\Admin\Pages\MonthEndClose;
 use App\Filament\Admin\Pages\NotificationCenter;
@@ -228,6 +229,7 @@ class ScreenGuides
         PropertyOverrides::class => 'property_overrides',
         ConfigurationHealth::class => 'configuration_health',
         NotificationCenter::class => 'notification_center',
+        Handbook::class => 'handbook',
 
         // ── Tenant portal ─────────────────────────────────────────────────────────────────────
         // A separate namespace on purpose: the reader here is the retailer, not the operator, so the
