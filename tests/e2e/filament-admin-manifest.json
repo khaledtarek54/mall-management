@@ -374,6 +374,10 @@
             "slug": "cash-flow"
         },
         {
+            "class": "ConfigurationHealth",
+            "slug": "configuration-health"
+        },
+        {
             "class": "Dashboard",
             "slug": "dashboard"
         },

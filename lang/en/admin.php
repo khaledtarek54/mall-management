@@ -1056,6 +1056,51 @@ return [
         'empty' => 'Nothing outstanding',
         'empty_description' => 'No open invoice carries a balance at this date.',
     ],
+    'config_health' => [
+        'nav_label' => 'Configuration health',
+        'page_title' => 'Configuration health',
+        'all_clear' => 'Everything this page checks is configured.',
+        'summary' => ':blocking item(s) reach a tenant, the books or the tax authority; :advisory could be better.',
+        'check' => 'Check',
+        'status' => 'Status',
+        'set' => 'Set',
+        'wht_off' => 'Withholding is switched off, so nothing is deducted.',
+        'severities' => ['blocking' => 'Needs attention', 'advisory' => 'Could be better'],
+        'categories' => ['tax' => 'Tax', 'accounting' => 'Accounting', 'billing' => 'Billing'],
+        'checks' => [
+            'seller_tax_identity' => [
+                'name' => 'Seller tax registration number',
+                'impact' => 'Your tax invoices print without a registration number, so a tenant cannot use them to reclaim the VAT you charged them. Set it under Settings → Tax.',
+                'ok' => 'Printed on every tax invoice as :detail.',
+            ],
+            'charge_codes_classified' => [
+                'name' => 'Every charge code is ruled on for tax',
+                'impact' => ':count charge code(s) name no tax code, so they bill at the assumed standard rate rather than your accountant\'s ruling — on every invoice, until somebody notices. Set them under General Ledger → Charge codes. (:detail)',
+                'ok' => 'Every active charge code names the tax it is billed under.',
+            ],
+            'tax_codes_commissioned' => [
+                'name' => 'Tax codes awaiting commissioning',
+                'impact' => ':count tax code(s) from your own tax sheet cannot be used yet: a taxable code needs a rate and a posting account before it can be switched on. Stamp and schedule tax are here by design until their GL accounts are wired. (:detail)',
+                'ok' => 'Every taxable code in the catalogue can be used.',
+            ],
+            'withholding_configured' => [
+                'name' => 'Withholding has something to withhold',
+                'impact' => 'Withholding is switched ON, but no default code is set and no supplier carries one — so every payment deducts nothing, which looks exactly like it working and leaves you liable for the tax you did not withhold.',
+                'ok' => ':detail is the default, and :count supplier(s) carry their own.',
+            ],
+            'posting_map_complete' => [
+                'name' => 'Every posting role has an account',
+                'impact' => 'A transaction whose role has no account cannot post, so the books stop taking it: :detail',
+                'ok' => ':detail',
+            ],
+            'open_accounting_period' => [
+                'name' => 'Today falls in an open period',
+                'impact' => 'There is no open accounting period covering today, so anything dated now is refused at the point it would post — quietly, inside the job that posts it. Extend the calendar under Accounting → Periods.',
+                'ok' => 'Today is inside an open period.',
+            ],
+        ],
+    ],
+
     'report_hub' => [
         'nav_label' => 'All reports',
         'page_title' => 'Reports',

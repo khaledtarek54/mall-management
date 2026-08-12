@@ -10,6 +10,7 @@ use App\Filament\Admin\Pages\ArCollections;
 use App\Filament\Admin\Pages\BalanceSheet;
 use App\Filament\Admin\Pages\BillingRunPreview;
 use App\Filament\Admin\Pages\CashFlow;
+use App\Filament\Admin\Pages\ConfigurationHealth;
 use App\Filament\Admin\Pages\Dashboard;
 use App\Filament\Admin\Pages\ExpirationSchedule;
 use App\Filament\Admin\Pages\GeneralLedger;
@@ -117,6 +118,7 @@ class ReportCatalogue
     public const EXEMPT = [
         Dashboard::class => 'The landing screen. It shows widgets drawn from the reports rather than being one.',
         Settings::class => 'Configuration — it changes what the system does rather than reporting on what it did.',
+        ConfigurationHealth::class => 'It reports on the SETUP, not on the data — what is unset and what that breaks. Listing it beside the rent roll would put an operator looking for a business answer in front of a maintenance checklist.',
     ];
 
     /**

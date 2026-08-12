@@ -1,3 +1,12 @@
+> **Six of these items are now checked in the app** (2026-08-12): `/admin/configuration-health`
+> reads the live database for the seller's tax registration number, unclassified charge codes,
+> uncommissioned tax codes, withholding with nothing to withhold, the posting map, and whether today
+> falls in an open period. Each row says what the gap breaks.
+>
+> This file is still the wider gate — it covers credentials, infrastructure and unanswered questions
+> that no query can see — but the parts a query CAN see no longer depend on somebody re-verifying
+> this document by hand.
+
 # Atriom — the go-live gate
 
 **One document. Everything that must be CONFIGURED or ANSWERED before this system carries real
