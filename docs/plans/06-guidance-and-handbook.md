@@ -4,7 +4,7 @@
 > visual handbook grows into a deployed, bilingual, interactive reference for all 36 modules whose
 > data is **generated from the registries** rather than typed.
 
-**Status:** Phases A + B + C **shipped** · D–F outstanding · started 2026-08-12.
+**Status:** A · B · C · D · F **shipped** · E in progress (Arabic page-by-page) · started 2026-08-12.
 
 ---
 
@@ -244,6 +244,21 @@ Vue SFCs in `.vitepress/theme/components/`, registered via `enhanceApp` in `them
 work in any markdown file in either locale. Each takes its UI strings from a per-locale map, so the
 Arabic pages render Arabic widgets rather than English ones.
 
+**Two kinds, and the difference is the point.** DERIVED components read the generated datasets and
+cannot describe a system that does not exist. ILLUSTRATIVE ones mirror a single line of arithmetic
+so a reader can change a number and watch the answer move — each names the class it mirrors and says
+that class is the authority. Nothing in between: a component that half-reimplemented a service would
+be a second opinion about the same money.
+
+| Component | Kind | What it does |
+| --- | --- | --- |
+| `<PostingExplorer>` | derived | 24 GL sources: what posts, when it is dated, whether the date is guarded, what may be edited afterwards, and whether it can be deleted |
+| `<StateMachine>` | derived | Tenant request / work order / purchase request — click a state for its exits; a state with none is an end |
+| `<PercentageRentCalculator>` | illustrative | Natural vs artificial breakpoint, the pair operators most reliably get backwards |
+| `<VatRateResolver>` | illustrative | Why a back-dated invoice keeps the rate that was in force — move the document date across a rise |
+
+Superseded design notes:
+
 | Component | What it does | Backed by |
 | --- | --- | --- |
 | `<PostingExplorer>` | Pick a document type → see the journal entry it produces | journalizers dump — cannot describe a source the code does not post |
@@ -313,6 +328,6 @@ commit with its gate turned on, so nothing lands half-enforced.
 | A | Guides on all **83** screens, EN + AR | `ScreenGuideConformanceTest` (replaces the old one) | **DONE** |
 | B | 64 paragraphs → 55 hint icons + 8 reasoned exemptions | `FieldHelpConformanceTest` (new) | **DONE** |
 | C | Bilingual/RTL shell + 5 generated datasets | `HandbookDataConformanceTest` | **DONE** |
-| D | Interactive components | — | not started |
-| E | 36 module pages × 2 languages | sidebar/page-count check | not started |
-| F | `/handbook` behind auth + deploy wiring | `tests/Feature/Handbook` | not started |
+| D | 4 components: 2 derived, 2 illustrative | server-render probe in the build | **DONE** |
+| E | Module reference (EN + AR) shipped; 23 conceptual pages still English-only | AR sidebar lists only translated pages | **PARTIAL** |
+| F | `/handbook` behind auth + deploy wiring | `tests/Feature/Handbook` (5 tests) | **DONE** |

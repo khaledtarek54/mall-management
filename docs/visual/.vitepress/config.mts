@@ -17,8 +17,27 @@ import { defineConfig } from 'vitepress'
 type Item = { text: string; link: string }
 type Group = { text: string; collapsed?: boolean; items: Item[] }
 
-/** One sidebar, described once per locale. */
-function sidebar(t: Record<string, string>, p: string): Group[] {
+/**
+ * One sidebar, described once per locale.
+ *
+ * `only` trims it to the pages that actually exist in that language. The Arabic tree is being
+ * filled in page by page, and a sidebar entry pointing at an untranslated page is a menu of 404s —
+ * strictly worse than a shorter menu, and invisible to anyone who does not read that language. So
+ * the AR locale lists what it has, and grows a line at a time as pages land.
+ */
+function sidebar(t: Record<string, string>, p: string, only?: string[]): Group[] {
+  const groups = allGroups(t, p)
+
+  if (! only) {
+    return groups
+  }
+
+  return groups
+    .map((g) => ({ ...g, items: g.items.filter((i) => only.includes(i.link)) }))
+    .filter((g) => g.items.length > 0)
+}
+
+function allGroups(t: Record<string, string>, p: string): Group[] {
   return [
     {
       text: t.startHere,
@@ -211,11 +230,11 @@ export default defineConfig({
       themeConfig: {
         nav: [
           { text: ar.startHere, link: '/ar/' },
-          { text: ar.wholeSystem, link: '/ar/map' },
-          { text: ar.monthInLife, link: '/ar/scenarios' },
           { text: ar.everyModule, link: '/ar/modules/' },
         ],
-        sidebar: sidebar(ar, '/ar'),
+        // Translated so far. Add the page, then add its link here — the two go together, and
+        // this list is what keeps the Arabic menu honest about which is which.
+        sidebar: sidebar(ar, '/ar', ['/ar/', '/ar/modules/']),
         outline: { level: [2, 3], label: 'في هذه الصفحة' },
         docFooter: { prev: 'السابق', next: 'التالي' },
         darkModeSwitchLabel: 'المظهر',
