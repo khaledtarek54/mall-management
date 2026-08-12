@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Asset;
+use App\Models\TenantUser;
 use App\Models\User;
 use Database\Seeders\ApprovalRulesSeeder;
 use Database\Seeders\DemoSeeder;
@@ -457,20 +458,40 @@ it('G: no language key contains a dot, which would make it unreachable', functio
     expect(count($files))->toBeGreaterThan(10);
 })->group('conformance');
 
-it('H: no admin list renders a raw translation key, in either locale', function () {
-    // The gate for keys that STATIC analysis cannot see. A label built as `__("…{$record->status}")`
+/**
+ * Every translation-key namespace we own. A key from any of these reaching the screen is a bug.
+ */
+const KEY_NAMESPACES = 'admin|validation|auth|errors|guides|api|pay|mail';
+
+/**
+ * Any of our translation keys appearing in a page's VISIBLE TEXT.
+ *
+ * Text only, deliberately: Livewire registers its components under dotted names
+ * (`admin.resources.leases.pages.list`) that live in attributes and script payloads, and matching
+ * raw HTML produced ~44 false positives per run.
+ *
+ * @return array<int, string>
+ */
+function rawKeysVisibleIn(string $html): array
+{
+    $text = preg_replace('#<(script|style)\b[^>]*>.*?</\1>#si', ' ', $html);
+    $text = html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5);
+
+    preg_match_all('/\b('.KEY_NAMESPACES.')\.[a-z0-9_]+(?:\.[a-z0-9_]+)+/', $text, $matches);
+
+    return array_values(array_unique($matches[0]));
+}
+
+it('H: no ADMIN screen renders a raw translation key, in either locale', function () {
+    // The gate for keys STATIC analysis cannot see. A label built as `__("…{$record->status}")`
     // composes its key from a database value, so the only way to know it resolves is to render the
     // page against real rows and look.
     //
-    // **Its coverage is bounded by the fixture, and that is not a footnote.** A table with no rows
+    // **Coverage is bounded by the fixture, and that is not a footnote.** A table with no rows
     // renders no cells, so nothing is checked — the approval-tier bug that prompted this test lives
-    // on a list `DemoSeeder` does not populate, which is why ApprovalRulesSeeder is run explicitly
-    // below. When adding an enum-bearing resource, seed a row for it or this test silently covers
-    // less than it appears to.
-    //
-    // Scans VISIBLE TEXT only: Livewire registers its components under dotted names
-    // (`admin.resources.leases.pages.list`) that live in attributes and script payloads and would
-    // otherwise produce ~44 false positives per run.
+    // on a list `DemoSeeder` does not populate, which is why ApprovalRulesSeeder runs below, and
+    // why the first version of this test passed with the bug still present. Adding an enum-bearing
+    // resource means seeding a row for it, or this silently covers less than it appears to.
     $this->seed(RolesPermissionsSeeder::class);
     $this->seed(DemoSeeder::class);
     $this->seed(ApprovalRulesSeeder::class);
@@ -480,7 +501,6 @@ it('H: no admin list renders a raw translation key, in either locale', function 
 
     $asset = Asset::where('code', '!=', Asset::ALL_PROPERTIES_CODE)->firstOrFail();
 
-    $namespaces = 'admin|validation|auth|errors|guides|api|pay|mail';
     $found = [];
     $rendered = 0;
     $original = app()->getLocale();
@@ -489,18 +509,34 @@ it('H: no admin list renders a raw translation key, in either locale', function 
         foreach (['en', 'ar'] as $locale) {
             app()->setLocale($locale);
 
-            asTenant($asset, function () use ($asset, $locale, $namespaces, &$found, &$rendered) {
+            asTenant($asset, function () use ($asset, $locale, &$found, &$rendered) {
                 $urls = [];
 
                 foreach (Filament::getPanel('admin')->getResources() as $resource) {
+                    $label = class_basename($resource);
+
                     if ($resource::getPages()['index'] ?? null) {
-                        $urls[class_basename($resource)] = $resource::getUrl('index', [], tenant: $asset);
+                        $urls["{$label} list"] = $resource::getUrl('index', [], tenant: $asset);
+                    }
+
+                    // EDIT pages too. A form renders labels, options, helper text and placeholders
+                    // that never appear on a list, and it is where most enum SELECTS live.
+                    if ($resource::getPages()['edit'] ?? null) {
+                        $record = rescue(fn () => $resource::getEloquentQuery()->first(), null, false);
+
+                        if ($record) {
+                            $url = rescue(fn () => $resource::getUrl('edit', ['record' => $record], tenant: $asset), null, false);
+
+                            if ($url) {
+                                $urls["{$label} edit"] = $url;
+                            }
+                        }
                     }
                 }
 
-                // PAGES too, not just resources. The report hub is a Page, and it is where the
-                // first raw label was actually spotted — a sweep of resource lists alone would
-                // have missed the screen that started this.
+                // PAGES too. The report hub is a Page, and it is where the first raw label was
+                // spotted — a sweep of resource lists alone would have missed the screen that
+                // started this.
                 foreach (Filament::getPanel('admin')->getPages() as $page) {
                     $url = rescue(fn () => $page::getUrl(tenant: $asset), null, false);
 
@@ -516,16 +552,10 @@ it('H: no admin list renders a raw translation key, in either locale', function 
                         continue;
                     }
 
-                    $html = $response->getContent();
                     $rendered++;
 
-                    $text = preg_replace('#<(script|style)\b[^>]*>.*?</\1>#si', ' ', $html);
-                    $text = html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5);
-
-                    if (preg_match_all('/\b('.$namespaces.')\.[a-z0-9_]+(?:\.[a-z0-9_]+)+/', $text, $matches)) {
-                        foreach (array_unique($matches[0]) as $key) {
-                            $found[] = "[{$locale}] {$label} renders the raw key {$key}";
-                        }
+                    foreach (rawKeysVisibleIn($response->getContent()) as $key) {
+                        $found[] = "[{$locale}] {$label} renders the raw key {$key}";
                     }
                 }
             });
@@ -536,6 +566,66 @@ it('H: no admin list renders a raw translation key, in either locale', function 
 
     expect(array_unique($found))->toBe([], "A translation key reached the screen instead of a translation:\n  ".implode("\n  ", array_unique($found)));
 
-    // Vacuity guard: if the panel stopped enumerating, this test would pass having rendered nothing.
-    expect($rendered)->toBeGreaterThan(80);
+    // Vacuity guard: if the panel stopped enumerating, this would pass having rendered nothing.
+    expect($rendered)->toBeGreaterThan(150);
+})->group('conformance');
+
+it('I: no TENANT PORTAL screen renders a raw translation key, in either locale', function () {
+    // The portal is the surface a TENANT sees, and the one most likely to be read in Arabic. It
+    // shares `lang/*/admin.php` with the panel but renders its own resources, so a key that only
+    // the portal composes is checked nowhere else.
+    $this->seed(RolesPermissionsSeeder::class);
+    $this->seed(DemoSeeder::class);
+
+    $tenantUser = TenantUser::query()->where('is_admin', true)->firstOrFail();
+    $this->actingAs($tenantUser, 'portal');
+
+    $found = [];
+    $rendered = 0;
+    $original = app()->getLocale();
+    $originalPanel = Filament::getCurrentPanel();
+
+    try {
+        Filament::setCurrentPanel(Filament::getPanel('portal'));
+
+        foreach (['en', 'ar'] as $locale) {
+            app()->setLocale($locale);
+
+            $urls = [];
+
+            foreach (Filament::getPanel('portal')->getResources() as $resource) {
+                if ($resource::getPages()['index'] ?? null) {
+                    $urls[class_basename($resource)] = $resource::getUrl('index');
+                }
+            }
+
+            foreach (Filament::getPanel('portal')->getPages() as $page) {
+                $url = rescue(fn () => $page::getUrl(), null, false);
+
+                if ($url !== null) {
+                    $urls[class_basename($page)] = $url;
+                }
+            }
+
+            foreach ($urls as $label => $url) {
+                $response = rescue(fn () => $this->get($url), null, false);
+
+                if ($response === null || $response->getStatusCode() !== 200) {
+                    continue;
+                }
+
+                $rendered++;
+
+                foreach (rawKeysVisibleIn($response->getContent()) as $key) {
+                    $found[] = "[{$locale}] portal {$label} renders the raw key {$key}";
+                }
+            }
+        }
+    } finally {
+        app()->setLocale($original);
+        Filament::setCurrentPanel($originalPanel);
+    }
+
+    expect(array_unique($found))->toBe([], "A translation key reached the tenant's screen:\n  ".implode("\n  ", array_unique($found)));
+    expect($rendered)->toBeGreaterThan(10);
 })->group('conformance');
