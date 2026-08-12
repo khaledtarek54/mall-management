@@ -64,7 +64,7 @@ it('bills a levy at the rate its charge code says, not the one the service used 
     app(MarketingLevyService::class)->createLevyCharge($lease);
     $exempt = Charge::where('lease_id', $lease->id)->where('type', 'marketing')->latest('id')->first();
 
-    expect((float) $exempt->vat_rate)->toBe(0.0)
+    expect($exempt->resolvedVatRate())->toBe(0.0)
         ->and($exempt->vat_applicable)->toBeFalse();
 
     // The accountant rules that the levy IS consideration for a marketing service. A ruling alone
@@ -75,7 +75,7 @@ it('bills a levy at the rate its charge code says, not the one the service used 
     app(MarketingLevyService::class)->createLevyCharge($lease, CarbonImmutable::parse('2026-07-01'));
     $taxable = Charge::where('lease_id', $lease->id)->where('type', 'marketing')->latest('id')->first();
 
-    expect((float) $taxable->vat_rate)->toBe(Vat::standardRate())
+    expect($taxable->resolvedVatRate())->toBe(Vat::standardRate())
         ->and($taxable->vat_applicable)->toBeTrue()
         ->and($taxable->id)->not->toBe($exempt->id, 'the levy must be a NEW schedule row, not a rewrite of the old one');
 });
@@ -97,7 +97,7 @@ it('exempts a supply the accountant exempts, on the lease-creation path', functi
 
     $service = $lease->charges()->where('type', 'service_charge')->first();
 
-    expect((float) $service->vat_rate)->toBe(0.0)
+    expect($service->resolvedVatRate())->toBe(0.0)
         ->and($service->vat_applicable)->toBeFalse();
 
     // The control: with the ruling reversed, the same path taxes it — so the assertion above is
@@ -116,7 +116,7 @@ it('exempts a supply the accountant exempts, on the lease-creation path', functi
         ],
     ]);
 
-    expect((float) $second->charges()->where('type', 'service_charge')->first()->vat_rate)
+    expect($second->charges()->where('type', 'service_charge')->first()->resolvedVatRate())
         ->toBe(Vat::standardRate());
 });
 

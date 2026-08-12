@@ -45,12 +45,12 @@ it('creates a lease + base rent + service charge and marks the unit occupied', f
     $rent = $charges->firstWhere('type', 'base_rent');
     expect((float) $rent->amount)->toBe(10000.0);
     expect((bool) $rent->vat_applicable)->toBeFalse();
-    expect((float) $rent->vat_rate)->toBe(0.0);
+    expect($rent->resolvedVatRate())->toBe(0.0);
 
     $svc = $charges->firstWhere('type', 'service_charge');
     expect((float) $svc->amount)->toBe(1500.0);
     expect((bool) $svc->vat_applicable)->toBeTrue();
-    expect((float) $svc->vat_rate)->toBe(14.0);
+    expect($svc->resolvedVatRate())->toBe(14.0);
 
     // Marketing levy = 5% of base rent, charged to the tenant, VAT-exempt.
     $marketing = $charges->firstWhere('type', 'marketing');

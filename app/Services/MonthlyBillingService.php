@@ -470,12 +470,15 @@ class MonthlyBillingService
         // The share of a full cycle, for the label and the `prorated` flag.
         $factor = $multiplier / max($cycleMonths, 1);
 
-        $items = $applicableCharges->map(function (Charge $charge) use ($periodStart, $periodEnd, $factor, $multiplier, $cycleMonths) {
+        // The rate is resolved for the date the invoice will carry — `effectivePeriodStart`, which
+        // becomes `issue_date` below and is the GL entry_date. Reading `charges.vat_rate` directly
+        // meant a rate change never reached rent or service charge; see `Charge::resolvedVatRate()`.
+        $items = $applicableCharges->map(function (Charge $charge) use ($periodStart, $periodEnd, $factor, $multiplier, $cycleMonths, $effectivePeriodStart) {
             // Recurring (monthly) charges bill the covered fraction of every month in the cycle. A
             // non-monthly charge (a one-off) bills once at its full amount, never multiplied.
             $multiplier = $charge->frequency === 'monthly' ? $multiplier : 1.0;
             $amount = round((float) $charge->amount * $multiplier, 2);
-            $vatRate = $charge->vat_applicable ? (float) $charge->vat_rate : 0.0;
+            $vatRate = $charge->resolvedVatRate($effectivePeriodStart);
             $vatAmount = round($amount * ($vatRate / 100), 2);
             $label = $charge->name . ' - ' . ($cycleMonths > 1
                 ? $this->cycleLabel($periodStart, $periodEnd)

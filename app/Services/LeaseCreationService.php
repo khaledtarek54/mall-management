@@ -132,7 +132,8 @@ class LeaseCreationService
                 'currency' => $lease->currency ?? 'EGP',
                 'frequency' => 'monthly',
                 'vat_applicable' => Vat::rateForType('service_charge') > 0,
-                'vat_rate' => Vat::rateForType('service_charge'),
+                // null = the catalogue answers at billing time (Charge::resolvedVatRate); a value is an override.
+                'vat_rate' => null,
                 'start_date' => $commencement,
                 'is_active' => true,
             ]);

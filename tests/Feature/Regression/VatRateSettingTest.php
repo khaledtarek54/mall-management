@@ -72,9 +72,12 @@ it('bills a new lease service charge at the configured rate', function () {
     $service = $lease->charges()->where('type', 'service_charge')->first();
     $rent = $lease->charges()->where('type', 'base_rent')->first();
 
-    expect((float) $service->vat_rate)->toBe(20.0)
+    // Asserts the rate each charge BILLS, not the stored column — which is null unless somebody
+    // deliberately overrode it. Storing the catalogue's answer at creation is what froze the rate
+    // for the life of the lease and stopped a rise ever reaching rent or service charge.
+    expect($service->resolvedVatRate())->toBe(20.0)
         // Base rent is outside the scope of VAT — it must NOT follow the standard rate.
-        ->and((float) $rent->vat_rate)->toBe(0.0);
+        ->and($rent->resolvedVatRate())->toBe(0.0);
 });
 
 it('bills a utility recharge at the configured rate', function () {

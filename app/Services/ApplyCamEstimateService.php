@@ -88,7 +88,8 @@ class ApplyCamEstimateService
             $this->schedule->setAmount($lease, 'service_charge', (float) $proposed, $effectiveFrom, [
                 'name' => 'Service Charge',
                 'vat_applicable' => Vat::rateForType('service_charge') > 0,
-                'vat_rate' => Vat::rateForType('service_charge'),
+                // null = the catalogue answers at billing time (Charge::resolvedVatRate); a value is an override.
+                'vat_rate' => null,
                 // A lease that never had a service charge does not acquire one from a recovery
                 // proposal — the pre-schedule rule, preserved.
                 'skip_if_zero' => true,

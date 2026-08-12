@@ -94,6 +94,10 @@ final class ConcurrencyPolicy
         'app/Console/Commands/RemindExpiringLeasesCommand.php' => 1,
         'app/Console/Commands/RemindOverdueTenantsCommand.php' => 1,
         'app/Console/Commands/ScanContractRenewalsCommand.php' => 2,
+        // Claims a due saved report under the lock and re-checks `isDueOn()` inside the
+        // transaction — without it two workers both read "not sent today" and the recipient
+        // gets the month-end pack twice.
+        'app/Console/Commands/DeliverScheduledReportsCommand.php' => 1,
         'app/Console/Commands/ScanLeaseOptionWindowsCommand.php' => 1,
         'app/Console/Commands/ScanLowStockCommand.php' => 1,
         // A cache lock, not a row lock: this scan has no single row to hold, so an atomic lock is

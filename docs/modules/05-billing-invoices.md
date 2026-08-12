@@ -186,6 +186,25 @@ This is the core AR (accounts receivable) engine; all recurring revenue flows th
      charge codes each carried a copy of "14" and none of them could say **when** the rate changed.
      A rate is now a dated rung, resolved for the **document's** date. `TaxSettings::vat_standard_rate`
      is gone with it: settings hold policy, master data holds rates.
+   - **A RECURRING charge resolves its rate at BILLING, not when the schedule row was written**
+     (2026-08-12). `charges.vat_rate` is an OVERRIDE and **null is the normal state**;
+     `Charge::resolvedVatRate($on)` is the one place that answers what a charge bills on a date, and
+     `MonthlyBillingService` asks it for the invoice's own `issue_date`.
+
+     Until then every creation path stamped the column from `Vat::rateForType()` and billing read
+     that number for the life of the lease — so the catalogue's headline promise (*a rise entered in
+     advance applies by itself on the day*) held for late fees, fines, meter recharges, CAM
+     recoveries and percentage rent, and **did not hold for rent and service charge**, which is the
+     bulk of the money. Amending the lease did not help: the amendment carried the old rate onto the
+     new row. Measured, not argued — with a rise to 20% effective 1 September, the resolver answered
+     20 for a September document while the September invoice billed 14, quietly under-collecting
+     output VAT the operator still owes ETA.
+
+     Yardi is the standard being followed: the charge record holds the amount, the rate comes from a
+     tax table resolved at billing. A value in the column now means somebody deliberately departed
+     from the catalogue — a deal that fixed a rate — and the schedule table marks that row ⚠.
+     `vat_applicable = false` still wins over both, and since the backfill nulled every rate it is
+     the only thing holding an untaxed row. Pinned by `VatRiseReachesRecurringRentTest`.
    - **Exempt ≠ zero-rated** — both bill 0 and they are different lines on a VAT return, so the
      treatment is stored on the tax code rather than inferred from a zero on a line, where it could
      never be recovered.

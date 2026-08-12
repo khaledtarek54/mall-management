@@ -494,7 +494,9 @@ class ChargeScheduleService
             // zero is how a taxable supply comes to be billed untaxed by whichever writer forgot to
             // pass a rate — the drift `Vat::rateForType()` exists to end.
             'vat_applicable' => $attributes['vat_applicable'] ?? (Vat::rateForType($type) > 0),
-            'vat_rate' => $attributes['vat_rate'] ?? Vat::rateForType($type),
+            // Only what the caller explicitly chose. Defaulting to the catalogue here is what
+            // froze the rate for the life of the lease — a rise entered later never reached it.
+            'vat_rate' => $attributes['vat_rate'] ?? null,
             // The FIRST row is dated to the lease commencement, not the effective date: a charge
             // that never existed should bill the lease's term, not only from today. This matches
             // what LeaseCreationService/LeaseRentChangeService did before schedules existed.

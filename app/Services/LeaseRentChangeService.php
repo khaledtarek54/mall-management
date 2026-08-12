@@ -113,7 +113,8 @@ class LeaseRentChangeService
                 $this->schedule->setAmount($lease, 'service_charge', $newService, $effectiveFrom, [
                     'name' => 'Service Charge',
                     'vat_applicable' => Vat::rateForType('service_charge') > 0,
-                    'vat_rate' => Vat::rateForType('service_charge'),
+                    // null = the catalogue answers at billing time (Charge::resolvedVatRate); a value is an override.
+                    'vat_rate' => null,
                     // Toggling a service charge OFF must not mint a zero row on a lease that never
                     // had one — the pre-schedule createIfZero:false rule, preserved.
                     'skip_if_zero' => true,

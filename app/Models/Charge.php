@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Support\Vat;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -191,16 +193,46 @@ class Charge extends Model
         return $this->end_date === null;
     }
 
-    public function calculateVat(): float
+    /**
+     * The rate this charge bills on `$on` — the ONE place that answers it.
+     *
+     * `vat_rate` is an OVERRIDE, and null is the normal state: the rate comes from the dated
+     * catalogue, resolved for the DOCUMENT's date, so a rise entered in advance applies by itself
+     * on the day and a back-dated invoice keeps the rate that was in force.
+     *
+     * Until 2026-08-12 the column held a snapshot taken when the row was written, and
+     * `MonthlyBillingService` billed that number for the life of the lease — so a rate change
+     * reached every one-off charge and never reached rent or service charge, which is most of the
+     * money. Proven, not assumed: with a rise to 20% effective 1 September, the resolver answered
+     * 20 for a September document while the September invoice billed 14.
+     *
+     * `vat_applicable = false` still wins. That is a per-charge statement that this particular
+     * supply is not taxed, which is a different question from what the rate is.
+     */
+    public function resolvedVatRate(?CarbonInterface $on = null): float
     {
         if (! $this->vat_applicable) {
-            return 0;
+            return 0.0;
         }
-        return round($this->amount * ($this->vat_rate / 100), 2);
+
+        return $this->vat_rate !== null
+            ? (float) $this->vat_rate
+            : Vat::rateForType((string) $this->type, $on);
     }
 
-    public function totalWithVat(): float
+    /** Does this charge depart from the catalogue — i.e. did somebody choose its rate? */
+    public function hasVatRateOverride(): bool
     {
-        return (float) ($this->amount + $this->calculateVat());
+        return $this->vat_applicable && $this->vat_rate !== null;
+    }
+
+    public function calculateVat(?CarbonInterface $on = null): float
+    {
+        return round($this->amount * ($this->resolvedVatRate($on) / 100), 2);
+    }
+
+    public function totalWithVat(?CarbonInterface $on = null): float
+    {
+        return (float) ($this->amount + $this->calculateVat($on));
     }
 }

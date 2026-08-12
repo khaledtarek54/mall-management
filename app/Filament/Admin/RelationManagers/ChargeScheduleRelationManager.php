@@ -200,7 +200,12 @@ class ChargeScheduleRelationManager extends RelationManager
                     // as a LEASE billing_frequency (…/semiannual/annual), so it has its own map.
                     ->formatStateUsing(fn (string $state): string => __("admin.charge_schedule.frequencies.{$state}"))
                     ->toggleable(isToggledHiddenByDefault: true),
+                // Shows the rate that will be BILLED, not the stored column — which is usually
+                // null now. A row that departs from the catalogue is marked, because that is the
+                // one an accountant needs to see.
                 TextColumn::make('vat_rate')
+                    ->state(fn (Charge $record): string => rtrim(rtrim(number_format($record->resolvedVatRate(), 2), '0'), '.')
+                        .($record->hasVatRateOverride() ? ' ⚠' : ''))
                     ->label(__('admin.tables.invoice.vat'))
                     ->suffix('%')
                     ->alignEnd()
@@ -239,8 +244,7 @@ class ChargeScheduleRelationManager extends RelationManager
                             // would let an operator open a second rent row beside the one those
                             // services maintain, and the two would then disagree.
                             ->disableOptionWhen(fn (string $value) => in_array($value, self::DERIVED_TYPES, true))
-                            ->helperText(__('admin.charge_schedule.add_type_hint'))
-                            ->afterStateUpdated(fn ($state, Set $set) => $set('vat_rate', Vat::rateForType(is_string($state) ? $state : null))),
+                            ->helperText(__('admin.charge_schedule.add_type_hint')),
                         TextInput::make('amount')
                             ->label(__('admin.fields.amount'))
                             ->prefix('EGP')
@@ -266,10 +270,15 @@ class ChargeScheduleRelationManager extends RelationManager
                             ->numeric()
                             ->minValue(0)
                             ->maxValue(100)
-                            // Defaulted from the charge code's treatment, and editable: the
-                            // catalogue states the rule, a deal can still be its own exception.
-                            ->default(fn (Get $get) => Vat::rateForType($get('type')))
-                            ->required(),
+                            // An OVERRIDE, and blank is the normal state — the catalogue answers at
+                            // billing time, for the invoice's own date. Filling this in used to be
+                            // automatic, which froze the rate for the life of the lease: a rise
+                            // entered later reached every one-off charge and never reached rent or
+                            // service charge. Leave it empty unless a deal genuinely fixed a rate.
+                            ->placeholder(fn (Get $get) => $get('type')
+                                ? __('admin.charge_schedule.vat_from_catalogue', ['rate' => rtrim(rtrim(number_format(Vat::rateForType($get('type')), 2), '0'), '.')])
+                                : null)
+                            ->helperText(__('admin.charge_schedule.vat_override_hint')),
                     ])
                     ->action(function (array $data): void {
                         /** @var Lease $lease */
@@ -286,7 +295,9 @@ class ChargeScheduleRelationManager extends RelationManager
                             403,
                         );
 
-                        $rate = (float) ($data['vat_rate'] ?? 0);
+                        // Blank => null => the catalogue answers. An explicit 0 is the operator
+                        // saying this particular charge is not taxed, which is a different claim.
+                        $rate = ($data['vat_rate'] ?? '') === '' ? null : (float) $data['vat_rate'];
 
                         $charge = app(ChargeScheduleService::class)->setAmount(
                             $lease,
@@ -296,7 +307,7 @@ class ChargeScheduleRelationManager extends RelationManager
                             [
                                 'name' => self::typeLabel($data['type']),
                                 'frequency' => $data['frequency'],
-                                'vat_applicable' => $rate > 0,
+                                'vat_applicable' => $rate === null || $rate > 0,
                                 'vat_rate' => $rate,
                                 // A charge added in September is not owed from the lease's
                                 // commencement — without this the first row would back-date to it

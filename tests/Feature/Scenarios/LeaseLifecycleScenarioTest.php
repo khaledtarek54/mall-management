@@ -71,7 +71,9 @@ it('creation seeds VAT-exempt rent + 14% service charge and the totals reconcile
         ->and((float) $rent->totalWithVat())->toBe(10000.0);
 
     expect($svc->vat_applicable)->toBeTrue()
-        ->and((float) $svc->vat_rate)->toBe(14.0)
+        // The rate the charge BILLS. The column itself is null — a stored snapshot is what stopped
+        // a catalogue change ever reaching rent or service charge.
+        ->and($svc->resolvedVatRate())->toBe(14.0)
         // 2000 * 14% = 280 VAT → 2280 gross.
         ->and($svc->calculateVat())->toBe(280.0)
         ->and((float) $svc->totalWithVat())->toBe(2280.0);

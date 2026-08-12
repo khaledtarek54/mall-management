@@ -548,7 +548,7 @@ class InvoiceForm
             // it was opened and re-rating it here would quietly change what a recurring line bills.
             // The tax code comes from the charge's type, so the line is still classified — and if
             // the two disagree, the form shows that as an override, which is exactly what it is.
-            $rate = $charge->vat_applicable ? (float) $charge->vat_rate : 0;
+            $rate = $charge->resolvedVatRate($get('issue_date') ? \Carbon\CarbonImmutable::parse($get('issue_date')) : null);
             $amount = (float) $charge->amount;
             $vatAmount = round($amount * $rate / 100, 2);
 
