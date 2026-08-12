@@ -168,6 +168,12 @@
         "guide": "general_ledger"
     },
     {
+        "screen": "Handbook",
+        "panel": "admin",
+        "kind": "page",
+        "guide": "handbook"
+    },
+    {
         "screen": "IncomeStatement",
         "panel": "admin",
         "kind": "page",
