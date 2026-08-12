@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Support\Vat;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use App\Settings\BillingSettings;
 
 class PercentageRentCalculationService
 {
@@ -532,7 +533,7 @@ class PercentageRentCalculationService
             'tenant_id' => $lease->tenant_id,
             'status' => 'issued',
             'issue_date' => $now,
-            'due_date' => $now->copy()->addDays($lease->payment_terms_days ?? 7),
+            'due_date' => $now->copy()->addDays($lease->payment_terms_days ?? BillingSettings::defaultPaymentTermsDays()),
             'period_start' => $declaration->period_start,
             'period_end' => $declaration->period_end,
             'subtotal' => $amount,

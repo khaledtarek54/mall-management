@@ -83,7 +83,7 @@ class BillBouncedChequeFeeService
                 'tenant_id' => $locked->tenant_id,
                 'status' => 'issued',
                 'issue_date' => $now,
-                'due_date' => $now->copy()->addDays($lease->payment_terms_days ?? 7),
+                'due_date' => $now->copy()->addDays($lease->payment_terms_days ?? BillingSettings::defaultPaymentTermsDays()),
                 // The month the cheque bounced in, which is when the cost was incurred — not the
                 // month the operator got round to charging it.
                 'period_start' => $now->copy()->startOfMonth(),

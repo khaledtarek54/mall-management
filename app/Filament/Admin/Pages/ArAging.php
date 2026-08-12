@@ -32,6 +32,7 @@ use Filament\Tables\Table;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use App\Support\AgingBuckets;
 
 /**
  * AR aging drill-down — the collections worklist: which invoices sit in a given
@@ -97,11 +98,9 @@ class ArAging extends Page implements DeliverableReport, HasSchemas, HasTable
     public static function buckets(): array
     {
         return [
-            'current' => __('admin.widgets.ar_aging.current'),
-            'd_1_30' => __('admin.widgets.ar_aging.d_1_30'),
-            'd_31_60' => __('admin.widgets.ar_aging.d_31_60'),
-            'd_61_90' => __('admin.widgets.ar_aging.d_61_90'),
-            'd_90_plus' => __('admin.widgets.ar_aging.d_90_plus'),
+            // Derived from the configured boundaries, so a tab can never be labelled "1–30 days"
+            // while the classifier is bucketing at 45. See App\Support\AgingBuckets.
+            ...AgingBuckets::labels(),
         ];
     }
 

@@ -9,6 +9,7 @@ use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
@@ -133,6 +134,26 @@ class Settings extends Page implements HasSchemas
                     Toggle::make('billing.straight_line_rent_enabled')
                         ->label(__('admin.settings.fields.straight_line_rent_enabled'))
                         ->helperText(__('admin.settings.fields.straight_line_rent_enabled_help')),
+                ]),
+            // Policy that used to be a constant, and therefore a deploy.
+            Section::make(__('admin.settings.sections.receivables_policy'))
+                ->description(__('admin.settings.sections.receivables_policy_description'))
+                ->columns(2)
+                ->components([
+                    TextInput::make('billing.default_payment_terms_days')
+                        ->label(__('admin.settings.fields.default_payment_terms_days'))
+                        ->helperText(__('admin.settings.fields.default_payment_terms_days_helper'))
+                        ->suffix(__('admin.fields.days'))
+                        ->numeric()
+                        ->minValue(0)
+                        ->maxValue(365)
+                        ->required(),
+                    TagsInput::make('billing.ar_aging_bucket_days')
+                        ->label(__('admin.settings.fields.ar_aging_bucket_days'))
+                        ->helperText(__('admin.settings.fields.ar_aging_bucket_days_helper'))
+                        ->placeholder('30')
+                        ->nestedRecursiveRules(['integer', 'min:1', 'max:3650'])
+                        ->reorderable(),
                 ]),
             Section::make(__('admin.settings.sections.marketing_levy'))
                 ->description(__('admin.settings.sections.marketing_levy_description'))

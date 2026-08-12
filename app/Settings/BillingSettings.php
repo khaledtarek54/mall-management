@@ -2,6 +2,7 @@
 
 namespace App\Settings;
 
+use App\Support\AgingBuckets;
 use Spatie\LaravelSettings\Settings;
 
 /**
@@ -14,8 +15,35 @@ class BillingSettings extends Settings
     // PHP-level defaults so the class is usable even before the settings
     // migration has run (e.g. fresh clone, CI before seed, deploy ordering).
     // The DB row, when present, overrides these.
+    /**
+     * Where the AR ageing buckets end, in days overdue — the operator's policy.
+     *
+     * 30/60/90 is the common shape and was hard-coded, which made "show me 45/90/120" a deploy. It
+     * is a real request: a mall whose leases pay quarterly ages nothing meaningfully at 30 days,
+     * and these are the first numbers an owner reads on the AR report.
+     *
+     * Read through {@see AgingBuckets}, which clamps a mistyped set back to the
+     * default rather than throwing — an ageing report must not stop rendering because somebody put
+     * the boundaries out of order.
+     *
+     * @var array<int, int>
+     */
+    public array $ar_aging_bucket_days = [30, 60, 90];
+
+    /**
+     * How many days a tenant has to pay, when their lease does not say.
+     *
+     * `leases.payment_terms_days` is the agreed figure and always wins. This is the fallback, and
+     * it was the literal `7` repeated at twelve call sites — every service that raises an invoice,
+     * plus the lease-creation default. Twelve places to edit and eleven chances to miss one, on a
+     * number that decides when a receivable becomes overdue and therefore what the AR ageing says.
+     */
+    public int $default_payment_terms_days = 7;
+
     public float $late_fee_percent = 2.0;
+
     public int $late_fee_grace_days = 7;
+
     public float $late_fee_minimum = 50.00;
 
     /**
@@ -43,6 +71,7 @@ class BillingSettings extends Settings
     public bool $auto_apply_tenant_credit = true;
 
     public int $monthly_billing_day = 1;
+
     public string $monthly_billing_time = '02:00';
 
     /**
@@ -63,8 +92,23 @@ class BillingSettings extends Settings
     public bool $straight_line_rent_enabled = false;
 
     public int $cam_reconciliation_month = 1;
+
     public int $cam_reconciliation_day = 15;
+
     public string $cam_reconciliation_time = '03:00';
+
+    /**
+     * The fallback payment terms, as a plain int.
+     *
+     * A static accessor rather than `app(BillingSettings::class)->…` at each call site: the twelve
+     * places this replaced are inside billing services that run in loops, and reading it through
+     * one method keeps the intent ("the default, because this lease does not say") legible at the
+     * point of use.
+     */
+    public static function defaultPaymentTermsDays(): int
+    {
+        return max(0, (int) app(self::class)->default_payment_terms_days);
+    }
 
     public static function group(): string
     {

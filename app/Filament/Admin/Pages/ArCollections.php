@@ -28,6 +28,7 @@ use Filament\Tables\Table;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Response;
+use App\Support\AgingBuckets;
 
 /**
  * AR collections — the worklist, not the report (UX-03).
@@ -152,7 +153,7 @@ class ArCollections extends Page implements DeliverableReport, HasSchemas, HasTa
 
         $headers = [
             __('admin.tables.invoice.tenant'),
-            ...array_map(fn (string $k) => __("admin.widgets.ar_aging.{$k}"), array_keys(ReportService::AGING_BUCKETS)),
+            ...array_map(fn (string $k) => AgingBuckets::label($k), array_keys(AgingBuckets::all())),
             __('admin.collections.total_owed'),
             __('admin.collections.invoices'),
             __('admin.collections.oldest_days'),
@@ -177,7 +178,7 @@ class ArCollections extends Page implements DeliverableReport, HasSchemas, HasTa
 
     public function table(Table $table): Table
     {
-        $bucketColumns = collect(array_keys(ReportService::AGING_BUCKETS))
+        $bucketColumns = collect(array_keys(AgingBuckets::all()))
             ->map(fn (string $key) => TextColumn::make("buckets.{$key}")
                 ->label(__("admin.widgets.ar_aging.{$key}"))
                 ->money('EGP')

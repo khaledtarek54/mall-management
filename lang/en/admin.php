@@ -616,6 +616,8 @@ return [
             'revenue_recognition_description' => 'How rent is recognised in the books. This does not change what any tenant is invoiced.',
             'modules' => 'Toggle Modules',
             'modules_description' => 'Turn entire modules on or off. Disabled modules disappear from the sidebar, block direct URL access, and hide their dashboard widgets. Core modules (Properties, Units, Tenants, Leases, Invoices, Payments, Users, Roles, Settings) cannot be disabled.',
+            'receivables_policy' => 'Receivables policy',
+            'receivables_policy_description' => 'When a receivable becomes due, and how it is aged once it is late. Both were constants until 2026-08-12 — the ageing boundaries in one place and the payment terms in twelve.',
             'marketing_levy' => 'Marketing levy',
             'marketing_levy_description' => 'The levy charged on base rent under the lease. The rate in force is captured on each charge when it is raised, so changing it affects what is billed next and never restates a levy already charged.',
             'credit_and_holdover' => 'Tenant credit & holdover',
@@ -642,6 +644,10 @@ return [
             'note' => 'Note',
             'straight_line_rent_enabled' => 'Recognise rent on a straight-line basis',
             'straight_line_rent_enabled_help' => 'Spreads the total contracted rent evenly over each lease term (EAS 49 / IFRS 16), posting the monthly difference to Deferred Rent. Steps and rent-free periods stop landing in the month they fall. Billing, VAT and e-invoicing are unaffected. Leave off until your accountant has signed it off.',
+            'default_payment_terms_days' => 'Default payment terms',
+            'default_payment_terms_days_helper' => 'Used when a lease does not state its own. The lease always wins — this is the fallback, and it decides when a receivable becomes overdue and therefore what the AR ageing shows.',
+            'ar_aging_bucket_days' => 'AR ageing buckets',
+            'ar_aging_bucket_days_helper' => 'Three day-counts, ascending — 30, 60, 90 by default. Everything past the last one is the final bucket. The labels on every ageing report are derived from these, so they can never claim a range the reports do not use.',
             'levy_rate_percent' => 'Marketing levy rate',
             'levy_rate_percent_helper' => 'A percentage of base rent. Until 2026-08-12 this rate existed in the settings table and on no screen — the documentation called it configurable and only a deploy could change it.',
             'auto_apply_tenant_credit' => 'Apply tenant credit automatically',
@@ -1405,6 +1411,11 @@ return [
             'label' => 'Outstanding (EGP)',
             'invoices' => 'invoices',
             'current' => 'Current',
+            // Derived from the configured boundaries — see App\Support\AgingBuckets. The four
+            // fixed strings that used to live here said "1–30 days" whatever the buckets were set
+            // to, which is the failure this replaces.
+            'range' => ':from–:to days',
+            'over' => ':days+ days',
             'd_1_30' => '1–30 days',
             'd_31_60' => '31–60 days',
             'd_61_90' => '61–90 days',
@@ -1456,6 +1467,8 @@ return [
             'sla_breached_body' => 'Resolve or update the tenant',
             'wo_sla_breached' => ':count work order past SLA|:count work orders past SLA',
             'wo_sla_breached_body' => 'Corrective jobs running late',
+            'ledger_without_property' => ':count ledger entry has no property|:count ledger entries have no property',
+            'ledger_without_property_body' => 'Posted, but in no property\'s books — so they reach no owner statement',
             'wo_response_breached' => ':count corrective job unanswered|:count corrective jobs unanswered',
             'wo_response_breached_body' => 'Past their response target — nobody has taken them on',
             'vendor_documents' => '{1} 1 vendor insurance certificate needs attention|[2,*] :count vendor insurance certificates need attention',
@@ -4845,6 +4858,7 @@ return [
         ],
     ],
     'journal_entries' => [
+        'filters' => ['without_property' => 'No property (consolidated)'],
         'errors' => [
             'posted_immutable' => 'A posted journal entry is permanent — its date, property and identity decide what the books say and which period they say it in. Void it (which posts a balanced reversing entry) and post a corrected one.',
             'posted_line_immutable' => 'A line on a posted entry cannot change — debits would stop equalling credits and every report built on the trial balance would be wrong. Void the entry and post a corrected one.',

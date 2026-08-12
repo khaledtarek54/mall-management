@@ -2,6 +2,7 @@
 
 namespace App\Services\Reports;
 
+use App\Models\Charge;
 use App\Models\CreditNote;
 use App\Models\Expense;
 use App\Models\Invoice;
@@ -9,14 +10,17 @@ use App\Models\InvoiceItem;
 use App\Models\Lease;
 use App\Models\Payment;
 use App\Models\Tenant;
+use App\Models\TenantSalesDeclaration;
 use App\Models\VendorBill;
-use App\Support\CostNature;
 use App\Services\ChargeScheduleService;
+use App\Support\AgingBuckets;
+use App\Support\CostNature;
 use App\Support\InvoiceItemSettlement;
 use App\Support\TenantScope;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 /**
@@ -27,18 +31,25 @@ use Illuminate\Support\Collection;
 class ReportService
 {
     /**
-     * The aging buckets, in order, and their day ranges (inclusive; `null` = unbounded).
+     * The aging buckets, in order, and their day ranges — now `App\Support\AgingBuckets`.
      *
-     * The single register the summary, the drill-down and the collections worklist all read —
-     * see {@see agingBucketKey()} for why this is not allowed to be copied.
+     * They moved because the boundaries are the OPERATOR's policy: 30/60/90 was hard-coded, so
+     * "show me 45/90/120" was a deploy, and a mall whose leases pay quarterly ages nothing
+     * meaningfully at 30 days.
+     *
+     * The move also fixed a duplication this docblock used to warn about while carrying it: the
+     * ranges were here AND again as literals inside {@see agingBucketKey()}, the classifier every
+     * invoice goes through. Changing one would have left the summary totals and the drill-down
+     * disagreeing about which bucket an invoice is in.
+     *
+     * @deprecated Read `AgingBuckets::all()`; kept only so a caller mid-refactor still resolves.
+     *
+     * @return array<string, array{0: ?int, 1: ?int}>
      */
-    public const AGING_BUCKETS = [
-        'current' => [null, 0],
-        'd_1_30' => [1, 30],
-        'd_31_60' => [31, 60],
-        'd_61_90' => [61, 90],
-        'd_90_plus' => [91, null],
-    ];
+    public static function agingBuckets(): array
+    {
+        return AgingBuckets::all();
+    }
 
     /**
      * Snapshot of a single month for the finance team's monthly close.
@@ -240,7 +251,7 @@ class ReportService
 
         $buckets = array_map(
             fn () => ['count' => 0, 'total' => 0.0],
-            self::AGING_BUCKETS,
+            AgingBuckets::all(),
         );
 
         foreach ($openInvoices as $invoice) {
@@ -291,7 +302,7 @@ class ReportService
                     continue;
                 }
 
-                $byType[$line['type']] ??= array_fill_keys(array_keys(self::AGING_BUCKETS), 0.0);
+                $byType[$line['type']] ??= array_fill_keys(array_keys(AgingBuckets::all()), 0.0);
                 $byType[$line['type']][$bucket] += $line['outstanding'];
 
                 // Shown BESIDE the aged figure, not deducted from it (story MF-07). A disputed
@@ -316,7 +327,7 @@ class ReportService
             ->sortByDesc('total')
             ->values();
 
-        $totals = array_fill_keys(array_keys(self::AGING_BUCKETS), 0.0);
+        $totals = array_fill_keys(array_keys(AgingBuckets::all()), 0.0);
 
         foreach ($rows as $row) {
             foreach ($row['buckets'] as $bucket => $amount) {
@@ -338,7 +349,7 @@ class ReportService
      */
     public function arAgingDrilldown(string $bucket, ?CarbonImmutable $asOf = null): Collection
     {
-        if (! array_key_exists($bucket, self::AGING_BUCKETS)) {
+        if (! array_key_exists($bucket, AgingBuckets::all())) {
             throw new \InvalidArgumentException("Unknown bucket: {$bucket}");
         }
 
@@ -357,7 +368,7 @@ class ReportService
      * what" — which is the question a collections clerk actually has. Sorted worst-first: deepest
      * bucket, then size.
      *
-     * @return Collection<int, array{tenant:?\App\Models\Tenant, tenant_id:int, total:float, buckets:array<string,float>, invoice_count:int, oldest_days:int, last_payment_at:?\Illuminate\Support\Carbon}>
+     * @return Collection<int, array{tenant:?Tenant, tenant_id:int, total:float, buckets:array<string,float>, invoice_count:int, oldest_days:int, last_payment_at:?Carbon}>
      */
     public function arCollectionsByTenant(?CarbonImmutable $asOf = null): Collection
     {
@@ -366,7 +377,7 @@ class ReportService
         return $this->openInvoicesAsOf($asOf)
             ->groupBy('tenant_id')
             ->map(function (Collection $invoices, $tenantId) use ($asOf) {
-                $buckets = array_fill_keys(array_keys(self::AGING_BUCKETS), 0.0);
+                $buckets = array_fill_keys(array_keys(AgingBuckets::all()), 0.0);
                 $oldest = 0;
 
                 foreach ($invoices as $invoice) {
@@ -410,7 +421,7 @@ class ReportService
      * query for each would be four round trips per row on a report that is meant to open instantly
      * for a whole mall.
      *
-     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     * @return Collection<int, array<string, mixed>>
      */
     public function rentRoll(?CarbonImmutable $asOf = null, ?int $assetId = null): Collection
     {
@@ -471,7 +482,7 @@ class ReportService
                 // The rate the lease was actually SIGNED at, where it was priced that way (LS-04).
                 // Shown beside the effective figure above so the two can be compared: they agree on
                 // a rate-priced lease, and a gap means an abatement, a step, or a hand edit.
-                'contracted_rate_per_sqm_year' => $lease->rent_pricing_basis === \App\Models\Lease::RENT_RATE
+                'contracted_rate_per_sqm_year' => $lease->rent_pricing_basis === Lease::RENT_RATE
                     ? (float) $lease->base_rent_rate_per_sqm_year
                     : null,
                 'service_charge' => $service,
@@ -517,7 +528,7 @@ class ReportService
             ->get();
 
         $rows = $leases->map(function (Lease $lease) use ($asOf): array {
-            /** @var \Illuminate\Support\Collection<int, \App\Models\Charge> $baseRent */
+            /** @var Collection<int, Charge> $baseRent */
             $baseRent = $lease->charges->where('type', 'base_rent');
             $rent = (float) (ChargeScheduleService::pickInForce($baseRent, $asOf)?->amount ?? 0);
 
@@ -547,7 +558,7 @@ class ReportService
         $totalArea = (float) $rows->sum('area_sqm');
         $totalAnnual = (float) $rows->sum('annual_rent');
 
-        /** @var \Illuminate\Support\Collection<int, array<string, mixed>> $buckets */
+        /** @var Collection<int, array<string, mixed>> $buckets */
         $buckets = $rows
             ->groupBy('bucket')
             ->map(fn (Collection $group, string $bucket): array => [
@@ -621,7 +632,7 @@ class ReportService
             ->groupBy('invoices.lease_id')
             ->pluck('billed', 'lease_id');
 
-        $sales = \App\Models\TenantSalesDeclaration::query()
+        $sales = TenantSalesDeclaration::query()
             ->whereIn('lease_id', $leaseIds)
             ->whereDate('period_start', '>=', $from->toDateString())
             ->whereDate('period_start', '<=', $to->toDateString())
@@ -630,7 +641,7 @@ class ReportService
             ->get()
             ->keyBy('lease_id');
 
-        /** @var \Illuminate\Support\Collection<int, array<string, mixed>> $result */
+        /** @var Collection<int, array<string, mixed>> $result */
         $result = $leases->map(function (Lease $lease) use ($cost, $sales, $from, $to): array {
             $billed = round((float) ($cost[$lease->id] ?? 0), 2);
             $row = $sales->get($lease->id);
@@ -724,7 +735,7 @@ class ReportService
         }
 
         // One query for every window, keyed by lease — not four queries per lease.
-        $declarations = \App\Models\TenantSalesDeclaration::query()
+        $declarations = TenantSalesDeclaration::query()
             ->whereIn('lease_id', $leases->pluck('id'))
             ->whereDate('period_start', '>=', $priorFrom->toDateString())
             ->whereDate('period_start', '<=', $asOf->toDateString())
@@ -831,13 +842,7 @@ class ReportService
     {
         $days = self::daysOverdue($invoice, $asOf);
 
-        return match (true) {
-            $days <= 0 => 'current',
-            $days <= 30 => 'd_1_30',
-            $days <= 60 => 'd_31_60',
-            $days <= 90 => 'd_61_90',
-            default => 'd_90_plus',
-        };
+        return AgingBuckets::keyFor($days);
     }
 
     /**

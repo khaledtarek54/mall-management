@@ -10,6 +10,7 @@ use App\Models\Lease;
 use App\Models\MeterReading;
 use App\Models\UtilityMeter;
 use Illuminate\Support\Facades\DB;
+use App\Settings\BillingSettings;
 
 /**
  * Recharge a metered utility reading to the tenant — the missing half of module 10 (readings were
@@ -100,7 +101,7 @@ class BillMeterReadingService
                 'tenant_id' => $lease->tenant_id,
                 'status' => 'issued',
                 'issue_date' => $now,
-                'due_date' => $now->copy()->addDays($lease->payment_terms_days ?? 7),
+                'due_date' => $now->copy()->addDays($lease->payment_terms_days ?? BillingSettings::defaultPaymentTermsDays()),
                 // The CONSUMPTION period (truthful), not now() — see the probe-exclusion note above.
                 'period_start' => $periodStart,
                 'period_end' => $periodEnd,

@@ -6,6 +6,7 @@ use App\Filament\Admin\Concerns\RoleScopedWidget;
 use App\Services\Reports\ReportService;
 use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
+use App\Support\AgingBuckets;
 
 class ArAging extends ChartWidget
 {
@@ -52,10 +53,7 @@ class ArAging extends ChartWidget
             ],
             'labels' => [
                 __('admin.widgets.ar_aging.current'),
-                __('admin.widgets.ar_aging.d_1_30'),
-                __('admin.widgets.ar_aging.d_31_60'),
-                __('admin.widgets.ar_aging.d_61_90'),
-                __('admin.widgets.ar_aging.d_90_plus'),
+                ...array_values(AgingBuckets::overdueLabels()),
             ],
         ];
     }

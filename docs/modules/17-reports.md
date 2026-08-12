@@ -144,7 +144,22 @@ daysOverdue = (int) due_date.startOfDay().diffInDays(asOf.startOfDay(), false)  
 - **Bucket totals** = sum of `balance` (not total) for invoices in that bucket.
 - **Outstanding_total** = sum of all bucket totals; must equal AR at close date.
 
-### AR aging by charge type (RR-03)
+### AR aging
+
+> **The boundaries are configurable (2026-08-12).** `BillingSettings::ar_aging_bucket_days` — three
+> ascending day-counts, 30/60/90 by default — read through `App\Support\AgingBuckets`. "Show me
+> 45/90/120" was a deploy, and it is a real request: a mall whose leases pay quarterly ages nothing
+> meaningfully at 30 days.
+>
+> **The keys are identifiers, not descriptions.** `d_1_30` stays `d_1_30` whatever the first
+> boundary becomes — it is a URL parameter, a saved-view parameter, a colour lookup and a translation
+> key in six places. The LABEL is derived, and reads "1–45 days" when the boundary is 45.
+>
+> **It also closed a duplication that could not have survived contact.** The ranges lived in
+> `ReportService::AGING_BUCKETS` *and again as literals* inside `agingBucketKey()` — under a docblock
+> saying the const "is not allowed to be copied". A mistyped set (out of order, non-positive, wrong
+> length) clamps back to 30/60/90 rather than throwing: an ageing report must not stop rendering
+> over a settings typo. See `ConfigurableAgingBucketsTest`. by charge type (RR-03)
 
 `ReportService::arAgingByChargeType()` re-cuts the same open invoices `arAgingBuckets()` counts, by
 what is owed rather than only by how late it is — so the grand total ties to the aging summary

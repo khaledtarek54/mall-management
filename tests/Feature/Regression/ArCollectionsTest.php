@@ -8,6 +8,7 @@ use Carbon\CarbonImmutable;
 use Database\Seeders\RolesPermissionsSeeder;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
+use App\Support\AgingBuckets;
 
 /**
  * The AR collections worklist (UX-03).
@@ -79,7 +80,7 @@ it('agrees with the aging summary and the bucket drill-down, invoice for invoice
     $summary = $reports->arAgingBuckets($this->asOf);
     $worklist = $reports->arCollectionsByTenant($this->asOf)->sole();
 
-    foreach (array_keys(ReportService::AGING_BUCKETS) as $bucket) {
+    foreach (array_keys(AgingBuckets::all()) as $bucket) {
         $drilldown = $reports->arAgingDrilldown($bucket, $this->asOf);
 
         expect($worklist['buckets'][$bucket])

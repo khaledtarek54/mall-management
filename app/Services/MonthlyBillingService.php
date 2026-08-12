@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use App\Support\OpsLog;
 use Illuminate\Support\Facades\Mail;
 use Throwable;
+use App\Settings\BillingSettings;
 
 class MonthlyBillingService
 {
@@ -514,7 +515,7 @@ class MonthlyBillingService
         $issueDate = $effectivePeriodStart;
         $today = CarbonImmutable::now()->startOfDay();
         $dueBasis = $issueDate->greaterThan($today) ? $issueDate : $today;
-        $dueDate = $dueBasis->addDays($lease->payment_terms_days ?? 7);
+        $dueDate = $dueBasis->addDays($lease->payment_terms_days ?? BillingSettings::defaultPaymentTermsDays());
 
         return [
             'billable' => true,

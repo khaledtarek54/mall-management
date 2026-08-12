@@ -10,6 +10,7 @@ use App\Support\OpsLog;
 use App\Support\Vat;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use App\Settings\BillingSettings;
 
 class LateFeeService
 {
@@ -175,7 +176,7 @@ class LateFeeService
             // the month's rent (the trap that bit `nsf_fee`).
             // `lease_id` is NOT NULL on invoices, so the lease is always there; the fallback is for
             // a lease that states no payment terms of its own.
-            $dueInDays = (int) ($locked->lease->payment_terms_days ?? 7);
+            $dueInDays = (int) ($locked->lease->payment_terms_days ?? BillingSettings::defaultPaymentTermsDays());
 
             $feeInvoice = Invoice::create([
                 'lease_id' => $locked->lease_id,
