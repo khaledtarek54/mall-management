@@ -63,6 +63,19 @@ class TaxCode extends Model
     /** @var array<int, string> */
     public const FAMILIES = [self::FAMILY_VAT, self::FAMILY_STAMP, self::FAMILY_SCHEDULE, self::FAMILY_WITHHOLDING];
 
+    /**
+     * The families that can sit on a SUPPLY — an invoice line, a bill, an expense.
+     *
+     * Withholding is deliberately absent. It is not a tax on a supply at all: it is deducted from
+     * what is paid to a supplier and remitted for them, its rates are stored NEGATIVE, and offering
+     * it on an invoice line would let an operator bill a tenant under "Withholding -1%" — which
+     * `Vat::rateForType()` would then clamp to 0, so it would look like it worked. It belongs on the
+     * vendor-payment path (roadmap TX-05), which asks for it by family.
+     *
+     * @var array<int, string>
+     */
+    public const SUPPLY_FAMILIES = [self::FAMILY_VAT, self::FAMILY_STAMP, self::FAMILY_SCHEDULE];
+
     /** A taxable supply — bills the rate in force on the document's date. */
     public const STANDARD = 'standard';
 
@@ -356,18 +369,20 @@ class TaxCode extends Model
     }
 
     /**
-     * Value => label map for a picker, restricted to one direction.
+     * Value => label map for a picker, restricted to one direction and to the supply families.
      *
      * Keyed by CODE, not id — a document records the code, so the form state and the stored value
-     * are the same string and nothing has to translate between them.
+     * are the same string and nothing has to translate between them. Pass `$families` to ask for
+     * something other than {@see SUPPLY_FAMILIES} — the withholding path does.
      *
      * @return array<string, string>
      */
-    public static function options(string $direction = self::SALES, ?string $locale = null): array
+    public static function options(string $direction = self::SALES, ?string $locale = null, ?array $families = null): array
     {
         return static::query()
             ->active()
             ->ofDirection($direction)
+            ->whereIn('family', $families ?? self::SUPPLY_FAMILIES)
             ->orderBy('sort_order')
             ->orderBy('code')
             ->get()

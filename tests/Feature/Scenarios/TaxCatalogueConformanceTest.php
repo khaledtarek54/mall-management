@@ -143,6 +143,62 @@ it('carries the operator\'s whole sheet, in both directions', function () {
     }
 });
 
+it('never offers a withholding code as a tax on a supply', function () {
+    // Withholding is not a tax on a supply: it is deducted from what is paid to a supplier and
+    // remitted for them, and its rates are stored NEGATIVE. Offering it on an invoice line would
+    // let an operator bill a tenant under "Withholding -1%" — which `Vat::rateForType()` then
+    // clamps to 0, so it would look like it had worked.
+    //
+    // Kept out by FAMILY rather than by being switched off, because the codes are legitimately
+    // active: the vendor-payment path asks for them by family (roadmap TX-05).
+    foreach ([TaxCode::SALES, TaxCode::PURCHASES] as $direction) {
+        $offered = array_keys(TaxCode::options($direction));
+        $withholding = TaxCode::ofFamily(TaxCode::FAMILY_WITHHOLDING)->pluck('code')->all();
+
+        expect(array_intersect($offered, $withholding))->toBe([],
+            "A withholding code is offered as a {$direction} supply tax: ".implode(', ', array_intersect($offered, $withholding)));
+    }
+
+    // The control — the pickers are not simply empty.
+    expect(TaxCode::options(TaxCode::SALES))->toHaveKey('VAT_14')
+        ->and(TaxCode::options(TaxCode::PURCHASES))->toHaveKey('VAT_14_P');
+});
+
+it('activates a tax the same way in both directions', function () {
+    // Every rate on the operator's sheet exists as a sales row and a purchases row. If the two
+    // disagree about being usable, one side of the books can classify a supply the other cannot.
+    //
+    // This is not hypothetical: activation once turned on "has a posting role", which made it an
+    // accident of which LAYER created the row — the sales-side exempt and zero-rated codes come
+    // from the 120100 migration (which writes them active) and their purchases twins from the
+    // seeder (which did not). `VAT_EXEMPT` was offered on an invoice while `VAT_EXEMPT_P` was
+    // missing from every purchase form.
+    $mismatched = [];
+
+    foreach (TaxCode::ofDirection(TaxCode::SALES)->get() as $sales) {
+        $twin = TaxCode::where('code', $sales->code.'_P')->first();
+
+        if ($twin !== null && $twin->is_active !== $sales->is_active) {
+            $mismatched[] = "{$sales->code} (".($sales->is_active ? 'on' : 'off').") vs {$twin->code} (".($twin->is_active ? 'on' : 'off').')';
+        }
+    }
+
+    expect($mismatched)->toBe([], "These taxes are usable on one side of the books only:\n".implode("\n", $mismatched));
+});
+
+it('makes every code that collects nothing usable straight away', function () {
+    // Exempt and zero-rated need neither a rate nor an account — there is nothing to collect and
+    // nothing to post — so they are the codes that must NOT wait on GL wiring. Base rent is billed
+    // under one, so shipping them off would leave the commonest supply in the catalogue unpickable.
+    $off = TaxCode::query()
+        ->where('treatment', '!=', TaxCode::STANDARD)
+        ->where('is_active', false)
+        ->pluck('code')
+        ->all();
+
+    expect($off)->toBe([], 'These collect nothing yet ship switched off: '.implode(', ', $off));
+});
+
 it('stores withholding as a deduction, not an addition', function () {
     // The operator's sheet writes these negative — "WH -1%" — because the tax comes OFF what is
     // paid. Storing the sign is what keeps that true when the vendor-payment path reads them.

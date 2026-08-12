@@ -3,6 +3,9 @@
 namespace App\Filament\Admin\Resources\Expenses\Schemas;
 
 use App\Models\Expense;
+use App\Models\TaxCode;
+use App\Support\CatalogueTaxRate;
+use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -39,8 +42,8 @@ class ExpenseForm
 
                     Select::make('asset_id')
                         ->label(__('admin.fields.property'))
-                        ->options(fn () => \App\Support\TenantScope::selectableAssetOptions())
-                        ->default(fn () => \App\Support\TenantScope::currentAssetId())
+                        ->options(fn () => TenantScope::selectableAssetOptions())
+                        ->default(fn () => TenantScope::currentAssetId())
                         ->searchable()
                         ->preload()
                         ->placeholder(__('admin.fields.property_consolidated'))
@@ -97,8 +100,32 @@ class ExpenseForm
                         ->disabled($moneyLocked)
                         ->helperText(fn (?Expense $record) => $record !== null ? __('admin.errors.expense_immutable') : null),
 
+                    // WHICH input tax this expense carried — it posts to `vat_recoverable`, the
+                    // account the VAT return reads, so an unclassified figure is an unexplained
+                    // reclaim.
+                    Select::make('tax_code')
+                        ->label(__('admin.fields.tax_code'))
+                        ->options(fn () => TaxCode::options(TaxCode::PURCHASES))
+                        ->native(false)
+                        ->live()
+                        ->placeholder(__('admin.charge_codes.tax_unclassified'))
+                        ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                            $derived = CatalogueTaxRate::deriveOnNet(
+                                is_string($state) ? $state : null,
+                                (float) ($get('amount') ?? 0),
+                                is_string($get('expense_date')) ? $get('expense_date') : null,
+                            );
+
+                            if ($derived !== null) {
+                                $set('vat_amount', $derived);
+                                $set('tax_override_reason', null);
+                                self::syncTotal($set, $get);
+                            }
+                        })
+                        ->disabled($moneyLocked),
+
                     TextInput::make('vat_amount')
-                        ->label(__('admin.fields.vat_amount'))
+                        ->label(__('admin.fields.tax_total'))
                         ->prefix('EGP')
                         ->numeric()
                         ->minValue(0)
@@ -106,8 +133,18 @@ class ExpenseForm
                         ->default(0)
                         ->live(onBlur: true)
                         ->afterStateUpdated(fn (Set $set, Get $get) => self::syncTotal($set, $get))
+                        // Editable, unlike an invoice line's rate: a receipt states its own tax.
                         ->disabled($moneyLocked)
                         ->helperText(fn (?Expense $record) => $record !== null ? __('admin.errors.expense_immutable') : null),
+
+                    TextInput::make('tax_override_reason')
+                        ->label(__('admin.fields.tax_override_reason'))
+                        ->maxLength(255)
+                        ->columnSpanFull()
+                        ->required(fn (Get $get) => self::taxDeparts($get))
+                        ->visible(fn (Get $get) => self::taxDeparts($get))
+                        ->helperText(__('admin.helpers.purchase_tax_override_reason'))
+                        ->disabled($moneyLocked),
 
                     // Total is derived (amount + VAT) so it can never drift — the model
                     // re-enforces it on every write; this is a live UX preview only.
@@ -125,5 +162,16 @@ class ExpenseForm
     protected static function syncTotal(Set $set, Get $get): void
     {
         $set('total', round((float) ($get('amount') ?? 0) + (float) ($get('vat_amount') ?? 0), 2));
+    }
+
+    /** Is the tax on this expense further from its code's figure than rounding explains? */
+    protected static function taxDeparts(Get $get): bool
+    {
+        return CatalogueTaxRate::purchaseTaxDeparts(
+            is_string($get('tax_code')) ? $get('tax_code') : null,
+            (float) ($get('amount') ?? 0),
+            (float) ($get('vat_amount') ?? 0),
+            is_string($get('expense_date')) ? $get('expense_date') : null,
+        );
     }
 }

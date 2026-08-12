@@ -35,9 +35,53 @@ class CatalogueTaxRate
     /** The permission that allows a document line to carry a rate the catalogue did not produce. */
     public const OVERRIDE_PERMISSION = 'tax_codes.override';
 
+    /**
+     * How far a PURCHASE document's tax may sit from the derived figure before someone must say why.
+     *
+     * One pound. A rounding difference between two systems computing the same percentage on the same
+     * base is sub-unit — even across a multi-line supplier document it lands in piastres. Anything
+     * larger is a different rate or a different base, which is a decision rather than arithmetic, and
+     * decisions on a filed return are worth a sentence.
+     */
+    public const PURCHASE_TOLERANCE = 1.00;
+
     public static function mayOverride(): bool
     {
         return Auth::user()?->can(self::OVERRIDE_PERMISSION) ?? false;
+    }
+
+    /**
+     * The tax a purchase document's net amount attracts under `$taxCode`, on `$on`.
+     *
+     * Null when the code is unknown or carries no rate — the caller leaves the operator's figure
+     * alone rather than replacing it with a zero it cannot justify.
+     */
+    public static function deriveOnNet(?string $taxCode, float $net, ?string $on = null): ?float
+    {
+        if (! is_string($taxCode) || $taxCode === '') {
+            return null;
+        }
+
+        $rate = TaxCode::rateOn($taxCode, $on !== null && $on !== '' ? $on : null);
+
+        return $rate === null ? null : round($net * max(0.0, $rate) / 100, 2);
+    }
+
+    /**
+     * Does a purchase document's tax depart from what its code implies by more than rounding?
+     *
+     * **Deliberately gentler than the sales side.** On an invoice the rate is our decision, so
+     * {@see enforce()} re-derives it and an operator without the override right cannot land anything
+     * else. On a supplier's bill the tax is *their* number on *their* document: a system that
+     * refused to record what a supplier actually charged would be wrong, and the operator would
+     * enter the difference somewhere worse. So the amount stays editable and a real departure asks
+     * for a reason instead — which is what Odoo and SAP do, and for the same reason.
+     */
+    public static function purchaseTaxDeparts(?string $taxCode, float $net, float $tax, ?string $on = null): bool
+    {
+        $derived = self::deriveOnNet($taxCode, $net, $on);
+
+        return $derived !== null && abs($derived - $tax) > self::PURCHASE_TOLERANCE;
     }
 
     /**

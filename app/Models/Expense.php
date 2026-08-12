@@ -69,6 +69,8 @@ class Expense extends Model
         'description',
         'amount',
         'vat_amount',
+        'tax_code',
+        'tax_override_reason',
         'total',
         'paid_from',
         'expense_date',

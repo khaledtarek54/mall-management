@@ -3,8 +3,12 @@
 namespace App\Filament\Admin\Resources\VendorBills\Schemas;
 
 use App\Models\PurchaseRequest;
+use App\Models\TaxCode;
 use App\Models\Vendor;
 use App\Models\VendorBill;
+use App\Models\VendorContract;
+use App\Support\CatalogueTaxRate;
+use App\Support\TenantScope;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -42,8 +46,8 @@ class VendorBillForm
 
                     Select::make('asset_id')
                         ->label(__('admin.fields.property'))
-                        ->options(fn () => \App\Support\TenantScope::selectableAssetOptions())
-                        ->default(fn () => \App\Support\TenantScope::currentAssetId())
+                        ->options(fn () => TenantScope::selectableAssetOptions())
+                        ->default(fn () => TenantScope::currentAssetId())
                         ->searchable()
                         ->preload()
                         ->live()
@@ -63,16 +67,16 @@ class VendorBillForm
                                 return [];
                             }
 
-                            $visible = \App\Support\TenantScope::visibleAssetIds();
+                            $visible = TenantScope::visibleAssetIds();
 
-                            return \App\Models\VendorContract::query()
+                            return VendorContract::query()
                                 ->where('vendor_id', $vendorId)
                                 ->when($visible !== null, fn ($q) => $q->where(
                                     fn ($w) => $w->whereIn('asset_id', $visible)->orWhereNull('asset_id'),
                                 ))
                                 ->orderByDesc('start_date')
                                 ->get()
-                                ->mapWithKeys(fn (\App\Models\VendorContract $c) => [
+                                ->mapWithKeys(fn (VendorContract $c) => [
                                     $c->id => sprintf(
                                         '%s · %s',
                                         $c->reference ?: $c->name,
@@ -84,9 +88,9 @@ class VendorBillForm
                                 ->all();
                         })
                         ->helperText(function (Get $get) {
-                            $contract = \App\Models\VendorContract::find($get('vendor_contract_id'));
+                            $contract = VendorContract::find($get('vendor_contract_id'));
 
-                            if (! $contract instanceof \App\Models\VendorContract) {
+                            if (! $contract instanceof VendorContract) {
                                 return __('admin.fields.vendor_contract_hint');
                             }
 
@@ -185,8 +189,33 @@ class VendorBillForm
                         ->afterStateUpdated(fn (Set $set, Get $get) => self::syncTotal($set, $get))
                         ->disabled($locked),
 
+                    // WHICH input tax the supplier charged. Both this document and Expense post
+                    // their VAT to `vat_recoverable` — the account the VAT return reads for input
+                    // VAT — so before this the whole input side of a filed return rested on a
+                    // number with nothing saying what it was.
+                    Select::make('tax_code')
+                        ->label(__('admin.fields.tax_code'))
+                        ->options(fn () => TaxCode::options(TaxCode::PURCHASES))
+                        ->native(false)
+                        ->live()
+                        ->placeholder(__('admin.charge_codes.tax_unclassified'))
+                        ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                            $derived = CatalogueTaxRate::deriveOnNet(
+                                is_string($state) ? $state : null,
+                                (float) ($get('subtotal') ?? 0),
+                                is_string($get('bill_date')) ? $get('bill_date') : null,
+                            );
+
+                            if ($derived !== null) {
+                                $set('vat_amount', $derived);
+                                $set('tax_override_reason', null);
+                                self::syncTotal($set, $get);
+                            }
+                        })
+                        ->disabled($locked),
+
                     TextInput::make('vat_amount')
-                        ->label(__('admin.fields.vat_amount'))
+                        ->label(__('admin.fields.tax_total'))
                         ->prefix('EGP')
                         ->numeric()
                         ->minValue(0)
@@ -194,6 +223,20 @@ class VendorBillForm
                         ->default(0)
                         ->live(onBlur: true)
                         ->afterStateUpdated(fn (Set $set, Get $get) => self::syncTotal($set, $get))
+                        // Stays EDITABLE, unlike an invoice line's rate. The tax on a supplier's
+                        // bill is their number on their document; a system that refused to record
+                        // what a supplier actually charged would push the difference somewhere
+                        // worse. A real departure asks for a reason instead — Odoo and SAP both
+                        // work this way.
+                        ->disabled($locked),
+
+                    TextInput::make('tax_override_reason')
+                        ->label(__('admin.fields.tax_override_reason'))
+                        ->maxLength(255)
+                        ->columnSpan(2)
+                        ->required(fn (Get $get) => self::taxDeparts($get))
+                        ->visible(fn (Get $get) => self::taxDeparts($get))
+                        ->helperText(__('admin.helpers.purchase_tax_override_reason'))
                         ->disabled($locked),
 
                     // Total is derived (subtotal + VAT) so it can never drift, and is
@@ -226,5 +269,21 @@ class VendorBillForm
     protected static function syncTotal(Set $set, Get $get): void
     {
         $set('total', round((float) ($get('subtotal') ?? 0) + (float) ($get('vat_amount') ?? 0), 2));
+    }
+
+    /**
+     * Is the tax on this bill further from its code's figure than rounding explains?
+     *
+     * `required()` is real server-side validation (unlike `readOnly`, which is only an input
+     * attribute), so this is the gate and not merely the hint.
+     */
+    protected static function taxDeparts(Get $get): bool
+    {
+        return CatalogueTaxRate::purchaseTaxDeparts(
+            is_string($get('tax_code')) ? $get('tax_code') : null,
+            (float) ($get('subtotal') ?? 0),
+            (float) ($get('vat_amount') ?? 0),
+            is_string($get('bill_date')) ? $get('bill_date') : null,
+        );
     }
 }

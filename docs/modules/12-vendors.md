@@ -61,6 +61,19 @@ Operators (Eltizam) manage vendor records and can assign vendors to maintenance 
 
 ## 3. Business rules & invariants
 
+> **Input VAT is classified (2026-08-12).** `vendor_bills.tax_code` names which purchases-side tax
+> the supplier charged, alongside the amount. Both this and `Expense` post their VAT to
+> `vat_recoverable` — the account the VAT return reads — so before this the input side of a filed
+> return rested on a number with nothing saying what it was.
+>
+> **The amount stays editable, unlike an invoice line's rate.** On an invoice the rate is our
+> decision, so it is re-derived and gated on `tax_codes.override`. On a supplier's bill the tax is
+> *their* number on *their* document: refusing to record what a supplier actually charged would push
+> the difference somewhere worse. Picking a code fills the amount in; a departure of more than
+> **EGP 1** requires a written reason (`tax_override_reason`). One pound because a rounding
+> difference between two systems computing the same percentage is sub-unit — anything larger is a
+> different rate or a different base, which is a decision. See `PurchaseInputTaxCodeTest`.
+
 | Rule | Enforcement | Test(s) |
 |------|-------------|---------|
 | **Vendor slug is unique and collision-safe.** The `booted()` hook generates a slug from name; if it collides with an existing (including soft-deleted) vendor, it appends a numeric suffix (`-2`, `-3`, etc.) until unique. | `Vendor::booted()` creating hook; checks `withTrashed()`. | (implicit in model boot; tested via create flow) |

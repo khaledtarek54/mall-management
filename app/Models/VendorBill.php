@@ -41,6 +41,8 @@ class VendorBill extends Model
         'description',
         'subtotal',
         'vat_amount',
+        'tax_code',
+        'tax_override_reason',
         'total',
         'paid_amount',
         'penalty_applied_amount',

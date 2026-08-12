@@ -2,9 +2,9 @@
 
 namespace App\Support;
 
+use App\Models\CreditNote;
 use App\Models\Custody;
 use App\Models\CustodyTransaction;
-use App\Models\CreditNote;
 use App\Models\DepositApplication;
 use App\Models\DepositTransaction;
 use App\Models\DepreciationEntry;
@@ -266,6 +266,12 @@ class ChangeImpact
             self::NEUTRAL => [
                 'vendor_contract_id', 'due_date', 'reference', 'description', 'currency',
                 'approved_by_user_id', 'created_by_user_id', 'approved_at',
+                // The tax CLASSIFICATION, not the tax. The journalizer books `vat_amount` to
+                // `vat_recoverable`; it never reads the code, so re-classifying a posted bill moves
+                // no line and re-derives no entry. It changes which line of the VAT RETURN the
+                // input tax is reported on — which is a document-side question, and correcting a
+                // mis-classified bill is legitimate work rather than something to refuse.
+                'tax_code', 'tax_override_reason',
                 // AP sub-ledger state; a payment and a penalty each post their own entry.
                 'paid_amount', 'penalty_applied_amount', 'balance',
             ],
@@ -309,6 +315,10 @@ class ChangeImpact
             ],
             self::NEUTRAL => [
                 'reference', 'description', 'created_by_user_id',
+                // The tax CLASSIFICATION, not the tax — see VendorBill. `vat_amount` is what the
+                // journalizer books; the code says which line of the VAT return it belongs on, and
+                // correcting that on a posted expense moves no GL line.
+                'tax_code', 'tax_override_reason',
             ],
             self::DESCRIPTIVE => ['number' => 'names the entry'],
         ],

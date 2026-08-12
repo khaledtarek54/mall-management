@@ -37,17 +37,27 @@ use Illuminate\Database\Seeder;
  *
  * ## What ships switched on, and why the rest does not
  *
- * A code is only activated when it can actually bill: it needs a rate (all of these have one — the
- * operator supplied them) **and** a GL account for its family. VAT has both — `vat_payable` and
- * `vat_recoverable` are registered posting roles pointing at real accounts. Stamp and schedule tax
- * do not yet: their accounts are named as later work in the catalogue document, and until they
- * exist an active code would collect money into nowhere. `TaxCode` refuses that outright, so those
- * codes seed inactive and the refusal is what commissioning them has to satisfy.
+ * A code is activated only when it can actually bill, and what that takes depends on the treatment:
  *
- * Withholding has its account (`withholding_tax_payable`) but nothing consumes these codes yet —
- * the vendor-payment path still reads `TaxSettings::wht_default_rate`. They seed active because the
- * catalogue is the operator's reference as much as the engine's, and switching a rate on does not
- * make anything use it.
+ *   - **Exempt and zero-rated** collect nothing, so they need neither a rate nor an account and are
+ *     usable the moment they exist. Base rent is billed under one.
+ *   - **Standard-rated** needs a rate (all of these have one — the operator supplied them) **and** a
+ *     GL account for its family. VAT has both: `vat_payable` and `vat_recoverable` are registered
+ *     posting roles pointing at real accounts. **Stamp and schedule tax do not yet** — their
+ *     accounts are the "GL wiring (later)" line in the catalogue document — so they seed inactive,
+ *     and `TaxCode`'s own guard is what commissioning them has to satisfy (roadmap TX-08).
+ *
+ * Keying that on the treatment rather than on "has a posting role" fixed a real defect: it made
+ * activation an accident of which LAYER created the row. The sales-side exempt and zero-rated codes
+ * are created by the 120100 migration (which writes them active) and their purchases twins by this
+ * seeder (which did not), so `VAT_EXEMPT` was offered on an invoice while `VAT_EXEMPT_P` was missing
+ * from every purchase form.
+ *
+ * Withholding has its account (`withholding_tax_payable`) but nothing consumes these codes yet — the
+ * vendor-payment path still reads `TaxSettings::wht_default_rate` (roadmap TX-05). They seed active
+ * because the catalogue is the operator's reference as much as the engine's; they stay out of every
+ * document picker by FAMILY ({@see TaxCode::SUPPLY_FAMILIES}), not by being switched off, because
+ * withholding is not a tax on a supply at all.
  *
  * ## Idempotent, and it never overrules the accountant
  *
@@ -242,10 +252,22 @@ class TaxCodeSeeder extends Seeder
         }
 
         // Only a code that can bill, and only on the run that created it — a reseed must not
-        // reactivate one the operator deliberately retired. Stamp and schedule tax have no posting
-        // role yet, so the model's own guard leaves them off; that is the intended state, not an
-        // oversight, and `TaxCatalogueConformanceTest` pins it.
-        if ($isNew && $row['rate'] !== null && $row['role'] !== null) {
+        // reactivate one the operator deliberately retired.
+        //
+        // "Can bill" turns on the TREATMENT. An exempt or zero-rated code collects nothing, so it
+        // needs neither a rate nor an account and is usable the moment it exists — base rent is
+        // billed under one. A standard-rated code needs both, which is what leaves stamp and
+        // schedule tax switched off until their GL accounts are wired (roadmap TX-08).
+        //
+        // Keyed on the treatment rather than on `role !== null` because that earlier test made
+        // activation an accident of which LAYER created the row: the sales-side exempt and
+        // zero-rated codes are created by the 120100 migration (which writes them active) and their
+        // purchases twins by this seeder (which did not), so `VAT_EXEMPT` was offered on an invoice
+        // while `VAT_EXEMPT_P` was missing from every purchase form.
+        $canBill = $row['treatment'] !== TaxCode::STANDARD
+            || ($row['rate'] !== null && $row['role'] !== null);
+
+        if ($isNew && $canBill) {
             $code->update(['is_active' => true]);
         }
     }
