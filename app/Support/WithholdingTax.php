@@ -2,9 +2,11 @@
 
 namespace App\Support;
 
+use App\Models\TaxCode;
 use App\Models\Vendor;
 use App\Models\VendorBill;
 use App\Settings\TaxSettings;
+use Carbon\CarbonInterface;
 
 /**
  * Egyptian withholding tax on supplier payments — خصم وإضافة (module 12b).
@@ -13,17 +15,27 @@ use App\Settings\TaxSettings;
  * a local supplier and remit it to the ETA. Paying gross leaves the operator liable for the amount
  * they failed to withhold, so this is a compliance obligation, not an optional deduction.
  *
- * Every number here is SETTINGS-DRIVEN and never hardcoded: the statutory rates differ by the nature
- * of the payment (supplies, services, contracting, professional fees), they are revised by the ETA
- * from time to time, and the operator's accountant — not this codebase — owns the correct figure.
- * Shipping a guessed constant would be worse than shipping nothing, because it would look official.
+ * **No rate is written here, or typed anywhere.** The statutory rates differ by the nature of the
+ * payment — supplies, services, contracting, professional fees — they are revised from time to time,
+ * and the operator's accountant owns the correct figure. Until 2026-08-12 that reasoning was honoured
+ * by putting the number in a settings field and a per-vendor percentage box, which is the same guess
+ * one level down: a free box invites a made-up figure that then looks official. The rates now come
+ * from the operator's own catalogue, which lists withholding at four (0.5 · 1 · 3 · 5%), and a
+ * supplier is POINTED at whichever the accountant rules applies.
  *
  * Resolution order for a vendor's rate:
- *   1. `vendors.withholding_tax_rate` — the per-supplier agreed rate. 0 means explicitly exempt
- *      (e.g. a foreign supplier outside Egyptian withholding), which is deliberately distinct
- *      from null ("nothing set for this supplier, use the default").
- *   2. `TaxSettings::wht_default_rate` (/admin/settings → Tax).
- *   3. Zero — withhold nothing rather than invent a rate.
+ *   1. `vendors.withholding_exempt` — this supplier is outside Egyptian withholding. Withhold
+ *      nothing, whatever the default says. A flag rather than a `WH_0` code because the operator's
+ *      sheet has no zero withholding rate, and not withholding is the absence of a tax rather than
+ *      a tax of nothing.
+ *   2. `vendors.withholding_tax_code` — the code agreed with this supplier.
+ *   3. `TaxSettings::wht_default_tax_code` — which nature we assume when theirs is unruled.
+ *   4. Zero — withhold nothing rather than invent a rate.
+ *
+ * **The catalogue stores withholding rates NEGATIVE** (the operator's sheet writes "WH -1%", because
+ * the tax comes off what is paid rather than adding to it). Everything here works in magnitudes —
+ * an amount to deduct — so the sign is dropped on the way in. Handing a negative rate to
+ * {@see on()} would return a negative deduction and quietly pay the supplier MORE.
  *
  * The whole feature is off until `TaxSettings::wht_enabled` is switched on, so existing books are
  * untouched until the operator's accountant has confirmed the rates.
@@ -35,26 +47,59 @@ class WithholdingTax
         return app(TaxSettings::class)->wht_enabled;
     }
 
-    /** The default rate applied to a vendor with no agreed rate of its own. */
-    public static function defaultRate(): float
+    /** The code assumed for a supplier whose own nature has not been ruled on; '' = none. */
+    public static function defaultTaxCode(): string
     {
-        return max(0.0, (float) app(TaxSettings::class)->wht_default_rate);
+        return trim((string) app(TaxSettings::class)->wht_default_tax_code);
     }
 
-    /** The rate that applies to THIS vendor, as a percentage. Zero when withholding is off. */
-    public static function rateFor(?Vendor $vendor): float
+    /** The rate the default code carries, as a positive percentage. */
+    public static function defaultRate(CarbonInterface|string|null $on = null): float
+    {
+        return self::rateOfCode(self::defaultTaxCode(), $on);
+    }
+
+    /** The withholding code that applies to THIS vendor, or null when none does. */
+    public static function taxCodeFor(?Vendor $vendor): ?string
+    {
+        if ($vendor?->withholding_exempt) {
+            return null;
+        }
+
+        $code = trim((string) ($vendor?->withholding_tax_code ?? ''));
+
+        return $code !== '' ? $code : (self::defaultTaxCode() ?: null);
+    }
+
+    /**
+     * The rate that applies to THIS vendor, as a positive percentage. Zero when withholding is off.
+     *
+     * Resolved for `$on` — the payment's date — because a withholding rate has a validity period
+     * like every other rate in the catalogue, and a back-dated payment must withhold what was due
+     * when it was made.
+     */
+    public static function rateFor(?Vendor $vendor, CarbonInterface|string|null $on = null): float
     {
         if (! self::enabled()) {
             return 0.0;
         }
 
-        // `?? ` not `?:` — an explicit 0 on the vendor is "exempt" and must not fall through
-        // to the portfolio default.
-        $rate = $vendor?->withholding_tax_rate !== null
-            ? (float) $vendor->withholding_tax_rate
-            : self::defaultRate();
+        return self::rateOfCode(self::taxCodeFor($vendor), $on);
+    }
 
-        return max(0.0, $rate);
+    /**
+     * A code's rate as a magnitude.
+     *
+     * `abs()` because the catalogue stores withholding negative — the sheet's own notation for
+     * "deducted, not added". Every caller here wants an amount to subtract.
+     */
+    private static function rateOfCode(?string $code, CarbonInterface|string|null $on = null): float
+    {
+        if ($code === null || $code === '') {
+            return 0.0;
+        }
+
+        return abs(TaxCode::rateOn($code, $on) ?? 0.0);
     }
 
     /**
@@ -69,7 +114,7 @@ class WithholdingTax
      * Clamped to the base: a mis-set rate above 100% must never produce a negative cash movement,
      * which would silently reverse the direction of the bank posting.
      */
-    public static function on(float $amount, ?Vendor $vendor): float
+    public static function on(float $amount, ?Vendor $vendor, CarbonInterface|string|null $on = null): float
     {
         $amount = round($amount, 2);
 
@@ -77,7 +122,7 @@ class WithholdingTax
             return 0.0;
         }
 
-        return min($amount, round($amount * self::rateFor($vendor) / 100, 2));
+        return min($amount, round($amount * self::rateFor($vendor, $on) / 100, 2));
     }
 
     /**
@@ -97,9 +142,9 @@ class WithholdingTax
      * consideration and 7,000 is VAT. A bill with no VAT is unaffected (the share is the whole
      * payment), which is what makes this change invisible to every existing exempt supply.
      */
-    public static function onBillPayment(float $payment, VendorBill $bill): float
+    public static function onBillPayment(float $payment, VendorBill $bill, CarbonInterface|string|null $on = null): float
     {
-        return self::on(self::vatExclusiveShareOf($payment, $bill), $bill->vendor);
+        return self::on(self::vatExclusiveShareOf($payment, $bill), $bill->vendor, $on);
     }
 
     /**

@@ -61,6 +61,21 @@ Operators (Eltizam) manage vendor records and can assign vendors to maintenance 
 
 ## 3. Business rules & invariants
 
+> **Withholding is a tax code, not a typed rate (2026-08-12).** `vendors.withholding_tax_code` names
+> which of the four natures on the operator's sheet (0.5 · 1 · 3 · 5%) applies to this supplier, and
+> `vendors.withholding_exempt` says they are outside Egyptian withholding altogether. Those were one
+> overloaded percentage column, where null meant "use the default" and an explicit 0 meant "exempt" —
+> a distinction that needed a paragraph of comment everywhere it was read, and that a spreadsheet
+> could not show at all.
+>
+> `TaxSettings::wht_default_rate` is gone; `wht_default_tax_code` replaces it and **ships empty**,
+> because there is no defensible default nature and an empty one withholds nothing. Rates resolve for
+> the PAYMENT's date and drop the catalogue's negative sign (the sheet writes "WH -1%" because the
+> tax comes off what is paid; a leaked sign would pay the supplier more). The **vendor import** now
+> carries `withholding_tax_code` + `withholding_exempt` and validates the code against the catalogue
+> — a CSV carrying "2" is refused rather than quietly withholding a rate the operator's sheet does
+> not list. See `WithholdingByTaxCodeTest`.
+
 > **Input VAT is classified (2026-08-12).** `vendor_bills.tax_code` names which purchases-side tax
 > the supplier charged, alongside the amount. Both this and `Expense` post their VAT to
 > `vat_recoverable` — the account the VAT return reads — so before this the input side of a filed

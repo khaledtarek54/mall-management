@@ -5,6 +5,7 @@ use App\Models\VendorBill;
 use App\Services\VendorBillService;
 use App\Settings\TaxSettings;
 use App\Support\WithholdingTax;
+use Database\Seeders\TaxCodeSeeder;
 
 /**
  * Egyptian withholding tax is charged on the supply, not on the VAT.
@@ -26,9 +27,12 @@ use App\Support\WithholdingTax;
  * accountant switches it on, rather than in a vendor's first reconciliation.
  */
 beforeEach(function () {
+    $this->seed(TaxCodeSeeder::class);
+
     $settings = app(TaxSettings::class);
     $settings->wht_enabled = true;
-    $settings->wht_default_rate = 3.0;
+    // The nature, not the number: `WH_3_P` carries 3% in the operator's own catalogue.
+    $settings->wht_default_tax_code = 'WH_3_P';
 
     $this->vendor = Vendor::create(['name' => 'SupplyCo', 'category' => 'hvac', 'status' => 'active']);
 });

@@ -53,8 +53,9 @@ use Illuminate\Database\Seeder;
  * seeder (which did not), so `VAT_EXEMPT` was offered on an invoice while `VAT_EXEMPT_P` was missing
  * from every purchase form.
  *
- * Withholding has its account (`withholding_tax_payable`) but nothing consumes these codes yet — the
- * vendor-payment path still reads `TaxSettings::wht_default_rate` (roadmap TX-05). They seed active
+ * Withholding has its account (`withholding_tax_payable`), and since 2026-08-12 the vendor-payment
+ * path resolves its rate from these codes — a supplier names one, or the portfolio default does.
+ * They seed active
  * because the catalogue is the operator's reference as much as the engine's; they stay out of every
  * document picker by FAMILY ({@see TaxCode::SUPPLY_FAMILIES}), not by being switched off, because
  * withholding is not a tax on a supply at all.

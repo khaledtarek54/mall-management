@@ -43,7 +43,7 @@ class Vendor extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['name', 'type', 'status', 'email', 'phone', 'tax_id', 'withholding_tax_rate'])
+            ->logOnly(['name', 'type', 'status', 'email', 'phone', 'tax_id', 'withholding_tax_code', 'withholding_exempt'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('vendor');
@@ -56,7 +56,8 @@ class Vendor extends Model
         'status',
         'legal_name',
         'tax_id',
-        'withholding_tax_rate',
+        'withholding_tax_code',
+        'withholding_exempt',
         'email',
         'phone',
         'address',
@@ -67,10 +68,11 @@ class Vendor extends Model
 
     protected $casts = [
         'metadata' => 'array',
-        // Nullable on purpose: null = fall back to the portfolio default rate, an explicit 0 =
-        // this supplier is exempt. Collapsing the two would silently start withholding from an
-        // exempt vendor the next time the default changed.
-        'withholding_tax_rate' => 'decimal:2',
+        // Two columns rather than one overloaded value: the code is null when nothing has been
+        // ruled for this supplier (use the portfolio default), and `withholding_exempt` says they
+        // are outside Egyptian withholding altogether. The old single column expressed the second
+        // as a magic 0, which needed explaining everywhere it was read.
+        'withholding_exempt' => 'boolean',
     ];
 
     // ============ Compliance gate (reads vendor_documents) ============
@@ -105,10 +107,15 @@ class Vendor extends Model
      * certificate from every existing supplier; blacklist one to hard-block it. That was the
      * rule when this read a single `coi_expires_at` column and it survives the move to
      * VendorDocument unchanged.
+     *
+     * The question is about the CURRENT insurance certificate, not about every row on file. Without
+     * `current()` this asked "has this vendor ever held a lapsed COI", so uploading the renewal and
+     * keeping last year's — the correct way to maintain a compliance file — **bricked the
+     * contractor permanently**, and the only way out was deleting the evidence.
      */
     public function hasExpiredBlockingDocument(?Carbon $on = null): bool
     {
-        return $this->documents()->blocking()->expired($on)->exists();
+        return $this->documents()->blocking()->current()->expired($on)->exists();
     }
 
     /**
@@ -135,13 +142,19 @@ class Vendor extends Model
             });
     }
 
-    /** The dispatchable set — active vendors with no lapsed blocking document. */
+    /**
+     * The dispatchable set — active vendors whose CURRENT blocking document has not lapsed.
+     *
+     * The same scope chain as `hasExpiredBlockingDocument()` above, deliberately: these two are one
+     * predicate asked of a set and of a row, and a picker that offers a vendor the save guard then
+     * refuses is worse than either half being wrong on its own.
+     */
     public function scopeAssignable(Builder $query): Builder
     {
         return $query->where('status', self::STATUS_ACTIVE)
             ->whereDoesntHave('documents', function ($q) {
                 /** @var Builder<VendorDocument> $q */
-                return $q->blocking()->expired();
+                return $q->blocking()->current()->expired();
             });
     }
 

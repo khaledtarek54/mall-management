@@ -2,10 +2,14 @@
 
 namespace App\Filament\Admin\Resources\Vendors\Schemas;
 
+use App\Models\TaxCode;
+use App\Support\WithholdingTax;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 
 class VendorForm
@@ -38,19 +42,27 @@ class VendorForm
                     TextInput::make('tax_id')
                         ->label(__('admin.fields.tax_id'))
                         ->maxLength(50),
-                    // خصم وإضافة. Blank = use the portfolio default; an explicit 0 means this
-                    // supplier is exempt, which is a different statement and must survive a
-                    // later change to the default.
-                    TextInput::make('withholding_tax_rate')
-                        ->label(__('admin.vendors.wht.rate'))
-                        ->helperText(__('admin.vendors.wht.rate_hint', [
-                            'default' => rtrim(rtrim(number_format(\App\Support\WithholdingTax::defaultRate(), 2), '0'), '.'),
-                        ]))
-                        ->suffix('%')
-                        ->numeric()
-                        ->minValue(0)
-                        ->maxValue(100)
-                        ->visible(fn () => \App\Support\WithholdingTax::enabled()),
+                    // خصم وإضافة. The rate is NOT typed here — it is the code's, from the
+                    // operator's catalogue. Blank = use the portfolio default; the toggle below is
+                    // the separate statement "this supplier is outside withholding altogether",
+                    // which must survive a later change to that default.
+                    Select::make('withholding_tax_code')
+                        ->label(__('admin.vendors.wht.code'))
+                        ->options(fn () => TaxCode::options(
+                            TaxCode::PURCHASES,
+                            families: [TaxCode::FAMILY_WITHHOLDING],
+                        ))
+                        ->native(false)
+                        ->placeholder(__('admin.vendors.wht.use_default'))
+                        ->helperText(__('admin.vendors.wht.code_hint'))
+                        ->disabled(fn (Get $get) => (bool) $get('withholding_exempt'))
+                        ->visible(fn () => WithholdingTax::enabled()),
+
+                    Toggle::make('withholding_exempt')
+                        ->label(__('admin.vendors.wht.exempt'))
+                        ->helperText(__('admin.vendors.wht.exempt_hint'))
+                        ->live()
+                        ->visible(fn () => WithholdingTax::enabled()),
                     TextInput::make('email')
                         ->label(__('admin.fields.email'))
                         ->email()

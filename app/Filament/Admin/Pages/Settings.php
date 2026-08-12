@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Models\TaxCode;
 use App\Settings\BillingSettings;
 use App\Settings\EtaSettings;
 use App\Settings\IntegrationsSettings;
@@ -13,6 +14,7 @@ use App\Support\Modules;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
@@ -112,7 +114,7 @@ class Settings extends Page implements HasSchemas
                 'seller_tax_registration_number' => $tax->seller_tax_registration_number,
                 'seller_legal_name' => $tax->seller_legal_name,
                 'wht_enabled' => $tax->wht_enabled,
-                'wht_default_rate' => $tax->wht_default_rate,
+                'wht_default_tax_code' => $tax->wht_default_tax_code,
             ],
             'payroll' => [
                 'social_insurance_rate' => $payroll->social_insurance_rate,
@@ -189,7 +191,7 @@ class Settings extends Page implements HasSchemas
         $tax->seller_tax_registration_number = trim((string) ($state['tax']['seller_tax_registration_number'] ?? ''));
         $tax->seller_legal_name = trim((string) ($state['tax']['seller_legal_name'] ?? ''));
         $tax->wht_enabled = (bool) $state['tax']['wht_enabled'];
-        $tax->wht_default_rate = (float) $state['tax']['wht_default_rate'];
+        $tax->wht_default_tax_code = (string) ($state['tax']['wht_default_tax_code'] ?? '');
         $tax->save();
 
         $payroll = app(PayrollSettings::class);
@@ -370,14 +372,19 @@ class Settings extends Page implements HasSchemas
                         ->label(__('admin.settings.fields.wht_enabled'))
                         ->helperText(__('admin.settings.fields.wht_enabled_helper'))
                         ->live(),
-                    TextInput::make('tax.wht_default_rate')
-                        ->label(__('admin.settings.fields.wht_default_rate'))
-                        ->helperText(__('admin.settings.fields.wht_default_rate_helper'))
-                        ->suffix('%')
-                        ->numeric()
-                        ->minValue(0)
-                        ->maxValue(100)
-                        ->required(),
+                    // A CODE, not a percentage. Which nature we assume is policy — what settings
+                    // are for; the rate that nature carries belongs in the catalogue with every
+                    // other rate. Not `required()`: there is no defensible default nature, and an
+                    // empty one withholds nothing, which is the safe direction.
+                    Select::make('tax.wht_default_tax_code')
+                        ->label(__('admin.settings.fields.wht_default_tax_code'))
+                        ->helperText(__('admin.settings.fields.wht_default_tax_code_helper'))
+                        ->options(fn () => TaxCode::options(
+                            TaxCode::PURCHASES,
+                            families: [TaxCode::FAMILY_WITHHOLDING],
+                        ))
+                        ->native(false)
+                        ->placeholder(__('admin.settings.fields.wht_default_none')),
                 ]),
         ];
     }

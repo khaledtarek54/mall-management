@@ -10,6 +10,7 @@ use App\Services\Reconciliation\BooksReconciliationService;
 use App\Services\VendorBillService;
 use App\Services\VoidVendorBillPaymentService;
 use App\Settings\TaxSettings;
+use Database\Seeders\TaxCodeSeeder;
 use Database\Seeders\AccountMappingSeeder;
 use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -38,9 +39,16 @@ use Database\Seeders\RolesPermissionsSeeder;
  */
 function voidTestBill(float $total = 1000, float $whtRate = 0.0): array
 {
+    if ($whtRate > 0) {
+        test()->seed(TaxCodeSeeder::class);
+        // The nature, not the number — `WH_3_P` carries 3% in the operator's catalogue. Any other
+        // figure a test wants is a rung moved, which is what an accountant does on the screen.
+        \Tests\Support\TaxCatalogue::setOnlyRate('WH_3_P', -1 * $whtRate);
+    }
+
     $settings = app(TaxSettings::class);
     $settings->wht_enabled = $whtRate > 0;
-    $settings->wht_default_rate = $whtRate;
+    $settings->wht_default_tax_code = $whtRate > 0 ? 'WH_3_P' : '';
     $settings->save();
 
     $asset = makeAsset();

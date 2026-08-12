@@ -69,8 +69,15 @@ class TaxSettings extends Settings
 
     public bool $wht_enabled = false;
 
-    /** Percentage withheld from a vendor payment when the vendor has no agreed rate of its own. */
-    public float $wht_default_rate = 0.0;
+    /**
+     * The withholding tax CODE assumed for a supplier whose own nature has not been ruled on.
+     *
+     * A code, not a percentage — the rate it carries lives in the catalogue with every other rate.
+     * What belongs here is the policy question settings exist for: *which nature do we assume by
+     * default*. Empty by design: supplies, services, contracting and professional fees all differ,
+     * so there is no defensible default, and an empty one withholds nothing.
+     */
+    public string $wht_default_tax_code = '';
 
     public static function group(): string
     {

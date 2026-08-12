@@ -91,19 +91,35 @@ it('creates separate suppliers for genuinely different companies', function () {
     expect(Vendor::count())->toBe(2);
 });
 
-it('keeps a blank withholding rate NULL rather than zero', function () {
-    // The distinction the whole WHT feature rests on: null = "no agreed rate, use the portfolio
-    // default"; 0 = "this supplier is EXEMPT". Importing a blank cell as 0 would silently exempt
-    // every supplier on the register, and nothing would be withheld from any of them.
-    importVendorRow(['name' => 'Default Rate Co', 'tax_id' => '333-333-333', 'withholding_tax_rate' => '']);
+it('keeps a blank withholding code NULL rather than exempt', function () {
+    // The distinction the whole WHT feature rests on: no code = "no agreed nature, use the
+    // portfolio default"; exempt = "this supplier is outside withholding". Importing a blank cell
+    // as exempt would silently exempt every supplier on the register, and nothing would be withheld
+    // from any of them. It used to be null-versus-zero in ONE column, which is why the two are now
+    // two columns — a magic zero is a distinction nobody can see in a spreadsheet.
+    importVendorRow(['name' => 'Default Rate Co', 'tax_id' => '333-333-333', 'withholding_tax_code' => '']);
 
-    expect(Vendor::sole()->withholding_tax_rate)->toBeNull();
+    expect(Vendor::sole()->withholding_tax_code)->toBeNull()
+        ->and(Vendor::sole()->withholding_exempt)->toBeFalse();
 });
 
-it('keeps an explicit zero as zero — exempt is a real answer', function () {
-    importVendorRow(['name' => 'Exempt Co', 'tax_id' => '444-444-444', 'withholding_tax_rate' => '0']);
+it('keeps an explicit exemption — outside withholding is a real answer', function () {
+    importVendorRow(['name' => 'Exempt Co', 'tax_id' => '444-444-444', 'withholding_exempt' => '1']);
 
-    expect((float) Vendor::sole()->withholding_tax_rate)->toBe(0.0);
+    expect(Vendor::sole()->withholding_exempt)->toBeTrue();
+});
+
+it('refuses a withholding rate the operator\'s catalogue does not contain', function () {
+    // The gain from importing a CODE rather than a percentage. A spreadsheet carrying "2" was
+    // previously accepted and quietly withheld 2% from that supplier for ever — a rate the
+    // operator's own tax sheet does not list, on money leaving the bank.
+    test()->seed(\Database\Seeders\TaxCodeSeeder::class);
+
+    expect(fn () => importVendorRow([
+        'name' => 'Invented Rate Co', 'tax_id' => '666-666-666', 'withholding_tax_code' => '2',
+    ]))->toThrow(ValidationException::class);
+
+    expect(Vendor::count())->toBe(0);
 });
 
 it('rejects a type the column cannot store', function () {
@@ -129,6 +145,6 @@ it('rejects a malformed tax registration', function () {
 it('declares its columns and withholds the ones the model owns', function () {
     $columns = collect(VendorImporter::getColumns())->map(fn ($c) => $c->getName())->all();
 
-    expect($columns)->toContain('name', 'tax_id', 'withholding_tax_rate', 'type', 'status')
+    expect($columns)->toContain('name', 'tax_id', 'withholding_tax_code', 'withholding_exempt', 'type', 'status')
         ->not->toContain('slug');
 });

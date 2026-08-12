@@ -2,11 +2,13 @@
 
 namespace App\Filament\Imports;
 
+use App\Models\TaxCode;
 use App\Models\Vendor;
 use App\Support\PropertyIsolation;
 use Filament\Actions\Imports\ImportColumn;
 use Filament\Actions\Imports\Importer;
 use Filament\Actions\Imports\Models\Import;
+use Illuminate\Validation\Rule;
 
 /**
  * Load the operator's existing supplier register at cut-over.
@@ -55,16 +57,28 @@ class VendorImporter extends Importer
                 // supplier across two rows on the second pass.
                 ->rules(['nullable', 'max:50', 'regex:/^\d{3}-?\d{3}-?\d{3}$/']),
 
-            // ── The one column where blank ≠ zero ──────────────────────────────────────────────
-            // `null` means "no agreed rate, use the portfolio default"; an explicit `0` means "this
-            // supplier is EXEMPT from withholding". Collapsing them would silently start withholding
-            // from an exempt vendor the next time the default rate changed — the distinction the
-            // model's own cast docblock exists to protect. An empty CSV cell must therefore stay
-            // null, which is why there is no `->default()` here.
-            ImportColumn::make('withholding_tax_rate')
-                ->label(__('admin.vendors.wht.rate'))
-                ->numeric()
-                ->rules(['nullable', 'numeric', 'min:0', 'max:100']),
+            // ── Withholding: a CODE, and a separate exemption flag ────────────────────────────
+            // Two columns rather than one, because a single value had to carry two meanings: blank
+            // for "no agreed nature, use the portfolio default" and an explicit 0 for "this
+            // supplier is EXEMPT". Collapsing them would silently start withholding from an exempt
+            // vendor the next time the default changed. Splitting them makes the CSV say which it
+            // means instead of relying on a magic zero.
+            //
+            // The code is validated against the catalogue rather than a rate range: a spreadsheet
+            // that carries "2" would previously have been accepted and quietly withheld 2%, a rate
+            // the operator's own tax sheet does not contain.
+            ImportColumn::make('withholding_tax_code')
+                ->label(__('admin.vendors.wht.code'))
+                ->rules([
+                    'nullable',
+                    'string',
+                    Rule::in(array_keys(TaxCode::options(TaxCode::PURCHASES, families: [TaxCode::FAMILY_WITHHOLDING]))),
+                ]),
+
+            ImportColumn::make('withholding_exempt')
+                ->label(__('admin.vendors.wht.exempt'))
+                ->boolean()
+                ->rules(['nullable', 'boolean']),
 
             ImportColumn::make('email')
                 ->label(__('admin.fields.email'))

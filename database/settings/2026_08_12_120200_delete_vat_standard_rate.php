@@ -15,9 +15,9 @@ use Spatie\LaravelSettings\Migrations\SettingsMigration;
  * writes it as the opening rung of the `VAT_STD` ladder, so a mall that had moved the rate off 14
  * keeps billing its own rate.
  *
- * `wht_default_rate` deliberately stays for now — it is still the live mechanism for withholding
- * until the vendor-payment path is wired to the `WHT_*` codes (roadmap TX-05). It is replaced in
- * the change that replaces it, not left half-dead here.
+ * `wht_default_rate` deliberately stayed at this point — it was still the live mechanism for
+ * withholding until the vendor-payment path was wired to the `WH_*` codes. It was replaced in the
+ * change that replaced it (TX-05, the same day), not left half-dead here.
  */
 return new class extends SettingsMigration
 {

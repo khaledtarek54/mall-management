@@ -35,10 +35,23 @@ class TaxCatalogue
      */
     public static function setStandardRate(float $rate, string $from = '2000-01-01'): TaxCode
     {
-        $taxCode = self::ensure(Vat::STANDARD_TAX_CODE);
-        $taxCode->rates()->delete();
+        return self::setOnlyRate(Vat::STANDARD_TAX_CODE, $rate, $from);
+    }
 
-        return self::setRate(Vat::STANDARD_TAX_CODE, $rate, $from);
+    /**
+     * Make `$rate` **the** rate on `$code`: clears the ladder, then writes one rung.
+     *
+     * The one to reach for whenever a test means "this tax is X%". {@see setRate()} ADDS a rung, and
+     * a rung dated at the epoch sits UNDER the seeded one — so adding 250% to a code the catalogue
+     * already seeds at 5% leaves today resolving to 5%. That is the resolver behaving correctly; it
+     * is the fixture that has to be unambiguous.
+     */
+    public static function setOnlyRate(string $code, float $rate, string $from = '2000-01-01'): TaxCode
+    {
+        self::ensure($code)->rates()->delete();
+        TaxCode::flushLookupCaches();
+
+        return self::setRate($code, $rate, $from);
     }
 
     /** Add or move ONE rung on any code, creating the code if the catalogue has not been seeded. */
