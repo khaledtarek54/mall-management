@@ -32,6 +32,7 @@ use App\Notifications\DepartmentMessageNotification;
 use App\Notifications\InvoiceIssuedNotification;
 use App\Notifications\OwnerRequestNotification;
 use App\Notifications\TenantRequestSlaBreachedNotification;
+use App\Notifications\TenantResetPasswordNotification;
 use App\Support\NotificationLink;
 use App\Support\NotificationLocale;
 use Database\Seeders\RolesPermissionsSeeder;
@@ -191,6 +192,41 @@ it('translates a status INSIDE a sentence rather than interpolating it raw', fun
 
     expect($body)->toContain(__('admin.owner_requests.statuses.in_progress', [], 'ar'));
     expect($body)->not->toContain('in_progress');
+});
+
+it('renders the reset email in the recipient\'s language, body and chrome', function () {
+    // The hardest case in the change: the reader is signed OUT. They cannot switch the interface
+    // language to understand what they were sent, and there is no session to read one from — only
+    // the preference stored on their record, which Laravel passes to withLocale() before rendering.
+    // Asserted across the WHOLE email, because the body and the chrome around it come from two
+    // different catalogues and only one of them was ever ours.
+    $this->tenant->forceFill(['locale' => 'ar'])->save();
+
+    $notification = new TenantResetPasswordNotification('tok3n');
+
+    App::setLocale('ar');
+    $mail = $notification->toMail($this->tenant);
+
+    // Our own words…
+    expect($mail->subject)->toBe(__('admin.email.reset_password_subject', [], 'ar'));
+    expect($mail->actionText)->toBe(__('admin.email.reset_password_action', [], 'ar'));
+    expect($mail->introLines[0])->toBe(__('admin.email.reset_password_intro', [], 'ar'));
+
+    // …and none of it is the English it used to be.
+    expect($mail->subject)->not->toBe('Reset your password');
+
+    // The expiry is read from config, not written into the sentence — the old copy said "60
+    // minutes" beside a configurable window.
+    $minutes = (int) config('auth.passwords.'.config('auth.defaults.passwords').'.expire', 60);
+    expect($mail->outroLines[0])->toContain((string) $minutes);
+
+    // …and the chrome Laravel wraps around it, which lived in no catalogue at all until lang/ar.json.
+    expect(__('Hello!'))->toBe('مرحباً');
+    expect(__('Regards,'))->toBe('مع التحية،');
+
+    App::setLocale('en');
+    expect($notification->toMail($this->tenant)->subject)->toBe('Reset your password');
+    expect(__('Hello!'))->toBe('Hello!');
 });
 
 it('serves the mobile API in the language the request asked for', function () {

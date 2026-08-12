@@ -31,6 +31,7 @@ use App\Support\NotificationTargets;
 use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Schema;
+use Tests\Support\NotificationCatalogue;
 
 /**
  * The expression each of `title` / `body` is assigned in a notification's toDatabase().
@@ -39,9 +40,9 @@ use Illuminate\Support\Facades\Schema;
  */
 function payloadExpressions(string $notification): array
 {
-    $source = file_get_contents((new ReflectionClass($notification))->getFileName());
+    $body = NotificationCatalogue::methodBody($notification, 'toDatabase');
 
-    if (! preg_match('/function toDatabase\(.*?\n    \}/s', $source, $body)) {
+    if ($body === null) {
         return [];
     }
 
@@ -51,7 +52,7 @@ function payloadExpressions(string $notification): array
         // From `'title' =>` to the next key at the same depth (12 spaces + a quote) or the array's
         // close. Good enough to see whether a translation call is in there; this is a smell test,
         // not a parser.
-        if (preg_match("/'{$field}' => (.*?)(?=\n            '|\n        \];)/s", $body[0], $m)) {
+        if (preg_match("/'{$field}' => (.*?)(?=\n            '|\n        \];)/s", $body, $m)) {
             $found[$field] = $m[1];
         }
     }
@@ -84,6 +85,85 @@ it('never writes a notification\'s prose straight into the PHP', function () {
     expect($offenders)->toBe([],
         'These notifications write untranslatable prose into their payload. Move it to a key in '
         ."lang/en/admin.php + lang/ar/admin.php and call __():\n  ".implode("\n  ", $offenders));
+});
+
+it('never writes an EMAIL\'s prose straight into the PHP either', function () {
+    // The gate above reads toDatabase(), which is why it did not see the one notification that has
+    // no bell entry at all: TenantResetPasswordNotification was four hard-coded English sentences,
+    // and it reaches a locked-out retailer at the one moment they cannot switch the interface
+    // language to understand it. Mail is a channel like any other.
+    //
+    // Every notification class, not just the ones in NotificationTargets — a mail-only notification
+    // is exactly the kind that escapes a bell-shaped register.
+    $offenders = [];
+
+    foreach (NotificationCatalogue::classes() as $notification) {
+        $body = NotificationCatalogue::methodBody($notification, 'toMail');
+
+        if ($body === null) {
+            continue;
+        }
+
+        // The three MailMessage calls that put words in front of a reader. `->markdown()` is
+        // excluded on purpose: its string is a view name, not prose.
+        preg_match_all('/->(subject|line|action)\((.*?)\)\s*(?:->|;)/s', $body, $calls, PREG_SET_ORDER);
+
+        foreach ($calls as [, $method, $argument]) {
+            if (str_contains($argument, '__(') || str_contains($argument, 'Lang::get')) {
+                continue;
+            }
+
+            if (preg_match("/'[^']*[A-Za-z]{2,}[^']*'/", $argument)) {
+                $offenders[] = class_basename($notification)."::toMail() {$method}(".trim(preg_replace('/\s+/', ' ', $argument)).')';
+            }
+        }
+    }
+
+    expect($offenders)->toBe([],
+        "These email lines are typed in English and can never be anything else:\n  "
+        .implode("\n  ", $offenders));
+});
+
+it('translates the framework\'s own mail chrome', function () {
+    // Our keys only cover the words we write. "Hello!", "Regards," and the "trouble clicking the
+    // button" subcopy come from Laravel's notification layout and its built-in ResetPassword — via
+    // Lang::get() against lang/{locale}.json, which did not exist. So an alert with a perfectly
+    // translated body arrived wrapped in English, and the /admin and /portal password resets (which
+    // use Laravel's notification, not ours) were English end to end.
+    //
+    // Read out of the vendor views rather than listed here, so a Laravel upgrade that rewords one
+    // turns this red instead of silently reverting a sentence to English.
+    $arabic = json_decode(file_get_contents(lang_path('ar.json')), true);
+
+    expect($arabic)->toBeArray('lang/ar.json is missing — the mail chrome falls back to English.');
+
+    $sources = [
+        base_path('vendor/laravel/framework/src/Illuminate/Notifications/resources/views/email.blade.php'),
+        base_path('vendor/laravel/framework/src/Illuminate/Auth/Notifications/ResetPassword.php'),
+    ];
+
+    $missing = [];
+
+    foreach ($sources as $path) {
+        if (! is_file($path)) {
+            continue;
+        }
+
+        preg_match_all("/(?:@lang|Lang::get|__)\('((?:[^'\\\\]|\\\\.)+)'/", file_get_contents($path), $matches);
+
+        foreach ($matches[1] as $string) {
+            $key = stripcslashes($string);
+
+            if (! array_key_exists($key, $arabic)) {
+                $missing[] = $key;
+            }
+        }
+    }
+
+    expect(array_values(array_unique($missing)))->toBe([],
+        'Laravel renders these in every notification email and lang/ar.json has no Arabic for them, '
+        ."so an Arabic reader gets an English wrapper around a translated body:\n  "
+        .implode("\n  ", array_unique($missing)));
 });
 
 it('gives every notifiable a language preference to be addressed in', function () {

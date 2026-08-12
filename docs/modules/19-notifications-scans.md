@@ -488,6 +488,25 @@ happen".
    `toDatabase()` and refuses a `title`/`body` that is neither a `__()` call nor pure
    operator-entered content (an announcement's own title is content and stays as written).
 
+0g. **The gate was bell-shaped, so the one MAIL-ONLY notification escaped it.** *(fixed 2026-08-12)*
+   `NotificationLocaleConformanceTest` read `toDatabase()`, and `TenantResetPasswordNotification`
+   has none — it is `via: ['mail']`. All four of its sentences were typed in English, and it is the
+   worst notification in the system to be monolingual: the reader is a locked-out retailer, at the
+   one moment they cannot switch the interface language to understand what they were sent. It also
+   said "60 minutes" in prose beside a configurable `auth.passwords.*.expire`.
+   **Guard**: the gate now reads `toMail()` across EVERY notification class, not just the ones in
+   `NotificationTargets` — a bell-shaped register cannot see a mail-only notification.
+
+0h. **A translated body can arrive wrapped in an English email.** *(fixed 2026-08-12)*
+   "Hello!", "Regards," and the "trouble clicking the button" subcopy come from Laravel's own
+   notification layout via `Lang::get()` against `lang/{locale}.json` — and no such file existed.
+   So every `AlsoSendsByMail` alert had a perfectly translated body inside English chrome, and the
+   `/admin` + `/portal` password resets (which use Laravel's built-in `ResetPassword`, not ours)
+   were English end to end. `lang/ar.json` now carries them.
+   **Guard**: the gate reads the strings back OUT of the vendor views rather than listing them, so a
+   Laravel upgrade that rewords one turns the build red instead of silently reverting a sentence to
+   English.
+
 0f. **`Str::headline($state)` is an English label that no translation check can see.**
    *(fixed 2026-08-12)* It turns `in_progress` into "In progress" — a plausible one-liner that is
    invisible to both sweeps: the STATIC one looks for `__()` keys missing from a catalogue and there

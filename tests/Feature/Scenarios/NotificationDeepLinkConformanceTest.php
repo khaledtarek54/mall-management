@@ -31,18 +31,8 @@ use App\Support\NotificationTargets;
 use Filament\Facades\Filament;
 use Filament\Pages\Page;
 use Filament\Resources\Resource;
-use Illuminate\Notifications\Notification;
 use Illuminate\Support\Str;
-
-/** Every notification class shipped in app/Notifications (channels + concerns excluded). */
-function notificationClasses(): array
-{
-    return collect(glob(app_path('Notifications/*.php')))
-        ->map(fn (string $file): string => 'App\\Notifications\\'.basename($file, '.php'))
-        ->filter(fn (string $class): bool => class_exists($class) && is_subclass_of($class, Notification::class))
-        ->values()
-        ->all();
-}
+use Tests\Support\NotificationCatalogue;
 
 /** The classes a panel actually registers — the authority on "does this belong here". */
 function panelClasses(string $panel): array
@@ -56,7 +46,7 @@ function panelClasses(string $panel): array
 }
 
 it('classifies every notification that reaches a bell', function () {
-    $unclassified = collect(notificationClasses())
+    $unclassified = collect(NotificationCatalogue::classes())
         ->filter(fn (string $class): bool => method_exists($class, 'toDatabase'))
         ->reject(fn (string $class): bool => NotificationTargets::isClassified($class))
         ->all();
@@ -216,7 +206,7 @@ it('tags every bell payload with the format Filament actually queries', function
 it('leaves no notification carrying the dead `url` key', function () {
     // Six payloads carried `'url' => null` that nothing ever read. The destination now lives in the
     // registry; a reappearing `url` key is someone re-solving a solved problem in the wrong place.
-    $offenders = collect(notificationClasses())
+    $offenders = collect(NotificationCatalogue::classes())
         ->filter(fn (string $class): bool => str_contains(
             file_get_contents((new ReflectionClass($class))->getFileName()),
             "'url' =>"

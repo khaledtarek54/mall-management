@@ -1412,6 +1412,12 @@ return [
     ],
 
     'email' => [
+        // The reset email. Keyed rather than typed, because it reaches a locked-out retailer at the
+        // one moment they cannot switch the interface language to understand it.
+        'reset_password_subject' => 'Reset your password',
+        'reset_password_intro' => 'You are receiving this email because a password reset was requested for your account.',
+        'reset_password_action' => 'Reset password',
+        'reset_password_expiry' => 'This link expires in :minutes minutes. If you did not request a password reset, no action is needed.',
         'invoice_issued_subject' => 'Invoice :number from Atriom',
         'greeting' => 'Hello :name,',
         'invoice_issued_body' => 'Your invoice :number has been issued and is due on :due_date.',
