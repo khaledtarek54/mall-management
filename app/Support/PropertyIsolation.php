@@ -66,6 +66,7 @@ use App\Models\PayrollLine;
 use App\Models\PostDatedCheque;
 use App\Models\PurchaseRequest;
 use App\Models\PurchaseRequestLine;
+use App\Models\PropertySetting;
 use App\Models\SlaPolicy;
 use App\Models\StockMovement;
 use App\Models\SystemSetting;
@@ -156,6 +157,9 @@ class PropertyIsolation
         Floor::class => null,                  // a floor belongs to one building; code and level unique per property
         Violation::class => null,              // a tenant violation is pinned to the mall where it occurred (module 31)
         SlaPolicy::class => null,              // per-property SLA override (FR-CM-05); absent = operator default
+        // A setting one mall answers differently from the portfolio (CFG-03). Absent = the
+        // portfolio's answer, never zero — see App\Support\PropertySettings.
+        PropertySetting::class => null,
         UtilityMeter::class => null,
         CamExpensePool::class => null,
         MarketingBudget::class => null,

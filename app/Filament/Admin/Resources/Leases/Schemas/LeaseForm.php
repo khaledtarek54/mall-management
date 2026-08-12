@@ -7,6 +7,7 @@ use App\Models\Unit;
 use App\Support\FormTab;
 use App\Support\TenantScope;
 use App\Support\LeaseTerm;
+use App\Support\PropertySettings;
 use Closure;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -423,8 +424,15 @@ class LeaseForm
                         ->label(__('admin.fields.payment_terms_days'))
                         ->numeric()
                         ->minValue(0)
-                        ->default(7)
-                        ->dehydrateStateUsing(fn ($state) => $state ?? 7)
+                        // The property's convention, falling back to the portfolio's — NOT a
+                        // hard-coded 7. `payment_terms_days` is NOT NULL with a database default,
+                        // so the `?? setting` that used to sit at eight billing call sites could
+                        // never fire and the configured default reached nothing. ORIGINATION is
+                        // where it belongs: a new lease starts from its mall's convention and then
+                        // carries its own number, so changing the setting later cannot move the due
+                        // date on receivables already raised. This is what Yardi does too.
+                        ->default(fn () => PropertySettings::paymentTermsDays(TenantScope::currentAssetId()))
+                        ->dehydrateStateUsing(fn ($state) => $state ?? PropertySettings::paymentTermsDays(TenantScope::currentAssetId()))
                         ->suffix(__('admin.fields.days')),
                     Toggle::make('security_deposit_received')
                         ->label(__('admin.fields.security_deposit_received'))

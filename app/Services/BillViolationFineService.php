@@ -9,7 +9,6 @@ use App\Models\Lease;
 use App\Models\Violation;
 use App\Support\Vat;
 use Illuminate\Support\Facades\DB;
-use App\Settings\BillingSettings;
 
 /**
  * Bill a recorded violation fine to the tenant — the missing half of module 31 (a fine was recorded
@@ -82,7 +81,7 @@ class BillViolationFineService
                 'tenant_id' => $locked->tenant_id,
                 'status' => 'issued',
                 'issue_date' => $now,
-                'due_date' => $now->copy()->addDays($lease->payment_terms_days ?? BillingSettings::defaultPaymentTermsDays()),
+                'due_date' => $now->copy()->addDays($lease->paymentTermsDays()),
                 // The violation's month (truthful), not now() — see the probe-exclusion note above.
                 'period_start' => $periodStart,
                 'period_end' => $periodEnd,

@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\AllocatesDocumentNumber;
 use App\Models\Concerns\HasSearchText;
 use App\Models\Concerns\RefusesDeletionWhenReferenced;
+use App\Support\PropertySettings;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -1113,19 +1114,57 @@ class Lease extends Model implements HasMedia
      */
     public function lateFeeTerms(): array
     {
-        $defaults = app(\App\Settings\BillingSettings::class);
+        // THREE tiers, not two. The lease's negotiated figure still wins; what changed is the
+        // fallback, which used to jump straight to the portfolio and now asks the PROPERTY first.
+        // Eltizam runs several malls and a late-fee rate is a per-building term — the lease tier
+        // above this already assumed the number varies, so a single portfolio answer underneath it
+        // was the odd one out. See `App\Support\PropertySettings`.
+        $assetId = $this->assetId();
 
         return [
             'percent' => $this->late_fee_percent !== null
                 ? (float) $this->late_fee_percent
-                : (float) $defaults->late_fee_percent,
+                : (float) PropertySettings::get('billing.late_fee_percent', $assetId),
             'grace_days' => $this->late_fee_grace_days !== null
                 ? (int) $this->late_fee_grace_days
-                : (int) $defaults->late_fee_grace_days,
+                : (int) PropertySettings::get('billing.late_fee_grace_days', $assetId),
             'minimum' => $this->late_fee_minimum !== null
                 ? (float) $this->late_fee_minimum
-                : (float) $defaults->late_fee_minimum,
+                : (float) PropertySettings::get('billing.late_fee_minimum', $assetId),
         ];
+    }
+
+    /**
+     * The property this lease belongs to.
+     *
+     * Derived through the MASTER unit (`leases.unit_id`), because there is no `leases.asset_id` —
+     * a lease's mall is a fact about its premises. `units()` is date-ranged and can be empty outside
+     * the lease's own term, so the master unit is the stable answer and the one every other
+     * property-scoped query here already uses.
+     *
+     * Null only for a lease whose unit has been force-deleted, which `DeletionPolicy` refuses; the
+     * callers treat null as "no property tier", falling through to the portfolio.
+     */
+    public function assetId(): ?int
+    {
+        return $this->unit?->asset_id
+            ?? Unit::withTrashed()->whereKey($this->unit_id)->value('asset_id');
+    }
+
+    /**
+     * How many days this lease's tenant has to pay.
+     *
+     * `payment_terms_days` is NOT NULL with a database default of 7, so the `?? defaults` that used
+     * to sit at eight billing call sites could never fire — the portfolio setting was unreachable
+     * for any real lease. The default belongs at ORIGINATION instead: a new lease is pre-filled from
+     * its property's convention (see `LeaseForm`), and from then on the lease carries its own number.
+     *
+     * That is also the correct semantics, and what Yardi does. Changing a property's default must
+     * not retroactively move the due date on receivables that have already been raised.
+     */
+    public function paymentTermsDays(): int
+    {
+        return (int) ($this->payment_terms_days ?? PropertySettings::paymentTermsDays($this->assetId()));
     }
 
     /** Converted to holdover and still running — the state the dashboard should stop nagging about. */

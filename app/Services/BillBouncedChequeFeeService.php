@@ -6,7 +6,7 @@ use App\Enums\InvoiceItemType;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\PostDatedCheque;
-use App\Settings\BillingSettings;
+use App\Support\PropertySettings;
 use App\Support\Vat;
 use DomainException;
 use Illuminate\Support\Facades\DB;
@@ -54,7 +54,10 @@ class BillBouncedChequeFeeService
                 throw new DomainException(__('admin.post_dated_cheques.nsf_fee_failed_not_bounced'));
             }
 
-            $fee = round((float) app(BillingSettings::class)->nsf_fee_amount, 2);
+            // Per PROPERTY, falling back to the portfolio. The bounced-cheque fee is a lease term
+            // charged under the same clause as the late fee, and malls do not price it alike; a
+            // cheque always carries its own lease, so the property is never ambiguous here.
+            $fee = round((float) PropertySettings::get('billing.nsf_fee_amount', $locked->lease?->assetId()), 2);
 
             if ($fee <= 0) {
                 throw new DomainException(__('admin.post_dated_cheques.nsf_fee_failed_not_configured'));
@@ -83,7 +86,7 @@ class BillBouncedChequeFeeService
                 'tenant_id' => $locked->tenant_id,
                 'status' => 'issued',
                 'issue_date' => $now,
-                'due_date' => $now->copy()->addDays($lease->payment_terms_days ?? BillingSettings::defaultPaymentTermsDays()),
+                'due_date' => $now->copy()->addDays($lease->paymentTermsDays()),
                 // The month the cheque bounced in, which is when the cost was incurred — not the
                 // month the operator got round to charging it.
                 'period_start' => $now->copy()->startOfMonth(),

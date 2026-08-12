@@ -133,6 +133,48 @@ fails CI when a new model/resource ships unclassified, unscoped, or unguarded:
    `propertyIsolationMustGuardResources()` in the conformance test.
 6. Run `vendor/bin/pest --parallel` — the conformance gate tells you what you missed.
 
+## Per-property CONFIGURATION (CFG-03, 2026-08-12)
+
+Isolation answers "which property's *data* may I see". A separate question is "which property's
+*policy* applies", and until CFG-03 the answer was always "the portfolio's": one late-fee rate, one
+grace period, one set of payment terms across every mall Eltizam runs. The lease tier above those
+numbers already assumed they vary — a negotiated late fee has always beaten the default — so a
+single portfolio answer underneath was the odd one out. Yardi configures these per property.
+
+**Three tiers, resolved in one place** (`App\Support\PropertySettings`):
+
+1. the **LEASE**'s own negotiated term, where it has one;
+2. the **PROPERTY** — a `property_settings` row;
+3. the **PORTFOLIO** — the settings screen, which is always answerable.
+
+Two rules make it safe:
+
+- **The asset is passed EXPLICITLY.** `PropertySettings::get($key, $assetId)` never reads the panel's
+  selected property. The callers are billing services that also run from the scheduler and the queue,
+  where there is no selected property — a contextual fallback would give one answer in a request and
+  another in the nightly run, on money.
+- **Absence means inherit, never zero.** The resolver checks for the KEY, not for a falsy value, so a
+  property that deliberately waives its late fee keeps that decision when the portfolio default later
+  changes. `?:` here would silently re-charge a mall the operator had exempted.
+
+**`OVERRIDABLE` is an allow-list and every entry is wired.** An override nothing reads is worse than
+none: the operator changes it, sees "Saved ✓", and nothing happens. `PropertySettingsConformanceTest`
+holds the structure; `PropertySettingsReachTheMoneyTest` drives the real services and asserts on the
+money, each case paired with a control at the portfolio rate.
+
+**What is deliberately NOT overridable**, because the omissions carry the reasoning:
+
+- **SLA hours** — `sla_policies` is already a per-property override with its own resource and its own
+  response-vs-resolution split. A second way to say the same thing would disagree with the first.
+- **Tax rates, the seller's registration number, payroll rates, module switches** — not property
+  questions at all. An override on any of them would be a way to make one mall file a different return.
+
+Edited at `/admin/property-overrides`, scoped to the selected property. A blank field inherits and
+says so twice (placeholder *and* helper text): a blank that reads as zero is the whole risk of an
+override screen.
+
+---
+
 ## Boundaries (out of scope by design)
 
 - **Tenant portal** (`TenantUser`) and **Mobile API** (`Tenant`, Sanctum) are **tenant-scoped**, not
@@ -214,9 +256,9 @@ than an error. Guarded by
 Generated from `App\Support\PropertyIsolation`. `PropertyIsolationConformanceTest` fails the
 build if a model ships unclassified, so this list is complete by construction.
 
-**Property-owned (75)** — scoped to the selected property:
+**Property-owned (76)** — scoped to the selected property:
 
-`Announcement` · `Area` · `AssetOwner` · `BankAccount` · `BankMatch` · `BankStatementLine` · `BankStatement` · `CamAllocation` · `CamExpensePool` · `Charge` · `CreditNoteApplication` · `CreditNoteItem` · `CreditNote` · `CustodyTransaction` · `Custody` · `Department` · `DepositApplication` · `DepositTransaction` · `DepreciationEntry` · `Disbursement` · `EmployeeAdvanceRepayment` · `EmployeeAdvance` · `Employee` · `Equipment` · `Expense` · `FixedAssetDisposal` · `FixedAsset` · `Floor` · `InvoiceItem` · `InvoiceWriteOff` · `Invoice` · `JournalEntry` · `JournalLine` · `LeaseCamTerm` · `LeaseEvent` · `LeaseOption` · `LeasePercentageRentTier` · `Lease` · `LowStockAlert` · `MaintenancePenalty` · `MaintenancePlan` · `MaintenanceWorkOrderItem` · `MaintenanceWorkOrderPart` · `MaintenanceWorkOrder` · `MarketingBudget` · `MarketingPost` · `MarketingSpend` · `MeterReading` · `OwnerRequestReply` · `OwnerRequest` · `OwnerStatementRun` · `OwnerStatement` · `Payment` · `PayrollLine` · `Payroll` · `PostDatedCheque` · `PurchaseRequestLine` · `PurchaseRequest` · `RentableItem` · `SlaPolicy` · `StockMovement` · `StraightLineRentAdjustment` · `TenantCreditApplication` · `TenantRequestComment` · `TenantRequest` · `TenantSalesDeclaration` · `UnitArea` · `Unit` · `UtilityMeter` · `VendorBillPayment` · `VendorBill` · `VendorContractAmendment` · `VendorContract` · `Violation` · `Warehouse`
+`Announcement` · `Area` · `AssetOwner` · `BankAccount` · `BankMatch` · `BankStatementLine` · `BankStatement` · `CamAllocation` · `CamExpensePool` · `Charge` · `CreditNoteApplication` · `CreditNoteItem` · `CreditNote` · `CustodyTransaction` · `Custody` · `Department` · `DepositApplication` · `DepositTransaction` · `DepreciationEntry` · `Disbursement` · `EmployeeAdvanceRepayment` · `EmployeeAdvance` · `Employee` · `Equipment` · `Expense` · `FixedAssetDisposal` · `FixedAsset` · `Floor` · `InvoiceItem` · `InvoiceWriteOff` · `Invoice` · `JournalEntry` · `JournalLine` · `LeaseCamTerm` · `LeaseEvent` · `LeaseOption` · `LeasePercentageRentTier` · `Lease` · `LowStockAlert` · `MaintenancePenalty` · `MaintenancePlan` · `MaintenanceWorkOrderItem` · `MaintenanceWorkOrderPart` · `MaintenanceWorkOrder` · `MarketingBudget` · `MarketingPost` · `MarketingSpend` · `MeterReading` · `OwnerRequestReply` · `OwnerRequest` · `OwnerStatementRun` · `OwnerStatement` · `Payment` · `PayrollLine` · `Payroll` · `PostDatedCheque` · `PropertySetting` · `PurchaseRequestLine` · `PurchaseRequest` · `RentableItem` · `SlaPolicy` · `StockMovement` · `StraightLineRentAdjustment` · `TenantCreditApplication` · `TenantRequestComment` · `TenantRequest` · `TenantSalesDeclaration` · `UnitArea` · `Unit` · `UtilityMeter` · `VendorBillPayment` · `VendorBill` · `VendorContractAmendment` · `VendorContract` · `Violation` · `Warehouse`
 
 **Shared (20)** — portfolio-wide by design:
 

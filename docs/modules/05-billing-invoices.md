@@ -87,9 +87,11 @@ The Billing module automates the monthly invoicing lifecycle for Eltizam operato
 - Supports proration at BOTH ends: mid-month commencement (per-run flag) and mid-month
   termination/expiry (unconditional), plus the automatic credit note when the month was already
   billed in advance
-- Late-fee rate, minimum and grace are **per-lease overrides** over the portfolio default
-  (`Lease::lateFeeTerms()`); the default comes from `BillingSettings`, which is what the admin
-  Settings screen actually writes
+- Late-fee rate, minimum and grace resolve through **three** tiers — **lease → property →
+  portfolio** (`Lease::lateFeeTerms()` → `App\Support\PropertySettings` → `BillingSettings`).
+  The lease's negotiated term still wins; what CFG-03 added underneath it is the PROPERTY, because
+  Eltizam runs several malls and a late fee is a per-building term. See
+  [PROPERTY-ISOLATION.md](../PROPERTY-ISOLATION.md#per-property-configuration-cfg-03-2026-08-12)
 - Enforces quarterly/annual charge cadences (e.g., calendar-month-agnostic quarterly billing)
 - Tracks payment status via a payment-allocation pivot and credit notes
 - Notifies tenants on issuance and alerts Jawad owners on overdue balances
@@ -394,7 +396,7 @@ in module 25. Tests: `DepositReceiptFrozenOnceUsedTest`.
 
 ### Due date & payment terms
 
-12. **Due date never lands in the past:** `due_date = max(issue_date, today) + lease.payment_terms_days` (default 7 if not set)
+12. **Due date never lands in the past:** `due_date = max(issue_date, today) + lease.paymentTermsDays()`. The column is NOT NULL, so the lease always states its own terms; the property/portfolio default applies at lease **origination**, not here — see gotcha 6.
     - `issue_date` stays at the period start (or the commencement, when prorated) — it is the GL `entry_date` and the `YYYYMM` segment of the invoice number, so it is *not* moved by a late run.
     - The due date instead anchors to when the tenant can actually receive the bill: the later of `issue_date` and today. For an on-time run (the invoice's period is the current month) this equals `issue_date + terms` as before; only a **late / back-filled / off-the-1st** run (a mid-month "Generate Invoice", or `monthly_billing_day > 1`) differs — and there the fix is what stops the invoice being *born overdue* (which would otherwise trip the overdue-scan + a same-day late fee).
     - **Tests:** `BillingScenarioTest::test_derives_the_due_date_as_period_start__payment_terms_days` (on-time) · `InvoiceDueDateNotBornOverdueTest` (late run not born overdue)
@@ -1163,15 +1165,28 @@ if ($charge->start_date && $charge->start_date->greaterThan($periodEnd)) {
 
 ---
 
-### 6. Null payment_terms_days
+### 6. `payment_terms_days` is NOT NULL — the `??` fallback was dead code (corrected 2026-08-12)
 
-**Gotcha:** If a lease has no payment_terms_days (null), the default is 7. This is in `MonthlyBillingService::generateInvoiceForLease()`:
+**Gotcha:** this section used to read *"if a lease has no payment_terms_days (null), the default is
+7"*, over this snippet:
 
 ```php
 $dueDate = $issueDate->addDays($lease->payment_terms_days ?? 7);
 ```
 
-**Impact:** Safe; the default is reasonable for most leases.
+**That never happened.** `leases.payment_terms_days` is `unsignedSmallInteger` **NOT NULL with a
+database default of 7**, so the right-hand side of every `??` — at *eight* billing call sites — was
+unreachable. When CFG-04 replaced the literal `7` with `BillingSettings::defaultPaymentTermsDays()`
+it inherited that: the operator could set 30 on the settings screen, see it saved, and every lease
+would still be created and billed at 7. A configured setting that reaches nothing.
+
+**The fix is a change of layer, not of value.** The default now applies at **origination** — the
+lease form pre-fills the field from `PropertySettings::paymentTermsDays()` (property, falling back to
+portfolio) — and from then on the lease carries its own number, read through `Lease::paymentTermsDays()`.
+
+That is also the correct semantics, and what Yardi does: changing a property's default must **not**
+retroactively move the due date on receivables already raised, which is exactly what a billing-time
+lookup would have done. Pinned by `PropertySettingsReachTheMoneyTest`.
 
 ---
 

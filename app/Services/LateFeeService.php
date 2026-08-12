@@ -7,6 +7,7 @@ use App\Models\InvoiceItem;
 use App\Models\Tenant;
 use App\Notifications\LateFeeAppliedNotification;
 use App\Support\OpsLog;
+use App\Support\PropertySettings;
 use App\Support\Vat;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -100,10 +101,13 @@ class LateFeeService
     public function applyTo(Invoice $invoice, ?CarbonImmutable $today = null): bool
     {
         $today = $today ?? CarbonImmutable::now()->startOfDay();
+        // No lease means no property, so this backstop can only answer at the portfolio tier —
+        // which is exactly what a null asset id asks `PropertySettings` for. `invoices.lease_id` is
+        // NOT NULL, so in practice `lateFeeTerms()` always wins; this stays for a detached fixture.
         $terms = $invoice->lease?->lateFeeTerms() ?? [
-            'percent' => (float) app(\App\Settings\BillingSettings::class)->late_fee_percent,
-            'grace_days' => (int) app(\App\Settings\BillingSettings::class)->late_fee_grace_days,
-            'minimum' => (float) app(\App\Settings\BillingSettings::class)->late_fee_minimum,
+            'percent' => (float) PropertySettings::get('billing.late_fee_percent', null),
+            'grace_days' => (int) PropertySettings::get('billing.late_fee_grace_days', null),
+            'minimum' => (float) PropertySettings::get('billing.late_fee_minimum', null),
         ];
 
         $percent = $terms['percent'];
@@ -176,7 +180,7 @@ class LateFeeService
             // the month's rent (the trap that bit `nsf_fee`).
             // `lease_id` is NOT NULL on invoices, so the lease is always there; the fallback is for
             // a lease that states no payment terms of its own.
-            $dueInDays = (int) ($locked->lease->payment_terms_days ?? BillingSettings::defaultPaymentTermsDays());
+            $dueInDays = $locked->lease->paymentTermsDays();
 
             $feeInvoice = Invoice::create([
                 'lease_id' => $locked->lease_id,

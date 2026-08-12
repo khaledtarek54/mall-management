@@ -578,6 +578,7 @@ return [
         'billing' => 'Billing',
         'reports' => 'Reports',
         'settings' => 'Settings',
+        'property_overrides' => 'Property overrides',
         'portfolio' => 'Portfolio',
     ],
 
@@ -595,6 +596,17 @@ return [
             'tenant_request' => 'Tenant Request',
             'work_order' => 'Work Order',
             'purchase_request' => 'Purchase Request',
+        ],
+    ],
+
+    'property_overrides' => [
+        'page_title' => 'Property overrides',
+        'inherits' => 'Portfolio default: :value. Leave blank to use it.',
+        'inherited' => 'Inherited',
+        'overridden' => 'Overridden',
+        'sections' => [
+            'billing' => 'Billing & receivables',
+            'billing_description' => "What this property answers differently from the portfolio. A blank field inherits — it does not mean zero. A lease's own negotiated terms still win over both.",
         ],
     ],
 
@@ -1963,6 +1975,7 @@ return [
         'post_to_ledger' => 'Post to GL now',
         'post_to_ledger_confirm' => 'This posts recent invoices, payments, and other documents to the general ledger. It runs automatically every day; running it now just makes the books current immediately. Safe to run anytime.',
         'export' => 'Export',
+        'import_charges' => 'Import charge schedules',
         'import' => 'Import CSV',
         'import_heading' => 'Import from CSV',
         'import_help' => 'Upload a CSV file. Existing records are matched and updated; new ones are created.',

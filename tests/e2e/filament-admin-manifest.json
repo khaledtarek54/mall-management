@@ -406,6 +406,10 @@
             "slug": "occupancy-map"
         },
         {
+            "class": "PropertyOverrides",
+            "slug": "property-overrides"
+        },
+        {
             "class": "RentRoll",
             "slug": "rent-roll"
         },
