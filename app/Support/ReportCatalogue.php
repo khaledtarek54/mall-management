@@ -21,6 +21,7 @@ use App\Filament\Admin\Pages\OccupancyMap;
 use App\Filament\Admin\Pages\RentRoll;
 use App\Filament\Admin\Pages\Reports;
 use App\Filament\Admin\Pages\SalesAnalytics;
+use App\Filament\Admin\Pages\PropertyOverrides;
 use App\Filament\Admin\Pages\Settings;
 use App\Filament\Admin\Pages\TrialBalance;
 use App\Filament\Admin\Pages\VatReturn;
@@ -119,6 +120,7 @@ class ReportCatalogue
         Dashboard::class => 'The landing screen. It shows widgets drawn from the reports rather than being one.',
         Settings::class => 'Configuration — it changes what the system does rather than reporting on what it did.',
         ConfigurationHealth::class => 'It reports on the SETUP, not on the data — what is unset and what that breaks. Listing it beside the rent roll would put an operator looking for a business answer in front of a maintenance checklist.',
+        PropertyOverrides::class => 'Configuration, like the settings page it sits beside — it changes what this property charges rather than reporting on what it charged. Same reasoning as Settings above.',
     ];
 
     /**

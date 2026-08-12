@@ -133,7 +133,24 @@ class ReportParameters
     }
 
     /**
-     * Every property name any trait in this class's hierarchy provides.
+     * Property names contributed by FRAMEWORK traits — the ones that are never report parameters.
+     *
+     * ## Why this is not simply "every trait"
+     *
+     * It was, and that was a bug that reached production. Reflection reports a trait's property as
+     * declared on the class using it, so excluding every trait property is the obvious way to keep
+     * Filament's `isTableLoaded` / `isTableReordering` out of saved views. It also silently excluded
+     * `ScopesLedgerReport`, which declares `$year`, `$period` and `$assetId` — **the entire
+     * parameter surface of the Income Statement, Balance Sheet, Cash Flow and Trial Balance.**
+     *
+     * Those four reports therefore had NO parameters at all. A saved view of them stored nothing,
+     * `urlFor()` returned `#` because there was nothing to build a query string from, and a
+     * scheduled delivery would have rendered the DEFAULT period — emailing an owner a statement
+     * headed one quarter and filled with another's numbers. Silent in every direction.
+     *
+     * The line is ownership, not mechanism: a **first-party** trait under `App\` is our own code
+     * factored out, and its public typed scalars are as much a parameter as one written inline. A
+     * vendor trait is infrastructure the page did not choose. So only vendor traits are excluded.
      *
      * @return array<int, string>
      */
@@ -143,12 +160,20 @@ class ReportParameters
 
         for ($class = new ReflectionClass($page); $class !== false; $class = $class->getParentClass()) {
             foreach ($class->getTraits() as $trait) {
+                if (self::isFirstParty($trait->getName())) {
+                    continue;
+                }
+
                 foreach ($trait->getProperties() as $property) {
                     $names[] = $property->getName();
                 }
 
                 // A trait may itself use traits — Filament's do.
                 foreach ($trait->getTraitNames() as $nested) {
+                    if (self::isFirstParty($nested)) {
+                        continue;
+                    }
+
                     foreach ((new ReflectionClass($nested))->getProperties() as $property) {
                         $names[] = $property->getName();
                     }
@@ -157,6 +182,11 @@ class ReportParameters
         }
 
         return array_unique($names);
+    }
+
+    private static function isFirstParty(string $trait): bool
+    {
+        return str_starts_with($trait, 'App\\');
     }
 
     private static function cast(mixed $value, string $type): mixed
