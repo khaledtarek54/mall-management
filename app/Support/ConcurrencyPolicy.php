@@ -1,0 +1,190 @@
+<?php
+
+namespace App\Support;
+
+/**
+ * Every critical section in the codebase, and what it protects.
+ *
+ * **Why this registry exists.** `SQLiteGrammar::compileLock()` returns `''`, and the suite runs on
+ * sqlite `:memory:` — so every one of the ~111 `lockForUpdate()` call sites is **inert in every
+ * test**. Deleting one turned nothing red. Production is unaffected (MySQL honours the locks); what was unprotected
+ * is the *guard itself*. Concurrency is the one invariant class in CLAUDE.md that never got a
+ * registry and a gate, and it is the class this project has already been bitten by twice — the unit
+ * double-booking race and the Paymob double-charge race.
+ *
+ * `ConcurrencyPolicyConformanceTest` fails the build when a locking file is unregistered, when a
+ * registered file stops locking, and when the number of locks in a file changes. It counts row
+ * locks (`lockForUpdate` / `sharedLock`) **and atomic cache locks** (`Cache::lock`) together: they
+ * are the same guard by different mechanisms, and some critical sections use one because the thing
+ * being protected is not a row — `AllocatesDocumentNumber` takes a blocking cache lock around every
+ * numbered-document insert, and the sales-declaration scan uses one where its siblings lock a row. The count is the
+ * teeth: a lock quietly dropped during a refactor is exactly the failure mode, and the fix when the
+ * gate fires is to confirm the change was intended and update the number — not to delete the entry.
+ *
+ * **`PROVEN` vs `REGISTERED`.** A registry entry says a lock is there; it cannot say the lock is
+ * *reached* on the real code path. `PROVEN` sections are additionally driven through their service
+ * by `Tests\Support\LockSpy`, which makes the lock observable on SQLite by compiling it to a SQL
+ * comment. Those tests fail when the lock is removed. Everything else is count-pinned only, and
+ * that difference is stated rather than blurred.
+ *
+ * **What none of this proves.** That two concurrent transactions actually serialise. That needs
+ * MySQL and two connections, and no amount of single-process testing substitutes for it. The gate
+ * protects the guard from being deleted; MySQL is what makes the guard work.
+ */
+final class ConcurrencyPolicy
+{
+    /**
+     * Critical sections driven through a `LockSpy` test — removing the lock turns the build red.
+     *
+     * Chosen for consequence: the two races that have actually happened here, and the money paths
+     * where a lost update is a wrong balance rather than a duplicate notification.
+     *
+     * @var array<string, array{locks: int, protects: string}>
+     */
+    public const PROVEN = [
+        'app/Services/LeaseCreationService.php' => [
+            'locks' => 1,
+            'protects' => 'The unit. Two leases signed on the same vacant unit at once — the race that '.
+                'actually happened here. The contended row must be locked, not the lease being written.',
+        ],
+        'app/Services/LateFeeService.php' => [
+            'locks' => 1,
+            'protects' => 'The invoice being penalised. Two sweeps that both passed the '.
+                '"no live late fee" check would each raise a fee invoice for the same arrears.',
+        ],
+        'app/Services/VoidInvoiceService.php' => [
+            'locks' => 1,
+            'protects' => 'The invoice. Voiding while a payment is being allocated to it would strand '.
+                'the settlement on a document that has left the books.',
+        ],
+        'app/Services/ApplyTenantCreditService.php' => [
+            'locks' => 4,
+            'protects' => 'The credit balance and the invoice. On-account credit is one of the four AR '.
+                'settlement channels; two applications reading the same balance would both spend it.',
+        ],
+        'app/Services/GeneratePreventiveWorkOrdersService.php' => [
+            'locks' => 1,
+            'protects' => 'The plan row, re-checked under the lock before `advanceDue()`. Two overlapping '.
+                'sweeps would raise two work orders for the same cycle.',
+        ],
+        'app/Services/MaintenanceWorkOrderService.php' => [
+            'locks' => 1,
+            'protects' => 'The work order as the aggregate root for itself AND its checklist — every '.
+                'mutation of either goes through the same lock, which is why the items table is never '.
+                'locked directly.',
+        ],
+    ];
+
+    /**
+     * Registered and count-pinned. The lock is there and its removal turns the build red; whether it
+     * is reached on the real path is not separately proven.
+     *
+     * Most of these are the same shape: a scheduled scan takes the row lock and re-checks its
+     * idempotency stamp inside the transaction, so an overlapping run cannot double-notify. That
+     * shape is a CLAUDE.md invariant ("scheduled scans must be idempotent + lock-safe"), which is
+     * why it is stated once here rather than restated sixty times.
+     *
+     * @var array<string, int>
+     */
+    public const REGISTERED = [
+        // ── Scheduled scans: lock the row, re-check the idempotency stamp inside the transaction ─
+        'app/Console/Commands/AutoCloseTenantRequestsCommand.php' => 1,
+        'app/Console/Commands/EstimateMissingSalesCommand.php' => 1,
+        'app/Console/Commands/ExpireVendorContractsCommand.php' => 1,
+        'app/Console/Commands/RemindExpiringLeasesCommand.php' => 1,
+        'app/Console/Commands/RemindOverdueTenantsCommand.php' => 1,
+        'app/Console/Commands/ScanContractRenewalsCommand.php' => 2,
+        'app/Console/Commands/ScanLeaseOptionWindowsCommand.php' => 1,
+        'app/Console/Commands/ScanLowStockCommand.php' => 1,
+        // A cache lock, not a row lock: this scan has no single row to hold, so an atomic lock is
+        // the analogue to the siblings' lockForUpdate + stamp. Registered because the mechanism
+        // differs, not the obligation.
+        'app/Console/Commands/ScanMissingSalesDeclarationsCommand.php' => 1,
+        'app/Console/Commands/ScanOverdueInvoicesCommand.php' => 1,
+        'app/Console/Commands/ScanTenantDocumentExpiryCommand.php' => 2,
+        'app/Console/Commands/ScanTenantRequestSlaBreachesCommand.php' => 1,
+        'app/Console/Commands/ScanVendorDocumentExpiryCommand.php' => 2,
+        'app/Console/Commands/ScanWorkOrderSlaBreachesCommand.php' => 2,
+
+        // ── Money in ─────────────────────────────────────────────────────────────────────────
+        'app/Actions/Api/V1/Payments/RecordDemoPaymentAction.php' => 1,
+        'app/Http/Controllers/Paymob/CallbackController.php' => 1,   // the double-charge race that bit
+        'app/Models/Payment.php' => 2,
+        'app/Services/ApplyDepositToInvoiceService.php' => 1,
+        'app/Services/Banking/MatchBankStatementLineService.php' => 1,
+        'app/Services/CreditNoteService.php' => 11,
+        'app/Services/MonthlyBillingService.php' => 2,
+        'app/Services/Paymob/PaymobPaymentInitiator.php' => 1,
+        'app/Services/PostDatedChequeService.php' => 5,
+        'app/Services/VoidPaymentService.php' => 1,
+        'app/Services/WriteOffInvoiceService.php' => 1,
+
+        // ── Money out ────────────────────────────────────────────────────────────────────────
+        'app/Services/GeneratePayrollService.php' => 1,
+        'app/Services/PayrollService.php' => 1,
+        'app/Services/PurchaseRequestService.php' => 1,
+        'app/Services/RecordAdvanceRepaymentService.php' => 3,
+        'app/Services/SettleCustodyService.php' => 3,
+        'app/Services/VendorBillService.php' => 1,
+        'app/Services/VoidVendorBillPaymentService.php' => 2,
+
+        // ── The ledger ───────────────────────────────────────────────────────────────────────
+        'app/Services/Accounting/JournalPostingService.php' => 2,
+        'app/Services/Accounting/LedgerPoster.php' => 2,
+        'app/Services/Accounting/YearEndCloseService.php' => 1,
+        'app/Services/DepreciationService.php' => 1,
+        'app/Services/DisposeFixedAssetService.php' => 1,
+
+        // ── Recoveries and variable rent ─────────────────────────────────────────────────────
+        'app/Services/BillBouncedChequeFeeService.php' => 1,
+        'app/Services/BillMeterReadingService.php' => 1,
+        'app/Services/BillViolationFineService.php' => 1,
+        'app/Services/CamReconciliationService.php' => 3,
+        'app/Services/PercentageRentCalculationService.php' => 3,
+
+        // ── Owner accounting ─────────────────────────────────────────────────────────────────
+        'app/Services/OwnerAccounting/DisbursementService.php' => 5,
+        'app/Services/OwnerAccounting/FinaliseOwnerStatementRunService.php' => 1,
+        'app/Services/OwnerAccounting/GenerateOwnerStatementRunService.php' => 1,
+        'app/Services/OwnerAccounting/ReviseOwnerStatementRunService.php' => 1,
+
+        // ── Leasing and space ────────────────────────────────────────────────────────────────
+        'app/Services/AssignRentableItemService.php' => 1,
+        'app/Services/LeaseRenewalService.php' => 2,
+        'app/Services/RemeasureUnitService.php' => 1,
+        'app/Services/RentEscalationService.php' => 1,
+
+        // ── Facility ─────────────────────────────────────────────────────────────────────────
+        'app/Services/ApplySlaPenaltyService.php' => 3,
+        'app/Services/AssessSlaPenaltyService.php' => 2,
+        'app/Services/AttributeWorkOrderFaultService.php' => 1,
+        'app/Services/RaiseCorrectiveMaintenanceService.php' => 3,
+        'app/Services/StockMovementService.php' => 1,
+        'app/Services/WorkOrderPartService.php' => 5,
+
+        // ── Marketing posts ──────────────────────────────────────────────────────────────────
+        'app/Services/MarketingPost/ArchiveMarketingPostService.php' => 1,
+        'app/Services/MarketingPost/PublishMarketingPostService.php' => 1,
+        'app/Services/MarketingPost/RejectMarketingPostService.php' => 1,
+        'app/Services/MarketingPost/SubmitMarketingPostService.php' => 2,
+
+        // ── Cross-cutting ────────────────────────────────────────────────────────────────────
+        // A BLOCKING cache lock around every numbered-document insert, so two concurrent creates
+        // cannot take the same number. Not a row lock — the thing being protected is a sequence.
+        'app/Models/Concerns/AllocatesDocumentNumber.php' => 1,
+        // Not a critical section: the health check ACQUIRES a lock to prove the cache driver can,
+        // which is a probe. Registered so the file is classified rather than silently exempt.
+        'app/Support/Health.php' => 2,
+    ];
+
+    /** @return array<string, int> file => expected lock count, across both tiers */
+    public static function expected(): array
+    {
+        $proven = [];
+        foreach (self::PROVEN as $file => $entry) {
+            $proven[$file] = $entry['locks'];
+        }
+
+        return $proven + self::REGISTERED;
+    }
+}

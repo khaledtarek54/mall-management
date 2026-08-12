@@ -316,9 +316,9 @@ overriding them, not the defaults** · `GO-LIVE.md` itself, which is accurate.
 
 611 files, ~3,680 cases. The question was which green tests are lying.
 
-### 4.1 CRITICAL — `lockForUpdate` is a no-op in every test
+### 4.1 ~~CRITICAL — `lockForUpdate` is a no-op in every test~~ ✅ FIXED 2026-08-12
 
-- **Verified:** yes, in the framework source
+- **Verified:** yes, in the framework source · **Shipped:** `App\Support\ConcurrencyPolicy` (68 files, 118 lock acquisitions, count-pinned) + `Tests\Support\LockSpy`, which compiles the lock to a SQL comment so SQLite still executes while `DB::listen()` observes it. Six critical sections are now driven through their real service. See [CLAUDE.md → Concurrency](../../CLAUDE.md).
 
 `SQLiteGrammar::compileLock()` returns `''`
 ([vendor/laravel/framework/…/SQLiteGrammar.php:31-34](../../vendor/laravel/framework/src/Illuminate/Database/Query/Grammars/SQLiteGrammar.php#L31-L34)),
