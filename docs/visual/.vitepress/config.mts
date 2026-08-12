@@ -20,10 +20,11 @@ type Group = { text: string; collapsed?: boolean; items: Item[] }
 /**
  * One sidebar, described once per locale.
  *
- * `only` trims it to the pages that actually exist in that language. The Arabic tree is being
- * filled in page by page, and a sidebar entry pointing at an untranslated page is a menu of 404s —
- * strictly worse than a shorter menu, and invisible to anyone who does not read that language. So
- * the AR locale lists what it has, and grows a line at a time as pages land.
+ * `only` trims it to the pages that actually exist in that language. Both locales are complete
+ * today — 26 pages each — so the Arabic list mirrors the English tree exactly. It stays as an
+ * explicit list rather than being deleted, because the next page added in English should appear in
+ * the Arabic menu only once its Arabic twin exists: a sidebar entry pointing at an untranslated
+ * page is a menu of 404s, and it is invisible to everyone who does not read that language.
  */
 function sidebar(t: Record<string, string>, p: string, only?: string[]): Group[] {
   const groups = allGroups(t, p)
@@ -231,13 +232,17 @@ export default defineConfig({
         nav: [
           { text: ar.startHere, link: '/ar/' },
           { text: ar.wholeSystem, link: '/ar/map' },
+          { text: ar.monthInLife, link: '/ar/scenarios' },
           { text: ar.everyModule, link: '/ar/modules/' },
         ],
-        // Translated so far. Add the page, then add its link here — the two go together, and
-        // this list is what keeps the Arabic menu honest about which is which.
+        // Everything is translated today, so this list mirrors the English tree exactly. It stays
+        // as an explicit list rather than being dropped: the next page added in English will be
+        // added here only once its Arabic twin exists, which is what stops the menu drifting ahead
+        // of the content in a language most reviewers will not read.
         sidebar: sidebar(ar, '/ar', [
           '/ar/',
           '/ar/map',
+          '/ar/scenarios',
           '/ar/leasing/',
           '/ar/leasing/lease-lifecycle',
           '/ar/leasing/unit-and-tenant',
@@ -260,6 +265,7 @@ export default defineConfig({
           '/ar/accounting/fixed-assets',
           '/ar/accounting/close-and-reconcile',
           '/ar/modules/',
+          '/ar/contributing',
         ]),
         outline: { level: [2, 3], label: 'في هذه الصفحة' },
         docFooter: { prev: 'السابق', next: 'التالي' },

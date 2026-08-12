@@ -48,7 +48,7 @@ subsystem, and each one names the invariant it must not break.
 
 <div class="track"><span class="pill p-grey">Draft<small>not owed yet</small></span><span class="conn">→</span><span class="pill p-amber">Issued<small>owed</small></span><span class="conn">→</span><span class="pill p-teal">Partially paid<small>some in</small></span><span class="conn">→</span><span class="pill p-green">Paid<small>balance zero</small></span></div>
 
-<div class="rule"><span class="lbl">Invariant · recomputeTotals()</span>A bill's <b>paid</b> and <b>balance</b> are never set directly. They are always re-derived:<br><br><code>paid_amount = captured payments + applied credit notes</code><br><code>balance = total − paid_amount</code><br><br>One payment can settle several bills; one bill can take several payments. That's why it must be <em>recomputed</em>, never stored by hand. When the balance hits zero the bill flips to Paid on its own. <b>This single formula, in one place, is why the numbers can be trusted.</b></div>
+<div class="rule"><span class="lbl">Invariant · recomputeTotals()</span>A bill's <b>paid</b> and <b>balance</b> are never set directly. They are always re-derived:<br><br><code>paid_amount = captured payments + applied credit notes + applied tenant credit + netted deposit</code><br><code>balance = total − paid_amount</code><br><br>One payment can settle several bills; one bill can take several payments. That's why it must be <em>recomputed</em>, never stored by hand. When the balance hits zero the bill flips to Paid on its own. <b>This single formula, in one place, is why the numbers can be trusted.</b></div>
 
 **Deeper:** [Life of an invoice →](/money/invoice-lifecycle) · [What happens in the books →](/money/the-books)
 
@@ -130,8 +130,10 @@ subsystem, and each one names the invariant it must not break.
 
 Being honest about the edges is part of the map:
 
-- **Owner requests** (Jawad → Eltizam) and the **owner portal**, which is feature-flagged off.
-- **Procurement** — purchase requests → approval → goods receipt. Being built.
+- **Owner statements and payouts** — the periodic account handed to an owner, and the disbursement
+  that pays it. Shipped; drawn on [Every module](/modules/) rather than here.
+- **Procurement** — purchase request → approval → order → goods receipt, clearing GRNI when the
+  vendor's bill lands. Shipped; its state machine is on [Every module](/modules/).
 - **Fault attribution** — charging a repair back to the tenant who caused it. Not built; the
   largest open commercial gap.
 - **The revenue split** between Jawad and Eltizam — deferred pending a finance workshop.
