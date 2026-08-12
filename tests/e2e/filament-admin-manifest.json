@@ -398,6 +398,10 @@
             "slug": "month-end-close"
         },
         {
+            "class": "NotificationCenter",
+            "slug": "notifications"
+        },
+        {
             "class": "OccupancyCost",
             "slug": "occupancy-cost"
         },

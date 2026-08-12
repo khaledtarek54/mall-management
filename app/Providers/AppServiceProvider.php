@@ -2,29 +2,31 @@
 
 namespace App\Providers;
 
-use App\Support\Filament\AuthorizedAction;
-use Filament\Actions\Action as FilamentAction;
 use App\Listeners\LogBackupFailures;
 use App\Models\Lease;
+use App\Notifications\Channels\BellChannel;
 use App\Notifications\Channels\PushChannel;
 use App\Observers\LeaseObserver;
 use App\Services\Eta\Signing\EtaDocumentSigner;
 use App\Services\Eta\Signing\UnsignedEtaSigner;
 use App\Services\Paymob\PaymobClient;
-use App\Settings\IntegrationsSettings;
 use App\Services\Push\FcmPushSender;
 use App\Services\Push\NullPushSender;
 use App\Services\Push\PushSender;
+use App\Settings\IntegrationsSettings;
+use App\Support\Filament\AuthorizedAction;
 use App\Support\LedgerRealtimeSync;
 use App\Support\TableDefaults;
+use Filament\Actions\Action as FilamentAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
+use Illuminate\Notifications\Channels\DatabaseChannel;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
-use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Number;
 use Illuminate\Support\ServiceProvider;
@@ -44,6 +46,12 @@ class AppServiceProvider extends ServiceProvider
         // alone. `Action::make()` resolves through the container, which is the one seam that fixes
         // all of them at once. See App\Support\Filament\AuthorizedAction.
         $this->app->bind(FilamentAction::class, AuthorizedAction::class);
+
+        // Every bell notification gets a panel-correct "Open …" link. Laravel resolves the
+        // `database` channel through the container, so this one binding reaches all 36 notification
+        // classes — and every one added after it — instead of an `actions` key being remembered 36
+        // times. Same seam as the AuthorizedAction bind above. See App\Notifications\Channels\BellChannel.
+        $this->app->bind(DatabaseChannel::class, BellChannel::class);
 
         // ETA document signing is pluggable. The default is a passthrough (no-op)
         // so mock/preprod plumbing works without a certificate; bind a real CAdES

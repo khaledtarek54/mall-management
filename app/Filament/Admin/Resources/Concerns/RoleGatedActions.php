@@ -2,8 +2,8 @@
 
 namespace App\Filament\Admin\Resources\Concerns;
 
-use App\Support\Modules;
 use App\Support\DeletionPolicy;
+use App\Support\Modules;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
@@ -56,6 +56,21 @@ trait RoleGatedActions
         }
 
         return Str::snake(Str::pluralStudly(class_basename($model)));
+    }
+
+    /**
+     * The permission module this resource gates on, readable from outside.
+     *
+     * `hasPermission()` can only ever answer for the CURRENT session, because it reads
+     * `Auth::user()`. A notification is built where there is no session — in a scheduled command or
+     * a queued job — and still has to decide whether the operator it is addressed to may open the
+     * link it is about to embed. Exposing the module key lets that question be asked of the
+     * recipient directly (`$user->can("{$module}.view")`) instead of being answered "no" for
+     * everyone by an absent session. See App\Support\NotificationLink::mayView().
+     */
+    public static function permissionModuleKey(): string
+    {
+        return static::permissionModule();
     }
 
     protected static function hasPermission(string $action): bool

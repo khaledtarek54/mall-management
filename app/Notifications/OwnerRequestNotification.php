@@ -38,7 +38,6 @@ class OwnerRequestNotification extends Notification
                 : "{$this->request->reference} is now {$this->request->status}.",
             'icon' => 'heroicon-o-inbox',
             'color' => $this->request->priority === 'high' ? 'warning' : 'info',
-            'url' => null,
             'format' => 'filament',
             'duration' => 'persistent',
         ];

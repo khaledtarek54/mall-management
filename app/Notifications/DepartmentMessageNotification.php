@@ -28,7 +28,6 @@ class DepartmentMessageNotification extends Notification
             'body' => $this->body,
             'icon' => 'heroicon-o-chat-bubble-left-right',
             'color' => 'info',
-            'url' => null,
             'format' => 'filament',
             'duration' => 'persistent',
         ];

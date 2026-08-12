@@ -41,6 +41,14 @@ class LowStockNotification extends Notification
             'low_stock_alert_id' => $this->alert->id,
             'inventory_item_id' => $this->alert->inventory_item_id,
             'asset_id' => $this->alert->asset_id,
+            'icon' => 'heroicon-o-archive-box-arrow-down',
+            'color' => 'warning',
+            // Filament's bell queries `data->format = 'filament'` and renders nothing else. Without
+            // these two keys this notification wrote a row on every scan and appeared NOWHERE — the
+            // class docblock said "bell only" and the bell could not show it. Every other
+            // notification in app/Notifications carries them; this one shipped without.
+            'format' => 'filament',
+            'duration' => 'persistent',
         ];
     }
 }

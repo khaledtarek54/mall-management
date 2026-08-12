@@ -71,7 +71,31 @@ The module enforces **idempotency** through two mechanisms:
    - internal-only comments do NOT trigger notification (guarded in service).
    - Tested in `MaintenanceAndSalesNotificationsTest::the cancelled transition does NOT fire`.
 
-7. **Operator/owner routing is role + asset-scoped**  
+7. **Every bell entry is clickable, and the link is built per READER — never per notification.**
+   - `App\Support\NotificationTargets` is the single register of where each notification goes;
+     `App\Support\NotificationLink` turns a row + a recipient into a URL;
+     `App\Notifications\Channels\BellChannel` (bound over Laravel's `DatabaseChannel` in
+     `AppServiceProvider`) attaches it to every notification at once. **No `toDatabase()` writes an
+     `actions` key** — adding one to a notification class is the mistake this replaced.
+   - The destination is a function of *(notification, reader)*, because the same notification object
+     is delivered to an operator (`User` → `/admin`) and a retailer (`Tenant`/`TenantUser` →
+     `/portal`), and the two panels are **not interchangeable**: `/admin` is tenanted
+     (`/admin/{property-code}/invoices/7`), `/portal` is not (`/portal/invoices/7`). Both panels
+     register an `InvoiceResource` and both answer `getUrl()`, so nothing at runtime objects to
+     handing a tenant the admin one.
+   - **Almost every notification is raised in a scheduled command or a queued job**, where there is
+     no current panel, no current property and no `Auth::user()`. So all three are passed
+     explicitly: the panel from the notifiable's class, the property from the record via
+     `PropertyIsolation::OWNED` (Invoice reaches its property through `lease.unit`), and
+     authorization asked of the *recipient* rather than of the absent session.
+   - A link that cannot be opened is **withheld, not embedded** — a property the operator is not
+     assigned to would 404 at `IdentifyTenant`, another tenant's invoice would fall outside the
+     portal's own scoping. Those fall back to the notification centre.
+   - Gated by `NotificationDeepLinkConformanceTest` (a notification with `toDatabase()` and no
+     registry row fails the build; a row pointing a panel at the other panel's resource fails; a
+     payload key the notification never writes fails).
+
+8. **Operator/owner routing is role + asset-scoped**  
    - `AssetStaffRecipients::for($assetId, ['manager', 'operations'])` returns users with those roles + assigned to that asset, plus all super_admins (fallback).
    - Owners returned via `AssetStaffRecipients::owners($assetId)`: users with Jawad owner role + asset_owner relationship.
    - If no users found, notification silently skips (no mail bounces).
@@ -164,7 +188,22 @@ Used by: ScanMaintenanceSlaBreachesCommand, ScanOverdueInvoicesCommand for overs
 - Reads from `notifications` where `notifiable_type = 'App\\Models\\TenantUser'` and `data->format = 'filament'`.
 - Tenant-side notifications flow through `Tenant::notifyPortal()` which sends to all portal logins automatically.
 
-**No Filament Resource for notifications themselves** — they are read-only and managed by the notification system.
+**Notification centre** — `App\Filament\Admin\Pages\NotificationCenter` (`/admin/{property}/notifications`)
+and `App\Filament\Portal\Pages\NotificationCenter` (`/portal/notifications`), sharing
+`App\Filament\Concerns\RendersNotificationCentre`.
+- The bell is a peek — a dropdown two lines high, and once an entry scrolls out of it there is no
+  way back to what it said. That matters for alerts like "contract notice deadline passed, it
+  auto-renews", and it is the **only** destination for notifications with no record to open (a
+  department message; an announcement or violation notice read by a tenant, whose panel has no
+  resource for either).
+- Full history, read/unread, filter by status · by subject · last 7 days, a details modal with the
+  complete alert, per-row and bulk mark-as-read, and an unread badge on the sidebar item.
+- **No permission gates it and none should**: the query is scoped to `$user->notifications()`, so
+  the page can only ever render rows addressed to the reader. A `{module}.view` check here would
+  gate someone out of their own mail. Write actions still re-check ownership, because the record key
+  arrives from the browser.
+- Filed at the top level rather than in a navigation group — like the profile menu, it belongs to
+  the reader, not to a module.
 
 ---
 
@@ -397,6 +436,31 @@ happen".
 
 ## 9. Gotchas, edge cases & recently-fixed bugs
 
+0. **A bell payload without `format => 'filament'` is written and never seen** *(fixed 2026-08-12)*
+   Filament's bell queries `where('data->format', 'filament')` and renders nothing else.
+   `LowStockNotification` shipped without the key under a docblock that read "Bell only —
+   deliberately": it wrote a row on every low-stock scan, and the bell — the only channel it used —
+   could not display any of them. There was nothing to notice, which is why it lasted.
+   **Guard**: `NotificationDeepLinkConformanceTest` fails the build on a registered notification
+   whose source does not write `'format' => 'filament'`.
+
+0b. **A `url` key in a `toDatabase()` payload does nothing** *(removed 2026-08-12)*
+   Six payloads carried a hand-written `'url' => null`. Filament reads no such key — a bell entry's
+   destination lives in its `actions` array — so it read as a wired-up feature and was inert. The
+   destination now lives in `App\Support\NotificationTargets`, and the conformance gate fails on a
+   `url` key reappearing in any notification.
+
+0c. **`Resource::getUrl()` silently answers for the WRONG panel outside a request.**
+   With no `panel:` argument it falls back to `Filament::getCurrentPanel()`, which in a scheduled
+   command or queued worker is the **default** panel — `admin`. So the obvious way to build a
+   tenant's link (`InvoiceResource::getUrl('view', ['record' => $invoice])`, portal namespace and
+   all) produces a URL the tenant cannot open, on every notification, without ever throwing. The
+   same call also needs a `tenant:` for `/admin`, whose routes carry a property slug that
+   `Filament::getTenant()` cannot supply out there.
+   **Guard**: nothing builds these by hand — `App\Support\NotificationLink` passes both
+   explicitly, and the conformance gate asserts each declared destination resolves to a URL inside
+   the panel it was declared for.
+
 1. **Portal fan-out must hit ALL portal logins**  
    Subtle bug: if you call `$tenant->notify($notification)` instead of `$tenant->notifyPortal($notification)`, the portal logins miss the alert. The Tenant record is primarily for the mobile/API surface; the web bell reads TenantUser notifications only.  
    **Guard**: Always use `notifyPortal()` for tenant-facing events. Tests in `NotificationFlowScenarioTest` assert both the Tenant AND each TenantUser receive the notification.
@@ -463,6 +527,9 @@ happen".
 - `tests/Feature/Scenarios/NotificationFlowScenarioTest.php` — **authoritative suite** covering notifyPortal fan-out, scoping (unrelated tenant not notified), payload shape (title/body/format/color/duration), recipient branching (maintenance comment Tenant vs staff), sales locked, payment received with invoice list
 - `tests/Feature/Console/ScanMaintenanceSlaBreachesCommandTest.php` — breach alert fired, sla_breach_notified_at stamped, --dry-run, already-alerted skipped, closed/resolved skipped
 - `tests/Feature/Console/ConsoleCommandsTest.php` — apply-late-fees stats, monthly billing dispatch, CAM reconcile, cam:reconcile --auto-bill
+- `tests/Feature/Notifications/NotificationDeepLinkTest.php` — the SAME notification hands an operator `/admin/{property}/…` and a retailer `/portal/…`; the slug is the record's property, not the reader's; a link is withheld rather than 404'd for the wrong property or another tenant; the fallback destination; the URL never leaks into the FCM push or the mobile API
+- `tests/Feature/Notifications/NotificationCenterTest.php` — both panels render, each reader sees only their own rows, read/unread + mark-all, ownership refusal (with an authorised control)
+- `tests/Feature/Scenarios/NotificationDeepLinkConformanceTest.php` — **the gate**: unclassified notification, cross-panel destination, payload key that is never written, missing `format => filament`, a reappearing `url` key
 
 ### Related Modules (see docs/modules/<name>.md)
 - `08-maintenance-requests.md` — MaintenanceRequest model, status machine, SLA logic

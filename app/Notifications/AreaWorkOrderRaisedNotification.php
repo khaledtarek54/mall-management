@@ -47,7 +47,6 @@ class AreaWorkOrderRaisedNotification extends Notification
             ]),
             'icon' => 'heroicon-o-map-pin',
             'color' => $this->order->priority === 'urgent' ? 'danger' : 'warning',
-            'url' => null,
             'format' => 'filament', // Filament's bell only renders notifications tagged with this
             'duration' => 'persistent', // stay until dismissed (a non-persistent toast auto-deletes the row after ~6s)
         ];

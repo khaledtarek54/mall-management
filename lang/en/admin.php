@@ -48,7 +48,7 @@ return [
     'errors' => [
         'document_prefix_invalid' => 'The prefix :prefix is not usable — use 2 to 6 letters or digits.',
         'document_prefix_duplicated' => 'Two document types cannot share the prefix :prefix; their numbers would run into one series.',
-        'fiscal_year_start_locked' => "The fiscal year start cannot change once entries have been posted — it would re-date periods that already contain them. Set it on a fresh installation, before the first entry.",
+        'fiscal_year_start_locked' => 'The fiscal year start cannot change once entries have been posted — it would re-date periods that already contain them. Set it on a fresh installation, before the first entry.',
         'bank_match_missing_posting' => 'That posting no longer exists — refresh and pick another.',
         'bank_match_already_matched' => 'That posting is already explained by another statement line. Reporting the same money as verified twice is exactly what this check prevents — unmatch it there first.',
         'bank_match_wrong_account' => 'That posting belongs to a different account. Matching across accounts would reconcile this bank with another bank\'s money and still balance.',
@@ -2352,6 +2352,39 @@ return [
         // bell's own title/body, so only the button and a fallback subject are new strings.
         'mail_open_cta' => 'Open Atriom',
         'mail_generic_subject' => 'Atriom notification',
+
+        // The clickable part of every bell alert (App\Notifications\Channels\BellChannel).
+        // ":name" is the destination's own model label, so the button reads "Open invoice" /
+        // "Open work order" and the reader knows where the click goes before making it.
+        'actions' => [
+            'open' => 'Open',
+            'open_named' => 'Open :name',
+            'details' => 'View details',
+        ],
+
+        // The notification centre — the full history behind the bell.
+        'centre' => [
+            'nav_label' => 'Notifications',
+            'page_title' => 'Notifications',
+            'subheading' => 'Every alert sent to you, in full. Opening one marks it read.',
+            'subheading_portal' => 'Every alert sent to you by mall management, in full.',
+            'alert' => 'Alert',
+            'subject' => 'About',
+            'subject_other' => 'Other',
+            'when' => 'Received',
+            'status' => 'Status',
+            'status_all' => 'All',
+            'status_read' => 'Read',
+            'status_unread' => 'Unread',
+            'last_7_days' => 'Last 7 days',
+            'details' => 'Details',
+            'mark_read' => 'Mark as read',
+            'mark_unread' => 'Mark as unread',
+            'mark_all_read' => 'Mark all as read',
+            'marked_read' => ':count marked as read',
+            'empty_heading' => 'Nothing to catch up on',
+            'empty_body' => 'Alerts about your invoices, requests, leases and deadlines land here.',
+        ],
         'journal_entry_posted' => 'Journal entry posted',
         'journal_entry_post_failed' => 'Could not post the entry',
         'ledger_posted' => 'Posted to the general ledger — the books are now up to date.',

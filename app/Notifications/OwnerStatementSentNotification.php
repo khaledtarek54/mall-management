@@ -36,7 +36,6 @@ class OwnerStatementSentNotification extends Notification
             ]),
             'icon' => 'heroicon-o-document-text',
             'color' => 'success',
-            'url' => null,
             'format' => 'filament',
             'duration' => 'persistent',
         ];
