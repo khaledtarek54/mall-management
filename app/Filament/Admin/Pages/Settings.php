@@ -3,14 +3,8 @@
 namespace App\Filament\Admin\Pages;
 
 use App\Models\TaxCode;
-use App\Settings\BillingSettings;
-use App\Settings\EtaSettings;
-use App\Settings\IntegrationsSettings;
-use App\Settings\MaintenanceSettings;
-use App\Settings\ModulesSettings;
-use App\Settings\PayrollSettings;
-use App\Settings\TaxSettings;
 use App\Support\Modules;
+use App\Support\SettingsRegistry;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Placeholder;
@@ -71,66 +65,14 @@ class Settings extends Page implements HasSchemas
 
     public function mount(): void
     {
-        $billing = app(BillingSettings::class);
-        $maint = app(MaintenanceSettings::class);
-        $integ = app(IntegrationsSettings::class);
-        $eta = app(EtaSettings::class);
-        $tax = app(TaxSettings::class);
-        $payroll = app(PayrollSettings::class);
-        $mods = app(ModulesSettings::class);
-
-        // Filament treats dots in field names as nested-array paths, so the
-        // form state must be nested (e.g. data['billing']['late_fee_percent'])
-        // rather than flat dotted keys.
-        $this->data = [
-            'billing' => [
-                'late_fee_percent' => $billing->late_fee_percent,
-                'late_fee_grace_days' => $billing->late_fee_grace_days,
-                'late_fee_minimum' => $billing->late_fee_minimum,
-                'nsf_fee_amount' => $billing->nsf_fee_amount,
-                'monthly_billing_day' => $billing->monthly_billing_day,
-                'monthly_billing_time' => $billing->monthly_billing_time,
-                'cam_reconciliation_month' => $billing->cam_reconciliation_month,
-                'cam_reconciliation_day' => $billing->cam_reconciliation_day,
-                'cam_reconciliation_time' => $billing->cam_reconciliation_time,
-                'straight_line_rent_enabled' => $billing->straight_line_rent_enabled,
-            ],
-            'maintenance' => [
-                'sla_urgent_hours' => $maint->sla_urgent_hours,
-                'sla_high_hours' => $maint->sla_high_hours,
-                'sla_medium_hours' => $maint->sla_medium_hours,
-                'sla_low_hours' => $maint->sla_low_hours,
-                'sla_urgent_respond_hours' => $maint->sla_urgent_respond_hours,
-                'sla_high_respond_hours' => $maint->sla_high_respond_hours,
-                'sla_medium_respond_hours' => $maint->sla_medium_respond_hours,
-                'sla_low_respond_hours' => $maint->sla_low_respond_hours,
-            ],
-            'integrations' => [
-                'paymob_enabled' => $integ->paymob_enabled,
-            ],
-            'eta' => [
-                'enabled' => $eta->enabled,
-                'mock' => $eta->mock,
-                'issuer_name' => $eta->issuer_name,
-                'issuer_tax_registration_number' => $eta->issuer_tax_registration_number,
-            ],
-            'tax' => [
-                'seller_tax_registration_number' => $tax->seller_tax_registration_number,
-                'seller_legal_name' => $tax->seller_legal_name,
-                'wht_enabled' => $tax->wht_enabled,
-                'wht_default_tax_code' => $tax->wht_default_tax_code,
-            ],
-            'payroll' => [
-                'social_insurance_rate' => $payroll->social_insurance_rate,
-                'salary_tax_rate' => $payroll->salary_tax_rate,
-                'employer_social_insurance_rate' => $payroll->employer_social_insurance_rate,
-            ],
-            'modules' => [],
-        ];
-
-        foreach (Modules::KEYS as $key) {
-            $this->data['modules'][$key] = (bool) ($mods->{$key} ?? true);
-        }
+        // Derived from the settings classes themselves — see App\Support\SettingsRegistry. This
+        // used to be a hand-written map of every field, beside a second one in save() and a third
+        // in the schema below. Three places, and the failure was silent in the worst direction: a
+        // field missing from save() renders, accepts a value, says "Saved" and changes nothing.
+        //
+        // Filament treats dots in field names as nested-array paths, so the state is nested by
+        // settings GROUP (data['billing']['late_fee_percent']) rather than flat dotted keys.
+        $this->data = SettingsRegistry::currentState();
 
         $this->form->fill($this->data);
     }
@@ -158,61 +100,19 @@ class Settings extends Page implements HasSchemas
             abort(403);
         }
 
-        $state = $this->form->getState();
+        $changes = SettingsRegistry::persist($this->form->getState());
 
-        $billing = app(BillingSettings::class);
-        $billing->late_fee_percent = (float) $state['billing']['late_fee_percent'];
-        $billing->late_fee_grace_days = (int) $state['billing']['late_fee_grace_days'];
-        $billing->late_fee_minimum = (float) $state['billing']['late_fee_minimum'];
-        $billing->nsf_fee_amount = (float) ($state['billing']['nsf_fee_amount'] ?? 0);
-        $billing->monthly_billing_day = (int) $state['billing']['monthly_billing_day'];
-        $billing->monthly_billing_time = (string) $state['billing']['monthly_billing_time'];
-        $billing->straight_line_rent_enabled = (bool) ($state['billing']['straight_line_rent_enabled'] ?? false);
-        $billing->cam_reconciliation_month = (int) $state['billing']['cam_reconciliation_month'];
-        $billing->cam_reconciliation_day = (int) $state['billing']['cam_reconciliation_day'];
-        $billing->cam_reconciliation_time = (string) $state['billing']['cam_reconciliation_time'];
-        $billing->save();
-
-        $maint = app(MaintenanceSettings::class);
-        $maint->sla_urgent_hours = (int) $state['maintenance']['sla_urgent_hours'];
-        $maint->sla_high_hours = (int) $state['maintenance']['sla_high_hours'];
-        $maint->sla_medium_hours = (int) $state['maintenance']['sla_medium_hours'];
-        $maint->sla_low_hours = (int) $state['maintenance']['sla_low_hours'];
-        $maint->sla_urgent_respond_hours = (int) $state['maintenance']['sla_urgent_respond_hours'];
-        $maint->sla_high_respond_hours = (int) $state['maintenance']['sla_high_respond_hours'];
-        $maint->sla_medium_respond_hours = (int) $state['maintenance']['sla_medium_respond_hours'];
-        $maint->sla_low_respond_hours = (int) $state['maintenance']['sla_low_respond_hours'];
-        $maint->save();
-
-        $integ = app(IntegrationsSettings::class);
-        $integ->paymob_enabled = (bool) $state['integrations']['paymob_enabled'];
-        $integ->save();
-
-        $eta = app(EtaSettings::class);
-        $eta->enabled = (bool) $state['eta']['enabled'];
-        $eta->mock = (bool) $state['eta']['mock'];
-        $eta->issuer_name = (string) $state['eta']['issuer_name'];
-        $eta->issuer_tax_registration_number = (string) $state['eta']['issuer_tax_registration_number'];
-        $eta->save();
-
-        $tax = app(TaxSettings::class);
-        $tax->seller_tax_registration_number = trim((string) ($state['tax']['seller_tax_registration_number'] ?? ''));
-        $tax->seller_legal_name = trim((string) ($state['tax']['seller_legal_name'] ?? ''));
-        $tax->wht_enabled = (bool) $state['tax']['wht_enabled'];
-        $tax->wht_default_tax_code = (string) ($state['tax']['wht_default_tax_code'] ?? '');
-        $tax->save();
-
-        $payroll = app(PayrollSettings::class);
-        $payroll->social_insurance_rate = (float) $state['payroll']['social_insurance_rate'];
-        $payroll->salary_tax_rate = (float) $state['payroll']['salary_tax_rate'];
-        $payroll->employer_social_insurance_rate = (float) $state['payroll']['employer_social_insurance_rate'];
-        $payroll->save();
-
-        $mods = app(ModulesSettings::class);
-        foreach (Modules::KEYS as $key) {
-            $mods->{$key} = (bool) ($state['modules'][$key] ?? true);
+        // Who moved the late-fee percent, when, and from what. `settings.manage` gates who MAY;
+        // nothing recorded who DID, which in a system where money records are undeletable and the
+        // charge-code catalogue is activity-logged left these numbers as the one place a figure
+        // could change leaving no history. Logged only when something actually changed, so pressing
+        // Save on an untouched page writes nothing.
+        if ($changes !== []) {
+            activity('settings')
+                ->causedBy(Auth::user())
+                ->withProperties(['changes' => $changes])
+                ->log('settings.updated');
         }
-        $mods->save();
 
         Notification::make()
             ->title(__('admin.settings.saved'))
@@ -233,6 +133,18 @@ class Settings extends Page implements HasSchemas
                     Toggle::make('billing.straight_line_rent_enabled')
                         ->label(__('admin.settings.fields.straight_line_rent_enabled'))
                         ->helperText(__('admin.settings.fields.straight_line_rent_enabled_help')),
+                ]),
+            Section::make(__('admin.settings.sections.marketing_levy'))
+                ->description(__('admin.settings.sections.marketing_levy_description'))
+                ->components([
+                    TextInput::make('marketing.levy_rate_percent')
+                        ->label(__('admin.settings.fields.levy_rate_percent'))
+                        ->helperText(__('admin.settings.fields.levy_rate_percent_helper'))
+                        ->suffix('%')
+                        ->numeric()
+                        ->minValue(0)
+                        ->maxValue(100)
+                        ->required(),
                 ]),
             Section::make(__('admin.settings.sections.late_fees'))
                 ->description(__('admin.settings.sections.late_fees_description'))
@@ -263,6 +175,21 @@ class Settings extends Page implements HasSchemas
                         ->helperText(__('admin.settings.fields.nsf_fee_amount_helper'))
                         ->numeric()
                         ->prefix('EGP')
+                        ->minValue(0)
+                        ->required(),
+                ]),
+            Section::make(__('admin.settings.sections.credit_and_holdover'))
+                ->description(__('admin.settings.sections.credit_and_holdover_description'))
+                ->columns(2)
+                ->components([
+                    Toggle::make('billing.auto_apply_tenant_credit')
+                        ->label(__('admin.settings.fields.auto_apply_tenant_credit'))
+                        ->helperText(__('admin.settings.fields.auto_apply_tenant_credit_helper')),
+                    TextInput::make('billing.holdover_default_rate_pct')
+                        ->label(__('admin.settings.fields.holdover_default_rate_pct'))
+                        ->helperText(__('admin.settings.fields.holdover_default_rate_pct_helper'))
+                        ->suffix('%')
+                        ->numeric()
                         ->minValue(0)
                         ->required(),
                 ]),

@@ -14,6 +14,10 @@ return [
         \App\Settings\ModulesSettings::class,
         \App\Settings\MarketingSettings::class,
         \App\Settings\PayrollSettings::class,
+        // Registered 2026-08-12. It was the one settings class missing from this list while being
+        // read on every taxable supply — and the Settings screen now derives its tabs from here,
+        // so an unregistered class is a tab that does not exist.
+        \App\Settings\TaxSettings::class,
     ],
 
     /*
