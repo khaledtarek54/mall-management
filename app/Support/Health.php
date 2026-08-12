@@ -6,6 +6,7 @@ use App\Models\SystemSetting;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
 
@@ -495,32 +496,79 @@ class Health
     }
 
     /** @return array{ok: bool, detail: string} */
+    /**
+     * Is the worker keeping up — on the queue actually configured?
+     *
+     * This counted rows in the `jobs` and `failed_jobs` TABLES regardless of `QUEUE_CONNECTION`. On
+     * the database driver that is right; on redis or sqs those tables stay empty forever, so the
+     * check reported "0 queued, 0 failed" for a queue that could be hours behind or entirely dead.
+     * A green tick that cannot go red is worse than no check, and this one guards ETA submission
+     * and the real-time GL sync.
+     *
+     * `Queue::size()` asks the configured driver, so it answers for whichever backend is in use.
+     * Failed jobs come from the failer, which is a separate concern from the transport and may be
+     * absent entirely (`QUEUE_FAILED_DRIVER=null`) — that is reported rather than counted as zero.
+     */
+    /**
+     * Is the worker keeping up — on the queue actually configured?
+     *
+     * This counted rows in the `jobs` and `failed_jobs` TABLES regardless of `QUEUE_CONNECTION`. On
+     * the database driver that is correct; on redis or sqs those tables stay empty forever, so a
+     * queue hours behind — or a worker that died last week — reported "0 queued, 0 failed". A green
+     * tick that cannot go red is worse than no check, and this one is what stands between a stopped
+     * worker and silently unposted ledger entries.
+     *
+     * Depth comes from `Queue::size()`, which asks the configured driver. Failures are a separate
+     * concern from the transport: they are recorded by the failer whatever the driver, so they are
+     * checked FIRST and unconditionally — including under `sync`, where jobs run inline but a
+     * failure from an earlier run is still a document that did not happen.
+     */
     private static function checkQueue(): array
     {
         try {
-            $failed = DB::table('failed_jobs')->count();
-            $pending = DB::table('jobs')->count();
+            // `QUEUE_FAILED_DRIVER=null` resolves to a provider that accepts a failure and forgets
+            // it. Counting its zero would be the same fail-open in a new costume.
+            $failer = app()->bound('queue.failer') ? app('queue.failer') : null;
 
+            if (! $failer instanceof \Illuminate\Queue\Failed\FailedJobProviderInterface
+                || $failer instanceof \Illuminate\Queue\Failed\NullFailedJobProvider) {
+                return ['ok' => false, 'detail' => 'failed jobs are not recorded (QUEUE_FAILED_DRIVER=null) — a job that dies leaves no trace'];
+            }
+
+            $failed = count($failer->ids());
             $maxFailed = (int) config('health.max_failed_jobs');
-            $maxPending = (int) config('health.max_pending_jobs');
 
             if ($failed > $maxFailed) {
                 return ['ok' => false, 'detail' => "{$failed} failed job(s) (max {$maxFailed})"];
             }
 
-            // A large backlog means the worker is not running — the same silent
-            // failure as a dead scheduler, and it stalls ETA + GL sync.
-            if ($pending > $maxPending) {
-                return ['ok' => false, 'detail' => "{$pending} job(s) queued (max {$maxPending}) — is the worker running?"];
+            $connection = (string) config('queue.default');
+            $driver = (string) config("queue.connections.{$connection}.driver");
+
+            // `sync` runs jobs inline: there is no queue to be behind on, and reporting a depth of
+            // 0 would imply a worker exists and is keeping up.
+            if ($driver === 'sync') {
+                return ['ok' => true, 'detail' => "sync driver — jobs run inline, no worker to watch; {$failed} failed"];
             }
 
-            return ['ok' => true, 'detail' => "{$pending} queued, {$failed} failed"];
+            $pending = (int) Queue::connection($connection)->size(
+                (string) (config("queue.connections.{$connection}.queue") ?: 'default')
+            );
+
+            $maxPending = (int) config('health.max_pending_jobs');
+
+            // A large backlog means the worker is not running — the same silent failure as a dead
+            // scheduler, and it stalls ETA + GL sync.
+            if ($pending > $maxPending) {
+                return ['ok' => false, 'detail' => "{$pending} job(s) queued on [{$connection}] (max {$maxPending}) — is the worker running?"];
+            }
+
+            return ['ok' => true, 'detail' => "{$pending} queued, {$failed} failed on [{$connection}]"];
         } catch (Throwable $e) {
             return ['ok' => false, 'detail' => 'unreadable: '.$e->getMessage()];
         }
     }
 
-    /** @return array{ok: bool, detail: string} */
     private static function checkScheduler(): array
     {
         $path = self::heartbeatPath();
@@ -547,33 +595,60 @@ class Health
      *
      * @return array{ok: bool, detail: string}
      */
+    /**
+     * EVERY backup destination has a recent archive — not just the first one.
+     *
+     * This read `$disks[0]` and stopped. The recommended go-live setting is
+     * `BACKUP_DISKS="backups,s3"`, and the whole reason the second disk exists is that the first
+     * dies with the machine — so the destination that actually protects you was the one never
+     * checked. An s3 upload silently failing on credentials reported as healthy, indefinitely.
+     *
+     * Fails if ANY disk is stale or unreadable, and names which. A partial backup is not a backup:
+     * the question this answers is "can I restore after losing the box", and one surviving copy on
+     * the box itself does not answer it.
+     */
     private static function checkBackups(): array
     {
         $disks = config('backup.backup.destination.disks', []);
-        $disk = is_array($disks) ? ($disks[0] ?? null) : null;
+        $disks = is_array($disks) ? array_values(array_filter($disks)) : [];
 
-        if ($disk === null) {
+        if ($disks === []) {
             return ['ok' => false, 'detail' => 'no backup destination configured'];
         }
 
-        try {
-            $files = collect(Storage::disk($disk)->allFiles())
-                ->filter(fn (string $f): bool => str_ends_with($f, '.zip'));
+        $max = (int) config('health.max_backup_age_hours');
+        $problems = [];
+        $healthy = [];
 
-            if ($files->isEmpty()) {
-                return ['ok' => false, 'detail' => "no archive on disk [{$disk}]"];
+        foreach ($disks as $disk) {
+            try {
+                $files = collect(Storage::disk($disk)->allFiles())
+                    ->filter(fn (string $f): bool => str_ends_with($f, '.zip'));
+
+                if ($files->isEmpty()) {
+                    $problems[] = "no archive on [{$disk}]";
+
+                    continue;
+                }
+
+                $newest = $files->max(fn (string $f): int => Storage::disk($disk)->lastModified($f));
+                $ageHours = (int) floor((now()->getTimestamp() - $newest) / 3600);
+
+                if ($ageHours > $max) {
+                    $problems[] = "[{$disk}] newest archive {$ageHours}h old (max {$max}h)";
+
+                    continue;
+                }
+
+                $healthy[] = "[{$disk}] {$ageHours}h";
+            } catch (Throwable $e) {
+                $problems[] = "[{$disk}] unreadable: ".$e->getMessage();
             }
-
-            $newest = $files->max(fn (string $f): int => Storage::disk($disk)->lastModified($f));
-            $ageHours = (int) floor((now()->getTimestamp() - $newest) / 3600);
-            $max = (int) config('health.max_backup_age_hours');
-
-            return $ageHours <= $max
-                ? ['ok' => true, 'detail' => "newest archive {$ageHours}h old"]
-                : ['ok' => false, 'detail' => "newest archive {$ageHours}h old (max {$max}h)"];
-        } catch (Throwable $e) {
-            return ['ok' => false, 'detail' => "disk [{$disk}] unreadable: ".$e->getMessage()];
         }
+
+        return $problems === []
+            ? ['ok' => true, 'detail' => 'newest archive '.implode(', ', $healthy)]
+            : ['ok' => false, 'detail' => implode('; ', $problems)];
     }
 
     /**

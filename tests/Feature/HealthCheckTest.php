@@ -90,6 +90,11 @@ it('fails when jobs are failing', function () {
 });
 
 it('fails when the queue has backed up behind a stopped worker', function () {
+    // The suite runs on the `sync` driver, where jobs execute inline and there is no worker to
+    // stop — so this scenario has to name a real queued connection. It used to pass under sync
+    // only because the check counted the `jobs` table whatever the driver was, which is the defect
+    // itself: on redis or sqs that count is permanently 0 and the check could never go red.
+    config()->set('queue.default', 'database');
     config()->set('health.max_pending_jobs', 2);
 
     foreach (range(1, 3) as $i) {

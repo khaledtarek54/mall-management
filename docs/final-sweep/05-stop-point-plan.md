@@ -151,10 +151,10 @@ trial balance for that month.
 | 33 | Get the backup actually producing an archive; add off-site, encryption and an archive-password escrow | FS-10 | ⚙️ |
 | 34 | **Run a restore drill and time it.** RTO is currently unmeasured. Fix `VerifyBackupService`'s S3 and `CREATE DATABASE` assumptions first | FS-10 | ⚙️ |
 | 35 | Point an external monitor at `/health`; set `SENTRY_LARAVEL_DSN`, `OPS_LOG_STACK`, `LOG_SLACK_WEBHOOK_URL` | — | ⚙️ |
-| 36 | Fix `/health`'s queue check to read the real queue backend, and make `checkBackups()` inspect every disk | — | 🧑‍💻 S |
-| 37 | Make `integrations:check --mail` fail on `MAIL_MAILER=log` | — | 🧑‍💻 S |
+| ~~36~~ ✅ | ~~Fix `/health`'s queue check to read the real queue backend, and make `checkBackups()` inspect every disk~~ — **done 2026-08-12.** Depth now comes from `Queue::size()` on the configured connection; failures are checked first and unconditionally (they matter under `sync` too) and a `null` failed-driver FAILS rather than reporting zero. Backups check every destination and name the stale one — the recommended `BACKUP_DISKS="backups,s3"` meant the copy that survives the machine was the one never looked at | — | 🧑‍💻 S |
+| ~~37~~ ✅ | ~~Make `integrations:check --mail` fail on `MAIL_MAILER=log`~~ — **done 2026-08-12.** Fails in production only, where it means every invoice, reminder and alert goes to a file nobody reads; still passes elsewhere, where it is the normal setting | — | 🧑‍💻 S |
 | 38 | Runbooks for the five missing procedures: failed billing run, user locked out, secret rotation, **cut-over**, schema rollback | — | 🧑‍💻 |
-| 39 | Rewrite `docs/gap-analysis/999-production-checklist.md` — it asks the operator to verify "295/295 tests" (actual ~3,680), "40+ migrations" (actual 195) and "3 scheduled entries" (actual 29) | — | S |
+| ~~39~~ ✅ | ~~Rewrite `docs/gap-analysis/999-production-checklist.md`~~ — **done 2026-08-12.** The counts are GONE rather than corrected: it asserted 295 tests (real: 4,564), 40+ migrations (211) and a three-line schedule (31), and a number in a checklist is a number that goes stale — worse, an operator seeing a truncated run hit an old total ticks the box. Every item now asserts a state the command itself reports, and the page defers to GO-LIVE.md as the actual gate | — | S |
 
 **Phase-4 exit test:** a person who is not you deploys a release, breaks it deliberately, and restores
 — with the runbook and no help.

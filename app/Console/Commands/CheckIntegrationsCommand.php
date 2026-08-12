@@ -80,9 +80,17 @@ class CheckIntegrationsCommand extends Command
         $from = (string) config('mail.from.address');
 
         if (in_array($mailer, ['log', 'array'], true)) {
-            $this->status(true, "[disabled] MAIL_MAILER={$mailer} — mail is written to the log, not delivered.");
+            // A green tick on `MAIL_MAILER=log` is a fail-open. In production it means every tenant
+            // invoice, every overdue reminder and every ledger-drift alert is written to a file
+            // nobody reads, while the preflight whose job is to catch exactly that says fine. It is
+            // a perfectly normal setting everywhere else, so it only FAILS where it is a defect.
+            $inProduction = app()->environment('production');
 
-            return true;
+            $this->status(! $inProduction, $inProduction
+                ? "MAIL_MAILER={$mailer} in PRODUCTION — nothing is delivered. Every invoice, reminder and alert goes to the log."
+                : "[disabled] MAIL_MAILER={$mailer} — mail is written to the log, not delivered (expected outside production).");
+
+            return ! $inProduction;
         }
 
         $ok = true;

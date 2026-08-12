@@ -1,13 +1,26 @@
 # Production Readiness Checklist
 
+> **⚠️ [docs/GO-LIVE.md](../GO-LIVE.md) is the gate, not this file.** GO-LIVE is verified against the
+> code and dated; this page is the older deployment-mechanics list kept for the steps GO-LIVE does
+> not repeat (asset build, file permissions, log rotation, sign-off table). Where the two disagree,
+> GO-LIVE wins.
+>
+> **No counts are asserted here any more (corrected 2026-08-12).** This page used to ask the
+> operator to confirm "295 / 295 green", "40+ migrations" and a three-line schedule — baselines from
+> 2026-05-31 that had drifted to 4,564 tests, 211 migrations and 31 scheduled commands. A checklist
+> whose numbers are wrong is worse than none: the operator either believes something is broken, or —
+> far worse — sees a truncated run hit an old number and ticks the box. The rule this project
+> applies to generated docs applies here too: **never hand-type a count**. Each item below now
+> asserts a STATE the command itself reports.
+>
 > Single-page sign-off list. Run top-to-bottom before any non-demo deployment.
 > Each item has a source (code / config / runbook), a status box, and a verification command where possible.
 
 ## 1. Code state
 
 - [ ] `git log --oneline main..HEAD` reviewed; no unfinished branches in the working tree
-- [ ] `php artisan test --parallel` → **295 / 295 green** (was 287 before audit + 8 LeaseObserver cases)
-- [ ] `npx playwright test` → all green (164 cases / 18 spec files at baseline)
+- [ ] `vendor/bin/pest --parallel` → **green, with no failures and no errors**. Do not check a count: the suite grows every week, and a number here is a number that goes stale.
+- [ ] `npx playwright test` → all green. *(Advisory: CI auto-runs are paused, and the E2E suite is slow — see CLAUDE.md.)*
 - [ ] `composer install --no-dev --optimize-autoloader`
 - [ ] `npm ci && npm run build` if assets are managed via Vite
 
@@ -24,7 +37,7 @@
 
 ## 3. Database
 
-- [ ] `php artisan migrate --force` — all 40+ migrations applied
+- [ ] `php artisan migrate --force` — completes with no pending migrations left (`php artisan migrate:status` shows none)
 - [ ] `php artisan atriom:install --admin-email=… --admin-name="…"` — roles + permissions, **chart of accounts + account mappings + charge codes + fiscal year**, the **first `super_admin`** (nothing else in the codebase creates a user, so without this nobody can sign in), then verifies the database can post (exits non-zero if it cannot). Skip it and the system bills correctly while the general ledger stays empty. Idempotent; never seeds demo data
 - [ ] Store the administrator password it prints — it is shown once and generated, not a default
 - [ ] `php artisan atriom:health` — green (it now also reports an unpostable install and any seeded demo login)
@@ -133,7 +146,8 @@
 
 ---
 
-**Audit closeout date:** 2026-05-31
-**Pest baseline:** 295 / 295 ✅
+**Audit closeout date:** 2026-05-31 — *the audit this page came from. It is not a statement about
+the system today; see [GO-LIVE.md](../GO-LIVE.md) and [docs/final-sweep/](../final-sweep/) for that.*
+**Pest baseline:** none, deliberately — assert green, never a number.
 **F-17 cross-cutting fix:** complete (6/6 resources)
-**Deferred backlog:** 60 items in [998-deferred-backlog.md](998-deferred-backlog.md)
+**Deferred backlog:** [998-deferred-backlog.md](998-deferred-backlog.md)
