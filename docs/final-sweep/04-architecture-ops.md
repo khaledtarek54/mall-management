@@ -330,7 +330,7 @@ turn nothing red.** Concurrency is the one invariant class in CLAUDE.md that nev
 a gate, and it is the class the project has already been bitten by (the double-booking race, the
 Paymob double-charge race).
 
-### 4.2 CRITICAL — the authz gate is an `OR` where the rule is an `AND`
+### 4.2 ~~CRITICAL — the authz gate is an `OR` where the rule is an `AND`~~ ✅ FIXED 2026-08-12
 
 - **Verified:** yes, in the Filament source — **and it refines a documented CLAUDE.md invariant**
 
@@ -351,10 +351,16 @@ second layer is `abort_unless` **inside the action closure** — which is exactl
 practical advice already says. What is wrong is (a) the **gate** accepts either, and (b) CLAUDE.md's
 *rationale* sentence misdescribes the mechanism.
 
-**76 write actions — including journal-entry `post`/`void`, `void_invoice` and period close — carry
-`->authorize()` and no closure gate**, so they rest on a single layer. **No live exploit**: that layer
-holds today. The defect is that the gate meant to guarantee defence-in-depth doesn't, which is
-precisely the thing that would fail silently on a Filament upgrade.
+**76 write actions — including journal-entry `post`/`void`, `void_invoice` and period close — carried
+`->authorize()` and no closure gate**, so they rested on a single layer. **No live exploit**: that layer
+held. The defect was that the gate meant to guarantee defence-in-depth didn't, which is precisely the
+thing that would fail silently on a Filament upgrade.
+
+**Fixed at the seam, not in 76 files.** `Action::make()` resolves through the container, so
+`Filament\Actions\Action` is bound to `App\Support\Filament\AuthorizedAction`, whose `call()`
+runs `abort_unless($this->isAuthorized(), 403)` before evaluating the body. Whichever gate an action
+declares now genuinely runs at dispatch. `ActionCallIsAuthorizedTest` pins the refusal, the
+authorized control, the no-`authorize()` passthrough (~500 actions), and **the binding itself**.
 
 ### 4.3 CRITICAL — `billing:reconcile` counts two of four channels
 

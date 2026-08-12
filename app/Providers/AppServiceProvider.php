@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Support\Filament\AuthorizedAction;
+use Filament\Actions\Action as FilamentAction;
 use App\Listeners\LogBackupFailures;
 use App\Models\Lease;
 use App\Notifications\Channels\PushChannel;
@@ -35,6 +37,13 @@ class AppServiceProvider extends ServiceProvider
         // to build it through the fromConfig factory so controllers + actions
         // can typehint it directly.
         $this->app->singleton(PaymobClient::class, fn () => PaymobClient::fromConfig());
+
+        // `->authorize()` on a Filament action is the SAME layer as `visible()` — both fold into
+        // `isHidden()`/`isDisabled()` — and `Action::call()` checks nothing. So the second layer the
+        // codebase documents did not exist for the 76 write actions that gate with `->authorize()`
+        // alone. `Action::make()` resolves through the container, which is the one seam that fixes
+        // all of them at once. See App\Support\Filament\AuthorizedAction.
+        $this->app->bind(FilamentAction::class, AuthorizedAction::class);
 
         // ETA document signing is pluggable. The default is a passthrough (no-op)
         // so mock/preprod plumbing works without a certificate; bind a real CAdES

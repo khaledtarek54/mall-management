@@ -5,9 +5,22 @@
 | Every Filament write action is gated, not merely hidden
 |--------------------------------------------------------------------------
 | The project invariant: a write action must be gated in BOTH `visible()` (the UI) and
-| `authorize()`/`abort_unless` (the actual gate). `visible()` alone is a UI decision — a hidden
-| action can still be reachable by a crafted Livewire call, and a reader cannot distinguish "safe"
-| from "someone forgot" without opening every closure.
+| `authorize()`/`abort_unless` (the actual gate). `visible()` alone is a UI decision, and a reader
+| cannot distinguish "safe" from "someone forgot" without opening every closure.
+|
+| **Why this gate accepts EITHER `->authorize()` or an in-closure `abort_unless` (corrected
+| 2026-08-12).** In Filament v4.11.8 those two are not equivalent: `->authorize()` folds into
+| `isHidden()`, which folds into `isDisabled()`, so it is the SAME layer as `visible()`, while
+| `Action::call()` checked nothing at all. On the letter of the invariant this gate was therefore an
+| OR where the rule is an AND, and 76 write actions — journal-entry post and void, void_invoice,
+| period close — rested on one layer.
+|
+| That is fixed at the seam rather than in 76 files: `Action::make()` resolves through the
+| container, and `Filament\Actions\Action` is bound to `App\Support\Filament\AuthorizedAction`,
+| which checks `isAuthorized()` inside `call()`. So whichever gate an action declares now genuinely
+| runs at dispatch, and the OR below is sound *because* of that binding — not despite it.
+| `ActionCallIsAuthorizedTest` pins both the refusal and the binding itself, so a Filament release
+| that switches `make()` to `new static` turns the build red instead of silently removing the layer.
 |
 | Before this gate the invariant was enforced by memory. It shipped broken twice — CAM and Sales
 | both had write actions (generateAllocations / markReconciled / lock / dispute / void) gated only
