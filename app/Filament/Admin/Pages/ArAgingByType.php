@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Pages;
 use App\Contracts\DeliverableReport;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Services\Reports\ReportService;
+use App\Support\ReportFilters;
 use App\Support\Modules;
 use App\Support\ReportCsv;
 use BackedEnum;
@@ -71,11 +72,7 @@ class ArAgingByType extends Page implements DeliverableReport, HasSchemas, HasTa
                 ->schema([
                     // The ageing date is part of the answer, not a hidden constant: "31–60 days"
                     // only means something relative to a day.
-                    DatePicker::make('asOf')
-                        ->label(__('admin.reports.aged_as_of'))
-                        ->native(false)
-                        ->live()
-                        ->afterStateUpdated(fn () => $this->report = null),
+                    ReportFilters::asOf(fn () => $this->report = null),
                 ]),
         ]);
     }

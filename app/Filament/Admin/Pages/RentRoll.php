@@ -6,6 +6,7 @@ use App\Contracts\DeliverableReport;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Services\Reports\ReportService;
+use App\Support\ReportFilters;
 use App\Support\Modules;
 use App\Support\ReportCsv;
 use App\Support\TenantScope;
@@ -73,11 +74,7 @@ class RentRoll extends Page implements DeliverableReport, HasSchemas, HasTable
             Section::make()
                 ->columns(['sm' => 2, 'lg' => 3])
                 ->schema([
-                    DatePicker::make('asOf')
-                        ->label(__('admin.rent_roll.as_of'))
-                        ->native(false)
-                        ->live()
-                        ->afterStateUpdated(fn () => $this->rows = null)
+                    ReportFilters::asOf(fn () => $this->rows = null)
                         ->helperText(__('admin.rent_roll.as_of_help')),
                 ]),
         ]);

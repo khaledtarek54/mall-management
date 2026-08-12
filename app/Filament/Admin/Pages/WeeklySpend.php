@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Pages;
 use App\Contracts\DeliverableReport;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Services\Reports\ReportService;
+use App\Support\ReportFilters;
 use App\Support\Modules;
 use App\Support\ReportCsv;
 use BackedEnum;
@@ -87,8 +88,8 @@ class WeeklySpend extends Page implements DeliverableReport, HasSchemas, HasTabl
             Section::make()
                 ->columns(['sm' => 2])
                 ->schema([
-                    DatePicker::make('from')->label(__('admin.reports.from'))->native(false)->live(),
-                    DatePicker::make('to')->label(__('admin.reports.to'))->native(false)->live(),
+                    ReportFilters::from(fn () => null),
+                    ReportFilters::to(fn () => null),
                 ]),
         ]);
     }

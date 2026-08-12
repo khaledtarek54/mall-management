@@ -1175,6 +1175,9 @@ return [
     ],
 
     'reports' => [
+        'as_of' => 'As of',
+        'property' => 'Property',
+        'all_visible_properties' => 'All properties I can see',
         'general_ledger_needs_account' => 'This ledger view has no account chosen, so there is nothing to export or deliver. Open it, pick an account, and save the view again.',
         'vat_return_title' => 'VAT return',
         'vat_ties_out' => 'Ties out to the ledger',

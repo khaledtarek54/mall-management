@@ -6,6 +6,7 @@ use App\Contracts\DeliverableReport;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Services\Reports\ReportService;
+use App\Support\ReportFilters;
 use App\Support\Modules;
 use App\Support\ReportCsv;
 use App\Support\TenantScope;
@@ -73,11 +74,7 @@ class SalesAnalytics extends Page implements DeliverableReport, HasSchemas, HasT
             Section::make()
                 ->columns(['sm' => 2, 'lg' => 3])
                 ->schema([
-                    DatePicker::make('asOf')
-                        ->label(__('admin.sales_analytics.as_of'))
-                        ->native(false)
-                        ->live()
-                        ->afterStateUpdated(fn () => $this->report = null)
+                    ReportFilters::asOf(fn () => $this->report = null)
                         ->helperText(__('admin.sales_analytics.as_of_help')),
                 ]),
         ]);

@@ -8,6 +8,7 @@ use App\Filament\Admin\Resources\Tenants\TenantResource;
 use App\Models\Tenant;
 use App\Services\Reports\ReportService;
 use App\Services\TenantStatementPdfService;
+use App\Support\ReportFilters;
 use App\Support\Modules;
 use App\Support\ReportCsv;
 use App\Support\TenantScope;
@@ -81,11 +82,7 @@ class ArCollections extends Page implements DeliverableReport, HasSchemas, HasTa
                 ->schema([
                     // The ageing date is part of the answer, not a hidden constant: "90 days late"
                     // only means something relative to a day.
-                    DatePicker::make('asOf')
-                        ->label(__('admin.reports.aged_as_of'))
-                        ->native(false)
-                        ->live()
-                        ->afterStateUpdated(fn () => $this->rows = null),
+                    ReportFilters::asOf(fn () => $this->rows = null),
                 ]),
         ]);
     }

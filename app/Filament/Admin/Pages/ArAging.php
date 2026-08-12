@@ -11,6 +11,7 @@ use App\Models\Lease;
 use App\Models\Unit;
 use App\Services\Reports\ReportCsvExporter;
 use App\Services\Reports\ReportService;
+use App\Support\ReportFilters;
 use App\Support\Modules;
 use App\Support\ReportCsv;
 use BackedEnum;
@@ -119,10 +120,10 @@ class ArAging extends Page implements DeliverableReport, HasSchemas, HasTable
                         // The ageing date is part of the answer, not a hidden constant:
                         // "31–60 days" only means something relative to a day. Showing it
                         // makes the drill-down reconcilable against the card that opened it.
-                        DatePicker::make('asOf')
-                            ->label(__('admin.reports.aged_as_of'))
-                            ->native(false)
-                            ->live(),
+                        // No cache to clear — this page queries fresh through the table, unlike the
+                        // reports that memoise `$rows`. The empty closure says that out loud rather
+                        // than leaving the reader to wonder which kind of page this is.
+                        ReportFilters::asOf(fn () => null),
                     ]),
             ]);
     }

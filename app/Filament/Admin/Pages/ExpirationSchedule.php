@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Pages;
 use App\Contracts\DeliverableReport;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Services\Reports\ReportService;
+use App\Support\ReportFilters;
 use App\Support\Modules;
 use App\Support\ReportCsv;
 use App\Support\TenantScope;
@@ -71,11 +72,7 @@ class ExpirationSchedule extends Page implements DeliverableReport, HasSchemas, 
             Section::make()
                 ->columns(['sm' => 2, 'lg' => 3])
                 ->schema([
-                    DatePicker::make('asOf')
-                        ->label(__('admin.expiration_schedule.as_of'))
-                        ->native(false)
-                        ->live()
-                        ->afterStateUpdated(fn () => $this->rows = null)
+                    ReportFilters::asOf(fn () => $this->rows = null)
                         ->helperText(__('admin.expiration_schedule.as_of_help')),
                 ]),
         ]);

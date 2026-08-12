@@ -6,6 +6,7 @@ use App\Contracts\DeliverableReport;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Services\Reports\ReportService;
+use App\Support\ReportFilters;
 use App\Support\Modules;
 use App\Support\ReportCsv;
 use App\Support\TenantScope;
@@ -87,16 +88,8 @@ class OccupancyCost extends Page implements DeliverableReport, HasSchemas, HasTa
             Section::make()
                 ->columns(['sm' => 2, 'lg' => 3])
                 ->schema([
-                    DatePicker::make('from')
-                        ->label(__('admin.occupancy_cost.from'))
-                        ->native(false)
-                        ->live()
-                        ->afterStateUpdated(fn () => $this->rows = null),
-                    DatePicker::make('to')
-                        ->label(__('admin.occupancy_cost.to'))
-                        ->native(false)
-                        ->live()
-                        ->afterStateUpdated(fn () => $this->rows = null)
+                    ReportFilters::from(fn () => $this->rows = null),
+                    ReportFilters::to(fn () => $this->rows = null)
                         ->helperText(__('admin.occupancy_cost.window_help')),
                 ]),
         ]);
