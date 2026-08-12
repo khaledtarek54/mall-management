@@ -1231,6 +1231,8 @@ return [
     ],
 
     'reports' => [
+        'include_zero_balances' => 'Show accounts with no movement',
+        'include_zero_balances_help' => 'Lists every postable account, including those that had no entries at all — the check that proves an account is genuinely nil rather than unmapped.',
         'xlsx' => [
             'export' => 'Export Excel',
         ],

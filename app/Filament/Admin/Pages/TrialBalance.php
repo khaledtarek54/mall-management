@@ -2,6 +2,10 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Support\ReportPreferences;
+use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
 use App\Filament\Admin\Pages\Concerns\ExportsReport;
 use App\Contracts\DeliverableReport;
 use App\Filament\Admin\Concerns\PostsToLedger;
@@ -126,12 +130,42 @@ class TrialBalance extends Page implements DeliverableReport, HasSchemas, HasTab
         ];
     }
 
+    /**
+     * List postable accounts that had no movement at all (RP-02).
+     *
+     * Off by default: a trial balance of 400 rows, 300 of them zero, is harder to read rather than
+     * more complete. On, it answers the question this report exists for — "is that account really
+     * nil, or did nobody map it?" — which absence cannot answer either way.
+     *
+     * A public typed scalar, so it travels like every other report parameter: into the URL, a saved
+     * view and a scheduled delivery. It is remembered per user too, because unlike a date it says
+     * how this person reads a trial balance rather than which moment they wanted.
+     */
+    public bool $includeZeroBalances = false;
+
+    public function filtersForm(Schema $schema): Schema
+    {
+        return $schema->components([
+            Section::make()
+                ->columns(['sm' => 2, 'lg' => 4])
+                ->schema([
+                    ...$this->ledgerFilterComponents(),
+                    Toggle::make('includeZeroBalances')
+                        ->label(__('admin.reports.include_zero_balances'))
+                        ->helperText(__('admin.reports.include_zero_balances_help'))
+                        ->live()
+                        ->afterStateUpdated(fn ($livewire) => ReportPreferences::remember($livewire)),
+                ]),
+        ]);
+    }
+
     protected function report(): array
     {
         return app(LedgerReportService::class)->trialBalance(
             $this->scopedAssetIds(),
             $this->periodStart(),
             $this->periodEnd(),
+            $this->includeZeroBalances,
         );
     }
 

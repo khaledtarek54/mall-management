@@ -39,7 +39,10 @@ class LedgerReportService
      *
      * @return array{rows: Collection, total_debit: float, total_credit: float, balanced: bool}
      */
-    public function trialBalance(?array $assetIds = null, ?CarbonInterface $from = null, ?CarbonInterface $to = null): array
+    /**
+     * @param  bool  $includeZeroBalances  list postable accounts that had no movement at all (RP-02)
+     */
+    public function trialBalance(?array $assetIds = null, ?CarbonInterface $from = null, ?CarbonInterface $to = null, bool $includeZeroBalances = false): array
     {
         $rows = $this->aggregate($assetIds, $from, $to)
             ->map(function ($row) {
@@ -63,6 +66,12 @@ class LedgerReportService
                 ];
             })
             ->values();
+
+        if ($includeZeroBalances) {
+            $rows = $rows->concat($this->accountsWithNoMovement($rows->pluck('account_id')->all()))
+                ->sortBy('code')
+                ->values();
+        }
 
         $totalDebit = round($rows->sum('debit_balance'), 2);
         $totalCredit = round($rows->sum('credit_balance'), 2);
@@ -413,6 +422,45 @@ class LedgerReportService
     /**
      * Aggregate posted debit/credit per postable account with movement.
      */
+    /**
+     * Postable accounts that produced no line at all in the range.
+     *
+     * `aggregate()` starts from `journal_lines`, so an account nobody has posted to is absent from
+     * every ledger report rather than present at zero. That is the right default — a trial balance
+     * of 400 rows, 300 of them zero, is harder to read, not more complete.
+     *
+     * But it is the wrong answer for the one thing a trial balance is FOR: proving completeness.
+     * An accountant reconciling asks "is the deposits-held account really nil, or did I forget to
+     * map it?", and absence answers neither. Yardi offers the same switch, and offers it here
+     * rather than on the income statement, where a hundred zero revenue accounts would be noise.
+     *
+     * Zero rows are structural, so they carry zero in BOTH columns and cannot move the totals —
+     * `balanced` means exactly what it did before the switch was flipped.
+     *
+     * @param  array<int, int>  $alreadyListed
+     * @return Collection<int, array<string, mixed>>
+     */
+    protected function accountsWithNoMovement(array $alreadyListed): Collection
+    {
+        return LedgerAccount::query()
+            ->where('is_postable', true)
+            ->whereNotIn('id', $alreadyListed ?: [0])
+            ->orderBy('code')
+            ->get()
+            ->map(fn (LedgerAccount $account) => [
+                'account_id' => (int) $account->id,
+                'code' => $account->code,
+                'name_en' => $account->name_en,
+                'name_ar' => $account->name_ar,
+                'type' => $account->type,
+                'normal_balance' => $account->normal_balance,
+                'debit_total' => 0.0,
+                'credit_total' => 0.0,
+                'debit_balance' => 0.0,
+                'credit_balance' => 0.0,
+            ]);
+    }
+
     protected function aggregate(?array $assetIds, ?CarbonInterface $from, ?CarbonInterface $to, bool $excludeClosing = false): Collection
     {
         return DB::table('journal_lines as jl')
