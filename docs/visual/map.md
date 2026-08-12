@@ -2,8 +2,8 @@
 
 <p class="eyebrow">The map</p>
 
-Atriom is big — 28 modules, three logins, a general ledger underneath all of it. But it is
-not complicated in 28 different ways. **There is one spine and four things hanging off it.**
+Atriom is big — 36 modules, three logins, a general ledger underneath all of it. But it is
+not complicated in 36 different ways. **There is one spine and four things hanging off it.**
 Learn the spine and every module has an obvious place.
 
 This page is the map. Every box links to the drawing that explains it.
@@ -26,11 +26,11 @@ This page is the map. Every box links to the drawing that explains it.
 
 <div class="emap"><div class="enode"><span class="name">/admin</span><span class="role">Eltizam staff + Jawad (owners), scoped by role</span><span class="rels"><span class="rel">identity: User + roles</span><span class="rel has">sees the selected property</span></span></div><div class="enode"><span class="name">/portal</span><span class="role">retailers, on the web</span><span class="rels"><span class="rel">identity: TenantUser</span><span class="rel has">only admins may write</span></span></div><div class="enode"><span class="name">/api/v1</span><span class="role">retailers, in the mobile app</span><span class="rels"><span class="rel">identity: Tenant (Sanctum)</span><span class="rel has">cross-tenant returns 404</span></span></div></div>
 
-<div class="rule"><span class="lbl">Rule · property isolation</span>The admin app always has <b>one property selected</b> — every table, every number is scoped to it. An <b>"All Properties"</b> pseudo-property gives the portfolio view. This isn't a filter you can forget: <b>61 models are classified</b> as property-owned or shared, and a test fails the build if a new one ships unclassified.</div>
+<div class="rule"><span class="lbl">Rule · property isolation</span>The admin app always has <b>one property selected</b> — every table, every number is scoped to it. An <b>"All Properties"</b> pseudo-property gives the portfolio view. This isn't a filter you can forget: <b>every model is classified</b> as property-owned or shared, and a test fails the build if a new one ships unclassified.</div>
 
 ## The five subsystems
 
-<p class="sub">Every one of the 28 modules lives in exactly one of these. This is the whole product.</p>
+<p class="sub">Every one of the 36 modules lives in exactly one of these. This is the whole product.</p>
 
 ### 🔑 Leasing — where the money starts
 
@@ -64,11 +64,11 @@ This page is the map. Every box links to the drawing that explains it.
 
 ## What actually reaches the books
 
-<p class="sub">18 kinds of document post to the ledger. Every one of them posts the same way, through one registry.</p>
+<p class="sub">24 kinds of document post to the ledger. Every one of them posts the same way, through one registry.</p>
 
 <div class="flow"><div class="step"><span class="n">01</span><span class="t">A document changes</span><span class="d">An invoice is issued, a payment captured, a penalty applied.</span></div><span class="arrow">→</span><div class="step"><span class="n">02</span><span class="t">Its journalizer</span><span class="d">One small class turns that document into balanced debits and credits.</span></div><span class="arrow">→</span><div class="step"><span class="n">03</span><span class="t">The registry</span><span class="d">LedgerPoster knows which journalizer belongs to which document.</span></div><span class="arrow">→</span><div class="step hl"><span class="n">04</span><span class="t">Four ways in</span><span class="d">Real-time on save · the nightly sweep · the close gate · the reconcile check — all derived from that one registry.</span></div></div>
 
-The 18 sources, by subsystem:
+The sources, by subsystem — the **[live list is generated from the registry itself](/modules/)**, so it cannot drift from this table:
 
 | Subsystem | What posts |
 |---|---|

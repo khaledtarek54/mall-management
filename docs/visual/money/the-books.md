@@ -32,6 +32,6 @@ Everything above happens automatically. To *see* it as the accountant does, log 
 - **Trial Balance** → proof the whole system balances: total debits = total credits, always.
 - **Income Statement** → the rent and service income from Moment A, as profit.
 
-<div class="plain">There are <b>~25</b> of these entries across Atriom — one for every kind of money event (payroll, depreciation, vendor bills, custody…). Each becomes one card exactly like these. This page draws the three that matter most; the rest follow when we extend the handbook.</div>
+<div class="plain">There are <b>24</b> of these across Atriom — one for every kind of money event (payroll, depreciation, vendor bills, custody…). Each becomes one card exactly like these. This page draws the three that matter most; the full list, generated from the code's own registry rather than counted by hand, is on <a href="/modules/">Every module →</a></div>
 
 _Source of truth: `app/Services/Accounting/Journalizers/` and `docs/modules/21-general-ledger.md`._

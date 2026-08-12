@@ -14,7 +14,7 @@ A **credit note** is the one thing not on this line — it runs *backwards*, red
 
 ## The one rule that keeps money honest
 
-<div class="rule"><span class="lbl">Invariant · recomputeTotals()</span>A bill's <b>paid</b> and <b>balance</b> are never typed in by hand. Atriom always recomputes them from the facts:<br><br><code>paid_amount = captured payments + applied credit notes</code><br><code>balance = total − paid_amount</code><br><br>When the balance reaches zero, the bill flips to <b>Paid</b> on its own. This single formula — in one place in the code — is why the numbers can be trusted. Nothing else is allowed to set a balance directly.</div>
+<div class="rule"><span class="lbl">Invariant · recomputeTotals()</span>A bill's <b>paid</b> and <b>balance</b> are never typed in by hand. Atriom always recomputes them from the facts:<br><br><code>paid_amount = captured payments + applied credit notes + applied tenant credit + netted deposit</code><br><code>balance = total − paid_amount</code><br><br>When the balance reaches zero, the bill flips to <b>Paid</b> on its own. This single formula — in one place in the code — is why the numbers can be trusted. Nothing else is allowed to set a balance directly.<br><br><b>There are FOUR settlement channels, not two</b>, and every calculation that decides "how much of this bill is settled" must count all four. Only the first is cash: a credit note, on-account tenant credit and a netted security deposit each settle a bill without a pound arriving. Missing one is how a surplus gets buried as negative receivables.</div>
 
 ## The records, and how they connect
 

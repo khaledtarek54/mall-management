@@ -28,6 +28,6 @@ At the end of each month you prove the books are right, lock them, and publish t
 
 ## The owner's view
 
-<div class="plain">The owner (Jawad) logs in at <code>/owner</code> to a deliberately <b>narrow, read-only</b> window: their properties, invoices, requests, and CAM shares — everything <b>scoped to the assets they own</b>, nothing they can change. Owners see the <em>operational and billing</em> picture, <b>not the ledger, journals, or periods</b> — that's the operator's workshop, not the owner's dashboard.</div>
+<div class="plain">There is no separate owner portal — <b>an owner is a user of the admin panel with an owner role</b>, and what they see is decided by the properties they currently own (the <code>asset_owner</code> tenure, so a sold-off property drops out of their view). It is a deliberately <b>narrow, read-only</b> window: their properties, invoices, requests and CAM shares. Owners see the <em>operational and billing</em> picture, <b>not the ledger, journals or periods</b> — that is the operator's workshop. What an owner is formally handed is the <b>owner statement</b>, built from these same ledger figures.</div>
 
-_Source of truth: `app/Services/Reconciliation/BooksReconciliationService.php`, `app/Services/Accounting/{YearEndCloseService,LedgerReportService}.php`, `app/Filament/Owner/`, and `docs/modules/17-reports.md`._
+_Source of truth: `app/Services/Reconciliation/BooksReconciliationService.php`, `app/Services/Accounting/{YearEndCloseService,LedgerReportService}.php`, `App\Support\PropertyIsolation`, and `docs/modules/17-reports.md`._
