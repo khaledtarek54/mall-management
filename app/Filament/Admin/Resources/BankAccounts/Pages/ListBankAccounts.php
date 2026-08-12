@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\BankAccounts\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\BankAccounts\BankAccountResource;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
@@ -12,6 +13,7 @@ class ListBankAccounts extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return [CreateAction::make()];
+        return [
+            GuideAction::for(static::getResource()), CreateAction::make()];
     }
 }

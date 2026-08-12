@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\MarketingPosts\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\MarketingPosts\MarketingPostResource;
 use App\Models\MarketingPost;
 use App\Support\StatusTabs;
@@ -15,6 +16,7 @@ class ListMarketingPosts extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            GuideAction::for(static::getResource()),
             CreateAction::make()
                 ->label(__('admin.marketing_posts.compose'))
                 ->visible(fn () => MarketingPostResource::canCreate()),

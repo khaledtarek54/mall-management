@@ -23,7 +23,7 @@ class ListLeases extends ListRecords
     {
         return [
             ...$this->savedViewActions(),
-            GuideAction::for(LeaseResource::class),
+            GuideAction::for(static::getResource()),
             ImportAction::make()
                 ->importer(LeaseImporter::class)
                 ->label(__('admin.actions.import'))

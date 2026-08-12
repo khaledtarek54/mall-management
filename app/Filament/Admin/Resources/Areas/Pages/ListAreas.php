@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Areas\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\Areas\AreaResource;
 use App\Support\StatusTabs;
 use Filament\Actions\CreateAction;
@@ -14,6 +15,7 @@ class ListAreas extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            GuideAction::for(static::getResource()),
             CreateAction::make(),
         ];
     }

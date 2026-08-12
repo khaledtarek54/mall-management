@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Assets\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\Assets\AssetResource;
 use App\Support\StatusTabs;
 use Filament\Actions\CreateAction;
@@ -14,8 +15,8 @@ class ListAssets extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-                        \App\Filament\Actions\GuideAction::for(AssetResource::class),
-CreateAction::make(),
+            GuideAction::for(static::getResource()),
+            CreateAction::make(),
         ];
     }
 

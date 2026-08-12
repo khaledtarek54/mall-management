@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\StockMovements\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\StockMovements\StockMovementResource;
 use App\Models\InventoryItem;
 use App\Models\Warehouse;
@@ -29,6 +30,7 @@ class ListStockMovements extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            GuideAction::for(static::getResource()),
             $this->receiveAction(),
             $this->adjustAction(),
             $this->transferAction(),

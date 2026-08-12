@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Models\PurchaseRequest;
 use App\Services\MaintenanceWorkOrderService;
@@ -60,6 +61,7 @@ class Workflows extends Page implements HasSchemas, HasTable
     protected function getHeaderActions(): array
     {
         return [
+            GuideAction::for(static::class),
             $this->saveViewAction(),
         ];
     }

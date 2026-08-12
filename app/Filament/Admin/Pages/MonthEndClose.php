@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Resources\AccountingPeriods\AccountingPeriodResource;
 use App\Filament\Admin\Resources\Payments\PaymentResource;
@@ -126,6 +127,7 @@ class MonthEndClose extends Page implements HasSchemas, HasTable
     protected function getHeaderActions(): array
     {
         return [
+            GuideAction::for(static::class),
             $this->saveViewAction(),
             // Closing lives in the Accounting Periods resource and stays there — one place to
             // close a period, one gate. This is the route to it, carrying the month.

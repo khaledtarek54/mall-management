@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\JournalEntries\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Concerns\PostsToLedger;
 use App\Filament\Admin\Resources\JournalEntries\JournalEntryResource;
 use App\Support\StatusTabs;
@@ -17,6 +18,7 @@ class ListJournalEntries extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            GuideAction::for(static::getResource()),
             $this->postToLedgerAction(),
             CreateAction::make(),
         ];

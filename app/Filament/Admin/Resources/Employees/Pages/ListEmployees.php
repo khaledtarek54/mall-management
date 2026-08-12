@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Employees\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\Employees\EmployeeResource;
 use App\Filament\Imports\EmployeeImporter;
 use App\Support\Imports;
@@ -17,6 +18,7 @@ class ListEmployees extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            GuideAction::for(static::getResource()),
             ImportAction::make()
                 ->importer(EmployeeImporter::class)
                 ->label(__('admin.actions.import'))

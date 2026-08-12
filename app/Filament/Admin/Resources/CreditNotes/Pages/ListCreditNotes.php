@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\CreditNotes\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\CreditNotes\CreditNoteResource;
 use App\Support\StatusTabs;
 use Filament\Actions\CreateAction;
@@ -14,8 +15,8 @@ class ListCreditNotes extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-                        \App\Filament\Actions\GuideAction::for(CreditNoteResource::class),
-CreateAction::make(),
+            GuideAction::for(static::getResource()),
+            CreateAction::make(),
         ];
     }
 

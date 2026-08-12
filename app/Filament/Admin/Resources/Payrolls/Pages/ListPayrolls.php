@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Payrolls\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\Payrolls\PayrollResource;
 use App\Support\StatusTabs;
 use Filament\Actions\CreateAction;
@@ -14,6 +15,7 @@ class ListPayrolls extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            GuideAction::for(static::getResource()),
             CreateAction::make(),
         ];
     }

@@ -2,7 +2,11 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Filament\Actions\GuideAction;
+use App\Models\JournalEntry;
 use App\Models\TaxCode;
+use App\Support\DocumentNumbering;
+use App\Support\FiscalYearStart;
 use App\Support\Modules;
 use App\Support\SettingsRegistry;
 use BackedEnum;
@@ -108,7 +112,7 @@ class Settings extends Page implements HasSchemas
         // can land inside a closed one — or an entry the accountant has closed and reported becomes
         // editable again. Refused rather than warned about: there is no safe migration of posted
         // history, and a warning an operator can click through is not a guard.
-        \App\Support\FiscalYearStart::assertChangeable((int) ($state['accounting']['fiscal_year_start_month'] ?? 1));
+        FiscalYearStart::assertChangeable((int) ($state['accounting']['fiscal_year_start_month'] ?? 1));
 
         // Two document types sharing a prefix would interleave one sequence — no unique index
         // complains, because the index is per table, and a ledger simply reads as though documents
@@ -123,7 +127,7 @@ class Settings extends Page implements HasSchemas
             fn ($prefix) => filled($prefix),
         );
 
-        \App\Support\DocumentNumbering::assertValid($state['accounting']['document_prefixes']);
+        DocumentNumbering::assertValid($state['accounting']['document_prefixes']);
 
         $changes = SettingsRegistry::persist($state);
 
@@ -154,14 +158,14 @@ class Settings extends Page implements HasSchemas
                 ->components([
                     Select::make('accounting.fiscal_year_start_month')
                         ->label(__('admin.settings.fields.fiscal_year_start_month'))
-                        ->options(fn (): array => \App\Support\FiscalYearStart::options())
+                        ->options(fn (): array => FiscalYearStart::options())
                         ->helperText(__('admin.settings.fields.fiscal_year_start_month_help'))
                         ->native(false)
                         ->required()
                         // Read-only once anything is posted. `disabled()` is the UI half; the
                         // refusal that matters is in save(), because a disabled Select is a
                         // rendering decision and not a guard.
-                        ->disabled(fn (): bool => \App\Models\JournalEntry::query()->where('status', 'posted')->exists())
+                        ->disabled(fn (): bool => JournalEntry::query()->where('status', 'posted')->exists())
                         ->dehydrated(),
                 ]),
             Section::make(__('admin.settings.sections.leasing_defaults'))
@@ -177,7 +181,7 @@ class Settings extends Page implements HasSchemas
                 ->description(__('admin.settings.sections.document_numbering_description'))
                 ->columns(3)
                 ->components(
-                    collect(\App\Support\DocumentNumbering::TYPES)
+                    collect(DocumentNumbering::TYPES)
                         ->map(fn (array $meta, string $type) => TextInput::make("accounting.document_prefixes.{$type}")
                             ->label(__("admin.document_types.{$type}"))
                             ->placeholder($meta['default'])
@@ -488,6 +492,7 @@ class Settings extends Page implements HasSchemas
     protected function getHeaderActions(): array
     {
         return [
+            GuideAction::for(static::class),
             Action::make('save')
                 ->label(__('admin.settings.save'))
                 ->icon('heroicon-o-check')

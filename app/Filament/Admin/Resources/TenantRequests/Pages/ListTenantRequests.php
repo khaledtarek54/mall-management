@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\TenantRequests\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\Concerns\SavesTableViews;
 use App\Filament\Admin\Resources\TenantRequests\TenantRequestResource;
 use App\Support\StatusTabs;
@@ -17,6 +18,7 @@ class ListTenantRequests extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            GuideAction::for(static::getResource()),
             ...$this->savedViewActions(),
             CreateAction::make()
                 ->visible(fn () => TenantRequestResource::canCreate()),

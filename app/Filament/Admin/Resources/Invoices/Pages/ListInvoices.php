@@ -22,7 +22,7 @@ class ListInvoices extends ListRecords
     {
         return [
             ...$this->savedViewActions(),
-            GuideAction::for(InvoiceResource::class),
+            GuideAction::for(static::getResource()),
             CreateAction::make(),
             // Cut-over only: the receivables already outstanding when Atriom took over. Gated on
             // the import right (FR-USR-02: mall_admin is the role that may load data), and hidden

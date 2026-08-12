@@ -2,24 +2,24 @@
 
 namespace App\Filament\Admin\Pages;
 
-use App\Support\ReportPreferences;
-use Filament\Forms\Components\Toggle;
-use Filament\Schemas\Components\Section;
-use Filament\Schemas\Schema;
-use App\Filament\Admin\Pages\Concerns\ExportsReport;
 use App\Contracts\DeliverableReport;
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Concerns\PostsToLedger;
+use App\Filament\Admin\Pages\Concerns\ExportsReport;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Pages\Concerns\ScopesLedgerReport;
 use App\Services\Accounting\LedgerReportPdfService;
 use App\Services\Accounting\LedgerReportService;
 use App\Services\Reports\ReportCsvExporter;
-use App\Support\ReportCsv;
+use App\Support\ReportPreferences;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Toggle;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
 use Filament\Schemas\Contracts\HasSchemas;
+use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\Summarizers\Summarizer;
 use Filament\Tables\Columns\TextColumn;
@@ -38,8 +38,8 @@ use Filament\Tables\Table;
  */
 class TrialBalance extends Page implements DeliverableReport, HasSchemas, HasTable
 {
-    use InteractsWithSchemas;
     use ExportsReport;
+    use InteractsWithSchemas;
     use InteractsWithTable;
     use PostsToLedger;
     use SavesReportViews;
@@ -77,6 +77,7 @@ class TrialBalance extends Page implements DeliverableReport, HasSchemas, HasTab
     protected function getHeaderActions(): array
     {
         return [
+            GuideAction::for(static::class),
             $this->saveViewAction(),
             $this->postToLedgerAction(),
             Action::make('download_pdf')

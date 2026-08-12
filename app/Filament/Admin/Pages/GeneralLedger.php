@@ -2,16 +2,16 @@
 
 namespace App\Filament\Admin\Pages;
 
-use App\Filament\Admin\Pages\Concerns\ExportsReport;
 use App\Contracts\DeliverableReport;
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Concerns\PostsToLedger;
+use App\Filament\Admin\Pages\Concerns\ExportsReport;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Pages\Concerns\ScopesLedgerReport;
 use App\Models\LedgerAccount;
 use App\Services\Accounting\LedgerReportService;
 use App\Services\Reports\ReportCsvExporter;
 use App\Support\ReportPreferences;
-use App\Support\ReportCsv;
 use App\Support\SourceDocumentUrl;
 use App\Support\TenantScope;
 use BackedEnum;
@@ -46,8 +46,8 @@ use Illuminate\Support\Collection;
  */
 class GeneralLedger extends Page implements DeliverableReport, HasSchemas, HasTable
 {
-    use InteractsWithSchemas;
     use ExportsReport;
+    use InteractsWithSchemas;
     use InteractsWithTable;
     use PostsToLedger;
     use SavesReportViews;
@@ -141,6 +141,7 @@ class GeneralLedger extends Page implements DeliverableReport, HasSchemas, HasTa
     protected function getHeaderActions(): array
     {
         return [
+            GuideAction::for(static::class),
             $this->saveViewAction(),
             $this->postToLedgerAction(),
             // The GL had NO export at all — yet it is the raw transaction detail an accountant

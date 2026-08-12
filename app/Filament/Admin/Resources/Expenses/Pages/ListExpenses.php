@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Expenses\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\Expenses\ExpenseResource;
 use App\Support\StatusTabs;
 use Filament\Actions\CreateAction;
@@ -14,6 +15,7 @@ class ListExpenses extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            GuideAction::for(static::getResource()),
             CreateAction::make(),
         ];
     }

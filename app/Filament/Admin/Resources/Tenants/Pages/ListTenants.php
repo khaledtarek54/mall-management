@@ -22,7 +22,7 @@ class ListTenants extends ListRecords
     {
         return [
             ...$this->savedViewActions(),
-            GuideAction::for(TenantResource::class),
+            GuideAction::for(static::getResource()),
             ImportAction::make()
                 ->importer(TenantImporter::class)
                 ->label(__('admin.actions.import'))

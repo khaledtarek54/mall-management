@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\UtilityMeters\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\UtilityMeters\UtilityMeterResource;
 use App\Filament\Imports\MeterReadingImporter;
 use App\Support\Imports;
@@ -17,6 +18,7 @@ class ListUtilityMeters extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            GuideAction::for(static::getResource()),
             ImportAction::make()
                 ->importer(MeterReadingImporter::class)
                 ->label(__('admin.actions.import'))

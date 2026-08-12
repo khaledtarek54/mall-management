@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\OwnerRequests\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\OwnerRequests\OwnerRequestResource;
 use App\Support\StatusTabs;
 use Filament\Actions\CreateAction;
@@ -13,7 +14,8 @@ class ListOwnerRequests extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return [CreateAction::make()];
+        return [
+            GuideAction::for(static::getResource()), CreateAction::make()];
     }
 
     /** What the owner is still waiting on the operator to answer. */

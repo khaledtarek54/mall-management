@@ -2,27 +2,27 @@
 
 namespace App\Filament\Admin\Pages;
 
-use App\Filament\Admin\Pages\Concerns\ExportsReport;
 use App\Contracts\DeliverableReport;
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Concerns\PostsToLedger;
+use App\Filament\Admin\Pages\Concerns\ExportsReport;
 use App\Filament\Admin\Pages\Concerns\RendersFinancialStatement;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Pages\Concerns\ScopesLedgerReport;
 use App\Services\Accounting\LedgerReportPdfService;
-use App\Support\ReportPreferences;
-use Filament\Forms\Components\Select;
-use Filament\Schemas\Components\Section;
-use Filament\Schemas\Schema;
-use Carbon\CarbonImmutable;
 use App\Services\Accounting\LedgerReportService;
 use App\Services\Reports\ComparativeStatementService;
 use App\Services\Reports\ReportCsvExporter;
-use App\Support\ReportCsv;
+use App\Support\ReportPreferences;
 use BackedEnum;
+use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Select;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
 use Filament\Schemas\Contracts\HasSchemas;
+use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
@@ -34,8 +34,8 @@ use Filament\Tables\Table;
  */
 class IncomeStatement extends Page implements DeliverableReport, HasSchemas, HasTable
 {
-    use InteractsWithSchemas;
     use ExportsReport;
+    use InteractsWithSchemas;
     use InteractsWithTable;
     use PostsToLedger;
     use RendersFinancialStatement;
@@ -85,16 +85,16 @@ class IncomeStatement extends Page implements DeliverableReport, HasSchemas, Has
                 ->schema([
                     ...$this->ledgerFilterComponents(),
                     Select::make('comparison')
-                ->label(__('admin.reports.comparison'))
-                ->options([
-                    ComparativeStatementService::PRIOR_PERIOD => __('admin.reports.comparison_prior_period'),
-                    ComparativeStatementService::PRIOR_YEAR => __('admin.reports.comparison_prior_year'),
-                ])
+                        ->label(__('admin.reports.comparison'))
+                        ->options([
+                            ComparativeStatementService::PRIOR_PERIOD => __('admin.reports.comparison_prior_period'),
+                            ComparativeStatementService::PRIOR_YEAR => __('admin.reports.comparison_prior_year'),
+                        ])
                 // Null is a real choice, not an absence: a single-period statement is the default
                 // and the one most operators want most of the time.
-                ->placeholder(__('admin.reports.comparison_none'))
-                ->native(false)
-                ->live()
+                        ->placeholder(__('admin.reports.comparison_none'))
+                        ->native(false)
+                        ->live()
                         ->afterStateUpdated(fn ($livewire) => ReportPreferences::remember($livewire)),
                 ]),
         ]);
@@ -108,6 +108,7 @@ class IncomeStatement extends Page implements DeliverableReport, HasSchemas, Has
     protected function getHeaderActions(): array
     {
         return [
+            GuideAction::for(static::class),
             $this->saveViewAction(),
             $this->postToLedgerAction(),
             Action::make('download_pdf')

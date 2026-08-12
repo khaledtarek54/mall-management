@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\AccountingPeriods\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\AccountingPeriods\AccountingPeriodResource;
 use App\Models\FiscalYear;
 use App\Services\Accounting\PeriodService;
@@ -33,6 +34,7 @@ class ListAccountingPeriods extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            GuideAction::for(static::getResource()),
             // Close the year: post the closing entry (while periods are open), THEN
             // lock the year's periods — this order avoids the "can't post into a
             // closed December" trap. authorize() enforces the permission server-side

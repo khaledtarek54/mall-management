@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\MarketingBudgets\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\MarketingBudgets\MarketingBudgetResource;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
@@ -12,6 +13,7 @@ class ListMarketingBudgets extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return [CreateAction::make()];
+        return [
+            GuideAction::for(static::getResource()), CreateAction::make()];
     }
 }

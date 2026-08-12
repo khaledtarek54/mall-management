@@ -2,12 +2,12 @@
 
 namespace App\Filament\Admin\Pages;
 
-use App\Filament\Admin\Pages\Concerns\ExportsReport;
 use App\Contracts\DeliverableReport;
+use App\Filament\Actions\GuideAction;
+use App\Filament\Admin\Pages\Concerns\ExportsReport;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Pages\Concerns\ScopesLedgerReport;
 use App\Services\Reports\VatReturnService;
-use App\Support\ReportCsv;
 use BackedEnum;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
@@ -40,8 +40,8 @@ use Filament\Tables\Table;
  */
 class VatReturn extends Page implements DeliverableReport, HasSchemas, HasTable
 {
-    use InteractsWithSchemas;
     use ExportsReport;
+    use InteractsWithSchemas;
     use InteractsWithTable;
     use SavesReportViews;
     use ScopesLedgerReport;
@@ -100,6 +100,7 @@ class VatReturn extends Page implements DeliverableReport, HasSchemas, HasTable
     protected function getHeaderActions(): array
     {
         return [
+            GuideAction::for(static::class),
             $this->saveViewAction(),
             // CSV only, deliberately. A VAT return is worked in a spreadsheet and handed to an
             // accountant who reconciles it against their own figures; a PDF of it would look like

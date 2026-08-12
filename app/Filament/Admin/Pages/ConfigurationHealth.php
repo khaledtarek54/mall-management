@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Support\ConfigurationHealth as Checks;
 use BackedEnum;
 use Filament\Pages\Page;
@@ -32,6 +33,13 @@ use Illuminate\Support\Facades\Auth;
 class ConfigurationHealth extends Page implements HasTable
 {
     use InteractsWithTable;
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            GuideAction::for(static::class),
+        ];
+    }
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentCheck;
 

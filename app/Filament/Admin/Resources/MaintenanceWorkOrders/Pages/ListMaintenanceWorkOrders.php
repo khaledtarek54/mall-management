@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\MaintenanceWorkOrders\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\Concerns\SavesTableViews;
 use App\Filament\Admin\Resources\MaintenanceWorkOrders\MaintenanceWorkOrderResource;
 use App\Models\Asset;
@@ -22,6 +23,7 @@ class ListMaintenanceWorkOrders extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            GuideAction::for(static::getResource()),
             ...$this->savedViewActions(),
             // Facility work-log report (RPT-1) — a bilingual PDF of the work orders for the
             // current property over a date range. Scoped to what the user can see.

@@ -19,7 +19,7 @@ class ListPayments extends ListRecords
     {
         return [
             ...$this->savedViewActions(),
-            GuideAction::for(PaymentResource::class),
+            GuideAction::for(static::getResource()),
             CreateAction::make(),
         ];
     }

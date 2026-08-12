@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\FixedAssets\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\FixedAssets\FixedAssetResource;
 use App\Filament\Imports\FixedAssetImporter;
 use App\Services\DepreciationService;
@@ -22,6 +23,7 @@ class ListFixedAssets extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            GuideAction::for(static::getResource()),
             // Post this month's straight-line charge across all active assets (same
             // work the monthly cron does — idempotent, safe to click twice).
             Action::make('post_depreciation')

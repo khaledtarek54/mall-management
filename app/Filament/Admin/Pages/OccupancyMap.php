@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Resources\Units\UnitResource;
 use App\Models\Asset;
@@ -141,6 +142,7 @@ class OccupancyMap extends Page implements HasSchemas, HasTable
     protected function getHeaderActions(): array
     {
         return [
+            GuideAction::for(static::class),
             $this->saveViewAction(),
         ];
     }

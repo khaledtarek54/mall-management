@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\CamExpensePools\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\CamExpensePools\CamExpensePoolResource;
 use App\Support\StatusTabs;
 use Filament\Actions\CreateAction;
@@ -14,8 +15,8 @@ class ListCamExpensePools extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-                        \App\Filament\Actions\GuideAction::for(CamExpensePoolResource::class),
-CreateAction::make()
+            GuideAction::for(static::getResource()),
+            CreateAction::make()
                 ->visible(fn () => CamExpensePoolResource::canCreate()),
         ];
     }

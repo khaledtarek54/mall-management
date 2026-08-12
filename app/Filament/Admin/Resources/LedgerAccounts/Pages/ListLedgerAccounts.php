@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\LedgerAccounts\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\LedgerAccounts\LedgerAccountResource;
 use App\Support\StatusTabs;
 use Filament\Actions\CreateAction;
@@ -14,6 +15,7 @@ class ListLedgerAccounts extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            GuideAction::for(static::getResource()),
             CreateAction::make(),
         ];
     }

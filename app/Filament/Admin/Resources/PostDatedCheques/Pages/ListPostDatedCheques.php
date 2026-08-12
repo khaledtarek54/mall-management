@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\PostDatedCheques\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\PostDatedCheques\PostDatedChequeResource;
 use App\Services\PostDatedChequeService;
 use App\Support\StatusTabs;
@@ -24,6 +25,7 @@ class ListPostDatedCheques extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            GuideAction::for(static::getResource()),
             CreateAction::make()->visible(fn () => PostDatedChequeResource::canCreate()),
 
             // Lodge a whole SERIES at once — the Egyptian norm (a tenant hands over a year of

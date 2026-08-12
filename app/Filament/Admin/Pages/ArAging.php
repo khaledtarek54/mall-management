@@ -2,8 +2,9 @@
 
 namespace App\Filament\Admin\Pages;
 
-use App\Filament\Admin\Pages\Concerns\ExportsReport;
 use App\Contracts\DeliverableReport;
+use App\Filament\Actions\GuideAction;
+use App\Filament\Admin\Pages\Concerns\ExportsReport;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Models\Asset;
@@ -12,14 +13,13 @@ use App\Models\Lease;
 use App\Models\Unit;
 use App\Services\Reports\ReportCsvExporter;
 use App\Services\Reports\ReportService;
-use App\Support\ReportPreferences;
-use App\Support\ReportFilters;
+use App\Support\AgingBuckets;
 use App\Support\Modules;
-use App\Support\ReportCsv;
+use App\Support\ReportFilters;
+use App\Support\ReportPreferences;
 use BackedEnum;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
-use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
@@ -35,7 +35,6 @@ use Filament\Tables\Table;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
-use App\Support\AgingBuckets;
 
 /**
  * AR aging drill-down — the collections worklist: which invoices sit in a given
@@ -48,8 +47,8 @@ use App\Support\AgingBuckets;
  */
 class ArAging extends Page implements DeliverableReport, HasSchemas, HasTable
 {
-    use InteractsWithSchemas;
     use ExportsReport;
+    use InteractsWithSchemas;
     use InteractsWithTable;
     use SavesReportViews;
 
@@ -151,6 +150,7 @@ class ArAging extends Page implements DeliverableReport, HasSchemas, HasTable
     protected function getHeaderActions(): array
     {
         return [
+            GuideAction::for(static::class),
             $this->saveViewAction(),
             // AR aging is the collections worklist — who owes what, how late. It had no export;
             // now it exports the current bucket's invoices to CSV so an operator can chase them.

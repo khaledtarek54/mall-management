@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\AccountMappings\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\AccountMappings\AccountMappingResource;
 use App\Support\PostingRoles;
 use App\Support\StatusTabs;
@@ -15,8 +16,8 @@ class ListAccountMappings extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-                        \App\Filament\Actions\GuideAction::for(AccountMappingResource::class),
-CreateAction::make(),
+            GuideAction::for(static::getResource()),
+            CreateAction::make(),
         ];
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\MaintenancePlans\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\MaintenancePlans\MaintenancePlanResource;
 use App\Support\StatusTabs;
 use Filament\Actions\CreateAction;
@@ -14,6 +15,7 @@ class ListMaintenancePlans extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            GuideAction::for(static::getResource()),
             CreateAction::make()->visible(fn () => MaintenancePlanResource::canCreate()),
         ];
     }

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\RentableItems\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\RentableItems\RentableItemResource;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
@@ -12,7 +13,7 @@ class ListRentableItems extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return [            \App\Filament\Actions\GuideAction::for(RentableItemResource::class),
-CreateAction::make()];
+        return [GuideAction::for(static::getResource()),
+            CreateAction::make()];
     }
 }

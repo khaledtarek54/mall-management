@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Announcements\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\Announcements\AnnouncementResource;
 use App\Support\StatusTabs;
 use Filament\Actions\CreateAction;
@@ -14,6 +15,7 @@ class ListAnnouncements extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            GuideAction::for(static::getResource()),
             CreateAction::make()
                 ->label(__('admin.announcements.compose'))
                 ->visible(fn () => AnnouncementResource::canCreate()),

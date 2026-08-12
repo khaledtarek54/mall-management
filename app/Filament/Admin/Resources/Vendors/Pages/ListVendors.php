@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Vendors\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\Vendors\VendorResource;
 use App\Filament\Imports\VendorImporter;
 use App\Support\Imports;
@@ -17,6 +18,7 @@ class ListVendors extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            GuideAction::for(static::getResource()),
             ImportAction::make()
                 ->importer(VendorImporter::class)
                 ->label(__('admin.actions.import'))

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\ChargeCodes\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\ChargeCodes\ChargeCodeResource;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
@@ -13,8 +14,8 @@ class ListChargeCodes extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-                        \App\Filament\Actions\GuideAction::for(ChargeCodeResource::class),
-CreateAction::make(),
+            GuideAction::for(static::getResource()),
+            CreateAction::make(),
         ];
     }
 }

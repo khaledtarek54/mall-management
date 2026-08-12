@@ -2,7 +2,7 @@
 
 namespace App\Filament\Actions;
 
-use App\Support\ResourceGuides;
+use App\Support\ScreenGuides;
 use Filament\Actions\Action;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
@@ -21,9 +21,14 @@ use Filament\Schemas\Components\Section;
  */
 class GuideAction
 {
-    public static function for(string $resource): Action
+    /**
+     * @param  class-string  $screen  A Filament resource OR page class — see `ScreenGuides::SCREENS`.
+     *                                Nothing in here is resource-specific, which is why the registry
+     *                                could grow to cover the 25 admin pages without touching this.
+     */
+    public static function for(string $screen): Action
     {
-        $key = ResourceGuides::keyFor($resource);
+        $key = ScreenGuides::keyFor($screen);
 
         return Action::make('guide')
             ->label(__('admin.guide.action'))
@@ -37,16 +42,16 @@ class GuideAction
             ->schema(fn (): array => $key === null ? [] : array_values(array_filter([
                 TextEntry::make('guide_purpose')
                     ->hiddenLabel()
-                    ->state(ResourceGuides::purpose($key))
+                    ->state(ScreenGuides::purpose($key))
                     ->size('lg')
                     ->weight('bold'),
 
-                self::list(__('admin.guide.steps'), ResourceGuides::steps($key), 'gray'),
+                self::list(__('admin.guide.steps'), ScreenGuides::steps($key), 'gray'),
 
                 // The one nothing else in the system tells an operator: touch this, and THAT moves.
-                self::list(__('admin.guide.affects'), ResourceGuides::affects($key), 'primary'),
+                self::list(__('admin.guide.affects'), ScreenGuides::affects($key), 'primary'),
 
-                self::list(__('admin.guide.rules'), ResourceGuides::rules($key), 'warning'),
+                self::list(__('admin.guide.rules'), ScreenGuides::rules($key), 'warning'),
             ])));
     }
 

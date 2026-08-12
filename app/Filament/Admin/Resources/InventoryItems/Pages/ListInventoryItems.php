@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\InventoryItems\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\InventoryItems\InventoryItemResource;
 use App\Support\ReportCsv;
 use App\Support\StatusTabs;
@@ -16,6 +17,7 @@ class ListInventoryItems extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            GuideAction::for(static::getResource()),
             CreateAction::make()->visible(fn () => InventoryItemResource::canCreate()),
             // The stock register in the accountant's format — on-hand × unit cost per item plus a
             // total valuation, exactly what the screen shows but pivotable / auditable in a sheet.

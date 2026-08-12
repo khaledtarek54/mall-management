@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Support\ActivityLogChangeRenderer;
 use App\Support\Modules;
@@ -40,6 +41,7 @@ class ActivityLog extends Page implements HasTable
     protected function getHeaderActions(): array
     {
         return [
+            GuideAction::for(static::class),
             $this->saveViewAction(),
         ];
     }

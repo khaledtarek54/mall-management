@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Support\DashboardLayout;
 use Filament\Pages\Dashboard as BaseDashboard;
 use Filament\Widgets\Widget;
@@ -20,6 +21,13 @@ use Filament\Widgets\WidgetConfiguration;
  */
 class Dashboard extends BaseDashboard
 {
+    protected function getHeaderActions(): array
+    {
+        return [
+            GuideAction::for(static::class),
+        ];
+    }
+
     /**
      * @return array<class-string<Widget> | WidgetConfiguration>
      */

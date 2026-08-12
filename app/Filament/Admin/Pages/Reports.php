@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Widgets\MonthlyCloseStats;
 use App\Services\Reports\MonthlyCloseReportPdfService;
@@ -125,6 +126,7 @@ class Reports extends Page implements HasSchemas, HasTable
     protected function getHeaderActions(): array
     {
         return [
+            GuideAction::for(static::class),
             $this->saveViewAction(),
             Action::make('download_monthly_close')
                 ->label(__('admin.reports.download_monthly_close_pdf'))

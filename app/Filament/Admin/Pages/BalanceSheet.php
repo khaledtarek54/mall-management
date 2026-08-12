@@ -2,16 +2,16 @@
 
 namespace App\Filament\Admin\Pages;
 
-use App\Filament\Admin\Pages\Concerns\ExportsReport;
 use App\Contracts\DeliverableReport;
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Concerns\PostsToLedger;
+use App\Filament\Admin\Pages\Concerns\ExportsReport;
 use App\Filament\Admin\Pages\Concerns\RendersFinancialStatement;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Pages\Concerns\ScopesLedgerReport;
 use App\Services\Accounting\LedgerReportPdfService;
 use App\Services\Accounting\LedgerReportService;
 use App\Services\Reports\ReportCsvExporter;
-use App\Support\ReportCsv;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Pages\Page;
@@ -28,8 +28,8 @@ use Filament\Tables\Table;
  */
 class BalanceSheet extends Page implements DeliverableReport, HasSchemas, HasTable
 {
-    use InteractsWithSchemas;
     use ExportsReport;
+    use InteractsWithSchemas;
     use InteractsWithTable;
     use PostsToLedger;
     use RendersFinancialStatement;
@@ -52,6 +52,7 @@ class BalanceSheet extends Page implements DeliverableReport, HasSchemas, HasTab
     protected function getHeaderActions(): array
     {
         return [
+            GuideAction::for(static::class),
             $this->saveViewAction(),
             $this->postToLedgerAction(),
             Action::make('download_pdf')

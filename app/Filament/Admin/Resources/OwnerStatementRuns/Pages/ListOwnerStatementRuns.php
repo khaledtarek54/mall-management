@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\OwnerStatementRuns\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\OwnerStatementRuns\OwnerStatementRunResource;
 use App\Models\AccountingPeriod;
 use App\Models\Asset;
@@ -24,6 +25,7 @@ class ListOwnerStatementRuns extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            GuideAction::for(static::getResource()),
             Action::make('generate')
                 ->label(__('admin.owner_statements.actions.generate'))
                 ->icon('heroicon-o-plus-circle')

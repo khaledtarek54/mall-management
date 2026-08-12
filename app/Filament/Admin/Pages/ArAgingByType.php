@@ -2,16 +2,15 @@
 
 namespace App\Filament\Admin\Pages;
 
-use App\Filament\Admin\Pages\Concerns\ExportsReport;
 use App\Contracts\DeliverableReport;
+use App\Filament\Actions\GuideAction;
+use App\Filament\Admin\Pages\Concerns\ExportsReport;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Services\Reports\ReportService;
-use App\Support\ReportFilters;
 use App\Support\Modules;
-use App\Support\ReportCsv;
+use App\Support\ReportFilters;
 use BackedEnum;
 use Filament\Actions\Action;
-use Filament\Forms\Components\DatePicker;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
@@ -38,8 +37,8 @@ use Illuminate\Support\Facades\Auth;
  */
 class ArAgingByType extends Page implements DeliverableReport, HasSchemas, HasTable
 {
-    use InteractsWithSchemas;
     use ExportsReport;
+    use InteractsWithSchemas;
     use InteractsWithTable;
     use SavesReportViews;
 
@@ -109,6 +108,7 @@ class ArAgingByType extends Page implements DeliverableReport, HasSchemas, HasTa
     protected function getHeaderActions(): array
     {
         return [
+            GuideAction::for(static::class),
             $this->saveViewAction(),
             ...$this->exportActions(),
         ];

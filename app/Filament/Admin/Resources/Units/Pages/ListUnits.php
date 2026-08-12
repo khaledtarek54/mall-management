@@ -22,7 +22,7 @@ class ListUnits extends ListRecords
     {
         return [
             ...$this->savedViewActions(),
-            GuideAction::for(UnitResource::class),
+            GuideAction::for(static::getResource()),
             ImportAction::make()
                 ->importer(UnitImporter::class)
                 ->label(__('admin.actions.import'))

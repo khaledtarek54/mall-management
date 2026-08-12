@@ -251,4 +251,1199 @@ return [
         ],
     ],
 
+    'areas' => [
+        'purpose' => 'A zone of the mall — Ground Floor, Food Court, Parking, Roof Plant — used to route work to the people who own it.',
+        'steps' => [
+            'Create the zone with a short code and name.',
+            'Assign its supervisors — the staff who should hear about work there.',
+            'Put each unit in its zone, so requests raised about that unit route by themselves.',
+        ],
+        'affects' => [
+            'A tenant request and a work order both inherit the zone of the unit they concern, and the zone\'s supervisors are notified.',
+            'Common-area work has no unit, so its zone is the one you set on the work order.',
+        ],
+        'rules' => [
+            'A code is unique within one mall, not across the portfolio — two malls may both have a “GF”.',
+            'Supervisors can only be staff assigned to this property. You cannot route another mall\'s work to them.',
+            'Retire a zone by deactivating it. Its history has to stay readable.',
+        ],
+    ],
+
+    'deposits' => [
+        'purpose' => 'Security deposits held against a lease — taken, refunded, or forfeited.',
+        'steps' => [
+            'Record the receipt when the tenant pays the deposit.',
+            'On move-out, refund what is owed back, or forfeit what the lease entitles you to keep.',
+            'Where the tenant leaves owing money, net the deposit against the outstanding invoice instead of refunding it.',
+        ],
+        'affects' => [
+            'A deposit is a liability, not income: taking one posts debit cash, credit deposits held. It never touches revenue.',
+            'Netting a deposit against an invoice settles that invoice — it is one of the four ways an invoice gets paid, alongside cash, credit notes and on-account credit.',
+            'Forfeiting turns the liability into income; refunding clears it back out.',
+        ],
+        'rules' => [
+            'A deposit transaction is never deleted. Reverse it with the opposite transaction, so the trail stays followable.',
+            'You cannot refund or forfeit more than is held.',
+            'A transaction dated into a closed accounting period is refused.',
+        ],
+    ],
+
+    'post_dated_cheques' => [
+        'purpose' => 'The register of cheques a tenant has lodged for future dates — common in Egypt, where a year of rent arrives as twelve cheques.',
+        'steps' => [
+            'Lodge the cheques, usually as one series covering the year.',
+            'Watch the maturity list as each due date approaches.',
+            'Clear a cheque when the bank honours it, or mark it bounced when it does not.',
+        ],
+        'affects' => [
+            'Clearing a cheque creates the payment and settles the invoices it was lodged against — that is the moment it becomes money.',
+            'A bounced cheque re-opens the invoice it would have paid, and the tenant owes it again.',
+            'Nothing in AR, the ledger or the tenant\'s balance moves while a cheque is merely held.',
+        ],
+        'rules' => [
+            'A held cheque is not a payment. It is a promise, and it is deliberately kept out of the books until it clears.',
+            'A cheque cannot be linked to another tenant\'s invoices.',
+            'A cheque is never deleted. Void it, which reconciles the register against what really happened.',
+        ],
+    ],
+
+    'utility_meters' => [
+        'purpose' => 'Electricity, water and gas meters, and the readings you recharge to tenants.',
+        'steps' => [
+            'Register the meter against the property, or against the unit it serves.',
+            'Enter each reading — the consumption since the last one is worked out for you.',
+            'Recharge the consumption to whoever occupied the unit on the reading date.',
+        ],
+        'affects' => [
+            'A recharge becomes an invoice line to the tenant, and posts to the ledger like any other billed supply.',
+            'Readings feed the consumption trend, which is how an unnoticed leak or a failing chiller shows up.',
+        ],
+        'rules' => [
+            'One reading per meter per day. A second reading on the same date is refused.',
+            'A reading lower than the one before it does not auto-fill — a meter reset or a misread has to be keyed deliberately.',
+            'A reading that has already been billed is locked, because the invoice was raised on that figure.',
+        ],
+    ],
+
+    'tenant_requests' => [
+        'purpose' => 'Anything a tenant asks the operator for — a repair, a complaint, an access permit, a billing query.',
+        'steps' => [
+            'Log the request with its type and priority, or let the tenant raise it from the portal.',
+            'Triage it to the department that owns it.',
+            'Work it through acknowledged and in-progress to resolved, then close it.',
+        ],
+        'affects' => [
+            'The priority sets the resolution deadline from your SLA settings, and the overdue scan chases it.',
+            'The request inherits the zone of its unit, so the zone\'s supervisors are told about it.',
+            'A repair that needs facility work becomes a work order, which tracks the job itself.',
+        ],
+        'rules' => [
+            'A closed or cancelled request is frozen — it cannot be re-opened, re-assigned or re-routed. Raise a new one.',
+            'A request always says who reported it: either a tenant, or a caller name when your staff log a phone call.',
+            'The scheduled work window is a separate thing from the SLA deadline — work can be booked for next month on a request due this week.',
+        ],
+    ],
+
+    'work_orders' => [
+        'purpose' => 'A facility job — raised by a plan, by a tenant request, or by hand.',
+        'steps' => [
+            'Raise the order against the equipment or zone it concerns, and set its priority.',
+            'Assign a technician or a vendor, and work the checklist item by item.',
+            'Complete it, recording parts used and any vendor cost.',
+        ],
+        'affects' => [
+            'Spare parts drawn from stock post to the ledger and reduce the warehouse balance.',
+            'A vendor\'s job feeds their bill, and an SLA breach can cut a penalty from what you owe them.',
+            'Preventive orders close the loop on the plan that raised them, and the plan schedules the next one.',
+        ],
+        'rules' => [
+            'Common-area work has no unit — that is expected, and the zone is what routes it.',
+            'A parts draw above your approval threshold waits for approval before stock moves.',
+            'A completed order is a record of what was done. Correct it by raising a follow-up, not by editing history.',
+        ],
+    ],
+
+    'maintenance_plans' => [
+        'purpose' => 'Recurring preventive maintenance — the schedule that raises work orders before something breaks.',
+        'steps' => [
+            'Create the plan against the equipment or zone it covers.',
+            'Set how often it runs and what the technician must check.',
+            'Leave it active — the daily scan raises the work order when it falls due.',
+        ],
+        'affects' => [
+            'Each due date raises a work order automatically, with the checklist copied onto it.',
+            'Completing that order sets the plan\'s next due date, so the cycle continues without anyone tracking it.',
+        ],
+        'rules' => [
+            'The scan will not raise a second order while the last one is still open — a stalled job does not pile up duplicates.',
+            'Deactivating a plan stops future orders. It does not touch orders already raised.',
+        ],
+    ],
+
+    'equipment' => [
+        'purpose' => 'The machines you maintain — chillers, escalators, pumps, generators — and how they break down into components.',
+        'steps' => [
+            'Register the machine with a code unique to this property.',
+            'Add its components underneath it, so a motor sits under its escalator.',
+            'Link it to the fixed asset it belongs to, where you depreciate it.',
+        ],
+        'affects' => [
+            'Maintenance plans and work orders hang off equipment, so its history is the machine\'s service record.',
+            'Spare parts consumed on its jobs build a running cost per machine.',
+        ],
+        'rules' => [
+            'A component must live in the same property as its parent, and a machine cannot be its own ancestor.',
+            'A machine with components cannot be moved to another property — move or detach the components first.',
+            'Codes are unique per property, so two malls may each have an “ESC-01”.',
+        ],
+    ],
+
+    'sla_policies' => [
+        'purpose' => 'How long a facility job of each priority may take, at this property.',
+        'steps' => [
+            'Add a row only for a property that genuinely differs from your default.',
+            'Set the hours to respond and the hours to resolve, per priority.',
+            'Leave every other property alone — absence means the default applies.',
+        ],
+        'affects' => [
+            'Work-order deadlines are set from these hours the moment the order is raised.',
+            'The breach scan chases anything past its deadline, and a vendor\'s breach can be assessed as a penalty against their bill.',
+        ],
+        'rules' => [
+            'A row here is an override, not a requirement. Restating the same four numbers on every property is exactly what this avoids.',
+            'The four priorities match the ones on a work order and cannot drift apart from them.',
+        ],
+    ],
+
+    'violations' => [
+        'purpose' => 'The record that a tenant breached a mall rule — a blocked fire exit, unauthorised signage, after-hours noise.',
+        'steps' => [
+            'Record what happened, on what date, and the fine you assessed if there is one.',
+            'Send the tenant a notice when you are ready to tell them formally.',
+            'Bill the fine when you decide to charge it, and resolve the violation once it is dealt with.',
+        ],
+        'affects' => [
+            'Billing the fine raises a VAT-exempt invoice against the tenant and posts it as miscellaneous income.',
+            'Sending the notice stamps the date, so you can show when the tenant was told.',
+        ],
+        'rules' => [
+            'Recording is not billing. A fine sits as a recorded figure until you explicitly bill it — nothing reaches the tenant\'s account before that.',
+            'A fine bills once. To re-bill it you must first cancel the invoice it produced.',
+            'Photographs attached as evidence are private, and are never served from a public link.',
+        ],
+    ],
+
+    'vendors' => [
+        'purpose' => 'The contractors, suppliers and service providers you buy from, and the contracts you hold with them.',
+        'steps' => [
+            'Register the vendor with its tax registration and commercial register.',
+            'File its documents — above all the insurance certificate — with their expiry dates.',
+            'Record the contract, its value and its term, scoped to a property where it only covers one mall.',
+        ],
+        'affects' => [
+            'The contract value is a commitment: bills against it draw it down, so you can see what is left to spend.',
+            'A withholding tax nature set here comes off every payment to this vendor automatically.',
+            'Expiring documents and contracts raise a chase before they lapse, not after.',
+        ],
+        'rules' => [
+            'A vendor with history is never deleted. Deactivate it — the bills and work orders that name it have to stay readable.',
+            'Withholding is a nature from the tax catalogue, not a typed percentage. Mark a vendor exempt where they are outside it altogether.',
+            'A contract expires by itself on its end date; renewals are recorded as a change, not by moving the old date.',
+        ],
+    ],
+
+    'vendor_bills' => [
+        'purpose' => 'What a supplier has charged you, and what you owe them.',
+        'steps' => [
+            'Record the bill against the vendor, with their document number and date.',
+            'Link it to the purchase request it pays for, where there was one.',
+            'Approve it, then pay it.',
+        ],
+        'affects' => [
+            'Approving posts the expense and the payable: debit the expense or the asset, debit recoverable VAT, credit accounts payable.',
+            'A bill linked to a purchase clears goods-received-not-invoiced instead of charging expense twice.',
+            'Withholding tax is deducted at payment and held as owed to the authority, not paid to the vendor.',
+            'An SLA penalty assessed against the vendor cuts what this bill pays.',
+        ],
+        'rules' => [
+            'A vendor bill is never deleted. Reverse or credit it, so the payable trail survives.',
+            'The tax the supplier charged is recorded as they charged it — picking the tax code fills the amount in, and departing from it by more than one pound needs a written reason.',
+            'A bill dated into a closed period is refused.',
+        ],
+    ],
+
+    'purchase_requests' => [
+        'purpose' => 'A request to buy something — spare parts, consumables or a service — and the approval it needs first.',
+        'steps' => [
+            'List the items, the quantity, and why they are needed.',
+            'Send it for approval; the value decides who has to approve it.',
+            'Order it from a vendor once approved, then receive the goods when they arrive.',
+        ],
+        'affects' => [
+            'Receiving catalogue items puts them into the warehouse and posts the stock into the books.',
+            'The receipt creates goods-received-not-invoiced, which the vendor\'s bill later clears.',
+            'The value is frozen at request time, so the approval tier cannot be dodged by editing it afterwards.',
+        ],
+        'rules' => [
+            'A justification is required. A purchase nobody can justify is exactly what the approval exists to catch.',
+            'A line is either a catalogue item or free text, never both — two descriptions would disagree about what was bought.',
+            'You approve a need, then choose a supplier. The vendor is set at ordering, not at request.',
+            'Rejected and cancelled are ends. Raise a new request rather than reviving one.',
+        ],
+    ],
+
+    'inventory_items' => [
+        'purpose' => 'The catalogue of spare parts and consumables you hold in stock.',
+        'steps' => [
+            'Add the item with its unit of measure and its standard cost.',
+            'Set a reorder level so you are told before you run out.',
+            'Receive stock against it through a purchase, and consume it on work orders.',
+        ],
+        'affects' => [
+            'The standard cost values every consumption and write-off, and is what the stock on hand is worth in the books.',
+            'Consumption on a work order charges maintenance expense and reduces the stock asset.',
+        ],
+        'rules' => [
+            'The cost must be positive. At zero, every movement values at nothing and the stock ledger says the storeroom is empty when it is full.',
+            'An item that has moved is never deleted. Deactivate it instead.',
+        ],
+    ],
+
+    'stock_movements' => [
+        'purpose' => 'Every receipt, issue, transfer and write-off — the stock ledger.',
+        'steps' => [
+            'Read it rather than write it: movements are created by receiving a purchase, drawing parts onto a work order, or writing stock off.',
+            'Filter by warehouse, item or date to trace what happened to a part.',
+            'Open a movement to see the document that caused it.',
+        ],
+        'affects' => [
+            'Every movement posts to the ledger — a receipt raises the stock asset, a consumption charges expense, a write-off charges loss.',
+            'The running balance per item and warehouse is the sum of these rows, so the stock value on the balance sheet comes from here.',
+        ],
+        'rules' => [
+            'Movements are records of things that already happened. Correct them with an opposite movement, never by editing.',
+            'A movement dated into a closed period is refused.',
+        ],
+    ],
+
+    'warehouses' => [
+        'purpose' => 'Where stock is physically held — a storeroom, a plant room, a van.',
+        'steps' => [
+            'Create the warehouse with a code unique to this property.',
+            'Point purchase receipts at it so goods land in the right place.',
+            'Draw parts from it when a work order consumes them.',
+        ],
+        'affects' => [
+            'Stock balances are held per warehouse, so the same part has a separate quantity in each.',
+            'A purchase request names the warehouse its goods will land in.',
+        ],
+        'rules' => [
+            'Codes are unique per property. Two malls may each have a “MAIN”.',
+            'A warehouse holding stock or carrying history cannot be deleted. Deactivate it.',
+        ],
+    ],
+
+    'employees' => [
+        'purpose' => 'The operator\'s staff at this property, their salary structure, and the advances they hold.',
+        'steps' => [
+            'Register the employee with their staff code, department and base salary.',
+            'Record advances and loans, and the repayments that clear them.',
+            'Terminate them when they leave — never delete them.',
+        ],
+        'affects' => [
+            'An advance posts to the ledger as money owed by the employee, and repayments reverse it.',
+            'The salary structure is what the payroll run reads when it generates payslips.',
+            'Staff assigned to a property are who can be picked as a zone supervisor or a work-order technician there.',
+        ],
+        'rules' => [
+            'No advance to a terminated employee, and no repayment beyond what is outstanding.',
+            'The staff code is unique within a property.',
+            'An employee with history is never deleted. Terminating keeps the payroll and advance record intact.',
+        ],
+    ],
+
+    'payrolls' => [
+        'purpose' => 'A payroll run for a period — the payslips, and the entry that books them.',
+        'steps' => [
+            'Open a run for the period and generate payslips from the salary structures.',
+            'Adjust the lines while it is still a draft — allowances, deductions, advance repayments.',
+            'Approve it, which books the cost and freezes the run.',
+        ],
+        'affects' => [
+            'Approving posts the payroll: debit salary expense, credit net pay owed, credit each deduction to what it is owed to.',
+            'Advance repayments taken through payroll reduce the employee\'s outstanding advance.',
+        ],
+        'rules' => [
+            'Lines can only be changed while the run is a draft. Once approved, the run and its ledger entry are settled.',
+            'A payroll run is never deleted. Reverse it if it was wrong.',
+            'A run dated into a closed period is refused.',
+        ],
+    ],
+
+    'custodies' => [
+        'purpose' => 'Cash placed in a member of staff\'s hands to spend for the company — عهدة — and how it was spent.',
+        'steps' => [
+            'Grant the custody to the custodian, saying what it is for and which account the cash left.',
+            'Settle it as they spend: each settlement is a categorised expense with its receipt.',
+            'Return any unspent cash, which settles the balance.',
+        ],
+        'affects' => [
+            'Granting posts debit custodies held, credit the cash or bank account it came from.',
+            'Each settlement moves the money out of custody into the expense it actually was.',
+            'Outstanding is what is granted less what is settled — it is derived, never stored.',
+        ],
+        'rules' => [
+            'Settlements cannot exceed what is outstanding.',
+            'No custody to a terminated employee.',
+            'Once a custody has been settled against, its amount, date and source account are locked — changing them would misstate what the custodian still holds. The purpose and reference stay editable.',
+        ],
+    ],
+
+    'expenses' => [
+        'purpose' => 'Costs paid directly, without a supplier bill behind them — petty cash, fees, small purchases.',
+        'steps' => [
+            'Record what was spent, on what date, and which category it belongs to.',
+            'Attach the receipt.',
+            'Say which account the money came out of.',
+        ],
+        'affects' => [
+            'Posting charges the expense account and credits the cash or bank it left.',
+            'Recoverable VAT on the expense feeds the VAT return.',
+            'An expense against a CAM pool becomes part of what is recovered from tenants.',
+        ],
+        'rules' => [
+            'An expense is never deleted. Reverse it.',
+            'An expense dated into a closed period is refused.',
+        ],
+    ],
+
+    'departments' => [
+        'purpose' => 'The operator\'s organisational backbone — HR, Marketing, Accounting, Leasing, Operations.',
+        'steps' => [
+            'Use the seeded five as they are; they are the routing targets the rest of the system expects.',
+            'Assign staff to the department they work in.',
+            'Triage tenant requests to the department that owns them.',
+        ],
+        'affects' => [
+            'A request routed to a department reaches that department\'s staff, and its SLA clock is theirs to answer.',
+            'Marketing budgets, purchases and expenses are attributed to the department that spent them.',
+        ],
+        'rules' => [
+            'A department with staff, requests or spend behind it cannot be deleted. Deactivate it.',
+        ],
+    ],
+
+    'owner_requests' => [
+        'purpose' => 'Requests raised by a property\'s owner to your team, and your replies.',
+        'steps' => [
+            'Read the request and route it to whoever can answer it.',
+            'Respond in writing.',
+            'Close it once the owner has what they asked for.',
+        ],
+        'affects' => [
+            'The owner sees your response against their request.',
+            'Only the properties an owner currently holds are visible to them — a sold-off property drops out of their view.',
+        ],
+        'rules' => [
+            'A responded or closed request is frozen. Raise a new one rather than editing an answer already given.',
+            'Owners are staff users with an owner role, not a separate portal. What they see is decided by the properties they own.',
+        ],
+    ],
+
+    'owner_statements' => [
+        'purpose' => 'The periodic account you give a property\'s owner: income less expenses, and what they are owed.',
+        'steps' => [
+            'Generate a draft for the property and period — it reads the ledger, so it is regenerable.',
+            'Check the figures against the income statement for the same period.',
+            'Finalise it, which freezes the figures and books what the owner is owed.',
+        ],
+        'affects' => [
+            'Finalising posts the distribution: what the owner is owed becomes a liability you can then pay.',
+            'The statement is the basis for a disbursement — you cannot pay out against a draft.',
+            'Once finalised, the period is evidence: revising it supersedes it with a new version rather than editing it.',
+        ],
+        'rules' => [
+            'The figures come from the general ledger, not from a separate calculation, so the statement and the income statement agree by construction.',
+            'A property with no owner assigned cannot be finalised — the draft is how you find that out.',
+            'Corrections go through Revise, which creates a new version and marks the old one superseded.',
+        ],
+    ],
+
+    'disbursements' => [
+        'purpose' => 'Paying an owner what a finalised statement says they are owed.',
+        'steps' => [
+            'Schedule the payout against the finalised statement.',
+            'Get it approved — the amount decides who has to approve it.',
+            'Mark it paid, with the bank reference.',
+        ],
+        'affects' => [
+            'Paying clears what was owed to the owner and takes the money out of the bank account.',
+            'The statement shows what has been paid to date against it, so a part payment is visible.',
+        ],
+        'rules' => [
+            'You can only pay against a finalised statement. A draft is disposable and its figures can still change.',
+            'The approval tier is frozen when the payout is scheduled, so it cannot be dodged by editing the amount.',
+            'A cancelled payout is an end. Schedule a new one.',
+        ],
+    ],
+
+    'marketing_budgets' => [
+        'purpose' => 'The marketing fund for a property and year, and what has been spent from it.',
+        'steps' => [
+            'Let the yearly budget accrue from the levy on base rent, or set it directly.',
+            'Record each marketing activity against it as it is spent.',
+            'Watch the balance — it turns red when the year is overspent.',
+        ],
+        'affects' => [
+            'The marketing levy on every lease feeds this fund, so what you can spend follows what you billed.',
+            'Spend recorded here is what the owner sees as marketing cost on their statement.',
+        ],
+        'rules' => [
+            'The levy is a lease term — five per cent of base rent by default — and is set in Settings, not here.',
+            'Overspending is allowed and made visible rather than blocked. It is a conversation, not an error.',
+        ],
+    ],
+
+    'marketing_posts' => [
+        'purpose' => 'Offers, events and mall news shown to shoppers in the visitor app.',
+        'steps' => [
+            'Write the post, or review one a retailer submitted from their portal.',
+            'Set the dates it is valid and the dates it should be shown.',
+            'Publish it once approved.',
+        ],
+        'affects' => [
+            'A published post inside its display window is visible to shoppers in the app, with no login.',
+            'A retailer\'s submission waits for your review — nothing a tenant writes reaches shoppers unseen.',
+        ],
+        'rules' => [
+            'There are two date pairs and they mean different things: when the offer is valid, and when the post is shown. A sale can be advertised before it starts.',
+            'This is the one surface shoppers can read without an account, so only the fields meant for them are ever sent.',
+        ],
+    ],
+
+    'announcements' => [
+        'purpose' => 'A message broadcast to every active tenant of one property.',
+        'steps' => [
+            'Write the announcement and pick the property it goes to.',
+            'Publish it.',
+            'It reaches tenants in their portal bell and on their phones.',
+        ],
+        'affects' => [
+            'Every active tenant of that property is notified in-app and by mobile push. Announcements are deliberately not emailed.',
+        ],
+        'rules' => [
+            'One announcement targets exactly one property. To reach two malls, write two.',
+            'Tenants who are not active at that property do not receive it.',
+        ],
+    ],
+
+    'journal_entries' => [
+        'purpose' => 'The double-entry record — both those the system posts for you and those you write by hand.',
+        'steps' => [
+            'Read entries here to see how a document reached the books.',
+            'Write a manual entry only for something no document produces — an accrual, a correction, an opening balance.',
+            'Post it once it balances.',
+        ],
+        'affects' => [
+            'A posted entry moves the trial balance, the income statement and the balance sheet immediately.',
+            'Most entries here are derived from a document. Changing the document re-derives its entry; the entry itself is not where you make the correction.',
+        ],
+        'rules' => [
+            'Debits must equal credits. An unbalanced entry cannot be posted.',
+            'A posted entry is never deleted or edited. Void it, which posts a reversal, and post a fresh one.',
+            'An entry dated into a closed period is refused.',
+            'An entry cannot post to a summary account — only to accounts marked postable.',
+        ],
+    ],
+
+    'ledger_accounts' => [
+        'purpose' => 'Your chart of accounts — the list of accounts every entry posts into.',
+        'steps' => [
+            'Add the account with the code and name your accountant uses.',
+            'Say what type it is, and whether entries may post directly to it.',
+            'Point the posting map at it so transactions land there.',
+        ],
+        'affects' => [
+            'The account type decides which statement it appears on and which side of it increases.',
+            'Summary accounts total their children on the reports but never carry entries themselves.',
+        ],
+        'rules' => [
+            'An account that has been posted to is never deleted. Deactivate it.',
+            'The chart is shared across every property. One mall posting somewhere different is set as an override on the posting map, not as a second account.',
+            'Making a posted-to account non-postable does not move the entries already in it.',
+        ],
+    ],
+
+    'accounting_periods' => [
+        'purpose' => 'The months your books are divided into, and whether each one is still open.',
+        'steps' => [
+            'Open the period before work is posted into it.',
+            'Do the month-end checks while it is open.',
+            'Close it when the month is signed off.',
+        ],
+        'affects' => [
+            'Closing a period refuses every new document dated into it — an invoice, a payment, a bill, a journal entry.',
+            'Reports for a closed period stop moving, which is what makes them quotable.',
+        ],
+        'rules' => [
+            'A closed period is refused at the point of saving, not silently later, so nothing commits and then fails to post.',
+            'A missing period is allowed; only a closed one is refused. That is deliberate — a gap in the calendar should not stop work.',
+            'Re-opening a closed period is an accounting decision, not a convenience. Prefer a correcting document in the current period.',
+        ],
+    ],
+
+    'fixed_assets' => [
+        'purpose' => 'What the operator owns and depreciates — plant, fit-out, equipment, vehicles.',
+        'steps' => [
+            'Register the asset with its cost, its date in service, and its useful life.',
+            'Let the monthly run post depreciation.',
+            'Dispose of it when it goes, recording any proceeds.',
+        ],
+        'affects' => [
+            'Each month posts depreciation: charge the expense, build up accumulated depreciation.',
+            'The register is the balance-sheet schedule — cost, accumulated depreciation and net book value come straight from it.',
+            'Disposal writes off the remaining book value and books the gain or loss against the proceeds.',
+        ],
+        'rules' => [
+            'Depreciation is straight-line from the in-service date over the useful life.',
+            'A tag is unique within a property.',
+            'A month already depreciated is not re-posted. The run is safe to repeat.',
+        ],
+    ],
+
+    'bank_accounts' => [
+        'purpose' => 'The bank and cash accounts money actually moves through.',
+        'steps' => [
+            'Register the account with its bank, number and currency.',
+            'Point it at the ledger account it represents.',
+            'Use it as the source or destination when recording receipts and payments.',
+        ],
+        'affects' => [
+            'Every receipt, payment, payout and custody grant names one of these, and posts to the ledger account behind it.',
+            'Bank statements are imported against an account and reconciled to its book balance.',
+        ],
+        'rules' => [
+            'An account with movements is never deleted. Deactivate it.',
+            'The ledger account behind it is what the books actually move — the bank details here are for identifying it.',
+        ],
+    ],
+
+    'bank_statements' => [
+        'purpose' => 'What the bank says moved, so you can agree it against what your books say moved.',
+        'steps' => [
+            'Import the statement for the account and period.',
+            'Match each line to the posting that explains it.',
+            'Reconcile once every line is matched and the closing balance agrees.',
+        ],
+        'affects' => [
+            'Matching links a bank line to a book entry. It is the control that catches a payment recorded twice, or one never recorded at all.',
+            'Reconciling is what lets you say the bank balance and the ledger balance are the same number.',
+        ],
+        'rules' => [
+            'Importing posts nothing. A statement is the bank\'s account of what happened; matching it to the books is the separate, deliberate step.',
+            'Re-importing an overlapping range is safe — the same row lands on the same record rather than doubling the statement.',
+            'A bank\'s genuine duplicate — two identical fees on one day — is kept as two lines, because collapsing it would lose money from the evidence.',
+        ],
+    ],
+
+    'approval_rules' => [
+        'purpose' => 'The ladder that answers one question: does this amount need signing off, and by whom.',
+        'steps' => [
+            'Set the value bands and the permission each band demands.',
+            'Check the ladder covers every band from zero upwards.',
+            'Review it with the operator — the shipped figures are a starting point, not your policy.',
+        ],
+        'affects' => [
+            'Spare-part draws, purchase requests and owner payouts all read this ladder before they proceed.',
+            'The tier a document needs is frozen when it is raised, so editing the amount afterwards cannot lower the bar.',
+        ],
+        'rules' => [
+            'An empty ladder approves everything. That is the state a fresh install must not be left in.',
+            'The amounts here are a default awaiting the operator\'s sign-off, not a rule the system invented.',
+        ],
+    ],
+
+    'users' => [
+        'purpose' => 'Who may sign in to the operator\'s panel, and which properties they work at.',
+        'steps' => [
+            'Create the user and give them the role their job needs.',
+            'Assign the properties they work at — that is what they will be able to see.',
+            'Deactivate them when they leave.',
+        ],
+        'affects' => [
+            'The role decides what they may do; the property assignment decides what they may see it on.',
+            'A property\'s staff are who can be picked as its zone supervisors and work-order technicians.',
+            'Owners are users too — an owner role plus the properties they own.',
+        ],
+        'rules' => [
+            'A user with history is never deleted. Deactivating keeps every record that names them readable.',
+            'Nobody sees a property they are not assigned to, whatever their role — except a super administrator.',
+        ],
+    ],
+
+    'roles' => [
+        'purpose' => 'What each job may do — the permission sets behind leasing, accounting, maintenance and the rest.',
+        'steps' => [
+            'Start from the seeded roles; they match the departments the operator actually runs.',
+            'Grant a permission only where the job genuinely needs it.',
+            'Give the user the role, rather than granting permissions one by one.',
+        ],
+        'affects' => [
+            'Every screen, button and action checks a permission from here before it will run.',
+            'Removing a permission takes the action away immediately, everywhere it appears.',
+        ],
+        'rules' => [
+            'Deleting money records is not a permission that exists. An invoice, payment or journal entry is corrected through its own workflow, by anyone — including a super administrator.',
+            'Departing from the tax catalogue is deliberately withheld from managers: it is an accounting act, not an operational one.',
+        ],
+    ],
+
+    // ── Admin pages ───────────────────────────────────────────────────────────────────────────
+    // The screens where the money questions actually get asked. They had no help at all until
+    // 2026-08-12, which is the wrong way round: a resource form is largely self-describing, a
+    // trial balance is not.
+
+    'dashboard' => [
+        'purpose' => 'The state of the property you have selected, at a glance.',
+        'steps' => [
+            'Switch property at the top — every figure here follows that choice.',
+            'Read the cards for what needs attention today.',
+            'Click a card to open the list behind it, already filtered to what the card counted.',
+        ],
+        'affects' => [
+            'Nothing. This screen only reports; it changes no record.',
+            'What you see depends on your role: the cards are chosen for the job, so an accountant and a maintenance supervisor do not get the same dashboard.',
+        ],
+        'rules' => [
+            'Every figure is for the selected property only, not the portfolio.',
+        ],
+    ],
+
+    'billing_run' => [
+        'purpose' => 'A dry run of the month\'s billing — what will be invoiced, and what will be skipped, before anything becomes real.',
+        'steps' => [
+            'Pick the month and read the preview.',
+            'Check the skipped rows and why they were skipped, not just the totals.',
+            'Post the run once it looks right.',
+        ],
+        'affects' => [
+            'Posting raises a real invoice for every listed lease, and each one posts to the ledger.',
+            'Nothing bills that is not on a lease\'s charge schedule, which is why a missing row here is a lease problem, not a billing problem.',
+        ],
+        'rules' => [
+            'Every row is worked out by the same code the real run uses, so what you see is what will post.',
+            'A lease in its rent-free fit-out period bills nothing, and the preview says that is why.',
+            'The run is for the selected property. Billing is a per-property act.',
+        ],
+    ],
+
+    'rent_roll' => [
+        'purpose' => 'Every occupied unit, who is in it, what they pay, and when their lease ends.',
+        'steps' => [
+            'Read it as the leasing position of the property today.',
+            'Sort by expiry to see what is coming up for renewal.',
+            'Export it when the owner or a valuer asks for it.',
+        ],
+        'affects' => [
+            'Nothing. It reports the lease and charge records as they stand.',
+        ],
+        'rules' => [
+            'It shows contracted rent, which is what the lease says — not what has been collected.',
+        ],
+    ],
+
+    'expiration_schedule' => [
+        'purpose' => 'Which leases end when, so renewals are started before a tenant is out of contract.',
+        'steps' => [
+            'Look at the next few months first.',
+            'Open a lease to renew it or record the tenant\'s decision.',
+            'Check the option windows — a tenant with an unexercised option has a claim on the space.',
+        ],
+        'affects' => [
+            'Nothing directly. It is the worklist that drives renewal conversations.',
+        ],
+        'rules' => [
+            'A lease stays active right up to the day it lapses, so a renewal that is late does not look late on status alone. That is why this screen is a date window rather than a status filter.',
+        ],
+    ],
+
+    'occupancy_map' => [
+        'purpose' => 'The floor plan — every unit as a card, grouped by floor and coloured by status.',
+        'steps' => [
+            'Scan for vacant units by colour.',
+            'Filter or search to find a unit or a tenant.',
+            'Click through to the unit or its lease.',
+        ],
+        'affects' => [
+            'Nothing. A unit\'s status follows its lease and is not set here.',
+        ],
+        'rules' => [
+            'Parking bays and other rentable items are not units and do not appear here.',
+        ],
+    ],
+
+    'occupancy_cost' => [
+        'purpose' => 'What each tenant pays as a share of what they sell — the number that shows who is in trouble before they miss a payment.',
+        'steps' => [
+            'Read the percentage per tenant for the period.',
+            'Look at the tenants above the amber and red bands first.',
+            'Talk to them before the arrears arrive.',
+        ],
+        'affects' => [
+            'Nothing. It reads invoices and declared sales.',
+        ],
+        'rules' => [
+            'It only covers tenants who declare sales. A tenant with no declarations has no ratio, not a good one.',
+            'The healthy band differs by trade — food courts run high, anchors run low — so the thresholds are a conversation, not a verdict.',
+        ],
+    ],
+
+    'sales_analytics' => [
+        'purpose' => 'What tenants are selling, by period and by trade.',
+        'steps' => [
+            'Choose the period you want to look at.',
+            'Compare trades and tenants against each other.',
+            'Follow a weak trend into the tenant\'s occupancy cost.',
+        ],
+        'affects' => [
+            'Nothing. It reads sales declarations.',
+        ],
+        'rules' => [
+            'Estimated declarations are included and labelled. An estimate is the system\'s figure, not one the tenant stood behind.',
+        ],
+    ],
+
+    'ar_aging' => [
+        'purpose' => 'How much tenants owe, and how late it is.',
+        'steps' => [
+            'Read the buckets — current, 30, 60, 90 days and beyond.',
+            'Click a bucket to see the invoices inside it.',
+            'Take the oldest money first.',
+        ],
+        'affects' => [
+            'Nothing. It reads invoice balances.',
+        ],
+        'rules' => [
+            'Balance is what is left after every way an invoice can be settled — cash, credit notes, on-account credit and netted deposits.',
+            'A cancelled invoice carries no balance and is not aged.',
+        ],
+    ],
+
+    'ar_aging_by_type' => [
+        'purpose' => 'The same overdue money, split by what it is owed for.',
+        'steps' => [
+            'Compare rent against service charge, CAM and the rest.',
+            'Use it to decide whether an overdue total is a collections problem or a dispute.',
+        ],
+        'affects' => [
+            'Nothing. It is the AR aging figures re-cut by charge type.',
+        ],
+        'rules' => [
+            'A single aging total is ambiguous: overdue rent needs a call, a disputed service charge needs a different conversation. This is the split that tells them apart.',
+            'The grand total ties exactly to the AR aging summary — the per-line figures are derived from the same invoice balances.',
+        ],
+    ],
+
+    'ar_collections' => [
+        'purpose' => 'Who to call this morning, and about what.',
+        'steps' => [
+            'Work the list from the top — it is ordered worst-first.',
+            'Open a tenant to see every invoice behind their total.',
+            'Record what you agreed against the invoice.',
+        ],
+        'affects' => [
+            'Nothing directly. It is the worklist, not the ledger.',
+        ],
+        'rules' => [
+            'This is a different question from AR aging: that one asks how much is 31–60 days late, this one asks who to chase. A tenant 120 days late for a small sum needs the call before one 5 days late for a large one.',
+            'The buckets are worked out the same way as on the aging report, so the two screens cannot disagree.',
+        ],
+    ],
+
+    'trial_balance' => [
+        'purpose' => 'Every account with its debit and credit total, for a period — the proof the books balance.',
+        'steps' => [
+            'Pick the period and the property, or read it consolidated.',
+            'Check that debits equal credits.',
+            'Drill into an account that looks wrong.',
+        ],
+        'affects' => [
+            'Nothing. It totals the posted journal entries.',
+        ],
+        'rules' => [
+            'It counts posted entries only. Draft entries are not in the books yet.',
+            'A voided entry is not erased — it is offset by its reversal, and both appear.',
+        ],
+    ],
+
+    'general_ledger' => [
+        'purpose' => 'Every posting to an account, in order, with the document behind it.',
+        'steps' => [
+            'Pick the account and the date range.',
+            'Follow the running balance to where it changed.',
+            'Open the entry to see the document that caused it.',
+        ],
+        'affects' => [
+            'Nothing. It is the detail behind the trial balance.',
+        ],
+        'rules' => [
+            'Most entries are derived from a document. To correct one, correct the document — the entry is re-derived.',
+        ],
+    ],
+
+    'income_statement' => [
+        'purpose' => 'Revenue less expenses for a period — what the property earned.',
+        'steps' => [
+            'Choose the period and the property.',
+            'Compare against the period before.',
+            'Drill into a line to see the accounts behind it.',
+        ],
+        'affects' => [
+            'Nothing. It reads the ledger.',
+        ],
+        'rules' => [
+            'It is accrual: revenue is recognised when an invoice is issued, not when it is paid.',
+            'The owner\'s statement is built from these same figures, so the two agree by construction.',
+        ],
+    ],
+
+    'balance_sheet' => [
+        'purpose' => 'What the property owns and owes on a given date.',
+        'steps' => [
+            'Choose the date and the property.',
+            'Check that assets equal liabilities plus equity.',
+            'Drill into a line for the accounts behind it.',
+        ],
+        'affects' => [
+            'Nothing. It reads the ledger.',
+        ],
+        'rules' => [
+            'Deposits held from tenants sit here as a liability, not as income. They are the tenant\'s money until forfeited.',
+            'Fixed assets show at cost less accumulated depreciation, which comes straight from the asset register.',
+        ],
+    ],
+
+    'cash_flow' => [
+        'purpose' => 'Where cash actually came from and went, for a fiscal year.',
+        'steps' => [
+            'Choose the year and the property.',
+            'Read operating, then investing, then financing.',
+            'Check the closing figure against the bank.',
+        ],
+        'affects' => [
+            'Nothing. It reads the ledger.',
+        ],
+        'rules' => [
+            'It starts from profit and adjusts for non-cash items and working capital, so it reconciles to the movement in cash rather than restating it.',
+            'Profit and cash are different questions. An issued invoice is revenue immediately and cash only when paid.',
+        ],
+    ],
+
+    'vat_return' => [
+        'purpose' => 'The VAT position for a period — what you charged, what you can reclaim, and the difference.',
+        'steps' => [
+            'Choose the period.',
+            'Check the output and input figures against the documents behind them.',
+            'Use it to prepare the filing.',
+        ],
+        'affects' => [
+            'Nothing. It reports a position and files nothing.',
+        ],
+        'rules' => [
+            'The figures come from the ledger, because that is the single source of truth. The documents are used to check it.',
+            'Base rent is exempt and service charges are taxable. Which supplies are taxable is set on the charge code, not here.',
+            'An invoice keeps the rate it was billed at, so a rate change never rewrites a past return.',
+        ],
+    ],
+
+    'month_end_close' => [
+        'purpose' => 'The checklist for closing a month, with each step showing whether it is done.',
+        'steps' => [
+            'Work down the rows — each shows a state, a count and a link to the thing that clears it.',
+            'Clear every row before you close.',
+            'Close the period from the Accounting Periods screen.',
+        ],
+        'affects' => [
+            'Nothing on this screen changes a record. Closing the period is done where periods live, so there is one place to close and one gate to pass.',
+        ],
+        'rules' => [
+            'Every count is derived from the service that owns that decision, so a row cannot claim done while the underlying work is outstanding.',
+            'Closing the period refuses every later document dated into it.',
+        ],
+    ],
+
+    'weekly_spend' => [
+        'purpose' => 'What the property spent week by week, split into committed and variable cost.',
+        'steps' => [
+            'Choose the weeks you want.',
+            'Compare fixed against variable to see what is actually controllable.',
+            'Export it for the management pack.',
+        ],
+        'affects' => [
+            'Nothing. It reads expenses and vendor bills.',
+        ],
+        'rules' => [
+            'Figures are excluding VAT, so they compare against budgets rather than against cash paid.',
+            'This is the only weekly report in the system — everything else is monthly or as-of.',
+        ],
+    ],
+
+    'reports' => [
+        'purpose' => 'The month\'s billing, collections and receivables position on one screen.',
+        'steps' => [
+            'Read the headline figures for the month.',
+            'Check the ageing buckets underneath them.',
+            'Follow revenue by charge type to see where the month came from.',
+        ],
+        'affects' => [
+            'Nothing. It reads invoices and payments.',
+        ],
+        'rules' => [
+            'Figures are for the selected property and the chosen month.',
+        ],
+    ],
+
+    'report_hub' => [
+        'purpose' => 'Every report in the system, with a sentence saying what each one answers.',
+        'steps' => [
+            'Read the descriptions rather than the titles — that is what tells two similar reports apart.',
+            'Open the one that answers your question.',
+        ],
+        'affects' => [
+            'Nothing. It is an index.',
+        ],
+        'rules' => [
+            'A report appears here only if you may open it, so you will never meet a link that refuses you.',
+        ],
+    ],
+
+    'workflows' => [
+        'purpose' => 'The state machines the system enforces — every status, and what it may move to next.',
+        'steps' => [
+            'Pick the workflow you are asking about.',
+            'Read which statuses follow which.',
+            'A status with nothing after it is an end.',
+        ],
+        'affects' => [
+            'Nothing. It is a reference.',
+        ],
+        'rules' => [
+            'This is drawn from the same rules the services enforce, so it cannot show a transition that is not actually allowed.',
+        ],
+    ],
+
+    'activity_log' => [
+        'purpose' => 'Who changed what, and when.',
+        'steps' => [
+            'Filter by record, user or date.',
+            'Open an entry to see the old and new values.',
+        ],
+        'affects' => [
+            'Nothing. It is the audit trail.',
+        ],
+        'rules' => [
+            'The log is portfolio-wide and restricted to portfolio roles — it is deliberately not scoped to one property.',
+            'Entries are never edited or removed. That is the point of them.',
+        ],
+    ],
+
+    'settings' => [
+        'purpose' => 'The portfolio-wide answers — payment terms, late fees, the marketing levy, tax details, which modules are on.',
+        'steps' => [
+            'Change the setting for the whole portfolio here.',
+            'Override it for one mall on the Property Overrides screen.',
+            'Check Configuration Health afterwards to see what is still unset.',
+        ],
+        'affects' => [
+            'These answers reach every property that has not overridden them, and take effect on documents raised from now on.',
+            'Turning a module off hides its screens and its actions; it does not delete its records.',
+        ],
+        'rules' => [
+            'This screen is the portfolio tier. A single mall\'s difference belongs in Property Overrides, and a single tenant\'s belongs on their lease.',
+            'Tax rates are not here. A rate is a dated entry in the tax catalogue, so a rise can be entered in advance and a back-dated document keeps the rate that was in force.',
+        ],
+    ],
+
+    'property_overrides' => [
+        'purpose' => 'What this one mall answers differently from the portfolio.',
+        'steps' => [
+            'Fill in only the fields this mall genuinely differs on.',
+            'Leave everything else blank.',
+            'Clear a field to go back to the portfolio\'s answer.',
+        ],
+        'affects' => [
+            'An override applies to documents raised at this property from now on.',
+            'Clearing a field removes the override, which is why there is no delete action to look for.',
+        ],
+        'rules' => [
+            'Blank means inherit, never zero. Each field shows the portfolio\'s answer as its placeholder so an empty box cannot be read as “this mall charges nothing”.',
+            'This edits the property you have selected, and only that one.',
+        ],
+    ],
+
+    'configuration_health' => [
+        'purpose' => 'What is not set up yet, and what each gap actually breaks.',
+        'steps' => [
+            'Read the impact line, not just the red dot.',
+            'Clear the rows that touch money and tax first.',
+            'Re-check it before go-live and after any settings change.',
+        ],
+        'affects' => [
+            'Nothing. It reads the live database and reports.',
+        ],
+        'rules' => [
+            'This is a different question from whether the system is running. A perfectly healthy installation can bill every tenant at a floor rate because nobody classified the charge codes.',
+            'It reads the database as it is now, so it cannot go stale the way a written checklist does.',
+        ],
+    ],
+
+    'notification_center' => [
+        'purpose' => 'Every alert you have been sent, in full — the bell is only a peek at the most recent few.',
+        'steps' => [
+            'Filter by type, by date, or by read and unread.',
+            'Open an alert to read it in full and go to the record it is about.',
+            'Mark alerts read once you have dealt with them.',
+        ],
+        'affects' => [
+            'Nothing. Reading an alert changes nothing but whether it counts as unread.',
+        ],
+        'rules' => [
+            'You see the alerts addressed to you and no one else\'s. There is no permission to grant here, because a notification has exactly one reader.',
+            'An alert that has scrolled out of the bell is still here. That matters for the ones with a deadline in them — a contract notice that has passed, an SLA about to breach.',
+        ],
+    ],
+
+    // ── Tenant portal ─────────────────────────────────────────────────────────────────────────
+    // The reader here is the retailer, not the operator. A guide that told a tenant what the
+    // billing run does would be answering a question they cannot act on, so these are written to
+    // the tenant's own view: what this screen shows them, and what they can do about it.
+
+    'portal_invoices' => [
+        'purpose' => 'The bills the mall has issued to you, and what is still outstanding on each.',
+        'steps' => [
+            'Open an invoice to see what it is made up of, line by line.',
+            'Download it as a PDF for your records.',
+            'Pay it online, or pay the mall directly and it will appear here once recorded.',
+        ],
+        'affects' => [
+            'A payment you make online is recorded against the invoice and its balance drops.',
+            'Any credit the mall has issued you is applied automatically and shows against the invoice.',
+        ],
+        'rules' => [
+            'You see your own invoices only.',
+            'If you think an invoice is wrong, raise a billing query rather than ignoring it — the mall can put it on hold while it is looked at.',
+        ],
+    ],
+
+    'portal_payments' => [
+        'purpose' => 'Everything you have paid, and which invoices each payment settled.',
+        'steps' => [
+            'Check a payment has been recorded against the right invoice.',
+            'Download a receipt.',
+        ],
+        'affects' => [
+            'Nothing. This is a record of what has already been received.',
+        ],
+        'rules' => [
+            'A payment appears once the mall has recorded it. A bank transfer can take a day or two to show.',
+            'A post-dated cheque you have lodged is not a payment until it clears, so it will not appear here before then.',
+        ],
+    ],
+
+    'portal_leases' => [
+        'purpose' => 'Your own lease — the terms you signed, and the signed document itself.',
+        'steps' => [
+            'Read your rent, term dates, escalation, deposit and any percentage-rent terms.',
+            'Download your signed lease.',
+        ],
+        'affects' => [
+            'Nothing. This screen is read-only.',
+        ],
+        'rules' => [
+            'These are the terms as recorded by the mall. If something does not match what you signed, raise a request.',
+        ],
+    ],
+
+    'portal_requests' => [
+        'purpose' => 'Asking the mall for something — a repair, a complaint, an access permit, a question about a bill.',
+        'steps' => [
+            'Raise the request, choosing the type that fits and describing the problem.',
+            'Attach photographs where they help.',
+            'Follow its progress here, and reply when the mall asks you something.',
+        ],
+        'affects' => [
+            'The request reaches the department that handles it, with a target response time based on its urgency.',
+            'You are notified as it moves, in the portal and on your phone.',
+        ],
+        'rules' => [
+            'A closed request cannot be re-opened. If the problem comes back, raise a new one — that keeps the history of each occurrence separate.',
+            'Only users on your account marked as administrators can raise requests; the rest can read them.',
+        ],
+    ],
+
+    'portal_sales' => [
+        'purpose' => 'Declaring what you sold, where your lease includes rent based on turnover.',
+        'steps' => [
+            'Upload your sales report for the period.',
+            'Submit it before the deadline in your lease.',
+            'The mall reviews the report and records the figure.',
+        ],
+        'affects' => [
+            'Your declared sales decide whether any percentage rent is due above your breakpoint.',
+            'A period you do not declare is estimated by the mall so billing can continue — an estimate is not a figure you stood behind, so declaring is in your interest.',
+        ],
+        'rules' => [
+            'You attach your report; the mall enters the figure from it. That is deliberate — the document is the evidence.',
+            'A declaration that has been locked cannot be changed, because it has been billed on.',
+            'Your sales report is confidential and is never published or served from a public link.',
+        ],
+    ],
+
+    'portal_cam' => [
+        'purpose' => 'Your share of the mall\'s common-area running costs, and how it was worked out.',
+        'steps' => [
+            'Open an allocation to see the pool it came from and the basis of your share.',
+            'Compare the year-end reconciliation against what you were billed through the year.',
+        ],
+        'affects' => [
+            'Nothing. This is the explanation behind the CAM charges on your invoices.',
+        ],
+        'rules' => [
+            'Your share is normally your area as a proportion of the mall\'s, weighted for the days you held the space.',
+            'At year end, an underpayment is billed and an overpayment is credited back to you.',
+            'Where your lease has a cap or a base year, anything above it is the landlord\'s cost, not yours.',
+        ],
+    ],
+
+    'portal_posts' => [
+        'purpose' => 'Offers and events you want shown to shoppers in the mall\'s visitor app.',
+        'steps' => [
+            'Write the post and add its artwork.',
+            'Set when the offer is valid and when it should be shown.',
+            'Submit it to the mall for review.',
+        ],
+        'affects' => [
+            'The mall reviews it before shoppers see it. Nothing you write here is published without review.',
+        ],
+        'rules' => [
+            'Once submitted or published, a post is read-only. Withdraw it if you need to change it — otherwise the artwork behind an approved offer could be swapped for something nobody reviewed.',
+            'You cannot publish. Only the mall can.',
+        ],
+    ],
+
+    'portal_notifications' => [
+        'purpose' => 'Everything the mall has notified you about, in full — the bell only shows the most recent few.',
+        'steps' => [
+            'Filter by type or date, or show only what you have not read.',
+            'Open an alert to read it in full and go to what it is about.',
+        ],
+        'affects' => [
+            'Nothing. Reading an alert changes nothing but whether it counts as unread.',
+        ],
+        'rules' => [
+            'You see only the alerts addressed to your account.',
+            'An alert that has scrolled out of the bell is still here — which matters for the ones carrying a deadline, like a sales declaration due or an invoice falling overdue.',
+        ],
+    ],
+
 ];

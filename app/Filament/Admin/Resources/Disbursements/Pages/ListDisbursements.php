@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Disbursements\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\Disbursements\DisbursementResource;
 use App\Support\StatusTabs;
 use Filament\Resources\Pages\ListRecords;
@@ -14,7 +15,8 @@ class ListDisbursements extends ListRecords
     // action), never created blank here — so no create header action.
     protected function getHeaderActions(): array
     {
-        return [];
+        return [
+            GuideAction::for(static::getResource()), ];
     }
 
     /** Owner payouts, in the order they move: scheduled → approved → paid. */

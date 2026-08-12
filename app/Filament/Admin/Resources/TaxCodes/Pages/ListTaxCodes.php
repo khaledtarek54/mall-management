@@ -14,7 +14,7 @@ class ListTaxCodes extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            GuideAction::for(TaxCodeResource::class),
+            GuideAction::for(static::getResource()),
             CreateAction::make(),
         ];
     }

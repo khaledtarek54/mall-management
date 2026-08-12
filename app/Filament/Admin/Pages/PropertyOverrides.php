@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Support\PropertySettings;
 use App\Support\TenantScope;
 use BackedEnum;
@@ -10,8 +11,8 @@ use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Contracts\HasSchemas;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
+use Filament\Schemas\Contracts\HasSchemas;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Auth;
@@ -40,6 +41,13 @@ use Illuminate\Support\Facades\Auth;
 class PropertyOverrides extends Page implements HasSchemas
 {
     use InteractsWithSchemas;
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            GuideAction::for(static::class),
+        ];
+    }
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedAdjustmentsHorizontal;
 
@@ -111,12 +119,12 @@ class PropertyOverrides extends Page implements HasSchemas
         $assetId = TenantScope::currentAssetId();
 
         return collect(PropertySettings::OVERRIDABLE)
-            ->map(function (array $meta, string $key) use ($assetId) {
+            ->map(function (array $meta, string $key) {
                 $portfolio = PropertySettings::portfolio($key);
                 $inherited = is_bool($portfolio) ? ($portfolio ? '1' : '0') : (string) $portfolio;
 
                 return TextInput::make(self::field($key))
-                    ->label(__("admin.settings.fields.".self::name($key)))
+                    ->label(__('admin.settings.fields.'.self::name($key)))
                     ->numeric()
                     ->minValue(0)
                     // The portfolio's answer, twice: as the ghost text inside the empty box and as

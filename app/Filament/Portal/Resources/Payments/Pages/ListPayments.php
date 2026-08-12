@@ -2,6 +2,7 @@
 
 namespace App\Filament\Portal\Resources\Payments\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Portal\Resources\Payments\PaymentResource;
 use Filament\Resources\Pages\ListRecords;
 
@@ -11,6 +12,7 @@ class ListPayments extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return [];
+        return [
+            GuideAction::for(static::getResource()), ];
     }
 }

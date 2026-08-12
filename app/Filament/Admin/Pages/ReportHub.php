@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Pages;
 
 use App\Contracts\DeliverableReport;
+use App\Filament\Actions\GuideAction;
 use App\Models\SavedReport;
 use App\Support\ReportCatalogue;
 use App\Support\ReportParameters;
@@ -48,6 +49,13 @@ use Illuminate\Support\Facades\Auth;
 class ReportHub extends Page implements HasTable
 {
     use InteractsWithTable;
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            GuideAction::for(static::class),
+        ];
+    }
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 

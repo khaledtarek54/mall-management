@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\SlaPolicies\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\SlaPolicies\SlaPolicyResource;
 use App\Support\StatusTabs;
 use Filament\Actions\CreateAction;
@@ -13,7 +14,8 @@ class ListSlaPolicies extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return [CreateAction::make()];
+        return [
+            GuideAction::for(static::getResource()), CreateAction::make()];
     }
 
     /** Only active policies are applied when a request or work order is raised. */

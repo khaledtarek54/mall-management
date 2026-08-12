@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Departments\Pages;
 
+use App\Filament\Actions\GuideAction;
 use App\Filament\Admin\Resources\Departments\DepartmentResource;
 use App\Support\StatusTabs;
 use Filament\Resources\Pages\ListRecords;
@@ -10,7 +11,14 @@ class ListDepartments extends ListRecords
 {
     protected static string $resource = DepartmentResource::class;
 
-    // No header actions — departments are a fixed set (no "New department").
+    // Departments are a fixed set, so there is no "New department" — but the guide is exactly
+    // what a fixed set needs, since the question here is "why can't I add one".
+    protected function getHeaderActions(): array
+    {
+        return [
+            GuideAction::for(static::getResource()),
+        ];
+    }
 
     public function getTabs(): array
     {
