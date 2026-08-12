@@ -168,10 +168,11 @@ class AssignRentableItemService
 
         // Rent is exempt, service charge is standard-rated, and parking is neither obviously — a
         // licence to use a space rather than a lease of it. The VAT Law schedules settle that and a
-        // developer does not, so the answer is the accountant's: `charge_codes.vat_treatment` on the
+        // developer does not, so the answer is the accountant's: `charge_codes.tax_code` on the
         // `parking` code, shipping exempt because under-charging the tenant beats collecting tax
         // that may not be due and having to refund it. (It was a settings toggle of its own until
-        // 2026-08-11 — one question with two homes, which is how they come to disagree.)
+        // 2026-08-11, then `vat_treatment` until the tax catalogue replaced both on 2026-08-12 —
+        // one question with three homes over three days, which is how they come to disagree.)
         //
         // Read at ORIGINATION only, so a ruling changes what is billed from then on and never
         // rewrites an issued invoice — the same rule the standard rate itself follows.

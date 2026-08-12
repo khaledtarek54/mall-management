@@ -478,27 +478,43 @@ retired list is what stops the next person rebuilding a thing that already works
 > the standard and a stated preference disagree, the standard wins and the disagreement is named
 > rather than quietly resolved (owner's instruction, 2026-08-12). Two rows below do exactly that.
 
-### 8.1 Tax — take the rate out of settings *and* out of the operator's keyboard (TX)
+### 8.1 ~~Tax — take the rate out of settings *and* out of the operator's keyboard (TX)~~ ✅ SHIPPED 2026-08-12
 
-**What Atriom does today.** The rate is one number in an application setting
-(`TaxSettings::vat_standard_rate`); *which* supplies are taxable is data on the charge code
+> **This whole section is history.** TX-01 and TX-02 both shipped on 2026-08-12 and every departure
+> below is closed. It is kept because the reasoning — *why* a rate is master data rather than a
+> setting, and why an override is a permission rather than a prohibition — is what a future change
+> has to argue against. **Do not read the paragraph below as the current design:** none of
+> `TaxSettings::vat_standard_rate`, `charge_codes.vat_treatment` or `charge_codes.vat_rate_override`
+> exists any more. Today, *which* supplies are taxable is `charge_codes.tax_code` and *what that tax
+> charges* is the dated `tax_codes` + `tax_rates` catalogue at `/admin/tax-codes`.
+
+**What Atriom did until 2026-08-12.** The rate was one number in an application setting
+(`TaxSettings::vat_standard_rate`); *which* supplies were taxable was data on the charge code
 (`charge_codes.vat_treatment` + `vat_rate_override`, shipped 2026-08-11); one resolver
-(`App\Support\Vat::rateForType()`) is called by every origination point; and an issued document
-freezes the rate it was billed at. **That last property is already correct and must not be
-touched** — it is what keeps the books tied to the filed returns.
+(`App\Support\Vat::rateForType()`) was called by every origination point; and an issued document
+froze the rate it was billed at. **That last property was already correct and was not touched** — it
+is what keeps the books tied to the filed returns.
 
-**Three places it departs from every reference system:**
+**Three places it departed from every reference system — all three now closed:**
 
-1. **The rate is typed on the document.** `invoice_items.vat_rate` is a free 0–100 `TextInput`
+1. ~~**The rate is typed on the document.**~~ **Closed** — the rate is now read-only without
+   `tax_codes.override` (withheld from `manager`), enforced server-side by
+   `App\Support\CatalogueTaxRate` from the items repeater's `mutateRelationshipData…Using` hooks.
+   *Originally:* `invoice_items.vat_rate` was a free 0–100 `TextInput`
    ([InvoiceForm.php:240](../app/Filament/Admin/Resources/Invoices/Schemas/InvoiceForm.php#L240)),
    and so is a credit-note line
    ([CreditNoteForm.php:203](../app/Filament/Admin/Resources/CreditNotes/Schemas/CreditNoteForm.php#L203)).
    The comment there states the intent plainly — *"the operator can still type a different rate on
    the line"*. So `Vat::rateForType()` governs the **default**, and nothing governs the **value**.
-2. **The rate has no effective date.** Egypt moved 10% → 14% in 2017. When it moves again, editing
+2. ~~**The rate has no effective date.**~~ **Closed** — a rate is a dated rung on its tax code, and
+   `Vat::rateForType($code, $on)` resolves for the DOCUMENT's date, so a rise can be entered in
+   advance and a back-dated invoice keeps the rate that was in force. *Originally:* Egypt moved
+   10% → 14% in 2017. When it moves again, editing
    the setting re-rates everything originated afterwards — *including* an invoice back-dated into
    the old regime, which is the one case that must not follow the new rate.
-3. **`TaxSettings::wht_default_rate` is a single number.** Egyptian withholding (Income Tax Law
+3. ~~**`TaxSettings::wht_default_rate` is a single number.**~~ **Closed** — withholding is a tax
+   code like any other, and no rate lives in settings; the setting that remains names the default
+   *nature* of a supplier's payments, not a percentage. *Originally:* Egyptian withholding (Income Tax Law
    91/2005 art. 59) is rate-by-nature — supplies, services, contracting and professional fees each
    differ. One default cannot express it, so today it is either wrong or switched off.
 

@@ -12,11 +12,11 @@
 > `management_fee_expense`, `vat_recoverable`, and the VAT-on-fee question from v1. The GL accrual at finalise
 > simplifies to **Dr `owner_distributions` / Cr `due_to_owner`** (two new keys only). Everything else in this
 > plan stands. **Future slices (roadmap):** (a) the management-fee engine (`management_fee_terms` + fee/VAT
-> lines + a statement fee row — the deferred §2.2/§9.1); (b) a **settings-driven Egyptian tax catalog**
-> (configurable tax rates as dropdown selections — **the standard VAT rate SHIPPED 2026-07-30** as
-> `TaxSettings::vat_standard_rate`, and the marketing levy was already settings-driven; what remains is a
-> multi-code catalog — a cross-cutting feature the
-> operator asked for, tracked separately in ROADMAP).
+> lines + a statement fee row — the deferred §2.2/§9.1); ~~(b) a **settings-driven Egyptian tax catalog**~~
+> **— (b) SHIPPED 2026-08-12** as the dated `tax_codes` + `tax_rates` catalogue, which is master data
+> rather than settings; `TaxSettings::vat_standard_rate` (the 2026-07-30 half-step named here) no
+> longer exists. See [ROADMAP §8.1](../ROADMAP.md) and
+> [EGYPTIAN-TAX-CATALOG.md](../accounting/EGYPTIAN-TAX-CATALOG.md).
 > **Why #1:** the competitive gap analysis ([competitors/README.md](../gap-analysis/competitors/README.md))
 > named this the single highest-value gap — Eltizam runs malls *for* Jawad, and the periodic owner
 > statement (income − expenses − management fee = net) plus the payout cycle *is* that relationship's
