@@ -12,7 +12,6 @@ use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
 
 class OwnerRequestForm
 {
@@ -59,7 +58,8 @@ class OwnerRequestForm
                         ->placeholder('—'),
                     Select::make('priority')
                         ->label(__('admin.tables.owner_request.priority'))
-                        ->options(fn () => collect(OwnerRequest::PRIORITIES)->mapWithKeys(fn ($p) => [$p => Str::headline($p)]))
+                        ->options(fn () => collect(OwnerRequest::PRIORITIES)
+                            ->mapWithKeys(fn ($p) => [$p => __("admin.owner_requests.priorities.{$p}")]))
                         ->default('medium')
                         ->required()
                         ->native(false),

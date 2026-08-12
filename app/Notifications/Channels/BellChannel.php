@@ -4,12 +4,14 @@ namespace App\Notifications\Channels;
 
 use App\Support\Filament\AuthorizedAction;
 use App\Support\NotificationLink;
+use App\Support\NotificationLocale;
 use App\Support\NotificationTargets;
 use Filament\Actions\Action;
 use Filament\Pages\Page;
 use Filament\Resources\Resource;
 use Illuminate\Notifications\Channels\DatabaseChannel;
 use Illuminate\Notifications\Notification;
+use Illuminate\Support\Facades\App;
 
 /**
  * **The one seam that makes every bell notification clickable.**
@@ -37,10 +39,10 @@ use Illuminate\Notifications\Notification;
  *  - **Nothing else changes.** Payload keys, titles, bodies, `format`, `duration` — all still
  *    written by the notification, and all still what the mail and push channels read.
  *
- * One accepted limitation, inherited rather than introduced: the action LABEL is translated when
- * the notification is sent, not when it is read — exactly like the `title` and `body` beside it,
- * which every notification already builds with `__()`. A stored notification is a snapshot in the
- * locale it was raised in.
+ * The same seam carries the second half of the job: **the alert is stored in every language we
+ * ship**, so a bell entry is read in the READER's language rather than frozen in whichever one
+ * happened to be current when it was raised. See `translations()` below and
+ * {@see NotificationLocale}.
  */
 class BellChannel extends DatabaseChannel
 {
@@ -71,11 +73,67 @@ class BellChannel extends DatabaseChannel
             $data['actions'] = [$action];
         }
 
+        $data[NotificationLocale::KEY] = $this->translations($notification, $notifiable, $data);
+
         // Six payloads carried this dead key. Drop it on the way past so the stored row does not
         // keep advertising a mechanism that never existed.
         unset($data['url']);
 
         return $data;
+    }
+
+    /**
+     * The alert rendered in every language we ship, stored beside the one it was raised in.
+     *
+     * `HasLocalePreference` already makes the DELIVERED channels — mail, push — render for the
+     * person receiving them. A bell entry is different: it is not delivered, it is **re-read**,
+     * possibly months later and possibly after the reader has switched language. One frozen string
+     * cannot answer that.
+     *
+     * The whole `toDatabase()` is re-run under each locale rather than the translation KEY and its
+     * parameters being stored. That is deliberate, and it is the part a key-plus-parameters design
+     * gets wrong: bodies here interpolate values that are themselves translated —
+     * `__("admin.enums.maintenance_priority.{$priority}")`, a localized status, a formatted date —
+     * so storing the parameters would produce an Arabic sentence with an English word inside it.
+     * Re-rendering the payload cannot interpolate across a language boundary, because there is no
+     * boundary to cross.
+     *
+     * Cost is two extra `toDatabase()` calls per notification. They are array builders over models
+     * already in memory; the delivery this sits in front of is a database write.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, array<string, string|null>>
+     */
+    protected function translations(Notification $notification, object $notifiable, array $data): array
+    {
+        $translations = [];
+        $current = App::getLocale();
+        $actionName = $data['actions'][0]['name'] ?? null;
+
+        try {
+            foreach (NotificationLocale::supported() as $locale) {
+                App::setLocale($locale);
+
+                // The locale it was already rendered in needs no second pass.
+                $payload = $locale === $current ? $data : parent::getData($notifiable, $notification);
+
+                $translations[$locale] = [
+                    'title' => $payload['title'] ?? null,
+                    'body' => $payload['body'] ?? null,
+                    'action_label' => match ($actionName) {
+                        'open' => $this->openLabel($notification, $notifiable),
+                        'details' => __('admin.notifications.actions.details'),
+                        default => null,
+                    },
+                ];
+            }
+        } finally {
+            // A `finally`, not a trailing call: a notification whose toDatabase() throws must not
+            // leave the rest of the request rendering in Arabic because this was mid-loop.
+            App::setLocale($current);
+        }
+
+        return $translations;
     }
 
     /**

@@ -32,10 +32,21 @@ class OwnerRequestNotification extends Notification
             'reference' => $this->request->reference,
             'subject' => $this->request->subject,
             'status' => $this->request->status,
-            'title' => $submitted ? 'New owner request' : 'Owner request updated',
+            'title' => __($submitted
+                ? 'admin.notifications.owner_request_submitted_title'
+                : 'admin.notifications.owner_request_updated_title'),
             'body' => $submitted
-                ? "{$this->request->reference}: {$this->request->subject}"
-                : "{$this->request->reference} is now {$this->request->status}.",
+                ? __('admin.notifications.owner_request_submitted_body', [
+                    'reference' => $this->request->reference,
+                    'subject' => $this->request->subject,
+                ])
+                // The STATUS is translated too, not interpolated raw. A half-Arabic sentence
+                // ("أصبح REQ-004 الآن in_progress") is what interpolating an enum value gets you,
+                // and it is the commonest way a "translated" string stays half-English.
+                : __('admin.notifications.owner_request_updated_body', [
+                    'reference' => $this->request->reference,
+                    'status' => __("admin.owner_requests.statuses.{$this->request->status}"),
+                ]),
             'icon' => 'heroicon-o-inbox',
             'color' => $this->request->priority === 'high' ? 'warning' : 'info',
             'format' => 'filament',

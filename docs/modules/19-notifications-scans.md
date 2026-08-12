@@ -95,7 +95,34 @@ The module enforces **idempotency** through two mechanisms:
      registry row fails the build; a row pointing a panel at the other panel's resource fails; a
      payload key the notification never writes fails).
 
-8. **Operator/owner routing is role + asset-scoped**  
+8. **A notification is read in the READER's language, never the sender's.**
+   - Two mechanisms, because a notification is two different things. **Delivered** channels (mail,
+     push) are rendered once, for one person: `User`, `TenantUser` and `Tenant` implement
+     `HasLocalePreference` over a `locale` column, and Laravel's `NotificationSender` wraps each
+     recipient's dispatch in `withLocale()`. **The bell** is not delivered, it is *re-read* — months
+     later, possibly after the reader has switched language — so `BellChannel` stores the alert in
+     every supported language (`data.i18n.{en,ar}`) and `App\Support\NotificationLocale` picks one
+     at read time.
+   - Without this, `__()` inside `toDatabase()` rendered in whatever locale was current **when the
+     alert was raised**, which failed in both directions: a scheduled command has no session, so
+     every nightly sweep (`billing:scan-overdue-invoices`, `requests:scan-sla-breaches`,
+     `vendors:scan-document-expiry`) reached an Arabic-only retailer in English; and an alert raised
+     inside a request rendered in the SENDER's language, so an operator working in Arabic issued
+     invoices whose emails arrived in Arabic for tenants reading English.
+   - **The whole payload is re-rendered per locale, not the key + its parameters.** Bodies here
+     interpolate values that are themselves translated (`__("admin.enums.maintenance_priority.…")`,
+     a localized status, a formatted date), so storing parameters would produce an Arabic sentence
+     with an English word inside it. Re-rendering cannot interpolate across a language boundary.
+   - Render seams, all container bindings: `Filament\Notifications\Notification` →
+     `App\Support\Filament\LocalizedNotification` (the bell), `NotificationLocale::localize()`
+     (the centre), `NotificationLocale::forDisplay()` (the mobile API, which also drops the `i18n`
+     block — it is how the answer was reached, not the answer).
+   - Gated by `NotificationLocaleConformanceTest`: prose typed into a payload instead of a
+     translation key fails the build, a notifiable without `HasLocalePreference` fails, a key in one
+     catalogue and not the other fails, and a string byte-identical in both catalogues (English
+     wearing an Arabic key) fails.
+
+9. **Operator/owner routing is role + asset-scoped**  
    - `AssetStaffRecipients::for($assetId, ['manager', 'operations'])` returns users with those roles + assigned to that asset, plus all super_admins (fallback).
    - Owners returned via `AssetStaffRecipients::owners($assetId)`: users with Jawad owner role + asset_owner relationship.
    - If no users found, notification silently skips (no mail bounces).
@@ -450,6 +477,37 @@ happen".
    destination now lives in `App\Support\NotificationTargets`, and the conformance gate fails on a
    `url` key reappearing in any notification.
 
+0d. **Prose typed into a payload can never be bilingual, and looks like nothing.** *(fixed 2026-08-12)*
+   `OwnerRequestNotification` wrote `'title' => 'New owner request'` and
+   `'body' => "{$ref} is now {$status}."`; `DepartmentMessageNotification` wrote
+   `'title' => 'Message from '.$label`. No key, no catalogue, no Arabic — and the bell rendered them
+   perfectly, so nothing ever looked wrong. The status was interpolated raw too, which is the
+   commonest way a translated string stays half-English: an Arabic sentence reading
+   «أصبح OR-0001 الآن in_progress».
+   **Guard**: `NotificationLocaleConformanceTest` reads every registered notification's
+   `toDatabase()` and refuses a `title`/`body` that is neither a `__()` call nor pure
+   operator-entered content (an announcement's own title is content and stays as written).
+
+0f. **`Str::headline($state)` is an English label that no translation check can see.**
+   *(fixed 2026-08-12)* It turns `in_progress` into "In progress" — a plausible one-liner that is
+   invisible to both sweeps: the STATIC one looks for `__()` keys missing from a catalogue and there
+   is no key, and the RUNTIME one looks for raw `admin.…` strings on a page and "In progress" is not
+   raw, it is perfectly rendered English. Ten call sites shipped that way (owner requests, marketing
+   budgets and spends) — including the owner-request STATUS, sitting beside an
+   `admin.owner_requests.statuses` catalogue that already existed in both languages and was already
+   used by the same file's set-status action. **Check for an existing catalogue before adding one:**
+   the first fix here added a second status map under `enums` and had to be withdrawn.
+   **Guard**: `ManufacturedLabelConformanceTest` fails on any `Str::headline()` under `app/Filament`,
+   on a second catalogue for owner-request statuses, and on an enum value with no label in either
+   language.
+
+0e. **A language preference that lives only in the session cannot reach anything asynchronous.**
+   *(fixed 2026-08-12)* `session('locale')` answered for the screen in front of you and for nothing
+   that arrives while you are not looking at it. `/locale/{locale}` now also persists to the
+   signed-in record — across BOTH guards, since the portal is not the default one — and `SetLocale`
+   reads session first (this browser's current choice, so a shared machine does not leak one
+   person's language into the next) then the stored preference.
+
 0c. **`Resource::getUrl()` silently answers for the WRONG panel outside a request.**
    With no `panel:` argument it falls back to `Filament::getCurrentPanel()`, which in a scheduled
    command or queued worker is the **default** panel — `admin`. So the obvious way to build a
@@ -529,6 +587,9 @@ happen".
 - `tests/Feature/Console/ConsoleCommandsTest.php` — apply-late-fees stats, monthly billing dispatch, CAM reconcile, cam:reconcile --auto-bill
 - `tests/Feature/Notifications/NotificationDeepLinkTest.php` — the SAME notification hands an operator `/admin/{property}/…` and a retailer `/portal/…`; the slug is the record's property, not the reader's; a link is withheld rather than 404'd for the wrong property or another tenant; the fallback destination; the URL never leaks into the FCM push or the mobile API
 - `tests/Feature/Notifications/NotificationCenterTest.php` — both panels render, each reader sees only their own rows, read/unread + mark-all, ownership refusal (with an authorised control)
+- `tests/Feature/Notifications/NotificationLocaleTest.php` — one send stores both languages; the same row reads differently for an English and an Arabic reader; the action label is localized too; a nightly sweep renders in the recipient's language; the two formerly hard-coded notifications; a status translated inside its sentence; the API in the requested language; pre-`i18n` rows untouched; the ambient locale restored when a payload throws mid-render
+- `tests/Feature/Scenarios/ManufacturedLabelConformanceTest.php` — **the label gate**: `Str::headline` anywhere in the Filament UI, a duplicated enum catalogue, an enum value with no label
+- `tests/Feature/Scenarios/NotificationLocaleConformanceTest.php` — **the language gate**: prose in a payload, a notifiable without `HasLocalePreference`, a key missing from one catalogue, a string identical in both
 - `tests/Feature/Scenarios/NotificationDeepLinkConformanceTest.php` — **the gate**: unclassified notification, cross-panel destination, payload key that is never written, missing `format => filament`, a reappearing `url` key
 
 ### Related Modules (see docs/modules/<name>.md)

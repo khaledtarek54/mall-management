@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Api\V1;
 
+use App\Support\NotificationLocale;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Notifications\DatabaseNotification;
@@ -29,7 +30,15 @@ class NotificationResource extends JsonResource
             // /admin or /portal URL built for a WEB panel the app has no session in. Shipping it
             // would invite the client to open a link that lands on a login screen. The app already
             // deep-links from the id fields below, which is the contract it was written against.
-            'data' => collect($this->data)->except(['format', 'duration', 'icon', 'color', 'actions'])->all(),
+            //
+            // `NotificationLocale::forDisplay` resolves `title`/`body` into the language THIS
+            // request asked for (SetApiLocale reads Accept-Language) and drops the `i18n` block
+            // that made that possible. Without it the app would render whatever language the alert
+            // was raised in — for the nightly sweeps, always the app default — and a retailer whose
+            // phone is in Arabic would read English push history in an Arabic app.
+            'data' => collect(NotificationLocale::forDisplay($this->data))
+                ->except(['format', 'duration', 'icon', 'color', 'actions'])
+                ->all(),
             'read' => $this->read_at !== null,
             'read_at' => optional($this->read_at)->toIso8601String(),
             'created_at' => optional($this->created_at)->toIso8601String(),

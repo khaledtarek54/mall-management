@@ -11,7 +11,6 @@ use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
-use Illuminate\Support\Str;
 
 class MarketingBudgetsTable
 {
@@ -47,7 +46,7 @@ class MarketingBudgetsTable
                 TextColumn::make('status')
                     ->label(__('admin.tables.marketing_budget.status'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => Str::headline($state))
+                    ->formatStateUsing(fn (string $state) => __("admin.enums.marketing_budget_status.{$state}"))
                     ->color(fn (string $state) => $state === 'open' ? 'success' : 'gray'),
             ])
             ->defaultSort('period_year', 'desc')

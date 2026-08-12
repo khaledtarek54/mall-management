@@ -1,0 +1,163 @@
+<?php
+
+/*
+|--------------------------------------------------------------------------
+| Conformance gate — no notification is written in one language
+|--------------------------------------------------------------------------
+| Two notifications shipped with their prose typed straight into the PHP —
+| `'title' => 'New owner request'` and `'title' => 'Message from '.$label`.
+| Neither had a key, so neither had an Arabic version, so neither could ever
+| render in the reader's language however the rest of the machinery behaved.
+| Nothing caught it: they are perfectly ordinary-looking lines, and the bell
+| showed them happily.
+|
+| This gate reads every notification's toDatabase() and refuses a `title` or
+| `body` that is neither a translation call nor operator-entered content. It
+| also holds the two structural halves of the mechanism in place:
+|
+|   - every notifiable declares HasLocalePreference, without which Laravel
+|     renders a DELIVERED notification (mail, push) in whatever locale the
+|     sender happened to be in;
+|   - both language catalogues answer every notification key, so a key added
+|     to one file and not the other cannot reach production as a raw
+|     `admin.notifications.…` string on somebody's screen.
+*/
+
+use App\Models\Tenant;
+use App\Models\TenantUser;
+use App\Models\User;
+use App\Support\NotificationLocale;
+use App\Support\NotificationTargets;
+use Illuminate\Contracts\Translation\HasLocalePreference;
+use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Schema;
+
+/**
+ * The expression each of `title` / `body` is assigned in a notification's toDatabase().
+ *
+ * @return array<string, string>
+ */
+function payloadExpressions(string $notification): array
+{
+    $source = file_get_contents((new ReflectionClass($notification))->getFileName());
+
+    if (! preg_match('/function toDatabase\(.*?\n    \}/s', $source, $body)) {
+        return [];
+    }
+
+    $found = [];
+
+    foreach (['title', 'body'] as $field) {
+        // From `'title' =>` to the next key at the same depth (12 spaces + a quote) or the array's
+        // close. Good enough to see whether a translation call is in there; this is a smell test,
+        // not a parser.
+        if (preg_match("/'{$field}' => (.*?)(?=\n            '|\n        \];)/s", $body[0], $m)) {
+            $found[$field] = $m[1];
+        }
+    }
+
+    return $found;
+}
+
+it('never writes a notification\'s prose straight into the PHP', function () {
+    $offenders = [];
+
+    foreach (NotificationTargets::registered() as $notification) {
+        foreach (payloadExpressions($notification) as $field => $expression) {
+            // A translation call anywhere in the expression is the whole point — ternaries over two
+            // keys are fine.
+            if (str_contains($expression, '__(')) {
+                continue;
+            }
+
+            // Otherwise it must be pure data: an announcement's own title, a tenant's message. Those
+            // are operator-entered content in whatever language the operator wrote them, and it is
+            // not ours to translate. A quoted word with letters in it, though, is prose.
+            $literals = preg_replace('/\$[A-Za-z_>\-\[\]\'"$\w():]*/', '', $expression);
+
+            if (preg_match("/'[^']*[A-Za-z]{2,}[^']*'/", (string) $literals)) {
+                $offenders[] = class_basename($notification).'::'.$field.' → '.trim(preg_replace('/\s+/', ' ', $expression), " ,\n");
+            }
+        }
+    }
+
+    expect($offenders)->toBe([],
+        'These notifications write untranslatable prose into their payload. Move it to a key in '
+        ."lang/en/admin.php + lang/ar/admin.php and call __():\n  ".implode("\n  ", $offenders));
+});
+
+it('gives every notifiable a language preference to be addressed in', function () {
+    // Without this Laravel has nothing to pass to withLocale(), so a mailed alert renders in the
+    // SENDER's language — or, from a scheduled command, in the app default for everybody.
+    foreach ([User::class, TenantUser::class, Tenant::class] as $notifiable) {
+        expect(is_subclass_of($notifiable, HasLocalePreference::class))->toBeTrue(
+            class_basename($notifiable).' is a notification recipient but declares no preferred '
+            .'locale, so everything delivered to it renders in whoever\'s language sent it.');
+
+        expect(Schema::hasColumn((new $notifiable)->getTable(), 'locale'))->toBeTrue(
+            class_basename($notifiable).' has nowhere to store the preference it promises.');
+    }
+});
+
+it('answers every notification key in both languages', function () {
+    $en = require lang_path('en/admin.php');
+    $ar = require lang_path('ar/admin.php');
+
+    $missing = array_keys(array_diff_key($en['notifications'] ?? [], $ar['notifications'] ?? []));
+    $extra = array_keys(array_diff_key($ar['notifications'] ?? [], $en['notifications'] ?? []));
+
+    expect($missing)->toBe([], 'Missing from lang/ar/admin.php: '.implode(', ', $missing));
+    expect($extra)->toBe([], 'Missing from lang/en/admin.php: '.implode(', ', $extra));
+});
+
+it('actually says something different in Arabic', function () {
+    // A catalogue can be "complete" and still be English twice over — the commonest way a
+    // translation ships without being one. Sampled across the notification keys that are real
+    // sentences rather than pure placeholder strings like ":reference: :subject".
+    $en = require lang_path('en/admin.php');
+    $ar = require lang_path('ar/admin.php');
+
+    $untranslated = [];
+
+    foreach ($en['notifications'] ?? [] as $key => $value) {
+        if (! is_string($value)) {
+            continue;
+        }
+
+        // Placeholder NAMES are English by construction (`:reference`, `:days`) and are supposed to
+        // be byte-identical in both files — they are substitution points, not prose. Strip them
+        // before asking whether what is left is a sentence, or a string like ':reference: :subject'
+        // reads as untranslated English when it is the same in every language on purpose.
+        $prose = preg_replace('/:[a-z_]+/', '', $value);
+
+        if (! preg_match('/[A-Za-z]{3,}/', (string) $prose)) {
+            continue;
+        }
+
+        $arabic = $ar['notifications'][$key] ?? null;
+
+        // Same string, and it contains real words → nobody translated it.
+        if (is_string($arabic) && $arabic === $value) {
+            $untranslated[] = $key;
+        }
+    }
+
+    expect($untranslated)->toBe([],
+        'These notification strings are byte-identical in both catalogues — English wearing an '
+        .'Arabic key: '.implode(', ', $untranslated));
+});
+
+it('stores every language it claims to support', function () {
+    // The payload's `i18n` block is keyed by SetLocale::SUPPORTED. Adding a language to that list
+    // without the catalogue behind it would store a variant that renders as raw keys.
+    foreach (NotificationLocale::supported() as $locale) {
+        expect(is_file(lang_path("{$locale}/admin.php")))->toBeTrue(
+            "Locale [{$locale}] is offered to readers but has no admin catalogue.");
+    }
+
+    // And the reader's locale is clamped to one we have, rather than trusted.
+    App::setLocale('fr');
+    expect(NotificationLocale::current())->toBe(config('app.locale'));
+    App::setLocale('ar');
+    expect(NotificationLocale::current())->toBe('ar');
+});

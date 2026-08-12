@@ -7,6 +7,7 @@ use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasTenants;
 use Filament\Panel;
+use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -32,7 +33,7 @@ use Stephenjude\FilamentTwoFactorAuthentication\TwoFactorAuthenticatable;
  */
 #[Fillable(['name', 'email', 'password', 'status', 'suspended_at', 'suspended_reason'])]
 #[Hidden(['password', 'remember_token'])]
-class User extends Authenticatable implements FilamentUser, HasTenants
+class User extends Authenticatable implements FilamentUser, HasLocalePreference, HasTenants
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, HasRoles, HasSearchText, LogsActivity, Notifiable, TwoFactorAuthenticatable;
@@ -264,5 +265,19 @@ class User extends Authenticatable implements FilamentUser, HasTenants
         return $this->belongsToMany(Department::class, 'department_user')
             ->withPivot(['assigned_at', 'ended_at', 'notes'])
             ->withTimestamps();
+    }
+
+    /**
+     * The language this operator reads, for anything DELIVERED to them rather than rendered on a
+     * screen they are looking at. Laravel's NotificationSender wraps every channel dispatch in
+     * `withLocale($notifiable->preferredLocale())`, so declaring this is what makes an emailed SLA
+     * breach or an overdue-invoice alert arrive in Arabic for someone who works in Arabic — including
+     * the ones raised by a scheduled command, which has no session to read a preference from.
+     *
+     * Null = no stated preference, which resolves to the app default. Never guess.
+     */
+    public function preferredLocale(): ?string
+    {
+        return $this->locale;
     }
 }

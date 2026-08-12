@@ -16,7 +16,6 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use Illuminate\Support\Str;
 
 class MarketingBudgetResource extends Resource
 {
@@ -131,10 +130,10 @@ class MarketingBudgetResource extends Resource
             $rows[] = [
                 // spent_on is a NOT-NULL date column; paid_from is NOT-NULL (coerced to 'cash').
                 $spend->spent_on->format('Y-m-d'),
-                Str::headline((string) $spend->category),
+                __('admin.enums.marketing_spend_category.'.$spend->category),
                 (string) $spend->description,
                 $amount,
-                __('admin.enums.expense_paid_from.' . $spend->paid_from),
+                __('admin.enums.expense_paid_from.'.$spend->paid_from),
                 $spend->receipt_reference ?? '',
             ];
         }

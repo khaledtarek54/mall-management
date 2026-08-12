@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\MarketingBudgets\Schemas;
 
+use App\Support\TenantScope;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -21,7 +22,7 @@ class MarketingBudgetForm
                     // per year) — shown read-only, never editable.
                     Select::make('asset_id')
                         ->label(__('admin.tables.marketing_budget.property'))
-                        ->options(fn () => \App\Support\TenantScope::selectableAssetOptions())
+                        ->options(fn () => TenantScope::selectableAssetOptions())
                         ->disabled(),
                     TextInput::make('period_year')
                         ->label(__('admin.tables.marketing_budget.year'))
@@ -29,7 +30,7 @@ class MarketingBudgetForm
                         ->disabled(),
                     Select::make('status')
                         ->label(__('admin.tables.marketing_budget.status'))
-                        ->options(['open' => 'Open', 'closed' => 'Closed'])
+                        ->options(fn (): array => __('admin.enums.marketing_budget_status'))
                         ->default('open')
                         ->required()
                         ->native(false),

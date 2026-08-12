@@ -24,7 +24,9 @@ class DepartmentMessageNotification extends Notification
     {
         return [
             'type' => 'department_message',
-            'title' => 'Message from '.$this->fromLabel,
+            // The department NAME is operator-entered data and stays as typed; only the sentence
+            // around it is translated.
+            'title' => __('admin.notifications.department_message_title', ['department' => $this->fromLabel]),
             'body' => $this->body,
             'icon' => 'heroicon-o-chat-bubble-left-right',
             'color' => 'info',

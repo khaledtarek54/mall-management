@@ -17,7 +17,6 @@ use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\HtmlString;
-use Illuminate\Support\Str;
 
 class OwnerRequestsTable
 {
@@ -64,7 +63,7 @@ class OwnerRequestsTable
                 TextColumn::make('priority')
                     ->label(__('admin.tables.owner_request.priority'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => Str::headline($state))
+                    ->formatStateUsing(fn (string $state) => __("admin.owner_requests.priorities.{$state}"))
                     ->color(fn (string $state) => match ($state) {
                         'high' => 'danger',
                         'medium' => 'warning',
@@ -73,7 +72,7 @@ class OwnerRequestsTable
                 TextColumn::make('status')
                     ->label(__('admin.tables.owner_request.status'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => Str::headline($state))
+                    ->formatStateUsing(fn (string $state) => __("admin.owner_requests.statuses.{$state}"))
                     ->color(fn (string $state) => match ($state) {
                         'open' => 'info',
                         'in_progress' => 'primary',
@@ -97,7 +96,8 @@ class OwnerRequestsTable
             ->filters([
                 SelectFilter::make('status')
                     ->label(__('admin.tables.owner_request.status'))
-                    ->options(fn () => collect(OwnerRequest::STATUSES)->mapWithKeys(fn ($s) => [$s => Str::headline($s)])),
+                    ->options(fn () => collect(OwnerRequest::STATUSES)
+                        ->mapWithKeys(fn ($s) => [$s => __("admin.owner_requests.statuses.{$s}")])),
                 TrashedFilter::make(),
             ])
             ->recordActions([

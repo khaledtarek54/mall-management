@@ -2,6 +2,7 @@
 
 namespace App\Filament\Concerns;
 
+use App\Support\NotificationLocale;
 use App\Support\NotificationTargets;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
@@ -114,10 +115,10 @@ trait RendersNotificationCentre
 
                 TextColumn::make('title')
                     ->label(__('admin.notifications.centre.alert'))
-                    ->state(fn (DatabaseNotification $record): string => $record->data['title'] ?? '—')
+                    ->state(fn (DatabaseNotification $record): string => $this->payload($record)['title'] ?? '—')
                     // Unread reads as bold, exactly as an unopened mail does. Nothing to learn.
                     ->weight(fn (DatabaseNotification $record): string => $record->read_at ? 'normal' : 'bold')
-                    ->description(fn (DatabaseNotification $record): ?string => $record->data['body'] ?? null)
+                    ->description(fn (DatabaseNotification $record): ?string => $this->payload($record)['body'] ?? null)
                     ->wrap()
                     ->searchable(query: fn (Builder $query, string $search): Builder => $query
                         ->where('data', 'like', '%'.$search.'%')),
@@ -216,7 +217,7 @@ trait RendersNotificationCentre
             ->label(__('admin.notifications.centre.details'))
             ->icon('heroicon-o-eye')
             ->color('gray')
-            ->modalHeading(fn (DatabaseNotification $record): string => $record->data['title'] ?? __('admin.notifications.centre.details'))
+            ->modalHeading(fn (DatabaseNotification $record): string => $this->payload($record)['title'] ?? __('admin.notifications.centre.details'))
             ->modalSubmitAction(false)
             ->modalCancelActionLabel(__('admin.actions.close'))
             // The modal's own footer link is the deep link, so "read it" and "act on it" are one
@@ -230,7 +231,7 @@ trait RendersNotificationCentre
             ->schema(fn (DatabaseNotification $record): array => [
                 TextEntry::make('body')
                     ->hiddenLabel()
-                    ->state($record->data['body'] ?? '—'),
+                    ->state($this->payload($record)['body'] ?? '—'),
                 TextEntry::make('subject')
                     ->label(__('admin.notifications.centre.subject'))
                     ->state($this->subjectLabel($record->type))
@@ -339,6 +340,20 @@ trait RendersNotificationCentre
     }
 
     /**
+     * The alert as this reader should see it — title, body and action label in their language.
+     *
+     * Every read of a stored payload on this page goes through here. `data['title']` is whatever
+     * language the alert happened to be raised in, which for a scheduled command is
+     * `config('app.locale')` and for a request is the SENDER's; neither is the person reading it.
+     *
+     * @return array<string, mixed>
+     */
+    protected function payload(DatabaseNotification $record): array
+    {
+        return NotificationLocale::localize($record->data);
+    }
+
+    /**
      * The destination stored on the row when it was written. Read back rather than recomputed: the
      * link is a fact about the moment the alert was raised, and recomputing it here would need the
      * notification object, which is long gone.
@@ -354,7 +369,7 @@ trait RendersNotificationCentre
 
     protected function linkLabel(DatabaseNotification $record): string
     {
-        return $record->data['actions'][0]['label'] ?? __('admin.notifications.actions.open');
+        return $this->payload($record)['actions'][0]['label'] ?? __('admin.notifications.actions.open');
     }
 
     /**

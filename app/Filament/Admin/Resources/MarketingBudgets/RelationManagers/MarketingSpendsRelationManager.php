@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\MarketingBudgets\RelationManagers;
 
 use App\Filament\Admin\Resources\MarketingBudgets\MarketingBudgetResource;
 use App\Models\MarketingBudget;
+use App\Models\MarketingPost;
 use App\Models\MarketingSpend;
 use App\Support\ReportCsv;
 use Filament\Actions\Action;
@@ -13,13 +14,14 @@ use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Str;
+use Illuminate\Support\HtmlString;
 
 /**
  * Records marketing spend (offers / promotions / events / printed work) against
@@ -40,15 +42,15 @@ class MarketingSpendsRelationManager extends RelationManager
         // getOwnerRecord() is declared as Model; naming the real type here is what lets the
         // property reads below (accrued/spent/balance, and asset_id for the campaign picker) be
         // checked rather than assumed. Three of them were sitting in the PHPStan baseline.
-        /** @var \App\Models\MarketingBudget $budget */
+        /** @var MarketingBudget $budget */
         $budget = $this->getOwnerRecord();
 
         return $schema->columns(2)->components([
-            \Filament\Infolists\Components\TextEntry::make('fund')
+            TextEntry::make('fund')
                 ->hiddenLabel()
                 ->columnSpanFull()
                 ->html()
-                ->state(new \Illuminate\Support\HtmlString(
+                ->state(new HtmlString(
                     // Theme-aware: translucent neutral bg + inherited text colour so it
                     // reads in both light and dark mode (no hardcoded light background).
                     '<div style="display:flex;flex-wrap:wrap;gap:1.25rem;font-size:.875rem;padding:.6rem .85rem;background:rgba(148,163,184,0.15);border:1px solid rgba(148,163,184,0.25);border-radius:.5rem;color:inherit;">'
@@ -68,7 +70,7 @@ class MarketingSpendsRelationManager extends RelationManager
             Select::make('marketing_post_id')
                 ->label(__('admin.tables.marketing_spend.campaign'))
                 ->helperText(__('admin.tables.marketing_spend.campaign_hint'))
-                ->options(fn () => \App\Models\MarketingPost::query()
+                ->options(fn () => MarketingPost::query()
                     ->where('asset_id', $budget->asset_id)
                     ->orderByDesc('id')
                     ->limit(100)
@@ -80,7 +82,8 @@ class MarketingSpendsRelationManager extends RelationManager
                 ->columnSpanFull(),
             Select::make('category')
                 ->label(__('admin.tables.marketing_spend.category'))
-                ->options(fn () => collect(MarketingSpend::CATEGORIES)->mapWithKeys(fn ($c) => [$c => Str::headline($c)]))
+                ->options(fn () => collect(MarketingSpend::CATEGORIES)
+                    ->mapWithKeys(fn ($c) => [$c => __("admin.enums.marketing_spend_category.{$c}")]))
                 ->default('other')
                 ->required()
                 ->native(false),
@@ -130,7 +133,7 @@ class MarketingSpendsRelationManager extends RelationManager
                 TextColumn::make('category')
                     ->label(__('admin.tables.marketing_spend.category'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => Str::headline($state))
+                    ->formatStateUsing(fn (string $state) => __("admin.enums.marketing_spend_category.{$state}"))
                     ->color('gray'),
                 TextColumn::make('description')
                     ->label(__('admin.tables.marketing_spend.description'))

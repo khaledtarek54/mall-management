@@ -15,11 +15,13 @@ use App\Services\Push\NullPushSender;
 use App\Services\Push\PushSender;
 use App\Settings\IntegrationsSettings;
 use App\Support\Filament\AuthorizedAction;
+use App\Support\Filament\LocalizedNotification;
 use App\Support\LedgerRealtimeSync;
 use App\Support\TableDefaults;
 use Filament\Actions\Action as FilamentAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ForceDeleteBulkAction;
+use Filament\Notifications\Notification as FilamentNotification;
 use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Notifications\Channels\DatabaseChannel;
@@ -52,6 +54,12 @@ class AppServiceProvider extends ServiceProvider
         // classes — and every one added after it — instead of an `actions` key being remembered 36
         // times. Same seam as the AuthorizedAction bind above. See App\Notifications\Channels\BellChannel.
         $this->app->bind(DatabaseChannel::class, BellChannel::class);
+
+        // …and read back in the READER's language rather than in whichever one was current when the
+        // alert was raised (a scheduled command's `config('app.locale')`, or the sender's session).
+        // `Notification::make()` resolves through the container and Filament's own `fromArray()`
+        // re-dispatches to the child class, so this one binding reaches every bell render path.
+        $this->app->bind(FilamentNotification::class, LocalizedNotification::class);
 
         // ETA document signing is pluggable. The default is a passthrough (no-op)
         // so mock/preprod plumbing works without a certificate; bind a real CAdES

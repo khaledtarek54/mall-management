@@ -10,6 +10,7 @@ use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Auth\Passwords\CanResetPassword;
 use Illuminate\Contracts\Auth\CanResetPassword as CanResetPasswordContract;
+use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
@@ -17,15 +18,17 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
-class Tenant extends Authenticatable implements CanResetPasswordContract, FilamentUser, HasMedia
+class Tenant extends Authenticatable implements CanResetPasswordContract, FilamentUser, HasLocalePreference, HasMedia
 {
-    use RefusesDeletionWhenReferenced, CanResetPassword, HasApiTokens, HasFactory, HasSearchText, InteractsWithMedia, LogsActivity, Notifiable, SoftDeletes;
+    use CanResetPassword, HasApiTokens, HasFactory, HasSearchText, InteractsWithMedia, LogsActivity, Notifiable, RefusesDeletionWhenReferenced, SoftDeletes;
 
     /** Identity paperwork — commercial register, tax card, trade licence. */
     public const DOCUMENTS_COLLECTION = 'documents';
@@ -257,20 +260,20 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
      * and a dropped notification must never be able to make a lapsed certificate invisible on the
      * screen. Same separation the vendor chase draws.
      *
-     * @return \Illuminate\Support\Collection<int, TenantDocument>
+     * @return Collection<int, TenantDocument>
      */
-    public function documentsNeedAttention(?\Illuminate\Support\Carbon $on = null): \Illuminate\Support\Collection
+    public function documentsNeedAttention(?Carbon $on = null): Collection
     {
         return $this->documents()->needsAttention($on)->orderBy('expires_on')->get();
     }
 
     /** Is there a current, unexpired insurance certificate on file? */
-    public function hasCurrentInsurance(?\Illuminate\Support\Carbon $on = null): bool
+    public function hasCurrentInsurance(?Carbon $on = null): bool
     {
         return $this->documents()
             ->ofType(TenantDocument::TYPE_INSURANCE_COI)
             ->whereNotNull('expires_on')
-            ->whereDate('expires_on', '>=', ($on ?? \Illuminate\Support\Carbon::today())->startOfDay()->toDateString())
+            ->whereDate('expires_on', '>=', ($on ?? Carbon::today())->startOfDay()->toDateString())
             ->exists();
     }
 
@@ -502,5 +505,15 @@ class Tenant extends Authenticatable implements CanResetPasswordContract, Filame
         return ($value === null || $value === '')
             ? null
             : preg_replace('/\D+/', '', $value);
+    }
+
+    /**
+     * The language this retailer reads. The Tenant record is a notifiable in its own right — it is
+     * what the mobile app authenticates as and what carries the push device tokens — so it needs its
+     * own preference rather than borrowing one of its portal logins'.
+     */
+    public function preferredLocale(): ?string
+    {
+        return $this->locale;
     }
 }
