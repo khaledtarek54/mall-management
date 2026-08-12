@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSupersededDocuments;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -27,7 +28,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  */
 class TenantDocument extends Model implements HasMedia
 {
-    use InteractsWithMedia, LogsActivity, SoftDeletes;
+    use InteractsWithMedia, HasSupersededDocuments, LogsActivity, SoftDeletes;
 
     /** شهادة تأمين — public-liability cover, normally naming the landlord as additional insured. */
     public const TYPE_INSURANCE_COI = 'insurance_coi';
@@ -148,12 +149,22 @@ class TenantDocument extends Model implements HasMedia
         };
     }
 
-    /** Documents lapsed or lapsing inside the alert window — the chase list. */
+    /**
+     * Documents lapsed or lapsing inside the alert window — the chase list.
+     *
+     * Scoped to the CURRENT document of each type. A superseded certificate is history, and history
+     * cannot be renewed: leaving it in here means the party is chased forever for a document they
+     * already replaced, and a nag that can never be cleared is a nag people learn to close.
+     *
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
     public function scopeNeedsAttention(Builder $query, ?Carbon $on = null): Builder
     {
         $on = ($on ?? Carbon::today())->startOfDay();
 
-        return $query->whereNotNull('expires_on')
+        return $query->current()
+            ->whereNotNull('expires_on')
             ->whereDate('expires_on', '<=', $on->copy()->addDays(self::ALERT_DAYS)->toDateString());
     }
 
@@ -167,5 +178,10 @@ class TenantDocument extends Model implements HasMedia
     public function scopeOfType(Builder $query, string $type): Builder
     {
         return $query->where('type', $type);
+    }
+
+    public function documentOwnerColumn(): string
+    {
+        return 'tenant_id';
     }
 }

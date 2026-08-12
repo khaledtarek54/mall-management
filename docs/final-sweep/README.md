@@ -78,7 +78,7 @@ Where a finding is agent-verified rather than lead-verified, the aspect file say
 Severity is **impact if it reaches production**. `Fix by` is my recommendation, not a constraint.
 Effort: **S** ≲ half a day · **M** ≲ 3 days · **L** > 3 days.
 
-> ### Status at 2026-08-12 — 32 closed, 13 open, and only 4 of those are engineering
+> ### Status at 2026-08-12 — 33 closed, 12 open, and only 3 of those are engineering
 >
 > **A struck-through row is done.** Every row was re-checked against the commits on this date; the
 > table had drifted, because Phase 1 recorded its work in the callout below and never struck the
@@ -89,7 +89,7 @@ Effort: **S** ≲ half a day · **M** ≲ 3 days · **L** > 3 days.
 >
 > | What is left | Rows |
 > |---|---|
-> | **Engineering** | FS-21 (late-fee job re-entrant) · FS-22 (the concurrency gate) · FS-31 (SLA clock needs a click) · FS-32 (PPM can stop silently) |
+> | **Engineering** | FS-21 (late-fee job re-entrant) · FS-22 (the concurrency gate) · FS-31 (SLA clock needs a click) |
 > | **Operator's environment, not code** | FS-10 (backup infrastructure) · FS-12 (deploy workflow) |
 > | **Decisions for the accountant/owner, not engineering** | FS-53 – FS-58 |
 >
@@ -161,7 +161,7 @@ These are either money-destroying, credential-grade, or block the cut-over entir
 | ~~**FS-29**~~ ✅ | ~~**WHT is computed on the VAT-inclusive amount**~~ — **shipped 2026-08-12**, while `wht_enabled` is still off, which was the whole point. New `WithholdingTax::onBillPayment()` takes the payment's VAT-exclusive share (correct for partial payments; taken from the bill's tax composition so an SLA penalty can't skew it); `on()` stays as the primitive with a docblock naming the misuse. **The existing WHT suite could never have caught this** — every fixture set `vat_amount => 0`. Both mutations reproduce the finding's exact figures (3,420 vs 3,000; 1,710 vs 1,500), and the operator preview now calls the same function as the service | BUGFIX | S |
 | ~~**FS-30**~~ ✅ | ~~**The tax invoice carries no seller TRN**~~ — **shipped 2026-08-12.** `TaxSettings::seller_tax_registration_number` + `seller_legal_name` (operator-level: one registered entity, several malls), rendered on the PDF and editable at Settings → Tax. **Blank by default and the line is omitted when blank** — a placeholder TRN reads as valid, gets filed, and fails on audit. The finding's second half shipped too: a **per-rate VAT summary**, which matters here because base rent is exempt and service charge is not, so one invoice routinely carries both. Reads each line's own rate, never today's setting. Both mutations checked; now a go-live gate item ([GO-LIVE §2 A1.1](../GO-LIVE.md)). *Left standing and stated: `EtaSettings` holds the same number, and collapsing the two needs the ETA freeze lifted.* | EDIT | S |
 | **FS-31** | **The SLA clock only starts if someone clicks Start** — an unstarted corrective order is invisible to the scan, the penalty gate and the dashboard, permanently. No response SLA exists at all | EDIT | S |
-| **FS-32** | **PPM can silently stop generating for a plan forever**, triggered by the plan contractor's COI renewal (a superseded COI permanently disqualifies a vendor) | BUGFIX | S |
+| ~~**FS-32**~~ ✅ | ~~**PPM can silently stop generating for a plan forever**~~ — **shipped 2026-08-12.** Three defects in one chain. **(1)** A renewed certificate still counted as lapsed: compliance asked *"any lapsed row?"* of a file that keeps its history, so doing the paperwork correctly bricked the contractor permanently — new `HasSupersededDocuments::current()`, reached by the row question and the set question through the SAME scope chain, and applied to `TenantDocument` too, which had it in the nag channel. **(2)** A genuinely lapsed COI cancelled the WORK rather than the assignment; the round is now raised unassigned with the reason on it, because the gate governs who is sent to site, not whether a statutory inspection exists. **(3)** A stuck plan is now stamped on its own row (icon + reason + a filter that separates *stuck* from merely *overdue*, which look identical) and alerts mail + bell on the transition. The cycle is still not skipped — a missed round is a backlog item, now a visible one. Eleven mutations, all killed | BUGFIX | S |
 | ~~**FS-33**~~ ✅ | ~~**The books can drift silently**~~ — **shipped 2026-08-12.** All three channels closed: the tie-out is **persisted** (four `SystemSetting` keys), **alerted** (`BooksDriftDetectedNotification`, mail + bell, on the transition into drift only), and **surfaced on `/health`** as `books_tie_out`; `billing:reconcile --deep` is scheduled Fridays 04:00; and the standing un-postable-document count — which alerted once and then existed only on a report-page banner — joins the same health check. The reason it was invisible is the reason it was hard to see: the sibling alert **returns early on `$failed === 0`**, which is exactly the state of a ledger that drifts while every document posts cleanly. Alert driven through the real command in test, since a test that constructed the notification by hand would have passed against the old code | EDIT | S |
 
 ### 3.3 Fix before scale (mall #2, or ~6 months of data)

@@ -429,6 +429,31 @@ cannot be filtered or reported as internal-vs-external the way a corrective one 
 reporting is ever wanted, the change is to classify the plan and stamp the order — not to tighten
 the CM guard, which is already right for what it covers.
 
+### A plan that cannot generate says so
+
+Two correct decisions used to combine into a silent failure. `generateFor()` wraps a cycle in one
+transaction, so a throw undoes `advanceDue()` with everything else — right, because a statutory
+round must not be skipped just because tonight's attempt failed. And `run()` contains the failure
+per plan — right, because one bad row must not stop every other property. Together: **the plan
+retried the same cycle every night, forever**, and the only trace was a `Log::warning` plus a
+non-zero exit from a cron job that has no `onFailure` hook anywhere in `routes/console.php`. The
+lift inspection stopped and nobody was told.
+
+Three changes, 2026-08-12:
+
+| | |
+|---|---|
+| **The round still happens** | A contractor who cannot be dispatched no longer cancels the WORK — only the assignment. The order is raised with `vendor_id = null` and a note on it naming the vendor and the reason, for a coordinator to reassign. The compliance gate governs *who is sent to site*, not whether the inspection exists; ServiceChannel and Corrigo behave the same way. |
+| **Being stuck is visible** | `maintenance_plans.last_generation_failed_at` + `last_generation_error`, written **outside** the rolled-back transaction (the stamp is the only surviving trace of an attempt that undid everything else it did) and cleared inside the transaction that finally succeeds. Surfaced on the row: an icon and the reason under the due date, plus a **"Not generating (stuck)"** filter — because a stuck plan and an overdue plan look identical, a date in the past, which sends somebody chasing a technician for a round the system never asked anybody to do. |
+| **Somebody is told** | `PreventiveGenerationFailedNotification`, mail + bell, to the property's managers and operations staff (`AssetStaffRecipients`), on the transition into failure only — a nightly repeat of a known problem is a message people filter. |
+
+**The plan still does not skip the cycle.** A missed statutory round is a backlog item, not something
+to step over; what changed is that the backlog is now visible. The concrete trigger was the plan
+contractor's insurance lapsing — and the *renewal* case was itself a bug, fixed in
+[module 12](12-vendors.md#compliance-documents--vendor_documents-module-12b).
+
+**Tests:** `tests/Feature/Regression/PreventiveGenerationDoesNotStopSilentlyTest.php`.
+
 ### Spare parts on a job (FR-CM-09/10/11, FR-INV-04)
 
 Everything goes through `WorkOrderPartService`; the relation manager is a thin caller.

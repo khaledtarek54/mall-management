@@ -55,7 +55,14 @@ class MaintenancePlansTable
                     ->date('d/m/Y')
                     ->sortable()
                     // Highlight overdue plans.
-                    ->color(fn ($state) => $state && $state->isPast() ? 'danger' : 'success'),
+                    ->color(fn ($state) => $state && $state->isPast() ? 'danger' : 'success')
+                    // A stuck plan looks EXACTLY like an overdue one — the date sits in the past
+                    // either way — so the date alone sends the operator chasing a technician for a
+                    // round the system never asked anybody to do. The reason belongs next to it.
+                    ->icon(fn (MaintenancePlan $record) => $record->generationIsFailing() ? 'heroicon-m-exclamation-triangle' : null)
+                    ->description(fn (MaintenancePlan $record) => $record->generationIsFailing()
+                        ? __('admin.preventive_maintenance.generation_failing', ['reason' => (string) $record->last_generation_error])
+                        : null),
                 IconColumn::make('is_active')
                     ->label(__('admin.preventive_maintenance.fields.active'))
                     ->boolean(),
@@ -69,6 +76,12 @@ class MaintenancePlansTable
                 Filter::make('overdue')
                     ->label(__('admin.preventive_maintenance.filters.overdue'))
                     ->query(fn ($query) => $query->where('is_active', true)->whereDate('next_due_date', '<', now()->toDateString())),
+                // Overdue and STUCK are different problems with the same symptom: one needs a
+                // technician, the other needs somebody to fix the plan. Filtering them apart is the
+                // difference between a backlog and a system that quietly stopped.
+                Filter::make('generation_failing')
+                    ->label(__('admin.preventive_maintenance.filters.generation_failing'))
+                    ->query(fn ($query) => $query->whereNotNull('last_generation_failed_at')),
             ])
             ->recordActions([
                 // Read the record without opening its edit form — less

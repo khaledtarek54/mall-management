@@ -4,11 +4,14 @@ namespace App\Services;
 
 use App\Models\MaintenancePlan;
 use App\Models\MaintenanceWorkOrder;
+use App\Models\Vendor;
+use App\Notifications\PreventiveGenerationFailedNotification;
 use App\Notifications\WorkOrderRaisedNotification;
 use App\Services\AssetStaffRecipients;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Str;
 
 /**
  * Raises preventive-maintenance work orders for every plan that's due (module 26).
@@ -51,6 +54,10 @@ class GeneratePreventiveWorkOrdersService
                     'maintenance_plan_id' => $row->id,
                     'error' => $e->getMessage(),
                 ]);
+
+                // Outside the rolled-back transaction, deliberately: the stamp is the only surviving
+                // trace of an attempt that undid everything else it did.
+                $this->recordFailure((int) $row->id, $e->getMessage());
             }
         });
 
@@ -61,6 +68,53 @@ class GeneratePreventiveWorkOrdersService
         $this->notifyRaised();
 
         return $created;
+    }
+
+    /**
+     * Stamp the plan that could not generate, and bell the property once when it first gets stuck.
+     *
+     * The containment above and the all-or-nothing transaction below are each right on their own,
+     * and together they mean a failing plan retries the same cycle every night forever. Until now
+     * the only trace was a `Log::warning` and a non-zero exit from a cron job with no `onFailure`
+     * hook — so the statutory round stopped happening and nobody found out.
+     *
+     * The plan keeps its `next_due_date`: a missed inspection is a backlog item, not something to
+     * skip past. What changes is that the backlog is now visible.
+     *
+     * Alerts on the transition into failure only, for the same reason the ledger-drift alert does —
+     * a nightly repeat of a known problem is a message people filter. Best-effort throughout: this
+     * is the error path, and it must not become the thing that breaks the run.
+     */
+    private function recordFailure(int $planId, string $reason): void
+    {
+        try {
+            /** @var MaintenancePlan|null $plan */
+            $plan = MaintenancePlan::find($planId);
+            if ($plan === null) {
+                return;
+            }
+
+            $wasFailing = $plan->generationIsFailing();
+
+            $plan->forceFill([
+                'last_generation_failed_at' => now(),
+                'last_generation_error' => Str::limit($reason, 480),
+            ])->saveQuietly();
+
+            if ($wasFailing) {
+                return;
+            }
+
+            $recipients = app(AssetStaffRecipients::class)->for($plan->asset_id, ['manager', 'operations']);
+            if ($recipients->isNotEmpty()) {
+                Notification::send($recipients, new PreventiveGenerationFailedNotification($plan, $reason));
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Preventive generation failure could not be recorded', [
+                'maintenance_plan_id' => $planId,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /** Bell the property's operations staff for each work order this run actually raised. */
@@ -103,9 +157,27 @@ class GeneratePreventiveWorkOrdersService
             // Idempotency backstop: never raise two orders for the same plan cycle.
             if ($plan->workOrders()->whereDate('scheduled_for', $scheduledFor)->exists()) {
                 $plan->advanceDue();
+                $plan->forceFill(['last_generation_failed_at' => null, 'last_generation_error' => null]);
                 $plan->save();
 
                 return;
+            }
+
+            // A contractor who cannot be dispatched must not stop the round HAPPENING.
+            //
+            // `MaintenanceWorkOrder::saving()` refuses a non-dispatchable vendor, which is right —
+            // an uninsured contractor on the mall floor is the operator's liability. But that throw
+            // rolled back the whole cycle, so a lapsed COI silently cancelled the plan's statutory
+            // inspection rather than merely its assignment. The compliance gate governs who is sent,
+            // not whether the work exists: raise it unassigned, say why on the order, and let a
+            // coordinator pick somebody compliant. This is what the FM specialists do.
+            $vendorId = $plan->vendor_id;
+            $complianceNote = null;
+            if ($vendorId !== null && ! Vendor::query()->whereKey($vendorId)->assignable()->exists()) {
+                $vendorId = null;
+                $complianceNote = __('admin.maintenance_plans.vendor_not_dispatchable', [
+                    'vendor' => (string) Vendor::withTrashed()->whereKey($plan->vendor_id)->value('name'),
+                ]);
             }
 
             /** @var MaintenanceWorkOrder $order */
@@ -129,8 +201,8 @@ class GeneratePreventiveWorkOrdersService
                     : 'medium',
                 'scheduled_for' => $scheduledFor,
                 'department_id' => $plan->department_id,
-                'vendor_id' => $plan->vendor_id,
-                'notes' => $plan->description,
+                'vendor_id' => $vendorId,
+                'notes' => trim(implode("\n\n", array_filter([(string) $plan->description, $complianceNote]))) ?: null,
             ]);
 
             foreach ((array) $plan->checklist as $label) {
@@ -140,6 +212,9 @@ class GeneratePreventiveWorkOrdersService
             }
 
             $plan->advanceDue();
+            // A plan that generates is no longer stuck. Cleared inside the same transaction as the
+            // order it raised, so the stamp can never outlive the failure it describes.
+            $plan->forceFill(['last_generation_failed_at' => null, 'last_generation_error' => null]);
             $plan->save();
             $created++;
             $this->raisedOrderIds[] = $order->id;

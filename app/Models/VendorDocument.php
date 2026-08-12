@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSupersededDocuments;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -22,7 +23,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
  */
 class VendorDocument extends Model implements HasMedia
 {
-    use InteractsWithMedia, LogsActivity, SoftDeletes;
+    use InteractsWithMedia, HasSupersededDocuments, LogsActivity, SoftDeletes;
 
     /** Insurance certificate (COI) — the one that stops a vendor being sent to site. */
     public const TYPE_INSURANCE_COI = 'insurance_coi';
@@ -144,12 +145,22 @@ class VendorDocument extends Model implements HasMedia
         };
     }
 
-    /** Documents lapsed or lapsing inside the alert window — the chase list. */
+    /**
+     * Documents lapsed or lapsing inside the alert window — the chase list.
+     *
+     * Scoped to the CURRENT document of each type. A superseded certificate is history, and history
+     * cannot be renewed: leaving it in here means the party is chased forever for a document they
+     * already replaced, and a nag that can never be cleared is a nag people learn to close.
+     *
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
     public function scopeNeedsAttention(Builder $query, ?Carbon $on = null): Builder
     {
         $on = ($on ?? Carbon::today())->startOfDay();
 
-        return $query->whereNotNull('expires_on')
+        return $query->current()
+            ->whereNotNull('expires_on')
             ->whereDate('expires_on', '<=', $on->copy()->addDays(self::ALERT_DAYS)->toDateString());
     }
 
@@ -163,5 +174,10 @@ class VendorDocument extends Model implements HasMedia
     public function scopeBlocking(Builder $query): Builder
     {
         return $query->whereIn('type', self::BLOCKING_TYPES);
+    }
+
+    public function documentOwnerColumn(): string
+    {
+        return 'vendor_id';
     }
 }

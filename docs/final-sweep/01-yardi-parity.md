@@ -294,16 +294,18 @@ deadline. The gap is the opposite: never *setting* one.
 
 ### 2.3 HIGH — the rest of the facility list
 
-Verified as reported. **PPM can silently stop generating for a plan, forever** — a throw in
-`generateFor()` rolls back without advancing `next_due_date`, is contained per-plan into a
-`Log::warning` (not `OpsLog`), and the command's non-zero exit goes nowhere because no
-`onFailure`/`emailOutput` hook exists anywhere in `routes/console.php`. Concrete trigger: the plan's
-contractor's COI lapses and `MaintenanceWorkOrder::saving()` throws. **The statutory lift PPM stops
-and nobody is told** · **PPM work orders have no overdue detection at all** — every scan and widget
+Verified as reported. ~~**PPM can silently stop generating for a plan, forever**~~ — **fixed
+2026-08-12**, all three links in the chain: a renewed COI no longer counts as lapsed
+(`HasSupersededDocuments`), a genuinely lapsed one withholds the *assignment* rather than cancelling
+the round, and a stuck plan is stamped on its own row and alerts once. The cycle is still not
+skipped. See [module 26](../modules/26-preventive-maintenance.md#a-plan-that-cannot-generate-says-so).
+The original finding: a throw in `generateFor()` rolls back without advancing `next_due_date`, is
+contained per-plan into a `Log::warning` (not `OpsLog`), and the command's non-zero exit goes nowhere
+because no `onFailure`/`emailOutput` hook exists anywhere in `routes/console.php` · **PPM work orders have no overdue detection at all** — every scan and widget
 filters `->corrective()`, and generated PPM orders carry no assignee, so even the `dueToday` count
-reaches nobody · **a superseded vendor COI disqualifies the vendor permanently** —
-`scopeAssignable()` tests any-expired with no latest-per-type notion, so renewing a certificate
-correctly *bricks* the contractor, which is also the trigger for the PPM failure above · **the
+reaches nobody · ~~**a superseded vendor COI disqualifies the vendor permanently**~~ — **fixed 2026-08-12**;
+`scopeAssignable()` tested any-expired with no latest-per-type notion, so renewing a certificate
+correctly *bricked* the contractor · **the
 compliance gate covers dispatch only** — a blacklisted vendor can still be awarded a PO
 (`PurchaseRequestsTable.php:153` uses a bare `Vendor::query()`), and `docs/modules/12-vendors.md:72`
 claims otherwise · **no technician surface** — `/api/v1` is 100% `auth:tenant-api`, `User` has no

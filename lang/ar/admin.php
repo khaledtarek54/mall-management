@@ -2211,6 +2211,8 @@ return [
         'sla_breached_body' => ':type :reference (:priority) تجاوز موعد الحل المستهدف بـ :hours ساعة.',
         'wo_sla_breached_title' => 'أمر شغل تجاوز مستوى الخدمة',
         'wo_sla_breached_body' => ':reference (:equipment) تجاوز المستهدف بـ :hours ساعة لأولوية :priority.',
+        'ppm_generation_failed_title' => 'توقفت خطة وقائية عن إصدار أوامر العمل',
+        'ppm_generation_failed_body' => 'الخطة ":plan" لم تتمكن من إصدار أمر العمل المستحق في :due وستعيد المحاولة لنفس الدورة كل ليلة حتى تُعالج. السبب: :reason',
         'wo_raised_ppm_title' => 'تم رفع صيانة مجدولة',
         'wo_raised_cm_title' => 'تم رفع أمر شغل تصحيحي',
         'wo_raised_body' => ':reference — :title. مفتوح وبانتظار التنفيذ.',
@@ -2394,6 +2396,8 @@ return [
         'portal_admin' => 'مسؤول البوابة',
         'commencement_date' => 'تاريخ بدء العقد',
         'expiry_date' => 'تاريخ انتهاء العقد',
+        'due_date_derived' => 'يُحتسب من تاريخ الإصدار وشروط السداد المتفق عليها في هذا العقد، وقابل للتعديل — وهي نفس القاعدة التي تطبّقها دورة الفوترة الشهرية.',
+        'expiry_date_derived' => 'يُحتسب من تاريخ البدء ومدة العقد، وقابل للتعديل. وكتابة تاريخ انتهاء مختلف تُعيد حساب المدة بدلًا من أن تناقضها.',
         'term_months' => 'المدة',
         'months' => 'شهر',
         'days' => 'يوم',
@@ -3454,6 +3458,10 @@ return [
         'footer' => 'هذا الكشف صادر آليًا. للاستفسارات: billing@:slug.test',
     ],
 
+    'maintenance_plans' => [
+        'vendor_not_dispatchable' => 'صدر بدون إسناد: :vendor غير قابل للإرسال (محظور/غير نشط، أو انتهت شهادة التأمين). أسند مقاولًا مستوفيًا قبل تنفيذ العمل.',
+    ],
+
     'maintenance' => [
         'comments' => 'التعليقات',
         'updates' => 'تحديثات من فريق الإدارة',
@@ -4389,7 +4397,8 @@ return [
             'assignment' => 'الإسناد',
         ],
         'group' => 'المرافق',
-        'filters' => ['active' => 'نشِطة', 'overdue' => 'متأخرة (مستحقة قبل اليوم)'],
+        'filters' => ['active' => 'نشِطة', 'overdue' => 'متأخرة (مستحقة قبل اليوم)', 'generation_failing' => 'متوقفة عن الإصدار'],
+        'generation_failing' => 'متوقفة عن الإصدار — تُعاد المحاولة لنفس الدورة كل ليلة. :reason',
         'plan' => ['singular' => 'خطة خدمة', 'plural' => 'خطط الخدمات'],
         'order' => ['singular' => 'أمر شغل', 'plural' => 'أوامر الشغل'],
         'equipment' => [

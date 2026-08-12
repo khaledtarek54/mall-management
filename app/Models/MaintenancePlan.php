@@ -67,6 +67,9 @@ class MaintenancePlan extends Model
         'days_of_week' => 'array',
         'next_due_date' => 'date',
         'last_generated_at' => 'datetime',
+        // Deliberately NOT fillable: the generator writes these, no form does. A stamp an operator
+        // could clear by hand would say "generating fine" about a plan that is not.
+        'last_generation_failed_at' => 'datetime',
         'is_active' => 'boolean',
         'frequency_value' => 'integer',
     ];
@@ -164,6 +167,12 @@ class MaintenancePlan extends Model
      *
      * @throws InvalidArgumentException on an unknown frequency unit
      */
+    /** Is this plan stuck — did its last generation attempt fail and never recover? */
+    public function generationIsFailing(): bool
+    {
+        return $this->last_generation_failed_at !== null;
+    }
+
     public function advanceDue(): void
     {
         $base = CarbonImmutable::parse($this->next_due_date);

@@ -2217,6 +2217,8 @@ return [
         'sla_breached_body' => ':type :reference (:priority) is :hours h past its target resolution.',
         'wo_sla_breached_title' => 'Work order past its SLA',
         'wo_sla_breached_body' => ':reference (:equipment) is :hours h past its :priority SLA target.',
+        'ppm_generation_failed_title' => 'A preventive plan has stopped generating',
+        'ppm_generation_failed_body' => 'The plan ":plan" could not raise its work order due :due and will retry the same cycle every night until it is fixed. Reason: :reason',
         'wo_raised_ppm_title' => 'Scheduled maintenance raised',
         'wo_raised_cm_title' => 'Corrective work order raised',
         'wo_raised_body' => ':reference — :title. It is open and awaiting action.',
@@ -2400,6 +2402,8 @@ return [
         'portal_admin' => 'Portal admin',
         'commencement_date' => 'Commencement Date',
         'expiry_date' => 'Expiry Date',
+        'due_date_derived' => 'Filled in from the issue date and this lease\'s agreed payment terms, and editable — the same rule the monthly billing run applies.',
+        'expiry_date_derived' => 'Filled in from the commencement and the term, and editable. Typing a different end date recalculates the term instead of contradicting it.',
         'term_months' => 'Term',
         'months' => 'months',
         'days' => 'days',
@@ -3464,6 +3468,13 @@ return [
         'footer' => 'This statement is computer-generated. For queries: billing@:slug.test',
     ],
 
+    'maintenance_plans' => [
+        // Written onto the generated work order when the plan's contractor cannot be dispatched.
+        // The round still happens; only the assignment is withheld, and the order says why so a
+        // coordinator is not left guessing at a blank vendor field.
+        'vendor_not_dispatchable' => 'Raised unassigned: :vendor cannot be dispatched (blacklisted/inactive, or its insurance certificate has lapsed). Assign a compliant contractor before this work is carried out.',
+    ],
+
     'maintenance' => [
         'comments' => 'Comments',
         'updates' => 'Updates from the property team',
@@ -4399,7 +4410,8 @@ return [
             'assignment' => 'Assignment',
         ],
         'group' => 'Facility',
-        'filters' => ['active' => 'Active', 'overdue' => 'Overdue (due before today)'],
+        'filters' => ['active' => 'Active', 'overdue' => 'Overdue (due before today)', 'generation_failing' => 'Not generating (stuck)'],
+        'generation_failing' => 'Not generating — retrying this cycle nightly. :reason',
         'plan' => ['singular' => 'Service Schedule', 'plural' => 'Service Schedules'],
         'order' => ['singular' => 'Work Order', 'plural' => 'Work Orders'],
         'equipment' => [
