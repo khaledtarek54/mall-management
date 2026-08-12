@@ -411,6 +411,17 @@ foreach lease in unit.allLeases():
 > negotiated end date (aligned to a financial year, or to another tenant's fit-out) is never
 > rounded into a tidy term — and an expiry at or before the commencement derives nothing, which
 > leaves the `after()` validation rule free to refuse it. See `DerivedDateFieldsTest`.
+>
+> **The IMPORT obeys the same rule.** It took a commencement, an optional expiry and an optional
+> term with no relationship between them, so the bulk path could create the disagreement the form
+> prevents — a hundred rows at a time. It now derives whichever is missing and **refuses a row where
+> both are present and disagree**: neither can be preferred, because the expiry is a contract date
+> and the term describes it, so a failed row names the problem while the CSV is still open. Where a
+> bespoke end date is not a whole number of months, `term_months` (a NOT NULL column) takes the
+> whole months the range covers via `LeaseTerm::monthsSpanning()` — never null.
+>
+> `App\Support\DerivedFields` + `DerivedFieldsConformanceTest` keep this from decaying: a new
+> screen exposing all three fields as inputs must be classified, or the build fails.
 
 6. Seeds two standard Charges: base_rent (VAT-exempt) and service_charge (VAT at the standard rate — the `VAT_14` tax code's current rung, 14% today).
 

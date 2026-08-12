@@ -23,6 +23,8 @@ keeps the accounting capability matrix. This file is the priority call across al
 > seeded from the operator's own tax sheet. **TX-03 shipped too**: a document line now records which
 > tax it carried, and the rate is picked rather than typed unless the operator holds
 > `tax_codes.override`. **TX-06 shipped too** — the return now separates zero-rated from exempt.
+> **§8.2 DF-01→04 are shipped** as of the same day; DF-05 (fixed assets, vendor contracts, PDC,
+> work-order SLA) is what remains there.
 > Next is **TX-04** (AP input tax: `expenses.vat_amount` and `vendor_bills.vat_amount` are still
 > money someone keys). **TX-04 shipped too.** Next is **TX-05** (withholding by rate), which retires
 > **TX-05 shipped too — no rate lives in settings any more.** What remains in the tax cycle is
@@ -557,7 +559,7 @@ bidirectional — typing an expiry recomputes the term rather than contradicting
 | **DF-01** | 🟠 | 🧑‍💻 | Lease **term ⇄ expiry**, bidirectional, both editable. Validation that the pair agrees becomes unnecessary because they can no longer disagree. |
 | **DF-02** | ✅ | 🧑‍💻 | **SHIPPED 2026-08-12** — the renewal modal now shows the expiry its term and commencement produce, before the operator commits a new contract. It took a term and a start date and displayed no end date at all. |
 | **DF-03** | ✅ | 🧑‍💻 | **SHIPPED 2026-08-12.** One rule for typed and generated invoices. It changed two existing tests, which is the interesting part: a `fillForm` handing over every field at once can no longer produce an invalid date pair, so both refusals now `->set()` the derived field LAST — the way an operator actually reaches that state. The guards still bite there. |
-| **DF-04** | 🟠 | 🧑‍💻 | **Make it systemic, or it decays.** One `App\Support\Forms\Derives` helper (pre-fill · live · back-derive · stays editable) plus a registry of derivable pairs and a conformance test that fails when a form exposes both sides of a registered pair without wiring it. This is the only version of "the whole system behaves this way" that is still true after the next form is added — the same play as `PropertyIsolation` and `ChangeImpact`. |
+| **DF-04** | ✅ | 🧑‍💻 | **SHIPPED 2026-08-12.** `App\Support\DerivedFields` + `DerivedFieldsConformanceTest`: a schema exposing every field of a registered group as an INPUT must be classified derived or exempt-with-a-reason, every "derived" claim must name a test file that exists, and the gate carries its own smoke test so it cannot silently stop matching. **It found the remaining hole immediately** — the lease IMPORTER took commencement, term and expiry with no relationship between them, so the bulk path could still create the disagreement the form now prevents, a hundred rows at a time. *(Original row below.)* **Make it systemic, or it decays.** One `App\Support\Forms\Derives` helper (pre-fill · live · back-derive · stays editable) plus a registry of derivable pairs and a conformance test that fails when a form exposes both sides of a registered pair without wiring it. This is the only version of "the whole system behaves this way" that is still true after the next form is added — the same play as `PropertyIsolation` and `ChangeImpact`. |
 | **DF-05** | 🟡 | 🧑‍💻 | Remaining pairs: fixed-asset depreciation end, vendor-contract term, PDC maturity, work-order SLA due. |
 
 ### 8.3 Settings — make configuration declarative, audited and per-property (CFG)

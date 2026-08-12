@@ -82,6 +82,46 @@ class LeaseTerm
         return null;
     }
 
+    /**
+     * The whole months a range COVERS, floored — a descriptor, not an assertion of equality.
+     *
+     * {@see monthsBetween()} answers "is this range exactly N months?" and returns null when it is
+     * not, which is right where there is an existing term to leave alone: the form must not restate
+     * a negotiated end date as a tidy number.
+     *
+     * An import has no such luxury. `leases.term_months` is NOT NULL, and writing null there is the
+     * failure mode this codebase names explicitly — an optional blank field reaching a NOT-NULL
+     * column. So when a CSV carries a bespoke end date and no term, something has to go in the
+     * column, and the honest something is how many whole months the range covers. The EXPIRY is
+     * stored exactly either way, and it is the contract date; the term is a description of it.
+     */
+    public static function monthsSpanning(mixed $commencement, mixed $expiry): ?int
+    {
+        $exact = self::monthsBetween($commencement, $expiry);
+
+        if ($exact !== null) {
+            return $exact;
+        }
+
+        $start = self::date($commencement);
+        $end = self::date($expiry);
+
+        if ($start === null || $end === null || $end <= $start) {
+            return null;
+        }
+
+        // Walk down from the calendar estimate until the derived expiry no longer overshoots.
+        for ($months = (int) $start->diffInMonths($end->addDay()) + 1; $months >= 1; $months--) {
+            $derived = self::expiryFrom($start->toDateString(), $months);
+
+            if ($derived !== null && $derived <= $end->toDateString()) {
+                return $months;
+            }
+        }
+
+        return null;
+    }
+
     private static function date(mixed $value): ?CarbonImmutable
     {
         if ($value instanceof \DateTimeInterface) {

@@ -4,7 +4,9 @@ use App\Filament\Imports\LeaseImporter;
 use App\Models\Charge;
 use App\Models\Lease;
 use App\Models\Tenant;
+use App\Models\User;
 use Filament\Actions\Imports\Models\Import;
+use Illuminate\Validation\ValidationException;
 
 /**
  * The lease import must actually import a lease.
@@ -38,7 +40,7 @@ beforeEach(function () {
         'processed_rows' => 0,
         'total_rows' => 1,
         'successful_rows' => 0,
-        'user_id' => \App\Models\User::factory()->create()->id,
+        'user_id' => User::factory()->create()->id,
     ]);
 });
 
@@ -170,4 +172,67 @@ it('does not leave a tenant orphaned when the email is unknown', function () {
     // lease. Nothing should have been created.
     expect(Lease::where('reference', 'CONTRACT-2019-0042')->exists())->toBeFalse()
         ->and(Tenant::where('email', 'nobody@nowhere.test')->exists())->toBeFalse();
+});
+
+/*
+|--------------------------------------------------------------------------
+| Term ⇄ expiry, on the bulk path too
+|--------------------------------------------------------------------------
+| The lease FORM derives these both ways since 2026-08-12, so an operator cannot type "36 months"
+| spanning twelve. The importer could still create one — at a hundred rows a time — because it took
+| a commencement, an optional expiry and an optional term with no relationship between them. A
+| migrated lease whose term contradicts its expiry carries that contradiction into renewal and
+| option exercise, both of which read the term.
+*/
+
+it('fills in an expiry the file does not carry', function () {
+    importLeaseRow(leaseRow(['reference' => 'CT-DERIVE-1', 'expiry_date' => '', 'term_months' => '24']));
+
+    $lease = Lease::where('reference', 'CT-DERIVE-1')->sole();
+
+    expect($lease->expiry_date->toDateString())->toBe('2027-12-31')
+        ->and($lease->term_months)->toBe(24);
+});
+
+it('fills in a term the file does not carry', function () {
+    importLeaseRow(leaseRow(['reference' => 'CT-DERIVE-2', 'expiry_date' => '2027-06-30', 'term_months' => '']));
+
+    $lease = Lease::where('reference', 'CT-DERIVE-2')->sole();
+
+    expect($lease->term_months)->toBe(18)
+        ->and($lease->expiry_date->toDateString())->toBe('2027-06-30');
+});
+
+it('refuses a row whose term and expiry contradict each other', function () {
+    // Neither is preferred, because nothing here can know which is wrong: the expiry is a contract
+    // date and the term is a description of it. A failed row names the problem while the CSV is
+    // still open — the same call `atriom:audit-charge-schedules` makes about bad legacy data.
+    expect(fn () => importLeaseRow(leaseRow([
+        'reference' => 'CT-CLASH',
+        'commencement_date' => '2026-01-01',
+        'term_months' => '36',
+        'expiry_date' => '2026-12-31',
+    ])))->toThrow(ValidationException::class);
+
+    expect(Lease::where('reference', 'CT-CLASH')->exists())->toBeFalse();
+});
+
+it('accepts a row where they agree — the paired control', function () {
+    // Without this, the refusal above would pass just as happily if every row were rejected.
+    importLeaseRow(leaseRow(['reference' => 'CT-AGREE', 'commencement_date' => '2026-01-01', 'term_months' => '12', 'expiry_date' => '2026-12-31']));
+
+    expect(Lease::where('reference', 'CT-AGREE')->exists())->toBeTrue();
+});
+
+it('leaves a bespoke end date alone rather than rounding it into a term', function () {
+    // A lease aligned to a financial year is not a whole number of months. The column keeps its
+    // default instead of being given a rounded lie, and the negotiated date stands.
+    importLeaseRow(leaseRow(['reference' => 'CT-BESPOKE', 'commencement_date' => '2026-01-01', 'expiry_date' => '2027-03-15', 'term_months' => '']));
+
+    $lease = Lease::where('reference', 'CT-BESPOKE')->sole();
+
+    expect($lease->expiry_date->toDateString())->toBe('2027-03-15')
+        // The column is NOT NULL, so it takes the whole months the range COVERS — 14 months and a
+        // fortnight is recorded as 14, with the exact end date beside it.
+        ->and($lease->term_months)->toBe(14);
 });

@@ -7,10 +7,12 @@ use App\Models\Lease;
 use App\Models\Tenant;
 use App\Models\Unit;
 use App\Services\LeaseCreationService;
+use App\Support\LeaseTerm;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Imports\ImportColumn;
 use Filament\Actions\Imports\Importer;
 use Filament\Actions\Imports\Models\Import;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Bulk-load an operator's existing leases — the cut-over path.
@@ -129,6 +131,8 @@ class LeaseImporter extends Importer
                 ->requiredMapping()
                 ->rules(['required', 'date']),
 
+            // Either of these may be blank — {@see afterValidate()} derives the missing one from
+            // the other, and refuses a row where both are present and disagree.
             ImportColumn::make('expiry_date')
                 ->label(__('admin.fields.expiry_date'))
                 ->rules(['nullable', 'date']),
@@ -219,6 +223,72 @@ class LeaseImporter extends Importer
      * re-import cannot stack a second rent row on a lease that already has one — overlapping
      * charge rows are their own documented failure mode, and they bill NOTHING.
      */
+    /**
+     * Make the imported term and expiry agree — or refuse the row.
+     *
+     * The lease FORM derives these both ways (`App\Support\LeaseTerm`), so an operator cannot type
+     * "36 months" spanning twelve. **The importer could still create one**, and at a hundred rows a
+     * time: it took a commencement, an optional expiry and an optional term with no relationship
+     * between them. A migrated lease whose `term_months` contradicts its `expiry_date` carries that
+     * contradiction into renewal and option exercise, which both read the term.
+     *
+     * Three cases, and the third is the one worth arguing about:
+     *
+     *   - **Expiry missing** → derive it from the term. The commencement is required, so this
+     *     always resolves, and it is what the creation service does.
+     *   - **Term missing** → derive it from the expiry. Null when the range is not a whole number
+     *     of months, which a bespoke end date legitimately is not — the column keeps its default
+     *     rather than being given a rounded lie.
+     *   - **Both present and disagreeing** → **refuse the row.** One of the two is wrong and
+     *     nothing here can know which: the expiry is a contract date and the term is a description
+     *     of it, and silently preferring either would rewrite what the operator's spreadsheet says.
+     *     A failed row names the problem while the CSV is still open, which is the whole point of
+     *     catching it at import rather than in year three. Same call as
+     *     `atriom:audit-charge-schedules`, which surfaces bad legacy data instead of normalising it.
+     */
+    protected function afterValidate(): void
+    {
+        $commencement = $this->data['commencement_date'] ?? null;
+        $expiry = $this->data['expiry_date'] ?? null;
+        $term = $this->data['term_months'] ?? null;
+
+        if (blank($commencement)) {
+            return;
+        }
+
+        if (blank($expiry) && filled($term)) {
+            $this->data['expiry_date'] = LeaseTerm::expiryFrom($commencement, $term);
+
+            return;
+        }
+
+        if (blank($term) && filled($expiry)) {
+            // `monthsSpanning()`, not `monthsBetween()`: `leases.term_months` is NOT NULL, and a
+            // bespoke end date is not a whole number of months — so the column takes how many whole
+            // months the range covers, while the EXPIRY, which is the contract date, is stored
+            // exactly. Writing null here is the failure mode this codebase names by name.
+            $this->data['term_months'] = LeaseTerm::monthsSpanning($commencement, $expiry);
+
+            return;
+        }
+
+        if (blank($expiry) || blank($term)) {
+            return;
+        }
+
+        $derived = LeaseTerm::expiryFrom($commencement, $term);
+
+        if ($derived !== null && $derived !== CarbonImmutable::parse($expiry)->toDateString()) {
+            throw ValidationException::withMessages([
+                'expiry_date' => __('admin.validation.import_lease_term_disagrees', [
+                    'term' => (int) $term,
+                    'derived' => $derived,
+                    'expiry' => CarbonImmutable::parse($expiry)->toDateString(),
+                ]),
+            ]);
+        }
+    }
+
     protected function afterCreate(): void
     {
         /** @var Lease $lease */
