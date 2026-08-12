@@ -58,8 +58,15 @@ it('A2: keeps the exemption list honest', function () {
     expect(ScreenGuides::EXEMPT)->toBeArray();
 
     foreach (array_keys(ScreenGuides::EXEMPT) as $exempt) {
-        expect($screens)->toContain($exempt, "{$exempt} is exempt from guidance but is not a screen "
-            .'`discoverScreens()` finds — so the exemption classifies nothing. Remove it.');
+        // `assertContains`, not `expect()->toContain($x, $message)` — toContain is VARIADIC, so the
+        // message would become a second NEEDLE and the assertion would demand the array contain it
+        // too. Inert while EXEMPT is empty, and confusingly wrong the day it is not.
+        $this->assertContains(
+            $exempt,
+            $screens,
+            "{$exempt} is exempt from guidance but is not a screen `discoverScreens()` finds — "
+            .'so the exemption classifies nothing. Remove it.'
+        );
     }
 
     foreach (ScreenGuides::EXEMPT as $exempt => $reason) {
