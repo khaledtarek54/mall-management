@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Contracts\DeliverableReport;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Resources\Invoices\InvoiceResource;
 use App\Models\Asset;
@@ -41,7 +42,7 @@ use Illuminate\Support\Facades\Auth;
  * widget). Reusing that call is what guarantees the drill-down can never show a
  * different set of invoices than the bucket total on the dashboard counted.
  */
-class ArAging extends Page implements HasSchemas, HasTable
+class ArAging extends Page implements DeliverableReport, HasSchemas, HasTable
 {
     use InteractsWithSchemas;
     use InteractsWithTable;
@@ -155,13 +156,9 @@ class ArAging extends Page implements HasSchemas, HasTable
                 ->visible(fn () => Auth::user()?->can('reports.view') ?? false)
                 ->authorize(fn () => Auth::user()?->can('reports.view') ?? false)
                 ->action(function () {
-                    $csv = app(ReportCsvExporter::class)->arAging($this->invoices());
+                    $csv = $this->reportCsv();
 
-                    // The as-of date is in the filename: an exported worklist is only
-                    // reconcilable if you can tell which day it was aged at.
-                    $asOf = self::parseAsOf($this->asOf)->toDateString();
-
-                    return ReportCsv::stream("ar-aging-{$this->bucket}-{$asOf}", $csv['headers'], $csv['rows']);
+                    return ReportCsv::stream($csv['filename'], $csv['headers'], $csv['rows']);
                 }),
         ];
     }
@@ -175,6 +172,27 @@ class ArAging extends Page implements HasSchemas, HasTable
     protected function invoices()
     {
         return app(ReportService::class)->arAgingDrilldown($this->bucket, self::parseAsOf($this->asOf));
+    }
+
+    /**
+     * The report as CSV, callable without a browser — see App\Contracts\DeliverableReport.
+     *
+     * The export action and scheduled delivery both go through this, so an emailed copy is
+     * byte-for-byte the report an operator would have downloaded.
+     */
+    public function reportCsv(): array
+    {
+        $csv = app(ReportCsvExporter::class)->arAging($this->invoices());
+
+        // The as-of date is in the filename: an exported worklist is only
+        // reconcilable if you can tell which day it was aged at.
+        $asOf = self::parseAsOf($this->asOf)->toDateString();
+
+        return [
+            'filename' => "ar-aging-{$this->bucket}-{$asOf}",
+            'headers' => $csv['headers'],
+            'rows' => $csv['rows'],
+        ];
     }
 
     public function table(Table $table): Table

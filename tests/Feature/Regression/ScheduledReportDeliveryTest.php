@@ -128,10 +128,10 @@ it('stops delivering when the owner loses access to the report', function () {
 });
 
 it('refuses to deliver a report that cannot render without a browser', function () {
-    // Most reports build their CSV inside the export action, where only a click can reach it.
-    // `ReportCatalogue::NOT_DELIVERABLE` names them; a schedule on one must fail rather than send
-    // an empty file.
-    $view = scheduledView(makeUser('accounting'), ['report' => 'rent_roll']);
+    // Six reports have no CSV at all — a checklist, a floor plan, a diagram, a searchable log, a
+    // dry run and a PDF pack. `ReportCatalogue::NOT_DELIVERABLE` names them with a reason, and a
+    // schedule on one must fail rather than send an empty file.
+    $view = scheduledView(makeUser('accounting'), ['report' => 'occupancy_map']);
 
     expect(app(DeliverSavedReportService::class)->deliver($view))->toBeFalse();
 
@@ -161,7 +161,7 @@ it('sends nothing on a day nothing is due', function () {
 it('keeps going when one report fails', function () {
     // A month-end morning is exactly when the other reports matter.
     $owner = makeUser('accounting');
-    scheduledView($owner, ['report' => 'rent_roll', 'name' => 'Cannot render']);
+    scheduledView($owner, ['report' => 'occupancy_map', 'name' => 'Cannot render']);
     scheduledView($owner, ['name' => 'Fine']);
 
     $this->artisan('reports:deliver', ['--date' => '2026-03-03']);

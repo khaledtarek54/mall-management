@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Contracts\DeliverableReport;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Services\Reports\ReportService;
@@ -37,7 +38,7 @@ use Illuminate\Support\Facades\Auth;
  * moving, LFL says how the tenants who were already there are trading. A mall that let ten new
  * shops shows growth on the first and flat on the second, and the gap between them is the story.
  */
-class SalesAnalytics extends Page implements HasSchemas, HasTable
+class SalesAnalytics extends Page implements DeliverableReport, HasSchemas, HasTable
 {
     use InteractsWithSchemas;
     use InteractsWithTable;
@@ -122,21 +123,9 @@ class SalesAnalytics extends Page implements HasSchemas, HasTable
                 ->visible(fn (): bool => Auth::user()?->can('reports.view') ?? false)
                 ->authorize(fn (): bool => Auth::user()?->can('reports.view') ?? false)
                 ->action(function () {
-                    $headers = [
-                        __('admin.tables.invoice.unit'), __('admin.tables.invoice.tenant'),
-                        __('admin.tables.lease.reference'),
-                        __('admin.sales_analytics.mtd'), __('admin.sales_analytics.ytd'),
-                        __('admin.sales_analytics.mat'), __('admin.sales_analytics.prior_mat'),
-                        __('admin.sales_analytics.growth'), __('admin.sales_analytics.lfl_eligible'),
-                    ];
+                    $csv = $this->reportCsv();
 
-                    $rows = $this->rows()->map(fn (array $r): array => [
-                        $r['unit'], $r['tenant'], $r['reference'],
-                        $r['mtd'], $r['ytd'], $r['mat'], $r['prior_mat'], $r['mat_growth_pct'],
-                        $r['lfl_eligible'] ? __('admin.occupancy_cost.estimated_yes') : __('admin.occupancy_cost.estimated_no'),
-                    ])->all();
-
-                    return ReportCsv::stream("sales-analytics-{$this->asOf}", $headers, $rows);
+                    return ReportCsv::stream($csv['filename'], $csv['headers'], $csv['rows']);
                 }),
         ];
     }
@@ -154,6 +143,35 @@ class SalesAnalytics extends Page implements HasSchemas, HasTable
     protected function rows(): Collection
     {
         return $this->report()['rows'];
+    }
+
+    /**
+     * The report as CSV, callable without a browser — see App\Contracts\DeliverableReport.
+     *
+     * The export action and scheduled delivery both go through this, so an emailed copy is
+     * byte-for-byte the report an operator would have downloaded.
+     */
+    public function reportCsv(): array
+    {
+        $headers = [
+            __('admin.tables.invoice.unit'), __('admin.tables.invoice.tenant'),
+            __('admin.tables.lease.reference'),
+            __('admin.sales_analytics.mtd'), __('admin.sales_analytics.ytd'),
+            __('admin.sales_analytics.mat'), __('admin.sales_analytics.prior_mat'),
+            __('admin.sales_analytics.growth'), __('admin.sales_analytics.lfl_eligible'),
+        ];
+
+        $rows = $this->rows()->map(fn (array $r): array => [
+            $r['unit'], $r['tenant'], $r['reference'],
+            $r['mtd'], $r['ytd'], $r['mat'], $r['prior_mat'], $r['mat_growth_pct'],
+            $r['lfl_eligible'] ? __('admin.occupancy_cost.estimated_yes') : __('admin.occupancy_cost.estimated_no'),
+        ])->all();
+
+        return [
+            'filename' => "sales-analytics-{$this->asOf}",
+            'headers' => $headers,
+            'rows' => $rows,
+        ];
     }
 
     public function table(Table $table): Table

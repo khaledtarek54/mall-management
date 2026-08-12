@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Contracts\DeliverableReport;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Services\Reports\ReportService;
@@ -37,7 +38,7 @@ use Illuminate\Support\Facades\Auth;
  * an implicit "now", because "what were we earning when we signed the loan" and "what will we be
  * earning after the January steps" are the two questions an owner actually asks.
  */
-class RentRoll extends Page implements HasSchemas, HasTable
+class RentRoll extends Page implements DeliverableReport, HasSchemas, HasTable
 {
     use InteractsWithSchemas;
     use InteractsWithTable;
@@ -126,33 +127,9 @@ class RentRoll extends Page implements HasSchemas, HasTable
                 ->visible(fn (): bool => Auth::user()?->can('reports.view') ?? false)
                 ->authorize(fn (): bool => Auth::user()?->can('reports.view') ?? false)
                 ->action(function () {
-                    $asOf = ArAging::parseAsOf($this->asOf)->toDateString();
+                    $csv = $this->reportCsv();
 
-                    $headers = [
-                        __('admin.tables.invoice.unit'), __('admin.tables.invoice.tenant'),
-                        __('admin.tables.lease.reference'), __('admin.rent_roll.area'),
-                        __('admin.fields.commencement_date'), __('admin.fields.expiry_date'),
-                        __('admin.rent_roll.months_remaining'), __('admin.rent_roll.base_rent'),
-                        __('admin.rent_roll.per_sqm'), __('admin.rent_roll.contracted_rate_header'),
-                        __('admin.fields.service_charge_monthly'),
-                        __('admin.rent_roll.marketing'), __('admin.rent_roll.total_monthly'),
-                        __('admin.fields.escalation_rate'), __('admin.rent_roll.next_step'),
-                        __('admin.rent_roll.next_option'), __('admin.fields.security_deposit'),
-                    ];
-
-                    $rows = $this->rows()->map(fn (array $r): array => [
-                        $r['units'], $r['tenant'], $r['reference'], $r['area_sqm'],
-                        $r['commencement_date']?->toDateString(), $r['expiry_date']?->toDateString(),
-                        $r['months_remaining'], $r['base_rent'], $r['rent_per_sqm_year'],
-                        $r['contracted_rate_per_sqm_year'],
-                        $r['service_charge'], $r['marketing'], $r['total_monthly'],
-                        $r['escalation_rate'],
-                        $r['next_step_date'] ? $r['next_step_date']->toDateString().' → '.$r['next_step_amount'] : '',
-                        $r['next_option_date']?->toDateString(),
-                        $r['security_deposit'],
-                    ])->all();
-
-                    return ReportCsv::stream("rent-roll-{$asOf}", $headers, $rows);
+                    return ReportCsv::stream($csv['filename'], $csv['headers'], $csv['rows']);
                 }),
         ];
     }
@@ -162,6 +139,47 @@ class RentRoll extends Page implements HasSchemas, HasTable
     {
         return $this->rows ??= app(ReportService::class)
             ->rentRoll(ArAging::parseAsOf($this->asOf), TenantScope::currentAssetId());
+    }
+
+    /**
+     * The report as CSV, callable without a browser — see App\Contracts\DeliverableReport.
+     *
+     * The export action and scheduled delivery both go through this, so an emailed copy is
+     * byte-for-byte the report an operator would have downloaded.
+     */
+    public function reportCsv(): array
+    {
+        $asOf = ArAging::parseAsOf($this->asOf)->toDateString();
+
+        $headers = [
+            __('admin.tables.invoice.unit'), __('admin.tables.invoice.tenant'),
+            __('admin.tables.lease.reference'), __('admin.rent_roll.area'),
+            __('admin.fields.commencement_date'), __('admin.fields.expiry_date'),
+            __('admin.rent_roll.months_remaining'), __('admin.rent_roll.base_rent'),
+            __('admin.rent_roll.per_sqm'), __('admin.rent_roll.contracted_rate_header'),
+            __('admin.fields.service_charge_monthly'),
+            __('admin.rent_roll.marketing'), __('admin.rent_roll.total_monthly'),
+            __('admin.fields.escalation_rate'), __('admin.rent_roll.next_step'),
+            __('admin.rent_roll.next_option'), __('admin.fields.security_deposit'),
+        ];
+
+        $rows = $this->rows()->map(fn (array $r): array => [
+            $r['units'], $r['tenant'], $r['reference'], $r['area_sqm'],
+            $r['commencement_date']?->toDateString(), $r['expiry_date']?->toDateString(),
+            $r['months_remaining'], $r['base_rent'], $r['rent_per_sqm_year'],
+            $r['contracted_rate_per_sqm_year'],
+            $r['service_charge'], $r['marketing'], $r['total_monthly'],
+            $r['escalation_rate'],
+            $r['next_step_date'] ? $r['next_step_date']->toDateString().' → '.$r['next_step_amount'] : '',
+            $r['next_option_date']?->toDateString(),
+            $r['security_deposit'],
+        ])->all();
+
+        return [
+            'filename' => "rent-roll-{$asOf}",
+            'headers' => $headers,
+            'rows' => $rows,
+        ];
     }
 
     public function table(Table $table): Table

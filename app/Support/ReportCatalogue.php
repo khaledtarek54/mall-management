@@ -179,22 +179,12 @@ class ReportCatalogue
      * @var array<class-string, string>
      */
     public const NOT_DELIVERABLE = [
-        GeneralLedger::class => 'Its CSV needs an account chosen, and a saved view with none would deliver an empty file every month. Deliverable once the export builds from parameters alone.',
-        VatReturn::class => 'Its CSV is assembled inside the export action rather than from a service. Small to lift out — it is next.',
-        ArAging::class => 'Its CSV is built from a bucket-specific query in the action. Next after the VAT return.',
-        ArAgingByType::class => 'CSV built inline in the export action.',
-        ArCollections::class => 'CSV built inline in the export action.',
-        BillingRunPreview::class => 'A dry run of what the next billing would raise — it belongs to a moment, not a schedule.',
-        MonthEndClose::class => 'A checklist an operator works through, not a document to receive.',
-        Reports::class => 'CSV built inline in the export action.',
-        WeeklySpend::class => 'CSV built inline in the export action.',
-        RentRoll::class => 'CSV built inline in the export action.',
-        ExpirationSchedule::class => 'CSV built inline in the export action.',
-        OccupancyMap::class => 'A visual floor plan; a CSV of it would answer a different question.',
-        OccupancyCost::class => 'CSV built inline in the export action.',
-        SalesAnalytics::class => 'CSV built inline in the export action.',
+        BillingRunPreview::class => 'A dry run of what the next billing WOULD raise. It belongs to the moment before a run, not to a calendar — and it has no CSV export for the same reason.',
+        MonthEndClose::class => 'A checklist an operator works through, not a document to receive. Nothing to export.',
+        Reports::class => 'The monthly-close dashboard. Its output is a PDF pack rather than a table, so there is no CSV to attach; scheduling the PDF is its own row.',
+        OccupancyMap::class => 'A visual floor plan. A CSV of it would answer a different question from the one the screen answers.',
         Workflows::class => 'A diagram of how the system works, not a report on data.',
-        ActivityLog::class => 'An audit trail that is searched, not received — a scheduled dump of it would be unread by construction.',
+        ActivityLog::class => 'An audit trail that is searched, not received. A scheduled dump of it would be unread by construction — and the questions people actually ask it are lookups.',
     ];
 
     /** The page class behind a catalogue key, or null when the key is stale. */

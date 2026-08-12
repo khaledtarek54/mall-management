@@ -47,10 +47,19 @@ The module is **optional** (Module flag: `reports`; defaults enabled) and scoped
 > catch-up after downtime re-sends nothing. A monthly schedule on the 31st fires on the last day of
 > a short month rather than being skipped: "the 31st" from an accountant means month end.
 >
-> **Four of twenty reports are deliverable today.** Delivery needs `App\Contracts\DeliverableReport`
-> — a CSV that renders without a browser — and the rest still build theirs inside the export
-> action's closure. `ReportCatalogue::NOT_DELIVERABLE` names each with a reason and a conformance
-> test fails on a report that declares neither, so the gap is stated rather than silently absent.
+> **Fourteen of twenty reports are deliverable** — every one that has a CSV at all. Delivery needs
+> `App\Contracts\DeliverableReport`: a CSV that renders without a browser. Each page's export
+> closure was lifted into a `reportCsv()` method that the export BUTTON now also calls, so a
+> downloaded copy and a delivered one cannot diverge.
+>
+> The six that are not deliverable have no CSV export in the first place — a checklist, a floor
+> plan, a diagram, a searchable log, a dry run and a PDF pack — which is a better reason than
+> "nobody has lifted it yet". `ReportCatalogue::NOT_DELIVERABLE` names each, and a conformance test
+> fails on a report that declares neither.
+>
+> The general ledger is the one that can be deliverable and still refuse: a saved view with no
+> account chosen is an unanswered question, not an empty report, so `reportCsv()` throws a
+> `DomainException` the delivery command reports rather than mailing an empty file every month.
 
 > **Filters can be saved (2026-08-12).** Every report takes them and none were rememberable: "AR
 > ageing as at last month-end for Atriom Walk" was six clicks, every time. "Save this view" names

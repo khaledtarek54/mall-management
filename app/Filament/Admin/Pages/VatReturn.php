@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Contracts\DeliverableReport;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Pages\Concerns\ScopesLedgerReport;
 use App\Services\Reports\VatReturnService;
@@ -36,7 +37,7 @@ use Filament\Tables\Table;
  * unposted or been posted twice, and a return is the last chance to catch that before the number
  * becomes a position the operator has taken.
  */
-class VatReturn extends Page implements HasSchemas, HasTable
+class VatReturn extends Page implements DeliverableReport, HasSchemas, HasTable
 {
     use InteractsWithSchemas;
     use InteractsWithTable;
@@ -108,22 +109,9 @@ class VatReturn extends Page implements HasSchemas, HasTable
                 ->visible(fn () => $this->canViewReports())
                 ->authorize(fn () => $this->canViewReports())
                 ->action(function () {
-                    $r = $this->report();
+                    $csv = $this->reportCsv();
 
-                    return ReportCsv::stream(
-                        "vat-return-{$this->periodSlug()}",
-                        [__('admin.reports.vat_line'), __('admin.fields.amount')],
-                        [
-                            [__('admin.reports.vat_base_standard'), number_format($r['base_standard'], 2, '.', '')],
-                            [__('admin.reports.vat_base_zero_rated'), number_format($r['base_zero_rated'], 2, '.', '')],
-                            [__('admin.reports.vat_base_exempt'), number_format($r['base_exempt'], 2, '.', '')],
-                            [__('admin.reports.vat_output'), number_format($r['output_vat'], 2, '.', '')],
-                            [__('admin.reports.vat_input'), number_format($r['input_vat'], 2, '.', '')],
-                            [__('admin.reports.vat_net_payable_label'), number_format($r['net_payable'], 2, '.', '')],
-                            [__('admin.reports.vat_output_documents'), number_format($r['output_vat_documents'], 2, '.', '')],
-                            [__('admin.reports.vat_difference'), number_format($r['output_vat_difference'], 2, '.', '')],
-                        ],
-                    );
+                    return ReportCsv::stream($csv['filename'], $csv['headers'], $csv['rows']);
                 }),
         ];
     }
@@ -144,6 +132,32 @@ class VatReturn extends Page implements HasSchemas, HasTable
             // invite someone to file a per-mall return, which is not a thing.
             null,
         );
+    }
+
+    /**
+     * The report as CSV, callable without a browser — see App\Contracts\DeliverableReport.
+     *
+     * The export action and scheduled delivery both go through this, so an emailed copy is
+     * byte-for-byte the report an operator would have downloaded.
+     */
+    public function reportCsv(): array
+    {
+        $r = $this->report();
+
+        return [
+            'filename' => "vat-return-{$this->periodSlug()}",
+            'headers' => [__('admin.reports.vat_line'), __('admin.fields.amount')],
+            'rows' => [
+                [__('admin.reports.vat_base_standard'), number_format($r['base_standard'], 2, '.', '')],
+                [__('admin.reports.vat_base_zero_rated'), number_format($r['base_zero_rated'], 2, '.', '')],
+                [__('admin.reports.vat_base_exempt'), number_format($r['base_exempt'], 2, '.', '')],
+                [__('admin.reports.vat_output'), number_format($r['output_vat'], 2, '.', '')],
+                [__('admin.reports.vat_input'), number_format($r['input_vat'], 2, '.', '')],
+                [__('admin.reports.vat_net_payable_label'), number_format($r['net_payable'], 2, '.', '')],
+                [__('admin.reports.vat_output_documents'), number_format($r['output_vat_documents'], 2, '.', '')],
+                [__('admin.reports.vat_difference'), number_format($r['output_vat_difference'], 2, '.', '')],
+            ],
+        ];
     }
 
     public function table(Table $table): Table

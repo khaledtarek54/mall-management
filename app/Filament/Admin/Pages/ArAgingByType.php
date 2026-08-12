@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Contracts\DeliverableReport;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Services\Reports\ReportService;
 use App\Support\Modules;
@@ -33,7 +34,7 @@ use Illuminate\Support\Facades\Auth;
  * Built on `InvoiceItemSettlement` (MF-06), which derives every per-line figure from
  * `invoices.paid_amount` — so these rows sum back to the invoice balances by construction.
  */
-class ArAgingByType extends Page implements HasSchemas, HasTable
+class ArAgingByType extends Page implements DeliverableReport, HasSchemas, HasTable
 {
     use InteractsWithSchemas;
     use InteractsWithTable;
@@ -117,21 +118,9 @@ class ArAgingByType extends Page implements HasSchemas, HasTable
                 ->visible(fn (): bool => Auth::user()?->can('reports.view') ?? false)
                 ->authorize(fn (): bool => Auth::user()?->can('reports.view') ?? false)
                 ->action(function () {
-                    $buckets = ArAging::buckets();
+                    $csv = $this->reportCsv();
 
-                    $headers = [
-                        __('admin.reports.charge_type'), ...array_values($buckets),
-                        __('admin.reports.disputed'), __('admin.reports.grand_total'),
-                    ];
-
-                    $rows = $this->rows()->map(fn (array $r): array => [
-                        self::typeLabel($r['type']),
-                        ...array_map(fn (string $k) => $r['buckets'][$k], array_keys($buckets)),
-                        $r['disputed'],
-                        $r['total'],
-                    ])->all();
-
-                    return ReportCsv::stream("ar-aging-by-type-{$this->asOf}", $headers, $rows);
+                    return ReportCsv::stream($csv['filename'], $csv['headers'], $csv['rows']);
                 }),
         ];
     }
@@ -161,6 +150,35 @@ class ArAgingByType extends Page implements HasSchemas, HasTable
         $labels = __('admin.enums.invoice_item_type');
 
         return $labels[$type] ?? $type;
+    }
+
+    /**
+     * The report as CSV, callable without a browser — see App\Contracts\DeliverableReport.
+     *
+     * The export action and scheduled delivery both go through this, so an emailed copy is
+     * byte-for-byte the report an operator would have downloaded.
+     */
+    public function reportCsv(): array
+    {
+        $buckets = ArAging::buckets();
+
+        $headers = [
+            __('admin.reports.charge_type'), ...array_values($buckets),
+            __('admin.reports.disputed'), __('admin.reports.grand_total'),
+        ];
+
+        $rows = $this->rows()->map(fn (array $r): array => [
+            self::typeLabel($r['type']),
+            ...array_map(fn (string $k) => $r['buckets'][$k], array_keys($buckets)),
+            $r['disputed'],
+            $r['total'],
+        ])->all();
+
+        return [
+            'filename' => "ar-aging-by-type-{$this->asOf}",
+            'headers' => $headers,
+            'rows' => $rows,
+        ];
     }
 
     public function table(Table $table): Table

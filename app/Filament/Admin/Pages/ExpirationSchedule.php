@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Contracts\DeliverableReport;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Services\Reports\ReportService;
 use App\Support\Modules;
@@ -35,7 +36,7 @@ use Illuminate\Support\Facades\Auth;
  * understate both this year's risk and today's income. It is also the row a leasing manager should
  * act on today rather than in eighteen months.
  */
-class ExpirationSchedule extends Page implements HasSchemas, HasTable
+class ExpirationSchedule extends Page implements DeliverableReport, HasSchemas, HasTable
 {
     use InteractsWithSchemas;
     use InteractsWithTable;
@@ -119,27 +120,9 @@ class ExpirationSchedule extends Page implements HasSchemas, HasTable
                 ->visible(fn (): bool => Auth::user()?->can('reports.view') ?? false)
                 ->authorize(fn (): bool => Auth::user()?->can('reports.view') ?? false)
                 ->action(function () {
-                    $asOf = ArAging::parseAsOf($this->asOf)->toDateString();
+                    $csv = $this->reportCsv();
 
-                    // The per-LEASE rows, not the summary: a leasing manager exports this to work
-                    // the list, and a spreadsheet of four totals is not a work list.
-                    $headers = [
-                        __('admin.expiration_schedule.bucket'),
-                        __('admin.tables.invoice.unit'), __('admin.tables.invoice.tenant'),
-                        __('admin.tables.lease.reference'), __('admin.rent_roll.area'),
-                        __('admin.fields.expiry_date'), __('admin.expiration_schedule.monthly_rent'),
-                        __('admin.expiration_schedule.annual_rent'),
-                    ];
-
-                    $rows = $this->rows()
-                        ->flatMap(fn (array $bucket) => collect($bucket['rows'])->map(fn (array $r): array => [
-                            $this->bucketLabel($bucket),
-                            $r['unit'], $r['tenant'], $r['reference'], $r['area_sqm'],
-                            $r['expiry_date']?->toDateString(), $r['monthly_rent'], $r['annual_rent'],
-                        ]))
-                        ->all();
-
-                    return ReportCsv::stream("expiration-schedule-{$asOf}", $headers, $rows);
+                    return ReportCsv::stream($csv['filename'], $csv['headers'], $csv['rows']);
                 }),
         ];
     }
@@ -159,6 +142,41 @@ class ExpirationSchedule extends Page implements HasSchemas, HasTable
     {
         return $this->rows ??= app(ReportService::class)
             ->expirationSchedule(ArAging::parseAsOf($this->asOf), TenantScope::currentAssetId());
+    }
+
+    /**
+     * The report as CSV, callable without a browser — see App\Contracts\DeliverableReport.
+     *
+     * The export action and scheduled delivery both go through this, so an emailed copy is
+     * byte-for-byte the report an operator would have downloaded.
+     */
+    public function reportCsv(): array
+    {
+        $asOf = ArAging::parseAsOf($this->asOf)->toDateString();
+
+        // The per-LEASE rows, not the summary: a leasing manager exports this to work
+        // the list, and a spreadsheet of four totals is not a work list.
+        $headers = [
+            __('admin.expiration_schedule.bucket'),
+            __('admin.tables.invoice.unit'), __('admin.tables.invoice.tenant'),
+            __('admin.tables.lease.reference'), __('admin.rent_roll.area'),
+            __('admin.fields.expiry_date'), __('admin.expiration_schedule.monthly_rent'),
+            __('admin.expiration_schedule.annual_rent'),
+        ];
+
+        $rows = $this->rows()
+            ->flatMap(fn (array $bucket) => collect($bucket['rows'])->map(fn (array $r): array => [
+                $this->bucketLabel($bucket),
+                $r['unit'], $r['tenant'], $r['reference'], $r['area_sqm'],
+                $r['expiry_date']?->toDateString(), $r['monthly_rent'], $r['annual_rent'],
+            ]))
+            ->all();
+
+        return [
+            'filename' => "expiration-schedule-{$asOf}",
+            'headers' => $headers,
+            'rows' => $rows,
+        ];
     }
 
     public function table(Table $table): Table

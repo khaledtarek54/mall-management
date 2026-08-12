@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Contracts\DeliverableReport;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Resources\Tenants\TenantResource;
 use App\Models\Tenant;
@@ -42,7 +43,7 @@ use Illuminate\Support\Facades\Response;
  * disagrees with the list behind it destroys the operator's trust in both, so the boundary
  * arithmetic exists exactly once.
  */
-class ArCollections extends Page implements HasSchemas, HasTable
+class ArCollections extends Page implements DeliverableReport, HasSchemas, HasTable
 {
     use InteractsWithSchemas;
     use InteractsWithTable;
@@ -125,27 +126,9 @@ class ArCollections extends Page implements HasSchemas, HasTable
                 ->visible(fn (): bool => Auth::user()?->can('reports.view') ?? false)
                 ->authorize(fn (): bool => Auth::user()?->can('reports.view') ?? false)
                 ->action(function () {
-                    $asOf = ArAging::parseAsOf($this->asOf)->toDateString();
+                    $csv = $this->reportCsv();
 
-                    $headers = [
-                        __('admin.tables.invoice.tenant'),
-                        ...array_map(fn (string $k) => __("admin.widgets.ar_aging.{$k}"), array_keys(ReportService::AGING_BUCKETS)),
-                        __('admin.collections.total_owed'),
-                        __('admin.collections.invoices'),
-                        __('admin.collections.oldest_days'),
-                        __('admin.collections.last_payment'),
-                    ];
-
-                    $rows = $this->rows()->map(fn (array $r): array => [
-                        $r['tenant']?->name ?? '—',
-                        ...array_values($r['buckets']),
-                        $r['total'],
-                        $r['invoice_count'],
-                        $r['oldest_days'],
-                        $r['last_payment_at'] ? CarbonImmutable::parse($r['last_payment_at'])->toDateString() : '',
-                    ])->all();
-
-                    return ReportCsv::stream("ar-collections-{$asOf}", $headers, $rows);
+                    return ReportCsv::stream($csv['filename'], $csv['headers'], $csv['rows']);
                 }),
         ];
     }
@@ -155,6 +138,41 @@ class ArCollections extends Page implements HasSchemas, HasTable
     {
         return $this->rows ??= app(ReportService::class)
             ->arCollectionsByTenant(ArAging::parseAsOf($this->asOf));
+    }
+
+    /**
+     * The report as CSV, callable without a browser — see App\Contracts\DeliverableReport.
+     *
+     * The export action and scheduled delivery both go through this, so an emailed copy is
+     * byte-for-byte the report an operator would have downloaded.
+     */
+    public function reportCsv(): array
+    {
+        $asOf = ArAging::parseAsOf($this->asOf)->toDateString();
+
+        $headers = [
+            __('admin.tables.invoice.tenant'),
+            ...array_map(fn (string $k) => __("admin.widgets.ar_aging.{$k}"), array_keys(ReportService::AGING_BUCKETS)),
+            __('admin.collections.total_owed'),
+            __('admin.collections.invoices'),
+            __('admin.collections.oldest_days'),
+            __('admin.collections.last_payment'),
+        ];
+
+        $rows = $this->rows()->map(fn (array $r): array => [
+            $r['tenant']?->name ?? '—',
+            ...array_values($r['buckets']),
+            $r['total'],
+            $r['invoice_count'],
+            $r['oldest_days'],
+            $r['last_payment_at'] ? CarbonImmutable::parse($r['last_payment_at'])->toDateString() : '',
+        ])->all();
+
+        return [
+            'filename' => "ar-collections-{$asOf}",
+            'headers' => $headers,
+            'rows' => $rows,
+        ];
     }
 
     public function table(Table $table): Table

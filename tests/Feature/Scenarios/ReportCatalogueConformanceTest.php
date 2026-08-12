@@ -161,8 +161,12 @@ it('offers only deliverable reports for scheduling', function () {
     $options = ReportCatalogue::deliverableOptions();
 
     expect($options)->toHaveKey('trial_balance')
-        // …and not one whose CSV only a click can build.
-        ->and($options)->not->toHaveKey('rent_roll');
+        // …the rent roll and AR ageing too, which are what an owner actually wants monthly…
+        ->and($options)->toHaveKey('rent_roll')
+        ->and($options)->toHaveKey('ar_aging')
+        // …and not a report that has no CSV to send at all.
+        ->and($options)->not->toHaveKey('occupancy_map')
+        ->and($options)->not->toHaveKey('workflows');
 
     Filament::setTenant(null, isQuiet: true);
 });

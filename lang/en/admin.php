@@ -1112,6 +1112,7 @@ return [
     ],
 
     'reports' => [
+        'general_ledger_needs_account' => 'This ledger view has no account chosen, so there is nothing to export or deliver. Open it, pick an account, and save the view again.',
         'vat_return_title' => 'VAT return',
         'vat_ties_out' => 'Ties out to the ledger',
         'vat_does_not_tie' => 'Does NOT tie out — the documents differ from the ledger by :difference',

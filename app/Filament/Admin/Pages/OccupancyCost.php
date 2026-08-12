@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Contracts\DeliverableReport;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Resources\Leases\LeaseResource;
 use App\Services\Reports\ReportService;
@@ -40,7 +41,7 @@ use Illuminate\Support\Facades\Auth;
  * nobody has asked yet, and inventing the numbers into a settings screen would imply a precision
  * this does not have.
  */
-class OccupancyCost extends Page implements HasSchemas, HasTable
+class OccupancyCost extends Page implements DeliverableReport, HasSchemas, HasTable
 {
     use InteractsWithSchemas;
     use InteractsWithTable;
@@ -144,22 +145,9 @@ class OccupancyCost extends Page implements HasSchemas, HasTable
                 ->visible(fn (): bool => Auth::user()?->can('reports.view') ?? false)
                 ->authorize(fn (): bool => Auth::user()?->can('reports.view') ?? false)
                 ->action(function () {
-                    $headers = [
-                        __('admin.tables.invoice.unit'), __('admin.tables.invoice.tenant'),
-                        __('admin.tables.lease.reference'),
-                        __('admin.occupancy_cost.cost'), __('admin.occupancy_cost.sales'),
-                        __('admin.occupancy_cost.ratio'), __('admin.occupancy_cost.months_declared'),
-                        __('admin.occupancy_cost.estimated'),
-                    ];
+                    $csv = $this->reportCsv();
 
-                    $rows = $this->rows()->map(fn (array $r): array => [
-                        $r['unit'], $r['tenant'], $r['reference'],
-                        $r['occupancy_cost'], $r['declared_sales'],
-                        $r['occupancy_cost_pct'], $r['months_declared'],
-                        $r['has_estimates'] ? __('admin.occupancy_cost.estimated_yes') : __('admin.occupancy_cost.estimated_no'),
-                    ])->all();
-
-                    return ReportCsv::stream("occupancy-cost-{$this->from}-{$this->to}", $headers, $rows);
+                    return ReportCsv::stream($csv['filename'], $csv['headers'], $csv['rows']);
                 }),
         ];
     }
@@ -172,6 +160,36 @@ class OccupancyCost extends Page implements HasSchemas, HasTable
             CarbonImmutable::parse($this->to),
             TenantScope::currentAssetId(),
         );
+    }
+
+    /**
+     * The report as CSV, callable without a browser — see App\Contracts\DeliverableReport.
+     *
+     * The export action and scheduled delivery both go through this, so an emailed copy is
+     * byte-for-byte the report an operator would have downloaded.
+     */
+    public function reportCsv(): array
+    {
+        $headers = [
+            __('admin.tables.invoice.unit'), __('admin.tables.invoice.tenant'),
+            __('admin.tables.lease.reference'),
+            __('admin.occupancy_cost.cost'), __('admin.occupancy_cost.sales'),
+            __('admin.occupancy_cost.ratio'), __('admin.occupancy_cost.months_declared'),
+            __('admin.occupancy_cost.estimated'),
+        ];
+
+        $rows = $this->rows()->map(fn (array $r): array => [
+            $r['unit'], $r['tenant'], $r['reference'],
+            $r['occupancy_cost'], $r['declared_sales'],
+            $r['occupancy_cost_pct'], $r['months_declared'],
+            $r['has_estimates'] ? __('admin.occupancy_cost.estimated_yes') : __('admin.occupancy_cost.estimated_no'),
+        ])->all();
+
+        return [
+            'filename' => "occupancy-cost-{$this->from}-{$this->to}",
+            'headers' => $headers,
+            'rows' => $rows,
+        ];
     }
 
     public function table(Table $table): Table

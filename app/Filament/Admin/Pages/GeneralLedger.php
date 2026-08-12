@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Contracts\DeliverableReport;
 use App\Filament\Admin\Concerns\PostsToLedger;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Filament\Admin\Pages\Concerns\ScopesLedgerReport;
@@ -41,7 +42,7 @@ use Illuminate\Support\Collection;
  * accountLedger() accumulates running_balance across the whole ordered set
  * before anything slices it, so a row carries its correct balance on any page.
  */
-class GeneralLedger extends Page implements HasSchemas, HasTable
+class GeneralLedger extends Page implements DeliverableReport, HasSchemas, HasTable
 {
     use InteractsWithSchemas;
     use InteractsWithTable;
@@ -139,12 +140,9 @@ class GeneralLedger extends Page implements HasSchemas, HasTable
                 ->visible(fn () => $this->canViewReports() && $this->accountId !== null)
                 ->authorize(fn () => $this->canViewReports())
                 ->action(function () {
-                    $account = $this->account();
-                    abort_unless($account !== null, 404);
+                    $csv = $this->reportCsv();
 
-                    $csv = app(ReportCsvExporter::class)->generalLedger($this->statement());
-
-                    return ReportCsv::stream("general-ledger-{$account->code}-{$this->periodSlug()}", $csv['headers'], $csv['rows']);
+                    return ReportCsv::stream($csv['filename'], $csv['headers'], $csv['rows']);
                 }),
         ];
     }
@@ -191,6 +189,33 @@ class GeneralLedger extends Page implements HasSchemas, HasTable
             $this->periodStart(),
             $this->periodEnd(),
         );
+    }
+
+    /**
+     * The report as CSV, callable without a browser — see App\Contracts\DeliverableReport.
+     *
+     * The export action and scheduled delivery both go through this, so an emailed copy is
+     * byte-for-byte the report an operator would have downloaded.
+     */
+    public function reportCsv(): array
+    {
+        $account = $this->account();
+
+        // A ledger with no account chosen is not an empty report — it is an unanswered question.
+        // `abort(404)` was right for a click; a scheduled delivery needs a refusal it can REPORT,
+        // so the operator learns their saved view is missing an account instead of receiving an
+        // empty file every month and assuming there were no entries.
+        if ($account === null) {
+            throw new \DomainException(__('admin.reports.general_ledger_needs_account'));
+        }
+
+        $csv = app(ReportCsvExporter::class)->generalLedger($this->statement());
+
+        return [
+            'filename' => "general-ledger-{$account->code}-{$this->periodSlug()}",
+            'headers' => $csv['headers'],
+            'rows' => $csv['rows'],
+        ];
     }
 
     public function table(Table $table): Table

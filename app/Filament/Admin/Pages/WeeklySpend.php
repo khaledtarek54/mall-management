@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Contracts\DeliverableReport;
 use App\Filament\Admin\Pages\Concerns\SavesReportViews;
 use App\Services\Reports\ReportService;
 use App\Support\Modules;
@@ -33,7 +34,7 @@ use Illuminate\Support\Facades\Auth;
  * the column totals and the CSV. No weekly period existed anywhere before this — every other report
  * is monthly / as-of.
  */
-class WeeklySpend extends Page implements HasSchemas, HasTable
+class WeeklySpend extends Page implements DeliverableReport, HasSchemas, HasTable
 {
     use InteractsWithSchemas;
     use InteractsWithTable;
@@ -123,22 +124,39 @@ class WeeklySpend extends Page implements HasSchemas, HasTable
                 ->visible(fn () => Auth::user()?->can('reports.view') ?? false)
                 ->authorize(fn () => Auth::user()?->can('reports.view') ?? false)
                 ->action(function () {
-                    $report = $this->report();
-                    $headers = [
-                        __('admin.reports.week'),
-                        __('admin.enums.cost_nature.fixed'),
-                        __('admin.enums.cost_nature.variable'),
-                        __('admin.reports.totals'),
-                    ];
-                    $rows = array_map(fn (array $w) => [
-                        $w['week_start'].' ('.$w['label'].')',
-                        number_format((float) $w['fixed'], 2, '.', ''),
-                        number_format((float) $w['variable'], 2, '.', ''),
-                        number_format((float) $w['total'], 2, '.', ''),
-                    ], $report['weeks']);
+                    $csv = $this->reportCsv();
 
-                    return ReportCsv::stream("weekly-spend-{$report['from']}-to-{$report['to']}", $headers, $rows);
+                    return ReportCsv::stream($csv['filename'], $csv['headers'], $csv['rows']);
                 }),
+        ];
+    }
+
+    /**
+     * The report as CSV, callable without a browser — see App\Contracts\DeliverableReport.
+     *
+     * The export action and scheduled delivery both go through this, so an emailed copy is
+     * byte-for-byte the report an operator would have downloaded.
+     */
+    public function reportCsv(): array
+    {
+        $report = $this->report();
+        $headers = [
+            __('admin.reports.week'),
+            __('admin.enums.cost_nature.fixed'),
+            __('admin.enums.cost_nature.variable'),
+            __('admin.reports.totals'),
+        ];
+        $rows = array_map(fn (array $w) => [
+            $w['week_start'].' ('.$w['label'].')',
+            number_format((float) $w['fixed'], 2, '.', ''),
+            number_format((float) $w['variable'], 2, '.', ''),
+            number_format((float) $w['total'], 2, '.', ''),
+        ], $report['weeks']);
+
+        return [
+            'filename' => "weekly-spend-{$report['from']}-to-{$report['to']}",
+            'headers' => $headers,
+            'rows' => $rows,
         ];
     }
 
